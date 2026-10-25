@@ -324,7 +324,7 @@ Antigravity-only. Forget the currently stored cascade id so the next primary tur
 
 ### `user_message` ->
 
-The operator's prompt. May arrive while another turn is in flight; server queues it on `wf.queue.steering` or `wf.queue.followUp` keyed by `kind`.
+A user message. It may arrive while another turn is in flight; the server queues it on `wf.queue.steering` or `wf.queue.followUp` keyed by `kind`.
 
 ```ts
 {
@@ -340,7 +340,7 @@ The operator's prompt. May arrive while another turn is in flight; server queues
 }
 ```
 
-`kind` selects steering at a provider boundary, a follow-up after completion, or **interrupt & send**. For a busy Claude/Codex primary, `interrupt` cancels that worker, waits for teardown, and runs the instruction as the next turn in the same conversation. Older steers and follow-ups stay queued until the correction completes. Several interrupts awaiting cancellation are merged FIFO; attachments, context refs and picked skills follow their owning prompt. STOP still drops the queue and prevents the pending redirect. Interrupt disarms Goal Run. With no interruptible primary (another provider, Computer, compact/handoff busy holder), it visibly falls back to follow-up. Idle sends start normally. Omitted busy kinds default to follow-up for older clients.
+`kind` selects steering at a provider boundary, a follow-up after completion, or **interrupt and send**. For a busy Claude/Codex primary, `interrupt` cancels that worker, waits for teardown, and runs the instruction as the next turn in the same conversation. Older steers and follow-ups stay queued until the correction completes. Several interrupts awaiting cancellation are merged FIFO; attachments, context refs and picked skills follow their owning prompt. STOP still drops the queue and prevents the pending redirect. Interrupt disarms Goal Run. With no interruptible primary (another provider, Computer, compact/handoff busy holder), it visibly falls back to follow-up. Idle sends start normally. Omitted busy kinds default to follow-up for older clients.
 
 ### `user_message_echo` <-
 

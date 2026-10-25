@@ -39,6 +39,7 @@ The workbench supports Claude, Codex, Z.ai, Gemini, Cursor, Antigravity, Ollama,
 
 - [Getting started](docs/GETTING_STARTED.md): first chat, first cluster, voice setup, state, and backup
 - [Chat](docs/CHAT.md), [Terminal](docs/TERMINAL.md), and [Git workbench](docs/GIT_WORKBENCH.md)
+- **Interrupt and send:** stop an active Claude or Codex Agent turn and run the correction next; other queued messages remain. Use the composer button or `Ctrl/Cmd+Enter`. See [Providers](docs/PROVIDERS.md#interrupt-and-send).
 - [Clusters and tasks](docs/TASK_LEDGER.md), [Knowledge](docs/KNOWLEDGE.md), and [Recall](docs/RECALL.md)
 - [Voice and Computer](docs/VOICE.md), [Media studio](docs/MEDIA_STUDIO.md), and [Live Preview](docs/PREVIEW_VERIFY.md)
 - [Operations](docs/OPERATIONS.md), [Persistence](docs/PERSISTENCE.md), [Backup](docs/BACKUP.md), and [Remote Management](docs/REMOTE_MANAGEMENT.md)

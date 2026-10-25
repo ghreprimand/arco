@@ -48,10 +48,10 @@ It dispatches on `config.provider` and returns the right concrete class. Higher-
 
 ---
 
-## Operator interrupt & send
+## Interrupt and send
 
 Claude (`cli`, `native`) and Codex (`exec`, `appserver`) support the Agent composer's
-**INTERRUPT & SEND** / **Ctrl/Cmd+Enter** action (`user_message.kind:'interrupt'`).
+**INTERRUPT & SEND** and **Ctrl/Cmd+Enter** action (`user_message.kind:'interrupt'`).
 The user-message loop retains its busy claim, interrupts only its primary worker,
 and waits before dispatching the correction in the existing conversation. It never
 uses CANCEL's queue-clearing handler. Reviewers and other busy holders are not

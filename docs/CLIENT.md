@@ -643,7 +643,7 @@ Where:
 
 When `isBusy`:
 
-- Claude/Codex Agent placeholder includes `Ctrl/⌘↵ interrupt & send`; other providers retain the cancel hint.
+- Claude/Codex Agent placeholders include `Ctrl/Cmd+Enter` for interrupt and send. Other providers retain the cancel hint.
 - Glyph flips from `>` to `...`
 - Diagnostic chip `b{0|1}·w{N}·s{0|1}` appears next to CANCEL - helps diagnose stuck composer
 - Hint reads `↵ STEER · ⌥↵ FOLLOW-UP` instead of `ENTER TO SEND`
