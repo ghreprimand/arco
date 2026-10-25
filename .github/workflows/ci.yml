@@ -67,6 +67,11 @@ jobs:
       # inspects branches, tags and remotes only).
       - name: Public-safety audit (history, identity and trailers)
         if: matrix.os == 'ubuntu-latest'
+        # Private patterns apply to the tree and staged scans only: older commits legitimately
+        # contain the upstream name and fixture addresses. An empty value makes the script fall
+        # back to its (absent) repository-local pattern file.
+        env:
+          ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history
       # Link check: enable `npm run test:docs` here once the documentation set lands it.
       - name: Help registry check
