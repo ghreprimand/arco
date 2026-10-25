@@ -159,9 +159,9 @@ export interface UserMessageEchoMessage {
   clientMessageId?: string;
   timestamp: number;
   // Phase 4 — present on echoes for queued (mid-turn) messages so the chat
-  // surface can render a [steer] vs [follow-up] pill. Absent on the regular
-  // first-turn echo (the operator's send wasn't an interjection).
-  kind?: 'steer' | 'follow-up';
+  // surface can render the steer / follow-up / interrupt intent. Absent on
+  // the regular first-turn echo (the operator's send wasn't an interjection).
+  kind?: 'steer' | 'follow-up' | 'interrupt';
 }
 
 export interface PrimaryTextMessage {
@@ -1243,6 +1243,8 @@ export interface OperatorLabelMessage {
 // Phase 0 declared the draft as `string[]`; the entry-object form was
 // adopted in Phase 4 — see decision log.
 export interface QueueEntry {
+  // Priority entry in the steering bucket; not delivered by a steer hook.
+  interrupt?: boolean;
   content: string;
   clientMessageId?: string;
 }

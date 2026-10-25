@@ -643,19 +643,21 @@ Where:
 
 When `isBusy`:
 
-- Placeholder reads `↵ steer · ⌥↵ follow-up · ⎋ cancel turn`
+- Claude/Codex Agent placeholder includes `Ctrl/⌘↵ interrupt & send`; other providers retain the cancel hint.
 - Glyph flips from `>` to `...`
 - Diagnostic chip `b{0|1}·w{N}·s{0|1}` appears next to CANCEL - helps diagnose stuck composer
 - Hint reads `↵ STEER · ⌥↵ FOLLOW-UP` instead of `ENTER TO SEND`
+- **SEND** remains visible beside **INTERRUPT & SEND**. It follows Enter: starts normally when idle, steers when busy. Send choices wrap below the draft on narrow layouts.
 - Composer routes to a structured queue:
   - `Enter` -> enqueue as **steer** (do this now / change direction)
   - `Alt+Enter` -> enqueue as **follow-up** (after the current task lands)
+  - `Ctrl/Cmd+Enter` or **INTERRUPT & SEND** -> cancel the Claude/Codex primary, await teardown, then run the draft before older queued instructions. The button is hidden for other providers and Computer, and disabled while uploading/compacting or with an empty draft.
   - `Alt+↑` -> recall most recently queued message into the editor (replaces draft; takes the last follow-up if any, otherwise the last steer)
   - `Esc` -> cancel the in-flight turn; if the queue is non-empty the client confirms via `window.confirm("Drop N queued messages?")` first
   - `Shift+Esc` -> force-cancel without the prompt
-- Phase 4 ships the queue visible + rebindable; both kinds drain post-turn for every provider today. Phases 5-7 wire real mid-turn delivery for steer per provider (Codex `app-server`, Ollama / llama.cpp loop hook, Native Claude).
+- Steering drains at provider boundaries on Codex app-server, Claude Native and local tool loops; single-shot transports deliver it after completion. Interrupt uses a separate cancellation path. Its queue entry carries `interrupt:true`, and the queue strip/modal labels it **INTERRUPT & SEND**.
 
-The send hook (`useWebSocket.sendMessage`) takes an optional `kind` argument that's only forwarded when busy - idle sends bypass the queue and start a fresh turn. The optimistic add's `queueKind` field drives the per-message [steer] / [follow-up] pill in the queue strip and modal.
+The send hook (`useWebSocket.sendMessage`) takes an optional `kind` argument. Explicit `interrupt` survives a stale client busy flag; the server starts normally if already idle. Other idle sends bypass the queue. The optimistic add's `queueKind` field drives the per-message [steer] / [follow-up] pill in the queue strip and modal.
 
 `Esc` in an empty composer (idle) still cancels the most-recent queued message via `onCancelQueued` for muscle-memory parity, but with the busy-path Esc cancelling the whole turn this is rare.
 

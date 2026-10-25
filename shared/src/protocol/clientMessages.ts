@@ -129,13 +129,10 @@ export interface UserMessage {
   // primary turn's prompt when the current one completes. Matches Claude
   // Code terminal's mid-turn queue behaviour.
   interjection?: boolean;
-  // Phase 4 — operator's intent for this mid-turn message. 'steer' = "do this
-  // now / change direction"; 'follow-up' = "after the current task lands."
-  // Phase 4 ships visible/rebindable; underlying delivery for every provider
-  // is still post-turn. Phases 5–7 turn on real mid-turn delivery for
-  // 'steer' per provider. Default = 'follow-up' for back-compat with
-  // pre-Phase-4 clients (matches today's silent post-turn delivery).
-  kind?: 'steer' | 'follow-up';
+  // Mid-turn intent: steer at a provider boundary; follow-up after completion;
+  // interrupt cancels a Claude/Codex primary and delivers this instruction next.
+  // Unspecified busy messages default to follow-up for older clients.
+  kind?: 'steer' | 'follow-up' | 'interrupt';
   // OUTPUT_STYLE_PLAN.md §6 — set by the in-tab DOCS / GIT composer dialogs
   // so the server forces `outputStyle: 'normal'` on this single turn even
   // when the tab's WorkflowConfig pins lite/terse. Hard-coded; not a

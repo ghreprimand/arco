@@ -39,7 +39,7 @@ export interface ChatMessage {
   // Drives the queue-strip pill label. Phases 5–7 wire real mid-turn
   // delivery for steer per provider; Phase 4 ships visible/rebindable only.
   // Absent on non-queued chat rows.
-  queueKind?: 'steer' | 'follow-up';
+  queueKind?: 'steer' | 'follow-up' | 'interrupt';
   // When set, this row renders as a compact tool-call pill instead of a chat
   // bubble. Sourced from Claude session JSONL tool_use blocks so the operator
   // sees what the agent did between text turns (and can click through to any

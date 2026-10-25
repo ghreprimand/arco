@@ -2114,10 +2114,14 @@ export class ClaudeNativeWorker extends EventEmitter {
     return true;
   }
 
+  // An interrupt during auth/hooks must not silently lose a queued correction.
+  turnInputAccepted = false;
+
   async runTurn(prompt: string): Promise<void> {
     // Reset synchronously, before the first await: the adapter calls runTurn
     // from spawn() and any kill() can only land after this line.
     this.cancelRequested = false;
+    this.turnInputAccepted = false;
     try {
       await this.ensureStarted();
     } catch (err) {
@@ -2235,6 +2239,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (poppedSystem > 0) console.log(`[claude-native:${this.workflowId.slice(0, 8)}] popped ${poppedSystem} trailing role:system message(s) before operator turn`);
     const skippedImages: SkippedImage[] = [];
     this.messages.push({ role: 'user', content: buildUserMessageContent(prompt, this.config.attachments, skippedImages) });
+    this.turnInputAccepted = true;
     const skippedNotice = describeSkippedImages(skippedImages);
     if (skippedNotice) this.emit('system_notice', skippedNotice);
     // FABLE_51_APPEND_ONLY_PLAN.md §1.5 — per-turn operator notice (mailbox

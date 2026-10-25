@@ -334,13 +334,13 @@ The operator's prompt. May arrive while another turn is in flight; server queues
   attachments?: string[],           // file paths from /api/upload
   clientMessageId?: string,         // optimistic adds correlate by this
   interjection?: boolean,           // set when sending while busy
-  kind?: 'steer' | 'follow-up',     // Phase 4: only meaningful when interjection: true
+  kind?: 'steer' | 'follow-up' | 'interrupt', // server busy state decides delivery
   pickedSkills?: Array<{ scope: 'project' | 'global', slug: string }>,  // one-turn skill picks (composer `/skill`); resolved + injected for this turn only (contrast pinnedSkills)
   primitive?: 'docs' | 'git',       // - set by the in-tab DOCS / GIT composer dialogs so the server forces `outputStyle: 'normal'` on this single turn even when the tab's WorkflowConfig pins lite/terse. Hard-coded; not a free-form knob.
 }
 ```
 
-`kind` is the operator's intent for a mid-turn message: `steer` is "do this now / change direction"; `follow-up` is "after the current task lands." Pre-Phase-4 clients (sending only `interjection: true`) default to `follow-up` - matches the silent post-turn flush they used to get. Phase 4 ships visible + rebindable; Phases 5-7 wire real mid-turn delivery for `steer` per provider (Codex `app-server`, Ollama / llama.cpp loop hook, Native Claude).
+`kind` selects steering at a provider boundary, a follow-up after completion, or **interrupt & send**. For a busy Claude/Codex primary, `interrupt` cancels that worker, waits for teardown, and runs the instruction as the next turn in the same conversation. Older steers and follow-ups stay queued until the correction completes. Several interrupts awaiting cancellation are merged FIFO; attachments, context refs and picked skills follow their owning prompt. STOP still drops the queue and prevents the pending redirect. Interrupt disarms Goal Run. With no interruptible primary (another provider, Computer, compact/handoff busy holder), it visibly falls back to follow-up. Idle sends start normally. Omitted busy kinds default to follow-up for older clients.
 
 ### `user_message_echo` <-
 
@@ -354,7 +354,7 @@ Server echoes the message back, stamped with `seq` and `timestamp`. Optimistic-a
   attachments?: string[],
   timestamp: number,                // ms since epoch
   clientMessageId?: string,
-  kind?: 'steer' | 'follow-up',     // present on echoes for queued messages
+  kind?: 'steer' | 'follow-up' | 'interrupt', // present on queued echoes
 }
 ```
 
@@ -1590,14 +1590,14 @@ Snapshot of the visible message queue. Phase 4 emits on every queue mutation (en
 {
   type: 'queue_update',
   workflowId: string,
-  steering: Array<{ content: string; clientMessageId?: string }>,
+  steering: Array<{ content: string; clientMessageId?: string; interrupt?: boolean }>,
   followUp: Array<{ content: string; clientMessageId?: string }>,
 }
 ```
 
 `clientMessageId` survives in the snapshot so the queue-strip `[×]` button can target individual items by stable id after a reload (the optimistic chat message that originally minted the id may have been pruned by the client's 30 s `onRehydrateStorage` rule).
 
-Both kinds drain post-turn for every provider in Phase 4 - visible/rebindable is the scope. Phases 5-7 wire real mid-turn delivery for `steering` per provider (Codex `app-server`, Ollama / llama.cpp loop hook, Native Claude); the kinds are separate arrays now even though they share the same drain path today.
+Steering hooks deliver at supported provider boundaries; follow-ups wait for completion. `interrupt:true` entries live in `steering` for backward-compatible queue snapshots but are excluded from provider steer drains. `takeQueuedTurn` selects pending interrupts first as their own turn, then merges the remaining steering and follow-up buckets. User echoes, queue snapshots and interruption notices persist through the normal workflow broadcast path (memory-only for Incognito).
 
 Persisted.
 

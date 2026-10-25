@@ -17,6 +17,7 @@ export const reference: Section[] = [
             [<Kbd key="q">Ctrl/Cmd+?</Kbd>, 'Open the keyboard-shortcut cheat sheet — the full, grouped list of every key that does something. Press again to close.'],
             [<Kbd key="e">Enter</Kbd>, 'Send the composer (or enqueue as a steer mid-turn). In a Chat tab, send the message.'],
             [<Kbd key="se">Shift+Enter</Kbd>, 'Newline in the composer (Agent and Chat).'],
+            [<Kbd key="ie">Ctrl/Cmd+Enter</Kbd>, 'Claude/Codex Agent: interrupt the active turn and send the draft next, preserving other queued messages.'],
             [<Kbd key="ae">Alt+Enter</Kbd>, 'Mid-turn only: enqueue as a follow-up (lands after the current turn).'],
             [<Kbd key="au">Alt+Up</Kbd>, 'Recall the most recently queued message into the editor.'],
             [<Kbd key="ck">Ctrl+K</Kbd>, 'Kill from the cursor to end of line (readline-style; no clipboard). Agent and Chat composers.'],

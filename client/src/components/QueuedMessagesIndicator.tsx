@@ -10,7 +10,7 @@ interface Props {
 }
 
 interface QueueItem {
-  kind: 'steer' | 'follow-up';
+  kind: 'steer' | 'follow-up' | 'interrupt';
   content: string;
   clientMessageId?: string;
   // Position within the kind's array. Used as a stable React key when no
@@ -34,7 +34,7 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
   const [open, setOpen] = useState(false);
 
   const items: QueueItem[] = [
-    ...(job.queue?.steering ?? []).map<QueueItem>((q, i) => ({ kind: 'steer', content: q.content, clientMessageId: q.clientMessageId, index: i })),
+    ...(job.queue?.steering ?? []).map<QueueItem>((q, i) => ({ kind: q.interrupt ? 'interrupt' : 'steer', content: q.content, clientMessageId: q.clientMessageId, index: i })),
     ...(job.queue?.followUp ?? []).map<QueueItem>((q, i) => ({ kind: 'follow-up', content: q.content, clientMessageId: q.clientMessageId, index: i })),
   ];
 
@@ -155,9 +155,10 @@ interface ChipProps {
 }
 
 function QueueChip({ item, steerTooltip, onCancel }: ChipProps) {
-  const isSteer = item.kind === 'steer';
+  const isSteer = item.kind !== 'follow-up';
+  const label = item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP';
   const preview = item.content.length > 60 ? item.content.slice(0, 60) + '…' : item.content;
-  const tooltip = isSteer ? `${steerTooltip}\n\n— ${item.content}` : `FOLLOW-UP — appended after the current turn.\n\n— ${item.content}`;
+  const tooltip = item.kind === 'interrupt' ? `INTERRUPT & SEND — waiting for cancellation to settle, then runs before other queued messages.\n\n— ${item.content}` : isSteer ? `${steerTooltip}\n\n— ${item.content}` : `FOLLOW-UP — appended after the current turn.\n\n— ${item.content}`;
   return (
     <span
       title={tooltip}
@@ -185,7 +186,7 @@ function QueueChip({ item, steerTooltip, onCancel }: ChipProps) {
           border: `1px solid ${isSteer ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)'}`,
         }}
       >
-        {isSteer ? 'STEER' : 'FOLLOW-UP'}
+        {label}
       </span>
       <span
         style={{
@@ -309,7 +310,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
               marginBottom: '12px',
             }}
           >
-            Steering items flush before follow-ups when the current turn finishes.
+            Interrupt messages run first. Remaining steering items flush before follow-ups.
           </div>
           {items.map((item, i) => (
             <div
@@ -318,7 +319,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
                 marginBottom: '14px',
                 padding: '10px 14px',
                 border: '1px solid var(--color-border-hairline)',
-                borderLeft: `2px solid ${item.kind === 'steer' ? 'var(--color-warning)' : 'var(--color-accent-secondary)'}`,
+                borderLeft: `2px solid ${item.kind !== 'follow-up' ? 'var(--color-warning)' : 'var(--color-accent-secondary)'}`,
                 borderRadius: '3px',
               }}
             >
@@ -336,10 +337,10 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
                   style={{
                     fontSize: '10px',
                     letterSpacing: '1.5px',
-                    color: item.kind === 'steer' ? 'var(--color-warning)' : 'var(--color-accent-secondary)',
+                    color: item.kind !== 'follow-up' ? 'var(--color-warning)' : 'var(--color-accent-secondary)',
                   }}
                 >
-                  #{i + 1} · {item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP'}
+                  #{i + 1} · {item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP'}
                 </span>
                 {item.clientMessageId && (
                   <button

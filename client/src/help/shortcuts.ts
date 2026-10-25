@@ -31,6 +31,7 @@ export const SHORTCUTS: Shortcut[] = [
   // ── Composer ──
   { group: 'Composer', combo: 'Enter', label: 'Send the composer (or enqueue as a steer while a turn is in flight).' },
   { group: 'Composer', combo: 'Shift+Enter', label: 'Insert a newline without sending.' },
+  { group: 'Composer', combo: 'Ctrl/Cmd+Enter', label: 'While Claude or Codex is busy, interrupt and send the draft next; preserve queued messages.' },
   { group: 'Composer', combo: 'Alt+Enter', label: 'While a turn is in flight, enqueue as a follow-up (lands after the current turn). No-op when idle.' },
   { group: 'Composer', combo: 'Alt+↑', label: 'Recall the most recently queued message into the editor.' },
   { group: 'Composer', combo: 'Ctrl+K', label: 'Kill from the cursor to end of line (readline-style; no clipboard). Agent and Chat composers.' },

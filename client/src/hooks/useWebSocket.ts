@@ -312,7 +312,7 @@ export function useWebSocket() {
   // Returns false when the socket is down and nothing was sent, so composers
   // keep the draft + staged attachments instead of wiping an unsent message
   // (Enter during a reconnect used to erase the text with no trace).
-  const sendMessage = useCallback((workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>): boolean => {
+  const sendMessage = useCallback((workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>): boolean => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     // Slot 8 — detect busy state on this workflow. If busy, mark the message
     // as an interjection so the server queues it instead of rejecting as
@@ -346,7 +346,7 @@ export function useWebSocket() {
     // the server defaults to 'follow-up' (back-compat with Phase-3-and-older
     // clients that just sent `interjection: true` and got silent post-turn
     // delivery).
-    const effectiveKind = isBusy ? (kind ?? 'follow-up') : undefined;
+    const effectiveKind = kind === 'interrupt' ? kind : isBusy ? (kind ?? 'follow-up') : undefined;
 
     wsRef.current.send(JSON.stringify({
       type: 'user_message',
@@ -354,7 +354,8 @@ export function useWebSocket() {
       content,
       attachments,
       clientMessageId,
-      ...(isBusy ? { interjection: true, kind: effectiveKind } : {}),
+      ...(isBusy ? { interjection: true } : {}),
+      ...(effectiveKind ? { kind: effectiveKind } : {}),
       ...(primitive ? { primitive } : {}),
       ...(pickedSkills && pickedSkills.length > 0 ? { pickedSkills } : {}),
     }));

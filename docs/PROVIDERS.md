@@ -48,6 +48,30 @@ It dispatches on `config.provider` and returns the right concrete class. Higher-
 
 ---
 
+## Operator interrupt & send
+
+Claude (`cli`, `native`) and Codex (`exec`, `appserver`) support the Agent composer's
+**INTERRUPT & SEND** / **Ctrl/Cmd+Enter** action (`user_message.kind:'interrupt'`).
+The user-message loop retains its busy claim, interrupts only its primary worker,
+and waits before dispatching the correction in the existing conversation. It never
+uses CANCEL's queue-clearing handler. Reviewers and other busy holders are not
+interrupted; unavailable requests visibly queue as follow-ups.
+
+- CLI workers settle STOP synthetically before OS exit. Their separate `interrupt()`
+  waits for the actual child `exit` (10-second ceiling) before session resume.
+- Claude Native cancels its stream/tools and awaits the actual `runTurn` promise.
+  If another correction cancels startup before its prompt entered history,
+  `turnInputAccepted:false` carries that unsubmitted correction into the next prompt.
+- Codex app-server uses `turn/interrupt` and waits for matching interrupted
+  completion. Concurrent STOP/interrupt requests share one cancellation waiter.
+
+Interrupts pending cancellation merge FIFO into one priority turn. Other queued
+messages run afterward; provider steer drains are suspended during the correction.
+Cancellation failure preserves the queue and surfaces a notice without another
+turn. Existing edits remain in place; this action disarms an armed Goal Run.
+Tests: `npm run test:interrupt-send`, `npm run smoke:interrupt-send` (isolated fake
+CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
+
 ## Claude
 
 ### Chat-mode execution contract

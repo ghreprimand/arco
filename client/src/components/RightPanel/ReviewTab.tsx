@@ -17,7 +17,7 @@ export function ReviewTab({
   onSpawn?: (newConfig: WorkflowConfig, newDirection: string, includePlan: boolean) => void;
   // D5 — the composer's send path. A finding's Fix button uses it to dispatch
   // a scoped follow-up turn. Operator-click-only.
-  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git') => void;
+  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git') => void;
 }) {
   const reviews = [...job.reviews].sort((a, b) => b.startedAt - a.startedAt);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -101,7 +101,7 @@ function ReviewRow({
   onCancel?: () => void;
   onSpawnToFix?: (direction: string) => void;
   onOpenFinding: (f: Finding) => void;
-  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git') => void;
+  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git') => void;
 }) {
   const [body, setBody] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

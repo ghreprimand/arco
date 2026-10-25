@@ -19,7 +19,7 @@ export interface Props {
   // D5 — the composer's send path, threaded to the Review tab so a finding's
   // "Fix" button can dispatch a scoped follow-up turn (kind: 'follow-up').
   // Operator-click-only; no auto-send. Same signature as the composer's onSend.
-  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git') => void;
+  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git') => void;
   // ARCO_OPS_PLAN.md M2 — Genesis tab: update the seed (debounced) and trigger
   // the operator-confirmed scaffold. Threaded from App.tsx → useWebSocket senders.
   onGenesisSeedUpdate?: (workflowId: string, seed: GenesisSeed) => void;

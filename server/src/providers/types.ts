@@ -57,6 +57,9 @@ export interface ProviderProcess extends EventEmitter {
   readonly pid?: number;
   spawn(prompt: string): void;
   kill(): void;
+  // Stronger than STOP: wait for teardown before resuming the same session.
+  // false means startup was cancelled before the prompt entered history.
+  interrupt?(): Promise<boolean | void>;
 }
 
 export interface Provider {

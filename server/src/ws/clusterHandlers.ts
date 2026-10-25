@@ -75,7 +75,7 @@ import { acquireProjectSettingsWatcher, readSettings } from '../settings.js';
 import { setClusterPlanBody } from '../clusterPlanBridge.js';
 
 export interface ClusterHandlerDeps {
-  handleUserMessage: (ws: WebSocket, session: Session, workflowId: string, content: string, clientMessageId: string | undefined, attachments: string[] | undefined, interjection: boolean, kind: 'steer' | 'follow-up' | undefined, primitive: 'docs' | 'git' | undefined) => Promise<void>;
+  handleUserMessage: (ws: WebSocket, session: Session, workflowId: string, content: string, clientMessageId: string | undefined, attachments: string[] | undefined, interjection: boolean, kind: 'steer' | 'follow-up' | 'interrupt' | undefined, primitive: 'docs' | 'git' | undefined) => Promise<void>;
   handleRemoveWorkflow: (workflowId: string) => void;
   createBlankNativeWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<string>;
   assertAllMembersClaudeOrCodex: (memberIds: string[]) => Promise<string | null>;

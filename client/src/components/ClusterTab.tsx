@@ -56,7 +56,7 @@ const BROADCAST_PANE_VISIBLE_KEY = 'arco.clusterBroadcastPaneVisible';
 interface Props {
   clusterId: string;
   // Per-member dispatch (threaded through from App.tsx → useWebSocket).
-  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up') => boolean | void;
+  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt') => boolean | void;
   onCancelMember: (workflowId: string) => void;
   onCancelQueuedForMember: (workflowId: string, clientMessageId: string) => void;
   onUpload: (file: File) => Promise<{ fileId: string; filename: string; path: string } | null>;

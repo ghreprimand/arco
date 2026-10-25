@@ -56,6 +56,13 @@ Private planning and research documents are excluded from this public reference 
 
 ---
 
+**Interrupt & send (Claude/Codex).** `user_message.kind:'interrupt'` cancels only
+the current user-message loop's primary and retains its busy claim through
+provider teardown. Priority queue selection (`ws/messageQueue.ts`) dispatches the
+correction before older queued messages; CLI waits for child exit, Native for
+`runTurn`, app-server for interrupted completion. The Agent composer exposes a
+button and Ctrl/Cmd+Enter. See `PROVIDERS.md § Operator interrupt & send`.
+
 ## What Arco is, in one paragraph
 
 Arco has two single-conversation tab kinds. `kind:'workflow'` is the coding

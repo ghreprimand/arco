@@ -14,7 +14,7 @@ import type { TaskLedgerPatch } from './RightPanel/types';
 
 interface Props {
   job: JobState;
-  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>) => boolean | void;
+  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>) => boolean | void;
   onCancel: () => void;
   onCompact?: () => void;
   onFold?: (engine?: 'server') => void;

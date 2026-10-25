@@ -162,6 +162,10 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
       });
   }
 
+  async interrupt(): Promise<void> {
+    if (!this.settled) await this.worker.cancelCurrentTurn();
+  }
+
   kill(): void {
     if (this.settled) return;
     // Async; the wrapper's `error` event fires when `turn_settled` lands.

@@ -54,7 +54,7 @@ interface BakeoffHandlerDeps {
     clientMessageId: string | undefined,
     attachments: string[] | undefined,
     interjection: boolean,
-    kind: 'steer' | 'follow-up' | undefined,
+    kind: 'steer' | 'follow-up' | 'interrupt' | undefined,
     primitive: 'docs' | 'git' | undefined,
   ) => Promise<void>;
   handleRemoveWorkflow: (workflowId: string) => void;

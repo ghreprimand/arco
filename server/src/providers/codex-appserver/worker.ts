@@ -789,7 +789,20 @@ export class CodexAppServerWorker extends EventEmitter {
   //   2. on timeout / RPC error, SIGKILL the child and emit a fatal — the
   //      next operator turn re-enters `ensureStarted()` and resumes via
   //      `thread/resume`.
-  async cancelCurrentTurn(): Promise<void> {
+  private cancellation: Promise<void> | undefined;
+
+  cancelCurrentTurn(): Promise<void> {
+    // STOP can arrive while Interrupt & send is waiting for completion.
+    // Sharing the waiter avoids replacing interruptResolve and stranding it.
+    if (this.cancellation) return this.cancellation;
+    const pending = this.interruptCurrentTurn();
+    this.cancellation = pending;
+    const clear = () => { if (this.cancellation === pending) this.cancellation = undefined; };
+    void pending.then(clear, clear);
+    return pending;
+  }
+
+  private async interruptCurrentTurn(): Promise<void> {
     this.operatorQuestions.cancel('The operator cancelled this turn.');
     if (!this.rpc || !this.threadId || !this.current.turnId) {
       // Nothing to interrupt — emit a synthetic settle so the wrapper

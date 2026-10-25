@@ -1,3 +1,4 @@
+import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import {
@@ -412,6 +413,10 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       this._checkThrottle(err.message);
       this.emit('error', `Failed to spawn claude: ${err.message}`);
     });
+  }
+
+  interrupt(): Promise<void> {
+    return interruptProcess(this.process, () => this.kill());
   }
 
   kill(): void {

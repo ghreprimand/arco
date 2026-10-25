@@ -35,7 +35,7 @@ interface Props {
   focused: boolean;
   // Wire these straight to the App.tsx-level helpers; the cluster tab plumbs
   // through the workflowId.
-  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up') => boolean | void;
+  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt') => boolean | void;
   onCancel: () => void;
   onCancelQueued: (clientMessageId: string) => void;
   onUpload: (file: File) => Promise<{ fileId: string; filename: string; path: string } | null>;

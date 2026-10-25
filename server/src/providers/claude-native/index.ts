@@ -99,6 +99,7 @@ class ClaudeNativeTurn extends EventEmitter implements ProviderProcess {
   private _status: WorkerStatus = 'spawning';
   private _output = '';
   private settled = false;
+  private running: Promise<void> = Promise.resolve();
   private wired: Array<{ event: string; fn: (...args: unknown[]) => void }> = [];
 
   constructor(
@@ -117,10 +118,16 @@ class ClaudeNativeTurn extends EventEmitter implements ProviderProcess {
   spawn(prompt: string): void {
     this.worker.updateConfig(this.config);
     this.wireListeners();
-    this.worker.runTurn(prompt).catch((err: unknown) => {
+    this.running = this.worker.runTurn(prompt).catch((err: unknown) => {
       if (this.settled) return;
       this.fail(err instanceof Error ? err.message : String(err));
     });
+  }
+
+  async interrupt(): Promise<boolean> {
+    this.kill();
+    await this.running;
+    return this.worker.turnInputAccepted;
   }
 
   kill(): void {

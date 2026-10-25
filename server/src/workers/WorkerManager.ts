@@ -665,6 +665,13 @@ export class WorkerManager {
     return out;
   }
 
+  async interrupt(workerId: string): Promise<boolean | void> {
+    const worker = this.workers.get(workerId);
+    if (!worker) return;
+    if (worker.interrupt) return await worker.interrupt();
+    else worker.kill();
+  }
+
   killAll(): void {
     for (const worker of this.workers.values()) {
       if (worker.status === 'running' || worker.status === 'spawning') {

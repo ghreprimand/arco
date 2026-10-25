@@ -230,7 +230,11 @@ export const workspace: Section[] = [
             is delivered mid-turn on Claude Native, Codex app-server, Ollama,
             llama.cpp, and LM Studio; other transports drain queued messages
             after the current turn settles. <Kbd>Alt+↑</Kbd>{' '}
-            recalls the most recent queued message into the editor.{' '}
+            recalls the most recent queued message into the editor. For Claude
+            and Codex, <Code>SEND</Code> keeps the ordinary Enter behavior;
+            <Kbd>Ctrl/Cmd+Enter</Kbd> or the adjacent <Code>INTERRUPT &amp; SEND</Code>
+            interrupts the turn and sends the draft next in the same conversation,
+            preserving queued messages and completed changes.{' '}
             <Kbd>Esc</Kbd> cancels the in-flight turn (drops the queue too;
             <Kbd>Shift+Esc</Kbd> skips the confirm). The strip above the
             composer shows pending items with their kind pills.

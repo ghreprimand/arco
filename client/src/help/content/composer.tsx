@@ -8,7 +8,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Type your prompt and press <C>Enter</C> to send. <C>Shift+Enter</C> for
+          Type your prompt and click <strong>SEND</strong> or press <C>Enter</C> to send. <C>Shift+Enter</C> for
           a newline, <C>Ctrl+K</C> to kill to end of line. Drop or paste
           attachments (images go native on Claude; others are referenced by
           path). <C>/goal …</C> sets the north star or arms a goal run without
@@ -18,12 +18,27 @@ export const composerHelp: Record<string, HelpEntry> = {
           While the agent is busy, the composer routes to a queue:{' '}
           <C>Enter</C> queues as <strong>steer</strong> (do this now);{' '}
           <C>Alt+Enter</C> queues as <strong>follow-up</strong> (after the
-          current task). <C>Alt+↑</C> recalls the most recent queued message;{' '}
+          current task). For Claude and Codex, <C>Ctrl/Cmd+Enter</C> interrupts
+          and sends immediately after cancellation settles. <C>Alt+↑</C> recalls the most recent queued message;{' '}
           <C>Esc</C> cancels the turn (asks before dropping queued messages;{' '}
           <C>Shift+Esc</C> skips the prompt).
         </p>
       </>
     ),
+    manualSection: 'composer',
+  },
+  'composer.send': {
+    title: 'Send normally',
+    body: <p>Same as <C>Enter</C>: starts a turn when idle, or steers the running
+      agent at its next supported input boundary. Use <strong>INTERRUPT &amp; SEND</strong>
+      {' '}to stop the current turn and deliver the draft next.</p>,
+    manualSection: 'composer',
+  },
+  'composer.interrupt': {
+    title: 'Interrupt & send',
+    body: <p>Interrupts the active Claude or Codex turn, then sends your draft in
+      the same conversation. <C>Ctrl/Cmd+Enter</C> does the same. Earlier queued
+      messages run afterward; completed edits remain in place.</p>,
     manualSection: 'composer',
   },
   'composer.cancel': {

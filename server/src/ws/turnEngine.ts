@@ -108,6 +108,7 @@ Session,
 SessionEntryPayload,
 WorkflowState
 } from '../workflows/types.js';
+import { takeQueuedTurn } from './messageQueue.js';
 import { awaitModelImages } from '../providers/attachments.js';
 
 const PUBLIC_REPO_SAFETY_SYSTEM_BLOCK = [
@@ -548,6 +549,7 @@ export function anyObserver(workflowId: string): WebSocket | null {
 // no-op. Keyed on the WorkflowState object so a removed tab's entry is GC'd.
 let busyClaimSeq = 0;
 const busyOwners = new WeakMap<WorkflowState, number>();
+const busyRevocations = new WeakMap<WorkflowState, number>();
 
 export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' | 'worker_finished' | 'worker_failed' | 'worker_interrupted' | 'worker_removed' | 'queue_changed') {
   if (wf.config?.incognito || wf.config?.kind === 'chat' || wf.config?.voiceOperator) return;
@@ -586,6 +588,7 @@ export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished
 }
 
 export function revokeBusy(wf: WorkflowState): void {
+  busyRevocations.set(wf, (busyRevocations.get(wf) ?? 0) + 1);
   const token = busyOwners.get(wf);
   watchSettled(wf, busyOwners.get(wf), 'interrupted');
   busyOwners.delete(wf);
@@ -1244,9 +1247,10 @@ export async function buildPlanPrefix(
   return header;
 }
 
-export function projectQueue(items: QueueItem[]): Array<{ content: string; clientMessageId?: string }> {
+export function projectQueue(items: QueueItem[]): Array<{ content: string; clientMessageId?: string; interrupt?: boolean }> {
   return items.map((q) => ({
     content: q.content,
+    ...(q.interrupt ? { interrupt: true } : {}),
     ...(q.clientMessageId ? { clientMessageId: q.clientMessageId } : {}),
   }));
 }
@@ -1289,7 +1293,7 @@ export function broadcastQueueUpdate(workflowId: string): void {
 // past the hook — by design.
 export function drainSteerForWorker(workflowId: string, ws: WebSocket): SteerItem[] {
   const wf = workflows.get(workflowId);
-  if (!wf || wf.queue.steering.length === 0) return [];
+  if (!wf || wf.queue.steering.length === 0 || wf.primaryTurn?.holdSteer || wf.queue.steering.some((q) => q.interrupt)) return [];
   const drained = wf.queue.steering.splice(0);
   broadcastQueueUpdate(workflowId);
   const drainedClientIds = drained
@@ -1502,7 +1506,7 @@ export async function handleUserMessage(
   clientMessageId: string | undefined,
   attachments: string[] | undefined,
   interjection: boolean,
-  kind: 'steer' | 'follow-up' | undefined,
+  kind: 'steer' | 'follow-up' | 'interrupt' | undefined,
   primitive: 'docs' | 'git' | undefined,
   pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
@@ -1515,6 +1519,7 @@ export async function handleUserMessage(
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
     return;
   }
+  const interruptEpoch = busyRevocations.get(wf) ?? 0;
   const cwd = wf.config.workingDirectory;
   if (!cwd) {
     send(ws, { type: 'error', message: 'Workflow has no working directory configured.' });
@@ -1612,10 +1617,15 @@ export async function handleUserMessage(
   }
   let expandedContext = contextExpansion.block || undefined;
 
-  // Mid-turn queue path. The operator sent text while the primary was working;
-  // echo it into chat (so they see their own message), append to the pending
-  // queue, and return. The in-flight turn's drain loop will flush this as
-  // the next turn's prompt once it settles.
+  // STOP/removal during async ref/trust preparation cancels this explicit
+  // redirect too. A naturally completed turn still accepts it normally.
+  if (kind === 'interrupt' && (workflows.get(workflowId) !== wf || (busyRevocations.get(wf) ?? 0) !== interruptEpoch)) {
+    if (clientMessageId) send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
+    return;
+  }
+
+  // Busy sends are echoed once and queued. Interrupt is a priority turn after
+  // provider teardown; it must keep this loop's busy claim and older queue.
   //
   // Phase 4 — `kind` selects steering vs follow-up bucket. Default 'follow-up'
   // for back-compat with pre-Phase-4 clients (they sent `interjection: true`
@@ -1633,9 +1643,17 @@ export async function handleUserMessage(
       // but we still queue rather than error — drops fewer operator messages.
       console.warn(`[arco] [${workflowId.slice(0, 8)}] user_message while busy without interjection flag — queuing anyway`);
     }
-    const bucket: 'steer' | 'follow-up' = isComputerBackgroundClaim(workflowId) ? 'follow-up' : kind ?? 'follow-up';
+    const interrupt = kind === 'interrupt' && !wf.config.voiceOperator
+      && (wf.primary.provider === 'claude' || wf.primary.provider === 'codex')
+      && wf.primaryTurn !== undefined && ownsBusy(wf, wf.primaryTurn.token);
+    const bucket: 'steer' | 'follow-up' = interrupt ? 'steer'
+      : isComputerBackgroundClaim(workflowId) || kind === 'interrupt' ? 'follow-up' : kind ?? 'follow-up';
+    if (kind === 'interrupt' && !interrupt) broadcastWorkflow(workflowId, {
+      type: 'system_notice', workflowId,
+      content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
+    });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
-    arr.push({ content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext });
+    arr.push({ content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ...(interrupt ? { interrupt: true } : {}) });
     send(ws, {
       type: 'user_message_echo',
       workflowId,
@@ -1643,9 +1661,20 @@ export async function handleUserMessage(
       attachments,
       clientMessageId,
       timestamp: Date.now(),
-      kind: bucket,
+      kind: interrupt ? 'interrupt' : bucket,
     });
     broadcastQueueUpdate(workflowId);
+    if (interrupt) {
+      disarmGoalRun(workflowId, wf, 'the operator interrupted with a new instruction');
+      broadcastWorkflow(workflowId, { type: 'system_notice', workflowId,
+        content: '[INTERRUPT & SEND] Interrupting the current turn. This message runs next; existing queued messages are preserved. Completed changes remain in place.' });
+      const active = wf.primaryTurn;
+      if (active?.workerId && !active.interruption) {
+        active.interruption = wf.manager.interrupt(active.workerId);
+        // Observe immediately: settlement below awaits the same promise.
+        void active.interruption.catch(() => {});
+      }
+    }
     console.log(
       `[arco] [${workflowId.slice(0, 8)}] queued as ${bucket} (depth: steer=${wf.queue.steering.length}, follow-up=${wf.queue.followUp.length})`,
     );
@@ -1692,8 +1721,9 @@ export async function handleUserMessage(
 
   // Drain path: splice the queue in the same synchronous span as the busy
   // claim below, so nothing can slip in between the idle check and the take.
+  let initialInterrupt = false;
   if (fromQueue) {
-    const drained = [...wf.queue.steering.splice(0), ...wf.queue.followUp.splice(0)];
+    const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
     if (!incognito) console.log(`[arco] [${workflowId.slice(0, 8)}] idle drain: flushing ${drained.length} queued message(s) as a fresh turn`);
     broadcastQueueUpdate(workflowId);
@@ -1709,6 +1739,8 @@ export async function handleUserMessage(
     const mergedRefs = drained.map((d) => d.expandedContext ?? '').filter(Boolean).join('');
     expandedContext = mergedRefs.length > 0 ? mergedRefs : undefined;
     clientMessageId = undefined;
+    pickedSkills = drained.flatMap((d) => d.pickedSkills ?? []);
+    initialInterrupt = drained.some((d) => d.interrupt);
   }
 
   let busyToken: number;
@@ -1725,12 +1757,16 @@ export async function handleUserMessage(
     busyToken = guardedToken;
   } else busyToken = claimBusy(wf);
 
+  const primaryTurn: NonNullable<WorkflowState['primaryTurn']> = { token: busyToken, holdSteer: initialInterrupt };
+  wf.primaryTurn = primaryTurn;
+
   // Drive the turn loop. On first iteration `prompt` is the incoming content;
   // on subsequent iterations it's the drained interjection queue (joined so
   // multiple queued messages land in a single follow-up turn). This keeps
   // the CLI session alive and matches Claude Code terminal's flush-on-idle.
   if (opts?.backgroundEvent) setComputerBackgroundClaim(workflowId, busyToken);
   let prompt: string = content;
+  let promptPickedSkills = pickedSkills;
   let promptAttachments: string[] | undefined = isolatedMember ? undefined : attachments;
   let promptClientMessageId: string | undefined = clientMessageId;
   // §D1 — expanded `@`-context-refs for the current iteration's prompt. First
@@ -1750,6 +1786,23 @@ export async function handleUserMessage(
   let staleLoop = false;
   let watchLoopFinished = false;
   let watchHadError = false;
+  let preserveQueue = false;
+
+  const loadQueuedPrompt = (append = false): void => {
+    const drained = takeQueuedTurn(wf.queue);
+    broadcastQueueUpdate(workflowId);
+    const ids = drained.flatMap((d) => d.clientMessageId ? [d.clientMessageId] : []);
+    if (ids.length) send(ws, { type: 'queued_messages_drained', workflowId,
+      clientMessageIds: ids, drainedAt: Date.now() });
+    prompt = [...(append ? [prompt] : []), ...drained.map((d) => d.content)].join('\n\n');
+    const files = [...(append ? promptAttachments ?? [] : []), ...drained.flatMap((d) => d.attachments ?? [])];
+    promptAttachments = files.length ? files : undefined;
+    const refs = (append ? promptExpandedContext ?? '' : '') + drained.map((d) => d.expandedContext ?? '').join('');
+    promptExpandedContext = refs || undefined;
+    promptClientMessageId = undefined;
+    promptPickedSkills = [...(append ? promptPickedSkills ?? [] : []), ...drained.flatMap((d) => d.pickedSkills ?? [])];
+    primaryTurn.holdSteer = drained.some((d) => d.interrupt);
+  };
 
   // DD7 — project-trust gate. Resolve ONCE per turn (stable across drain
   // iterations) from USER/GLOBAL scope only — trust.json + the global
@@ -1795,16 +1848,16 @@ export async function handleUserMessage(
     });
   }
 
-  // DD8 — operator-picked skills. Resolve the full bodies ONCE (operator picks
-  // apply to the originating prompt, i.e. the first iteration) and build the
-  // inline block. This is an explicit operator action, so it applies regardless
+  // DD8 — resolve picks for the prompt that owns them, including queued
+  // interrupt instructions. Picking is an explicit operator action, so it
+  // applies regardless
   // of the DD7 trust gate above — picking IS the operator's vouch. A missing /
   // unreadable skill is skipped with a notice rather than failing the turn.
-  let pickedSkillsBlock = '';
-  if (projectContextEnabled && pickedSkills && pickedSkills.length > 0) {
+  async function resolvePickedSkillsBlock(picks: typeof pickedSkills): Promise<string> {
+    if (!projectContextEnabled || !picks?.length) return '';
     const resolved: Array<{ name: string; scope: 'project' | 'global'; body: string }> = [];
     const missing: string[] = [];
-    for (const pick of pickedSkills) {
+    for (const pick of picks) {
       try {
         const full = await readSkillBody(pick.scope, pick.slug, cwd);
         if (full) resolved.push({ name: full.name, scope: full.scope, body: full.body });
@@ -1814,7 +1867,6 @@ export async function handleUserMessage(
       }
     }
     const built = buildPickedSkillsBlock(resolved);
-    pickedSkillsBlock = built.text;
     const names = resolved.map((s) => s.name).join(', ');
     broadcastWorkflow(workflowId, {
       type: 'system_notice',
@@ -1824,6 +1876,7 @@ export async function handleUserMessage(
         `(${built.bytes} bytes) into this turn${names ? `: ${names}` : ''}.` +
         (missing.length > 0 ? ` Skipped (not found): ${missing.join(', ')}.` : ''),
     });
+    return built.text;
   }
 
   // Standing +SKILL pins are re-resolved once per primary-turn invocation.
@@ -1981,6 +2034,7 @@ export async function handleUserMessage(
 
   try {
     while (true) {
+      const pickedSkillsBlock = await resolvePickedSkillsBlock(promptPickedSkills);
       console.log(`[arco] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
 
       // Peer mailbox: don't auto-drain pre-turn. Just count what's pending and
@@ -2072,11 +2126,9 @@ export async function handleUserMessage(
       // operator's transcript is unaffected (echo already sent above).
       const planPrefix = projectContextEnabled ? await buildPlanPrefix(cwd, wf, workflowId) : '';
       const promptWithRefs = promptExpandedContext ? prompt + promptExpandedContext : prompt;
-      // DD8 — inline operator-picked skill bodies. Only on the first iteration
-      // (the picks rode in on the originating prompt; drained queue turns don't
-      // re-inline). Appended after the refs, before the plan prefix is prepended
-      // — model-facing only, never echoed into the operator's transcript.
-      const promptWithSkills = firstIteration && pickedSkillsBlock
+      // DD8 — inline the picks owned by this prompt, after explicit refs.
+      // Model-facing only; each queued prompt carries its own picks.
+      const promptWithSkills = pickedSkillsBlock
         ? `${promptWithRefs}\n\n${pickedSkillsBlock}`
         : promptWithRefs;
       const promptWithPlan = planPrefix ? planPrefix + promptWithSkills : promptWithSkills;
@@ -2619,6 +2671,11 @@ export async function handleUserMessage(
       // STOP landed during the pre-spawn awaits above (killAll had nothing to
       // kill yet). Spawning now would run a turn nobody owns.
       if (!ownsBusy(wf, busyToken)) break;
+      if (wf.queue.steering.some((q) => q.interrupt)) {
+        firstIteration = false;
+        loadQueuedPrompt(primaryTurn.holdSteer);
+        continue;
+      }
 
       if (!chatMode && !armPlanMode) {
         const guardSeq = currentWorkflowSeq(cwd, workflowId);
@@ -2717,6 +2774,8 @@ export async function handleUserMessage(
         },
       );
 
+      primaryTurn.workerId = turn.workerId;
+
       // Claude pre-mints its session id; pin it into meta.json immediately so a
       // crash between now and turn-completion still leaves meta pointing at the
       // right CLI session. Only relevant on the first iteration — later
@@ -2760,10 +2819,23 @@ export async function handleUserMessage(
       }
 
       let outcome: Awaited<typeof turn.settled>;
+      let carryInterruptedPrompt = false;
       try {
         outcome = await turn.settled;
+        // A second correction may cancel Native during auth/hooks, before
+        // its first correction entered history. Carry that unsent input.
+        carryInterruptedPrompt = await primaryTurn.interruption === false && primaryTurn.holdSteer;
+      } catch (err) {
+        if (!primaryTurn.interruption) throw err;
+        preserveQueue = true;
+        lastTurnErrored = true;
+        broadcastWorkflow(workflowId, { type: 'system_notice', workflowId,
+          content: `[INTERRUPT & SEND] Cancellation failed; queued messages were preserved without starting another turn. ${err instanceof Error ? err.message : String(err)}` });
+        break;
       } finally {
         fleetWatcher?.stop();
+        primaryTurn.workerId = undefined;
+        primaryTurn.interruption = undefined;
       }
       console.log(`[arco] [${workflowId.slice(0, 8)}] turn settled${outcome.error ? ' with error: ' + outcome.error : ''}`);
       lastTurnErrored = !!outcome.error;
@@ -2923,48 +2995,17 @@ export async function handleUserMessage(
       //
       // Phase 4 — order is steering first, then follow-up. Steer is "do this
       // now / change direction"; follow-up is "after the current task lands."
-      // When real mid-turn delivery ships per provider in Phases 5–7, steer
-      // entries will be flushed *during* the turn (between tool calls) rather
-      // than concatenated post-turn — which is why the kinds are separate
-      // arrays now even though they share the same drain path today.
+      // Interrupt entries get their own next turn; remaining steers and
+      // follow-ups stay queued until that correction has completed.
       // Cancelled (and possibly superseded by a resend) while settling: the
       // queue belongs to whoever holds busy now — don't drain it.
       if (!ownsBusy(wf, busyToken)) break;
       if (wf.queue.steering.length === 0 && wf.queue.followUp.length === 0) break;
-      const drained = [...wf.queue.steering.splice(0), ...wf.queue.followUp.splice(0)];
-      broadcastQueueUpdate(workflowId);
-      // Tell the client the queue moved — without this the composer-adjacent
-      // QUEUED pill stays lit forever for non-Claude providers (no
-      // session_entry to clear it) and can also stick on Claude when the
-      // session_entry prefix-match misses (e.g., whitespace drift between
-      // optimistic content and the JSONL-written content). The client flips
-      // queued:false and rebases the optimistic timestamp to drainedAt so
-      // ChatPanel's 5s sessionChat dedup window can collapse Claude's
-      // shortly-arriving JSONL echo.
-      const drainedClientIds = drained
-        .map((d) => d.clientMessageId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
-      if (drainedClientIds.length > 0) {
-        send(ws, {
-          type: 'queued_messages_drained',
-          workflowId,
-          clientMessageIds: drainedClientIds,
-          drainedAt: Date.now(),
-        });
-      }
-      prompt = drained.map((d) => d.content).join('\n\n');
-      const mergedAttachments = drained.flatMap((d) => d.attachments ?? []);
-      promptAttachments = mergedAttachments.length > 0 ? mergedAttachments : undefined;
-      // §D1 — concat each drained item's expanded context-refs block (each was
-      // expanded at enqueue and stored on the QueueItem). The blocks already
-      // carry their own leading newlines + `--- Context (...) ---` headers.
-      const mergedRefs = drained.map((d) => d.expandedContext ?? '').filter(Boolean).join('');
-      promptExpandedContext = mergedRefs.length > 0 ? mergedRefs : undefined;
-      promptClientMessageId = undefined;
-      console.log(`[arco] [${workflowId.slice(0, 8)}] flushing ${drained.length} queued interjection(s) as merged follow-up turn`);
+      loadQueuedPrompt(carryInterruptedPrompt);
     }
     watchLoopFinished = true;
   } finally {
+    if (wf.primaryTurn === primaryTurn) wf.primaryTurn = undefined;
     // Only the owning claim may release busy / touch the queue. A loop whose
     // claim STOP revoked exits quietly — STOP + quick resend used to let turn
     // 1's finally clear turn 2's busy flag (and drain/clear turn 2's queue).
@@ -2983,7 +3024,7 @@ export async function handleUserMessage(
       // Defensive: the drain loop above already empties both arrays on each
       // iteration. This catches the case where the loop exited via throw —
       // we don't want the next turn to inherit half-drained state.
-      if (wf.queue.steering.length > 0 || wf.queue.followUp.length > 0) {
+      if (!preserveQueue && (wf.queue.steering.length > 0 || wf.queue.followUp.length > 0)) {
         wf.queue.steering.length = 0;
         wf.queue.followUp.length = 0;
         broadcastQueueUpdate(workflowId);
@@ -3002,6 +3043,8 @@ export async function handleUserMessage(
     }
     return;
   }
+
+  if (preserveQueue) return;
 
   // Computer rotates only after the complete tool/queue turn has settled.
   await maybeFreshComputerContext(workflowId, !lastTurnErrored);

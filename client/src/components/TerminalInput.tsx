@@ -39,13 +39,11 @@ interface Props {
   job: JobState;
   // Phase 4 — `kind` is set when sending mid-turn (busy). Idle sends omit it.
   // 'steer' = "do this now / change direction"; 'follow-up' = "after the
-  // current task lands." Both kinds drain post-turn for every provider in
-  // Phase 4 — visible/rebindable is the scope here. Phases 5–7 wire real
-  // mid-turn delivery for steer per provider.
+  // current task lands." Interrupt cancels the active turn and sends next.
   onSend: (
     content: string,
     attachments?: string[],
-    kind?: 'steer' | 'follow-up',
+    kind?: 'steer' | 'follow-up' | 'interrupt',
     primitive?: 'docs' | 'git',
     // DD8 — operator-picked Arco skills to inline into this turn.
     pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>,
@@ -285,6 +283,29 @@ const ContextRefChips = memo(function ContextRefChips({
   );
 });
 
+function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrupt, onSend, onInterrupt }: {
+  jobId: string; blocked: boolean; hasAttachments: boolean; busy: boolean; canInterrupt: boolean;
+  onSend: () => void; onInterrupt: () => void;
+}) {
+  const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
+  const disabled = blocked || (!draft.trim() && !hasAttachments);
+  const style = { padding: '3px 10px', background: 'transparent', borderRadius: '3px',
+    fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap' as const, cursor: disabled ? 'not-allowed' : 'pointer' };
+  return <>
+    <button onClick={onSend} disabled={disabled} data-help="composer.send" className="display-font"
+      title={busy ? 'Send normally (Enter). Steers at the next supported boundary without interrupting the turn.' : 'Send message (Enter)'}
+      style={{ ...style, border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)' }}>
+      SEND
+    </button>
+    {busy && canInterrupt && <button onClick={onInterrupt} disabled={disabled} data-help="composer.interrupt"
+    className="display-font"
+    title="Interrupt the active turn and send this message next (Ctrl/Cmd+Enter). Keeps queued messages and completed edits."
+    style={{ ...style, border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
+    INTERRUPT &amp; SEND
+    </button>}
+  </>;
+}
+
 export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onRecalibrate, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterContext, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
   // Composer text lives in the store keyed by job.id so each tab keeps its
   // own draft across tab switches. Empty tab reads back as ''.
@@ -444,6 +465,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const resolvedCodexTransport: 'exec' | 'appserver' = job.config.codexTransport
     ?? (settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec');
   const provider = job.config.primaryProvider ?? 'claude';
+  const interruptAvailable = (provider === 'claude' || provider === 'codex') && !job.config.voiceOperator;
   const compactVisible =
     !!onCompact
     && (
@@ -572,7 +594,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     return () => window.removeEventListener('arco:attach-files', handler);
   }, [uploadAndAppend]);
 
-  const handleSubmit = (kind?: 'steer' | 'follow-up') => {
+  const handleSubmit = (kind?: 'steer' | 'follow-up' | 'interrupt') => {
     // Phase 3 — block sends while compacting; the worker has no history to
     // receive a turn until the summary lands. The takeover overlay + greyed
     // send already signal this; this is the hard guard.
@@ -711,7 +733,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     const sent = onSend(
       trimmed,
       attachments.length > 0 ? attachments.map((a) => a.path) : undefined,
-      isBusy ? kind : undefined,
+      kind === 'interrupt' ? kind : isBusy ? kind : undefined,
       undefined,
       pickedSkills.length > 0 ? pickedSkills.map((s) => ({ scope: s.scope, slug: s.slug })) : undefined,
     );
@@ -733,11 +755,15 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     //   Idle + Enter         → send (start a fresh turn)
     //   Busy + Enter         → enqueue as steer (do this now / change direction)
     //   Busy + Alt+Enter     → enqueue as follow-up (after the current task lands)
+    //   Busy + Ctrl/Cmd+Enter → interrupt Claude/Codex and send the draft next
     //   Shift+Enter          → newline (preserved at every state)
-    // Both kinds drain post-turn in Phase 4; Phases 5–7 wire real mid-turn
-    // delivery for steer per provider — the operator's intent is captured
-    // now so the delivery upgrade is transparent later.
+    // Steer delivery depends on the transport; interrupt waits for teardown.
     if (e.key === 'Enter' && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && isBusy && interruptAvailable) {
+        e.preventDefault();
+        handleSubmit('interrupt');
+        return;
+      }
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         if (!isBusy) return; // idle Alt+Enter is a no-op (no queue to land in)
         e.preventDefault();
@@ -1198,14 +1224,13 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         </div>
       )}
 
-      {/* Input row — prompt text + CANCEL only. Tool buttons, status, and
-          tokens all live on the dedicated toolbar row below so narrow
-          windows don't crowd the prompt. */}
+      {/* Send choices wrap below the draft so both stay visible at narrow widths. */}
       <div
         className="glow-border"
         data-help="composer.input"
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
           alignItems: 'flex-start',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '4px',
@@ -1239,13 +1264,15 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
               : isCompacting
                 ? 'Compacting conversation… composer is locked until it finishes'
                 : isBusy
-                  ? '↵ steer · ⌥↵ follow-up · ⎋ cancel turn'
+                  ? interruptAvailable ? '↵ steer · ⌥↵ follow-up · Ctrl/⌘↵ interrupt & send' : '↵ steer · ⌥↵ follow-up · ⎋ cancel turn'
                   : planModeArmed && planModeToggleVisible
                     ? 'Type your task — plan mode armed for next turn'
                     : 'Enter command... (drop / paste / attach files anywhere)'
           }
         />
 
+        <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+          justifyContent: 'flex-end', gap: '6px', marginTop: '6px' }}>
         {isBusy && (
           <span
             className="display-font"
@@ -1266,6 +1293,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           </span>
         )}
 
+        <ComposerSendButtons jobId={job.id} blocked={uploading || isCompacting}
+          hasAttachments={attachments.length > 0} busy={isBusy} canInterrupt={interruptAvailable}
+          onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} onInterrupt={() => handleSubmit('interrupt')} />
         {isBusy && (
           <button
             onClick={onCancel}
@@ -1288,6 +1318,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             ✕ CANCEL
           </button>
         )}
+        </div>
       </div>
 
       {/* Toolbar row — permanent second line. Primitives on the left,

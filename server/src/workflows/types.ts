@@ -41,6 +41,9 @@ export interface WorkflowState {
   manager: WorkerManager;
   primary: PrimaryConfig;
   primarySessionId?: string;
+  // Owned by the user-message loop; interrupt only its worker, never reviewers
+  // or compaction. Keep the claim until cancellation has actually settled.
+  primaryTurn?: { token: number; workerId?: string; holdSteer: boolean; interruption?: Promise<boolean | void> };
   computerResetting?: boolean;
   // Background activity waits through the full Computer turn/reset boundary.
   computerSettled?: boolean;
@@ -198,8 +201,10 @@ export interface WorkflowState {
 // Phase 4 — internal queue entry. Carries attachments (preserved across
 // drain since INTERFACE_FIXES_PLAN.md Fix 4) and clientMessageId (used for
 // per-item cancel and queue-strip [×]). The wire `queue_update` snapshot
-// re-projects to QueueEntry (content + clientMessageId only).
+// re-projects to QueueEntry (content + clientMessageId + interrupt intent).
 export interface QueueItem {
+  interrupt?: boolean;
+  pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>;
   content: string;
   attachments?: string[];
   clientMessageId?: string;
