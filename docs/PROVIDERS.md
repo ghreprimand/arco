@@ -1,5 +1,7 @@
 # Arco — providers
 
+**Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
+
 Per-provider deep dive. Eleven providers ship: **Claude**, **Codex**, **Z.ai**, **Gemini**, **Ollama**, **LM Studio**, **Strata**, **DeepSeek (Xolotl)**, **llama.cpp**, **Antigravity**, **Cursor**. All can act as primaries; all can act as reviewers. They differ wildly in spawn mechanism, session resume, auth, and capability detection — this doc tracks each one's particulars. Three providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child); **Z.ai** has `native` (default direct Chat Completions worker) and `appserver` (fallback through Codex app-server's Z.ai proxy). **Cursor** also has two — `acp` (long-lived) and `print` (stateless one-shot) — but the choice is routed automatically (`sandbox: 'read-only'` → `print`), not toggled.
 
 Chat tabs support Claude, Codex, Z.ai, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek; Gemini and Antigravity are Agent-only. See the contract below and [`CHAT.md`](CHAT.md).
@@ -1904,7 +1906,7 @@ Phase 0 removed `ANTIGRAVITY_TRANSPORT`. RPC is the only transport; do not set t
 - **No safety footer** — `WorkerManager.spawn` skips the `[Arco safety reminders...]` blob for Antigravity. The footer derails the underlying Gemini model into Arco talk instead of the intended task.
 - **Cluster gap** — Antigravity remains excluded from clusters until it has a deterministic peer-tool bridge.
 
-Current rollout plan: [`ANTIGRAVITY_RPC_INTEGRATION_PLAN.md`](ANTIGRAVITY_RPC_INTEGRATION_PLAN.md). Historical CDP research: [`ANTIGRAVITY_INTEGRATION_PLAN.md`](ANTIGRAVITY_INTEGRATION_PLAN.md).
+The Antigravity RPC details above describe the current integration. Acceptance that requires a signed-in desktop app must be run on the target host; see [Development status](DEVELOPMENT_STATUS.md) for platform and capability limits.
 
 ---
 

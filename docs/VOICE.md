@@ -1,5 +1,7 @@
 # Computer and hands-free voice control
 
+**Status:** Recognition runtime packaging and notices, speech output and interruption, and remaining Computer conversation-session and operator-command parity are in progress. See [Development status](DEVELOPMENT_STATUS.md).
+
 Canonical reference for Arco's voice user: everyday use, speech and
 microphone settings, selectable agents, context/privacy, tools, activity,
 conditional scripts, recovery and verification. Current behavior reviewed

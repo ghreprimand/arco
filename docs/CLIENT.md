@@ -1,5 +1,7 @@
 # Arco - client
 
+**Status:** Stable project identity, organization, creation and removal, and missing-path or relocation recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
+
 The web UI. Vite + React 19 + Zustand. Two-column layout: chat + composer on the left (2/3), tabbed right pane (1/3). Talks to the server over a single persistent WebSocket; HTTP only for file uploads, transcripts, artifact bodies, plan bodies, and auth.
 
 This doc covers the store, components, render pipeline, theme + shader system, and performance patterns. For the WebSocket protocol see [`PROTOCOL.md`](PROTOCOL.md). For the server side see [`ARCHITECTURE.md`](ARCHITECTURE.md).

@@ -6,7 +6,7 @@ container. Docker Desktop supplies the Linux runtime on Windows and macOS.
 ## Setup and local files
 
 Copy .env.example to .env. Set ARCO_PROJECTS_DIR to an existing project root.
-On Windows use forward slashes, for example C:/Users/operator/Projects.
+On Windows use forward slashes, for example C:/Projects.
 
     docker compose up -d --build
 
@@ -28,7 +28,7 @@ extra folders with a compose.override.yaml next to compose.yaml:
       arco:
         volumes:
           - type: bind
-            source: D:/client-site
+            source: D:/projects/client-site
             target: /work/client-site
 
 Then pick /work/client-site as the working directory of a new workflow.

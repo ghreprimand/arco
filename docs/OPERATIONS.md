@@ -1,5 +1,7 @@
 # Arco  - operations
 
+**Status:** Task-oriented settings and menu organization, including the control-preservation map, remains in progress. See [Development status](DEVELOPMENT_STATUS.md).
+
 Running, stopping, restarting, and recovering Arco. Where logs go, what env vars matter, and how to unstick the system when something goes sideways.
 
 For architecture see [`ARCHITECTURE.md`](ARCHITECTURE.md). For the persistence layout see [`PERSISTENCE.md`](PERSISTENCE.md). For the dev-side workflow see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
