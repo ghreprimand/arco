@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createServer } from 'node:http';
 
 // Direct invocation is isolated too; imports that capture HOME happen below.
-const fixture = mkdtempSync(path.join(os.tmpdir(), 'arco-file-policy-'));
+// Match the canonical paths returned by confinement, including symlinked temp roots.
+const fixture = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'arco-file-policy-')));
 const home = path.join(fixture, 'home');
 const project = path.join(fixture, 'mount', 'project');
 const outside = path.join(fixture, 'media');
@@ -60,6 +61,19 @@ test('canonical containment accepts inward links and denies outward and provider
   symlinkSync(project, alias);
   assert.equal(confinedPath(path.join(alias, 'document.txt'), [alias]), inside);
   assert.equal(confinedPath(inside, [alias]), inside);
+});
+
+test('a symlinked temporary parent returns canonical paths and leaves Library protected', () => {
+  const parentAlias = path.join(fixture, 'temporary-parent');
+  symlinkSync(path.join(fixture, 'mount'), parentAlias);
+  const spelledProject = path.join(parentAlias, 'project');
+  const spelledFile = path.join(spelledProject, 'document.txt');
+  assert.equal(safeDirectory(spelledProject), realpathSync(project));
+  assert.equal(confinedPath(spelledFile, [spelledProject]), realpathSync(inside));
+  const library = path.join(home, 'Library');
+  mkdirSync(library);
+  assert.throws(() => safeDirectory(library));
+  assert.equal(safeDirectory(fixture), realpathSync(fixture));
 });
 
 test('registration, settings and broad HOME cannot authorize protected state', async () => {
