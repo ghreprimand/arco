@@ -1,26 +1,14 @@
 # Strata and large MoE models
 
-Operator runbook for the Arco integration and the operator's prepared Qwen3.8 Flash
-Next installation. Configuration snapshot: **2026-10-15**. Values below describe
-this installation, not requirements for every Strata host. Provider internals
-are in [PROVIDERS.md § Strata](PROVIDERS.md#strata); start with this page for
-model selection, memory, assets, troubleshooting and validation.
+Reference for the Arco integration with a separately installed Strata HTTP
+service. Arco does not bundle Strata or model weights. The provider registry
+and runtime profiles are configurable per installation; model availability,
+resource needs, and performance depend on the selected engine and host.
 
-Installed engine versions in PROVIDERS refresh when the popover opens, including
-updates made outside Arco. For a managed local profile the full package version
-comes from `BUILD.json`; the live server can report a shorter build version.
-Discovery reads metadata without starting a model. The periodic capability probe
-also broadcasts Strata and Xolotl version changes to connected clients.
-
-The engine is registered with Strata's signed component updater. Existing profile
-paths stay stable through `<strata-checkout>/engine`, a link to the selected
-package in `~/.local/share/strata/components/engine/`. Use
-`python3 <local-llm-tools>/scripts/strata-trial.py update-check` to inspect
-updates, `update` to apply one, and `rollback` to return to a retained previous
-component. Updates run under the same memory caps as serving and refuse mining
-or competing inference; they do not stop those workloads. The guarded launcher
-keeps the engine link aligned with the component manager. This updates the
-engine; the source checkout and Python environment are maintained separately.
+Installed engine versions appear in Providers when the information is available.
+Discovery reads metadata without starting a model. Capability probes can report
+version changes to connected clients. See [PROVIDERS.md](PROVIDERS.md#strata)
+for provider internals and the settings reference.
 
 ## Use it in Arco
 
@@ -28,16 +16,16 @@ engine; the source checkout and Python environment are maintained separately.
    `http://127.0.0.1:8081/v1`. Settings override `STRATA_URL_BASE`; a missing `/v1`
    suffix is added automatically. Strata is separate from Ollama and LM Studio.
 2. Choose a prepared model in the creator. In an existing Agent tab, click the
-   composer model chip or use CONFIG → MODEL. In saved Chat, use the model dropdown.
+   composer model chip or use CONFIG -> MODEL. In saved Chat, use the model dropdown.
 3. Send a message. Selection applies to that next message and keeps the
    conversation. Loading can take tens of seconds; switch/ready notices appear
    in the transcript. The dropdown alone does not start inference.
 4. Use Agent for project tools. In saved Chat, arm **WEB** for WebSearch/WebFetch;
    those are the only Chat tools. Attach an image to ask a vision question.
 5. To release model memory, finish or cancel active local turns/reviewers, then
-   click the header **FREE VRAM**. The next request reloads the selected model.
+   select **FREE VRAM** in the header. The next request reloads the selected model.
 
-The configured choices are:
+The following public model IDs illustrate profile naming; available choices come from configured Strata profiles:
 
 | Picker label | Exact model ID | Service profile |
 | --- | --- | --- |
@@ -55,28 +43,14 @@ Alternating tabs with different selections reloads their respective weights.
 Conversation history survives; the old engine's warm caches do not. This is not
 simultaneous residency or automatic model routing.
 
-## Upstream 0.2 beta: app, Terminal and engine
+## Engine and component updates
 
-The [0.2.0-beta release](https://github.com/Niko1221/Strata/releases/tag/v0.2.0-beta)
-splits the desktop app, Terminal/Control and engine packages into separately
-versioned components. Its engine package is **0.1.45.3**; **0.2.0-beta** identifies
-the broader application release. The signed component feed supports verified,
-staged engine updates and rollback. The [updater contract](https://github.com/Niko1221/Strata/blob/v0.2.0-beta/packaging/UPDATES.md)
-describes the separate component versions and explicit update steps.
-
-Arco's integration continues to use the HTTP engine endpoint and guarded user
-services. Its version row compares installed **engine** metadata with upstream
-engine package metadata, using release-note/legacy-tag fallbacks if the feed is
-unavailable. It opens release history inside Arco, like Ollama; GitHub is an
-explicit external link. A new app tag alone is not reported as an engine update.
-
-This workstation remains on engine **0.1.44.1**. No Strata engine, app, model or
-service configuration was upgraded in the version-view change. Before adopting
-0.2's packaging or defaults, check the existing native packs, prepared profile
-flags, 32/36 GiB service limits and explicit CPU vision configuration. Upstream
-also changes runtime defaults and memory/I/O behavior; repeat actual model,
-tool/vision and resource tests for this installation instead of assuming the
-release's results on other configurations apply to it.
+Strata may publish separately versioned app, terminal, and engine components.
+Arco displays engine metadata from the installed component and can link to
+upstream release information. A new app release does not necessarily mean that
+an engine update is available. Updating the runtime, model assets, profiles,
+and Arco are separate operations. Use the runtime's own signed update and
+rollback procedures; Arco does not install engine updates.
 
 ## What the MoE setup puts in each memory tier
 
@@ -86,14 +60,14 @@ components across the GPU, host RAM and storage. Sparse activation reduces
 computation; the rest of the weights still need storage and an access path.
 The memory layout matters more than the GGUF download total alone.
 
-| Component | This installation | Consequence |
+| Component | Typical placement | Consequence |
 | --- | --- | --- |
-| Dense computation and hot routed experts | GPU, with hybrid CPU/GPU expert execution | Leave room for desktop and compute buffers. More GPU cache can reduce transfers. |
-| Host expert complement/cache | Bounded RAM budget; remaining expert weights read from model files | A smaller RAM budget can increase SSD reads, especially on cold prefill. |
-| PLE / n-gram lookup table | Second GGUF shard on NVMe, `--ple-io direct` | This learned lookup table is separate from conversation history and expert caching. |
-| Conversation KV cache | INT8 host-backed storage, 32768 cells resident on GPU | GPU residency is a working set; it does not truncate the 262144-token context to 32K. |
-| MTP draft component | Prepared stock MTP assets, runtime-managed allocations | Drafts propose tokens that the target verifies; MTP is not a second selectable model. |
-| Image encoder | Separate CPU executable, 8 threads, 1024 image-token cap | Image work adds host memory/latency without using a GPU encoder. |
+| Dense computation and hot routed experts | GPU, with hybrid CPU/GPU execution | Leave room for desktop and compute buffers. More GPU cache can reduce transfers. |
+| Host expert complement/cache | Host RAM and model files | A smaller RAM budget can increase SSD reads, especially on cold prefill. |
+| PLE / n-gram lookup table | Model asset storage, optionally read directly by the engine | This learned lookup table is separate from conversation history and expert caching. |
+| Conversation KV cache | Host-backed or GPU-resident, depending on engine configuration | GPU residency is a working set; it does not extend or truncate the model context. |
+| MTP draft component | Optional engine assets, runtime-managed allocations | Drafts propose tokens that the target verifies; MTP is not a second selectable model. |
+| Image encoder | CPU or GPU component, depending on profile | Image work adds host memory/latency without using a GPU encoder. |
 
 These are different optimizations: moving unchanged data to another tier does
 not change its precision; quantization does. The installed IQ3_XXS weights and
@@ -104,49 +78,35 @@ and [memory/format guide](https://github.com/Niko1221/Strata/blob/296b59d2f73c8f
 
 ## RAM, VRAM and context limits
 
-The workstation has 96 GB installed RAM (about 93.8 GiB usable) and an RTX 5090
-reporting 32607 MiB VRAM. Installed capacity is not the amount available after
-the desktop, VMs, other services and caches. Measure headroom before tuning.
+## RAM, VRAM and context limits
 
-| Limit / setting | Current value | What it controls |
-| --- | --- | --- |
-| `MemoryHigh` | `32G` = 32 GiB | systemd memory-pressure/throttling threshold for the entire Strata service cgroup |
-| `MemoryMax` | `36G` = 36 GiB | Hard cgroup ceiling, including children and charged file cache; crossing it can OOM-kill the service |
-| `MemorySwapMax` | `0` | Strata's cgroup cannot expand into swap |
-| `--memory-limit-mib` and `STRATA_MEMORY_LIMIT_MIB` | `36864` | Engine's declared RAM ceiling; keep aligned with the service hard limit |
-| `--resident-budget-gib` | `24` | Host expert budget, not total service memory; runtime can choose a smaller complement |
-| `STRATA_RESIDENT_HEADROOM_GIB` | `12` | Headroom used by the resident-budget selection logic |
-| `--vram-reserve-mib` | `2048` | GPU reserve requested from the engine for desktop headroom |
-| `--max-context` | `262144` | Native/configured conversation token window for both registered profiles |
-| `--kv-resident` | `32768` | GPU-resident KV working set, not the conversation limit |
-| `--conversation-cache-mib` | `0` | No extra parked-conversation cache budget |
-| Parallel requests | `1` | One serving request per engine |
+Resource limits are profile- and host-specific. Installed RAM and VRAM are not
+fully available to a model service; the desktop, other processes, caches, KV
+storage, and image encoders also consume memory. Measure available headroom
+before changing a profile.
 
-**How large can RAM use grow?** With these settings the service is capped at
-36 GiB, regardless of the machine's 96 GB. The 24 GiB expert budget does not mean
-24 GiB total use: KV, dense staging, encoder, runtime overhead and charged file
-cache share the cgroup. An accepted SC117 run selected a 17.77 GiB host expert
-complement; that observation is not a fixed allocation or a worst-case peak.
+| Setting | Purpose |
+| --- | --- |
+| `MemoryHigh`, `MemoryMax`, `MemorySwapMax` | Operating-system service limits; account for the full process and file-cache footprint. |
+| `--memory-limit-mib`, `STRATA_MEMORY_LIMIT_MIB` | Engine memory ceiling; keep aligned with the service limit. |
+| `--resident-budget-gib`, `STRATA_RESIDENT_HEADROOM_GIB` | Bound host memory used by resident experts. |
+| `--vram-reserve-mib` | Reserve GPU memory for the desktop and other applications. |
+| `--max-context` | Model context window; use only a value supported by the prepared model. |
+| `--kv-resident` | GPU-resident KV working set; this does not change model context. |
+| `--conversation-cache-mib` | Optional budget for cached conversations. |
+| Parallel requests | Number of requests served at once; a single request reduces resource contention. |
 
-A larger expert cache or higher-precision quant may use more host RAM if you
-explicitly increase the corresponding budgets and service limits. There is no
-single useful maximum based on installed RAM alone. Budget for the rest of the
-machine, KV, image encoding, runtime overhead and GPU residency. Do not allocate
-the whole machine to the expert cache. No limits were raised for this integration.
+The host expert budget is not total process use. KV, dense staging, encoders,
+runtime overhead, and charged file cache share the service limit. Increasing
+context, expert cache, or encoder budgets can increase memory use; change one
+limit at a time and verify headroom before restarting the service.
 
-Arco's own Node/worker memory guards are separate. `ARCO_RSS_KILL_BYTES`
-controls Arco-managed process-tree workers; Strata is an independently started
-HTTP service, outside that tree. Raising Arco's limit does not lift Strata's
-systemd ceiling. Changing limits requires coordinated edits to the unit/drop-in
-and profile engine limit, fresh headroom checks, then a guarded Strata restart
-between turns. Validate one change at a time; this page is not a tuning preset.
-
-The launcher requires at least **32 GiB available RAM**, **20 GiB free VRAM**, no
-recognized miner, no loaded model in local Ollama, no competing Strata profile
-and a free port 8081 before a full start. `check-switch` tests miner/Ollama and
-prepared config/engine before stopping the old service; the target repeats the
-complete preflight after the old service stops. It never stops mining or unloads
-Ollama automatically.
+Arco's process-tree memory guards are separate from an independently started
+Strata HTTP service. Raising an Arco limit does not change the Strata service's
+operating-system limits. The managed launcher performs preflight checks for
+available memory, competing model services, and port ownership. It refuses a
+switch when the target cannot be started safely; it does not stop other local
+workloads automatically.
 
 ## Context, tool-result sizes and speed
 
@@ -196,198 +156,53 @@ assets. Arco sends image data URLs. Runtime `/v1/models` image modalities
 are authoritative for the served profile; prepared inactive profiles derive
 capabilities from their checked config/files. Model names alone never enable vision.
 
-CPU vision was chosen after observing about **1.7 GiB free VRAM** and **36 GiB
-available RAM** at initial setup, with the service near its 32 GiB soft limit.
-The GPU encoder would consume additional scarce VRAM beside the 2048 MiB reserve.
-Those are historical measurements, not current reservations. Both configs use
-`gpu:false`, `threads:8`, `max_tokens:1024`; changing to GPU encoding needs a new
-headroom assessment and a guarded restart, not just an Arco badge change.
+Vision encoding can run on CPU or GPU depending on the prepared profile. CPU encoding reduces GPU use but may add latency and host-memory pressure. Check the selected profile and live capability report before changing encoder settings; restart the service through its guarded controls.
 
 Strata is unavailable in **Incognito** because its standalone service writes
 request logs and image caches. It is also outside the cluster-member fence.
 Saved Arco conversations retain normal metadata/events. FREE VRAM unloads
 model allocations without deleting GGUFs, saved conversations or disk caches.
 
-## Files and provenance on this workstation
+## Model assets and engine configuration
 
-| Asset | Location |
-| --- | --- |
-| Runtime and private Python | `<strata-checkout>/`, `.venv/bin/python` |
-| Engine | `<strata-checkout>/engine/strata` |
-| CPU image encoder | `<strata-checkout>/build-vision-cpu/bin/strata-vision` |
-| Original GGUFs | `<strata-data>/models/iq3_xxs/` |
-| SC117 GGUFs | `<strata-data>/models/sc117-iq3_xxs/` |
-| Native packs/tokenizers | `<strata-data>/packs/iq3_xxs/`, `packs/sc117-iq3_xxs/` |
-| Stock MTP assets | `<strata-data>/mtp/rt/` |
-| Shared projector | `models/iq3_xxs/mmproj-Qwen3.8-Flash-Next-BF16.gguf` under the data root |
-| Profiles | `<strata-data>/config/iq3_xxs-{262k,sc117-262k}.json` |
-| Guarded launcher | `<local-llm-tools>/scripts/strata-trial.py` |
-| User service template | `~/.config/systemd/user/strata-flash-next@.service` |
-| Arco profile registry | `~/.arco/strata-profiles.json` |
-| Runtime logs | `<strata-data>/logs/` and the user journal |
+Strata, model weights, native packs, tokenizers, MTP components, and vision
+assets are installed separately from Arco and are not redistributed by Arco.
+Keep model assets in user-managed storage and follow the upstream project's
+integrity and license guidance. Do not copy absolute paths from one host to
+another. Arco stores its provider profile registry under the Arco home by
+default and accepts `ARCO_STRATA_PROFILES` to select another registry path.
 
-Installed engine: **0.1.44.1**, source commit
-`296b59d2f73c8f04a805df29c2fa97655adace78`. Provenance:
-
-| Weights | Repository | Pinned revision |
-| --- | --- | --- |
-| Original GSQ-RCO IQ3_XXS | [ISTA-DASLab](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF) | `ed59f92082b1e93c0e96d60a8b11aab089b52f09` |
-| Abliterated GSQ-RCO IQ3_XXS | [SC117](https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF) | `eec4e10a2c29b440a2ae85591fa11569ce752963` |
-
-SC117 was selected for compatibility with the calibrated GSQ-RCO layout and
-current memory budget, not as a measured universal quality winner. There is no
-reliable record of whether Blackfrost or OrcaRouter won the earlier **27B**
-comparison. That comparison does not establish a Flash Next winner.
-
-The abliterated first shard is 47342144896 bytes, SHA256
-`03b11926b41a3d7f7a008882b1bc7a6330a3c9c43d3cad4598d31dc73042fdc5`.
-Its second shard is 28800138432 bytes, SHA256
-`316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113`;
-it is byte-identical to and hardlinked with the original PLE shard. Both hashes
-were checked in full. Shared files mean logical download totals differ from
-physical additional disk use. Keep space for native packs, conversion/temp files,
-MTP, projector and logs as well as GGUFs.
-
-The original first shard is 47039860096 bytes, SHA256
-`219ea929900dfa9ef091f3aa473fdba6874b65fcb36526d7d851ac9e95856d15`.
-The shared BF16 projector is 907543008 bytes, SHA256
-`b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0`.
-
-Each model has its **own native pack**: never reuse original offsets for modified
-weights. SC117's trusted local packing produced 1079 indexed tensors, 302 native
-and a 1.43 GiB dense arena; `--compat-bf16` converted zero tensors. Stock MTP and
-the BF16 projector are shared; MTP itself is not abliterated. CPU vision's model
-path points to the selected model's first shard. Records live in
-`models/iq3_xxs/download-manifest.json`, verified markers,
-`models/sc117-iq3_xxs/preparation.json`, pack metadata and `engine/BUILD.json`.
-Back these up with the registry, profile JSONs, service unit and launcher. `/tmp`
-acceptance evidence is temporary, not durable backup.
-
-## Prepared engine and encoder configuration
-
-The CUDA engine was built in the private Strata environment for the 5090
-(SM 120), using private CUDA 13.4.92 wheels. The system driver was not replaced.
-`engine/BUILD.json` records the engine build; its `vision: none` describes that
-build's bundled encoder state, not the separate CPU encoder subsequently added.
-Check live `/status.vision` and the profile's `vision` object for actual support.
-Keep the source/submodule revisions and Python lockfile with build records.
-
-Both registered profiles have these common arguments (model-specific absolute
-paths differ as listed above):
-
-```text
---pack <own-native-pack> --native <own-first-GGUF> --ple-gguf <own-second-GGUF>
---expert-profile <strata-checkout>/data/expert-profile.bin
---expert-cache auto --prefill auto --spec 4 --spec-min-p 0.5
---mtp <strata-data>/mtp/rt
---max-context 262144 --kv int8 --kv-resident 32768 --vram-reserve-mib 2048
---resident-budget-gib 24 --ple-io direct --pool-workers 8
---conversation-cache-mib 0 --memory-limit-mib 36864 --vision
-```
-
-Common environment: `STRATA_ROUTE_TAIL_SKIP=0` (expert contribution skipping
-disabled), `STRATA_RESIDENT_HEADROOM_GIB=12`,
-`STRATA_MEMORY_LIMIT_MIB=36864`. Experimental speed projection is off. Profile
-JSON sets `parallel:1`, host `127.0.0.1`, port `8081`, GPU index `0`,
-`open_browser:false`, and a default `reasoning_effort:high`; Arco sends the
-tab's chosen effort per request. Profile `exe`, `tokenizer`, `log`, library
-paths and the `vision` section must remain valid absolute paths.
-
-The CPU encoder can be rebuilt from the prepared/pinned Strata checkout without
-loading a model (native CPU build, not a portable artifact):
-
-```bash
-cd <strata-checkout>
-cmake -S tools/vision -B build-vision-cpu -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release -DLLAMA_DIR=<strata-checkout>/third_party/llama.cpp \
-  -DSTRATA_VISION_CUDA=OFF -DSTRATA_PORTABLE=OFF
-cmake --build build-vision-cpu --target strata-vision --parallel 8
-```
-
-The profile's `vision` object points `exe` at that build's `bin/strata-vision`,
-`mmproj` at the verified stock projector, `model` at its own first GGUF, and sets
-`gpu:false`, `threads:8`, `max_tokens:1024`. The original pre-vision backup is
-`config/iq3_xxs-262k.before-arco-vision.json`. Restoring it affects Original
-only and needs a guarded restart plus fresh capability discovery. Do not point
-SC117 at Original's weights or reuse an old pack to undo an encoder change.
-
-The service template runs the launcher's full `check %i` before `serve %i`,
-uses `KillMode=control-group`, `TimeoutStartSec=900`, `TimeoutStopSec=90`,
-`LimitMEMLOCK=infinity`, `Nice=5`, `IOWeight=25`, and `Restart=no`, beside the
-32/36 GiB memory limits. `serve` requires a systemd invocation so direct Python
-startup cannot bypass its cgroup. Arco's switch has its own readiness timeout;
-the unit's longer startup allowance does not make Arco wait indefinitely.
+Profiles must identify the exact model served by the endpoint, its configuration,
+and any required vision assets. The engine's `BUILD.json`, profile metadata,
+and live `/status` response describe different layers; inspect all three when
+troubleshooting a mismatch. Arco discovers capabilities from live metadata or
+from a validated registered profile while the service is stopped. A profile
+label alone does not enable vision or prove that a model is loaded.
 
 ## Register another prepared profile
 
-This is an operator-managed local catalog, not an automatic downloader or a
-Cookbook/Ollama import. Prepare and verify the weights, matching native pack,
-tokenizer, encoder assets and memory-limited user unit before registration.
-The launcher must accept that profile ID for `check-switch`, `check` and `serve`.
-Preserve the existing profiles. The working registry is:
+The registry at `~/.arco/strata-profiles.json` can be moved with
+`ARCO_STRATA_PROFILES`. It lists the loopback endpoint, a profile ID, model ID,
+display label, service identifier, and model configuration path. IDs and model
+IDs must be unique, and the configuration's model name must match the registry.
+The runtime launcher, tokenizer, model assets, and optional vision files must
+exist before registration. Arco checks metadata and endpoint identity, but those
+checks do not replace the runtime's own asset verification.
 
-```json
-{
-  "baseUrl": "http://127.0.0.1:8081/v1",
-  "launcher": {
-    "python": "<strata-checkout>/.venv/bin/python",
-    "script": "<local-llm-tools>/scripts/strata-trial.py"
-  },
-  "profiles": [
-    {
-      "id": "262k",
-      "model": "qwen3.8-flash-next-iq3_xxs-262k",
-      "label": "Qwen3.8 Flash Next · Original · 262K",
-      "unit": "strata-flash-next@262k.service",
-      "config": "<strata-data>/config/iq3_xxs-262k.json"
-    },
-    {
-      "id": "sc117-262k",
-      "model": "qwen3.8-flash-next-sc117-abliterated-iq3_xxs-262k",
-      "label": "Qwen3.8 Flash Next · SC117 Abliterated · 262K",
-      "unit": "strata-flash-next@sc117-262k.service",
-      "config": "<strata-data>/config/iq3_xxs-sc117-262k.json"
-    }
-  ]
-}
-```
-
-Use `ARCO_STRATA_PROFILES` to override the registry path. Managed endpoints
-must be loopback HTTP and match `baseUrl` exactly after Arco's endpoint
-normalization. IDs/models/units must be unique; `config.model_name` must match
-`model`. Registry/config/asset paths are local to the Arco server host. File
-existence checks do not replace model hash or compatibility verification.
-
-Arco merges this catalog with live discovery and includes prepared profiles
-while the service is stopped/unloaded. An available registered profile does not
-prove an engine is currently loaded. Remote/unregistered endpoints use normal
-HTTP discovery/inference; Arco does not control their services. Configuring an
-endpoint or registering a profile never resizes it.
-
-A different model starts only after Arco owns the serial turn slot and local
-operation guard. Other active local providers/reviewers or an external Strata
-request cause a refusal. Arco checks registered unit states and served identity,
-runs preflight, stops the old unit, starts the target and verifies its model ID
-and loaded state (up to 180 seconds for readiness). Failure/cancel attempts to
-restore the previous profile and its prior unloaded state. A rollback failure
-is reported; consult the journal. New local turns and FREE VRAM are refused
-while switching/rollback holds the guard. Cloud turns are independent.
+Use a loopback HTTP endpoint for managed local profiles. Remote or unmanaged
+endpoints use ordinary HTTP discovery and inference; Arco does not control their
+services. Registering a profile does not resize the runtime. During a managed
+switch Arco refuses active local work, checks the service state, starts the
+selected profile, and verifies the served model identity. On failure it reports
+whether the previous profile was restored. A previous unloaded profile remains
+unloaded. Keep profiles separate when their model formats or engine arguments
+differ.
 
 ## Inspect, recover and return to Ollama
 
-Read-only checks (substitute `sc117-262k` to inspect that profile):
-
-```bash
-curl --fail --max-time 10 http://127.0.0.1:8081/v1/models
-curl --fail --max-time 10 http://127.0.0.1:8081/v1/status
-systemctl --user status strata-flash-next@262k.service --no-pager
-systemctl --user show strata-flash-next@262k.service \
-  -p MemoryCurrent -p MemoryPeak -p MemoryHigh -p MemoryMax -p MemorySwapMax
-journalctl --user -u strata-flash-next@262k.service -n 80 --no-pager
-python3 <local-llm-tools>/scripts/strata-trial.py status
-free -h
-nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader,nounits
-```
+Use the configured endpoint's read-only `/v1/models`, `/v1/status`, and health
+routes. Inspect the service manager's status, memory limits, and recent logs.
+The configured service and model profile determine the commands and paths.
 
 | Symptom | What to check / do |
 | --- | --- |
@@ -412,19 +227,10 @@ action with a busy refusal, not a scheduled unload. It leaves the Strata Python
 service up and lets subsequent requests reload it; it does not promise zero GPU
 use from the desktop or other applications.
 
-To return to an existing Ollama model, finish/cancel local work, use FREE VRAM
-and choose an Ollama workflow. For maximum headroom or to resume mining, stop
-the active Strata unit too, after local turns settle:
-
-```bash
-python3 <local-llm-tools>/scripts/strata-trial.py stop sc117-262k
-```
-
-Use `stop 262k` instead if Original is active. The guarded manual start is
-`python3 <local-llm-tools>/scripts/strata-trial.py start 262k` (or
-`start sc117-262k`); it refuses a running peer, so manually stop the old profile
-first. Neither prepared service is enabled at login. Unload Ollama before
-returning to Strata. Existing Ollama models/providers are preserved.
+To return to another local provider, finish or cancel active local work and use
+FREE VRAM before selecting that provider. Stop the Strata service through its
+configured service manager if additional host resources are needed. Arco leaves
+existing provider models and conversation state intact.
 
 **Restart warning:** restarting a Strata unit interrupts its requests.
 Restarting live **Arco** interrupts active workers across tabs. Announce it
@@ -449,19 +255,8 @@ throwaway Arco (`ARCO_SMOKE_WS_URL`, optional `STRATA_SMOKE_MODEL` and
 registries, persistence and workspace; changing only the port or `HOME` is
 insufficient. Never point an auth-off smoke server at production state.
 
-Accepted on 2026-10-14/15: real Chat search/fetch, Agent search, streaming
-reasoning/tool round trips, image questions, native timings, and Original →
-SC117 switching in one conversation with prior-message recall. Production
-catalog and built browser selection were checked. Short decode observations
-were roughly 56–113 tok/s, not sustained long-context throughput guarantees.
-Full 262K prompt quality, worst-case image batches and worst-case RAM peaks
-remain unvalidated. Temporary evidence directories:
-`/tmp/arco-strata-acceptance/`, `/tmp/arco-strata-sc117-live/`, and
-`/tmp/arco-strata-switch-live/`.
-
-Machine preparation/history also lives in
-`<local-llm-tools>/docs/usage/strata.md`; Arco's runbook and help are
-self-contained so that external checkout is not required to understand the UI.
-
-DeepSeek uses a separate Xolotl provider and guarded registry on port 8150;
-see [DEEPSEEK.md](DEEPSEEK.md). Do not put its profiles in the Qwen registry.
+Live acceptance requires the intended Strata runtime, model assets, and target
+hardware. Unit and smoke tests use isolated homes and fake runtimes; they do not
+validate a full 262K prompt, worst-case image batches, or peak memory on a user's
+machine. Short-token rates are not sustained-throughput guarantees. Do not
+assume a prepared profile's memory limits or encoder settings fit another host.
