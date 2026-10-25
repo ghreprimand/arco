@@ -28,8 +28,8 @@ test('shouldReap: unknown on either side → fail toward kill', () => {
   assert.equal(shouldReap(null, null), true);
 });
 
-test('readStartTime: live pid yields a stable, non-null token (POSIX)', () => {
-  if (process.platform !== 'linux' && process.platform !== 'darwin') return;
+test('readStartTime: live pid yields a stable, non-null token', () => {
+  if (!['linux', 'darwin', 'win32'].includes(process.platform)) return;
   const a = readStartTime(process.pid);
   const b = readStartTime(process.pid);
   assert.ok(a !== null, 'own start time is readable');
@@ -46,7 +46,9 @@ test('isAlive: self is alive, an absurd pid is not', () => {
   assert.equal(isAlive(2_000_000_000), false);
 });
 
-test('reapProc: a "recycled" live pid is NOT killed (start time mismatch)', () => {
+// Without a readable start time reapProc fails toward kill, which here would
+// kill this test process; skip rather than take the whole file down.
+test('reapProc: a "recycled" live pid is NOT killed (start time mismatch)', { skip: readStartTime(process.pid) === null ? 'no process start time on this platform' : false }, () => {
   // Record a deliberately wrong start time for our own live pid → reapProc must
   // classify it as 'reused' and short-circuit before forceKillPid. (If the guard
   // were broken this test process would be SIGKILLed and the run would fail.)

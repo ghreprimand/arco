@@ -63,6 +63,24 @@ export function readStartTime(pid: number): string | null {
       return null;
     }
   }
+  if (process.platform === 'win32') {
+    // Windows has no /proc or ps; PowerShell reports the creation time as a
+    // FILETIME, which is stable for the life of the process.
+    try {
+      const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        // The .NET call avoids Get-Process's module autoload, the slow part of
+        // a cold PowerShell start.
+        `[System.Diagnostics.Process]::GetProcessById(${pid}).StartTime.ToFileTimeUtc()`], {
+        timeout: 15_000,
+        encoding: 'utf8',
+        windowsHide: true,
+      });
+      const s = out.trim();
+      return /^\d+$/.test(s) ? s : null;
+    } catch {
+      return null;
+    }
+  }
   return null; // unknown platform — fail toward kill
 }
 
