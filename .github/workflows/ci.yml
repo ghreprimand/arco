@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
+      - name: Disable line-ending conversion
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # NODE_ENV is unset on hosted runners; devDependencies (tsc, tsx) are required.
+      - name: Install
+        run: npm ci --include=dev
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      # scripts/test-unit.mjs isolates HOME, provider commands and (on Linux, when permitted) the
+      # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Public-safety audit (tree)
+        run: npm run audit:public -- --tree
+      - name: Public-safety audit (history, identity and trailers)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/public-audit.mjs --history
+      # Link check: enable `npm run test:docs` here once the documentation set lands it.
+      - name: Help registry check
+        run: npm run docs:check
+
+  browser:
+    name: browser smokes (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --include=dev
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+          echo "ARCHON_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Browser smokes (fixture APIs, no providers)
+        run: node scripts/smoke/run-browser-suites.mjs
+
+  # macOS and Windows browser runs are best effort until the platform work in P2.2 stabilizes them.
+  browser-other:
+    name: browser smokes (${{ matrix.os }}, best effort)
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    timeout-minutes: 30
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --include=dev
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install chromium
+          echo "ARCHON_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Browser smokes
+        run: node scripts/smoke/run-browser-suites.mjs
+
+  # Runs only once the container baseline (P2.1) has landed a Dockerfile.
+  docker:
+    name: docker smoke (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Dockerfile
+        id: detect
+        run: |
+          if [ -f Dockerfile ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Build image
+        if: steps.detect.outputs.present == 'true'
+        run: docker build -t arco:ci .
+      - name: Smoke
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          if [ -f scripts/docker-smoke.sh ]; then sh scripts/docker-smoke.sh arco:ci; else echo "No docker smoke script yet; image build only."; fi
