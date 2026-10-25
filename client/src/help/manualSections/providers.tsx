@@ -96,7 +96,7 @@ export const providers: Section[] = [
             (agent count + per-subagent task/last-tool) while a fan-out runs.
             Operator-armed, reversible, logged — but it runs a fleet unattended
             with full access and spends heavily. See{' '}
-            <Code>docs/ULTRACODE_PLAN.md</Code>.
+            <Code>docs/PROVIDERS.md</Code>.
           </li>
           <li>
             <strong>Native hooks.</strong> Native walks project and user{' '}
@@ -378,7 +378,7 @@ export const providers: Section[] = [
           <Code>totalPercentUsed</Code>) and the separate <em>Other Models</em> quota
           (<Code>apiPercentUsed</Code>) — both are Cursor's own numbers, never reconstructed
           from local token totals. All Cursor phases now ship — see{' '}
-          <Code>docs/CURSOR_TRANSPORT_PLAN.md</Code>.
+          <Code>docs/PROVIDERS.md</Code>.
         </Note>
       </>
     ),
