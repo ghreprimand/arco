@@ -5,6 +5,8 @@
 import { realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { arcoHome as runtimeHome } from './arcoHome.js';
+import { UPSTREAM_STATE_DIRECTORY } from './envAliases.js';
 
 export class FileAccessError extends Error {
   readonly code = 'EACCES';
@@ -18,7 +20,7 @@ export function isPathWithin(root: string, target: string): boolean {
 
 const PRIVATE_COMPONENTS = new Set([
   '.codex', '.claude', '.gemini', '.cursor', '.ssh', '.gnupg', '.aws', '.azure',
-  '.kube', '.docker', '.config', '.git', '.npm', '.cache', '.pki', 'appdata',
+  '.kube', '.docker', '.config', '.git', '.npm', '.cache', '.pki', 'appdata', UPSTREAM_STATE_DIRECTORY,
 ]);
 const SYSTEM_ROOTS = ['/proc', '/sys', '/dev', '/etc', '/run', '/var/run', '/var/lib', '/var/log', '/boot', '/private/etc', '/private/var/run', '/System'];
 
@@ -60,9 +62,10 @@ export function assertSafePath(target: string): void {
   // The runtime home may itself be a symlink/volume alias. Its canonical
   // provider-accounts/settings/vault paths stay private even without an
   // `.arco` component in their real names. Scratch cannot alias those paths.
-  const runtime = path.join(homedir(), '.arco');
-  const runtimeRoots = [runtime];
-  try { runtimeRoots.push(realpathSync(runtime)); } catch { /* not created */ }
+  const runtimeRoots = [path.join(homedir(), '.arco'), runtimeHome()];
+  for (const runtime of [...runtimeRoots]) {
+    try { runtimeRoots.push(realpathSync(runtime)); } catch { /* not created */ }
+  }
   for (const root of runtimeRoots) {
     if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map((p) => p.toLowerCase()))) throw new FileAccessError();
   }

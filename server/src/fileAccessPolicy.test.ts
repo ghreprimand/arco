@@ -17,6 +17,7 @@ process.env.HOME = home;
 process.env.USERPROFILE = home;
 process.env.CODEX_HOME = customProvider;
 process.env.ARCO_UPLOADS_DIR = path.join(fixture, 'uploads');
+const { UPSTREAM_STATE_DIRECTORY } = await import('./envAliases.js');
 const { confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
 const { resolveBoundCwd } = await import('./http/writeConfinement.js');
 const { patchSettings } = await import('./settings.js');
@@ -192,6 +193,46 @@ test('runtime aliases and scratch aliases cannot authorize account state', async
   rmSync(SCRATCH_ROOT, { recursive: true });
   symlinkSync(path.join(moved, 'provider-accounts'), SCRATCH_ROOT);
   assert.throws(() => resolveMediaInput({ unconfined: false }, path.join(SCRATCH_ROOT, 'fixture', 'session.txt')));
+});
+
+test('relocated runtime homes and their aliases keep private state protected', () => {
+  const previous = process.env.ARCO_HOME;
+  const relocated = path.join(project, 'runtime-home');
+  const alias = path.join(project, 'runtime-alias');
+  const settings = file(path.join(relocated, 'settings.json'));
+  const account = file(path.join(relocated, 'provider-accounts', 'fixture', 'session.txt'));
+  const artifact = file(path.join(relocated, 'workflows', 'fixture', 'artifacts', 'report.md'));
+  symlinkSync(relocated, alias);
+  try {
+    for (const runtime of [relocated, alias]) {
+      process.env.ARCO_HOME = runtime;
+      for (const denied of [settings, account, path.join(alias, 'settings.json'), path.join(alias, 'provider-accounts', 'fixture', 'session.txt')]) {
+        assert.throws(() => confinedPath(denied, [project]), `private runtime file: ${path.basename(denied)}`);
+        assert.throws(() => resolveMediaInput({ cwd: project, unconfined: true, allowedRoots: [project] }, denied));
+      }
+      assert.throws(() => safeDirectory(relocated));
+      assert.throws(() => safeDirectory(alias));
+      assert.equal(confinedPath(artifact, [project]), artifact);
+      assert.equal(confinedPath(path.join(alias, 'workflows', 'fixture', 'artifacts', 'report.md'), [project]), artifact);
+      assert.equal(confinedPath(inside, [project]), inside);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.ARCO_HOME;
+    else process.env.ARCO_HOME = previous;
+  }
+});
+
+test('upstream state stays private inside project grants and through aliases', () => {
+  const legacy = path.join(project, UPSTREAM_STATE_DIRECTORY);
+  const secret = file(path.join(legacy, 'provider-accounts', 'fixture', 'session.txt'));
+  const alias = path.join(project, 'upstream-state-alias');
+  symlinkSync(legacy, alias);
+  for (const target of [secret, path.join(alias, 'provider-accounts', 'fixture', 'session.txt')]) {
+    assert.throws(() => confinedPath(target, [project]));
+    assert.throws(() => resolveMediaInput({ cwd: project, unconfined: true, allowedRoots: [project] }, target));
+  }
+  assert.throws(() => safeDirectory(legacy));
+  assert.throws(() => safeDirectory(alias));
 });
 
 test('missing authorized media retains the existing recovery codes without running a model', async () => {

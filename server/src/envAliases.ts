@@ -9,6 +9,8 @@
 //
 // The prefix is assembled from parts so the tree-wide name audit stays clean.
 export const UPSTREAM_ENV_PREFIX = `${['ARC', 'HON'].join('')}_`;
+// A privacy denylist name only; this directory is never used as Arco state.
+export const UPSTREAM_STATE_DIRECTORY = `.${UPSTREAM_ENV_PREFIX.slice(0, -1).toLowerCase()}`;
 
 export function applyEnvFallback(env: NodeJS.ProcessEnv = process.env): void {
   for (const [key, value] of Object.entries(env)) {
