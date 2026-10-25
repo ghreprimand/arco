@@ -1,19 +1,14 @@
-# Arco Phosphor — isolated design preview
+# Arco Phosphor, isolated design preview
 
-The approved treatment is now integrated in production source as the Phosphor
-theme family. This demo remains isolated. Shared palette/adapter/emission/renderer
-modules live in `client/src/themes/phosphor/`; demo paths re-export them.
+The Phosphor theme family is integrated in Arco. This page documents a separate
+visual-preview entry built with synthetic data and local operation adapters. It
+does not replace the normal app entry, change production layout, or persist
+preview selections across reloads. Shared palette, adapter, emission, and
+renderer modules live in `client/src/themes/phosphor/`.
 
-Review URL: **http://127.0.0.1:5178/phosphor-demo.html**
-
-This is a separate Vite entry, with synthetic data and local operation adapters.
-It does not replace the Arco entry, deploy a build, restart `arco.service`,
-or change production theme contracts. All preview choices reset on reload.
-
-**Review boundary (operator feedback):** approval is for the visual treatment,
-not this rearranged fixture shell. A rollout must preserve Arco's existing
-layout, content, operational controls and full settings, including fonts and
-independent background/text brightness. The styling-only integration was deployed on September 7; this fixture layout was not.
+Run the preview with `npm run dev:phosphor-demo -w client` and open
+`http://localhost:5178/phosphor-demo.html`. Its build output uses an ignored
+directory separate from the production client bundle.
 
 ```bash
 npm run dev:phosphor-demo -w client
@@ -28,7 +23,7 @@ The production service was left running throughout this work.
 
 ## Inspecting the preview
 
-- Starts in **Arco Phosphor → Arco CRT**, compact, effects on. Compare
+- Starts in **Arco Phosphor -> Arco CRT**, compact, effects on. Compare
   **Arco Classic** using the same transcript, viewport and panel state.
 - **GLOW SOFTNESS** defaults to 50% after review of the softer-looking transcript.
   It tightens the luminous core and reduces halo/chromatic spread without changing
@@ -36,7 +31,7 @@ The production service was left running throughout this work.
   stack; 0 removes text glow only. Crisp text/effects-off override and disable
   the slider without forgetting its value. Reduced motion retains the setting.
 - **FONTS / BRIGHTNESS** opens the display settings, including all existing font
-  packs, separate text brightness (−30…+80) and background brightness (−30…+30).
+  packs, separate text brightness (−30...+80) and background brightness (−30...+30).
   The background dimmer uses Arco's existing token adjustment and feeds the
   adjusted base into the ambient renderer; static fallback uses the same tokens.
 - **BROWSE / SETTINGS** searches all palettes by readable name or full ID, with
@@ -126,8 +121,7 @@ Current production flow remains unchanged:
 
 **Classic:** imports all 43 existing registry entries unchanged. Original IDs,
 names, fonts, CSS treatments, background images and lazy shader presets remain
-available. The fixture shell is new, so this is not a pixel-identical screenshot
-of the production App. Theme-native density is retained in Classic; the demo's
+available. The fixture shell is new, so this does not reproduce the production app layout. Theme-native density is retained in Classic; the demo's
 compact/comfortable spacing adjustment applies only in Phosphor. Existing rough
 border renderers on production-specific panels are not exercised by this shell.
 
@@ -144,13 +138,9 @@ including the wordmark; Classic retains its existing wordmark exception.
 
 ## Palette adapter and provenance
 
-The local `arco-palette.ts` is a catalog/resolver snapshot from
-the upstream reference palette module, identical apart from renamed identifiers, inspected at checkout revision
-`d52d43042e954586035ef259c3d5a3e3ebf9c5ea` on 2026-09-07. It carries the complete
-68-entry catalog, eight categories and version 1 resolver. No runtime sibling
-checkout dependency exists. The test pins its SHA-256:
-
-`286fa0ebce77c7b60c94205e90c8ed11067b7f3f1480f8e2b77a787ab7f50ed2`
+The local `arco-palette.ts` file carries the complete catalog, category labels,
+and resolver data used by the preview. There is no runtime dependency on another
+checkout. Palette completeness and token coverage are checked by the theme tests.
 
 `paletteAdapter.ts` constructs Arco manifests from the resolver:
 
@@ -164,13 +154,13 @@ checkout dependency exists. The test pins its SHA-256:
 | border-primary / control-border | border-hairline / border-bright |
 | emission / cold / glass / RGB roles | namespaced `--arco-*` ambient, glass and raster colors |
 | purple / green / orange / blue / muted / red | syntax keywords / strings / literals / functions / comments / deletion |
-| chart-1…12 / on-accent | graph colors / selection and filled-control foreground |
+| chart-1...12 / on-accent | graph colors / selection and filled-control foreground |
 
 The imported resolver retains hue while lifting foregrounds to at least 4.5:1
 against its four defined surfaces; essential controls use 3:1. Tests check every
 palette's foreground roles and complete Arco token coverage. Rendered effects,
-operator brightness changes and arbitrary production surfaces require separate
-review; passing token tests is not an accessibility certification.
+brightness changes and other production surfaces require separate review;
+passing token tests is not an accessibility certification.
 
 JetBrains Mono 400/700/800 files are copied locally with their OFL license. They
 use a demo-specific font-family name so Classic font selection is unaffected.
@@ -178,89 +168,35 @@ To refresh the snapshot, deliberately replace it with the complete new catalog,
 record the revision/hash, and review count/category/resolver changes in the
 completeness test. Do not duplicate individual theme definitions.
 
-## CRT implementation and cost
+## Implementation map
 
-Read/visually inspected the running synthetic overview and Help atlas.
-Primary implementation references:
+The preview and production theme share palette, adapter, and emission modules.
+`client/src/themes/phosphor/Ambient.tsx` owns the isolated shader, WebGL program,
+buffer, animation frame, and event listeners. It releases them on unmount and
+rebuilds after WebGL context restoration. Hidden pages, reduced motion, and small
+screens stop ambient rendering. The Phosphor backdrop is separate from the lazy
+Classic shader renderer.
 
-- `docs/ui.md`, `public/css/crt.css`, `public/js/crt.js`, `src/ui/palette.ts`.
-- `public/css/architecture.css`, `public/js/architecture-renderer.js`, and the
-  isolated `scripts/preview-ui.ts` fixture approach.
-- Secondary lineage: Unfinished Works presentation layers, OdyTTY presentation
-  controls/theme structure, Kill-9 postprocessing. Kill-9 bloom is not imported.
+Text remains DOM content, not canvas pixels. Crisp-text and effects-off controls
+remove Phosphor glyph emission. Preview preferences remain separate from saved
+production theme preferences. See [`CLIENT.md`](CLIENT.md) for the production
+theme integration and controls.
 
-The five-part reference glyph-emission stack remains available at 100% softness:
-2px core, 7px/54% halo, 20px/24% outer emission, and ±0.7px restrained chromatic
-separation. The revised 50% default uses a 1px core, 3.5px/27% halo,
-10px/12% outer halo and ±0.35px chromatic offset. Each foreground element
-resolves its own emission. Code, diffs and
-terminal output deliberately have no text blur. CSS owns the stationary 3px
-raster, translucent surfaces and glass. Vignette edge attenuation is lighter
-than the reference's because Arco places operational terminal output at the bottom.
-No text or controls are painted to canvas; no full-content bloom/filter is used.
+## Verification and limits
 
-The ambient fragment is adapted from the reference's single-pass float/dithered tube
-field. All time-driven scan, band and hum terms are removed. Only a restrained
-pointer charge can animate; it decays to a static image and stops scheduling
-frames entirely. DPR is capped at 1.5 and the buffer's largest edge at 900px.
-There is no traveling line, periodic highlight, flicker or pulsing in Phosphor.
+`npm run test:phosphor` checks the palette catalog, resolver, token coverage, and
+settings behavior. `npm run build:phosphor-demo -w client` builds the isolated
+entry. `scripts/smoke/phosphor-demo-browser.py` exercises palette selection,
+fonts, brightness, effects, reduced motion, layout changes, context restoration,
+and unavailable WebGL against synthetic data. The preview harness intercepts
+API and WebSocket requests; it does not connect to providers or persist workflows.
 
-Why a dedicated renderer: the existing Three.js implementation loads a ~566 KB
-minified lazy chunk containing all Classic shaders and creates a glyph atlas,
-scene, geometry and material cache. A single ambient triangle needs none of
-that preset machinery. The dedicated renderer preserves the reference's field and
-keeps its lifecycle independent of transcript updates. Classic still uses the
-existing lazy renderer. Conditional mounts prevent simultaneous renderers.
+The demo is not the complete production workbench. It does not exercise live
+provider connections, cluster operations, filesystem access, or every app
+screen. Automated theme tests do not certify accessibility, physical display
+quality, long-session performance, or every browser/GPU combination. Production
+theme changes require the normal client build and review.
 
-`Ambient.tsx` owns/deletes its shaders, program and buffer, cancels timers/rAF,
-removes all listeners, releases its context on unmount, and rebuilds after
-context restoration. Hidden pages, reduced motion and coarse/small screens stop
-canvas activity. CSS remains under reduced motion, loss or unavailable WebGL.
-Effects-off unmounts decoration and disables text glow. Stats are inspectable
-as `window.arcoPhosphorStats` without per-frame React state updates.
-
-## Verification and rollout boundary
-
-The four catalog/contract tests and client TypeScript/isolated Vite build pass.
-The browser harness covers the six requested palette samples (`arco-crt`,
-`default`, `everforest`, `amber`, `phosphor`, `red-planet`), five Classic samples,
-selection/draft/history-scroll/diff/split preservation, native approval/question
-controls, streaming/queue, search, modal Escape/focus, tooltip focus, responsive
-1024/768/390 layouts, 200% CSS zoom with a fully bounded dialog, effects/crisp/
-reduced-motion states, context loss/restoration and unavailable WebGL. The
-visibility listener is tested with a controlled hidden state because headless
-Chromium keeps background pages visible. Screenshots and machine-readable
-results are in `/tmp/arco-phosphor-review/`.
-
-Performance measurements use headless Chromium/SwiftShader at 1536×1080, with a
-900×633 ambient buffer. Measurements report browser task time and JS draw-submit
-time, **not GPU elapsed time, compositor cost or workstation watts**. Idle and
-streamed-token-only sampling produce zero ambient draws; pointer sampling is
-bounded below 30fps. See `results.json` for the latest measured values. The real
-Markdown/virtualized transcript still has its own streaming CPU cost. Workbench
-controls and catalog are isolated from that store subscription.
-
-Observed two-second samples on this machine: idle 0 draws / 0.28ms browser task
-time; streaming without pointer activity 0 draws / 477ms task time; pointer
-activity 46 draws / 209ms task time (~23fps); effects off 0 draws / 0.56ms task
-time. Across the run, 237 ambient submissions used 3.6ms total JS submit time
-(0.10ms maximum). These include headless software-rendering conditions and are
-short measurements, not an hours-long or hardware power result.
-
-The isolated build warns about its ~1.57 MB uncompressed main demo chunk:
-reusing native ChatMessage also brings the file viewer/editor dependencies.
-Three.js stays in its own lazy Classic chunk. This preview has not been tuned
-for initial-load bundle size or validated on Firefox/Wayland/NVIDIA, Safari,
-screen readers, true browser-chrome zoom, or a physical long-running monitor.
-No whole-site or all-palette rendered accessibility claim is made.
-
-Before rollout: operator visual acceptance; extend fixtures to omitted screen
-families; audit hardcoded/legacy token aliases and overlay accessibility; measure
-the workstation GPU/compositor over a long session; integrate family/palette
-preferences and cache startup together; update client registry and server/shared
-validation in the same change; prove legacy preferences remain unchanged. None
-of those production integrations or migrations is part of this isolated demo.
-
-Reversal: stop the separate Vite process, remove the added preview files and the
-two client package scripts/ignore entry. There are no saved preferences or
-workflow records to revert. The pre-existing untracked `ready-agent` is untouched.
+The demo uses synthetic data and separate preview assets. Removing its dedicated
+Vite entry, preview modules, package scripts, and ignored output directory does
+not require a data migration.
