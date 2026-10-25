@@ -31,6 +31,37 @@ import {
 import path from 'path';
 import { randomUUID } from 'crypto';
 
+// On Windows a rename over a file that another handle has open (a reader, a
+// virus scanner, the indexer, or a concurrent writer's own rename) fails with
+// EPERM, EACCES or EBUSY for a short moment. Retry those with a short backoff,
+// bounded to about five seconds, before giving up; other platforms rename
+// over open files and never take this path.
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const RENAME_RETRY_LIMIT_MS = 5_000;
+const isWindows = process.platform === 'win32';
+const retryable = (e: unknown): boolean => isWindows && RENAME_RETRY_CODES.has((e as NodeJS.ErrnoException)?.code ?? '');
+
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  const started = Date.now();
+  for (let delay = 5; ; delay = Math.min(delay * 2, 100)) {
+    try { await fs.rename(from, to); return; } catch (e) {
+      if (!retryable(e) || Date.now() - started > RENAME_RETRY_LIMIT_MS) throw e;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+function renameWithRetrySync(from: string, to: string): void {
+  const started = Date.now();
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  for (let delay = 5; ; delay = Math.min(delay * 2, 100)) {
+    try { renameSync(from, to); return; } catch (e) {
+      if (!retryable(e) || Date.now() - started > RENAME_RETRY_LIMIT_MS) throw e;
+      Atomics.wait(pause, 0, 0, delay);
+    }
+  }
+}
+
 export interface AtomicWriteOptions {
   /**
    * `'durable'` (default) fsyncs the temp file before the rename — use for any
@@ -76,7 +107,7 @@ export async function atomicWriteFile(
     // `open` honours the process umask, so an explicit chmod is needed to
     // guarantee 0600 on a secrets file.
     if (mode !== undefined) await fs.chmod(tmp, mode).catch(() => undefined);
-    await fs.rename(tmp, filePath);
+    await renameWithRetry(tmp, filePath);
     // Some filesystems drop the mode on a cross-device move.
     if (mode !== undefined) await fs.chmod(filePath, mode).catch(() => undefined);
   } finally {
@@ -147,7 +178,7 @@ export function atomicWriteFileSync(
       closeSync(fd);
     }
     if (mode !== undefined) { try { chmodSync(tmp, mode); } catch { /* best-effort */ } }
-    renameSync(tmp, filePath);
+    renameWithRetrySync(tmp, filePath);
     if (mode !== undefined) { try { chmodSync(filePath, mode); } catch { /* best-effort */ } }
   } finally {
     try { rmSync(tmp, { force: true }); } catch { /* already renamed away */ }

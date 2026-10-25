@@ -76,7 +76,7 @@ test('a failed write removes the temp and leaves the previous file intact', asyn
   assert.deepEqual(await leftoverTemps(dir), [], 'temp cleaned up on failure');
 });
 
-test('mode is applied to the renamed target', async () => {
+test('mode is applied to the renamed target', { skip: process.platform === 'win32' ? 'Windows has no POSIX permission bits' : false }, async () => {
   const dir = await tmpDir();
   const target = path.join(dir, 'secret.json');
   await atomicWriteFile(target, 'shh', { mode: 0o600 });
@@ -178,9 +178,14 @@ test('a concurrent .json listing never observes a partial file', async () => {
     }
   })();
 
-  for (let i = 0; i < 5; i++) await atomicWriteFile(target, body);
-  stop = true;
-  await watcher;
+  // Stop the watcher even when a write fails, so a failure is reported
+  // instead of leaving the loop (and the test process) running forever.
+  try {
+    for (let i = 0; i < 5; i++) await atomicWriteFile(target, body);
+  } finally {
+    stop = true;
+    await watcher;
+  }
 
   assert.ok(observations > 0, 'the watcher actually saw the file');
 });
