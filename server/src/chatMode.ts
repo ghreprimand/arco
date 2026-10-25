@@ -1,17 +1,17 @@
 import { homedir, tmpdir } from 'os';
 import { promises as fs, mkdtempSync, rmSync } from 'fs';
 import path from 'path';
-import type { ProviderName, SavedChatSummary, WorkflowConfig } from '@archon/shared';
+import type { ProviderName, SavedChatSummary, WorkflowConfig } from '@arco/shared';
 import { readMeta, workflowConfigFromMeta } from './workflowMeta.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export const CHAT_PROVIDERS = new Set<ProviderName>([
   'claude', 'codex', 'zai', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
 ]);
 
 // Cursor's CLI has no ephemeral-session switch. llama.cpp is served by a
-// shared Archon-managed daemon whose stdout/stderr always lands in
-// ~/.archon/llamacpp.log. Neither can meet strict incognito's zero-Archon-log
+// shared Arco-managed daemon whose stdout/stderr always lands in
+// ~/.arco/llamacpp.log. Neither can meet strict incognito's zero-Arco-log
 // contract. Strata also has standalone request logs and an image cache.
 // Reject these rather than show a misleading privacy label.
 export const INCOGNITO_CHAT_PROVIDERS = new Set<ProviderName>([
@@ -19,7 +19,7 @@ export const INCOGNITO_CHAT_PROVIDERS = new Set<ProviderName>([
 ]);
 
 // Providers whose Chat transport can honor the web-access toggle. Claude and
-// Codex use their provider web surfaces; Ollama gets only Archon's local
+// Codex use their provider web surfaces; Ollama gets only Arco's local
 // SearXNG-backed WebSearch/WebFetch pair, also used by Strata. Other
 // transports stay offline and the UI says so.
 export const CHAT_WEB_PROVIDERS = new Set<ProviderName>(['claude', 'codex', 'ollama', 'strata', 'deepseek']);
@@ -76,14 +76,14 @@ export function chatStorageDir(workflowId: string): string {
 // /tmp/.claude/settings.json was picked up by the provider CLI as project
 // instructions/settings for a "private" chat. mkdtemp gives a 0700 dir only
 // this uid can populate; one per server process (created lazily, removed on
-// exit). Archon itself writes nothing into it. A rehydrated incognito tab
+// exit). Arco itself writes nothing into it. A rehydrated incognito tab
 // re-assigns it (handoffHandlers enforceIncognitoOnRehydrate), so a stale
 // path from a previous process never survives a restart.
 let incognitoCwd: string | null = null;
 
 export function incognitoChatCwd(): string {
   if (incognitoCwd) return incognitoCwd;
-  const dir = mkdtempSync(path.join(tmpdir(), 'archon-incognito-'));
+  const dir = mkdtempSync(path.join(tmpdir(), 'arco-incognito-'));
   incognitoCwd = dir;
   process.once('exit', () => {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
@@ -92,7 +92,7 @@ export function incognitoChatCwd(): string {
 }
 
 export function chatRootDir(): string {
-  return path.join(archonHome(), 'chats');
+  return path.join(arcoHome(), 'chats');
 }
 
 export async function listSavedChats(root = chatRootDir()): Promise<SavedChatSummary[]> {

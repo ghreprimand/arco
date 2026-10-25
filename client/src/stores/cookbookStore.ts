@@ -3,7 +3,7 @@ import type {
   CatalogQuery, CatalogResponse, CatalogRow, HardwareProfile, HardwareSimPreset,
   CookbookTaskProfile, ProviderName, ModelName, EffortLevel,
   CookbookDownloadSource, CookbookDownloadPhase,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Workbench Expansion G4 — module-level senders for the download lifecycle.
 // Registered by useWebSocket alongside the recommend sender so the

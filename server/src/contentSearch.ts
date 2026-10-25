@@ -24,7 +24,7 @@ import { execFile, spawnSync } from 'node:child_process';
 // Set — not worth the dependency for a server-side HTTP route. If the lists
 // ever need to stay in lockstep, hoist this into a shared constants module.
 export const SKIP_DIRS = [
-  'node_modules', '.git', '.archon', 'dist', 'build', '.next',
+  'node_modules', '.git', '.arco', 'dist', 'build', '.next',
   '.cache', 'target', '.venv', 'venv',
 ];
 

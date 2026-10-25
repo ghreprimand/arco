@@ -23,7 +23,7 @@ workers (necessary condition); true catch-rate needs a live incident.
 """
 import json, glob, collections, os, re
 
-LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".archon", "workflows"))
+LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".arco", "workflows"))
 WIN_CALLS = 20        # window size in tool calls
 WIN_MIN   = 6         # ...spanning at least this many minutes
 DISTINCT_RATIO = 0.45 # flag only if distinct (tool,sig)/calls below this (revisiting)

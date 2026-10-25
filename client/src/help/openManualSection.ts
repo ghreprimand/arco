@@ -15,7 +15,7 @@ export function openManualSection(sectionId: string): void {
   useAppStore.getState().setShowManual(true);
   setTimeout(() => {
     window.dispatchEvent(
-      new CustomEvent('archon:manual-jump', { detail: { sectionId } }),
+      new CustomEvent('arco:manual-jump', { detail: { sectionId } }),
     );
   }, 0);
 }

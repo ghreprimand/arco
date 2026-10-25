@@ -5,9 +5,9 @@
 // round-trips through write→scan, the manifest WITHHOLDS operator-only skills
 // while keeping normal ones, and buildPickedSkillsBlock inlines the full body.
 //
-// Uses temp project + global skill roots. Global skills live under ~/.archon —
+// Uses temp project + global skill roots. Global skills live under ~/.arco —
 // to stay hermetic we write a project skill (cwd-scoped) for both cases and
-// assert on the project list, so the operator's real ~/.archon is untouched.
+// assert on the project list, so the operator's real ~/.arco is untouched.
 //
 // Run: npm run smoke:operator-skills   (no server needed)
 
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
   const skills = await import('../../server/src/skills.js');
   const { writeSkill, listSkills, readSkillBody, buildSkillsManifest, buildPickedSkillsBlock } = skills;
 
-  const cwd = path.join(tmpdir(), `archon-opskills-smoke-${process.pid}`);
+  const cwd = path.join(tmpdir(), `arco-opskills-smoke-${process.pid}`);
   await fs.mkdir(cwd, { recursive: true });
 
   try {

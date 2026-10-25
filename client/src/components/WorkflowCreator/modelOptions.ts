@@ -1,5 +1,5 @@
-import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_MODEL_INFO, CODEX_PICKER_MODELS, ZAI_MODEL_LABELS, ZAI_MODELS, presetForText } from '@archon/shared';
-import type { ModelName, EffortLevel } from '@archon/shared';
+import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_MODEL_INFO, CODEX_PICKER_MODELS, ZAI_MODEL_LABELS, ZAI_MODELS, presetForText } from '@arco/shared';
+import type { ModelName, EffortLevel } from '@arco/shared';
 import type { MemberDraft } from './types';
 
 // Compute the effective display name for each cluster member at submit time.

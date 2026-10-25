@@ -1,4 +1,4 @@
-// ── Preview-capture WS handler (ARCHON_OPS_PLAN.md G1) ──
+// ── Preview-capture WS handler (ARCO_OPS_PLAN.md G1) ──
 //
 // One operator-driven message: `preview_capture_request`. Resolve the workflow's
 // bound preview port, drive a system headless browser at it
@@ -20,7 +20,7 @@ import type {
   PreviewCaptureSummary,
   PreviewViewport,
   PreviewLayoutNotes,
-} from '@archon/shared';
+} from '@arco/shared';
 import { workflows, workflowCwds } from '../server/state.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { artifactsDir } from '../workers/limits.js';

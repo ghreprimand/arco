@@ -1,6 +1,6 @@
 // Cluster snapshots — operator-saved whole-cluster artifacts (config + members
 // + full conversation histories) persisted server-side at
-// ~/.archon/cluster-snapshots/<id>/. Mirrors cluster PRESETS, but presets ride
+// ~/.arco/cluster-snapshots/<id>/. Mirrors cluster PRESETS, but presets ride
 // HTTP and capture only member CONFIGS; snapshots ride WS (the four
 // cluster_snapshot_* ClientMessages) and capture full state + history.
 //
@@ -11,7 +11,7 @@
 // fold back through the onList / onSaved / onError reducers below.
 
 import { create } from 'zustand';
-import type { ClientMessage, ClusterSnapshotSummary } from '@archon/shared';
+import type { ClientMessage, ClusterSnapshotSummary } from '@arco/shared';
 
 type Sender = (msg: ClientMessage) => void;
 

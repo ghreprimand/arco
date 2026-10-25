@@ -2,14 +2,14 @@ import { spawn } from 'node:child_process';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import { homedir } from 'os';
-import type { ToolboxEntry, ToolboxResponse } from '@archon/shared';
+import type { ToolboxEntry, ToolboxResponse } from '@arco/shared';
 import { JsonRpcClient } from './providers/codex-appserver/jsonRpc.js';
 import type { InitializeResponse } from './providers/codex-appserver/bindings/InitializeResponse.js';
 import type { SkillsListResponse } from './providers/codex-appserver/bindings/v2/SkillsListResponse.js';
 import type { PluginListResponse } from './providers/codex-appserver/bindings/v2/PluginListResponse.js';
 
 // Provider-native skill catalogs. This is intentionally separate from
-// skills.ts: `.archon/skills` are Archon-owned prompt attachments, while this
+// skills.ts: `.arco/skills` are Arco-owned prompt attachments, while this
 // module asks each agent runtime what it can actually invoke.
 
 const USER_SKILLS = join(homedir(), '.claude', 'skills');
@@ -224,7 +224,7 @@ async function discoverCodexSkills(cwd: string, codexHome?: string): Promise<Too
   const timer = setTimeout(cleanup, PROBE_TIMEOUT_MS);
   try {
     await rpc.request<InitializeResponse>('initialize', {
-      clientInfo: { name: 'archon', title: 'Arco', version: '0.1.0' },
+      clientInfo: { name: 'arco', title: 'Arco', version: '0.1.0' },
       capabilities: { experimentalApi: true, optOutNotificationMethods: null },
     });
     rpc.notify('initialized');
@@ -252,7 +252,7 @@ export function normalizeCodexSkillCatalog(result: SkillsListResponse, cwd: stri
   const row = result.data.find((entry) => entry.cwd === cwd) ?? result.data[0];
   const entries = (row?.skills ?? []).filter((skill) => skill.enabled).map<ToolboxEntry>((skill) => {
     const normalizedPath = skill.path.replace(/\\/g, '/');
-    // CODEX_HOME is account-specific in Archon, so never key this to
+    // CODEX_HOME is account-specific in Arco, so never key this to
     // ~/.codex. Installed plugins always live below <CODEX_HOME>/plugins/cache.
     const pluginSkill = normalizedPath.includes('/plugins/cache/');
     return {
@@ -300,7 +300,7 @@ export async function discoverToolbox(input: {
   if (provider !== 'claude' && provider !== 'codex') {
     return {
       provider: null, transport: transport ?? null, supported: false, entries: [],
-      reason: 'This provider does not expose a native skill catalog. Use +SKILL to attach an Archon-managed playbook.',
+      reason: 'This provider does not expose a native skill catalog. Use +SKILL to attach an Arco-managed playbook.',
     };
   }
   const key = `${provider}:${transport ?? ''}:${cwd}:${codexHome ?? ''}`;

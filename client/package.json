@@ -1,5 +1,5 @@
 {
-  "name": "@archon/client",
+  "name": "@arco/client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "test:editor-merge": "node --test src/vendor/odysseus-editor/mergeLayers.test.js"
   },
   "dependencies": {
-    "@archon/shared": "*",
+    "@arco/shared": "*",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",

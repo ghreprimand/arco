@@ -1,9 +1,9 @@
-// Git worktrees per ledger task — ARCHON_OPS_PLAN.md §K5 (absorbed E4).
+// Git worktrees per ledger task — ARCO_OPS_PLAN.md §K5 (absorbed E4).
 //
 // An OPTIONAL isolated `git worktree` pinned to a task, so parallel work on one
 // repo doesn't collide. The worktree lives under a MANAGED path outside the
-// user's tree (`~/.archon/worktrees/<cwd-hash>/<taskId>`), checked out on a
-// dedicated `archon/task/<taskId>` branch off the current HEAD. The shadow-git
+// user's tree (`~/.arco/worktrees/<cwd-hash>/<taskId>`), checked out on a
+// dedicated `arco/task/<taskId>` branch off the current HEAD. The shadow-git
 // checkpoint store (gitSnapshots.ts) works inside it unchanged — a linked
 // worktree shares the main repo's object store, so checkpoints taken in sibling
 // worktrees DEDUPE at the git-object level (the plan's "single shared blob store
@@ -26,8 +26,8 @@ import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import type { TaskWorktree, WorktreeInfo } from '@archon/shared';
-import { archonHome } from '../archonHome.js';
+import type { TaskWorktree, WorktreeInfo } from '@arco/shared';
+import { arcoHome } from '../arcoHome.js';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 20_000;
@@ -68,10 +68,10 @@ function cwdHash(cwd: string): string {
   return createHash('sha256').update(path.resolve(cwd)).digest('hex').slice(0, 16);
 }
 
-// Managed root for a cwd's task worktrees. Always under ~/.archon — outside the
+// Managed root for a cwd's task worktrees. Always under ~/.arco — outside the
 // user's tree by construction (the removal-safety invariant depends on this).
 export function worktreesRoot(cwd: string): string {
-  return path.join(archonHome(), 'worktrees', cwdHash(cwd));
+  return path.join(arcoHome(), 'worktrees', cwdHash(cwd));
 }
 
 function worktreePath(cwd: string, taskId: string): string {
@@ -80,7 +80,7 @@ function worktreePath(cwd: string, taskId: string): string {
 
 function branchFor(taskId: string): string {
   // Branch names must dodge a few git ref rules; a UUID taskId is already safe.
-  return `archon/task/${taskId}`;
+  return `arco/task/${taskId}`;
 }
 
 async function assertGitRepoWithCommit(cwd: string): Promise<string> {

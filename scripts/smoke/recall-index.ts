@@ -1,7 +1,7 @@
 // Workbench Expansion §F1 — Recall index smoke.
 //
 // Tests the MECHANISM directly (no WS, no LLM): drives RecallIndex against a
-// temp DB and temp .archon/workflows fixtures under TWO different cwds, with a
+// temp DB and temp .arco/workflows fixtures under TWO different cwds, with a
 // hand-written known-cwds.json so backfill discovers them. Asserts:
 //
 //   1. Both workflows are indexed after backfill.
@@ -12,7 +12,7 @@
 //   5. Deleting the DB and rebuilding reconstructs both.
 //
 // The index + known-cwds + Claude session JSONL are all pointed at a temp
-// HOME-equivalent so the smoke NEVER writes to the real ~/.archon.
+// HOME-equivalent so the smoke NEVER writes to the real ~/.arco.
 //
 // Run: npm run smoke:recall-index  (no dev server needed)
 
@@ -29,13 +29,13 @@ function encodeProjectDir(cwd: string): string {
 }
 
 function writeMetaFixture(cwd: string, meta: WorkflowMeta): void {
-  const dir = join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = join(cwd, '.arco', 'workflows', meta.workflowId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 }
 
 function writeEvents(cwd: string, wfid: string, userMessages: string[]): void {
-  const dir = join(cwd, '.archon', 'workflows', wfid);
+  const dir = join(cwd, '.arco', 'workflows', wfid);
   mkdirSync(dir, { recursive: true });
   const lines: string[] = [];
   let seq = 1;
@@ -53,18 +53,18 @@ async function main() {
   // Temp HOME so the ai-title fixture + known-cwds resolution match what the
   // index reads. RecallIndex resolves known-cwds.json + Claude JSONL via
   // os.homedir(), so override HOME for this process.
-  const fakeHome = mkdtempSync(join(tmpdir(), 'archon-recall-home-'));
+  const fakeHome = mkdtempSync(join(tmpdir(), 'arco-recall-home-'));
   cleanups.push(fakeHome);
   const realHome = homedir();
   process.env.HOME = fakeHome;
   // homedir() reads $HOME on POSIX; assert the override took so the smoke can't
-  // silently scribble in the real ~/.archon.
+  // silently scribble in the real ~/.arco.
   assert(homedir() === fakeHome, `HOME override failed (got ${homedir()})`);
   assert(homedir() !== realHome, 'HOME must differ from the real home dir');
 
   // Two cwds, different projects + providers.
-  const cwdA = mkdtempSync(join(tmpdir(), 'archon-recall-projA-'));
-  const cwdB = mkdtempSync(join(tmpdir(), 'archon-recall-projB-'));
+  const cwdA = mkdtempSync(join(tmpdir(), 'arco-recall-projA-'));
+  const cwdB = mkdtempSync(join(tmpdir(), 'arco-recall-projB-'));
   cleanups.push(cwdA, cwdB);
 
   const wfA = 'aaaaaaaa-1111-2222-3333-444444444444'; // claude, WITH ai-title
@@ -115,14 +115,14 @@ async function main() {
   writeEvents(cwdB, wfB, ['Investigate the flaky CI run on main', 'more B']);
 
   // known-cwds.json under the fake HOME so backfill discovers both.
-  const archonDir = join(fakeHome, '.archon');
-  mkdirSync(archonDir, { recursive: true });
-  writeFileSync(join(archonDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
+  const arcoDir = join(fakeHome, '.arco');
+  mkdirSync(arcoDir, { recursive: true });
+  writeFileSync(join(arcoDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
 
   // Import AFTER HOME override so any module-load-time homedir() reads the temp.
   const { RecallIndex } = await import('../../server/src/recall/index.js');
 
-  const dbPath = join(fakeHome, '.archon', 'recall', 'recall.db');
+  const dbPath = join(fakeHome, '.arco', 'recall', 'recall.db');
   let index = new RecallIndex(dbPath);
 
   await step('backfill indexes both workflows', async () => {
@@ -151,8 +151,8 @@ async function main() {
     assertEq(a.provider, 'claude', 'A provider');
     assertEq(b.provider, 'codex', 'B provider');
     // project = cwd basename.
-    assert(a.project.startsWith('archon-recall-projA-'), `A project basename (got ${a.project})`);
-    assert(b.project.startsWith('archon-recall-projB-'), `B project basename (got ${b.project})`);
+    assert(a.project.startsWith('arco-recall-projA-'), `A project basename (got ${a.project})`);
+    assert(b.project.startsWith('arco-recall-projB-'), `B project basename (got ${b.project})`);
     assertEq(a.turnCount, 2, 'A turnCount = 2 user_message_echo events');
     assertEq(b.turnCount, 2, 'B turnCount = 2 user_message_echo events');
     // Default sort is lastActiveAt desc — B (9000) before A (5000).

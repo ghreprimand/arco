@@ -103,7 +103,7 @@ export const recallHelp: Record<string, HelpEntry> = {
       <p>
         When a conversation has no summary yet, this generates one — a dense,
         durable recap (goal, key decisions, current state, open threads) saved to{' '}
-        <code>~/.archon/recall/&lt;wfid&gt;/summary.md</code>. When a summary already
+        <code>~/.arco/recall/&lt;wfid&gt;/summary.md</code>. When a summary already
         exists, it opens it inline. Summaries are <strong>operator-triggered</strong>{' '}
         (this button) or operator-armed on tab close — never generated automatically
         in the agent loop. If no provider is authenticated the summary degrades to a

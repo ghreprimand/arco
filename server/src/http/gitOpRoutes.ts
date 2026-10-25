@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import type { GitOpResult, GitOpResultMessage } from '@archon/shared';
+import type { GitOpResult, GitOpResultMessage } from '@arco/shared';
 import {
   isGitRepo,
   stageFiles, stageAll, unstageFiles, unstageAll,

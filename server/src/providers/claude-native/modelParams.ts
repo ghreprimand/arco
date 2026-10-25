@@ -7,14 +7,14 @@ import {
   supportsClaudeAdaptiveThinking,
   supportsThinkingDisplayUpdates,
   type ClaudeNativeThinkingDisplay,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export const DEFAULT_MAX_TOKENS = 8192;
 
 // Adaptive-thinking models do not take an explicit thinking budget. Claude's
 // Messages API lets these models use their generated model maxTokens cap and
 // relies on output_config.effort to control reasoning depth. Keep the same
-// model-family caps here instead of an Archon-only per-effort ceiling: Fable /
+// model-family caps here instead of an Arco-only per-effort ceiling: Fable /
 // Mythos, Opus 5, Opus 4.6/4.7/4.8, and Sonnet 5 advertise 128K output;
 // Sonnet 4.6 advertises 64K.
 export function adaptiveMaxTokensForModel(modelId: string): number {
@@ -87,7 +87,7 @@ export function buildThinkingParams(
       // Opus 4.8 / 4.7 default to omitted thinking in the Messages API, and
       // Claude Code's UI behaves that way too: it preserves signed thinking
       // blocks for continuity without asking the API to stream summarized
-      // thinking text back through Archon's hand-rolled loop. For Native parity
+      // thinking text back through Arco's hand-rolled loop. For Native parity
       // with Claude Code, adaptive thinking defaults to omitted; the operator
       // flips to summarized per tab via WorkflowConfig.claudeNativeThinkingDisplay.
       thinking: {

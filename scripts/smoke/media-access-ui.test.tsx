@@ -4,17 +4,17 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ArchonSettings } from '@archon/shared';
+import type { ArcoSettings } from '@arco/shared';
 import { useAppStore } from '../../client/src/stores/appStore';
 import {
   MAX_MEDIA_ROOTS, MEDIA_ACCESS_SUMMARY, MediaAccessSettings, addMediaRoot, mediaAccessState, saveMediaAccess, validateMediaRoot,
 } from '../../client/src/components/MediaAccessSettings';
 (globalThis as any).React = React;
 
-function render(media: Pick<ArchonSettings, 'mediaUnconfined' | 'mediaAllowedRoots'> | null): string {
+function render(media: Pick<ArcoSettings, 'mediaUnconfined' | 'mediaAllowedRoots'> | null): string {
   const initial = useAppStore.getInitialState();
   const previous = initial.settings;
-  initial.settings = media as ArchonSettings | null;
+  initial.settings = media as ArcoSettings | null;
   try { return renderToStaticMarkup(<MediaAccessSettings />); } finally { initial.settings = previous; }
 }
 

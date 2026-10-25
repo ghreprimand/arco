@@ -70,7 +70,7 @@ function firstLineExcerpt(text: string): string {
 // needs to know which section stopped applying, not re-read it.
 export function renderSystemDelta(delta: SystemDelta): string {
   const parts: string[] = [
-    '[Archon operator-context update] The operator changed part of your standing instructions after this conversation started. ' +
+    '[Arco operator-context update] The operator changed part of your standing instructions after this conversation started. ' +
     'The sections below supersede any earlier version of the same section; everything else in your system prompt still applies.',
   ];
   if (delta.added.length > 0) {
@@ -101,7 +101,7 @@ export interface ToolSetDelta {
 }
 
 function canonicalDef(def: ToolDefLike): string {
-  // defer_loading is Archon's wire annotation, not part of the tool's identity.
+  // defer_loading is Arco's wire annotation, not part of the tool's identity.
   const { defer_loading: _defer, ...rest } = def;
   return JSON.stringify(rest, Object.keys(rest).sort());
 }
@@ -157,47 +157,47 @@ export function buildToolChangeBlocks(addKeys: readonly string[], removeKeys: re
 
 // ── appended system messages ──
 
-// Archon-authored `role: 'system'` message. `clear_at` is the turn-scoped
-// form (beta); `archon` is a private marker the worker uses to recognise its
+// Arco-authored `role: 'system'` message. `clear_at` is the turn-scoped
+// form (beta); `arco` is a private marker the worker uses to recognise its
 // own messages (never sent — stripped by `toWireMessage`).
-export type ArchonSystemMessage = {
+export type ArcoSystemMessage = {
   role: 'system';
   content: Array<{ type: 'text'; text: string } | ToolChangeBlock>;
   clear_at?: 'next_user_message';
-  archon?: 'system_delta' | 'tool_set_change' | 'turn_notice';
+  arco?: 'system_delta' | 'tool_set_change' | 'turn_notice';
 };
 
 export function buildPrefixUpdateMessage(
   deltaText: string | null,
   toolBlocks: readonly ToolChangeBlock[],
-): ArchonSystemMessage | null {
+): ArcoSystemMessage | null {
   if (!deltaText && toolBlocks.length === 0) return null;
-  const content: ArchonSystemMessage['content'] = [];
+  const content: ArcoSystemMessage['content'] = [];
   if (deltaText) content.push({ type: 'text', text: deltaText });
   content.push(...toolBlocks);
   return {
     role: 'system',
     content,
-    archon: deltaText && toolBlocks.length > 0 ? 'system_delta' : deltaText ? 'system_delta' : 'tool_set_change',
+    arco: deltaText && toolBlocks.length > 0 ? 'system_delta' : deltaText ? 'system_delta' : 'tool_set_change',
   };
 }
 
-export function buildTurnNoticeMessage(text: string): ArchonSystemMessage {
-  return { role: 'system', clear_at: 'next_user_message', content: [{ type: 'text', text }], archon: 'turn_notice' };
+export function buildTurnNoticeMessage(text: string): ArcoSystemMessage {
+  return { role: 'system', clear_at: 'next_user_message', content: [{ type: 'text', text }], arco: 'turn_notice' };
 }
 
-// Strip Archon-private fields before the wire. Cheap: only system messages
+// Strip Arco-private fields before the wire. Cheap: only system messages
 // carry them, everything else is returned by reference.
 export function toWireMessages(messages: readonly unknown[]): unknown[] {
   return messages.map((m) => {
-    const msg = m as { role?: string; archon?: unknown };
-    if (msg.role !== 'system' || msg.archon === undefined) return m;
-    const { archon: _archon, ...wire } = msg as Record<string, unknown>;
+    const msg = m as { role?: string; arco?: unknown };
+    if (msg.role !== 'system' || msg.arco === undefined) return m;
+    const { arco: _arco, ...wire } = msg as Record<string, unknown>;
     return wire;
   });
 }
 
-export function isArchonSystemMessage(m: unknown): m is ArchonSystemMessage {
+export function isArcoSystemMessage(m: unknown): m is ArcoSystemMessage {
   return !!m && typeof m === 'object' && (m as { role?: string }).role === 'system';
 }
 
@@ -208,7 +208,7 @@ export function isArchonSystemMessage(m: unknown): m is ArchonSystemMessage {
 // next request re-detects and re-appends whatever they carried.
 export function popTrailingSystemMessages(messages: unknown[]): number {
   let popped = 0;
-  while (messages.length > 0 && isArchonSystemMessage(messages[messages.length - 1])) {
+  while (messages.length > 0 && isArcoSystemMessage(messages[messages.length - 1])) {
     messages.pop();
     popped++;
   }
@@ -284,7 +284,7 @@ export function isThinkingBindingError(message: string): boolean {
 // A 400 that names one of the append-only wire features the worker added —
 // the org isn't allowlisted for a beta, or a model turned out not to support
 // `role: 'system'` / tool_reference blocks. Recovery is "thaw": drop the
-// Archon system messages and fall back to the pre-plan rebuild-per-request
+// Arco system messages and fall back to the pre-plan rebuild-per-request
 // behaviour for the rest of the worker's life.
 export function isPrefixFeatureRejection(message: string): boolean {
   const m = message.toLowerCase();
@@ -318,13 +318,13 @@ export function stripAllThinkingBlocks(
   return { messages: touched, blocks };
 }
 
-// Drop Archon's own system messages (thaw recovery). Removing them from the
+// Drop Arco's own system messages (thaw recovery). Removing them from the
 // middle is a history edit, but thaw only runs after the API already rejected
 // the request, so nothing bound survives anyway.
-export function removeArchonSystemMessages(messages: unknown[]): number {
+export function removeArcoSystemMessages(messages: unknown[]): number {
   let removed = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (isArchonSystemMessage(messages[i])) {
+    if (isArcoSystemMessage(messages[i])) {
       messages.splice(i, 1);
       removed++;
     }

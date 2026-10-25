@@ -35,7 +35,7 @@ export const commitCountCache = new Map<string, { count: number; ts: number }>()
 // the chain tail resolves (so unused cwds don't leak Promise objects).
 export const cwdHandoffChain = new Map<string, CwdHandoffSlot>();
 
-// Per-cwd fsWatch over <cwd>/.archon/plans, ref-counted across attached
+// Per-cwd fsWatch over <cwd>/.arco/plans, ref-counted across attached
 // workflows + clusters. Read by the HTTP plan routes (skipNext dedupe) and
 // the cluster plan watcher in broadcast.ts.
 export const plansWatchers = new Map<string, PlansWatcher>();

@@ -79,7 +79,7 @@ a terminal would leak across the restart with no record to reap it. This mirrors
 the worker-safety pattern (`server/src/workers/pidRegistry.ts`):
 
 - **`server/src/terminal/ptyPidRegistry.ts`** — a **separate** durable JSON
-  (`~/.archon/terminal-pids.json`, distinct from `worker-pids.json` so the two
+  (`~/.arco/terminal-pids.json`, distinct from `worker-pids.json` so the two
   reap paths can't clobber each other). `registerTerminalPid` on spawn,
   `unregisterTerminalPid` on clean kill/exit.
 - **Boot orphan sweep** — `reapOrphanTerminals()` (exported from `ptyManager.ts`)
@@ -310,7 +310,7 @@ Safe because Vite's own HMR upgrade keys off the `vite-hmr` subprotocol, which a
 bare `new WebSocket('/terminal')` never sends. See `docs/GOTCHAS.md § Integrated
 terminal`.
 - **Prod:** the Node server **does** serve the built client when the systemd unit
-  sets `ARCHON_SERVE_CLIENT=1` — `tryServeClientDist` (`server/src/http/router.ts`)
+  sets `ARCO_SERVE_CLIENT=1` — `tryServeClientDist` (`server/src/http/router.ts`)
   serves `client/dist` with an **SPA fallback** (extension-less unmatched paths →
   `index.html`). Root-serves-index.html is exactly the shape that fallback
   satisfies, so `/?popoutTerminal=…` falls through to `index.html` in prod too.

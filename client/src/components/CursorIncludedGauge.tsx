@@ -1,4 +1,4 @@
-import type { CursorIncludedUsage } from '@archon/shared';
+import type { CursorIncludedUsage } from '@arco/shared';
 
 // The "Included in Pro" allocation gauge — the same meter cursor.com's Spending
 // page shows. Bar fill is Cursor's own blended `totalPercentUsed` (NOT

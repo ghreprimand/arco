@@ -48,9 +48,9 @@ interface is the contract; see the Part E storage rationale).
 
 ### Machine-global storage
 
-The DB lives at **`~/.archon/recall/recall.db`** — tied to the user, never per-cwd. Path is built from
+The DB lives at **`~/.arco/recall/recall.db`** — tied to the user, never per-cwd. Path is built from
 `os.homedir()` + `node:path`; the directory is created on first `load()`. (A constructor `dbPath` override
-exists so smokes point the index at a temp dir — the real `~/.archon` is never touched by a test.)
+exists so smokes point the index at a temp dir — the real `~/.arco` is never touched by a test.)
 
 ### Title fallback chain (never blank)
 
@@ -70,8 +70,8 @@ on demand:
 
 Three populate paths, all upsert by `wfid` (idempotent — re-running never duplicates):
 
-- **Backfill** (`backfill()`) — walks every cwd in `~/.archon/known-cwds.json` (the same crash-recovery
-  registry `crashRecovery.ts` maintains), reads each `<cwd>/.archon/workflows/<wfid>/meta.json`, projects it,
+- **Backfill** (`backfill()`) — walks every cwd in `~/.arco/known-cwds.json` (the same crash-recovery
+  registry `crashRecovery.ts` maintains), reads each `<cwd>/.arco/workflows/<wfid>/meta.json`, projects it,
   and upserts. Runs on server boot. One bad/unreadable workflow is skipped, not fatal.
 - **Incremental** — `writeMeta` (`server/src/workflowMeta.ts`, the single meta-write chokepoint) fires
   `getRecallIndex().upsertFromMeta(meta)` on every write, so a new or updated workflow lands in the index
@@ -128,7 +128,7 @@ closed). F2 clears it because all four hold:
    authenticated, the summary degrades to the F1 title + the `summarizePriorTurns` structural digest (no LLM).
    A degraded summary is **not an error** (`ok: false`, no `error`); it's a real, useful recap.
 3. **Transcript stays the source of truth.** Summaries only read `events.jsonl`; they are additive artifacts.
-4. **Reversible.** Delete `~/.archon/recall/<wfid>/summary.md` and the `summaryRef` clears on the next
+4. **Reversible.** Delete `~/.arco/recall/<wfid>/summary.md` and the `summaryRef` clears on the next
    regenerate.
 
 The summary call is a **single bounded read-only turn** — no loops, no multi-pass refinement, no second LLM
@@ -151,13 +151,13 @@ judging the summary.
 
 ### Storage (machine-global — differs from Handoff)
 
-Summaries live at **`~/.archon/recall/<wfid>/summary.md`** — the machine-global recall home (computed via
+Summaries live at **`~/.arco/recall/<wfid>/summary.md`** — the machine-global recall home (computed via
 `recallHomeDir()` / `os.homedir()`, never hardcoded), **not** the per-cwd workflow artifacts dir Handoff uses.
 `summaryRef` stored in the index is the stable relative ref **`<wfid>/summary.md`**. Because the recall home is
 outside any cwd the `/api/workflows/artifact` endpoint serves, F2 adds a dedicated route:
 **`GET /api/recall/summary?wfid=`** → `{ wfid, summary }`. The route validates `wfid` against
 `/^[a-zA-Z0-9-]{1,64}$/` (no `..`, no separators) **before** joining, and only ever serves `summary.md` under
-`~/.archon/recall/<wfid>/`.
+`~/.arco/recall/<wfid>/`.
 
 ### Index + FTS
 
@@ -369,7 +369,7 @@ and the `setPinned()` method both carry this note.
 ### Distill to KB (reuses B3's draft → operator-Save path; no auto-save, no LLM call)
 
 The recall entry already carries an **F2 summary** (`summaryRef` →
-`~/.archon/recall/<wfid>/summary.md`). "Distill to KB" is available only on rows
+`~/.arco/recall/<wfid>/summary.md`). "Distill to KB" is available only on rows
 that **have** a summary. It does **not** spawn a distiller worker and makes **no
 new LLM call** — the summary is the source:
 

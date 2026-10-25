@@ -18,7 +18,7 @@
 !docs/*.md
 **/node_modules
 **/dist
-**/.archon
+**/.arco
 **/.claude
 **/.codex
 **/.env*

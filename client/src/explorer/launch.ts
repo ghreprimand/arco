@@ -22,7 +22,7 @@ export async function openArchive(lens?: 'plans'): Promise<void> {
   const url = lens ? `${EXPLORER_URL}&lens=${lens}` : EXPLORER_URL;
   // Same-browser popup — inherits correct per-monitor DPI. Named so a second
   // click focuses the existing window instead of stacking duplicates.
-  const win = window.open(url, 'archon-explorer', 'popup,width=1400,height=900');
+  const win = window.open(url, 'arco-explorer', 'popup,width=1400,height=900');
   if (win) { win.focus(); return; }
 
   // Popup refused (rare for a user gesture) → server-spawned chromeless window.

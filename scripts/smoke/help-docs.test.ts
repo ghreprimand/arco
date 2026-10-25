@@ -84,7 +84,7 @@ test('manual search includes visible table headings and cells, not just children
 test('Strata manual is searchable, distinguishes memory limits, and opens the real runbook', () => {
   const provider = section('provider-strata');
   for (const term of ['Original', 'SC117 Abliterated', 'none', 'low', 'medium', 'high', 'next message']) assert.ok(provider.includes(term), term);
-  assert.doesNotMatch(provider, /Archon does not start/);
+  assert.doesNotMatch(provider, /Arco does not start/);
   const memory = section('strata-memory');
   for (const term of ['mixture of experts', '24 GiB', '36 GiB', '262144', '32768', 'PLE', 'tok/s']) assert.ok(memory.includes(term), term);
   assert.match(section('strata-recovery'), /FREE VRAM.*unloads loopback/);

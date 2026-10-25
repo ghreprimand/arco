@@ -14,9 +14,9 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 
-// writeMeta fires a recall-index upsert under ~/.archon — point HOME at a temp
+// writeMeta fires a recall-index upsert under ~/.arco — point HOME at a temp
 // dir BEFORE the module loads so the test never touches the operator's index.
-const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-meta-home-'));
+const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-meta-home-'));
 process.env.HOME = fakeHome;
 const metaMod = await import('./workflowMeta.js');
 const { readMeta, writeMeta, updateMeta, setResolvedModelId, appendCliSession, touchLastActive } = metaMod;
@@ -46,7 +46,7 @@ function seed(): WorkflowMeta {
 }
 
 before(async () => {
-  cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-meta-'));
+  cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-meta-'));
 });
 
 test('concurrent updateMeta calls each land (no lost update)', async () => {
@@ -82,10 +82,10 @@ test('different-field helpers racing do not clobber each other', async () => {
 
 test('returning false skips the write; missing meta → null without calling mutate', async () => {
   await writeMeta(cwd, seed());
-  const before = await fs.stat(path.join(cwd, '.archon', 'workflows', WFID, 'meta.json'));
+  const before = await fs.stat(path.join(cwd, '.arco', 'workflows', WFID, 'meta.json'));
   const res = await updateMeta(cwd, WFID, () => false);
   assert.equal(res?.workflowId, WFID);
-  const after = await fs.stat(path.join(cwd, '.archon', 'workflows', WFID, 'meta.json'));
+  const after = await fs.stat(path.join(cwd, '.arco', 'workflows', WFID, 'meta.json'));
   assert.equal(after.mtimeMs, before.mtimeMs);
 
   let called = false;

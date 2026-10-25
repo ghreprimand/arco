@@ -1,6 +1,6 @@
-// ARCHON_OPS_PLAN.md §H1 + §H2 — project-local session index.
+// ARCO_OPS_PLAN.md §H1 + §H2 — project-local session index.
 //
-// Maintains <cwd>/.archon/session-index.json: a per-project PROJECTION of that
+// Maintains <cwd>/.arco/session-index.json: a per-project PROJECTION of that
 // project's resumable sessions (one entry per (provider, sessionId) it ran).
 // The resume surface (§H3) reads this single small file instead of re-scanning
 // every meta.json + provider JSONL on each open.
@@ -15,10 +15,10 @@
 // only APPLIES a title the caller generated, so titling never fails closed.
 //
 // Invariants (mirror sibling persistence modules + the §H1 acceptance):
-//   - All reads / writes scope to <cwd>/.archon/. The index NEVER writes to a
+//   - All reads / writes scope to <cwd>/.arco/. The index NEVER writes to a
 //     provider's own session store (~/.claude, ~/.codex, …) — it only reads
 //     them. (This module reads neither; it derives purely from meta.json +
-//     events.jsonl, both Archon-owned.)
+//     events.jsonl, both Arco-owned.)
 //   - Writes are atomic (tmp + rename). Same pattern as workflowMeta.ts.
 //   - The index is a REBUILDABLE projection, never a source of truth: deleting
 //     it is harmless (rebuilt on the next turn / discovery). So every update is
@@ -32,7 +32,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { ProviderName, SessionIndex, SessionIndexEntry, SessionTitleEvent } from '@archon/shared';
+import type { ProviderName, SessionIndex, SessionIndexEntry, SessionTitleEvent } from '@arco/shared';
 import type { WorkflowMeta } from '../workflowMeta.js';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 
@@ -71,7 +71,7 @@ function isGenericTitle(title: string): boolean {
 }
 
 function indexPath(cwd: string): string {
-  return path.join(cwd, '.archon', 'session-index.json');
+  return path.join(cwd, '.arco', 'session-index.json');
 }
 
 // Every read→mutate→write of the index runs under this. Without it a turn's
@@ -136,7 +136,7 @@ function newestCliSession(meta: WorkflowMeta): WorkflowMeta['cliSessions'][numbe
 // + "where this left off" subtitle.
 export async function scanOperatorMessages(cwd: string, wfid: string): Promise<string[]> {
   if (!WFID_PATTERN.test(wfid)) return [];
-  const eventsPath = path.join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
   let raw: string;
   try {
     raw = await fs.readFile(eventsPath, 'utf8');
@@ -161,7 +161,7 @@ function derivedLabel(meta: WorkflowMeta): string {
 
 // §H2 layered derived title (never blank). Fallback chain:
 //   deterministic — first MEANINGFUL operator ask (generic openers skipped),
-//                   else a non-default Archon workflow name;
+//                   else a non-default Arco workflow name;
 //   dynamic       — when no opener qualifies, the last non-trivial operator
 //                   message (a session that's all "continue" until a real ask);
 //   deterministic — the `provider · project · date` label as the floor.
@@ -194,8 +194,8 @@ function dynamicSubtitle(messages: string[], title: string): string | undefined 
 // never set here, so a plain meta upsert can't clobber them.
 function deriveEntry(meta: WorkflowMeta, messages: string[]): SessionIndexEntry {
   const newest = newestCliSession(meta);
-  // No native session (Claude Native replay / Antigravity / Ollama): the Archon
-  // workflow id is the resume key, matching archonInternalSessionInfoForMeta.
+  // No native session (Claude Native replay / Antigravity / Ollama): the Arco
+  // workflow id is the resume key, matching arcoInternalSessionInfoForMeta.
   const provider = newest?.provider ?? meta.primaryProvider;
   const sessionId = newest?.sessionId ?? meta.workflowId;
   const lastSeq = meta.lastEventSeq ?? undefined;
@@ -276,9 +276,9 @@ export async function upsertSessionIndexFromMeta(meta: WorkflowMeta): Promise<vo
   });
 }
 
-// List the workflow ids that have a meta.json under <cwd>/.archon/workflows/.
+// List the workflow ids that have a meta.json under <cwd>/.arco/workflows/.
 async function listWorkflowIds(cwd: string): Promise<string[]> {
-  const dir = path.join(cwd, '.archon', 'workflows');
+  const dir = path.join(cwd, '.arco', 'workflows');
   let ents: import('fs').Dirent[];
   try {
     ents = await fs.readdir(dir, { withFileTypes: true });
@@ -353,7 +353,7 @@ export function buildTitleFraming(transcript: string): string {
 const TITLE_EVENTS_FILE = 'title-events.jsonl';
 
 async function appendTitleEvent(cwd: string, ev: SessionTitleEvent): Promise<void> {
-  const p = path.join(cwd, '.archon', TITLE_EVENTS_FILE);
+  const p = path.join(cwd, '.arco', TITLE_EVENTS_FILE);
   await fs.mkdir(path.dirname(p), { recursive: true });
   await fs.appendFile(p, JSON.stringify(ev) + '\n', 'utf8');
 }
@@ -363,7 +363,7 @@ async function appendTitleEvent(cwd: string, ev: SessionTitleEvent): Promise<voi
 export async function readTitleEvents(cwd: string): Promise<SessionTitleEvent[]> {
   if (!cwd) return [];
   try {
-    const raw = await fs.readFile(path.join(cwd, '.archon', TITLE_EVENTS_FILE), 'utf8');
+    const raw = await fs.readFile(path.join(cwd, '.arco', TITLE_EVENTS_FILE), 'utf8');
     const out: SessionTitleEvent[] = [];
     for (const line of raw.split('\n')) {
       if (!line.trim()) continue;

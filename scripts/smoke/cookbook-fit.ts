@@ -16,7 +16,7 @@
 import { step, assert, assertEq, summary } from './lib.js';
 import { scoreFit, estimateVram, QUANT_BPW } from '../../server/src/cookbook/fit.js';
 import { simulatedProfile } from '../../server/src/cookbook/hardware.js';
-import type { HardwareProfile, ModelSpec } from '@archon/shared';
+import type { HardwareProfile, ModelSpec } from '@arco/shared';
 
 const GB = 1024 * 1024 * 1024;
 

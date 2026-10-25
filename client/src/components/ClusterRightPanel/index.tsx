@@ -23,7 +23,7 @@ import { HistoryTab } from '../HistoryTab';
 import { PreviewTab } from '../PreviewTab';
 import { ConfigTab } from '../RightPanel/ConfigTab';
 import { ClusterFilesTabBody, type ClusterFilesSubTab } from '../RightPanel/FilesTab';
-import type { ClusterStatePayload, ClusterTaskBoardMode } from '@archon/shared';
+import type { ClusterStatePayload, ClusterTaskBoardMode } from '@arco/shared';
 import type { PeerMessage, Props, SubTab } from './types';
 import { MemberRow } from './MemberRow';
 import { AddWorkerSection } from './AddWorkerSection';
@@ -58,7 +58,7 @@ const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
   { id: 'memory', label: 'MEMORY', tabs: ['history'] },
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
-const STORAGE_KEY = 'archon.clusterSidePanelTab.byCluster';
+const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
 const NARROW_PX = 360;
 
 function labelOf(id: SubTab): string {

@@ -84,8 +84,8 @@ import {
   getHandleAt as _getTransformHandleImpl,
 } from './editor/tools/transform-handles.js';
 import { createCanvasTransforms } from './editor/canvas-transforms.js';
-// ARCHON VENDOR PATCH (H2): the 5 ai-*.js modules are NOT vendored (H3 deferred —
-// no local image AI in Archon). Their imports are replaced by local no-op stubs
+// ARCO VENDOR PATCH (H2): the 5 ai-*.js modules are NOT vendored (H3 deferred —
+// no local image AI in Arco). Their imports are replaced by local no-op stubs
 // whose return shapes match what `_buildEditor()` destructures, so the wiring
 // calls (createApplyImageTool ~L254, wireAIModelSelectors ~L2708, wireInpaint-
 // Buttons ~L2804, wireRembgAndSharpen ~L2825, wireAIToolsMisc ~L2847) degrade to
@@ -103,7 +103,7 @@ import { wireSliderUx } from './editor/slider-ux.js';
 import { createShortcutsPopover } from './editor/shortcuts-popover.js';
 import { wireKeyboardShortcuts } from './editor/keyboard-shortcuts.js';
 import { wireClipboardAndDrop } from './editor/clipboard-and-drop.js';
-// ARCHON VENDOR PATCH (H2) — ai-* import stubs (H3 deferred). See the block near
+// ARCO VENDOR PATCH (H2) — ai-* import stubs (H3 deferred). See the block near
 // the createCanvasTransforms import above and VENDOR.md "Patch log". Originals:
 //   import { wireAIModelSelectors } from './editor/ai-models.js';
 //   import { wireInpaintButtons } from './editor/ai-inpaint.js';
@@ -801,7 +801,7 @@ function _buildThumbnail() {
 }
 
 async function _persistDraft() {
-  // ARCHON VENDOR PATCH (H2): `/api/editor-drafts` does not exist in Archon.
+  // ARCO VENDOR PATCH (H2): `/api/editor-drafts` does not exist in Arco.
   // Auto-draft persistence is neutralized — saving goes through the React
   // wrapper's Save button → POST /api/image/write instead. Early-return makes
   // the whole draft subsystem inert (no 404 spam). See VENDOR.md "Neutralized
@@ -862,7 +862,7 @@ async function _persistDraft() {
 }
 
 async function _loadDraftById(draftId) {
-  // ARCHON VENDOR PATCH (H2): `/api/editor-drafts` does not exist — no drafts to
+  // ARCO VENDOR PATCH (H2): `/api/editor-drafts` does not exist — no drafts to
   // load. See VENDOR.md "Neutralized backend calls".
   return null;
   // eslint-disable-next-line no-unreachable
@@ -881,7 +881,7 @@ async function _loadDraftById(draftId) {
 }
 
 async function _findDraftForImage(imageId) {
-  // ARCHON VENDOR PATCH (H2): `/api/editor-drafts` does not exist — never find a
+  // ARCO VENDOR PATCH (H2): `/api/editor-drafts` does not exist — never find a
   // draft to auto-restore. See VENDOR.md "Neutralized backend calls".
   return null;
   // eslint-disable-next-line no-unreachable
@@ -899,7 +899,7 @@ async function _findDraftForImage(imageId) {
 }
 
 async function _clearDraftServer(draftId) {
-  // ARCHON VENDOR PATCH (H2): `/api/editor-drafts` does not exist — nothing to
+  // ARCO VENDOR PATCH (H2): `/api/editor-drafts` does not exist — nothing to
   // clear server-side. See VENDOR.md "Neutralized backend calls".
   return;
   // eslint-disable-next-line no-unreachable
@@ -2745,9 +2745,9 @@ function _buildEditor(container) {
   });
 
   document.getElementById('ge-save').addEventListener('click', async () => {
-    // ARCHON VENDOR PATCH (H2): the editor's built-in Save targets
+    // ARCO VENDOR PATCH (H2): the editor's built-in Save targets
     // `/api/gallery/{id}/replace` / `/api/gallery/upload`, neither of which
-    // exists in Archon. Saving is owned by the React wrapper (→ exportPNG() →
+    // exists in Arco. Saving is owned by the React wrapper (→ exportPNG() →
     // POST /api/image/write). Route the internal button to the inert
     // exportToGallery() (which just toasts "use the toolbar Save") and fire NO
     // gallery fetch. See VENDOR.md "Neutralized backend calls". Original body
@@ -3129,8 +3129,8 @@ function _saveButtonBusy(label) {
 }
 
 export async function exportToGallery() {
-  // ARCHON VENDOR PATCH (H2): `/api/gallery/upload` does not exist in Archon, and
-  // Archon's Save is the React wrapper's own button (→ exportPNG() → POST
+  // ARCO VENDOR PATCH (H2): `/api/gallery/upload` does not exist in Arco, and
+  // Arco's Save is the React wrapper's own button (→ exportPNG() → POST
   // /api/image/write). The editor's internal "Save to gallery" path is therefore
   // inert: point the operator at the wrapper's Save and fire NO gallery fetch.
   // The wrapper drives saving via the exported exportPNG(); this function only
@@ -3248,7 +3248,7 @@ function _openCookbookForDependency(pkgName) {
 // Toggles the "install rembg" notice + the Bg Remove run button. The
 // `/api/cookbook/packages` endpoint is cheap (importlib calls only).
 async function _checkRembgInstalled() {
-  // ARCHON VENDOR PATCH (H2): `/api/cookbook/packages` does not exist in Archon,
+  // ARCO VENDOR PATCH (H2): `/api/cookbook/packages` does not exist in Arco,
   // and the rembg (Bg Remove) flow is AI (H3 deferred) — wireRembgAndSharpen is
   // stubbed. Hide the run row, keep the "not available" notice, and fire NO
   // cookbook fetch. See VENDOR.md "Neutralized backend calls". Original body

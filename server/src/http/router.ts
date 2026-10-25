@@ -1,10 +1,10 @@
 import { tryHandleDeepSeekRoutes } from './deepseekRoutes.js';
 import { tryHandleVoiceRoutes } from './voiceRoutes.js';
 import type {
-ArchonSettings,Capabilities,
+ArcoSettings,Capabilities,
 ClusterPresetMember,ProviderName
-} from '@archon/shared';
-import { type LlamacppModelDef } from '@archon/shared';
+} from '@arco/shared';
+import { type LlamacppModelDef } from '@arco/shared';
 import { spawn } from 'child_process';
 import { chmodSync,writeFileSync } from 'fs';
 import { mkdir,readdir,readFile,writeFile } from 'fs/promises';
@@ -158,7 +158,7 @@ function isSystemdServiceMode(): boolean {
 }
 
 function systemdUnitName(): string {
-  return process.env.ARCHON_SYSTEMD_UNIT || 'archon.service';
+  return process.env.ARCO_SYSTEMD_UNIT || 'arco.service';
 }
 
 export async function handleHttpRequest(
@@ -170,7 +170,7 @@ export async function handleHttpRequest(
   // could drive the file/terminal surface. See originGuard.ts.
   const guard = checkRequestOrigin(req);
   if (!guard.ok) {
-    console.warn(`[archon] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${guard.reason}`);
+    console.warn(`[arco] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${guard.reason}`);
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Forbidden origin' }));
     return;
@@ -202,7 +202,7 @@ export async function handleHttpRequest(
     }
     const verdict = checkMintRequest(req);
     if (!verdict.ok) {
-      console.warn(`[archon] refused session mint: ${verdict.reason} (${describePeer(req)})`);
+      console.warn(`[arco] refused session mint: ${verdict.reason} (${describePeer(req)})`);
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Session mint refused' }));
       return;
@@ -212,9 +212,9 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Liveness (ARCHON_OPS_PLAN.md §B2). `/healthz` is the canonical route; `/health`
+  // Liveness (ARCO_OPS_PLAN.md §B2). `/healthz` is the canonical route; `/health`
   // is kept as a back-compat alias returning the same body. Always 200 — this
-  // branch only runs when the server is up. NOT gated on ARCHON_SERVE_CLIENT, and
+  // branch only runs when the server is up. NOT gated on ARCO_SERVE_CLIENT, and
   // routed ahead of everything so a supervisor probe can never be shadowed.
   if (req.method === 'GET' && (req.url === '/healthz' || req.url === '/health')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -227,7 +227,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Readiness (ARCHON_OPS_PLAN.md §B2). 200 only once capabilities + stores are
+  // Readiness (ARCO_OPS_PLAN.md §B2). 200 only once capabilities + stores are
   // up; 503 with the pending components during the boot window. Lets a load
   // balancer / k8s gate traffic until boot completes.
   if (req.method === 'GET' && req.url === '/readyz') {
@@ -246,7 +246,7 @@ export async function handleHttpRequest(
 
   // Preview tab proxy — explicit prefix only at this point. The Referer-based
   // fallback runs further down (just before the 404) so it can't hijack
-  // legitimate Archon API requests from any tab whose stale iframe Referer
+  // legitimate Arco API requests from any tab whose stale iframe Referer
   // happens to match a preview path. See previewProxy.ts.
   if (tryHandlePreviewRequest(req, res, (wfid) => workflows.get(wfid)?.preview?.port)) {
     return;
@@ -257,7 +257,7 @@ export async function handleHttpRequest(
   // (cluster peer / plan tools) are exempt inside checkHttpAuth.
   const httpAuth = checkHttpAuth(req);
   if (!httpAuth.ok) {
-    console.warn(`[archon] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${httpAuth.reason} (${describePeer(req)})`);
+    console.warn(`[arco] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${httpAuth.reason} (${describePeer(req)})`);
     res.writeHead(401, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Session required' }));
     return;
@@ -287,9 +287,9 @@ export async function handleHttpRequest(
   }
 
   // System-wide listing of TCP listeners — Linux-only via /proc. Excludes
-  // this Archon server's own PID so we don't surface the proxy itself as a
+  // this Arco server's own PID so we don't surface the proxy itself as a
   // candidate. Workflow-spawned dev servers DO show up (they're descendants
-  // of this Archon, but they listen on their own PIDs internally) which is
+  // of this Arco, but they listen on their own PIDs internally) which is
   // exactly what the operator wants: "what could I bind to?"
   if (req.url === '/api/preview/listening' && req.method === 'GET') {
     try {
@@ -327,7 +327,7 @@ export async function handleHttpRequest(
       const fileId = crypto.randomUUID().slice(0, 8);
       const savePath = join(UPLOADS_DIR, `${fileId}-${filename}`);
       await writeFile(savePath, body);
-      console.log(`[archon] File uploaded: ${filename} -> ${savePath}`);
+      console.log(`[arco] File uploaded: ${filename} -> ${savePath}`);
       // Model-side downscale runs in the background; providers await it
       // (bounded) at turn start. The original stays byte-for-byte as sent.
       queueModelImage(savePath);
@@ -363,7 +363,7 @@ export async function handleHttpRequest(
       const resolvedParent = safeDirectory(resolve(parent));
       const target = join(resolvedParent, name);
       await mkdir(target, { recursive: true });
-      console.log(`[archon] Created directory: ${target}`);
+      console.log(`[arco] Created directory: ${target}`);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ path: target }));
     } catch (err) {
@@ -561,10 +561,10 @@ export async function handleHttpRequest(
     return;
   }
 
-  // ── Archon-managed skills (Phase 1 of operator-features plan). Distinct
+  // ── Arco-managed skills (Phase 1 of operator-features plan). Distinct
   // from /api/toolbox, which surfaces the active provider runtime's native
-  // skills as composer chips. /api/skills CRUDs <cwd>/.archon/skills/ and
-  // ~/.archon/skills/, and the manifest of names+descriptions is injected
+  // skills as composer chips. /api/skills CRUDs <cwd>/.arco/skills/ and
+  // ~/.arco/skills/, and the manifest of names+descriptions is injected
   // into every primary turn's system prompt by handleUserMessage. Full
   // SKILL.md bodies stay on disk; agents read them on demand.
   if (req.url?.startsWith('/api/skills/body') && req.method === 'GET') {
@@ -720,8 +720,8 @@ export async function handleHttpRequest(
 
   // ── Handoff prompts (Phase 3 of operator-features plan). Operators edit
   // the original-worker reflection prompt and the fresh-summarizer framing
-  // via the SettingsPanel; project-scoped overrides at <cwd>/.archon/
-  // handoff.prompt.md & handoff.summarizer.prompt.md, global at ~/.archon/.
+  // via the SettingsPanel; project-scoped overrides at <cwd>/.arco/
+  // handoff.prompt.md & handoff.summarizer.prompt.md, global at ~/.arco/.
   // GET returns the full editor state in one call (defaults + per-scope
   // bodies + which scope is winning). POST writes a single (scope, mode)
   // pair; DELETE removes a single (scope, mode) override (revert).
@@ -849,7 +849,7 @@ export async function handleHttpRequest(
   }
 
   // Cluster presets — operator-saved cluster member templates. CRUD against
-  // ~/.archon/cluster-presets.json. See clusterPresets.ts for the on-disk
+  // ~/.arco/cluster-presets.json. See clusterPresets.ts for the on-disk
   // shape + validation rules. Cwd is intentionally NOT part of a preset —
   // operators apply the same shape to whatever cwd they pick next.
   if (req.url === '/api/cluster-presets' && req.method === 'GET') {
@@ -925,7 +925,7 @@ export async function handleHttpRequest(
   }
 
   // Workbench Expansion §D4 — project / session templates ("recipes"). CRUD
-  // against ~/.archon/templates.json. See server/src/templates/store.ts for the
+  // against ~/.arco/templates.json. See server/src/templates/store.ts for the
   // on-disk shape + validation. Single-tab analogue of cluster presets; the
   // persisted model is validated against the live catalog at APPLY time on the
   // client (survives model renames), not here.
@@ -1013,7 +1013,7 @@ export async function handleHttpRequest(
 
   // /api/docs?file=<repo-relative path> — serves source files (md / source
   // code) under PROJECT_ROOT for the in-app DocViewer. Whitelist-by-extension
-  // keeps the surface tight — there are no secrets in the Archon repo, but
+  // keeps the surface tight — there are no secrets in the Arco repo, but
   // there's no reason to expose .env / credentials.json / etc. either.
   // Path resolution is canonical and re-checked against PROJECT_ROOT to
   // block any traversal that survives `..` rejection.
@@ -1077,10 +1077,10 @@ export async function handleHttpRequest(
 
   if (req.url && (req.url === '/api/settings' || req.url.startsWith('/api/settings?')) && req.method === 'GET') {
     try {
-      // Phase 2 — optional ?cwd=<path> layers <cwd>/.archon/settings.json on
+      // Phase 2 — optional ?cwd=<path> layers <cwd>/.arco/settings.json on
       // top of the global cascade. Path-traversal isn't a concern here: we
       // only read; the cwd is operator-supplied (their own active workflow
-      // cwd) and readSettings only opens <cwd>/.archon/settings.json.
+      // cwd) and readSettings only opens <cwd>/.arco/settings.json.
       const url = new URL(req.url, 'http://localhost');
       const cwdParam = url.searchParams.get('cwd') ?? undefined;
       const settings = await readSettings(cwdParam);
@@ -1098,7 +1098,7 @@ export async function handleHttpRequest(
     try {
       let body = '';
       for await (const chunk of req) body += chunk;
-      const patch = JSON.parse(body || '{}') as Partial<ArchonSettings>;
+      const patch = JSON.parse(body || '{}') as Partial<ArcoSettings>;
       const updated = await patchSettings(patch);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(updated));
@@ -1764,7 +1764,7 @@ export async function handleHttpRequest(
   }
 
   if (req.url === '/api/shutdown' && req.method === 'POST') {
-    console.log('[archon] Shutdown requested');
+    console.log('[arco] Shutdown requested');
     for (const [ws] of sessions) {
       try {
         send(ws, { type: 'shutdown', reason: 'server_stopping' });
@@ -1783,7 +1783,7 @@ export async function handleHttpRequest(
   }
 
   if (req.url === '/api/restart' && req.method === 'POST') {
-    console.log('[archon] Restart requested');
+    console.log('[arco] Restart requested');
     for (const [ws] of sessions) {
       try {
         send(ws, { type: 'shutdown', reason: 'server_restarting' });
@@ -1793,7 +1793,7 @@ export async function handleHttpRequest(
     res.end(JSON.stringify({ restarting: true }));
     if (isSystemdServiceMode()) {
       const unit = systemdUnitName();
-      console.log(`[archon] Service-mode restart requested — queueing systemd restart for ${unit}`);
+      console.log(`[arco] Service-mode restart requested — queueing systemd restart for ${unit}`);
       setTimeout(async () => {
         try { deps.wss.close(); } catch { /* ignore */ }
         try { deps.httpServer.close(); } catch { /* ignore */ }
@@ -1805,7 +1805,7 @@ export async function handleHttpRequest(
           });
           child.unref();
         } catch (err) {
-          console.error(`[archon] Failed to queue systemd restart for ${unit}; exiting non-zero for Restart=on-failure fallback`, err);
+          console.error(`[arco] Failed to queue systemd restart for ${unit}; exiting non-zero for Restart=on-failure fallback`, err);
           process.exit(1);
         }
         // If systemd successfully queued the restart it will stop this
@@ -1813,7 +1813,7 @@ export async function handleHttpRequest(
         // spawn, fall back to the unit's Restart=on-failure path instead
         // of leaving the server with its listener closed.
         setTimeout(() => {
-          console.error(`[archon] Service-mode restart fallback fired for ${unit}`);
+          console.error(`[arco] Service-mode restart fallback fired for ${unit}`);
           process.exit(1);
         }, 10_000).unref();
       }, 50);
@@ -1834,12 +1834,12 @@ export async function handleHttpRequest(
     //      wrap with `setsid nohup` but setsid isn't installed on macOS
     //      by default, so the spawn ENOENT'd and the restart died
     //      silently. Plain `bash <script>` works on both platforms.
-    //   3. Log stdout/stderr to /tmp/archon-respawn.log so we can diagnose
+    //   3. Log stdout/stderr to /tmp/arco-respawn.log so we can diagnose
     //      whatever goes wrong next time instead of flying blind.
     //   4. Sleep 5s (was 3s) to give the dev wrapper + concurrently more
     //      time to fully tear down before rebinding ports.
-    const respawnLog = `${tmpdir()}/archon-respawn.log`;
-    const respawnScript = `${tmpdir()}/archon-respawn-${process.pid}.sh`;
+    const respawnLog = `${tmpdir()}/arco-respawn.log`;
+    const respawnScript = `${tmpdir()}/arco-respawn-${process.pid}.sh`;
     try {
       // Previous attempt wrote its startup line and then silently died
       // during `sleep 5`, somewhere between killDevWrapper's pkill and
@@ -1866,23 +1866,23 @@ export async function handleHttpRequest(
         'set -uo pipefail',
         `exec >> "${respawnLog}" 2>&1`,
         `echo "---"`,
-        `echo "[archon-respawn] $(date -Iseconds) pid=$$ parent-was=${process.pid}"`,
+        `echo "[arco-respawn] $(date -Iseconds) pid=$$ parent-was=${process.pid}"`,
         // Traps kept so a stray signal against our session doesn't take
         // us down before we get to the exec.
-        `trap 'echo "[archon-respawn] SIGTERM received (ignored)"' TERM`,
-        `trap 'echo "[archon-respawn] SIGHUP received (ignored)"' HUP`,
-        `trap 'echo "[archon-respawn] SIGINT received (ignored)"' INT`,
-        `echo "[archon-respawn] traps armed, brief grace before exec"`,
+        `trap 'echo "[arco-respawn] SIGTERM received (ignored)"' TERM`,
+        `trap 'echo "[arco-respawn] SIGHUP received (ignored)"' HUP`,
+        `trap 'echo "[arco-respawn] SIGINT received (ignored)"' INT`,
+        `echo "[arco-respawn] traps armed, brief grace before exec"`,
         // 1s grace is comfortably longer than the parent's 50ms response
         // delay + flushAllWorkflowEvents + pkill. The kill is effectively
         // instantaneous (SIGKILL releases sockets immediately), so this
         // is just a margin against jitter.
         'sleep 1 || true',
-        `echo "[archon-respawn] cd to ${PROJECT_ROOT}"`,
+        `echo "[arco-respawn] cd to ${PROJECT_ROOT}"`,
         `cd "${PROJECT_ROOT}"`,
-        `echo "[archon-respawn] cwd=$(pwd), PATH=$PATH"`,
-        `echo "[archon-respawn] which npm: $(which npm || echo MISSING)"`,
-        'echo "[archon-respawn] exec npm run dev"',
+        `echo "[arco-respawn] cwd=$(pwd), PATH=$PATH"`,
+        `echo "[arco-respawn] which npm: $(which npm || echo MISSING)"`,
+        'echo "[arco-respawn] exec npm run dev"',
         'exec npm run dev',
         '',
       ].join('\n');
@@ -1893,9 +1893,9 @@ export async function handleHttpRequest(
         stdio: 'ignore',
       });
       child.unref();
-      console.log(`[archon] Respawn queued — script=${respawnScript} log=${respawnLog}`);
+      console.log(`[arco] Respawn queued — script=${respawnScript} log=${respawnLog}`);
     } catch (err) {
-      console.error('[archon] Failed to queue respawn:', err);
+      console.error('[arco] Failed to queue respawn:', err);
     }
     // Tight delay (50ms) so the HTTP response and WS shutdown frames flush
     // onto the wire before we self-immolate. Must complete before the
@@ -1992,7 +1992,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Last-chance preview fallback — if a request didn't match any Archon route
+  // Last-chance preview fallback — if a request didn't match any Arco route
   // and its Referer points to a preview iframe, route it through that
   // workflow's backend (handles Vite's absolute-path sub-resources without
   // base-url config).
@@ -2000,13 +2000,13 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Production static-serve of the built client (ARCHON_OPS_PLAN §B1). Gated on
+  // Production static-serve of the built client (ARCO_OPS_PLAN §B1). Gated on
   // an EXPLICIT opt-in env flag, NOT NODE_ENV: in dev Vite on 5173 owns the
-  // client and proxies here, so we must stay 100% inert unless `archon service`
-  // (the systemd unit) sets ARCHON_SERVE_CLIENT=1. Runs after every API/preview
-  // route and only for GET, so it can never shadow an Archon endpoint. Falls
+  // client and proxies here, so we must stay 100% inert unless `arco service`
+  // (the systemd unit) sets ARCO_SERVE_CLIENT=1. Runs after every API/preview
+  // route and only for GET, so it can never shadow an Arco endpoint. Falls
   // through to the 404 if client/dist is absent (un-built) — never crashes.
-  if (process.env.ARCHON_SERVE_CLIENT === '1' && req.method === 'GET') {
+  if (process.env.ARCO_SERVE_CLIENT === '1' && req.method === 'GET') {
     if (await tryServeClientDist(req, res)) return;
   }
 

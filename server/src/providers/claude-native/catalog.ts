@@ -10,7 +10,7 @@
 // compile-time CLAUDE_MODELS array in shared/.
 //
 // Refresh cadence: 1 hour. New models surface within that window
-// without an Archon restart.
+// without an Arco restart.
 
 import { ensureLiveTokens } from './oauth.js';
 import { CLAUDE_CLI_USER_AGENT } from './wireFingerprint.js';
@@ -20,7 +20,7 @@ import {
   distillCatalogModel,
   type ClaudeCatalogModel,
   type ClaudeCatalogSnapshot,
-} from '@archon/shared';
+} from '@arco/shared';
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15_000;

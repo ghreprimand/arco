@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { voiceText, type ComputerMailRule } from '@archon/shared';
+import { voiceText, type ComputerMailRule } from '@arco/shared';
 import { useComputerStore } from '../stores/computerStore';
 import { useAppStore } from '../stores/appStore';
 

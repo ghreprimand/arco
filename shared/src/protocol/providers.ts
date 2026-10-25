@@ -32,7 +32,7 @@ export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex', '
 export type AuthLoginTarget = ProviderName | 'github';
 
 // POST /api/auth-login response. `command` is the headless login command the
-// operator runs in Archon's own terminal (a shell on the server box): every
+// operator runs in Arco's own terminal (a shell on the server box): every
 // supported CLI prints a URL / device code instead of needing a local browser,
 // so the same flow works at the desk, from a laptop over the tailnet, or from
 // a phone. The server no longer spawns logins itself — the old detached

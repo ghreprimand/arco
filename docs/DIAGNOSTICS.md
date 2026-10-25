@@ -1,6 +1,6 @@
 # Diagnostics
 
-> Part A of `docs/ARCHON_OPS_PLAN.md`. A1 ships the Diagnostics tab + grouped
+> Part A of `docs/ARCO_OPS_PLAN.md`. A1 ships the Diagnostics tab + grouped
 > status checks. A2 (support bundle, see below) extends it with a redacted
 > copyable snapshot. A3 (model health panel, see below) adds a third System-modal
 > tab. A4 (security posture) extends the same surface and lands here as it ships.
@@ -47,7 +47,7 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `ok` | The probe ran and the thing works. | green (`--color-success`) |
 | `warn` | Degraded, or an **optional** dependency is absent (ffmpeg missing, the TS language server not on PATH). Arco still functions; the operator loses a capability. | amber (`--color-warning`) |
 | `error` | Something that **should** work doesn't (data dir not writable). A probe that **throws** also lands here, with `detail` prefixed `probe threw:`. | red (`--color-danger`) |
-| `skipped` | Not probed on this platform/config (Antigravity CDP; per-cwd `.archon` from a machine-global call). Distinct from `warn` — nothing is wrong, we just didn't look. | grey (`--color-fg-muted`) |
+| `skipped` | Not probed on this platform/config (Antigravity CDP; per-cwd `.arco` from a machine-global call). Distinct from `warn` — nothing is wrong, we just didn't look. | grey (`--color-fg-muted`) |
 
 ## Resilience
 
@@ -68,18 +68,18 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 ### Core
 | id | Probes |
 |---|---|
-| `core.data-dir-rw` | `~/.archon` read+write — writes a throwaway probe file and reads it back. |
+| `core.data-dir-rw` | `~/.arco` read+write — writes a throwaway probe file and reads it back. |
 | `core.events-log-roundtrip` | `events.jsonl` append+read round-trip against a **temp** path under `tmpdir()` (proves the append-then-read pattern; does not touch a real log). |
 | `core.settings-cascade` | `readSettings()` parses the defaults → global cascade without throwing. |
-| `core.recovery-registry` | `~/.archon/known-cwds.json` is readable / valid JSON. Absent = ok (no workflows yet). |
+| `core.recovery-registry` | `~/.arco/known-cwds.json` is readable / valid JSON. Absent = ok (no workflows yet). |
 | `core.readiness` | Read-only snapshot of the `/readyz` gate. not-ready → `warn` (transient boot state, not a fault). |
-| `core.logs` | Structured file logging: `getLogFilePath()` non-null (set by `ARCHON_LOG_FILE=1`) → `ok` with path + size; off → `skipped`. |
+| `core.logs` | Structured file logging: `getLogFilePath()` non-null (set by `ARCO_LOG_FILE=1`) → `ok` with path + size; off → `skipped`. |
 
 ### Providers
 | id | Probes |
 |---|---|
 | `providers.claude-cli` | `claude --version`. Absent → warn. |
-| `providers.claude-native` | OAuth tokens present + unexpired at `~/.archon/auth.json`. |
+| `providers.claude-native` | OAuth tokens present + unexpired at `~/.arco/auth.json`. |
 | `providers.codex` | `codex --version`. |
 | `providers.gemini` | `gemini --version`. |
 | `providers.ollama` | base-URL `/api/tags` reachable + installed-model count. |
@@ -99,15 +99,15 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | id | Probes |
 |---|---|
 | `workbench.preview-proxy` | proxy route mounted (per-workflow targets bind on demand). |
-| `workbench.recall-index` | `~/.archon/recall/recall.db` present/readable (absent = ok, builds on first indexed turn). |
+| `workbench.recall-index` | `~/.arco/recall/recall.db` present/readable (absent = ok, builds on first indexed turn). |
 | `workbench.knowledge-index` | **`skipped`** — knowledge bases are per-cwd, no machine-global index. |
 | `workbench.cookbook-hardware` | `probeHardware()` — backend, RAM, cores, VRAM. |
 
 ### Storage
 | id | Probes |
 |---|---|
-| `storage.archon-home` | `~/.archon` size (recursive byte sum). |
-| `storage.project-archon` | **`skipped`** — per-cwd `<cwd>/.archon` is workflow-scoped, not a global path. |
+| `storage.arco-home` | `~/.arco` size (recursive byte sum). |
+| `storage.project-arco` | **`skipped`** — per-cwd `<cwd>/.arco` is workflow-scoped, not a global path. |
 
 ### Security & Exposure (A4)
 
@@ -120,7 +120,7 @@ shell (the PTY terminal), git/GitHub ops, filesystem read+write under cwd roots,
 and provider credentials. So **severity is conditioned on the bind address**:
 bound to loopback, only this machine can reach those powers (`ok`, informational
 detail); bound to a non-loopback address, the same powers are reachable by the
-LAN/tailnet (`warn`). The bind default is loopback (`ARCHON_HOST` →
+LAN/tailnet (`warn`). The bind default is loopback (`ARCO_HOST` →
 `127.0.0.1`); that default is why every capability check below is `ok` on a
 normal box.
 
@@ -132,15 +132,15 @@ classifications.
 
 | id | Probes |
 |---|---|
-| `security.bind-address` | Classifies `HOST` via the pure exported `classifyBindAddress(host)`. Loopback → `ok`; `0.0.0.0`/`::` → `warn` (+ hint to set `ARCHON_HOST=127.0.0.1`); other private → `warn` (LAN/tailnet); other non-private → `warn` (potentially public). **Phase acceptance: `0.0.0.0` flips to a clear warning.** |
+| `security.bind-address` | Classifies `HOST` via the pure exported `classifyBindAddress(host)`. Loopback → `ok`; `0.0.0.0`/`::` → `warn` (+ hint to set `ARCO_HOST=127.0.0.1`); other private → `warn` (LAN/tailnet); other non-private → `warn` (potentially public). **Phase acceptance: `0.0.0.0` flips to a clear warning.** |
 | `security.remote-access` | Honest + deterministic: an external SSH/Vite tunnel is a documented manual workflow Arco can't auto-detect. Loopback → `ok`; non-loopback → `warn`. |
 | `security.terminal` | Integrated PTY terminal (arbitrary shell in your cwds). Loopback → `ok` (local only); exposed → `warn`. |
 | `security.git-ops` | Git + GIT/GitHub primitives (commit/push). Boolean `gh` token presence enriches the detail (never the token). Loopback → `ok`; exposed + gh-authed → `warn`. |
-| `security.writable-cwd-roots` | Counts entries in `~/.archon/known-cwds.json` (mirrors `core.recovery-registry`; **count only, never lists paths**). Loopback → `ok`; exposed → `warn`. |
+| `security.writable-cwd-roots` | Counts entries in `~/.arco/known-cwds.json` (mirrors `core.recovery-registry`; **count only, never lists paths**). Loopback → `ok`; exposed → `warn`. |
 | `security.provider-auth` | Boolean presence of Claude Native OAuth tokens + `gh` token. Loopback → `ok` (spendable by local clients only); exposed + any creds → `warn`. |
 | `security.preview-proxy` | The proxy forwards to per-workflow loopback dev servers. Loopback → `ok`; exposed → `warn` (can forward LAN clients to your loopback dev servers). |
-| `security.local-model-endpoints` | llama.cpp host (`ARCHON_LLAMACPP_HOST`) + resolved Ollama base-URL host. `0.0.0.0` llama-server → `warn`. A non-loopback **private** Ollama daemon is a deliberate remote (e.g. workstation over Tailscale) → `ok`; non-private Ollama → `warn`. Both loopback → `ok`. **Prints the classification, never the URL.** |
-| `security.risky-env-config` | A small documented allowlist of risky env keys, reporting **names only** when set to a risky value: `ARCHON_HOST` (non-loopback), `NODE_TLS_REJECT_UNAUTHORIZED=0`, and any key matching `/DANGEROUS\|UNSAFE\|SKIP_PERMISSION\|NO_AUTH\|YOLO/i`. None → `ok`. |
+| `security.local-model-endpoints` | llama.cpp host (`ARCO_LLAMACPP_HOST`) + resolved Ollama base-URL host. `0.0.0.0` llama-server → `warn`. A non-loopback **private** Ollama daemon is a deliberate remote (e.g. workstation over Tailscale) → `ok`; non-private Ollama → `warn`. Both loopback → `ok`. **Prints the classification, never the URL.** |
+| `security.risky-env-config` | A small documented allowlist of risky env keys, reporting **names only** when set to a risky value: `ARCO_HOST` (non-loopback), `NODE_TLS_REJECT_UNAUTHORIZED=0`, and any key matching `/DANGEROUS\|UNSAFE\|SKIP_PERMISSION\|NO_AUTH\|YOLO/i`. None → `ok`. |
 
 Smoke: `scripts/smoke/posture.ts` (`npm run smoke:posture`) — unit-asserts
 `classifyBindAddress` directly, then hits the live endpoint to confirm the
@@ -157,7 +157,7 @@ The smoke hits the live `GET /api/diagnostics` and asserts: 200; all six
 groups present; every check has a valid `status` / `id` / `label` / `detail`;
 the Core group has at least one `ok`; the TS-LSP-absent check degrades to
 `warn`/`skipped` (not `error`); and no probe surfaced a `probe threw:` error.
-Override the base with `ARCHON_SMOKE_HTTP_BASE`.
+Override the base with `ARCO_SMOKE_HTTP_BASE`.
 
 ## Support bundle (A2)
 
@@ -182,7 +182,7 @@ allowlist** of safe fields — we never serialize raw settings, raw env, or raw
 token objects:
 
 ```
-{ generatedAt, archonVersion, gitRev, platform,
+{ generatedAt, arcoVersion, gitRev, platform,
   runtime: { node, serviceMode },
   diagnostics: DiagnosticsReport (path-redacted),
   notes? }
@@ -282,12 +282,12 @@ ModelHealthReport {
     spawn/keepalive/reap reads it back. Chosen over re-deriving from the log
     because the argv is already computed at the one spawn site.
   - **Last stderr** is the tail (~40 lines, last 64 KB) of the existing
-    `~/.archon/llamacpp.log` — the manager already pipes child stdout/stderr
+    `~/.arco/llamacpp.log` — the manager already pipes child stdout/stderr
     there. Reading the log tail is strictly less invasive than buffering stderr
     in-process, so per the spec's "prefer the least invasive option" we read the
     log (no lifecycle change for stderr at all).
 - **Cookbook** — the detected `HardwareProfile` from `probeHardware()` (backend /
-  VRAM / RAM / cores / GPUs), GGUFs downloaded under `~/.archon/models`
+  VRAM / RAM / cores / GPUs), GGUFs downloaded under `~/.arco/models`
   (`modelsDir()`), and **fit-score mismatch warnings**: each registered llama.cpp
   loadout is scored against the detected hardware with the **same pure
   `scoreFit()`** the Cookbook catalog uses (no new fit logic) — a `NO` verdict

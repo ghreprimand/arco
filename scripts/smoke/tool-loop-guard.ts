@@ -125,13 +125,13 @@ async function main(): Promise<void> {
   });
 
   await step('H9.6 default mode (no env) is warn', () => {
-    const prev = process.env.ARCHON_TOOL_LOOP_GUARD;
-    delete process.env.ARCHON_TOOL_LOOP_GUARD;
+    const prev = process.env.ARCO_TOOL_LOOP_GUARD;
+    delete process.env.ARCO_TOOL_LOOP_GUARD;
     assertEq(toolLoopGuardMode(), 'warn', 'unset → warn default');
-    process.env.ARCHON_TOOL_LOOP_GUARD = 'stop';
+    process.env.ARCO_TOOL_LOOP_GUARD = 'stop';
     assertEq(toolLoopGuardMode(), 'stop', 'stop arming honored');
-    if (prev === undefined) delete process.env.ARCHON_TOOL_LOOP_GUARD;
-    else process.env.ARCHON_TOOL_LOOP_GUARD = prev;
+    if (prev === undefined) delete process.env.ARCO_TOOL_LOOP_GUARD;
+    else process.env.ARCO_TOOL_LOOP_GUARD = prev;
   });
 
   summary('tool-loop-guard');

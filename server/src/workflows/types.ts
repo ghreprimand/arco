@@ -1,6 +1,6 @@
 import type { WebSocket } from 'ws';
 import type { FSWatcher } from 'fs';
-import type { WorkflowConfig, PreviewHistoryEntry, ProviderName, ModelName, EffortLevel, ToolPosture, ServerMessage } from '@archon/shared';
+import type { WorkflowConfig, PreviewHistoryEntry, ProviderName, ModelName, EffortLevel, ToolPosture, ServerMessage } from '@arco/shared';
 import type { WorkerManager } from '../workers/WorkerManager.js';
 import type { PrimaryConfig } from '../primitives/seedWorker.js';
 import type { SessionJsonlEntry } from '../sessionJsonl.js';
@@ -231,7 +231,7 @@ export interface CwdHandoffSlot {
 // block plus one or more tool_use blocks, and we want each to show up
 // in chat as its own row (text as a bubble, tool_use as a compact pill).
 // Returns [] for tool_result / summary / other entries that don't render.
-export type SessionEntryPayload = import('@archon/shared').SessionEntryMessage['entry'];
+export type SessionEntryPayload = import('@arco/shared').SessionEntryMessage['entry'];
 
 // Plans-directory watcher. One FSWatcher per cwd; reference-counted by the
 // number of in-memory workflows currently attached to a plan in that cwd.

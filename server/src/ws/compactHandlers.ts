@@ -8,7 +8,7 @@
 //   - Claude/Z.ai (native transport): the worker runs ONE summarization round,
 //     REPLACES retained native history with the summary, and persists a
 //     `native_compacted` marker so replay re-seeds it on restart.
-// Both are the in-Archon equivalent of the provider's CLI `/compact`, far
+// Both are the in-Arco equivalent of the provider's CLI `/compact`, far
 // cheaper than a Handoff (no fresh worker, no portable doc, no resume re-feed).
 //
 // Passes the four-question test: operator-initiated (button), deterministic
@@ -18,7 +18,7 @@
 
 import { WebSocket } from 'ws';
 import { publishActivity } from '../voice/activityBus.js';
-import type { CompactWorkflowMessage, FoldWorkflowMessage } from '@archon/shared';
+import type { CompactWorkflowMessage, FoldWorkflowMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import {
   claimBusy,

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import '../../../vendor/odysseus-editor/editor.css';
 
 // WORKBENCH_EXPANSION §H2 (part 2) — React wrapper that mounts the vendored
-// Odysseus raster editor (client/src/vendor/odysseus-editor/) inside Archon's
-// media modal and bridges its LOAD + SAVE to Archon's guarded endpoints.
+// Odysseus raster editor (client/src/vendor/odysseus-editor/) inside Arco's
+// media modal and bridges its LOAD + SAVE to Arco's guarded endpoints.
 //
 // HONEST SCOPE (ALPHA — read before extending):
 //   - The editor itself is vendored plain-JS (galleryEditor.js + editor/*). It
@@ -69,7 +69,7 @@ export function ImageEditor({ src, filename, diskPath, fileContext, onRevealInFi
         editorRef.current = ed;
         // The container must already exist (rendered below). openEditor loads
         // `src` as the base layer; imageId stays undefined so the editor's own
-        // gallery-save branch never engages (Archon's Save is our button).
+        // gallery-save branch never engages (Arco's Save is our button).
         //
         // The vendored editor SWALLOWS its own build/init failures — it logs via
         // console.error and returns instead of throwing — so a failed build

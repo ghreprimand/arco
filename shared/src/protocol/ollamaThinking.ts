@@ -3,11 +3,11 @@ import type { EffortLevel } from './providers.js';
 // Ollama graded thinking. `/api/show` returns a top-level
 // `thinking: { values, default }` for models whose parser accepts levels —
 // e.g. qwen3.8 advertises [false, "low", "medium", "xhigh"], default "medium";
-// gpt-oss advertises low/medium/high. Archon used to send only a boolean
+// gpt-oss advertises low/medium/high. Arco used to send only a boolean
 // (`think: effort !== 'low'`), so every level beyond the model default was
 // unreachable. Shared so the server request and the client picker agree.
 //
-// Archon's `low` keeps its long-standing meaning — thinking OFF (plus the
+// Arco's `low` keeps its long-standing meaning — thinking OFF (plus the
 // `/no_think` system prepend) — when the model permits `false`; the model's
 // own "low" level is then the one value the picker can't reach. On a model
 // that can't disable thinking, `low` selects its lowest level instead.
@@ -49,7 +49,7 @@ export function ollamaEffortsFor(info: OllamaThinkingInfo | null | undefined): E
   return out;
 }
 
-// The `think` request value for an Archon effort.
+// The `think` request value for an Arco effort.
 export function ollamaThinkParam(effort: string | undefined, info: OllamaThinkingInfo | null | undefined): boolean | string {
   if (!info || info.levels.length === 0) return effort !== 'low';
   if (effort === 'low') return info.canDisable ? false : info.levels[0];

@@ -87,7 +87,7 @@ import sakuraPetalsFrag from '../themes/shaders/sakuraPetals.frag.glsl?raw';
 //    WebGL context. Compiled ShaderMaterials are cached in a
 //    `Map<ShaderPreset, ShaderMaterial>` so a back-and-forth swap is
 //    instant after the first compile (100–300ms budget per new preset).
-//  - `archon:theme-changed` fires from `applyTheme` (themes/apply.ts) with
+//  - `arco:theme-changed` fires from `applyTheme` (themes/apply.ts) with
 //    the full Theme in event.detail. On receipt: select/compile the
 //    matching material, refresh its color uniforms from the new palette,
 //    and swap it onto the mesh.
@@ -242,7 +242,7 @@ export default function ThemedBackgroundShader() {
     // Shared tension uniform ref — a single object reused across all
     // ShaderMaterials. Updating `uTensionRef.value` propagates to every
     // material bound to it without needing per-material iteration.
-    // Populated by the `archon:tension` event listener installed below.
+    // Populated by the `arco:tension` event listener installed below.
     const uTensionRef = { value: 0 };
 
     const materials = new Map<ShaderPreset, THREE.ShaderMaterial>();
@@ -335,9 +335,9 @@ export default function ThemedBackgroundShader() {
         stopRaf = startRaf(fpsForPreset(detail.shaderPreset));
       }
     };
-    window.addEventListener('archon:theme-changed', onThemeChange);
+    window.addEventListener('arco:theme-changed', onThemeChange);
 
-    // Tension is driven from useTension.ts which fires archon:tension once
+    // Tension is driven from useTension.ts which fires arco:tension once
     // per RAF frame. We just mutate the shared uniform's .value — no
     // per-material iteration needed since every ShaderMaterial reuses
     // uTensionRef.
@@ -345,7 +345,7 @@ export default function ThemedBackgroundShader() {
       const v = (ev as CustomEvent<number>).detail;
       if (typeof v === 'number') uTensionRef.value = v;
     };
-    window.addEventListener('archon:tension', onTension);
+    window.addEventListener('arco:tension', onTension);
 
     const start = performance.now();
     // Per-preset fps cap. Discrete/noisy presets (LOW_FPS_PRESETS) drop to
@@ -365,8 +365,8 @@ export default function ThemedBackgroundShader() {
     return () => {
       stopRaf();
       window.removeEventListener('resize', resize);
-      window.removeEventListener('archon:theme-changed', onThemeChange);
-      window.removeEventListener('archon:tension', onTension);
+      window.removeEventListener('arco:theme-changed', onThemeChange);
+      window.removeEventListener('arco:tension', onTension);
       for (const m of materials.values()) m.dispose();
       fallbackMaterial.dispose();
       geometry.dispose();

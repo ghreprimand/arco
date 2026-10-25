@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §A3 — Local model health endpoint smoke.
+// ARCO_OPS_PLAN.md §A3 — Local model health endpoint smoke.
 //
 // Hits the LIVE server's GET /api/diagnostics/model-health (the director runs
 // this against a running `npm run dev`). Asserts the report is well-formed:
@@ -12,7 +12,7 @@
 import { step, assert, assertEq, summary } from './lib.js';
 import type { ModelHealthReport, DiagnosticStatus } from '../../shared/src/protocol/opsDiagnostics.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 const VALID_STATUS: DiagnosticStatus[] = ['ok', 'warn', 'error', 'skipped'];
 const VALID_MANAGER_STATES = ['idle', 'loading', 'ready', 'failed'];
 

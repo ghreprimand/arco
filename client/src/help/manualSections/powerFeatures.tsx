@@ -50,7 +50,7 @@ export const powerFeatures: Section[] = [
         <p><strong>Checkpoints &amp; one-click revert.</strong> Each <Code>CHECKPOINT ●</Code> row is a working-tree snapshot Arco took automatically before a file-mutating turn (a hidden git ref — your real HEAD / branch / staged index are never touched). Two actions appear when a checkpoint row is selected:</p>
         <ul>
           <li><strong>VIEW DIFF VS NOW</strong> — opens the diff viewer comparing the checkpoint's tree against the live working tree (<Code>git diff &lt;checkpoint ref&gt;</Code> vs <Code>WORKTREE</Code>), reusing the same renderer as the Files CHANGES sub-tab.</li>
-          <li><strong>REVERT TO HERE</strong> — restores the working tree to that checkpoint <em>faithfully</em>: files created after it are removed, not just overwritten. It is always reversible — Arco takes a fresh <Code>pre-revert</Code> checkpoint of the current tree <em>first</em> (and aborts the whole operation if that safety snapshot fails), so you can undo a revert by reverting to the pre-revert marker that appears right after it. A confirm dialog shows the file count before anything changes. The user's HEAD / branch / real index are never moved — the restored tree shows up as ordinary uncommitted working-tree changes. Reverting is blocked while a turn is in progress (cancel it first). Non-git workspaces are checkpointed into a private shadow git store under <Code>~/.archon/checkpoints/</Code> (your directory stays non-git), so revert there has the same real-tree semantics. Scope caps apply to that shadow store: files over 32 MiB are skipped and counted, and a snapshot whose included total exceeds 1 GiB is skipped — large models/videos are out of checkpoint scope by design. Older tar checkpoints remain revertible.</li>
+          <li><strong>REVERT TO HERE</strong> — restores the working tree to that checkpoint <em>faithfully</em>: files created after it are removed, not just overwritten. It is always reversible — Arco takes a fresh <Code>pre-revert</Code> checkpoint of the current tree <em>first</em> (and aborts the whole operation if that safety snapshot fails), so you can undo a revert by reverting to the pre-revert marker that appears right after it. A confirm dialog shows the file count before anything changes. The user's HEAD / branch / real index are never moved — the restored tree shows up as ordinary uncommitted working-tree changes. Reverting is blocked while a turn is in progress (cancel it first). Non-git workspaces are checkpointed into a private shadow git store under <Code>~/.arco/checkpoints/</Code> (your directory stays non-git), so revert there has the same real-tree semantics. Scope caps apply to that shadow store: files over 32 MiB are skipped and counted, and a snapshot whose included total exceeds 1 GiB is skipped — large models/videos are out of checkpoint scope by design. Older tar checkpoints remain revertible.</li>
         </ul>
         <p><strong>Click a row</strong> to scroll-and-flash the corresponding chat row when the event has a chat message id (user sends + assistant completes today). Tool calls / handoffs / reviews are listed but don't flash — they're navigation entry points, not chat positions.</p>
         <p><strong>Three operator actions</strong> on every row (when applicable):</p>
@@ -139,7 +139,7 @@ export const powerFeatures: Section[] = [
         <ul>
           <li><strong>Edit-then-approve.</strong> The card pre-fills the proposed tool input in a textarea; you can edit it, then approve (<Code>gate_reply</Code>) or deny / revoke (<Code>gate_revoke</Code>). The server broadcasts <Code>gate_resolved</Code>.</li>
           <li><strong>Standing approval.</strong> On an <em>unedited</em> approve you can arm "approve all like this" (<Code>gate_standing</Code>): the server stores a non-lossy signature of what ran and re-evaluates future calls against it live, skipping the gate only on an exact match.</li>
-          <li><strong>Durable.</strong> Gates and standing rules persist in a gateStore sidecar (<Code>&lt;cwd&gt;/.archon/workflows/&lt;wfid&gt;/gate-approvals.json</Code>) so they survive restart / rehydrate.</li>
+          <li><strong>Durable.</strong> Gates and standing rules persist in a gateStore sidecar (<Code>&lt;cwd&gt;/.arco/workflows/&lt;wfid&gt;/gate-approvals.json</Code>) so they survive restart / rehydrate.</li>
         </ul>
         <Note>
           Fence-clearance: operator-armed (default OFF), a deterministic
@@ -209,7 +209,7 @@ export const powerFeatures: Section[] = [
             <Code>settings.json</Code> from a repo Arco hasn't seen vouched,
             those files are <strong>suppressed</strong> — the turn runs without
             them and a prompt appears on the composer. Trusting (recorded in{' '}
-            <Code>~/.archon/trust.json</Code>) folds them into future turns.
+            <Code>~/.arco/trust.json</Code>) folds them into future turns.
             Reversible: CONFIG → PROJECT TRUST sets TRUSTED / BLOCKED / ASK for
             the tab&apos;s directory (nearest ancestor wins, so it covers every
             tab and cluster member on that cwd), and SETTINGS → PROJECT TRUST
@@ -435,7 +435,7 @@ export const powerFeatures: Section[] = [
             <Code>(tool, args, output)</Code>) repeated past a threshold. Default
             posture is warnings-only (a <Code>tool_loop_warning</Code> event +{' '}
             <Code>system_notice</Code>); a hard stop is opt-in via{' '}
-            <Code>ARCHON_TOOL_LOOP_GUARD=stop</Code>. Catches a wedged turn in a
+            <Code>ARCO_TOOL_LOOP_GUARD=stop</Code>. Catches a wedged turn in a
             handful of iterations instead of waiting for the 1000-iteration
             ceiling.
           </li>
@@ -471,8 +471,8 @@ ssh -L 5173:localhost:5173 you@dev-box
         <p>
           A separate, much narrower path lets you <strong>check on workflows and
           answer / stop / continue them from a phone</strong> without exposing the
-          full UI. When <Code>ARCHON_HUB_URL</Code> is set, this instance connects
-          outbound (tailnet-only) to an <Code>archon-management</Code> hub and
+          full UI. When <Code>ARCO_HUB_URL</Code> is set, this instance connects
+          outbound (tailnet-only) to an <Code>arco-management</Code> hub and
           registers itself. The header shows a <strong>hub-link chip</strong> with
           connection state and last-heartbeat; click it for a one-click local kill
           switch.
@@ -528,7 +528,7 @@ ssh -L 5173:localhost:5173 you@dev-box
           clears the unread badge, and CLEAR wipes the history.
         </p>
         <p>
-          <strong>External push (ntfy).</strong> Set <Code>ARCHON_NTFY_URL</Code> to
+          <strong>External push (ntfy).</strong> Set <Code>ARCO_NTFY_URL</Code> to
           a topic URL and surviving notices are also POSTed to ntfy as
           fire-and-forget pushes (title / body / priority + a click-through link),
           so you get phone notifications away from the desk. It's inert unless that
@@ -654,7 +654,7 @@ ssh -L 5173:localhost:5173 you@dev-box
           "find the conversation from two weeks ago about X."
         </p>
         <p>
-          It's backed by the machine-global recall index (<Code>~/.archon/recall/recall.db</Code>)
+          It's backed by the machine-global recall index (<Code>~/.arco/recall/recall.db</Code>)
           and a <strong>deterministic</strong> search engine — there is{' '}
           <strong>no LLM in the loop</strong>, no AI ranking or summarization:
         </p>
@@ -715,7 +715,7 @@ ssh -L 5173:localhost:5173 you@dev-box
       <>
         <p>
           A per-project, <strong>operator-owned</strong> knowledge base stored on
-          disk under <Code>.archon/knowledge/</Code> (a small <Code>index.json</Code>{' '}
+          disk under <Code>.arco/knowledge/</Code> (a small <Code>index.json</Code>{' '}
           plus one markdown file per article — hand-editable / diff-able). Think
           of it as a curated companion to <Code>CLAUDE.md</Code>: repo layout,
           gotchas, deploy steps, conventions you build up instead of

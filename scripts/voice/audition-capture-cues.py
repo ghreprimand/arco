@@ -101,7 +101,7 @@ for(const b of document.querySelectorAll('button[data-sound]'))b.onclick=async()
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--out', type=Path, default=Path.home() / '.archon/voice/audition-logs/capture-cues')
+    parser.add_argument('--out', type=Path, default=Path.home() / '.arco/voice/audition-logs/capture-cues')
     parser.add_argument('--serve', action='store_true')
     parser.add_argument('--port', type=int, default=5197)
     parser.add_argument('--export-double-pulse', type=Path, help='export the selected cue at the preview’s default 65%% level')

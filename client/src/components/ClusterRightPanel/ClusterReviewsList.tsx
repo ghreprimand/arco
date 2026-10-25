@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import type { ClusterStatePayload } from '@archon/shared';
+import type { ClusterStatePayload } from '@arco/shared';
 
 // Phase 2.5 B1 — aggregated review feed across every cluster member.
 // Per-workflow reviews live on each job's `reviews` array (populated by the

@@ -1,5 +1,5 @@
 """Real provider controls/version rows against Vite, all APIs/WS intercepted.
-Run with ARCHON_CLIENT_PORT=5197 ARCHON_PORT=6197 npm run dev:client.
+Run with ARCO_CLIENT_PORT=5197 ARCO_PORT=6197 npm run dev:client.
 """
 import asyncio
 import json
@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 
 async def main():
-    artifact = Path('/tmp/archon-deepseek-browser')
+    artifact = Path('/tmp/arco-deepseek-browser')
     artifact.mkdir(exist_ok=True)
     profiles = [dict(id=i, model=f'deepseek-v4.1-flash-1017-{i}', label=f'DeepSeek {i.title()} · Xolotl · 262K',
                      serviceState='inactive', loaded=False, capabilities={'vision': True}) for i in ['exact', 'light']]
@@ -18,7 +18,7 @@ async def main():
     upstream = {'sha': '1111111111111111111111111111111111111111'}
     installed = {'strata': '0.1.44.1'}
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')))
+        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')))
         context = await browser.new_context(viewport={'width': 1200, 'height': 850})
         async def api(route):
             path = urlparse(route.request.url).path
@@ -62,7 +62,7 @@ async def main():
         await context.route_web_socket('**/*', lambda ws: ws.on_message(lambda _: None))
         page = await context.new_page()
         page.on('pageerror', lambda e: errors.append(str(e)))
-        await page.goto(os.environ.get('ARCHON_DEEPSEEK_PREVIEW_URL', 'http://127.0.0.1:5197/'))
+        await page.goto(os.environ.get('ARCO_DEEPSEEK_PREVIEW_URL', 'http://127.0.0.1:5197/'))
         await page.wait_for_timeout(500)
         await page.evaluate('''async () => {
           const loaded = path => performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path)??path;

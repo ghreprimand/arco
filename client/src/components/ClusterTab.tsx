@@ -22,8 +22,8 @@ import { MemberPane } from './MemberPane';
 import { MemberCard } from './MemberCard';
 import { ClusterRightPanel } from './ClusterRightPanel';
 import { clusterDisplayName } from './TabBar';
-import type { ClusterMemberProvider, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, LedgerTaskStatus } from '@archon/shared';
-import { presetForText } from '@archon/shared';
+import type { ClusterMemberProvider, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, LedgerTaskStatus } from '@arco/shared';
+import { presetForText } from '@arco/shared';
 import type { ClusterDispatcherSettingsPatch, ClusterMemberPrimaryUpdate, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 
@@ -42,7 +42,7 @@ const CARD_LAYOUT_OPTIONS: Array<{ id: ClusterCardLayout; label: string; title: 
 // 2026-05-11 — outer splitter between the (grid + detail) trio and the
 // ClusterRightPanel. Mirrors WorkflowView.tsx's chat / right-panel splitter
 // shape so cluster + workflow surfaces share the same operator gesture.
-const RIGHT_PANEL_WIDTH_KEY = 'archon.clusterRightPanelWidth';
+const RIGHT_PANEL_WIDTH_KEY = 'arco.clusterRightPanelWidth';
 const RIGHT_PANEL_MIN_FRACTION = 0.18;
 const RIGHT_PANEL_MAX_FRACTION = 0.5;
 // 0.28 ≈ the ~320 px the right panel was hard-pinned to before the splitter
@@ -51,7 +51,7 @@ const RIGHT_PANEL_MAX_FRACTION = 0.5;
 const RIGHT_PANEL_DEFAULT_FRACTION = 0.28;
 // Operator can collapse the bottom broadcast pane to a one-line strip with a
 // checkbox to bring it back. Global (not per-cluster) — it's a layout taste.
-const BROADCAST_PANE_VISIBLE_KEY = 'archon.clusterBroadcastPaneVisible';
+const BROADCAST_PANE_VISIBLE_KEY = 'arco.clusterBroadcastPaneVisible';
 
 interface Props {
   clusterId: string;
@@ -81,7 +81,7 @@ interface Props {
   onAddFreshWorkers?: (
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@archon/shared').ClusterMemberAccessMode },
+    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode },
   ) => void;
   onAddExistingMember?: (clusterId: string, workflowId: string) => void;
   // Phase 2.6 — shared cluster plan + per-member role hint editors live in

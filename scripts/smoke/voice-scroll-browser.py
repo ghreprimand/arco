@@ -1,12 +1,12 @@
 """Real ChatPanel + VoiceExecutor, isolated Vite page; no API/WS/provider actions.
-ARCHON_CLIENT_PORT=5195 npm run dev:client; npm run smoke:voice-scroll
+ARCO_CLIENT_PORT=5195 npm run dev:client; npm run smoke:voice-scroll
 """
 import asyncio
 import os
 from playwright.async_api import async_playwright
 
-URL = os.environ.get('ARCHON_VOICE_SCROLL_URL', 'http://127.0.0.1:5195')
-CHROME = os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+URL = os.environ.get('ARCO_VOICE_SCROLL_URL', 'http://127.0.0.1:5195')
+CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
 
 async def main():
     async with async_playwright() as p:
@@ -25,7 +25,7 @@ async def main():
           const {ChatPanel} = await import('/src/components/ChatPanel.tsx');
           const {useAppStore} = await import('/src/stores/appStore.ts');
           const {VoiceExecutor} = await import('/src/voice/executor.ts');
-          const {useVoiceStore} = await import('/src/voice/store.ts');useVoiceStore.setState({enabled:true,mode:'archon'});
+          const {useVoiceStore} = await import('/src/voice/store.ts');useVoiceStore.setState({enabled:true,mode:'arco'});
           window.store=useAppStore;const s=useAppStore.getState();
           for(const id of ['worker-a','worker-b']) {
             s.createJob(id,{name:id,kind:'workflow',workingDirectory:'/tmp/voice-scroll-fixture',primaryProvider:'codex',primaryModel:'gpt-6-luna',primaryEffort:'low'});
@@ -52,7 +52,7 @@ async def main():
             await page.wait_for_timeout(80)
             assert await distance() > 1000
         await detach()
-        await page.evaluate('tool("archon_select",{target:"worker-a"})')
+        await page.evaluate('tool("arco_select",{target:"worker-a"})')
         await page.wait_for_timeout(150)
         assert await distance() < 40, 'selecting the current worker must resume follow'
         await page.evaluate('stream()')
@@ -60,13 +60,13 @@ async def main():
         await detach()
         await page.evaluate('stream()')
         assert await distance() > 1000, 'manual scroll-up must retain reading position'
-        await page.evaluate('tool("archon_send_message",{target:"worker-b",text:"Background task."})')
+        await page.evaluate('tool("arco_send_message",{target:"worker-b",text:"Background task."})')
         assert await distance() > 1000, 'sending to another worker must preserve current reading'
-        await page.evaluate('tool("archon_send_message",{target:"worker-a",text:"Visible task."})')
+        await page.evaluate('tool("arco_send_message",{target:"worker-a",text:"Visible task."})')
         await page.evaluate('stream()')
         assert await distance() < 40, 'a send to the selected worker must resume follow'
         await detach()
-        await page.evaluate('tool("archon_select",{target:"worker-b"})')
+        await page.evaluate('tool("arco_select",{target:"worker-b"})')
         await page.evaluate('stream()')
         assert await distance() < 40, 'reused ChatPanel must follow a newly selected worker'
         assert not errors, errors

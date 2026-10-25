@@ -1,4 +1,4 @@
-// Doc-sync validation guardrail for Archon's in-app help system.
+// Doc-sync validation guardrail for Arco's in-app help system.
 //
 // Why: the contextual-help registry (HELP_CONTENT), the in-app manual sections,
 // and the data-help attributes scattered across ~41 client components must stay

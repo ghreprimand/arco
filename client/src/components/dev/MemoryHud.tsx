@@ -7,7 +7,7 @@
 // 2s and prints the JS heap (Chrome) plus per-tab hot-array counts so the
 // growth curve is visible during a long soak.
 //
-// Enable with `?memhud=1` in the URL or `localStorage.setItem('archon:memhud','1')`.
+// Enable with `?memhud=1` in the URL or `localStorage.setItem('arco:memhud','1')`.
 // Renders nothing otherwise, so it's inert in normal use. Reading the diagnosis:
 //   - heap climbs but counts stay flat ⇒ leak is non-store (detached DOM,
 //     highlight cache, blob URLs, an iframe/webview) — chase that.
@@ -19,7 +19,7 @@ import { useAppStore } from '../../stores/appStore';
 function hudEnabled(): boolean {
   try {
     if (new URLSearchParams(window.location.search).get('memhud') === '1') return true;
-    return window.localStorage.getItem('archon:memhud') === '1';
+    return window.localStorage.getItem('arco:memhud') === '1';
   } catch {
     return false;
   }

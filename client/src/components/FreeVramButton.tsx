@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { LocalModelUnloadReport } from '@archon/shared';
+import type { LocalModelUnloadReport } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 const isLocal = (provider?: string) => provider === 'ollama' || provider === 'strata' || provider === 'deepseek' || provider === 'llamacpp' || provider === 'lmstudio';

@@ -4,7 +4,7 @@ import type {
   OrchestrationAssistModelRef,
   OrchestrationInputRef,
   OrchestrationProposal,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface OrchestrationAssistRequestArgs {
   clusterId: string;

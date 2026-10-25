@@ -8,7 +8,7 @@ import {
   type ClusterMemberProvider,
   type ClusterStatePayload,
   type EffortLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { effortsForModel } from '../../utils/format';

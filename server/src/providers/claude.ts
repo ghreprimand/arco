@@ -13,7 +13,7 @@ import { StreamParser } from '../workers/StreamParser.js';
 import { killProcessTree } from '../workers/processKill.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markThrottled, markAvailable } from '../quota.js';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
 import type { Provider, ProviderProcess } from './types.js';
@@ -26,7 +26,7 @@ import type { Provider, ProviderProcess } from './types.js';
 // any transcript-compaction threshold, so normal cases (pre-Phase-B era
 // tests, short workflows) keep the simple argv path.
 const APPEND_SP_ARG_MAX = 64 * 1024;
-const APPEND_SP_TMPDIR = joinPath(tmpdir(), 'archon-prompts');
+const APPEND_SP_TMPDIR = joinPath(tmpdir(), 'arco-prompts');
 
 // Per-attachment image cap. Claude API accepts up to 5MB base64 per image.
 // Going over this would get bounced at the API boundary with a 400, so we
@@ -126,7 +126,7 @@ function nextOccurrence(hour24: number, minute: number): number {
 // short continuation prompt instead (see _resumeOnRetry).
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_CONTINUE_PROMPT =
-  '[Archon retry] The previous attempt at this turn was cut off by a transient API error. ' +
+  '[Arco retry] The previous attempt at this turn was cut off by a transient API error. ' +
   'Continue the task from where it stopped. Do not repeat tool calls whose results are already in this conversation.';
 const RETRY_BACKOFF_MS = [15_000, 30_000, 60_000]; // 15s → 30s → 60s
 
@@ -459,7 +459,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       '--effort', this.config.ultracode ? 'xhigh' : this.config.effort,
     ];
     if (opts?.streamJsonInput) {
-      // Needed to send image content blocks. Archon only flips this when at
+      // Needed to send image content blocks. Arco only flips this when at
       // least one image attachment is present; plain-text turns stay on the
       // default `text` input mode.
       args.push('--input-format', 'stream-json');
@@ -560,7 +560,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
     // CLUSTER_MODE_PLAN.md Phase 3 — CLI cluster members carry a per-spawn
     // `mcp-config.json` path. The CLI spawns its own MCP stdio child from
-    // that config; the child translates `mcp__archon-cluster__peer_*` tool
+    // that config; the child translates `mcp__arco-cluster__peer_*` tool
     // calls into REST against `/api/clusters/:id/peer/...`. Per-turn
     // mailbox prologue + cluster plan + member role flow through
     // `--append-system-prompt` (handled above) — they are not the MCP
@@ -569,7 +569,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--mcp-config', this.config.clusterMcpConfigPath);
     }
 
-    // ARCHON_OPS_PLAN.md §E1 — dangerous-and-unticked MCP tools of the
+    // ARCO_OPS_PLAN.md §E1 — dangerous-and-unticked MCP tools of the
     // workflow's operator-enabled registry servers. VERIFIED: --disallowedTools
     // composes with --dangerously-skip-permissions (the named tool is removed
     // from the model's available set entirely; non-listed tools of the same
@@ -661,7 +661,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
     // Transient API error in the stream. Surface as a chat-level system
     // notice (not as assistant text — the plan doc's top complaint was that
-    // the raw error JSON rendered under ARCHON :: PASSTHROUGH). Mark the
+    // the raw error JSON rendered under ARCO :: PASSTHROUGH). Mark the
     // signal so the exit handler can decide whether to retry — we don't
     // retry here because the CLI often continues streaming past the hiccup
     // and completes the turn on its own.

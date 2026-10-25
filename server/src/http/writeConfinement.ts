@@ -23,10 +23,10 @@ import * as clusterStore from '../clusterStore.js';
 import { readSettings } from '../settings.js';
 import { safeDirectory, assertSafePath } from '../fileAccessPolicy.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const WFID_RE = /^[A-Za-z0-9._-]{1,64}$/;
-const KNOWN_CWDS_PATH = path.join(archonHome(), 'known-cwds.json');
+const KNOWN_CWDS_PATH = path.join(arcoHome(), 'known-cwds.json');
 
 async function readKnownCwdsRegistry(): Promise<string[]> {
   try {

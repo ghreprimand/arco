@@ -20,7 +20,7 @@
 
 import type { MessageParam } from './contentBlocks.js';
 import { isRecord } from './contentBlocks.js';
-import { isArchonSystemMessage, toWireMessages, toolKey, type ToolDefLike } from './appendOnlyPrefix.js';
+import { isArcoSystemMessage, toWireMessages, toolKey, type ToolDefLike } from './appendOnlyPrefix.js';
 
 export const SERVER_FOLD_BETA = 'compact-2026-09-04';
 
@@ -293,7 +293,7 @@ export function activeToolKeysAfterServerFold(frozenTools: readonly ToolDefLike[
     byName.set(idx >= 0 ? key.slice(idx + 1) : key, key);
   }
   for (const m of keptMessages) {
-    if (!isArchonSystemMessage(m)) continue;
+    if (!isArcoSystemMessage(m)) continue;
     for (const b of m.content) {
       if (b.type !== 'tool_addition' && b.type !== 'tool_removal') continue;
       const key = byName.get(b.tool.name);

@@ -13,13 +13,13 @@
 //
 // Scope: the llama.cpp subset ONLY (port-in-use, gguf-missing, ctx-too-large, oom,
 // binary-missing, unsupported-arch) + a Traceback fallback. The upstream reference
-// also carried vLLM/SGLang entries — DROPPED; Archon serves GGUF via llama.cpp.
+// also carried vLLM/SGLang entries — DROPPED; Arco serves GGUF via llama.cpp.
 
 import type {
   LlamacppServeDiagnosis,
   LlamacppServeFix,
   LlamacppFailureCause,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface DiagnoseOpts {
   // The failed loadout's configured context window, when known — lets the

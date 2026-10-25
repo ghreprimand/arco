@@ -95,7 +95,7 @@ export async function atomicWriteFile(
 // toggles in flight, or two browser tabs) and for trust decisions.
 //
 // This is an in-process chain per key, mirroring the one skillUsage.ts already
-// grew for the same reason. It does NOT coordinate across processes; Archon
+// grew for the same reason. It does NOT coordinate across processes; Arco
 // runs one server, and a hand-edit racing the server was already unserialized.
 // The tail of each key's queue. Entries are dropped once the queue drains, so
 // a long-lived process doesn't accumulate one settled promise per file touched.

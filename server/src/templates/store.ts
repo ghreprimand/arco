@@ -1,6 +1,6 @@
 // Workbench Expansion §D4 — project / session template store.
 //
-// Single-tab analogue of clusterPresets.ts. Layout: ~/.archon/templates.json —
+// Single-tab analogue of clusterPresets.ts. Layout: ~/.arco/templates.json —
 // a flat array of WorkflowTemplate, each a snapshot of a creator's config plus
 // optional seedPrompt + plan body. Atomic write (tmp + rename) mirrors
 // clusterPresets.ts / planStore.ts; the file is small (cap 50) so we
@@ -25,9 +25,9 @@ import type {
   ProviderName,
   WorkflowTemplate,
   WorkflowTemplateConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const NAME_MAX = 64;
 const MAX_TEMPLATES = 50;
@@ -36,7 +36,7 @@ const PLAN_MAX = 32768; // matches the cluster-plan body cap
 const PROVIDER_ACCOUNT_MAX = 200;
 
 function templatesPath(): string {
-  return path.join(archonHome(), 'templates.json');
+  return path.join(arcoHome(), 'templates.json');
 }
 
 interface TemplatesFile {

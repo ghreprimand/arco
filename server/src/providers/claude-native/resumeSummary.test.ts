@@ -148,9 +148,9 @@ test('compact summary projection drops tool protocol blocks before summarizer re
 });
 
 test('large resume uses cached older summary plus exact recent tail', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-resume-summary-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-summary-'));
   const workflowId = 'wf-summary-test';
-  const dir = join(cwd, '.archon', 'workflows', workflowId);
+  const dir = join(cwd, '.arco', 'workflows', workflowId);
   await fs.mkdir(dir, { recursive: true });
 
   let seq = 1;

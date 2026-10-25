@@ -10,8 +10,8 @@ import { computerContextState, isComputer } from '../voice/computerContext.js';
 import type {
   ServerMessage,
   WorkflowConfig,
-} from '@archon/shared';
-import { zaiModelContextWindow } from '@archon/shared';
+} from '@arco/shared';
+import { zaiModelContextWindow } from '@arco/shared';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterStore from '../clusterStore.js';
@@ -113,7 +113,7 @@ export function initHandoffHandlers(d: HandoffHandlerDeps): void { deps = d; }
 export async function handleHandoffRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').HandoffRequestMessage,
+  msg: import('@arco/shared').HandoffRequestMessage,
 ): Promise<void> {
   const wf = workflows.get(msg.workflowId);
   if (!wf) {
@@ -121,7 +121,7 @@ export async function handleHandoffRequest(
     return;
   }
   // Chat tabs are projectless: the reflection/summarizer runs as an Agent
-  // worker with project tools against the ~/.archon/chats persistence cwd.
+  // worker with project tools against the ~/.arco/chats persistence cwd.
   if (isChatWorkflow(wf.config)) {
     send(ws, { type: 'error', message: 'Handoff is not available in Chat tabs.' });
     return;
@@ -363,7 +363,7 @@ export async function handleHandoffRequest(
   const originalWorkerEligible = wf.primary.provider === 'claude' || wf.primary.provider === 'codex' || wf.primary.provider === 'zai';
   if (effectiveMode === 'original-worker' && (!originalPrimary || !originalWorkerEligible)) {
     const why = !originalWorkerEligible ? `provider ${wf.primary.provider} has no original-worker path` : 'no resumable session';
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] handoff: ${why}, falling back to fresh-summarizer`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff: ${why}, falling back to fresh-summarizer`);
     effectiveMode = 'fresh-summarizer';
   }
 
@@ -397,7 +397,7 @@ export async function handleHandoffRequest(
   myHandoffSlotRecord.handoffId = handle.handoffId;
   broadcastHandoffLockSnapshot(cwd);
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} started (mode=${effectiveMode}${effectiveMode === 'fresh-summarizer' ? `, summarizer=${translatedSummarizer.provider}:${translatedSummarizer.model}` : `, original=${wf.primary.provider}:${wf.primary.model}`})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} started (mode=${effectiveMode}${effectiveMode === 'fresh-summarizer' ? `, summarizer=${translatedSummarizer.provider}:${translatedSummarizer.model}` : `, original=${wf.primary.provider}:${wf.primary.model}`})`);
 
   let handoffBody: string | null = null;
   try {
@@ -412,7 +412,7 @@ export async function handleHandoffRequest(
     }
     handoffBody = r.body;
   } catch (err) {
-    console.error(`[archon] handoff ${handle.handoffId} settle error:`, err);
+    console.error(`[arco] handoff ${handle.handoffId} settle error:`, err);
     releaseHandoffBusy();
     return;
   }
@@ -437,7 +437,7 @@ export async function handleHandoffRequest(
         handoffArtifactName: handle.artifactName,
       });
     } catch (err) {
-      console.error(`[archon] handoff ${handle.handoffId} history append failed:`, err);
+      console.error(`[arco] handoff ${handle.handoffId} history append failed:`, err);
     }
   }
 
@@ -490,9 +490,9 @@ export async function handleHandoffRequest(
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.error(`[archon] [${msg.workflowId.slice(0, 8)}] handoff newPrimary meta write failed:`, err);
+      console.error(`[arco] [${msg.workflowId.slice(0, 8)}] handoff newPrimary meta write failed:`, err);
     }
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] handoff primary swap → ${wf.primary.provider}:${wf.primary.model}@${wf.primary.effort}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff primary swap → ${wf.primary.provider}:${wf.primary.model}@${wf.primary.effort}`);
   }
 
   // Reset planLastSeenUpdatedAt so the post-handoff session sees the
@@ -508,7 +508,7 @@ export async function handleHandoffRequest(
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.error(`[archon] [${msg.workflowId.slice(0, 8)}] handoff plan-lastSeen reset failed:`, err);
+      console.error(`[arco] [${msg.workflowId.slice(0, 8)}] handoff plan-lastSeen reset failed:`, err);
     }
   }
 
@@ -590,7 +590,7 @@ export async function handleHandoffRequest(
     const folded = composeClusterAppend(planBlock, tailBlocks, previewNudge.length, APPEND_CLUSTER_MAX, planFallback);
     if (folded.planTruncatedFrom !== undefined) {
       console.log(
-        `[archon] [${msg.workflowId.slice(0, 8)}] handoff seed cluster plan over string-form fold budget ` +
+        `[arco] [${msg.workflowId.slice(0, 8)}] handoff seed cluster plan over string-form fold budget ` +
         `(${folded.planTruncatedFrom} bytes → ${folded.usedFallback ? 'outline fallback' : 'head-truncated'})`,
       );
     }
@@ -633,7 +633,7 @@ export async function handleHandoffRequest(
     // non-empty from the pre-handoff session). No-op for non-Claude.
     startSessionWatcher(msg.workflowId, wf, cwd, ws);
     reconcileLatestCliSession(cwd, msg.workflowId, 'claude', primaryTurn.initialSessionId).catch((err) => {
-      console.error(`[archon] handoff ${handle.handoffId} meta reconcile failed:`, err);
+      console.error(`[arco] handoff ${handle.handoffId} meta reconcile failed:`, err);
     });
   }
   primaryTurn.onSessionDiscovered((sid) => {
@@ -646,14 +646,14 @@ export async function handleHandoffRequest(
     }
     if (wf.primary.provider === 'antigravity') broadcastSessionMetadata(msg.workflowId, wf);
     reconcileLatestCliSession(cwd, msg.workflowId, wf.primary.provider, sid, handoffAccount?.profile.id).catch((err) => {
-      console.error(`[archon] handoff ${handle.handoffId} meta reconcile (${wf.primary.provider}) failed:`, err);
+      console.error(`[arco] handoff ${handle.handoffId} meta reconcile (${wf.primary.provider}) failed:`, err);
     });
   });
 
   try {
     await primaryTurn.settled;
   } catch (err) {
-    console.error(`[archon] handoff ${handle.handoffId} pre-warm settle error:`, err);
+    console.error(`[arco] handoff ${handle.handoffId} pre-warm settle error:`, err);
   }
 
   send(ws, {
@@ -677,7 +677,7 @@ export async function handleHandoffRequest(
   // providers and for codex tabs on the exec transport.
   disposeProviderResources(msg.workflowId);
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} complete (archived ${oldSessionId?.slice(0, 8)}, new ${wf.primarySessionId?.slice(0, 8)})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} complete (archived ${oldSessionId?.slice(0, 8)}, new ${wf.primarySessionId?.slice(0, 8)})`);
   releaseHandoffBusy();
 
   // Reset fired flags so warning/auto-handoff thresholds work fresh in the new session.
@@ -723,7 +723,7 @@ export async function handleHandoffRequest(
 export async function handleSpawnFromHere(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').SpawnFromHereRequestMessage,
+  msg: import('@arco/shared').SpawnFromHereRequestMessage,
 ): Promise<void> {
   const parent = workflows.get(msg.parentWorkflowId);
   if (!parent) {
@@ -846,7 +846,7 @@ export async function handleSpawnFromHere(
     await initWorkflowStore(newCwd, newWorkflowId);
     await persistInitialMeta(newCwd, newWorkflowId, msg.newConfig, newPrimary);
   } catch (err) {
-    console.error(`[archon] spawn init failed for ${newWorkflowId.slice(0, 8)}:`, err);
+    console.error(`[arco] spawn init failed for ${newWorkflowId.slice(0, 8)}:`, err);
     send(ws, { type: 'error', message: 'Failed to initialize spawned workflow.' });
     return;
   }
@@ -878,10 +878,10 @@ export async function handleSpawnFromHere(
       if (payload) {
         broadcastCluster(msg.joinClusterId, { type: 'cluster_state', clusterId: msg.joinClusterId, state: payload });
       }
-      console.log(`[archon] spawn ${newWorkflowId.slice(0, 8)} joined cluster ${msg.joinClusterId.slice(0, 8)}`);
+      console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} joined cluster ${msg.joinClusterId.slice(0, 8)}`);
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'add_failed';
-      console.error(`[archon] spawn ${newWorkflowId.slice(0, 8)} cluster join failed: ${code}`);
+      console.error(`[arco] spawn ${newWorkflowId.slice(0, 8)} cluster join failed: ${code}`);
       send(ws, { type: 'error', message: `spawn cluster join failed: ${code}` });
     }
   }
@@ -1004,7 +1004,7 @@ export async function handleSpawnFromHere(
   // Ollama/Gemini/Antigravity parents, or parents that haven't taken a
   // turn, fall through to 'fresh-summarizer' — same rationale as Handoff.
   if (effectiveMode === 'original-worker' && !parentHadSession) {
-    console.log(`[archon] spawn ${newWorkflowId.slice(0, 8)}: parent has no resumable session, falling back to fresh-summarizer`);
+    console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)}: parent has no resumable session, falling back to fresh-summarizer`);
     effectiveMode = 'fresh-summarizer';
   }
 
@@ -1058,7 +1058,7 @@ export async function handleSpawnFromHere(
     },
   );
 
-  console.log(`[archon] spawn ${newWorkflowId.slice(0, 8)} started from parent ${msg.parentWorkflowId.slice(0, 8)} (mode=${effectiveMode})`);
+  console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} started from parent ${msg.parentWorkflowId.slice(0, 8)} (mode=${effectiveMode})`);
 
   let handoffBody: string | null = null;
   try {
@@ -1087,7 +1087,7 @@ export async function handleSpawnFromHere(
       disposeClaudeNativeWorker(newWorkflowId);
     }
   } catch (err) {
-    console.error(`[archon] spawn ${newWorkflowId.slice(0, 8)} settle error:`, err);
+    console.error(`[arco] spawn ${newWorkflowId.slice(0, 8)} settle error:`, err);
     releaseParent();
     const wf = workflows.get(newWorkflowId);
     if (wf) releaseBusy(wf, newBusyToken);
@@ -1125,7 +1125,7 @@ export async function handleSpawnFromHere(
             await writeMeta(newCwd, newMeta);
           }
         } catch (err) {
-          console.error(`[archon] [${newWorkflowId.slice(0, 8)}] spawn includePlan meta write failed:`, err);
+          console.error(`[arco] [${newWorkflowId.slice(0, 8)}] spawn includePlan meta write failed:`, err);
         }
         acquirePlansWatcher(newCwd);
         await recordAttachment(newCwd, parent.planId, newWorkflowId, msg.newConfig.name)
@@ -1194,7 +1194,7 @@ export async function handleSpawnFromHere(
     // session's id is known — same reasoning as the handoff fix above.
     startSessionWatcher(newWorkflowId, spawnedWf, newCwd, ws);
     reconcileLatestCliSession(newCwd, newWorkflowId, 'claude', primaryTurn.initialSessionId).catch((err) => {
-      console.error(`[archon] spawn meta reconcile failed:`, err);
+      console.error(`[arco] spawn meta reconcile failed:`, err);
     });
   }
   primaryTurn.onSessionDiscovered((sid) => {
@@ -1205,14 +1205,14 @@ export async function handleSpawnFromHere(
     }
     if (wf && wf.primary.provider === 'antigravity') broadcastSessionMetadata(newWorkflowId, wf);
     reconcileLatestCliSession(newCwd, newWorkflowId, newPrimary.provider, sid, spawnAccount?.profile.id).catch((err) => {
-      console.error(`[archon] spawn meta reconcile (${newPrimary.provider}) failed:`, err);
+      console.error(`[arco] spawn meta reconcile (${newPrimary.provider}) failed:`, err);
     });
   });
 
   try {
     await primaryTurn.settled;
   } catch (err) {
-    console.error(`[archon] spawn ${newWorkflowId.slice(0, 8)} pre-warm settle error:`, err);
+    console.error(`[arco] spawn ${newWorkflowId.slice(0, 8)} pre-warm settle error:`, err);
   }
 
   const wf = workflows.get(newWorkflowId);
@@ -1229,7 +1229,7 @@ export async function handleSpawnFromHere(
   // queued into it already. Only when we still owned busy.
   if (newBusyOwned) void drainQueueIfIdle(newWorkflowId);
 
-  console.log(`[archon] spawn ${newWorkflowId.slice(0, 8)} complete`);
+  console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} complete`);
 }
 
 // Re-apply handleCreateWorkflow's incognito rules to a client-supplied config
@@ -1319,7 +1319,7 @@ export async function handleRehydrateWorkflows(
         lastContextPercent: 0,
         previewHistory: [],
       });
-      if (!entry.config.incognito) console.log(`[archon] Rehydrated workflow: "${entry.config.name}" [${entry.workflowId.slice(0, 8)}]`);
+      if (!entry.config.incognito) console.log(`[arco] Rehydrated workflow: "${entry.config.name}" [${entry.workflowId.slice(0, 8)}]`);
     }
     session.workflowIds.add(entry.workflowId);
     const wf = workflows.get(entry.workflowId)!;
@@ -1337,7 +1337,7 @@ export async function handleRehydrateWorkflows(
       try {
         await initWorkflowStore(cwd, entry.workflowId);
       } catch (err) {
-        console.error(`[archon] workflowStore init failed for ${entry.workflowId.slice(0, 8)}:`, err);
+        console.error(`[arco] workflowStore init failed for ${entry.workflowId.slice(0, 8)}:`, err);
       }
       // Read meta.json to restore primarySessionId so the next user_message
       // continues the prior CLI session instead of starting a fresh one.
@@ -1363,7 +1363,7 @@ export async function handleRehydrateWorkflows(
               meta.autoHandoff = { ...wf.config.autoHandoff };
               meta.lastActiveAt = Date.now();
               await writeMeta(cwd, meta).catch((err) => {
-                console.error(`[archon] [${entry.workflowId.slice(0, 8)}] auto-handoff default meta write failed:`, err);
+                console.error(`[arco] [${entry.workflowId.slice(0, 8)}] auto-handoff default meta write failed:`, err);
               });
             }
           }
@@ -1411,7 +1411,7 @@ export async function handleRehydrateWorkflows(
           }
         }
       } catch (err) {
-        console.error(`[archon] meta read failed for ${entry.workflowId.slice(0, 8)}:`, err);
+        console.error(`[arco] meta read failed for ${entry.workflowId.slice(0, 8)}:`, err);
       }
     }
   }
@@ -1432,14 +1432,14 @@ export async function handleRehydrateWorkflows(
     if (!wf) continue;
     const clientLastSeq = entry.lastSeq ?? 0;
     await rehydrateOneWorkflow(ws, workflowId, wf, clientLastSeq, { tail: entry.tail === true }).catch((err) => {
-      console.error(`[archon] rehydrate failed for ${workflowId.slice(0, 8)}:`, err);
+      console.error(`[arco] rehydrate failed for ${workflowId.slice(0, 8)}:`, err);
     });
     // DEBAG (docs/DEBAG_PLAN.md §4) — re-surface any review gate that was
     // pending across a server restart, independent of the event-replay cursor.
     const gateCwd = wf.config.workingDirectory;
     if (gateCwd) {
       rehydrateGatesOnce(workflowId, gateCwd).catch((err) => {
-        console.error(`[archon] [${workflowId.slice(0, 8)}] gate rehydrate failed:`, err);
+        console.error(`[arco] [${workflowId.slice(0, 8)}] gate rehydrate failed:`, err);
       });
     }
   }
@@ -1466,7 +1466,7 @@ export async function handleClusterMemberRehydrate(
   // defense-in-depth so the message can't be used to open an arbitrary tab.
   const members = clusterStore.getMembers(clusterId);
   if (!members || !members.includes(workflowId)) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: not a member of cluster ${clusterId.slice(0, 8)} — ignoring`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: not a member of cluster ${clusterId.slice(0, 8)} — ignoring`);
     return;
   }
   let wf = workflows.get(workflowId);
@@ -1481,16 +1481,16 @@ export async function handleClusterMemberRehydrate(
     const cluster = await clusterStore.readCluster(clusterId).catch(() => null);
     const cwd = cluster?.cwd;
     if (!cwd) {
-      console.log(`[archon] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: no cwd for cluster ${clusterId.slice(0, 8)}`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: no cwd for cluster ${clusterId.slice(0, 8)}`);
       return;
     }
     const materialized = await materializeMemberFromMeta(cwd, workflowId, ws);
     if (!materialized) {
-      console.log(`[archon] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: no meta.json under ${cwd} — cannot reconstruct`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: no meta.json under ${cwd} — cannot reconstruct`);
       return;
     }
     wf = materialized;
-    console.log(`[archon] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: materialized "${wf.config.name}" from meta (${wf.primary.provider}) — was unregistered`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: materialized "${wf.config.name}" from meta (${wf.primary.provider}) — was unregistered`);
   }
   // The cluster subscribe already added this ws to wf.observers; re-add
   // defensively so live events reach it regardless of message ordering.
@@ -1635,7 +1635,7 @@ export async function rehydrateOneWorkflow(
       }
       if (filtered.length > 0) ws.send(JSON.stringify({ type: 'replay_batch', workflowId, events: filtered }));
     }
-    console.log(`[archon] [${workflowId.slice(0, 8)}] tail-replayed ${filtered.length} events${truncated ? ' (truncated)' : ''}`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] tail-replayed ${filtered.length} events${truncated ? ' (truncated)' : ''}`);
     if (truncated) {
       // Phase 7b task lifecycle from before the window — see the full-replay
       // branch below for why these are always re-sent.
@@ -1669,7 +1669,7 @@ export async function rehydrateOneWorkflow(
           .filter((ev) => ((ev as { seq?: number }).seq ?? 0) > clientLastSeq);
       }
       if (events.length > 0) {
-        console.log(`[archon] [${workflowId.slice(0, 8)}] replaying ${events.length} events since seq ${clientLastSeq}`);
+        console.log(`[arco] [${workflowId.slice(0, 8)}] replaying ${events.length} events since seq ${clientLastSeq}`);
         if (events.length > REPLAY_BATCH_THRESHOLD) {
           // Big gap (long disconnect, or a restored member whose first live
           // delivery was interrupted): one atomic replay_batch instead of N
@@ -1804,7 +1804,7 @@ export async function rehydrateOneWorkflow(
     }
   }
 
-  // ARCHON_OPS_PLAN.md §D1 — push the cwd's task-ledger snapshot so a
+  // ARCO_OPS_PLAN.md §D1 — push the cwd's task-ledger snapshot so a
   // reconnecting client mirrors the persisted ledger without an explicit list
   // request (consistent with the plan/preview wire echoes above). cwd-scoped;
   // fired per rehydrated workflow.

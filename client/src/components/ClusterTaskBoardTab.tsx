@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §D3 — cluster task board.
+// ARCO_OPS_PLAN.md §D3 — cluster task board.
 //
 // A kanban VIEW over the cluster cwd's project task ledger (the same
 // cwd-scoped store the per-workflow LEDGER tab reads from, keyed by cwd in
@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
-import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, OrchestrationProposal, OrchestrationProposalItem, TaskComment, TaskDetails, TaskLink, TaskRun } from '@archon/shared';
+import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, OrchestrationProposal, OrchestrationProposalItem, TaskComment, TaskDetails, TaskLink, TaskRun } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useOrchestrationAssistStore } from '../stores/orchestrationAssistStore';
 import { PlanRefViewer } from './plans/PlanRefsSection';

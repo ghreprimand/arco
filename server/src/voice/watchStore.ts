@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ComputerWatch } from '@archon/shared';
+import type { ComputerWatch } from '@arco/shared';
 
 type Outcome = 'finished' | 'interrupted' | 'failed';
 export interface WatchCandidate { id: string; name: string; token?: number }

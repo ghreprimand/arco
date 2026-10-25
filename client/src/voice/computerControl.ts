@@ -1,4 +1,4 @@
-import { COMPUTER_PROVIDERS, type EffortLevel, type ModelName } from '@archon/shared';
+import { COMPUTER_PROVIDERS, type EffortLevel, type ModelName } from '@arco/shared';
 import { useVoiceStore } from './store';
 import { useAppStore } from '../stores/appStore';
 import { useComputerStore, type ComputerSelection } from '../stores/computerStore';
@@ -49,7 +49,7 @@ export function controlComputer(args: Record<string, string>): string {
   const catalogs = computerCatalogs();
   const provider = (args.provider ?? state.selection.provider) as ComputerSelection['provider'];
   const model = args.model ?? (provider === state.selection.provider ? state.selection.model : '');
-  if (!model) throw Error('Call archon_computer models and choose an exact model id first.');
+  if (!model) throw Error('Call arco_computer models and choose an exact model id first.');
   const effort = (args.effort as EffortLevel | undefined) ?? clampEffortForModel(
     provider === state.selection.provider && model === state.selection.model ? state.selection.effort : 'low',
     provider, model as ModelName, catalogs.claude, catalogs.codex);

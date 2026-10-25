@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PassThrough } from 'node:stream';
-import type { OperatorQuestionState } from '@archon/shared';
+import type { OperatorQuestionState } from '@arco/shared';
 import { JsonRpcClient } from './jsonRpc.js';
 import { CodexOperatorQuestions, pendingOperatorQuestions, replyToOperatorQuestion, setOperatorQuestionPublisher } from './operatorQuestions.js';
 import { CodexAppServerWorker } from './worker.js';

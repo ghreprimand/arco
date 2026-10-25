@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 // those out before hashing so the SAME recurring error collapses to one hash.
 // This is deliberately lossy and detector-facing; the raw `output` is still
 // logged separately for human review. Normalization strictness is the tuning
-// knob the offline evaluator exercises (~/.archon/media-scratch/watchdog-eval).
+// knob the offline evaluator exercises (~/.arco/media-scratch/watchdog-eval).
 export function outputHash(raw: string): string {
   const norm = raw
     .replace(/\x1b\[[0-9;]*m/g, '') // ANSI colour codes

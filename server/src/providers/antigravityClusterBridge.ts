@@ -28,11 +28,11 @@ export const ANTIGRAVITY_RPC_TOOL_REGISTRATION_CANDIDATES = [
 ] as const;
 
 export function antigravityClusterBridgeEnabled(): boolean {
-  return process.env.ARCHON_ANTIGRAVITY_CLUSTER_BRIDGE === '1';
+  return process.env.ARCO_ANTIGRAVITY_CLUSTER_BRIDGE === '1';
 }
 
 export function antigravityClusterCliPath(cwd: string): string {
-  return join(cwd, '.archon', 'bin', 'cluster-tool');
+  return join(cwd, '.arco', 'bin', 'cluster-tool');
 }
 
 export function buildAntigravityClusterToolStub(): string {
@@ -44,7 +44,7 @@ shift || true
 
 need_env() {
   local missing=0
-  for name in ARCHON_PORT ARCHON_CLUSTER_ID ARCHON_WORKFLOW_ID; do
+  for name in ARCO_PORT ARCO_CLUSTER_ID ARCO_WORKFLOW_ID; do
     if [[ -z "\${!name:-}" ]]; then
       echo "cluster-tool: missing $name" >&2
       missing=1
@@ -67,17 +67,17 @@ post_json() {
     -H 'Content-Type: application/json' \\
     -X POST \\
     --data "$body" \\
-    "http://127.0.0.1:\${ARCHON_PORT}/api/clusters/\${ARCHON_CLUSTER_ID}/peer/$op"
+    "http://127.0.0.1:\${ARCO_PORT}/api/clusters/\${ARCO_CLUSTER_ID}/peer/$op"
 }
 
 case "$cmd" in
   peer_list)
     need_env
-    curl -fsS "http://127.0.0.1:\${ARCHON_PORT}/api/clusters/\${ARCHON_CLUSTER_ID}/peer/list?workflowId=\${ARCHON_WORKFLOW_ID}"
+    curl -fsS "http://127.0.0.1:\${ARCO_PORT}/api/clusters/\${ARCO_CLUSTER_ID}/peer/list?workflowId=\${ARCO_WORKFLOW_ID}"
     ;;
   peer_read)
     need_env
-    post_json read "{\\"workflowId\\":$(json_escape "$ARCHON_WORKFLOW_ID")}"
+    post_json read "{\\"workflowId\\":$(json_escape "$ARCO_WORKFLOW_ID")}"
     ;;
   peer_send)
     need_env
@@ -87,14 +87,14 @@ case "$cmd" in
       echo 'usage: cluster-tool peer_send <peer> <content>' >&2
       exit 2
     fi
-    post_json send "{\\"from\\":$(json_escape "$ARCHON_WORKFLOW_ID"),\\"to\\":$(json_escape "$to"),\\"content\\":$(json_escape "$content")}"
+    post_json send "{\\"from\\":$(json_escape "$ARCO_WORKFLOW_ID"),\\"to\\":$(json_escape "$to"),\\"content\\":$(json_escape "$content")}"
     ;;
   cluster_plan_tick)
     need_env
     if [[ "\${1:-}" == "--line-index" ]]; then
-      post_json plan-tick "{\\"workflowId\\":$(json_escape "$ARCHON_WORKFLOW_ID"),\\"lineIndex\\":$2}"
+      post_json plan-tick "{\\"workflowId\\":$(json_escape "$ARCO_WORKFLOW_ID"),\\"lineIndex\\":$2}"
     elif [[ "\${1:-}" == "--task-text" ]]; then
-      post_json plan-tick "{\\"workflowId\\":$(json_escape "$ARCHON_WORKFLOW_ID"),\\"taskText\\":$(json_escape "\${2:-}")}"
+      post_json plan-tick "{\\"workflowId\\":$(json_escape "$ARCO_WORKFLOW_ID"),\\"taskText\\":$(json_escape "\${2:-}")}"
     else
       echo 'usage: cluster-tool cluster_plan_tick (--line-index <n> | --task-text <text>)' >&2
       exit 2
@@ -107,7 +107,7 @@ case "$cmd" in
       echo 'usage: cluster-tool cluster_plan_write <markdown-body>' >&2
       exit 2
     fi
-    post_json plan-write "{\\"workflowId\\":$(json_escape "$ARCHON_WORKFLOW_ID"),\\"body\\":$(json_escape "$body")}"
+    post_json plan-write "{\\"workflowId\\":$(json_escape "$ARCO_WORKFLOW_ID"),\\"body\\":$(json_escape "$body")}"
     ;;
   ""|-h|--help|help)
     cat <<'HELP'
@@ -122,9 +122,9 @@ Commands:
   cluster_plan_write <markdown-body>
 
 Required environment when this is eventually wired:
-  ARCHON_PORT
-  ARCHON_CLUSTER_ID
-  ARCHON_WORKFLOW_ID
+  ARCO_PORT
+  ARCO_CLUSTER_ID
+  ARCO_WORKFLOW_ID
 
 Antigravity remains cluster-disabled until this bridge is generated, injected,
 and smoke-tested as a visible shell/tool action.
@@ -140,7 +140,7 @@ esac
 
 export async function writeAntigravityClusterToolStub(cwd: string): Promise<string> {
   const target = antigravityClusterCliPath(cwd);
-  await mkdir(join(cwd, '.archon', 'bin'), { recursive: true });
+  await mkdir(join(cwd, '.arco', 'bin'), { recursive: true });
   await writeFile(target, buildAntigravityClusterToolStub(), 'utf8');
   await chmod(target, 0o755);
   return target;

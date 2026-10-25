@@ -5,7 +5,7 @@
 // stage/unstage, commit, fetch/pull/push, stash, branch/tag create/delete.
 //
 // ⚠ Contrast with A2 checkpoints (gitSnapshots.ts): checkpoints NEVER touch the
-// real index/HEAD (they write shadow refs under refs/archon/). I3 is the
+// real index/HEAD (they write shadow refs under refs/arco/). I3 is the
 // OPPOSITE — it mutates the operator's real git state. The two code paths are
 // kept strictly separate (gitOps.ts never imports gitSnapshots.ts and vice
 // versa). Each I3 op is safe under the four-question test: an explicit operator

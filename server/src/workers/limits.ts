@@ -12,14 +12,14 @@ import path from 'node:path';
 // safety work; 50MB gives Native (1M-context) and long agentic Codex/exec
 // runs comfortable headroom while still catching "model went berserk
 // printing forever." Reports beyond this should write to the artifacts dir
-// (the safety footer nudges this). Override via ARCHON_MAX_WORKER_OUTPUT_BYTES.
+// (the safety footer nudges this). Override via ARCO_MAX_WORKER_OUTPUT_BYTES.
 function parseOutputCapEnv(): number {
   const DEFAULT_CAP = 50 * 1024 * 1024;
-  const raw = process.env.ARCHON_MAX_WORKER_OUTPUT_BYTES;
+  const raw = process.env.ARCO_MAX_WORKER_OUTPUT_BYTES;
   if (!raw) return DEFAULT_CAP;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1 * 1024 * 1024) {
-    console.warn(`[archon] ignoring ARCHON_MAX_WORKER_OUTPUT_BYTES=${raw} (not a finite number ≥ 1MB); using default 50MB`);
+    console.warn(`[arco] ignoring ARCO_MAX_WORKER_OUTPUT_BYTES=${raw} (not a finite number ≥ 1MB); using default 50MB`);
     return DEFAULT_CAP;
   }
   return n;
@@ -45,17 +45,17 @@ export const OUTPUT_TRUNCATION_NOTICE =
 // 32GB still catches that scenario well before swap-death on ≥64GB systems
 // while leaving headroom for fan-out workloads (many concurrent subprocesses,
 // Clang ThinLTO link phases, large `grep -r`, kernel compiles at high `-j`).
-// Systems with <64GB RAM should shrink this via ARCHON_RSS_KILL_BYTES.
+// Systems with <64GB RAM should shrink this via ARCO_RSS_KILL_BYTES.
 // Workflows doing known-huge work (kernel build, LTO link) can opt out
 // entirely by setting `disableRssGuard: true` in the workflow's meta.json —
 // skips only the tree-RSS kill, NOT the 5MB output cap or process-tree kill
 // on cancel.
 function parseRssEnv(): number {
-  const raw = process.env.ARCHON_RSS_KILL_BYTES;
+  const raw = process.env.ARCO_RSS_KILL_BYTES;
   if (!raw) return 32 * 1024 * 1024 * 1024;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1 * 1024 * 1024 * 1024) {
-    console.warn(`[archon] ignoring ARCHON_RSS_KILL_BYTES=${raw} (not a finite number ≥ 1GB); using default 32GB`);
+    console.warn(`[arco] ignoring ARCO_RSS_KILL_BYTES=${raw} (not a finite number ≥ 1GB); using default 32GB`);
     return 32 * 1024 * 1024 * 1024;
   }
   return n;
@@ -67,7 +67,7 @@ export const RSS_KILL_BYTES = parseRssEnv();
 // `workflowDir` helper privately and the footer builder wants a zero-import
 // path to avoid a circular dependency with the workflow-store stack.
 export function artifactsDir(cwd: string, wfid: string): string {
-  return path.join(cwd, '.archon', 'workflows', wfid, 'artifacts');
+  return path.join(cwd, '.arco', 'workflows', wfid, 'artifacts');
 }
 
 // Server-prepended footer on every worker task. Single source of truth for
@@ -82,7 +82,7 @@ export function artifactsDir(cwd: string, wfid: string): string {
 //
 // The artifacts directory line is workflow-scoped: when we know the
 // workflowId + cwd, we bake the absolute path in so the worker writes
-// reports to `<cwd>/.archon/workflows/<wfid>/artifacts/` instead of
+// reports to `<cwd>/.arco/workflows/<wfid>/artifacts/` instead of
 // littering the project root. Falls back to generic cwd guidance when the
 // workflow scope isn't available (tests, edge paths).
 export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
@@ -94,7 +94,7 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
   return `
 
 ---
-[Archon safety reminders — apply if your task touches the filesystem or shell]
+[Arco safety reminders — apply if your task touches the filesystem or shell]
 - Cap unknown-size shell output: pipe through \`| head -c 100K\` or \`| head -n 200\`.
 - No \`find /\` / \`du -sh /\` without \`-maxdepth\` and exclusions for \`/proc /sys /dev /run\`. Skip \`~/.cache\`, \`node_modules\`, \`.git/objects\`, \`/var/cache\`, \`/snap\`.
 - No reads of \`/proc/kcore\`, \`/proc/*/mem\`, \`/dev/{kmem,mem,zero,urandom}\` past first KB. No unbounded \`journalctl\` or \`while true\` loops.

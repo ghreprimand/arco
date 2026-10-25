@@ -12,14 +12,14 @@
 //   5. Toggle OFF → next peer_send produces no cluster_auto_turn_fired.
 //
 // Boot the smoke server with:
-//   ARCHON_PORT=3002 ARCHON_TEST=1 \
-//   ARCHON_TEST_NO_AUTO_TURN_DISPATCH=1 \
-//   ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS=200 \
-//   ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE=3 \
-//   ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH=2 \
+//   ARCO_PORT=3002 ARCO_TEST=1 \
+//   ARCO_TEST_NO_AUTO_TURN_DISPATCH=1 \
+//   ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS=200 \
+//   ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE=3 \
+//   ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH=2 \
 //   npx tsx watch server/src/index.ts
 //
-// ARCHON_TEST_NO_AUTO_TURN_DISPATCH=1 skips the real handleUserMessage
+// ARCO_TEST_NO_AUTO_TURN_DISPATCH=1 skips the real handleUserMessage
 // dispatch so the recipient never goes busy; lets us measure the detector's
 // audit events cleanly without spinning workers we can't drive headless.
 
@@ -28,18 +28,18 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
 
 // Smoke env overrides — mirror the server-side defaults (see
 // clusterAutoTurn.ts). The script reads them so the asserts adapt when the
 // caller runs with different values.
-const RATE_CAP = parseInt(process.env.ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE || '3', 10);
-const DEPTH_CAP = parseInt(process.env.ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH || '2', 10);
-const COOLDOWN_MS = parseInt(process.env.ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS || '200', 10);
+const RATE_CAP = parseInt(process.env.ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE || '3', 10);
+const DEPTH_CAP = parseInt(process.env.ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH || '2', 10);
+const COOLDOWN_MS = parseInt(process.env.ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS || '200', 10);
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-5b-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-5b-'));
   console.log(`Phase 5b smoke — cwd ${cwd} (rate=${RATE_CAP}, depth=${DEPTH_CAP}, cooldown=${COOLDOWN_MS}ms)`);
   console.log('');
 

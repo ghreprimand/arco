@@ -11,7 +11,7 @@ test('current theme ids pass through unchanged', () => {
   }
 });
 
-test('Archon-era ids with another leading word map onto the Arco ids', () => {
+test('upstream-era ids with another leading word map onto the Arco ids', () => {
   assert.equal(normalizeLegacyThemeId(`${word}-default`), 'arco-default');
   assert.equal(normalizeLegacyThemeId(`${word}-jungle`), 'arco-jungle');
   assert.equal(normalizeLegacyThemeId(`phosphor:${word}:${word}-crt`), 'phosphor:arco:arco-crt');

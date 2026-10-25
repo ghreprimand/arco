@@ -3,7 +3,7 @@
 > Status: **G1 + G2 shipped.** G1 = capture (screenshot / console / network).
 > G2 = viewport presets (desktop / tablet / mobile) + layout/accessibility notes
 > + get-the-evidence-to-an-LLM actions (SEND TO AGENT, ATTACH TO REVIEW). Part G
-> of `docs/ARCHON_OPS_PLAN.md` is complete.
+> of `docs/ARCO_OPS_PLAN.md` is complete.
 
 Arco's Live Preview (`docs/PROVIDERS.md` / `PreviewTab`) renders a workflow's
 dev server in an iframe. **Preview verification** turns that preview into
@@ -28,7 +28,7 @@ pattern (`server/src/providers/antigravityManager.ts`).
 
 **Browser discovery** (`findBrowserBinary`, `server/src/preview/captureViaCdp.ts`):
 
-1. `ARCHON_CHROME_BINARY` or `CHROME_PATH` env override (also how the smoke pins a
+1. `ARCO_CHROME_BINARY` or `CHROME_PATH` env override (also how the smoke pins a
    known binary).
 2. PATH names, most-preferred first: `google-chrome-stable`, `google-chrome`,
    `chromium`, `chromium-browser`, `chrome`, `brave-browser`, `brave`,
@@ -37,7 +37,7 @@ pattern (`server/src/providers/antigravityManager.ts`).
 
 If none is found, capture **degrades gracefully**: it returns `{ ok:false, error }`
 naming the missing browser — it never throws, and the operator sees a clear "install
-a browser or set `ARCHON_CHROME_BINARY`" message rather than a crash.
+a browser or set `ARCO_CHROME_BINARY`" message rather than a crash.
 
 ## The capture (`server/src/preview/captureViaCdp.ts`)
 
@@ -107,7 +107,7 @@ the inline "· N layout" count.
   reason);
 - run the capture;
 - write `preview-capture-<ts>.md` (the report) + `preview-capture-<ts>.jpg` (the
-  screenshot) under `<cwd>/.archon/workflows/<wfid>/artifacts/`;
+  screenshot) under `<cwd>/.arco/workflows/<wfid>/artifacts/`;
 - broadcast `preview_capture_ready` with `{ ok, reportName, imageName, summary,
   error? }`.
 

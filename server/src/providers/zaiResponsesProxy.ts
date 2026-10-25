@@ -274,7 +274,7 @@ function summarizeToolsForLog(tools: unknown, mapped: ChatTool[] | undefined): v
     if (name) rawNames.push(name);
   }
   const mappedNames = (mapped ?? []).map((tool) => tool.function.name);
-  const peerNames = mappedNames.filter((name) => /peer_|cluster_|archon/i.test(name));
+  const peerNames = mappedNames.filter((name) => /peer_|cluster_|arco/i.test(name));
   console.log(
     `[zai-proxy] tools received=${tools.length} mapped=${mappedNames.length} ` +
     `types=${JSON.stringify(Object.fromEntries(typeCounts))} ` +

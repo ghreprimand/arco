@@ -1,4 +1,4 @@
-import './envAliases.js'; // ARCO_* aliases resolve before any module reads ARCHON_* (see envAliases.ts)
+import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
 import { configureComputerActivity, interruptComputerActivity } from './voice/activity.js';
 import { configureMailRules } from './voice/mailRules.js';
 import { configureConditions } from './voice/conditions.js';
@@ -18,8 +18,8 @@ Capabilities,
 ClientMessage,
 ServerMessage,
 WorkflowConfig
-} from '@archon/shared';
-import { isClusterMemberProvider } from '@archon/shared';
+} from '@arco/shared';
+import { isClusterMemberProvider } from '@arco/shared';
 import { spawnSync } from 'child_process';
 import { mkdir } from 'fs/promises';
 import { createServer,IncomingMessage,ServerResponse } from 'http';
@@ -289,7 +289,7 @@ function isIncognitoSafeConfigEdit(msg: ClientMessage): boolean {
 
 // Shut down the whole dev process tree (concurrently + tsx + vite + us).
 function killDevWrapper(): void {
-  // SIGKILL the entire dev tree associated with this Archon checkout.
+  // SIGKILL the entire dev tree associated with this Arco checkout.
   // The pattern matches by absolute path so we don't touch anything
   // running from a different repo on the same machine. Three layers:
   //   - .bin/(concurrently|tsx|vite): the wrapper scripts
@@ -315,7 +315,7 @@ function killDevWrapper(): void {
 hydrateProcessPathFromUserEnv();
 
 // Install the console privacy/filter wrapper as early as practical. Structured
-// file output remains inert unless ARCHON_LOG_FILE=1 (set by the systemd unit),
+// file output remains inert unless ARCO_LOG_FILE=1 (set by the systemd unit),
 // while dev stdout still honors strict-incognito suppression. See logger.ts.
 initFileLogging();
 
@@ -327,7 +327,7 @@ startMemoryMonitor({ enabled: getLogFilePath() !== null });
 await mkdir(UPLOADS_DIR, { recursive: true });
 
 let capabilities: Capabilities = await probeCapabilities();
-console.log(`[archon] CLI capabilities: v${capabilities.cliVersion} | efforts: ${capabilities.efforts.join(',')}`);
+console.log(`[arco] CLI capabilities: v${capabilities.cliVersion} | efforts: ${capabilities.efforts.join(',')}`);
 // H43 — snapshot the git HEAD the running build booted from, so the code-skew
 // probe can later report how far the live dist has drifted behind on-disk HEAD.
 // Captured here in the boot import graph (before listen()), mirroring readiness's
@@ -350,36 +350,36 @@ markReady('capabilities');
       ? 'default profile'
       : `${diag.profileMode} profile${diag.userDataDir ? ` ${diag.userDataDir}` : ''}`;
     if (diag.available) {
-      console.log(`[archon] Antigravity: available (RPC, debug-port :${diag.cdpPort}, ${profile}, model ${diag.configuredModelId}${diag.cdp.browser ? `, ${diag.cdp.browser}` : ''})`);
+      console.log(`[arco] Antigravity: available (RPC, debug-port :${diag.cdpPort}, ${profile}, model ${diag.configuredModelId}${diag.cdp.browser ? `, ${diag.cdp.browser}` : ''})`);
     } else if (diag.installed) {
-      console.log(`[archon] Antigravity: not running (${diag.reason}, ${profile}, model ${diag.configuredModelId}) — will lazy-spawn on first use`);
+      console.log(`[arco] Antigravity: not running (${diag.reason}, ${profile}, model ${diag.configuredModelId}) — will lazy-spawn on first use`);
     } else {
-      console.log(`[archon] Antigravity: not installed (${diag.reason})`);
+      console.log(`[arco] Antigravity: not installed (${diag.reason})`);
     }
   } catch (err) {
-    console.warn('[archon] Antigravity probe failed:', err instanceof Error ? err.message : err);
+    console.warn('[arco] Antigravity probe failed:', err instanceof Error ? err.message : err);
   }
 })();
 
 // Diff CLI help surfaces against the last boot's snapshots. First-run
 // providers seed a baseline silently; subsequent version/flag changes are
 // reported once via `capabilities_changed` on WS connect, filtered by
-// operator-acknowledged versions from ~/.archon/settings.json.
+// operator-acknowledged versions from ~/.arco/settings.json.
 let cliChanges: CliChange[] = [];
 try {
   cliChanges = await detectCliChanges(capabilities);
   if (cliChanges.length > 0) {
     for (const c of cliChanges) {
-      console.log(`[archon] CLI change — ${c.provider} ${c.fromVersion} → ${c.toVersion} (+${c.newFlags.length} / -${c.removedFlags.length} flags)`);
+      console.log(`[arco] CLI change — ${c.provider} ${c.fromVersion} → ${c.toVersion} (+${c.newFlags.length} / -${c.removedFlags.length} flags)`);
     }
   }
 } catch (err) {
-  console.warn('[archon] CLI change detection failed:', err instanceof Error ? err.message : err);
+  console.warn('[arco] CLI change detection failed:', err instanceof Error ? err.message : err);
 }
 
 // Periodic background re-probe. The three primary-capable CLIs (Claude,
 // Gemini, Codex) release updates often; one-shot boot detection misses
-// upgrades installed while Archon is long-lived. Every 4h we re-run
+// upgrades installed while Arco is long-lived. Every 4h we re-run
 // probeCapabilities + detectCliChanges, broadcast the refreshed
 // capabilities + any newly-detected changes to every open client, and
 // merge into cliChanges so future reconnects see them too.
@@ -406,7 +406,7 @@ async function periodicCapabilityProbe(): Promise<void> {
     try { changes = await detectCliChanges(next); } catch { /* best-effort */ }
     if (!versionsChanged && changes.length === 0) return;
     for (const c of changes) {
-      console.log(`[archon] Periodic CLI change — ${c.provider} ${c.fromVersion} → ${c.toVersion} (+${c.newFlags.length} / -${c.removedFlags.length} flags)`);
+      console.log(`[arco] Periodic CLI change — ${c.provider} ${c.fromVersion} → ${c.toVersion} (+${c.newFlags.length} / -${c.removedFlags.length} flags)`);
     }
     if (changes.length > 0) cliChanges = [...cliChanges, ...changes];
     for (const [ws] of sessions) {
@@ -418,7 +418,7 @@ async function periodicCapabilityProbe(): Promise<void> {
       }
     }
   } catch (err) {
-    console.warn('[archon] periodic capability probe failed:', err instanceof Error ? err.message : err);
+    console.warn('[arco] periodic capability probe failed:', err instanceof Error ? err.message : err);
   }
 }
 setInterval(() => { periodicCapabilityProbe().catch(() => { /* swallow */ }); }, PERIODIC_PROBE_INTERVAL_MS);
@@ -454,7 +454,7 @@ httpServer.on('upgrade', (req, socket, head) => {
   // way. Same Origin/Host rule as HTTP (http/originGuard.ts).
   const guard = checkRequestOrigin(req);
   if (!guard.ok) {
-    console.warn(`[archon] refused upgrade ${wsPath}: ${guard.reason}`);
+    console.warn(`[arco] refused upgrade ${wsPath}: ${guard.reason}`);
     try {
       socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
       socket.destroy();
@@ -467,7 +467,7 @@ httpServer.on('upgrade', (req, socket, head) => {
   if (wsPath === '/ws' || wsPath === '/terminal') {
     const auth = checkUpgradeAuth(req);
     if (!auth.ok) {
-      console.warn(`[archon] refused upgrade ${wsPath}: ${auth.reason} (${describePeer(req)})`);
+      console.warn(`[arco] refused upgrade ${wsPath}: ${auth.reason} (${describePeer(req)})`);
       try {
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
@@ -549,7 +549,7 @@ wss.on('close', () => clearInterval(heartbeatInterval));
 // the workflow registry through every callsite. Installs once at startup.
 clusterStore.setWorkflowNameResolver((wfid) => workflows.get(wfid)?.config.name);
 
-// ARCHON_OPS_PLAN.md §J1 — inject the global all-clients sender into the
+// ARCO_OPS_PLAN.md §J1 — inject the global all-clients sender into the
 // notification hub + load persisted mutes. Fire-and-forget (the read is best-
 // effort; emits before it resolves just see an empty mute set).
 void initNotifications((msg) => {
@@ -558,7 +558,7 @@ void initNotifications((msg) => {
   }
 });
 
-// J2 — ntfy external push. Inert unless ARCHON_NTFY_URL is set; when active it
+// J2 — ntfy external push. Inert unless ARCO_NTFY_URL is set; when active it
 // hangs a fire-and-forget POST off the J1 notice chokepoint, labeled with this
 // workstation's friendly name and click-linking to the K2 console.
 initNtfyTransport({
@@ -661,7 +661,7 @@ wss.on('connection', (ws: WebSocket) => {
   (ws as WebSocket & { isAlive?: boolean }).isAlive = true;
   ws.on('pong', () => { (ws as WebSocket & { isAlive?: boolean }).isAlive = true; });
 
-  console.log(`[archon] Client connected: ${sessionId.slice(0, 8)}`);
+  console.log(`[arco] Client connected: ${sessionId.slice(0, 8)}`);
   send(ws, { type: 'connected', sessionId });
 
   send(ws, {
@@ -725,7 +725,7 @@ wss.on('connection', (ws: WebSocket) => {
       case 'create_workflow':
         (msg.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleCreateWorkflow(ws, session, msg.config).catch((err) => {
-            console.error('[archon] create_workflow handler failed:', err);
+            console.error('[arco] create_workflow handler failed:', err);
           }),
         );
         break;
@@ -742,7 +742,7 @@ wss.on('connection', (ws: WebSocket) => {
         }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills).catch((err) => {
-            console.error('[archon] user_message handler failed:', err);
+            console.error('[arco] user_message handler failed:', err);
           // Tell the client the turn died — without this, the UI sits
           // mid-turn forever on any internal exception inside the handler.
           // primary_turn_ended unsticks busy + composer; system_notice
@@ -752,7 +752,7 @@ wss.on('connection', (ws: WebSocket) => {
           send(ws, {
             type: 'system_notice',
             workflowId: msg.workflowId,
-            content: `[archon] user_message handler crashed: ${err instanceof Error ? err.message : String(err)}`,
+            content: `[arco] user_message handler crashed: ${err instanceof Error ? err.message : String(err)}`,
           });
           send(ws, {
             type: 'primary_turn_ended',
@@ -776,12 +776,12 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'compact_workflow':
         handleCompactWorkflow(ws, session, msg).catch((err) => {
-          console.error('[archon] compact_workflow handler failed:', err);
+          console.error('[arco] compact_workflow handler failed:', err);
         });
         break;
       case 'fold_workflow':
         handleFoldWorkflow(ws, session, msg).catch((err) => {
-          console.error('[archon] fold_workflow handler failed:', err);
+          console.error('[arco] fold_workflow handler failed:', err);
         });
         break;
       case 'set_tool_posture':
@@ -803,32 +803,32 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'bakeoff_list':
         handleBakeoffList(ws, msg).catch((err) => {
-          console.error('[archon] bakeoff_list handler failed:', err);
+          console.error('[arco] bakeoff_list handler failed:', err);
         });
         break;
       case 'bakeoff_start':
         handleBakeoffStart(ws, session, msg).catch((err) => {
-          console.error('[archon] bakeoff_start handler failed:', err);
+          console.error('[arco] bakeoff_start handler failed:', err);
         });
         break;
       case 'bakeoff_promote':
         handleBakeoffPromote(ws, msg).catch((err) => {
-          console.error('[archon] bakeoff_promote handler failed:', err);
+          console.error('[arco] bakeoff_promote handler failed:', err);
         });
         break;
       case 'bakeoff_cleanup':
         handleBakeoffCleanup(ws, msg).catch((err) => {
-          console.error('[archon] bakeoff_cleanup handler failed:', err);
+          console.error('[arco] bakeoff_cleanup handler failed:', err);
         });
         break;
       case 'workspace_sync':
         syncWorkspace(msg.adopt === true, Array.isArray(msg.workflows) ? msg.workflows : [], Array.isArray(msg.clusterIds) ? msg.clusterIds : [])
           .then((workspace) => send(ws, { type: 'workspace_snapshot', workspace }))
-          .catch((err) => console.error('[archon] workspace_sync failed:', err));
+          .catch((err) => console.error('[arco] workspace_sync failed:', err));
         break;
       case 'rehydrate_workflows':
         handleRehydrateWorkflows(ws, session, msg.workflows).catch((err) => {
-          console.error('[archon] rehydrate handler failed:', err);
+          console.error('[arco] rehydrate handler failed:', err);
         });
         break;
       case 'upload_complete':
@@ -836,7 +836,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'review_request':
         handleReviewRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] review_request handler failed:', err);
+          console.error('[arco] review_request handler failed:', err);
         });
         break;
       case 'cancel_review':
@@ -844,7 +844,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'research_request':
         handleResearchRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] research_request handler failed:', err);
+          console.error('[arco] research_request handler failed:', err);
         });
         break;
       case 'cancel_research':
@@ -852,7 +852,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'compare_request':
         handleCompareRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] compare_request handler failed:', err);
+          console.error('[arco] compare_request handler failed:', err);
         });
         break;
       case 'compare_vote':
@@ -860,7 +860,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'compare_synthesize':
         handleCompareSynthesize(ws, msg).catch((err) => {
-          console.error('[archon] compare_synthesize handler failed:', err);
+          console.error('[arco] compare_synthesize handler failed:', err);
         });
         break;
       case 'cancel_compare':
@@ -868,12 +868,12 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'cookbook_recommend_request':
         handleCookbookRecommendRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] cookbook_recommend_request handler failed:', err);
+          console.error('[arco] cookbook_recommend_request handler failed:', err);
         });
         break;
       case 'cookbook_download_request':
         handleCookbookDownloadRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] cookbook_download_request handler failed:', err);
+          console.error('[arco] cookbook_download_request handler failed:', err);
         });
         break;
       case 'cookbook_cancel_download':
@@ -881,37 +881,37 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'doc_edit_request':
         handleDocEditRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] doc_edit_request handler failed:', err);
+          console.error('[arco] doc_edit_request handler failed:', err);
         });
         break;
       case 'md_tuneup_candidates_request':
         handleMdTuneupCandidatesRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] md_tuneup_candidates_request handler failed:', err);
+          console.error('[arco] md_tuneup_candidates_request handler failed:', err);
         });
         break;
       case 'md_tuneup_request':
         handleMdTuneupRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] md_tuneup_request handler failed:', err);
+          console.error('[arco] md_tuneup_request handler failed:', err);
         });
         break;
       case 'md_tuneup_accept':
         handleMdTuneupAccept(ws, session, msg).catch((err) => {
-          console.error('[archon] md_tuneup_accept handler failed:', err);
+          console.error('[arco] md_tuneup_accept handler failed:', err);
         });
         break;
       case 'recall_summary_request':
         handleRecallSummaryRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] recall_summary_request handler failed:', err);
+          console.error('[arco] recall_summary_request handler failed:', err);
         });
         break;
       case 'knowledge_distill_request':
         handleKnowledgeDistillRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] knowledge_distill_request handler failed:', err);
+          console.error('[arco] knowledge_distill_request handler failed:', err);
         });
         break;
       case 'handoff_request':
         handleHandoffRequest(ws, session, msg).catch((err) => {
-          console.error('[archon] handoff_request handler failed:', err);
+          console.error('[arco] handoff_request handler failed:', err);
         });
         break;
       case 'handoff_cancel':
@@ -922,12 +922,12 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'spawn_from_here_request':
         handleSpawnFromHere(ws, session, msg).catch((err) => {
-          console.error('[archon] spawn_from_here_request handler failed:', err);
+          console.error('[arco] spawn_from_here_request handler failed:', err);
         });
         break;
       case 'update_primary_config':
         handleUpdatePrimaryConfig(ws, session, msg).catch((err) => {
-          console.error('[archon] update_primary_config handler failed:', err);
+          console.error('[arco] update_primary_config handler failed:', err);
         });
         break;
       case 'load_earlier_messages':
@@ -935,39 +935,39 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'recalibrate_request':
         handleRecalibrateRequest(ws, msg.workflowId).catch((err) => {
-          console.error('[archon] recalibrate_request handler failed:', err);
+          console.error('[arco] recalibrate_request handler failed:', err);
         });
         break;
       case 'fresh_antigravity_cascade':
         handleFreshAntigravityCascadeRequest(ws, msg.workflowId).catch((err) => {
-          console.error('[archon] fresh_antigravity_cascade handler failed:', err);
+          console.error('[arco] fresh_antigravity_cascade handler failed:', err);
         });
         break;
       case 'plan_attach':
         handlePlanAttach(msg.workflowId, msg.planId).catch((err) => {
-          console.error('[archon] plan_attach handler failed:', err);
+          console.error('[arco] plan_attach handler failed:', err);
         });
         break;
       case 'plan_detach':
         handlePlanDetach(msg.workflowId).catch((err) => {
-          console.error('[archon] plan_detach handler failed:', err);
+          console.error('[arco] plan_detach handler failed:', err);
         });
         break;
       case 'set_preview_port':
         handleSetPreviewPort(msg.workflowId, msg.port, msg.framework, msg.manual !== false).catch((err) => {
-          console.error('[archon] set_preview_port handler failed:', err);
+          console.error('[arco] set_preview_port handler failed:', err);
         });
         break;
       case 'clear_preview_port':
         handleClearPreviewPort(msg.workflowId).catch((err) => {
-          console.error('[archon] clear_preview_port handler failed:', err);
+          console.error('[arco] clear_preview_port handler failed:', err);
         });
         break;
       case 'enter_plan_mode_request': {
         const wf = workflows.get(msg.workflowId);
         if (!wf) break;
         wf.pendingPlanModeEntry = true;
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] plan-mode armed by operator`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] plan-mode armed by operator`);
         break;
       }
       case 'voice_tool_result': {
@@ -987,7 +987,7 @@ wss.on('connection', (ws: WebSocket) => {
           // Stale reply (worker disposed, question already cancelled, or
           // taken by another reply). Silently drop — the client surfaces
           // the cancelled-tool-result if relevant via primary_complete.
-          console.log(`[archon] [${msg.workflowId.slice(0, 8)}] ask_user_question_reply dropped (no pending question for ${msg.questionId})`);
+          console.log(`[arco] [${msg.workflowId.slice(0, 8)}] ask_user_question_reply dropped (no pending question for ${msg.questionId})`);
         }
         break;
       }
@@ -1001,32 +1001,32 @@ wss.on('connection', (ws: WebSocket) => {
           resolveOrphanedGate(ws, session, msg.workflowId, msg.gateId, msg.decision, msg.finalArgs)
             .then((handled) => {
               if (!handled) {
-                console.log(`[archon] [${msg.workflowId.slice(0, 8)}] gate_reply dropped (no pending gate for ${msg.gateId})`);
+                console.log(`[arco] [${msg.workflowId.slice(0, 8)}] gate_reply dropped (no pending gate for ${msg.gateId})`);
               }
             })
-            .catch((err) => console.error(`[archon] [${msg.workflowId.slice(0, 8)}] orphaned gate_reply failed:`, err));
+            .catch((err) => console.error(`[arco] [${msg.workflowId.slice(0, 8)}] orphaned gate_reply failed:`, err));
         }
         break;
       }
       case 'gate_revoke': {
         // DEBAG (docs/DEBAG_PLAN.md §5) — operator revoked a standing approval.
         handleGateRevoke(msg.workflowId, msg.signature).catch((err) =>
-          console.error(`[archon] [${msg.workflowId.slice(0, 8)}] gate_revoke failed:`, err));
+          console.error(`[arco] [${msg.workflowId.slice(0, 8)}] gate_revoke failed:`, err));
         break;
       }
       case 'create_label_request':
         handleCreateLabelRequest(ws, msg).catch((err) => {
-          console.error('[archon] create_label_request handler failed:', err);
+          console.error('[arco] create_label_request handler failed:', err);
         });
         break;
       case 'revert_to_checkpoint':
         handleRevertToCheckpoint(ws, msg).catch((err) => {
-          console.error('[archon] revert_to_checkpoint handler failed:', err);
+          console.error('[arco] revert_to_checkpoint handler failed:', err);
         });
         break;
       case 'revert_to_point_request':
         handleRevertToPointRequest(ws, msg).catch((err) => {
-          console.error('[archon] revert_to_point_request handler failed:', err);
+          console.error('[arco] revert_to_point_request handler failed:', err);
         });
         break;
       case 'live_changes_subscribe':
@@ -1049,97 +1049,97 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'task_ledger_create':
         handleTaskLedgerCreate(ws, msg).catch((err) => {
-          console.error('[archon] task_ledger_create handler failed:', err);
+          console.error('[arco] task_ledger_create handler failed:', err);
         });
         break;
       case 'task_ledger_update':
         handleTaskLedgerUpdate(ws, msg).catch((err) => {
-          console.error('[archon] task_ledger_update handler failed:', err);
+          console.error('[arco] task_ledger_update handler failed:', err);
         });
         break;
       case 'task_ledger_delete':
         handleTaskLedgerDelete(ws, msg).catch((err) => {
-          console.error('[archon] task_ledger_delete handler failed:', err);
+          console.error('[arco] task_ledger_delete handler failed:', err);
         });
         break;
       case 'task_ledger_list':
         handleTaskLedgerList(ws, msg).catch((err) => {
-          console.error('[archon] task_ledger_list handler failed:', err);
+          console.error('[arco] task_ledger_list handler failed:', err);
         });
         break;
       case 'task_run_recover':
         handleTaskRunRecover(ws, msg).catch((err) => {
-          console.error('[archon] task_run_recover handler failed:', err);
+          console.error('[arco] task_run_recover handler failed:', err);
         });
         break;
       case 'task_worktree_create':
         handleTaskWorktreeCreate(ws, msg).catch((err) => {
-          console.error('[archon] task_worktree_create handler failed:', err);
+          console.error('[arco] task_worktree_create handler failed:', err);
         });
         break;
       case 'task_worktree_remove':
         handleTaskWorktreeRemove(ws, msg).catch((err) => {
-          console.error('[archon] task_worktree_remove handler failed:', err);
+          console.error('[arco] task_worktree_remove handler failed:', err);
         });
         break;
       case 'genesis_seed_update':
         handleGenesisSeedUpdate(ws, msg).catch((err) => {
-          console.error('[archon] genesis_seed_update handler failed:', err);
+          console.error('[arco] genesis_seed_update handler failed:', err);
         });
         break;
       case 'genesis_scaffold':
         handleGenesisScaffold(ws, msg).catch((err) => {
-          console.error('[archon] genesis_scaffold handler failed:', err);
+          console.error('[arco] genesis_scaffold handler failed:', err);
         });
         break;
       case 'genesis_creative_arm':
         handleGenesisCreativeArm(ws, msg).catch((err) => {
-          console.error('[archon] genesis_creative_arm handler failed:', err);
+          console.error('[arco] genesis_creative_arm handler failed:', err);
         });
         break;
       case 'genesis_assist_request':
         handleGenesisAssistRequest(ws, msg).catch((err) => {
-          console.error('[archon] genesis_assist_request handler failed:', err);
+          console.error('[arco] genesis_assist_request handler failed:', err);
         });
         break;
       case 'preview_capture_request':
         handlePreviewCaptureRequest(ws, msg).catch((err) => {
-          console.error('[archon] preview_capture_request handler failed:', err);
+          console.error('[arco] preview_capture_request handler failed:', err);
         });
         break;
       case 'mcp_registry_list':
         handleMcpRegistryList(ws, msg).catch((err) => {
-          console.error('[archon] mcp_registry_list handler failed:', err);
+          console.error('[arco] mcp_registry_list handler failed:', err);
         });
         break;
       case 'mcp_registry_create':
         handleMcpRegistryCreate(ws, msg).catch((err) => {
-          console.error('[archon] mcp_registry_create handler failed:', err);
+          console.error('[arco] mcp_registry_create handler failed:', err);
         });
         break;
       case 'mcp_registry_update':
         handleMcpRegistryUpdate(ws, msg).catch((err) => {
-          console.error('[archon] mcp_registry_update handler failed:', err);
+          console.error('[arco] mcp_registry_update handler failed:', err);
         });
         break;
       case 'mcp_registry_delete':
         handleMcpRegistryDelete(ws, msg).catch((err) => {
-          console.error('[archon] mcp_registry_delete handler failed:', err);
+          console.error('[arco] mcp_registry_delete handler failed:', err);
         });
         break;
       case 'mcp_workflow_allow':
         handleMcpWorkflowAllow(ws, msg).catch((err) => {
-          console.error('[archon] mcp_workflow_allow handler failed:', err);
+          console.error('[arco] mcp_workflow_allow handler failed:', err);
         });
         break;
       case 'mcp_probe':
         handleMcpProbe(ws, msg).catch((err) => {
-          console.error('[archon] mcp_probe handler failed:', err);
+          console.error('[arco] mcp_probe handler failed:', err);
         });
         break;
       case 'cluster_subscribe':
         handleClusterSubscribe(ws, session, msg.clusterId).catch((err) => {
-          console.error('[archon] cluster_subscribe handler failed:', err);
+          console.error('[arco] cluster_subscribe handler failed:', err);
         });
         break;
       case 'cluster_member_rehydrate':
@@ -1147,7 +1147,7 @@ wss.on('connection', (ws: WebSocket) => {
         // member after a restart). Materialize its job so the pane leaves
         // "AWAITING REHYDRATE…". See handleClusterMemberRehydrate.
         handleClusterMemberRehydrate(ws, session, msg.clusterId, msg.workflowId).catch((err) => {
-          console.error('[archon] cluster_member_rehydrate handler failed:', err);
+          console.error('[arco] cluster_member_rehydrate handler failed:', err);
         });
         break;
       case 'cluster_unsubscribe':
@@ -1158,205 +1158,205 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'cluster_create':
         handleClusterCreate(ws, session, msg.cwd, msg.memberWorkflowIds).catch((err) => {
-          console.error('[archon] cluster_create handler failed:', err);
+          console.error('[arco] cluster_create handler failed:', err);
         });
         break;
       case 'cluster_delete':
         handleClusterDelete(msg.clusterId).catch((err) => {
-          console.error('[archon] cluster_delete handler failed:', err);
+          console.error('[arco] cluster_delete handler failed:', err);
         });
         break;
       case 'cluster_broadcast':
         handleClusterBroadcast(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_broadcast handler failed:', err);
+          console.error('[arco] cluster_broadcast handler failed:', err);
         });
         break;
       case 'cluster_dispatch_once':
         handleClusterDispatchOnce(ws, msg).catch((err) => {
-          console.error('[archon] cluster_dispatch_once handler failed:', err);
+          console.error('[arco] cluster_dispatch_once handler failed:', err);
         });
         break;
       case 'cluster_dispatch_toggle':
         handleClusterDispatchToggle(ws, msg).catch((err) => {
-          console.error('[archon] cluster_dispatch_toggle handler failed:', err);
+          console.error('[arco] cluster_dispatch_toggle handler failed:', err);
         });
         break;
       case 'cluster_dispatch_settings_update':
         handleClusterDispatchSettingsUpdate(ws, msg).catch((err) => {
-          console.error('[archon] cluster_dispatch_settings_update handler failed:', err);
+          console.error('[arco] cluster_dispatch_settings_update handler failed:', err);
         });
         break;
       case 'cluster_task_board_attach_set':
         handleClusterTaskBoardAttachSet(ws, msg.clusterId, msg.attached).catch((err) => {
-          console.error('[archon] cluster_task_board_attach_set handler failed:', err);
+          console.error('[arco] cluster_task_board_attach_set handler failed:', err);
         });
         break;
       case 'cluster_task_board_mode_set':
         handleClusterTaskBoardModeSet(ws, msg.clusterId, msg.mode).catch((err) => {
-          console.error('[archon] cluster_task_board_mode_set handler failed:', err);
+          console.error('[arco] cluster_task_board_mode_set handler failed:', err);
         });
         break;
       case 'cluster_swarm_create':
         handleClusterSwarmCreate(ws, msg).catch((err) => {
-          console.error('[archon] cluster_swarm_create handler failed:', err);
+          console.error('[arco] cluster_swarm_create handler failed:', err);
         });
         break;
       case 'cluster_orchestration_assist_request':
         handleClusterOrchestrationAssistRequest(ws, msg).catch((err) => {
-          console.error('[archon] cluster_orchestration_assist_request handler failed:', err);
+          console.error('[arco] cluster_orchestration_assist_request handler failed:', err);
         });
         break;
       case 'cluster_orchestration_proposal_list':
         handleClusterOrchestrationProposalList(ws, msg).catch((err) => {
-          console.error('[archon] cluster_orchestration_proposal_list handler failed:', err);
+          console.error('[arco] cluster_orchestration_proposal_list handler failed:', err);
         });
         break;
       case 'cluster_orchestration_proposal_reject':
         handleClusterOrchestrationProposalReject(ws, msg).catch((err) => {
-          console.error('[archon] cluster_orchestration_proposal_reject handler failed:', err);
+          console.error('[arco] cluster_orchestration_proposal_reject handler failed:', err);
         });
         break;
       case 'cluster_orchestration_proposal_apply':
         handleClusterOrchestrationProposalApply(ws, msg).catch((err) => {
-          console.error('[archon] cluster_orchestration_proposal_apply handler failed:', err);
+          console.error('[arco] cluster_orchestration_proposal_apply handler failed:', err);
         });
         break;
       case 'cluster_orchestration_proposal_accept':
         handleClusterOrchestrationProposalApply(ws, msg).catch((err) => {
-          console.error('[archon] cluster_orchestration_proposal_accept handler failed:', err);
+          console.error('[arco] cluster_orchestration_proposal_accept handler failed:', err);
         });
         break;
       case 'operator_peer_send':
         handleOperatorPeerSend(ws, msg).catch((err) => {
-          console.error('[archon] operator_peer_send handler failed:', err);
+          console.error('[arco] operator_peer_send handler failed:', err);
         });
         break;
       case 'cluster_rename':
         handleClusterRename(ws, msg.clusterId, msg.name).catch((err) => {
-          console.error('[archon] cluster_rename handler failed:', err);
+          console.error('[arco] cluster_rename handler failed:', err);
         });
         break;
       case 'cluster_member_remove':
         handleClusterMemberRemove(msg.clusterId, msg.workflowId).catch((err) => {
-          console.error('[archon] cluster_member_remove handler failed:', err);
+          console.error('[arco] cluster_member_remove handler failed:', err);
         });
         break;
       case 'cluster_member_add':
         handleClusterMemberAdd(ws, msg.clusterId, msg.workflowId).catch((err) => {
-          console.error('[archon] cluster_member_add handler failed:', err);
+          console.error('[arco] cluster_member_add handler failed:', err);
         });
         break;
       case 'cluster_create_with_fresh_workers':
         handleClusterCreateWithFreshWorkers(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_create_with_fresh_workers handler failed:', err);
+          console.error('[arco] cluster_create_with_fresh_workers handler failed:', err);
         });
         break;
       case 'cluster_create_from_scratch':
         handleClusterCreateFromScratch(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_create_from_scratch handler failed:', err);
+          console.error('[arco] cluster_create_from_scratch handler failed:', err);
         });
         break;
       case 'cluster_add_fresh_workers':
         handleClusterAddFreshWorkers(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_add_fresh_workers handler failed:', err);
+          console.error('[arco] cluster_add_fresh_workers handler failed:', err);
         });
         break;
       case 'cluster_member_replace':
         handleClusterMemberReplace(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_member_replace handler failed:', err);
+          console.error('[arco] cluster_member_replace handler failed:', err);
         });
         break;
       case 'cluster_plan_set':
         handleClusterPlanSet(ws, msg.clusterId, msg.body).catch((err) => {
-          console.error('[archon] cluster_plan_set handler failed:', err);
+          console.error('[arco] cluster_plan_set handler failed:', err);
         });
         break;
       case 'cluster_plan_attach':
         handleClusterPlanAttach(ws, msg.clusterId, msg.planId).catch((err) => {
-          console.error('[archon] cluster_plan_attach handler failed:', err);
+          console.error('[arco] cluster_plan_attach handler failed:', err);
         });
         break;
       case 'cluster_plan_clear':
         handleClusterPlanClear(ws, msg.clusterId).catch((err) => {
-          console.error('[archon] cluster_plan_clear handler failed:', err);
+          console.error('[arco] cluster_plan_clear handler failed:', err);
         });
         break;
       case 'cluster_member_role_set':
         handleClusterMemberRoleSet(ws, msg.clusterId, msg.workflowId, msg.role).catch((err) => {
-          console.error('[archon] cluster_member_role_set handler failed:', err);
+          console.error('[arco] cluster_member_role_set handler failed:', err);
         });
         break;
       case 'cluster_member_tier_set':
         handleClusterMemberTierSet(ws, msg.clusterId, msg.workflowId, msg.tier).catch((err) => {
-          console.error('[archon] cluster_member_tier_set handler failed:', err);
+          console.error('[arco] cluster_member_tier_set handler failed:', err);
         });
         break;
       case 'cluster_member_focus_set':
         handleClusterMemberFocusSet(ws, msg.clusterId, msg.workflowId, msg.focus).catch((err) => {
-          console.error('[archon] cluster_member_focus_set handler failed:', err);
+          console.error('[arco] cluster_member_focus_set handler failed:', err);
         });
         break;
       case 'cluster_idle_nudger_toggle':
         handleClusterIdleNudgerToggle(ws, msg.clusterId, msg.enabled).catch((err) => {
-          console.error('[archon] cluster_idle_nudger_toggle handler failed:', err);
+          console.error('[arco] cluster_idle_nudger_toggle handler failed:', err);
         });
         break;
       case 'cluster_efficiency_set':
         handleClusterEfficiencySet(ws, msg.clusterId, msg.level, msg.addendum).catch((err) => {
-          console.error('[archon] cluster_efficiency_set handler failed:', err);
+          console.error('[arco] cluster_efficiency_set handler failed:', err);
         });
         break;
       case 'cluster_remote_set':
         handleClusterRemoteSet(ws, msg.clusterId, msg.enabled).catch((err) => {
-          console.error('[archon] cluster_remote_set handler failed:', err);
+          console.error('[arco] cluster_remote_set handler failed:', err);
         });
         break;
       case 'cluster_gates_set':
         handleClusterGatesSet(ws, msg.clusterId, msg.enabled).catch((err) => {
-          console.error('[archon] cluster_gates_set handler failed:', err);
+          console.error('[arco] cluster_gates_set handler failed:', err);
         });
         break;
       case 'cluster_member_reorder':
         handleClusterMemberReorder(ws, msg.clusterId, msg.memberIds).catch((err) => {
-          console.error('[archon] cluster_member_reorder handler failed:', err);
+          console.error('[arco] cluster_member_reorder handler failed:', err);
         });
         break;
       case 'cluster_progress_set':
         handleClusterProgressSet(ws, msg.clusterId, msg.mode).catch((err) => {
-          console.error('[archon] cluster_progress_set handler failed:', err);
+          console.error('[arco] cluster_progress_set handler failed:', err);
         });
         break;
       case 'cluster_auto_turn_toggle':
         handleClusterAutoTurnToggle(ws, msg.clusterId, msg.enabled).catch((err) => {
-          console.error('[archon] cluster_auto_turn_toggle handler failed:', err);
+          console.error('[arco] cluster_auto_turn_toggle handler failed:', err);
         });
         break;
       case 'cluster_snapshot_save':
         handleClusterSnapshotSave(ws, msg).catch((err) => {
-          console.error('[archon] cluster_snapshot_save handler failed:', err);
+          console.error('[arco] cluster_snapshot_save handler failed:', err);
         });
         break;
       case 'cluster_snapshot_list':
         handleClusterSnapshotList(ws).catch((err) => {
-          console.error('[archon] cluster_snapshot_list handler failed:', err);
+          console.error('[arco] cluster_snapshot_list handler failed:', err);
         });
         break;
       case 'cluster_snapshot_restore':
         handleClusterSnapshotRestore(ws, session, msg).catch((err) => {
-          console.error('[archon] cluster_snapshot_restore handler failed:', err);
+          console.error('[arco] cluster_snapshot_restore handler failed:', err);
         });
         break;
       case 'cluster_snapshot_delete':
         handleClusterSnapshotDelete(ws, msg).catch((err) => {
-          console.error('[archon] cluster_snapshot_delete handler failed:', err);
+          console.error('[arco] cluster_snapshot_delete handler failed:', err);
         });
         break;
       case '__debug_cluster_auto_turn_inject':
-        // Phase 5b — dev/smoke-only test hook. Gated on ARCHON_TEST=1 so
+        // Phase 5b — dev/smoke-only test hook. Gated on ARCO_TEST=1 so
         // production never honours it. Directly invokes the detector with
         // operator-specified chainDepth so the depth cap + rate cap can be
         // exercised without spinning real LLM turns.
-        if (process.env.ARCHON_TEST === '1') {
+        if (process.env.ARCO_TEST === '1') {
           try {
             clusterAutoTurn.onPeerMessageSent({
               clusterId: msg.clusterId,
@@ -1365,39 +1365,39 @@ wss.on('connection', (ws: WebSocket) => {
               incomingChainDepth: msg.chainDepth,
             });
           } catch (err) {
-            console.error('[archon] __debug_cluster_auto_turn_inject failed:', err);
+            console.error('[arco] __debug_cluster_auto_turn_inject failed:', err);
           }
         } else {
-          console.warn('[archon] __debug_cluster_auto_turn_inject received but ARCHON_TEST!=1; ignoring');
+          console.warn('[arco] __debug_cluster_auto_turn_inject received but ARCO_TEST!=1; ignoring');
         }
         break;
       case 'rename_workflow':
         (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleRenameWorkflow(ws, msg.workflowId, msg.name).catch((err) => {
-            console.error('[archon] rename_workflow handler failed:', err);
+            console.error('[arco] rename_workflow handler failed:', err);
           }),
         );
         break;
       case 'attach_codebase_memory':
         handleAttachCodebaseMemory(ws, msg.workflowId, msg.indexPath).catch((err) => {
-          console.error('[archon] attach_codebase_memory handler failed:', err);
+          console.error('[arco] attach_codebase_memory handler failed:', err);
         });
         break;
       case 'detach_codebase_memory':
         handleDetachCodebaseMemory(ws, msg.workflowId).catch((err) => {
-          console.error('[archon] detach_codebase_memory handler failed:', err);
+          console.error('[arco] detach_codebase_memory handler failed:', err);
         });
         break;
       case '__debug_native_plan_set':
         // Smoke-only hook: directly invokes the Claude Native EnterPlanMode
         // broadcast logic without spinning a real Anthropic turn. Gated on
-        // ARCHON_TEST so production never honours it.
-        if (process.env.ARCHON_TEST === '1') {
+        // ARCO_TEST so production never honours it.
+        if (process.env.ARCO_TEST === '1') {
           handleNativeEnterPlanModeSet(msg.workflowId, msg.plan).catch((err) => {
-            console.error('[archon] __debug_native_plan_set handler failed:', err);
+            console.error('[arco] __debug_native_plan_set handler failed:', err);
           });
         } else {
-          console.warn('[archon] __debug_native_plan_set received but ARCHON_TEST!=1; ignoring');
+          console.warn('[arco] __debug_native_plan_set received but ARCO_TEST!=1; ignoring');
         }
         break;
       case '__debug_native_auto_compact_probe':
@@ -1406,8 +1406,8 @@ wss.on('connection', (ws: WebSocket) => {
         // sets the workflow's lastContextPercent + efficiencyAutoCompact mode,
         // then runs the REAL maybeAutoCompactNative trigger at a synthetic turn
         // boundary so the smoke can assert the native_compacted emission +
-        // keep-tail + bounded-once behavior. Gated on ARCHON_TEST.
-        if (process.env.ARCHON_TEST === '1') {
+        // keep-tail + bounded-once behavior. Gated on ARCO_TEST.
+        if (process.env.ARCO_TEST === '1') {
           (async () => {
             const wf = workflows.get(msg.workflowId);
             if (!wf) return;
@@ -1432,17 +1432,17 @@ wss.on('connection', (ws: WebSocket) => {
             if (!seeded) return;
             await maybeAutoCompactNative(msg.workflowId, wf, cwd);
           })().catch((err) => {
-            console.error('[archon] __debug_native_auto_compact_probe handler failed:', err);
+            console.error('[arco] __debug_native_auto_compact_probe handler failed:', err);
           });
         } else {
-          console.warn('[archon] __debug_native_auto_compact_probe received but ARCHON_TEST!=1; ignoring');
+          console.warn('[arco] __debug_native_auto_compact_probe received but ARCO_TEST!=1; ignoring');
         }
         break;
     }
   });
 
   ws.on('close', () => {
-    console.log(`[archon] Client disconnected: ${sessionId.slice(0, 8)}`);
+    console.log(`[arco] Client disconnected: ${sessionId.slice(0, 8)}`);
     sessions.delete(ws);
     releaseLiveChangesForSocket(ws);
     // Release the observer slot on every workflow this ws owned — the
@@ -1542,7 +1542,7 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
     return;
   }
 
-  console.log(`[archon] [${workflowId.slice(0, 8)}] manual recalibrate at ${est.percentOfWindow}%`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] manual recalibrate at ${est.percentOfWindow}%`);
   send(ws, { type: 'system_notice', workflowId, content: `[CALIBRATE] Running ground-truth /context on ${sessionId.slice(0, 8)}…` });
 
   let result: import('./contextCalibrator.js').CalibrationResult | null = null;
@@ -1551,7 +1551,7 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
       wf.cancelCalibration = cancelFn;
     });
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] manual calibration error:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] manual calibration error:`, err);
   }
   wf.cancelCalibration = undefined;
 
@@ -1571,7 +1571,7 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
   wf.calibration = cal;
 
   writeCalibrationToMeta(cwd, workflowId, cal.ratio, cal.overhead, cal.lastGroundTruth).catch((err) => {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] calibration meta write failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] calibration meta write failed:`, err);
   });
 
   const calEst = await estimateContextFill(cwd, sessionId, wf.primary.model, cal).catch(() => null);
@@ -1619,7 +1619,7 @@ async function handleFreshAntigravityCascadeRequest(ws: WebSocket, workflowId: s
       turnCount,
       archivedReason: 'fresh-cascade-reset',
     }).catch((err) => {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] antigravity cascade-reset history append failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] antigravity cascade-reset history append failed:`, err);
     });
   }
 
@@ -1632,7 +1632,7 @@ async function handleFreshAntigravityCascadeRequest(ws: WebSocket, workflowId: s
   try {
     await clearProviderCliSessions(cwd, workflowId, 'antigravity');
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] antigravity cascade-reset meta write failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] antigravity cascade-reset meta write failed:`, err);
   }
 
   send(ws, {
@@ -1666,7 +1666,7 @@ async function handleFreshAntigravityCascadeRequest(ws: WebSocket, workflowId: s
 // "skip-once" before writing and the watcher consumes the flag.
 
 
-// Plan attach/detach. Plans live at <cwd>/.archon/plans/<id>.md (see
+// Plan attach/detach. Plans live at <cwd>/.arco/plans/<id>.md (see
 // planStore.ts) and are explicitly attached — never auto-bound by cwd. The
 // active plan's title gets injected as a one-line system note into every
 // primary turn (see runPrimaryTurn call site). plan_attached/detached are
@@ -1703,7 +1703,7 @@ async function handlePlanAttach(workflowId: string, planId: string): Promise<voi
       meta.planLastSeenUpdatedAt = 0;
     });
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] plan attach meta write failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] plan attach meta write failed:`, err);
   }
   // Record the attachment span (idempotent — a no-op when an open span for
   // this pair already exists, e.g. on rehydrate replay).
@@ -1737,7 +1737,7 @@ async function detachAllForPlan(cwd: string, planId: string): Promise<number> {
         delete meta.planLastSeenUpdatedAt;
       });
     } catch (err) {
-      console.error(`[archon] [${wfid.slice(0, 8)}] meta clear failed during detach-all:`, err);
+      console.error(`[arco] [${wfid.slice(0, 8)}] meta clear failed during detach-all:`, err);
     }
     await recordDetachment(cwd, planId, wfid).catch(() => { /* best-effort */ });
     broadcastWorkflow(wfid, { type: 'plan_detached', workflowId: wfid });
@@ -1760,7 +1760,7 @@ async function handlePlanDetach(workflowId: string): Promise<void> {
       delete meta.planLastSeenUpdatedAt;
     });
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] plan detach meta write failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] plan detach meta write failed:`, err);
   }
   if (previousPlanId) {
     await recordDetachment(cwd, previousPlanId, workflowId).catch(() => { /* best-effort */ });
@@ -1776,9 +1776,9 @@ async function handlePlanDetach(workflowId: string): Promise<void> {
 // originated the message.
 
 // CLUSTER_MODE_PLAN.md Phase 4 + local-provider followup. Claude and Codex
-// wire peer tools through Native/MCP. Ollama and llama.cpp use Archon's
+// wire peer tools through Native/MCP. Ollama and llama.cpp use Arco's
 // server-side local tool runtime, so they can now participate without stdio
-// MCP. Gemini / Antigravity stay rejected because Archon cannot inject peer
+// MCP. Gemini / Antigravity stay rejected because Arco cannot inject peer
 // tools into those providers today. Returns null on success, an error code
 // string on rejection.
 async function assertAllMembersClaudeOrCodex(memberIds: string[]): Promise<string | null> {
@@ -1833,7 +1833,7 @@ function handleTerminalOpen(ws: WebSocket, workflowId: string, cwd?: string): vo
   // No bootstrap attach here — the real window attaches over `/terminal`.
   // Shell-exit persistence rides setTerminalExitHook (below), which fires
   // regardless of whether a window is currently attached.
-  console.log(`[archon] [${workflowId.slice(0, 8)}] terminal opened ${session.id} (${session.shell} @ ${session.cwd})`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] terminal opened ${session.id} (${session.shell} @ ${session.cwd})`);
   broadcastWorkflow(workflowId, {
     type: 'terminal_opened',
     workflowId,
@@ -1930,7 +1930,7 @@ function onSignal(signal: string): void {
   const activityFlush = interruptComputerActivity();
   const watchFlush = interruptComputerWatches();
   const live = readRegisteredProcs();
-  console.log(`[archon] Received ${signal}, killing ${live.length} live worker(s) and exiting`);
+  console.log(`[arco] Received ${signal}, killing ${live.length} live worker(s) and exiting`);
   const reaped = { killed: 0, reused: 0, gone: 0 };
   for (const p of live) reaped[reapProc(p)]++; // start-time-verified (skips a recycled pid)
   clearRegisteredPids();
@@ -1978,10 +1978,10 @@ process.on('SIGINT', () => onSignal('SIGINT'));
 // being fatal. (SIGTERM/SIGINT above are the only intentional exit paths.)
 process.on('unhandledRejection', (reason) => {
   const detail = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
-  console.error(`[archon] unhandledRejection (non-fatal, server stays up): ${detail}`);
+  console.error(`[arco] unhandledRejection (non-fatal, server stays up): ${detail}`);
 });
 process.on('uncaughtException', (err) => {
-  console.error(`[archon] uncaughtException (non-fatal, server stays up): ${err.stack ?? err.message}`);
+  console.error(`[arco] uncaughtException (non-fatal, server stays up): ${err.stack ?? err.message}`);
 });
 
 // Reap any worker subprocesses left alive by a crashed/force-quit previous
@@ -1991,7 +1991,7 @@ process.on('uncaughtException', (err) => {
 function reapOrphanWorkers(): void {
   const stale = readRegisteredProcs();
   if (stale.length === 0) {
-    console.log('[archon] Orphan sweep: registry clean, nothing to reap');
+    console.log('[arco] Orphan sweep: registry clean, nothing to reap');
     return;
   }
   // H44 — verify each pid's start time before SIGKILL so a recycled pid (now an
@@ -2004,7 +2004,7 @@ function reapOrphanWorkers(): void {
     else gone++;
   }
   console.log(
-    `[archon] Orphan worker sweep (${stale.length} tracked): reaped ${killed}, ` +
+    `[arco] Orphan worker sweep (${stale.length} tracked): reaped ${killed}, ` +
     `already gone ${gone}, skipped ${reused} (pid recycled)`,
   );
   clearRegisteredPids();
@@ -2049,12 +2049,12 @@ setClaudeNativeClusterEventBroadcast((clusterId, msg) => {
       .then((payload) => {
         if (payload) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
       })
-      .catch((err) => console.error('[archon] cluster plan state refresh failed:', err));
+      .catch((err) => console.error('[arco] cluster plan state refresh failed:', err));
   }
 });
 
 // Phase 7b — Claude Native plan broadcast hook. EnterPlanMode writes the
-// plan body to a real plan file under .archon/plans/, attaches it to the
+// plan body to a real plan file under .arco/plans/, attaches it to the
 // workflow (so the PLAN tab renders the body via the existing plan-attach
 // pipeline), and emits a plan_set event carrying the body inline. ExitPlanMode
 // emits plan_exited; the plan stays attached.
@@ -2089,7 +2089,7 @@ async function handleNativeEnterPlanModeSet(workflowId: string, plan: string): P
       // the meta.json + watcher + plan_attached broadcast.
       await handlePlanAttach(workflowId, created.id);
     } catch (err) {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] EnterPlanMode plan-file create failed:`, err);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] EnterPlanMode plan-file create failed:`, err);
     }
   } else if (wf && cwd && clusterId) {
     // Cluster member — surface the choice to the operator. No file written
@@ -2290,13 +2290,13 @@ httpServer.listen(PORT, HOST, () => {
   ╚══════════════════════════════════════════╝
   `);
   if (!wsAuthEnabled()) {
-    console.warn('[archon] ARCHON_WS_AUTH=off — /ws and /terminal accept ANY local client (test servers only).');
+    console.warn('[arco] ARCO_WS_AUTH=off — /ws and /terminal accept ANY local client (test servers only).');
   }
-  ensureCatalog().catch((err) => console.error('[archon] ensureCatalog:', err));
-  ensureLlamacppCatalog().catch((err) => console.error('[archon] ensureLlamacppCatalog:', err));
+  ensureCatalog().catch((err) => console.error('[arco] ensureCatalog:', err));
+  ensureLlamacppCatalog().catch((err) => console.error('[arco] ensureLlamacppCatalog:', err));
   scheduleGeminiNativeCatalogPrefetch();
   scheduleCursorCatalogPrefetch();
-  readSettings().catch((err) => console.error('[archon] initial readSettings failed:', err));
+  readSettings().catch((err) => console.error('[arco] initial readSettings failed:', err));
   // CLUSTER_MODE_PLAN.md Phase 5 — configure the idle-nudger detector with
   // the broadcast surfaces + a resolver that snapshots live cluster
   // membership + per-member busy state at each tick. The detector runs on
@@ -2339,12 +2339,12 @@ httpServer.listen(PORT, HOST, () => {
       return out;
     },
     dispatchAutoTurn: (wfid, content) => {
-      // Phase 5b — smoke override. When ARCHON_TEST_NO_AUTO_TURN_DISPATCH=1
+      // Phase 5b — smoke override. When ARCO_TEST_NO_AUTO_TURN_DISPATCH=1
       // the smoke harness wants to exercise the detector's audit events
       // (cluster_auto_turn_fired) without burning real LLM turns for every
       // dispatch. Skip the handleUserMessage call entirely; the event was
       // already broadcast by the detector before reaching here.
-      if (process.env.ARCHON_TEST_NO_AUTO_TURN_DISPATCH === '1') return;
+      if (process.env.ARCO_TEST_NO_AUTO_TURN_DISPATCH === '1') return;
       // Synthetic ws — every method is a no-op. handleUserMessage only uses
       // `send(ws, ...)` for error-back to the operator; an auto-turn has no
       // operator socket to error back to, and any errors land in the
@@ -2372,7 +2372,7 @@ httpServer.listen(PORT, HOST, () => {
         undefined,   // kind: default ('follow-up' path is for busy recipients)
         undefined,   // no DOCS/GIT primitive
       ).catch((err) => {
-        console.error(`[archon] auto-turn handleUserMessage failed for ${wfid.slice(0, 8)}:`, err);
+        console.error(`[arco] auto-turn handleUserMessage failed for ${wfid.slice(0, 8)}:`, err);
       });
     },
   });
@@ -2420,7 +2420,7 @@ httpServer.listen(PORT, HOST, () => {
   });
   taskDispatcher.startDispatcherDaemon();
   // Workflow-reporting layer (docs/REMOTE_MANAGEMENT.md §2). Inert unless
-  // ARCHON_HUB_URL is set — when it is, this live Archon registers to the
+  // ARCO_HUB_URL is set — when it is, this live Arco registers to the
   // management hub as a 'service', pushes its workflow snapshot, and applies
   // routed reply/stop/continue actions (re-validating locally).
   // Broadcast hub-link status to every client so the desktop header can show a
@@ -2445,9 +2445,9 @@ httpServer.listen(PORT, HOST, () => {
         workflowCwds.set(r.meta.workflowId, r.cwd);
         acquireProjectSettingsWatcher(r.cwd);
       }
-      console.log(`[archon] Recovered ${recovered.length} workflows from disk`);
+      console.log(`[arco] Recovered ${recovered.length} workflows from disk`);
     })
-    .catch((err) => console.error('[archon] crash recovery failed:', err))
+    .catch((err) => console.error('[arco] crash recovery failed:', err))
     // §B2 — mark `stores` ready in .finally, NOT only .then: a recovery error is
     // failure-isolated (logged above), and must still flip the gate. Otherwise
     // /readyz would stick at 503 forever and systemd/k8s would kill a process
@@ -2460,14 +2460,14 @@ httpServer.listen(PORT, HOST, () => {
   // backfill error never blocks server boot.
   getRecallIndex()
     .backfill()
-    .then((n) => console.log(`[archon] Recall index backfilled ${n} workflows`))
-    .catch((err) => console.error('[archon] recall backfill failed:', err));
+    .then((n) => console.log(`[arco] Recall index backfilled ${n} workflows`))
+    .catch((err) => console.error('[arco] recall backfill failed:', err));
   // Eager boot registration of every persisted cluster member. The workflows
   // map otherwise fills lazily from client rehydrate_workflows, so a member no
   // connected client holds a config for stayed unregistered — its pane stuck on
   // "AWAITING REHYDRATE…" and its turns invisible. Failure-isolated (matches the
   // recall backfill above): a bad cluster meta never blocks boot or /readyz.
   registerAllClusterMembersOnBoot()
-    .then((n) => n > 0 && console.log(`[archon] Registered ${n} cluster member(s) on boot`))
-    .catch((err) => console.error('[archon] cluster member boot registration failed:', err));
+    .then((n) => n > 0 && console.log(`[arco] Registered ${n} cluster member(s) on boot`))
+    .catch((err) => console.error('[arco] cluster member boot registration failed:', err));
 });

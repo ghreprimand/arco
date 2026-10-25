@@ -20,9 +20,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const USAGE_FILE = path.join(archonHome(), 'skill-usage.json');
+const USAGE_FILE = path.join(arcoHome(), 'skill-usage.json');
 
 export interface SkillUsageEntry {
   count: number;
@@ -47,19 +47,19 @@ export function canonicalSkillKey(p: string): string {
   return path.resolve(p);
 }
 
-// True if `p` is a `.archon/skills/<slug>/SKILL.md` path. Segment-aware so a file
-// literally named `SKILL.md` outside a skills root (or a `.archon/skillsfoo`
-// sibling) does not count. Both project (`<cwd>/.archon/skills/...`) and global
-// (`~/.archon/skills/...`) skills match — the same Read signal covers both.
+// True if `p` is a `.arco/skills/<slug>/SKILL.md` path. Segment-aware so a file
+// literally named `SKILL.md` outside a skills root (or a `.arco/skillsfoo`
+// sibling) does not count. Both project (`<cwd>/.arco/skills/...`) and global
+// (`~/.arco/skills/...`) skills match — the same Read signal covers both.
 export function isSkillMdPath(p: string): boolean {
   if (!p) return false;
   const resolved = path.resolve(p);
   if (path.basename(resolved) !== 'SKILL.md') return false;
   const segs = resolved.split(path.sep);
-  // need .../.archon/skills/<slug>/SKILL.md → ['.archon','skills',slug,'SKILL.md']
-  // at the tail, with `.archon` and `skills` adjacent.
+  // need .../.arco/skills/<slug>/SKILL.md → ['.arco','skills',slug,'SKILL.md']
+  // at the tail, with `.arco` and `skills` adjacent.
   for (let i = 0; i + 3 < segs.length; i++) {
-    if (segs[i] === '.archon' && segs[i + 1] === 'skills' && segs[i + 3] === 'SKILL.md') {
+    if (segs[i] === '.arco' && segs[i + 1] === 'skills' && segs[i + 3] === 'SKILL.md') {
       return true;
     }
   }
@@ -99,7 +99,7 @@ export async function readSkillUsage(file: string = USAGE_FILE): Promise<Record<
     return entries;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error('[archon] skill-usage.json malformed; treating as empty:', err instanceof Error ? err.message : err);
+      console.error('[arco] skill-usage.json malformed; treating as empty:', err instanceof Error ? err.message : err);
     }
     return {};
   }
@@ -123,7 +123,7 @@ export function recordSkillRead(filePath: string, now: number, file: string = US
       const payload: SkillUsageFile = { version: 1, entries };
       await atomicWriteFile(file, JSON.stringify(payload, null, 2) + '\n', { durability: 'advisory' });
     } catch (err) {
-      console.error('[archon] skill-usage write failed (telemetry only, ignoring):', err instanceof Error ? err.message : err);
+      console.error('[arco] skill-usage write failed (telemetry only, ignoring):', err instanceof Error ? err.message : err);
     }
   });
 }

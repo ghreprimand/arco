@@ -1,6 +1,6 @@
 // ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase A — provider-contract smoke.
 //
-// Does NOT need the Archon dev server. Imports the RPC layer directly and
+// Does NOT need the Arco dev server. Imports the RPC layer directly and
 // drives three turns through the running Antigravity desktop app:
 //   1. Catalog lookup — confirms gemini-3-flash-agent is in the RPC model
 //      list and prints the resolved display name.
@@ -12,7 +12,7 @@
 // Prereqs (clearly reported on failure):
 //   - The Antigravity desktop app must be running and signed in.
 //   - ANTIGRAVITY_USE_DEFAULT_PROFILE=1 to share the operator's subscription
-//     profile (otherwise Archon's isolated profile must be signed in).
+//     profile (otherwise Arco's isolated profile must be signed in).
 //   - Optional: ANTIGRAVITY_RPC_MODEL overrides the model id (default
 //     gemini-3-flash-agent).
 //
@@ -21,7 +21,7 @@
 //
 // Exits 0 on success, 1 on failure, 2 if the desktop app isn't reachable.
 
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import { ANTIGRAVITY_CAPABILITIES } from '../../server/src/providers/antigravityCapabilities.js';
 import {
@@ -29,7 +29,7 @@ import {
   runAntigravityRpcTurn,
 } from '../../server/src/providers/antigravityRpc.js';
 
-const MARKER = `archon-phase-a-${Date.now().toString(36)}`;
+const MARKER = `arco-phase-a-${Date.now().toString(36)}`;
 const TURN_TIMEOUT_MS = 5 * 60_000;
 
 interface ToolEvent {

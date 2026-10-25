@@ -9,7 +9,7 @@
 //    panel the uncapped path will happily run shaders at 144fps.
 //
 // 2. **Visibility pause.** Browsers throttle rAF when the tab is fully
-//    hidden, but a tab that's visible-but-not-focused (Archon backgrounded
+//    hidden, but a tab that's visible-but-not-focused (Arco backgrounded
 //    behind another window) still ticks at full speed. We listen for
 //    `visibilitychange` and stop calling rAF entirely when hidden.
 //

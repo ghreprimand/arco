@@ -10,8 +10,8 @@ import { randomUUID } from 'node:crypto';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
       [busyWorker, true, 'claude'],
       [unsupportedWorker, false, 'gemini'],
     ] as const) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, {
         busy,
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
 
     await step('(d) dispatch run replays from events after snapshot deletion', async () => {
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'tasks.json'), { force: true });
       const state = await taskLedger.loadKernel(cwd);
       assert(state.runs.some((run) => run.taskId === fireMe.id && run.workflowId === worker), 'run replayed');
       assertEq(state.tasks.find((task) => task.id === fireMe.id)?.status, 'in_progress', 'status replayed');

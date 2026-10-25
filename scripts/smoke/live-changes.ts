@@ -6,7 +6,7 @@
 //   3. Mutate tracked + untracked files.
 //   4. Assert live_changes_snapshot reports the actual working-tree status.
 //
-// Run with Archon server up:
+// Run with Arco server up:
 //   npm run smoke:live-changes
 
 import { execFileSync } from 'node:child_process';
@@ -20,14 +20,14 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-live-changes-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-live-changes-'));
   console.log(`Live changes smoke - cwd ${cwd}`);
   console.log('');
 
   git(cwd, 'init', '-q');
-  git(cwd, 'config', 'user.email', 'test@archon.local');
-  git(cwd, 'config', 'user.name', 'archon-test');
-  writeFileSync(join(cwd, '.gitignore'), '.archon/\n');
+  git(cwd, 'config', 'user.email', 'test@arco.local');
+  git(cwd, 'config', 'user.name', 'arco-test');
+  writeFileSync(join(cwd, '.gitignore'), '.arco/\n');
   writeFileSync(join(cwd, 'tracked.txt'), 'base\n');
   git(cwd, 'add', '.gitignore', 'tracked.txt');
   git(cwd, 'commit', '-q', '-m', 'initial');

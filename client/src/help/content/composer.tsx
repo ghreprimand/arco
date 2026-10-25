@@ -97,7 +97,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          <C>⊟ COMPACT</C> is the in-Archon equivalent of the provider CLI's{' '}
+          <C>⊟ COMPACT</C> is the in-Arco equivalent of the provider CLI's{' '}
           <C>/compact</C> — it summarizes the conversation so the next turn
           starts against a smaller prompt. Far cheaper than a Handoff (same tab,
           no portable doc, no fresh worker); Handoff stays the heavier escape
@@ -234,7 +234,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           Sends the agent a structured prompt to update repo markdown docs (README,
           DEVLOG, CLAUDE.md, <C>docs/**/*.md</C>) based on recent git activity.
           Hard-coded constraint: <strong>does not modify anything under{' '}
-          <C>.archon/plans/</C></strong> — plan files have load-bearing structure
+          <C>.arco/plans/</C></strong> — plan files have load-bearing structure
           the Plan tab parses for per-phase review.
         </p>
         <p>
@@ -516,14 +516,14 @@ export const composerHelp: Record<string, HelpEntry> = {
       <>
         <p>
           This repo ships agent-facing resources — <C>CLAUDE.md</C>, project
-          skills, <C>.archon/settings.json</C> — that Arco{' '}
+          skills, <C>.arco/settings.json</C> — that Arco{' '}
           <strong>suppressed from the turn</strong> because the project isn't yet
           trusted (the cloned-repo prompt-injection vector). The turn already ran
           without them.
         </p>
         <p>
           <C>▸ TRUST</C> records the repo as trusted in{' '}
-          <C>~/.archon/trust.json</C> and folds those resources into future turns
+          <C>~/.arco/trust.json</C> and folds those resources into future turns
           (reversible — edit trust.json to revoke). <C>NEVER</C> keeps them
           suppressed and stops prompting. Operator-only; nothing auto-grants.
         </p>
@@ -540,7 +540,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         inserts <C>/skill-name</C>; Codex inserts <C>$skill-name</C>. Claude
         Native and providers without a native skill runtime explain that limit
         instead of advertising skills they cannot run. Use <C>+SKILL</C> for
-        Archon-managed playbooks: apply once to the next turn or pin one to
+        Arco-managed playbooks: apply once to the next turn or pin one to
         the tab so its current instructions apply every turn until removed.
       </p>
     ),

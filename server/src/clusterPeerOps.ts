@@ -44,7 +44,7 @@ import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
 import { appendLedgerComment, persistLedgerKernelMutation, persistLedgerMutation } from './ws/taskLedgerHandlers.js';
-import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@archon/shared';
+import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@arco/shared';
 
 // peer_send dedupe — guards against the orphan-tool-use retry pattern:
 // a previous turn aborted mid-tool, leaving the model with no memory of
@@ -52,9 +52,9 @@ import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComme
 // the next turn the operator nudges and the model re-issues the same
 // peer_send, producing a duplicate mailbox entry. 60s window catches the
 // rapid-fire variant; longer-gap recoveries fall to the operator-driven
-// mailbox CANCEL modal. Env override: ARCHON_PEER_SEND_DEDUPE_MS.
+// mailbox CANCEL modal. Env override: ARCO_PEER_SEND_DEDUPE_MS.
 const PEER_SEND_DEDUPE_MS = (() => {
-  const raw = Number(process.env.ARCHON_PEER_SEND_DEDUPE_MS);
+  const raw = Number(process.env.ARCO_PEER_SEND_DEDUPE_MS);
   return Number.isFinite(raw) && raw >= 0 ? raw : 60_000;
 })();
 // (from|to|sha256(content)) → epoch ms of the last accepted send. Cleared
@@ -426,7 +426,7 @@ export async function peerPlanRead(
     byteLength: Buffer.byteLength(rec.body, 'utf8'),
     planId: rec.planId,
     refs: refs.map((r) => ({ slug: r.slug, title: r.title, bytes: r.bytes })),
-    refsDir: `.archon/plans/${rec.planId}.refs/`,
+    refsDir: `.arco/plans/${rec.planId}.refs/`,
   };
 }
 

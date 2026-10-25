@@ -1,4 +1,4 @@
-import { VOICE_MAX_TEXT } from '@archon/shared';
+import { VOICE_MAX_TEXT } from '@arco/shared';
 import { immediateVoiceControl, voiceCommandBody } from './commands';
 
 export const VOICE_CAPTURE_IDLE_MS = 120_000;

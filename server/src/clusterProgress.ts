@@ -28,7 +28,7 @@ import {
   CLUSTER_PROGRESS_DEFAULT,
   isClusterProgressMode,
   type ClusterProgressMode,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Imperative, short clauses so they read as a system directive, not prose.
 const PLAN_CLAUSE = [

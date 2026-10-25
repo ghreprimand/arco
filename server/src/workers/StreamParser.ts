@@ -199,7 +199,7 @@ export class StreamParser extends EventEmitter {
         if (text) {
           // Guard against Claude CLI re-serializing a mid-stream API error
           // into assistant text. We observed `{"type":"error","error":{...}}`
-          // land as a text delta under ARCHON :: PASSTHROUGH instead of as a
+          // land as a text delta under ARCO :: PASSTHROUGH instead of as a
           // top-level stream line. If a chunk clearly starts an error
           // envelope, reroute to stream_error and drop the text emit.
           const maybeError = tryParseErrorEnvelope(text);

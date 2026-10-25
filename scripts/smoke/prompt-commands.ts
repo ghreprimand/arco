@@ -22,8 +22,8 @@ async function main(): Promise<void> {
     listPromptCommands,
   } = prompts;
 
-  const cwd = path.join(tmpdir(), `archon-prompts-smoke-${process.pid}`);
-  const root = path.join(cwd, '.archon', 'prompts');
+  const cwd = path.join(tmpdir(), `arco-prompts-smoke-${process.pid}`);
+  const root = path.join(cwd, '.arco', 'prompts');
   await fs.mkdir(root, { recursive: true });
   await fs.writeFile(
     path.join(root, 'deploy.md'),

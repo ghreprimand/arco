@@ -1,9 +1,9 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { homedir } from 'os';
-import type { ProviderName, ProviderAccountProfile } from '@archon/shared';
+import type { ProviderName, ProviderAccountProfile } from '@arco/shared';
 import { readSettings } from './settings.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export interface ResolvedProviderAccount {
   provider: ProviderName;
@@ -18,7 +18,7 @@ export function expandHomePath(p: string): string {
 }
 
 function defaultCodexHome(id: string): string {
-  return join(archonHome(), 'provider-accounts', `codex-${id}`);
+  return join(arcoHome(), 'provider-accounts', `codex-${id}`);
 }
 
 export function accountShortLabel(profile: ProviderAccountProfile): string {

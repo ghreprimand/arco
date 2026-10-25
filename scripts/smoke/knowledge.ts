@@ -1,7 +1,7 @@
 // WORKBENCH_EXPANSION_PLAN.md §B3 — knowledge base smoke.
 //
 // Tests the MECHANISM directly (no WS, no LLM, no server boot), against a
-// throwaway temp cwd so no real .archon/knowledge/ is touched:
+// throwaway temp cwd so no real .arco/knowledge/ is touched:
 //
 //   (1) The STORE (server/src/knowledge/store.ts) behind load/save/query:
 //         - createArticle persists; readArticle round-trips; query filters.
@@ -31,10 +31,10 @@ import {
   updateArticle,
   alwaysIncludeBytes,
 } from '../../server/src/knowledge/store.js';
-import { KNOWLEDGE_INJECT_BUDGET } from '@archon/shared';
+import { KNOWLEDGE_INJECT_BUDGET } from '@arco/shared';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-knowledge-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-knowledge-'));
 
   let alwaysId = '';
   await step('createArticle persists an always-include article (store.save)', async () => {

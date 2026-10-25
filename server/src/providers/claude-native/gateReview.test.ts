@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { classifyGate } from './gateReview.js';
 
-const CWD = '/home/operator/Projects/Archon';
+const CWD = '/home/operator/Projects/Arco';
 
 test('Bash gates wholesale (category bash)', () => {
   const d = classifyGate('Bash', { command: 'npm test' }, CWD);
@@ -70,8 +70,8 @@ test('Edit escaping cwd via ../ gates', () => {
 });
 
 test('a sibling dir that shares a prefix is still outside cwd', () => {
-  // /home/operator/Projects/Archon-windows-port must NOT count as inside Archon.
-  const d = classifyGate('Write', { file_path: '/home/operator/Projects/Archon-windows-port/x.ts', content: 'x' }, CWD);
+  // /home/operator/Projects/Arco-windows-port must NOT count as inside Arco.
+  const d = classifyGate('Write', { file_path: '/home/operator/Projects/Arco-windows-port/x.ts', content: 'x' }, CWD);
   assert.equal(d.sensitive, true);
   if (d.sensitive) assert.equal(d.category, 'write-outside-cwd');
 });

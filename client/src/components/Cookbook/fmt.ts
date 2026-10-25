@@ -1,4 +1,4 @@
-import type { FitVerdict } from '@archon/shared';
+import type { FitVerdict } from '@arco/shared';
 
 // Workbench Expansion G2 — shared formatters + the FIT verdict palette for the
 // Cookbook catalog table. Pure display helpers; no state.

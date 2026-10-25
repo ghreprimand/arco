@@ -21,7 +21,7 @@ const CDP_URL = 'http://localhost:9222';
 const SEND = process.argv.includes('--send');
 const BRAIN = join(homedir(), '.gemini', 'antigravity', 'brain');
 const MARKER = `inject${Date.now().toString(36)}`;
-const PROMPT = `Reply with the single word "PONG" and nothing else. Name your primary artifact archon_inject_${MARKER}.md.`;
+const PROMPT = `Reply with the single word "PONG" and nothing else. Name your primary artifact arco_inject_${MARKER}.md.`;
 
 // ── Locate the workbench target ────────────────────────────────────────────
 const targets = await (await fetch(`${CDP_URL}/json`)).json();
@@ -151,8 +151,8 @@ const submitResult = await evaluate(`
 console.log('submit result:', JSON.stringify(submitResult, null, 2));
 
 // Watch brain/ for our marker file.
-console.log(`\nwatching ${BRAIN} for archon_inject_${MARKER}.md ...`);
-const expectedName = `archon_inject_${MARKER}.md`;
+console.log(`\nwatching ${BRAIN} for arco_inject_${MARKER}.md ...`);
+const expectedName = `arco_inject_${MARKER}.md`;
 const pollStart = Date.now();
 const timeout = 120_000;
 let found = null;

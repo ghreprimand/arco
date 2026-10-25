@@ -14,7 +14,7 @@ import {
 } from './planStore.js';
 
 async function tmpCwd(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'archon-plan-refs-'));
+  return fs.mkdtemp(path.join(os.tmpdir(), 'arco-plan-refs-'));
 }
 
 test('write / list / read / delete a ref', async () => {

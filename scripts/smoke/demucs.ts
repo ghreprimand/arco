@@ -75,8 +75,8 @@ async function main() {
     return;
   }
 
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n4-cwd-'));
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n4-outside-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n4-cwd-'));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n4-outside-'));
   try {
     // A tiny mixed-ish fixture (a short tone is enough — we assert the stem SET +
     // file layout + the fence, not separation quality).

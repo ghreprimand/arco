@@ -11,8 +11,8 @@ import {
 } from '../management/clusterVault.js';
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(path.join(tmpdir(), 'archon-cluster-vault-'));
-  process.env.ARCHON_CLUSTER_VAULT_DIR = root;
+  const root = await mkdtemp(path.join(tmpdir(), 'arco-cluster-vault-'));
+  process.env.ARCO_CLUSTER_VAULT_DIR = root;
   let passed = 0;
   const step = async (name: string, fn: () => Promise<void>) => {
     await fn();
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     console.log(`  PASS  ${name}`);
   };
   try {
-  const encrypted = Buffer.from('ARCHCV01 opaque encrypted test payload');
+  const encrypted = Buffer.from('ARCOCV01 opaque encrypted test payload');
   let id = '';
   await step('opaque encrypted blob saves with metadata + checksum', async () => {
     const row = await saveCloudSnapshot({
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
     assert.deepEqual(await readCloudSnapshot(id), encrypted);
   });
   await step('confirmed same-name replacement keeps one row and updates bytes', async () => {
-    const replacement = Buffer.from('ARCHCV01 replacement encrypted test payload');
+    const replacement = Buffer.from('ARCOCV01 replacement encrypted test payload');
     const row = await saveCloudSnapshot({
       name: 'Portable cluster',
       createdAt: '2026-07-23T01:00:00.000Z',
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     console.log(`\ncluster vault: ${passed}/5 steps passed`);
   } finally {
     await rm(root, { recursive: true, force: true });
-    delete process.env.ARCHON_CLUSTER_VAULT_DIR;
+    delete process.env.ARCO_CLUSTER_VAULT_DIR;
   }
 }
 

@@ -1,12 +1,12 @@
 // Memory-cap constants and pure capping helpers. Extracted verbatim from
 // appStore.ts (Phase 5 file-size refactor) — move-only, no behavior change.
 // These take/return plain data and must NOT import from `./appStore`.
-import type { ChatMessage, WorkerState } from '@archon/shared';
+import type { ChatMessage, WorkerState } from '@arco/shared';
 import type { ActivityEntry, JobState } from './appStore.types';
 
 // Hard caps to keep the browser tab's memory bounded. The 2026-04-16 incident
 // (~63GB system RAM ballooning, hard lock) was made worse — possibly caused
-// by — the Archon UI tab itself accumulating worker state without bounds and
+// by — the Arco UI tab itself accumulating worker state without bounds and
 // having Zustand-persist re-serialize the whole jobs slice on every store
 // update. These limits keep the in-memory state lean; the persistance layer
 // further strips workers entirely (server-side is the source of truth).
@@ -132,7 +132,7 @@ function capToolInputValue(value: unknown, depth = 0): unknown {
     out[k] = next;
   }
   if (entries.length > 80) {
-    out.__archon_truncated_keys = `${entries.length - 80} key(s) omitted client-side`;
+    out.__arco_truncated_keys = `${entries.length - 80} key(s) omitted client-side`;
   }
   return changed ? out : value;
 }

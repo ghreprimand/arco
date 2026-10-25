@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 
 type Status = 'checking' | 'primary' | 'duplicate';
 
-const LOCK_NAME = 'archon-singleton';
+const LOCK_NAME = 'arco-singleton';
 
 let started = false;
 let cachedStatus: Status = 'checking';

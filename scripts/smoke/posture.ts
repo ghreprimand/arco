@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §A4 — Security / exposure posture smoke.
+// ARCO_OPS_PLAN.md §A4 — Security / exposure posture smoke.
 //
 // Two halves:
 //   1. Pure unit-assert of `classifyBindAddress` (imported directly — no server).
@@ -18,7 +18,7 @@ import type {
   DiagnosticGroupId,
 } from '../../shared/src/protocol/opsDiagnostics.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 const SECURITY_GROUP: DiagnosticGroupId = 'security';
 const EXPECTED_CHECKS = [
   'security.bind-address',

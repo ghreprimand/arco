@@ -25,7 +25,7 @@ const base: ShutdownForensics = {
 
 test('formatShutdownForensics: full line shape', () => {
   const line = formatShutdownForensics(base);
-  assert.match(line, /^\[archon\]\[shutdown\]/);
+  assert.match(line, /^\[arco\]\[shutdown\]/);
   assert.match(line, /signal=SIGTERM/);
   assert.match(line, /uptime=3h12m/);
   assert.match(line, /rss=512\.0MB/);

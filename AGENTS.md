@@ -2,9 +2,9 @@
 
 ## What Arco is
 
-Arco is the public release of Archon: the same workbench, behavior, and voice operator, prepared for public use on Linux, macOS, and Windows. Changes are limited to privacy scrubs, portability, onboarding, and documentation. Any other change is a bug fix only when a failing test demonstrates it.
+Arco is the public release of a private workbench: the same workbench, behavior, and voice operator, prepared for public use on Linux, macOS, and Windows. Changes are limited to privacy scrubs, portability, onboarding, and documentation. Any other change is a bug fix only when a failing test demonstrates it.
 
-The internal product identity remains Archon where compatibility depends on it. Keep `@archon/*` package names, `.archon` state, protocol identifiers, and `ARCHON_*` environment variables. Where an `ARCO_*` alias is added, it takes precedence when set. This keeps saved state and tooling usable between Archon and Arco.
+Arco carries one name. Packages are `@arco/*`, state lives in `.arco`, environment variables are `ARCO_*`, and MCP servers, tools, headers and protocol constants use Arco. Arco does not share state with the private upstream; a user migrates by copying the home and per-project state folders. Imports from the upstream run `node scripts/rename-upstream.mjs` after extraction and before the scrub.
 
 ## Identity
 
@@ -18,7 +18,7 @@ Set it in the checkout Git configuration. Placeholder identities, model or tool 
 
 ## Porting discipline
 
-Port Archon's implementation; do not redesign it. Each changed file must serve one of four reasons: privacy scrub, portability, onboarding, or documentation. A bug fix needs a failing test and a devlog explanation. Preserve file-by-file parity: every tracked Archon file is imported, renamed, or intentionally excluded with its reason recorded in the import reference. Do not replace existing behavior with a new Arco design.
+Port the upstream implementation; do not redesign it. Each changed file must serve one of four reasons: privacy scrub, portability, onboarding, or documentation. A bug fix needs a failing test and a devlog explanation. Preserve file-by-file parity: every tracked upstream file is imported, renamed, or intentionally excluded with its reason recorded in the import reference. Do not replace existing behavior with a new Arco design.
 
 ## Commit and push cadence
 
@@ -37,7 +37,7 @@ Install the hooks with `npm run setup:hooks`. It sets the checkout identity, con
 
 ## Review scope
 
-The Director reads the full staged diff before each commit. Blocking findings are data loss, privacy or security defects, build or test failures, and regressions to Archon capability. Wording, structure, extra test ideas, style, and future-proofing become board tasks. Each change gets one correction round; a second round means split or rescope the work.
+The Director reads the full staged diff before each commit. Blocking findings are data loss, privacy or security defects, build or test failures, and regressions to Arco capability. Wording, structure, extra test ideas, style, and future-proofing become board tasks. Each change gets one correction round; a second round means split or rescope the work.
 
 ## Development log
 
@@ -72,18 +72,18 @@ Remaining: ... .
 ```markdown
 ## 2026-10-25 -- Import of the upstream workbench tree
 
-The imported Arco workbench starts from Archon's tracked implementation while giving a new user an Arco-branded entry point. Provider behavior and internal Archon identifiers remain compatible with existing `.archon` state.
+The imported Arco workbench starts from the upstream's tracked implementation while giving a new user an Arco-branded entry point. Provider behavior is unchanged.
 
-The import retained 36 reference docs and excluded 86 of 122 docs, along with five private or replaced root files. Personal paths and identifiers, private network details, local project and repository names, workstation defaults, and private output artifacts were scrubbed or excluded. User-facing names became Arco; compatibility identifiers remain Archon. The hook suite reported 26 checks passing and one optional Docker/Gitleaks check skipped.
+The import retained 36 reference docs and excluded 86 of 122 docs, along with five private or replaced root files. Personal paths and identifiers, private network details, local project and repository names, workstation defaults, and private output artifacts were scrubbed or excluded. User-facing names became Arco. The hook suite reported 26 checks passing and one optional Docker/Gitleaks check skipped.
 
-Checked with `npm run build`, `npm run typecheck`, `npm run test:unit` (757 passed), `npm run audit:public --tree`, all 28 upstream `test:*` scripts, and 12 server-free smoke suites. An initial install omitted dev dependencies under a production environment; rerunning with `env -u NODE_ENV npm ci --include=dev` fixed it. Voice tests needed the Arco return phrase, and a template fixture needed a consistent lowercase rename. Hostname-derived theme ids were renamed, with saved Archon ids mapped onto the Arco ids on read. Imported docs still need an ASCII punctuation pass; macOS and Windows remain unverified.
+Checked with `npm run build`, `npm run typecheck`, `npm run test:unit` (757 passed), `npm run audit:public --tree`, all 28 upstream `test:*` scripts, and 12 server-free smoke suites. An initial install omitted dev dependencies under a production environment; rerunning with `env -u NODE_ENV npm ci --include=dev` fixed it. Voice tests needed the Arco return phrase, and a template fixture needed a consistent lowercase rename. Hostname-derived theme ids were renamed, with saved upstream ids mapped onto the Arco ids on read. Imported docs still need an ASCII punctuation pass; macOS and Windows remain unverified.
 
 No paid provider calls or credential copies were used. macOS and Windows checks require the operator's hardware. Docker and native first-run instructions remain pending.
 ```
 
 ## Public safety
 
-The public-safety audit checks the staged diff before commit and the full tree on demand. It detects absolute home-directory paths across supported operating systems, personal names and identifiers, unapproved email addresses, private hostnames and IP addresses, token and key patterns, `.env`-style secrets, screenshots and recordings, and Archon-local runtime state paths. Do not commit secrets, tokens, machine-only configuration, private machine or host details, local paths, screenshots or logs containing paths, recordings, transcripts, or personal data.
+The public-safety audit checks the staged diff before commit and the full tree on demand. It detects absolute home-directory paths across supported operating systems, personal names and identifiers, unapproved email addresses, private hostnames and IP addresses, token and key patterns, `.env`-style secrets, screenshots and recordings, and Arco-local runtime state paths. Do not commit secrets, tokens, machine-only configuration, private machine or host details, local paths, screenshots or logs containing paths, recordings, transcripts, or personal data.
 
 An intentional scan exception requires a specific reason in the audit allowlist and Director review. Do not weaken the scan to make a finding disappear.
 

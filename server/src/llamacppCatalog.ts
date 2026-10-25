@@ -1,4 +1,4 @@
-// Operator-declared llama.cpp model registry, stored at ~/.archon/llamacpp.json.
+// Operator-declared llama.cpp model registry, stored at ~/.arco/llamacpp.json.
 // Unlike Ollama (which auto-discovers via /api/tags), llama-server takes one
 // model per process — the operator names each loadout up front and the
 // lifecycle manager spawns llama-server with the right -m / --mmproj / -ngl
@@ -11,11 +11,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
-import type { LlamacppModelDef } from '@archon/shared';
+import type { LlamacppModelDef } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const CATALOG_PATH = path.join(archonHome(), 'llamacpp.json');
+const CATALOG_PATH = path.join(arcoHome(), 'llamacpp.json');
 
 // 64 KB is plenty for a few dozen model entries; the actual GGUF / mmproj
 // blobs live on disk separately. Cap exists so a runaway hand-edit can't
@@ -68,7 +68,7 @@ function isLlamacppModelDef(raw: unknown): raw is LlamacppModelDef {
 
 // Read + validate. Bad JSON or a missing file returns an empty catalog
 // rather than throwing — the auth probe surfaces "no models" cleanly that
-// way and the operator can fix the file without having to restart Archon.
+// way and the operator can fix the file without having to restart Arco.
 export async function readCatalog(): Promise<LlamacppCatalog> {
   try {
     const raw = await fs.readFile(CATALOG_PATH, 'utf8');
@@ -89,7 +89,7 @@ export async function readCatalog(): Promise<LlamacppCatalog> {
     return { models: valid };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return emptyCatalog();
-    console.error('[archon] llamacpp.json malformed; treating as empty:', err instanceof Error ? err.message : err);
+    console.error('[arco] llamacpp.json malformed; treating as empty:', err instanceof Error ? err.message : err);
     return emptyCatalog();
   }
 }

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { ComputerMailRule } from '@archon/shared';
+import type { ComputerMailRule } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 import * as clusters from '../clusterStore.js';
 import { pendingIdsStrict } from '../clusterMailbox.js';
@@ -13,9 +13,9 @@ import { broadcastWorkflow } from '../server/broadcast.js';
 import { emit } from '../notifications.js';
 import { ComputerMailRules, type MailSnapshot } from './mailRuleStore.js';
 import { hasActiveConditionsForCluster } from './conditions.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
-const file = process.env.ARCHON_COMPUTER_MAIL_RULE_FILE ?? join(archonHome(), 'computer-mail-rules.json');
+const file = process.env.ARCO_COMPUTER_MAIL_RULE_FILE ?? join(arcoHome(), 'computer-mail-rules.json');
 let store: ComputerMailRules | undefined, loading: Promise<ComputerMailRules> | undefined;
 let warning: string | undefined;
 let stopped = false, ticking = false;
@@ -175,7 +175,7 @@ export async function computerMailRuleControl(ownerId: string, raw: unknown) {
   if (stopped) throw Error('Server is stopping.');
   let rule: ComputerMailRule | undefined, announce: boolean | undefined;
   if (args.action === 'create') {
-    if (!args.cluster_id || !args.worker_ids || !args.final_id) throw Error('Resolve exact cluster, worker and final recipient ids with archon_targets.');
+    if (!args.cluster_id || !args.worker_ids || !args.final_id) throw Error('Resolve exact cluster, worker and final recipient ids with arco_targets.');
     if(hasActiveConditionsForCluster(args.cluster_id))throw Error('Cancel active conditional scripts in this cluster before arming a legacy mailbox rule.');
     const cluster = await clusters.readCluster(args.cluster_id);
     if (!cluster) throw Error('Cluster is unavailable.');

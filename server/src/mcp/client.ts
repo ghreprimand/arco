@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §E1 — minimal MCP stdio client.
+// ARCO_OPS_PLAN.md §E1 — minimal MCP stdio client.
 //
 // Speaks newline-delimited JSON-RPC 2.0 over a spawned stdio child (the same
 // framing clusterMcpServer.ts uses on the server side). Dependency-free on
@@ -34,13 +34,13 @@
 // (writeRpc / parseRpcLines) so the wire contract lives in one place.
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import type { McpServerDef, McpToolInfo } from '@archon/shared';
+import type { McpServerDef, McpToolInfo } from '@arco/shared';
 
 // SECURITY (H20) — env allowlist for spawned MCP children.
 //
 // Both spawn paths used to merge the FULL `process.env` into every `npx`/`uvx`
 // MCP child (`{ ...process.env, ...def.env }`). That handed each third-party
-// MCP server the Archon server's entire environment — the Claude OAuth token, a
+// MCP server the Arco server's entire environment — the Claude OAuth token, a
 // GitHub PAT, provider API keys, and anything else the operator's shell exports.
 // An MCP server is untrusted code; it has no business seeing host credentials.
 //
@@ -50,7 +50,7 @@ import type { McpServerDef, McpToolInfo } from '@archon/shared';
 // pass a server its own credentials. Everything else is dropped. Operator-
 // declared values win over the inherited base.
 //
-// POSIX-focused (Archon runs Linux + macOS on this branch; the windows-port
+// POSIX-focused (Arco runs Linux + macOS on this branch; the windows-port
 // worktree owns its own env shape). Exported so the unit test can assert no
 // host secret survives the filter.
 const SAFE_ENV_KEYS = new Set<string>([
@@ -292,7 +292,7 @@ export async function probeServer(def: McpServerDef, opts: ProbeOptions = {}): P
       {
         protocolVersion: '2024-11-05',
         capabilities: {},
-        clientInfo: { name: 'archon-mcp-probe', version: '1.0.0' },
+        clientInfo: { name: 'arco-mcp-probe', version: '1.0.0' },
       },
       initId,
     );
@@ -448,7 +448,7 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
     {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'archon-mcp-native', version: '1.0.0' },
+      clientInfo: { name: 'arco-mcp-native', version: '1.0.0' },
     },
     initTimeoutMs,
   );

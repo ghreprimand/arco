@@ -1,18 +1,18 @@
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { ChatMessage, TokenUsage } from '@archon/shared';
+import type { ChatMessage, TokenUsage } from '@arco/shared';
 import { UUID_PATTERN } from '../server/constants.js';
 import { readLatestCodexTokenCount, rawUsageToTokenUsage } from '../codexRolloutTokens.js';
 
 // Claude message.content is either a string or a list of content blocks;
 // reviewer-primitive-derived user turns also prepend synthetic blocks
 // (permission-mode / Continue from where you left off). Strip them to a
-// single-line preview. Also strips the Archon safety-reminder footer and
+// single-line preview. Also strips the Arco safety-reminder footer and
 // skips synthetic content entirely — Claude injects slash-command stdout,
 // image-attachment placeholders, and other machine-generated "user" turns
 // into the JSONL. None of those help the operator identify the conversation.
-// ULTRACODE_PLAN.md — Archon prepends `ultracode: ` to the prompt to trigger
+// ULTRACODE_PLAN.md — Arco prepends `ultracode: ` to the prompt to trigger
 // the CLI's WorkflowTool keyword. That prefix lands verbatim in Claude's
 // session JSONL. Left in, it (a) shows as an ugly prefix the operator never
 // typed and (b) breaks the content-signature dedup that reconciles transcript-
@@ -34,8 +34,8 @@ export function extractUserText(content: unknown): string {
       .map((p) => (typeof p?.text === 'string' ? p.text : ''))
       .join(' ');
   }
-  // Strip Archon's safety-reminder footer before anything else.
-  const marker = '[Archon safety reminders';
+  // Strip Arco's safety-reminder footer before anything else.
+  const marker = '[Arco safety reminders';
   const idx = text.indexOf(marker);
   if (idx !== -1) {
     const before = text.slice(0, idx).trimEnd();

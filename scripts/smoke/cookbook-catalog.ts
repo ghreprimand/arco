@@ -16,7 +16,7 @@
 import { step, assert, assertEq, summary } from './lib.js';
 import { normalizeAndScore } from '../../server/src/cookbook/catalog.js';
 import { OLLAMA_LIBRARY } from '../../server/src/cookbook/ollamaLibrary.js';
-import type { HardwareProfile } from '@archon/shared';
+import type { HardwareProfile } from '@arco/shared';
 
 const GB = 1024 * 1024 * 1024;
 

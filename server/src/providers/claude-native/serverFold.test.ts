@@ -96,7 +96,7 @@ test('request carries compaction + same system/tools/thinking and drops the fiel
       tool_choice: { type: 'any' },
       stop_sequences: ['x'],
     },
-    messages: [{ role: 'user', content: 'x' }, { role: 'system', content: [{ type: 'text', text: 'd' }], archon: 'system_delta' }],
+    messages: [{ role: 'user', content: 'x' }, { role: 'system', content: [{ type: 'text', text: 'd' }], arco: 'system_delta' }],
   });
   assert.deepEqual(body.compaction, { type: 'summarize' });
   assert.equal(body.stream, true);
@@ -104,8 +104,8 @@ test('request carries compaction + same system/tools/thinking and drops the fiel
   assert.equal((body.tools as unknown[]).length, 1);
   assert.deepEqual(body.output_config, { effort: 'high', task_budget: { type: 'tokens', total: 1 } });
   assert.ok(!('context_management' in body) && !('tool_choice' in body) && !('stop_sequences' in body));
-  // Archon-private marker stripped for the wire.
-  assert.ok(!('archon' in ((body.messages as unknown[])[1] as object)));
+  // Arco-private marker stripped for the wire.
+  assert.ok(!('arco' in ((body.messages as unknown[])[1] as object)));
 });
 
 test('stream parse returns the block verbatim and bills from usage.iterations', async () => {
@@ -187,7 +187,7 @@ test('COMPACT/Fold demote a leading block to plain summary text', () => {
 test('tool changes: summarized additions drop out, kept ones survive', () => {
   const frozen = [{ name: 'Read' }, { name: 'Bash' }, { name: 'WebFetch', defer_loading: true }];
   assert.deepEqual([...activeToolKeysAfterServerFold(frozen, [])].sort(), ['Bash', 'Read']);
-  const kept = [{ role: 'system', archon: 'tool_set_change', content: [
+  const kept = [{ role: 'system', arco: 'tool_set_change', content: [
     { type: 'tool_addition', tool: { type: 'tool_reference', name: 'WebFetch' } },
     { type: 'tool_removal', tool: { type: 'tool_reference', name: 'Bash' } },
   ] }];
@@ -207,7 +207,7 @@ type TestWorker = {
 };
 
 function makeWorker(respond: (call: FakeCall) => unknown): { w: TestWorker; calls: FakeCall[]; events: Array<Record<string, unknown>> } {
-  process.env.ARCHON_TEST = '1';
+  process.env.ARCO_TEST = '1';
   const w = new ClaudeNativeWorker({
     workflowId: 'wf-test-server-fold',
     config: { model: 'claude-opus-5-5', effort: 'high' },

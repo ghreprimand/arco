@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { ConditionExpression, ComputerConditionDefinition } from '@archon/shared';
-import { conditionActionTargets } from '@archon/shared';
+import type { ConditionExpression, ComputerConditionDefinition } from '@arco/shared';
+import { conditionActionTargets } from '@arco/shared';
 export const conditionId = z.string().regex(/^[a-zA-Z0-9-]{8,80}$/);
 export const conditionField = z.enum(['busy','queued','pending_mail','has_work','needs_input','turns_finished','turns_failed','turns_interrupted','mail_received','context_percent','context_tokens','context_window','compacting','can_compact','compactions_finished']);
 const cmp = z.enum(['eq','ne','gt','gte','lt','lte']);
@@ -67,9 +67,9 @@ export function parseConditionDefinition(raw: unknown) {
     // operation, but server execution need not borrow a microphone/browser.
     c.actions=c.actions.map((a)=>{
       if(a.kind!=='tool')return a;
-      if(a.name==='archon_compact')return {kind:'compact' as const,worker_id:conditionId.parse(a.args.target)};
-      if(a.name==='archon_nudge')return {kind:'nudge' as const,worker_ids:[conditionId.parse(a.args.target)]};
-      if(a.name==='archon_send_message'){
+      if(a.name==='arco_compact')return {kind:'compact' as const,worker_id:conditionId.parse(a.args.target)};
+      if(a.name==='arco_nudge')return {kind:'nudge' as const,worker_ids:[conditionId.parse(a.args.target)]};
+      if(a.name==='arco_send_message'){
         if(a.args.mode&&a.args.mode!=='follow-up')throw Error('Scripted worker messages wait for idle; use a separate explicit cancel action if interruption was requested.');
         return {kind:'send_message' as const,worker_id:conditionId.parse(a.args.target),text:z.string().min(1).max(2000).parse(a.args.text)};
       }

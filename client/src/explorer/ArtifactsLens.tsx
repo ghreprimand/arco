@@ -8,12 +8,12 @@ import { mergeItems, rollupProjects, type ArtifactEntry, type DocEntry, type Pro
 //
 //   documents  — the .md/doc files written FOR a project, in its real tree
 //                (Reports/*.md, root *.md, docs/*.md) — /api/explorer/docs
-//   artifacts  — .archon workflow artifacts (Review/handoff/research outputs)
+//   artifacts  — .arco workflow artifacts (Review/handoff/research outputs)
 //                — /api/explorer/artifacts
 //
 // Two levels: HOME (recent-across-all strip + project cards) and PROJECT (drill
 // into one project's merged docs+artifacts, filter box, viewer on click). Real
-// project docs also get OPEN IN TREE (reveal); .archon artifacts are viewer-only.
+// project docs also get OPEN IN TREE (reveal); .arco artifacts are viewer-only.
 // Pure HTTP; refetches on `focusTick` (poll-on-focus, §5).
 
 interface Props {
@@ -28,7 +28,7 @@ function subdirOf(rel: string): string {
   const i = rel.lastIndexOf('/');
   return i === -1 ? '·' : rel.slice(0, i) + '/';
 }
-function revealable(path: string): boolean { return !path.includes('/.archon/'); }
+function revealable(path: string): boolean { return !path.includes('/.arco/'); }
 
 export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   const [items, setItems] = useState<ProjectItem[] | null>(null);

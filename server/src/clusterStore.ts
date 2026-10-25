@@ -1,7 +1,7 @@
 import { publishActivity } from './voice/activityBus.js';
 // CLUSTER_MODE_PLAN.md Phase 1 — substrate cluster store.
 //
-// One ClusterState per cluster, persisted to ~/.archon/clusters/<id>/meta.json.
+// One ClusterState per cluster, persisted to ~/.arco/clusters/<id>/meta.json.
 // Member workflows learn their clusterId via getClusterIdForWorkflow(); the
 // Native worker's tool registration gates on this lookup. Hard fences (plan
 // §6.2): no nested clusters; no cross-cluster messaging — both enforced at
@@ -35,12 +35,12 @@ import {
   type MemberTier,
   isMemberTier,
   isClusterMemberAccessMode,
-} from '@archon/shared';
+} from '@arco/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const ARCHON_HOME = archonHome();
-const CLUSTERS_DIR = join(ARCHON_HOME, 'clusters');
+const ARCO_HOME = arcoHome();
+const CLUSTERS_DIR = join(ARCO_HOME, 'clusters');
 
 export interface ClusterState {
   clusterId: string;
@@ -96,8 +96,8 @@ export interface ClusterState {
   taskBoardMode?: ClusterTaskBoardMode;
   taskBoardAttached?: boolean;
   // Unified plan system — one active per-cwd plan attached to this cluster.
-  // The body lives under <cwd>/.archon/plans/<planId>.md, matching regular
-  // workflows. Older clusters may still have ~/.archon/clusters/<id>/plan.md;
+  // The body lives under <cwd>/.arco/plans/<planId>.md, matching regular
+  // workflows. Older clusters may still have ~/.arco/clusters/<id>/plan.md;
   // the bridge layer migrates that file and sets this field lazily.
   planId?: string;
   // 2026-06-15 — per-cluster efficiency level. Absent ≡ 'thorough' (default;
@@ -265,7 +265,7 @@ export async function readCluster(clusterId: string): Promise<ClusterState | nul
   }
 }
 
-// Boot-time full scan of ~/.archon/clusters. `readCluster` (and thus
+// Boot-time full scan of ~/.arco/clusters. `readCluster` (and thus
 // `listKnownClusterIds`, the idle-nudger, and auto-turn) fills lazily — the
 // cache is empty right after a restart, so nothing sees the on-disk clusters
 // until some client subscribes. This eagerly reads every cluster's meta.json
@@ -289,7 +289,7 @@ export async function loadAllClustersFromDisk(): Promise<ClusterState[]> {
       const state = await readCluster(id); // parses meta.json + warms cache/memberIndex
       if (state) out.push(state);
     } catch (err) {
-      console.warn(`[archon] cluster load skipped for ${id}:`, err instanceof Error ? err.message : err);
+      console.warn(`[arco] cluster load skipped for ${id}:`, err instanceof Error ? err.message : err);
     }
   }
   return out;
@@ -683,7 +683,7 @@ export { MEMBER_TIERS, isMemberTier };
 export type { MemberTier };
 // 2026-06-15 — re-export so modules that already import * as clusterStore
 // (broadcast.ts, clusterHandlers.ts) reach the efficiency type without a
-// second @archon/shared import.
+// second @arco/shared import.
 export type { ClusterEfficiencyLevel };
 export type { ClusterProgressMode };
 
@@ -927,13 +927,13 @@ export function isAutoTurnOnMailboxEnabled(clusterId: string): boolean {
 }
 
 export const TASK_DISPATCHER_DEFAULT_INTERVAL_MS = (() => {
-  const raw = process.env.ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
+  const raw = process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
   if (!raw) return 10000;
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 1000 ? parsed : 10000;
 })();
 export const TASK_DISPATCHER_MIN_INTERVAL_MS = (() => {
-  const raw = process.env.ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS;
+  const raw = process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS;
   if (!raw) return 1000;
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 100 ? parsed : 1000;

@@ -5,13 +5,13 @@
 import { exec } from 'child_process';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
-import type { ServerMessage, ReviewContextRef, PlanReviewMode } from '@archon/shared';
+import type { ServerMessage, ReviewContextRef, PlanReviewMode } from '@arco/shared';
 import { readPlan } from '../planStore.js';
 import { renderLinkedRefsForReview } from '../planRefContext.js';
 import { artifactsDir } from '../workers/limits.js';
 
 // A completed operator-agent exchange. `isHandoffSeed` flags the seed
-// prompt Archon injects after a Handoff primitive — the "current session"
+// prompt Arco injects after a Handoff primitive — the "current session"
 // scope uses this to find the most recent session boundary.
 interface Turn {
   prompt: string;
@@ -755,7 +755,7 @@ export async function buildClusterPlanReviewContent(
   };
 }
 
-// ARCHON_OPS_PLAN.md §G2 — build the reviewer content for a preview-capture
+// ARCO_OPS_PLAN.md §G2 — build the reviewer content for a preview-capture
 // report. No transcript: the reviewer reads the markdown report a Preview
 // verification capture produced (screenshot reference + console/network + a
 // layout/accessibility section) and judges the running UI from it. `reportName`

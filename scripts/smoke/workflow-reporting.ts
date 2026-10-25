@@ -1,7 +1,7 @@
 // Workflow-reporting layer smoke (docs/REMOTE_MANAGEMENT.md §2 workflow layer).
 //
 // Wires the REAL service connector (server/src/management/hubLink.ts) to a REAL
-// hub (scripts/management/hub.ts) in-process — with the Archon-specific seams
+// hub (scripts/management/hub.ts) in-process — with the Arco-specific seams
 // (snapshotWorkflows + applyAction) faked, since the turn engine isn't exercised
 // here. Asserts:
 //
@@ -21,7 +21,7 @@ import { generateHubKeypair } from '../agent/signing.js';
 import { createHub } from '../management/hub.js';
 import { createHubLink } from '../../server/src/management/hubLink.js';
 import type {
-  ManagedArchonInstance,
+  ManagedArcoInstance,
   TranscriptTurn,
   WorkflowActionRequest,
   WorkflowActionResult,
@@ -40,7 +40,7 @@ async function until(pred: () => boolean, timeoutMs: number): Promise<void> {
   }
 }
 
-function descriptor(): ManagedArchonInstance {
+function descriptor(): ManagedArcoInstance {
   return {
     instanceId: INSTANCE_ID,
     name: 'wf-smoke-box',

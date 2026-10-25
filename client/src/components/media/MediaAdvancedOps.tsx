@@ -14,7 +14,7 @@ import {
   type GeometryXform,
   type MediaOpSpec,
   type MediaInspectResult,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Part N3 — the ADVANCED ffmpeg ops shared by the audio + video panels. Single-
 // input ops only (framegrab / gif / geometry / speed / gain / spectrogram) plus

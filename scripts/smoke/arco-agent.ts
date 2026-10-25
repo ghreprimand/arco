@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §K1 — archon-agent host-side smoke.
+// ARCO_OPS_PLAN.md §K1 — arco-agent host-side smoke.
 //
 // Tests the security-load-bearing core directly (no hub, no systemctl), then a
 // full register + signed-command round-trip against an in-process fake hub:
@@ -15,7 +15,7 @@
 //      execs (fake runner) and returns a lifecycle_result with ok:true.
 //   5. Unit render + arg parse are well-formed.
 //
-// Run: npm run smoke:archon-agent  (no dev server, no hub, cross-platform)
+// Run: npm run smoke:arco-agent  (no dev server, no hub, cross-platform)
 
 import { step, assert, assertEq, summary } from './lib.js';
 import { WebSocketServer } from 'ws';
@@ -32,7 +32,7 @@ import { renderLifecycleCommand } from '../agent/allowlist.js';
 import { parseAgentArgs, renderAgentUnit } from '../agent/unit.js';
 import type {
   LifecycleCommandPayload,
-  ManagedArchonInstance,
+  ManagedArcoInstance,
 } from '../../shared/src/protocol/remoteManagement.js';
 
 const INSTANCE_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -66,7 +66,7 @@ function ctxFor(
 
 function payload(over: Partial<LifecycleCommandPayload> = {}): LifecycleCommandPayload {
   return {
-    cmd: 'archon.status',
+    cmd: 'arco.status',
     instanceId: INSTANCE_ID,
     nonce: newNonce(),
     issuedAt: FIXED_NOW,
@@ -81,7 +81,7 @@ async function main() {
   await step('valid signed command verifies → renders → execs', async () => {
     const { runner, calls } = recordingRunner();
     const store = new NonceStore();
-    const signed = signCommand(privateKey, payload({ cmd: 'archon.restart' }));
+    const signed = signCommand(privateKey, payload({ cmd: 'arco.restart' }));
     const res = await handleSignedCommand(signed, ctxFor(publicKey, runner, store));
     assert(res.ok, `expected ok, got ${JSON.stringify(res)}`);
     assert(res.executed, 'should be executed');
@@ -89,7 +89,7 @@ async function main() {
     assertEq(calls.length, 1, 'runner called exactly once');
     assertEq(
       calls[0].join(' '),
-      'systemctl --user restart archon.service',
+      'systemctl --user restart arco.service',
       'dispatched the allowlisted restart argv',
     );
   });
@@ -149,7 +149,7 @@ async function main() {
   await step('replayed nonce rejected after first use', async () => {
     const { runner, calls } = recordingRunner();
     const store = new NonceStore();
-    const p = payload({ cmd: 'archon.start' });
+    const p = payload({ cmd: 'arco.start' });
     const signed = signCommand(privateKey, p);
     const first = await handleSignedCommand(signed, ctxFor(publicKey, runner, store));
     assert(first.ok, 'first use ok');
@@ -174,7 +174,7 @@ async function main() {
     await new Promise<void>((res) => wss.on('listening', () => res()));
     const port = (wss.address() as { port: number }).port;
 
-    const instance: ManagedArchonInstance = {
+    const instance: ManagedArcoInstance = {
       instanceId: INSTANCE_ID,
       name: 'smoke-box',
       platform: 'linux',
@@ -204,7 +204,7 @@ async function main() {
             registered = true;
             assertEq(msg.instance.instanceId, INSTANCE_ID, 'registered the right instance');
             // Send a signed command back.
-            const signed = signCommand(privateKey, payload({ cmd: 'archon.status' }));
+            const signed = signCommand(privateKey, payload({ cmd: 'arco.status' }));
             sock.send(JSON.stringify({ type: 'lifecycle_command', signed }));
           } else if (msg.type === 'lifecycle_result') {
             result = msg.result;
@@ -230,18 +230,18 @@ async function main() {
 
     assert(registered, 'agent registered with the hub');
     assert(result !== null && result!.ok === true, `result ok, got ${JSON.stringify(result)}`);
-    assertEq(result!.cmd, 'archon.status', 'result carries the command');
+    assertEq(result!.cmd, 'arco.status', 'result carries the command');
     assertEq(calls.length, 1, 'command executed once');
-    assertEq(calls[0].join(' '), 'systemctl --user status archon.service --no-pager', 'right argv');
+    assertEq(calls[0].join(' '), 'systemctl --user status arco.service --no-pager', 'right argv');
   });
 
   // ── 5. unit + args ──
   await step('agent unit renders + args parse', async () => {
-    const unit = renderAgentUnit({ repoRoot: '/srv/archon', hubUrl: 'ws://hub:3500', publicKeyPath: '/h/hub.pub' });
-    assert(unit.includes('Description=archon-agent'), 'has description');
+    const unit = renderAgentUnit({ repoRoot: '/srv/arco', hubUrl: 'ws://hub:3500', publicKeyPath: '/h/hub.pub' });
+    assert(unit.includes('Description=arco-agent'), 'has description');
     assert(unit.includes('Restart=always'), 'supervisor restarts always');
-    assert(unit.includes('Environment=ARCHON_HUB_URL=ws://hub:3500'), 'bakes hub url');
-    assert(unit.includes('archon-agent.ts run'), 'execs the run subcommand');
+    assert(unit.includes('Environment=ARCO_HUB_URL=ws://hub:3500'), 'bakes hub url');
+    assert(unit.includes('arco-agent.ts run'), 'execs the run subcommand');
 
     const a = parseAgentArgs(['install', '--enable', '--hub', 'ws://x:1']);
     assertEq(a.command, 'install', 'parsed command');
@@ -249,12 +249,12 @@ async function main() {
     assertEq(a.hubUrl, 'ws://x:1', 'parsed --hub');
 
     // Sanity: every Linux template is non-null.
-    for (const cmd of ['archon.status', 'archon.start', 'archon.stop', 'archon.restart', 'archon.logs.tail', 'archon-agent.status', 'archon-agent.restart'] as const) {
+    for (const cmd of ['arco.status', 'arco.start', 'arco.stop', 'arco.restart', 'arco.logs.tail', 'arco-agent.status', 'arco-agent.restart'] as const) {
       assert(renderLifecycleCommand(cmd, 'linux') !== null, `${cmd} has a linux template`);
     }
   });
 
-  summary('K1 archon-agent');
+  summary('K1 arco-agent');
 }
 
 main().catch((err) => {

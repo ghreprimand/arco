@@ -1,4 +1,4 @@
-// Ledger task links (ARCHON_OPS_PLAN.md §D2, Part D).
+// Ledger task links (ARCO_OPS_PLAN.md §D2, Part D).
 //
 // Renders a task's bidirectional references (plan items / reviews / workflows /
 // urls) as clickable chips, plus an attach-link affordance and per-chip remove.
@@ -8,7 +8,7 @@
 // right-panel tab state it needs (LedgerTab itself can't reach it).
 
 import { useState } from 'react';
-import type { TaskLink } from '@archon/shared';
+import type { TaskLink } from '@arco/shared';
 
 const KINDS: { id: TaskLink['kind']; label: string }[] = [
   { id: 'plan', label: 'PLAN' },

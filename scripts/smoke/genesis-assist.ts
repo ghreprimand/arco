@@ -5,7 +5,7 @@
 // are exercised directly so the protocol addition has a cheap regression gate.
 
 import { buildGenesisAssistPrompt, parseAssistOutput } from '../../server/src/ws/genesisHandlers.js';
-import type { GenesisSeed } from '@archon/shared';
+import type { GenesisSeed } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;

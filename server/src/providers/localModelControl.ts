@@ -1,4 +1,4 @@
-import type { LocalModelProvider } from '@archon/shared';
+import type { LocalModelProvider } from '@arco/shared';
 
 export function isLocalModelProvider(provider?: string): provider is LocalModelProvider {
   return provider === 'ollama' || provider === 'strata' || provider === 'deepseek' || provider === 'llamacpp' || provider === 'lmstudio';

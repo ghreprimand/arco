@@ -1,21 +1,21 @@
-// H1 — Archon session index smoke.
+// H1 — Arco session index smoke.
 //
-// PURE — NO Archon WebSocket / server boot / live model / recall db. Exercises
+// PURE — NO Arco WebSocket / server boot / live model / recall db. Exercises
 // the project-local session-index module (server/src/workflows/sessionIndex.ts)
-// directly against a throwaway .archon tree under the OS temp dir:
-//   - upsertSessionIndexFromMeta builds <cwd>/.archon/session-index.json from a
+// directly against a throwaway .arco tree under the OS temp dir:
+//   - upsertSessionIndexFromMeta builds <cwd>/.arco/session-index.json from a
 //     workflow's meta.json + events.jsonl (entry key = (provider, sessionId);
 //     title = first operator message; lastSeq / sourceHash mirror meta).
 //   - idempotent: re-upsert with no material change leaves the entry untouched.
 //   - title-refresh rule (§H3-forward): an operator/H2 title carrying the same
 //     sourceHash survives a re-upsert; a material change (new lastEventSeq)
 //     refreshes the deterministic title.
-//   - archon-internal continuity (no cliSessions) keys on the workflow id with
+//   - arco-internal continuity (no cliSessions) keys on the workflow id with
 //     the primary provider.
 //   - backfillSessionIndex indexes every workflow under a cwd.
 //   - recordSessionSummary sets the "where this left off" subtitle.
 //   - ACCEPTANCE (§H1): building the index touches ONLY
-//     .archon/session-index.json — provider session files (and everything else)
+//     .arco/session-index.json — provider session files (and everything else)
 //     are left byte-for-byte unchanged.
 //
 // Run: npm run smoke:session-index   (no dev server needed)
@@ -61,9 +61,9 @@ function makeMeta(cwd: string, over: Partial<WorkflowMeta> & Pick<WorkflowMeta, 
   };
 }
 
-// Write a workflow's meta.json + events.jsonl under <cwd>/.archon/workflows/<wfid>/.
+// Write a workflow's meta.json + events.jsonl under <cwd>/.arco/workflows/<wfid>/.
 async function seedWorkflow(cwd: string, meta: WorkflowMeta, firstMessages: string[]): Promise<void> {
-  const dir = path.join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', meta.workflowId);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n', 'utf8');
   const lines = firstMessages.map((content, i) => JSON.stringify({ seq: i + 1, type: 'user_message_echo', content }));
@@ -85,7 +85,7 @@ async function snapshot(root: string): Promise<Map<string, string>> {
 }
 
 async function main(): Promise<void> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-session-index-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-session-index-'));
   try {
     // ── 1. Build from a single workflow with a native (claude) session ──
     const metaA = makeMeta(tmp, {
@@ -112,7 +112,7 @@ async function main(): Promise<void> {
 
     // ── 3. Title-refresh rule: operator title survives same-sourceHash upsert ──
     idx.entries[0] = { ...idx.entries[0], title: 'Operator renamed this' };
-    await fs.writeFile(path.join(tmp, '.archon', 'session-index.json'), JSON.stringify(idx, null, 2) + '\n', 'utf8');
+    await fs.writeFile(path.join(tmp, '.arco', 'session-index.json'), JSON.stringify(idx, null, 2) + '\n', 'utf8');
     await upsertSessionIndexFromMeta(metaA); // same lastEventSeq=5 → no material change
     idx = await readSessionIndex(tmp);
     check('operator title survives a no-material-change re-upsert', idx.entries[0].title === 'Operator renamed this', idx.entries[0].title);
@@ -127,13 +127,13 @@ async function main(): Promise<void> {
     check('material change refreshes deterministic title', idx.entries[0].title === 'Fix the login redirect bug', idx.entries[0].title);
     check('sourceHash advanced with the material change', idx.entries[0].sourceHash === '9', idx.entries[0].sourceHash);
 
-    // ── 4. Archon-internal continuity: no cliSessions → key on workflow id ──
+    // ── 4. Arco-internal continuity: no cliSessions → key on workflow id ──
     const metaB = makeMeta(tmp, { workflowId: 'wf-bbbb2222', primaryProvider: 'antigravity', lastEventSeq: 3 });
     await seedWorkflow(tmp, metaB, ['Wire the CDP bridge']);
     await upsertSessionIndexFromMeta(metaB);
     idx = await readSessionIndex(tmp);
     const eb = idx.entries.find((x) => x.workflowId === 'wf-bbbb2222');
-    check('archon-internal entry keys on (primaryProvider, workflowId)', eb?.provider === 'antigravity' && eb?.sessionId === 'wf-bbbb2222', JSON.stringify(eb));
+    check('arco-internal entry keys on (primaryProvider, workflowId)', eb?.provider === 'antigravity' && eb?.sessionId === 'wf-bbbb2222', JSON.stringify(eb));
 
     // ── 5. recordSessionSummary sets the subtitle ──
     await recordSessionSummary(tmp, 'wf-bbbb2222', '\n  Left off mid-bridge; CDP attach works, send path TODO.\nmore detail');
@@ -143,12 +143,12 @@ async function main(): Promise<void> {
 
     // ── 6. backfillSessionIndex indexes every workflow under the cwd ──
     // Fresh cwd so the backfill is the sole builder. Inline reader (no recall).
-    const cwd2 = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-session-index-bf-'));
+    const cwd2 = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-session-index-bf-'));
     try {
       await seedWorkflow(cwd2, makeMeta(cwd2, { workflowId: 'wf-cccc3333', cliSessions: [{ provider: 'codex', sessionId: 'sess-codex-9', createdAt: 1 }], lastEventSeq: 2 }), ['one']);
       await seedWorkflow(cwd2, makeMeta(cwd2, { workflowId: 'wf-dddd4444', cliSessions: [{ provider: 'claude', sessionId: 'sess-claude-x', createdAt: 1 }], lastEventSeq: 4 }), ['two']);
       const readMetaInline = async (c: string, wfid: string): Promise<WorkflowMeta | null> => {
-        try { return JSON.parse(await fs.readFile(path.join(c, '.archon', 'workflows', wfid, 'meta.json'), 'utf8')); }
+        try { return JSON.parse(await fs.readFile(path.join(c, '.arco', 'workflows', wfid, 'meta.json'), 'utf8')); }
         catch { return null; }
       };
       await backfillSessionIndex(cwd2, readMetaInline);
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
     check('operator rename survives a title refresh', ea?.title === 'Login redirect — operator title' && ea?.titleSource === 'operator', `${ea?.title}/${ea?.titleSource}`);
 
     // rename → an 'operator' title-event was logged.
-    const titleEvents = JSON.parse('[' + (await fs.readFile(path.join(tmp, '.archon', 'title-events.jsonl'), 'utf8')).trim().split('\n').join(',') + ']');
+    const titleEvents = JSON.parse('[' + (await fs.readFile(path.join(tmp, '.arco', 'title-events.jsonl'), 'utf8')).trim().split('\n').join(',') + ']');
     check('rename logged an operator title-event', titleEvents.some((e: any) => e.source === 'operator' && e.to === 'Login redirect — operator title'), JSON.stringify(titleEvents));
 
     // Pin + unpin.
@@ -205,7 +205,7 @@ async function main(): Promise<void> {
     // ── 7. ACCEPTANCE: building the index touches ONLY session-index.json ──
     // Drop a sentinel "provider session file" + an unrelated workflow file, snapshot
     // everything, run an upsert, and assert nothing but session-index.json changed.
-    const sentinel = path.join(tmp, '.archon', 'workflows', 'wf-aaaa1111', 'provider-session.jsonl');
+    const sentinel = path.join(tmp, '.arco', 'workflows', 'wf-aaaa1111', 'provider-session.jsonl');
     await fs.writeFile(sentinel, '{"provider":"do-not-touch"}\n', 'utf8');
     const before = await snapshot(tmp);
     await upsertSessionIndexFromMeta(metaA);
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
       if (before.get(rel) !== content) changed.push(rel);
     }
     for (const rel of before.keys()) if (!after.has(rel)) changed.push(`-${rel}`);
-    const indexRel = path.join('.archon', 'session-index.json');
+    const indexRel = path.join('.arco', 'session-index.json');
     check('only session-index.json was written (no provider/other-file mutation)',
       changed.length === 1 && changed[0] === indexRel, `changed: ${JSON.stringify(changed)}`);
   } finally {

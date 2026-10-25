@@ -41,8 +41,8 @@ function check(name: string, cond: boolean): void {
 }
 
 // Stable-input cleanliness: env flags must be unset for the default-on path.
-delete process.env.ARCHON_OLLAMA_TOOL_SUBSET;
-delete process.env.ARCHON_OLLAMA_TOOL_CAP;
+delete process.env.ARCO_OLLAMA_TOOL_SUBSET;
+delete process.env.ARCO_OLLAMA_TOOL_CAP;
 
 // The real, full registry incl. cluster tools (12 tools) — the actual catalog
 // that overwhelms small models today.
@@ -122,13 +122,13 @@ check('small list pass-through reason is under-cap', smallResult.reason === 'und
 
 // ── disable flag returns the full list ───────────────────────────────────────
 
-process.env.ARCHON_OLLAMA_TOOL_SUBSET = '0';
+process.env.ARCO_OLLAMA_TOOL_SUBSET = '0';
 check('disable flag: isSubsettingEnabled() is false', !isSubsettingEnabled());
 const disabled = subsetOllamaTools({ tools: fullCluster, taskContext: writeTask });
 check('disable flag: full list returned untouched',
   JSON.stringify(disabled.tools) === JSON.stringify(fullCluster));
 check('disable flag: not applied + reason disabled', !disabled.applied && disabled.reason === 'disabled');
-delete process.env.ARCHON_OLLAMA_TOOL_SUBSET;
+delete process.env.ARCO_OLLAMA_TOOL_SUBSET;
 check('flag unset: subsetting back on by default', isSubsettingEnabled());
 
 // ── cluster tools become core for cluster members ────────────────────────────
@@ -162,10 +162,10 @@ check('empty task context → signalSource none (no signal to rank on)',
 
 // ── env cap override is honored ──────────────────────────────────────────────
 
-process.env.ARCHON_OLLAMA_TOOL_CAP = '6';
+process.env.ARCO_OLLAMA_TOOL_CAP = '6';
 const tightCap = subsetOllamaTools({ tools: fullCluster, taskContext: writeTask });
 check('env cap override honored (cap=6)', tightCap.cap === 6 && tightCap.kept.length <= 6);
-delete process.env.ARCHON_OLLAMA_TOOL_CAP;
+delete process.env.ARCO_OLLAMA_TOOL_CAP;
 
 // ── summary ──────────────────────────────────────────────────────────────────
 

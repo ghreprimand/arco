@@ -118,7 +118,7 @@ export const workspace: Section[] = [
           close it: Arco asks for confirmation first, and the prompt calls out an
           in-progress turn (it will be cancelled) or an unsaved Incognito chat (it will
           be lost). A saved workflow's <Code>events.jsonl</Code> stays on disk under{' '}
-          <Code>&lt;cwd&gt;/.archon/workflows/</Code> — closing does not delete it;
+          <Code>&lt;cwd&gt;/.arco/workflows/</Code> — closing does not delete it;
           reopen it through RESUME (project sessions) or PAST CHATS (saved chats).
         </p>
         <p>
@@ -186,7 +186,7 @@ export const workspace: Section[] = [
           </li>
           <li>
             <strong>Inline artifacts</strong> — fenced{' '}
-            <Code>```archon-artifact</Code> blocks the agent emits. Render as
+            <Code>```arco-artifact</Code> blocks the agent emits. Render as
             click-to-expand pills.
           </li>
           <li>
@@ -298,11 +298,11 @@ export const workspace: Section[] = [
         <p>
           <strong>Untrusted-project banner.</strong> When you open a workflow on a
           repo Arco hasn't seen, any project <Code>CLAUDE.md</Code>, project
-          skills, and <Code>.archon/settings.json</Code> are suppressed from the
+          skills, and <Code>.arco/settings.json</Code> are suppressed from the
           turn — the cloned-repo prompt-injection vector. An{' '}
           <Code>⚠ UNTRUSTED PROJECT</Code> banner appears above the composer
           listing what was held back; clicking <strong>TRUST</strong> records the
-          repo in <Code>~/.archon/trust.json</Code> and folds those resources into
+          repo in <Code>~/.arco/trust.json</Code> and folds those resources into
           future turns. It's operator-prompt only (no auto-grant) and reversible:
           change it per tab in CONFIG → PROJECT TRUST (TRUSTED / BLOCKED / ASK) or
           manage every decision in SETTINGS → PROJECT TRUST.
@@ -356,7 +356,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="h">HANDOFFS</strong>,
-              <>The handoff documents written when a session was rotated. Click any to view; they live forever in <Code>.archon/workflows/&lt;wfid&gt;/handoffs/</Code>. An in-flight handoff has a <Code>✕</Code> on its <Code>RUN…</Code> row to cancel it (not shown for Antigravity, whose desktop has no stop hook).</>,
+              <>The handoff documents written when a session was rotated. Click any to view; they live forever in <Code>.arco/workflows/&lt;wfid&gt;/handoffs/</Code>. An in-flight handoff has a <Code>✕</Code> on its <Code>RUN…</Code> row to cancel it (not shown for Antigravity, whose desktop has no stop hook).</>,
             ],
             [
               <strong key="p">PLAN</strong>,
@@ -372,7 +372,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="kn">KNOWLEDGE</strong>,
-              <>Operator-owned project knowledge base under <Code>.archon/knowledge/</Code> — articles you write, quick links, or agent-drafted distills you explicitly save. Always-include articles fold into every turn within a bounded budget. See "The KNOWLEDGE tab" under Power features. (Codebase-memory RAG attach/detach lives in CONFIG.)</>,
+              <>Operator-owned project knowledge base under <Code>.arco/knowledge/</Code> — articles you write, quick links, or agent-drafted distills you explicitly save. Always-include articles fold into every turn within a bounded budget. See "The KNOWLEDGE tab" under Power features. (Codebase-memory RAG attach/detach lives in CONFIG.)</>,
             ],
             [
               <strong key="ld">LEDGER</strong>,

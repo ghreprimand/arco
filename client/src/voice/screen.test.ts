@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import { actOnScreen, readScreen, readText } from './screen.js';
-import { voiceText } from '@archon/shared';
+import { voiceText } from '@arco/shared';
 
 test('screen labels and capped reading never return half an emoji to MCP', () => {
   const {window} = new JSDOM(`<body><button>${'x'.repeat(59)}😀 tail</button><p>${'y'.repeat(11)}😀 tail</p></body>`,{pretendToBeVisual:true});
@@ -111,18 +111,18 @@ test('build check: bundle parsing and stale comparison', async () => {
 test('readText reads the open dialog, one section by heading, or passages mentioning a word; the page when nothing is open', () => {
   const { window } = new JSDOM(`<!doctype html><html><body>
     <main><p>Welcome to Arco.</p><button>SEND</button></main>
-    <div role="dialog" aria-label="ARCHON · USER MANUAL"><h2>ARCHON · USER MANUAL</h2>
+    <div role="dialog" aria-label="ARCO · USER MANUAL"><h2>ARCO · USER MANUAL</h2>
       <nav><button>Strata MoE</button><button>Voice</button></nav>
       <section id="manual-strata"><h3>STRATA MOE</h3><p>Strata is a mixture-of-experts pack served by llama.cpp.</p><p>Prepare it from the Strata tab.</p></section>
       <section id="manual-voice"><h3>VOICE</h3><p>Say Computer, then speak.</p><p style="display:none">hidden text</p></section>
     </div></body></html>`, { pretendToBeVisual: true });
   const doc = window.document;
   const strata = readText(doc, { filter: 'strata' });
-  assert.match(strata, /^Text of dialog "ARCHON · USER MANUAL", the section matching "strata":\nSTRATA MOE\nStrata is a mixture-of-experts pack served by llama\.cpp\.\nPrepare it from the Strata tab\.$/);
+  assert.match(strata, /^Text of dialog "ARCO · USER MANUAL", the section matching "strata":\nSTRATA MOE\nStrata is a mixture-of-experts pack served by llama\.cpp\.\nPrepare it from the Strata tab\.$/);
   const all = readText(doc);
-  assert.match(all, /^Text of dialog "ARCHON · USER MANUAL":\n/); assert.match(all, /Say Computer, then speak\./); assert.doesNotMatch(all, /hidden text|Welcome/);
+  assert.match(all, /^Text of dialog "ARCO · USER MANUAL":\n/); assert.match(all, /Say Computer, then speak\./); assert.doesNotMatch(all, /hidden text|Welcome/);
   assert.match(readText(doc, { filter: 'computer' }), /1 passage mentioning "computer":\nVOICE\nSay Computer, then speak\./);
-  assert.match(readText(doc, { filter: 'kubernetes' }), /^Nothing on screen in dialog "ARCHON · USER MANUAL" mentions "kubernetes"/);
+  assert.match(readText(doc, { filter: 'kubernetes' }), /^Nothing on screen in dialog "ARCO · USER MANUAL" mentions "kubernetes"/);
   doc.querySelector('[role="dialog"]')!.remove();
   assert.match(readText(doc), /^Text of the page:\nWelcome to Arco\.\nSEND$/);
   assert.match(readText(doc, { limit: 10 }), /first 10 of \d+ characters/);

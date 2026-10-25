@@ -4,9 +4,9 @@ import type {
   DiagnosticStatus,
   DiagnosticsReport,
   SupportBundleResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §A1 — Diagnostics tab inside the System modal.
+// ARCO_OPS_PLAN.md §A1 — Diagnostics tab inside the System modal.
 //
 // Fetches GET /api/diagnostics on mount + on Refresh and renders the grouped,
 // compact status rows (green/amber/red/grey), each expandable to its detail +
@@ -141,7 +141,7 @@ export function DiagnosticsTab() {
         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>
           {report ? (
             <>
-              v{report.archonVersion} · {report.platform} ·{' '}
+              v{report.arcoVersion} · {report.platform} ·{' '}
               {new Date(report.generatedAt).toLocaleTimeString()}
             </>
           ) : (

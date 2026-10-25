@@ -33,7 +33,7 @@ import type {
   FitResult,
   FitVerdict,
   FitMode,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // ── Quant → bits-per-weight ─────────────────────────────────────────────────
 // "Effective bits per weight." K-quants carry a little block-scale overhead

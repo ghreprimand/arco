@@ -1,4 +1,4 @@
-// archon-management — pure CLI arg parse + systemd unit render. Side-effect-free
+// arco-management — pure CLI arg parse + systemd unit render. Side-effect-free
 // so the smoke imports and asserts without an install. Mirrors agent/unit.ts.
 
 export type ManagementCommand =
@@ -83,11 +83,11 @@ export interface ManagementUnitOptions {
 // operator passes the tailnet IP at install). Restart=always — it's a service.
 export function renderManagementUnit(opts: ManagementUnitOptions): string {
   const restartSec = opts.restartSec ?? 3;
-  const entry = posixJoin(opts.repoRoot, 'scripts', 'archon-management.ts');
+  const entry = posixJoin(opts.repoRoot, 'scripts', 'arco-management.ts');
   const execStart = `npx tsx ${entry} serve --host ${opts.host} --port ${opts.port}`;
   return [
     '[Unit]',
-    'Description=archon-management — tailnet-only remote management hub',
+    'Description=arco-management — tailnet-only remote management hub',
     'Documentation=https://github.com/ghreprimand/arco',
     'After=network-online.target',
     'Wants=network-online.target',
@@ -98,7 +98,7 @@ export function renderManagementUnit(opts: ManagementUnitOptions): string {
     'Type=simple',
     `WorkingDirectory=${opts.repoRoot}`,
     `ExecStart=${execStart}`,
-    `Environment=ARCHON_HUB_KEY=${opts.privateKeyPath}`,
+    `Environment=ARCO_HUB_KEY=${opts.privateKeyPath}`,
     'Restart=always',
     `RestartSec=${restartSec}`,
     '',

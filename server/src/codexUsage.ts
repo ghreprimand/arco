@@ -2,15 +2,15 @@ import { spawn } from 'child_process';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { CodexUsageInfo } from '@archon/shared';
-import { archonHome } from './archonHome.js';
+import type { CodexUsageInfo } from '@arco/shared';
+import { arcoHome } from './arcoHome.js';
 
 // 2026-10: OpenAI moved live plan limits off the Codex analytics page (which
 // now redirects to a daily-snapshot usage-history tab) onto settings/usage.
 const ANALYTICS_URL = 'https://chatgpt.com/settings/usage?tab=overview';
-const CAMOUFOX_PYTHON = process.env.ARCHON_CAMOUFOX_PYTHON ?? '/opt/camoufox/bin/python';
-const PROFILE_DIR = process.env.ARCHON_CODEX_USAGE_PROFILE
-  ?? join(archonHome(), 'camoufox-chatgpt-profile');
+const CAMOUFOX_PYTHON = process.env.ARCO_CAMOUFOX_PYTHON ?? '/opt/camoufox/bin/python';
+const PROFILE_DIR = process.env.ARCO_CODEX_USAGE_PROFILE
+  ?? join(arcoHome(), 'camoufox-chatgpt-profile');
 const CACHE_MS = 3 * 60 * 1000;
 const SCRAPE_TIMEOUT_MS = 45_000;
 

@@ -20,7 +20,7 @@ export const clusters: Section[] = [
           Members address each other by the first 8 characters of their{' '}
           <Code>workflowId</Code>. A budgeted file-per-message{' '}
           <strong>mailbox</strong> at{' '}
-          <Code>~/.archon/clusters/&lt;clusterId&gt;/mailbox/&lt;wfid&gt;/</Code>{' '}
+          <Code>~/.arco/clusters/&lt;clusterId&gt;/mailbox/&lt;wfid&gt;/</Code>{' '}
           holds undrained messages.
         </p>
         <p>
@@ -114,7 +114,7 @@ export const clusters: Section[] = [
           the original cluster and member IDs; it does not fork from a snapshot.
         </p>
         <ul>
-          <li><Code>FILE</Code> exports an integrity-checked <Code>.archoncluster</Code> bundle.</li>
+          <li><Code>FILE</Code> exports an integrity-checked <Code>.arcocluster</Code> bundle.</li>
           <li>CLOUD snapshots are AES-256-GCM encrypted before upload to the tailnet management hub. The hub-host vault never receives the key.</li>
           <li>Saving under an existing name asks before replacement. Local replacement is staged completely before the old copy is swapped; SAVE CLOUD also replaces the same-name cloud entry.</li>
           <li>Use <Code>COPY VAULT KEY</Code> on one computer and <Code>SET VAULT KEY</Code> on the other. The project itself and provider credentials are never included.</li>
@@ -153,7 +153,7 @@ export const clusters: Section[] = [
             <strong>One local member by default.</strong> A from-scratch cluster
             accepts at most one local-runtime member (Ollama or llama.cpp) — two
             local workers would contend on the same backend/GPU. Override the cap
-            with <Code>ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</Code> when you really
+            with <Code>ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</Code> when you really
             do have the hardware for it.
           </li>
         </ul>
@@ -161,7 +161,7 @@ export const clusters: Section[] = [
           <strong>Right-panel splitter.</strong> A 4 px col-resize divider sits
           between the member trio (grid + detail) and the cluster right panel.
           Drag to resize; position persists per-browser to{' '}
-          <Code>archon.clusterRightPanelWidth</Code> in localStorage. Range{' '}
+          <Code>arco.clusterRightPanelWidth</Code> in localStorage. Range{' '}
           <Code>0.18 – 0.5</Code>.
         </p>
         <p>
@@ -497,7 +497,7 @@ export const clusters: Section[] = [
             <strong>ISOLATED</strong> — Claude Native only. The worker runs in
             a private durable scratch directory at{' '}
             <Code>
-              ~/.archon/clusters/&lt;clusterId&gt;/isolates/&lt;wfid&gt;/workspace
+              ~/.arco/clusters/&lt;clusterId&gt;/isolates/&lt;wfid&gt;/workspace
             </Code>{' '}
             and cannot read the project cwd, project instructions, knowledge,
             attachments, hooks, registry MCPs, or use a shell. It receives
@@ -510,7 +510,7 @@ export const clusters: Section[] = [
           include up to 8 scratch-relative paths (256 KB total) in{' '}
           <Code>peer_send artifact_paths</Code>. Arco copies them across the
           boundary into the recipient&apos;s{' '}
-          <Code>.archon/peer-artifacts/&lt;messageId&gt;/</Code> directory.
+          <Code>.arco/peer-artifacts/&lt;messageId&gt;/</Code> directory.
         </p>
         <Note kind="warn">
           Changing an already-informed worker to ISOLATED in place would retain
@@ -681,7 +681,7 @@ export const clusters: Section[] = [
           <li>
             <Code>peer_send</Code> — drop a message in another member's
             mailbox. Persists as a file under{' '}
-            <Code>~/.archon/clusters/&lt;clusterId&gt;/mailbox/&lt;recipientWfid&gt;/</Code>.
+            <Code>~/.arco/clusters/&lt;clusterId&gt;/mailbox/&lt;recipientWfid&gt;/</Code>.
             Targets can be a workflow id/prefix, a display-name prefix, or a
             unique role word like <Code>Director</Code> /{' '}
             <Code>Coordinator</Code>.
@@ -851,9 +851,9 @@ export const clusters: Section[] = [
         </p>
         <p>
           All three caps are env-overridable for smoke harnesses (
-          <Code>ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS</Code>,{' '}
-          <Code>ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE</Code>,{' '}
-          <Code>ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH</Code>); the
+          <Code>ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS</Code>,{' '}
+          <Code>ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE</Code>,{' '}
+          <Code>ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH</Code>); the
           production defaults are tuned for "operator can always intervene
           faster than the loop saturates."
         </p>
@@ -932,7 +932,7 @@ export const clusters: Section[] = [
         </p>
         <p>
           On success, the server toggles the checkbox in{' '}
-          <Code>~/.archon/clusters/&lt;id&gt;/plan.md</Code> and
+          <Code>~/.arco/clusters/&lt;id&gt;/plan.md</Code> and
           broadcasts <Code>cluster_plan_changed</Code> cluster-wide — every
           member's PLAN tab + ACTIVITY feed re-renders.{' '}
           <strong>The tool only mutates check state.</strong> Use{' '}
@@ -1156,8 +1156,8 @@ export const clusters: Section[] = [
         <p>
           Task peer-tools let cluster members work the board, registered
           alongside the <Code>peer_*</Code> and <Code>cluster_plan_*</Code>
-          tools (and, on CLI Claude / Codex, exposed over the archon-cluster
-          MCP child as <Code>mcp__archon-cluster__cluster_task_*</Code>):
+          tools (and, on CLI Claude / Codex, exposed over the arco-cluster
+          MCP child as <Code>mcp__arco-cluster__cluster_task_*</Code>):
         </p>
         <ul>
           <li>

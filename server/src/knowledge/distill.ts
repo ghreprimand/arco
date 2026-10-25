@@ -21,7 +21,7 @@ import {
   type ProviderName,
   type ModelName,
   type EffortLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface DistillerConfig {
   provider: ProviderName;

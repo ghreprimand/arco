@@ -1,10 +1,10 @@
 type Slot = { release: () => void; waitMs: number; retryCount: number };
 
-const MAX_IN_FLIGHT = parseEnvInt('ARCHON_ZAI_MAX_IN_FLIGHT', 2, 1, 8);
-const MIN_REQUEST_INTERVAL_MS = parseEnvMs('ARCHON_ZAI_MIN_REQUEST_INTERVAL_MS', 0, 0, 60_000);
-const DEFAULT_429_BACKOFF_MS = parseEnvMs('ARCHON_ZAI_429_BACKOFF_MS', 5_000, 1_000, 5 * 60_000);
-const MAX_429_BACKOFF_MS = parseEnvMs('ARCHON_ZAI_MAX_429_BACKOFF_MS', 10_000, 1_000, 10 * 60_000);
-const MAX_429_RETRIES = parseEnvInt('ARCHON_ZAI_429_RETRIES', 1, 0, 12);
+const MAX_IN_FLIGHT = parseEnvInt('ARCO_ZAI_MAX_IN_FLIGHT', 2, 1, 8);
+const MIN_REQUEST_INTERVAL_MS = parseEnvMs('ARCO_ZAI_MIN_REQUEST_INTERVAL_MS', 0, 0, 60_000);
+const DEFAULT_429_BACKOFF_MS = parseEnvMs('ARCO_ZAI_429_BACKOFF_MS', 5_000, 1_000, 5 * 60_000);
+const MAX_429_BACKOFF_MS = parseEnvMs('ARCO_ZAI_MAX_429_BACKOFF_MS', 10_000, 1_000, 10 * 60_000);
+const MAX_429_RETRIES = parseEnvInt('ARCO_ZAI_429_RETRIES', 1, 0, 12);
 
 let inFlight = 0;
 const waiters: Array<() => void> = [];

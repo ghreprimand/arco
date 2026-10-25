@@ -33,7 +33,7 @@ const PLAN_BODY = `# Release plan
 `;
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-planattach-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-planattach-'));
   const bodyFile = join(cwd, 'draft-plan.md');
   console.log(`Plan-attach smoke — cwd ${cwd}`);
   console.log('');
@@ -86,8 +86,8 @@ async function main() {
 
   await step('a loose markdown file is NOT a plan', async () => {
     // The failure mode the note exists to prevent: writing a file into
-    // .archon/plans/ does nothing, because index.json is the source of truth.
-    writeFileSync(join(cwd, '.archon', 'plans', 'hand-written-plan.md'), PLAN_BODY);
+    // .arco/plans/ does nothing, because index.json is the source of truth.
+    writeFileSync(join(cwd, '.arco', 'plans', 'hand-written-plan.md'), PLAN_BODY);
     const out = execFileSync('/usr/bin/bash', ['-lc',
       `curl -sS 'http://127.0.0.1:3001/api/plans?path=${encodeURIComponent(cwd)}'`], { encoding: 'utf8' });
     const plans = (JSON.parse(out) as { plans: Array<{ id: string }> }).plans;

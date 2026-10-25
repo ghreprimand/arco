@@ -144,8 +144,8 @@ are deleted; future requests start through the same guard.
 
 ## Prepared profile registration
 
-The server reads `~/.archon/deepseek-profiles.json` (override with
-`ARCHON_DEEPSEEK_PROFILES`). This is an operator-maintained registry, not a model
+The server reads `~/.arco/deepseek-profiles.json` (override with
+`ARCO_DEEPSEEK_PROFILES`). This is an operator-maintained registry, not a model
 discovery command. Register both profiles only after preparation and testing:
 
 ```json
@@ -261,18 +261,18 @@ text-only fallback and Chat boundaries.
 loading weights or touching the operator's systemd units or workspace. Existing
 Strata provider/profile/control and unload tests remain regression gates.
 `smoke:deepseek-ui` checks actual browser version rows and lifecycle controls
-against an isolated Vite fixture (`ARCHON_CLIENT_PORT=5197 ARCHON_PORT=6197
+against an isolated Vite fixture (`ARCO_CLIENT_PORT=5197 ARCO_PORT=6197
 npm run dev:client`); every API and WebSocket is intercepted.
 Live GPU acceptance must be coordinated with the operator and must release both
 profiles afterward; it never stops a miner automatically.
 
-`smoke:deepseek-live` requires `ARCHON_DEEPSEEK_LIVE=1` and an explicit
-`ARCHON_SMOKE_WS_URL` for a throwaway Arco with an isolated `os.homedir()`
+`smoke:deepseek-live` requires `ARCO_DEEPSEEK_LIVE=1` and an explicit
+`ARCO_SMOKE_WS_URL` for a throwaway Arco with an isolated `os.homedir()`
 (see the preload in `scripts/smoke/deepseek.ts`). Point that server's
-`ARCHON_DEEPSEEK_PROFILES` at the real prepared registry; keep its workspace/PID
+`ARCO_DEEPSEEK_PROFILES` at the real prepared registry; keep its workspace/PID
 stores isolated from production. The test exercises both profiles, actual Read
 round trips, reasoning, native context accounting, streaming, cancellation and
-guarded service release. Set `ARCHON_DEEPSEEK_VISION_IMAGE` to a screenshot
+guarded service release. Set `ARCO_DEEPSEEK_VISION_IMAGE` to a screenshot
 containing the numeric code `48263` to exercise real image OCR through Arco
 on both profiles; the code must not appear in its filename or text prompt. It refuses to run without opt-in and requires both
 profiles stopped initially. It never uses Ollama, downloads weights, stops a

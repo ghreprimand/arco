@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
-import { CLAUDE_MODEL_LABELS } from '@archon/shared';
-import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@archon/shared';
+import { CLAUDE_MODEL_LABELS } from '@arco/shared';
+import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { effortsForModel } from '../../utils/format';
@@ -100,7 +100,7 @@ export function ConfigTab({
     }
     // LM Studio (M13) + llama.cpp: discovered at runtime from the local
     // endpoint/catalog (no static catalog). LM Studio's ids come from GET
-    // /v1/models; llama.cpp's aliases from ~/.archon/llamacpp.json. Empty
+    // /v1/models; llama.cpp's aliases from ~/.arco/llamacpp.json. Empty
     // (server down / no model loaded) falls through to the static text input.
     if ((provider === 'strata' || provider === 'deepseek')) {
       return (authStatus?.[provider]?.installedModels ?? []) as ModelName[];
@@ -443,7 +443,7 @@ export function ConfigTab({
         />
       )}
 
-      {/* ARCHON_OPS_PLAN.md §E1 — MCP registry per-tab enablement. Wired
+      {/* ARCO_OPS_PLAN.md §E1 — MCP registry per-tab enablement. Wired
           transports: Claude CLI (--disallowedTools denylist), Claude Native
           (in-process denylist by omission, E1-Native), and Codex (server-level
           enable only — no per-tool deny flag). Provider-gated, so both Claude
@@ -458,7 +458,7 @@ export function ConfigTab({
 // CLI version/flag drift notice. Server probes `claude/gemini/codex --help`
 // at boot, diffs against the last snapshot, and pushes `capabilities_changed`
 // on connect for any unacknowledged bump. Ack writes the version to
-// ~/.archon/settings.json and clears the dot until the next bump.
+// ~/.arco/settings.json and clears the dot until the next bump.
 function CliStatusCard() {
   const changes = useAppStore((s) => s.cliChanges);
   const ack = useAppStore((s) => s.acknowledgeCliChange);
@@ -882,7 +882,7 @@ function AntigravityDiagnosticsSection() {
         ['CASCADE STATE', 'see Antigravity session above'],
         ['CTX', 'Antigravity-managed'],
         ['STEP TRACE', info.traceEnabled
-          ? `enabled${info.rawTraceEnabled ? ' + raw' : ''} → .archon/workflows/<id>/debug/antigravity-rpc-steps.jsonl`
+          ? `enabled${info.rawTraceEnabled ? ' + raw' : ''} → .arco/workflows/<id>/debug/antigravity-rpc-steps.jsonl`
           : 'disabled'],
         ...(info.desktopBrowser ? [['DESKTOP BUILD', info.desktopBrowser] as [string, string]] : []),
       ]
@@ -1390,7 +1390,7 @@ function ZaiTransportSection({
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
         {current === 'native'
-          ? 'NATIVE: direct Z.ai Coding Plan Chat Completions with preserved reasoning_content and Archon-local tools.'
+          ? 'NATIVE: direct Z.ai Coding Plan Chat Completions with preserved reasoning_content and Arco-local tools.'
           : 'APPSERVER: legacy Codex app-server proxy path. Use as fallback if native GLM behavior regresses.'}
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginTop: '6px', fontStyle: 'italic' }}>
@@ -1707,7 +1707,7 @@ function ClaudeNativeWebBudgetSection({
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
         Per-turn cap on <code style={{ fontFamily: 'var(--font-code)' }}>web_search</code> +{' '}
-        <code style={{ fontFamily: 'var(--font-code)' }}>web_fetch</code> calls (Archon-set, not an Anthropic limit). Resets each turn;
+        <code style={{ fontFamily: 'var(--font-code)' }}>web_fetch</code> calls (Arco-set, not an Anthropic limit). Resets each turn;
         when a turn hits it the model reports web access exhausted. Default {DEFAULT}. Takes effect next turn.
       </div>
     </div>
@@ -2004,7 +2004,7 @@ function ClaudeNativeSandboxSection({
         </div>
       )}
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-        Registers <code style={{ fontFamily: 'var(--font-code)' }}>ctx_execute</code> / <code style={{ fontFamily: 'var(--font-code)' }}>ctx_search</code> / <code style={{ fontFamily: 'var(--font-code)' }}>ctx_fetch</code> alongside the native tool set. Per-tab SQLite FTS5 index lives at <code style={{ fontFamily: 'var(--font-code)' }}>.archon/workflows/&lt;wfId&gt;/sandbox.db</code> and is unlinked on tab close.
+        Registers <code style={{ fontFamily: 'var(--font-code)' }}>ctx_execute</code> / <code style={{ fontFamily: 'var(--font-code)' }}>ctx_search</code> / <code style={{ fontFamily: 'var(--font-code)' }}>ctx_fetch</code> alongside the native tool set. Per-tab SQLite FTS5 index lives at <code style={{ fontFamily: 'var(--font-code)' }}>.arco/workflows/&lt;wfId&gt;/sandbox.db</code> and is unlinked on tab close.
       </div>
     </div>
   );
@@ -2027,7 +2027,7 @@ const GOAL_SOFT_WARN_BYTES = 1536;
 
 // DD7 — per-tab project-trust row. The turn-time gate raises its prompt once
 // per cwd per server lifetime and only in the tab whose turn hit it first, so a
-// missed banner used to mean hand-editing ~/.archon/trust.json. Trust is keyed
+// missed banner used to mean hand-editing ~/.arco/trust.json. Trust is keyed
 // by cwd, so setting it here also covers every cluster member sharing the repo.
 // ASK re-arms the one-shot prompt. Takes effect on the next turn.
 function ProjectTrustSection({ cwd }: { cwd: string }) {
@@ -2073,7 +2073,7 @@ function ProjectTrustSection({ cwd }: { cwd: string }) {
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
         {info.resources.length > 0
           ? <>This repo ships <code style={{ fontFamily: 'var(--font-code)' }}>{info.resources.join(', ')}</code>. {status === 'always' ? 'Folded into every turn.' : 'Suppressed from every turn until trusted.'}</>
-          : <>Nothing gated here — no <code style={{ fontFamily: 'var(--font-code)' }}>CLAUDE.md</code>, project skills, or <code style={{ fontFamily: 'var(--font-code)' }}>.archon/settings.json</code> in this cwd.</>}
+          : <>Nothing gated here — no <code style={{ fontFamily: 'var(--font-code)' }}>CLAUDE.md</code>, project skills, or <code style={{ fontFamily: 'var(--font-code)' }}>.arco/settings.json</code> in this cwd.</>}
         {' '}Applies to <code style={{ fontFamily: 'var(--font-code)' }}>{info.path}</code>{inherited ? <> (inherited from <code style={{ fontFamily: 'var(--font-code)' }}>{inherited}</code>)</> : null} and every tab or cluster member sharing it. Takes effect next turn.
       </div>
     </div>
@@ -2411,7 +2411,7 @@ function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => voi
           CLAUDE TRANSPORT: NATIVE <span style={{ fontStyle: 'italic', color: 'var(--color-fg-muted)' }}>(experimental)</span>
         </div>
         <p style={{ margin: '0 0 12px 0' }}>
-          Talks to Anthropic's API directly instead of running the <code style={{ fontFamily: 'var(--font-code)', fontSize: '12px' }}>claude</code> CLI. Unlocks mid-turn steer. Wire-fingerprints as Claude Code; billed against your Claude subscription. Native sessions are Archon-internal — they can't be resumed from a terminal <code style={{ fontFamily: 'var(--font-code)', fontSize: '12px' }}>claude --resume</code>.
+          Talks to Anthropic's API directly instead of running the <code style={{ fontFamily: 'var(--font-code)', fontSize: '12px' }}>claude</code> CLI. Unlocks mid-turn steer. Wire-fingerprints as Claude Code; billed against your Claude subscription. Native sessions are Arco-internal — they can't be resumed from a terminal <code style={{ fontFamily: 'var(--font-code)', fontSize: '12px' }}>claude --resume</code>.
         </p>
         <p style={{ margin: '0 0 16px 0' }}>
           Skipped on Native: MCP servers, NotebookEdit, the Skill tool, plugins, Claude-Code's agents system. Hooks still work. Toggle back to CLI to restore full Claude Code feature parity for this tab.

@@ -3,7 +3,7 @@
 // Per-workflow, session-scoped sidecar persisting (a) any UNRESOLVED gate so a
 // systemd restart can re-surface it (rehydrateGatesOnce), and (b) standing
 // "approve all like this" approvals (sub-phase 5). Lives at
-// <cwd>/.archon/workflows/<wfid>/gate-approvals.json — NOT .archon/project/
+// <cwd>/.arco/workflows/<wfid>/gate-approvals.json — NOT .arco/project/
 // (that's cwd-shared across tabs; gates are per-workflow). events.jsonl remains
 // the durable audit source of truth; this sidecar is the fast rehydrate lookup.
 //

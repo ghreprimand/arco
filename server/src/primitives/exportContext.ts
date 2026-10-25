@@ -17,7 +17,7 @@
 //                        fallback when the primary is Ollama, or when the
 //                        session is otherwise unavailable.
 //
-// Both paths persist to `<cwd>/.archon/workflows/<wfid>/handoffs/handoff-<ts>.md`.
+// Both paths persist to `<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`.
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -34,7 +34,7 @@ import type {
   EffortLevel,
   ExportContextMode,
   WorkerConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface SummarizerConfig {
   provider: ProviderName;
@@ -100,7 +100,7 @@ export interface ExportHandle {
   settled: Promise<{ body?: string; error?: string }>;
   // Kill the in-flight reflection/summarizer worker. No-op once settled or if
   // no worker spawned. For providers whose kill only detaches (Antigravity),
-  // this stops Archon waiting but the desktop agent keeps running.
+  // this stops Arco waiting but the desktop agent keeps running.
   abort: () => void;
 }
 
@@ -115,8 +115,8 @@ interface AbortState {
 
 // The original-worker reflection prompt and the fresh-summarizer framing
 // live as `DEFAULT_TEMPLATES` in `server/src/handoffPrompts.ts`. Operators
-// override either via `<cwd>/.archon/handoff.prompt.md` (project) or
-// `~/.archon/handoff.prompt.md` (global); same convention with
+// override either via `<cwd>/.arco/handoff.prompt.md` (project) or
+// `~/.arco/handoff.prompt.md` (global); same convention with
 // `handoff.summarizer.prompt.md` for the summarizer mode. `loadEffectivePrompt`
 // resolves the cascade and falls back to the default template — keeping the
 // "current hard-coded builders" gate from the plan.
@@ -136,7 +136,7 @@ async function detectVerifyCommand(cwd: string): Promise<string | undefined> {
 const DEFAULT_ORIGINAL_WORKER_TIMEOUT_MS = 180_000;
 
 function originalWorkerTimeoutMs(): number {
-  const configured = Number(process.env.ARCHON_HANDOFF_ORIGINAL_WORKER_TIMEOUT_MS);
+  const configured = Number(process.env.ARCO_HANDOFF_ORIGINAL_WORKER_TIMEOUT_MS);
   if (Number.isFinite(configured) && configured > 0) {
     return Math.max(30_000, Math.min(configured, 600_000));
   }
@@ -208,7 +208,7 @@ function runOriginalWorker(
   }
 
   const absolutePath = path.resolve(
-    path.join(ctx.cwd, '.archon', 'workflows', ctx.workflowId, 'handoffs', artifactName),
+    path.join(ctx.cwd, '.arco', 'workflows', ctx.workflowId, 'handoffs', artifactName),
   );
 
   // Make sure the handoffs directory exists before the primary tries to write
@@ -341,7 +341,7 @@ async function runOriginalWorkerNative(
   ab: AbortState,
 ): Promise<{ body?: string; error?: string }> {
   const absolutePath = path.resolve(
-    path.join(ctx.cwd, '.archon', 'workflows', ctx.workflowId, 'handoffs', artifactName),
+    path.join(ctx.cwd, '.arco', 'workflows', ctx.workflowId, 'handoffs', artifactName),
   );
 
   try {
@@ -491,7 +491,7 @@ function runFreshSummarizer(
   // WP2 — derive the tool-call digest from the SAME (post-cutoff) raw events so
   // the fresh summarizer sees file edits / commands / git ops, not just text.
   const actionsDigest = buildActionsTakenDigest(args.transcript);
-  const artifactPath = path.join(ctx.cwd, '.archon', 'workflows', ctx.workflowId, 'handoffs', artifactName);
+  const artifactPath = path.join(ctx.cwd, '.arco', 'workflows', ctx.workflowId, 'handoffs', artifactName);
 
   let collected = '';
   // Load the summarizer template (operator override or default) before

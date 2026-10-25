@@ -15,7 +15,7 @@ import type {
   OrchestrationProposalAction,
   OrchestrationProposalItem,
   OrchestrationProposalStatus,
-} from '@archon/shared';
+} from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
 
 const VERSION = 1;
@@ -45,7 +45,7 @@ interface ProposalFile {
 }
 
 function projectDir(cwd: string): string {
-  return path.join(cwd, '.archon', 'project');
+  return path.join(cwd, '.arco', 'project');
 }
 
 function proposalsPath(cwd: string): string {

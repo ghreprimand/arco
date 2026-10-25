@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { OperatorQuestionState, OperatorQuestion } from '@archon/shared';
+import type { OperatorQuestionState, OperatorQuestion } from '@arco/shared';
 import type { JsonRpcId, JsonRpcServerRequest } from './jsonRpc.js';
 
 type Answers = Record<string, string[]>;
@@ -59,7 +59,7 @@ export async function replyToOperatorQuestion(workflowId: string, requestId: str
     } else {
       if (!sendInput) throw new Error('The question reply channel is unavailable.');
       // Async agent-message questions have no pending RPC. Send an ordinary
-      // operator turn/interjection through Archon's existing turn pipeline.
+      // operator turn/interjection through Arco's existing turn pipeline.
       await sendInput('Answers to your questions:\n' + entry.state.questions.map((q) => `${q.question}\nAnswer: ${answers[q.id][0]}`).join('\n\n'), entry.state);
     }
     if (pending.get(requestId) === entry) {

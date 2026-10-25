@@ -16,7 +16,7 @@ import {
 } from './worker.js';
 import { nativeContextEstimate } from '../../contextEstimator.js';
 import { resolveClaudeAliasFromCatalog } from './catalog.js';
-import { claudeAliasFamily, CLAUDE_ALIAS_FALLBACK, isClaudeModelAlias } from '@archon/shared';
+import { claudeAliasFamily, CLAUDE_ALIAS_FALLBACK, isClaudeModelAlias } from '@arco/shared';
 
 test('context management: clear_thinking / clear_tool_uses are not default-on', () => {
   const edits = buildContextManagementEditsForRequest({

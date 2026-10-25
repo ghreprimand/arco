@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { PlanFull, PlanLibraryEntry, PlanLibraryProject } from '@archon/shared';
+import type { PlanFull, PlanLibraryEntry, PlanLibraryProject } from '@arco/shared';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { PlanBodyRenderer, CHECKBOX_RE } from '../components/PlanBodyRenderer';
 import { PlanWorkflowsSection } from '../components/RightPanel/PlanWorkflowsSection';
@@ -181,7 +181,7 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
             {projectName} · {done ? 'completed' : entry.attached ? 'attached' : 'not attached'} · updated {formatRelativeTime(plan?.updatedAt ?? entry.updatedAt)}
             {entry.clusters.length > 0 && <> · cluster {entry.clusters.map((c) => c.name).join(', ')}</>}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginTop: '2px' }}>.archon/plans/{entry.id}.md</div>
+          <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginTop: '2px' }}>.arco/plans/{entry.id}.md</div>
         </div>
         {!editing && plan && (
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>

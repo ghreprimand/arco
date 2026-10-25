@@ -1,4 +1,4 @@
-// LEDGER tab — the project task ledger (ARCHON_OPS_PLAN.md §D1, Part D).
+// LEDGER tab — the project task ledger (ARCO_OPS_PLAN.md §D1, Part D).
 //
 // A DISTINCT persistent surface from the Plan tab (plan-scoped review) and the
 // Tasks panel (in-turn subagent children). The ledger is cwd-scoped and durable
@@ -10,7 +10,7 @@
 // §D1 acceptance invariant.
 
 import { useState } from 'react';
-import type { LedgerTask, LedgerTaskStatus, TaskLink } from '@archon/shared';
+import type { LedgerTask, LedgerTaskStatus, TaskLink } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import type { JobState } from '../../stores/appStore';
 import { LedgerLinks } from './LedgerLinks';

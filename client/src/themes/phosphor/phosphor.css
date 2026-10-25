@@ -7,9 +7,9 @@
 html[data-theme-family=phosphor] { color-scheme:dark; }
 html[data-theme-family=phosphor] body { color:var(--color-fg); }
 html[data-theme-family=phosphor][data-phosphor-effects=on] :where(body,body *) { text-shadow:var(--phosphor-text); }
-html[data-theme-family=phosphor] .archon-wordmark { filter:none!important; }
-html[data-theme-family=phosphor] .archon-markdown { color:var(--color-fg)!important; }
-html[data-theme-family=phosphor] :is(pre,pre *,code,code *,.archon-diff-view,.archon-diff-view *,.xterm,.xterm *,input,textarea,select) { text-shadow:none!important; }
+html[data-theme-family=phosphor] .arco-wordmark { filter:none!important; }
+html[data-theme-family=phosphor] .arco-markdown { color:var(--color-fg)!important; }
+html[data-theme-family=phosphor] :is(pre,pre *,code,code *,.arco-diff-view,.arco-diff-view *,.xterm,.xterm *,input,textarea,select) { text-shadow:none!important; }
 html[data-theme-family=phosphor] .hljs { color:var(--color-fg); background:var(--color-bg-input); }
 html[data-theme-family=phosphor] :is(.hljs-keyword,.hljs-selector-tag,.hljs-literal) { color:var(--arco-purple); }
 html[data-theme-family=phosphor] :is(.hljs-string,.hljs-regexp,.hljs-addition) { color:var(--arco-green); }

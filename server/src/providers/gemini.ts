@@ -7,14 +7,14 @@ import { GeminiStreamParser } from './gemini-stream.js';
 import { killProcessTree } from '../workers/processKill.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markThrottled, markAvailable } from '../quota.js';
-import type { SessionInfo, WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { SessionInfo, WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 import { attachmentDirs, withAttachmentRefs } from './attachments.js';
 
 const GEMINI_TMP_ROOT = join(homedir(), '.gemini', 'tmp');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // `gemini --list-sessions` lines look like:
-//   "  21. Understand the Archon project. (Just now) [94200341-12ff-4a02-8c0c-8f9aaf5979fa]"
+//   "  21. Understand the Arco project. (Just now) [94200341-12ff-4a02-8c0c-8f9aaf5979fa]"
 // We match the leading index + trailing UUID and ignore everything between
 // (preview text + relative time) so wording drifts in the CLI don't break us.
 const LIST_SESSIONS_LINE = /^\s*(\d+)\.\s+.*\[([0-9a-f-]{36})\]\s*$/i;

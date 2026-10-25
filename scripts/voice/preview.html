@@ -27,7 +27,7 @@
     <option value="qwen-british">Qwen3-TTS · designed British female (GPU)</option><option value="qwen-tng">Qwen3-TTS · TNG computer clone (GPU)</option><option value="qwen-tng-long">Qwen3-TTS · TNG clone, long Qwen reference, fast mode (GPU)</option><option value="qwen-tng-xvec">Qwen3-TTS · TNG clone, speaker embedding only, fast mode (GPU)</option>
   </select>
   <button id="sample">Listen to sample</button> <button id="sample-fresh">Regenerate</button>
-  <p id="sample-status" class="muted">All voices run locally. GPU engines load their model per sample (first run downloads it), so expect a wait; the timing line shows load vs. generate. The TNG clone needs your own clip at ~/.archon/voice/reference/tng-computer.wav (10–20 s, clean, plus tng-computer.txt with its transcript). Stop the microphone before auditioning.</p>
+  <p id="sample-status" class="muted">All voices run locally. GPU engines load their model per sample (first run downloads it), so expect a wait; the timing line shows load vs. generate. The TNG clone needs your own clip at ~/.arco/voice/reference/tng-computer.wav (10–20 s, clean, plus tng-computer.txt with its transcript). Stop the microphone before auditioning.</p>
   <audio id="sample-player" controls hidden></audio>
 </section>
 <section>
@@ -216,7 +216,7 @@
       if(!enabled || run!==epoch)return;
       await audio.audioWorklet.addModule('/voice-capture.js');
       if(!enabled || run!==epoch)return;
-      capture=new AudioWorkletNode(audio,'archon-voice-capture');
+      capture=new AudioWorkletNode(audio,'arco-voice-capture');
       capture.port.postMessage({threshold:Number($('sensitivity').value)});
       capture.port.postMessage({wakeEnabled:fastWake});
       capture.port.onmessage=({data})=>{

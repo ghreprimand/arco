@@ -1,4 +1,4 @@
-// ── Local model health report (ARCHON_OPS_PLAN.md §A3) ──
+// ── Local model health report (ARCO_OPS_PLAN.md §A3) ──
 //
 // The single source behind GET /api/diagnostics/model-health. A richer,
 // structured sibling of the A1 Diagnostics tab, focused on the *model operator*
@@ -10,7 +10,7 @@
 // fetches on mount + on Refresh — no daemon); deterministic rules the operator
 // can read (each builder below is a fixed READ-ONLY probe with a fixed status
 // mapping); read-only (it reuses the existing ollama / llamacppManager / cookbook
-// probes and reads ~/.archon/llamacpp.log + ~/.archon/models — it NEVER spawns a
+// probes and reads ~/.arco/llamacpp.log + ~/.arco/models — it NEVER spawns a
 // model, mutates a catalog, or changes manager lifecycle); reversible (a readout).
 //
 // Status framing for a model-operator lens (CLAUDE.md §A3): a missing/unreachable
@@ -40,7 +40,7 @@ import type {
   ModelHealthReport,
   ModelSpec,
   OllamaHealth,
-} from '@archon/shared';
+} from '@arco/shared';
 
 import { probeOllama, getOllamaBase } from '../providers/ollama.js';
 import { llamacppManager } from '../providers/llamacppManager.js';
@@ -50,11 +50,11 @@ import { probeHardware } from '../cookbook/hardware.js';
 import { scoreFit } from '../cookbook/fit.js';
 import { parseParams } from '../cookbook/catalog.js';
 import { modelsDir } from '../cookbook/install.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const execFileAsync = promisify(execFile);
-const ARCHON_HOME = archonHome();
-const LLAMACPP_LOG = join(ARCHON_HOME, 'llamacpp.log');
+const ARCO_HOME = arcoHome();
+const LLAMACPP_LOG = join(ARCO_HOME, 'llamacpp.log');
 
 // Lines of llama-server log to surface as the "last stderr" tail. The full log
 // can be large; a tail is enough to see the last spawn + any failure.
@@ -230,18 +230,18 @@ async function buildLlamacppHealth(): Promise<LlamacppHealth> {
   if (status.state === 'failed') {
     rollup = 'error';
     detail = `last llama-server launch failed: ${status.error ?? 'unknown'}`;
-    hint = 'check the last-stderr tail below; verify the GGUF path + flags in ~/.archon/llamacpp.json';
+    hint = 'check the last-stderr tail below; verify the GGUF path + flags in ~/.arco/llamacpp.json';
   } else if (!binaryPath) {
     rollup = 'warn';
     detail = `llama-server not on PATH; ${models.length} model(s) registered`;
     hint = 'install llama.cpp (provides llama-server) to use the llama.cpp transport';
   } else if (!catalogReadable) {
     rollup = 'warn';
-    detail = `manager ${status.state}; catalog (~/.archon/llamacpp.json) unreadable`;
-    hint = 'check ~/.archon/llamacpp.json is valid JSON';
+    detail = `manager ${status.state}; catalog (~/.arco/llamacpp.json) unreadable`;
+    hint = 'check ~/.arco/llamacpp.json is valid JSON';
   } else if (models.length === 0) {
     rollup = 'warn';
-    detail = 'no models registered in ~/.archon/llamacpp.json';
+    detail = 'no models registered in ~/.arco/llamacpp.json';
     hint = 'register a GGUF loadout (the Cookbook auto-registers downloads)';
   } else {
     rollup = 'ok';
@@ -274,7 +274,7 @@ async function buildLlamacppHealth(): Promise<LlamacppHealth> {
 
 // ── Cookbook sub-report ───────────────────────────────────────────────────────
 
-// List GGUF files the Cookbook has downloaded under ~/.archon/models. READ-ONLY
+// List GGUF files the Cookbook has downloaded under ~/.arco/models. READ-ONLY
 // directory scan; a missing dir is normal (no downloads yet).
 async function listDownloadedModels(): Promise<ModelHealthModel[]> {
   const dir = modelsDir();

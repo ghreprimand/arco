@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §K2 — archon-management hub smoke.
+// ARCO_OPS_PLAN.md §K2 — arco-management hub smoke.
 //
 // Wires a REAL K1 agent (scripts/agent/agent.ts) to a REAL hub
 // (scripts/management/hub.ts) in-process — no VPS, no systemctl (the agent runs
@@ -34,7 +34,7 @@ import { createHub } from '../management/hub.js';
 import { InstanceRegistry } from '../management/registry.js';
 import { parseManagementArgs, renderManagementUnit } from '../management/unit.js';
 import type { CommandRunner } from '../agent/handle.js';
-import type { ManagedArchonInstance } from '../../shared/src/protocol/remoteManagement.js';
+import type { ManagedArcoInstance } from '../../shared/src/protocol/remoteManagement.js';
 
 const INSTANCE_ID = 'cccccccc-dddd-eeee-ffff-000000000000';
 
@@ -47,7 +47,7 @@ function recordingRunner(): { runner: CommandRunner; calls: string[][] } {
   return { runner, calls };
 }
 
-function instanceDescriptor(): ManagedArchonInstance {
+function instanceDescriptor(): ManagedArcoInstance {
   return {
     instanceId: INSTANCE_ID,
     name: 'hub-smoke-box',
@@ -69,8 +69,8 @@ function instanceDescriptor(): ManagedArchonInstance {
 }
 
 async function main() {
-  const vaultRoot = mkdtempSync(path.join(tmpdir(), 'archon-management-vault-'));
-  process.env.ARCHON_CLUSTER_VAULT_DIR = vaultRoot;
+  const vaultRoot = mkdtempSync(path.join(tmpdir(), 'arco-management-vault-'));
+  process.env.ARCO_CLUSTER_VAULT_DIR = vaultRoot;
   const { publicKey, privateKey } = generateHubKeypair();
   const { runner, calls } = recordingRunner();
 
@@ -104,18 +104,18 @@ async function main() {
   });
 
   await step('hub signs + routes a lifecycle command; agent execs; result returns', async () => {
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.restart');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.restart');
     assert(d.ok, `dispatch should succeed: ${JSON.stringify(d)}`);
     assert(d.result?.ok === true, 'agent reported ok');
-    assertEq(d.result?.cmd, 'archon.restart', 'result carries the command');
+    assertEq(d.result?.cmd, 'arco.restart', 'result carries the command');
     assert(
-      calls.some((c) => c.join(' ') === 'systemctl --user restart archon.service'),
+      calls.some((c) => c.join(' ') === 'systemctl --user restart arco.service'),
       `agent ran the allowlisted argv; calls=${JSON.stringify(calls)}`,
     );
   });
 
   await step('unknown instance → no-such-instance', async () => {
-    const d = await hub.sendLifecycleCommand('nope-not-here', 'archon.status');
+    const d = await hub.sendLifecycleCommand('nope-not-here', 'arco.status');
     assert(!d.ok, 'should fail');
     assertEq(d.error, 'no-such-instance', 'reason');
   });
@@ -128,14 +128,14 @@ async function main() {
     const res = await fetch(`${base}/api/instances/${INSTANCE_ID}/lifecycle`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ cmd: 'archon.start' }),
+      body: JSON.stringify({ cmd: 'arco.start' }),
     });
     assertEq(res.status, 200, 'POST ok');
     const body = (await res.json()) as { ok: boolean; result?: { cmd?: string } };
     assert(body.ok, 'dispatch ok over HTTP');
-    assertEq(body.result?.cmd, 'archon.start', 'result cmd');
+    assertEq(body.result?.cmd, 'arco.start', 'result cmd');
     assert(calls.length === before + 1, 'agent executed exactly one more command');
-    assertEq(calls[calls.length - 1].join(' '), 'systemctl --user start archon.service', 'argv');
+    assertEq(calls[calls.length - 1].join(' '), 'systemctl --user start arco.service', 'argv');
   });
 
   await step('HTTP cluster vault: duplicate rejected; id-pinned replacement updates one row', async () => {
@@ -153,21 +153,21 @@ async function main() {
         method: 'POST',
         headers: {
           'content-type': 'application/octet-stream',
-          'x-archon-vault-meta': Buffer.from(JSON.stringify(metadata)).toString('base64url'),
-          ...(replaceId ? { 'x-archon-vault-replace-id': replaceId } : {}),
+          'x-arco-vault-meta': Buffer.from(JSON.stringify(metadata)).toString('base64url'),
+          ...(replaceId ? { 'x-arco-vault-replace-id': replaceId } : {}),
         },
         body: bytes,
       });
     };
-    const firstBytes = Buffer.from('ARCHCV01 first opaque payload long enough');
+    const firstBytes = Buffer.from('ARCOCV01 first opaque payload long enough');
     const first = await upload(firstBytes);
     assertEq(first.status, 201, 'first cloud save created');
     const firstRow = (await first.json()) as { snapshot: { id: string } };
 
-    const rejected = await upload(Buffer.from('ARCHCV01 duplicate opaque payload long enough'));
+    const rejected = await upload(Buffer.from('ARCOCV01 duplicate opaque payload long enough'));
     assertEq(rejected.status, 400, 'unconfirmed duplicate rejected by hub');
 
-    const replacement = Buffer.from('ARCHCV01 replacement opaque payload long enough');
+    const replacement = Buffer.from('ARCOCV01 replacement opaque payload long enough');
     const replaced = await upload(replacement, firstRow.snapshot.id);
     assertEq(replaced.status, 201, 'confirmed replacement accepted');
     const replacedRow = (await replaced.json()) as { snapshot: { id: string } };
@@ -191,7 +191,7 @@ async function main() {
     agent.stop();
     // Give the close event a beat to propagate to the hub's socket map.
     await new Promise((r) => setTimeout(r, 300));
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.status');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.status');
     assert(!d.ok, 'should fail with no live socket');
     assertEq(d.error, 'instance-offline', 'reason');
   });
@@ -223,7 +223,7 @@ async function main() {
     const js = await fetch(`${base}/console.js`);
     assert((js.headers.get('content-type') || '').includes('javascript'), 'js content-type');
     const jsBody = await js.text();
-    assert(jsBody.includes('/api/instances') && jsBody.includes('archon.restart'), 'js drives the control API');
+    assert(jsBody.includes('/api/instances') && jsBody.includes('arco.restart'), 'js drives the control API');
 
     const manifest = await fetch(`${base}/manifest.webmanifest`);
     assert((manifest.headers.get('content-type') || '').includes('manifest'), 'manifest content-type');
@@ -241,14 +241,14 @@ async function main() {
 
   await step('hub unit renders tailnet-bound + args parse', async () => {
     const unit = renderManagementUnit({
-      repoRoot: '/srv/archon',
+      repoRoot: '/srv/arco',
       host: '100.64.0.20',
       port: 3500,
-      privateKeyPath: '/root/.archon/hub/hub.key',
+      privateKeyPath: '/root/.arco/hub/hub.key',
     });
-    assert(unit.includes('Description=archon-management'), 'description');
+    assert(unit.includes('Description=arco-management'), 'description');
     assert(unit.includes('serve --host 100.64.0.20 --port 3500'), 'binds the tailnet ip:port');
-    assert(unit.includes('Environment=ARCHON_HUB_KEY=/root/.archon/hub/hub.key'), 'private key env');
+    assert(unit.includes('Environment=ARCO_HUB_KEY=/root/.arco/hub/hub.key'), 'private key env');
     assert(unit.includes('Restart=always'), 'service restarts always');
 
     const a = parseManagementArgs(['serve', '--host', '100.64.0.20', '--port', '3500']);
@@ -259,8 +259,8 @@ async function main() {
 
   await hub.close();
   rmSync(vaultRoot, { recursive: true, force: true });
-  delete process.env.ARCHON_CLUSTER_VAULT_DIR;
-  summary('K2 archon-management hub');
+  delete process.env.ARCO_CLUSTER_VAULT_DIR;
+  summary('K2 arco-management hub');
 }
 
 main().catch((err) => {

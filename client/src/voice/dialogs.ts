@@ -1,6 +1,6 @@
 // VOICE_AGENT_PLAN.md — Computer's "open this dialog" tool. Incident
 // (2026-10-17): "bring up the nudge dialogue box for this workflow" became
-// an archon_nudge to the focused member because the only nudge-shaped tool
+// an arco_nudge to the focused member because the only nudge-shaped tool
 // SENT the nudge; the operator wanted the picker to choose. A dialog
 // request is a synchronous DOM event: the component that owns the dialog
 // state answers it and marks it handled, so the executor can tell Computer
@@ -8,7 +8,7 @@
 export const VOICE_DIALOGS = ['nudge', 'broadcast', 'review', 'handoff', 'spawn', 'plan', 'docs', 'git', 'tuneup', 'research', 'transcript'] as const;
 export type VoiceDialog = typeof VOICE_DIALOGS[number];
 export interface VoiceDialogRequest { name: VoiceDialog; jobId: string | null; clusterId: string | null; handled: boolean }
-export const VOICE_DIALOG_EVENT = 'archon:voice-dialog';
+export const VOICE_DIALOG_EVENT = 'arco:voice-dialog';
 
 export function requestVoiceDialog(name: VoiceDialog, jobId: string | null, clusterId: string | null): boolean {
   if (typeof window === 'undefined') return false;

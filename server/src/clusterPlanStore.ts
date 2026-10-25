@@ -1,7 +1,7 @@
 // CLUSTER_MODE_PLAN.md Phase 2.6 — shared cluster plan store.
 //
 // One markdown document per cluster, persisted at
-// ~/.archon/clusters/<id>/plan.md. Every cluster member's Native worker
+// ~/.arco/clusters/<id>/plan.md. Every cluster member's Native worker
 // reads the body via handleUserMessage at turn start and injects it as a
 // forced system block (after FORCED_FIRST_BLOCK, before the operator's
 // appendSystemPrompt / systemPrompt).

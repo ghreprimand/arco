@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 if (!process.argv.includes('app-server')) {
-  if (process.cwd().includes('archon-input-observation-')) {
+  if (process.cwd().includes('arco-input-observation-')) {
     let text='';for await(const chunk of process.stdin)text+=chunk;
     const input=JSON.parse(text),result={workers:input.workers.map((w)=>({id:w.id,needs_input:w.text.includes('NEEDS_OPERATOR_INPUT')?true:w.text.includes('UNKNOWN_INPUT')?null:false}))};
     console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify(result)}}));
@@ -14,8 +14,8 @@ if (!process.argv.includes('app-server')) {
   console.log(process.argv.includes('--version') ? 'codex-cli 0.163.0' : 'Logged in using ChatGPT');
   process.exit(0);
 }
-const home = process.env.CODEX_HOME ?? process.env.ARCHON_COMPUTER_TEST_CODEX_HOME;
-if (!home?.includes('archon-computer-')) throw Error('Fixture requires an isolated Codex home');
+const home = process.env.CODEX_HOME ?? process.env.ARCO_COMPUTER_TEST_CODEX_HOME;
+if (!home?.includes('arco-computer-')) throw Error('Fixture requires an isolated Codex home');
 const sessions = join(home, 'sessions', '2026', '10', '17'); mkdirSync(sessions, { recursive: true });
 let threadId, ephemeral = false, turn = 0;
 let pendingTimer, pendingTurnId;
@@ -29,7 +29,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
   if (m.method === 'thread/start' || m.method === 'thread/resume') {
     ephemeral = m.params.ephemeral === true;
     threadId = m.method === 'thread/resume' ? m.params.threadId : randomUUID();
-    const durablePrivate = ephemeral && process.env.ARCHON_COMPUTER_FIXTURE_DURABLE_PRIVATE === '1';
+    const durablePrivate = ephemeral && process.env.ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE === '1';
     reply(m.id, { thread: { id: threadId, ephemeral: ephemeral && !durablePrivate, path: ephemeral && !durablePrivate ? null : 'fixture-rollout' }, model: 'gpt-6-luna' }); continue;
   }
   if (m.method === 'turn/start') {
@@ -58,7 +58,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
         last_token_usage: { input_tokens: input, cached_input_tokens: 0, output_tokens: 3, total_tokens: input + 3 }, model_context_window: 100000,
       } } }) + '\n');
       notify('turn/completed', { threadId, turn: { id: turnId, status: 'completed', error: null } });
-    }, text.startsWith('[Archon activity update') ? Number(process.env.ARCHON_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS ?? 20) : text.includes('slow') ? 1200 : 20);
+    }, text.startsWith('[Arco activity update') ? Number(process.env.ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS ?? 20) : text.includes('slow') ? 1200 : 20);
     continue;
   }
   if (m.method === 'turn/interrupt') {

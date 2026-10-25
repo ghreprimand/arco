@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 export interface ComputerHistoryMessage {
   role: 'user' | 'assistant' | 'tool';
@@ -29,10 +29,10 @@ export function renderComputerHistory(events: ServerMessage[]): string {
     }
   }
   flush();
-  return JSON.stringify({ archonComputerHistory: 1, messages });
+  return JSON.stringify({ arcoComputerHistory: 1, messages });
 }
 export function parseComputerHistory(text: string): ComputerHistoryMessage[] {
   const value = JSON.parse(text);
-  if (value?.archonComputerHistory !== 1 || !Array.isArray(value.messages)) throw Error('Invalid Computer history envelope.');
+  if (value?.arcoComputerHistory !== 1 || !Array.isArray(value.messages)) throw Error('Invalid Computer history envelope.');
   return value.messages;
 }

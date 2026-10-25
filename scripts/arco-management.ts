@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
-// ARCHON_OPS_PLAN.md §K2 — `archon-management` tailnet-only remote-management hub.
+// ARCO_OPS_PLAN.md §K2 — `arco-management` tailnet-only remote-management hub.
 //
-// One service (suggested host: hub-host) that aggregates registered Archon
+// One service (suggested host: hub-host) that aggregates registered Arco
 // instances, derives online/stale/offline from heartbeats, SIGNS lifecycle
 // commands with the hub Ed25519 private key, and routes signed/workflow-scoped
 // actions to the owning instance (which re-validates). The K3 mobile console
@@ -13,15 +13,15 @@
 //
 // Subcommands:
 //   keygen [--out DIR]   generate the hub Ed25519 keypair (hub.key 600 + hub.pub)
-//   serve [--host H] [--port P]   run the hub (loads ARCHON_HUB_KEY / hub.key)
+//   serve [--host H] [--port P]   run the hub (loads ARCO_HUB_KEY / hub.key)
 //   install [--enable] [--host H] [--port P]   write the systemd --user unit
-//   start|stop|status|restart    systemctl --user on archon-management.service
+//   start|stop|status|restart    systemctl --user on arco-management.service
 //   logs [-n N]          follow the hub journal
 //   uninstall            stop + disable + remove the unit
 //
 // Subprocess safety: execFile/spawn argv arrays only — never shell, never sudo.
 
-import '../server/src/envAliases.js'; // ARCO_* aliases take precedence over ARCHON_*
+import '../server/src/envAliases.js'; // upstream-prefixed variables fill unset ARCO_* names
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -37,10 +37,10 @@ import {
 import { generateHubKeypair } from './agent/signing.js';
 import { createHub } from './management/hub.js';
 import { parseSshTargets } from './management/sshLifecycle.js';
-import { archonHome } from '../server/src/archonHome.js';
+import { arcoHome } from '../server/src/arcoHome.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const UNIT_NAME = 'archon-management.service';
+const UNIT_NAME = 'arco-management.service';
 const DEFAULT_PORT = 3500;
 const isMac = process.platform === 'darwin';
 
@@ -55,17 +55,17 @@ function unitPath(): string {
   return join(unitDir(), UNIT_NAME);
 }
 function hubDir(): string {
-  return join(archonHome(), 'hub');
+  return join(arcoHome(), 'hub');
 }
 function defaultKeyPath(): string {
-  return process.env.ARCHON_HUB_KEY || join(hubDir(), 'hub.key');
+  return process.env.ARCO_HUB_KEY || join(hubDir(), 'hub.key');
 }
 
 function systemctlInherit(args: string[]): Promise<number> {
   return new Promise((res) => {
     const child = spawn('systemctl', ['--user', ...args], { stdio: 'inherit' });
     child.on('error', (err) => {
-      console.error(`[archon-management] failed to spawn systemctl: ${err.message}`);
+      console.error(`[arco-management] failed to spawn systemctl: ${err.message}`);
       res(127);
     });
     child.on('exit', (code) => res(code ?? 1));
@@ -79,47 +79,47 @@ async function doKeygen(args: ManagementArgs): Promise<number> {
   const keyPath = join(dir, 'hub.key');
   const pubPath = join(dir, 'hub.pub');
   if (existsSync(keyPath)) {
-    console.error(`[archon-management] refusing to overwrite existing ${keyPath} — remove it first.`);
+    console.error(`[arco-management] refusing to overwrite existing ${keyPath} — remove it first.`);
     return 1;
   }
   await writeFile(keyPath, privateKey, { mode: 0o600 });
   await writeFile(pubPath, publicKey, { mode: 0o644 });
-  console.log(`[archon-management] wrote ${keyPath} (PRIVATE — hub only, mode 600)`);
-  console.log(`[archon-management] wrote ${pubPath} (PUBLIC — copy to each agent's ~/.archon/agent/hub.pub)`);
+  console.log(`[arco-management] wrote ${keyPath} (PRIVATE — hub only, mode 600)`);
+  console.log(`[arco-management] wrote ${pubPath} (PUBLIC — copy to each agent's ~/.arco/agent/hub.pub)`);
   return 0;
 }
 
 async function doServe(args: ManagementArgs): Promise<number> {
   const keyPath = defaultKeyPath();
   if (!existsSync(keyPath)) {
-    console.error(`[archon-management] serve: hub private key missing at ${keyPath} — run \`archon-management keygen\` first.`);
+    console.error(`[arco-management] serve: hub private key missing at ${keyPath} — run \`arco-management keygen\` first.`);
     return 2;
   }
   const privateKeyPem = readFileSync(keyPath, 'utf8');
-  const host = args.host || process.env.ARCHON_HUB_HOST || '127.0.0.1';
-  const port = args.port ?? Number(process.env.ARCHON_HUB_PORT) ?? DEFAULT_PORT;
+  const host = args.host || process.env.ARCO_HUB_HOST || '127.0.0.1';
+  const port = args.port ?? Number(process.env.ARCO_HUB_PORT) ?? DEFAULT_PORT;
   if (host === '0.0.0.0' || host === '::') {
-    console.error('[archon-management] refusing to bind a public/all-interfaces address — pass the tailnet IP (trust boundary §1).');
+    console.error('[arco-management] refusing to bind a public/all-interfaces address — pass the tailnet IP (trust boundary §1).');
     return 2;
   }
-  // K4 — optional Tailscale-SSH fallback targets (~/.archon/hub/ssh-targets.json).
+  // K4 — optional Tailscale-SSH fallback targets (~/.arco/hub/ssh-targets.json).
   // Best-effort: a missing/garbage file just means no SSH fallback.
   const sshTargetsPath = join(hubDir(), 'ssh-targets.json');
   const sshTargets = existsSync(sshTargetsPath)
     ? parseSshTargets(readFileSync(sshTargetsPath, 'utf8'))
     : {};
   const nTargets = Object.keys(sshTargets).length;
-  if (nTargets > 0) console.log(`[archon-management] loaded ${nTargets} SSH lifecycle target(s) from ${sshTargetsPath}`);
+  if (nTargets > 0) console.log(`[arco-management] loaded ${nTargets} SSH lifecycle target(s) from ${sshTargetsPath}`);
 
   const hub = createHub({
     privateKeyPem,
     host,
     port: Number.isFinite(port) ? port : DEFAULT_PORT,
-    log: (m) => console.log(`[archon-management] ${m}`),
+    log: (m) => console.log(`[arco-management] ${m}`),
     sshTargets,
   });
   const addr = await hub.listen();
-  console.log(`[archon-management] hub up on ${addr.host}:${addr.port} (tailnet-only). Agents connect to ws://${addr.host}:${addr.port}/agent`);
+  console.log(`[arco-management] hub up on ${addr.host}:${addr.port} (tailnet-only). Agents connect to ws://${addr.host}:${addr.port}/agent`);
   await new Promise<void>((res) => {
     const shutdown = () => {
       void hub.close().then(res);
@@ -132,12 +132,12 @@ async function doServe(args: ManagementArgs): Promise<number> {
 
 async function doInstall(args: ManagementArgs): Promise<number> {
   if (isMac) {
-    console.log('[archon-management] systemd is Linux-only; the hub is intended to run on the Linux VPS (hub-host).');
+    console.log('[arco-management] systemd is Linux-only; the hub is intended to run on the Linux VPS (hub-host).');
     return 0;
   }
-  const host = args.host || process.env.ARCHON_HUB_HOST;
+  const host = args.host || process.env.ARCO_HUB_HOST;
   if (!host) {
-    console.error('[archon-management] install: pass --host <tailnet-ip> (the hub must bind the tailnet interface, not 0.0.0.0).');
+    console.error('[arco-management] install: pass --host <tailnet-ip> (the hub must bind the tailnet interface, not 0.0.0.0).');
     return 2;
   }
   const port = args.port ?? DEFAULT_PORT;
@@ -149,16 +149,16 @@ async function doInstall(args: ManagementArgs): Promise<number> {
   });
   await mkdir(unitDir(), { recursive: true });
   await writeFile(unitPath(), unit, 'utf8');
-  console.log(`[archon-management] wrote ${unitPath()} (binds ${host}:${port})`);
+  console.log(`[arco-management] wrote ${unitPath()} (binds ${host}:${port})`);
   if (!existsSync(defaultKeyPath())) {
-    console.log(`[archon-management] NOTE: hub key missing at ${defaultKeyPath()} — run \`archon-management keygen\` before start.`);
+    console.log(`[arco-management] NOTE: hub key missing at ${defaultKeyPath()} — run \`arco-management keygen\` before start.`);
   }
   await systemctlInherit(['daemon-reload']);
   if (args.enable) {
     await systemctlInherit(['enable', UNIT_NAME]);
-    console.log('[archon-management] enabled (autostart on next login).');
+    console.log('[arco-management] enabled (autostart on next login).');
   }
-  console.log('[archon-management] installed. Start with: archon-management start');
+  console.log('[arco-management] installed. Start with: arco-management start');
   return 0;
 }
 
@@ -167,10 +167,10 @@ async function doUninstall(): Promise<number> {
   await systemctlInherit(['disable', UNIT_NAME]);
   if (existsSync(unitPath())) {
     await rm(unitPath(), { force: true });
-    console.log(`[archon-management] removed ${unitPath()}`);
+    console.log(`[arco-management] removed ${unitPath()}`);
   }
   await systemctlInherit(['daemon-reload']);
-  console.log('[archon-management] uninstalled.');
+  console.log('[arco-management] uninstalled.');
   return 0;
 }
 
@@ -195,7 +195,7 @@ async function doLogs(args: ManagementArgs): Promise<number> {
   return new Promise((res) => {
     const child = spawn('journalctl', jargs, { stdio: 'inherit' });
     child.on('error', (err) => {
-      console.error(`[archon-management] failed to spawn journalctl: ${err.message}`);
+      console.error(`[arco-management] failed to spawn journalctl: ${err.message}`);
       res(127);
     });
     child.on('exit', (code) => res(code ?? 0));
@@ -205,7 +205,7 @@ async function doLogs(args: ManagementArgs): Promise<number> {
 function usage(): void {
   console.error(
     [
-      'Usage: archon-management <command> [options]',
+      'Usage: arco-management <command> [options]',
       '',
       'Commands:',
       '  keygen [--out DIR]   generate the hub Ed25519 keypair',
@@ -223,7 +223,7 @@ function usage(): void {
 async function main(): Promise<void> {
   const args = parseManagementArgs(process.argv.slice(2));
   if (args.unknown.length > 0) {
-    console.error(`[archon-management] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    console.error(`[arco-management] unrecognized argument(s): ${args.unknown.join(' ')}`);
     usage();
     process.exit(2);
   }

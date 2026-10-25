@@ -2,7 +2,7 @@
 //
 // A pure, dependency-light mapping from a provider error to a FailoverReason
 // and the FailoverAction the retry/fallback layer should take. Ported from
-// Hermes's `error_classifier.py` (Archon runs the same Anthropic / OpenAI /
+// Hermes's `error_classifier.py` (Arco runs the same Anthropic / OpenAI /
 // Gemini providers, so the substring/status mapping carries over almost
 // verbatim).
 //
@@ -27,7 +27,7 @@
 // to `{ reason: 'unknown', action: 'backoff' }` — conservative: a transient
 // blip gets one or two retries rather than being treated as fatal.
 
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 
 // ── Taxonomy ────────────────────────────────────────────────────────────────
 

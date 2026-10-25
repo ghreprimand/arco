@@ -19,7 +19,7 @@
 // outbound path — net.connect, node:http(s), and undici (global `fetch`) — routes
 // through dns.lookup, so this one patch covers them all. Literal IPv4 addresses
 // (the tailnet 100.x hub, 127.0.0.1 local services) still resolve fine under
-// family 4; nothing in Archon dials an IPv6-only host.
+// family 4; nothing in Arco dials an IPv6-only host.
 //
 // NB: this patches THIS process only. Spawned provider CLIs (claude/codex/gemini)
 // are separate Node processes — they inherit the unit's NODE_OPTIONS=ipv4first
@@ -43,7 +43,7 @@ const originalLookup = dns.lookup;
   const opts = typeof options === 'number' ? { family: options } : { ...(options ?? {}) };
   // family 0/undefined means "either" — force IPv4. An explicit `family: 6` is
   // left intact so a future deliberate IPv6 call isn't silently broken; nothing
-  // in Archon asks for one today.
+  // in Arco asks for one today.
   if (!opts.family) opts.family = 4;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (originalLookup as any).call(dns, hostname, opts, callback);

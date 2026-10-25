@@ -33,7 +33,7 @@ import {
   lmstudioBaseFromEnv,
   probeLmstudio,
 } from '../../server/src/providers/lmstudio.js';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;

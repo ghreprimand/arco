@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { ArchonSettings } from '@archon/shared';
+import type { ArcoSettings } from '@arco/shared';
 
 interface DirEntry {
   name: string;
@@ -53,7 +53,7 @@ export function WorkingDirectoryDefault() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultWorkingDirectory: next }),
       });
-      const data = (await res.json()) as ArchonSettings;
+      const data = (await res.json()) as ArcoSettings;
       setSettings(data);
       // Server may have rejected a non-absolute path (cleared it) — reflect truth.
       setDraft(data.defaultWorkingDirectory ?? '');

@@ -12,7 +12,7 @@ import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
 import { codexContextWindowOverride } from './codexContextWindow.js';
 import { buildCodexMcpOverrides } from '../mcp/mcpConfigWriter.js';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 
 // Slot 4 — Codex throttle detection. Per §6.3, 429s are "silent" — the CLI
@@ -209,7 +209,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
   private buildArgs(imagePaths: string[] = []): string[] {
     // `codex exec` is the non-interactive subcommand — analogous to claude -p.
     // `codex exec resume <uuid>` continues an existing thread started by a
-    // prior `codex exec`. Archon's primary-worker path feeds one prompt per
+    // prior `codex exec`. Arco's primary-worker path feeds one prompt per
     // spawn; the resume form pins the thread across turns.
     //
     // IMPORTANT: the resume subcommand has a narrower arg surface than `exec`.
@@ -294,7 +294,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // get the sandbox-gated set or the full set per the sandbox flag above.
 
     // CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — Codex
-    // cluster members register the archon-cluster MCP stdio child Claude
+    // cluster members register the arco-cluster MCP stdio child Claude
     // CLI uses, AND codebase-memory-attached workflows register the
     // operator-installed codebase-memory-mcp child the same way. Codex has
     // no `--mcp-config <path>` flag, so both registrations layer on via
@@ -312,10 +312,10 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // denylist is NOT enforceable on Codex (documented gap; surfaced in the
     // UI/diagnostics). Server-level enable/disable IS honored.
     const registryServers = this.config.mcpRegistryServers ?? [];
-    // The workflow-scoped `archon` plan entry applies to every workflow with a
+    // The workflow-scoped `arco` plan entry applies to every workflow with a
     // cwd, so this is no longer gated on cluster / codebase-memory / registry.
     if (this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || this.config.codebaseMemoryAttached || registryServers.length > 0)) {
-      const port = parseInt(process.env.ARCHON_PORT || '3001', 10);
+      const port = parseInt(process.env.ARCO_PORT || '3001', 10);
       args.push(
         ...buildCodexMcpOverrides(this.config.workflowId ?? '', {
           planToolsCwd: this.config.workflowId ? this.config.cwd : undefined,
@@ -442,7 +442,7 @@ export function lastStderrError(buf: string): string {
   return (hit ?? '').slice(0, 500);
 }
 
-// Translate Archon's effort to Codex's reasoning_effort. Catalog-aware: if
+// Translate Arco's effort to Codex's reasoning_effort. Catalog-aware: if
 // the catalog (populated lazily by codex-appserver/catalog.ts) reports the
 // requested effort isn't supported on this model, downgrade to the highest
 // supported effort. Cold-start (no catalog) falls back to a safe pass-through.
@@ -456,7 +456,7 @@ function mapEffortToReasoning(effort: string | undefined, modelId?: string): str
 }
 
 // See codex-appserver/worker.ts baseMapEffort for the history: Codex's enum
-// used to stop at 'xhigh', so Archon's 'max' collapsed onto it. GPT-6 Astra
+// used to stop at 'xhigh', so Arco's 'max' collapsed onto it. GPT-6 Astra
 // added real 'max' and 'ultra', so the mapping is now 1:1 and the per-model
 // catalog clamp in mapEffortToReasoning() handles models that stop lower.
 function baseMapEffortToReasoning(effort: string | undefined): string | null {

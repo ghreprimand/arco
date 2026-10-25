@@ -5,7 +5,7 @@
 // budget + dedupe gates and raises the content cap to 32 KB.
 
 import { useMemo, useState } from 'react';
-import type { ChatMessage, ClusterStatePayload } from '@archon/shared';
+import type { ChatMessage, ClusterStatePayload } from '@arco/shared';
 
 interface Props {
   cluster: ClusterStatePayload;

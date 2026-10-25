@@ -1,4 +1,4 @@
-import type { ClusterStatePayload } from '@archon/shared';
+import type { ClusterStatePayload } from '@arco/shared';
 import type { PeerMessage } from './types';
 
 interface MailboxModalProps {

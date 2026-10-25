@@ -1,6 +1,6 @@
-// ARCHON_OPS_PLAN.md §E1 — MCP registry smoke (no live server, no real ~/.archon).
+// ARCO_OPS_PLAN.md §E1 — MCP registry smoke (no live server, no real ~/.arco).
 //
-// Drives the §E1 modules directly against a temp $ARCHON_HOME:
+// Drives the §E1 modules directly against a temp $ARCO_HOME:
 //   • registry CRUD round-trip + persistence (create / list / upsert / remove);
 //   • classifyDangerous flags write/delete/exec/etc. and passes read/list/get;
 //   • per-workflow allowlist enable/disable changes the servers merged into the
@@ -21,15 +21,15 @@ import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  // Point both ARCHON_HOME (registry) and the smoke's fake cwd at temp dirs.
-  const root = await mkdtemp(join(tmpdir(), 'archon-mcp-smoke-'));
-  const archonHome = join(root, 'archon-home');
+  // Point both ARCO_HOME (registry) and the smoke's fake cwd at temp dirs.
+  const root = await mkdtemp(join(tmpdir(), 'arco-mcp-smoke-'));
+  const arcoHome = join(root, 'arco-home');
   const cwd = join(root, 'project');
-  await mkdir(archonHome, { recursive: true });
+  await mkdir(arcoHome, { recursive: true });
   await mkdir(cwd, { recursive: true });
-  process.env.ARCHON_HOME = archonHome;
+  process.env.ARCO_HOME = arcoHome;
 
-  // Import AFTER setting ARCHON_HOME so the registry resolves the temp path.
+  // Import AFTER setting ARCO_HOME so the registry resolves the temp path.
   const registry = await import('../../server/src/mcp/registry.js');
   const { classifyDangerous, probeServer } = await import('../../server/src/mcp/client.js');
   const { computeRegistryWiring, registryKey } = await import('../../server/src/mcp/registryWiring.js');
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     assertEq(all[0].enabled, true, 'enabled persisted');
     // Persistence: the file exists and round-trips the secret env (env is
     // persisted but never logged — registry layer logs ids/names only).
-    const raw = JSON.parse(await readFile(join(archonHome, 'mcp', 'registry.json'), 'utf8'));
+    const raw = JSON.parse(await readFile(join(arcoHome, 'mcp', 'registry.json'), 'utf8'));
     assertEq(raw.servers[0].env.TOKEN, 's3cr3t', 'env persisted to disk');
   });
 

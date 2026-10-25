@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §K4 — Tailscale-SSH last-resort lifecycle smoke.
+// ARCO_OPS_PLAN.md §K4 — Tailscale-SSH last-resort lifecycle smoke.
 //
 // Pure (no real ssh, no VPS): exercises the renderer + the hub's SSH fallback
 // with an injected fake sshExec. Asserts:
@@ -20,11 +20,11 @@ import { generateHubKeypair } from '../agent/signing.js';
 import { createHub, type SshExec } from '../management/hub.js';
 import { renderSshLifecycle, parseSshTargets } from '../management/sshLifecycle.js';
 import type { CommandSpec } from '../agent/allowlist.js';
-import type { ManagedArchonInstance } from '../../shared/src/protocol/remoteManagement.js';
+import type { ManagedArcoInstance } from '../../shared/src/protocol/remoteManagement.js';
 
 const INSTANCE_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-function descriptor(name = 'ssh-box'): ManagedArchonInstance {
+function descriptor(name = 'ssh-box'): ManagedArcoInstance {
   return {
     instanceId: INSTANCE_ID,
     name,
@@ -48,7 +48,7 @@ function recordingSshExec(exitCode = 0): { exec: SshExec; calls: CommandSpec[] }
 
 async function main() {
   await step('renderSshLifecycle wraps the allowlist template into an ssh argv', () => {
-    const spec = renderSshLifecycle({ host: 'workstation', platform: 'linux' }, 'archon.restart');
+    const spec = renderSshLifecycle({ host: 'workstation', platform: 'linux' }, 'arco.restart');
     assert(spec !== null, 'linux restart renders');
     assertEq(spec!.cmd, 'ssh', 'invokes ssh');
     const a = spec!.args;
@@ -56,16 +56,16 @@ async function main() {
     const sep = a.indexOf('--');
     assert(sep > 0, 'has a -- separator');
     assertEq(a[sep - 1], 'workstation', 'destination right before --');
-    assertEq(a.slice(sep + 1).join(' '), 'systemctl --user restart archon.service', 'exact remote argv after --');
+    assertEq(a.slice(sep + 1).join(' '), 'systemctl --user restart arco.service', 'exact remote argv after --');
   });
 
   await step('renderSshLifecycle honors user@host + returns null off-platform', () => {
-    const withUser = renderSshLifecycle({ host: 'mac', user: 'operator', platform: 'macos' }, 'archon.restart');
+    const withUser = renderSshLifecycle({ host: 'mac', user: 'operator', platform: 'macos' }, 'arco.restart');
     assert(withUser !== null, 'macos restart renders');
     assert(withUser!.args.includes('operator@mac'), 'user@host destination');
-    assertEq(withUser!.args.slice(withUser!.args.indexOf('--') + 1).join(' '), 'launchctl kickstart -k gui/0/com.archon.app', 'mac restart template');
+    assertEq(withUser!.args.slice(withUser!.args.indexOf('--') + 1).join(' '), 'launchctl kickstart -k gui/0/com.arco.app', 'mac restart template');
     // agent self-restart is unsupported on macOS in v1 → null
-    assertEq(renderSshLifecycle({ host: 'mac', platform: 'macos' }, 'archon-agent.restart'), null, 'off-platform → null');
+    assertEq(renderSshLifecycle({ host: 'mac', platform: 'macos' }, 'arco-agent.restart'), null, 'off-platform → null');
   });
 
   await step('parseSshTargets accepts valid, drops garbage', () => {
@@ -94,10 +94,10 @@ async function main() {
       sshExec: exec,
     });
     hub.registry.register(descriptor(), Date.now());
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.restart');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.restart');
     assert(d.ok, `ssh dispatch ok: ${JSON.stringify(d)}`);
     assertEq(d.via, 'ssh', 'reported via ssh');
-    assertEq(d.result?.cmd, 'archon.restart', 'result carries cmd');
+    assertEq(d.result?.cmd, 'arco.restart', 'result carries cmd');
     assertEq(d.result?.executed, true, 'executed');
     assertEq(calls.length, 1, 'one ssh exec');
     assertEq(calls[0].cmd, 'ssh', 'spawned ssh');
@@ -113,7 +113,7 @@ async function main() {
       sshExec: exec,
     });
     hub.registry.register(descriptor('workstation'), Date.now());
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.status');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.status');
     assert(d.ok && d.via === 'ssh', `resolved by name: ${JSON.stringify(d)}`);
     assert(calls[0].args.includes('100.64.0.10'), 'used the name-keyed target host');
     await hub.close();
@@ -123,7 +123,7 @@ async function main() {
     const { exec } = recordingSshExec(1);
     const hub = createHub({ privateKeyPem: privateKey, port: 0, sshTargets: { [INSTANCE_ID]: { host: 'h', platform: 'linux' } }, sshExec: exec });
     hub.registry.register(descriptor(), Date.now());
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.restart');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.restart');
     assertEq(d.ok, false, 'failed');
     assertEq(d.error, 'ssh-failed', 'reason ssh-failed');
     assertEq(d.via, 'ssh', 'still via ssh');
@@ -133,7 +133,7 @@ async function main() {
   await step('no ssh target → instance-offline (unchanged behavior)', async () => {
     const hub = createHub({ privateKeyPem: privateKey, port: 0 }); // no sshTargets
     hub.registry.register(descriptor(), Date.now());
-    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'archon.restart');
+    const d = await hub.sendLifecycleCommand(INSTANCE_ID, 'arco.restart');
     assert(!d.ok, 'fails');
     assertEq(d.error, 'instance-offline', 'offline when no agent + no ssh');
     assert(d.via === undefined, 'no via set');

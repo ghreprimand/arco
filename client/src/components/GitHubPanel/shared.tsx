@@ -171,9 +171,9 @@ export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBas
           onClick={(e) => {
             e.preventDefault();
             const id = decodeURIComponent(href.slice(1));
-            // Scope to the nearest .archon-markdown container so we don't
+            // Scope to the nearest .arco-markdown container so we don't
             // collide with ids elsewhere on the page.
-            const root = (e.currentTarget as HTMLElement).closest('.archon-markdown') ?? document;
+            const root = (e.currentTarget as HTMLElement).closest('.arco-markdown') ?? document;
             const el = (root as HTMLElement).querySelector ? (root as Element).querySelector('#' + CSS.escape(id)) : null;
             (el as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }}
@@ -229,7 +229,7 @@ export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBas
   };
 
   return (
-    <div className="archon-markdown" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55, color: 'var(--color-accent-primary-dim)' }}>
+    <div className="arco-markdown" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55, color: 'var(--color-accent-primary-dim)' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}

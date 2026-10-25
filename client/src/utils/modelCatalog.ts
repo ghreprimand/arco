@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS, CODEX_PICKER_MODELS, DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@archon/shared';
-import type { ClaudeCatalogSnapshot, CodexCatalogSnapshot, CursorCatalogSnapshot, ModelName, ProviderName } from '@archon/shared';
+import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS, CODEX_PICKER_MODELS, DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@arco/shared';
+import type { ClaudeCatalogSnapshot, CodexCatalogSnapshot, CursorCatalogSnapshot, ModelName, ProviderName } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 // One provider → model-list resolver for every dialog picker (RUN AS, Review,
@@ -28,7 +28,7 @@ export interface ModelCatalogs {
 const STATIC_CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 const STATIC_CODEX_MODELS: ModelName[] = [...CODEX_PICKER_MODELS];
 const STATIC_GEMINI_MODELS: ModelName[] = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'];
-// Antigravity has no Archon-side model choice — the model is whatever the
+// Antigravity has no Arco-side model choice — the model is whatever the
 // operator picked inside the desktop composer. A stub id keeps the plumbing
 // branch-free.
 export const ANTIGRAVITY_STUB_MODEL: ModelName = 'antigravity-desktop';

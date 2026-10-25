@@ -47,7 +47,7 @@ function makeStubManager(answerById: Record<string, string>, captured: CapturedS
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-compare-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-compare-'));
   const workflowId = 'smoke-compare-wf';
   console.log(`compare smoke — cwd ${cwd}  (stubbed workers — no real provider race)`);
   console.log('');

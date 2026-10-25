@@ -6,7 +6,7 @@ import 'highlight.js/styles/atom-one-dark.css';
 import { useAppStore } from '../stores/appStore';
 import { formatModelLabel, totalTokens } from '../utils/format';
 import { TokenBadge } from './TokenBadge';
-import type { WorkerState } from '@archon/shared';
+import type { WorkerState } from '@arco/shared';
 
 // Click a WorkerCard to inspect it here. Live-updates from the store while the
 // worker streams. Esc / X / backdrop closes. Mounted at App level next to
@@ -227,7 +227,7 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
 
           <Section title="OUTPUT">
             <div
-              className="archon-markdown"
+              className="arco-markdown"
               style={{
                 padding: '10px 14px 14px',
                 fontSize: '13px',

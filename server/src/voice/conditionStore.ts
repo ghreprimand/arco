@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { conditionActionTargets } from '@archon/shared';
+import { conditionActionTargets } from '@arco/shared';
 import { isDeepStrictEqual } from 'node:util';
-import type { ComputerConditionDefinition, ComputerConditionRule, ConditionExpression, ConditionWorkerFacts, ConditionComparison, ConditionAction, ConditionField } from '@archon/shared';
+import type { ComputerConditionDefinition, ComputerConditionRule, ConditionExpression, ConditionWorkerFacts, ConditionComparison, ConditionAction, ConditionField } from '@arco/shared';
 type Truth = boolean | null;
 export function compareFact(a: number | boolean | null | undefined, cmp:ConditionComparison,b:number|boolean):Truth {
   if(a===null || a===undefined || typeof a!==typeof b)return null;

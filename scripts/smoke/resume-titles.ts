@@ -1,8 +1,8 @@
 // H2 — layered title generation smoke.
 //
-// PURE — NO Archon WebSocket / server boot / live model / recall db. Exercises
+// PURE — NO Arco WebSocket / server boot / live model / recall db. Exercises
 // the §H2 title layers in server/src/workflows/sessionIndex.ts directly against
-// a throwaway .archon tree:
+// a throwaway .arco tree:
 //   - the deterministic title SKIPS generic openers ("continue") and titles a
 //     session by its first REAL ask → titles improve over the raw first message;
 //   - a dynamic "where this left off" subtitle is derived from the last
@@ -56,7 +56,7 @@ function makeMeta(cwd: string, over: Partial<WorkflowMeta> & Pick<WorkflowMeta, 
 }
 
 async function seedWorkflow(cwd: string, meta: WorkflowMeta, messages: string[]): Promise<void> {
-  const dir = path.join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', meta.workflowId);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n', 'utf8');
   const lines = messages.map((content, i) => JSON.stringify({ seq: i + 1, type: 'user_message_echo', content }));
@@ -64,7 +64,7 @@ async function seedWorkflow(cwd: string, meta: WorkflowMeta, messages: string[])
 }
 
 async function main(): Promise<void> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-resume-titles-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-resume-titles-'));
   try {
     // ── 1. Generic opener is skipped; first REAL ask becomes the title ──
     const metaA = makeMeta(tmp, { workflowId: 'wf-aaaa1111', lastEventSeq: 5 });
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
 
     // ── 5. Operator title outranks a later model-title apply ──
     idx.entries = idx.entries.map((x) => x.workflowId === 'wf-aaaa1111' ? { ...x, title: 'My renamed session', titleSource: 'operator' as const } : x);
-    await fs.writeFile(path.join(tmp, '.archon', 'session-index.json'), JSON.stringify(idx, null, 2) + '\n', 'utf8');
+    await fs.writeFile(path.join(tmp, '.arco', 'session-index.json'), JSON.stringify(idx, null, 2) + '\n', 'utf8');
     const r3 = await applyModelTitle(tmp, 'wf-aaaa1111', 'Some model suggestion', { sourceHash: '9', now: 12_000 });
     check('operator title outranks model apply', r3.status === 'outranked', r3.status);
     idx = await readSessionIndex(tmp);

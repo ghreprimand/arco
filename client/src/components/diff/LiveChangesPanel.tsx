@@ -4,7 +4,7 @@ import type {
   WorkingChangeEntry,
   WorkingChangesResponse,
   WorkingFileDiffResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import {
   liveChangesKey,
@@ -132,8 +132,8 @@ export function LiveChangesPanel({
   }, [liveSnapshot, load]);
 
   const rows = useMemo(() => state.kind === 'ready' ? flatten(dataOrEmpty(state.data)) : [], [state]);
-  const visibleRows = useMemo(() => rows.filter((row) => !isArchonStatePath(row.path)), [rows]);
-  const hiddenArchonRows = rows.length - visibleRows.length;
+  const visibleRows = useMemo(() => rows.filter((row) => !isArcoStatePath(row.path)), [rows]);
+  const hiddenArcoRows = rows.length - visibleRows.length;
 
   useEffect(() => {
     if (visibleRows.length === 0) {
@@ -147,20 +147,20 @@ export function LiveChangesPanel({
   }, [visibleRows]);
 
   if (!wfid) {
-    return <div className="archon-diff-empty display-font">No cluster member is available to read workspace changes.</div>;
+    return <div className="arco-diff-empty display-font">No cluster member is available to read workspace changes.</div>;
   }
   if (state.kind === 'loading') {
-    return <div className="archon-diff-empty display-font">Watching working tree...</div>;
+    return <div className="arco-diff-empty display-font">Watching working tree...</div>;
   }
   if (state.kind === 'error') {
     return (
-      <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
+      <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
         Live changes failed: {state.message}
       </div>
     );
   }
   if (!state.data.isRepo) {
-    return <div className="archon-diff-empty display-font">Not a git working tree - live changes need a repo in this version.</div>;
+    return <div className="arco-diff-empty display-font">Not a git working tree - live changes need a repo in this version.</div>;
   }
 
   return (
@@ -191,7 +191,7 @@ export function LiveChangesPanel({
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {visibleRows.length === 0 ? (
-            <div className="archon-diff-empty display-font" style={{ padding: '10px' }}>Working tree clean.</div>
+            <div className="arco-diff-empty display-font" style={{ padding: '10px' }}>Working tree clean.</div>
           ) : (
             GROUP_ORDER.map((group) => (
               <LiveGroup
@@ -204,13 +204,13 @@ export function LiveChangesPanel({
               />
             ))
           )}
-          {hiddenArchonRows > 0 && (
+          {hiddenArcoRows > 0 && (
             <div
               className="display-font"
-              title="Arco's own .archon runtime state is hidden from LIVE so agent edits stay visible."
+              title="Arco's own .arco runtime state is hidden from LIVE so agent edits stay visible."
               style={{ padding: '8px', color: 'var(--color-fg-muted)', fontSize: '8px', letterSpacing: '1px' }}
             >
-              HIDING {hiddenArchonRows} ARCO STATE FILE{hiddenArchonRows === 1 ? '' : 'S'}
+              HIDING {hiddenArcoRows} ARCO STATE FILE{hiddenArcoRows === 1 ? '' : 'S'}
             </div>
           )}
         </div>
@@ -224,7 +224,7 @@ export function LiveChangesPanel({
             refreshKey={liveSnapshot?.fingerprints?.[rowKey(selected)] ?? String(liveSnapshot?.ts ?? '')}
           />
         ) : (
-          <div className="archon-diff-empty display-font">Select a changed file to inspect the edited area.</div>
+          <div className="arco-diff-empty display-font">Select a changed file to inspect the edited area.</div>
         )}
       </div>
     </div>
@@ -343,10 +343,10 @@ function LiveFileSource({ wfid, cwd, row, refreshKey }: { wfid: string; cwd: str
   }, [hunks, payload, scrollToHunk]);
 
   if (error) {
-    return <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>Failed to inspect file: {error}</div>;
+    return <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>Failed to inspect file: {error}</div>;
   }
   if (!diff || !payload) {
-    return <div className="archon-diff-empty display-font">Opening changed area...</div>;
+    return <div className="arco-diff-empty display-font">Opening changed area...</div>;
   }
 
   return (
@@ -371,7 +371,7 @@ function LiveFileSource({ wfid, cwd, row, refreshKey }: { wfid: string; cwd: str
         )}
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', background: 'var(--color-bg)' }}>
-        {diff.binary && <div className="archon-diff-empty display-font">Binary or oversized file - source diff is not available.</div>}
+        {diff.binary && <div className="arco-diff-empty display-font">Binary or oversized file - source diff is not available.</div>}
         {payload.type === 'text' && (
           <pre style={{ margin: 0, padding: '8px 0', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.55 }}>
             {payload.content.split('\n').map((line, index) => {
@@ -443,8 +443,8 @@ function rowKey(row: LiveRow): string {
   return `${row.group}:${row.path}`;
 }
 
-function isArchonStatePath(path: string): boolean {
-  return path === '.archon' || path.startsWith('.archon/');
+function isArcoStatePath(path: string): boolean {
+  return path === '.arco' || path.startsWith('.arco/');
 }
 
 function joinPath(cwd: string, file: string): string {
@@ -485,7 +485,7 @@ function statusColor(status: string): string {
 
 function InfoLine({ text, danger = false }: { text: string; danger?: boolean }) {
   return (
-    <div className="archon-diff-empty display-font" style={{ color: danger ? 'var(--color-danger)' : 'var(--color-fg-muted)' }}>
+    <div className="arco-diff-empty display-font" style={{ color: danger ? 'var(--color-danger)' : 'var(--color-fg-muted)' }}>
       {text}
     </div>
   );

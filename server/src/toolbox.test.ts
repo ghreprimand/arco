@@ -44,7 +44,7 @@ test('Codex catalog normalization uses $ mentions, scope, display metadata, and 
         },
         {
           name: 'templates:report', description: 'Create report',
-          path: '/home/u/.archon/provider-accounts/codex-work/plugins/cache/vendor/templates/1.0/skills/report/SKILL.md',
+          path: '/home/u/.arco/provider-accounts/codex-work/plugins/cache/vendor/templates/1.0/skills/report/SKILL.md',
           scope: 'user', enabled: true,
         },
         {

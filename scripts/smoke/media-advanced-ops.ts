@@ -33,7 +33,7 @@ import {
   MediaOpError,
   type MediaAccess,
 } from '../../server/src/media/ffmpeg.js';
-import type { MediaOpSpec } from '@archon/shared';
+import type { MediaOpSpec } from '@arco/shared';
 
 function run(bin: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -172,8 +172,8 @@ async function main() {
     return;
   }
 
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n3-cwd-'));
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n3-outside-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n3-cwd-'));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n3-outside-'));
   try {
     // A short video WITH an audio track, and a couple of audio clips.
     const vid = path.join(cwd, 'clip.mp4');

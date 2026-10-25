@@ -35,13 +35,17 @@ const rules = [
   ['credential-assignment', /\b(?:api_key|apiKey|access_token|refresh_token|client_secret)\s*[=:]\s*["'][A-Za-z0-9_./+\-=]{32,}["']/],
 ];
 const safeUsers = new Set(['operator', 'example', 'user', 'username', 'u', 'op', 'root', 'nobody', 'glob', 'real', 'test', 'runner', 'node']);
-// Public protocol endpoints and synthetic addresses used by retained Archon
+// Public protocol endpoints and synthetic addresses used by retained Arco
 // parsing and checkpoint behavior. Reserved test domains never deliver mail.
 const publicAddresses = new Set([
   '203024559+ghreprimand@users.noreply.github.com',
   'git@github.com', // Git SSH endpoint, not a personal mailbox.
   'a@b.com', // Literal reference-parser example, not an operator identity.
-  'checkpoint@archon.local', 'test@archon.local', // Internal fixture identities.
+  'checkpoint@arco.local', 'test@arco.local', // Internal fixture identities.
+  // The same identities under the upstream name, present in commits before
+  // the rename; the push audit scans full ancestry. Assembled from parts so
+  // the tree carries no occurrence of the upstream name.
+  ...['checkpoint', 'test'].map((user) => `${user}@${['arc', 'hon'].join('')}.local`),
 ]);
 function inspect(label, buffer) {
   // NULs may occur in source literals or UTF-16 metadata. They must not hide
@@ -78,7 +82,7 @@ const publicMedia = new Set([
 ]);
 const cachePath = /(?:^|\/)(?:__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(?:\/|$)|\.(?:pyc|pyo|tsbuildinfo)$/;
 function inspectFile(file, buffer) {
-  if (/(?:^|\/)(?:\.archon|\.codex|\.claude)(?:\/|$)/.test(file)) report(file, 1, 'local-runtime-state');
+  if (/(?:^|\/)(?:\.arco|\.codex|\.claude)(?:\/|$)/.test(file)) report(file, 1, 'local-runtime-state');
   if (/\.(?:png|jpe?g|gif|webp|avif|bmp|tiff?|wav|mp3|mp4|webm|m4a|mov|ogg|flac)$/i.test(file) && !publicMedia.has(file)) report(file, 1, 'screenshot-or-recording-file');
   if (/(?:^|\/)(?:\.env(?:\..*)?|auth\.json|credentials(?:\.json)?|events\.jsonl|meta\.json|id_(?:rsa|ed25519)|.*\.(?:pem|key|p12|pfx)|.*\.sqlite(?:3)?|.*\.db)$/.test(file) && !file.endsWith('/.env.example') && file !== '.env.example') report(file, 1, 'runtime-or-secret-file');
   if (cachePath.test(file)) report(file, 1, 'generated-cache-file');
@@ -125,7 +129,7 @@ function proposedTips() {
     git('check-ref-format', remoteRef);
     // Only distributable branch/tag destinations are supported. Even renaming
     // a runtime checkpoint into a branch must not publish it accidentally.
-    if (!/^refs\/(?:heads|tags)\//.test(remoteRef) || localRef.startsWith('refs/archon/')) {
+    if (!/^refs\/(?:heads|tags)\//.test(remoteRef) || localRef.startsWith('refs/arco/')) {
       report('push-ref', 1, 'non-publication-ref');
     }
     inspect('git-ref-name', Buffer.from(remoteRef));

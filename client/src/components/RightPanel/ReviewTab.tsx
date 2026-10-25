@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { WorkflowConfig } from '@archon/shared';
+import type { WorkflowConfig } from '@arco/shared';
 import { useAppStore, type JobState, type ReviewEntry } from '../../stores/appStore';
 import { SpawnDialog } from '../SpawnDialog';
 import { FileViewerModal } from '../FileViewerModal';

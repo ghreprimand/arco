@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §C1 — observable runtime-state acceptance.
+// ARCO_OPS_PLAN.md §C1 — observable runtime-state acceptance.
 //
 // Pure-deriver smoke: no live server, no provider spend, fully deterministic.
 // It imports the §C1 deriver directly and asserts every (a)-(f) state plus the
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
   // ── Acceptance contrast (the §C1 headline) ──
 
   await step('ACCEPTANCE: killing the server vs a silent worker derive different states', () => {
-    // Operator killed the Archon server process: socket closed + healthz down.
+    // Operator killed the Arco server process: socket closed + healthz down.
     const killedServer = deriveConnectionState({
       wsState: 'closed',
       everOpened: true,

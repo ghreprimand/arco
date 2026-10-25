@@ -4,21 +4,21 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
-import { CLAUDE_MODELS } from '@archon/shared';
-import type { Capabilities, EffortLevel, ModelName } from '@archon/shared';
+import { CLAUDE_MODELS } from '@arco/shared';
+import type { Capabilities, EffortLevel, ModelName } from '@arco/shared';
 import { getStrataBase } from './providers/strata.js';
 import { getDeepSeekBase } from './providers/deepseek.js';
 import { probeStrataVersion, installedXolotlRevision, strataEngineReleaseVersion } from './providers/runtimeVersions.js';
 import { atomicWriteFile } from './atomicFile.js';
 import { resolveInstallableVersion } from './npmPlatformResolve.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const execFileAsync = promisify(execFile);
 
 const FALLBACK_EFFORTS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 const MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 
-// Provider we know how to check/update from Archon. Not a union with
+// Provider we know how to check/update from Arco. Not a union with
 // ProviderName because Ollama isn't a CLI and doesn't ship with a version
 // flag in the same sense.
 export type CliProvider = 'claude' | 'gemini' | 'codex';
@@ -122,7 +122,7 @@ async function ollamaLatestRelease(): Promise<string | undefined> {
 }
 
 export async function refreshRuntimeVersions(previous: Capabilities): Promise<Capabilities> {
-  // Installed runtimes can change outside Archon. Refresh on demand without
+  // Installed runtimes can change outside Arco. Refresh on demand without
   // probing every CLI/upstream registry or starting an inference service.
   const [strataVersion, xolotlRevision] = await Promise.all([
     probeStrataVersion(await getStrataBase()),
@@ -246,7 +246,7 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
   // cheap next to leaving the operator's CLI dead.
   if ((currentVersion === 'broken' || currentVersion === 'unknown') && pkg) {
     const repairArgs = [...args, '--force'];
-    output += `\n\n[archon] ${provider} did not run after the update — retrying: npm ${repairArgs.join(' ')}`;
+    output += `\n\n[arco] ${provider} did not run after the update — retrying: npm ${repairArgs.join(' ')}`;
     output += `\n${await runUpdateCommand('npm', repairArgs)}`;
     next = await probeCapabilities();
     currentVersion = versionForProvider(next, provider);
@@ -301,9 +301,9 @@ async function runUpdateCommand(cmd: string, args: string[]): Promise<string> {
 // On boot we snapshot each CLI's help surface and diff against the last
 // snapshot. If anything changed (new version or new flags) we surface a
 // toast in the UI so the operator isn't left discovering new CLI features
-// by accident. Snapshots live at `~/.archon/cli-snapshots/`.
+// by accident. Snapshots live at `~/.arco/cli-snapshots/`.
 
-const SNAPSHOT_DIR = join(archonHome(), 'cli-snapshots');
+const SNAPSHOT_DIR = join(arcoHome(), 'cli-snapshots');
 
 const HELP_PROBES: Record<CliProvider, string[][]> = {
   claude: [['--help'], ['config', '--help'], ['mcp', '--help']],
@@ -387,7 +387,7 @@ function simpleDiff(oldText: string, newText: string): string {
 /**
  * Compare current CLI help surfaces against the last persisted snapshots.
  * For each provider whose version OR help hash changed, writes a fresh
- * snapshot + a dated diff file under ~/.archon/cli-snapshots/ and returns
+ * snapshot + a dated diff file under ~/.arco/cli-snapshots/ and returns
  * a CliChange entry. First-run providers (no prior snapshot) seed a
  * baseline silently and are NOT reported as changes.
  */
@@ -424,7 +424,7 @@ export async function detectCliChanges(caps: Capabilities): Promise<CliChange[]>
     try {
       await fs.writeFile(join(SNAPSHOT_DIR, diffFileName), diff, 'utf8');
     } catch (err) {
-      console.warn(`[archon] failed to write CLI diff ${diffFileName}:`, err);
+      console.warn(`[arco] failed to write CLI diff ${diffFileName}:`, err);
     }
 
     await writeSnapshot(p, snap.text, { version: currentVersion, hash: snap.hash, seenAt: now });

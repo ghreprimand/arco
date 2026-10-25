@@ -3,8 +3,8 @@ import { promisify } from 'util';
 import { access, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import { ZAI_MODELS } from '@archon/shared';
-import type { ProviderName, AuthLoginTarget, AuthLoginResult } from '@archon/shared';
+import { ZAI_MODELS } from '@arco/shared';
+import type { ProviderName, AuthLoginTarget, AuthLoginResult } from '@arco/shared';
 import { getOllamaBase, probeOllama } from './providers/ollama.js';
 import { probeCodexLoggedIn } from './providers/codex.js';
 import { probeLlamacpp } from './providers/llamacpp.js';
@@ -86,9 +86,9 @@ export interface AuthStatusByProvider {
   zai: AuthStatus;
   github: AuthStatus;
   // Antigravity: loggedIn == desktop debug-port reachable for now, since auth
-  // happens inside the Antigravity desktop profile, not through Archon.
+  // happens inside the Antigravity desktop profile, not through Arco.
   antigravity: AuthStatus;
-  // llama.cpp: loggedIn == llama-server binary present + ~/.archon/llamacpp.json
+  // llama.cpp: loggedIn == llama-server binary present + ~/.arco/llamacpp.json
   // parses cleanly. Models from the catalog populate installedModels +
   // installedModelCapabilities so the picker UI works identically to Ollama's.
   llamacpp: AuthStatus;
@@ -99,7 +99,7 @@ export interface AuthStatusByProvider {
   strata: AuthStatus;
   deepseek: AuthStatus;
   // Cursor (ACP): loggedIn == ~/.config/cursor/auth.json has a session token
-  // that `cursor-agent` maintains. Archon doesn't run the login flow — the
+  // that `cursor-agent` maintains. Arco doesn't run the login flow — the
   // operator authenticates once via `cursor-agent login`.
   cursor: AuthStatus;
 }
@@ -459,7 +459,7 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
   return { claude, gemini, ollama, codex, zai, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor };
 }
 
-// Login is operator-run in Archon's own terminal (a PTY on this box), never
+// Login is operator-run in Arco's own terminal (a PTY on this box), never
 // spawned here. Each command below is the CLI's headless mode — it prints a
 // URL / device code (and a paste prompt where the flow needs one) instead of
 // requiring a browser on this machine, so it works identically at the desk,

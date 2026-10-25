@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-goalrun-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-goalrun-'));
   console.log(`Goal-run smoke — cwd ${cwd}`);
   console.log('');
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppStore, type JobState, type HistoryEventEntry } from '../stores/appStore';
-import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, WorkflowConfig, ServerMessage } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, WorkflowConfig, ServerMessage } from '@arco/shared';
 import { ReviewDialog } from './ReviewDialog';
 import { SpawnDialog } from './SpawnDialog';
 import { FileViewerModal } from './FileViewerModal';
@@ -31,7 +31,7 @@ const FILTERS: { id: FilterPreset; label: string; categories: HistoryEventEntry[
   { id: 'forks', label: 'REWINDS', categories: ['fork'] },
 ];
 
-const FILTER_KEY_PREFIX = 'archon.historyFilter.byWorkflow';
+const FILTER_KEY_PREFIX = 'arco.historyFilter.byWorkflow';
 
 function loadFilter(workflowId: string): FilterPreset {
   try {
@@ -94,8 +94,8 @@ export function HistoryTab({ job }: Props) {
   const [pagedEvents, setPagedEvents] = useState<HistoryEventEntry[]>([]);
   const [historyHasEarlier, setHistoryHasEarlier] = useState(true);
   const [loadingEarlierHistory, setLoadingEarlierHistory] = useState(false);
-  // Reviews live under .archon/workflows/<id>/artifacts/, handoffs under
-  // .archon/workflows/<id>/handoffs/ — same modal, different subdir.
+  // Reviews live under .arco/workflows/<id>/artifacts/, handoffs under
+  // .arco/workflows/<id>/handoffs/ — same modal, different subdir.
   const [viewerArtifactKind, setViewerArtifactKind] = useState<'review' | 'handoff'>('review');
 
   const events = useMemo(() => {
@@ -492,7 +492,7 @@ export function HistoryTab({ job }: Props) {
 
       {viewerArtifact && job.config.workingDirectory && (
         <FileViewerModal
-          path={`${job.config.workingDirectory}/.archon/workflows/${job.id}/${viewerArtifactKind === 'handoff' ? 'handoffs' : 'artifacts'}/${viewerArtifact}`}
+          path={`${job.config.workingDirectory}/.arco/workflows/${job.id}/${viewerArtifactKind === 'handoff' ? 'handoffs' : 'artifacts'}/${viewerArtifact}`}
           fallback={{ cwd: job.config.workingDirectory, workflowId: job.id }}
           onClose={() => setViewerArtifact(null)}
         />

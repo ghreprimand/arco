@@ -10,8 +10,8 @@ runbook (find the log, run both detectors, interpret, confirm with raw
 evidence): `docs/WATCHDOG_PLAN.md` § 6.5.
 
 ```bash
-# default log dir is .archon/workflows under the current directory; override per project:
-WATCHDOG_LOGDIR=~/Projects/<proj>/.archon/workflows python3 scripts/watchdog-eval/03-error-persistence.py
+# default log dir is .arco/workflows under the current directory; override per project:
+WATCHDOG_LOGDIR=~/Projects/<proj>/.arco/workflows python3 scripts/watchdog-eval/03-error-persistence.py
 ```
 
 - `01-naive-repetition.py` — repeated `(tool,input)` signatures. **Falsified** (fires on all healthy work).

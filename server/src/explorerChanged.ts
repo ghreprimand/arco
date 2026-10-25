@@ -6,8 +6,8 @@ import { confinedPath } from './fileAccessPolicy.js';
 // the ledger it covers the hole either has alone (§9).
 //
 // Portable Node fs walk (§5 — no `fd`, which isn't guaranteed on macOS), pruning
-// the usual build/VCS dirs plus `.archon` internals EXCEPT
-// `.archon/workflows/*/artifacts/`. Depth-capped (8) and count-capped (500,
+// the usual build/VCS dirs plus `.arco` internals EXCEPT
+// `.arco/workflows/*/artifacts/`. Depth-capped (8) and count-capped (500,
 // newest-first) so a pathological tree can't hang the request. $HOME-jailed via
 // realpathWithinHome.
 
@@ -44,16 +44,16 @@ export function parseWithin(within: string | null | undefined): number {
   return Math.max(60_000, n * mult);
 }
 
-// `.archon` carve-out: only `.archon/workflows/<wfid>/artifacts/**` survives.
+// `.arco` carve-out: only `.arco/workflows/<wfid>/artifacts/**` survives.
 // `segs` is the path relative to the project root. Dirs may be a proper prefix
 // of that pattern (to descend); files must be strictly inside an artifacts dir.
-export function underArchonAllowed(segs: string[], isDir: boolean): boolean {
-  const i = segs.indexOf('.archon');
+export function underArcoAllowed(segs: string[], isDir: boolean): boolean {
+  const i = segs.indexOf('.arco');
   if (i === -1) return true;
   const tail = segs.slice(i);
   if (tail.length >= 2 && tail[1] !== 'workflows') return false;
   if (tail.length >= 4 && tail[3] !== 'artifacts') return false;
-  if (!isDir && tail.length < 5) return false; // a file directly under .archon/… is pruned
+  if (!isDir && tail.length < 5) return false; // a file directly under .arco/… is pruned
   return true;
 }
 
@@ -78,10 +78,10 @@ async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProj
       if (e.isDirectory()) {
         if (depth + 1 > MAX_DEPTH) continue;
         if (PRUNE_DIRS.has(e.name)) continue;
-        if (!underArchonAllowed(childSegs, true)) continue;
+        if (!underArcoAllowed(childSegs, true)) continue;
         stack.push({ dir: abs, segs: childSegs, depth: depth + 1 });
       } else if (e.isFile()) {
-        if (!underArchonAllowed(childSegs, false)) continue;
+        if (!underArcoAllowed(childSegs, false)) continue;
         let st;
         try { st = await stat(abs); } catch { continue; }
         if (st.mtimeMs < cutoff) continue;

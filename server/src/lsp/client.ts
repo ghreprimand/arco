@@ -3,7 +3,7 @@
 //
 // We only need the diagnostics slice of LSP: spawn the server, handshake
 // (initialize → initialized), didOpen the changed file, and forward the
-// server's `textDocument/publishDiagnostics` notifications as Archon
+// server's `textDocument/publishDiagnostics` notifications as Arco
 // `diagnostics` protocol messages. We do NOT implement completion, hover,
 // formatting, etc.
 //
@@ -22,7 +22,7 @@
 // it. Acceptable for a best-effort diagnostics subsystem; the worker token-
 // burning processes are the ones that warrant the durable registry.
 //
-// 0-based → 1-based: LSP positions are 0-based (line + character). Archon's UI
+// 0-based → 1-based: LSP positions are 0-based (line + character). Arco's UI
 // is 1-based. The single conversion point is `mapPublishDiagnostics` below
 // (line/column = lspRange.start.line + 1 / .character + 1). Everything that
 // crosses the protocol wire is already 1-based.
@@ -32,7 +32,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { promises as fs } from 'node:fs';
 import { relative, isAbsolute, resolve } from 'node:path';
 import { EventEmitter } from 'node:events';
-import type { DiagnosticItem, DiagnosticsMessage, DiagnosticSeverity } from '@archon/shared';
+import type { DiagnosticItem, DiagnosticsMessage, DiagnosticSeverity } from '@arco/shared';
 import { resolveServer, languageIdForPath, type ResolvedServer } from './servers.js';
 
 // ── Pure: message framing (the bug-prone core; unit-tested by the smoke) ──
@@ -165,7 +165,7 @@ function fileUriToPath(uri: string): string | null {
 // ── Lifecycle manager ──
 
 const IDLE_EVICT_MS = (() => {
-  const env = process.env.ARCHON_LSP_KEEPALIVE_MS;
+  const env = process.env.ARCO_LSP_KEEPALIVE_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 0) return n;
@@ -297,7 +297,7 @@ class LspManager extends EventEmitter {
           synchronization: { didSave: true, dynamicRegistration: false },
         },
       },
-      workspaceFolders: [{ uri: pathToFileURL(resolve(cwd)).href, name: 'archon' }],
+      workspaceFolders: [{ uri: pathToFileURL(resolve(cwd)).href, name: 'arco' }],
     };
     this.send(entry, { jsonrpc: '2.0', id: initId, method: 'initialize', params: initParams });
 
@@ -431,7 +431,7 @@ const LANGUAGE_SAMPLE_EXT: Record<string, string> = {
 function samplePathForLanguage(languageId: string, cwd: string): string | null {
   const ext = LANGUAGE_SAMPLE_EXT[languageId];
   if (!ext) return null;
-  return resolve(cwd, `__archon_lsp_probe__${ext}`);
+  return resolve(cwd, `__arco_lsp_probe__${ext}`);
 }
 
 // Module-level singleton (mirrors llamacppManager). Importers share one.

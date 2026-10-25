@@ -4,7 +4,7 @@ import { mailRuleRequest } from './mailRules';
 import { readVoiceUsage } from './usage';
 import { watchRequest } from './watches';
 import { controlComputer } from './computerControl';
-import { presetForText, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceCommand, type VoiceContext, type VoiceTarget, type VoiceToolCallMessage, type WorkflowConfig } from '@archon/shared';
+import { presetForText, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceCommand, type VoiceContext, type VoiceTarget, type VoiceToolCallMessage, type WorkflowConfig } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { requestChatFollow } from '../stores/chatFollowStore';
 import type { JobState } from '../stores/appStore.types';
@@ -29,7 +29,7 @@ export class VoiceExecutor {
   private history: Array<{ clusterId: string | null; workflowId: string | null }> = [];
   private stopStatusReply: (() => void) | null = null;
   readonly conversation: ComputerConversation;
-  constructor(private senders: VoiceSenders, private reply: (text: string, mode?: 'archon' | 'conversation') => void = () => {}) {
+  constructor(private senders: VoiceSenders, private reply: (text: string, mode?: 'arco' | 'conversation') => void = () => {}) {
     this.conversation = new ComputerConversation(senders, reply);
   }
 
@@ -80,9 +80,9 @@ export class VoiceExecutor {
     const loose = visible.filter((t) => t.kind === 'workflow' || t.kind === 'chat' || (t.kind === 'member' && !visible.some((c) => c.kind === 'cluster' && c.id === t.clusterId)));
     if (loose.length) groups.push(`workflows: ${loose.map((t) => t.kind === 'chat' ? `${t.name} (chat)` : t.name).join(', ')}`);
     let roster = groups.join('; ');
-    if (roster.length > 2400) roster = `${roster.slice(0, 2400)}… (more open; call archon_targets for the full list)`;
+    if (roster.length > 2400) roster = `${roster.slice(0, 2400)}… (more open; call arco_targets for the full list)`;
     const current = selected ? (selected.kind === 'member' ? `${member(selected)} in cluster ${cluster?.name ?? '?'}` : `${selected.name} [${selected.kind}]`) : 'nothing';
-    return `[Archon context] selected: ${current}. Open: ${roster || 'nothing else'}.`;
+    return `[Arco context] selected: ${current}. Open: ${roster || 'nothing else'}.`;
   }
 
   interpreterContext(): VoiceContext {
@@ -318,7 +318,7 @@ export class VoiceExecutor {
         return last ? `${t.name}. ${last.content.replace(/```[\s\S]*?```/g, ' Code block omitted. ').slice(0, 4500)}` : 'No assistant response is available.';
       }
       case 'status': {
-        // A named target (Computer's archon_status) reports that one thing;
+        // A named target (Computer's arco_status) reports that one thing;
         // the bare command keeps the old selection-wide behaviour.
         if (command.target) {
           const t = this.target(command); if (typeof t === 'string') return t;
@@ -419,8 +419,8 @@ export class VoiceExecutor {
     const s = useAppStore.getState();
     const a = call.args;
     switch (call.tool) {
-      case 'archon_condition': return conditionToolRequest(call.workflowId,a);
-      case 'archon_compact': {
+      case 'arco_condition': return conditionToolRequest(call.workflowId,a);
+      case 'arco_compact': {
         if(!s.connected||!s.wsSendRaw)throw Error('Disconnected. Compaction was not requested.');
         const t=this.target({action:'status',target:a.target??'',value:''},true);
         if(typeof t==='string')throw Error(t);
@@ -438,21 +438,21 @@ export class VoiceExecutor {
         });
         return `Compaction requested for ${t.name}; wait for its completion state. Ollama performs it at the start of the next turn.`;
       }
-      case 'archon_usage': return readVoiceUsage(a.provider);
-      case 'archon_activity': return activityToolRequest(call.workflowId,a);
-      case 'archon_mail_rule': return mailRuleRequest(call.workflowId, a);
-      case 'archon_watch': return watchRequest(call.workflowId, a);
-      case 'archon_computer': return controlComputer(a);
-      case 'archon_targets': {
+      case 'arco_usage': return readVoiceUsage(a.provider);
+      case 'arco_activity': return activityToolRequest(call.workflowId,a);
+      case 'arco_mail_rule': return mailRuleRequest(call.workflowId, a);
+      case 'arco_watch': return watchRequest(call.workflowId, a);
+      case 'arco_computer': return controlComputer(a);
+      case 'arco_targets': {
         const context = this.interpreterContext();
         return JSON.stringify({ selected: context.currentId, cluster: context.clusterId, targets: context.targets.map((t) => ({
           id: t.id, name: t.name, kind: t.kind, cluster: t.clusterId, role: t.role, aliases: t.aliases,
           busy: t.kind === 'cluster' ? undefined : !!(s.jobs[t.id]?.busy || s.jobs[t.id]?.messages.some((m) => m.isStreaming)),
           mail: t.clusterId ? s.clusters[t.clusterId]?.mailboxDepth[t.id] ?? 0 : undefined })) });
       }
-      case 'archon_select': return this.execute({ action: 'navigate', target: a.target ?? '', value: '' });
-      case 'archon_open_panel': return this.execute({ action: 'panel', target: '', value: a.panel ?? '' });
-      case 'archon_send_message': {
+      case 'arco_select': return this.execute({ action: 'navigate', target: a.target ?? '', value: '' });
+      case 'arco_open_panel': return this.execute({ action: 'panel', target: '', value: a.panel ?? '' });
+      case 'arco_send_message': {
         const text = (a.text ?? '').trim();
         if (!text) throw new Error('Empty message.');
         if (!s.connected) throw new Error('Disconnected. Nothing was sent.');
@@ -466,29 +466,29 @@ export class VoiceExecutor {
         if (!this.sendMessage(t.id, text, undefined, mode)) throw new Error('Disconnected. Nothing was sent.');
         return `${mode === 'follow-up' ? 'Follow-up queued' : 'Message sent'} to ${t.name}.`;
       }
-      case 'archon_nudge': return this.execute({ action: 'nudge', target: a.target ?? '', value: '' });
-      case 'archon_cancel_turn': return this.execute({ action: 'cancel-turn', target: a.target ?? '', value: '' });
-      case 'archon_read_latest': return this.execute({ action: 'read', target: a.target ?? 'this', value: '' });
-      case 'archon_read_recent': return this.execute({ action: 'recent', target: a.target ?? 'this', value: a.messages ?? '' });
-      case 'archon_status': return this.execute({ action: 'status', target: a.target ?? '', value: '' });
-      case 'archon_open': return this.execute({ action: 'global', target: '', value: a.name ?? '' });
-      case 'archon_open_dialog': return this.execute({ action: 'dialog', target: '', value: a.name ?? '' });
-      case 'archon_screen': {
+      case 'arco_nudge': return this.execute({ action: 'nudge', target: a.target ?? '', value: '' });
+      case 'arco_cancel_turn': return this.execute({ action: 'cancel-turn', target: a.target ?? '', value: '' });
+      case 'arco_read_latest': return this.execute({ action: 'read', target: a.target ?? 'this', value: '' });
+      case 'arco_read_recent': return this.execute({ action: 'recent', target: a.target ?? 'this', value: a.messages ?? '' });
+      case 'arco_status': return this.execute({ action: 'status', target: a.target ?? '', value: '' });
+      case 'arco_open': return this.execute({ action: 'global', target: '', value: a.name ?? '' });
+      case 'arco_open_dialog': return this.execute({ action: 'dialog', target: '', value: a.name ?? '' });
+      case 'arco_screen': {
         if (typeof document === 'undefined') throw new Error('No screen in this window.');
         return readScreen(document, { helpTitle: (key) => HELP_CONTENT[key]?.title, filter: a.filter || undefined }).text;
       }
-      case 'archon_read_text': {
+      case 'arco_read_text': {
         if (typeof document === 'undefined') throw new Error('No screen in this window.');
         return readText(document, { filter: a.filter || undefined });
       }
-      case 'archon_act': {
+      case 'arco_act': {
         if (typeof document === 'undefined') throw new Error('No screen in this window.');
         const action = a.action as import('./screen').ActRequest['action'];
-        if (!['click', 'type', 'toggle', 'select', 'press', 'options', 'focus', 'hover', 'double_click', 'context_menu', 'scroll'].includes(action)) throw new Error('Unknown screen action. Inspect the archon_act tool schema.');
+        if (!['click', 'type', 'toggle', 'select', 'press', 'options', 'focus', 'hover', 'double_click', 'context_menu', 'scroll'].includes(action)) throw new Error('Unknown screen action. Inspect the arco_act tool schema.');
         return actOnScreen(document, { control: a.control ?? '', action, text: a.text, confirm: a.confirm === 'true' }, { helpTitle: (key) => HELP_CONTENT[key]?.title });
       }
       // 2026-10-17: a tab left on a pre-rebuild bundle answered "Unknown
-      // tool." for archon_screen and Computer asked the operator to close the
+      // tool." for arco_screen and Computer asked the operator to close the
       // dialog by hand. Say what is actually wrong.
       default: throw new Error(`This window is running an older Arco build that has no ${call.tool} tool. Tell the operator the page needs a reload (there is a RELOAD banner at the top of the window); do not ask them to do the task by hand.`);
     }
@@ -504,7 +504,7 @@ export class VoiceExecutor {
     };
     const timer = setTimeout(stop, 120_000); timer.unref?.();
     this.stopStatusReply = stop;
-    offVoice = useVoiceStore.subscribe((state) => { if (!state.enabled || state.mode !== 'archon') stop(); });
+    offVoice = useVoiceStore.subscribe((state) => { if (!state.enabled || state.mode !== 'arco') stop(); });
     offApp = useAppStore.subscribe((state) => {
       const next = state.jobs[id];
       if (!state.connected || !next || this.context().currentId !== id) { stop(); return; }
@@ -513,7 +513,7 @@ export class VoiceExecutor {
         && m.role === 'assistant' && !m.toolUse && !m.isStreaming && m.content.trim()).sort((a, b) => b.timestamp - a.timestamp)[0];
       if (!response) return;
       stop();
-      if (useVoiceStore.getState().enabled && useVoiceStore.getState().mode === 'archon') this.reply(response.content.slice(0, 1800), 'archon');
+      if (useVoiceStore.getState().enabled && useVoiceStore.getState().mode === 'arco') this.reply(response.content.slice(0, 1800), 'arco');
     });
   }
 }

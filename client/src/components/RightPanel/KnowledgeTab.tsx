@@ -7,7 +7,7 @@ import type {
   KnowledgeListResponse,
   RecallBacklinksResponse,
   RecallEntry,
-} from '@archon/shared';
+} from '@arco/shared';
 import { EmptyState } from './FilesTab';
 import { KnowledgeWizard } from './KnowledgeWizard';
 

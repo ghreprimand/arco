@@ -6,7 +6,7 @@
 // #6 in UNIFIED_IMPLEMENTATION_PLAN.md).
 //
 // "Known cwds" design: option (a) from the Slot-11 prompt — maintain a
-// registry at ~/.archon/known-cwds.json written on workflow create /
+// registry at ~/.arco/known-cwds.json written on workflow create /
 // rehydrate. Chosen over option (b) (client-driven lazy rehydration only)
 // so the startup "Recovered N workflows from disk" log has a real count.
 // Option (c) (belt-and-suspenders) was rejected because a single source beats
@@ -24,9 +24,9 @@ import os from 'os';
 import { listWorkflowMetas, readMeta, type WorkflowMeta } from './workflowMeta.js';
 import { initWorkflowStore } from './workflowStore.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const REGISTRY_PATH = path.join(archonHome(), 'known-cwds.json');
+const REGISTRY_PATH = path.join(arcoHome(), 'known-cwds.json');
 const RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 async function readRegistry(): Promise<string[]> {
@@ -63,7 +63,7 @@ export async function rememberCwd(cwd: string): Promise<void> {
       existing.push(cwd);
       await writeRegistry(existing);
     } catch (err) {
-      console.error('[archon] known-cwds write failed:', err);
+      console.error('[arco] known-cwds write failed:', err);
     }
   });
 }
@@ -87,7 +87,7 @@ export async function recoverWorkflowsFromDisk(): Promise<RecoveredWorkflow[]> {
     try {
       summaries = await listWorkflowMetas(cwd);
     } catch (err) {
-      console.error(`[archon] recovery scan failed for ${cwd}:`, err);
+      console.error(`[arco] recovery scan failed for ${cwd}:`, err);
       continue;
     }
     for (const s of summaries) {
@@ -100,7 +100,7 @@ export async function recoverWorkflowsFromDisk(): Promise<RecoveredWorkflow[]> {
       try {
         await initWorkflowStore(cwd, meta.workflowId);
       } catch (err) {
-        console.error(`[archon] workflowStore init failed for ${meta.workflowId.slice(0, 8)}:`, err);
+        console.error(`[arco] workflowStore init failed for ${meta.workflowId.slice(0, 8)}:`, err);
         continue;
       }
       recovered.push({ cwd, meta });

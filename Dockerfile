@@ -36,9 +36,9 @@ COPY --chmod=755 scripts/container/entrypoint.sh /usr/local/bin/arco-entrypoint
 RUN mkdir -p /data/home /data/uploads /projects \
     && chown -R node:node /data /projects
 ENV NODE_ENV=production ARCO_DEPLOYMENT=docker HOME=/data/home CODEX_HOME=/data/home/.codex \
-    ARCHON_SERVE_CLIENT=1 ARCHON_UPLOADS_DIR=/data/uploads \
-    ARCHON_HOST=0.0.0.0 ARCHON_PORT=3001 \
-    ARCHON_OAUTH_CALLBACK_HOST=0.0.0.0
+    ARCO_SERVE_CLIENT=1 ARCO_UPLOADS_DIR=/data/uploads \
+    ARCO_HOST=0.0.0.0 ARCO_PORT=3001 \
+    ARCO_OAUTH_CALLBACK_HOST=0.0.0.0
 USER node
 EXPOSE 3001 53692
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@archon/shared';
-import { RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
+import { RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 
 // Deep Research one-off composer surface — WORKBENCH_EXPANSION_PLAN.md §B2.

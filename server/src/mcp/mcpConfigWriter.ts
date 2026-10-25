@@ -1,7 +1,7 @@
 // CLUSTER_MODE_PLAN.md Phase 3 + EFFICIENCY_PLAN.md Phase F9 — per-workflow
 // `mcp-config.json` writer.
 //
-// One file per workflow at `.archon/<wfid>/mcp-config.json` under the
+// One file per workflow at `.arco/<wfid>/mcp-config.json` under the
 // workflow's cwd. Originally written for cluster membership (Phase 3); F9
 // extended it to ALSO carry the operator-attached `codebase-memory-mcp`
 // entry. The two entries are independent — a workflow can have one, both,
@@ -11,7 +11,7 @@
 // Layout:
 //   {
 //     "mcpServers": {
-//       "archon-cluster": { "command": "...", "args": [...] },     // when in a cluster
+//       "arco-cluster": { "command": "...", "args": [...] },     // when in a cluster
 //       "codebase-memory": { "command": "codebase-memory-mcp", ... } // when attached
 //     }
 //   }
@@ -34,7 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // is the sibling. Either way the sibling-lookup works.
 //
 // Exported (Phase 4) so the Codex providers can reuse the same resolver when
-// they construct `-c mcp_servers.archon-cluster.*` TOML overrides instead of
+// they construct `-c mcp_servers.arco-cluster.*` TOML overrides instead of
 // a JSON config file. Codex's CLI accepts `-c key=value` overrides on top of
 // `~/.codex/config.toml` and has no `--mcp-config <path>` equivalent, so the
 // argv shape diverges from Claude's even though both spawn the same MCP
@@ -53,17 +53,17 @@ export function resolveMcpServerEntry(): { command: string; args: string[] } {
   return { command: 'node', args: [entry] };
 }
 
-// Sibling resolver for the workflow-scoped `archon` server (plan tools). Same
+// Sibling resolver for the workflow-scoped `arco` server (plan tools). Same
 // dev/prod split as resolveMcpServerEntry above.
-export function resolveArchonMcpServerEntry(): { command: string; args: string[] } {
+export function resolveArcoMcpServerEntry(): { command: string; args: string[] } {
   const isDev = process.env.NODE_ENV !== 'production';
   if (isDev) {
-    return { command: 'npx', args: ['tsx', resolve(HERE, 'archonMcpServer.ts')] };
+    return { command: 'npx', args: ['tsx', resolve(HERE, 'arcoMcpServer.ts')] };
   }
-  return { command: 'node', args: [resolve(HERE, 'archonMcpServer.js')] };
+  return { command: 'node', args: [resolve(HERE, 'arcoMcpServer.js')] };
 }
 
-// VOICE_AGENT_PLAN.md — the archon-voice child for a `voiceOperator` Chat.
+// VOICE_AGENT_PLAN.md — the arco-voice child for a `voiceOperator` Chat.
 export function resolveVoiceMcpServerEntry(): { command: string; args: string[] } {
   const isDev = process.env.NODE_ENV !== 'production';
   if (isDev) return { command: 'npx', args: ['tsx', resolve(HERE, 'voiceMcpServer.ts')] };
@@ -72,20 +72,20 @@ export function resolveVoiceMcpServerEntry(): { command: string; args: string[] 
 export function buildVoiceMcpOverrides(workflowId: string, port: number): string[] {
   const entry = resolveVoiceMcpServerEntry();
   return [
-    '-c', `mcp_servers.archon-voice.command=${JSON.stringify(entry.command)}`,
-    '-c', `mcp_servers.archon-voice.args=${JSON.stringify([...entry.args, workflowId, String(port)])}`,
+    '-c', `mcp_servers.arco-voice.command=${JSON.stringify(entry.command)}`,
+    '-c', `mcp_servers.arco-voice.args=${JSON.stringify([...entry.args, workflowId, String(port)])}`,
     // 2026-10-17: Codex 0.163 fails every MCP call in a chat-mode thread with
     // "MCP tool call requires approval, but approval policy is never" (chats
     // run approvalPolicy 'never' under a read-only profile). The voice tools
     // are already bounded by VoiceExecutor and only the owning window executes
     // them, so pre-approve them at the server entry. Verified by
     // `npm run smoke:voice-luna`.
-    '-c', 'mcp_servers.archon-voice.default_tools_approval_mode="approve"',
+    '-c', 'mcp_servers.arco-voice.default_tools_approval_mode="approve"',
   ];
 }
 
 function configPath(workflowCwd: string, workflowId: string): string {
-  return join(workflowCwd, '.archon', workflowId, 'mcp-config.json');
+  return join(workflowCwd, '.arco', workflowId, 'mcp-config.json');
 }
 
 // EFFICIENCY_PLAN.md Phase F9 — codebase-memory MCP entry. The binary is
@@ -100,48 +100,48 @@ function buildCodebaseMemoryEntry(indexPath: string): { command: string; args: s
   };
 }
 
-// ARCHON_OPS_PLAN.md §E1 — a registry-sourced MCP server resolved for a
+// ARCO_OPS_PLAN.md §E1 — a registry-sourced MCP server resolved for a
 // workflow. Defined in shared (`ResolvedMcpServer`) because it rides on the
 // shared WorkerConfig across the provider seam; re-exported here under the
 // writer-local name the call sites already reference.
-import type { ClusterMemberAccessMode, ResolvedMcpServer } from '@archon/shared';
+import type { ClusterMemberAccessMode, ResolvedMcpServer } from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
 export type RegistryMcpEntry = ResolvedMcpServer;
 
 export interface McpConfigOptions {
-  // When set, includes the archon-cluster MCP entry pointing at this cluster.
+  // When set, includes the arco-cluster MCP entry pointing at this cluster.
   clusterId?: string;
   // Cluster peer/plan tools follow clusterId; cluster_task_* tools are exposed
   // only when the operator explicitly attached this cluster to the cwd board.
   taskBoardAttached?: boolean;
   accessMode?: ClusterMemberAccessMode;
-  // Archon HTTP port for the cluster MCP child to call back into.
+  // Arco HTTP port for the cluster MCP child to call back into.
   port: number;
   // EFFICIENCY_PLAN.md Phase F9 — when set, includes the codebase-memory
   // MCP entry pointing at the indexed tree. Caller resolves
   // `wf.config.codebaseMemory.indexPath || wf.config.workingDirectory`.
   codebaseMemoryIndexPath?: string;
-  // ARCHON_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry servers
+  // ARCO_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry servers
   // for this workflow. Merged into `mcpServers` alongside the cluster /
   // codebase-memory entries. Empty / absent ⇒ no registry servers. These are
   // the ONLY model-exposed MCP servers besides the two built-in ones — no
   // hidden / model-selected expansion.
   registryServers?: RegistryMcpEntry[];
-  // Workflow-scoped `archon` entry — plan create/attach/list tools. Unlike the
+  // Workflow-scoped `arco` entry — plan create/attach/list tools. Unlike the
   // cluster entry this applies to EVERY workflow, so it carries the cwd (the
   // plan REST routes are keyed by `?path=<cwd>`). Absent ⇒ omitted, which is
   // what keeps the existing "no entries ⇒ unlink the file" branch reachable.
   planToolsCwd?: string;
 }
 
-// Shared argv for the workflow-scoped `archon` MCP child, so the JSON-config
+// Shared argv for the workflow-scoped `arco` MCP child, so the JSON-config
 // and Codex-TOML paths can never drift.
-function archonEntryArgs(workflowId: string, cwd: string, port: number): { command: string; args: string[] } {
-  const { command, args } = resolveArchonMcpServerEntry();
+function arcoEntryArgs(workflowId: string, cwd: string, port: number): { command: string; args: string[] } {
+  const { command, args } = resolveArcoMcpServerEntry();
   return { command, args: [...args, workflowId, cwd, String(port)] };
 }
 
-// Merge desired entries and write `.archon/<wfid>/mcp-config.json`. Returns
+// Merge desired entries and write `.arco/<wfid>/mcp-config.json`. Returns
 // the absolute path when at least one entry applies, or `undefined` when
 // neither does (in which case the file is unlinked best-effort so a stale
 // config can't carry over). Callers pass the path to
@@ -155,7 +155,7 @@ export async function writeFor(
   const entries: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {};
   if (opts.clusterId) {
     const { command, args: cmdArgs } = resolveMcpServerEntry();
-    entries['archon-cluster'] = {
+    entries['arco-cluster'] = {
       command,
       args: [
         ...cmdArgs,
@@ -168,7 +168,7 @@ export async function writeFor(
     };
   }
   if (opts.planToolsCwd) {
-    entries['archon'] = archonEntryArgs(workflowId, opts.planToolsCwd, opts.port);
+    entries['arco'] = arcoEntryArgs(workflowId, opts.planToolsCwd, opts.port);
   }
   if (opts.codebaseMemoryIndexPath) {
     entries['codebase-memory'] = buildCodebaseMemoryEntry(opts.codebaseMemoryIndexPath);
@@ -190,8 +190,8 @@ export async function writeFor(
   await fs.mkdir(dirname(path), { recursive: true });
   // Anthropic's CLI accepts `command` (string) + `args` (string[]) for stdio
   // MCP servers. Tool-name namespacing comes from the top-level mcpServers
-  // key (`archon-cluster` / `codebase-memory`) — the CLI surfaces tools as
-  // `mcp__archon-cluster__peer_list`, `mcp__codebase-memory__*`, etc.
+  // key (`arco-cluster` / `codebase-memory`) — the CLI surfaces tools as
+  // `mcp__arco-cluster__peer_list`, `mcp__codebase-memory__*`, etc.
   // Atomic because a SPAWNED CLI CHILD reads this file, and the write happens
   // moments before the spawn. `rename` guarantees the child sees either the
   // whole previous config or the whole new one — never a partial object, which
@@ -248,15 +248,15 @@ export function buildCodexMcpOverrides(
       opts.accessMode ?? 'standard',
     ];
     out.push(
-      '-c', `mcp_servers.archon-cluster.command=${JSON.stringify(command)}`,
-      '-c', `mcp_servers.archon-cluster.args=${JSON.stringify(fullArgs)}`,
+      '-c', `mcp_servers.arco-cluster.command=${JSON.stringify(command)}`,
+      '-c', `mcp_servers.arco-cluster.args=${JSON.stringify(fullArgs)}`,
     );
   }
   if (opts.planToolsCwd) {
-    const entry = archonEntryArgs(workflowId, opts.planToolsCwd, opts.port);
+    const entry = arcoEntryArgs(workflowId, opts.planToolsCwd, opts.port);
     out.push(
-      '-c', `mcp_servers.archon.command=${JSON.stringify(entry.command)}`,
-      '-c', `mcp_servers.archon.args=${JSON.stringify(entry.args)}`,
+      '-c', `mcp_servers.arco.command=${JSON.stringify(entry.command)}`,
+      '-c', `mcp_servers.arco.args=${JSON.stringify(entry.args)}`,
     );
   }
   if (opts.codebaseMemoryIndexPath) {

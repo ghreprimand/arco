@@ -1,4 +1,4 @@
-import type { LocalModelProvider, LocalModelUnloadOutcome, LocalModelUnloadReport } from '@archon/shared';
+import type { LocalModelProvider, LocalModelUnloadOutcome, LocalModelUnloadReport } from '@arco/shared';
 import { isIP } from 'node:net';
 import { workflows } from './server/state.js';
 import { broadcastWorkflow } from './server/broadcast.js';
@@ -110,7 +110,7 @@ export async function unloadLocalModels(): Promise<LocalModelUnloadReport> {
       }),
     ]);
     const content = `[FREE VRAM] ${results.map((r) => `${r.provider}${r.model ? ` (${r.model})` : ''}: ${r.state}${r.detail ? ` — ${r.detail}` : ''}`).join('; ')}. The next model request reloads it from disk.`;
-    console.log(`[archon] ${content}`);
+    console.log(`[arco] ${content}`);
     for (const [workflowId, wf] of workflows) {
       if (!wf.config.incognito && isLocalModelProvider(wf.primary.provider)) {
         broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content });

@@ -3,14 +3,14 @@
 // The long-lived `CursorAcpWorker` is cached per workflowId (the `cursor-agent
 // acp` child + its ACP session stay warm across turns). Each operator turn
 // instantiates a `CursorAcpTurn` wrapper that adapts the worker's "events
-// stream forever" surface to Archon's "one ProviderProcess per turn" contract.
+// stream forever" surface to Arco's "one ProviderProcess per turn" contract.
 //
 // Structure mirrors codex-appserver/index.ts (per-turn wrapper + worker cache +
 // spawn-failure circuit breaker). Cursor's native `/compress` is exposed through
 // compactCursorAcpThread; Codex-specific MCP recycling + artifacts stay absent.
 
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { CursorAcpWorker, type ToolUseEvent, type TurnSettleData } from './worker.js';
 

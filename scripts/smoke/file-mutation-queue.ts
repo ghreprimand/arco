@@ -22,7 +22,7 @@ import { step, assert, assertEq, summary } from './lib.js';
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 async function main(): Promise<void> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-fmq-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-fmq-'));
   try {
     const { withFileMutationLock, __resetFileMutationQueueForTests } =
       await import('../../server/src/providers/claude-native/file-mutation-queue.js');

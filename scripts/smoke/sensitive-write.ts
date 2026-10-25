@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), 'archon-sensitive-write-smoke-'));
+  const root = await mkdtemp(join(tmpdir(), 'arco-sensitive-write-smoke-'));
 
   const { isSensitiveWritePath } = await import('../../server/src/providers/claude-native/tools.js');
   const { executeNativeTool } = await import('../../server/src/providers/claude-native/tools.js');

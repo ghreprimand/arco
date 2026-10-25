@@ -19,7 +19,7 @@ async function writeWorkflowMeta(cwd: string, workflowId: string, provider: 'cla
   const { writeMeta } = await import('../../server/src/workflowMeta.js');
   const { initWorkflowStore } = await import('../../server/src/workflowStore.js');
 
-  await fs.mkdir(path.join(cwd, '.archon', 'workflows', workflowId), { recursive: true });
+  await fs.mkdir(path.join(cwd, '.arco', 'workflows', workflowId), { recursive: true });
   workflowCwds.set(workflowId, cwd);
   workflows.set(workflowId, {
     busy: false,
@@ -46,15 +46,15 @@ async function writeWorkflowMeta(cwd: string, workflowId: string, provider: 'cla
 }
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-wt-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-wt-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-wt-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-wt-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
   try {
     git(cwd, 'init', '-q');
-    git(cwd, 'config', 'user.email', 'test@archon.local');
-    git(cwd, 'config', 'user.name', 'archon-test');
+    git(cwd, 'config', 'user.email', 'test@arco.local');
+    git(cwd, 'config', 'user.name', 'arco-test');
     git(cwd, 'checkout', '-q', '-B', 'main');
     await fs.writeFile(path.join(cwd, 'tracked.txt'), 'original\n');
     git(cwd, 'add', 'tracked.txt');
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
       const updated = state.tasks.find((t) => t.id === ready.id);
       assertEq(updated?.status, 'in_progress', 'task moved to in_progress');
       assert(updated?.worktree?.path.startsWith(worktreesRoot(cwd) + path.sep), 'worktree path should be under managed root');
-      assertEq(updated?.worktree?.branch, `archon/task/${ready.id}`, 'branch should use task id');
+      assertEq(updated?.worktree?.branch, `arco/task/${ready.id}`, 'branch should use task id');
       assertEq(updated?.worktree?.baseRef, headBefore, 'base ref should be dispatch-time HEAD');
       assert(state.runs.some((run) => run.taskId === ready.id && run.workflowId === worker && run.status === 'running'), 'run created');
       assertEq(git(cwd, 'status', '--porcelain'), statusBefore, 'main checkout status should stay unchanged');

@@ -3,8 +3,8 @@
 // the composer and the server replaces it with the expanded body of a template
 // file BEFORE the turn is recorded — so events.jsonl carries the real prompt, not
 // the shorthand. Templates live in:
-//   • <cwd>/.archon/prompts/<name>.md   (project — gated behind DD7 trust)
-//   • ~/.archon/prompts/<name>.md       (global  — the operator's own, ungated)
+//   • <cwd>/.arco/prompts/<name>.md   (project — gated behind DD7 trust)
+//   • ~/.arco/prompts/<name>.md       (global  — the operator's own, ungated)
 //
 // Substitution is bash-positional: `$1`..`$9` / `${1}`..`${N}` are the parsed
 // args, `$@` / `$*` are all args space-joined, and `$$` is a literal `$`. An
@@ -12,7 +12,7 @@
 // (reusing splitArgs from configValue).
 //
 // Project-scope is gated behind DD7 trust: a cloned repo can ship a hostile
-// `.archon/prompts/*.md`, so a project template only expands when the repo's
+// `.arco/prompts/*.md`, so a project template only expands when the repo's
 // trust decision is 'always'. Global templates are the operator's own.
 
 import { readdir, readFile, stat } from 'fs/promises';
@@ -20,7 +20,7 @@ import { homedir } from 'os';
 import path from 'path';
 
 import { splitArgs } from './configValue.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export type PromptScope = 'project' | 'global';
 
@@ -39,10 +39,10 @@ export function isValidPromptName(name: string): boolean {
 }
 
 function projectPromptsRoot(cwd: string): string {
-  return path.join(cwd, '.archon', 'prompts');
+  return path.join(cwd, '.arco', 'prompts');
 }
 function globalPromptsRoot(): string {
-  return path.join(archonHome(), 'prompts');
+  return path.join(arcoHome(), 'prompts');
 }
 
 // Parse a leading `/name args…` out of composer text. Returns null when the text

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JobState } from '../../stores/appStore';
-import type { KnowledgeArticle, ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { KnowledgeArticle, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { useKnowledgeDistillStore } from '../../stores/knowledgeDistillStore';
 
 // WORKBENCH_EXPANSION_PLAN.md §B3 — "Add from…" wizard.
@@ -9,7 +9,7 @@ import { useKnowledgeDistillStore } from '../../stores/knowledgeDistillStore';
 // then Saves:
 //   (a) blank            — empty draft.
 //   (b) quick link       — paste a URL + manually type/paste a title + summary.
-//        DEFERRED auto-fetch (manual quick-link): Archon has no SSRF-guarded
+//        DEFERRED auto-fetch (manual quick-link): Arco has no SSRF-guarded
 //        fetch helper yet (same posture as D1's @url:). We do NOT fetch the URL
 //        server-side — shipping an unreviewed SSRF surface in this phase is out.
 //        The operator pastes the URL into the body and writes the summary.

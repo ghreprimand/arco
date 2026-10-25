@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ChatMessage } from '@archon/shared';
+import type { ChatMessage } from '@arco/shared';
 import { capMessages, capSessionChat } from './appStore.js';
 
 function msg(id: string, timestamp: number, patch: Partial<ChatMessage> = {}): ChatMessage {

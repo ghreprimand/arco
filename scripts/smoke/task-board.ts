@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §D3 — cluster task board + task peer-tools smoke.
+// ARCO_OPS_PLAN.md §D3 — cluster task board + task peer-tools smoke.
 //
 // Headless / module-level (no live server, no API spend). Drives the real
 // clusterPeerOps task-ops against a real cluster + a real cwd-scoped task
@@ -16,8 +16,8 @@
 //   (g) task drawer pure helpers pick a request workflow and summarize graph state.
 //   (h) save/load round-trip preserves assignee.
 //
-// Cluster lifecycle writes under ~/.archon/clusters — we point HOME at a temp
-// dir BEFORE importing clusterStore (its ARCHON_HOME is computed at import
+// Cluster lifecycle writes under ~/.arco/clusters — we point HOME at a temp
+// dir BEFORE importing clusterStore (its ARCO_HOME is computed at import
 // time from os.homedir(), which honors $HOME on POSIX). All imports are
 // therefore dynamic, after the HOME swap.
 //
@@ -31,14 +31,14 @@ import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
   // Isolate cluster + workflow state under a throwaway HOME so the smoke never
-  // touches the operator's real ~/.archon.
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-board-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-board-cwd-'));
+  // touches the operator's real ~/.arco.
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-board-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-board-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
   try {
-    // Dynamic imports AFTER the HOME swap so clusterStore's ARCHON_HOME picks
+    // Dynamic imports AFTER the HOME swap so clusterStore's ARCO_HOME picks
     // up the temp dir.
     const clusterStore = await import('../../server/src/clusterStore.js');
     const peerOps = await import('../../server/src/clusterPeerOps.js');
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
 
     // Two member workflows sharing the cwd (a cluster needs ≥2 members).
     for (const wfid of [wfA, wfB]) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       // Register a minimal workflow stub so broadcastWorkflow (which the
       // peer-ops use to append the durable task_ledger_event) runs
       // persistAndStampSeq. It only reads `.observers` + `workflowCwds` for our
@@ -281,7 +281,7 @@ async function main(): Promise<void> {
       // Destroy the snapshot → rebuildFromEvents must also carry assignee
       // (claims emit durable task_ledger_event through persistLedgerMutation).
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'boards', boardKey, 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'boards', boardKey, 'tasks.json'), { force: true });
       const rebuilt = (await taskLedger.load(cwd, boardKey)).find((t) => t.id === secondId);
       assertEq(rebuilt?.assignee, wfB, 'assignee replays from events.jsonl (rebuild)');
     });

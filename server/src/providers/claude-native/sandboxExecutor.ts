@@ -6,14 +6,14 @@
 //
 // Hard caps that make this safe to ship:
 //   - 256 KB stdout cap; overflow truncates with a `[...truncated]` marker.
-//   - 10 s wall-clock timeout (override via ARCHON_SANDBOX_TIMEOUT_MS).
+//   - 10 s wall-clock timeout (override via ARCO_SANDBOX_TIMEOUT_MS).
 //   - Spawn with `detached: true` so child + grandchildren share a
 //     process group; on timeout we kill the whole group with
 //     `process.kill(-pid, 'SIGTERM')`. A python script that forks workers
 //     would otherwise leak.
 //   - 1 s SIGKILL escalation after SIGTERM for stubborn children.
 //   - Each invocation gets a fresh tmp working directory under
-//     `<archonHome>/.archon/workflows/<wfid>/sandbox-tmp/<id>` so a script
+//     `<arcoHome>/.arco/workflows/<wfid>/sandbox-tmp/<id>` so a script
 //     that writes ./out.txt doesn't pollute the operator's repo.
 
 import { spawn } from 'node:child_process';
@@ -22,7 +22,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const DEFAULT_TIMEOUT_MS = (() => {
-  const env = process.env.ARCHON_SANDBOX_TIMEOUT_MS;
+  const env = process.env.ARCO_SANDBOX_TIMEOUT_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 1000 && n <= 600_000) return n;
@@ -86,7 +86,7 @@ export async function executeSandboxed(
   // operator who wants to inspect a script can find it. Falls back to
   // OS tmpdir when the caller didn't supply a workflow scope.
   const baseDir = opts?.workflowCwd && opts?.workflowId
-    ? join(opts.workflowCwd, '.archon', 'workflows', opts.workflowId, 'sandbox-tmp')
+    ? join(opts.workflowCwd, '.arco', 'workflows', opts.workflowId, 'sandbox-tmp')
     : tmpdir();
   mkdirSync(baseDir, { recursive: true });
   const workdir = mkdtempSync(join(baseDir, 'run-'));
@@ -108,7 +108,7 @@ export async function executeSandboxed(
       cwd: workdir,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
-      env: { ...process.env, ARCHON_SANDBOX: '1' },
+      env: { ...process.env, ARCO_SANDBOX: '1' },
     });
 
     const killGroup = (signal: NodeJS.Signals): void => {

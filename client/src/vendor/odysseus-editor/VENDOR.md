@@ -1,8 +1,8 @@
 # Vendored: Odysseus image editor
 
 This directory is a **vendored copy** of the layer-based raster editor from the
-MIT-licensed **Odysseus** project, ported into Archon for Workbench Expansion
-**§H2 (Layer-based raster editor)**. It is third-party code — **not** an Archon
+MIT-licensed **Odysseus** project, ported into Arco for Workbench Expansion
+**§H2 (Layer-based raster editor)**. It is third-party code — **not** an Arco
 refactor target (the `size:check` gate excludes `vendor/` accordingly).
 
 The upstream MIT notice is retained verbatim in `./LICENSE`
@@ -21,7 +21,7 @@ from source via the wrapper's dynamic `import()`.
 ## What was EXCLUDED — H3 deferred (local image AI)
 
 H3 (local AI image ops: background-remove / smart-select / inpaint) is
-**deferred** (operator decision, 2026-05-31 — no local image AI in Archon for
+**deferred** (operator decision, 2026-05-31 — no local image AI in Arco for
 now). The 5 AI modules are therefore **not vendored**:
 
 ```
@@ -38,7 +38,7 @@ five `ai-*.js` files are AI.
 
 ## Patch log (galleryEditor.js + wire-import.js)
 
-Every Archon change is tagged with an `ARCHON VENDOR PATCH (H2)` comment in-tree
+Every Arco change is tagged with an `ARCO VENDOR PATCH (H2)` comment in-tree
 so it's greppable. To re-enable H3, restore the originals listed below.
 
 ### 1. Stubbed ai-* imports
@@ -68,7 +68,7 @@ return` guard **before** ever calling `applyImageTool` — no crash, no fetch.
 
 ### 2. Neutralized non-existent backend calls
 
-These endpoints don't exist in Archon (they'd 404). Each fetch site is guarded
+These endpoints don't exist in Arco (they'd 404). Each fetch site is guarded
 by an early `return;` (with the original body preserved below the guard) so
 nothing throws or spams the console. Saving is owned by the React wrapper.
 
@@ -87,7 +87,7 @@ app modules that pull in the whole windowing tree (theme / tileManager /
 modalSnap / storage). Rather than vendor that unrelated tree, this directory
 provides small self-contained shims for the tiny surface actually used:
 
-- `ui.js` — `showToast`, `showError`, `styledConfirm` (Archon-themed toasts;
+- `ui.js` — `showToast`, `showError`, `styledConfirm` (Arco-themed toasts;
   styledConfirm falls back to native `confirm`).
 - `modalManager.js` — `register` / `unregister` / `minimize` / `restore`
   (no-op-ish; the detachable History / FX popups simply don't dock).
@@ -103,9 +103,9 @@ Brace-aware extraction of every `style.css` rule whose selector references a
 `.ge-*` / `.gallery-*` / `#gallery-editor*` / `#ge-*` token (`@media`/`@supports`
 blocks filtered to their matching inner rules; ge-named `@keyframes` kept). A
 header re-points the Odysseus tokens (`--bg --fg --panel --border --red --accent
---fg-muted` + a few semantic ones) at Archon's CSS vars (`--color-bg`,
+--fg-muted` + a few semantic ones) at Arco's CSS vars (`--color-bg`,
 `--color-fg`, `--color-accent-primary`, `--color-border-bright`, …), scoped to
-`#gallery-editor-container`, so the editor inherits the active Archon theme.
+`#gallery-editor-container`, so the editor inherits the active Arco theme.
 A few grouped selectors carry an unrelated sibling and some
 `#gallery-editor-drafts-*` rules style the now-inert draft UI — harmless dead CSS.
 
@@ -134,7 +134,7 @@ onto a canvas sized to the DOCUMENT (not to either layer), then resets
 `opacity` / `visible` / offset / `adjLayers` / `_adjFinal*` / `_adjCache*` on the
 survivor.
 
-This required threading a new `renderLayer` dep through two Archon call sites,
+This required threading a new `renderLayer` dep through two Arco call sites,
 both already present in this copy as `_renderLayerWithAdjLayers`:
 
 - `galleryEditor.js` → `wireMergeButtons({ …, renderLayer })`
@@ -152,7 +152,7 @@ non-array `otherLayers` instead of throwing mid-drag.
 
 ### `editor/wire-topbar.js` — Save menu scoping
 
-Scopes the Save menu lookup to `#gallery-editor-container` (Archon's own mount
+Scopes the Save menu lookup to `#gallery-editor-container` (Arco's own mount
 id) instead of a bare document-wide `getElementById`, removes stale
 body-portaled `#ge-save-menu` copies left by a previous editor open, and fixes
 the click-away test to use `saveBtn.contains(e.target)` so clicking the button's
@@ -177,10 +177,10 @@ stub instead of comparing pixels.
 2. Replace the `const … = () => …;` stubs (patch §1) with the real
    `import … from './editor/ai-*.js'` lines.
 3. Stand up the AI backend the editor expects: `/api/image/remove-bg` (and
-   whatever the inpaint/upscale flows POST to) under Archon's guarded routes,
+   whatever the inpaint/upscale flows POST to) under Arco's guarded routes,
    coordinating 5090 VRAM per the H3 plan + Part G.
 4. Un-neutralize only the calls that H3 actually needs (the gallery/draft
-   neutralizations in §2 stay — those are not AI and have no Archon backend).
+   neutralizations in §2 stay — those are not AI and have no Arco backend).
 
 ## Integrity smoke
 

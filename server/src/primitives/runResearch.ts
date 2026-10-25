@@ -4,11 +4,11 @@
 // bounded native agentic turn plans queries → searches the web → reads
 // results → synthesizes a CITED markdown report. Output is persisted as a
 // `research-<ts>.md` artifact under
-// `<cwd>/.archon/workflows/<wfid>/artifacts/` and surfaced in the RESEARCH
+// `<cwd>/.arco/workflows/<wfid>/artifacts/` and surfaced in the RESEARCH
 // tab via the existing `GET /api/workflows/artifact` endpoint.
 //
 // The "bounded rounds" are the provider's natural bounded tool-use iterations.
-// Archon enforces a HARD ceiling (`maxRounds`):
+// Arco enforces a HARD ceiling (`maxRounds`):
 //   - Claude Native: threaded through as `webSearchMaxUses` → the web_search /
 //     web_fetch `max_uses` budget. A MECHANICAL stop, not just a prompt cap.
 //   - Codex: `buildThreadConfigOverrides()` returns `{ web_search: 'live' }`
@@ -31,14 +31,14 @@ import type { WorkerResult } from '../workers/WorkerManager.js';
 import { artifactsDir } from '../workers/limits.js';
 import { runWithFallbackChain, buildChain } from '../providers/fallbackChain.js';
 import type { FallbackLeg } from '../providers/fallbackChain.js';
-import { RESEARCH_DEFAULT_ROUNDS } from '@archon/shared';
+import { RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
 import type {
   ServerMessage,
   ProviderName,
   ModelName,
   EffortLevel,
   FallbackLegConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface ResearcherConfig {
   provider: ProviderName;

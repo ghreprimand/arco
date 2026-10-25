@@ -1,10 +1,10 @@
 // Cluster presets — operator-saved cluster member templates persisted at
-// ~/.archon/cluster-presets.json. CRUD through the three HTTP endpoints
+// ~/.arco/cluster-presets.json. CRUD through the three HTTP endpoints
 // (GET / POST / DELETE /api/cluster-presets). Cwd is intentionally NOT
 // part of a preset; the WorkflowCreator never threads cwd through this hook.
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ClusterPreset, ClusterPresetMember } from '@archon/shared';
+import type { ClusterPreset, ClusterPresetMember } from '@arco/shared';
 
 export interface SavePresetInput {
   name: string;

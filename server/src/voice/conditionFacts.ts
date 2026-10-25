@@ -1,5 +1,5 @@
 // Volatile observations only. This leaf never imports providers or persistence.
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 import { publishActivity } from './activityBus.js';
 export interface ObservedWorker {
   text:string; version:number; contextRevision:number; input:boolean|null; digest?:string; truncated?:boolean;

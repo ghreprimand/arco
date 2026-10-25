@@ -1,5 +1,5 @@
 import { useAppStore } from '../stores/appStore';
-import type { CodexCatalogSnapshot } from '@archon/shared';
+import type { CodexCatalogSnapshot } from '@arco/shared';
 
 // Resolve the Codex catalog for a specific account profile (HOME / WORK).
 //

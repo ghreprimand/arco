@@ -33,15 +33,15 @@ import type { InitializeResponse } from './bindings/InitializeResponse.js';
 import type { ModelListResponse } from './bindings/v2/ModelListResponse.js';
 import type { Model } from './bindings/v2/Model.js';
 import type { ReasoningEffort } from './bindings/ReasoningEffort.js';
-import type { CodexCatalogModel, CodexCatalogSnapshot, CodexReasoningEffort } from '@archon/shared';
+import type { CodexCatalogModel, CodexCatalogSnapshot, CodexReasoningEffort } from '@arco/shared';
 import { readCodexContextMetadata } from '../codexContextWindow.js';
 
-export type { CodexCatalogModel, CodexCatalogSnapshot } from '@archon/shared';
+export type { CodexCatalogModel, CodexCatalogSnapshot } from '@arco/shared';
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const SPAWN_TIMEOUT_MS = 15_000;
-const ARCHON_CLIENT_NAME = 'archon';
-const ARCHON_CLIENT_VERSION = '0.1.0';
+const ARCO_CLIENT_NAME = 'arco';
+const ARCO_CLIENT_VERSION = '0.1.0';
 
 // Per-codexHome snapshots. The ambient (~/.codex) default is stored under
 // AMBIENT_KEY so callers that pass no codexHome share one entry.
@@ -166,7 +166,7 @@ async function fetchCodexCatalog(codexHome?: string): Promise<CodexCatalogSnapsh
 
   try {
     await rpc.request<InitializeResponse>('initialize', {
-      clientInfo: { name: ARCHON_CLIENT_NAME, title: 'Arco', version: ARCHON_CLIENT_VERSION },
+      clientInfo: { name: ARCO_CLIENT_NAME, title: 'Arco', version: ARCO_CLIENT_VERSION },
       capabilities: { experimentalApi: true, optOutNotificationMethods: null },
     });
     rpc.notify('initialized');

@@ -49,7 +49,7 @@ const RIPGREP_BIN: string | null = (() => {
 })();
 
 const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.archon', 'dist', 'build', '.next',
+  'node_modules', '.git', '.arco', 'dist', 'build', '.next',
   '.cache', 'target', '.venv', 'venv',
 ]);
 
@@ -74,7 +74,7 @@ export interface NativeToolContext {
   // Optional so non-Native callers / tests can omit it.
   partialReadSet?: Set<string>;
   // Plan-mode gate (7b). When true, Write/Edit refuse with a plan-mode
-  // notice — except for paths under <cwd>/.archon/, which stay writable so
+  // notice — except for paths under <cwd>/.arco/, which stay writable so
   // the agent can keep scratchpads / draft notes / plan-body updates
   // alongside the plan it's still authoring. The worker owns the field;
   // the tools read it through this accessor so EnterPlanMode/ExitPlanMode
@@ -160,17 +160,17 @@ function truncate(text: string, cap: number, what: string): string {
 }
 
 // Plan-mode write gate: refuses Write/Edit unless the resolved target
-// lives strictly under <cwd>/.archon/. The agent legitimately needs
+// lives strictly under <cwd>/.arco/. The agent legitimately needs
 // scratchpad space (notes, draft plan bodies, etc.) while planning.
 // `abs` must be the already-resolved absolute path (resolveWithinCwd's
-// return value) so traversal like ".archon/../escape.txt" — which
+// return value) so traversal like ".arco/../escape.txt" — which
 // collapses to <cwd>/ before we get here — refuses correctly.
-function refuseIfPlanModeOutsideArchon(ctx: NativeToolContext, abs: string): void {
+function refuseIfPlanModeOutsideArco(ctx: NativeToolContext, abs: string): void {
   if (!ctx.planMode) return;
-  const archonRoot = resolve(ctx.cwd, '.archon');
-  const rel = relative(archonRoot, abs);
+  const arcoRoot = resolve(ctx.cwd, '.arco');
+  const rel = relative(arcoRoot, abs);
   if (rel.length > 0 && !rel.startsWith('..') && !isAbsolute(rel)) return;
-  throw new Error('write tools disabled until ExitPlanMode (writes under <cwd>/.archon/ are exempt)');
+  throw new Error('write tools disabled until ExitPlanMode (writes under <cwd>/.arco/ are exempt)');
 }
 
 // H47 — sensitive-path write floor. A small, fixed set of high-risk write
@@ -307,7 +307,7 @@ const WriteTool: Entry = {
     const filePath = asString(args.file_path, 'file_path');
     const content = asString(args.content, 'content');
     const abs = resolveWithinCwd(ctx.cwd, filePath);
-    refuseIfPlanModeOutsideArchon(ctx, abs);
+    refuseIfPlanModeOutsideArco(ctx, abs);
     await gateSensitiveWrite(ctx, abs, 'Write'); // H47 — operator OK for secret/VCS paths
     // DD3 — the stat→mkdir→writeFile RMW runs under the per-realpath lock so a
     // concurrent mutation of the same file can't interleave and lose this write.
@@ -354,7 +354,7 @@ const EditTool: Entry = {
     const newStr = asString(args.new_string, 'new_string');
     const replaceAll = asOptBool(args.replace_all, 'replace_all') ?? false;
     const abs = resolveWithinCwd(ctx.cwd, filePath);
-    refuseIfPlanModeOutsideArchon(ctx, abs);
+    refuseIfPlanModeOutsideArco(ctx, abs);
     await gateSensitiveWrite(ctx, abs, 'Edit'); // H47 — operator OK for secret/VCS paths
     if (!ctx.readSet.has(abs)) {
       throw new Error(`"${filePath}" was not Read in this turn — Read it first, then Edit`);
@@ -617,7 +617,7 @@ async function runBashForeground(
     // build into a truncated failure).
     let spillFd: number | null = null;
     const openSpill = (): SpillSink => {
-      const p = join(tmpdir(), `archon-bash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.txt`);
+      const p = join(tmpdir(), `arco-bash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.txt`);
       const fd = openSync(p, 'w');
       spillFd = fd;
       return { path: p, write: (b: Buffer) => { try { writeSync(fd, b); } catch { /* disk full / closed — keep the tail */ } } };

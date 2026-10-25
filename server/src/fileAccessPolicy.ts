@@ -44,7 +44,7 @@ function assertSpellingSafe(target: string): void {
   // Keep project artifacts, handoffs and plans usable without making runtime
   // transcripts, settings, account homes, cluster vaults or logs browseable.
   for (let i = 0; i < parts.length; i++) {
-    if (parts[i] !== '.archon') continue;
+    if (parts[i] !== '.arco') continue;
     if (!runtimePathAllowed(parts.slice(i + 1))) throw new FileAccessError();
   }
 }
@@ -59,8 +59,8 @@ export function assertSafePath(target: string): void {
   assertSpellingSafe(target);
   // The runtime home may itself be a symlink/volume alias. Its canonical
   // provider-accounts/settings/vault paths stay private even without an
-  // `.archon` component in their real names. Scratch cannot alias those paths.
-  const runtime = path.join(homedir(), '.archon');
+  // `.arco` component in their real names. Scratch cannot alias those paths.
+  const runtime = path.join(homedir(), '.arco');
   const runtimeRoots = [runtime];
   try { runtimeRoots.push(realpathSync(runtime)); } catch { /* not created */ }
   for (const root of runtimeRoots) {

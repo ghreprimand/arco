@@ -1,7 +1,7 @@
 // Install the fixture boundary BEFORE importing any production store/component.
 // Each document gets fresh storage; no production cache or workflow is rehydrated.
 const preferences = new Map<string, string>();
-for (const key of ['archon_crisp_text', 'archon_font_pack_override']) {
+for (const key of ['arco_crisp_text', 'arco_font_pack_override']) {
   try { const v = localStorage.getItem(key); if (v !== null) preferences.set(key, v); } catch { /* unavailable */ }
 }
 function memoryStorage(): Storage {
@@ -21,7 +21,7 @@ window.fetch = async (input) => {
   if (url.origin === location.origin && url.pathname === '/api/file-content') {
     const { files } = await import('./fixtures');
     const path = url.searchParams.get('path') ?? '';
-    const content = files[path.replace('/demo/Archon/', '')];
+    const content = files[path.replace('/demo/Arco/', '')];
     return Response.json(content === undefined ? { type: 'error', error: 'This file is outside the synthetic fixture.' } : { type: 'text', content, size: new TextEncoder().encode(content).length });
   }
   return Response.json({ error: 'Operation stubbed in design preview.' }, { status: 403 });

@@ -7,13 +7,13 @@ import {
   readArticle,
   updateArticle,
 } from '../knowledge/store.js';
-import { KNOWLEDGE_INJECT_BUDGET } from '@archon/shared';
+import { KNOWLEDGE_INJECT_BUDGET } from '@arco/shared';
 import type {
   KnowledgeBodyResponse,
   KnowledgeCreateRequest,
   KnowledgeListResponse,
   KnowledgeUpdateRequest,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // WORKBENCH_EXPANSION_PLAN.md §B3 — Knowledge base CRUD (per-cwd, REST).
 //

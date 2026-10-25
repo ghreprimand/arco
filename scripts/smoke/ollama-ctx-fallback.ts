@@ -23,7 +23,7 @@
 // HOME is redirected to a temp dir BEFORE importing the settings module so
 // readSettings() sees an empty config (single-backend cascade against the env
 // base URL) and the smoke is deterministic regardless of the operator's real
-// ~/.archon/settings.json.
+// ~/.arco/settings.json.
 //
 // Run: npm run smoke:ollama-ctx-fallback   (no dev server needed)
 
@@ -33,8 +33,8 @@ import path from 'path';
 import { EventEmitter } from 'events';
 
 // ── Isolate settings: redirect HOME to an empty temp dir BEFORE any import that
-// computes ~/.archon at module-load time. ───────────────────────────────────
-const TMP_HOME = mkdtempSync(path.join(tmpdir(), 'archon-m9-'));
+// computes ~/.arco at module-load time. ───────────────────────────────────
+const TMP_HOME = mkdtempSync(path.join(tmpdir(), 'arco-m9-'));
 process.env.HOME = TMP_HOME;
 process.env.USERPROFILE = TMP_HOME; // Windows parity
 // Point the single-backend cascade at a fixed fake base.
@@ -335,9 +335,9 @@ async function main(): Promise<void> {
   // and a big-window peer. First dispatch overflows (small host at its ceiling
   // → no bump possible); M9 escalates to the peer, which succeeds.
   {
-    mkdirSync(path.join(TMP_HOME, '.archon'), { recursive: true });
+    mkdirSync(path.join(TMP_HOME, '.arco'), { recursive: true });
     writeFileSync(
-      path.join(TMP_HOME, '.archon', 'settings.json'),
+      path.join(TMP_HOME, '.arco', 'settings.json'),
       JSON.stringify({
         ollama: {
           backends: [

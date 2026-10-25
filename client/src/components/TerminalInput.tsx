@@ -23,8 +23,8 @@ import { mintResearchSpawnToken, registerPendingResearch } from './terminalInput
 import { openCompareDialog } from './terminalInput/compare';
 import { PrimaryStatus } from './PrimaryStatus';
 import { QueuedMessagesIndicator } from './QueuedMessagesIndicator';
-import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO, DEFAULT_ZAI_MODEL, ZAI_MODEL_LABELS } from '@archon/shared';
-import type { ToolboxEntry, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, ArchonSkillRef } from '@archon/shared';
+import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO, DEFAULT_ZAI_MODEL, ZAI_MODEL_LABELS } from '@arco/shared';
+import type { ToolboxEntry, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, ArcoSkillRef } from '@arco/shared';
 import {
   cacheHitPercent,
   codexPublishedMaxOutput,
@@ -47,7 +47,7 @@ interface Props {
     attachments?: string[],
     kind?: 'steer' | 'follow-up',
     primitive?: 'docs' | 'git',
-    // DD8 — operator-picked Archon skills to inline into this turn.
+    // DD8 — operator-picked Arco skills to inline into this turn.
     pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>,
   ) => boolean | void; // false ⇒ socket down, nothing sent — keep the draft
   onCancel: () => void;
@@ -84,7 +84,7 @@ interface Props {
   // Live-edit the primary's model / effort from the chip. Mid-turn picks
   // are honored on the next round-trip; the worker pulls config.model and
   // config.effort fresh on each messages.create.
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArchonSkillRef[] }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[] }) => void;
   // Operator-triggered provider-native compaction. The button is capability-
   // gated below; the server validates transport/session state + drives the lock.
   onCompact?: () => void;
@@ -136,7 +136,7 @@ interface Props {
 // scrolls internally.
 const MAX_INPUT_HEIGHT_PX = 240;
 
-// Claude Code TUI-only slash commands. Archon runs `claude -p` (non-interactive
+// Claude Code TUI-only slash commands. Arco runs `claude -p` (non-interactive
 // stream-json), so these never reach the interactive dispatcher — they're sent
 // as user prompts and come back as errors (e.g. /login → 401). Intercept them
 // in the composer so the operator isn't wasting a turn + an auth-token hit.
@@ -317,7 +317,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const clearAttachments = useAppStore((s) => s.clearAttachments);
   const addMessage = useAppStore((s) => s.addMessage);
   const [uploading, setUploading] = useState(false);
-  // DD8 — operator-picked Archon skills to inline into the next turn. Per-tab;
+  // DD8 — operator-picked Arco skills to inline into the next turn. Per-tab;
   // cleared after each send and when the active tab changes.
   const [pickedSkills, setPickedSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string }>>([]);
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
@@ -568,8 +568,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       const detail = (e as CustomEvent).detail as { files: File[] } | undefined;
       if (detail?.files?.length) void uploadAndAppend(detail.files);
     };
-    window.addEventListener('archon:attach-files', handler);
-    return () => window.removeEventListener('archon:attach-files', handler);
+    window.addEventListener('arco:attach-files', handler);
+    return () => window.removeEventListener('arco:attach-files', handler);
   }, [uploadAndAppend]);
 
   const handleSubmit = (kind?: 'steer' | 'follow-up') => {
@@ -589,7 +589,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     // through because their names never collide with these.
     const slashMatch = trimmed.match(/^\/([a-z-]+)(?:\s|$)/);
     // Cursor's real command is `/compress` (not `/compact`). Route it through
-    // Archon's provider-native handler so the worker can send the command as an
+    // Arco's provider-native handler so the worker can send the command as an
     // isolated ACP prompt; normal Cursor turns prepend cluster/north-star text
     // and would prevent the slash dispatcher from recognizing it.
     if (slashMatch?.[1] === 'compress' && provider === 'cursor') {
@@ -940,7 +940,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       )}
 
       {/* DD7 — project-trust prompt. This repo ships CLAUDE.md / project skills /
-          .archon/settings.json that Arco SUPPRESSED from the turn until the
+          .arco/settings.json that Arco SUPPRESSED from the turn until the
           operator vouches for it (the cloned-repo prompt-injection vector). The
           turn already ran with them suppressed; trusting folds them in next turn.
           Operator-prompt only — no auto-grant. */}
@@ -964,7 +964,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           <button
             onClick={() => onSetProjectTrust(job.projectTrustPrompt!.cwd, 'always')}
             className="display-font"
-            title="Record this repo as trusted in ~/.archon/trust.json. Its CLAUDE.md / project skills / project settings fold into future turns. Reversible — edit trust.json to revoke."
+            title="Record this repo as trusted in ~/.arco/trust.json. Its CLAUDE.md / project skills / project settings fold into future turns. Reversible — edit trust.json to revoke."
             style={{
               padding: '4px 12px',
               background: 'transparent',

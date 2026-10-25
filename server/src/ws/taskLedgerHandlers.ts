@@ -1,5 +1,5 @@
 // server/src/ws/taskLedgerHandlers.ts — Project task ledger WS handlers
-// (ARCHON_OPS_PLAN.md §D1, Part D).
+// (ARCO_OPS_PLAN.md §D1, Part D).
 //
 // The ledger is cwd-scoped. Mutations arrive tagged with a workflowId; we
 // resolve the cwd from that workflow, mutate via the load()/save() boundary in
@@ -24,7 +24,7 @@ import type {
   TaskRun,
   TaskRunRecoverAction,
   TaskRunRecoverMessage,
-} from '@archon/shared';
+} from '@arco/shared';
 import * as clusterStore from '../clusterStore.js';
 import * as taskLedger from '../project/taskLedger.js';
 import { workflows, workflowCwds } from '../server/state.js';

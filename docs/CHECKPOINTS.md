@@ -9,25 +9,25 @@ operator can undo what an agent did independent of their own git history. The mo
 
 1. **Git repo (normal path)** — snapshots without touching the user's index/HEAD/staging by using a
    **separate index file**:
-   - A unique `GIT_INDEX_FILE=$TMPDIR/archon-snapshot-<cwd-hash>-<pid>-<uuid>.index` for every operation
+   - A unique `GIT_INDEX_FILE=$TMPDIR/arco-snapshot-<cwd-hash>-<pid>-<uuid>.index` for every operation
      (the isolation is load-bearing; uniqueness prevents concurrent workflows in one cwd contending on the
      same index lock, and keeping it outside the worktree prevents one capture staging another's scratch).
    - `read-tree HEAD` into the snap index (skipped on an unborn HEAD), then `add -A`, then `write-tree`.
    - `commit-tree` wraps the tree in a **parentless** commit (checkpoints are a flat series, not a branch).
-   - `update-ref refs/archon/<workflowId>/<seq>` stores it. The user's `git status`, index, branch, and
+   - `update-ref refs/arco/<workflowId>/<seq>` stores it. The user's `git status`, index, branch, and
      HEAD are **byte-identical** afterward.
    - All calls use `execFile` arg arrays — **no shell-string interpolation**.
-2. **Non-git cwd (fallback)** — a **shadow bare repo** at `~/.archon/checkpoints/<cwd-hash>/git`, driven
+2. **Non-git cwd (fallback)** — a **shadow bare repo** at `~/.arco/checkpoints/<cwd-hash>/git`, driven
    with `--git-dir`/`--work-tree` (the dotfiles pattern) so nothing ever lands in the user's directory — it
-   stays non-git from their point of view. Refs use the same `refs/archon/<wfid>/<seq>` format. Staging is
+   stays non-git from their point of view. Refs use the same `refs/arco/<wfid>/<seq>` format. Staging is
    an explicit file list from our own walk (`--pathspec-from-file`, NUL-separated, `add -f` so nested
-   `.gitignore`s can't abort it), skipping the top-level `.archon` and every `.git` at any depth.
+   `.gitignore`s can't abort it), skipping the top-level `.arco` and every `.git` at any depth.
 
    **Size caps (load-bearing scope rule).** Regular files over the **32 MiB per-file cap** are SKIPPED and
    counted (`skippedLargeFiles` on the broadcast) — agents mutate configs/scripts/text; multi-GB models and
    videos are inert ballast no per-turn snapshot scheme can afford to copy. A **1 GiB included-total cap**
    backstops many-small-file trees; over it the snapshot is skipped entirely (logged, returns null).
-   Overrides: `ARCHON_CHECKPOINT_FILE_CAP_BYTES` / `ARCHON_CHECKPOINT_TOTAL_CAP_BYTES` (`0` disables
+   Overrides: `ARCO_CHECKPOINT_FILE_CAP_BYTES` / `ARCO_CHECKPOINT_TOTAL_CAP_BYTES` (`0` disables
    either). Caps apply only to this fallback, never to real repos. Every ref has a small
    `<wfid>.<seq>.skipped.json` sidecar recording the exact out-of-scope paths: a target-skipped file remains
    untouched even if it later shrinks, and revert aborts before writing when a currently over-cap path
@@ -40,7 +40,7 @@ operator can undo what an agent did independent of their own git history. The mo
    reverts with real git tree semantics. Legacy `<wfid>.<seq>.tar` files in the same store stay readable by
    revert; nothing creates new tars.
 3. **GC** — caps retained checkpoints at **50 per workflow**; prunes the lowest seqs (`update-ref -d` on the
-   `refs/archon/<wfid>/` prefix — same in the shadow repo, followed by a best-effort `gc --auto`).
+   `refs/arco/<wfid>/` prefix — same in the shadow repo, followed by a best-effort `gc --auto`).
 
 Returns `{ ref, fileCount, ts, backend, skippedLargeFiles? }`, or `null` if it skipped/failed (never throws
 into the turn).
@@ -64,7 +64,7 @@ checkpoint the operator's working tree. It is:
 ## Invariants (do not regress)
 
 - **Never touch the user's real index/HEAD/working tree.** Only `GIT_INDEX_FILE`-scoped index ops and
-  `refs/archon/*` ref writes. No `reset`/`checkout`/`stash`/`add` against the real index. Ever.
+  `refs/arco/*` ref writes. No `reset`/`checkout`/`stash`/`add` against the real index. Ever.
 - **Never expose checkpoints to the LLM** — no tool, no system-prompt mention. Pure operator infra.
 - **Snapshot before the turn, fire-and-forget** — correctness of the turn must not depend on the snapshot.
 - **Worktrees share the store.** `createCheckpoint` works unchanged with a linked `git worktree` cwd (§K5
@@ -75,7 +75,7 @@ checkpoint the operator's working tree. It is:
 ## Smoke
 
 `scripts/smoke/checkpoints.ts` (`npm run smoke:checkpoints`) tests the mechanism directly (no LLM/WS): dirty
-a temp repo, snapshot, assert a new `refs/archon/...` exists, the user's HEAD/index/`git status` are
+a temp repo, snapshot, assert a new `refs/arco/...` exists, the user's HEAD/index/`git status` are
 unchanged, the snapshot tree contains the dirty content, the commit is parentless; and on the non-git
 shadow fallback — the ref lands in the shadow repo while the cwd stays non-git, per-file-capped files are
 skipped and counted, an over-total-cap snapshot is skipped entirely, and unchanged files dedupe at the
@@ -94,16 +94,16 @@ revert. Flow (`server/src/ws/workflowHandlers.ts handleRevertToCheckpoint`):
 2. **Faithful restore** (`gitSnapshots.revertToCheckpoint`). Git mechanism, never touching the user's
    index/HEAD/branch:
    - Resolve the checkpoint's tree (`rev-parse <ref>^{tree}`); null if pruned.
-   - Use a **scratch index file OUTSIDE the working tree** (`$TMPDIR/archon-revert-…index`). This is
+   - Use a **scratch index file OUTSIDE the working tree** (`$TMPDIR/arco-revert-…index`). This is
      load-bearing: `read-tree -u --reset` sweeps working-tree files (and now-empty dirs) absent from the
-     target tree, so a scratch index under `cwd/.archon` would get deleted mid-operation ("unable to write
-     new index file"). The snapshot path keeps its index under `.archon` because it never runs `-u`.
+     target tree, so a scratch index under `cwd/.arco` would get deleted mid-operation ("unable to write
+     new index file"). The snapshot path keeps its index under `.arco` because it never runs `-u`.
    - Seed the scratch index from the LIVE tree: `read-tree HEAD` (if HEAD exists), then a plain `add -A`,
-     then `rm --cached -r --ignore-unmatch -- .archon` to drop our state dir from the seed. **Do not
-     "simplify" this back to `add -A -- ':!.archon' ':!.git'`** — an exclude-only pathspec makes git treat
-     matched-but-ignored dirs as explicitly requested, and with a global `**/.archon/` ignore rule the add
+     then `rm --cached -r --ignore-unmatch -- .arco` to drop our state dir from the seed. **Do not
+     "simplify" this back to `add -A -- ':!.arco' ':!.git'`** — an exclude-only pathspec makes git treat
+     matched-but-ignored dirs as explicitly requested, and with a global `**/.arco/` ignore rule the add
      REFUSES ("ignored by one of your .gitignore files"), failing every revert in a repo containing
-     `.archon` (found 2026-08-19). Both seed steps must succeed: a seeded `.archon` would be swept from the
+     `.arco` (found 2026-08-19). Both seed steps must succeed: a seeded `.arco` would be swept from the
      working tree by `read-tree -u --reset` (it's absent from every checkpoint tree).
    - `read-tree -u --reset <tree>` against the scratch index updates the working tree to match the
      checkpoint tree AND **deletes files the scratch index tracked but the target tree lacks** — that's
@@ -125,7 +125,7 @@ revert. Flow (`server/src/ws/workflowHandlers.ts handleRevertToCheckpoint`):
 
 **Guard-seq wire caveat.** `persistAndStampSeq` does `{ ...message, seq: <eventSeq> }`, which **overwrites**
 the guard-seq `seq` field on `checkpoint_created` / `checkpoint_reverted`. The client therefore recovers the
-guard seq from the **ref** (`refs/archon/<wfid>/<seq>` or `<wfid>.<seq>.tar`), not from `msg.seq` — see
+guard seq from the **ref** (`refs/arco/<wfid>/<seq>` or `<wfid>.<seq>.tar`), not from `msg.seq` — see
 `client/src/utils/historyEvents.ts guardSeqFromRef`. The revert handler rebuilds the ref from the seq the
 client sends, so the round-trip is consistent.
 

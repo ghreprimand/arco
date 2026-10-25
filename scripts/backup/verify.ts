@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F2 — pure archive verifier (verify-BEFORE-restore gate).
+// ARCO_OPS_PLAN.md §F2 — pure archive verifier (verify-BEFORE-restore gate).
 //
 // `verifyArchive(gz)` is the F3 safety gate: it validates a backup archive
 // against its OWN manifest before any restore touches the filesystem. The
@@ -15,7 +15,7 @@
 //
 // On TOP of structure, verify cross-checks the manifest against the actual
 // entries — the part readArchive can't know about:
-//   • format is the expected 'archon-backup/1' (unknown/forged format → fail).
+//   • format is the expected 'arco-backup/1' (unknown/forged format → fail).
 //   • required manifest fields are present + well-typed.
 //   • every actual file entry is DECLARED in manifest.categories (no smuggled
 //     file), and every DECLARED path is present as an entry (no missing file).
@@ -28,7 +28,7 @@
 import type { BackupCategory, BackupManifest } from './manifest.js';
 import { readArchive, type ArchiveFile } from './archive.js';
 
-const EXPECTED_FORMAT = 'archon-backup/1';
+const EXPECTED_FORMAT = 'arco-backup/1';
 
 // The category keys the manifest must enumerate (mirrors BackupManifest.categories).
 const CATEGORY_KEYS: BackupCategory[] = [
@@ -77,8 +77,8 @@ export function verifyArchive(gz: Buffer): VerifyResult {
   }
 
   // ── 4. Required fields present + well-typed. ──
-  if (typeof manifest.archonVersion !== 'string') {
-    problems.push('manifest field "archonVersion" missing or not a string');
+  if (typeof manifest.arcoVersion !== 'string') {
+    problems.push('manifest field "arcoVersion" missing or not a string');
   }
   if (typeof manifest.createdAt !== 'string') {
     problems.push('manifest field "createdAt" missing or not a string');

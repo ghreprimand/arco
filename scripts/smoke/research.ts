@@ -44,7 +44,7 @@ function makeStubManager(report: string, captured: CapturedSpawn[]) {
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-research-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-research-'));
   const workflowId = 'smoke-research-wf';
   console.log(`research smoke — cwd ${cwd}`);
   console.log('');

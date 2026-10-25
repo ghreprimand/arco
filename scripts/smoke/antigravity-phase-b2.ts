@@ -15,7 +15,7 @@
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import { AntigravityProvider } from '../../server/src/providers/antigravity.js';
 
@@ -32,7 +32,7 @@ const RED_PNG_BASE64 =
 interface ToolEvent { name: string; status?: string; input: string }
 
 async function setupCwdAndFiles(): Promise<{ cwd: string; textPath: string; imagePath: string }> {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigrav-b2-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigrav-b2-'));
   const uploadsDir = join(cwd, '.uploads-src');
   await mkdir(uploadsDir, { recursive: true });
   const textPath = join(uploadsDir, 'note.txt');
@@ -135,7 +135,7 @@ Reply with: the marker line and the image path on a single line each.`;
   console.log('');
 
   // 1. Stable per-workflow staging dir exists with both files.
-  const stableDir = join(cwd, '.archon', 'workflows', WORKFLOW_ID, 'attachments');
+  const stableDir = join(cwd, '.arco', 'workflows', WORKFLOW_ID, 'attachments');
   let staged: string[] = [];
   try { staged = await readdir(stableDir); } catch { staged = []; }
   const stagedTxt = staged.find((n) => n.endsWith('.txt'));
@@ -143,9 +143,9 @@ Reply with: the marker line and the image path on a single line each.`;
   console.log(`stable staging dir: ${stableDir}`);
   console.log(`  staged files: ${staged.join(', ') || '(none)'}`);
   if (stagedTxt) pass(`stable copy of text attachment present (${stagedTxt})`);
-  else fail('stable copy of text attachment under .archon/workflows/<wfid>/attachments/');
+  else fail('stable copy of text attachment under .arco/workflows/<wfid>/attachments/');
   if (stagedPng) pass(`stable copy of image attachment present (${stagedPng})`);
-  else fail('stable copy of image attachment under .archon/workflows/<wfid>/attachments/');
+  else fail('stable copy of image attachment under .arco/workflows/<wfid>/attachments/');
 
   // 2. Staged text file content matches source.
   if (stagedTxt) {

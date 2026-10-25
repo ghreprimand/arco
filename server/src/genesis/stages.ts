@@ -1,4 +1,4 @@
-// ── Genesis stage ladder + lightweight readiness (ARCHON_OPS_PLAN.md M1) ──
+// ── Genesis stage ladder + lightweight readiness (ARCO_OPS_PLAN.md M1) ──
 //
 // The reusable, model-free core of Genesis: a compressed 4-rung ladder
 // (Spark → Concept → Case → Build-direction) with one primary narrative field per
@@ -12,7 +12,7 @@
 // lifecycle to 4 rungs since Genesis only spans idea→build-direction, not the full
 // shelved/cold-storage/market afterlife.
 
-import type { GenesisField, GenesisReadiness, GenesisSeed, GenesisStage } from '@archon/shared';
+import type { GenesisField, GenesisReadiness, GenesisSeed, GenesisStage } from '@arco/shared';
 
 // Ladder order, bottom rung first. The index into this array is the canonical
 // stage ordering used for "never move behind the derived floor" comparisons.

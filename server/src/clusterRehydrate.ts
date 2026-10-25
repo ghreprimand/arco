@@ -1,7 +1,7 @@
 // CLUSTER_MODE_PLAN.md Phase 5 — history rehydrate.
 //
 // Pending peer messages persist on disk as
-// `~/.archon/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. When a WS
+// `~/.arco/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. When a WS
 // client reconnects (or the server reboots and a fresh subscribe lands),
 // the on-disk mailbox still has the undelivered messages but no in-memory
 // subscriber has seen the original peer_message_sent broadcast. Rehydrate
@@ -23,7 +23,7 @@
 
 import * as clusterStore from './clusterStore.js';
 import * as clusterMailbox from './clusterMailbox.js';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 const rehydratedClusters = new Set<string>();
 

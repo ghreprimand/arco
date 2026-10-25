@@ -4,19 +4,19 @@
 //
 // Reviewer turns set no resumeSessionId, which causes the RPC layer to start
 // a fresh cascade. Primary turns pass `resumeSessionId` on turn 2+ to resume
-// the same cascade. The cascade id is opaque to Archon and stored on the
+// the same cascade. The cascade id is opaque to Arco and stored on the
 // workflow's primarySessionId by the seed worker on the init event.
 //
 // No subprocess, no token accounting beyond what RPC reports back, no
 // mid-turn cancel (Antigravity's in-flight agent work keeps running — kill()
-// only detaches Archon from the poll loop).
+// only detaches Arco from the poll loop).
 
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { copyFile, mkdir, stat } from 'fs/promises';
 import { basename, extname, join } from 'path';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 import { runAntigravityRpcTurn } from './antigravityRpc.js';
 import { awaitModelImage } from './attachments.js';
@@ -93,7 +93,7 @@ async function stageAttachments(
   workflowId: string,
   split: SplitAttachments,
 ): Promise<{ images: string[]; nonImages: string[]; stableDir: string }> {
-  const stableDir = join(cwd, '.archon', 'workflows', workflowId, 'attachments');
+  const stableDir = join(cwd, '.arco', 'workflows', workflowId, 'attachments');
   await mkdir(stableDir, { recursive: true });
   const images = await Promise.all(split.images.map((p) => stageAttachment(stableDir, p)));
   const nonImages = await Promise.all(split.nonImages.map((p) => stageAttachment(stableDir, p)));
@@ -242,7 +242,7 @@ class AntigravityRpcProcess extends EventEmitter implements ProviderProcess {
     let text = result.text;
     if (cwd && this.config.workflowId) {
       // Give Antigravity's own file writes a short settle window after the
-      // planner response. The source files are never mutated or deleted; Archon
+      // planner response. The source files are never mutated or deleted; Arco
       // only copies conservative extensions into its workflow artifact area.
       await new Promise((resolve) => setTimeout(resolve, 1200));
       try {

@@ -408,7 +408,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
         {/* Editing surface: CodeMirror takes over the whole body. No inner
             padding so the gutter sits flush; the editor scrolls itself. */}
         {editing && payload?.type === 'text' ? (
-          <div className="archon-file-body" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+          <div className="arco-file-body" style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
             <CodeEditor
               ref={editorRef}
               value={buffer}
@@ -436,7 +436,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
             )}
           </div>
         ) : (
-        <div ref={scrollBodyRef} className="archon-file-body" style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+        <div ref={scrollBodyRef} className="arco-file-body" style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
           {payload === null && (
             <div style={{ color: 'var(--color-fg-muted)', fontSize: '12px', fontStyle: 'italic' }}>
               Loading…
@@ -459,7 +459,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
                 {payload.content}
               </pre>
             ) : classification.kind === 'markdown' ? (
-              <div className="archon-markdown">
+              <div className="arco-markdown">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {payload.content}
                 </ReactMarkdown>
@@ -468,7 +468,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
               // Code files: wrap in a fenced block so react-markdown +
               // rehype-highlight does all the work with the same styles as
               // fenced blocks inside markdown.
-              <div className="archon-markdown">
+              <div className="arco-markdown">
                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                   {'```' + (classification.lang ?? '') + '\n' + ('prettyContent' in classification && classification.prettyContent ? classification.prettyContent : payload.content) + '\n```'}
                 </ReactMarkdown>

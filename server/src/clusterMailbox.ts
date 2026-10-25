@@ -1,7 +1,7 @@
 import { publishActivity } from './voice/activityBus.js';
 // CLUSTER_MODE_PLAN.md Phase 1 — file-per-message mailbox.
 //
-// Layout: ~/.archon/clusters/<clusterId>/mailbox/<recipientWorkflowId>/<msgId>.json
+// Layout: ~/.arco/clusters/<clusterId>/mailbox/<recipientWorkflowId>/<msgId>.json
 // One file per message. The mailbox is the single source of truth — peer
 // tools / pre-turn injection are stateless wrappers over this directory.
 //
@@ -138,7 +138,7 @@ export async function materializeArtifacts(
   if (!state) return [];
   const root = getMemberAccessMode(clusterId, wfId) === 'isolated'
     ? join(isolatedWorkspaceFor(clusterId, wfId), '.peer-artifacts', msg.msgId)
-    : join(state.cwd, '.archon', 'peer-artifacts', msg.msgId);
+    : join(state.cwd, '.arco', 'peer-artifacts', msg.msgId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
   const out: Array<{ name: string; path: string; byteLength: number }> = [];
   for (let i = 0; i < msg.artifacts.length; i++) {

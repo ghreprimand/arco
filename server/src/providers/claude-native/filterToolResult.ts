@@ -7,7 +7,7 @@
 // rewritten before insertion. Cache breakpoints upstream stay valid.
 //
 // **Reversibility.** When `originalBytes !== filteredBytes` the worker
-// gzips the raw output to `<archonHome>/workflows/<wfId>/artifacts/raw-tools/`
+// gzips the raw output to `<arcoHome>/workflows/<wfId>/artifacts/raw-tools/`
 // and stamps `rawArtifactPath` on the emitted `tool_filtered` event. This
 // module is pure — it does no I/O.
 //

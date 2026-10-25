@@ -6,7 +6,7 @@ import { readStrataProfiles } from './strataProfiles.js';
 import { readDeepSeekProfiles } from './deepseekProfiles.js';
 
 const exec = promisify(execFile);
-export { strataEngineReleaseVersion } from '@archon/shared';
+export { strataEngineReleaseVersion } from '@arco/shared';
 // Read metadata only. Version discovery must work with all engines stopped
 // and must never load weights or run an engine's --version entry point.
 export async function installedStrataVersion(base: string): Promise<string | undefined> {

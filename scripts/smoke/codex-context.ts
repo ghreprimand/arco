@@ -1,4 +1,4 @@
-// Codex per-tab context-policy protocol smoke. Run with an Archon server up.
+// Codex per-tab context-policy protocol smoke. Run with an Arco server up.
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,7 +8,7 @@ import { connect, step, assertEq, summary, type AnyMessage } from './lib.js';
 interface Meta { codexContextPolicy?: 'max' | 'standard' }
 
 async function waitForPolicy(cwd: string, workflowId: string, policy: Meta['codexContextPolicy']): Promise<void> {
-  const path = join(cwd, '.archon', 'workflows', workflowId, 'meta.json');
+  const path = join(cwd, '.arco', 'workflows', workflowId, 'meta.json');
   const started = Date.now();
   while (Date.now() - started < 3_000) {
     try {
@@ -21,7 +21,7 @@ async function waitForPolicy(cwd: string, workflowId: string, policy: Meta['code
 }
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-codex-context-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-codex-context-'));
   const client = await connect();
   let workflowId = '';
 

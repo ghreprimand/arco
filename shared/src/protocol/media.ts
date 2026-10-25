@@ -237,7 +237,7 @@ export const MEDIA_OP_KINDS: MediaOpKind[] = [
 
 // POST /api/media/op body. `path` is resolved server-side through the media
 // access resolver (Part N2): confined to `cwd` when present, ALWAYS allowed
-// inside Archon's own media-scratch dir, and — only when the operator has
+// inside Arco's own media-scratch dir, and — only when the operator has
 // enabled `mediaUnconfined` in Settings — permitted to reach an arbitrary
 // absolute path. `spec` is validated against the union above. `cwd` is now
 // OPTIONAL: a general-tool op on a scratch / absolute path carries none (an
@@ -343,7 +343,7 @@ export interface ImageWriteResult {
 //
 // POST /api/media/scratch?name=<basename> with the raw file bytes as the body
 // streams an IMPORTED (browser-blob / drag-dropped) media file onto disk in
-// Archon's own scratch area (~/.archon/media-scratch/<id>/) so ffmpeg — which
+// Arco's own scratch area (~/.arco/media-scratch/<id>/) so ffmpeg — which
 // reads files, not object URLs — can act on it. The returned absolute `path` is
 // then passed straight back as a MediaOpRequest.path; the op resolver always
 // permits scratch paths regardless of the `mediaUnconfined` setting (the

@@ -83,11 +83,11 @@ test('ready response must match the selected model; mismatch rolls back', async 
   await assert.rejects(f.run(), /load timeout|service stopped/); assert.match(f.notices.at(-1)!, /restored: original/);
 });
 test('registry discovers prepared context/vision while offline and rejects mismatched model IDs', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'archon-profile-registry-'));
+  const dir = await mkdtemp(join(tmpdir(), 'arco-profile-registry-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
-  const prior = process.env.ARCHON_STRATA_PROFILES;
-  t.after(() => { if (prior === undefined) delete process.env.ARCHON_STRATA_PROFILES; else process.env.ARCHON_STRATA_PROFILES = prior; });
-  process.env.ARCHON_STRATA_PROFILES = join(dir, 'registry.json');
+  const prior = process.env.ARCO_STRATA_PROFILES;
+  t.after(() => { if (prior === undefined) delete process.env.ARCO_STRATA_PROFILES; else process.env.ARCO_STRATA_PROFILES = prior; });
+  process.env.ARCO_STRATA_PROFILES = join(dir, 'registry.json');
   const file = join(dir, 'prepared'); await writeFile(file, 'fixture');
   const config = join(dir, 'config.json');
   const cfg = { exe: file, tokenizer: file, model_name: profiles[0].model, args: ['--max-context', '262144', '--pack', file, '--native', file, '--ple-gguf', file, '--vision'], vision: { exe: file, model: file, mmproj: file } };

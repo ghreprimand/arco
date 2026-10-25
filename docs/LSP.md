@@ -107,7 +107,7 @@ drops" works. The client stores them per-file in
 - **concurrent-spawn dedup**: simultaneous `ensure()` callers for the same key
   share one in-flight spawn via a `pending` map;
 - **idle-reap**: a shared sweeper (`armIdleTimer`) evicts any server unused for
-  `ARCHON_LSP_KEEPALIVE_MS` (default **5 min**) via a graceful LSP
+  `ARCO_LSP_KEEPALIVE_MS` (default **5 min**) via a graceful LSP
   `shutdown`/`exit` then `SIGTERM` then a 3 s `SIGKILL` fuse. The sweeper
   clears itself when no servers remain;
 - **init-timeout fuse**: `initialize` must complete within 20 s or the spawn is
@@ -149,7 +149,7 @@ mirror `pidRegistry` here.
 
 ## Config knobs
 
-- `ARCHON_LSP_KEEPALIVE_MS` — idle-evict window (ms). `0` ⇒ keep servers loaded
+- `ARCO_LSP_KEEPALIVE_MS` — idle-evict window (ms). `0` ⇒ keep servers loaded
   forever. Default `300000` (5 min).
 
 ## Testing

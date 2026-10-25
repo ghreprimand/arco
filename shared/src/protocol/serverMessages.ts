@@ -268,7 +268,7 @@ export interface GoalRunStateMessage {
   tokenBudget?: number;
 }
 
-// Durable acknowledgement for replacing a tab's pinned Archon skills. The
+// Durable acknowledgement for replacing a tab's pinned Arco skills. The
 // event is persisted so pin/unpin actions remain visible in workflow history.
 // `bytes` is the current UTF-8 size of the full injected block; editing a
 // SKILL.md can change the next turn's size without another pin event.
@@ -281,7 +281,7 @@ export interface PinnedSkillsSetMessage {
 }
 
 // DD7 — project-trust prompt. Raised on a turn whose cwd has project-local
-// resources (CLAUDE.md / project skills / .archon/settings.json) AND no recorded
+// resources (CLAUDE.md / project skills / .arco/settings.json) AND no recorded
 // trust decision (defaultProjectTrust='ask'). The turn STILL PROCEEDS with those
 // resources suppressed; this prompt only lets the operator grant trust for
 // future turns. `resources` lists the suppressed surfaces for the dialog body.
@@ -367,7 +367,7 @@ export interface FileMutationQueuedMessage {
 
 // Opus-5 plan Phase 2 — alias-capability resolution. Emitted by the Claude
 // Native worker when the model id Anthropic echoes on message_start differs
-// from the id Archon requested — i.e. the tab runs a family alias ('opus',
+// from the id Arco requested — i.e. the tab runs a family alias ('opus',
 // 'opus[1m]') that the server resolved to a concrete model. Once per worker
 // per distinct resolution, so `opus → claude-opus-5` is an explicit, durable
 // release signal in events.jsonl instead of being inferred from behavior
@@ -452,7 +452,7 @@ export interface CtxActionMessage {
         | 'system_delta' | 'tool_set_change' | 'turn_notice'
         | 'thinking_dropped_by_api' | 'strip_thinking_binding_mismatch';
   // "api" = Anthropic reported a transformation it applied to the request
-  // (input_transformations) — Archon did not mutate anything.
+  // (input_transformations) — Arco did not mutate anything.
   trigger: 'operator' | 'auto-threshold' | 'model' | 'recovery' | 'api';
   detail?: string;
 }
@@ -477,7 +477,7 @@ export interface NativeCompactingMessage {
   foldedTurns?: number;
 }
 
-// Operator-triggered in-place compaction for native transports — the in-Archon
+// Operator-triggered in-place compaction for native transports — the in-Arco
 // equivalent of `/compact`. The worker runs one summarization round, REPLACES
 // retained native history with the summary, and emits this event. It is
 // PERSISTED to events.jsonl and load-bearing on replay: provider replay helpers
@@ -555,7 +555,7 @@ export interface ContextFoldedMessage {
 //
 // `originalBytes !== filteredBytes` ⇒ `rawArtifactPath` is set to the
 // gzipped raw output's relative-to-cwd path (e.g.
-// `.archon/workflows/<wfId>/artifacts/raw-tools/<turn-id>-<toolUseId>.txt.gz`).
+// `.arco/workflows/<wfId>/artifacts/raw-tools/<turn-id>-<toolUseId>.txt.gz`).
 // The chat chip's "expand" affordance fetches this artifact so the
 // operator can recover what the model didn't see — reversibility is
 // non-negotiable per `docs/MASTER_REFACTOR.md` §6.4.
@@ -573,7 +573,7 @@ export interface ToolFilteredMessage {
   originalBytes: number;
   filteredBytes: number;
   // Set when `originalBytes !== filteredBytes`. Path is workspace-relative
-  // (`.archon/workflows/...`); the client resolves against the workflow
+  // (`.arco/workflows/...`); the client resolves against the workflow
   // cwd via the existing artifact-fetch endpoint.
   rawArtifactPath?: string;
 }

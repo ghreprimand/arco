@@ -1,4 +1,4 @@
-// ── Local service discovery engine (ARCHON_OPS_PLAN.md §L1, Part L) ──
+// ── Local service discovery engine (ARCO_OPS_PLAN.md §L1, Part L) ──
 //
 // Enumerates local listening TCP sockets and resolves each to its process /
 // cwd / framework, behind GET /api/services. READ-ONLY: this module only reads
@@ -14,7 +14,7 @@
 // DISCOVERY MECHANISM (cross-platform — Linux AND macOS):
 //   1. `lsof -nP -iTCP -sTCP:LISTEN` lists every listening TCP socket with its
 //      pid + bind host:port. We use lsof, NOT Linux-only `ss` / /proc/net/tcp
-//      parsing, because Archon must also run on macOS where those don't exist.
+//      parsing, because Arco must also run on macOS where those don't exist.
 //   2. Per pid, resolve name/cmdline via /proc/<pid>/cmdline (NUL-separated) on
 //      Linux — a fast no-spawn path — falling back to `ps -p <pid> -o
 //      comm=,args=` on macOS / when /proc is absent.
@@ -34,7 +34,7 @@ import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
 import { existsSync } from 'node:fs';
 
-import type { LocalService, ServicesResponse } from '@archon/shared';
+import type { LocalService, ServicesResponse } from '@arco/shared';
 
 const execFileAsync = promisify(execFile);
 

@@ -18,12 +18,12 @@ import {
   type ModelName,
   type EffortLevel,
   type MdTuneupCandidate,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Dirs never worth scanning for instruction files — heavy, vendored, or
-// Archon's own state. Keeps discovery bounded on large repos.
+// Arco's own state. Keeps discovery bounded on large repos.
 const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.archon', 'dist', 'build', 'out', '.next', '.nuxt',
+  'node_modules', '.git', '.arco', 'dist', 'build', 'out', '.next', '.nuxt',
   'coverage', '.cache', 'vendor', '.venv', 'venv', '__pycache__', 'target',
 ]);
 const DISCOVERY_MAX_DEPTH = 6;
@@ -111,7 +111,7 @@ function unwrapFence(text: string): string {
 // Accept-path file mutation, extracted so it's unit-testable and so the
 // backup-before-overwrite ordering is a single source of truth. Snapshots the
 // CURRENT on-disk file (not a cached copy), writes it to
-// `.archon/md-backups/<name>.<ts>.bak` and fsync-flushes it BEFORE overwriting
+// `.arco/md-backups/<name>.<ts>.bak` and fsync-flushes it BEFORE overwriting
 // the original — a crash mid-write can never lose the original. Both paths are
 // guarded by resolveWithinCwd. Returns the backup path + bytes written.
 export async function backupAndWriteInstructionFile(
@@ -126,7 +126,7 @@ export async function backupAndWriteInstructionFile(
   const abs = resolveWithinCwd(cwd, filePath);
   const baseName = path.basename(abs);
   const current = await fs.readFile(abs, 'utf8');
-  const backupDir = resolveWithinCwd(cwd, path.join('.archon', 'md-backups'));
+  const backupDir = resolveWithinCwd(cwd, path.join('.arco', 'md-backups'));
   await fs.mkdir(backupDir, { recursive: true });
   const stamp = new Date(ts).toISOString().replace(/[:.]/g, '-');
   const backupPath = path.join(backupDir, `${baseName}.${stamp}.bak`);

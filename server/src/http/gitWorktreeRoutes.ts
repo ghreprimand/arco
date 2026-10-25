@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import type { WorktreeListResponse } from '@archon/shared';
+import type { WorktreeListResponse } from '@arco/shared';
 import { listWorktrees } from '../project/taskWorktree.js';
 import { PORT } from '../server/constants.js';
 import { workflowCwds } from '../server/state.js';
@@ -10,8 +10,8 @@ import { workflowCwds } from '../server/state.js';
 //
 //   GET /api/git/worktrees?wfid[&path]  → { isRepo, worktrees[] }
 //
-// Cluster members share the main checkout but do their edits inside an Archon
-// task worktree (~/.archon/worktrees/…) or one they created themselves — both
+// Cluster members share the main checkout but do their edits inside an Arco
+// task worktree (~/.arco/worktrees/…) or one they created themselves — both
 // live OUTSIDE the shared cwd, so `git status` there reads clean. This endpoint
 // surfaces those trees so the operator can watch the right one.
 //

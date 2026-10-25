@@ -14,7 +14,7 @@
 // to send a QuotaStatusMessage to all connected sessions (§6.6). The listener
 // plumbing stays abstract so quota.ts has no WebSocket import.
 
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 
 export type ThrottleSource = 'observed-error' | 'parsed-header' | 'manual-probe' | 'default-available';
 
@@ -57,7 +57,7 @@ export function markThrottled(provider: ProviderName, errorText: string, resetsA
   state.set(provider, next);
   const resetTag = next.resetsAt ? ` (resets ${new Date(next.resetsAt).toISOString()})` : '';
   if (!prev.throttled) {
-    console.log(`[archon] quota: ${provider} → throttled${resetTag}`);
+    console.log(`[arco] quota: ${provider} → throttled${resetTag}`);
   }
   // Broadcast on every mark — operator should see the latest error text even
   // if the throttled bit didn't flip.
@@ -69,7 +69,7 @@ export function markAvailable(provider: ProviderName): void {
   if (prev && !prev.throttled) return;
   const next: QuotaState = { throttled: false, sourceOfTruth: 'observed-error' };
   state.set(provider, next);
-  console.log(`[archon] quota: ${provider} → available`);
+  console.log(`[arco] quota: ${provider} → available`);
   listener?.(provider, next);
 }
 

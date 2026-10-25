@@ -15,7 +15,7 @@
 //
 // CLAUDE_PROJECT_DIR is set to cfg.cwd; the per-event JSON payload is
 // passed on stdin. Subprocess inherits the worker's env minus
-// ARCHON_*-prefixed debug vars (which would leak Archon-internal flags
+// ARCO_*-prefixed debug vars (which would leak Arco-internal flags
 // into hook scripts).
 
 import { promises as fs } from 'node:fs';
@@ -126,7 +126,7 @@ function matcherMatches(matcher: string | undefined, target: string): boolean {
 function scrubEnv(): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) {
-    if (k.startsWith('ARCHON_')) continue;
+    if (k.startsWith('ARCO_')) continue;
     out[k] = v;
   }
   return out;

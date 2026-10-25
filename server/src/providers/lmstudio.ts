@@ -26,7 +26,7 @@ import {
 } from './llamacppRecovery.js';
 import { readSettings } from '../settings.js';
 import { resolveConfigValue } from '../configValue.js';
-import type { GenerationSpeed, WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { GenerationSpeed, WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 
 // LM Studio provider (M13 / Excellence LE-7).
@@ -36,9 +36,9 @@ import type { Provider, ProviderProcess } from './types.js';
 // endpoint, NOT via the native `lmstudio.js`/`ws://` SDK. LM Studio's app +
 // engine are closed-source; only the client SDKs are public. It exposes an
 // OpenAI-compatible REST API on http://localhost:1234/v1 (/chat/completions,
-// /models, /embeddings). Talking to that surface reuses Archon's existing
+// /models, /embeddings). Talking to that surface reuses Arco's existing
 // HTTP-provider plumbing for near-zero cost and avoids a dependency that would
-// have to track the app's version for features Archon already owns (its own
+// have to track the app's version for features Arco already owns (its own
 // tool-loop). The `lms` CLI is at most an OPTIONAL capability-enrichment side-
 // channel (NOT built in v1 — see probeLmstudio).
 //
@@ -89,9 +89,9 @@ export async function getLmstudioBase(): Promise<string> {
 
 // Tool-loop cap. Same rationale as llama.cpp's: local thinking models need
 // rope for multi-step coding work, but unbounded loops hammer the backend and
-// grow the message stack. Tune via ARCHON_LMSTUDIO_MAX_TOOL_TURNS.
+// grow the message stack. Tune via ARCO_LMSTUDIO_MAX_TOOL_TURNS.
 const MAX_TOOL_TURNS = (() => {
-  const env = process.env.ARCHON_LMSTUDIO_MAX_TOOL_TURNS;
+  const env = process.env.ARCO_LMSTUDIO_MAX_TOOL_TURNS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n > 0 && n <= 200) return n;
@@ -102,20 +102,20 @@ const MAX_TOOL_TURNS = (() => {
 // Tool-result truncation thresholds — keep the message stack lean across the
 // multi-turn loop. Identical defaults/rationale to llama.cpp.
 const TOOL_RESULT_HEAD_BYTES = (() => {
-  const env = process.env.ARCHON_LMSTUDIO_TOOL_HEAD_BYTES;
+  const env = process.env.ARCO_LMSTUDIO_TOOL_HEAD_BYTES;
   if (env) { const n = parseInt(env, 10); if (Number.isFinite(n) && n >= 0) return n; }
   return 4096;
 })();
 const TOOL_RESULT_TAIL_BYTES = (() => {
-  const env = process.env.ARCHON_LMSTUDIO_TOOL_TAIL_BYTES;
+  const env = process.env.ARCO_LMSTUDIO_TOOL_TAIL_BYTES;
   if (env) { const n = parseInt(env, 10); if (Number.isFinite(n) && n >= 0) return n; }
   return 2048;
 })();
 
 // Coalescing window for reasoning deltas (same saturation hazard as llama.cpp;
-// see THINKING_FLUSH_MS there). Tune via ARCHON_LMSTUDIO_THINKING_FLUSH_MS.
+// see THINKING_FLUSH_MS there). Tune via ARCO_LMSTUDIO_THINKING_FLUSH_MS.
 const THINKING_FLUSH_MS = (() => {
-  const env = process.env.ARCHON_LMSTUDIO_THINKING_FLUSH_MS;
+  const env = process.env.ARCO_LMSTUDIO_THINKING_FLUSH_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 0 && n <= 5000) return n;
@@ -197,7 +197,7 @@ interface ChatCompletionRequest {
 // wedged backend doesn't hang the turn forever. Generous because a remote
 // LM Studio host may pause while JIT-loading a model on first request.
 const STALL_TIMEOUT_MS = (() => {
-  const env = process.env.ARCHON_LMSTUDIO_STALL_TIMEOUT_MS;
+  const env = process.env.ARCO_LMSTUDIO_STALL_TIMEOUT_MS;
   if (env) { const n = parseInt(env, 10); if (Number.isFinite(n) && n >= 1000) return n; }
   return 120_000;
 })();
@@ -580,7 +580,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
         result = await executeComputerTool(this.config.workflowId, name, args);
       } else if (!autoMode) {
         result =
-          `[Archon SAFE mode] tool "${name}" was not executed. ` +
+          `[Arco SAFE mode] tool "${name}" was not executed. ` +
           'The local provider runs tools server-side only when AUTO mode is enabled on this workflow. ' +
           'Tell the operator what you were going to do, or answer from what they have shown you.';
       } else if (!cwd) {

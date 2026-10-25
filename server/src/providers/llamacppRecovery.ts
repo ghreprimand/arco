@@ -56,12 +56,12 @@ export interface RecoveryConfig {
 
 export function defaultRecoveryConfig(): RecoveryConfig {
   return {
-    enabled: boolEnv('ARCHON_LLAMACPP_AUTO_RECOVER', true),
-    reasoningBudgetTokens: numEnv('ARCHON_LLAMACPP_REASONING_BUDGET', 4000, 100, 100_000),
-    contextFillThreshold: floatEnv('ARCHON_LLAMACPP_COMPACT_THRESHOLD', 0.85, 0.5, 0.99),
-    maxAutoRecoveries: numEnv('ARCHON_LLAMACPP_MAX_RECOVERIES', 1, 0, 10),
-    stallTimeoutMs: numEnv('ARCHON_LLAMACPP_STALL_TIMEOUT_MS', 90_000, 10_000, 600_000),
-    turnBudgetMs: numEnv('ARCHON_LLAMACPP_TURN_BUDGET_MS', 120_000, 10_000, 1_800_000),
+    enabled: boolEnv('ARCO_LLAMACPP_AUTO_RECOVER', true),
+    reasoningBudgetTokens: numEnv('ARCO_LLAMACPP_REASONING_BUDGET', 4000, 100, 100_000),
+    contextFillThreshold: floatEnv('ARCO_LLAMACPP_COMPACT_THRESHOLD', 0.85, 0.5, 0.99),
+    maxAutoRecoveries: numEnv('ARCO_LLAMACPP_MAX_RECOVERIES', 1, 0, 10),
+    stallTimeoutMs: numEnv('ARCO_LLAMACPP_STALL_TIMEOUT_MS', 90_000, 10_000, 600_000),
+    turnBudgetMs: numEnv('ARCO_LLAMACPP_TURN_BUDGET_MS', 120_000, 10_000, 1_800_000),
   };
 }
 
@@ -191,7 +191,7 @@ export function deterministicSummary(messages: ChatMessageLite[]): string {
 // the model treats them as authoritative state, not stale notes.
 export function toolCapContinuationMessage(maxToolTurns: number, recap: string): string {
   return (
-    `[Archon auto-continue] You hit the ${maxToolTurns}-turn tool-call limit for this single message.\n\n` +
+    `[Arco auto-continue] You hit the ${maxToolTurns}-turn tool-call limit for this single message.\n\n` +
     `${recap}\n\n` +
     `**Trust the recap above as authoritative state.** Anything under "Files written" is already on disk in the form you wrote it — do NOT re-Read or re-Write those files unless the operator's task explicitly needs them changed again. Anything under "Files read" you've already inspected — do NOT re-Read to "verify" it. Anything under "Bash commands run" already executed — do NOT re-run for confirmation.\n\n` +
     `Continue from where you left off. Make ONE concrete next action. ` +
@@ -207,7 +207,7 @@ export function toolCapContinuationMessage(maxToolTurns: number, recap: string):
 // let the next iteration's exhaustion check terminate for real).
 export function finalSummaryDemandMessage(reason: string, recap: string): string {
   return (
-    `[Archon final-summary mode] Auto-recovery is exhausted (${reason}). This is your last turn before the worker terminates.\n\n` +
+    `[Arco final-summary mode] Auto-recovery is exhausted (${reason}). This is your last turn before the worker terminates.\n\n` +
     `${recap}\n\n` +
     `**Do not call any more tools.** Write a plain-text handoff for the operator. Cover:\n\n` +
     `1. **What's done** — concrete work completed, with file paths.\n` +
@@ -228,7 +228,7 @@ export function reasoningInterruptionPair(reasoningTokens: number): {
   return {
     assistant: `[I was reasoning for ${reasoningTokens} tokens without committing. Time to act.]`,
     user:
-      `[Archon reasoning recovery] The previous reasoning phase exceeded the budget without producing content or a tool call. ` +
+      `[Arco reasoning recovery] The previous reasoning phase exceeded the budget without producing content or a tool call. ` +
       `Stop deliberating. Take ONE concrete action now: either ` +
       `(a) call a tool to make progress, or ` +
       `(b) write a final answer to the operator with what you have. ` +
@@ -241,7 +241,7 @@ export function reasoningInterruptionPair(reasoningTokens: number): {
 // message stack. Phrased to encourage structured, dense output.
 export function compactionRequestPrompt(operatorAsk: string): string {
   return (
-    `[Archon auto-compaction] The conversation is approaching this model's context limit. ` +
+    `[Arco auto-compaction] The conversation is approaching this model's context limit. ` +
     `Before we proceed, please write a thorough handoff summary. Include:\n\n` +
     `1. **Original goal** (from the operator's first ask): ${operatorAsk.slice(0, 500)}\n` +
     `2. **Decisions made** so far — architecture choices, file structure, naming, etc.\n` +
@@ -258,7 +258,7 @@ export function compactionRequestPrompt(operatorAsk: string): string {
 // the start of the new conversation.
 export function compactionSeedMessage(summary: string): string {
   return (
-    `[Archon: previous conversation was compacted to fit within the context window]\n\n` +
+    `[Arco: previous conversation was compacted to fit within the context window]\n\n` +
     `${summary}\n\n` +
     `Continue from this state. The operator's next message will follow.`
   );

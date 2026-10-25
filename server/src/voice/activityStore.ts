@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ComputerActivityEvent, ComputerActivityPolicy, ComputerActivityDelivery, ComputerActivitySnapshot } from '@archon/shared';
+import type { ComputerActivityEvent, ComputerActivityPolicy, ComputerActivityDelivery, ComputerActivitySnapshot } from '@arco/shared';
 export const COMPUTER_UPDATES_PER_HOUR = 12;
 export const COMPUTER_PENDING_UPDATES = 50;
 export interface ActivitySaved {

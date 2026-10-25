@@ -1,5 +1,5 @@
 import { useId, useState, type CSSProperties } from 'react';
-import type { ArchonSettings } from '@archon/shared';
+import type { ArcoSettings } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 // Settings -> MEDIA ACCESS. Media Studio is confined by default to the workflow
@@ -12,7 +12,7 @@ export const MAX_MEDIA_ROOTS = 32;
 
 export type MediaAccessState = 'confined' | 'switch-only' | 'folders-off' | 'allowed';
 
-export function mediaAccessState(settings: Pick<ArchonSettings, 'mediaUnconfined' | 'mediaAllowedRoots'> | null | undefined): MediaAccessState {
+export function mediaAccessState(settings: Pick<ArcoSettings, 'mediaUnconfined' | 'mediaAllowedRoots'> | null | undefined): MediaAccessState {
   const on = settings?.mediaUnconfined === true;
   const roots = settings?.mediaAllowedRoots?.length ?? 0;
   if (on && roots > 0) return 'allowed';
@@ -47,15 +47,15 @@ export function mediaRootAccepted(before: readonly string[], saved: readonly str
   return (saved?.length ?? 0) > before.length;
 }
 
-export type MediaSaveResult = { settings: ArchonSettings; message: string } | { error: string };
-type MediaPatch = Pick<ArchonSettings, 'mediaUnconfined' | 'mediaAllowedRoots'>;
+export type MediaSaveResult = { settings: ArcoSettings; message: string } | { error: string };
+type MediaPatch = Pick<ArcoSettings, 'mediaUnconfined' | 'mediaAllowedRoots'>;
 
 // One settings write. A failure leaves the previous (server-side) settings in
 // force and says so; nothing is applied optimistically.
 export async function saveMediaAccess(patch: MediaPatch, message: string, fetcher: typeof fetch = fetch): Promise<MediaSaveResult> {
   try {
     const res = await fetcher('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
-    const data = (await res.json().catch(() => null)) as (ArchonSettings & { error?: string }) | null;
+    const data = (await res.json().catch(() => null)) as (ArcoSettings & { error?: string }) | null;
     if (!res.ok || !data || typeof data !== 'object') throw new Error(data?.error || `HTTP ${res.status}.`);
     return { settings: data, message };
   } catch (err) {

@@ -18,13 +18,13 @@ import { applyPhosphorPreferences, readPhosphorPreferences } from './phosphor/pr
 // The server is the source of truth; this cache exists purely to avoid
 // the paint flicker.
 
-const LS_KEY = 'archon_theme_id';
-const LS_FONT_PACK_KEY = 'archon_font_pack_override';
-const LS_FROSTED_KEY = 'archon_frosted_override';
-const LS_FROSTED_OPACITY_KEY = 'archon_frosted_opacity';
-const LS_BG_BRIGHTNESS_KEY = 'archon_bg_brightness';
-const LS_TEXT_BRIGHTNESS_KEY = 'archon_text_brightness';
-const LS_CRISP_TEXT_KEY = 'archon_crisp_text';
+const LS_KEY = 'arco_theme_id';
+const LS_FONT_PACK_KEY = 'arco_font_pack_override';
+const LS_FROSTED_KEY = 'arco_frosted_override';
+const LS_FROSTED_OPACITY_KEY = 'arco_frosted_opacity';
+const LS_BG_BRIGHTNESS_KEY = 'arco_bg_brightness';
+const LS_TEXT_BRIGHTNESS_KEY = 'arco_text_brightness';
+const LS_CRISP_TEXT_KEY = 'arco_crisp_text';
 
 export function readCachedThemeId(): string | null {
   try {

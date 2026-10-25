@@ -8,7 +8,7 @@ import { OpenAIHttpWorkerProcess } from '../../server/src/providers/lmstudio.js'
 import { beginLocalModelUnload, localModelsUnloading } from '../../server/src/providers/localModelControl.js';
 import { CHAT_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatWebArmed } from '../../server/src/chatMode.js';
 import { installedStrataVersion, probeStrataVersion, strataEngineReleaseVersion } from '../../server/src/providers/runtimeVersions.js';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 
 const base = 'http://127.0.0.1:8150/v1';
 const profiles: DeepSeekRegistry['profiles'] = (['exact', 'light'] as const).map((id) => ({
@@ -105,11 +105,11 @@ test('unload stops the service and confirms inactive plus endpoint disappearance
   await assert.rejects(g.manager.unload(base), /not confirmed/);
 });
 test('registry validates Xolotl ctx/assets/routing and refuses the Qwen schema or a remote endpoint', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'archon-deepseek-registry-'));
+  const dir = await mkdtemp(join(tmpdir(), 'arco-deepseek-registry-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const asset = join(dir, 'asset'); await writeFile(asset, 'fixture');
-  const file = join(dir, 'registry.json'); const previousRegistry = process.env.ARCHON_DEEPSEEK_PROFILES; process.env.ARCHON_DEEPSEEK_PROFILES = file;
-  t.after(() => { if (previousRegistry === undefined) delete process.env.ARCHON_DEEPSEEK_PROFILES; else process.env.ARCHON_DEEPSEEK_PROFILES = previousRegistry; });
+  const file = join(dir, 'registry.json'); const previousRegistry = process.env.ARCO_DEEPSEEK_PROFILES; process.env.ARCO_DEEPSEEK_PROFILES = file;
+  t.after(() => { if (previousRegistry === undefined) delete process.env.ARCO_DEEPSEEK_PROFILES; else process.env.ARCO_DEEPSEEK_PROFILES = previousRegistry; });
   const configs = profiles.map((p) => ({ ...p, config: join(dir, `${p.id}.json`) }));
   for (const p of configs) await writeFile(p.config, JSON.stringify({ model_name: p.model, cwd: dir, exe: asset, tokenizer: asset,
     args: ['--ctx', '262144', '-m', asset, '--rank', asset, '--engram', dir, '--route-bias', p.id === 'exact' ? '0' : '0.25', '--route-bias-file', p.id === 'exact' ? '0' : '0.15'] }));
@@ -132,11 +132,11 @@ test('registry validates Xolotl ctx/assets/routing and refuses the Qwen schema o
   await assert.rejects(readDeepSeekProfiles(base), /prepared 262144/);
 });
 test('Strata version metadata remains discoverable offline without running an engine', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'archon-offline-version-'));
+  const dir = await mkdtemp(join(tmpdir(), 'arco-offline-version-'));
   const asset = join(dir, 'engine'), cfg = join(dir, 'profile.json'), path = join(dir, 'registry.json');
-  const previous = process.env.ARCHON_STRATA_PROFILES;
-  process.env.ARCHON_STRATA_PROFILES = path;
-  t.after(async () => { if (previous === undefined) delete process.env.ARCHON_STRATA_PROFILES; else process.env.ARCHON_STRATA_PROFILES = previous; await rm(dir, { recursive: true, force: true }); });
+  const previous = process.env.ARCO_STRATA_PROFILES;
+  process.env.ARCO_STRATA_PROFILES = path;
+  t.after(async () => { if (previous === undefined) delete process.env.ARCO_STRATA_PROFILES; else process.env.ARCO_STRATA_PROFILES = previous; await rm(dir, { recursive: true, force: true }); });
   await writeFile(asset, 'not executable'); await writeFile(join(dir, 'BUILD.json'), JSON.stringify({ version: '0.1.44.1' }));
   await writeFile(cfg, JSON.stringify({ model_name: 'qwen-fixture', exe: asset, tokenizer: asset,
     args: ['--max-context', '262144', '--pack', asset, '--native', asset, '--ple-gguf', asset] }));
@@ -203,7 +203,7 @@ test('images fail before model preparation or completion; primitive Read allowli
   await run(worker({ tools: ['Read'], skipPermissions: true })); assert.equal(calls, 1);
 });
 test('prepared vision forwards image bytes with native context and streaming', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'archon-deepseek-image-'));
+  const dir = await mkdtemp(join(tmpdir(), 'arco-deepseek-image-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const path = join(dir, 'screenshot.png');
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aTH8AAAAASUVORK5CYII=';

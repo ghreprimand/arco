@@ -66,7 +66,7 @@ export function HelpPopover() {
         borderRadius: '4px',
         boxShadow:
           '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px var(--color-accent-primary-a10, rgba(74,240,102,0.1))',
-        animation: 'archon-help-pop-in 0.15s ease-out',
+        animation: 'arco-help-pop-in 0.15s ease-out',
         fontFamily: 'var(--font-body)',
         fontSize: '12px',
         lineHeight: 1.55,

@@ -8,7 +8,7 @@ import { connect, step, assert, assertEq, summary } from './lib.js';
 
 async function main() {
   const c = await connect();
-  const smokeWsUrl = process.env.ARCHON_SMOKE_WS_URL || 'ws://localhost:3001/ws';
+  const smokeWsUrl = process.env.ARCO_SMOKE_WS_URL || 'ws://localhost:3001/ws';
   const smokeHttpBase = smokeWsUrl.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:').replace(/\/ws$/, '');
   let workflowId = '';
   let storageCwd = '';
@@ -70,11 +70,11 @@ async function main() {
     storageCwd = String(config.workingDirectory);
     assertEq(config.kind, 'chat', 'kind echoed');
     assertEq(config.skipPermissions, false, 'AUTO permissions cannot leak into Chat');
-    assertEq(storageCwd, join(homedir(), '.archon', 'chats', workflowId), 'server replaces caller cwd');
+    assertEq(storageCwd, join(homedir(), '.arco', 'chats', workflowId), 'server replaces caller cwd');
   });
 
   await step('persist Chat kind in meta.json', () => {
-    const meta = JSON.parse(readFileSync(join(storageCwd, '.archon', 'workflows', workflowId, 'meta.json'), 'utf8')) as { kind?: string; cwd?: string };
+    const meta = JSON.parse(readFileSync(join(storageCwd, '.arco', 'workflows', workflowId, 'meta.json'), 'utf8')) as { kind?: string; cwd?: string };
     assertEq(meta.kind, 'chat', 'meta kind');
     assertEq(meta.cwd, storageCwd, 'meta cwd');
   });
@@ -84,7 +84,7 @@ async function main() {
     // assertion is that turning it OFF survives to disk — an absent field
     // would read as "armed" on rehydrate.
     c.send({ type: 'update_primary_config', workflowId, chatWebAccess: false });
-    const metaPath = join(storageCwd, '.archon', 'workflows', workflowId, 'meta.json');
+    const metaPath = join(storageCwd, '.arco', 'workflows', workflowId, 'meta.json');
     let persisted: boolean | undefined;
     for (let i = 0; i < 20 && persisted !== false; i++) {
       await new Promise((r) => setTimeout(r, 100));
@@ -114,7 +114,7 @@ async function main() {
     const msg = await c.waitFor((m) => m.type === 'workflow_created' && (m.config as { incognito?: boolean }).incognito === true, 5000, 'incognito workflow_created');
     incognitoWorkflowId = String(msg.workflowId);
     assertEq((msg.config as { workingDirectory?: string }).workingDirectory, tmpdir(), 'incognito uses no per-chat cwd');
-    assertEq(existsSync(join(tmpdir(), '.archon', 'workflows', incognitoWorkflowId)), false, 'no Arco workflow directory created');
+    assertEq(existsSync(join(tmpdir(), '.arco', 'workflows', incognitoWorkflowId)), false, 'no Arco workflow directory created');
   });
 
   await step('strict Incognito rejects disk-capable workbench surfaces', async () => {
@@ -147,14 +147,14 @@ async function main() {
       (m) => m.type === 'error' && m.workflowId === incognitoWorkflowId && String(m.message).includes('strict Incognito Chat'),
     );
     assertEq(rejected, false, 'model / effort / web edit accepted in incognito');
-    assertEq(existsSync(join(tmpdir(), '.archon', 'workflows', incognitoWorkflowId)), false, 'still no Arco workflow directory');
+    assertEq(existsSync(join(tmpdir(), '.arco', 'workflows', incognitoWorkflowId)), false, 'still no Arco workflow directory');
   });
 
   await step('teardown', async () => {
     c.send({ type: 'remove_workflow', workflowId });
     c.send({ type: 'remove_workflow', workflowId: incognitoWorkflowId });
     await c.close();
-    const expectedRoot = join(homedir(), '.archon', 'chats', workflowId);
+    const expectedRoot = join(homedir(), '.arco', 'chats', workflowId);
     assertEq(storageCwd, expectedRoot, 'cleanup target remains exact');
     rmSync(expectedRoot, { recursive: true, force: true });
   });

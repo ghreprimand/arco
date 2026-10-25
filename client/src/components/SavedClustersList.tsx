@@ -113,7 +113,7 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
     try {
       const response = await fetch('/api/cluster-snapshots/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/vnd.archon.cluster+gzip' },
+        headers: { 'Content-Type': 'application/vnd.arco.cluster+gzip' },
         body: file,
       });
       const body = await response.json() as { error?: string };
@@ -200,7 +200,7 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
             <button className="display-font" style={pill(false)} onClick={() => fileRef.current?.click()} disabled={busyId === 'import'} data-help="cluster.snapshot-file">
               {busyId === 'import' ? 'IMPORTING…' : 'IMPORT FILE'}
             </button>
-            <input ref={fileRef} type="file" accept=".archoncluster,application/vnd.archon.cluster+gzip" hidden onChange={(e) => {
+            <input ref={fileRef} type="file" accept=".arcocluster,application/vnd.arco.cluster+gzip" hidden onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void importFile(file);
             }} />
@@ -263,7 +263,7 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
                   </div>
                   {local && (
                     <>
-                      <a className="display-font" href={`/api/cluster-snapshots/${encodeURIComponent(row.id)}/export`} download style={{ ...pill(false), ...compact, textDecoration: 'none' }} data-help="cluster.snapshot-file" title="Download as .archoncluster file">FILE</a>
+                      <a className="display-font" href={`/api/cluster-snapshots/${encodeURIComponent(row.id)}/export`} download style={{ ...pill(false), ...compact, textDecoration: 'none' }} data-help="cluster.snapshot-file" title="Download as .arcocluster file">FILE</a>
                       <button className="display-font" style={{ ...pill(false), ...compact }} disabled={busy} onClick={() => void uploadCloud(row.id)} data-help="cluster.snapshot-cloud" title="Upload to cloud vault">
                         {busyId === row.id ? '…' : 'CLOUD'}
                       </button>

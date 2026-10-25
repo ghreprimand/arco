@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F1 — pure capture/skip logic + manifest builder.
+// ARCO_OPS_PLAN.md §F1 — pure capture/skip logic + manifest builder.
 //
 // This module decides WHAT goes into a backup snapshot and produces the truthful
 // manifest that describes it. It is the contract: every regular file in the
@@ -8,11 +8,11 @@
 //
 // Two halves, both pure-ish:
 //   • classify() / SKIP rules — a path → {category | skip-reason} decision table,
-//     keyed on the POSIX-relative path under the Archon home (~/.archon/...).
-//   • walkArchonHome() — the ONE side-effecting function (it reads the fs). It
+//     keyed on the POSIX-relative path under the Arco home (~/.arco/...).
+//   • walkArcoHome() — the ONE side-effecting function (it reads the fs). It
 //     uses fs.lstat (NEVER follows symlinks), records every symlink / socket /
 //     fifo / device node as a skip with a reason, and emits regular files only.
-//   • buildManifest() — PURE: takes the walk result + INJECTED archonVersion /
+//   • buildManifest() — PURE: takes the walk result + INJECTED arcoVersion /
 //     createdAt and assembles the manifest. The clock/version are parameters so
 //     the smoke can pass fixed values and assert determinism; the CLI passes the
 //     real version + `new Date().toISOString()`.
@@ -29,7 +29,7 @@ import { join, posix, sep } from 'node:path';
 
 // ── manifest schema ─────────────────────────────────────────────────────────
 
-// One captured-file category. Each maps to a real ~/.archon location (see
+// One captured-file category. Each maps to a real ~/.arco location (see
 // CAPTURE table below). `paths` lists the archive-relative paths that landed in
 // this category — so the manifest fully enumerates the archive.
 export type BackupCategory =
@@ -54,9 +54,9 @@ export interface SkippedEntry {
 
 export interface BackupManifest {
   // Format/version tag so F2/F3 can branch on it.
-  format: 'archon-backup/1';
-  // INJECTED — the running Archon version (CLI) or a fixed fixture (smoke).
-  archonVersion: string;
+  format: 'arco-backup/1';
+  // INJECTED — the running Arco version (CLI) or a fixed fixture (smoke).
+  arcoVersion: string;
   // INJECTED — ISO-8601 creation time (CLI: new Date(); smoke: fixed).
   createdAt: string;
   // Absolute source root the snapshot was taken from (redacted to "~" by the
@@ -77,7 +77,7 @@ export interface BackupManifest {
 
 // ── capture / skip decision table ───────────────────────────────────────────
 //
-// Keyed on the FIRST path segment under the Archon home. Conservative: anything
+// Keyed on the FIRST path segment under the Arco home. Conservative: anything
 // not explicitly allowlisted is skipped as 'unknown' (better to under-capture
 // than to leak something unexamined — plan §F1: "when unsure … skip and record").
 
@@ -140,7 +140,7 @@ export function classify(relPath: string): Classification {
     case 'recall':
       return { kind: 'capture', category: 'recall' };
     case 'knowledge':
-      // Global knowledge is per-cwd in practice; a ~/.archon/knowledge tree is
+      // Global knowledge is per-cwd in practice; a ~/.arco/knowledge tree is
       // unusual but if present it's operator-curated facts → capture.
       return { kind: 'capture', category: 'knowledge' };
     case 'workflows':
@@ -155,7 +155,7 @@ export function classify(relPath: string): Classification {
     }
     default:
       // Anything we don't recognize is skipped conservatively and recorded, so a
-      // future ~/.archon entry is never silently swept in (or silently leaked).
+      // future ~/.arco entry is never silently swept in (or silently leaked).
       return { kind: 'skip', reason: 'unknown' };
   }
 }
@@ -211,19 +211,19 @@ export interface WalkResult {
   redactions: { path: string; fields: string[] }[];
 }
 
-// Walk `archonHome` and partition every entry into captured regular files vs
+// Walk `arcoHome` and partition every entry into captured regular files vs
 // skipped. Uses lstat and NEVER follows symlinks — a symlink (or socket / fifo /
 // block / char device) is recorded as a 'special-file' skip, never traversed and
 // never captured (the archive format cannot represent it anyway). globalSettings
 // is redacted in-flight. ENOENT on the home → empty result (nothing to back up).
-export async function walkArchonHome(archonHome: string): Promise<WalkResult> {
+export async function walkArcoHome(arcoHome: string): Promise<WalkResult> {
   const files: WalkedFile[] = [];
   const skipped: SkippedEntry[] = [];
   const redactions: { path: string; fields: string[] }[] = [];
 
   let topLevel: string[];
   try {
-    topLevel = await fs.readdir(archonHome);
+    topLevel = await fs.readdir(arcoHome);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { files, skipped, redactions };
     throw err;
@@ -286,7 +286,7 @@ export async function walkArchonHome(archonHome: string): Promise<WalkResult> {
 
   topLevel.sort();
   for (const name of topLevel) {
-    await visit(join(archonHome, name), toPosix(name));
+    await visit(join(arcoHome, name), toPosix(name));
   }
   return { files, skipped, redactions };
 }
@@ -294,7 +294,7 @@ export async function walkArchonHome(archonHome: string): Promise<WalkResult> {
 // ── manifest assembly (PURE — clock/version injected) ────────────────────────
 
 export interface BuildManifestInput {
-  archonVersion: string; // injected
+  arcoVersion: string; // injected
   createdAt: string; // injected ISO-8601
   sourceRoot: string; // informational (CLI redacts to "~")
   walk: WalkResult;
@@ -324,8 +324,8 @@ export function buildManifest(input: BuildManifestInput): BackupManifest {
   const skipped = [...input.walk.skipped].sort((a, b) => a.path.localeCompare(b.path));
 
   return {
-    format: 'archon-backup/1',
-    archonVersion: input.archonVersion,
+    format: 'arco-backup/1',
+    arcoVersion: input.arcoVersion,
     createdAt: input.createdAt,
     sourceRoot: input.sourceRoot,
     categories,

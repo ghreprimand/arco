@@ -5,7 +5,7 @@ from playwright.async_api import async_playwright
 
 async def main():
  async with async_playwright() as p:
-  browser=await p.chromium.launch(executable_path=os.environ.get('ARCHON_TEST_CHROME',os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')))
+  browser=await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME',os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')))
   context=await browser.new_context(viewport={'width':1500,'height':1000})
   errors=[]
   async def api(route):
@@ -22,7 +22,7 @@ async def main():
   await context.route('https://**/*',lambda r:r.abort())
   await context.route_web_socket('**/*',lambda ws:ws.on_message(lambda msg:None))
   page=await context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
-  await page.goto(os.environ.get('ARCHON_QUESTIONS_PREVIEW_URL','http://127.0.0.1:5187/'));await page.wait_for_timeout(600)
+  await page.goto(os.environ.get('ARCO_QUESTIONS_PREVIEW_URL','http://127.0.0.1:5187/'));await page.wait_for_timeout(600)
   await page.evaluate('''async()=>{
    const {useAppStore:s}=await import('/src/stores/appStore.ts');window.testStore=s;window.sent=[];
    const {handleServerMessage:h}=await import('/src/ws/handleServerMessage.ts');window.dispatchQuestion=m=>h(m,{wsRef:{current:null},scheduleReconnect:()=>{}});
@@ -55,7 +55,7 @@ async def main():
   await dialog.wait_for(state='hidden');assert await badge.count()==0
   assert 'no longer pending on the server' in await page.locator('body').inner_text()
   assert not errors,errors
-  await page.screenshot(path='/tmp/archon-questions-browser.png')
+  await page.screenshot(path='/tmp/arco-questions-browser.png')
   print('PASS: pending question button/modal, options and descriptions, multiple replies, password input, explicit submit, validation retry, authoritative answered state, disconnect disable and stale snapshot closure. No page errors.')
   await browser.close()
 asyncio.run(main())

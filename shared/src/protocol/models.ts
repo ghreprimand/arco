@@ -81,8 +81,8 @@ export interface CodexModelInfo {
 
 export const CODEX_MODEL_INFO: Record<string, CodexModelInfo> = {
   // GPT-6 Astra (2026-09-03). Codex's own catalog reports isDefault:true for it,
-  // so it is Archon's default too. Two things here are unlike every 5.x entry:
-  // Archon asks for the live catalog maximum by default. This fallback is the
+  // so it is Arco's default too. Two things here are unlike every 5.x entry:
+  // Arco asks for the live catalog maximum by default. This fallback is the
   // current 872K max after Codex's 95% effective-window margin. Its effort
   // surface runs all the way to 'ultra'.
   'gpt-6-astra': {
@@ -271,7 +271,7 @@ export interface ClaudeCatalogSnapshot {
 // the union narrow to the values the picker actually surfaces.
 // Mirrors Codex's ReasoningEffort enum. 'max' and 'ultra' arrived with GPT-6
 // Astra (2026-09-03) — before that Codex genuinely did top out at 'xhigh', which
-// is why Archon used to collapse its own 'max' down to 'xhigh'. Keep this in
+// is why Arco used to collapse its own 'max' down to 'xhigh'. Keep this in
 // sync with providers/codex-appserver/bindings/ReasoningEffort.ts.
 export type CodexReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
 
@@ -819,13 +819,13 @@ export interface AuthStatusByProvider {
   codex: AuthStatus;
   zai: AuthStatus;
   github: AuthStatus;
-  // Antigravity auths inside its own desktop app; Archon doesn't manage a
+  // Antigravity auths inside its own desktop app; Arco doesn't manage a
   // login flow for it. This field exists so ProviderName-keyed indexing
   // typechecks cleanly — server populates it from desktop/RPC diagnostics
   // (loggedIn == desktop debug-port reachable for now).
   antigravity: AuthStatus;
   // llama.cpp is local + auth-less like Ollama. loggedIn == llama-server
-  // binary present on PATH AND ~/.archon/llamacpp.json parses cleanly. The
+  // binary present on PATH AND ~/.arco/llamacpp.json parses cleanly. The
   // operator-declared model registry populates installedModels +
   // installedModelCapabilities so the picker UI behaves identically to
   // Ollama's flow (capability badges, ctx-window pre-seed).
@@ -840,7 +840,7 @@ export interface AuthStatusByProvider {
   strata: AuthStatus;
   deepseek: AuthStatus;
   // Cursor (ACP): loggedIn == ~/.config/cursor/auth.json carries a session
-  // token maintained by `cursor-agent`. No Archon-managed login flow; the
+  // token maintained by `cursor-agent`. No Arco-managed login flow; the
   // operator runs `cursor-agent login` once.
   cursor: AuthStatus;
 }

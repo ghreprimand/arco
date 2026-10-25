@@ -184,13 +184,13 @@ export const headerHelp: Record<string, HelpEntry> = {
       Kokoro remains the offline fallback.</p>,
   },
   // ----------------------------------------------------------------- HEADER
-  'header.archon-mark': {
+  'header.arco-mark': {
     title: 'ARCO',
     body: <p>The wordmark. Decorative — clicking does nothing.</p>,
   },
   'header.free-vram': {
     title: 'Free local model VRAM',
-    body: <p>Unload local Ollama, Strata, DeepSeek/Xolotl, Archon-managed llama.cpp and LM Studio
+    body: <p>Unload local Ollama, Strata, DeepSeek/Xolotl, Arco-managed llama.cpp and LM Studio
       models. Finish or cancel active local turns first. Remote endpoints are
       skipped. No model files are deleted; a later request reloads from disk.
       The result reports which runtimes were unloaded, idle or unavailable. It refuses
@@ -346,7 +346,7 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>
           Click to <C>disconnect</C> (a local kill switch that severs all remote
           control until you reconnect), or to reconnect. Only appears when a hub
-          is configured (<C>ARCHON_HUB_URL</C>).
+          is configured (<C>ARCO_HUB_URL</C>).
         </p>
       </>
     ),

@@ -54,22 +54,22 @@ export interface SpillPlan {
 }
 
 // Operator-arm gate for the per-turn aggregate spill. Off by default — see the
-// header note on the clear_tool_uses regression. ARCHON_TOOL_EVICT=on|1 turns
+// header note on the clear_tool_uses regression. ARCO_TOOL_EVICT=on|1 turns
 // it on for the whole server process. (§2.1's context-management config will
 // add the per-tab CONFIG toggle on top of this floor.)
 export function toolEvictEnabled(): boolean {
-  const v = process.env.ARCHON_TOOL_EVICT;
+  const v = process.env.ARCO_TOOL_EVICT;
   return v === 'on' || v === '1' || v === 'true';
 }
 
 // Per-batch token budget for the spill. A round's summed tool output above this
 // triggers largest-first eviction. Deliberately generous (default ~20K tokens
 // ≈ 80 KB) so only genuinely fat batches are touched. Override via
-// ARCHON_TURN_TOOL_TOKEN_BUDGET; clamped to a sane floor so a typo can't make
+// ARCO_TURN_TOOL_TOKEN_BUDGET; clamped to a sane floor so a typo can't make
 // the gate spill everything.
 const DEFAULT_TURN_TOOL_TOKEN_BUDGET = 20_000;
 export function turnToolTokenBudget(): number {
-  const raw = Number(process.env.ARCHON_TURN_TOOL_TOKEN_BUDGET);
+  const raw = Number(process.env.ARCO_TURN_TOOL_TOKEN_BUDGET);
   if (Number.isFinite(raw) && raw > 0) return Math.max(2_000, Math.round(raw));
   return DEFAULT_TURN_TOOL_TOKEN_BUDGET;
 }
@@ -114,7 +114,7 @@ function shorten(s: string, max: number): string {
 
 // Build the semantic 1-liner digest for a tool result. Tool-aware where it
 // helps the model recall what ran; generic (lines/bytes) otherwise. Always
-// returns a single line with the `[Archon evicted]` marker so the model and
+// returns a single line with the `[Arco evicted]` marker so the model and
 // the operator both see it was a deliberate, reversible trim — never silent.
 export function summarizeToolResultLine(
   toolName: string,
@@ -171,7 +171,7 @@ export function summarizeToolResultLine(
   // of what it's no longer seeing.
   const metric = lines > 1 ? `${lines} lines · ${humanBytes(bytes)}` : humanBytes(bytes);
   const err = isError ? ' [was error]' : '';
-  return `[Archon evicted: ${head} · ${metric}${err}; raw retained — re-run or open the raw artifact to recover]`;
+  return `[Arco evicted: ${head} · ${metric}${err}; raw retained — re-run or open the raw artifact to recover]`;
 }
 
 function decide(r: EvictableResult): SpillDecision {

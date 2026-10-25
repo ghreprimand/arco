@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, type HTMLAttributes } from 'react';
 import type { JobState } from '../stores/appStore';
-import { presetForText } from '@archon/shared';
+import { presetForText } from '@arco/shared';
 
 const CARD_PREVIEW_CHARS = 1200;
 

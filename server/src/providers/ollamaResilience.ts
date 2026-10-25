@@ -73,7 +73,7 @@ const BACKOFF_JITTER_MS = 750;
 // request if the response HEADERS don't arrive within this window, then clears
 // the timer once streaming starts.
 export const OLLAMA_CONNECT_TIMEOUT_MS = (() => {
-  const env = process.env.ARCHON_OLLAMA_CONNECT_TIMEOUT_MS;
+  const env = process.env.ARCO_OLLAMA_CONNECT_TIMEOUT_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 500 && n <= 30_000) return n;
@@ -87,7 +87,7 @@ export const OLLAMA_CONNECT_TIMEOUT_MS = (() => {
 // should first probe /api/version with OLLAMA_CONNECT_TIMEOUT_MS, then allow
 // this larger budget for model load + stream startup.
 export const OLLAMA_STREAM_START_TIMEOUT_MS = (() => {
-  const env = process.env.ARCHON_OLLAMA_STREAM_START_TIMEOUT_MS;
+  const env = process.env.ARCO_OLLAMA_STREAM_START_TIMEOUT_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 5_000 && n <= 600_000) return n;
@@ -183,7 +183,7 @@ export function classifyOllamaError(err: unknown, httpStatus?: number): RetryDec
 
 // Marker the connect-timeout aborter stamps into its AbortController reason so
 // classifyOllamaError can tell a timeout-abort from an operator-abort.
-export const CONNECT_TIMEOUT_MARKER = '[archon-connect-timeout]';
+export const CONNECT_TIMEOUT_MARKER = '[arco-connect-timeout]';
 
 // ── Cooldown state (module-level, shared across workflows hitting the same
 // daemon — a dead host is dead for everyone). In-memory Map only — one Node

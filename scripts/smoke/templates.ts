@@ -2,7 +2,7 @@
 //
 // Exercises the store + the apply-shape contract directly, NO dev server and
 // NO UI (mirrors endpoint-discovery.ts). To avoid clobbering the operator's
-// real ~/.archon/templates.json, HOME is redirected to a throwaway tmp dir
+// real ~/.arco/templates.json, HOME is redirected to a throwaway tmp dir
 // BEFORE the store module is imported (the store reads homedir() lazily on
 // each call, so a pre-import env swap is enough).
 //
@@ -22,11 +22,11 @@ import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { step, assert, assertEq, summary } from './lib.js';
-import type { WorkflowConfig, WorkflowTemplate } from '@archon/shared';
+import type { WorkflowConfig, WorkflowTemplate } from '@arco/shared';
 
 // Redirect HOME → tmp BEFORE importing the store so it persists under the
 // sandbox, not the operator's real dotfiles.
-const sandboxHome = mkdtempSync(path.join(tmpdir(), 'archon-tmpl-smoke-'));
+const sandboxHome = mkdtempSync(path.join(tmpdir(), 'arco-tmpl-smoke-'));
 process.env.HOME = sandboxHome;
 process.env.USERPROFILE = sandboxHome; // Windows parity (homedir() reads it there)
 

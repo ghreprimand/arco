@@ -51,14 +51,14 @@ async function hardenServerEnv(env: Record<string, string>, root: string): Promi
     ...env,
     PATH: [stubs, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter),
     DEEPSEEK_URL_BASE: `${dead}/v1`, OLLAMA_URL_BASE: dead, LMSTUDIO_URL_BASE: `${dead}/v1`, STRATA_URL_BASE: `${dead}/v1`,
-    ARCHON_LLAMACPP_BIN: path.join(stubs, 'llama-server'), ARCHON_LLAMACPP_HOST: '127.0.0.1', ARCHON_LLAMACPP_PORT: String(await closedPort()),
+    ARCO_LLAMACPP_BIN: path.join(stubs, 'llama-server'), ARCO_LLAMACPP_HOST: '127.0.0.1', ARCO_LLAMACPP_PORT: String(await closedPort()),
     ANTIGRAVITY_BINARY: path.join(stubs, 'antigravity'), ANTIGRAVITY_CDP_PORT: String(await closedPort()),
-    ARCHON_SEARXNG_URL: dead, ARCHON_CHROME_BINARY: path.join(stubs, 'curl'), CHROME_PATH: path.join(stubs, 'curl'),
+    ARCO_SEARXNG_URL: dead, ARCO_CHROME_BINARY: path.join(stubs, 'curl'), CHROME_PATH: path.join(stubs, 'curl'),
     CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'), XDG_CACHE_HOME: path.join(home, '.cache'),
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
   };
-  for (const key of ['ARCHON_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS']) delete hardened[key];
+  for (const key of ['ARCO_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS']) delete hardened[key];
   return { env: hardened, denyLog: log };
 }
 
@@ -161,7 +161,7 @@ class Instance {
     const guarded = await hardenServerEnv({
         HOME: this.home, TMPDIR: this.scratch,
         PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`,
-        ARCHON_PORT: String(port), ARCHON_HOST: '127.0.0.1', ARCHON_UPLOADS_DIR: this.uploads,
+        ARCO_PORT: String(port), ARCO_HOST: '127.0.0.1', ARCO_UPLOADS_DIR: this.uploads,
     }, this.root);
     this.denyLog = guarded.denyLog;
     this.child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'], {
@@ -288,7 +288,7 @@ test('legitimate reads keep working: a workflow artifact resolves through cwd + 
   const created = await socket.waitFor((m) => m.type === 'workflow_created');
   assert.ok(created);
   const id = created!.workflowId as string;
-  const artifacts = path.join(main.project, '.archon', 'workflows', id, 'artifacts');
+  const artifacts = path.join(main.project, '.arco', 'workflows', id, 'artifacts');
   await fs.mkdir(artifacts, { recursive: true });
   await fs.writeFile(path.join(artifacts, 'report.txt'), 'artifact-body\n');
   const q = encodeURIComponent;
@@ -360,7 +360,7 @@ test('a saved workflow survives a socket drop and the reconnecting socket reclai
   assert.ok(created, 'workflow_created');
   const id = created!.workflowId as string;
   await first.close();
-  await until('persisted meta', () => existsSync(path.join(main.project, '.archon', 'workflows', id, 'meta.json')));
+  await until('persisted meta', () => existsSync(path.join(main.project, '.arco', 'workflows', id, 'meta.json')));
   const second = await main.openSocket();
   second.ws.send(JSON.stringify({ type: 'rehydrate_workflows', workflows: [{ workflowId: id, config: created!.config, currentSessionId: id, lastSeq: 0 }] }));
   assert.ok(await second.waitFor((m) => m.type === 'workflow_state_snapshot' && m.workflowId === id), 'live workflow reclaimed by the new socket');
@@ -383,7 +383,7 @@ test('a RUNNING turn keeps going after its only observer disconnects, and its re
   } finally {
     model.release();
   }
-  const events = path.join(main.project, '.archon', 'workflows', id, 'events.jsonl');
+  const events = path.join(main.project, '.arco', 'workflows', id, 'events.jsonl');
   await until('turn completion persisted without any observer', async () => (await fs.readFile(events, 'utf8').catch(() => '')).includes('primary_turn_ended'));
   const again = await main.openSocket();
   again.ws.send(JSON.stringify({ type: 'rehydrate_workflows', workflows: [{ workflowId: id, config: created!.config, currentSessionId: id, lastSeq: 0 }] }));

@@ -1,5 +1,5 @@
 // Plans library — GET /api/explorer/plans. Every plan in every known project
-// (~/.archon/known-cwds.json), so the operator can browse and review plans
+// (~/.arco/known-cwds.json), so the operator can browse and review plans
 // without attaching one to a workflow. Read-only aggregation; edits go through
 // the ordinary /api/plans routes keyed by the `cwd` returned here.
 //
@@ -8,7 +8,7 @@
 // string, so a symlinked project must round-trip the same spelling.
 
 import { basename } from 'path';
-import type { PlanLibraryProject } from '@archon/shared';
+import type { PlanLibraryProject } from '@arco/shared';
 import { listPlans, listPlanRefs } from './planStore.js';
 import { readKnownCwds, realpathWithinHome } from './explorerArtifacts.js';
 import * as clusterStore from './clusterStore.js';

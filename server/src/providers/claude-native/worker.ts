@@ -4,7 +4,7 @@ import { computerToolDefinitions, executeComputerTool } from '../../voice/toolDe
 //
 // Lifecycle: per workflow (cached in workersByWorkflow). Holds the
 // messages array and SDK client across operator turns; the agent loop
-// runs in Archon's process so the Phase 5 steer-drain hook fires
+// runs in Arco's process so the Phase 5 steer-drain hook fires
 // between tool-result append and the next API round-trip.
 //
 // Cancel: AbortController.abort() on the SDK fetch + on the per-turn
@@ -14,8 +14,8 @@ import { EventEmitter } from 'events';
 import { promises as fs, readFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
-import type { WorkerConfig, ServerMessage } from '@archon/shared';
-import { supportsClaudeAdaptiveThinking, isClaudeModelAlias, enforcesPreservedThinking, supportsMidConversationSystemMessages, supportsMidConversationToolChanges } from '@archon/shared';
+import type { WorkerConfig, ServerMessage } from '@arco/shared';
+import { supportsClaudeAdaptiveThinking, isClaudeModelAlias, enforcesPreservedThinking, supportsMidConversationSystemMessages, supportsMidConversationToolChanges } from '@arco/shared';
 import { ensureLiveTokens, forceRefreshTokens, markClaudeAuthProblem, ClaudeNativeNoAuthError } from './oauth.js';
 import { resolveTrustStatus } from '../../projectTrust.js';
 import { discoverHooks, fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
@@ -104,12 +104,12 @@ import {
   buildTurnNoticeMessage,
   diffSystemBlocks,
   diffToolSets,
-  isArchonSystemMessage,
+  isArcoSystemMessage,
   isPrefixFeatureRejection,
   isThinkingBindingError,
   markDeferred,
   popTrailingSystemMessages,
-  removeArchonSystemMessages,
+  removeArcoSystemMessages,
   renderSystemDelta,
   sortToolDefs,
   stripAllThinkingBlocks,
@@ -167,11 +167,11 @@ const COMPACT_SUMMARY_MAX_TOKENS = 8192;
 // kept verbatim (projected to the clean resume shape) so the freshly-active
 // working set survives the fold — the structural answer to "don't strip out the
 // thing the model is working on." 6 ≈ the last ~3 user/assistant pairs, mirroring
-// Ollama's keep-tail intent (ARCHON_OLLAMA_COMPACT_KEEP_LAST default 10, but
+// Ollama's keep-tail intent (ARCO_OLLAMA_COMPACT_KEEP_LAST default 10, but
 // Native pairs carry more per message). Tunable via env for the smoke test and
 // for operators who want a longer/shorter retained tail.
 const COMPACT_KEEP_LAST_MESSAGES = (() => {
-  const env = process.env.ARCHON_CLAUDE_NATIVE_COMPACT_KEEP_LAST;
+  const env = process.env.ARCO_CLAUDE_NATIVE_COMPACT_KEEP_LAST;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 0 && n <= 100) return n;
@@ -203,12 +203,12 @@ const COMPACT_SUMMARIZER_PROMPT = [
 ].join('\n');
 // Hard cap on assistant tool-loop iterations within a single operator turn.
 // CLI is unbounded; we keep a ceiling purely as a runaway-loop safety net so
-// a stuck model can't burn tokens indefinitely on a multi-tab Archon. 1000 is
+// a stuck model can't burn tokens indefinitely on a multi-tab Arco. 1000 is
 // well above any real workload (sweeping refactors top out in the low
 // hundreds) but catches pathological loops within a few minutes. Override via
-// ARCHON_CLAUDE_NATIVE_MAX_TOOL_TURNS up to 10000.
+// ARCO_CLAUDE_NATIVE_MAX_TOOL_TURNS up to 10000.
 const MAX_TOOL_TURNS = (() => {
-  const env = process.env.ARCHON_CLAUDE_NATIVE_MAX_TOOL_TURNS;
+  const env = process.env.ARCO_CLAUDE_NATIVE_MAX_TOOL_TURNS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n > 0 && n <= 10000) return n;
@@ -263,7 +263,7 @@ export type TaskSpawnHandler = (args: TaskSpawnArgs) => Promise<TaskSpawnHandle>
 
 // Phase 7b — plan-mode broadcast hook. Server wires this to plan_set /
 // plan_exited workflow-scoped broadcasts (and creates / attaches a real
-// plan file under .archon/plans/ so the PLAN tab renders the body).
+// plan file under .arco/plans/ so the PLAN tab renders the body).
 export interface PlanBroadcast {
   set: (plan: string) => Promise<void>;
   exited: (summary: string | undefined) => Promise<void>;
@@ -447,7 +447,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Active Task children. Map entry dropped on dispose; on parent cancel,
   // each child's cancel() runs.
   private tasksByTaskId = new Map<string, TaskSpawnHandle>();
-  // ARCHON_OPS_PLAN.md §E1 (E1-Native) — open MCP sessions for this worker's
+  // ARCO_OPS_PLAN.md §E1 (E1-Native) — open MCP sessions for this worker's
   // operator-allowed registry servers, keyed by `ResolvedMcpServer.key`
   // (`reg-<id8>`). Opened lazily and reconciled at turn start
   // (reconcileMcpSessions): open newly-allowed servers, close newly-removed.
@@ -518,26 +518,26 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   // EFFICIENCY_PLAN.md Phase C — gzip a tool's pre-filter raw output to
-  // `<cwd>/.archon/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz`
+  // `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz`
   // so the operator can recover what the model didn't see. Returns the
   // workspace-relative path (suitable for the `tool_filtered.rawArtifactPath`
   // wire field). Mkdir-recursive so first-call-of-the-workflow doesn't ENOENT.
   private async persistRawArtifact(toolUseId: string, raw: string): Promise<string> {
     const cwd = this.config.persistenceCwd ?? this.config.cwd ?? process.cwd();
-    const dir = join(cwd, '.archon', 'workflows', this.workflowId, 'artifacts', 'raw-tools');
+    const dir = join(cwd, '.arco', 'workflows', this.workflowId, 'artifacts', 'raw-tools');
     await fs.mkdir(dir, { recursive: true });
     const turnId = this.currentTurnId.toString(36);
     const safeToolUseId = toolUseId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
     const filename = `${turnId}-${safeToolUseId}.txt.gz`;
     const absPath = join(dir, filename);
     await fs.writeFile(absPath, gzipSync(Buffer.from(raw, 'utf8')));
-    return `.archon/workflows/${this.workflowId}/artifacts/raw-tools/${filename}`;
+    return `.arco/workflows/${this.workflowId}/artifacts/raw-tools/${filename}`;
   }
 
   // §2.2 — per-turn aggregate tool-result eviction. Operator-armed (off by
   // default) because, like the disabled clear_tool_uses beta, it can spill a
   // result the model still needs on the next round — so it only runs when
-  // ARCHON_TOOL_EVICT is set. Mutates the just-gathered `toolResults` batch in
+  // ARCO_TOOL_EVICT is set. Mutates the just-gathered `toolResults` batch in
   // place: the planner picks the largest results to replace with a semantic
   // 1-liner (largest-first) until the batch is back under the turn budget; raw
   // output is gzipped to artifacts/raw-tools/ and a tool_evicted event carries
@@ -631,7 +631,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // H9 — feed one just-dispatched tool call to the in-turn loop guard. Emits a
   // tool_loop_warning event + a system_notice on the FIRST trip for a given
   // (tool, argsHash) this turn. Returns true only when the operator has armed
-  // hard-stop (ARCHON_TOOL_LOOP_GUARD=stop) and the turn's tool loop should be
+  // hard-stop (ARCO_TOOL_LOOP_GUARD=stop) and the turn's tool loop should be
   // aborted. Default ('warn') always returns false — visible, non-blocking.
   private checkToolLoop(block: ToolUseBlock, result: { text: string; isError: boolean }): boolean {
     const mode = toolLoopGuardMode();
@@ -742,16 +742,16 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.replayed = true;
   }
 
-  // ARCHON_TEST-only seam for scripts/smoke/native-auto-compact.ts. Force-seeds
+  // ARCO_TEST-only seam for scripts/smoke/native-auto-compact.ts. Force-seeds
   // the in-memory history (even on an already-replayed worker) and marks the
   // worker started so compactInPlace doesn't try to spin up a real Anthropic
-  // client. Combined with ARCHON_TEST_COMPACT_CANNED_SUMMARY (read in
+  // client. Combined with ARCO_TEST_COMPACT_CANNED_SUMMARY (read in
   // generateCompactSummary), this lets the smoke exercise the REAL auto-compact
   // trigger + keep-tail + native_compacted emission with zero API spend. Throws
-  // outside ARCHON_TEST so it can never be reached in production.
+  // outside ARCO_TEST so it can never be reached in production.
   __debugSeedForCompactProbe(messages: MessageParam[]): void {
-    if (process.env.ARCHON_TEST !== '1') {
-      throw new Error('__debugSeedForCompactProbe is ARCHON_TEST-only');
+    if (process.env.ARCO_TEST !== '1') {
+      throw new Error('__debugSeedForCompactProbe is ARCO_TEST-only');
     }
     this.messages = messages.map((m) => ({ ...m }));
     this.resetPrefixFreeze('seed');
@@ -768,7 +768,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // short-circuit so the smoke never touches OAuth or the Anthropic API.
   private compactProbeMode = false;
 
-  // Operator-triggered in-place compaction — the in-Archon equivalent of
+  // Operator-triggered in-place compaction — the in-Arco equivalent of
   // `/compact` in Claude Code CLI. Runs ONE summarization round against the
   // worker's own in-memory history, then REPLACES `messages[]` with a compact
   // summary seed and emits a persisted `native_compacted` marker so the
@@ -1122,12 +1122,12 @@ export class ClaudeNativeWorker extends EventEmitter {
   // endpoint requires the Claude Code identity, so FORCED_FIRST_BLOCK leads the
   // system exactly as on a normal round.
   private async generateCompactSummary(toSummarize: MessageParam[] = this.messages): Promise<string> {
-    // ARCHON_TEST compact-probe: return a canned summary instead of calling the
+    // ARCO_TEST compact-probe: return a canned summary instead of calling the
     // Anthropic API, so the smoke can exercise the real compactInPlace keep-tail
     // + native_compacted emission without spend. Gated on both the probe flag
-    // (set only by __debugSeedForCompactProbe) and ARCHON_TEST.
-    if (this.compactProbeMode && process.env.ARCHON_TEST === '1') {
-      return process.env.ARCHON_TEST_COMPACT_CANNED_SUMMARY
+    // (set only by __debugSeedForCompactProbe) and ARCO_TEST.
+    if (this.compactProbeMode && process.env.ARCO_TEST === '1') {
+      return process.env.ARCO_TEST_COMPACT_CANNED_SUMMARY
         ?? 'Canned probe summary: older history folded for the auto-compact smoke.';
     }
     const system = [
@@ -1159,7 +1159,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   async ensureStarted(): Promise<void> {
-    // ARCHON_TEST compact-probe: history is pre-seeded and the summary is
+    // ARCO_TEST compact-probe: history is pre-seeded and the summary is
     // canned, so skip the OAuth / client-rebuild path entirely.
     if (this.compactProbeMode) return;
     // Always probe live tokens — if the operator re-logged in since this
@@ -1351,7 +1351,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // on the wire — the beta must accompany every later request that replays it.
   private wireHasToolChanges(): boolean {
     if (this.frozenTools?.some((t) => t.defer_loading === true)) return true;
-    return this.messages.some((m) => isArchonSystemMessage(m) && (m as unknown as { archon?: string }).archon === 'tool_set_change');
+    return this.messages.some((m) => isArcoSystemMessage(m) && (m as unknown as { arco?: string }).arco === 'tool_set_change');
   }
 
   // FABLE_51_APPEND_ONLY_PLAN.md §1.6 — the conversation itself restarted
@@ -1464,7 +1464,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.workflowEventBroadcast({
         type: 'ctx_action',
         workflowId: this.workflowId,
-        action: update.archon === 'tool_set_change' ? 'tool_set_change' : 'system_delta',
+        action: update.arco === 'tool_set_change' ? 'tool_set_change' : 'system_delta',
         trigger: 'operator',
         detail: `${notes.join('; ')} (${bytes} bytes appended; frozen prefix untouched)`,
       });
@@ -1514,7 +1514,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // non-cluster workflow breaks the no-orchestrator invariant (operator
   // hasn't opted that workflow into peer messaging). Gate is strictly
   // `clusterId !== undefined`.
-  // ARCHON_OPS_PLAN.md §E1 (E1-Native) — reconcile the open MCP sessions
+  // ARCO_OPS_PLAN.md §E1 (E1-Native) — reconcile the open MCP sessions
   // against `config.mcpRegistryServers` at turn start. Open newly-allowed
   // servers (lazy connect → cache), close servers the operator removed since
   // the last turn (per-tab disable / global disable / dangerous-tick change
@@ -1961,7 +1961,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   private scrubServerToolEvidenceOnAbort(turnMessageStart: number): void {
     // The ONLY caller that opts out of latest-assistant protection, and
     // deliberately so. An aborted round leaves a partial assistant message
-    // Archon assembled from a truncated stream — not a completed response the
+    // Arco assembled from a truncated stream — not a completed response the
     // API would hold us to — and its dangling `server_tool_use` (no matching
     // result) is itself a guaranteed 400 on the next request. So the edit is
     // mandatory here, where after a *settled* turn it is forbidden. If
@@ -1983,7 +1983,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   // Anthropic rejects `text` content blocks with an empty string and `image`
   // blocks with empty base64 data. The common text source is an image-only
-  // operator turn: older Archon builds appended `[image, {type:'text',
+  // operator turn: older Arco builds appended `[image, {type:'text',
   // text:''}]`. The image source is a 0-byte upload encoded to `data: ''`
   // (2026-08-07 incident — buildImageBlock now guards, but a poisoned block
   // already in messages[] would otherwise 400 every later turn). Scrub just
@@ -2323,14 +2323,14 @@ export class ClaudeNativeWorker extends EventEmitter {
       // for verifiable reasoning continuity).
       this.messages.push({ role: 'assistant', content: round.contentBlocks });
 
-      // Decide whether to continue the client-tool loop by the WORK Archon
+      // Decide whether to continue the client-tool loop by the WORK Arco
       // itself must do — not by stop_reason alone. Opus 4.8 can return
       // stop_reason 'end_turn' for responses that still carry an unexecuted
       // client tool_use; gating on stop_reason alone abandons the client tool
       // and leaves an orphaned tool_use.
       //
       // Important distinction: Anthropic server tools (web_search / web_fetch)
-      // are NOT Archon-dispatched tools. The API executes them internally; per
+      // are NOT Arco-dispatched tools. The API executes them internally; per
       // the server-tool contract, their result appears in the same assistant
       // turn. The documented "resend assistant content as-is" path is
       // stop_reason === 'pause_turn'. Do not treat a bare server_tool_use under
@@ -2405,7 +2405,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         // §2.2 — per-turn aggregate tool-result eviction. Cache-safe: rewrites
         // only THIS round's just-gathered results, before they are ever sent
         // (so no cache breakpoint has formed over them yet). Off unless the
-        // operator arms ARCHON_TOOL_EVICT — like clear_tool_uses it can spill a
+        // operator arms ARCO_TOOL_EVICT — like clear_tool_uses it can spill a
         // result the model still needs. Cross-turn tail eviction lives in Fold.
         await this.maybeSpillTurnResults(round.contentBlocks, toolResults);
         this.messages.push({ role: 'user', content: toolResults as unknown as AnyContentBlock[] });
@@ -2416,7 +2416,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       // same way the MAX_TOOL_TURNS overflow does. Reversible: the operator just
       // sends the next turn. Default 'warn' mode never sets this.
       if (loopStopRequested) {
-        this.emit('error', 'tool-loop guard stopped the turn — a tool looped without progress (ARCHON_TOOL_LOOP_GUARD=stop)');
+        this.emit('error', 'tool-loop guard stopped the turn — a tool looped without progress (ARCO_TOOL_LOOP_GUARD=stop)');
         this.scrubServerToolEvidenceOnAbort(turnMessageStart);
         this.inFlight = null;
         this.toolAbort = null;
@@ -2458,7 +2458,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         workflowId: this.workflowId,
         escalation: 'limit',
         recommendedAction: 'pause',
-        reason: `tool-loop hit the ${MAX_TOOL_TURNS}-iteration ceiling without an end_turn — ending the turn (raise ARCHON_CLAUDE_NATIVE_MAX_TOOL_TURNS only if this is a genuine large workload).`,
+        reason: `tool-loop hit the ${MAX_TOOL_TURNS}-iteration ceiling without an end_turn — ending the turn (raise ARCO_CLAUDE_NATIVE_MAX_TOOL_TURNS only if this is a genuine large workload).`,
       });
       this.emit('error', `tool-loop exceeded ${MAX_TOOL_TURNS} iterations without an end_turn`);
       this.scrubServerToolEvidenceOnAbort(turnMessageStart);
@@ -3161,7 +3161,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           proposedArgs: gate.proposedArgs,
           signature: gate.signature,
           createdAt,
-        }).catch((e) => console.warn(`[archon] [${this.workflowId.slice(0, 8)}] gate sidecar write failed:`, e));
+        }).catch((e) => console.warn(`[arco] [${this.workflowId.slice(0, 8)}] gate sidecar write failed:`, e));
         this.workflowEventBroadcast({
           type: 'gate_required',
           workflowId: this.workflowId,
@@ -3227,7 +3227,7 @@ export class ClaudeNativeWorker extends EventEmitter {
             toolName: block.name,
             approvedAt: Date.now(),
             sample: block.name === 'Bash' && typeof input.command === 'string' ? String(input.command).slice(0, 200) : undefined,
-          }).catch((e) => console.warn(`[archon] [${this.workflowId.slice(0, 8)}] standing-approval write failed:`, e));
+          }).catch((e) => console.warn(`[arco] [${this.workflowId.slice(0, 8)}] standing-approval write failed:`, e));
           await this.broadcastStandingApprovals(ctx.cwd);
         }
         // approve — run below with the (possibly edited) effective input.
@@ -3661,11 +3661,11 @@ export class ClaudeNativeWorker extends EventEmitter {
       return 'retry';
     }
     // The org / model doesn't take one of the append-only wire features.
-    // Thaw: drop Archon's role:'system' messages, forget the freeze, and run
+    // Thaw: drop Arco's role:'system' messages, forget the freeze, and run
     // rebuild-per-request (the pre-plan behaviour) for the rest of this worker.
     if (status === 400 && !this.prefixThawed && isPrefixFeatureRejection(msg) && attempt < MAX_RETRY_ATTEMPTS - 1) {
       this.prefixThawed = true;
-      const removed = removeArchonSystemMessages(this.messages);
+      const removed = removeArcoSystemMessages(this.messages);
       this.resetPrefixFreeze('thaw');
       this.workflowEventBroadcast({
         type: 'ctx_action',

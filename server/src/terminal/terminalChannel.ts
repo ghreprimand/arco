@@ -11,7 +11,7 @@
 // the access gate for `/ws` (there is no per-connection token / origin check —
 // see server/src/server/constants.ts), and `/terminal` inherits exactly the
 // same posture: same server, same bind, same exposure-only-when-tunneled
-// caveat. When Archon is tunneled over Tailscale this endpoint is a remote
+// caveat. When Arco is tunneled over Tailscale this endpoint is a remote
 // shell on the workstation — see docs/GOTCHAS.md § Terminal.
 //
 // HARD FENCE: operator-only. This channel is driven by the human's floating

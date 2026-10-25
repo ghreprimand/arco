@@ -10,9 +10,9 @@ import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 
 // One indexed conversation. Mirrors the SQLite `entries` row shape.
 export interface RecallEntry {
-  // Archon workflow id — the index primary key (upsert target).
+  // Arco workflow id — the index primary key (upsert target).
   wfid: string;
-  // Absolute cwd the workflow ran under (the .archon/workflows root).
+  // Absolute cwd the workflow ran under (the .arco/workflows root).
   cwd: string;
   // Human-facing project label — the cwd's basename.
   project: string;
@@ -40,7 +40,7 @@ export interface RecallEntry {
   links: RecallLink[];
 }
 
-// F4 — one operator-curated link from a recall entry to another Archon artifact.
+// F4 — one operator-curated link from a recall entry to another Arco artifact.
 // `kb` links to a B3 knowledge article (id is the article id, resolved within
 // the entry's cwd — articles are cwd-scoped). `task` links to an E2 task (id is
 // the task id) — the E-track isn't built yet, so task links persist but have no
@@ -127,7 +127,7 @@ export interface RecallSearchResponse {
 // spend, fails closed). F2 clears it because the summary is a one-off,
 // operator-triggered artifact with a DETERMINISTIC fallback (`summarizePriorTurns`
 // digest) so it never fails closed, the full transcript stays the source of
-// truth, and it is reversible (delete `~/.archon/recall/<wfid>/summary.md`).
+// truth, and it is reversible (delete `~/.arco/recall/<wfid>/summary.md`).
 
 // Client → Server: generate (or regenerate) a summary for one workflow. The
 // summarizer config is resolved exactly like the reviewer / researcher config

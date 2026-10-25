@@ -2,7 +2,7 @@
 
 Uses temporary homes and synthetic files, denying provider stubs and closed local
 endpoints. No provider credentials or model calls. Requires a built client,
-Python Playwright and ARCHON_TEST_CHROME when its default browser is unavailable.
+Python Playwright and ARCO_TEST_CHROME when its default browser is unavailable.
 """
 import asyncio
 import json
@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 async def check_browser(base, folder):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCHON_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         try:
             context = await browser.new_context(viewport={'width': 1400, 'height': 1000})
             async def local_only(route):
@@ -67,16 +67,16 @@ def main():
     with tempfile.TemporaryDirectory(prefix='arco-media-browser-') as temporary:
         root = Path(temporary)
         home, project, media = root / 'home', root / 'project', root / 'media'
-        for directory in (home / '.archon', project, media, root / 'tmp', root / 'uploads'):
+        for directory in (home / '.arco', project, media, root / 'tmp', root / 'uploads'):
             directory.mkdir(parents=True, exist_ok=True)
         (media / 'sample.txt').write_text('fixture-body')
-        (home / '.archon/settings.json').write_text(json.dumps({'defaultWorkingDirectory': str(project)}))
+        (home / '.arco/settings.json').write_text(json.dumps({'defaultWorkingDirectory': str(project)}))
         port = closed_port()
         base = f'http://127.0.0.1:{port}'
         env = harden({
-            'HOME': str(home), 'ARCO_HOME': str(home / '.archon'), 'TMPDIR': str(root / 'tmp'),
-            'ARCHON_PORT': str(port), 'ARCHON_HOST': '127.0.0.1', 'ARCHON_SERVE_CLIENT': '1',
-            'ARCHON_UPLOADS_DIR': str(root / 'uploads'),
+            'HOME': str(home), 'ARCO_HOME': str(home / '.arco'), 'TMPDIR': str(root / 'tmp'),
+            'ARCO_PORT': str(port), 'ARCO_HOST': '127.0.0.1', 'ARCO_SERVE_CLIENT': '1',
+            'ARCO_UPLOADS_DIR': str(root / 'uploads'),
         }, root)
         with (root / 'server.log').open('w') as log:
             server = subprocess.Popen(['node', '--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'], cwd=REPO, env=env, stdout=log, stderr=log)

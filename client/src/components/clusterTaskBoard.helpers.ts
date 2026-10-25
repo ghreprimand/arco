@@ -1,10 +1,10 @@
-// ARCHON_OPS_PLAN.md §D3 — pure board-grouping helper.
+// ARCO_OPS_PLAN.md §D3 — pure board-grouping helper.
 //
 // Split out of ClusterTaskBoardTab.tsx so the headless smoke
 // (scripts/smoke/task-board.ts) can import + assert the bucketing without
 // dragging React / Zustand / the whole client store into a node context.
 
-import type { ClusterMember, LedgerTask, LedgerTaskStatus, TaskDetails } from '@archon/shared';
+import type { ClusterMember, LedgerTask, LedgerTaskStatus, TaskDetails } from '@arco/shared';
 
 // Column order for the kanban view.
 export const BOARD_COLUMNS: LedgerTaskStatus[] = [

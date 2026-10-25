@@ -1,5 +1,5 @@
 """Computer's dedicated header surface against Vite; APIs/WS isolated, no mic or provider calls.
-Run with ARCHON_CLIENT_PORT=5193 npm run dev:client, then python3 this file.
+Run with ARCO_CLIENT_PORT=5193 npm run dev:client, then python3 this file.
 """
 import asyncio
 import json
@@ -11,9 +11,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 
-URL = os.environ.get('ARCHON_COMPUTER_PREVIEW_URL', 'http://127.0.0.1:5193/')
-CHROME = os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
-ART = Path('/tmp/archon-computer-panel-review')
+URL = os.environ.get('ARCO_COMPUTER_PREVIEW_URL', 'http://127.0.0.1:5193/')
+CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+ART = Path('/tmp/arco-computer-panel-review')
 
 
 async def main():
@@ -70,7 +70,7 @@ async def main():
                     return
                 if msg.get('type') == 'user_message' and msg['workflowId'] == 'voice':
                     ws.send(json.dumps({'type':'primary_turn_started','workflowId':'voice','startedAt':int(time.time()*1000)}))
-                    ws.send(json.dumps({'type':'voice_tool_call','workflowId':'voice','requestId':'typed-targets','tool':'archon_targets','args':{}}))
+                    ws.send(json.dumps({'type':'voice_tool_call','workflowId':'voice','requestId':'typed-targets','tool':'arco_targets','args':{}}))
                     return
                 if msg.get('type') == 'voice_tool_result' and msg['requestId'] == 'typed-targets':
                     assert msg['ok'], msg

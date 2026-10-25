@@ -1,5 +1,5 @@
 // Strip orchestrator-internal JSON blocks (worker specs, state mutations, QC
-// verdicts) and archon-artifact blocks from the rendered chat text. The
+// verdicts) and arco-artifact blocks from the rendered chat text. The
 // orchestrator emits these alongside its prose for the server to parse —
 // rendering the full JSON in chat just clutters the conversation, since the
 // task body already lives on the worker card / detail modal.
@@ -53,7 +53,7 @@ export function cleanPrimaryText(content: string): CleanedChatText {
   // First pass: replace COMPLETE fenced blocks (those with a closing ```).
   result.text = content.replace(FENCED_BLOCK_RE, (full, lang, body) => {
     const trimmed = (body as string).trim();
-    if (lang === 'archon-artifact') {
+    if (lang === 'arco-artifact') {
       result.artifacts++;
       return tagLine('artifact');
     }
@@ -102,7 +102,7 @@ export function cleanPrimaryText(content: string): CleanedChatText {
   const unclosed = trailingUnclosedFence(result.text);
   if (unclosed) {
     const { lang, body } = unclosed;
-    if (lang === 'archon-artifact') {
+    if (lang === 'arco-artifact') {
       result.text = result.text.slice(0, unclosed.index) + tagLine('artifact (streaming…)');
     } else if (lang === 'json' || !lang) {
       // Be permissive — any partial JSON object in a json fence at end of

@@ -1,6 +1,6 @@
 // Knowledge store — WORKBENCH_EXPANSION_PLAN.md §B3.
 //
-// A per-cwd, OPERATOR-OWNED knowledge base under <cwd>/.archon/knowledge/:
+// A per-cwd, OPERATOR-OWNED knowledge base under <cwd>/.arco/knowledge/:
 //   - index.json   → { articles: [{ id, title, tags, alwaysInclude, ... }] }
 //   - <id>.md      → markdown body
 //
@@ -8,7 +8,7 @@
 // atomic temp+rename writes cloned from planStore.ts / workflowMeta.ts.
 //
 // Behind a deliberate load()/save()/query() interface (plan Part E storage
-// rationale): the KB is the one Archon subsystem with a real SQLite+FTS5 future
+// rationale): the KB is the one Arco subsystem with a real SQLite+FTS5 future
 // if article count / search latency grows. Keeping CRUD behind this boundary
 // makes that migration a single-file swap rather than a rewrite. Until then,
 // JSON/markdown keeps it consistent with the rest of the repo (and the bodies
@@ -29,7 +29,7 @@ import {
   KNOWLEDGE_INJECT_BUDGET,
   type KnowledgeArticle,
   type KnowledgeArticleSummary,
-} from '@archon/shared';
+} from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
@@ -38,7 +38,7 @@ const TAG_MAX = 40;
 const TAGS_MAX = 24;
 
 function knowledgeDir(cwd: string): string {
-  return path.join(cwd, '.archon', 'knowledge');
+  return path.join(cwd, '.arco', 'knowledge');
 }
 function indexPath(cwd: string): string {
   return path.join(knowledgeDir(cwd), 'index.json');

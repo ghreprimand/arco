@@ -1,6 +1,6 @@
 // J1 — workbench notifications smoke.
 //
-// PURE — NO Archon WebSocket / server boot. Exercises the §J1 notification hub
+// PURE — NO Arco WebSocket / server boot. Exercises the §J1 notification hub
 // (server/src/notifications.ts) directly with an injected capture-broadcast, so
 // every assertion is on what WOULD reach the wire:
 //   - emit() on every category mints a notice (id + ts filled) and broadcasts a
@@ -42,7 +42,7 @@ function check(label: string, cond: boolean, detail = ''): void {
 }
 
 async function main(): Promise<void> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-notif-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-notif-'));
   const mutesPath = path.join(tmp, 'notification-mutes.json');
   try {
     // Capture every broadcast instead of sending it over a socket.

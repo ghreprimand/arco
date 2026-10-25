@@ -1,7 +1,7 @@
 /**
  * THROWAWAY spike probe for the Cursor (ACP) provider — docs/CURSOR_TRANSPORT_PLAN.md §2.
  * NOT shipped. Drives `cursor-agent acp` directly to learn the real wire contract before
- * any Archon code. Walks the 10-item spike checklist and dumps raw traffic for analysis.
+ * any Arco code. Walks the 10-item spike checklist and dumps raw traffic for analysis.
  *
  *   npx tsx scripts/cursor-acp-probe.ts
  *
@@ -241,7 +241,7 @@ async function main(): Promise<void> {
   let sessionId: string | undefined;
   let sessionModes: unknown;
   const mcpServers = [{
-    name: 'archon-cluster',
+    name: 'arco-cluster',
     command: process.execPath,
     args: [MCP_SERVER],
     env: [],
@@ -333,11 +333,11 @@ async function main(): Promise<void> {
     }
 
     // ---- Item 8 (cont): make the agent CALL the MCP tool ----
-    console.log('\n## item 8 (cont) — invoke MCP tool archon_probe_ping');
+    console.log('\n## item 8 (cont) — invoke MCP tool arco_probe_ping');
     try {
-      const c = await turn('Call the tool named archon_probe_ping with word="hello". Then reply DONE.', 90000);
+      const c = await turn('Call the tool named arco_probe_ping with word="hello". Then reply DONE.', 90000);
       const called = c.toolCalls.some((t) => /probe_ping/i.test(t.name ?? ''));
-      note('tool_call for archon_probe_ping seen on stream', String(called));
+      note('tool_call for arco_probe_ping seen on stream', String(called));
       note('tool calls seen', JSON.stringify(c.toolCalls.slice(0, 5)));
       note('item 8 verdict', called ? 'GO — per-session MCP honored (check wire ERR for [probe-mcp] tools/call)' : 'INCONCLUSIVE — grep wire log for [probe-mcp]; tool may exist but agent declined');
     } catch (e) {

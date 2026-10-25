@@ -6,8 +6,8 @@
 // Why a singleton: llama-server is one model per process and a single GGUF
 // can fill 20+ GB of VRAM. Loading two simultaneously would either OOM the
 // GPU or thrash, neither of which is acceptable for an interactive workflow.
-// Operators who want concurrent models can run multiple Archon-external
-// llama-server instances; this manager owns the one Archon spawns.
+// Operators who want concurrent models can run multiple Arco-external
+// llama-server instances; this manager owns the one Arco spawns.
 //
 // Why an idle timer: the same VRAM-occupancy concern. A model that hasn't
 // been used in N minutes shouldn't camp the GPU when an Ollama workflow or
@@ -22,14 +22,14 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import { EventEmitter } from 'events';
-import type { LlamacppModelDef } from '@archon/shared';
+import type { LlamacppModelDef } from '@arco/shared';
 import { readCatalog, findModel } from '../llamacppCatalog.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
-const LOG_PATH = path.join(archonHome(), 'llamacpp.log');
+const LOG_PATH = path.join(arcoHome(), 'llamacpp.log');
 
 function defaultPort(): number {
-  const env = process.env.ARCHON_LLAMACPP_PORT;
+  const env = process.env.ARCO_LLAMACPP_PORT;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n > 0 && n < 65536) return n;
@@ -40,11 +40,11 @@ function defaultPort(): number {
 }
 
 function defaultHost(): string {
-  return process.env.ARCHON_LLAMACPP_HOST ?? '127.0.0.1';
+  return process.env.ARCO_LLAMACPP_HOST ?? '127.0.0.1';
 }
 
 function idleEvictMs(): number {
-  const env = process.env.ARCHON_LLAMACPP_KEEPALIVE_MS;
+  const env = process.env.ARCO_LLAMACPP_KEEPALIVE_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 0) return n;
@@ -81,7 +81,7 @@ export interface LlamacppManagerStatus {
   loadedAt?: number;
   lastUsedAt?: number;
   error?: string;
-  // Additive metadata (ARCHON_OPS_PLAN.md §A3): the argv of the most recent
+  // Additive metadata (ARCO_OPS_PLAN.md §A3): the argv of the most recent
   // llama-server spawn, retained purely so the model-health panel can answer
   // "what did the last launch look like?". Set on the existing spawn path in
   // doLoad(); NEVER read by spawn/keepalive/reap logic — read-only forensics.
@@ -134,7 +134,7 @@ class LlamacppManager extends EventEmitter {
       const catalog = await readCatalog();
       const def = findModel(catalog, alias);
       if (!def) {
-        throw new Error(`llama.cpp model "${alias}" not in ~/.archon/llamacpp.json`);
+        throw new Error(`llama.cpp model "${alias}" not in ~/.arco/llamacpp.json`);
       }
       // Another caller may have started (or finished) a load during the
       // catalog read — go around again rather than spawn a second child.

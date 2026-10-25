@@ -1,8 +1,8 @@
-// ARCHON_OPS_PLAN.md §B1 — Production Service Mode: pure helpers.
+// ARCO_OPS_PLAN.md §B1 — Production Service Mode: pure helpers.
 //
 // This module is deliberately side-effect-free: argv parsing + systemd unit
 // rendering only. No filesystem writes, no `systemctl` spawns, no auto-enable.
-// The CLI entry (scripts/archon-service.ts) composes these with the actual
+// The CLI entry (scripts/arco-service.ts) composes these with the actual
 // install/start/stop side effects; the smoke (scripts/smoke/service-cli.ts)
 // imports `parseServiceArgs` + `renderSystemdUnit` directly and asserts on
 // their output WITHOUT a live install — so these must run on every platform.
@@ -36,8 +36,8 @@ export interface ServiceArgs {
   // Whether `install` should also `systemctl --user enable` the unit so it
   // comes back on next login. Off by default — install writes + reloads only.
   enable: boolean;
-  // `logs --journal` → tail the systemd journal (journalctl --user -u archon)
-  // instead of the default Archon structured log file (~/.archon/logs/archon.log
+  // `logs --journal` → tail the systemd journal (journalctl --user -u arco)
+  // instead of the default Arco structured log file (~/.arco/logs/arco.log
   // via POSIX `tail -f`). Off by default so `logs` is cross-platform (macOS has
   // no journalctl); --journal is the Linux/systemd opt-in.
   journal: boolean;
@@ -79,7 +79,7 @@ export interface UnitOptions {
   repoRoot: string;
   // Pass-through env from the operator's shell at install time, if set, so the
   // unit pins the same port/host the operator expects. Unset → systemd uses the
-  // server's own defaults (ARCHON_PORT=3001 / ARCHON_HOST=127.0.0.1).
+  // server's own defaults (ARCO_PORT=3001 / ARCO_HOST=127.0.0.1).
   port?: string | number;
   host?: string;
   // Tier-5 remote-management env, baked into the unit when the operator promotes
@@ -88,15 +88,15 @@ export interface UnitOptions {
   // working service but OFFLINE to the management hub and SILENT on ntfy, which
   // is exactly the failure the dev launcher's inline env avoided. Unset → both
   // stay off (an ordinary single-box install needs neither). Tailnet-only URLs.
-  hubUrl?: string; // ARCHON_HUB_URL — ws://<hub-tailnet>:<port>
-  ntfyUrl?: string; // ARCHON_NTFY_URL — http://<ntfy-tailnet>:<port>/<topic>
+  hubUrl?: string; // ARCO_HUB_URL — ws://<hub-tailnet>:<port>
+  ntfyUrl?: string; // ARCO_NTFY_URL — http://<ntfy-tailnet>:<port>/<topic>
   // Seconds systemd waits before a restart-on-failure. A few seconds avoids a
   // crash-loop hammering the API while still recovering quickly.
   restartSec?: number;
 }
 
 // Render a systemd `--user` unit. Production runs the COMPILED server
-// (`node server/dist/index.js`) — never tsx — with ARCHON_SERVE_CLIENT=1 so the
+// (`node server/dist/index.js`) — never tsx — with ARCO_SERVE_CLIENT=1 so the
 // in-process static-serve fallback (router.ts) owns client/dist instead of Vite.
 // Restart=on-failure is the B1 acceptance (survive a crash). WantedBy is
 // default.target because a `--user` unit has no multi-user.target.
@@ -106,12 +106,12 @@ export function renderSystemdUnit(opts: UnitOptions): string {
   const execStart = `node ${join(repoRoot, 'server', 'dist', 'index.js')}`;
 
   const env: string[] = [
-    'Environment=ARCHON_SERVE_CLIENT=1',
+    'Environment=ARCO_SERVE_CLIENT=1',
     'Environment=NODE_ENV=production',
     // Enable structured file logging (server/src/server/logger.ts). The server
-    // tees console.* to a rotated JSONL file at ~/.archon/logs/archon.log so
-    // `archon service logs` has a portable, structured source on top of journald.
-    'Environment=ARCHON_LOG_FILE=1',
+    // tees console.* to a rotated JSONL file at ~/.arco/logs/arco.log so
+    // `arco service logs` has a portable, structured source on top of journald.
+    'Environment=ARCO_LOG_FILE=1',
     // IPv6 is disabled outright on this deployment (no usable v6 egress; a v6
     // usage fetch once crash-looped the service into a permanent "SERVER DOWN" —
     // see server/src/net/forceIpv4.ts). The server's OWN process hard-blocks v6
@@ -121,16 +121,16 @@ export function renderSystemdUnit(opts: UnitOptions): string {
     'Environment=NODE_OPTIONS=--dns-result-order=ipv4first',
   ];
   if (opts.port !== undefined && String(opts.port).length > 0) {
-    env.push(`Environment=ARCHON_PORT=${opts.port}`);
+    env.push(`Environment=ARCO_PORT=${opts.port}`);
   }
   if (opts.host !== undefined && opts.host.length > 0) {
-    env.push(`Environment=ARCHON_HOST=${opts.host}`);
+    env.push(`Environment=ARCO_HOST=${opts.host}`);
   }
   if (opts.hubUrl !== undefined && opts.hubUrl.length > 0) {
-    env.push(`Environment=ARCHON_HUB_URL=${opts.hubUrl}`);
+    env.push(`Environment=ARCO_HUB_URL=${opts.hubUrl}`);
   }
   if (opts.ntfyUrl !== undefined && opts.ntfyUrl.length > 0) {
-    env.push(`Environment=ARCHON_NTFY_URL=${opts.ntfyUrl}`);
+    env.push(`Environment=ARCO_NTFY_URL=${opts.ntfyUrl}`);
   }
 
   return [

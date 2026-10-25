@@ -131,7 +131,7 @@ Tool-using local coding primary. Native tool calls, hybrid attention+SSM, ~77% S
 Local vision-capable primary. Native tools + vision + thinking. qwen3vlmoe arch, ~3B active per token (MoE) so decode is fast. Use when the operator attaches images (screenshots, diagrams, mockups). Coexists with `coder` — the 10-min keep_alive auto-evicts whichever isn't in active use.
 
 ### llama.cpp (local — alternative local backend)
-Use when the model architecture you need isn't yet wired up by Ollama. Today's specific case: Qwen3.6 vision (mmproj projector). Operator declares each loadout in `~/.archon/llamacpp.json` (alias, ggufPath, mmprojPath, ctxSize, ngl). Provider spawns / switches `llama-server` on demand; only one model loaded at a time. Picker uses the alias as the model identifier. Same `low / high` effort mapping as Ollama (`/no_think` prefix on low). When in doubt between Ollama and llama.cpp for the same task, prefer Ollama for ergonomics; reach for llama.cpp when a specific feature (mmproj, an unreleased architecture) demands it.
+Use when the model architecture you need isn't yet wired up by Ollama. Today's specific case: Qwen3.6 vision (mmproj projector). Operator declares each loadout in `~/.arco/llamacpp.json` (alias, ggufPath, mmprojPath, ctxSize, ngl). Provider spawns / switches `llama-server` on demand; only one model loaded at a time. Picker uses the alias as the model identifier. Same `low / high` effort mapping as Ollama (`/no_think` prefix on low). When in doubt between Ollama and llama.cpp for the same task, prefer Ollama for ergonomics; reach for llama.cpp when a specific feature (mmproj, an unreleased architecture) demands it.
 
 ## Anti-patterns (don't do these)
 

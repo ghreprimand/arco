@@ -1,5 +1,5 @@
 // CLUSTER_MODE_PLAN.md Phase 3 / CURSOR_TRANSPORT_PLAN.md Phase 6 — the shared
-// archon-cluster tool registration, transport-agnostic.
+// arco-cluster tool registration, transport-agnostic.
 //
 // Extracted from `clusterMcpServer.ts` (the stdio child) so the SAME tool set
 // backs two transports without drift:
@@ -10,7 +10,7 @@
 //     `mcpCapabilities:{http,sse}` and NO stdio, so its peer tools must ride a
 //     network transport (spike-8 + Phase-6 SSE micro-probe).
 //
-// Every tool is a thin translation to Archon's local REST peer API
+// Every tool is a thin translation to Arco's local REST peer API
 // (`/api/clusters/:id/peer/*`), so the (clusterId, workflowId, port,
 // taskBoardAttached) tuple is all the context a registration needs — passed as
 // `ClusterMcpToolCtx` rather than read from argv, so an in-process caller works
@@ -18,12 +18,12 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import type { ClusterMemberAccessMode } from '@archon/shared';
+import type { ClusterMemberAccessMode } from '@arco/shared';
 
 export interface ClusterMcpToolCtx {
   clusterId: string;
   workflowId: string;
-  archonPort: number;
+  arcoPort: number;
   taskBoardAttached: boolean;
   accessMode?: ClusterMemberAccessMode;
   // Where diagnostics go. The stdio child MUST log to stderr (stdout is the MCP
@@ -56,7 +56,7 @@ function textResult(payload: unknown, isError = false) {
   };
 }
 
-// Register the full archon-cluster tool set onto `server`, bound to `ctx`. The
+// Register the full arco-cluster tool set onto `server`, bound to `ctx`. The
 // tool bodies + descriptions are verbatim from the original stdio child; only
 // the BASE_URL / WORKFLOW_ID / logErr are now closed over ctx instead of
 // module-level argv globals.
@@ -68,9 +68,9 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
       return (original as (...xs: unknown[]) => unknown)(name, ...args);
     }) as typeof server.registerTool;
   }
-  const { clusterId, workflowId, archonPort, taskBoardAttached } = ctx;
-  const logErr = ctx.logErr ?? ((...args: unknown[]) => console.error('[archon-cluster-mcp]', ...args));
-  const BASE_URL = `http://127.0.0.1:${archonPort}/api/clusters/${encodeURIComponent(clusterId)}/peer`;
+  const { clusterId, workflowId, arcoPort, taskBoardAttached } = ctx;
+  const logErr = ctx.logErr ?? ((...args: unknown[]) => console.error('[arco-cluster-mcp]', ...args));
+  const BASE_URL = `http://127.0.0.1:${arcoPort}/api/clusters/${encodeURIComponent(clusterId)}/peer`;
 
   async function callPeerList(): Promise<unknown> {
     const url = `${BASE_URL}/list?workflowId=${encodeURIComponent(workflowId)}`;

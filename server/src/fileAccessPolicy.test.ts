@@ -15,7 +15,7 @@ for (const dir of [home, project, outside, customProvider, path.join(home, '.cod
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 process.env.CODEX_HOME = customProvider;
-process.env.ARCHON_UPLOADS_DIR = path.join(fixture, 'uploads');
+process.env.ARCO_UPLOADS_DIR = path.join(fixture, 'uploads');
 const { confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
 const { resolveBoundCwd } = await import('./http/writeConfinement.js');
 const { patchSettings } = await import('./settings.js');
@@ -69,7 +69,7 @@ test('registration, settings and broad HOME cannot authorize protected state', a
   await patchSettings({ defaultWorkingDirectory: customProvider });
   assert.equal((await resolveBoundCwd(customProvider, undefined)).ok, false);
   await patchSettings({ defaultWorkingDirectory: project });
-  for (const p of [credential, customCredential, file(path.join(project, '.env')), path.join(home, '.archon', 'settings.json')]) {
+  for (const p of [credential, customCredential, file(path.join(project, '.env')), path.join(home, '.arco', 'settings.json')]) {
     assert.throws(() => confinedPath(p, [home, project, customProvider]));
     await assert.rejects(resolveBrowserRead(p, home));
   }
@@ -96,16 +96,16 @@ test('picker navigation reveals ordinary directories without granting their file
 test('bound workflows, saved artifacts, uploads and scratch retain narrow access', async () => {
   workflowCwds.set('fixture-workflow', project);
   assert.equal(await resolveBrowserRead('document.txt', outside, 'fixture-workflow'), inside);
-  const artifact = file(path.join(project, '.archon', 'workflows', 'fixture-workflow', 'artifacts', 'report.md'));
+  const artifact = file(path.join(project, '.arco', 'workflows', 'fixture-workflow', 'artifacts', 'report.md'));
   assert.equal(await resolveBrowserRead('report.md', project, 'fixture-workflow'), artifact);
   assert.equal(await resolveWorkflowDocument(project, 'saved-workflow', 'artifacts', 'saved.md').catch(() => null), null);
-  const saved = file(path.join(project, '.archon', 'workflows', 'saved-workflow', 'artifacts', 'saved.md'));
+  const saved = file(path.join(project, '.arco', 'workflows', 'saved-workflow', 'artifacts', 'saved.md'));
   assert.equal(await resolveWorkflowDocument(project, 'saved-workflow', 'artifacts', 'saved.md'), saved);
   await assert.rejects(resolveWorkflowDocument(project, '../../escape', 'artifacts', 'saved.md'));
-  const events = file(path.join(project, '.archon', 'workflows', 'fixture-workflow', 'events.jsonl'));
+  const events = file(path.join(project, '.arco', 'workflows', 'fixture-workflow', 'events.jsonl'));
   await assert.rejects(resolveBrowserRead(events, project));
   const scratch = file(path.join(SCRATCH_ROOT, 'fixture', 'clip.wav'));
-  const upload = file(path.join(process.env.ARCHON_UPLOADS_DIR!, 'fixture.png'));
+  const upload = file(path.join(process.env.ARCO_UPLOADS_DIR!, 'fixture.png'));
   assert.equal(await resolveBrowserRead(scratch), scratch);
   assert.equal(await resolveBrowserRead(upload), upload);
   workflowCwds.delete('fixture-workflow');
@@ -143,7 +143,7 @@ test('raw media HTTP grants are global, finite, Range-capable and immediately re
   const raw = (target: string, range?: string) => fetch(`http://127.0.0.1:${port}/api/media/raw?${new URLSearchParams({ path: target, cwd: project })}`, { headers: range ? { Range: range } : {} });
   try {
     // A repository cannot grant itself extra read authority.
-    file(path.join(project, '.archon', 'settings.json'), JSON.stringify({ mediaUnconfined: true, mediaAllowedRoots: [outside] }));
+    file(path.join(project, '.arco', 'settings.json'), JSON.stringify({ mediaUnconfined: true, mediaAllowedRoots: [outside] }));
     assert.equal((await raw(external)).status, 403);
     await patchSettings({ mediaUnconfined: true });
     assert.equal((await raw(external)).status, 403);
@@ -165,7 +165,7 @@ test('raw media HTTP grants are global, finite, Range-capable and immediately re
 });
 
 test('runtime aliases and scratch aliases cannot authorize account state', async () => {
-  const runtime = path.join(home, '.archon');
+  const runtime = path.join(home, '.arco');
   const moved = path.join(fixture, 'runtime-volume');
   file(path.join(runtime, 'provider-accounts', 'fixture', 'session.txt'));
   renameSync(runtime, moved);

@@ -102,7 +102,7 @@ export interface HandoffArtifactReadyMessage {
   type: 'handoff_artifact_ready';
   workflowId: string;
   handoffId: string;
-  artifactName: string;  // handoff-<ts>.md under .archon/workflows/<wfid>/handoffs/
+  artifactName: string;  // handoff-<ts>.md under .arco/workflows/<wfid>/handoffs/
   error?: string;
   // Set when the operator cancelled the in-flight handoff. Rendered as a
   // distinct CANCELLED state rather than an error.

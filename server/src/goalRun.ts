@@ -22,7 +22,7 @@
 //
 // What it is NOT: Codex's native `create_goal` (the 2026-07-28 incident in
 // docs/GOTCHAS.md § Codex app-server). That one was armed by the model, ran
-// with a NULL token budget, was invisible to Archon, and could only be undone
+// with a NULL token budget, was invisible to Arco, and could only be undone
 // by editing a sqlite file. Each of those is inverted above — deliberately.
 //
 // Note the one thing this loop must never gain: a model verdict on whether the
@@ -162,7 +162,7 @@ export function evaluateGoalRun(input: {
   return { action: 'tick', iteration: s.total - s.remaining + 1 };
 }
 
-// The continuation prompt. Fixed, Archon-authored, and surfaced in the
+// The continuation prompt. Fixed, Arco-authored, and surfaced in the
 // transcript exactly as sent — the operator must be able to read what the loop
 // says on their behalf. It deliberately does NOT tell the model to keep going
 // on its own: each tick is one bounded turn, and the loop (not the model)

@@ -5,7 +5,7 @@
 // directly:
 //   (1) FrameReader reassembles Content-Length frames, including a frame split
 //       across two chunks and multiple frames in one chunk.
-//   (2) mapPublishDiagnostics converts LSP's 0-based line/character to Archon's
+//   (2) mapPublishDiagnostics converts LSP's 0-based line/character to Arco's
 //       1-based DiagnosticItem.line/column with the right severity/message.
 //   (3) encodeMessage round-trips through FrameReader.
 //
@@ -22,7 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { DiagnosticsMessage } from '@archon/shared';
+import type { DiagnosticsMessage } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;
@@ -179,7 +179,7 @@ async function realLeg(): Promise<void> {
   console.log('');
   console.log(`REAL LEG: ${pick.lang} server found on PATH — running end-to-end`);
 
-  const dir = await fs.mkdtemp(join(tmpdir(), 'archon-lsp-'));
+  const dir = await fs.mkdtemp(join(tmpdir(), 'arco-lsp-'));
   const file = join(dir, `bad.${pick.ext}`);
   await fs.writeFile(file, pick.bad, 'utf8');
 

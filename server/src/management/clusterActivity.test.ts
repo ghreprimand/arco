@@ -13,10 +13,10 @@ import { readMemberActivity, mergeActivity, ACTIVITY_MAX_ROWS } from './clusterA
 const WF = 'wf-activity-test-0001';
 
 function writeEvents(lines: object[]): string {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-activity-test-'));
-  mkdirSync(join(cwd, '.archon', 'workflows', WF), { recursive: true });
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-activity-test-'));
+  mkdirSync(join(cwd, '.arco', 'workflows', WF), { recursive: true });
   writeFileSync(
-    join(cwd, '.archon', 'workflows', WF, 'events.jsonl'),
+    join(cwd, '.arco', 'workflows', WF, 'events.jsonl'),
     lines.map((l) => JSON.stringify(l)).join('\n') + '\n',
   );
   return cwd;
@@ -61,7 +61,7 @@ test('tool counter resets per turn', () => {
 });
 
 test('missing log yields empty, never throws', () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-activity-empty-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-activity-empty-'));
   assert.deepEqual(readMemberActivity(cwd, WF), []);
 });
 

@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §E1 — bridge the global registry + a workflow's per-tab
+// ARCO_OPS_PLAN.md §E1 — bridge the global registry + a workflow's per-tab
 // allowlist into the MCP intent the providers consume.
 //
 // Single source of truth for "which registry servers + which dangerous-tool
@@ -16,7 +16,7 @@
 //     removes the tool from the model's set entirely. Codex has no equivalent;
 //     these are advisory-only there (documented gap).
 
-import type { McpServerDef, McpWorkflowAllow, McpToolInfo } from '@archon/shared';
+import type { McpServerDef, McpWorkflowAllow, McpToolInfo } from '@arco/shared';
 import type { RegistryMcpEntry } from './mcpConfigWriter.js';
 import { classifyDangerous } from './client.js';
 import * as registry from './registry.js';
@@ -27,9 +27,9 @@ export interface RegistryWiring {
 }
 
 // Stable, namespace-safe mcpServers key for a registry server. Distinct prefix
-// avoids any collision with the built-in `archon-cluster` / `codebase-memory`
+// avoids any collision with the built-in `arco-cluster` / `codebase-memory`
 // keys, and the short id suffix keeps the wire-level `mcp__<key>__<tool>`
-// readable. Hyphens are valid in the namespace (cf. archon-cluster).
+// readable. Hyphens are valid in the namespace (cf. arco-cluster).
 export function registryKey(serverId: string): string {
   return `reg-${serverId.slice(0, 8)}`;
 }

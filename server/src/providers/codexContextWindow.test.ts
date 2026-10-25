@@ -3,12 +3,12 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { codexContextWindowOverride, readCodexContextMetadata } from './codexContextWindow.js';
 import { buildThreadConfigOverrides } from './codex-appserver/worker.js';
 
 function homeWith(models: unknown[]): string {
-  const home = mkdtempSync(join(tmpdir(), 'archon-codex-context-'));
+  const home = mkdtempSync(join(tmpdir(), 'arco-codex-context-'));
   writeFileSync(join(home, 'models_cache.json'), JSON.stringify({ models }));
   return home;
 }

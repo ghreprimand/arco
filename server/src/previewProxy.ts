@@ -3,9 +3,9 @@
 // each workflow (set_preview_port WS message) and this module forwards every
 // request scoped to that workflow's wfid to 127.0.0.1:<port>.
 //
-// Why a proxy instead of direct iframe-to-localhost: Archon is commonly
+// Why a proxy instead of direct iframe-to-localhost: Arco is commonly
 // accessed remotely with only port 5173 forwarded. A naked iframe to
-// `http://localhost:5173` would hit the OPERATOR's localhost (Archon's own
+// `http://localhost:5173` would hit the OPERATOR's localhost (Arco's own
 // client), not the dev server on the SERVER's box. Same-origin proxy means
 // the iframe always works regardless of forwarding setup.
 //
@@ -15,7 +15,7 @@
 //      a /api/preview/<wfid>/ page → forward as-is to that wfid's backend.
 // The fallback is what makes Vite's absolute paths (`/@vite/client`,
 // `/src/main.tsx`) work without per-project base-url config — the browser
-// requests them from Archon's origin with the iframe's URL as Referer, and
+// requests them from Arco's origin with the iframe's URL as Referer, and
 // we route them back through the right backend.
 
 import http, { IncomingMessage, ServerResponse } from 'http';
@@ -43,7 +43,7 @@ export type PortLookup = (wfid: string) => number | undefined;
 // whether the Referer-based fallback is considered: it's safe at the 404
 // fallback point (the request would have died anyway) but dangerous at the
 // top of the route table (a stale iframe's Referer would hijack legitimate
-// Archon API requests originating from another tab).
+// Arco API requests originating from another tab).
 function resolveTarget(
   req: IncomingMessage,
   allowReferer: boolean,
@@ -76,7 +76,7 @@ export function tryHandlePreviewRequest(
   const target = resolveTarget(req, opts.allowReferer === true);
   if (!target) return false;
   const port = lookupPort(target.wfid);
-  console.log(`[archon-preview-proxy] ${req.method} ${req.url} → wfid=${target.wfid.slice(0, 8)} port=${port ?? 'UNBOUND'} backend=${target.backendPath}`);
+  console.log(`[arco-preview-proxy] ${req.method} ${req.url} → wfid=${target.wfid.slice(0, 8)} port=${port ?? 'UNBOUND'} backend=${target.backendPath}`);
   if (!port) {
     res.writeHead(503, { 'Content-Type': 'text/plain' });
     res.end('Preview backend not configured for this workflow.');

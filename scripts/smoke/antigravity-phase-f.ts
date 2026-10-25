@@ -3,7 +3,7 @@
 //
 // Structural coverage always runs. If Antigravity desktop is reachable, the
 // smoke also asks for a uniquely named text file in the workflow cwd and
-// verifies Archon's provider-side ingestion copied it into artifacts/.
+// verifies Arco's provider-side ingestion copied it into artifacts/.
 //
 // Env:
 //   ANTIGRAVITY_PHASE_F_STRUCTURAL_ONLY=1  skip live desktop turn
@@ -14,7 +14,7 @@ import { constants } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { AntigravityProvider } from '../../server/src/providers/antigravity.js';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import {
@@ -39,8 +39,8 @@ async function readMetadataRecords(metadataPath: string): Promise<AntigravityArt
 }
 
 async function structuralSmoke(): Promise<void> {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigrav-f-struct-'));
-  const outsideDir = await mkdtemp(join(tmpdir(), 'archon-antigrav-f-outside-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigrav-f-struct-'));
+  const outsideDir = await mkdtemp(join(tmpdir(), 'arco-antigrav-f-outside-'));
   const fakeCascadeId = `phase-f-fake-cascade-${STAMP}`;
   const fakeBrainDir = join(homedir(), '.gemini', 'antigravity', 'brain', fakeCascadeId);
   try {
@@ -49,10 +49,10 @@ async function structuralSmoke(): Promise<void> {
     await writeFile(join(cwd, 'preexisting.md'), 'do not ingest\n', 'utf8');
     const before = await snapshotAntigravityArtifactFiles(cwd);
 
-    const sourceText = join(cwd, 'notes', `archon-phase-f-${STAMP}.md`);
-    const sourceImage = join(cwd, 'notes', `archon-phase-f-${STAMP}.png`);
-    const internalNoise = join(cwd, '.archon', 'internal.md');
-    await mkdir(join(cwd, '.archon'), { recursive: true });
+    const sourceText = join(cwd, 'notes', `arco-phase-f-${STAMP}.md`);
+    const sourceImage = join(cwd, 'notes', `arco-phase-f-${STAMP}.png`);
+    const internalNoise = join(cwd, '.arco', 'internal.md');
+    await mkdir(join(cwd, '.arco'), { recursive: true });
     await writeFile(sourceText, `# Phase F\n\nmarker ${STAMP}\n`, 'utf8');
     await writeFile(sourceImage, Buffer.from(PNG_BASE64, 'base64'));
     await writeFile(internalNoise, 'must not ingest\n', 'utf8');
@@ -61,7 +61,7 @@ async function structuralSmoke(): Promise<void> {
       cwd,
       workflowId,
       cascadeId: 'cascade-structural',
-      prompt: `create markdown and image files named archon-phase-f-${STAMP}`,
+      prompt: `create markdown and image files named arco-phase-f-${STAMP}`,
       turnStartedAt: Date.now() - 1000,
       workflowSnapshotBefore: before,
     });
@@ -72,8 +72,8 @@ async function structuralSmoke(): Promise<void> {
     assert.ok(image, 'image artifact copied');
     assert.equal(text.detectedFrom, 'workflow-cwd');
     assert.equal(image.detectedFrom, 'workflow-cwd');
-    assert.equal(text.copiedPath, join(cwd, '.archon', 'workflows', workflowId, 'artifacts', text.artifactName));
-    assert.equal(image.copiedPath, join(cwd, '.archon', 'workflows', workflowId, 'artifacts', 'images', image.artifactName));
+    assert.equal(text.copiedPath, join(cwd, '.arco', 'workflows', workflowId, 'artifacts', text.artifactName));
+    assert.equal(image.copiedPath, join(cwd, '.arco', 'workflows', workflowId, 'artifacts', 'images', image.artifactName));
     assert.match(await readFile(text.copiedPath, 'utf8'), new RegExp(STAMP));
     await access(image.copiedPath, constants.R_OK);
     assert.equal((await readFile(sourceText, 'utf8')).includes(`marker ${STAMP}`), true);
@@ -131,8 +131,8 @@ async function structuralSmoke(): Promise<void> {
 }
 
 async function runLiveTurn(): Promise<{ cwd: string; targetName: string; records: AntigravityArtifactRecord[]; metadataPath: string }> {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigrav-f-live-'));
-  const targetName = `archon-phase-f-live-${STAMP}.txt`;
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigrav-f-live-'));
+  const targetName = `arco-phase-f-live-${STAMP}.txt`;
   const marker = `phase-f-live-marker-${STAMP}`;
   const config: WorkerConfig = {
     provider: 'antigravity',
@@ -168,7 +168,7 @@ async function runLiveTurn(): Promise<{ cwd: string; targetName: string; records
   console.log(`live text first 300: ${text.slice(0, 300)}`);
   if (error) throw new Error(error);
 
-  const artifactRoot = join(cwd, '.archon', 'workflows', WORKFLOW_ID, 'artifacts');
+  const artifactRoot = join(cwd, '.arco', 'workflows', WORKFLOW_ID, 'artifacts');
   const metadataPath = join(artifactRoot, 'antigravity-artifacts.jsonl');
   const records = await readMetadataRecords(metadataPath);
   const target = records.find((r) => r.sourcePath.endsWith(targetName) && r.kind === 'text');

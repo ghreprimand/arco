@@ -1,4 +1,4 @@
-import type { TokenUsage, ProviderName } from '@archon/shared';
+import type { TokenUsage, ProviderName } from '@arco/shared';
 import {
   formatTokenCount,
   contextTokens,

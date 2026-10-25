@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { DEFAULT_CODEX_MODEL } from '@archon/shared';
-import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, PlanReviewMode } from '@archon/shared';
+import { DEFAULT_CODEX_MODEL } from '@arco/shared';
+import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, PlanReviewMode } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
@@ -193,7 +193,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
   const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
     // Antigravity auths inside its own desktop app (the Google account signed
-    // into the isolated Archon profile), not through Archon's auth service.
+    // into the isolated Arco profile), not through Arco's auth service.
     // Trust the operator to have it running; runtime surfaces a clear error
     // if the Antigravity desktop/RPC endpoint is unreachable when the review fires.
     if (p === 'antigravity') return true;

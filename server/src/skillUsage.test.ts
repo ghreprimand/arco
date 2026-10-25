@@ -15,15 +15,15 @@ import {
   readSkillUsage,
 } from './skillUsage.js';
 
-test('isSkillMdPath matches a .archon/skills/<slug>/SKILL.md path', () => {
-  assert.equal(isSkillMdPath('/home/u/proj/.archon/skills/deploy/SKILL.md'), true);
-  assert.equal(isSkillMdPath('/home/u/.archon/skills/foo/SKILL.md'), true);
+test('isSkillMdPath matches a .arco/skills/<slug>/SKILL.md path', () => {
+  assert.equal(isSkillMdPath('/home/u/proj/.arco/skills/deploy/SKILL.md'), true);
+  assert.equal(isSkillMdPath('/home/u/.arco/skills/foo/SKILL.md'), true);
 });
 
 test('isSkillMdPath rejects non-skill SKILL.md and non-SKILL files', () => {
   assert.equal(isSkillMdPath('/home/u/proj/SKILL.md'), false, 'SKILL.md outside skills root');
-  assert.equal(isSkillMdPath('/home/u/proj/.archon/skillsfoo/x/SKILL.md'), false, 'sibling dir, not skills');
-  assert.equal(isSkillMdPath('/home/u/proj/.archon/skills/foo/README.md'), false, 'not SKILL.md');
+  assert.equal(isSkillMdPath('/home/u/proj/.arco/skillsfoo/x/SKILL.md'), false, 'sibling dir, not skills');
+  assert.equal(isSkillMdPath('/home/u/proj/.arco/skills/foo/README.md'), false, 'not SKILL.md');
   assert.equal(isSkillMdPath(''), false);
 });
 
@@ -40,10 +40,10 @@ test('canonicalSkillKey resolves to absolute', () => {
 });
 
 test('recordSkillRead increments count and stamps lastUsed; no-op for non-skill', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-skillusage-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-skillusage-'));
   const file = path.join(dir, 'skill-usage.json');
   try {
-    const skill = '/repo/.archon/skills/deploy/SKILL.md';
+    const skill = '/repo/.arco/skills/deploy/SKILL.md';
 
     await recordSkillRead(skill, 1000, file);
     let usage = await readSkillUsage(file);
@@ -66,6 +66,6 @@ test('recordSkillRead increments count and stamps lastUsed; no-op for non-skill'
 });
 
 test('readSkillUsage returns empty for a missing file', async () => {
-  const usage = await readSkillUsage(path.join(os.tmpdir(), 'archon-nonexistent-usage-xyz.json'));
+  const usage = await readSkillUsage(path.join(os.tmpdir(), 'arco-nonexistent-usage-xyz.json'));
   assert.deepEqual(usage, {});
 });

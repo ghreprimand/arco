@@ -1,6 +1,6 @@
 // Prod serves client/dist from disk, so a rebuild swaps the bundle under an
 // open tab without telling it. 2026-10-17: Computer answered "Unknown tool."
-// for archon_screen because the tab was on a bundle from before the tool
+// for arco_screen because the tab was on a bundle from before the tool
 // existed, and nothing on screen said so. After every WebSocket open (the
 // server just restarted, or the tab just loaded) compare the bundle that
 // index.html now references with the one this tab is running; when they

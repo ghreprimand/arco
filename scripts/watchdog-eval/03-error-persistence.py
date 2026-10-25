@@ -11,7 +11,7 @@ will make this universal). Runnable NOW on current logs as the real falsificatio
 """
 import json, glob, collections, os
 
-LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".archon", "workflows"))
+LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".arco", "workflows"))
 PERSIST_K = 4   # same action failing this many times with no success between
 
 def norm_input(tool, raw):

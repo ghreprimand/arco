@@ -56,20 +56,20 @@ export const reference: Section[] = [
         <Table
           headers={['Variable', 'Default', 'Purpose']}
           rows={[
-            [<Code key="ap">ARCHON_PORT</Code>, '3001', 'Server HTTP/WS port.'],
+            [<Code key="ap">ARCO_PORT</Code>, '3001', 'Server HTTP/WS port.'],
             [<Code key="ou">OLLAMA_URL_BASE</Code>, 'http://localhost:11434', 'Ollama daemon endpoint.'],
             [<Code key="lm">LMSTUDIO_URL_BASE</Code>, 'http://localhost:1234/v1', 'LM Studio OpenAI-compatible endpoint (a bare host:port gets /v1 appended).'],
-            [<Code key="sx">ARCHON_SEARXNG_URL</Code>, 'http://127.0.0.1:8888', 'Local SearXNG used by the WebSearch tool.'],
+            [<Code key="sx">ARCO_SEARXNG_URL</Code>, 'http://127.0.0.1:8888', 'Local SearXNG used by the WebSearch tool.'],
             [<Code key="ab">ANTIGRAVITY_BINARY</Code>, '/opt/antigravity/antigravity', 'Antigravity desktop app path.'],
             [<Code key="ad">ANTIGRAVITY_USE_DEFAULT_PROFILE</Code>, '(unset)', 'Set 1 to reuse your normal signed-in Antigravity profile.'],
-            [<Code key="aud">ANTIGRAVITY_USER_DATA_DIR</Code>, '~/.archon/antigravity-data', 'Custom Antigravity profile path; default or none omits --user-data-dir.'],
+            [<Code key="aud">ANTIGRAVITY_USER_DATA_DIR</Code>, '~/.arco/antigravity-data', 'Custom Antigravity profile path; default or none omits --user-data-dir.'],
             [<Code key="acp">ANTIGRAVITY_CDP_PORT</Code>, '9222', 'Antigravity desktop debug port used only for liveness probing.'],
             [<Code key="aw">ANTIGRAVITY_WORKSPACE</Code>, '~/Projects', 'Folder opened when Arco lazy-spawns Antigravity.'],
             [<Code key="arm">ANTIGRAVITY_RPC_MODEL</Code>, 'gemini-3-flash-agent', 'Antigravity RPC model id; default is Gemini 3.5 Flash High.'],
-            [<Code key="cf">ARCHON_CAMOUFOX_PYTHON</Code>, '/opt/camoufox/bin/python', 'Camoufox Python for stealth WebFetch.'],
-            [<Code key="rk">ARCHON_RSS_KILL_BYTES</Code>, '32 GB', 'Per-worker-tree RSS auto-kill threshold (shrink on <64 GB RAM).'],
-            [<Code key="hub">ARCHON_HUB_URL</Code>, '(unset)', 'Tailnet management-hub URL; set to link this instance for remote control. Inert when unset.'],
-            [<Code key="ntfy">ARCHON_NTFY_URL</Code>, '(unset)', 'ntfy topic URL for external push notifications. Inert when unset.'],
+            [<Code key="cf">ARCO_CAMOUFOX_PYTHON</Code>, '/opt/camoufox/bin/python', 'Camoufox Python for stealth WebFetch.'],
+            [<Code key="rk">ARCO_RSS_KILL_BYTES</Code>, '32 GB', 'Per-worker-tree RSS auto-kill threshold (shrink on <64 GB RAM).'],
+            [<Code key="hub">ARCO_HUB_URL</Code>, '(unset)', 'Tailnet management-hub URL; set to link this instance for remote control. Inert when unset.'],
+            [<Code key="ntfy">ARCO_NTFY_URL</Code>, '(unset)', 'ntfy topic URL for external push notifications. Inert when unset.'],
             [<Code key="tm">TERMINAL</Code>, '(auto-detect)', 'Preferred terminal for Gemini / Codex auth flows.'],
             [<Code key="ak">ANTHROPIC_API_KEY</Code>, '(unset)', 'API-key fallback for Claude (subscription preferred).'],
             [<Code key="ok">OPENAI_API_KEY</Code>, '(unset)', 'API-key fallback for Codex.'],
@@ -92,12 +92,12 @@ npm run dev:server    # server only — port 3001
 npm run dev:client    # client only — port 5173
 npm run build         # build shared, server, client`}</Pre>
         <p>The launcher script (Linux freedesktop, optional):</p>
-        <Pre>{`scripts/archon start     # boot Arco + open browser
-scripts/archon stop      # graceful API shutdown + cleanup
-scripts/archon restart   # stop then start
-scripts/archon status    # report running/stopped + log path
-scripts/archon logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
-        <p>Logs land at <Code>~/.cache/archon/archon.log</Code>.</p>
+        <Pre>{`scripts/arco start     # boot Arco + open browser
+scripts/arco stop      # graceful API shutdown + cleanup
+scripts/arco restart   # stop then start
+scripts/arco status    # report running/stopped + log path
+scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
+        <p>Logs land at <Code>~/.cache/arco/arco.log</Code>.</p>
       </>
     ),
   },
@@ -118,7 +118,7 @@ scripts/archon logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
             [<strong key="i">Interjection</strong>, "A user message sent during an in-flight turn. Queued and merged into the next turn's prompt."],
             [<strong key="s">Session</strong>, 'Native CLI conversation state, identified by a UUID (Claude) or thread_id (Codex).'],
             [<strong key="se">Seed</strong>, 'The first user message in a fresh CLI session, used by Handoff and Spawn to inject context.'],
-            [<strong key="cw">cwd</strong>, "Working directory. Each workflow is pinned to one cwd. All persistence lives under <cwd>/.archon/."],
+            [<strong key="cw">cwd</strong>, "Working directory. Each workflow is pinned to one cwd. All persistence lives under <cwd>/.arco/."],
             [<strong key="cl">Calibration</strong>, "Per-session ratio between byte-count token estimates and ground-truth /context output."],
             [<strong key="se2">seq</strong>, 'Per-workflow monotonic counter stamped on every persisted event. Drives lossless replay.'],
             [<strong key="rh">Rehydrate</strong>, 'On reconnect, the client sends rehydrate_workflows with each persisted lastSeq; the server replays anything missing.'],
@@ -130,7 +130,7 @@ scripts/archon logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
             [<strong key="cl1">Cluster</strong>, 'A parent tab kind hosting N member workflows pinned to one cwd. Members address each other via peer tools; no hidden model authority.'],
             [<strong key="cl2">Member</strong>, 'One workflow inside a cluster. Addressed by 8-char workflowId prefix in peer tools.'],
             [<strong key="cl3">Peer tool</strong>, <span>One of <Code>peer_list</Code> / <Code>peer_send</Code> / <Code>peer_read</Code>. Registered on every member; lets members hand notes between operator turns.</span>],
-            [<strong key="cl4">Mailbox</strong>, "Per-recipient inbox at ~/.archon/clusters/<id>/mailbox/<wfid>/. Budgeted file-per-message; drained on peer_read."],
+            [<strong key="cl4">Mailbox</strong>, "Per-recipient inbox at ~/.arco/clusters/<id>/mailbox/<wfid>/. Budgeted file-per-message; drained on peer_read."],
             [<strong key="cl5">Role hint</strong>, "Free-form ≤120 char tag injected as a forced system block during a member's turn. Six canonical presets (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER) plus Custom…"],
             [<strong key="cl6">Cluster plan</strong>, 'Shared body ≤32 KB injected into every member\'s per-turn system block. Routed with cache_control:ephemeral so it lives in the 5-min prompt cache window.'],
             [<strong key="cl7">Idle nudger</strong>, 'Operator-armed (default OFF) per-cluster toast that fires when a member sits idle ≥10s with pending mail. Toast-only; never prompts workers.'],

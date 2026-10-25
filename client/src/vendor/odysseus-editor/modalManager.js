@@ -35,7 +35,7 @@ export function minimize(id) {
   const e = _entries.get(id);
   if (!e) return;
   e.isMinimized = true;
-  // No dock chip in Archon — the popup's own minimise button already hides its
+  // No dock chip in Arco — the popup's own minimise button already hides its
   // element before calling us in the upstream flow; nothing more to do here.
 }
 

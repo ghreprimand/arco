@@ -24,7 +24,7 @@
 //      operator sees the completion, then drop off.
 
 import { randomUUID } from 'crypto';
-import type { PrimaryBackgroundJob, ServerMessage } from '@archon/shared';
+import type { PrimaryBackgroundJob, ServerMessage } from '@arco/shared';
 import { snapshotDescendantPids, probePid, readCmdline } from './workers/processActivity.js';
 
 const POLL_INTERVAL_MS = 2000;
@@ -151,7 +151,7 @@ export class PrimaryBackgroundTracker {
     if (this.timer) return;
     this.timer = setInterval(() => {
       this.tick().catch((err) => {
-        console.error(`[archon] [${this.workflowId.slice(0, 8)}] primary-bg tracker tick failed:`, err);
+        console.error(`[arco] [${this.workflowId.slice(0, 8)}] primary-bg tracker tick failed:`, err);
       });
     }, POLL_INTERVAL_MS);
     // Fire one pass immediately so the UI doesn't wait a full POLL_INTERVAL_MS

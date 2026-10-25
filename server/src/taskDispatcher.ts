@@ -17,7 +17,7 @@ import {
   type ClusterDispatcherState,
   type LedgerTask,
   type TaskRun,
-} from '@archon/shared';
+} from '@arco/shared';
 import * as clusterStore from './clusterStore.js';
 import * as taskLedger from './project/taskLedger.js';
 import { createTaskWorktree, TaskWorktreeError } from './project/taskWorktree.js';
@@ -52,7 +52,7 @@ interface CandidateFire {
 
 const OPEN_RUN_STATUSES = new Set<TaskRun['status']>(['claimed', 'running']);
 const DISPATCHER_DAEMON_TICK_MS = (() => {
-  const raw = process.env.ARCHON_TASK_DISPATCHER_TICK_MS;
+  const raw = process.env.ARCO_TASK_DISPATCHER_TICK_MS;
   if (!raw) return 1000;
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 250 ? parsed : 1000;
@@ -358,7 +358,7 @@ export async function sweepDaemon(now: number = Date.now()): Promise<void> {
   if (!daemonConfig) return;
   for (const clusterId of clusterStore.listKnownClusterIds()) {
     await sweepDispatcherCluster(clusterId, now).catch((err) => {
-      console.error(`[archon] task-dispatcher sweep failed for ${clusterId.slice(0, 8)}:`, err);
+      console.error(`[arco] task-dispatcher sweep failed for ${clusterId.slice(0, 8)}:`, err);
     });
   }
 }
@@ -403,7 +403,7 @@ async function sweepDispatcherCluster(clusterId: string, now: number): Promise<v
       shouldContinue: () => clusterStore.isTaskDispatcherEnabled(clusterId),
     });
     if ('error' in result) {
-      console.warn(`[archon] task-dispatcher sweep rejected for ${clusterId.slice(0, 8)}: ${result.error}`);
+      console.warn(`[arco] task-dispatcher sweep rejected for ${clusterId.slice(0, 8)}: ${result.error}`);
       return;
     }
     if (result.fired.length > 0 || result.skipped.length > 0) {

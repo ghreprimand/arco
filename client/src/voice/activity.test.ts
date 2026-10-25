@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { WorkflowConfig } from '@archon/shared';
+import type { WorkflowConfig } from '@arco/shared';
 import { VoiceControl } from '../components/VoiceControl';
 import { ComputerActivityPanel } from '../components/ComputerActivityPanel';
 import { useAppStore } from '../stores/appStore';

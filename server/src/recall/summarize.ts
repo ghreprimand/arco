@@ -3,7 +3,7 @@
 // Generates a durable, searchable recap of ONE conversation — "a point in time
 // I can go back to": what the thread was about, key decisions, current state,
 // open threads. Written to the machine-global recall home at
-// ~/.archon/recall/<wfid>/summary.md and linked from the index (summaryRef).
+// ~/.arco/recall/<wfid>/summary.md and linked from the index (summaryRef).
 //
 // FENCE-CLEARANCE (CLAUDE.md hard fences; docs/RECALL.md Part F preamble): the
 // rejected pattern is *second-LLM summarization IN THE AGENT LOOP* (`distill` —
@@ -36,11 +36,11 @@ import type {
   ProviderName,
   ModelName,
   EffortLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 // Stable ref stored in the index + fetched by the client. Relative to the
-// recall home so the route resolves it under ~/.archon/recall/<wfid>/.
+// recall home so the route resolves it under ~/.arco/recall/<wfid>/.
 const SUMMARY_FILE = 'summary.md';
 
 export interface SummarizerConfig {
@@ -154,15 +154,15 @@ export async function summarizeWorkflow(opts: SummarizeOptions): Promise<Summari
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(summaryPath, body.endsWith('\n') ? body : body + '\n', 'utf8');
       index.setSummary(wfid, `${wfid}/${SUMMARY_FILE}`, body);
-      // ARCHON_OPS_PLAN.md §H1 — Recall-summary trigger: surface the summary's
+      // ARCO_OPS_PLAN.md §H1 — Recall-summary trigger: surface the summary's
       // first line as the session index's "where this left off" subtitle.
       // Fired-and-logged (projection; must not fail the summary write).
       recordSessionSummary(entry.cwd, wfid, body).catch((err) => {
-        console.error(`[archon] session index subtitle update failed for ${wfid.slice(0, 8)}:`, err);
+        console.error(`[arco] session index subtitle update failed for ${wfid.slice(0, 8)}:`, err);
       });
       return true;
     } catch (err) {
-      console.error(`[archon] recall summary write failed for ${wfid.slice(0, 8)}:`, err);
+      console.error(`[arco] recall summary write failed for ${wfid.slice(0, 8)}:`, err);
       return false;
     }
   };

@@ -40,13 +40,13 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 function configIdentity(cwd: string): void {
-  git(cwd, 'config', 'user.email', 'test@archon.local');
-  git(cwd, 'config', 'user.name', 'archon-test');
+  git(cwd, 'config', 'user.email', 'test@arco.local');
+  git(cwd, 'config', 'user.name', 'arco-test');
 }
 
 async function main() {
   const cleanups: string[] = [];
-  const root = mkdtempSync(join(tmpdir(), 'archon-gitcompare-'));
+  const root = mkdtempSync(join(tmpdir(), 'arco-gitcompare-'));
   cleanups.push(root);
 
   // ── bare remote ──
@@ -143,7 +143,7 @@ async function main() {
   });
 
   await step('non-git directory degrades gracefully', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'archon-gitcompare-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'arco-gitcompare-plain-'));
     cleanups.push(plain);
     const cmp = await getUpstreamComparison(plain);
     assertEq(cmp.isRepo, false, 'non-git: isRepo false');

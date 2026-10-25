@@ -10,10 +10,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { WorkflowSessionMetadata } from '@archon/shared';
+import type { WorkflowSessionMetadata } from '@arco/shared';
 import {
   appendHistoryEntry,
-  archonInternalSessionInfoForMeta,
+  arcoInternalSessionInfoForMeta,
   clearProviderCliSessions,
   latestCliSessionFor,
   readMeta,
@@ -33,15 +33,15 @@ async function main(): Promise<void> {
     sessionKind: 'antigravity-cascade',
     cascadeId: 'cascade-smoke-old',
     opaqueContext: true,
-    archonAutoCompact: false,
+    arcoAutoCompact: false,
     contextLabel: 'Antigravity-managed',
   } satisfies WorkflowSessionMetadata;
   assert.equal(metadata.sessionKind, 'antigravity-cascade');
   assert.equal(metadata.opaqueContext, true);
-  assert.equal(metadata.archonAutoCompact, false);
+  assert.equal(metadata.arcoAutoCompact, false);
   pass('metadata: antigravity-cascade + opaque context');
 
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigravity-phase-e-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigravity-phase-e-'));
   const workflowId = 'wf-antigravity-phase-e';
   try {
     const now = Date.now();
@@ -67,19 +67,19 @@ async function main(): Promise<void> {
     assert.equal(stored?.cliSessions.at(-1)?.sessionId, 'cascade-smoke-old');
     assert.ok(stored);
 
-    const internal = archonInternalSessionInfoForMeta(stored);
-    assert.equal(internal?.archonInternal, true);
+    const internal = arcoInternalSessionInfoForMeta(stored);
+    assert.equal(internal?.arcoInternal, true);
     assert.equal(internal?.provider, 'antigravity');
     assert.equal(internal?.sessionId, workflowId);
-    assert.equal(internal?.archonWorkflowId, workflowId);
-    pass('resume picker: Antigravity meta is exposed as archon-internal workflow-id resume');
+    assert.equal(internal?.arcoWorkflowId, workflowId);
+    pass('resume picker: Antigravity meta is exposed as arco-internal workflow-id resume');
 
     const restoredCascadeId = latestCliSessionFor(stored, 'antigravity')?.sessionId;
     const restoredMetadata = {
       sessionKind: 'antigravity-cascade',
       cascadeId: restoredCascadeId,
       opaqueContext: true,
-      archonAutoCompact: false,
+      arcoAutoCompact: false,
       contextLabel: 'Antigravity-managed',
     } satisfies WorkflowSessionMetadata;
     assert.equal(restoredMetadata.cascadeId, 'cascade-smoke-old');

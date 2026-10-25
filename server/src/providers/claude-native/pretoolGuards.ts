@@ -29,8 +29,8 @@ import { resolve, basename, parse, sep } from 'node:path';
 // Paths considered config that the model should not edit. Matched on the
 // resolved absolute path's basename — so any depth in the tree counts (a
 // nested package's tsconfig.json is just as protected as the root one).
-// `.archon/` config under cwd is NOT covered here on purpose: those are
-// Archon's own per-workflow config files, which the operator may want the
+// `.arco/` config under cwd is NOT covered here on purpose: those are
+// Arco's own per-workflow config files, which the operator may want the
 // model to read but not write — protect them at a higher layer if needed.
 const PROTECTED_BASENAMES = new Set<string>([
   '.eslintrc',
@@ -217,9 +217,9 @@ export function checkPartialReadFullWrite(
 // ── H17 — hardline command floor (Native Bash) ───────────────────────────────
 //
 // A small, ALWAYS-ON denylist of Bash commands a cooperating agent should never
-// run because they take Archon (or its repo) down with the turn that issued them:
-//   • Archon service self-termination — `systemctl --user restart/stop archon…`
-//   • Archon process self-kill        — `pkill -f archon` / `killall … archon`
+// run because they take Arco (or its repo) down with the turn that issued them:
+//   • Arco service self-termination — `systemctl --user restart/stop arco…`
+//   • Arco process self-kill        — `pkill -f arco` / `killall … arco`
 //   • Catastrophic recursive delete   — `rm -rf` of `/`, `~`, `$HOME`, `*`, or
 //     the repo root (cwd) / an ancestor of it.
 //
@@ -228,7 +228,7 @@ export function checkPartialReadFullWrite(
 // every other tab's turn), NOT a determined adversary — trivial obfuscation
 // (base64, `$(echo r)m`) slips through and that's accepted. Unlike
 // config-protection it is not operator-disablable; nothing legitimate the model
-// does from a turn needs to restart Archon or rm -rf the repo.
+// does from a turn needs to restart Arco or rm -rf the repo.
 
 export interface HardlineDecision {
   blocked: true;
@@ -282,10 +282,10 @@ function isCatastrophicRm(segment: string, cwd: string): boolean {
 export function detectHardlineCommand(command: string, cwd: string): string | null {
   if (!command || !command.trim()) return null;
   const c = command;
-  if (/\bsystemctl\b[^\n]*\barchon(?:\.service)?\b/i.test(c)) {
+  if (/\bsystemctl\b[^\n]*\barco(?:\.service)?\b/i.test(c)) {
     return 'restarting/stopping the Arco service would kill this turn and every other tab';
   }
-  if (/\b(?:pkill|killall)\b[^\n]*\barchon\b/i.test(c)) {
+  if (/\b(?:pkill|killall)\b[^\n]*\barco\b/i.test(c)) {
     return 'killing the Arco process would terminate this turn and every other tab';
   }
   for (const seg of shellSegments(c)) {

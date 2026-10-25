@@ -1,5 +1,5 @@
-import type { ZaiUsageInfo, ZaiUsageWindow } from '@archon/shared';
-import { ZAI_MODELS } from '@archon/shared';
+import type { ZaiUsageInfo, ZaiUsageWindow } from '@arco/shared';
+import { ZAI_MODELS } from '@arco/shared';
 import { readZaiApiKey } from './providerSecrets.js';
 
 export const ZAI_CODING_BASE_URL = 'https://api.z.ai/api/coding/paas/v4';

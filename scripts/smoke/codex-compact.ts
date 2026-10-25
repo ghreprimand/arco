@@ -13,7 +13,7 @@
 // Run: npm run smoke:codex-compact
 
 import type { WebSocket } from 'ws';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { step, assert, assertEq, summary } from './lib.js';
 import { CodexAppServerWorker } from '../../server/src/providers/codex-appserver/worker.js';
 import { handleCompactWorkflow } from '../../server/src/ws/compactHandlers.js';
@@ -39,7 +39,7 @@ function fakeWorkflow(provider: 'claude' | 'codex', busy: boolean, claudeTranspo
   return {
     primary: { provider },
     busy,
-    config: { workingDirectory: '/tmp/archon-compact-smoke-nope', ...(claudeTransport ? { claudeTransport } : {}) },
+    config: { workingDirectory: '/tmp/arco-compact-smoke-nope', ...(claudeTransport ? { claudeTransport } : {}) },
   } as unknown as WorkflowState;
 }
 

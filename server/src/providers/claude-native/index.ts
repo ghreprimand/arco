@@ -2,7 +2,7 @@
 //
 // One ClaudeNativeWorker is cached per workflowId. Each operator turn
 // instantiates a ClaudeNativeTurn wrapper that adapts the long-lived
-// worker's "events stream forever" surface to Archon's "one
+// worker's "events stream forever" surface to Arco's "one
 // ProviderProcess per turn" contract — same shape as
 // codex-appserver/index.ts:43.
 //
@@ -12,7 +12,7 @@
 // handoff transcript.
 
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus, ServerMessage } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus, ServerMessage } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { ClaudeNativeWorker, replayMessagesFromEvents, type PlanBroadcast, type TaskSpawnHandler } from './worker.js';
 import type { Todo } from './tools.js';
@@ -309,7 +309,7 @@ export function disposeClaudeNativeWorker(workflowId: string): void {
   });
 }
 
-// Operator-triggered in-place compaction (the in-Archon `/compact` for the
+// Operator-triggered in-place compaction (the in-Arco `/compact` for the
 // native transport). Runs against the long-lived per-workflow worker. If the
 // worker was disposed/restarted but the workflow has persisted events, callers
 // may pass a config so we can cold-acquire the worker and let ensureStarted()
@@ -377,7 +377,7 @@ export async function serverFoldClaudeNativeWorker(
   };
 }
 
-// NATIVE_COMPACTION_PLAN Phase 2 — ARCHON_TEST-only seam for
+// NATIVE_COMPACTION_PLAN Phase 2 — ARCO_TEST-only seam for
 // scripts/smoke/native-auto-compact.ts. Acquire (or reuse) the cached worker and
 // force-seed it with a probe history so `maybeAutoCompactNative` →
 // `compactInPlace` can run with a canned summary (no API spend). Returns false
@@ -387,7 +387,7 @@ export function debugSeedNativeCompactProbe(
   config: WorkerConfig,
   messages: Array<{ role: 'user' | 'assistant'; content: unknown }>,
 ): boolean {
-  if (process.env.ARCHON_TEST !== '1') return false;
+  if (process.env.ARCO_TEST !== '1') return false;
   const worker = acquireWorker(workflowId, config);
   worker.__debugSeedForCompactProbe(messages as never);
   return true;

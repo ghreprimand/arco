@@ -132,7 +132,7 @@ save/pop/list, and **branch & tag** create/delete. Buttons live in the Changes
 **⚠ Contrast with A2 checkpoints (the load-bearing distinction).** I3 ops
 **INTENTIONALLY mutate the operator's real index / working tree / refs** — that
 is the point. This is the OPPOSITE of A2 checkpoints (`gitSnapshots.ts`), which
-NEVER touch the real index/HEAD (they write shadow refs under `refs/archon/`).
+NEVER touch the real index/HEAD (they write shadow refs under `refs/arco/`).
 The two code paths are kept strictly separate: **`server/src/gitOps.ts` never
 imports `gitSnapshots.ts` and vice-versa.** I3 clears CLAUDE.md's four-question
 test because every op is an explicit operator click, bounded by deterministic
@@ -303,8 +303,8 @@ same source `HEAD`.
 1. The operator enters a name/prompt, chooses each leg with the shared
    **RUN AS** picker, and clicks **START BAKE-OFF**.
 2. `gitBakeoff.ts` refuses a non-git, unborn, or project-dirty source checkout,
-   creates branches `archon/bakeoff/<id8>/attempt-N`, and checks them out under
-   `~/.archon/bakeoffs/<cwd-hash>/worktrees/<bakeoffId>/<attemptId>`.
+   creates branches `arco/bakeoff/<id8>/attempt-N`, and checks them out under
+   `~/.arco/bakeoffs/<cwd-hash>/worktrees/<bakeoffId>/<attemptId>`.
 3. `bakeoffHandlers.ts` creates background workflow tabs and concurrently sends
    the same prompt plus fixed isolation rules. Sticky Ultracode and Goal Run
    are disabled on attempt tabs so one bounded fan-out cannot multiply.
@@ -319,12 +319,12 @@ same source `HEAD`.
 There is no automatic ranking, winner, merge, push, or cleanup. Promotion
 refuses while the attempt is busy, when the source checkout is dirty, or when
 source `HEAD` moved from the recorded base. A merge conflict is aborted
-automatically. `.archon` is excluded from diffs/staging; if a disobedient agent
-already committed `.archon` state, promotion refuses the branch. Managed-root
+automatically. `.arco` is excluded from diffs/staging; if a disobedient agent
+already committed `.arco` state, promotion refuses the branch. Managed-root
 and git-worktree-registration checks fence both diff reads and force-removal.
 
 Manifests live outside the repo at
-`~/.archon/bakeoffs/<cwd-hash>/manifests/<bakeoffId>.json`. Attempt workflow
+`~/.arco/bakeoffs/<cwd-hash>/manifests/<bakeoffId>.json`. Attempt workflow
 meta records the source cwd, but project-trust inheritance is honored only
 after the server proves the cwd is one of Arco's registered managed
 worktrees. Smoke: `npm run smoke:bakeoff` (disposable repo; seven steps covering

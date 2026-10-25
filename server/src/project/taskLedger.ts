@@ -1,6 +1,6 @@
-// Project task ledger — ARCHON_OPS_PLAN.md §D1, Part D.
+// Project task ledger — ARCO_OPS_PLAN.md §D1, Part D.
 //
-// A durable, cwd-scoped task list at <cwd>/.archon/project/tasks.json. The JSON
+// A durable, cwd-scoped task list at <cwd>/.arco/project/tasks.json. The JSON
 // is a *rebuildable projection over events.jsonl*, NOT the source of truth
 // (Appendix B): every mutation appends a `task_ledger_event` to the originating
 // workflow's events.jsonl (the durable log) AND atomically rewrites this
@@ -34,7 +34,7 @@ import type {
   TaskRun,
   TaskDetails,
   TaskBoardKey,
-} from '@archon/shared';
+} from '@arco/shared';
 import { replayEvents } from '../workflowStore.js';
 import { listWorkflowMetas } from '../workflowMeta.js';
 import { atomicWriteFile } from '../atomicFile.js';
@@ -55,7 +55,7 @@ const VALID_STATUS: ReadonlySet<LedgerTaskStatus> = new Set([
 ]);
 
 function projectDir(cwd: string): string {
-  return path.join(cwd, '.archon', 'project');
+  return path.join(cwd, '.arco', 'project');
 }
 
 function sanitizeBoardKey(boardKey?: TaskBoardKey): string | undefined {

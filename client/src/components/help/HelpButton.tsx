@@ -95,7 +95,7 @@ export function HelpButton() {
             ? '0 0 16px var(--color-accent-primary-glow, rgba(74,240,102,0.5))'
             : '0 2px 6px rgba(0,0,0,0.3)',
           transition: 'background-color 0.15s, box-shadow 0.15s, color 0.15s',
-          animation: helpMode ? 'archon-help-pulse 2s ease-in-out infinite' : undefined,
+          animation: helpMode ? 'arco-help-pulse 2s ease-in-out infinite' : undefined,
           padding: 0,
           lineHeight: 1,
         }}

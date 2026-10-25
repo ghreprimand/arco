@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-// Phase 1 — Archon-managed skills CRUD dialog. Operator types Name +
+// Phase 1 — Arco-managed skills CRUD dialog. Operator types Name +
 // Description + Body, picks scope (project / global), and saves. The server
-// writes <root>/.archon/skills/<slug>/SKILL.md with YAML frontmatter; the
+// writes <root>/.arco/skills/<slug>/SKILL.md with YAML frontmatter; the
 // next primary turn picks the new manifest entry up automatically (no
 // restart). Used for both create (no `slug` prop) and edit (slug + scope
 // pre-supplied; body fetched on mount via /api/skills/body).

@@ -3,7 +3,7 @@
 // injects a pre-turn PEER MAILBOX notice (turnEngine.ts) that says "Call
 // the `peer_read` tool to drain"; when the nudge prompt repeated that exact
 // backtick-wrapped imperative, the model occasionally PARROTED it back as
-// literal text (`<invoke name="peer_read">` rendered under ARCHON ::
+// literal text (`<invoke name="peer_read">` rendered under ARCO ::
 // PASSTHROUGH) instead of issuing a real tool_use — so the mailbox never
 // drained and the nudge had to be re-fired. The mechanism lives in the
 // server notice + the model's own tool list; the operator nudge only needs

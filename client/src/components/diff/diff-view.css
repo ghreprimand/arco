@@ -1,11 +1,11 @@
-/* Workbench Expansion A3 — theme react-diff-view onto Archon's CSS vars.
+/* Workbench Expansion A3 — theme react-diff-view onto Arco's CSS vars.
  * react-diff-view ships its own palette via CSS custom properties on
- * `.diff` (the table); we remap those to the Archon theme tokens so the diff
+ * `.diff` (the table); we remap those to the Arco theme tokens so the diff
  * follows whatever theme the operator has active. Nothing here is
  * source-specific — same styles apply to checkpoint, working-tree, and PR
  * diffs. */
 
-.archon-diff-view {
+.arco-diff-view {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -13,7 +13,7 @@
   font-size: 11px;
 }
 
-.archon-diff-toolbar {
+.arco-diff-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -23,18 +23,18 @@
   flex-shrink: 0;
 }
 
-.archon-diff-filecount {
+.arco-diff-filecount {
   font-size: 10px;
   letter-spacing: 1px;
   color: var(--color-fg-muted);
 }
 
-.archon-diff-viewtoggle {
+.arco-diff-viewtoggle {
   display: flex;
   gap: 2px;
 }
 
-.archon-diff-viewtoggle button {
+.arco-diff-viewtoggle button {
   padding: 3px 8px;
   background: transparent;
   border: 1px solid var(--color-border-hairline);
@@ -46,29 +46,29 @@
   font-family: var(--font-display);
 }
 
-.archon-diff-viewtoggle button.active {
+.arco-diff-viewtoggle button.active {
   background: var(--color-accent-primary-a10);
   border-color: var(--color-accent-primary);
   color: var(--color-accent-primary);
 }
 
-.archon-diff-files {
+.arco-diff-files {
   overflow: auto;
   min-height: 0;
 }
 
-.archon-diff-empty {
+.arco-diff-empty {
   padding: 18px 14px;
   color: var(--color-fg-muted);
   font-size: 11px;
   letter-spacing: 0.5px;
 }
 
-.archon-diff-file {
+.arco-diff-file {
   border-bottom: 1px solid var(--color-border-hairline);
 }
 
-.archon-diff-file-header {
+.arco-diff-file-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -83,13 +83,13 @@
   font-size: 10px;
 }
 
-.archon-diff-file-caret {
+.arco-diff-file-caret {
   color: var(--color-fg-muted);
   width: 10px;
   flex-shrink: 0;
 }
 
-.archon-diff-file-path {
+.arco-diff-file-path {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -98,19 +98,19 @@
   color: var(--color-accent-primary);
 }
 
-.archon-diff-file-stat {
+.arco-diff-file-stat {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
   font-family: var(--font-code, monospace);
 }
 
-.archon-diff-stat-add { color: var(--color-success, #3fb950); }
-.archon-diff-stat-del { color: var(--color-danger, #f85149); }
+.arco-diff-stat-add { color: var(--color-success, #3fb950); }
+.arco-diff-stat-del { color: var(--color-danger, #f85149); }
 
 /* react-diff-view palette remap. The library reads these custom properties
  * off the `.diff` element. */
-.archon-diff-table {
+.arco-diff-table {
   --diff-background-color: transparent;
   --diff-text-color: var(--color-fg-secondary);
   --diff-font-family: var(--font-code, monospace);
@@ -127,16 +127,16 @@
   width: 100%;
 }
 
-.archon-diff-table .diff-gutter {
+.arco-diff-table .diff-gutter {
   color: var(--color-fg-muted);
   opacity: 0.7;
 }
 
-.archon-diff-table .diff-code {
+.arco-diff-table .diff-code {
   color: var(--color-fg-secondary);
 }
 
-.archon-diff-table .diff-hunk-header {
+.arco-diff-table .diff-hunk-header {
   background: var(--color-bg-sunken);
   color: var(--color-fg-muted);
 }

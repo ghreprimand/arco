@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import type { ServerMessage, WorkerConfig, ZaiNativeHistoryMessage } from '@archon/shared';
-import { zaiModelContextWindow } from '@archon/shared';
+import type { ServerMessage, WorkerConfig, ZaiNativeHistoryMessage } from '@arco/shared';
+import { zaiModelContextWindow } from '@arco/shared';
 import { readZaiApiKey } from '../../providerSecrets.js';
 import { replayEvents as replayWorkflowEvents } from '../../workflowStore.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../../workers/limits.js';
@@ -424,8 +424,8 @@ export class ZaiNativeWorker extends EventEmitter {
   }
 
   private async generateCompactSummary(transcript: string): Promise<string> {
-    if (process.env.ARCHON_TEST === '1' && process.env.ARCHON_TEST_COMPACT_CANNED_SUMMARY) {
-      return process.env.ARCHON_TEST_COMPACT_CANNED_SUMMARY;
+    if (process.env.ARCO_TEST === '1' && process.env.ARCO_TEST_COMPACT_CANNED_SUMMARY) {
+      return process.env.ARCO_TEST_COMPACT_CANNED_SUMMARY;
     }
     const key = await readZaiApiKey();
     if (!key) throw new Error('Z.ai API key is not configured');

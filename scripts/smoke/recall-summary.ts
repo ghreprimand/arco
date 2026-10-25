@@ -4,7 +4,7 @@
 // fixture (meta.json + events.jsonl) under a temp cwd, backfills the recall
 // index so the entry exists, then:
 //
-//   1. STUBBED-OK spawn → asserts ~/.archon/recall/<wfid>/summary.md is written
+//   1. STUBBED-OK spawn → asserts ~/.arco/recall/<wfid>/summary.md is written
 //      with the canned LLM text, summaryRef is set in the index, ok=true, and
 //      the FTS `summary` column carries the body (search hits the summary text).
 //   2. STUBBED-FAIL spawn (error result) → asserts the DETERMINISTIC
@@ -12,7 +12,7 @@
 //      an error — the fence's "never fails closed".
 //
 // HOME is pointed at a temp dir so the index singleton + summary dir + Claude
-// JSONL all resolve to the temp home — the smoke NEVER writes to real ~/.archon.
+// JSONL all resolve to the temp home — the smoke NEVER writes to real ~/.arco.
 //
 // Run: npm run smoke:recall-summary  (no dev server needed)
 
@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import type { WorkflowMeta } from '../../server/src/workflowMeta.js';
 
 function writeMetaFixture(cwd: string, meta: WorkflowMeta): void {
-  const dir = join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = join(cwd, '.arco', 'workflows', meta.workflowId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 }
@@ -31,7 +31,7 @@ function writeMetaFixture(cwd: string, meta: WorkflowMeta): void {
 // Seed an events.jsonl with operator turns + tool use so summarizePriorTurns
 // (the deterministic fallback) has real structure to digest.
 function writeEvents(cwd: string, wfid: string): void {
-  const dir = join(cwd, '.archon', 'workflows', wfid);
+  const dir = join(cwd, '.arco', 'workflows', wfid);
   mkdirSync(dir, { recursive: true });
   let seq = 1;
   const lines: string[] = [];
@@ -67,13 +67,13 @@ function makeStubManager(mode: 'ok' | 'fail', cannedText: string, captured: AnyM
 
 async function main() {
   const cleanups: string[] = [];
-  const fakeHome = mkdtempSync(join(tmpdir(), 'archon-recall-sum-home-'));
+  const fakeHome = mkdtempSync(join(tmpdir(), 'arco-recall-sum-home-'));
   cleanups.push(fakeHome);
   const realHome = homedir();
   process.env.HOME = fakeHome;
   assert(homedir() === fakeHome, `HOME override failed (got ${homedir()})`);
 
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-recall-sum-cwd-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-recall-sum-cwd-'));
   cleanups.push(cwd);
   const wfid = 'cccccccc-1111-2222-3333-444444444444';
 
@@ -94,9 +94,9 @@ async function main() {
   });
   writeEvents(cwd, wfid);
 
-  const archonDir = join(fakeHome, '.archon');
-  mkdirSync(archonDir, { recursive: true });
-  writeFileSync(join(archonDir, 'known-cwds.json'), JSON.stringify([cwd], null, 2) + '\n');
+  const arcoDir = join(fakeHome, '.arco');
+  mkdirSync(arcoDir, { recursive: true });
+  writeFileSync(join(arcoDir, 'known-cwds.json'), JSON.stringify([cwd], null, 2) + '\n');
 
   // Import AFTER HOME override so the index singleton resolves the temp home.
   const { getRecallIndex } = await import('../../server/src/recall/index.js');
@@ -111,7 +111,7 @@ async function main() {
     assert(e!.summaryRef == null, 'no summaryRef before summarizing');
   });
 
-  const summaryPath = join(fakeHome, '.archon', 'recall', wfid, 'summary.md');
+  const summaryPath = join(fakeHome, '.arco', 'recall', wfid, 'summary.md');
   const LLM_TEXT = '# Recall summary\n\n**What:** add recall summaries.\n\n**Decisions:** reuse summarizePriorTurns.\n\n**State:** summarize.ts shipped.\n\n**Open:** wire on-close hook.';
 
   await step('OK path writes the LLM summary + sets summaryRef + indexes body', async () => {

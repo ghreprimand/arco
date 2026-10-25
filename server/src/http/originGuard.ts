@@ -9,7 +9,7 @@
 //
 // Allowed names: loopback, any IP literal (rebinding needs a DNS name the
 // attacker controls), this machine's hostname, Tailscale MagicDNS (*.ts.net),
-// plus ARCHON_ALLOWED_HOSTS (comma-separated hostnames, `*.suffix` wildcards)
+// plus ARCO_ALLOWED_HOSTS (comma-separated hostnames, `*.suffix` wildcards)
 // for a reverse proxy or custom tunnel name. Requests with no Origin (curl,
 // the hub link, server-to-server) pass — browsers always send Origin on the
 // cross-origin requests that matter, and Sec-Fetch-Site covers no-cors GETs.
@@ -19,7 +19,7 @@ import { isIP } from 'net';
 import { hostname as osHostname } from 'os';
 
 function extraAllowed(): string[] {
-  return (process.env.ARCHON_ALLOWED_HOSTS ?? '')
+  return (process.env.ARCO_ALLOWED_HOSTS ?? '')
     .split(',')
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);

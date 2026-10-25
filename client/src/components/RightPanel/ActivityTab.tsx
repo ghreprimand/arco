@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { JobState, ActivityEntry, HistoryEventEntry } from '../../stores/appStore';
-import type { PrimaryBackgroundJob, PrimaryTurnTokenUsageMessage, DiagnosticItem } from '@archon/shared';
+import type { PrimaryBackgroundJob, PrimaryTurnTokenUsageMessage, DiagnosticItem } from '@arco/shared';
 import { EmptyState } from './FilesTab';
 import { FileViewerModal } from '../FileViewerModal';
 import {
@@ -121,7 +121,7 @@ export function ActivityTab({ job }: { job: JobState }) {
 // summary above it is the at-a-glance number; the per-turn breakdown is a
 // drill-down. Preference is global (not per-workflow): it's a reading habit,
 // not workflow state.
-const TOKEN_ROWS_KEY = 'archon.activity.tokenUsageRowsExpanded';
+const TOKEN_ROWS_KEY = 'arco.activity.tokenUsageRowsExpanded';
 
 function loadTokenRowsExpanded(): boolean {
   try { return localStorage.getItem(TOKEN_ROWS_KEY) === '1'; } catch { return false; }
@@ -407,7 +407,7 @@ function FleetSection({ fleet }: { fleet: NonNullable<JobState['ultracodeFleet']
 // the list shoved the live tool/thinking feed off-screen. Cap it to a few
 // rows with internal scroll, and let the operator collapse it entirely —
 // same shape as the token-usage drill-down. Preference is global.
-const CHECKPOINTS_COLLAPSED_KEY = 'archon.activity.checkpointsCollapsed';
+const CHECKPOINTS_COLLAPSED_KEY = 'arco.activity.checkpointsCollapsed';
 const CHECKPOINTS_MAX_PX = 120;
 
 function loadCheckpointsCollapsed(): boolean {

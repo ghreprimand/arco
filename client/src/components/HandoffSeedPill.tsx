@@ -117,7 +117,7 @@ export function HandoffSeedPill({ content }: Props) {
             </div>
             {body && (
               <div
-                className="archon-markdown"
+                className="arco-markdown"
                 style={{
                   fontSize: '13px',
                   color: 'var(--color-accent-secondary-dim)',

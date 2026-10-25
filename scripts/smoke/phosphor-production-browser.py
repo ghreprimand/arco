@@ -6,8 +6,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
-ART = Path('/tmp/archon-phosphor-production'); ART.mkdir(exist_ok=True)
-CHROME = os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+ART = Path('/tmp/arco-phosphor-production'); ART.mkdir(exist_ok=True)
+CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
 async def main():
  async with async_playwright() as p:
   browser = await p.chromium.launch(executable_path=CHROME, args=['--enable-unsafe-swiftshader'])
@@ -28,7 +28,7 @@ async def main():
    elif path.endswith('/catalog'): data={'models':[]}
    elif path == '/api/project-trust': data={'entries':[],'defaultProjectTrust':'ask'}
    elif path == '/api/skills': data={'project':[],'global':[]}
-   elif path == '/api/list-dirs': data={'dirs':[],'path':'/demo/Archon','parent':'/demo'}
+   elif path == '/api/list-dirs': data={'dirs':[],'path':'/demo/Arco','parent':'/demo'}
    elif path == '/api/handoff-prompts':
     modes=['original-worker','fresh-summarizer','ollama-compaction']
     data={'defaults':{m:'Fixture handoff prompt' for m in modes},'global':{m:None for m in modes},'project':{m:None for m in modes},'effective':{m:{'source':'default','sourcePath':None} for m in modes}}
@@ -45,7 +45,7 @@ async def main():
   await page.evaluate('''async () => {
     const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
     const fixtures=await import('/src/phosphor-demo/fixtures.ts');
-    s.getState().createJob('style-fixture',{name:'Presentation review',primaryProvider:'claude',primaryModel:'claude-opus-4-6',primaryEffort:'high',skipPermissions:false,workingDirectory:'/demo/Archon'});
+    s.getState().createJob('style-fixture',{name:'Presentation review',primaryProvider:'claude',primaryModel:'claude-opus-4-6',primaryEffort:'high',skipPermissions:false,workingDirectory:'/demo/Arco'});
     s.setState(st=>({connected:true,connectionState:'connected',showCreator:false,activeJobId:'style-fixture',jobs:{...st.jobs,'style-fixture':{...st.jobs['style-fixture'],messages:[...fixtures.history,...fixtures.recent],snapshotReceived:true,busy:false}}}));
   }''')
   await page.wait_for_timeout(1200)
@@ -60,17 +60,17 @@ async def main():
   assert await page.locator('html').get_attribute('data-theme-family') == 'phosphor'
   assert await page.locator('.phosphor-ambient').count()==1
   assert await page.locator('canvas').count()==1
-  assert await page.locator('.archon-markdown').first.evaluate('e=>getComputedStyle(e).textShadow') != 'none'
+  assert await page.locator('.arco-markdown').first.evaluate('e=>getComputedStyle(e).textShadow') != 'none'
   baseline=await page.evaluate('JSON.stringify(testStore.getState().jobs)')
   buttons=await page.locator('button').all_text_contents()
-  text=await page.locator('.archon-markdown').all_text_contents()
+  text=await page.locator('.arco-markdown').all_text_contents()
   for palette in ['default','everforest','amber','phosphor','red-planet','arco-crt']:
    await page.evaluate('(id)=>testStore.getState().setThemeId(id)','phosphor:arco:'+palette)
    await page.wait_for_timeout(100)
    assert await page.evaluate('JSON.stringify(testStore.getState().jobs)')==baseline
    current_buttons=await page.locator('button').all_text_contents()
    assert current_buttons==buttons, {'palette':palette,'before':buttons,'after':current_buttons}
-   assert await page.locator('.archon-markdown').all_text_contents()==text
+   assert await page.locator('.arco-markdown').all_text_contents()==text
    assert await page.locator('.phosphor-ambient').count()==1
   await page.evaluate('testStore.getState().setShowSettings(true)')
   await page.wait_for_timeout(500)
@@ -113,11 +113,11 @@ async def main():
   await page.keyboard.press('ArrowLeft')
   await page.get_by_role('button',name='CLOSE ✕',exact=True).click()
   await page.emulate_media(reduced_motion='reduce');await page.wait_for_timeout(200)
-  frames=await page.evaluate('archonPhosphorStats.frames');await page.wait_for_timeout(200)
-  assert await page.evaluate('archonPhosphorStats.frames')==frames
-  assert await page.locator('.archon-markdown').first.evaluate('e=>getComputedStyle(e).textShadow') != 'none'
+  frames=await page.evaluate('arcoPhosphorStats.frames');await page.wait_for_timeout(200)
+  assert await page.evaluate('arcoPhosphorStats.frames')==frames
+  assert await page.locator('.arco-markdown').first.evaluate('e=>getComputedStyle(e).textShadow') != 'none'
   await page.evaluate('testStore.getState().setCrispText(true)')
-  assert await page.locator('.archon-wordmark').evaluate('e=>getComputedStyle(e).textShadow')=='none'
+  assert await page.locator('.arco-wordmark').evaluate('e=>getComputedStyle(e).textShadow')=='none'
   await page.evaluate('testStore.getState().setCrispText(false)')
   await page.evaluate("testStore.getState().setThemeId('arch')")
   assert await page.locator('.phosphor-raster').count()==0

@@ -3,7 +3,7 @@
 // primary path.
 //
 // ── Why this exists ─────────────────────────────────────────────────────────
-// Not every Ollama model supports native tool-calling. Archon gates the
+// Not every Ollama model supports native tool-calling. Arco gates the
 // `/api/chat` `tools[]` array on the model's probed `tools` capability
 // (`/api/show` → `capabilities`). The PRE-M11 fallback for a non-tool model was
 // "advertise no tools" — so an older/smaller model could not act at all. M11
@@ -46,7 +46,7 @@ export type OllamaToolMode = 'native' | 'fenced' | 'none';
 // Operator override for the gate (reversibility guardrail — the fenced path is
 // additive; forcing 'native' reverts to the pre-M11 "non-tool models just don't
 // get tools" behavior). Read once per turn:
-//   ARCHON_OLLAMA_TOOL_MODE = auto (default) | native | fenced
+//   ARCO_OLLAMA_TOOL_MODE = auto (default) | native | fenced
 //     auto   — pick from the probe (native if capable, fenced if not)
 //     native — force native (a non-tool model then simply gets no tools, the
 //              pre-M11 fallback — the clean "turn the feature off" switch)
@@ -56,7 +56,7 @@ export type OllamaToolMode = 'native' | 'fenced' | 'none';
 export type ToolModeOverride = 'auto' | 'native' | 'fenced';
 
 export function resolveToolModeOverride(env: NodeJS.ProcessEnv = process.env): ToolModeOverride {
-  const raw = env.ARCHON_OLLAMA_TOOL_MODE?.trim().toLowerCase();
+  const raw = env.ARCO_OLLAMA_TOOL_MODE?.trim().toLowerCase();
   if (raw === 'native' || raw === 'fenced') return raw;
   return 'auto';
 }
@@ -115,7 +115,7 @@ const FENCE_TAG = 'tool';
 // LE-5's richer idea: when native tools are OFF, that's also when you fall back
 // to PROMPT-INJECTING context instead of exposing it as a tool. A weak non-tool
 // model is unreliable at remembering to emit a fenced `peer_read` block to poll
-// its mailbox or `cluster_plan_tick` to see the plan — but Archon ALREADY
+// its mailbox or `cluster_plan_tick` to see the plan — but Arco ALREADY
 // injects the cluster plan + role hints into the (stable) system block via
 // appendSystemPrompt (CLAUDE.md: "Plan + role hints flow as forced system
 // blocks"). So on the fenced path those cluster CONTEXT-READER tools are better
@@ -123,14 +123,14 @@ const FENCE_TAG = 'tool';
 // context, not as a tool the model must think to call. We keep the cluster
 // ACTION tool (peer_send — the model must actively report) in the protocol, and
 // keep the file/shell/web ACTION tools. This is the concrete, in-scope
-// application of LE-5's distinction for Archon's current registry; the general
+// application of LE-5's distinction for Arco's current registry; the general
 // RAG/memory injection is LE-9 (separate), which would extend this same split.
 //
 // CONTEXT-reader tools excluded from the fenced action protocol (their state is
 // prompt-injected instead). Deliberately NOT the file readers (Read/Grep/Glob):
 // those fetch arbitrary repo content the model genuinely must request per-task —
 // they're action tools, not standing context. Only the cluster STATE readers,
-// whose payload Archon already folds into the system block, qualify.
+// whose payload Arco already folds into the system block, qualify.
 const FENCED_CONTEXT_READER_TOOLS: ReadonlySet<string> = new Set([
   'peer_read',        // pending mailbox — surfaced via injected plan/role context
   'peer_list',        // roster — small + stable, belongs in injected context

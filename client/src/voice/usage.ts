@@ -1,4 +1,4 @@
-import type { CodexUsageInfo } from '@archon/shared';
+import type { CodexUsageInfo } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 export function codexQuota(snapshot: CodexUsageInfo | null) {

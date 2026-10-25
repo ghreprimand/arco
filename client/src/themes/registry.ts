@@ -31,7 +31,7 @@ import { cicada } from './definitions/cicada';
 import { tarkovsky } from './definitions/tarkovsky';
 import { nightCity } from './definitions/nightCity';
 // Gap themes ported in spirit from the Odysseus set (2026-06-05) — the cozy /
-// soft / organic registers Archon's otherwise-grave palette was missing.
+// soft / organic registers Arco's otherwise-grave palette was missing.
 import { cute } from './definitions/cute';
 import { forest } from './definitions/forest';
 import { everforest } from './definitions/everforest';

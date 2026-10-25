@@ -1,5 +1,5 @@
 // Barrel for the split protocol type domains. Re-exports every domain file so
-// `@archon/shared` (via shared/src/index.ts → ../protocol.js → here) keeps
+// `@arco/shared` (via shared/src/index.ts → ../protocol.js → here) keeps
 // exposing the exact same flat surface it did when protocol.ts was one file.
 // See docs/FILE_SIZE_REFACTOR_PLAN.md §7.
 

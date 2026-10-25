@@ -104,11 +104,11 @@ export function wireImport({ container, saveState, createLayer, composite, rende
   // Import from Gallery — fetch /api/gallery/library and show a
   // thumbnail-grid picker overlay.
   document.getElementById('ge-import-gallery')?.addEventListener('click', async () => {
-    // ARCHON VENDOR PATCH (H2): `/api/gallery/library` does not exist in Archon —
+    // ARCO VENDOR PATCH (H2): `/api/gallery/library` does not exist in Arco —
     // there is no gallery. The Gallery-import button is inert (use the wrapper's
     // Import / File-open path). Fire NO gallery fetch. See VENDOR.md "Neutralized
     // backend calls". Original body preserved below the guard.
-    if (uiModule) uiModule.showToast('Gallery import is not available in Archon — use Import (File).', 4000);
+    if (uiModule) uiModule.showToast('Gallery import is not available in Arco — use Import (File).', 4000);
     return;
     // eslint-disable-next-line no-unreachable
     try {

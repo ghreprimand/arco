@@ -22,12 +22,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const TOKEN = 'ARCHON_SEARCH_TOKEN_XYZZY';
+const TOKEN = 'ARCO_SEARCH_TOKEN_XYZZY';
 
 async function main() {
   const cleanups: string[] = [];
 
-  const dir = mkdtempSync(join(tmpdir(), 'archon-search-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-search-'));
   cleanups.push(dir);
 
   // A real source file with the token on a known line (line 2).

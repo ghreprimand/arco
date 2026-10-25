@@ -23,7 +23,7 @@ import {
 import { writeMeta, type WorkflowMeta } from '../../server/src/workflowMeta.js';
 import { TASK_KERNEL_VERSION, type LedgerTask, type TaskLedgerEventMessage } from '../../shared/src/protocol/tasks.js';
 
-const tasksJsonPath = (cwd: string) => path.join(cwd, '.archon', 'project', 'tasks.json');
+const tasksJsonPath = (cwd: string) => path.join(cwd, '.arco', 'project', 'tasks.json');
 
 function minimalMeta(cwd: string, wfid: string): WorkflowMeta {
   const now = Date.now();
@@ -62,10 +62,10 @@ async function readSnapshot(cwd: string): Promise<Record<string, unknown>> {
 }
 
 async function main(): Promise<void> {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-kernel-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-kernel-'));
   const wfid = randomUUID();
   try {
-    await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+    await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
     await writeMeta(cwd, minimalMeta(cwd, wfid));
     await initWorkflowStore(cwd, wfid);
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'node:events';
 import { CursorAcpTurn, isCursorAuthRequiredPrefix, isCursorAuthRequiredText } from './index.js';
 import { CursorAcpWorker, resolveCursorCompressCommand } from './worker.js';

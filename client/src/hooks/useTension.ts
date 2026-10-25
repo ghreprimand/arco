@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { JobState } from '../stores/appStore';
-import type { WorkerState } from '@archon/shared';
+import type { WorkerState } from '@arco/shared';
 
 // DARKN0DE-inspired tension signal — a single scalar in [0, 1] derived
 // from app state. 0 = calm (nothing happening, all providers healthy);
@@ -53,7 +53,7 @@ export function computeTension(
 
 // Polls the store at 5Hz (interval, not rAF — tension changes on the order
 // of seconds, not frames; failures decay over 60s, busy/disconnected flips
-// on WS state). Only writes `:root { --tension }` and fires `archon:tension`
+// on WS state). Only writes `:root { --tension }` and fires `arco:tension`
 // when the rounded value actually changes — earlier this dispatched 60 (or
 // 144!) times/sec, every dispatch invalidating any CSS using `--tension` as
 // a custom property and triggering style recalc. With a 5090 on a 144Hz
@@ -76,7 +76,7 @@ export function useTensionDriver(): void {
       if (!Number.isFinite(lastRef.current) || Math.abs(t - lastRef.current) >= EPSILON) {
         lastRef.current = t;
         root.style.setProperty('--tension', t.toFixed(3));
-        window.dispatchEvent(new CustomEvent('archon:tension', { detail: t }));
+        window.dispatchEvent(new CustomEvent('arco:tension', { detail: t }));
         // body.tension-active gates `body::before` (the full-screen vignette)
         // so it doesn't sit in the compositor tree at opacity:0 forever.
         // Threshold matches the dead-zone above which the visual change is

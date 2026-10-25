@@ -11,10 +11,10 @@ import { join } from 'node:path';
 import { currentSeq, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq } from './workflowStore.js';
 
 test('concurrent inits share one prime and never roll seq back', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-wfstore-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-wfstore-'));
   const wfid = 'wf-init-race-0001';
   try {
-    const dir = join(cwd, '.archon', 'workflows', wfid);
+    const dir = join(cwd, '.arco', 'workflows', wfid);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'events.jsonl'), JSON.stringify({ seq: 5, ts: 1, message: { type: 'system_notice' } }) + '\n');
 

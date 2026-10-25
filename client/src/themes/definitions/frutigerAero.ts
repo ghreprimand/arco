@@ -56,7 +56,7 @@ export const frutigerAero: Theme = {
     // Markdown links: accent-secondary (mint #7dd3a0) washed out on the light
     // glass bg and was unreadable (operator report 2026-06-05). Override with a
     // dark emerald (~5.4:1 on the sky bg) that keeps the green link identity
-    // distinct from accent-primary body text. Consumed by .archon-markdown a.
+    // distinct from accent-primary body text. Consumed by .arco-markdown a.
     'color-link': '#0a6b46',
     'color-link-hover': '#0d8a5a',
 

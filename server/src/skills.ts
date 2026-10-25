@@ -1,6 +1,6 @@
-// Archon-managed operator skills. Distinct from `toolbox.ts`, which scans the
+// Arco-managed operator skills. Distinct from `toolbox.ts`, which scans the
 // Claude CLI's plugin/user skill caches for the toolbox-menu chips. These
-// skills live under `<cwd>/.archon/skills/` (project) and `~/.archon/skills/`
+// skills live under `<cwd>/.arco/skills/` (project) and `~/.arco/skills/`
 // (global) and are injected into every primary turn's system prompt as an
 // XML manifest — name + description only — so the agent learns *what*
 // skills exist. The full SKILL.md body is read on demand via the Read tool
@@ -22,7 +22,7 @@ import { homedir } from 'os';
 import path from 'path';
 
 import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export type SkillScope = 'project' | 'global';
 export interface SkillRef { scope: SkillScope; slug: string }
@@ -67,11 +67,11 @@ export function isValidSlug(slug: string): boolean {
 }
 
 function projectSkillsRoot(cwd: string): string {
-  return path.join(cwd, '.archon', 'skills');
+  return path.join(cwd, '.arco', 'skills');
 }
 
 function globalSkillsRoot(): string {
-  return path.join(archonHome(), 'skills');
+  return path.join(arcoHome(), 'skills');
 }
 
 function rootForScope(scope: SkillScope, cwd: string): string {
@@ -221,7 +221,7 @@ export async function listSkills(
 }> {
   // DD7 — an untrusted repo's project skills are suppressed from the turn (a
   // cloned repo could ship a SKILL.md the model would otherwise be told to read).
-  // Global skills (~/.archon/skills) are the operator's own — never gated.
+  // Global skills (~/.arco/skills) are the operator's own — never gated.
   const includeProject = opts?.includeProject !== false;
   const [project, global, usage] = await Promise.all([
     includeProject ? scanScope('project', cwd) : Promise.resolve([] as SkillSummary[]),
@@ -357,7 +357,7 @@ export function buildSkillsManifest(
   const lines: string[] = [];
   lines.push('You have access to operator-defined skills — short reusable playbooks for recurring tasks. Each entry below lists a skill\'s name, scope, and a one-line description. To apply a skill, use your Read tool on its `path` attribute to load the full SKILL.md, then follow it.');
   lines.push('');
-  lines.push('<archon-skills>');
+  lines.push('<arco-skills>');
   for (const s of all) {
     const desc = s.description.replace(/[\r\n]+/g, ' ').trim();
     const escapedDesc = desc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -365,7 +365,7 @@ export function buildSkillsManifest(
     const escapedPath = s.path.replace(/"/g, '&quot;');
     lines.push(`  <skill name="${escapedName}" scope="${s.scope}" path="${escapedPath}">${escapedDesc}</skill>`);
   }
-  lines.push('</archon-skills>');
+  lines.push('</arco-skills>');
   return lines.join('\n');
 }
 
@@ -384,9 +384,9 @@ export function buildPickedSkillsBlock(
   lines.push('');
   for (const s of skills) {
     const escapedName = s.name.replace(/"/g, '&quot;');
-    lines.push(`<archon-skill name="${escapedName}" scope="${s.scope}">`);
+    lines.push(`<arco-skill name="${escapedName}" scope="${s.scope}">`);
     lines.push(s.body.trim());
-    lines.push('</archon-skill>');
+    lines.push('</arco-skill>');
     lines.push('');
   }
   const text = lines.join('\n').trimEnd();
@@ -460,9 +460,9 @@ export function buildPinnedSkillsBlock(
   ];
   for (const skill of skills) {
     const escapedName = skill.name.replace(/"/g, '&quot;');
-    lines.push(`<archon-pinned-skill name="${escapedName}" scope="${skill.scope}">`);
+    lines.push(`<arco-pinned-skill name="${escapedName}" scope="${skill.scope}">`);
     lines.push(skill.body.trim());
-    lines.push('</archon-pinned-skill>', '');
+    lines.push('</arco-pinned-skill>', '');
   }
   const text = lines.join('\n').trimEnd();
   return { text, bytes: Buffer.byteLength(text, 'utf8') };

@@ -1,11 +1,11 @@
-// ARCHON_OPS_PLAN.md Part J (J1) — the in-app workbench notification hub.
+// ARCO_OPS_PLAN.md Part J (J1) — the in-app workbench notification hub.
 //
 // One place to mint + broadcast WorkbenchNotice events so every source
 // (turn-finished, quota-recovered, …) is a single `emit()` call and the
 // J2 external transports can hang off the same chokepoint later. Mute is
 // applied HERE (server-side) so a muted category is suppressed for in-app
 // toasts AND future external transports alike, and the suppression survives a
-// restart (persisted to ~/.archon/notification-mutes.json).
+// restart (persisted to ~/.arco/notification-mutes.json).
 //
 // Inform-only: nothing in this module reads client input as a command — the
 // only client message it services is `set_notification_mutes` (a preference).
@@ -19,10 +19,10 @@ import type {
   WorkbenchNoticeCategory,
   NotificationMutesMessage,
   ProviderName,
-} from '@archon/shared';
-import { WORKBENCH_NOTICE_CATEGORIES } from '@archon/shared';
+} from '@arco/shared';
+import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 // A primary turn shorter than this isn't worth a "turn finished" notice — the
 // operator was almost certainly watching. Only long-running turns (where they
@@ -30,8 +30,8 @@ import { archonHome } from './archonHome.js';
 const LONG_TURN_MS = 60_000;
 
 // Overridable so the smoke can point persistence at a temp dir instead of the
-// real ~/.archon. Defaults to the per-user archon home.
-let mutesPath = join(archonHome(), 'notification-mutes.json');
+// real ~/.arco. Defaults to the per-user arco home.
+let mutesPath = join(arcoHome(), 'notification-mutes.json');
 export function _setMutesPathForTest(p: string): void { mutesPath = p; }
 
 let broadcast: ((msg: ServerMessage) => void) | null = null;

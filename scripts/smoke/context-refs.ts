@@ -6,7 +6,7 @@
 //       extracts @file:path / @diff / @staged / @git:N; edge-cases @file: with
 //       no path, @git:abc (non-numeric → not a git ref), and classifies @url:
 //       as a known kind.
-//   (B) The SERVER expander (server/src/contextRefs.ts) against the REAL Archon
+//   (B) The SERVER expander (server/src/contextRefs.ts) against the REAL Arco
 //       repo (this very checkout is a git repo with real files):
 //         - @file:package.json → real package.json contents appear, bounded.
 //         - @diff → runs (a diff or a clean "no changes" notice; never throws).
@@ -170,7 +170,7 @@ async function main() {
   });
 
   await step('@diff on a non-git directory degrades gracefully', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'archon-ctxrefs-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'arco-ctxrefs-plain-'));
     cleanups.push(plain);
     const exp = await expandContextRefs(plain, '@diff');
     assertEq(exp.expandedCount, 0, 'no block in a non-git dir');

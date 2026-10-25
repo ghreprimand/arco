@@ -1,5 +1,5 @@
 import type { useAppStore } from '../../stores/appStore';
-import type { WorkflowConfig, ModelName, EffortLevel, ProviderName, ArchonSettings, MemberTier, ClusterPreset, ClusterMemberProvider, WorkflowTemplate } from '@archon/shared';
+import type { WorkflowConfig, ModelName, EffortLevel, ProviderName, ArcoSettings, MemberTier, ClusterPreset, ClusterMemberProvider, WorkflowTemplate } from '@arco/shared';
 
 export interface ClusterCreatePayload {
   cwd: string;
@@ -71,7 +71,7 @@ export interface ClusterMembersSectionProps {
   cursorModelsForPicker: { value: ModelName; label: string; subline?: string }[];
   claudeNativeCatalog: ReturnType<typeof useAppStore.getState>['claudeNativeCatalog'];
   codexCatalog: ReturnType<typeof useAppStore.getState>['codexCatalog'];
-  codexAccounts: NonNullable<NonNullable<ArchonSettings['providerAccounts']>['codex']>;
+  codexAccounts: NonNullable<NonNullable<ArcoSettings['providerAccounts']>['codex']>;
   selectStyle: (selected: boolean) => React.CSSProperties;
   labelStyle: React.CSSProperties;
   inputStyle: React.CSSProperties;

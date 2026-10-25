@@ -1,15 +1,15 @@
-// Workflow-reporting layer — the live Archon SERVICE's outbound link to the
+// Workflow-reporting layer — the live Arco SERVICE's outbound link to the
 // management hub (docs/REMOTE_MANAGEMENT.md §2 workflow layer, §8 K3).
 //
 // Distinct from the lifecycle agent (scripts/agent): the agent restarts a DEAD
-// Archon; this link reports a LIVE Archon's workflow + pending-request state and
+// Arco; this link reports a LIVE Arco's workflow + pending-request state and
 // applies routed reply/stop/continue actions. It connects to the hub at
 // /instance and registers with role 'service'. One machine thus has two hub
 // connections (agent + service), merged into one card by instanceId.
 //
-// Everything Archon-specific is INJECTED (snapshotWorkflows + applyAction), so
+// Everything Arco-specific is INJECTED (snapshotWorkflows + applyAction), so
 // this module never imports the turn engine and the smoke drives it against a
-// real hub with fakes. index.ts wires the real deps (gated on ARCHON_HUB_URL).
+// real hub with fakes. index.ts wires the real deps (gated on ARCO_HUB_URL).
 
 import { WebSocket } from 'ws';
 import type {
@@ -24,19 +24,19 @@ import type {
   InstanceActionRequest,
   InstanceActionResult,
   InstanceRollup,
-  ManagedArchonInstance,
+  ManagedArcoInstance,
   TranscriptRequestMessage,
   TranscriptTurn,
   WorkflowActionMessage,
   WorkflowActionRequest,
   WorkflowActionResult,
   WorkflowSummary,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface HubLinkOptions {
   hubUrl: string; // ws://<hub>:<port>/instance
-  instance: ManagedArchonInstance;
-  // Archon-specific seams (injected so this module stays turn-engine-free):
+  instance: ManagedArcoInstance;
+  // Arco-specific seams (injected so this module stays turn-engine-free):
   snapshotWorkflows: () => WorkflowSummary[];
   applyAction: (action: WorkflowActionRequest, actionId: string) => Promise<WorkflowActionResult>;
   // A2 — instance-level actions (remote re-auth). Optional: omit to reject

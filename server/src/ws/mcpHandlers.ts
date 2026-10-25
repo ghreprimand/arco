@@ -1,7 +1,7 @@
 // server/src/ws/mcpHandlers.ts — MCP registry WS handlers
-// (ARCHON_OPS_PLAN.md §E1, Part E).
+// (ARCO_OPS_PLAN.md §E1, Part E).
 //
-// The registry is a GLOBAL machine-wide list (~/.archon/mcp/registry.json),
+// The registry is a GLOBAL machine-wide list (~/.arco/mcp/registry.json),
 // so CRUD mutations broadcast a fresh snapshot to every connected client. The
 // per-workflow allowlist is cwd-scoped, persisted in the workflow's meta.json
 // (mcpAllow[]); `mcp_workflow_allow` resolves the cwd from the workflow and
@@ -27,7 +27,7 @@ import type {
   McpRegistryListMessage,
   McpRegistrySnapshotMessage,
   McpServerDef,
-} from '@archon/shared';
+} from '@arco/shared';
 import * as registry from '../mcp/registry.js';
 import { probeServer } from '../mcp/client.js';
 import { checkCommandForMalware } from '../mcp/osvCheck.js';
@@ -96,12 +96,12 @@ export async function handleMcpRegistryCreate(
         pending: { ...msg, overrideMalwareWarning: true },
         packages: osv.malicious,
       });
-      console.warn(`[archon] MCP registry-add blocked pending override: OSV malware advisory for ${osv.malicious.map((m) => m.name).join(', ')}`);
+      console.warn(`[arco] MCP registry-add blocked pending override: OSV malware advisory for ${osv.malicious.map((m) => m.name).join(', ')}`);
       return;
     }
     if (osv.error) {
       // Fail-open: OSV unreachable must not block the add. Log only.
-      console.warn(`[archon] MCP OSV pre-check failed open (${osv.error}); proceeding with add`);
+      console.warn(`[arco] MCP OSV pre-check failed open (${osv.error}); proceeding with add`);
     }
   }
   await registry.create({
@@ -160,7 +160,7 @@ export async function handleMcpWorkflowAllow(
   // next CLI Claude turn without a server restart (Codex reads its overrides
   // at spawn time from in-memory config, which the next turn rebuilds).
   await syncMcpConfigForWorkflow(msg.workflowId).catch((err) => {
-    console.error(`[archon] [${msg.workflowId.slice(0, 8)}] mcp config re-sync failed:`, err);
+    console.error(`[arco] [${msg.workflowId.slice(0, 8)}] mcp config re-sync failed:`, err);
   });
 }
 

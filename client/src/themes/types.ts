@@ -75,7 +75,7 @@ export interface Theme {
     cursorBlink: boolean;
   };
   // Optional exact xterm palette. Most themes let xterm retain its ANSI
-  // defaults and only inherit Archon's surface/text/cursor roles; terminal-
+  // defaults and only inherit Arco's surface/text/cursor roles; terminal-
   // palette ports can provide the complete Core + ANSI table without forcing
   // 22 extra CSS variables onto every app theme.
   terminal?: {
@@ -107,7 +107,7 @@ export interface Theme {
   // backdrop-filter blur + raised translucency to panel/elevated surfaces, so
   // the backdrop reads through softly. Optional — omit/false for opaque themes.
   frosted?: boolean;
-  // Fixed background image (2026-07-09) — Archon's first image-backed theme
+  // Fixed background image (2026-07-09) — Arco's first image-backed theme
   // capability, ported from OdyTTY's bundled wallpaper. `image` is a URL served
   // from client/public (e.g. '/backgrounds/foo.webp'). applyTheme paints it on
   // <body> under a `scrim` layer of --color-bg (0..1, default 0.5, matching

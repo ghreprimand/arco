@@ -12,7 +12,7 @@
 //      caps at NUDGES_PER_TURN per operator turn.
 //   5. Disable nudger → no further nudges.
 //
-// Smoke uses the env var ARCHON_CLUSTER_IDLE_FLOOR_SECONDS to drop the idle
+// Smoke uses the env var ARCO_CLUSTER_IDLE_FLOOR_SECONDS to drop the idle
 // floor from production's 10s to 1s so the test doesn't sit on a wait. The
 // server must be booted with that env var for steps 4–5 to land in a
 // reasonable timeframe.
@@ -23,7 +23,7 @@
 //     verified by typecheck + operator pass.
 //
 // Run with the dev server up + the env var set:
-//   ARCHON_CLUSTER_IDLE_FLOOR_SECONDS=1 npm run dev:server &
+//   ARCO_CLUSTER_IDLE_FLOOR_SECONDS=1 npm run dev:server &
 //   npm run smoke:cluster-5
 //
 // Exits 0 on all-pass, 1 on any failure.
@@ -33,12 +33,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
 
-// Smoke needs the server booted with ARCHON_CLUSTER_IDLE_FLOOR_SECONDS=1
+// Smoke needs the server booted with ARCO_CLUSTER_IDLE_FLOOR_SECONDS=1
 // for the nudger steps to land in time. Default 10s is too slow for CI.
-const IDLE_FLOOR_SECONDS = parseFloat(process.env.ARCHON_CLUSTER_IDLE_FLOOR_SECONDS || '1');
+const IDLE_FLOOR_SECONDS = parseFloat(process.env.ARCO_CLUSTER_IDLE_FLOOR_SECONDS || '1');
 
 async function reconnect(): Promise<ReturnType<typeof connect>> {
   // The lib helper boots a fresh WS + waits for 'connected'. We use it to
@@ -48,10 +48,10 @@ async function reconnect(): Promise<ReturnType<typeof connect>> {
 
 async function main(): Promise<void> {
   requireServerEnv(
-    { ARCHON_CLUSTER_IDLE_FLOOR_SECONDS: '1' },
+    { ARCO_CLUSTER_IDLE_FLOOR_SECONDS: '1' },
     'Phase 5 (idle-nudger steps)',
   );
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-5-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-5-'));
   console.log(`Phase 5 smoke — cwd ${cwd} (idle floor ${IDLE_FLOOR_SECONDS}s)`);
   console.log('');
 

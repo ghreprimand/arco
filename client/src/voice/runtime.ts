@@ -1,5 +1,5 @@
 import { computerPrivate, computerCaptureKey } from '../stores/computerStore';
-import { type VoiceCommand, type VoiceContext } from '@archon/shared';
+import { type VoiceCommand, type VoiceContext } from '@arco/shared';
 import { voiceCommandBody, immediateVoiceControl } from './commands';
 import { useVoiceStore } from './store';
 import { VoiceCommandBuffer } from './commandBuffer';
@@ -54,7 +54,7 @@ export class VoiceRuntime {
       this.diagTimer = null;
       const events = this.diagEvents.splice(0); const session = this.session;
       if (!events.length || !session || computerPrivate()) return;
-      void fetch(`/api/voice/diag?session=${session}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Archon-Voice-Private': '1' } : {}) }, body: JSON.stringify({ events }), keepalive: true }).catch(() => {});
+      void fetch(`/api/voice/diag?session=${session}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Arco-Voice-Private': '1' } : {}) }, body: JSON.stringify({ events }), keepalive: true }).catch(() => {});
     }, 1500);
   }
   private queue: Array<{ pcm: ArrayBuffer; utterance?: number; snapshot: VoiceCaptureSnapshot; endpointMs?: number } | { control: VoiceCaptureControl }> = [];
@@ -84,7 +84,7 @@ export class VoiceRuntime {
   private commandContext: VoiceContext | null = null;
   private commandTimer: ReturnType<typeof setTimeout> | null = null;
   private announcements: string[] = [];
-  private pendingReply: { text: string; mode: 'archon' | 'conversation' } | null = null;
+  private pendingReply: { text: string; mode: 'arco' | 'conversation' } | null = null;
   private readySound: AudioBuffer | null = null;
   constructor(private actions: VoiceRuntimeActions) {}
 
@@ -111,7 +111,7 @@ export class VoiceRuntime {
       const resumed = audio.resume().catch(() => {});
       if (navigator.locks) {
         const acquired = await new Promise<boolean>((resolve) => {
-          void navigator.locks.request('archon-hands-free-microphone', { ifAvailable: true }, (lock) => {
+          void navigator.locks.request('arco-hands-free-microphone', { ifAvailable: true }, (lock) => {
             if (!lock || !this.current(epoch)) { resolve(false); return; }
             return new Promise<void>((release) => { this.releaseLock = release; resolve(true); });
           }).catch(() => resolve(false));
@@ -141,7 +141,7 @@ export class VoiceRuntime {
       if (!this.current(epoch) || !this.audio) return;
       this.readySound = readySound;
       if (!readySound) useVoiceStore.setState({ error: 'Acknowledgement sound is unavailable. Capture is shown on screen.' });
-      this.capture = new AudioWorkletNode(this.audio, 'archon-voice-capture');
+      this.capture = new AudioWorkletNode(this.audio, 'arco-voice-capture');
       this.fastWake = warmup.fastWake === true;
       useVoiceStore.setState({ recognizer: warmup.recognizer ?? 'Local CPU', recognitionMs: null, interpretationMs: null, speechMs: null, endpointMs: null });
       const syncWake = () => {
@@ -258,13 +258,13 @@ export class VoiceRuntime {
     if (this.heartbeat) clearInterval(this.heartbeat); this.heartbeat = null;
     const id = this.session; this.session = null;
     if (id) void fetch(`/api/voice/session?session=${encodeURIComponent(id)}`, { method: 'DELETE', keepalive: true }).catch(() => {});
-    useVoiceStore.setState({ enabled: false, mode: 'archon', phase: 'off', status: 'Microphone off.', inputLevel: 0, lastHeard: '', dictatingId: null, choices: [], pendingCommand: null, commandText: null });
+    useVoiceStore.setState({ enabled: false, mode: 'arco', phase: 'off', status: 'Microphone off.', inputLevel: 0, lastHeard: '', dictatingId: null, choices: [], pendingCommand: null, commandText: null });
   }
 
   private current(epoch: number): boolean { return epoch === this.epoch && useVoiceStore.getState().enabled; }
   private fail(message: string): void { this.stop(); useVoiceStore.setState({ error: message }); }
   private async json<T>(url: string, body: unknown): Promise<T> {
-    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Archon-Voice-Private': '1' } : {}) }, body: JSON.stringify(body), signal: this.abort.signal });
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Arco-Voice-Private': '1' } : {}) }, body: JSON.stringify(body), signal: this.abort.signal });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Voice request failed.');
     return result;
@@ -289,7 +289,7 @@ export class VoiceRuntime {
         const { draftAtCapture, speaking } = snapshot;
         if (!speaking) useVoiceStore.setState({ phase: 'recognizing' });
         const started = performance.now();
-        const response = await fetch(`/api/voice/audio?session=${this.session}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...((snapshot.private || computerPrivate()) ? { 'X-Archon-Voice-Private': '1' } : {}) }, body: pcm, signal: this.abort.signal });
+        const response = await fetch(`/api/voice/audio?session=${this.session}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...((snapshot.private || computerPrivate()) ? { 'X-Arco-Voice-Private': '1' } : {}) }, body: pcm, signal: this.abort.signal });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Speech recognition failed.');
         if (!this.current(epoch)) return;
@@ -336,7 +336,7 @@ export class VoiceRuntime {
         const frame = this.wakeQueue.shift()!;
         if (frame.utterance <= this.handledUtterance || useVoiceStore.getState().commandText !== null) continue;
         const response = await fetch(`/api/voice/wake?session=${this.session}&utterance=${frame.utterance}&firstSpeechAt=${frame.firstSpeechAt}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...((frame.snapshot.private || computerPrivate()) ? { 'X-Archon-Voice-Private': '1' } : {}) }, body: frame.pcm, signal: this.abort.signal,
+          method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...((frame.snapshot.private || computerPrivate()) ? { 'X-Arco-Voice-Private': '1' } : {}) }, body: frame.pcm, signal: this.abort.signal,
         });
         const result = await response.json();
         if (!response.ok) { this.diag({ ev: 'wake-http', u: frame.utterance, status: response.status, error: result.error }); throw new Error('Fast wake detection is unavailable. Full recognition remains available.'); }
@@ -483,7 +483,7 @@ export class VoiceRuntime {
     }
     let body = input.text;
     const modeSwitch = voiceModeSwitch(body);
-    if (modeSwitch?.mode === 'archon') {
+    if (modeSwitch?.mode === 'arco') {
       this.pendingReply = null;
       const message = this.actions.returnToControl?.();
       if (!message) { this.feedback('Computer conversation is unavailable in this window.'); return; }
@@ -519,7 +519,7 @@ export class VoiceRuntime {
     useVoiceStore.setState({ status: message }); this.speak(message);
   }
 
-  reply(message: string, mode: 'archon' | 'conversation' = 'conversation'): void {
+  reply(message: string, mode: 'arco' | 'conversation' = 'conversation'): void {
     if (!useVoiceStore.getState().enabled || useVoiceStore.getState().mode !== mode) return;
     this.pendingReply = { text: message, mode };
     this.flushReply();
@@ -641,7 +641,7 @@ export class VoiceRuntime {
         const load = async (text: string): Promise<AudioBuffer> => {
           if (!live()) throw new Error('Speech cancelled.');
           const response = await fetch(`/api/voice/speak?session=${this.session}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Archon-Voice-Private': '1' } : {}) }, body: JSON.stringify({ text, ...(voice ? { voice } : {}) }), signal: abort.signal,
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...(computerPrivate() ? { 'X-Arco-Voice-Private': '1' } : {}) }, body: JSON.stringify({ text, ...(voice ? { voice } : {}) }), signal: abort.signal,
           });
           if (!response.ok) throw new Error('Spoken feedback unavailable. Your command result remains on screen.');
           const data = await response.arrayBuffer();

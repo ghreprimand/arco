@@ -32,11 +32,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MAX_CONTENT_BYTES } from '../../server/src/clusterMailbox.js';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-3-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-3-'));
   console.log(`Phase 3 smoke — cwd ${cwd}`);
   console.log('');
 
@@ -336,7 +336,7 @@ async function main(): Promise<void> {
     // mcp-config.json should not exist (never spawned a CLI turn against
     // this cluster). Cleanup is best-effort regardless.
     for (const id of memberIds) {
-      const cfgPath = join(cwd, '.archon', id, 'mcp-config.json');
+      const cfgPath = join(cwd, '.arco', id, 'mcp-config.json');
       assert(!existsSync(cfgPath), `mcp-config.json absent for ${id.slice(0, 8)} (got ${cfgPath})`);
     }
     await c.close();

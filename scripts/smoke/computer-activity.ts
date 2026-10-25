@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { connect, step, summary, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-computer-activity-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-computer-activity-'));
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
@@ -20,7 +20,7 @@ async function main() {
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_COMPUTER_TEST_CODEX_HOME: codexHome, ARCHON_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS:'800' }, stdio: ['ignore', log, log],
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS:'800' }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -46,7 +46,7 @@ async function main() {
     for(let i=0;i<160;i++){const s=await api(undefined,id);if(predicate(s))return s;await new Promise((r)=>setTimeout(r,40));}throw Error('Activity state did not settle');
   };
   const begin=async(id:string,content:string)=>{c!.send({type:'user_message',workflowId:id,content});await c!.waitFor((m)=>m.type==='primary_turn_started'&&m.workflowId===id,15000);};
-  const activityFile=join(home,'.archon','computer-activity.json');
+  const activityFile=join(home,'.arco','computer-activity.json');
   try{
     await ready();c=await connect(`ws://127.0.0.1:${port}/ws`);
     for(const name of ['Computer','Builder 1','Builder 2']){
@@ -70,11 +70,11 @@ async function main() {
       assert(state.deliveries.every((d:any)=>d.status==='queued'));
       c!.send({type:'cancel',workflowId:owner});
       state=await until((s)=>s.deliveries.some((d:any)=>d.status==='delivering'));
-      const denied=await post('/api/voice/tool',{workflowId:owner,tool:'archon_nudge',args:{target:b1}});assert.equal(denied.ok,false);assert.match(denied.error,/Background activity/);
+      const denied=await post('/api/voice/tool',{workflowId:owner,tool:'arco_nudge',args:{target:b1}});assert.equal(denied.ok,false);assert.match(denied.error,/Background activity/);
       state=await until((s)=>s.deliveries.filter((d:any)=>d.status==='delivered').length===2);
       assert.equal(state.pending,0);
       const turns=readFileSync(join(codexHome,'fixture-turns.jsonl'),'utf8').trim().split('\n').map((line)=>JSON.parse(line));
-      assert.equal(turns.filter((t)=>t.text.startsWith('[Archon activity update')).length,1);
+      assert.equal(turns.filter((t)=>t.text.startsWith('[Arco activity update')).length,1);
     });
     await step('master pause and per-condition pause/resume react immediately to events',async()=>{
       await api({action:'configure',agent_updates:'off',enabled:false});await mail(b1);

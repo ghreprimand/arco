@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { AuthLoginResult, AuthStatusByProvider, AuthStatus, ProviderName } from '@archon/shared';
+import type { AuthLoginResult, AuthStatusByProvider, AuthStatus, ProviderName } from '@arco/shared';
 import { LoginCommand } from './LoginCommand';
 
 // Poll cadence while we're blocked on auth. Once a login has been triggered

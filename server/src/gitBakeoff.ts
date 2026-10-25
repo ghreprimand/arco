@@ -1,7 +1,7 @@
 // Managed git worktrees + deterministic winner promotion for bake-offs.
 //
 // Safety boundaries:
-//   - every checkout lives below ~/.archon/bakeoffs/<cwd-hash>/worktrees;
+//   - every checkout lives below ~/.arco/bakeoffs/<cwd-hash>/worktrees;
 //   - removal asserts that managed-root relationship before `--force`;
 //   - branches are preserved when worktrees are removed;
 //   - source checkout must be clean and still at the recorded base before a
@@ -15,8 +15,8 @@ import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { BakeoffAttempt, BakeoffAttemptSpec, BakeoffState } from '@archon/shared';
-import { archonHome } from './archonHome.js';
+import type { BakeoffAttempt, BakeoffAttemptSpec, BakeoffState } from '@arco/shared';
+import { arcoHome } from './arcoHome.js';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 30_000;
@@ -66,7 +66,7 @@ function cwdHash(cwd: string): string {
 }
 
 export function bakeoffWorktreesRoot(cwd: string): string {
-  return path.join(archonHome(), 'bakeoffs', cwdHash(cwd), 'worktrees');
+  return path.join(arcoHome(), 'bakeoffs', cwdHash(cwd), 'worktrees');
 }
 
 function attemptPath(cwd: string, bakeoffId: string, attemptId: string): string {
@@ -74,7 +74,7 @@ function attemptPath(cwd: string, bakeoffId: string, attemptId: string): string 
 }
 
 function branchFor(bakeoffId: string, index: number): string {
-  return `archon/bakeoff/${bakeoffId.slice(0, 8)}/attempt-${index + 1}`;
+  return `arco/bakeoff/${bakeoffId.slice(0, 8)}/attempt-${index + 1}`;
 }
 
 async function requireCleanRepo(cwd: string): Promise<{ baseRef: string; baseBranch: string | null }> {
@@ -92,8 +92,8 @@ async function requireCleanRepo(cwd: string): Promise<{ baseRef: string; baseBra
     '--untracked-files=all',
     '--',
     '.',
-    ':(exclude).archon',
-    ':(exclude).archon/**',
+    ':(exclude).arco',
+    ':(exclude).arco/**',
   ]);
   if (status.code !== 0) throw new GitBakeoffError('git-failed', status.stderr.trim() || 'git status failed');
   if (status.stdout.trim()) {
@@ -116,7 +116,7 @@ async function isRegisteredWorktree(cwd: string, target: string): Promise<boolea
 
 // Proof used by DD7 before inheriting a source checkout's trust decision.
 // A client-supplied config field alone is never enough: the target must be
-// both under Archon's managed bake-off root for that source AND registered by
+// both under Arco's managed bake-off root for that source AND registered by
 // git as one of the source repo's linked worktrees.
 export async function isManagedBakeoffWorktree(sourceCwd: string, targetCwd: string): Promise<boolean> {
   const root = path.resolve(bakeoffWorktreesRoot(sourceCwd));
@@ -200,7 +200,7 @@ async function untrackedProjectFiles(cwd: string): Promise<string[]> {
   return out.stdout
     .split('\0')
     .filter(Boolean)
-    .filter((file) => file !== '.archon' && !file.startsWith('.archon/'))
+    .filter((file) => file !== '.arco' && !file.startsWith('.arco/'))
     .slice(0, 200);
 }
 
@@ -213,8 +213,8 @@ export async function bakeoffAttemptDiff(state: BakeoffState, attempt: BakeoffAt
     state.baseRef,
     '--',
     '.',
-    ':(exclude).archon',
-    ':(exclude).archon/**',
+    ':(exclude).arco',
+    ':(exclude).arco/**',
   ]);
   if (tracked.code !== 0) {
     throw new GitBakeoffError('git-failed', tracked.stderr.trim() || 'git diff failed');
@@ -248,7 +248,7 @@ export async function promoteBakeoffAttempt(
   }
 
   // A provider may ignore the no-commit instruction. Existing candidate
-  // commits are acceptable, but never merge Archon's own journals/config back
+  // commits are acceptable, but never merge Arco's own journals/config back
   // into the source checkout. Inspect before staging so a refusal leaves the
   // candidate branch untouched.
   const committedPaths = await git(attempt.worktreePath, [
@@ -261,23 +261,23 @@ export async function promoteBakeoffAttempt(
   if (committedPaths.code !== 0) {
     throw new GitBakeoffError('git-failed', committedPaths.stderr.trim() || 'could not inspect candidate commits');
   }
-  if (committedPaths.stdout.split('\0').some((file) => file === '.archon' || file.startsWith('.archon/'))) {
+  if (committedPaths.stdout.split('\0').some((file) => file === '.arco' || file.startsWith('.arco/'))) {
     throw new GitBakeoffError(
       'unsafe-commits',
-      'The selected branch contains committed .archon metadata. Arco will not merge it; clean the candidate branch manually or choose another attempt.',
+      'The selected branch contains committed .arco metadata. Arco will not merge it; clean the candidate branch manually or choose another attempt.',
     );
   }
 
   // Agents are explicitly told not to commit. Stage project files only so
-  // workflow journals under .archon never enter the winner commit.
+  // workflow journals under .arco never enter the winner commit.
   const add = await git(attempt.worktreePath, ['add', '-A']);
   if (add.code !== 0) throw new GitBakeoffError('git-failed', add.stderr.trim() || 'git add failed');
-  // `git add -A -- . :(exclude)…` still errors when .archon is ignored
+  // `git add -A -- . :(exclude)…` still errors when .arco is ignored
   // because `.` is an explicit pathspec. Stage normally (ignored files stay
-  // ignored), then unstage any tracked .archon entries defensively.
-  const unstageMetadata = await git(attempt.worktreePath, ['reset', '-q', 'HEAD', '--', '.archon']);
+  // ignored), then unstage any tracked .arco entries defensively.
+  const unstageMetadata = await git(attempt.worktreePath, ['reset', '-q', 'HEAD', '--', '.arco']);
   if (unstageMetadata.code !== 0) {
-    throw new GitBakeoffError('git-failed', unstageMetadata.stderr.trim() || 'could not exclude .archon metadata');
+    throw new GitBakeoffError('git-failed', unstageMetadata.stderr.trim() || 'could not exclude .arco metadata');
   }
 
   const staged = await git(attempt.worktreePath, ['diff', '--cached', '--quiet']);

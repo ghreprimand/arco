@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ComputerActivitySnapshot } from '@archon/shared';
+import type { ComputerActivitySnapshot } from '@arco/shared';
 import { useComputerStore } from '../stores/computerStore';
 import { useAppStore } from '../stores/appStore';
 export const useComputerActivity = create<{snapshot:ComputerActivitySnapshot|null;error:string|null;revision:number;ownerId:string|null}>(()=>({snapshot:null,error:null,revision:0,ownerId:null}));

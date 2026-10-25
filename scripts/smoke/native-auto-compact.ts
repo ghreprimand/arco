@@ -3,7 +3,7 @@
 //
 // Drives the REAL `maybeAutoCompactNative` trigger (the same post-turn site as
 // auto-handoff) and the REAL `compactInPlace` keep-tail, but via the
-// ARCHON_TEST-gated `__debug_native_auto_compact_probe` hook so there's NO
+// ARCO_TEST-gated `__debug_native_auto_compact_probe` hook so there's NO
 // Anthropic API spend: the probe worker uses a canned summary and a caller-
 // seeded history, and the threshold is driven by a synthetic
 // `lastContextPercent` rather than actually filling 800K tokens.
@@ -19,12 +19,12 @@
 //   5. The next turn continues from the seed (a fresh native_compacted after a
 //      context-drop reset re-arms the trigger).
 //
-// Run with the dev server up AND ARCHON_TEST=1 on the server:
-//   ARCHON_TEST=1 npm run dev:server  &
+// Run with the dev server up AND ARCO_TEST=1 on the server:
+//   ARCO_TEST=1 npm run dev:server  &
 //   npm run smoke:native-auto-compact
 //
 // Exits 0 on all-pass, 1 on any failure. Do NOT run against prod (the hook is
-// ARCHON_TEST-gated and a no-op otherwise).
+// ARCO_TEST-gated and a no-op otherwise).
 
 import { connect, step, assert, assertEq, summary, type AnyMessage } from './lib.js';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -54,7 +54,7 @@ const PROBE_MESSAGES = [
 const CANNED_SUMMARY = 'Canned probe summary: older history folded for the auto-compact smoke.';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-autocompact-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-autocompact-'));
   console.log(`native-auto-compact smoke — cwd ${cwd}`);
   console.log('');
 

@@ -33,7 +33,7 @@ interface MetaShape {
 }
 
 function readMeta(cwd: string, workflowId: string): MetaShape {
-  const path = join(cwd, '.archon', 'workflows', workflowId, 'meta.json');
+  const path = join(cwd, '.arco', 'workflows', workflowId, 'meta.json');
   const raw = readFileSync(path, 'utf8');
   return JSON.parse(raw) as MetaShape;
 }
@@ -51,7 +51,7 @@ async function waitForMeta(cwd: string, workflowId: string, predicate: (m: MetaS
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-d-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-d-'));
   console.log(`Phase D smoke — cwd ${cwd}`);
   console.log('');
 

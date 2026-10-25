@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@archon/shared';
-import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArchonSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@archon/shared';
+import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
+import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { useTemplates } from '../../hooks/useTemplates';
@@ -204,14 +204,14 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   }, [activeModelOptions, model]);
 
   // Save-as-defaults affordance — persists the current picker state to
-  // ~/.archon/settings.json under `workflowDefaults` so the next workflow
+  // ~/.arco/settings.json under `workflowDefaults` so the next workflow
   // pre-selects the same orchestrator / model / effort / toggles.
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [defaultsSavedAt, setDefaultsSavedAt] = useState<number | null>(null);
   const saveAsDefaults = async () => {
     if (savingDefaults) return;
     setSavingDefaults(true);
-    const patch: Partial<ArchonSettings> = {
+    const patch: Partial<ArcoSettings> = {
       workflowDefaults: {
         primaryProvider,
         primaryModel: model,
@@ -229,7 +229,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
       setDefaultsSavedAt(Date.now());
     } catch { /* silently fail; next click retries */ }
@@ -242,7 +242,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   // NOT reset the shared fields (cwd / defaults stay).
   const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis'>('single');
   const [incognito, setIncognito] = useState(false);
-  // ARCHON_OPS_PLAN.md M2 — Genesis mode collects just a working name + the
+  // ARCO_OPS_PLAN.md M2 — Genesis mode collects just a working name + the
   // Spark at creation; the staged conversation + the GENESIS right-panel tab
   // fill the rest of the seed. No working directory: the workflow is created
   // cwd-less and the server runs it in a scratch ideation dir until scaffold.
@@ -293,7 +293,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
     const mql = window.matchMedia('(min-width: 1200px)');
     const handler = (e: MediaQueryListEvent) => setIsWide(e.matches);
     // Older Safari uses addListener / removeListener; modern browsers ship
-    // addEventListener('change'). Use the modern API only — Archon targets
+    // addEventListener('change'). Use the modern API only — Arco targets
     // recent Chromium/Firefox/Safari.
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
@@ -316,10 +316,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   const [newDirError, setNewDirError] = useState('');
   const [creatingDir, setCreatingDir] = useState(false);
 
-  // Resume picker. Phase 3 Lite: unified across providers — every Archon tab
+  // Resume picker. Phase 3 Lite: unified across providers — every Arco tab
   // IS a native CLI session, so the picker lists whatever Claude + Codex
   // have on disk for this cwd (plus any Gemini sessions once that's wired).
-  // Entries that match an existing Archon meta.json surface the workflow's
+  // Entries that match an existing Arco meta.json surface the workflow's
   // name; selecting one lands back in that same wfid on the server.
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -416,12 +416,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
       if (s.provider === 'gemini') setModel('gemini-3.1-pro-preview');
       setEffort(clampEffortForProvider(effort, s.provider));
     }
-    if (s.archonName && !name) setName(s.archonName);
+    if (s.arcoName && !name) setName(s.arcoName);
   };
 
   // 2026-05-11 — build a fresh MemberDraft from the current DEFAULTS group.
   // Cluster fence: Claude/Codex plus local Ollama/llama.cpp. Gemini and
-  // Antigravity stay out because Archon cannot inject cluster peer tools
+  // Antigravity stay out because Arco cannot inject cluster peer tools
   // into them today. Effort re-clamps to whatever the provider/model honors.
   const draftFromDefaults = (): MemberDraft => {
     const provider: ClusterMemberProvider =
@@ -748,8 +748,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
       skipPermissions,
       workingDirectory: workDir,
       ...(templateSpawnToken ? { templateSpawnToken } : {}),
-      resumeSessionId: selectedSession && !selectedSession.archonInternal ? selectedSession.sessionId : undefined,
-      resumeWorkflowId: selectedSession?.archonInternal ? selectedSession.archonWorkflowId : undefined,
+      resumeSessionId: selectedSession && !selectedSession.arcoInternal ? selectedSession.sessionId : undefined,
+      resumeWorkflowId: selectedSession?.arcoInternal ? selectedSession.arcoWorkflowId : undefined,
       ...(fastMode && { fastMode: true }),
       ...(providerAccountRef ? { providerAccountRef } : {}),
       // Efficiency/style knobs — only stamp on the new workflow when
@@ -844,7 +844,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
 
   // I4 — centered heading reflects the selected cwd's folder name (high-signal
   // token; the full path is in the field below). No cwd yet ⇒ show the subtitle
-  // text alone, never a stale "ARCHON" (the wordmark already lives top-left).
+  // text alone, never a stale "ARCO" (the wordmark already lives top-left).
   const subtitleText = mode === 'cluster' ? 'NEW CLUSTER' : mode === 'genesis' ? 'NEW PROJECT · GENESIS' : mode === 'chat' ? 'NEW CONVERSATION' : 'NEW WORKFLOW';
   const cwdBasename = workDir.replace(/\/+$/, '').split('/').pop() ?? '';
   const headingText = cwdBasename.length > 28 ? `${cwdBasename.slice(0, 27)}…` : cwdBasename;
@@ -1196,7 +1196,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
           )}
 
         {/* Conversation mode — spans both columns. Unified resume picker:
-            native providers resume by provider session id; Archon-managed
+            native providers resume by provider session id; Arco-managed
             providers (Ollama) resume by workflow id from events.jsonl. */}
         {mode !== 'chat' && workDir && (
           <div data-help="creator.resume" style={spanBoth}>
@@ -1225,20 +1225,20 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
               <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
                 {sessions.map((s) => {
                   const active = selectedSessionId === s.sessionId;
-                  const providerTag = s.archonInternal
+                  const providerTag = s.arcoInternal
                     ? 'ARCO'
                     : s.providerAccountShortLabel
                       ? `${s.provider.toUpperCase()}:${s.providerAccountShortLabel}`
                       : s.provider.toUpperCase();
-                  const archon = Boolean(s.archonWorkflowId);
+                  const arco = Boolean(s.arcoWorkflowId);
                   // Heading = the conversation's TOPIC, not the folder/workflow
                   // name. `s.name` is the content-derived title (ai-title → first
                   // user message for provider sessions; the recall title for
-                  // Archon-internal ones), so prefer it over `archonName` (which
+                  // Arco-internal ones), so prefer it over `arcoName` (which
                   // is just the cwd folder, e.g. "Limits" — identical across
                   // every session in that dir). Fall back to the workflow name,
                   // then the session id. No LLM — all deterministic on-disk data.
-                  const title = s.name || s.archonName || s.sessionId.slice(0, 8);
+                  const title = s.name || s.arcoName || s.sessionId.slice(0, 8);
                   // Subtitle = "last activity": prefer the live "what am I doing
                   // right now" preview over the static ai-title (Claude writes
                   // ai-title at most once; many sessions never get one). Skip if
@@ -1267,7 +1267,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
                       title={`${s.sessionId} — ${providerTag} — ${when}`}
                     >
                       <div style={{ fontWeight: 'bold' }}>
-                        [{providerTag}]{archon ? ' ★' : ''} {title}
+                        [{providerTag}]{arco ? ' ★' : ''} {title}
                       </div>
                       {subtitle && (
                         <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px', fontStyle: 'italic' }}>
@@ -1352,7 +1352,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
               const profile = info?.profileMode === 'default'
                 ? 'default (signed-in) profile'
                 : info?.profileMode === 'isolated'
-                  ? `isolated profile (${info.userDataDir ?? '~/.archon/antigravity-data'})`
+                  ? `isolated profile (${info.userDataDir ?? '~/.arco/antigravity-data'})`
                   : info?.profileMode === 'custom'
                     ? `custom profile${info.userDataDir ? ` (${info.userDataDir})` : ''}`
                     : 'profile unknown';
@@ -1445,7 +1445,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
                 // All three local providers share the same picker shape: a list
                 // of installed model identifiers + capability badges. Ollama's
                 // tags come from /api/tags (live); llama.cpp's aliases come from
-                // ~/.archon/llamacpp.json (operator-declared); LM Studio's ids
+                // ~/.arco/llamacpp.json (operator-declared); LM Studio's ids
                 // come from GET /v1/models (the loaded/available models).
                 const which = primaryProvider;
                 const tags = authStatus?.[which]?.installedModels ?? [];
@@ -1454,7 +1454,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
                     ? 'No Ollama models installed. Run `ollama pull <model>` and refresh.'
                     : which === 'deepseek' ? 'DeepSeek profiles are unavailable. Check the prepared Xolotl registry in Settings.' : which === 'strata' ? 'Strata is unavailable. Start its service at 127.0.0.1:8081 and refresh.' : which === 'lmstudio'
                       ? 'No LM Studio models found. Load a model in the LM Studio app (and start its local server) then refresh.'
-                      : 'No llama.cpp models registered. Edit ~/.archon/llamacpp.json (see docs/PROVIDERS.md § llama.cpp) and refresh.';
+                      : 'No llama.cpp models registered. Edit ~/.arco/llamacpp.json (see docs/PROVIDERS.md § llama.cpp) and refresh.';
                   return (
                     <div className="display-font" style={{ padding: '6px 8px', border: '1px dashed var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '0.5px' }}>
                       {guidance}
@@ -1769,7 +1769,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
         )}
 
         {/* Save-as-defaults — persists the current picker state to
-            ~/.archon/settings.json so the next workflow pre-selects it.
+            ~/.arco/settings.json so the next workflow pre-selects it.
             Available in both modes (the defaults seed both single + cluster
             new-member rows). */}
         <div data-help="creator.save-defaults" style={{ display: 'flex', flexDirection: 'column' }}>

@@ -44,7 +44,7 @@ Two additional surfaces (DOCS and GIT, see § 5) reuse the primary-turn machiner
    - **Codex (resume)** — pass `codex exec resume <wf.primarySessionId> <prompt>`.
    - **Gemini / Ollama** — no session concept; each turn is fresh.
    - **Antigravity** — reuse the same desktop conversation, prepend `[Project directory: <cwd>]\n\n`.
-3. Inject the attached plan (if any) as a header prefix to the prompt — `wf.planId` set ⇒ `buildPlanPrefix()` reads from `<cwd>/.archon/plans/<planId>.md`. The plan body re-injects on every turn so operator edits propagate.
+3. Inject the attached plan (if any) as a header prefix to the prompt — `wf.planId` set ⇒ `buildPlanPrefix()` reads from `<cwd>/.arco/plans/<planId>.md`. The plan body re-injects on every turn so operator edits propagate.
 4. Spawn via `WorkerManager.spawn(spec)`. Returns a `TurnHandle`: `{ workerId, initialSessionId, onSessionDiscovered, settled: Promise }`.
 5. Stream events. The seedWorker's job is to translate each `WorkerEvent` (`text`/`thinking`/`tool_use`/`result`/`system_notice`) into the corresponding `primary_*` protocol message and broadcast it.
 6. Settle. `await turn.settled` collects the final outcome. For Claude, also call `estimateContextFill()` and broadcast `context_usage`.
@@ -118,7 +118,7 @@ client → server: review_request {
    - `full` — the entire `events.jsonl`.
    - `git-diff` — runs `git diff HEAD` in the workflow cwd; reviewer sees the diff alone (no transcript). Operator surface: the SCOPE picker in `ReviewDialog`.
    - `since-event` — slices the transcript from `anchorEventSeq` onward. Wired from the HISTORY tab's "REVIEW FROM HERE" pin; `ReviewDialog` collapses the SCOPE row to a locked label and hides the VERIFY/CRITIQUE picker (since-event has no plan-mode distinction).
-   - `preview-capture` (ARCHON_OPS §G2) — no transcript: `buildPreviewCaptureReviewContent(cwd, workflowId, reportName)` reads a Preview-verification report artifact (path-confined to the workflow's `artifacts/` via `path.basename` + `.md` check) and frames it as "judge a running UI from captured evidence". Reachable **only** from the Preview tab's `ATTACH TO REVIEW` button (not the SCOPE picker); the reviewer defaults to the tab's primary provider/model/effort. See `docs/PREVIEW_VERIFY.md § Attach to Review`.
+   - `preview-capture` (ARCO_OPS §G2) — no transcript: `buildPreviewCaptureReviewContent(cwd, workflowId, reportName)` reads a Preview-verification report artifact (path-confined to the workflow's `artifacts/` via `path.basename` + `.md` check) and frames it as "judge a running UI from captured evidence". Reachable **only** from the Preview tab's `ATTACH TO REVIEW` button (not the SCOPE picker); the reviewer defaults to the tab's primary provider/model/effort. See `docs/PREVIEW_VERIFY.md § Attach to Review`.
 3. Optionally append `git diff HEAD` if `includeGitDiff` is true and the slice doesn't already include diffs.
 4. Build the reviewer prompt with `REVIEW_FRAMING`: instructs the reviewer to produce a Summary / Concerns / Verdict structure ending in `Verdict: PASS | MINOR | BLOCKING`.
 5. Spawn the reviewer worker:
@@ -131,7 +131,7 @@ client → server: review_request {
    - **Fallback chain (§C2).** The reviewer is a bounded job, so `runReviewer` walks `[reviewer, ...reviewerFallbacks]` on a classified provider failure; `collected` resets per leg so a failed leg's partial output never bleeds into the artifact. Unset ⇒ single leg.
    - **Ollama structured output.** Ollama reviewers get `ollamaFormat: REVIEW_FORMAT_SCHEMA` (`reviewSchema.ts`) — Ollama's sampler-level JSON-schema constraint; `parseStructuredReview` + `reconstructStructuredReview` rebuild the canonical markdown body so the artifact, badge and findings are unchanged downstream. Ollama-only because no other provider exposes a sampler-constrained `format`; small models were the main source of verdict-regex misses.
 7. On settlement, parse the verdict via regex (`detectVerdict` — primary pattern is `verdict[^\n]*?\n+\s*\*?\*?(PASS|MINOR|BLOCKING)` case-insensitive, with a bare `\b(PASS|MINOR|BLOCKING)\b` fallback so the badge still resolves when reviewers bold or italicize the line).
-8. Write the artifact to `<cwd>/.archon/workflows/<wfid>/artifacts/review-<ts>.md` with YAML frontmatter:
+8. Write the artifact to `<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md` with YAML frontmatter:
 
    ```yaml
    ---
@@ -167,7 +167,7 @@ review_artifact_ready       (persisted; carries verdict + artifact name)
 
 - `ws/handleServerMessage.ts` `case 'review_started'` → `store.upsertReview()` records reviewer + startedAt; also emits a `[REVIEW] Running review (provider:model@effort)…` system row into chat. `case 'review_artifact_ready'` → `store.upsertReview()` updates artifact name + verdict + error, and emits a `[REVIEW <verdict>] <artifactName>` (or `[REVIEW] Failed — …`) system row. The chat-row injection mirrors the Handoff pattern; without it the dialog closes silently and the verdict only surfaces in the REVIEW + HISTORY tabs.
 - The Review tab reads the artifact body lazily via `GET /api/workflows/artifact?path=<cwd>&workflowId=<wfid>&name=<artifactName>`.
-- HISTORY tab: clicking a `REVIEW <verdict>` row opens the artifact in `FileViewerModal` directly (path = `<cwd>/.archon/workflows/<wfid>/artifacts/<artifactName>`, with `fallback={cwd, workflowId}` for the artifact-dir retry). `HistoryEventEntry.reviewArtifactName` carries the filename; rows produced from a failed review (no artifact written) are non-clickable.
+- HISTORY tab: clicking a `REVIEW <verdict>` row opens the artifact in `FileViewerModal` directly (path = `<cwd>/.arco/workflows/<wfid>/artifacts/<artifactName>`, with `fallback={cwd, workflowId}` for the artifact-dir retry). `HistoryEventEntry.reviewArtifactName` carries the filename; rows produced from a failed review (no artifact written) are non-clickable.
 
 The Review tab renders one row per review with the reviewer config, verdict badge, and a `↳ SEND TO AGENT` button that pre-fills the composer with the review body.
 
@@ -186,7 +186,7 @@ The reviewer framing (`runReviewer.ts § BASE_FRAMING`) asks the model to append
 
 ### Persistence
 
-- Artifact: `<cwd>/.archon/workflows/<wfid>/artifacts/review-<ts>.md`
+- Artifact: `<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md`
 - Events: `review_started`, `worker_*`, `review_artifact_ready` all persisted to `events.jsonl`. The Review tab list is rebuilt from these events on replay.
 - The artifact body is **not** persisted to events.jsonl (only on disk). If the artifact file is deleted, the Review tab still shows the entry but the body fetch 404s.
 
@@ -257,7 +257,7 @@ type PlanReviewMode = 'verify' | 'critique';
 
 ### Cluster-plan-scoped review (2026-05-11)
 
-First-class cluster surface: instead of "review the worker's per-cwd plan," operators can review the **shared cluster plan body** directly. The cluster plan lives in `~/.archon/clusters/<id>/plan.md` (loaded into `clusterStore` + carried on `cluster_state.plan.body`), not in the per-cwd plans index. Two new ContextRef kinds:
+First-class cluster surface: instead of "review the worker's per-cwd plan," operators can review the **shared cluster plan body** directly. The cluster plan lives in `~/.arco/clusters/<id>/plan.md` (loaded into `clusterStore` + carried on `cluster_state.plan.body`), not in the per-cwd plans index. Two new ContextRef kinds:
 
 ```ts
 type ReviewContextRef =
@@ -418,7 +418,7 @@ client → server: handoff_request {
    - **`original-worker`**: build the reflection prompt with `buildOriginalWorkerPrompt()` — instructs the primary to:
      - Run `git status` / `git log` / `git diff` to capture the WIP state
      - Read `CLAUDE.md`, `PLAN.md`, `DEVLOG.md`, and any `*_PLAN.md` referenced
-     - Use `Write` to put the handoff at `<cwd>/.archon/workflows/<wfid>/handoffs/handoff-<ts>.md`
+     - Use `Write` to put the handoff at `<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`
      - Optionally prepend a DEVLOG.md entry, mark PLAN.md phases shipped
      - End with `[HANDOFF_COMPLETE]` so the server knows it's done
      
@@ -468,7 +468,7 @@ The Handoff tab renders one row per handoff with mode, archived/new sessionIds, 
 
 ### Persistence
 
-- Artifact: `<cwd>/.archon/workflows/<wfid>/handoffs/handoff-<ts>.md`
+- Artifact: `<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`
 - `meta.json`: `lastActiveAt` updated, `primarySessionId` cleared, `meta.history[]` appended
 - Events: `handoff_started`, `handoff_artifact_ready`, the seed echo, the pre-warm turn events, `conversation_changed`, `handoff_complete` — all persisted
 
@@ -489,14 +489,14 @@ Both the `original-worker` reflection prompt and the `fresh-summarizer` framing 
 
 | Mode | Project | Global |
 |---|---|---|
-| `original-worker` | `<cwd>/.archon/handoff.prompt.md` | `~/.archon/handoff.prompt.md` |
-| `fresh-summarizer` | `<cwd>/.archon/handoff.summarizer.prompt.md` | `~/.archon/handoff.summarizer.prompt.md` |
+| `original-worker` | `<cwd>/.arco/handoff.prompt.md` | `~/.arco/handoff.prompt.md` |
+| `fresh-summarizer` | `<cwd>/.arco/handoff.summarizer.prompt.md` | `~/.arco/handoff.summarizer.prompt.md` |
 
 `server/src/handoffPrompts.ts` owns the cascade: `loadEffectivePrompt(mode, cwd)` returns project → global → default in that order. `runExportContext` calls it before each handoff and renders the resulting template via `renderPrompt(template, vars)` where `vars` substitutes:
 
 - `{{cwd}}` — workflow's working directory
 - `{{wfid}}` — workflow id
-- `{{handoffPath}}` — absolute path the artifact must land at (`<cwd>/.archon/workflows/<wfid>/handoffs/handoff-<ts>.md`)
+- `{{handoffPath}}` — absolute path the artifact must land at (`<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`)
 - `{{seedPrefix}}` — the literal `[HANDOFF —` (a load-bearing string Review's `current-session` scope detects; exposed as a variable so operator-edited prompts reference it instead of forking the constant)
 
 Validation is advisory — the editor surfaces warnings before save but never blocks. Two checks fire for `original-worker`: missing `{{handoffPath}}` (the agent won't know where to write) and missing `[HANDOFF_COMPLETE]` (no clean end-of-output marker for the reflection turn). `fresh-summarizer` skips both — its worker writes the file from collected text, no Write tool involved.
@@ -661,7 +661,7 @@ Sends the agent a structured prompt to update repo markdown docs (README / DEVLO
 The base prompt:
 
 1. **Process** — check `git log --oneline -20`, `git status`, `git diff main...HEAD` if on a branch; identify which markdown docs reference changed code; update only those docs in place.
-2. **Constraints** — *do not modify any file under `.archon/plans/`* (load-bearing reason: plan files have checkbox / H3 phase structure that the Plan tab parses for per-phase review and spawn-from-task; agents have stripped that structure when "updating" docs). Don't add new doc files unless something genuinely requires one. Don't restate what the code already says clearly. If you spot stale sections, flag them or fix them.
+2. **Constraints** — *do not modify any file under `.arco/plans/`* (load-bearing reason: plan files have checkbox / H3 phase structure that the Plan tab parses for per-phase review and spawn-from-task; agents have stripped that structure when "updating" docs). Don't add new doc files unless something genuinely requires one. Don't restate what the code already says clearly. If you spot stale sections, flag them or fix them.
 3. **Wrap-up** — summarize which files were updated and what changed in each so the operator can review.
 
 Optional operator note appended verbatim to the base prompt (e.g. "focus on the auth changes — leave README alone").
@@ -681,7 +681,7 @@ Combines a live git status view, branch picker, action picker, and structured pr
 
 **Protected-branch pattern:** `/^(main|master|release\/.*|prod|production)$/i`. UI shows a warning when the target matches; the prompt itself includes an explicit "pause and confirm intent before pushing to protected" instruction.
 
-**Per-repo prefs:** `localStorage[\`archon.gitDialog.prefs.\${cwd}\`]` stores the chosen action when the operator checks `SAVE AS DEFAULT FOR THIS REPO`. Loaded on next dialog open for the same cwd.
+**Per-repo prefs:** `localStorage[\`arco.gitDialog.prefs.\${cwd}\`]` stores the chosen action when the operator checks `SAVE AS DEFAULT FOR THIS REPO`. Loaded on next dialog open for the same cwd.
 
 **Optional inputs:** commit subject hint (gets baked into the prompt as a hint, not a directive — agent still reads the diff and writes the actual message), scope notes (free-form, appended).
 
@@ -701,8 +701,8 @@ The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'
 
 Two operator-only composer surfaces that inject deterministic prompt context (no ephemeral worker, no artifact, no verdict). Like DOCS / GIT they're prompt builders, not full primitives.
 
-- **`+SKILL` apply-once / pin (DD8).** A skill whose frontmatter carries `operator-only: true` is withheld from the model's skill manifest entirely — `buildSkillsManifest` (`server/src/skills.ts`) filters `!operatorOnly`, so the model is never told it exists. **APPLY ONCE** rides `pickedSkills: Array<{ scope, slug }>` on the outbound `user_message`; `buildPickedSkillsBlock` inlines each full body into that turn prompt (wrapped in `<archon-skill>`, no Read round-trip). **PIN TO TAB** replaces `WorkflowConfig.pinnedSkills` through `update_primary_config`; the refs persist in meta while `resolvePinnedSkills` re-reads the bodies and `buildPinnedSkillsBlock` inserts them as standing system instructions every primary turn. Pin/unpin is acknowledged by the persisted `pinned_skills_set` audit event. Both blocks report byte size; pinning is count/aggregate-byte bounded.
-- **`/prompt <name> [args]` (DD10).** Parameterized prompt templates resolved from `<cwd>/.archon/prompts/<name>.md` (project — gated behind the DD7 project-trust check via `includeProject`) and `~/.archon/prompts/<name>.md` (global — ungated); project wins on a name clash. Substitution (`substituteArgs` in `server/src/prompts.ts`) is bash-positional: `$1`..`$N` / `${1}`..`${N}` map to shell-tokenized args (unbound positional ⇒ empty), `$@` / `$*` expand to all args space-joined, `$$` is a literal `$`. A name that resolves to no template falls through and sends the original text as a normal turn. Entry points: `parsePromptInvocation` / `expandPromptCommand` / `substituteArgs`.
+- **`+SKILL` apply-once / pin (DD8).** A skill whose frontmatter carries `operator-only: true` is withheld from the model's skill manifest entirely — `buildSkillsManifest` (`server/src/skills.ts`) filters `!operatorOnly`, so the model is never told it exists. **APPLY ONCE** rides `pickedSkills: Array<{ scope, slug }>` on the outbound `user_message`; `buildPickedSkillsBlock` inlines each full body into that turn prompt (wrapped in `<arco-skill>`, no Read round-trip). **PIN TO TAB** replaces `WorkflowConfig.pinnedSkills` through `update_primary_config`; the refs persist in meta while `resolvePinnedSkills` re-reads the bodies and `buildPinnedSkillsBlock` inserts them as standing system instructions every primary turn. Pin/unpin is acknowledged by the persisted `pinned_skills_set` audit event. Both blocks report byte size; pinning is count/aggregate-byte bounded.
+- **`/prompt <name> [args]` (DD10).** Parameterized prompt templates resolved from `<cwd>/.arco/prompts/<name>.md` (project — gated behind the DD7 project-trust check via `includeProject`) and `~/.arco/prompts/<name>.md` (global — ungated); project wins on a name clash. Substitution (`substituteArgs` in `server/src/prompts.ts`) is bash-positional: `$1`..`$N` / `${1}`..`${N}` map to shell-tokenized args (unbound positional ⇒ empty), `$@` / `$*` expand to all args space-joined, `$$` is a literal `$`. A name that resolves to no template falls through and sends the original text as a normal turn. Entry points: `parsePromptInvocation` / `expandPromptCommand` / `substituteArgs`.
 
 The skill editor (`client/src/components/SkillEditorDialog.tsx`) also exposes an **AUDIT** button labelled "AUDIT — DIAGNOSTIC ONLY (does not block save)" (H35): `POST /api/skills/audit` (`server/src/http/router.ts`) → `auditSkillContent` (`server/src/skillAudit.ts`), an invisible-unicode + known-threat scan that surfaces findings but never blocks the save.
 
@@ -734,7 +734,7 @@ Branch-aware replay (`server/src/providers/claude-native/resumeSummary.ts`) walk
 
 ## 7. Cluster-aware behavior
 
-Cluster mode (`docs/CLUSTER_MODE_PLAN.md`, phases 2.5 through 5b — SHIPPED end-to-end as of 2026-05-10) lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read` / `cluster_plan_tick` / `cluster_plan_write`) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config archon-cluster` children, on Codex via `-c mcp_servers.archon-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
+Cluster mode (`docs/CLUSTER_MODE_PLAN.md`, phases 2.5 through 5b — SHIPPED end-to-end as of 2026-05-10) lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read` / `cluster_plan_tick` / `cluster_plan_write`) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config arco-cluster` children, on Codex via `-c mcp_servers.arco-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
 
 ### HANDOFF inside a cluster
 
@@ -797,7 +797,7 @@ The membership fence (`assertAllMembersClaudeOrCodex` in `server/src/index.ts`, 
 
 Two operator-armed surfaces overlay onto every member's per-turn system context (forced system blocks on Native; string-form folds elsewhere — see **Cross-provider** below).
 
-**Shared cluster plan.** One markdown body per cluster, persisted at `~/.archon/clusters/<id>/plan.md`. Three operator entry points:
+**Shared cluster plan.** One markdown body per cluster, persisted at `~/.arco/clusters/<id>/plan.md`. Three operator entry points:
 
 - The `PLAN` sub-tab in `ClusterRightPanel` (textarea + char-count; soft warn at 28672 chars, hard reject at 32768).
 - The `PROMOTE TO CLUSTER` button on a per-workflow PLAN tab (gated on cluster membership, confirms via `window.confirm`).
@@ -874,7 +874,7 @@ The **Summarize** action on a `RecallResultRow` (in the top-level Recall view). 
 
 ### Server-side flow
 
-`handleRecallSummaryRequest` (`server/src/ws/workflowHandlers.ts`) resolves the summarizer Codex account like the reviewer/research path, picks the open tab's `WorkerManager` (or a transient one for archived conversations), and calls `summarizeWorkflow` (`server/src/recall/summarize.ts`). `summarizeWorkflow` loads the transcript (`replayEvents`), runs ONE short-lived read-only worker over a `renderTranscript` of the events (recall-summary framing; `tools: ['Read','Grep','Glob']` for claude/ollama; `outputStyle: 'normal'`; codex account passthrough), and writes `~/.archon/recall/<wfid>/summary.md` (machine-global recall home — **not** the per-cwd handoff dir). On **any** failure (spawn error, empty body, no provider authed) it writes the deterministic `summarizePriorTurns` digest to the same file instead. Then `RecallIndex.setSummary` records `summaryRef` (and indexes the body into FTS for §F3). `summarizeWorkflow` never throws and never blocks.
+`handleRecallSummaryRequest` (`server/src/ws/workflowHandlers.ts`) resolves the summarizer Codex account like the reviewer/research path, picks the open tab's `WorkerManager` (or a transient one for archived conversations), and calls `summarizeWorkflow` (`server/src/recall/summarize.ts`). `summarizeWorkflow` loads the transcript (`replayEvents`), runs ONE short-lived read-only worker over a `renderTranscript` of the events (recall-summary framing; `tools: ['Read','Grep','Glob']` for claude/ollama; `outputStyle: 'normal'`; codex account passthrough), and writes `~/.arco/recall/<wfid>/summary.md` (machine-global recall home — **not** the per-cwd handoff dir). On **any** failure (spawn error, empty body, no provider authed) it writes the deterministic `summarizePriorTurns` digest to the same file instead. Then `RecallIndex.setSummary` records `summaryRef` (and indexes the body into FTS for §F3). `summarizeWorkflow` never throws and never blocks.
 
 ### Events emitted
 
@@ -882,7 +882,7 @@ The **Summarize** action on a `RecallResultRow` (in the top-level Recall view). 
 
 ### Storage + serving
 
-`~/.archon/recall/<wfid>/summary.md`; `summaryRef` = the relative ref `<wfid>/summary.md`. Served by a dedicated `GET /api/recall/summary?wfid=` route (the recall home is outside any cwd the `/api/workflows/artifact` endpoint serves). The route validates `wfid` against `/^[a-zA-Z0-9-]{1,64}$/` (no `..`, no separators) **before** path-joining and only serves `summary.md` under the recall home. Reversible — delete the file to regenerate.
+`~/.arco/recall/<wfid>/summary.md`; `summaryRef` = the relative ref `<wfid>/summary.md`. Served by a dedicated `GET /api/recall/summary?wfid=` route (the recall home is outside any cwd the `/api/workflows/artifact` endpoint serves). The route validates `wfid` against `/^[a-zA-Z0-9-]{1,64}$/` (no `..`, no separators) **before** path-joining and only serves `summary.md` under the recall home. Reversible — delete the file to regenerate.
 
 ### Fence note (fence-sensitive — this phase makes an LLM call)
 
@@ -963,7 +963,7 @@ This is **bounded-job territory** and respects it: operator-initiated (a button 
 
 ## 13. Knowledge base + wizard (Workbench Expansion §B3)
 
-A per-cwd, **operator-owned** knowledge store at `<cwd>/.archon/knowledge/` — a curated companion to `CLAUDE.md` that turns can read. **Not a primitive** in the ephemeral-worker sense (CRUD is plain REST); the one bounded-worker piece is the wizard's optional "distill from session" *draft*. Full detail in [`KNOWLEDGE.md`](KNOWLEDGE.md); the fence-critical wizard flow is summarized here.
+A per-cwd, **operator-owned** knowledge store at `<cwd>/.arco/knowledge/` — a curated companion to `CLAUDE.md` that turns can read. **Not a primitive** in the ephemeral-worker sense (CRUD is plain REST); the one bounded-worker piece is the wizard's optional "distill from session" *draft*. Full detail in [`KNOWLEDGE.md`](KNOWLEDGE.md); the fence-critical wizard flow is summarized here.
 
 ### The wizard flow
 
@@ -979,13 +979,13 @@ This is the sanctioned, operator-in-the-loop **replacement** for the rejected se
 
 ---
 
-## 14. Genesis (ideation → scaffold, ARCHON_OPS §M)
+## 14. Genesis (ideation → scaffold, ARCO_OPS §M)
 
 Not a primitive in the ephemeral-worker sense (no reviewer, no artifact, no verdict) — it's an
 operator surface that rides the **primary turn**. A from-nothing Genesis workflow starts with no
 project folder: the operator picks `GENESIS` in the new-workflow MODE toggle, gives a working name
 + a Spark, and launches a **cwd-less** workflow. Because the turn engine requires a cwd, the server
-runs it in a hidden scratch dir (`~/.archon/genesis/<wfid>`) and injects a staged-ideation system
+runs it in a hidden scratch dir (`~/.arco/genesis/<wfid>`) and injects a staged-ideation system
 block each turn (`buildGenesisSystemBlock`, gated on the scratch cwd). The operator shapes the seed
 in the `GENESIS` right-panel tab through four stages (Spark → Concept → Case → Build-direction);
 **CREATE & SCAFFOLD** (operator-confirmed) creates the real project folder, writes seed docs via the
@@ -1051,7 +1051,7 @@ direct kernel mutation (`task_kernel`, the default) and comment-as-update
    back to `provider: 'claude'` if absent), emits
    `cluster_orchestration_assist_started` + `cluster_orchestration_proposal_started`,
    creates a durable `OrchestrationProposal` via `orchestrationProposals.create`,
-   writes it to `<cwd>/.archon/project/orchestration-proposals.json` (atomic
+   writes it to `<cwd>/.arco/project/orchestration-proposals.json` (atomic
    tmp+rename), emits `cluster_orchestration_proposal_proposed` + a fresh
    `cluster_orchestration_proposals_snapshot` broadcast to the cluster.
    Suggested `provider` / `model` / `effort` in `OrchestrationAssistModelRef`
@@ -1079,10 +1079,10 @@ direct kernel mutation (`task_kernel`, the default) and comment-as-update
 
 ### Persistence
 
-- `<cwd>/.archon/project/orchestration-proposals.json` — versioned
+- `<cwd>/.arco/project/orchestration-proposals.json` — versioned
   (`version: 1`), atomic write, cleaned through `cleanProposal()` on every
   load/save. Sorted by `updatedAt` descending. The file is cwd-scoped (same
-  `.archon/project/` root as `tasks.json`), so all cluster members sharing the
+  `.arco/project/` root as `tasks.json`), so all cluster members sharing the
   cwd see the same proposals.
 - Hard limits enforced at the module layer: prompt ≤ 16 KB, rationale ≤ 16 KB,
   raw JSON ≤ 64 KB (truncated), items ≤ 64, input refs ≤ 64, ref string ≤ 2 KB.
@@ -1146,7 +1146,7 @@ A propose-only primitive that compacts a long-lived agent-instruction file (`CLA
 
 ### Trigger
 
-The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` — `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.archon` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (claude→`CLAUDE.md`, codex→`AGENTS.md`, gemini→`GEMINI.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
+The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` — `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (claude→`CLAUDE.md`, codex→`AGENTS.md`, gemini→`GEMINI.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
 
 ### Server-side flow
 
@@ -1154,7 +1154,7 @@ The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog
 
 ### Propose → approve fence
 
-On **Accept** the client fires `md_tuneup_accept { tuneupId, filePath, proposed }`; `handleMdTuneupAccept` → `backupAndWriteInstructionFile` re-reads the current file, backs the original up to `.archon/md-backups/<baseName>.<ts>.bak` (fsync-flushed BEFORE the overwrite), then writes `proposed` through the `resolveWithinCwd`-guarded path, answering `md_tuneup_applied { ok, backupPath?, bytesWritten?, error? }`. Reject discards; nothing is written.
+On **Accept** the client fires `md_tuneup_accept { tuneupId, filePath, proposed }`; `handleMdTuneupAccept` → `backupAndWriteInstructionFile` re-reads the current file, backs the original up to `.arco/md-backups/<baseName>.<ts>.bak` (fsync-flushed BEFORE the overwrite), then writes `proposed` through the `resolveWithinCwd`-guarded path, answering `md_tuneup_applied { ok, backupPath?, bytesWritten?, error? }`. Reject discards; nothing is written.
 
 ### Fence note
 

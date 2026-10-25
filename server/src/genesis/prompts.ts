@@ -1,6 +1,6 @@
 // ── Genesis prompt assembly: anchored field prompts + staged system blocks (M1) ──
 //
-// Server-side prompt assembly ONLY. This module composes the system block(s) Archon
+// Server-side prompt assembly ONLY. This module composes the system block(s) Arco
 // already sends (the same labeled-block shape as buildLocalClusterSystemPrompt in
 // server/src/server/prompts.ts) plus the next field prompt. It introduces no loop,
 // no second model, no orchestrator — M2/M3 fold buildGenesisSystemBlock() into the
@@ -11,10 +11,10 @@
 // anti-hallucination rule ("treat empty fields as unknown"), the stage-aware
 // personality, and the per-field "cite upstream fields as source-of-truth" anchoring
 // all carry over. Seedbank's JSON suggestion/landscape/draft-parsing machinery does
-// NOT — Genesis rides Archon's normal chat agent, so the output is conversational,
+// NOT — Genesis rides Arco's normal chat agent, so the output is conversational,
 // not a parsed JSON field write.
 
-import type { GenesisField, GenesisSeed, GenesisStage } from '@archon/shared';
+import type { GenesisField, GenesisSeed, GenesisStage } from '@arco/shared';
 import {
   GENESIS_STAGE_LABELS,
   assessGenesisReadiness,

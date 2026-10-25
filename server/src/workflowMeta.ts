@@ -1,13 +1,13 @@
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
-// Lives at <cwd>/.archon/workflows/<wfid>/meta.json alongside Slot 5's
-// events.jsonl and Slot 7's build-log.md. Decouples Archon workflow identity
+// Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
+// events.jsonl and Slot 7's build-log.md. Decouples Arco workflow identity
 // from provider CLI session IDs so a workflow can span compactions (new
 // Claude session) and cross-provider resumes (Claude → Codex).
 // See docs/WORKFLOW_CONTINUITY_PLAN.md §4.1.
 //
 // Invariants:
-//   - All reads / writes scope to <cwd>/.archon/workflows/<wfid>/ (path-
+//   - All reads / writes scope to <cwd>/.arco/workflows/<wfid>/ (path-
 //     escape defense matches memory.ts + buildLog.ts).
 //   - Writes are atomic (tmp + rename). Same pattern as sibling modules.
 //   - Read-modify-write goes through updateMeta(), which holds withFileLock on
@@ -19,7 +19,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { ProviderName, ModelName, EffortLevel, WorkflowMetaSummary, SessionHistoryEntry, PreviewHistoryEntry, SessionInfo, McpWorkflowAllow, GenesisSeed, WorkflowConfig, ArchonSkillRef } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, WorkflowMetaSummary, SessionHistoryEntry, PreviewHistoryEntry, SessionInfo, McpWorkflowAllow, GenesisSeed, WorkflowConfig, ArcoSkillRef } from '@arco/shared';
 import { getRecallIndex } from './recall/index.js';
 import { upsertSessionIndexFromMeta } from './workflows/sessionIndex.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
@@ -27,7 +27,7 @@ import { atomicWriteFile, withFileLock } from './atomicFile.js';
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 
 export function workflowDir(cwd: string, wfid: string): string {
-  return path.join(cwd, '.archon', 'workflows', wfid);
+  return path.join(cwd, '.arco', 'workflows', wfid);
 }
 
 export { WFID_PATTERN };
@@ -116,7 +116,7 @@ export interface WorkflowMeta {
   chatWebAccess?: boolean;
   // VOICE_AGENT_PLAN.md — this Chat is the Computer voice operator.
   voiceOperator?: boolean;
-  computerContext?: import('@archon/shared').ComputerContextState;
+  computerContext?: import('@arco/shared').ComputerContextState;
   // ZAI_NATIVE_PLAN.md — native direct GLM transport by default; appserver is
   // the legacy Codex app-server proxy fallback.
   zaiTransport?: 'native' | 'appserver';
@@ -177,7 +177,7 @@ export interface WorkflowMeta {
   goal?: string;
   // Durable tab-level skill pins. Bodies stay in their SKILL.md files and are
   // re-resolved at turn start so skill edits apply without rewriting meta.
-  pinnedSkills?: ArchonSkillRef[];
+  pinnedSkills?: ArcoSkillRef[];
   // REMOTE_MANAGEMENT.md §1.4 — per-workflow hub opt-in (`REMOTE CONTINUATION`).
   // Default OFF: absent/false ⇒ this workflow is not reported to the management
   // hub, remote actions are rejected, and it produces no phone notifications.
@@ -212,7 +212,7 @@ export interface WorkflowMeta {
   // against the newer session state.
   calibration?: { ratio: number; overhead: number; lastGroundTruth?: number };
   // Plan attached to this workflow, if any. Plans live at
-  // <cwd>/.archon/plans/<planId>.md (see planStore.ts) and are explicitly
+  // <cwd>/.arco/plans/<planId>.md (see planStore.ts) and are explicitly
   // attached — never auto-bound by cwd, since one folder may host multiple
   // independent project plans. `planLastSeenUpdatedAt` snapshots the plan's
   // updatedAt at the last turn that injected it; if the operator edits the
@@ -243,15 +243,15 @@ export interface WorkflowMeta {
   // children out of the top tab strip until the operator promotes them.
   // Persisted so a server restart restores the parent/child relationship.
   parentWorkflowId?: string;
-  // ARCHON_OPS_PLAN.md §E1 — per-tab MCP allowlist. One entry per registry
+  // ARCO_OPS_PLAN.md §E1 — per-tab MCP allowlist. One entry per registry
   // server the operator has interacted with for THIS tab: `enabled` is the
   // per-tab server toggle; `allowedDangerousTools` is the explicit tick-list
   // of dangerous tools opted back in; `tools` caches the last-probed list so
   // the `--disallowedTools` computation at turn time is deterministic without
   // a per-spawn probe. Keyed by serverId; the global server def lives in
-  // ~/.archon/mcp/registry.json. Absent ⇒ no MCP servers wired for this tab.
+  // ~/.arco/mcp/registry.json. Absent ⇒ no MCP servers wired for this tab.
   mcpAllow?: McpWorkflowAllow[];
-  // ARCHON_OPS_PLAN.md Part M (Genesis, M2) — mirror of the workflow's genesis
+  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — mirror of the workflow's genesis
   // seed, written once the from-nothing genesis is scaffolded and a cwd exists
   // (before that there is no meta.json — the seed lives only on the client-
   // persisted WorkflowConfig). Lets a scaffolded genesis project resume with its
@@ -379,9 +379,9 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
   // workflow's meta write, so the upsert is fired-and-logged, never awaited
   // into the meta-write result. recall.db is a rebuildable projection anyway.
   getRecallIndex().upsertFromMeta(meta).catch((err) => {
-    console.error('[archon] recall index upsert failed:', err);
+    console.error('[arco] recall index upsert failed:', err);
   });
-  // ARCHON_OPS_PLAN.md §H1 — keep the project-local session index current after
+  // ARCO_OPS_PLAN.md §H1 — keep the project-local session index current after
   // every turn. Same FAILURE-ISOLATED contract as the recall upsert above: the
   // session index is a rebuildable projection, so a hiccup must never break the
   // meta write. Fired-and-logged, never awaited.
@@ -393,7 +393,7 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
       .then(() => import('./workflows/modelTitles.js'))
       .then((m) => m.maybeGenerateModelTitle(meta))
       .catch((err) => {
-        console.error('[archon] session index upsert failed:', err);
+        console.error('[arco] session index upsert failed:', err);
       });
   }
 }
@@ -474,7 +474,7 @@ export async function appendCliSession(
 
 // Reconcile meta.cliSessions with the orchestrator's live session id after a
 // turn completes. Purpose: Codex mints its own thread_id on first-turn `init`,
-// but meta was persisted with Archon's placeholder UUID at workflow creation.
+// but meta was persisted with Arco's placeholder UUID at workflow creation.
 // Without reconciliation the stored id never matches a real Codex rollout and
 // the next `codex exec resume` errors with "no rollout found for thread id".
 // Claude/Gemini are no-ops in the common case (Claude's UUID matches by
@@ -522,7 +522,7 @@ export function latestCliSessionFor(meta: WorkflowMeta, provider: ProviderName):
   return null;
 }
 
-export function archonInternalSessionInfoForMeta(meta: WorkflowMeta): SessionInfo | null {
+export function arcoInternalSessionInfoForMeta(meta: WorkflowMeta): SessionInfo | null {
   if (meta.primaryProvider !== 'claude' && meta.primaryProvider !== 'antigravity' && meta.primaryProvider !== 'ollama') return null;
   if (meta.primaryProvider === 'claude' && latestCliSessionFor(meta, 'claude')) return null;
   return {
@@ -531,9 +531,9 @@ export function archonInternalSessionInfoForMeta(meta: WorkflowMeta): SessionInf
     name: meta.name,
     startedAt: meta.lastActiveAt || meta.createdAt,
     provider: meta.primaryProvider,
-    archonWorkflowId: meta.workflowId,
-    archonName: meta.name,
-    archonInternal: true,
+    arcoWorkflowId: meta.workflowId,
+    arcoName: meta.name,
+    arcoInternal: true,
   };
 }
 
@@ -563,7 +563,7 @@ export async function clearProviderCliSessions(
   });
 }
 
-// ARCHON_OPS_PLAN.md §E1 — set one server's per-tab allowlist entry. Replaces
+// ARCO_OPS_PLAN.md §E1 — set one server's per-tab allowlist entry. Replaces
 // the entry for `serverId` (or appends it) with the operator's per-tab enable
 // + dangerous-tool ticks. `tools` (optional) refreshes the cached probe list
 // used to compute `--disallowedTools` deterministically at turn time; pass it
@@ -615,7 +615,7 @@ export async function setMcpProbedTools(
 // empty list when the directory doesn't exist; unreadable entries skipped.
 export async function listWorkflowMetas(cwd: string): Promise<WorkflowMetaSummary[]> {
   if (!cwd) return [];
-  const workflowsDir = path.join(cwd, '.archon', 'workflows');
+  const workflowsDir = path.join(cwd, '.arco', 'workflows');
   let entries: string[];
   try {
     entries = await fs.readdir(workflowsDir);

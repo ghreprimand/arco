@@ -13,7 +13,7 @@ import {
   CLUSTER_EFFICIENCY_LABELS,
   CLUSTER_EFFICIENCY_ADDENDUM_MAX,
   type ClusterEfficiencyLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export function EfficiencyControl({
   clusterId,

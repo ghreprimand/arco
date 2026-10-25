@@ -2,12 +2,12 @@ import { confinedPath } from './fileAccessPolicy.js';
 // ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — project-DOCUMENT scan. The ARTIFACTS
 // lens is a project-artifact tool, and the documents an operator most wants to
 // find live in the PROJECT TREE (e.g. `Codex/Reports/2026-07-10_*.md`, top-level
-// `*.md`, `docs/*.md`) — NOT under `.archon/workflows/*/artifacts/` (those are
+// `*.md`, `docs/*.md`) — NOT under `.arco/workflows/*/artifacts/` (those are
 // the workflow artifacts the explorerArtifacts.ts join already surfaces). This
 // scan is the other half: readable documents in the real tree, so drilling into
 // a project shows the docs written FOR it, not just agent workflow spill.
 //
-// Portable pruned walk (no `fd`), $HOME-jailed, depth/count-capped. `.archon` is
+// Portable pruned walk (no `fd`), $HOME-jailed, depth/count-capped. `.arco` is
 // pruned wholesale here (the artifacts join owns it — merging both client-side
 // gives the full picture without double-counting).
 
@@ -16,7 +16,7 @@ import { basename, join, relative } from 'path';
 import { readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { realpathWithinHome } from './explorerArtifacts.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export interface DocEntry {
   path: string;
@@ -30,7 +30,7 @@ export interface DocEntry {
 
 const PRUNE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '.venv', '__pycache__',
-  '.next', 'target', '.cache', 'coverage', '.turbo', '.archon',
+  '.next', 'target', '.cache', 'coverage', '.turbo', '.arco',
 ]);
 // Readable document types. Deliberately NOT images/binaries — those browse via
 // the TREE lens; this is the "find and read a doc" surface.
@@ -71,7 +71,7 @@ export async function collectProjectDocs(project: string, limit = 1000): Promise
   return out.slice(0, limit);
 }
 
-const KNOWN_CWDS = join(archonHome(), 'known-cwds.json');
+const KNOWN_CWDS = join(arcoHome(), 'known-cwds.json');
 
 async function readKnownCwds(): Promise<string[]> {
   try {

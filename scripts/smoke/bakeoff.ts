@@ -1,7 +1,7 @@
 // Worktree bake-off smoke — no dev server and no model spend.
 //
 // Exercises the destructive core against a disposable git repository:
-// isolated attempt creation, candidate diff, .archon exclusion, deterministic
+// isolated attempt creation, candidate diff, .arco exclusion, deterministic
 // promotion, source-drift refusal, and branch-preserving cleanup.
 
 import { execFileSync } from 'node:child_process';
@@ -10,7 +10,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import type { BakeoffState } from '@archon/shared';
+import type { BakeoffState } from '@arco/shared';
 import {
   bakeoffAttemptDiff,
   bakeoffWorktreesRoot,
@@ -43,7 +43,7 @@ async function waitUntil(predicate: () => boolean, label: string): Promise<void>
 }
 
 async function main() {
-  const repo = mkdtempSync(path.join(tmpdir(), 'archon-bakeoff-'));
+  const repo = mkdtempSync(path.join(tmpdir(), 'arco-bakeoff-'));
   const bakeoffId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
   const specs = [
     { provider: 'claude' as const, model: 'sonnet' as const, effort: 'high' as const },
@@ -52,15 +52,15 @@ async function main() {
 
   try {
     git(repo, 'init', '-q');
-    git(repo, 'config', 'user.email', 'test@archon.local');
+    git(repo, 'config', 'user.email', 'test@arco.local');
     git(repo, 'config', 'user.name', 'Arco Test');
     git(repo, 'checkout', '-q', '-B', 'main');
     await fs.writeFile(path.join(repo, 'tracked.txt'), 'base\n');
     git(repo, 'add', 'tracked.txt');
     git(repo, 'commit', '-q', '-m', 'base');
     const base = git(repo, 'rev-parse', 'HEAD');
-    await fs.mkdir(path.join(repo, '.archon'), { recursive: true });
-    await fs.writeFile(path.join(repo, '.archon', 'events.jsonl'), 'source metadata\n');
+    await fs.mkdir(path.join(repo, '.arco'), { recursive: true });
+    await fs.writeFile(path.join(repo, '.arco', 'events.jsonl'), 'source metadata\n');
 
     const prepared = await createBakeoffAttempts({ cwd: repo, bakeoffId, specs });
     await step('create: every attempt gets the same base in an isolated branch', async () => {
@@ -70,7 +70,7 @@ async function main() {
       assert(git(prepared.attempts[0].worktreePath, 'rev-parse', 'HEAD') === base, 'attempt 1 base');
       assert(git(prepared.attempts[1].worktreePath, 'rev-parse', 'HEAD') === base, 'attempt 2 base');
       assert(
-        git(repo, 'status', '--porcelain').split('\n').every((line) => !line || line.includes('.archon')),
+        git(repo, 'status', '--porcelain').split('\n').every((line) => !line || line.includes('.arco')),
         'source has no project changes',
       );
     });
@@ -89,23 +89,23 @@ async function main() {
       attempts: prepared.attempts,
     };
 
-    await step('diff: includes tracked + untracked project files but excludes .archon metadata', async () => {
+    await step('diff: includes tracked + untracked project files but excludes .arco metadata', async () => {
       const attempt = prepared.attempts[0];
       await fs.writeFile(path.join(attempt.worktreePath, 'tracked.txt'), 'winner\n');
       await fs.writeFile(path.join(attempt.worktreePath, 'new-file.txt'), 'new\n');
-      await fs.mkdir(path.join(attempt.worktreePath, '.archon'), { recursive: true });
-      await fs.writeFile(path.join(attempt.worktreePath, '.archon', 'events.jsonl'), 'metadata\n');
+      await fs.mkdir(path.join(attempt.worktreePath, '.arco'), { recursive: true });
+      await fs.writeFile(path.join(attempt.worktreePath, '.arco', 'events.jsonl'), 'metadata\n');
       const patch = await bakeoffAttemptDiff(state, attempt);
       assert(patch.includes('winner'), 'tracked edit should appear');
       assert(patch.includes('new-file.txt'), 'untracked project file should appear');
-      assert(!patch.includes('events.jsonl'), '.archon metadata must stay out');
+      assert(!patch.includes('events.jsonl'), '.arco metadata must stay out');
     });
 
-    await step('metadata guard: refuses an agent-created commit containing .archon state', async () => {
+    await step('metadata guard: refuses an agent-created commit containing .arco state', async () => {
       const attempt = prepared.attempts[1];
-      await fs.mkdir(path.join(attempt.worktreePath, '.archon'), { recursive: true });
-      await fs.writeFile(path.join(attempt.worktreePath, '.archon', 'committed.json'), '{}\n');
-      git(attempt.worktreePath, 'add', '-f', '.archon/committed.json');
+      await fs.mkdir(path.join(attempt.worktreePath, '.arco'), { recursive: true });
+      await fs.writeFile(path.join(attempt.worktreePath, '.arco', 'committed.json'), '{}\n');
+      git(attempt.worktreePath, 'add', '-f', '.arco/committed.json');
       git(attempt.worktreePath, 'commit', '-q', '-m', 'unsafe metadata');
       let caught: unknown;
       try {
@@ -122,9 +122,9 @@ async function main() {
       assert(promoted.mergeCommit.length === 40, 'merge commit should be a full sha');
       assertEq(await fs.readFile(path.join(repo, 'tracked.txt'), 'utf8'), 'winner\n', 'winner edit merged');
       assertEq(await fs.readFile(path.join(repo, 'new-file.txt'), 'utf8'), 'new\n', 'winner addition merged');
-      assert(!git(repo, 'ls-files').split('\n').some((file) => file.startsWith('.archon/')), 'metadata not committed');
+      assert(!git(repo, 'ls-files').split('\n').some((file) => file.startsWith('.arco/')), 'metadata not committed');
       assert(
-        git(repo, 'status', '--porcelain').split('\n').every((line) => !line || line.includes('.archon')),
+        git(repo, 'status', '--porcelain').split('\n').every((line) => !line || line.includes('.arco')),
         'source has no project changes after merge',
       );
     });

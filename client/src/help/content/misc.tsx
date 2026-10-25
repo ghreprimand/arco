@@ -174,7 +174,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         lists failed and 4xx/5xx requests. Each writes a report (and screenshot)
         artifact under the workflow's <C>artifacts/</C> dir — inspectable evidence,
         not autonomous browsing. Needs a system browser installed (or{' '}
-        <C>ARCHON_CHROME_BINARY</C> set); none bundled.
+        <C>ARCO_CHROME_BINARY</C> set); none bundled.
       </p>
     ),
     manualSection: 'preview-tab',
@@ -335,7 +335,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         The project root the agent operates against. Type a path, click a
         folder in the picker below, or use the <C>↑ UP</C> button to navigate.
         All persistence (<C>events.jsonl</C>, <C>meta.json</C>, artifacts)
-        lives under <C>&lt;cwd&gt;/.archon/</C>.
+        lives under <C>&lt;cwd&gt;/.arco/</C>.
       </p>
     ),
   },
@@ -481,7 +481,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Persists the current picker state — provider, model, effort,
         permissions, fast mode, fallback — to{' '}
-        <C>~/.archon/settings.json</C> so the next workflow pre-selects the
+        <C>~/.arco/settings.json</C> so the next workflow pre-selects the
         same. The cwd is <em>not</em> saved (each workflow has its own).
       </p>
     ),
@@ -937,7 +937,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Opens the title + body editor for the active plan. Save commits to{' '}
-        <C>.archon/plans/&lt;id&gt;.md</C>; the body re-injects on the next
+        <C>.arco/plans/&lt;id&gt;.md</C>; the body re-injects on the next
         turn so the agent sees your edits.
       </p>
     ),
@@ -996,7 +996,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Reference docs',
     body: (
       <p>
-        Long-form docs attached to this plan (<C>.archon/plans/&lt;id&gt;.refs/</C>).
+        Long-form docs attached to this plan (<C>.arco/plans/&lt;id&gt;.refs/</C>).
         Keep the plan a checklist and link detail from a task as{' '}
         <C>[label](ref:slug)</C> — the link renders as a chip that opens the doc.
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
@@ -1480,10 +1480,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         The llama.cpp lifecycle manager: the <C>llama-server</C> binary path,
-        registered loadouts (from <C>~/.archon/llamacpp.json</C>), the manager
+        registered loadouts (from <C>~/.arco/llamacpp.json</C>), the manager
         state (idle/loading/ready/failed), the currently-loaded alias + port +
         pid, the <strong>last launch args</strong>, and a tail of the last
-        <C> ~/.archon/llamacpp.log</C> stderr. A failed last launch is the one
+        <C> ~/.arco/llamacpp.log</C> stderr. A failed last launch is the one
         <strong> ERROR</strong> case; the stderr tail is where to look.
       </p>
     ),
@@ -1494,7 +1494,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         The detected hardware profile (backend / VRAM / RAM / cores / GPUs), the
-        GGUFs downloaded under <C>~/.archon/models</C>, and{' '}
+        GGUFs downloaded under <C>~/.arco/models</C>, and{' '}
         <strong>fit-score mismatch warnings</strong> — registered llama.cpp
         loadouts that won't fit this hardware on GPU at a useful context (scored
         with the same engine the Cookbook catalog uses). A mismatch is an

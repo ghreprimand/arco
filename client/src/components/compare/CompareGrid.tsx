@@ -1,4 +1,4 @@
-import type { CompareLegConfig } from '@archon/shared';
+import type { CompareLegConfig } from '@arco/shared';
 import type { ComparePane } from '../../stores/compareStore';
 
 // Compare grid — WORKBENCH_EXPANSION_PLAN.md §B1.

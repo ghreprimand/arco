@@ -115,7 +115,7 @@ check('digest records tool usage', digest.includes('Read:') && digest.includes('
 // ── 5. Assemble: system + seed + sanitized/truncated tail ────────────────────
 const assembled = assembleCompacted(split, digest, config);
 check('assembled keeps system block first', assembled[0] === SYSTEM);
-check('assembled has exactly one summary seed user message', assembled.filter((m) => m.role === 'user' && m.content.includes('[Archon auto-compaction]')).length === 1);
+check('assembled has exactly one summary seed user message', assembled.filter((m) => m.role === 'user' && m.content.includes('[Arco auto-compaction]')).length === 1);
 check('assembled keeps the verbatim last user turn', assembled[assembled.length - 1].content === 'Now run the tests.');
 check('assembled is shorter than original', assembled.length < transcript.length);
 
@@ -194,7 +194,7 @@ check('stats counts are positive', stats.beforeBytes > 0 && stats.afterBytes > 0
   const summaryText = nullSummary ?? deterministicDigest(split.older);
   const fallbackAssembled = assembleCompacted(split, summaryText, config);
   check('compaction STILL happens on null seam (fallback)', fallbackAssembled.length < transcript.length && fallbackAssembled[0] === SYSTEM);
-  const seed = fallbackAssembled.find((m) => m.role === 'user' && m.content.includes('[Archon auto-compaction]'));
+  const seed = fallbackAssembled.find((m) => m.role === 'user' && m.content.includes('[Arco auto-compaction]'));
   check('fallback seed carries the deterministic digest', !!seed && seed.content.includes('Progress recap'));
 
   // Empty older half ⇒ compactionSeedMessage still well-formed (defensive).

@@ -3,16 +3,16 @@
 //
 // The origin guard (originGuard.ts) stops hostile *web pages*; it lets any
 // Origin-less client through by design. That left the control plane open to
-// every local process — including the agents Archon itself spawns. 2026-10-10
+// every local process — including the agents Arco itself spawns. 2026-10-10
 // incident: a cluster Director grepped shared/src/protocol, then drove
 // `cluster_dispatch_once` and `update_primary_config { goalRun }` from Bash
 // over a hand-rolled Node `ws` client — operator-absent orchestration with AUTO-PICKUP / NUDGES / the dispatcher all OFF, because
-// those toggles only fence Archon's own automation.
+// those toggles only fence Arco's own automation.
 //
 // Shape: an HMAC key lives in process memory only (never on disk, never in env,
 // rotated every boot). `POST /api/session` mints a short-lived token into an
 // HttpOnly SameSite=Strict cookie, and only for requests carrying the fetch
-// metadata a browser attaches to a same-origin fetch from the Archon page. The
+// metadata a browser attaches to a same-origin fetch from the Arco page. The
 // WS upgrade then requires that cookie plus an allowed Origin. Page JS never
 // sees the token; the client re-mints before every connect, so a server restart
 // (new key) costs nothing.
@@ -32,8 +32,8 @@
 // explicit circumvention, and every mint / refusal is logged. It is not an OS
 // sandbox.
 //
-// ARCHON_WS_AUTH=off disables the gate for throwaway test servers (the smoke
-// harness connects with a plain Node client). Never set it on archon.service.
+// ARCO_WS_AUTH=off disables the gate for throwaway test servers (the smoke
+// harness connects with a plain Node client). Never set it on arco.service.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { IncomingMessage } from 'http';
@@ -44,10 +44,10 @@ const TOKEN_TTL_MS = 60 * 60 * 1000;
 
 // Cookies ignore the port, so a dev server and prod on one host would clobber
 // each other's cookie under a shared name.
-export const SESSION_COOKIE = `archon_session_${PORT}`;
+export const SESSION_COOKIE = `arco_session_${PORT}`;
 
 export function wsAuthEnabled(): boolean {
-  return (process.env.ARCHON_WS_AUTH ?? '').trim().toLowerCase() !== 'off';
+  return (process.env.ARCO_WS_AUTH ?? '').trim().toLowerCase() !== 'off';
 }
 
 function sign(payload: string): string {
@@ -83,7 +83,7 @@ export function readCookie(req: IncomingMessage, name: string): string | undefin
 
 export type AuthVerdict = { ok: true } | { ok: false; reason: string };
 
-// A same-origin `fetch()` from the Archon page. Node `ws`/`fetch`, curl, and
+// A same-origin `fetch()` from the Arco page. Node `ws`/`fetch`, curl, and
 // cross-site pages don't produce this header set unless deliberately forged.
 // Origin presence is required here; its *value* was already vetted by
 // checkRequestOrigin before routing.
@@ -105,7 +105,7 @@ export function sessionCookieHeader(token: string): string {
 // The agent tool surface — reachable without the cookie. Keep this list to
 // endpoints an MCP child or bridge script calls by design.
 const AGENT_TOOL_ROUTE = /^\/api\/clusters\/[^/]+\/peer\/[^/]+$/;
-// `/api/voice/tool` is the archon-voice MCP child's relay (VOICE_AGENT_PLAN.md);
+// `/api/voice/tool` is the arco-voice MCP child's relay (VOICE_AGENT_PLAN.md);
 // the route itself additionally refuses non-loopback peers.
 const AGENT_TOOL_PATHS = new Set(['/api/plans', '/api/plans/attach', '/api/plans/refs', '/api/plans/refs/body', '/api/voice/tool']);
 

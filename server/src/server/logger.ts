@@ -1,14 +1,14 @@
-// ARCHON_OPS_PLAN.md §B3 — structured file logging with size-based rotation.
+// ARCO_OPS_PLAN.md §B3 — structured file logging with size-based rotation.
 //
 // WHY a console tee, not call-site migration: server/src has 378 console.*
 // call sites. Rather than rewrite them, initFileLogging() monkeypatches
 // console.log/warn/error so each call (a) still writes to stdout/stderr — so
 // systemd/journald keeps capturing it unchanged — and (b) appends one structured
-// JSONL line to a rotated Archon-owned file. The file is the portable/structured
+// JSONL line to a rotated Arco-owned file. The file is the portable/structured
 // complement to journald (works on macOS, greppable, bounded).
 //
-// WHY file output is gated on an env flag: with neither ARCHON_LOG_FILE nor
-// ARCHON_LOG_DIR set (the default, incl. `npm run dev`), no structured file is
+// WHY file output is gated on an env flag: with neither ARCO_LOG_FILE nor
+// ARCO_LOG_DIR set (the default, incl. `npm run dev`), no structured file is
 // written. The lightweight console wrapper is still installed because strict
 // incognito must suppress stdout/stderr even in a redirected dev process.
 //
@@ -22,7 +22,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { format } from 'node:util';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 export interface FileLoggerOptions {
   dir: string;
@@ -40,7 +40,7 @@ export interface FileLogger {
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_KEEP = 5;
-const DEFAULT_FILE_NAME = 'archon.log';
+const DEFAULT_FILE_NAME = 'arco.log';
 
 // Testable factory. Appends one JSON line per write with synchronous
 // appendFileSync (so a line is on disk — and immediately readable — the instant
@@ -68,8 +68,8 @@ export function createFileLogger(opts: FileLoggerOptions): FileLogger {
     dead = true;
   }
 
-  // Shift archon.log.(keep-1)→drop … archon.log.1→archon.log.2, archon.log→.1,
-  // then reset the counter (the next appendFileSync re-creates archon.log).
+  // Shift arco.log.(keep-1)→drop … arco.log.1→arco.log.2, arco.log→.1,
+  // then reset the counter (the next appendFileSync re-creates arco.log).
   function rotate(): void {
     try {
       rmSync(`${path}.${keep}`, { force: true });
@@ -125,7 +125,7 @@ let activePath: string | null = null;
 // in an incognito create/turn promise tree (including provider callbacks). The
 // token set is a second fence for delayed callbacks whose async context was
 // detached by a library: an incognito workflow/worker id must never reach
-// stdout, journald, or Archon's structured log. Tokens intentionally live only
+// stdout, journald, or Arco's structured log. Tokens intentionally live only
 // for this process lifetime and are never removed; late post-close callbacks
 // therefore remain private too.
 const logSuppression = new AsyncLocalStorage<boolean>();
@@ -157,19 +157,19 @@ function resolveNum(envName: string, fallback: number): number {
 }
 
 // Production entry. Returns false (and does nothing) unless file logging is
-// requested via ARCHON_LOG_FILE=1 or an explicit ARCHON_LOG_DIR. Otherwise
+// requested via ARCO_LOG_FILE=1 or an explicit ARCO_LOG_DIR. Otherwise
 // creates the singleton logger and monkeypatches console.log/warn/error so each
 // call preserves stdout AND emits a structured line. Idempotent.
 export function initFileLogging(): boolean {
   if (installed) return fileLoggingEnabled;
-  const enabled = process.env.ARCHON_LOG_FILE === '1' || !!(process.env.ARCHON_LOG_DIR && process.env.ARCHON_LOG_DIR.trim());
+  const enabled = process.env.ARCO_LOG_FILE === '1' || !!(process.env.ARCO_LOG_DIR && process.env.ARCO_LOG_DIR.trim());
   fileLoggingEnabled = enabled;
-  const maxBytes = resolveNum('ARCHON_LOG_MAX_BYTES', DEFAULT_MAX_BYTES);
-  const keep = resolveNum('ARCHON_LOG_KEEP', DEFAULT_KEEP);
+  const maxBytes = resolveNum('ARCO_LOG_MAX_BYTES', DEFAULT_MAX_BYTES);
+  const keep = resolveNum('ARCO_LOG_KEEP', DEFAULT_KEEP);
   if (enabled) {
-    const dir = process.env.ARCHON_LOG_DIR && process.env.ARCHON_LOG_DIR.trim()
-      ? process.env.ARCHON_LOG_DIR
-      : join(archonHome(), 'logs');
+    const dir = process.env.ARCO_LOG_DIR && process.env.ARCO_LOG_DIR.trim()
+      ? process.env.ARCO_LOG_DIR
+      : join(arcoHome(), 'logs');
     singleton = createFileLogger({ dir, maxBytes, keep });
     activePath = singleton.path;
   }
@@ -192,7 +192,7 @@ export function initFileLogging(): boolean {
   installed = true;
   if (enabled) {
     // Use the patched console so this startup line lands in the file too.
-    console.log(`[archon] structured file logging → ${activePath} (max ${maxBytes}B × ${keep})`);
+    console.log(`[arco] structured file logging → ${activePath} (max ${maxBytes}B × ${keep})`);
   }
   return enabled;
 }

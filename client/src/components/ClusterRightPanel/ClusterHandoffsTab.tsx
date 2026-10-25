@@ -1,6 +1,6 @@
 import { useAppStore } from '../../stores/appStore';
 import { HandoffList, type HandoffListRow } from '../HandoffList';
-import type { ClusterStatePayload } from '@archon/shared';
+import type { ClusterStatePayload } from '@arco/shared';
 import type { HandoffLockEntry } from '../../stores/appStore';
 
 const EMPTY_HANDOFF_LOCKS: HandoffLockEntry[] = [];

@@ -1,4 +1,4 @@
-import type { CatalogRow } from '@archon/shared';
+import type { CatalogRow } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import {
   useCookbookStore,
@@ -16,7 +16,7 @@ import { fmtBytes } from './fmt';
 // model is now in CONFIG (HF) / pulled (Ollama). A disk refusal shows the
 // "won't fit" message instead of starting.
 //
-// HF pick  → DOWNLOAD streams the GGUF into ~/.archon/models/ + auto-registers a
+// HF pick  → DOWNLOAD streams the GGUF into ~/.arco/models/ + auto-registers a
 //            llama.cpp catalog entry (selectable in CONFIG immediately).
 // Ollama   → DOWNLOAD runs `ollama pull` over the HTTP /api/pull endpoint
 //            (Ollama auto-discovers the tag; no catalog write).

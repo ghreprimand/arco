@@ -3,7 +3,7 @@ import { execFile } from 'child_process';
 import { join } from 'path';
 import { pathToFileURL, fileURLToPath } from 'url';
 import { promisify } from 'util';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { antigravityManager } from './antigravityManager.js';
 import { configuredAntigravityModelId } from './antigravityCapabilities.js';
 import {
@@ -648,7 +648,7 @@ function collectGeneratedFilePaths(steps: PlannerStep[], baselineCount: number):
   return [...out];
 }
 
-// ── Step → Archon Activity normalization ──────────────────────────────────────
+// ── Step → Arco Activity normalization ──────────────────────────────────────
 
 // Non-tool step types that should never surface in Activity.
 const SKIP_STEP_TYPES = new Set([
@@ -659,7 +659,7 @@ const SKIP_STEP_TYPES = new Set([
   'CORTEX_STEP_TYPE_CHECKPOINT',
 ]);
 
-// Maps Antigravity tool names to Archon Activity display names.
+// Maps Antigravity tool names to Arco Activity display names.
 const TOOL_NAME_MAP: Record<string, string> = {
   run_command: 'Bash',
   bash: 'Bash',
@@ -1190,7 +1190,7 @@ export async function runAntigravityRpcTurn(
   // Trace-file setup (no-op when TRACE_STEPS is false or cwd/workflowId missing).
   const wfId = config.workflowId;
   const traceDir = config.cwd && wfId
-    ? join(config.cwd, '.archon', 'workflows', wfId, 'debug')
+    ? join(config.cwd, '.arco', 'workflows', wfId, 'debug')
     : null;
   const traceFile = traceDir ? join(traceDir, 'antigravity-rpc-steps.jsonl') : null;
   const rawTraceFile = traceDir ? join(traceDir, 'antigravity-rpc-steps-raw.jsonl') : null;

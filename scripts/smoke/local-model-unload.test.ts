@@ -7,7 +7,7 @@ import { workflows } from '../../server/src/server/state.js';
 import { beginLocalModelUnload, localModelsUnloading } from '../../server/src/providers/localModelControl.js';
 import { createProviderProcess } from '../../server/src/providers/index.js';
 
-process.env.ARCHON_DEEPSEEK_PROFILES = join(tmpdir(), `archon-no-deepseek-${process.pid}.json`);
+process.env.ARCO_DEEPSEEK_PROFILES = join(tmpdir(), `arco-no-deepseek-${process.pid}.json`);
 
 test('FREE VRAM only targets loopback endpoints', () => {
   for (const url of ['http://localhost:8081/v1', 'http://127.0.0.1:11434', 'http://[::1]:1234/v1']) assert(isLoopbackModelEndpoint(url));

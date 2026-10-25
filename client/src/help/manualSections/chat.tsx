@@ -24,7 +24,7 @@ export const chat: Section[] = [
         composer. The box grows with the message before it starts scrolling. Attach images
         or files with <strong>＋</strong>, by pasting them in, or by dropping them anywhere
         on the window; Incognito has no attach button because
-        uploads are written to <Code>~/.archon/uploads</Code>. Hovering a message offers
+        uploads are written to <Code>~/.arco/uploads</Code>. Hovering a message offers
         <strong> COPY</strong>, <strong>EDIT</strong> on your own messages (it goes back to
         the composer) and <strong>RETRY</strong> on the last answer, which re-sends the
         message that produced it as a new turn. While a response is running, the send
@@ -44,8 +44,8 @@ export const chat: Section[] = [
         <strong> REFRESH</strong> reloads the list. This is separate from the
         project-based native-session RESUME picker.</p>
       <p>Closing a saved Chat tab removes it from the workbench, not from disk.
-        Saved chats use <Code>~/.archon/chats/&lt;wfid&gt;</Code> as a persistence
-        directory; the normal nested <Code>.archon/workflows/&lt;wfid&gt;</Code>
+        Saved chats use <Code>~/.arco/chats/&lt;wfid&gt;</Code> as a persistence
+        directory; the normal nested <Code>.arco/workflows/&lt;wfid&gt;</Code>
         event/meta files live beneath it. This is storage, not a project workspace.</p>
       <p>Incognito conversations never appear here. A load error is not an empty
         history: reconnect to Arco and refresh before concluding a saved chat is missing.</p>
@@ -68,7 +68,7 @@ export const chat: Section[] = [
         saved transport defaults. Remote provider retention is governed by that
         provider; Incognito is not a promise of provider-side deletion or anonymity.</p>
       <p>Attachments are unavailable — an upload is written to
-        <Code>~/.archon/uploads</Code> and logged there by name. Web access is off unless
+        <Code>~/.arco/uploads</Code> and logged there by name. Web access is off unless
         you arm it: a search query leaves the machine. Model, effort and the WEB toggle are
         the only settings an Incognito chat accepts, and none of them is written to disk;
         every other config surface is refused server-side.</p>

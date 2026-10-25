@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { ZaiNativeHistoryMessage } from '@archon/shared';
+import type { ZaiNativeHistoryMessage } from '@arco/shared';
 import { replayZaiNativeMessages, zaiCompactSummarySeed } from './worker.js';
 
 test('Z.ai native replay preserves reasoning_content byte-for-byte', async () => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'archon-zai-replay-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'arco-zai-replay-'));
   const workflowId = 'wf-zai-replay';
-  const dir = path.join(cwd, '.archon', 'workflows', workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', workflowId);
   await mkdir(dir, { recursive: true });
   const reasoning = 'think\nexactly: {"a":1}\n\u2603';
   const event = {
@@ -41,9 +41,9 @@ test('Z.ai native replay preserves reasoning_content byte-for-byte', async () =>
 });
 
 test('Z.ai native replay prunes dangling assistant tool calls', async () => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'archon-zai-replay-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'arco-zai-replay-'));
   const workflowId = 'wf-zai-orphan';
-  const dir = path.join(cwd, '.archon', 'workflows', workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', workflowId);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, 'events.jsonl'), JSON.stringify({
     seq: 1,
@@ -70,9 +70,9 @@ test('Z.ai native replay prunes dangling assistant tool calls', async () => {
 });
 
 test('Z.ai native replay preserves complete multi-tool rounds', async () => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'archon-zai-replay-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'arco-zai-replay-'));
   const workflowId = 'wf-zai-multi';
-  const dir = path.join(cwd, '.archon', 'workflows', workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', workflowId);
   await mkdir(dir, { recursive: true });
   const event = {
     seq: 1,
@@ -104,9 +104,9 @@ test('Z.ai native replay preserves complete multi-tool rounds', async () => {
 });
 
 test('Z.ai native replay reseeds from native_compacted marker', async () => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'archon-zai-replay-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'arco-zai-replay-'));
   const workflowId = 'wf-zai-compact';
-  const dir = path.join(cwd, '.archon', 'workflows', workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', workflowId);
   await mkdir(dir, { recursive: true });
   const summary = 'Older investigation folded. Current task is to finish compact.';
   const keptTail: ZaiNativeHistoryMessage[] = [
@@ -139,9 +139,9 @@ test('Z.ai native replay reseeds from native_compacted marker', async () => {
 });
 
 test('Z.ai native replay lets post-compact history snapshot preserve native tail', async () => {
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'archon-zai-replay-'));
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'arco-zai-replay-'));
   const workflowId = 'wf-zai-compact-snapshot';
-  const dir = path.join(cwd, '.archon', 'workflows', workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', workflowId);
   await mkdir(dir, { recursive: true });
   const summary = 'Compacted summary.';
   const exactHistory = zaiCompactSummarySeed(summary, [

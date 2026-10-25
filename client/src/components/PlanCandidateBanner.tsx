@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore, type JobState } from '../stores/appStore';
-import type { PlanFull } from '@archon/shared';
+import type { PlanFull } from '@arco/shared';
 
 interface Props {
   job: JobState;

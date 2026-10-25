@@ -22,13 +22,13 @@ For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called fro
 
 ### `POST /api/session`
 
-Mints the `archon_session_<port>` cookie that `/ws` and `/terminal` upgrades and the gated HTTP routes require (`server/src/http/wsAuth.ts`). `204` with `Set-Cookie: …; HttpOnly; SameSite=Strict; Path=/` — deliberately session-only (no `Max-Age`), so browsers keep it in memory instead of the on-disk cookie store; the server still rejects tokens older than an hour. Only a same-origin browser `fetch` qualifies: `Origin` present plus `Sec-Fetch-Site: same-origin`, `Sec-Fetch-Mode: cors|same-origin`, `Sec-Fetch-Dest: empty` — anything else is `403 { "error": "Session mint refused" }` and a `refused session mint` log line. The token is HMAC-signed with a per-boot in-memory key, so a restart invalidates every cookie; the client re-mints before each socket connect, every 20 min, on tab focus, and once on any gated-route `401` (`client/src/utils/wsSession.ts`). `ARCHON_WS_AUTH=off` turns this into a no-op `204`. No body.
+Mints the `arco_session_<port>` cookie that `/ws` and `/terminal` upgrades and the gated HTTP routes require (`server/src/http/wsAuth.ts`). `204` with `Set-Cookie: …; HttpOnly; SameSite=Strict; Path=/` — deliberately session-only (no `Max-Age`), so browsers keep it in memory instead of the on-disk cookie store; the server still rejects tokens older than an hour. Only a same-origin browser `fetch` qualifies: `Origin` present plus `Sec-Fetch-Site: same-origin`, `Sec-Fetch-Mode: cors|same-origin`, `Sec-Fetch-Dest: empty` — anything else is `403 { "error": "Session mint refused" }` and a `refused session mint` log line. The token is HMAC-signed with a per-boot in-memory key, so a restart invalidates every cookie; the client re-mints before each socket connect, every 20 min, on tab focus, and once on any gated-route `401` (`client/src/utils/wsSession.ts`). `ARCO_WS_AUTH=off` turns this into a no-op `204`. No body.
 
 ---
 
 ## Liveness & readiness
 
-Two distinct signals (ARCHON_OPS_PLAN.md §B2): liveness ("the process is up and serving") vs readiness ("the process has finished boot and can take real traffic"). Both are unauthenticated `GET`s, never gated on `ARCHON_SERVE_CLIENT`, and route ahead of the static-client fallback.
+Two distinct signals (ARCO_OPS_PLAN.md §B2): liveness ("the process is up and serving") vs readiness ("the process has finished boot and can take real traffic"). Both are unauthenticated `GET`s, never gated on `ARCO_SERVE_CLIENT`, and route ahead of the static-client fallback.
 
 ### `GET /healthz`
 
@@ -77,7 +77,7 @@ Not ready (`503`):
 }
 ```
 
-Readiness is **exactly** capabilities + stores. Best-effort boot prefetches (settings, catalogs, recall backfill) are deliberately excluded — a failed/slow prefetch must not wedge readiness false (and store recovery itself marks `stores` ready in a `.finally`, so a recovery error still flips the gate rather than blocking it forever). `archon service status` surfaces the live `/readyz` result. See [`SERVICE_MODE.md` § Health & readiness](SERVICE_MODE.md).
+Readiness is **exactly** capabilities + stores. Best-effort boot prefetches (settings, catalogs, recall backfill) are deliberately excluded — a failed/slow prefetch must not wedge readiness false (and store recovery itself marks `stores` ready in a `.finally`, so a recovery error still flips the gate rather than blocking it forever). `arco service status` surfaces the live `/readyz` result. See [`SERVICE_MODE.md` § Health & readiness](SERVICE_MODE.md).
 
 ---
 
@@ -164,15 +164,15 @@ Unified list of native CLI sessions for the given cwd. Walks:
 {
   sessions: Array<{
     provider: ProviderName,
-    sessionId: string,            // UUID (or an Archon wfid for archonInternal rows)
+    sessionId: string,            // UUID (or an Arco wfid for arcoInternal rows)
     cwd: string,
     startedAt: number,
     name: string,                 // first-user-message preview (≤80 chars)
     lastUserPreview?: string,     // most-recent user-message preview
     aiTitle?: string,             // Claude only — best-guess conversation title
-    archonWorkflowId?: string,    // set if claimed by an existing workflow
-    archonName?: string,
-    archonInternal?: boolean,     // continuity is Archon-managed (Native event replay, Antigravity, Ollama) — resume by wfid
+    arcoWorkflowId?: string,    // set if claimed by an existing workflow
+    arcoName?: string,
+    arcoInternal?: boolean,     // continuity is Arco-managed (Native event replay, Antigravity, Ollama) — resume by wfid
     providerAccountRef?: string, providerAccountLabel?: string, providerAccountShortLabel?: string,
   }>,
 }
@@ -213,7 +213,7 @@ Tool-use blocks and reasoning-block entries are intentionally **not** materializ
 
 ### `GET /api/transcript-export?path=<cwd>&sessionId=<uuid>`
 
-Returns the full **Claude CLI** session (`~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`) as one markdown download (`Content-Disposition: attachment; filename="archon-<id8>-<date>.md"`; `## Operator` / `## Arco` sections). No pagination. There is no `provider` switch — Codex rollouts are not exportable here. `path` + `sessionId` required (`400`).
+Returns the full **Claude CLI** session (`~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`) as one markdown download (`Content-Disposition: attachment; filename="arco-<id8>-<date>.md"`; `## Operator` / `## Arco` sections). No pagination. There is no `provider` switch — Codex rollouts are not exportable here. `path` + `sessionId` required (`400`).
 
 ---
 
@@ -222,7 +222,7 @@ Returns the full **Claude CLI** session (`~/.claude/projects/<encoded-cwd>/<sess
 ### `GET /api/chats`
 
 Lists saved, machine-global Chat conversations under
-`~/.archon/chats/<workflowId>/.archon/workflows/<workflowId>/meta.json`, sorted
+`~/.arco/chats/<workflowId>/.arco/workflows/<workflowId>/meta.json`, sorted
 by `lastActiveAt` descending. Returns `{ chats: SavedChatSummary[] }`; every row
 includes identity/provider fields, an optional latest-user preview, and a
 server-reconstructed `config` carrying `kind:'chat'` plus `resumeWorkflowId`.
@@ -248,11 +248,11 @@ Lists workflows seen on disk for a cwd (tooling / debugging — the Resume picke
 }> }
 ```
 
-Reads `meta.json` for each `<cwd>/.archon/workflows/<wfid>/` (`listWorkflowMetas`). Sorted by `lastActiveAt` desc; errors degrade to `{ workflows: [] }`.
+Reads `meta.json` for each `<cwd>/.arco/workflows/<wfid>/` (`listWorkflowMetas`). Sorted by `lastActiveAt` desc; errors degrade to `{ workflows: [] }`.
 
 ### `GET /api/workflows/artifact?path=<cwd>&workflowId=<wfid>&name=<filename>`
 
-Fetches a Review artifact (or other worker-written file) from `<cwd>/.archon/workflows/<wfid>/artifacts/<filename>`.
+Fetches a Review artifact (or other worker-written file) from `<cwd>/.arco/workflows/<wfid>/artifacts/<filename>`.
 
 - `path`, `workflowId`, `name` required (`400`). `name` must be a bare basename: no `/`, `\`, NUL, `.`/`..`, or leading dot; the resolved target is re-checked to stay inside `artifacts/` (`400`).
 - `404` if missing; `413 { error, bytes }` over 2 MiB; else **200** JSON `{ contents: string, bytes: number, name }` (UTF-8 text — use `/artifact-raw` for images).
@@ -273,12 +273,12 @@ Same shape as `/api/workflows/artifact` but reads from `handoffs/` rather than `
 
 Backward-paging read of a workflow's persisted `events.jsonl` (the HISTORY-tab "load earlier" path). `path` + `workflowId` required (`400` otherwise); `workflowId` is UUID-validated. `limit` defaults to 250, capped at 1000; `beforeSeq` is the exclusive upper `seq` bound (omit for the tail). Returns the page object from `readWorkflowEventsPageBefore`; a read error answers 500 with `{ error, events: [] }`.
 
-### `DELETE /api/workflows/:wfid?path=<cwd>&mode=archon|nuclear`
+### `DELETE /api/workflows/:wfid?path=<cwd>&mode=arco|nuclear`
 
 **Conversation purge — irreversible.** Deletes a workflow's on-disk footprint. Body: `{ "confirm": true }`; **`nuclear` additionally requires `{ "confirmName": "<workflow name>" }`** matching `meta.json`'s `name` (the secondary verification — else `400`).
 
-- `mode=archon` (default) — removes everything Arco wrote: the `<cwd>/.archon/workflows/<wfid>/` tree (events.jsonl, meta.json, artifacts, handoffs, sandbox, mcp-config), git (`refs/archon/<wfid>/*`, cwd repo + shadow store) + legacy tar checkpoints, the recall row (+ FTS), and the cluster mailbox. Leaves the provider's own session file.
-- `mode=nuclear` — all of the above **plus** the bound provider session files (`~/.claude/projects/…/<sessionId>.jsonl`, Codex rollout) from `meta.cliSessions`, so the conversation is gone from those CLIs too. (Gemini raw-session deletion is not wired in v1 — Archon-side data is still fully purged.)
+- `mode=arco` (default) — removes everything Arco wrote: the `<cwd>/.arco/workflows/<wfid>/` tree (events.jsonl, meta.json, artifacts, handoffs, sandbox, mcp-config), git (`refs/arco/<wfid>/*`, cwd repo + shadow store) + legacy tar checkpoints, the recall row (+ FTS), and the cluster mailbox. Leaves the provider's own session file.
+- `mode=nuclear` — all of the above **plus** the bound provider session files (`~/.claude/projects/…/<sessionId>.jsonl`, Codex rollout) from `meta.cliSessions`, so the conversation is gone from those CLIs too. (Gemini raw-session deletion is not wired in v1 — Arco-side data is still fully purged.)
 - In-memory teardown (`handleRemoveWorkflow`) runs first, so purging an open tab is clean. Every deletion is best-effort/isolated; returns `{ ok, removed: string[], error? }`. Backed by `server/src/workflows/purgeWorkflow.ts`. Smoke: `npm run smoke:purge`.
 
 ### `GET /api/workflows/diff?wfid=<wfid>[&path=<cwd>][&from=<rev>][&to=<rev|WORKTREE>]`
@@ -287,7 +287,7 @@ Workbench Expansion A3. Returns a unified-diff patch for the in-app DiffView. Ba
 
 - `wfid` — required; validated against `[A-Za-z0-9._-]+`. Resolves the workflow's live cwd when `path` is omitted.
 - `path` — explicit cwd (mirrors the other workflow-scoped routes). Wins over the resolved wfid cwd.
-- `from` / `to` — git revisions. A revision can be a shadow checkpoint ref (`refs/archon/<wfid>/<seq>`, from A2), `HEAD`, a sha, or a branch. `to` may also be the literal `WORKTREE` sentinel (the default when omitted), which compares the live working tree (incl. staged) against `from` (or `HEAD` when `from` is also omitted — the pre-commit diff).
+- `from` / `to` — git revisions. A revision can be a shadow checkpoint ref (`refs/arco/<wfid>/<seq>`, from A2), `HEAD`, a sha, or a branch. `to` may also be the literal `WORKTREE` sentinel (the default when omitted), which compares the live working tree (incl. staged) against `from` (or `HEAD` when `from` is also omitted — the pre-commit diff).
 - Always answers **200** with `{ patch, isRepo, from, to, missingRef? }`. Non-git dirs return `isRepo:false` + empty `patch`; an unresolvable revision returns `missingRef` + empty `patch`; a clean tree returns an empty `patch`. None of these is an error.
 
 ---
@@ -310,10 +310,10 @@ Workbench Expansion I1. Powers the FILES → SOURCE "Source Control" view: list 
 Read-only candidate patch for **AGENT → BAKE-OFF**. The source workflow cwd,
 durable manifest, bake-off id, and attempt id must all agree before the
 worktree is read; the Git layer then reasserts that the target is under the
-source repo's Archon-managed bake-off root and is still a registered linked
+source repo's Arco-managed bake-off root and is still a registered linked
 worktree. The patch compares the recorded common base against the attempt's
 current branch/worktree, includes tracked and untracked project files, excludes
-`.archon`, and is capped at 8 MiB.
+`.arco`, and is capped at 8 MiB.
 
 - Missing query fields → **400**.
 - Unknown manifest or attempt → **404**.
@@ -356,7 +356,7 @@ Request body (JSON): `{ wfid?, path?, remote? }`.
 
 ### `GET /api/git/worktrees?wfid=<wfid>[&path=<abs>]`
 
-Enumerate a repo's linked worktrees so the FilesTab LIVE/CHANGES/SOURCE/REMOTE picker can point at the tree a worker (or cluster member) is actually editing — cluster members do their edits inside an Arco task worktree (`~/.archon/worktrees/…`) or one they created, both OUTSIDE the shared cwd (where `git status` reads clean). Backed by `server/src/project/taskWorktree.ts` (`listWorktrees`) + `server/src/http/gitWorktreeRoutes.ts` (wired via `tryHandleGitWorktreeRoutes`). **Read-only.**
+Enumerate a repo's linked worktrees so the FilesTab LIVE/CHANGES/SOURCE/REMOTE picker can point at the tree a worker (or cluster member) is actually editing — cluster members do their edits inside an Arco task worktree (`~/.arco/worktrees/…`) or one they created, both OUTSIDE the shared cwd (where `git status` reads clean). Backed by `server/src/project/taskWorktree.ts` (`listWorktrees`) + `server/src/http/gitWorktreeRoutes.ts` (wired via `tryHandleGitWorktreeRoutes`). **Read-only.**
 
 - `wfid` — required; validated against `[A-Za-z0-9._-]+` (`400` on missing/invalid). Resolves the bound cwd when `path` is omitted.
 - `path` — explicit cwd; wins over the resolved wfid cwd.
@@ -395,7 +395,7 @@ Workbench Expansion A5. Content search over a workflow cwd via ripgrep. Backed b
 - `wfid` — required; validated. Resolves the workflow's live cwd when `path` is omitted.
 - `q` — search query (matched case-insensitively by default; treated as an rg/Rust regex, which plain substrings satisfy). Empty `q` returns an empty (but `available:true`) result.
 - `max` — optional cap on returned hits (default 200).
-- Honors `SKIP_DIRS` (`node_modules`, `.git`, `.archon`, `dist`, `build`, …) and `.gitignore`.
+- Honors `SKIP_DIRS` (`node_modules`, `.git`, `.arco`, `dist`, `build`, …) and `.gitignore`.
 - Always answers **200** with `{ available, hits: [{ file, line, column, text }], capped }`. `available:false` when `rg` isn't on PATH (the UI shows a "ripgrep not installed" hint — never a 500). `capped:true` when more matches exist than `max`. Paths are cwd-relative; `line`/`column` are 1-based.
 
 > **Dependency:** `rg` (ripgrep) must be on PATH for content search. It's already a soft dependency elsewhere (the Native Grep tool, `server/src/capabilities.ts`).
@@ -432,7 +432,7 @@ See `docs/RECALL.md § F3`.
 
 ### `GET /api/recall/summary?wfid=<wfid>`
 
-Workbench Expansion F2. Serves a conversation's saved `summary.md` from `~/.archon/recall/<wfid>/` (outside any cwd `/api/workflows/artifact` serves, so it needs its own route). `wfid` is validated against `[a-zA-Z0-9-]{1,64}` before being joined into a path (`400` on a bad wfid). Returns `{ wfid, summary }` (200), `{ error }` 404 if no summary yet, 500 on read error.
+Workbench Expansion F2. Serves a conversation's saved `summary.md` from `~/.arco/recall/<wfid>/` (outside any cwd `/api/workflows/artifact` serves, so it needs its own route). `wfid` is validated against `[a-zA-Z0-9-]{1,64}` before being joined into a path (`400` on a bad wfid). Returns `{ wfid, summary }` (200), `{ error }` 404 if no summary yet, 500 on read error.
 
 ### `GET /api/recall/backlinks?type=<kb|task>&id=<id>[&cwd=<cwd>]`
 
@@ -458,7 +458,7 @@ Workbench Expansion D3. **Per-provider / per-day token-volume + cache-hit-ratio 
 
 **Framing is quota-pressure / token-volume insight ONLY** — "which tab/model is eating my rolling window". There is deliberately **no USD / cost field anywhere** in the response (the operator is on subscriptions).
 
-- `path` — the cwd to aggregate under (scans `<cwd>/.archon/workflows/*/events.jsonl`). Required; missing → 400.
+- `path` — the cwd to aggregate under (scans `<cwd>/.arco/workflows/*/events.jsonl`). Required; missing → 400.
 - `from` / `to` — optional inclusive **epoch-ms** bounds on each turn's `turnStartedAt`.
 - **Bucketing** is per `(provider, local-day)`. The day key is `YYYY-MM-DD` in the **server-local timezone** (formatted from `turnStartedAt` via the local calendar) — matches the operator's "what did I do today" model when Arco runs on their machine.
 - **Cache-hit ratio uses the provider-correct denominator** (see `shared/src/protocol/usage.ts`):
@@ -489,9 +489,9 @@ See `docs/PROVIDERS.md` § Ollama (endpoint auto-discovery).
 Operations A1. **Operator-triggered**, **read-only** grouped status checks ("what's working on this machine?"). Route: `server/src/http/diagnosticsRoutes.ts`; the pure check registry is `server/src/diagnostics/checks.ts` (single source of probe logic). The System modal's Diagnostics tab calls this on open + Refresh — no background daemon.
 
 - Always **200** with a `DiagnosticsReport`; a genuine throw → **500** with an empty report (`groups: []`). `runDiagnostics()` itself never throws — each probe is `safeProbe`-wrapped (a thrown probe becomes an `error` result carrying the message) and time-bounded, and all probes run concurrently (`Promise.all`) so one slow binary can't hang the call.
-- `DiagnosticsReport` (`shared/src/protocol/opsDiagnostics.ts`): `{ groups: DiagnosticGroup[], generatedAt: number, archonVersion: string, platform: string }` where `platform` is `${os}/${arch}` (e.g. `linux/x64`).
+- `DiagnosticsReport` (`shared/src/protocol/opsDiagnostics.ts`): `{ groups: DiagnosticGroup[], generatedAt: number, arcoVersion: string, platform: string }` where `platform` is `${os}/${arch}` (e.g. `linux/x64`).
 - `DiagnosticGroup`: `{ id, label, checks: DiagnosticCheck[] }`; `id` ∈ `core | providers | local-tools | workbench | storage` (fixed order = render order).
-- `DiagnosticCheck`: `{ id, group, label, status, detail, hint? }`. `status` ∈ `ok | warn | error | skipped` — **warn** = degraded / optional dependency absent (ffmpeg or a language server missing); **error** = something that should work doesn't; **skipped** = not probed on this platform/config (e.g. Antigravity CDP, per-cwd `.archon` from a global call).
+- `DiagnosticCheck`: `{ id, group, label, status, detail, hint? }`. `status` ∈ `ok | warn | error | skipped` — **warn** = degraded / optional dependency absent (ffmpeg or a language server missing); **error** = something that should work doesn't; **skipped** = not probed on this platform/config (e.g. Antigravity CDP, per-cwd `.arco` from a global call).
 - Probes reuse existing helpers (`capabilities`/`media/ffmpeg`/`github`/`ollama`/`llamacppManager`/`cookbook/hardware`/`claude-native/auth`); the one write is a throwaway temp-file `events.jsonl` round-trip under `tmpdir()` — never a real workflow log.
 
 See `docs/DIAGNOSTICS.md`.
@@ -512,7 +512,7 @@ the System modal's **⧉ COPY SUPPORT BUNDLE** button. Builder + redaction:
   (`runDiagnostics()` is itself safe; a metadata probe failure degrades to
   `unknown`).
 - `SupportBundleResponse` (`shared/src/protocol/opsDiagnostics.ts`): `{ json: SupportBundle, text: string }`. The client copies `text`; `json` is the typed object.
-- `SupportBundle`: `{ generatedAt: number, archonVersion: string, gitRev: string, platform: string, runtime: { node, serviceMode }, diagnostics: DiagnosticsReport, notes? }`. An **explicit safe-field allowlist** — never raw settings / env / token objects. `gitRev` is `git rev-parse --short HEAD` (execFile, argv array, no shell, 4s timeout; missing git → `unknown`). `runtime.serviceMode` is best-effort (`dev (tsx watch)` under tsx, else `unknown`; service mode proper is Part B).
+- `SupportBundle`: `{ generatedAt: number, arcoVersion: string, gitRev: string, platform: string, runtime: { node, serviceMode }, diagnostics: DiagnosticsReport, notes? }`. An **explicit safe-field allowlist** — never raw settings / env / token objects. `gitRev` is `git rev-parse --short HEAD` (execFile, argv array, no shell, 4s timeout; missing git → `unknown`). `runtime.serviceMode` is best-effort (`dev (tsx watch)` under tsx, else `unknown`; service mode proper is Part B).
 - **Redaction (Appendix D — allowlist, not denylist):** the embedded `diagnostics` report has every free-text `detail`/`hint` path-redacted (home dir → `~`, other absolute paths → `<path>/<basename>`), and a defense-in-depth `scrubSecrets` pass over the serialized bundle replaces any token-shaped string (`gh[pousr]_…`, `sk-…`, `sk-ant-…`, `Bearer …`, JWT-ish, long hex/base64 runs) with `<redacted>`. The bundle contains **no** tokens, env secrets, auth material, or private paths.
 
 See `docs/DIAGNOSTICS.md` § Support bundle.
@@ -535,7 +535,7 @@ modal's **Models** tab. Builder: `server/src/diagnostics/modelHealth.ts`
   by `safe()` so one subsystem's failure degrades to a `warn` sub-report.
 - `ModelHealthReport` (`shared/src/protocol/opsDiagnostics.ts`): `{ ollama: OllamaHealth, llamacpp: LlamacppHealth, cookbook: CookbookHealth, generatedAt: number, platform: string }`.
 - `OllamaHealth`: `{ status, baseUrl, reachable, modelCount, models[], version?, detail, hint? }` — resolved base URL + installed models + capability hints.
-- `LlamacppHealth`: `{ status, binaryPath, modelCount, models[], managerState, loadedAlias?, port?, pid?, loadedAt?, lastUsedAt?, lastLaunchArgs?, lastStderrTail?, portReachable?, error?, diagnosis?, detail, hint? }`. `lastLaunchArgs` is additive in-process metadata retained by the manager on its existing spawn path; `lastStderrTail` is a tail of `~/.archon/llamacpp.log`. `diagnosis` (**DD13**, type `LlamacppServeDiagnosis` from `shared/src/protocol/llamacppDiagnose.ts`; built by `server/src/providers/llamacppServeDiagnose.ts`) is present only when the last launch **failed** (`managerState === 'failed'`) and the stderr tail matched a known cause — it carries the cause + plain-text suggestions + structured one-click `LlamacppServeFix` ops (`set-ctx-size` / `set-ngl` / `add-extra-arg`) the ModelHealthPanel renders against the catalog editor's `ctxSize` / `ngl` / `extraArgs` fields (surfaced under the panel's `model-health.llamacpp-*` keys).
+- `LlamacppHealth`: `{ status, binaryPath, modelCount, models[], managerState, loadedAlias?, port?, pid?, loadedAt?, lastUsedAt?, lastLaunchArgs?, lastStderrTail?, portReachable?, error?, diagnosis?, detail, hint? }`. `lastLaunchArgs` is additive in-process metadata retained by the manager on its existing spawn path; `lastStderrTail` is a tail of `~/.arco/llamacpp.log`. `diagnosis` (**DD13**, type `LlamacppServeDiagnosis` from `shared/src/protocol/llamacppDiagnose.ts`; built by `server/src/providers/llamacppServeDiagnose.ts`) is present only when the last launch **failed** (`managerState === 'failed'`) and the stderr tail matched a known cause — it carries the cause + plain-text suggestions + structured one-click `LlamacppServeFix` ops (`set-ctx-size` / `set-ngl` / `add-extra-arg`) the ModelHealthPanel renders against the catalog editor's `ctxSize` / `ngl` / `extraArgs` fields (surfaced under the panel's `model-health.llamacpp-*` keys).
 - `CookbookHealth`: `{ status, hardware: HardwareProfile, downloadedModelCount, downloadedModels[], fitWarnings: ModelFitWarning[], detail, hint? }`. `fitWarnings` are registered loadouts scored against the detected hardware with the same pure `scoreFit()` the Cookbook catalog uses (verdict `NO`/`TIGHT`).
 - **Status framing:** a missing/unreachable subsystem is `warn`/`skipped` (not error); a fit mismatch / stale config is a `warn` with a hint; `error` is reserved for a real llama.cpp last-launch failure (`managerState === 'failed'`).
 
@@ -594,9 +594,9 @@ Request body (JSON):
 
 The standing operator surface for the DD7 trust gate. Route: `server/src/http/projectTrustRoutes.ts`; store: `server/src/projectTrust.ts`. **HTTP rather than WS because trust is user-scope, not workflow-scope** — the global `SettingsPanel` has no `workflowId` to send `set_project_trust` with. The workflow-scoped WS message stays for the composer banner's buttons.
 
-Why it exists: the turn-time gate raises **one** `project_trust_prompt` per cwd per server lifetime, rendered only in the composer of whichever tab hit the gate first. In a cluster that's some member tab — the parent tab has no CONFIG tab — so a missed banner previously left the repo suppressed with no way back short of hand-editing `~/.archon/trust.json`.
+Why it exists: the turn-time gate raises **one** `project_trust_prompt` per cwd per server lifetime, rendered only in the composer of whichever tab hit the gate first. In a cluster that's some member tab — the parent tab has no CONFIG tab — so a missed banner previously left the repo suppressed with no way back short of hand-editing `~/.arco/trust.json`.
 
-- **GET** → `{ defaultProjectTrust: 'ask'|'always'|'never', entries: [{ path, decision, at }] }`, `entries` sorted by path. With `?cwd=`, adds `cwd: { path, status, matchedPath?, resources }` — `status` is the resolved decision (nearest-ancestor wins, `matchedPath` names the ancestor that supplied it) and `resources` is the gated surfaces the repo actually ships (`CLAUDE.md`, `.archon/settings.json`, `.archon/skills`). An empty `resources` means the gate is a no-op there.
+- **GET** → `{ defaultProjectTrust: 'ask'|'always'|'never', entries: [{ path, decision, at }] }`, `entries` sorted by path. With `?cwd=`, adds `cwd: { path, status, matchedPath?, resources }` — `status` is the resolved decision (nearest-ancestor wins, `matchedPath` names the ancestor that supplied it) and `resources` is the gated surfaces the repo actually ships (`CLAUDE.md`, `.arco/settings.json`, `.arco/skills`). An empty `resources` means the gate is a no-op there.
 - **POST** `{ cwd, decision: 'always' | 'never' | 'clear' }` → the same snapshot for that cwd. `always`/`never` record via `writeTrustDecision` (atomic tmp+rename, canonical-path key); **`clear`** removes the entry via `removeTrustDecision` and **re-arms** the one-shot prompt (`clearPromptPending`) so the next turn asks again rather than staying silently suppressed. Bad/missing `cwd` or an unknown decision → **400**; other methods → **405**.
 - **Writes fan out to every live workflow the decision covers** (`isAncestorOrSelf` over each workflow's cwd) as a `project_trust_set` broadcast — that's the events.jsonl visibility leg, and it clears any stale composer banner across all cluster members sharing the repo.
 - Takes effect on the **next turn** (the gate re-reads `trust.json` per turn) — no restart.
@@ -625,36 +625,36 @@ not re-scale per monitor — the reason it's the fallback, not the default.)
 
 ### `GET /api/explorer/artifacts[?project=<abs cwd>]`
 
-The server-side artifacts join (§4.1) — "what have agents produced for me?" Globs `<cwd>/.archon/workflows/*/artifacts/**` across `~/.archon/known-cwds.json` (or a single `project`), **skipping empty dirs and `raw-tools/`**, joining each hit with the workflow's `meta.json` → tab title + provider (8-char UUID prefix fallback). Engine: `server/src/explorerArtifacts.ts` (`collectArtifacts`).
+The server-side artifacts join (§4.1) — "what have agents produced for me?" Globs `<cwd>/.arco/workflows/*/artifacts/**` across `~/.arco/known-cwds.json` (or a single `project`), **skipping empty dirs and `raw-tools/`**, joining each hit with the workflow's `meta.json` → tab title + provider (8-char UUID prefix fallback). Engine: `server/src/explorerArtifacts.ts` (`collectArtifacts`).
 
 - Always **200** with `{ entries }` (newest-first); a scan error degrades to `{ entries: [], error }`.
 - `ArtifactEntry`: `{ path, name, size, mtime, workflowId, tabTitle, provider, project, cwd }` — `path` is realpath-resolved and `⊆ $HOME`.
 
 ### `GET /api/explorer/docs[?project=<abs cwd>]`
 
-Project-tree **documents** (§4.1) — the docs written FOR a project in its real tree (`Reports/*.md`, root `*.md`, `docs/*.md`), the half the `.archon` artifacts join can't see. This is what makes ARTIFACTS a project-artifact tool rather than a `.archon`-only view. Portable pruned walk (`server/src/explorerDocs.ts` `collectDocs`) over the doc-extension allowlist (`md`/`markdown`/`mdx`/`txt`/`rst`/`adoc`/`org`/`pdf`/`csv`), pruning the usual build/VCS dirs plus **all** of `.archon` (the artifacts join owns it — the client merges both). `$HOME`-jailed, depth-capped (8).
+Project-tree **documents** (§4.1) — the docs written FOR a project in its real tree (`Reports/*.md`, root `*.md`, `docs/*.md`), the half the `.arco` artifacts join can't see. This is what makes ARTIFACTS a project-artifact tool rather than a `.arco`-only view. Portable pruned walk (`server/src/explorerDocs.ts` `collectDocs`) over the doc-extension allowlist (`md`/`markdown`/`mdx`/`txt`/`rst`/`adoc`/`org`/`pdf`/`csv`), pruning the usual build/VCS dirs plus **all** of `.arco` (the artifacts join owns it — the client merges both). `$HOME`-jailed, depth-capped (8).
 
-- `project` → one project (up to 1000 docs). Omitted → global across `~/.archon/known-cwds.json`, **bounded per-project** (150 each, 600 overall) so a home load over dozens of projects stays responsive (~0.7 s observed).
+- `project` → one project (up to 1000 docs). Omitted → global across `~/.arco/known-cwds.json`, **bounded per-project** (150 each, 600 overall) so a home load over dozens of projects stays responsive (~0.7 s observed).
 - Always **200** with `{ entries }` (newest-first); a scan error degrades to `{ entries: [], error }`.
 - `DocEntry`: `{ path, name, size, mtime, project, cwd, rel }` — `rel` is the path relative to the project root (surfaces the subdir, e.g. `Codex/Reports/…`). The client merges these with `/artifacts` into one newest-first list per project.
 
 ### `GET /api/explorer/recents[?limit=100]`
 
-The AGENT WRITES ledger read (§4.2) — the attributed global record of agent-produced files. Reads `~/.archon/recent-files.jsonl` newest-first (engine: `server/src/recentFilesLedger.ts` `readRecent`). `limit` clamps to `[1, 1000]` (default 100).
+The AGENT WRITES ledger read (§4.2) — the attributed global record of agent-produced files. Reads `~/.arco/recent-files.jsonl` newest-first (engine: `server/src/recentFilesLedger.ts` `readRecent`). `limit` clamps to `[1, 1000]` (default 100).
 
 - Always **200** with `{ records }`; a read error degrades to `{ records: [], error }`.
 - `LedgerRecord`: `{ ts, path, op: 'created'|'modified', workflowId, tabTitle, provider, tool, project? }`. Written server-side at the persisting broadcast chokepoints (`send()` + `broadcastWorkflow()`) plus `POST /api/files/write`; coverage is per-provider event shape (v1 = Claude Native Write/Edit/NotebookEdit, Review artifact, media-op/stems results, manual write). Filtering (DOCS/IMAGES/ALL, per-project) is client-side.
 
 ### `GET /api/explorer/changed[?within=48h][&project=<abs>]`
 
-The exhaustive, unattributed changed-within scan (§4.2) — the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/… and `.archon` internals **except** `.archon/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChanged`). `within` accepts `<n>h|d|m` (default/garbage → 48h, floored at 1m).
+The exhaustive, unattributed changed-within scan (§4.2) — the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/… and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChanged`). `within` accepts `<n>h|d|m` (default/garbage → 48h, floored at 1m).
 
 - Always **200** with `{ entries }` (newest-first, ≤500); a scan error degrades to `{ entries: [], error }`.
 - `ChangedEntry`: `{ path, name, size, mtime, project }` — `project` is the top-level dir under the base root (or the explicit project's basename).
 
 ### `GET /api/explorer/plans`
 
-The PLANS lens — the plans library. Every plan in every project in `~/.archon/known-cwds.json` (dead / outside-`$HOME` cwds skipped; projects with no plans omitted). Engine: `server/src/explorerPlans.ts`. `cwd` is the known-cwds spelling (not its realpath) so it round-trips into the `/api/plans` routes, which key on the workflow's cwd string.
+The PLANS lens — the plans library. Every plan in every project in `~/.arco/known-cwds.json` (dead / outside-`$HOME` cwds skipped; projects with no plans omitted). Engine: `server/src/explorerPlans.ts`. `cwd` is the known-cwds spelling (not its realpath) so it round-trips into the `/api/plans` routes, which key on the workflow's cwd string.
 
 - Always **200** with `{ projects: PlanLibraryProject[] }`, most recently touched project first; an error degrades to `{ projects: [], error }`.
 - `PlanLibraryProject`: `{ cwd, name, plans: PlanLibraryEntry[] }`; `PlanLibraryEntry` = `PlanSummary` + `{ refCount, attached, clusters: { clusterId, name }[] }` — `attached` is true when a workflow span is open or a cluster binds the plan.
@@ -846,7 +846,7 @@ Request body (JSON):
 
 ### `POST /api/media/scratch?name=<basename>` (N2)
 
-Stage an **imported** (picker / drag-dropped browser) media file on disk so ffmpeg can act on it (it reads files, not object URLs). The raw file bytes are the **request body**; `?name=` is the desired basename (sanitized — traversal / separators / leading-dash / NUL rejected with `code: 'bad-name'`). The bytes stream into a fresh `~/.archon/media-scratch/<uuid>/` dir (the write can't escape regardless of `?name=`), bounded by a per-upload cap (4 GiB → `code: 'too-large'`) and reaped on a 24h TTL + a 16 GiB total cap. **Always allowed** (no cwd, no fence — the operator put the file here themselves). Response: `{ ok: true, path, basename, bytes }` — feed `path` straight back as a `MediaOpRequest.path` (the op resolver always permits scratch paths). On error, `{ ok: false, code, error }` with `code` ∈ `bad-name | too-large | write-failed`.
+Stage an **imported** (picker / drag-dropped browser) media file on disk so ffmpeg can act on it (it reads files, not object URLs). The raw file bytes are the **request body**; `?name=` is the desired basename (sanitized — traversal / separators / leading-dash / NUL rejected with `code: 'bad-name'`). The bytes stream into a fresh `~/.arco/media-scratch/<uuid>/` dir (the write can't escape regardless of `?name=`), bounded by a per-upload cap (4 GiB → `code: 'too-large'`) and reaped on a 24h TTL + a 16 GiB total cap. **Always allowed** (no cwd, no fence — the operator put the file here themselves). Response: `{ ok: true, path, basename, bytes }` — feed `path` straight back as a `MediaOpRequest.path` (the op resolver always permits scratch paths). On error, `{ ok: false, code, error }` with `code` ∈ `bad-name | too-large | write-failed`.
 
 ### `GET /api/media/raw?path=<input>&cwd=<cwd>&workflowId=<wfid>`
 
@@ -1008,7 +1008,7 @@ Submit a completion report. Body: `{ workflowId, id, summary }`. Delegates to `c
 
 ## Cluster presets
 
-Saved cluster configurations (provider/model/role sets). Persist to `~/.archon/cluster-presets.json`. Backed by `server/src/clusterPresets.ts`.
+Saved cluster configurations (provider/model/role sets). Persist to `~/.arco/cluster-presets.json`. Backed by `server/src/clusterPresets.ts`.
 
 ### `GET /api/cluster-presets`
 
@@ -1031,7 +1031,7 @@ control WebSocket.
 
 - `GET /api/cluster-snapshots` — local snapshot summaries.
 - `GET /api/cluster-snapshots/:id/export` — download a verified
-  `.archoncluster` bundle.
+  `.arcocluster` bundle.
 - `POST /api/cluster-snapshots/import` — verify and import a raw bundle; returns
   `{ snapshot }` with a newly minted local id.
 - `GET /api/cluster-snapshots/cloud` — proxy the configured tailnet hub's vault list.
@@ -1049,13 +1049,13 @@ control WebSocket.
 The management hub backs this with tailnet-only
 `GET|POST /api/cluster-vault` and `GET|DELETE /api/cluster-vault/:id`.
 Ciphertext is capped at 1 GiB, SHA-256 checked on upload, and stored under
-`~/.archon/hub/cluster-vault/`.
+`~/.arco/hub/cluster-vault/`.
 
 ---
 
 ## Templates (recipes)
 
-Workbench Expansion §D4 — single-tab project/session templates ("recipes"). The single-tab analogue of cluster presets. CRUD against `~/.archon/templates.json`; backed by `server/src/templates/store.ts`. The persisted model is validated against the live catalog at APPLY time on the client (survives model renames), not on save.
+Workbench Expansion §D4 — single-tab project/session templates ("recipes"). The single-tab analogue of cluster presets. CRUD against `~/.arco/templates.json`; backed by `server/src/templates/store.ts`. The persisted model is validated against the live catalog at APPLY time on the client (survives model renames), not on save.
 
 ### `GET /api/templates`
 
@@ -1158,7 +1158,7 @@ Create a new plan. Body:
 
 Server mints `planId`. Returns `{ plan: PlanFull }` with `attachments: []` and `completedAt: null`.
 
-When `attach: true` and `workflowId` names an active workflow in the same cwd, the server immediately runs the normal attach path: persists `meta.planId`, records the attachment span, acquires the plan watcher, and broadcasts `plan_attached` so the open PLAN tab updates. This is the supported shell-agent path; do not hand-edit `.archon/workflows/<workflowId>/meta.json` to attach a plan because the running server will not see the websocket state transition.
+When `attach: true` and `workflowId` names an active workflow in the same cwd, the server immediately runs the normal attach path: persists `meta.planId`, records the attachment span, acquires the plan watcher, and broadcasts `plan_attached` so the open PLAN tab updates. This is the supported shell-agent path; do not hand-edit `.arco/workflows/<workflowId>/meta.json` to attach a plan because the running server will not see the websocket state transition.
 
 ```bash
 curl -sS "http://localhost:3001/api/plans?path=$PWD" \
@@ -1198,7 +1198,7 @@ Returns `{ deleted: true }` (200) or `{ error: 'plan not found' }` (404). Also r
 
 ### Plan reference docs — `/api/plans/refs`
 
-Long-form docs attached to one plan, stored as `<cwd>/.archon/plans/<planId>.refs/<slug>.md` (`server/src/planStore.ts`). Directory-listed — no index entry — so a file an agent writes directly is a ref. `slug` matches `^[a-z0-9][a-z0-9-]{0,63}$`; title = the doc's first `# H1`, else the slug. Caps: 256 KB per ref (over-cap writes are **refused**, not truncated), 64 refs per plan. Plan bodies link a ref as `[label](ref:slug)` or `[[ref:slug]]`. Agent-callable (cookie-exempt); the `plan_ref_write` / `plan_ref_list` / `plan_ref_read` MCP tools wrap these.
+Long-form docs attached to one plan, stored as `<cwd>/.arco/plans/<planId>.refs/<slug>.md` (`server/src/planStore.ts`). Directory-listed — no index entry — so a file an agent writes directly is a ref. `slug` matches `^[a-z0-9][a-z0-9-]{0,63}$`; title = the doc's first `# H1`, else the slug. Caps: 256 KB per ref (over-cap writes are **refused**, not truncated), 64 refs per plan. Plan bodies link a ref as `[label](ref:slug)` or `[[ref:slug]]`. Agent-callable (cookie-exempt); the `plan_ref_write` / `plan_ref_list` / `plan_ref_read` MCP tools wrap these.
 
 - `GET /api/plans/refs?path=<cwd>&planId=<id>` → `{ refs: PlanRefSummary[] }` (`{ slug, title, bytes, updatedAt }`, slug-sorted).
 - `GET /api/plans/refs/body?path=<cwd>&planId=<id>&slug=<slug>` → `{ ref: PlanRefFull }` or `404`.
@@ -1302,11 +1302,11 @@ The provider runtime also retains its normal implicit description matching.
 
 ---
 
-## Skills (Archon-managed)
+## Skills (Arco-managed)
 
-Distinct from `/api/toolbox`: these are **Archon-managed**, provider-agnostic
+Distinct from `/api/toolbox`: these are **Arco-managed**, provider-agnostic
 skills authored by the operator from the SettingsPanel SKILLS section. They live
-under `<cwd>/.archon/skills/` (project) and `~/.archon/skills/` (global). The
+under `<cwd>/.arco/skills/` (project) and `~/.arco/skills/` (global). The
 catalog (name + description) is injected into every primary turn's system prompt
 as an XML manifest. `+SKILL` offers **APPLY ONCE** (full body in the next user
 turn) and **PIN TO TAB** (durable reference; current full body is re-read and
@@ -1391,7 +1391,7 @@ H35 — **operator-triggered, read-only, diagnostic** skill security audit. A sk
 
 ## Handoff prompts (operator-editable)
 
-Operator overrides for the prompts the Handoff primitive uses. Three modes — `original-worker` (the reflection prompt the primary reads when handing off via `--resume`), `fresh-summarizer` (the framing prepended to a rendered transcript when an ephemeral summarizer worker writes the artifact), and `ollama-compaction` (the local-model compaction framing). Override files `handoff.prompt.md` / `handoff.summarizer.prompt.md` / `ollama.compaction.prompt.md` under `<cwd>/.archon/` (project) or `~/.archon/` (global). Project beats global beats default. Variables substituted at render time: `{{cwd}}`, `{{wfid}}`, `{{handoffPath}}`, `{{seedPrefix}}` (the literal `[HANDOFF —` Review's `current-session` scope detects). Backed by `server/src/handoffPrompts.ts`.
+Operator overrides for the prompts the Handoff primitive uses. Three modes — `original-worker` (the reflection prompt the primary reads when handing off via `--resume`), `fresh-summarizer` (the framing prepended to a rendered transcript when an ephemeral summarizer worker writes the artifact), and `ollama-compaction` (the local-model compaction framing). Override files `handoff.prompt.md` / `handoff.summarizer.prompt.md` / `ollama.compaction.prompt.md` under `<cwd>/.arco/` (project) or `~/.arco/` (global). Project beats global beats default. Variables substituted at render time: `{{cwd}}`, `{{wfid}}`, `{{handoffPath}}`, `{{seedPrefix}}` (the literal `[HANDOFF —` Review's `current-session` scope detects). Backed by `server/src/handoffPrompts.ts`.
 
 ### `GET /api/handoff-prompts[?cwd=<absolute path>]`
 
@@ -1453,7 +1453,7 @@ Loadable surface is intentionally bounded to the Arco repo (not arbitrary filesy
 
 ### `GET /api/settings[?cwd=<path>]`
 
-Returns `ArchonSettings` (operator preferences):
+Returns `ArcoSettings` (operator preferences):
 
 ```ts
 {
@@ -1464,21 +1464,21 @@ Returns `ArchonSettings` (operator preferences):
   operatorName?: string,             // replaces "OPERATOR" label in chat
   defaultWorkingDirectory?: string,  // abs path; cwd-browser root (Settings + WorkflowCreator). Unset → ~/Projects → $HOME. Not confined to $HOME.
   acknowledgedCliVersions?: { claude?: string; gemini?: string; codex?: string },
-  // ... full shape: ArchonSettings in shared/src/protocol/settings.ts
+  // ... full shape: ArcoSettings in shared/src/protocol/settings.ts
 }
 ```
 
-Phase 2 — optional `?cwd=<path>` layers `<cwd>/.archon/settings.json` on top of the global cascade (defaults → `~/.archon/settings.json` → project). Deep-merge for nested objects; arrays replace. See `docs/OPERATIONS.md § Settings cascade` for full semantics. The server broadcasts `settings_updated` over WS on file changes — clients should re-fetch with their active cwd to pick up project-scoped edits live.
+Phase 2 — optional `?cwd=<path>` layers `<cwd>/.arco/settings.json` on top of the global cascade (defaults → `~/.arco/settings.json` → project). Deep-merge for nested objects; arrays replace. See `docs/OPERATIONS.md § Settings cascade` for full semantics. The server broadcasts `settings_updated` over WS on file changes — clients should re-fetch with their active cwd to pick up project-scoped edits live.
 
 ### `POST /api/settings`
 
-Body is a partial `ArchonSettings`. Server merges and atomically writes `~/.archon/settings.json` (the **global** layer only; project-level settings are hand-edited). Returns the new full settings. `themeId` and `fontPackOverride` are validated against `VALID_THEME_IDS` / `VALID_FONT_PACK_IDS` respectively; unknown values 400. Pass `fontPackOverride: null` to clear an override and revert to theme defaults.
+Body is a partial `ArcoSettings`. Server merges and atomically writes `~/.arco/settings.json` (the **global** layer only; project-level settings are hand-edited). Returns the new full settings. `themeId` and `fontPackOverride` are validated against `VALID_THEME_IDS` / `VALID_FONT_PACK_IDS` respectively; unknown values 400. Pass `fontPackOverride: null` to clear an override and revert to theme defaults.
 
-**Ollama multi-backend (M4) is settings-file-only — no dedicated endpoint.** `settings.ollama.backends[]` and `settings.ollama.modelHostMap` are sanitized by `sanitizeOllamaConfig` on read (drop disabled/malformed/duplicate backends; cap 16 backends, 64 map entries) and pass through this POST like any other settings field. The decision: operators edit `~/.archon/settings.json` (or a project `.archon/settings.json`) directly, the same way the legacy single `baseUrl` and `fallbackChains` work — a runtime backend-editor UI/endpoint is deferred (the smaller correct scope for v1; the cooldown state is in-memory and auto-expires, so there's nothing operator-facing to mutate beyond the static list). The existing **DISCOVER ENDPOINTS** flow still fills a single `baseUrl`; multi-backend lists are hand-authored.
+**Ollama multi-backend (M4) is settings-file-only — no dedicated endpoint.** `settings.ollama.backends[]` and `settings.ollama.modelHostMap` are sanitized by `sanitizeOllamaConfig` on read (drop disabled/malformed/duplicate backends; cap 16 backends, 64 map entries) and pass through this POST like any other settings field. The decision: operators edit `~/.arco/settings.json` (or a project `.arco/settings.json`) directly, the same way the legacy single `baseUrl` and `fallbackChains` work — a runtime backend-editor UI/endpoint is deferred (the smaller correct scope for v1; the cooldown state is in-memory and auto-expires, so there's nothing operator-facing to mutate beyond the static list). The existing **DISCOVER ENDPOINTS** flow still fills a single `baseUrl`; multi-backend lists are hand-authored.
 
 ### `GET /api/catalog` / `POST /api/catalog`
 
-Read/write the model catalog markdown (`~/.archon/models.md`). GET → `{ contents, bytes }` (`contents: ''` when absent). POST body `{ contents: string }` → `{ ok: true, bytes }`; only the type and a size cap are enforced (no alias/content validation), `400` otherwise. Edited from SettingsPanel. Vestigial: nothing server-side consumes `models.md` any more (`buildCatalogInjection` in `catalog.ts` was the pre-Lite orchestrator's routing brain and has no caller); live model pickers come from the per-provider catalog endpoints below.
+Read/write the model catalog markdown (`~/.arco/models.md`). GET → `{ contents, bytes }` (`contents: ''` when absent). POST body `{ contents: string }` → `{ ok: true, bytes }`; only the type and a size cap are enforced (no alias/content validation), `400` otherwise. Edited from SettingsPanel. Vestigial: nothing server-side consumes `models.md` any more (`buildCatalogInjection` in `catalog.ts` was the pre-Lite orchestrator's routing brain and has no caller); live model pickers come from the per-provider catalog endpoints below.
 
 ---
 
@@ -1545,7 +1545,7 @@ When a terminal can't be found, or the systemd service has no desktop display en
 
 ### `GET` / `POST` / `DELETE /api/zai-key`
 
-Z.ai (GLM Coding Plan) API-key config — the key the `zai` provider (Codex app-server path) and the `/api/zai-usage` probe authenticate with. The key is stored in `~/.archon/provider-secrets.json` (`0600`, atomic write) and is **never** returned to the client or logged — only a `{ configured, source }` status. Backed by `server/src/providerSecrets.ts`.
+Z.ai (GLM Coding Plan) API-key config — the key the `zai` provider (Codex app-server path) and the `/api/zai-usage` probe authenticate with. The key is stored in `~/.arco/provider-secrets.json` (`0600`, atomic write) and is **never** returned to the client or logged — only a `{ configured, source }` status. Backed by `server/src/providerSecrets.ts`.
 
 - **`GET`** — `zaiApiKeyStatus()`: `{ configured: boolean, source }` where `source` ∈ `env | file | command | env-ref | none`. `env` = `ZAI_API_KEY` in the process environment (overrides the file; the UI disables the input). DD12 adds the indirect FILE-stored forms `command` (a `!cmd` ref, e.g. `!op read …`) and `env-ref` (`${ENV}`) — introspected **without** resolving (never spawns the command or reads the env value just to render a badge); `file` is a literal stored key; `none` = unconfigured.
 - **`POST`** — body `{ apiKey: string }`. Validated server-side (non-empty, no newlines, ≤ 4096 chars → else `400`), written, and the fresh status returned. The raw value may itself be a DD12 `!cmd` / `${ENV}` ref (resolved on demand at use, never persisted in resolved form).
@@ -1555,7 +1555,7 @@ Z.ai (GLM Coding Plan) API-key config — the key the `zai` provider (Codex app-
 
 ## Claude Native auth (Phase 7a)
 
-OAuth bootstrap for the in-process Claude Native transport. Tokens persist to `~/.archon/auth.json`; refresh races serialized via `proper-lockfile`. Local callback server binds port `53692`; when binding fails (the operator's remote-only setup, or the port is otherwise held), the bootstrap falls back to manual paste — see `docs/GOTCHAS.md § Claude Native transport` for the EADDRINUSE rule.
+OAuth bootstrap for the in-process Claude Native transport. Tokens persist to `~/.arco/auth.json`; refresh races serialized via `proper-lockfile`. Local callback server binds port `53692`; when binding fails (the operator's remote-only setup, or the port is otherwise held), the bootstrap falls back to manual paste — see `docs/GOTCHAS.md § Claude Native transport` for the EADDRINUSE rule.
 
 ### `GET /api/auth/claude-native`
 
@@ -1731,7 +1731,7 @@ Drives the Claude usage bars exposed via the `CLAUDE [LIVE]` pill's hover popove
 
 ### `GET /api/codex-usage[?force=1]`
 
-Codex has no usage API, so this **scrapes** the ChatGPT usage settings page (`https://chatgpt.com/settings/usage?tab=overview`; moved from the Codex analytics page 2026-10) with a headless Camoufox (`$ARCHON_CAMOUFOX_PYTHON`, default `/opt/camoufox/bin/python`) against a persistent browser profile (`$ARCHON_CODEX_USAGE_PROFILE`, default `~/.archon/camoufox-chatgpt-profile`). 45 s scrape timeout, 3-minute cache; `?force=1` bypasses. Always 200. Backed by `server/src/codexUsage.ts`.
+Codex has no usage API, so this **scrapes** the ChatGPT usage settings page (`https://chatgpt.com/settings/usage?tab=overview`; moved from the Codex analytics page 2026-10) with a headless Camoufox (`$ARCO_CAMOUFOX_PYTHON`, default `/opt/camoufox/bin/python`) against a persistent browser profile (`$ARCO_CODEX_USAGE_PROFILE`, default `~/.arco/camoufox-chatgpt-profile`). 45 s scrape timeout, 3-minute cache; `?force=1` bypasses. Always 200. Backed by `server/src/codexUsage.ts`.
 
 **Response** — `CodexUsageInfo`:
 ```ts
@@ -1783,7 +1783,7 @@ Z.ai GLM Coding Plan quota snapshot. Probes Z.ai's monitor endpoint with the con
 
 ### `GET /api/cursor-usage[?force=1]`
 
-Month-to-date Cursor usage snapshot backing the Usage tab's `CursorUsageCard`. **Fail-soft: always 200** — `getCursorUsage()` never throws. Reads the cursor.com session JWT **fresh each poll** from `$ARCHON_CURSOR_AUTH` ?? `~/.config/cursor/auth.json` (never cached); 3-minute result cache, `?force=1` bypasses. On missing/stale auth or an upstream error it returns `{ available:false, source, needsLogin? }` instead of an error status. Backed by `server/src/cursorUsage.ts`.
+Month-to-date Cursor usage snapshot backing the Usage tab's `CursorUsageCard`. **Fail-soft: always 200** — `getCursorUsage()` never throws. Reads the cursor.com session JWT **fresh each poll** from `$ARCO_CURSOR_AUTH` ?? `~/.config/cursor/auth.json` (never cached); 3-minute result cache, `?force=1` bypasses. On missing/stale auth or an upstream error it returns `{ available:false, source, needsLogin? }` instead of an error status. Backed by `server/src/cursorUsage.ts`.
 
 **Response** — `CursorUsageInfo` (`shared/src/protocol/usage.ts`):
 `{ available, fetchedAt, source: 'dashboard'|'disabled'|'unavailable'|'error', dashboardUrl, periodStart?, periodEnd?, summary?, chargedCents?, inputTokens?, outputTokens?, cacheReadTokens?, totalTokens?, eventCount?, kindCounts?, hardCapped?, included?: CursorIncludedUsage, rows?: CursorUsageEventRow[], needsLogin?, error? }`.
@@ -1817,7 +1817,7 @@ Preload a registered alias into VRAM explicitly, before any workflow turn. `llam
 
 ### `GET /api/llamacpp/catalog`
 
-Read the operator-managed llama.cpp model registry (`~/.archon/llamacpp.json`). Returns `{ models: LlamacppModelDef[] }`.
+Read the operator-managed llama.cpp model registry (`~/.arco/llamacpp.json`). Returns `{ models: LlamacppModelDef[] }`.
 
 ### `POST /api/llamacpp/catalog`
 
@@ -1931,8 +1931,8 @@ Same flow as shutdown but with `reason: 'server_restarting'` and a respawn:
 
 1. Broadcasts shutdown notification; responds `200 { restarting: true }`.
 2. After a 50 ms delay (so the response flushes), closes WSS + HTTP and flushes events.
-3. In systemd service mode (`INVOCATION_ID` / `SYSTEMD_EXEC_PID` set), queues `systemctl --user --no-block restart <ARCHON_SYSTEMD_UNIT|archon.service>`; if systemd hasn't stopped the process within 10 s it exits `1` so the unit's `Restart=on-failure` takes over.
-4. In dev mode, spawns a detached respawn script at `$TMPDIR/archon-respawn-<pid>.sh` (log: `$TMPDIR/archon-respawn.log`) that waits 1 s and runs `npm run dev`, then kills the dev tree.
+3. In systemd service mode (`INVOCATION_ID` / `SYSTEMD_EXEC_PID` set), queues `systemctl --user --no-block restart <ARCO_SYSTEMD_UNIT|arco.service>`; if systemd hasn't stopped the process within 10 s it exits `1` so the unit's `Restart=on-failure` takes over.
+4. In dev mode, spawns a detached respawn script at `$TMPDIR/arco-respawn-<pid>.sh` (log: `$TMPDIR/arco-respawn.log`) that waits 1 s and runs `npm run dev`, then kills the dev tree.
 
 The client keeps the tab open during `server_restarting` and reconnects on the new process.
 
@@ -2199,7 +2199,7 @@ falls back to local Kokoro. Effects use ordinary workflow messages.
 | `POST /api/voice/wake?session=<id>&utterance=<n>&firstSpeechAt=<seconds>` | mono 16 kHz PCM16, ≤0.5 seconds | `{detected}`; local Vosk streaming first-word candidate detection; monotonic positive utterance ID resets the stream, first-speech offset 0–0.5 seconds |
 | `POST /api/voice/speak?session=<id>` | `{text,voice?}` (≤500 characters) | memory-only Edge MP3 or fallback Kokoro WAV; `X-Voice-Engine: edge|kokoro`. Changes only the output worker when the voice differs, retaining recognition/lease. |
 | `POST /api/voice/interpret?session=<id>` | `{text,context:{targets,currentId,clusterId}}` | `{command,model,effort,usage}`; bounded fresh Codex subscription turn |
-| `POST /api/voice/tool` | `{workflowId,tool,args}` (loopback only, from the `archon-voice` MCP child) | `{ok,result}` or `{ok:false,error}`; relayed to the browser owning the session as WS `voice_tool_call`, answered by `voice_tool_result`; 404 unless the workflow is a `voiceOperator` chat; logged as `[voice tool] …` |
+| `POST /api/voice/tool` | `{workflowId,tool,args}` (loopback only, from the `arco-voice` MCP child) | `{ok,result}` or `{ok:false,error}`; relayed to the browser owning the session as WS `voice_tool_call`, answered by `voice_tool_result`; 404 unless the workflow is a `voiceOperator` chat; logged as `[voice tool] …` |
 | `POST /api/voice/diag?session=<id>` | `{events:[…]}` (≤64 KB, ≤200 events) | `{ok:true}`; each event is written to the journal as `[voice <sid>] client {…}` |
 
 The client streams 40 ms wake chunks. The wake endpoint accepts one in-flight chunk per session and scans at most
@@ -2212,7 +2212,7 @@ No retries/effort escalation or API-key fallback. Incognito IDs are excluded
 from interpretation. See [VOICE.md](VOICE.md).
 
 For no-history Computer captures, `/api/voice/audio`, `/api/voice/wake` and
-`/api/voice/diag` carry `X-Archon-Voice-Private: 1`. The route suppresses its
+`/api/voice/diag` carry `X-Arco-Voice-Private: 1`. The route suppresses its
 recognition/diagnostic logs for that request, including late responses. Private
 Computer `/api/voice/tool` relays suppress argument/result logging based on the
 workflow's Incognito flag. These headers control logging, not model routing;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AuthLoginResult, AuthStatusByProvider } from '@archon/shared';
+import type { AuthLoginResult, AuthStatusByProvider } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { LoginCommand } from './LoginCommand';
 
@@ -9,7 +9,7 @@ import { LoginCommand } from './LoginCommand';
 // what stopped the near-daily false re-login prompt. App.tsx keeps polling
 // while this is up, so a recovered login clears the chip by itself. RE-LOGIN
 // fetches the headless login command and hands it to LoginCommand (run in
-// Archon's terminal), then fast-polls /api/auth-status until Claude is back.
+// Arco's terminal), then fast-polls /api/auth-status until Claude is back.
 const FAST_POLL_MS = 1500;
 const FAST_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 

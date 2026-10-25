@@ -1,8 +1,8 @@
-# MCP Registry (ARCHON_OPS_PLAN.md §E1)
+# MCP Registry (ARCO_OPS_PLAN.md §E1)
 
 A first-class registry for registering external MCP servers once, then enabling
 them per workflow tab — replacing the ad-hoc per-provider MCP wiring (the
-cluster `archon-cluster` child and `codebase-memory`) with an operator-curated
+cluster `arco-cluster` child and `codebase-memory`) with an operator-curated
 surface that funnels through the same `mcpConfigWriter` backbone the providers
 already accept.
 
@@ -33,8 +33,8 @@ deterministic rules (the denylist regex + the per-tab allowlist); visible in
 
 ## Storage model
 
-- **Registry (global):** `~/.archon/mcp/registry.json` (override base with
-  `$ARCHON_HOME`). One machine-wide list of `McpServerDef {id, name, command,
+- **Registry (global):** `~/.arco/mcp/registry.json` (override base with
+  `$ARCO_HOME`). One machine-wide list of `McpServerDef {id, name, command,
   args, env, enabled, createdAt}`. Atomic temp+rename writes (matches
   `taskLedger` / `planStore` / `workflowMeta`). `enabled` here is the **global
   master switch** — a globally-disabled server is never wired into any tab.
@@ -162,7 +162,7 @@ re-deriving the merge:
 
 `mcpConfigWriter` (`McpConfigOptions.registryServers`, `writeFor`,
 `buildCodexMcpOverrides`) merges the registry entries alongside the existing
-`archon-cluster` / `codebase-memory` entries — the cluster + codebase-memory
+`arco-cluster` / `codebase-memory` entries — the cluster + codebase-memory
 behaviour is unchanged. Registry keys are namespaced `reg-<id8>` so they can't
 collide with the two built-in keys; tools surface as `mcp__reg-<id8>__<tool>`.
 
@@ -226,7 +226,7 @@ Help entry: `rightpanel.config.mcp` (run `npm run docs:check`).
 ## Smoke
 
 `scripts/smoke/mcp-registry.ts` (`npm run smoke:mcp-registry`) — headless, temp
-`$ARCHON_HOME` under `os.tmpdir()`, cleaned up. Covers: registry CRUD round-trip
+`$ARCO_HOME` under `os.tmpdir()`, cleaned up. Covers: registry CRUD round-trip
 + persistence; `classifyDangerous` on dangerous + safe names; per-workflow
 allowlist enable/disable changing the merged `mcpServers` object; a
 globally-disabled and a per-tab-disabled server absent; dangerous-and-unticked

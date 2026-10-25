@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@archon/shared';
-import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload } from '@archon/shared';
+import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@arco/shared';
+import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { CursorModelSelect } from '../CursorModelSelect';
@@ -147,7 +147,7 @@ export function AddWorkerSection({
       if (memberIds.has(j.id)) return false;
       if (allClusterMembers.has(j.id)) return false;
       // Both Claude transports + both Codex transports accepted; local
-      // providers use Archon's in-process tool runtime.
+      // providers use Arco's in-process tool runtime.
       void settings;
       return true;
     });

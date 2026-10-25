@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §C3 — robustness audit harness + failure cases.
+// ARCO_OPS_PLAN.md §C3 — robustness audit harness + failure cases.
 //
 // Pure-deriver audit (no live server, no provider spend, no real sockets — same
 // headless/clock-injected shape as runtime-states.ts + retry-paths.ts). C1 made

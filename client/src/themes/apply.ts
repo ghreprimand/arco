@@ -7,7 +7,7 @@ import { phosphorEmission } from './phosphor/emission';
 // (once per session, keyed by theme id). No component remounts; active workers
 // / streaming messages survive the swap.
 //
-// `archon:theme-changed` fires after the DOM updates so ThemedBackgroundShader
+// `arco:theme-changed` fires after the DOM updates so ThemedBackgroundShader
 // and any Rough.js-rendered panels can react without prop-drilling.
 //
 // `fontPackOverrideId` (optional) substitutes the active theme's display/body/
@@ -220,7 +220,7 @@ export function applyTheme(
     root.style.setProperty('--color-bg-elevated', withAlpha(tok('color-bg-elevated', theme.tokens['color-bg-elevated'] ?? ''), Math.min(1, base + 0.06)));
   }
 
-  // Fixed background image (opt-in via theme.background) — Archon's first
+  // Fixed background image (opt-in via theme.background) — Arco's first
   // image-backed theme. Painted on <body> as a scrim-over-image so it sits
   // behind every panel; it only *reads* where panel surfaces are translucent
   // (this theme lowers its panel alphas for exactly that). The scrim is a flat
@@ -296,7 +296,7 @@ export function applyTheme(
   // surfaces off this attribute (the panel translucency is applied above).
   root.dataset.frosted = frosted ? '1' : '0';
 
-  window.dispatchEvent(new CustomEvent('archon:theme-changed', { detail: theme }));
+  window.dispatchEvent(new CustomEvent('arco:theme-changed', { detail: theme }));
 }
 
 // Global "crisp text" toggle. Sets data-crisp on <html>; global.css keys the

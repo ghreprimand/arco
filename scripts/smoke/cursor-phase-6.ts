@@ -20,7 +20,7 @@
 //
 //   npm run smoke:cursor-phase-6
 //
-// Exits 0 on all-pass, 1 on any failure. Needs no running Archon (module-level).
+// Exits 0 on all-pass, 1 on any failure. Needs no running Arco (module-level).
 
 import { step, assert, assertEq, summary } from './lib.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -32,8 +32,8 @@ import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../server/
 import { inferClusterProviderFromModel, resolveClusterOverrideProvider } from '../../server/src/ws/clusterHandlers.js';
 
 async function toolNames(taskBoardAttached: boolean): Promise<string[]> {
-  const server = new McpServer({ name: 'archon-cluster', version: '1.0.0' });
-  registerClusterTools(server, { clusterId: 'c1', workflowId: 'w1', archonPort: 3001, taskBoardAttached });
+  const server = new McpServer({ name: 'arco-cluster', version: '1.0.0' });
+  registerClusterTools(server, { clusterId: 'c1', workflowId: 'w1', arcoPort: 3001, taskBoardAttached });
   const [c, s] = InMemoryTransport.createLinkedPair();
   await server.connect(s);
   const client = new Client({ name: 't', version: '0' });
@@ -91,8 +91,8 @@ async function main(): Promise<void> {
 
   await step('4: loopback HTTP MCP — ensure, tools/list over StreamableHTTP', async () => {
     const wfid = 'wf-phase6-aaaaaaaa';
-    const first = await ensureClusterLoopbackMcp({ clusterId: 'cl-1', workflowId: wfid, archonPort: 3001, taskBoardAttached: false });
-    assert(first.name === 'archon-cluster', 'descriptor name = archon-cluster');
+    const first = await ensureClusterLoopbackMcp({ clusterId: 'cl-1', workflowId: wfid, arcoPort: 3001, taskBoardAttached: false });
+    assert(first.name === 'arco-cluster', 'descriptor name = arco-cluster');
     assert(/^http:\/\/127\.0\.0\.1:\d+\/mcp\/[0-9a-f]{32}$/.test(first.url), `loopback url shape: ${first.url}`);
 
     const names = await listOverHttp(first.url);
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
     assertEq(names.length, 6, 'board detached → 6 tools over HTTP');
 
     // Idempotent re-ensure → SAME url, and board attach flips the tool count.
-    const again = await ensureClusterLoopbackMcp({ clusterId: 'cl-1', workflowId: wfid, archonPort: 3001, taskBoardAttached: true });
+    const again = await ensureClusterLoopbackMcp({ clusterId: 'cl-1', workflowId: wfid, arcoPort: 3001, taskBoardAttached: true });
     assertEq(again.url, first.url, 're-ensure returns the same URL');
     const names2 = await listOverHttp(again.url);
     assertEq(names2.length, 17, 're-ensure with board attached → 17 tools (ctx refreshed)');

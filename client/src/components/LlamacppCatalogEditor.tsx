@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { LlamacppModelDef } from '@archon/shared';
+import type { LlamacppModelDef } from '@arco/shared';
 
-// Operator-facing editor for ~/.archon/llamacpp.json. Reads the catalog
+// Operator-facing editor for ~/.arco/llamacpp.json. Reads the catalog
 // over /api/llamacpp/catalog (full GET / full POST replace, same
 // wholesale-not-merge pattern as the models.md editor), and exposes
 // per-row Load / Unload / Edit / Delete plus an Add form.

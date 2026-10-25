@@ -1,5 +1,5 @@
 {
-  "name": "@archon/server",
+  "name": "@arco/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -71,7 +71,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
-    "@archon/shared": "*",
+    "@arco/shared": "*",
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",

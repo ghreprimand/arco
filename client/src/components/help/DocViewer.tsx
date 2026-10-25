@@ -229,13 +229,13 @@ export function DocViewer() {
           )}
           {!error && content !== null && (
             isMarkdown ? (
-              <div className="archon-markdown">
+              <div className="arco-markdown">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {content}
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className="archon-markdown">
+              <div className="arco-markdown">
                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                   {'```' + lang + '\n' + content + '\n```'}
                 </ReactMarkdown>

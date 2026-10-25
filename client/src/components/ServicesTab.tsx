@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { LocalService, ServicesResponse, PinnedService, ArchonSettings } from '@archon/shared';
+import type { LocalService, ServicesResponse, PinnedService, ArcoSettings } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { EmptyState } from './RightPanel/FilesTab';
 
-// ── Services tab (ARCHON_OPS_PLAN.md §L2, Part L — Local Services) ──
+// ── Services tab (ARCO_OPS_PLAN.md §L2, Part L — Local Services) ──
 //
 // A MACHINE-WIDE (not workflow-scoped) browser of the local listening web/dev
 // services discovered by L1's GET /api/services. Because it is project-agnostic
@@ -23,7 +23,7 @@ import { EmptyState } from './RightPanel/FilesTab';
 //
 // L3 adds three reuse-only surfaces: (1) "Open in Live Preview" — binds a
 // service's port to the FOCUSED workflow's preview proxy (set_preview_port) and
-// flips its right panel to PREVIEW via the archon:open-preview CustomEvent;
+// flips its right panel to PREVIEW via the arco:open-preview CustomEvent;
 // (2) an operator-toggled HEALTH dot (default OFF — probing spawns network
 // requests, so it must be armed) reusing GET /api/preview/probe; and (3) a
 // display-only THIS WORKFLOW group floating discovered services whose cwd
@@ -229,7 +229,7 @@ export function ServicesTab({
         body: JSON.stringify({ pinnedServices: next }),
       });
       if (!res.ok) return;
-      const fresh = (await res.json()) as ArchonSettings;
+      const fresh = (await res.json()) as ArcoSettings;
       if (fresh) setSettings(fresh);
     } catch { /* best-effort — the next pin/unpin retries */ }
   };
@@ -313,7 +313,7 @@ export function ServicesTab({
       )}
 
       {/* L3 — THIS WORKFLOW floats above PINNED / DISCOVERED. Sub-header carries
-          the focused cwd basename (e.g. "THIS WORKFLOW · archon"). */}
+          the focused cwd basename (e.g. "THIS WORKFLOW · arco"). */}
       {thisWorkflowRows.length > 0 && focusedCwd && (
         <>
           <div className="display-font" style={subHeaderStyle}>
@@ -458,7 +458,7 @@ function ServiceRow({
   const openPreview = () => {
     if (!previewAvailable || !activeJobId || !onSetPreviewPort) return;
     onSetPreviewPort(activeJobId, port, service?.framework ?? undefined);
-    window.dispatchEvent(new CustomEvent('archon:open-preview', { detail: { workflowId: activeJobId } }));
+    window.dispatchEvent(new CustomEvent('arco:open-preview', { detail: { workflowId: activeJobId } }));
     onClose?.();
   };
   const previewTitle = offline

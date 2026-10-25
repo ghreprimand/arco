@@ -6,7 +6,7 @@ uniform vec3 uPrimaryColor;
 uniform vec3 uSecondaryColor;
 uniform vec3 uBgColor;
 
-// Sakura petals — the cozy counterpart to Archon's otherwise intense shader
+// Sakura petals — the cozy counterpart to Arco's otherwise intense shader
 // set (ported in spirit from the Odysseus ambient-particle patterns,
 // 2026-06-05). A sparse field of soft plum-blossom petals drifts down and
 // sways side to side, each one slowly tumbling. Deliberately low-density and

@@ -1,7 +1,7 @@
 // Regression guard for the Codex effort surface (docs/GOTCHAS.md § Codex).
 //
 // GPT-6 Astra (2026-09-03) added two reasoning efforts above `xhigh` — `max`
-// and then `ultra`. Archon dropped both on release day: `effortsForModel`
+// and then `ultra`. Arco dropped both on release day: `effortsForModel`
 // carried a hard-coded `low|medium|high|xhigh` allowlist, so the live catalog
 // could advertise six levels and the picker would still show four. The failure
 // is silent in both directions — an operator picking MAX on Astra was quietly
@@ -14,8 +14,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { CodexCatalogSnapshot } from '@archon/shared';
-import { EFFORT_RANK } from '@archon/shared';
+import type { CodexCatalogSnapshot } from '@arco/shared';
+import { EFFORT_RANK } from '@arco/shared';
 import { effortsForModel, effortsForProvider, clampEffortForModel } from './format.js';
 
 // Shape mirrors what codex-appserver/catalog.ts distils from `model/list`.

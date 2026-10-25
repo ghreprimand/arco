@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F2 — backup verify smoke (no live server, no real ~/.archon).
+// ARCO_OPS_PLAN.md §F2 — backup verify smoke (no live server, no real ~/.arco).
 //
 // Builds a known-good archive in memory over a small fixture file list (the same
 // pure writeArchive/buildManifest path the snapshot smoke uses), then asserts:
@@ -44,9 +44,9 @@ function buildGoodManifest(files: ArchiveFile[]): BackupManifest {
     redactions: [],
   };
   return buildManifest({
-    archonVersion: FIXED_VERSION,
+    arcoVersion: FIXED_VERSION,
     createdAt: FIXED_CREATED_AT,
-    sourceRoot: '~/.archon',
+    sourceRoot: '~/.arco',
     walk,
   });
 }
@@ -133,13 +133,13 @@ async function main(): Promise<void> {
   });
 
   await step('(g) missing required manifest field → FAIL', () => {
-    // Drop archonVersion to prove the field-presence checks bite.
+    // Drop arcoVersion to prove the field-presence checks bite.
     const noVersion = { ...goodManifest } as Partial<BackupManifest>;
-    delete noVersion.archonVersion;
+    delete noVersion.arcoVersion;
     assertFailsWith(
       writeArchive(noVersion as BackupManifest, FIXTURE_FILES),
-      /archonVersion/i,
-      'missing archonVersion',
+      /arcoVersion/i,
+      'missing arcoVersion',
     );
   });
 

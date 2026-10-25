@@ -50,7 +50,7 @@ registered in Arco's two-model picker. **262K** is the display label for
 262144 tokens; some capability badges use **256k** (262144 ÷ 1024).
 
 One Strata profile is resident at a time. Arco serializes entire Strata turns,
-including tool round trips, even when `ARCHON_LOCAL_PROVIDER_SERIAL_QUEUE=0`.
+including tool round trips, even when `ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0`.
 Alternating tabs with different selections reloads their respective weights.
 Conversation history survives; the old engine's warm caches do not. This is not
 simultaneous residency or automatic model routing.
@@ -134,8 +134,8 @@ single useful maximum based on installed RAM alone. Budget for the rest of the
 machine, KV, image encoding, runtime overhead and GPU residency. Do not allocate
 the whole machine to the expert cache. No limits were raised for this integration.
 
-Arco's own Node/worker memory guards are separate. `ARCHON_RSS_KILL_BYTES`
-controls Archon-managed process-tree workers; Strata is an independently started
+Arco's own Node/worker memory guards are separate. `ARCO_RSS_KILL_BYTES`
+controls Arco-managed process-tree workers; Strata is an independently started
 HTTP service, outside that tree. Raising Arco's limit does not lift Strata's
 systemd ceiling. Changing limits requires coordinated edits to the unit/drop-in
 and profile engine limit, fresh headroom checks, then a guarded Strata restart
@@ -181,7 +181,7 @@ next message. More reasoning can lengthen a task even at the same decode rate.
 
 Agent uses Arco's local tool runtime, including SearXNG-backed **WebSearch**
 and **WebFetch**, subject to AUTO/SAFE and primitive allowlists. Search defaults
-to `ARCHON_SEARXNG_URL=http://127.0.0.1:8888`. WebFetch uses the shared fetch
+to `ARCO_SEARXNG_URL=http://127.0.0.1:8888`. WebFetch uses the shared fetch
 implementation/fallbacks. These tools run in Arco; the inference engine does
 not need built-in web browsing.
 
@@ -223,7 +223,7 @@ model allocations without deleting GGUFs, saved conversations or disk caches.
 | Profiles | `<strata-data>/config/iq3_xxs-{262k,sc117-262k}.json` |
 | Guarded launcher | `<local-llm-tools>/scripts/strata-trial.py` |
 | User service template | `~/.config/systemd/user/strata-flash-next@.service` |
-| Arco profile registry | `~/.archon/strata-profiles.json` |
+| Arco profile registry | `~/.arco/strata-profiles.json` |
 | Runtime logs | `<strata-data>/logs/` and the user journal |
 
 Installed engine: **0.1.44.1**, source commit
@@ -307,7 +307,7 @@ cmake --build build-vision-cpu --target strata-vision --parallel 8
 The profile's `vision` object points `exe` at that build's `bin/strata-vision`,
 `mmproj` at the verified stock projector, `model` at its own first GGUF, and sets
 `gpu:false`, `threads:8`, `max_tokens:1024`. The original pre-vision backup is
-`config/iq3_xxs-262k.before-archon-vision.json`. Restoring it affects Original
+`config/iq3_xxs-262k.before-arco-vision.json`. Restoring it affects Original
 only and needs a guarded restart plus fresh capability discovery. Do not point
 SC117 at Original's weights or reuse an old pack to undo an encoder change.
 
@@ -352,7 +352,7 @@ Preserve the existing profiles. The working registry is:
 }
 ```
 
-Use `ARCHON_STRATA_PROFILES` to override the registry path. Managed endpoints
+Use `ARCO_STRATA_PROFILES` to override the registry path. Managed endpoints
 must be loopback HTTP and match `baseUrl` exactly after Arco's endpoint
 normalization. IDs/models/units must be unique; `config.model_name` must match
 `model`. Registry/config/asset paths are local to the Arco server host. File
@@ -404,7 +404,7 @@ nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader,nounits
 | High memory / slow cold prompt | Inspect cgroup pressure, available RAM, NVMe reads and fresh prefill, not just decode tok/s. Avoid raising context/cache/encoder budgets together. |
 | Newer Strata version | PROVIDERS refreshes the prepared engine's `BUILD.json` when opened, falling back to `/v1/status.engine` for unmanaged endpoints. Upstream engine package versions refresh at boot/every four hours; click opens in-app release notes. It does not install an engine update. |
 
-FREE VRAM targets loopback Ollama, Strata, Archon-managed llama.cpp and LM Studio
+FREE VRAM targets loopback Ollama, Strata, Arco-managed llama.cpp and LM Studio
 LLMs (even hidden providers), skips remote endpoints and embedding instances,
 and reports unloaded/idle/unavailable/failure per runtime. It refuses active
 local primaries/reviewers and a concurrent profile switch. It is an immediate
@@ -444,7 +444,7 @@ identity, serial turns, labels, context/vision and retained conversation.
 `npm run test:help-docs` checks manual/help assembly and links.
 
 Opt-in `smoke:strata-live` needs real Strata, SearXNG, `STRATA_SMOKE_IMAGE` and a
-throwaway Arco (`ARCHON_SMOKE_WS_URL`, optional `STRATA_SMOKE_MODEL` and
+throwaway Arco (`ARCO_SMOKE_WS_URL`, optional `STRATA_SMOKE_MODEL` and
 `STRATA_SMOKE_ARTIFACTS`). Isolate `os.homedir()` for that server, including PID
 registries, persistence and workspace; changing only the port or `HOME` is
 insufficient. Never point an auth-off smoke server at production state.
@@ -456,8 +456,8 @@ catalog and built browser selection were checked. Short decode observations
 were roughly 56–113 tok/s, not sustained long-context throughput guarantees.
 Full 262K prompt quality, worst-case image batches and worst-case RAM peaks
 remain unvalidated. Temporary evidence directories:
-`/tmp/archon-strata-acceptance/`, `/tmp/archon-strata-sc117-live/`, and
-`/tmp/archon-strata-switch-live/`.
+`/tmp/arco-strata-acceptance/`, `/tmp/arco-strata-sc117-live/`, and
+`/tmp/arco-strata-switch-live/`.
 
 Machine preparation/history also lives in
 `<local-llm-tools>/docs/usage/strata.md`; Arco's runbook and help are

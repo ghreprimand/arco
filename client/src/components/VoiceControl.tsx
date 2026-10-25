@@ -14,7 +14,7 @@ import { registerVoiceToolHandler, revokeComputerTextTools } from '../voice/tool
 import { computerRequestActive, computerVoiceStatus } from '../voice/computerRequest';
 import { headerActionStyle } from './headerActionStyle';
 import { VoiceOutputPicker } from './VoiceOutputPicker';
-import { VOICE_OUTPUT_SAMPLE } from '@archon/shared';
+import { VOICE_OUTPUT_SAMPLE } from '@arco/shared';
 
 const button: React.CSSProperties = { background: 'transparent', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', padding: '5px 9px', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--font-display)' };
 export function VoiceButton() {

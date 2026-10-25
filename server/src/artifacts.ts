@@ -1,6 +1,6 @@
-import type { ArtifactKind } from '@archon/shared';
+import type { ArtifactKind } from '@arco/shared';
 
-// Extract `archon-artifact` fenced blocks from an orchestrator turn's text.
+// Extract `arco-artifact` fenced blocks from an orchestrator turn's text.
 // The orchestrator is taught (via ORCHESTRATOR_SYSTEM_PROMPT) to emit these
 // when it wants to show the operator something in a modal or ask for a
 // decision. Invalid JSON is silently dropped — we never want artifact
@@ -44,7 +44,7 @@ function normalize(raw: unknown): ArtifactPayload | null {
 
 export function extractArtifacts(text: string): ArtifactPayload[] {
   const out: ArtifactPayload[] = [];
-  const regex = /```archon-artifact\s*\n([\s\S]*?)```/g;
+  const regex = /```arco-artifact\s*\n([\s\S]*?)```/g;
   for (const match of text.matchAll(regex)) {
     try {
       const parsed = JSON.parse(match[1].trim());

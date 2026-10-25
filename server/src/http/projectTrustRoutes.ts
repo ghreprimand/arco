@@ -4,7 +4,7 @@
 // lifetime, and that banner renders only in the composer of the member tab whose
 // turn happened to hit the gate first (TerminalInput). Miss it — you were on the
 // cluster parent tab, or a peer consumed the prompt — and the only way back was
-// hand-editing ~/.archon/trust.json. These routes are the standing operator
+// hand-editing ~/.arco/trust.json. These routes are the standing operator
 // surface for the same decision: list what's recorded, record/flip one, or drop
 // one so the prompt re-arms.
 //
@@ -107,13 +107,13 @@ export async function tryHandleProjectTrustRoutes(
         // Re-arm the one-shot prompt for this cwd so the next turn asks again
         // rather than silently suppressing with no way back.
         clearPromptPending(cwd);
-        console.log(`[archon] project trust cleared for ${removed ?? canonicalizePath(cwd)}`);
+        console.log(`[arco] project trust cleared for ${removed ?? canonicalizePath(cwd)}`);
         return json(res, 200, { ...(await snapshot(cwd)), removed: removed ?? null });
       }
       const key = await writeTrustDecision(cwd, decision, Date.now());
       clearPromptPending(cwd);
       broadcastToCoveredWorkflows(key, decision);
-      console.log(`[archon] project trust recorded: ${decision} for ${key}`);
+      console.log(`[arco] project trust recorded: ${decision} for ${key}`);
       return json(res, 200, await snapshot(cwd));
     } catch (err) {
       return json(res, 400, { error: err instanceof Error ? err.message : String(err) });

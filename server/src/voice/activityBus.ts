@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ComputerActivityEvent } from '@archon/shared';
+import type { ComputerActivityEvent } from '@arco/shared';
 
 type Input = Omit<ComputerActivityEvent, 'id' | 'at'>;
 const listeners = new Set<(event: ComputerActivityEvent) => void>();

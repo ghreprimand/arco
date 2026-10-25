@@ -161,7 +161,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
   const [imagePayload, setImagePayload] = useState<ImagePayload | null>(null);
   // The artifact's path is cwd-RELATIVE (confinement) — resolve it against the
   // emitting workflow's cwd, not the server process cwd (which only matches by
-  // coincidence when the tab is rooted at the Archon repo).
+  // coincidence when the tab is rooted at the Arco repo).
   const cwd = useAppStore((s) => s.jobs[artifact.workflowId]?.config.workingDirectory);
 
   useEffect(() => {
@@ -206,7 +206,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
     return (
       <div style={box}>
         {artifact.message ? (
-          <div className="archon-markdown">
+          <div className="arco-markdown">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{artifact.message}</ReactMarkdown>
           </div>
         ) : (
@@ -220,7 +220,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
     return (
       <div style={box}>
         {artifact.message ? (
-          <div className="archon-markdown">
+          <div className="arco-markdown">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{artifact.message}</ReactMarkdown>
           </div>
         ) : (
@@ -233,7 +233,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
   if (artifact.kind === 'code' || artifact.kind === 'diff') {
     if (!codeFenced) return <div style={box}>(empty)</div>;
     return (
-      <div style={box} className="archon-markdown">
+      <div style={box} className="arco-markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{codeFenced}</ReactMarkdown>
       </div>
     );
@@ -241,7 +241,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
 
   // text
   return (
-    <div style={box} className="archon-markdown">
+    <div style={box} className="arco-markdown">
       {artifact.content ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{artifact.content}</ReactMarkdown>
       ) : (

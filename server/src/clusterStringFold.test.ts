@@ -34,7 +34,7 @@ test('oversized plan is truncated; role + real addendum survive verbatim (incide
   // The load-bearing blocks survive byte-for-byte — this is the incident.
   assert.ok(combined.includes(ROLE));
   assert.ok(combined.includes(addendum));
-  assert.ok(combined.includes('mcp__archon_cluster__peer_send'));
+  assert.ok(combined.includes('mcp__arco_cluster__peer_send'));
   // The plan carries the recover-via-tools marker and still leads the block.
   assert.ok(combined.includes('truncated to fit the cluster appendSystemPrompt cap'));
   assert.ok(combined.startsWith('--- Shared cluster plan ---'));

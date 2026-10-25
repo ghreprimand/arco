@@ -6,7 +6,7 @@
 // history (meta.json + events.jsonl). So it gets its own on-disk directory
 // tree rather than a single shared JSON file:
 //
-//   ~/.archon/cluster-snapshots/<snapshotId>/
+//   ~/.arco/cluster-snapshots/<snapshotId>/
 //     manifest.json                       full ClusterState + per-member
 //                                          resolved config + plan body + meta
 //     members/<oldWfid>/meta.json         copy of the member's WorkflowMeta
@@ -34,14 +34,14 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import type { ClusterMemberAccessMode, ClusterSnapshotSummary, ProviderName, ModelName, EffortLevel, WorkflowConfig } from '@archon/shared';
+import type { ClusterMemberAccessMode, ClusterSnapshotSummary, ProviderName, ModelName, EffortLevel, WorkflowConfig } from '@arco/shared';
 import * as clusterStore from './clusterStore.js';
 import { readMeta, writeMeta, type WorkflowMeta, WFID_PATTERN } from './workflowMeta.js';
 import { flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore } from './workflowStore.js';
 import { readClusterPlan } from './clusterPlanBridge.js';
 import { rememberCwd } from './crashRecovery.js';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const NAME_MAX = 64;
 const MAX_SNAPSHOTS = 100;
@@ -54,7 +54,7 @@ const MAX_SNAPSHOTS = 100;
 const MAX_MEMBER_EVENTS_BYTES = 512 * 1024 * 1024;
 
 function snapshotsRoot(): string {
-  return path.join(archonHome(), 'cluster-snapshots');
+  return path.join(arcoHome(), 'cluster-snapshots');
 }
 
 function snapshotDir(snapshotId: string): string {
@@ -318,7 +318,7 @@ function portableWorkflowConfig(input: WorkflowConfig): WorkflowConfig {
 
 function portableWorkflowMeta(input: WorkflowMeta): WorkflowMeta {
   const meta = structuredClone(input);
-  // Provider-native sessions live outside Archon and are not included in the
+  // Provider-native sessions live outside Arco and are not included in the
   // bundle. Carrying their ids across machines makes the restored fork attempt
   // to resume a rollout that cannot exist there (`thread/resume: no rollout
   // found` for Codex). Sanitize both when saving new artifacts and when
@@ -387,7 +387,7 @@ export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSna
         JSON.stringify(portableWorkflowMeta(meta), null, 2) + '\n',
         'utf8',
       );
-      const srcEvents = path.join(cwd, '.archon', 'workflows', oldWfid, 'events.jsonl');
+      const srcEvents = path.join(cwd, '.arco', 'workflows', oldWfid, 'events.jsonl');
       let eventsText = '';
       try {
         const st = await fs.stat(srcEvents);
@@ -452,7 +452,7 @@ export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSna
         throw err;
       }
       await fs.rm(backupDir, { recursive: true, force: true }).catch((err) => {
-        console.warn(`[archon] snapshot replacement backup cleanup failed (${snapshotId.slice(0, 8)}):`, err);
+        console.warn(`[arco] snapshot replacement backup cleanup failed (${snapshotId.slice(0, 8)}):`, err);
       });
     } else {
       await fs.rename(tempDir, finalDir);
@@ -800,7 +800,7 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
       .split('\n')
       .map((line) => (line.trim() ? rewriteEventsLine(line, idMap) : line))
       .join('\n');
-    const destEvents = path.join(targetCwd, '.archon', 'workflows', newId, 'events.jsonl');
+    const destEvents = path.join(targetCwd, '.arco', 'workflows', newId, 'events.jsonl');
     await fs.mkdir(path.dirname(destEvents), { recursive: true });
     // Atomic (tmp+rename) so a crash/disk-full mid-write can't leave a truncated
     // events.jsonl that the tail-scan below would then mis-seq.
@@ -871,7 +871,7 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
     clusterStore.normalizeTaskBoardMode(src),
   ).catch(() => { /* best-effort */ });
   // Deliberately do NOT reattach src.planId. Plans are keyed by (cwd, planId)
-  // with the body at <cwd>/.archon/plans/<planId>.md, so reusing the id would
+  // with the body at <cwd>/.arco/plans/<planId>.md, so reusing the id would
   // make this restored fork SHARE one mutable plan file with the original
   // cluster (same-cwd restore) — edits in one would bleed into the other — or,
   // on restore into a different cwd, point at a plan that doesn't exist there.

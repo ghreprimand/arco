@@ -24,7 +24,7 @@ import { workflows } from '../server/state.js';
 import { broadcastWorkflow } from '../server/broadcast.js';
 import { handleUserMessage } from './turnEngine.js';
 import { readGateStore, clearPendingGate, removeStandingApproval, type PendingGateRecord } from '../providers/claude-native/gateStore.js';
-import type { GateCategory } from '@archon/shared';
+import type { GateCategory } from '@arco/shared';
 
 const rehydratedGates = new Set<string>();
 
@@ -59,7 +59,7 @@ export async function rehydrateGatesOnce(workflowId: string, cwd: string): Promi
   await broadcastStanding(workflowId, cwd);
   if (!store || store.pending.length === 0) return;
   for (const g of store.pending) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] re-surfacing pending review gate ${g.gateId.slice(0, 8)} after restart`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] re-surfacing pending review gate ${g.gateId.slice(0, 8)} after restart`);
     broadcastWorkflow(workflowId, {
       type: 'gate_required',
       workflowId,
@@ -136,7 +136,7 @@ export async function resolveOrphanedGate(
     `${wasEdited ? ' (with edits)' : ''}. Re-issue exactly this call now:\n\n` +
     `${renderCall(record.toolName, effective)}`;
   await handleUserMessage(ws, session, workflowId, prompt, undefined, undefined, false, undefined, undefined).catch((err) => {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] orphaned-gate re-issue failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] orphaned-gate re-issue failed:`, err);
   });
   return true;
 }
@@ -148,7 +148,7 @@ export async function handleGateRevoke(workflowId: string, signature: string): P
   if (!cwd) return;
   const removed = await removeStandingApproval(cwd, workflowId, signature).catch(() => false);
   if (removed) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] revoked standing review approval ${signature.slice(0, 8)}`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] revoked standing review approval ${signature.slice(0, 8)}`);
     await broadcastStanding(workflowId, cwd);
   }
 }

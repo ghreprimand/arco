@@ -17,7 +17,7 @@ type FetchState =
 
 // Collapsed marker rendered inline where the orchestrator wrote
 // [artifact:<name>] in its chat text. Click to fetch + expand the file
-// contents from `<cwd>/.archon/workflows/<wfid>/artifacts/<name>`. First
+// contents from `<cwd>/.arco/workflows/<wfid>/artifacts/<name>`. First
 // expand triggers the fetch; toggle is free thereafter.
 export function ArtifactPill({ name, cwd, workflowId }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -73,7 +73,7 @@ export function ArtifactPill({ name, cwd, workflowId }: Props) {
       </button>
       {expanded && (
         <div
-          className="archon-markdown"
+          className="arco-markdown"
           style={{
             display: 'block',
             marginTop: '6px',

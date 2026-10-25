@@ -1,7 +1,7 @@
-// archon-agent §13.2 — Ed25519 signing/verification for lifecycle commands.
+// arco-agent §13.2 — Ed25519 signing/verification for lifecycle commands.
 //
 // PURE module (node:crypto only, no filesystem, no network) so the smoke
-// (scripts/smoke/archon-agent.ts) imports and exercises it without a hub. The
+// (scripts/smoke/arco-agent.ts) imports and exercises it without a hub. The
 // hub holds the private key and SIGNS; each agent is provisioned the hub's
 // PUBLIC key and VERIFIES. Tailnet already authenticates transport — this
 // signature adds command authenticity + replay protection on top, so even a
@@ -40,7 +40,7 @@ export function canonicalizePayload(p: LifecycleCommandPayload): Buffer {
 }
 
 export interface HubKeypairPem {
-  publicKey: string; // SPKI PEM — provisioned to every agent (~/.archon/agent/hub.pub)
+  publicKey: string; // SPKI PEM — provisioned to every agent (~/.arco/agent/hub.pub)
   privateKey: string; // PKCS8 PEM — lives ONLY on the hub, never committed
 }
 

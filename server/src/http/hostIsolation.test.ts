@@ -46,14 +46,14 @@ async function hardenServerEnv(env: Record<string, string>, root: string): Promi
     ...env,
     PATH: [stubs, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter),
     DEEPSEEK_URL_BASE: `${dead}/v1`, OLLAMA_URL_BASE: dead, LMSTUDIO_URL_BASE: `${dead}/v1`, STRATA_URL_BASE: `${dead}/v1`,
-    ARCHON_LLAMACPP_BIN: path.join(stubs, 'llama-server'), ARCHON_LLAMACPP_HOST: '127.0.0.1', ARCHON_LLAMACPP_PORT: String(await closedPort()),
+    ARCO_LLAMACPP_BIN: path.join(stubs, 'llama-server'), ARCO_LLAMACPP_HOST: '127.0.0.1', ARCO_LLAMACPP_PORT: String(await closedPort()),
     ANTIGRAVITY_BINARY: path.join(stubs, 'antigravity'), ANTIGRAVITY_CDP_PORT: String(await closedPort()),
-    ARCHON_SEARXNG_URL: dead, ARCHON_CHROME_BINARY: path.join(stubs, 'curl'), CHROME_PATH: path.join(stubs, 'curl'),
+    ARCO_SEARXNG_URL: dead, ARCO_CHROME_BINARY: path.join(stubs, 'curl'), CHROME_PATH: path.join(stubs, 'curl'),
     CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'), XDG_CACHE_HOME: path.join(home, '.cache'),
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
   };
-  for (const key of ['ARCHON_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS']) delete hardened[key];
+  for (const key of ['ARCO_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS']) delete hardened[key];
   return { env: hardened, denyLog: log };
 }
 
@@ -94,7 +94,7 @@ test('hardened environment: provider CLIs resolve to denying stubs even after th
   let child: ChildProcess | undefined;
   try {
     const port = await closedPort();
-    const { env, denyLog } = await hardenServerEnv({ HOME: home, TMPDIR: scratch, PATH: '/usr/bin:/bin', ARCHON_PORT: String(port), ARCHON_HOST: '127.0.0.1', ARCHON_UPLOADS_DIR: uploads, ARCHON_SERVE_CLIENT: '1' }, root);
+    const { env, denyLog } = await hardenServerEnv({ HOME: home, TMPDIR: scratch, PATH: '/usr/bin:/bin', ARCO_PORT: String(port), ARCO_HOST: '127.0.0.1', ARCO_UPLOADS_DIR: uploads, ARCO_SERVE_CLIENT: '1' }, root);
 
     // Positive control 1 (network): a process in this namespace that does contact the defaults is seen.
     const dialer = spawnSync(process.execPath, ['-e', `const net=require('net');let n=${DEFAULT_PORTS.length};for(const p of ${JSON.stringify(DEFAULT_PORTS)}){const s=net.connect(p,'127.0.0.1',()=>{s.destroy();if(--n===0)process.exit(0)});s.on('error',()=>{if(--n===0)process.exit(1)})}`], { timeout: 15000 });

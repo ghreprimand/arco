@@ -5,7 +5,7 @@
 // Distinct from procListening.ts (which scopes to a single process tree —
 // used by the auto-detect path to attribute a port to a specific Bash bg).
 // Here we want everything regardless of who started it, minus our own
-// Archon server's PID so we don't list the proxy itself as a candidate.
+// Arco server's PID so we don't list the proxy itself as a candidate.
 //
 // Linux-only via /proc. macOS would need an `lsof -iTCP -sTCP:LISTEN -P -n`
 // path; not implemented because the operator's box is Linux. Returns [] on non-Linux,

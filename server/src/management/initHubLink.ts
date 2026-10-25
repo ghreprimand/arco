@@ -1,9 +1,9 @@
-// Workflow-reporting layer — wires the real Archon turn engine to the hub link.
+// Workflow-reporting layer — wires the real Arco turn engine to the hub link.
 // This is the ONLY file that couples the hub link to server internals; the
 // connector (hubLink.ts) stays turn-engine-free and independently smoke-tested.
 //
-// INERT BY DEFAULT: does nothing unless ARCHON_HUB_URL is set, so an ordinary
-// `npm run dev` / production boot is unchanged. When set, the live Archon
+// INERT BY DEFAULT: does nothing unless ARCO_HUB_URL is set, so an ordinary
+// `npm run dev` / production boot is unchanged. When set, the live Arco
 // registers to the hub as a 'service', pushes its workflow snapshot, and applies
 // routed reply/stop/continue actions — re-validating against current state.
 
@@ -65,13 +65,13 @@ import type {
   InstanceActionResult,
   InstanceRollup,
   LedgerTaskStatus,
-} from '@archon/shared';
+} from '@arco/shared';
 import type {
   TranscriptTurn,
   WorkflowActionRequest,
   WorkflowActionResult,
   WorkflowSummary,
-} from '@archon/shared';
+} from '@arco/shared';
 import { createHubLink, type HubLink } from './hubLink.js';
 import { buildServiceInstanceDescriptor } from './identity.js';
 
@@ -94,7 +94,7 @@ function readLastMessage(
 ): { text: string; role: 'assistant'; at: number; durationMs?: number } | undefined {
   let fd: number | undefined;
   try {
-    const path = join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
     fd = openSync(path, 'r');
     const size = fstatSync(fd).size;
     if (size === 0) return undefined;
@@ -553,7 +553,7 @@ function readFullTranscript(wfid: string): { title?: string; turns: TranscriptTu
   if (!cwd) return { ...(title ? { title } : {}), turns: [] };
   let fd: number | undefined;
   try {
-    const path = join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
     fd = openSync(path, 'r');
     const size = fstatSync(fd).size;
     if (size === 0) return { ...(title ? { title } : {}), turns: [] };
@@ -803,7 +803,7 @@ let statusListener: ((s: HubLinkStatus) => void) | null = null;
 export interface HubLinkStatus {
   connected: boolean; // outbound link to the hub is open
   enabled: boolean; // operator hasn't killed it locally
-  hubUrl?: string; // present when ARCHON_HUB_URL is configured
+  hubUrl?: string; // present when ARCO_HUB_URL is configured
   // Header transparency (REMOTE_MANAGEMENT.md §9): how many of this instance's
   // workflows are opted in to remote (= reported to the hub). Lets the HUB chip
   // show "N monitored" instead of a bare connected/disconnected dot.
@@ -828,7 +828,7 @@ export function getHubLinkStatus(): HubLinkStatus {
     enabled: link !== null,
     monitoredCount: countRemoteEnabled(),
     ...(connectedSince !== undefined ? { connectedSince } : {}),
-    ...(process.env.ARCHON_HUB_URL ? { hubUrl: process.env.ARCHON_HUB_URL } : {}),
+    ...(process.env.ARCO_HUB_URL ? { hubUrl: process.env.ARCO_HUB_URL } : {}),
   };
 }
 
@@ -852,7 +852,7 @@ function emitStatus(): void {
 }
 
 function startLink(): void {
-  const hubUrl = process.env.ARCHON_HUB_URL;
+  const hubUrl = process.env.ARCO_HUB_URL;
   if (!hubUrl || !cfg || link) return;
   const instance = buildServiceInstanceDescriptor(cfg.repoRoot, cfg.version);
   link = createHubLink({
@@ -881,7 +881,7 @@ function startLink(): void {
 }
 
 // Called from the server bootstrap. The hub link itself is inert unless
-// ARCHON_HUB_URL is set; the auth-expired notice wiring below is NOT hub-gated
+// ARCO_HUB_URL is set; the auth-expired notice wiring below is NOT hub-gated
 // (the J1 → ntfy path works standalone), so the phone learns about a dead
 // Claude auth even on a hub-less install.
 export function initHubLink(repoRoot: string, version: string): void {

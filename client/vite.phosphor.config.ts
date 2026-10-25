@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Separate entry and output: no Archon API/WS proxy, no production build writes.
+// Separate entry and output: no Arco API/WS proxy, no production build writes.
 export default defineConfig({
   plugins: [react(), {
     name: 'isolated-phosphor-preview',

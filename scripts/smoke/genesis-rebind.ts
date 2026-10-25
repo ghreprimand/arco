@@ -7,7 +7,7 @@
 // API + the same move the handler performs:
 //
 //   (1) run some events in the scratch store, flush.
-//   (2) flush + move .archon/workflows/<wfid> scratch→real, forget the scratch
+//   (2) flush + move .arco/workflows/<wfid> scratch→real, forget the scratch
 //       buffer, re-init the store at the real dir.
 //   (3) assert: seq is recovered from the moved events.jsonl (continues, no reset),
 //       the prior events replay in order (transcript carried over), and the next
@@ -38,8 +38,8 @@ function notice(wfid: string, content: string): ServerMessage {
 
 // The same move handleGenesisScaffold performs (rename with EXDEV fallback).
 async function moveStore(scratch: string, real: string, wfid: string): Promise<void> {
-  const from = path.join(scratch, '.archon', 'workflows', wfid);
-  const to = path.join(real, '.archon', 'workflows', wfid);
+  const from = path.join(scratch, '.arco', 'workflows', wfid);
+  const to = path.join(real, '.arco', 'workflows', wfid);
   await fs.mkdir(path.dirname(to), { recursive: true });
   try {
     await fs.rename(from, to);
@@ -51,7 +51,7 @@ async function moveStore(scratch: string, real: string, wfid: string): Promise<v
 }
 
 async function main(): Promise<void> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-genesis-rebind-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-genesis-rebind-'));
   const scratch = path.join(tmp, 'scratch');
   const real = path.join(tmp, 'project');
   await fs.mkdir(scratch, { recursive: true });
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
       // Seq recovered from the MOVED events.jsonl tail — not reset to 0.
       assertEq(currentSeq(real, wfid), 3, 'real head seq recovered from moved file');
       // The scratch store dir is gone (rename moved it).
-      const scratchStore = path.join(scratch, '.archon', 'workflows', wfid);
+      const scratchStore = path.join(scratch, '.arco', 'workflows', wfid);
       const stillThere = await fs.lstat(scratchStore).then(() => true).catch(() => false);
       assert(!stillThere, 'scratch store dir no longer exists after move');
     });

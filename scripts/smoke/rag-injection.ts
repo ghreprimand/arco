@@ -2,7 +2,7 @@
 // discipline unit smoke.
 //
 // PURE unit test — NO WebSocket, NO server boot, NO live retriever (there is no
-// live retrieval/RAG path in Archon today; see ragInjection.ts SCOPE comment).
+// live retrieval/RAG path in Arco today; see ragInjection.ts SCOPE comment).
 // Drives the discipline primitives in server/src/providers/ragInjection.ts
 // directly and asserts:
 //   - the <source id=N> formatter output shape,

@@ -20,7 +20,7 @@ import { WebSocket } from 'ws';
 import { step, assert, assertEq, summary } from './lib.js';
 import type { LedgerTask, TaskRun, TaskRunRecoverAction } from '../../shared/src/protocol/tasks.js';
 
-const tasksJsonPath = (cwd: string) => path.join(cwd, '.archon', 'project', 'tasks.json');
+const tasksJsonPath = (cwd: string) => path.join(cwd, '.arco', 'project', 'tasks.json');
 
 function fakeWs(errors: string[]): WebSocket {
   return {
@@ -49,8 +49,8 @@ function run(input: Partial<TaskRun> & Pick<TaskRun, 'taskId' | 'workflowId'>): 
 }
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-recovery-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-recovery-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-recovery-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-recovery-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     const workerB = randomUUID();
     const wfids = [director, workerA, workerB];
     for (const wfid of wfids) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, { observers: new Set(), config: { workingDirectory: cwd } } as unknown as Parameters<typeof workflows.set>[1]);
       await writeMeta(cwd, {

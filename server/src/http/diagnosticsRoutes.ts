@@ -2,11 +2,11 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { runDiagnostics } from '../diagnostics/checks.js';
 import { buildSupportBundle } from '../diagnostics/supportBundle.js';
 import { buildModelHealthReport } from '../diagnostics/modelHealth.js';
-import type { DiagnosticsReport, ModelHealthReport, SupportBundleResponse } from '@archon/shared';
+import type { DiagnosticsReport, ModelHealthReport, SupportBundleResponse } from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §A1/§A2/§A3 — Diagnostics routes.
+// ARCO_OPS_PLAN.md §A1/§A2/§A3 — Diagnostics routes.
 //
-//   GET /api/diagnostics                 → DiagnosticsReport { groups, generatedAt, archonVersion, platform }
+//   GET /api/diagnostics                 → DiagnosticsReport { groups, generatedAt, arcoVersion, platform }
 //   GET /api/diagnostics/support-bundle  → SupportBundleResponse { json: SupportBundle, text }  (REDACTED)
 //   GET /api/diagnostics/model-health    → ModelHealthReport { ollama, llamacpp, cookbook, generatedAt, platform }
 //
@@ -45,18 +45,18 @@ export async function tryHandleDiagnosticsRoutes(
       const bundle = await buildSupportBundle();
       return send(200, bundle);
     } catch (err) {
-      console.error('[archon] support bundle failed:', err);
+      console.error('[arco] support bundle failed:', err);
       const body: SupportBundleResponse = {
         json: {
           generatedAt: Date.now(),
-          archonVersion: 'unknown',
+          arcoVersion: 'unknown',
           gitRev: 'unknown',
           platform: `${process.platform}/${process.arch}`,
           runtime: { node: process.version, serviceMode: 'unknown' },
           diagnostics: {
             groups: [],
             generatedAt: Date.now(),
-            archonVersion: 'unknown',
+            arcoVersion: 'unknown',
             platform: `${process.platform}/${process.arch}`,
           },
         },
@@ -71,7 +71,7 @@ export async function tryHandleDiagnosticsRoutes(
       const report = await buildModelHealthReport();
       return send(200, report);
     } catch (err) {
-      console.error('[archon] model-health failed:', err);
+      console.error('[arco] model-health failed:', err);
       // buildModelHealthReport never throws by contract, but stay defensive: a
       // degraded fallback keeps every subsystem present with a warn roll-up.
       const body: ModelHealthReport = {
@@ -96,11 +96,11 @@ export async function tryHandleDiagnosticsRoutes(
     const report = await runDiagnostics();
     return send(200, report);
   } catch (err) {
-    console.error('[archon] diagnostics failed:', err);
+    console.error('[arco] diagnostics failed:', err);
     const body: DiagnosticsReport = {
       groups: [],
       generatedAt: Date.now(),
-      archonVersion: 'unknown',
+      arcoVersion: 'unknown',
       platform: `${process.platform}/${process.arch}`,
     };
     return send(500, body);

@@ -1,6 +1,6 @@
 import type { Theme } from '../types';
 
-// Lavender — soft, pale, calming. Archon's other lights are utilitarian
+// Lavender — soft, pale, calming. Arco's other lights are utilitarian
 // (braun / seismograph / solar-paper); this is the gentle pastel one, and the
 // showcase for the frosted-glass mode. Light mood: primary stays dark enough
 // to read on the pale bg (ChatMessage paints body text in accent-primary).

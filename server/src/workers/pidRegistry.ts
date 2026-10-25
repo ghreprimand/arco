@@ -4,7 +4,7 @@
 // survive the server's death (SIGTERM, crash, force-quit). Without a record
 // on disk, a relaunched server has no way to reap them — leaving agents
 // running headless, eating quota, possibly hung on unanswered tool-approval
-// prompts. This registry persists every spawn to `~/.archon/worker-pids.json`
+// prompts. This registry persists every spawn to `~/.arco/worker-pids.json`
 // and clears entries as workers settle. Startup reads the file and reaps
 // anything still alive; shutdown reaps every tracked pid synchronously.
 //
@@ -22,9 +22,9 @@ import { join } from 'path';
 
 import { readStartTime, isAlive, shouldReap, type TrackedProc } from './processStartTime.js';
 import { atomicWriteFileSync } from '../atomicFile.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
-const DIR = archonHome();
+const DIR = arcoHome();
 const FILE = join(DIR, 'worker-pids.json');
 
 // pid → startTime token (null = unknown).
@@ -62,7 +62,7 @@ function save(): void {
     const procs: TrackedProc[] = Array.from(cache, ([pid, startTime]) => ({ pid, startTime }));
     atomicWriteFileSync(FILE, JSON.stringify({ procs }));
   } catch (err) {
-    console.error('[archon] pid registry save failed:', (err as Error).message);
+    console.error('[arco] pid registry save failed:', (err as Error).message);
   }
 }
 

@@ -1,8 +1,8 @@
 // Unified cluster-plan bridge.
 //
 // Clusters attach exactly one active plan, just like workflows. The body is
-// canonical under <cwd>/.archon/plans/<planId>.md; cluster meta.json stores
-// only planId. Older clusters wrote ~/.archon/clusters/<id>/plan.md, so reads
+// canonical under <cwd>/.arco/plans/<planId>.md; cluster meta.json stores
+// only planId. Older clusters wrote ~/.arco/clusters/<id>/plan.md, so reads
 // lazily migrate that legacy body into the canonical per-cwd plan store.
 
 import * as clusterStore from './clusterStore.js';
@@ -13,7 +13,7 @@ import {
   readPlanSummary,
   updatePlan,
 } from './planStore.js';
-import type { PlanFull } from '@archon/shared';
+import type { PlanFull } from '@arco/shared';
 import { withFileLock } from './atomicFile.js';
 
 export const PLAN_MAX_BYTES = legacyClusterPlanStore.PLAN_MAX_BYTES;

@@ -1,8 +1,8 @@
-// archon-management §K4 — Tailscale-SSH last-resort lifecycle path.
+// arco-management §K4 — Tailscale-SSH last-resort lifecycle path.
 //
 // PURE renderer: wraps the SAME allowlisted lifecycle template
 // (scripts/agent/allowlist.ts) into an `ssh` argv for the rare case where BOTH
-// Archon AND its agent are down on a host — the agent socket can't carry the
+// Arco AND its agent are down on a host — the agent socket can't carry the
 // command, so the hub reaches the box directly over Tailscale SSH and runs the
 // identical systemctl/launchctl template. No shell strings: ssh receives the
 // remote argv as separate args after `--` (no interpolation surface), the same
@@ -23,7 +23,7 @@ export interface SshTarget {
   user?: string;       // ssh user; omit to use ssh's default
   sshOpts?: string[];  // extra ssh flags (rare)
   // Unit/label overrides forwarded to the allowlist renderer.
-  archonUnit?: string;
+  arcoUnit?: string;
   agentUnit?: string;
   macLabel?: string;
   uid?: number;
@@ -38,7 +38,7 @@ const DEFAULT_SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o'
 
 export function renderSshLifecycle(target: SshTarget, command: LifecycleCommand): CommandSpec | null {
   const renderOpts: RenderOptions = {
-    ...(target.archonUnit ? { archonUnit: target.archonUnit } : {}),
+    ...(target.arcoUnit ? { arcoUnit: target.arcoUnit } : {}),
     ...(target.agentUnit ? { agentUnit: target.agentUnit } : {}),
     ...(target.macLabel ? { macLabel: target.macLabel } : {}),
     ...(target.uid !== undefined ? { uid: target.uid } : {}),
@@ -69,7 +69,7 @@ export function parseSshTargets(raw: string): Record<string, SshTarget> {
           platform: t.platform,
           ...(typeof t.user === 'string' ? { user: t.user } : {}),
           ...(Array.isArray(t.sshOpts) ? { sshOpts: t.sshOpts.filter((s): s is string => typeof s === 'string') } : {}),
-          ...(typeof t.archonUnit === 'string' ? { archonUnit: t.archonUnit } : {}),
+          ...(typeof t.arcoUnit === 'string' ? { arcoUnit: t.arcoUnit } : {}),
           ...(typeof t.agentUnit === 'string' ? { agentUnit: t.agentUnit } : {}),
           ...(typeof t.macLabel === 'string' ? { macLabel: t.macLabel } : {}),
           ...(typeof t.uid === 'number' ? { uid: t.uid } : {}),

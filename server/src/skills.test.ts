@@ -15,13 +15,13 @@ test('pinned skill block is standing, framed, and byte-counted', () => {
     { name: 'Review Code', scope: 'global', body: 'Inspect the diff before reporting.' },
   ]);
   assert.match(block.text, /every turn until the operator removes the pin/i);
-  assert.match(block.text, /<archon-pinned-skill name="Review Code" scope="global">/);
+  assert.match(block.text, /<arco-pinned-skill name="Review Code" scope="global">/);
   assert.match(block.text, /Inspect the diff before reporting\./);
   assert.equal(block.bytes, Buffer.byteLength(block.text, 'utf8'));
 });
 
 test('resolvePinnedSkills de-dupes references and reports missing skills', async () => {
-  const cwd = await mkdtemp(path.join(tmpdir(), 'archon-pinned-skills-'));
+  const cwd = await mkdtemp(path.join(tmpdir(), 'arco-pinned-skills-'));
   try {
     const skill = await writeSkill({
       scope: 'project',

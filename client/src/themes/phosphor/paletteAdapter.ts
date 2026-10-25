@@ -8,7 +8,7 @@ export function phosphorTheme(id: string): Theme {
   const entry = arcoThemes.find(t => t.id === originalId);
   if (!entry) throw new Error(`Unknown Phosphor palette: ${id}`);
   const p = resolvePalette(entry.id);
-  // Archon's broad fills expose more violet than the reference terminal's transparent cards.
+  // Arco's broad fills expose more violet than the reference terminal's transparent cards.
   // Keep the purple nearly black so the blue stands out. The muted ink and
   // its glass emission lean slightly bluer and darker than the reference terminal's catalog.
   if (entry.id === 'electric') {

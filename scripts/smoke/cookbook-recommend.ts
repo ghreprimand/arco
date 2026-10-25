@@ -23,7 +23,7 @@ import {
   buildRecommendationTopic,
   filterCandidatesForProfile,
 } from '../../server/src/cookbook/recommend.js';
-import type { CatalogRow, HardwareProfile, FitResult } from '@archon/shared';
+import type { CatalogRow, HardwareProfile, FitResult } from '@arco/shared';
 
 const GB = 1024 * 1024 * 1024;
 

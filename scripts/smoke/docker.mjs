@@ -133,27 +133,27 @@ try {
   await disconnect();
   console.log('PASS: saved workflow survives browser socket disconnect and reconnect');
 
-  docker('exec', name, 'node', '-e', "require('node:fs').writeFileSync('/data/home/.archon/arco-smoke-sentinel','persisted')");
+  docker('exec', name, 'node', '-e', "require('node:fs').writeFileSync('/data/home/.arco/arco-smoke-sentinel','persisted')");
   docker('stop', '--time', '20', name);
   docker('rm', name);
   await boot();
-  assert.equal(docker('exec', name, 'cat', '/data/home/.archon/arco-smoke-sentinel'), 'persisted');
-  assert.ok(JSON.parse(docker('exec', name, 'cat', `/projects/.archon/workflows/${id}/meta.json`)));
+  assert.equal(docker('exec', name, 'cat', '/data/home/.arco/arco-smoke-sentinel'), 'persisted');
+  assert.ok(JSON.parse(docker('exec', name, 'cat', `/projects/.arco/workflows/${id}/meta.json`)));
   assert.equal(readFileSync(join(project, 'example.txt'), 'utf8'), 'container edit\n');
   const persisted = await (await fetch(`${base}/api/settings`, { headers: { Cookie: await cookie(), Origin: base } })).json();
   assert.equal(persisted.ollama.baseUrl, hostModelUrl, 'Host endpoint setting must survive container replacement');
   console.log('PASS: durable home, endpoint settings and workflow metadata survive container replacement');
   // Backup capture of the volume's home: the settings restore intact.
-  const settingsOnVolume = docker('exec', name, 'cat', '/data/home/.archon/settings.json');
-  assert.match(docker('exec', name, 'stat', '-c', '%U', '/data/home/.archon/settings.json').trim(), /^node$/);
+  const settingsOnVolume = docker('exec', name, 'cat', '/data/home/.arco/settings.json');
+  assert.match(docker('exec', name, 'stat', '-c', '%U', '/data/home/.arco/settings.json').trim(), /^node$/);
   const backupRoot = mkdtempSync(join(tmpdir(), 'arco-backup-'));
   try {
-    docker('cp', `${name}:/data/home/.archon`, join(backupRoot, 'home'));
-    const backupEnv = { PATH: process.env.PATH, HOME: backupRoot, ARCHON_HOME: join(backupRoot, 'home'), TMPDIR: backupRoot };
-    const backup = args => execFileSync(process.execPath, ['--import', 'tsx', 'scripts/archon-backup.ts', ...args], { env: backupEnv, encoding: 'utf8' });
-    backup(['snapshot', '--out', join(backupRoot, 'volume.archonbk')]);
-    assert.match(backup(['verify', join(backupRoot, 'volume.archonbk')]), /ok|verified|pass/i);
-    backup(['restore', join(backupRoot, 'volume.archonbk'), '--into', join(backupRoot, 'restored')]);
+    docker('cp', `${name}:/data/home/.arco`, join(backupRoot, 'home'));
+    const backupEnv = { PATH: process.env.PATH, HOME: backupRoot, ARCO_HOME: join(backupRoot, 'home'), TMPDIR: backupRoot };
+    const backup = args => execFileSync(process.execPath, ['--import', 'tsx', 'scripts/arco-backup.ts', ...args], { env: backupEnv, encoding: 'utf8' });
+    backup(['snapshot', '--out', join(backupRoot, 'volume.arcobk')]);
+    assert.match(backup(['verify', join(backupRoot, 'volume.arcobk')]), /ok|verified|pass/i);
+    backup(['restore', join(backupRoot, 'volume.arcobk'), '--into', join(backupRoot, 'restored')]);
     assert.deepEqual(JSON.parse(readFileSync(join(backupRoot, 'restored', 'settings.json'), 'utf8')), JSON.parse(settingsOnVolume), 'the backed-up settings restore intact');
   } finally { rmSync(backupRoot, { recursive: true, force: true }); }
   console.log('PASS: the data volume home is captured by backup and its settings restore intact');
@@ -182,7 +182,7 @@ try {
     hostModel: HOST_MODEL,
   });
   assert.equal(readFileSync(join(project, 'fixture-result.txt'), 'utf8'), 'Fixture worker edited the mounted project.\n');
-  const eventsOf = workflowId => readFileSync(join(project, '.archon/workflows', workflowId, 'events.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  const eventsOf = workflowId => readFileSync(join(project, '.arco/workflows', workflowId, 'events.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
   const events = eventsOf(cluster.coordinator);
   assert.ok(events.some(event => event.type === 'review_artifact_ready'));
   assert.ok(events.some(event => event.type === 'peer_message_sent'));

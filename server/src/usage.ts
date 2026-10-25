@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { UsageInfo } from '@archon/shared';
+import type { UsageInfo } from '@arco/shared';
 import { ClaudeNativeNoAuthError, ensureLiveTokens as ensureClaudeNativeTokens } from './providers/claude-native/oauth.js';
 
 const CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
@@ -174,7 +174,7 @@ export async function getUsage(force = false): Promise<UsageInfo> {
       fetchedAt: Date.now(),
       error: candidates.errors.length > 0
         ? candidates.errors.join('; ')
-        : 'No Claude credentials found (~/.archon/auth.json native token or ~/.claude/.credentials.json CLI token)',
+        : 'No Claude credentials found (~/.arco/auth.json native token or ~/.claude/.credentials.json CLI token)',
     };
     cachedUsage = info;
     return info;

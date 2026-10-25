@@ -1,6 +1,6 @@
-// ARCHON_OPS_PLAN.md §J2 — ntfy external transport smoke.
+// ARCO_OPS_PLAN.md §J2 — ntfy external transport smoke.
 //
-// Pure (no dev server, no network, no real ~/.archon): exercises the transport
+// Pure (no dev server, no network, no real ~/.arco): exercises the transport
 // seam + the ntfy request builder end to end with a temp mutes file and an
 // injected fake fetch. Asserts:
 //
@@ -9,7 +9,7 @@
 //      (when consoleUrl set), Authorization (when token set), body shape.
 //   3. The chokepoint fans out to a registered transport for SURVIVING notices
 //      and SUPPRESSES muted ones (the load-bearing single-chokepoint promise).
-//   4. initNtfyTransport is INERT without ARCHON_NTFY_URL, ACTIVE with it, and
+//   4. initNtfyTransport is INERT without ARCO_NTFY_URL, ACTIVE with it, and
 //      a live emit() drives one POST with the built request.
 //
 // Run: npm run smoke:ntfy
@@ -46,8 +46,8 @@ function notice(over: Partial<WorkbenchNotice> = {}): WorkbenchNotice {
 }
 
 async function main() {
-  // Isolate persistence: never touch the real ~/.archon mutes.
-  _setMutesPathForTest(join(tmpdir(), `archon-ntfy-smoke-${process.pid}.json`));
+  // Isolate persistence: never touch the real ~/.arco mutes.
+  _setMutesPathForTest(join(tmpdir(), `arco-ntfy-smoke-${process.pid}.json`));
   await initNotifications(() => { /* swallow in-app broadcasts */ });
 
   await step('deriveConsoleUrl maps ws/wss → http/https + drops path', () => {
@@ -59,12 +59,12 @@ async function main() {
 
   await step('buildNtfyRequest: headers + body shape', () => {
     const req = buildNtfyRequest(notice({ workflowId: 'abcd1234ef' }), {
-      topicUrl: 'http://hub:3501/archon-x',
+      topicUrl: 'http://hub:3501/arco-x',
       token: 'tk_secret',
       consoleUrl: 'http://hub:3500/',
       instanceLabel: 'workstation',
     });
-    assertEq(req.url, 'http://hub:3501/archon-x', 'url is the topic');
+    assertEq(req.url, 'http://hub:3501/arco-x', 'url is the topic');
     assertEq(req.headers.Title, 'Turn finished - demo', 'em-dash transliterated to ascii hyphen');
     assertEq(req.headers.Priority, 'default', 'success → default priority');
     assertEq(req.headers.Tags, 'white_check_mark', 'success tag');
@@ -109,7 +109,7 @@ async function main() {
     setMutes([]); // restore
   });
 
-  await step('initNtfyTransport is inert without ARCHON_NTFY_URL', () => {
+  await step('initNtfyTransport is inert without ARCO_NTFY_URL', () => {
     _resetTransportsForTest();
     const active = initNtfyTransport({ env: {}, instanceLabel: 'x' });
     assertEq(active, false, 'inert when unconfigured');
@@ -125,11 +125,11 @@ async function main() {
     }) as unknown as typeof fetch;
 
     const active = initNtfyTransport({
-      env: { ARCHON_NTFY_URL: 'http://hub:3501/archon-x', ARCHON_HUB_URL: 'ws://hub:3500/agent', ARCHON_NTFY_TOKEN: 'tk' },
+      env: { ARCO_NTFY_URL: 'http://hub:3501/arco-x', ARCO_HUB_URL: 'ws://hub:3500/agent', ARCO_NTFY_TOKEN: 'tk' },
       fetchImpl: fakeFetch,
       instanceLabel: 'workstation',
     });
-    assertEq(active, true, 'active when ARCHON_NTFY_URL set');
+    assertEq(active, true, 'active when ARCO_NTFY_URL set');
     const cfg = getNtfyConfig();
     assert(cfg !== null, 'config stored');
     assertEq(cfg!.consoleUrl, 'http://hub:3500/', 'console derived from hub url');
@@ -138,7 +138,7 @@ async function main() {
     // The transport is fire-and-forget (async); give the microtask a beat.
     await new Promise((r) => setTimeout(r, 50));
     assertEq(calls.length, 1, 'exactly one POST fired');
-    assertEq(calls[0].url, 'http://hub:3501/archon-x', 'POST to the topic url');
+    assertEq(calls[0].url, 'http://hub:3501/arco-x', 'POST to the topic url');
     assertEq((calls[0].init.method || '').toUpperCase(), 'POST', 'method POST');
     const headers = calls[0].init.headers as Record<string, string>;
     assertEq(headers.Title, 'Turn finished - live', 'title header');

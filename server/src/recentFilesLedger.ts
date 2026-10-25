@@ -19,14 +19,14 @@
 import { appendFile, mkdir, readFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { homedir } from 'os';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 // Path is env-overridable purely as a test seam (recentFilesLedger.test.ts
-// points it at a temp file); in prod it is always ~/.archon/recent-files.jsonl.
+// points it at a temp file); in prod it is always ~/.arco/recent-files.jsonl.
 export const LEDGER_PATH =
-  process.env.ARCHON_RECENT_FILES_LEDGER || join(archonHome(), 'recent-files.jsonl');
+  process.env.ARCO_RECENT_FILES_LEDGER || join(arcoHome(), 'recent-files.jsonl');
 // Bounds (§4.2): append-only, compacted in place past 1000 lines → newest 500.
 const MAX_LINES = 1000;
 const KEEP_LINES = 500;

@@ -1,4 +1,4 @@
-// Model catalog + calibration log, both stored under ~/.archon/.
+// Model catalog + calibration log, both stored under ~/.arco/.
 // See docs/WORKER_MANAGEMENT_PLAN.md — Phase B.
 //
 // - models.md is operator-edited; we bootstrap it from the shipped template
@@ -11,31 +11,31 @@ import path from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function archonUserDir(): string {
-  return archonHome();
+function arcoUserDir(): string {
+  return arcoHome();
 }
 
 function modelsPath(): string {
-  return path.join(archonUserDir(), 'models.md');
+  return path.join(arcoUserDir(), 'models.md');
 }
 
 function calibrationPath(): string {
-  return path.join(archonUserDir(), 'calibration.md');
+  return path.join(arcoUserDir(), 'calibration.md');
 }
 
 async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-// Bootstrap: copy the shipped default models.md into ~/.archon/models.md the
-// first time an operator uses Archon. Never overwrites. Safe to call at every
+// Bootstrap: copy the shipped default models.md into ~/.arco/models.md the
+// first time an operator uses Arco. Never overwrites. Safe to call at every
 // startup.
 export async function ensureCatalog(): Promise<void> {
-  await ensureDir(archonUserDir());
+  await ensureDir(arcoUserDir());
   const target = modelsPath();
   try {
     await fs.stat(target);
@@ -49,7 +49,7 @@ export async function ensureCatalog(): Promise<void> {
     await fs.writeFile(target, template, 'utf8');
   } catch (err) {
     // If the template is missing (build glitch), don't crash — just log.
-    console.error('[archon] catalog bootstrap failed:', err instanceof Error ? err.message : err);
+    console.error('[arco] catalog bootstrap failed:', err instanceof Error ? err.message : err);
   }
   // Seed an empty calibration log alongside.
   const cal = calibrationPath();
@@ -85,7 +85,7 @@ export async function writeCatalog(contents: string): Promise<void> {
   if (bytes > MAX_CATALOG_BYTES) {
     throw new Error(`catalog too large (${bytes} bytes > ${MAX_CATALOG_BYTES} cap)`);
   }
-  await ensureDir(archonUserDir());
+  await ensureDir(arcoUserDir());
   await atomicWriteFile(modelsPath(), contents);
 }
 
@@ -99,7 +99,7 @@ export async function readCalibration(): Promise<string | null> {
 }
 
 export async function appendCalibration(line: string): Promise<void> {
-  await ensureDir(archonUserDir());
+  await ensureDir(arcoUserDir());
   const cal = calibrationPath();
   const ts = new Date().toISOString();
   const entry = `- [${ts}] ${line.trim()}\n`;

@@ -28,7 +28,7 @@ A missed `better-sqlite3` build is the quiet one: `npm run build` passes, the se
 Requirements:
 
 - Node.js **22+** (developed on 24.x LTS; 22.x is in maintenance until 2027-04-30). Crossing a Node major changes the native ABI, so `better-sqlite3` and `node-pty` need `npm rebuild` afterwards — the tell is `RECALL DISABLED` or `ERR_DLOPEN_FAILED` at boot.
-- One or more authed providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), a Z.ai key (`ZAI_API_KEY`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.archon/llamacpp.json`)
+- One or more authed providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), a Z.ai key (`ZAI_API_KEY`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
 - Linux or macOS (cross-platform — see [`docs/GOTCHAS.md`](docs/GOTCHAS.md) cross-platform notes)
 
 `npm run dev` starts both the server (port 3001, `tsx watch`) and the client (port 5173, Vite) under `concurrently --kill-others`. If one dies, both die.
@@ -38,7 +38,7 @@ Requirements:
 ## Repo structure
 
 ```
-Archon/
+Arco/
 ├── shared/src/protocol/             # WS message types (split per-domain) — shared
 │   │                                #   between client and server. `shared/src/protocol.ts`
 │   │                                #   is a thin barrel re-exporting `./protocol/index.js`.
@@ -85,7 +85,7 @@ Archon/
 │   ├── codexUsage.ts                # Codex 5h/weekly usage probe
 │   ├── codexRolloutTokens.ts        # Phase 6 — per-call token snapshot from on-disk rollout
 │   ├── handoffPrompts.ts            # Phase 3 — operator-editable Handoff prompts
-│   ├── skills.ts                    # Phase 1 — .archon/skills/ scanner + manifest builder
+│   ├── skills.ts                    # Phase 1 — .arco/skills/ scanner + manifest builder
 │   ├── git.ts                       # GitDialog backing (status + checkout)
 │   ├── settings.ts                  # operator settings (cascade: defaults → global → project)
 │   ├── usage.ts                     # Claude 5h/weekly usage probe
@@ -107,7 +107,7 @@ Archon/
 │   │   └── useTabSingleton.ts       # duplicate-tab gate
 │   ├── themes/                      # role-based CSS vars + shaders
 │   └── utils/                       # format (efforts, ctx windows), modelCatalog, chatText, linkify, …
-├── scripts/archon                   # launcher (start/stop/restart/status/logs)
+├── scripts/arco                   # launcher (start/stop/restart/status/logs)
 ├── docs/                            # this doc set
 ├── DEVLOG.md                        # chronological development log
 ├── CLAUDE.md                        # AI-agent guidance for in-repo work
@@ -132,7 +132,7 @@ Client files (under `client/src/`) hot-reload via Vite without affecting workers
 
 ### The live service does not see source edits
 
-If Arco runs as the `archon.service` systemd user unit (service mode), it serves the compiled `server/dist` + `client/dist` and watches nothing. Edits reach it only via `npm run build` + `systemctl --user restart archon.service` — and that restart kills in-flight workers in every tab, and ships whatever else is in the working tree. See `docs/SERVICE_MODE.md`.
+If Arco runs as the `arco.service` systemd user unit (service mode), it serves the compiled `server/dist` + `client/dist` and watches nothing. Edits reach it only via `npm run build` + `systemctl --user restart arco.service` — and that restart kills in-flight workers in every tab, and ships whatever else is in the working tree. See `docs/SERVICE_MODE.md`.
 
 ### Vite HMR keeps WS connection
 
@@ -162,21 +162,21 @@ npm run smoke:task-board   # Phase 12 cluster task board
 
 `scripts/smoke/` holds ~150 scenarios (now including `cursor-phase-*`, `ultracode`, `goal`, `cluster-progress`); run `npm run | grep smoke:` to list them all.
 
-> **The harness does NOT boot a server.** `lib.ts` connects to `ws://localhost:3001/ws` and tests whatever already answers there. On a machine where Arco runs as a service, that is the **prod `archon.service` compiled `dist/` — not your working tree**. A green smoke run therefore proves nothing about uncommitted source changes. To exercise your edits, run a side server and point the smoke at it:
+> **The harness does NOT boot a server.** `lib.ts` connects to `ws://localhost:3001/ws` and tests whatever already answers there. On a machine where Arco runs as a service, that is the **prod `arco.service` compiled `dist/` — not your working tree**. A green smoke run therefore proves nothing about uncommitted source changes. To exercise your edits, run a side server and point the smoke at it:
 >
 > ```bash
-> ARCHON_PORT=3099 npm run dev:server &
-> ARCHON_PORT=3099 ARCHON_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:<name>
+> ARCO_PORT=3099 npm run dev:server &
+> ARCO_PORT=3099 ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:<name>
 > ```
 >
-> Check `~/.archon/worker-pids.json` is `{"procs":[]}` first — a second server's boot-time orphan reap will SIGKILL pids tracked there, which may belong to the live instance's workers.
+> Check `~/.arco/worker-pids.json` is `{"procs":[]}` first — a second server's boot-time orphan reap will SIGKILL pids tracked there, which may belong to the live instance's workers.
 
 **Server env some scenarios require.** These are deliberately absent from the live service, so the affected scenarios can never pass against it. `requireServerEnv()` in `lib.ts` makes them exit immediately with the right command rather than timing out cryptically — use it when you add a scenario with an env prerequisite.
 
 | Env | Needed by | Why prod omits it |
 |---|---|---|
-| `ARCHON_CLUSTER_IDLE_FLOOR_SECONDS=1` | `cluster-5` | Production floor is 10s; the smoke's `waitFor` budget assumes 1s |
-| `ARCHON_TEST=1` | `cluster-26`, `cluster-5b` | Gates the `__debug_native_plan_set` / `__debug_cluster_auto_turn_inject` hooks so production never honours them |
+| `ARCO_CLUSTER_IDLE_FLOOR_SECONDS=1` | `cluster-5` | Production floor is 10s; the smoke's `waitFor` budget assumes 1s |
+| `ARCO_TEST=1` | `cluster-26`, `cluster-5b` | Gates the `__debug_native_plan_set` / `__debug_cluster_auto_turn_inject` hooks so production never honours them |
 
 **Assert against real constants, not copies.** `cluster-3` / `cluster-4` hard-coded a 9 KB payload against an 8 KB cap; when the cap was raised to 16 KB the assertion silently began passing the wrong status for months. Import the constant (`MAX_CONTENT_BYTES` is exported from `clusterMailbox.ts` for this reason) and size the fixture off it.
 
@@ -253,9 +253,9 @@ Fonts come from theme tokens too: `var(--font-display)` for terminal/UI labels (
 
 ### Logging
 
-Server-side logs go to stdout; the dev launcher captures them at `$XDG_CACHE_HOME/archon/archon.log`, service mode sends them to journald plus the rotating `~/.archon/logs/`. Incognito workflows suppress workflow-scoped log lines — don't add a logging path that bypasses the console tee.
+Server-side logs go to stdout; the dev launcher captures them at `$XDG_CACHE_HOME/arco/arco.log`, service mode sends them to journald plus the rotating `~/.arco/logs/`. Incognito workflows suppress workflow-scoped log lines — don't add a logging path that bypasses the console tee.
 
-Use `console.log('[archon] [<wfid-prefix>] <message>')` for workflow-scoped logs and `console.log('[archon] <message>')` for global ones. Don't bring in a logging library — the existing pattern is enough for the scale Arco operates at.
+Use `console.log('[arco] [<wfid-prefix>] <message>')` for workflow-scoped logs and `console.log('[arco] <message>')` for global ones. Don't bring in a logging library — the existing pattern is enough for the scale Arco operates at.
 
 ### Naming
 
@@ -477,8 +477,8 @@ Operators create skills from the SettingsPanel SKILLS section, but the on-disk s
 Layout:
 
 ```
-<cwd>/.archon/skills/<slug>/SKILL.md      # project (versioned with the repo)
-~/.archon/skills/<slug>/SKILL.md          # global (this machine)
+<cwd>/.arco/skills/<slug>/SKILL.md      # project (versioned with the repo)
+~/.arco/skills/<slug>/SKILL.md          # global (this machine)
 ```
 
 `<slug>` is the directory name and the stable identifier — it survives renames of the operator-facing `name` field. Slug pattern: `^[a-z0-9][a-z0-9-]{0,63}$`.
@@ -497,9 +497,9 @@ operator-only: <true to withhold from the model manifest — only injectable via
 
 Frontmatter is required (YAML, single-line values, optional surrounding quotes). Skills missing a `name:` are silently skipped during the scan. `operator-only` is optional (parsed case-insensitively; any value but `true` leaves it model-visible).
 
-Per primary turn, the server scans both roots, builds an XML `<archon-skills>` manifest of name + description + absolute path, and prepends it to the system prompt. Only the manifest goes into the prompt; the agent reads the full body via its `Read` tool when it picks a skill (Pi's progressive-disclosure model). This bounds prompt cost while leaving the skill body unbounded.
+Per primary turn, the server scans both roots, builds an XML `<arco-skills>` manifest of name + description + absolute path, and prepends it to the system prompt. Only the manifest goes into the prompt; the agent reads the full body via its `Read` tool when it picks a skill (Pi's progressive-disclosure model). This bounds prompt cost while leaving the skill body unbounded.
 
-Skills with `operator-only: true` are excluded from the `<archon-skills>` manifest the model sees; the operator inlines their body on demand via the `+SKILL` composer picker (DD8). Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, H35 — diagnostic only) and the project-trust gate (untrusted-repo skills are suppressed until the operator vouches — `server/src/projectTrust.ts`, DD7).
+Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the operator inlines their body on demand via the `+SKILL` composer picker (DD8). Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, H35 — diagnostic only) and the project-trust gate (untrusted-repo skills are suppressed until the operator vouches — `server/src/projectTrust.ts`, DD7).
 
 Server module: `server/src/skills.ts`. HTTP surface: `/api/skills` (see `docs/HTTP_API.md`). UI: `SettingsPanel.tsx` SKILLS section + `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
 
@@ -694,7 +694,7 @@ Browser devtools → Network → WS frames. The single `/ws` connection carries 
 ### See what's persisted
 
 ```bash
-tail -f <cwd>/.archon/workflows/<wfid>/events.jsonl | jq .
+tail -f <cwd>/.arco/workflows/<wfid>/events.jsonl | jq .
 ```
 
 You'll see every server-to-client message as it's broadcast.
@@ -705,11 +705,11 @@ The diagnostic chip (`b·w·s`) next to CANCEL tells you which flag is keeping t
 
 ### Worker output truncated
 
-50 MB cap per worker per turn (`ARCHON_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal — there's a truncation notice at the end if it hit the cap.
+50 MB cap per worker per turn (`ARCO_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal — there's a truncation notice at the end if it hit the cap.
 
 ### Antigravity tool rows missing or mis-labelled
 
-Antigravity is RPC-only now (the CDP port is liveness only), so DOM-scrape tooling such as `scripts/antigravity-chat-dump.mjs` is historical. Set `ANTIGRAVITY_RPC_TRACE_STEPS=1` (compact per-step JSONL) or `ANTIGRAVITY_RPC_TRACE_RAW=1` (redacted raw step objects) and read `<cwd>/.archon/workflows/<wfid>/debug/antigravity-rpc-steps*.jsonl`; see `docs/PROVIDERS.md § Antigravity`.
+Antigravity is RPC-only now (the CDP port is liveness only), so DOM-scrape tooling such as `scripts/antigravity-chat-dump.mjs` is historical. Set `ANTIGRAVITY_RPC_TRACE_STEPS=1` (compact per-step JSONL) or `ANTIGRAVITY_RPC_TRACE_RAW=1` (redacted raw step objects) and read `<cwd>/.arco/workflows/<wfid>/debug/antigravity-rpc-steps*.jsonl`; see `docs/PROVIDERS.md § Antigravity`.
 
 ---
 

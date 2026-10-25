@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
@@ -225,7 +225,7 @@ function Pill({
 // Build a WorkflowConfig from the picked RUN AS selection, inheriting
 // non-primary fields (cwd, name, theme, etc.) from the parent tab.
 // Same shape SpawnDialog produces — keeps the spawn path uniform.
-import type { WorkflowConfig } from '@archon/shared';
+import type { WorkflowConfig } from '@arco/shared';
 export function spawnConfigFromRunAs(parentConfig: WorkflowConfig, selection: RunAsSelection, nameSuffix: string): WorkflowConfig {
   // OUTPUT_STYLE_PLAN.md §6 — DOCS / GIT one-off prompts must run with
   // outputStyle: 'normal' regardless of source tab. The dialog callers pass

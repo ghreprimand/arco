@@ -1,6 +1,6 @@
 import type { Theme } from '../types';
 
-// Forest — living, organic green. Archon's other greens are all phosphor
+// Forest — living, organic green. Arco's other greens are all phosphor
 // (matrix / dsky / cicada); this is the warm botanical one it was missing. Deep
 // moss-black bg, fresh leaf-green primary, bark-amber secondary, soft sage text.
 export const forest: Theme = {

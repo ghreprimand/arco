@@ -1,13 +1,13 @@
 """Browser acceptance against the isolated client preview only; no production access.
 Run: python3 scripts/smoke/phosphor-demo-browser.py
-Artifacts: /tmp/archon-phosphor-review (override PHOSPHOR_ARTIFACT_DIR).
+Artifacts: /tmp/arco-phosphor-review (override PHOSPHOR_ARTIFACT_DIR).
 """
 import asyncio, json, os
 from pathlib import Path
 from playwright.async_api import async_playwright
 
 BASE = 'http://127.0.0.1:5178/phosphor-demo.html'
-ART = Path(os.environ.get('PHOSPHOR_ARTIFACT_DIR', '/tmp/archon-phosphor-review'))
+ART = Path(os.environ.get('PHOSPHOR_ARTIFACT_DIR', '/tmp/arco-phosphor-review'))
 ART.mkdir(parents=True, exist_ok=True)
 CHROME = os.environ.get('CHROMIUM_PATH', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
 
@@ -55,13 +55,13 @@ async def main():
   assert await page.get_by_label('Font override', exact=True).is_visible()
   bg = page.get_by_label('Background brightness', exact=True)
   root_bg = await page.locator('html').evaluate("e=>getComputedStyle(e).getPropertyValue('--color-bg')")
-  before_frames = await page.evaluate('archonPhosphorStats.frames')
+  before_frames = await page.evaluate('arcoPhosphorStats.frames')
   await bg.focus(); await page.keyboard.press('End')
   await page.wait_for_timeout(150)
   assert await bg.input_value() == '30'
   assert await page.locator('html').evaluate("e=>getComputedStyle(e).getPropertyValue('--color-bg')") != root_bg
   assert await page.locator('.north-star').evaluate('e=>getComputedStyle(e).color') == ink
-  assert await page.evaluate('archonPhosphorStats.frames') > before_frames
+  assert await page.evaluate('arcoPhosphorStats.frames') > before_frames
   await page.get_by_role('button', name='Close dialog').click()
   await page.screenshot(path=str(ART/'background-plus-30.png'))
   await page.get_by_role('button', name='FONTS / BRIGHTNESS').click()
@@ -96,7 +96,7 @@ async def main():
   await page.get_by_role('button', name='FILES', exact=True).click()
   await page.get_by_role('button', name='SPLIT', exact=True).click()
   await page.get_by_label('Palette', exact=True).select_option('phosphor:arco:amber')
-  assert await page.locator('.archon-diff-viewtoggle .active').inner_text() == 'SPLIT'
+  assert await page.locator('.arco-diff-viewtoggle .active').inner_text() == 'SPLIT'
   await page.screenshot(path=str(ART/'split-diff.png'))
   separator=page.get_by_role('separator')
   await separator.focus();await page.keyboard.press('ArrowLeft')
@@ -158,9 +158,9 @@ async def main():
 
   await page.emulate_media(reduced_motion='reduce')
   await page.wait_for_timeout(100)
-  a=await page.evaluate('archonPhosphorStats.frames')
+  a=await page.evaluate('arcoPhosphorStats.frames')
   await page.wait_for_timeout(400)
-  assert await page.evaluate('archonPhosphorStats.frames')==a
+  assert await page.evaluate('arcoPhosphorStats.frames')==a
   assert await page.locator('.north-star').evaluate('e=>getComputedStyle(e).textShadow')!='none'
   assert await page.locator('.phosphor-raster').is_visible()
   await page.screenshot(path=str(ART/'reduced-motion.png'))
@@ -214,17 +214,17 @@ async def main():
   # Real context loss and restoration; CSS is independent of GPU availability.
   await page.evaluate("window.loseExtension=document.querySelector('.phosphor-ambient').getContext('webgl').getExtension('WEBGL_lose_context');loseExtension.loseContext()")
   await page.wait_for_timeout(100)
-  assert await page.evaluate('archonPhosphorStats.context')=='lost'
+  assert await page.evaluate('arcoPhosphorStats.context')=='lost'
   assert await page.locator('.north-star').evaluate('e=>getComputedStyle(e).textShadow')!='none'
   await page.evaluate('loseExtension.restoreContext()');await page.wait_for_timeout(500)
-  assert await page.evaluate('archonPhosphorStats.context')=='webgl'
+  assert await page.evaluate('arcoPhosphorStats.context')=='webgl'
   checks.append('WebGL context loss retains static style and restores one renderer')
 
   # A new document exercises the no-WebGL fallback before context creation.
   fallback=await context.new_page()
   await fallback.add_init_script("const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl'?null:get.call(this,type,...args)}")
   await fallback.goto(BASE);await fallback.get_by_role('button',name='▶ PLAY STREAM').wait_for()
-  assert await fallback.evaluate('archonPhosphorStats.context')=='fallback'
+  assert await fallback.evaluate('arcoPhosphorStats.context')=='fallback'
   assert await fallback.locator('.north-star').evaluate('e=>getComputedStyle(e).textShadow')!='none'
   await fallback.close()
   checks.append('WebGL-unavailable fallback preserves CSS presentation')
@@ -233,10 +233,10 @@ async def main():
   # Exercise the real listener with a controlled hidden state and report that scope.
   await page.mouse.move(600,450)
   await page.evaluate("Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))")
-  hidden_frames=await page.evaluate('archonPhosphorStats.frames')
+  hidden_frames=await page.evaluate('arcoPhosphorStats.frames')
   await page.wait_for_timeout(250)
-  assert await page.evaluate('archonPhosphorStats.frames')==hidden_frames
-  assert await page.evaluate('archonPhosphorStats.running') is False
+  assert await page.evaluate('arcoPhosphorStats.frames')==hidden_frames
+  assert await page.evaluate('arcoPhosphorStats.running') is False
   await page.evaluate("delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))")
   checks.append('Visibility listener stops scheduling and resumes (controlled hidden-state test)')
 
@@ -246,13 +246,13 @@ async def main():
    data=await cdp.send('Performance.getMetrics')
    return {x['name']:x['value'] for x in data['metrics']}
   async def measure(name,active=False):
-   start=await metrics();frames=await page.evaluate('archonPhosphorStats.frames')
+   start=await metrics();frames=await page.evaluate('arcoPhosphorStats.frames')
    if active:
     for i in range(30):
      await page.mouse.move(200+i*20,400+(i%2)*60);await page.wait_for_timeout(60)
    else: await page.wait_for_timeout(2000)
    end=await metrics()
-   return {'mode':name,'elapsedSeconds':end['Timestamp']-start['Timestamp'],'taskMs':(end['TaskDuration']-start['TaskDuration'])*1000,'draws':await page.evaluate('archonPhosphorStats.frames')-frames}
+   return {'mode':name,'elapsedSeconds':end['Timestamp']-start['Timestamp'],'taskMs':(end['TaskDuration']-start['TaskDuration'])*1000,'draws':await page.evaluate('arcoPhosphorStats.frames')-frames}
   await page.wait_for_timeout(5000)
   cost=[await measure('idle')]
   await page.get_by_role('button',name='▶ PLAY STREAM').evaluate('e=>e.click()')
@@ -264,7 +264,7 @@ async def main():
   cost.append(await measure('effects-off'))
   assert not operations, operations
   assert not errors,errors
-  result={'checks':checks,'rendererCost':cost,'renderer':await page.evaluate('archonPhosphorStats'),'browserErrors':errors,'productionRequests':operations,'limitations':['SwiftShader headless Chromium; not workstation GPU or power measurement','200% CSS zoom, not browser chrome zoom','Specialized surfaces excluded as documented in docs/PHOSPHOR_DEMO.md']}
+  result={'checks':checks,'rendererCost':cost,'renderer':await page.evaluate('arcoPhosphorStats'),'browserErrors':errors,'productionRequests':operations,'limitations':['SwiftShader headless Chromium; not workstation GPU or power measurement','200% CSS zoom, not browser chrome zoom','Specialized surfaces excluded as documented in docs/PHOSPHOR_DEMO.md']}
   (ART/'results.json').write_text(json.dumps(result,indent=2))
   print(json.dumps(result,indent=2))
   await browser.close()

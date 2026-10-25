@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
-# Archon launcher — start|stop|restart|status|logs
+# Arco launcher — start|stop|restart|status|logs
 # Invoked from the system launcher or directly from a shell.
 
 set -euo pipefail
-
-# ARCO_* variables take precedence over the internal ARCHON_* names, which are
-# kept for compatibility with existing Archon state and service units.
-for _arco_var in $(compgen -v ARCO_); do
-  export "ARCHON_${_arco_var#ARCO_}=${!_arco_var}"
-done
-unset _arco_var
 
 # Default project directory: the checkout this script lives in, resolving
 # symlinks so a link on PATH still finds the repository.
@@ -21,15 +14,15 @@ while [ -L "$_arco_self" ]; do
     *) _arco_self="$(dirname "$_arco_self")/$_arco_link" ;;
   esac
 done
-ARCHON_DIR="${ARCHON_DIR:-$(cd "$(dirname "$_arco_self")/.." && pwd -P)}"
+ARCO_DIR="${ARCO_DIR:-$(cd "$(dirname "$_arco_self")/.." && pwd -P)}"
 unset _arco_self _arco_link
-CLIENT_PORT="${ARCHON_CLIENT_PORT:-5173}"
-SERVER_PORT="${ARCHON_SERVER_PORT:-3001}"
+CLIENT_PORT="${ARCO_CLIENT_PORT:-5173}"
+SERVER_PORT="${ARCO_SERVER_PORT:-3001}"
 URL="http://localhost:${CLIENT_PORT}"
 
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/archon"
-PID_FILE="${CACHE_DIR}/archon.pid"
-LOG_FILE="${CACHE_DIR}/archon.log"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/arco"
+PID_FILE="${CACHE_DIR}/arco.pid"
+LOG_FILE="${CACHE_DIR}/arco.log"
 START_LOCK_DIR="${CACHE_DIR}/start.lock.d"
 BROWSER_LOCK_DIR="${CACHE_DIR}/browser.lock.d"
 BROWSER_LAST_OPEN="${CACHE_DIR}/browser-last-open"
@@ -48,7 +41,7 @@ notify() {
   local title="$1"
   local body="${2:-}"
   local urgency="${3:-normal}"
-  echo "[archon-launcher] $title${body:+: $body}" >&2
+  echo "[arco-launcher] $title${body:+: $body}" >&2
   if command -v notify-send >/dev/null 2>&1; then
     notify-send -a Arco -u "$urgency" "$title" "$body" 2>/dev/null || true
   fi
@@ -74,7 +67,7 @@ pid_on_port() {
 }
 
 # Walk forward from $1 until we find a port that's free (or some other
-# Archon process holds it — those get reaped by the start logic anyway).
+# Arco process holds it — those get reaped by the start logic anyway).
 # Caps at $1+50 to avoid runaway. Echoes the chosen port on stdout.
 find_free_port() {
   local start="$1"
@@ -87,8 +80,8 @@ find_free_port() {
     fi
     local pid
     pid=$(pid_on_port "$port")
-    if [[ -n "$pid" ]] && pid_is_archon "$pid"; then
-      # Archon process squatting — start() will reap it. Treat as usable.
+    if [[ -n "$pid" ]] && pid_is_arco "$pid"; then
+      # Arco process squatting — start() will reap it. Treat as usable.
       echo "$port"
       return 0
     fi
@@ -99,22 +92,22 @@ find_free_port() {
   return 1
 }
 
-# True if the given PID's cwd (or ancestry's cwd) is inside $ARCHON_DIR.
+# True if the given PID's cwd (or ancestry's cwd) is inside $ARCO_DIR.
 # We walk up the parent chain too, because npm/concurrently wrappers may have
 # the project root as cwd while the child vite/tsx process has a subdir.
-pid_is_archon() {
+pid_is_arco() {
   local pid="$1"
   [[ -z "$pid" ]] && return 1
   local p="$pid" hops=0
   while [[ -n "$p" && "$p" -gt 1 && "$hops" -lt 6 ]]; do
     local cwd
     cwd=$(readlink "/proc/$p/cwd" 2>/dev/null || true)
-    if [[ -n "$cwd" && "$cwd" == "$ARCHON_DIR"* ]]; then
+    if [[ -n "$cwd" && "$cwd" == "$ARCO_DIR"* ]]; then
       return 0
     fi
-    # Check cmdline for archon path too (covers cases where cwd was changed)
+    # Check cmdline for arco path too (covers cases where cwd was changed)
     if [[ -r "/proc/$p/cmdline" ]]; then
-      if tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "$ARCHON_DIR"; then
+      if tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "$ARCO_DIR"; then
         return 0
       fi
     fi
@@ -129,14 +122,14 @@ pid_is_archon() {
   return 1
 }
 
-# Reap orphaned Archon processes holding our ports. Safe — only kills
-# processes whose cwd/cmdline is tied to $ARCHON_DIR.
+# Reap orphaned Arco processes holding our ports. Safe — only kills
+# processes whose cwd/cmdline is tied to $ARCO_DIR.
 reap_orphans() {
   local reaped=0
   for port in "$CLIENT_PORT" "$SERVER_PORT"; do
     local pid
     pid=$(pid_on_port "$port")
-    if [[ -n "$pid" ]] && pid_is_archon "$pid"; then
+    if [[ -n "$pid" ]] && pid_is_arco "$pid"; then
       kill "$pid" 2>/dev/null || true
       reaped=1
     fi
@@ -147,7 +140,7 @@ reap_orphans() {
     for port in "$CLIENT_PORT" "$SERVER_PORT"; do
       local pid
       pid=$(pid_on_port "$port")
-      if [[ -n "$pid" ]] && pid_is_archon "$pid"; then
+      if [[ -n "$pid" ]] && pid_is_arco "$pid"; then
         kill -9 "$pid" 2>/dev/null || true
       fi
     done
@@ -183,7 +176,7 @@ wait_ready() {
 open_browser() {
   # 5s rate-limit collapses genuine double-click firings so one click from
   # the application launcher = one new tab. Launch semantics are now
-  # "always stop + restart" (see `start`), so any pre-existing Archon tab
+  # "always stop + restart" (see `start`), so any pre-existing Arco tab
   # is orphaned by the server-kill and its old WS will be dead; the Web
   # Locks singleton in the new tab handles any stragglers via the
   # DuplicateTabOverlay.
@@ -240,7 +233,7 @@ start() {
   # shellcheck disable=SC2064
   trap "rmdir '$START_LOCK_DIR' 2>/dev/null || true" RETURN
 
-  # Single-instance guarantee: always nuke any existing Archon processes
+  # Single-instance guarantee: always nuke any existing Arco processes
   # before a fresh boot. The operator's preference (2026-04-20) is "launch = always
   # one clean instance; I'll resume via the picker if a session got killed
   # mid-turn." Simpler UX contract than the previous RUNNING-ALREADY /
@@ -249,17 +242,17 @@ start() {
        || port_in_use "$CLIENT_PORT" \
        || port_in_use "$SERVER_PORT" \
        || pgrep -f "tsx.*(server|src)/index\.ts" >/dev/null 2>&1 \
-       || pgrep -f "concurrently.*archon" >/dev/null 2>&1; then
+       || pgrep -f "concurrently.*arco" >/dev/null 2>&1; then
     trace "start NUKE-EXISTING → stop before fresh boot"
     stop
     # Belt-and-suspenders: if stop() missed anything (orphaned tsx whose
     # pid-file is gone), pkill by signature one more time.
     pkill -f "tsx.*(server|src)/index\.ts" 2>/dev/null || true
-    pkill -f "concurrently.*archon" 2>/dev/null || true
+    pkill -f "concurrently.*arco" 2>/dev/null || true
     # Brief settle so the kernel releases ports before we try to bind.
     sleep 1
-    # If a non-Archon process is squatting on a port, bump to the next
-    # free one rather than refusing. Archon processes still on the port
+    # If a non-Arco process is squatting on a port, bump to the next
+    # free one rather than refusing. Arco processes still on the port
     # get one more kill attempt (the stop() above should already have
     # taken them out).
     for port_var in CLIENT_PORT SERVER_PORT; do
@@ -267,7 +260,7 @@ start() {
       if port_in_use "$port"; then
         local pid
         pid=$(pid_on_port "$port")
-        if [[ -n "$pid" ]] && ! pid_is_archon "$pid"; then
+        if [[ -n "$pid" ]] && ! pid_is_arco "$pid"; then
           local fresh
           fresh=$(find_free_port "$port") || {
             notify "Arco: no free port" "All ports near $port are taken" "critical"
@@ -275,7 +268,7 @@ start() {
           }
           if [[ "$fresh" != "$port" ]]; then
             notify "Arco: port $port busy" "Using $fresh instead"
-            trace "start PORT-BUMP $port_var $port → $fresh (held by non-Archon pid $pid)"
+            trace "start PORT-BUMP $port_var $port → $fresh (held by non-Arco pid $pid)"
             eval "$port_var=$fresh"
           fi
         else
@@ -288,17 +281,17 @@ start() {
   # Recompute URL in case CLIENT_PORT got bumped above.
   URL="http://localhost:${CLIENT_PORT}"
 
-  notify "Starting Arco" "Launching dev server in $ARCHON_DIR"
-  cd "$ARCHON_DIR"
+  notify "Starting Arco" "Launching dev server in $ARCO_DIR"
+  cd "$ARCO_DIR"
   {
     echo ""
-    echo "=== $(date -Iseconds) — archon start (client=$CLIENT_PORT server=$SERVER_PORT) ==="
+    echo "=== $(date -Iseconds) — arco start (client=$CLIENT_PORT server=$SERVER_PORT) ==="
   } >> "$LOG_FILE"
   # setsid makes the child its own session leader so closing the launcher
   # doesn't cascade signals to npm run dev. Export ports so vite + the
   # node server pick up the (possibly-bumped) values.
-  export ARCHON_CLIENT_PORT="$CLIENT_PORT"
-  export ARCHON_PORT="$SERVER_PORT"
+  export ARCO_CLIENT_PORT="$CLIENT_PORT"
+  export ARCO_PORT="$SERVER_PORT"
   nohup setsid npm run dev >> "$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
   if ! wait_ready 60; then
@@ -315,7 +308,7 @@ stop() {
   # WS message so every connected tab shows the stopped overlay and tries
   # to close itself before the process dies. Since the session-cookie gate
   # (server/src/http/wsAuth.ts) this curl gets a 401 unless the server runs
-  # with ARCHON_WS_AUTH=off, and the signal fallback below does the work.
+  # with ARCO_WS_AUTH=off, and the signal fallback below does the work.
   local api_ok=0
   if port_in_use "$SERVER_PORT" && command -v curl >/dev/null 2>&1; then
     if curl -sf -X POST "http://localhost:${SERVER_PORT}/api/shutdown" >/dev/null 2>&1; then
@@ -335,9 +328,9 @@ stop() {
     kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
   fi
   reap_orphans
-  # Last-resort cleanup of known Archon dev process signatures
+  # Last-resort cleanup of known Arco dev process signatures
   pkill -f "tsx watch src/index.ts" 2>/dev/null || true
-  pkill -f "concurrently.*archon" 2>/dev/null || true
+  pkill -f "concurrently.*arco" 2>/dev/null || true
   rm -f "$PID_FILE"
   if [[ "$api_ok" -eq 1 ]]; then
     notify "Arco stopped" "Clients notified via API"
@@ -378,10 +371,9 @@ case "${1:-start}" in
 Usage: $0 {start|stop|restart|status|logs}
 
 Environment:
-  ARCHON_DIR           Project directory (default: the checkout containing this script)
-  ARCHON_CLIENT_PORT   Vite dev server port (default: 5173)
-  ARCHON_SERVER_PORT   WebSocket server port (default: 3001)
-  Each variable may also be set as ARCO_<NAME>, which takes precedence.
+  ARCO_DIR           Project directory (default: the checkout containing this script)
+  ARCO_CLIENT_PORT   Vite dev server port (default: 5173)
+  ARCO_SERVER_PORT   WebSocket server port (default: 3001)
 EOF
     exit 1
     ;;

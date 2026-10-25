@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../../stores/appStore';
 import { useRecallStore, EMPTY_FILTERS, type RecallSearchFilters } from '../../stores/recallStore';
 import { RecallResultRow } from './RecallResultRow';
-import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@arco/shared';
 
 // Workbench Expansion §F3 — top-level Recall search view.
 //
 // A full-screen overlay (NOT a per-tab RightPanel sub-tab) — the single place
-// to keyword-search every conversation Archon has ever run. Backed by the F1
+// to keyword-search every conversation Arco has ever run. Backed by the F1
 // machine-global index + the F3 FTS5/ripgrep search engine (GET
 // /api/recall/search). Deterministic; NO LLM (Part F fence).
 //

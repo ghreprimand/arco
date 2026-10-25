@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import type { ProviderName, ModelName, EffortLevel, PlanSummary, PlanFull, WorkflowConfig, ReviewContextRef } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, PlanSummary, PlanFull, WorkflowConfig, ReviewContextRef } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { SpawnDialog } from '../SpawnDialog';
 import { ReviewDialog } from '../ReviewDialog';
@@ -15,7 +15,7 @@ import { openArchive } from '../../explorer/launch';
 import { formatRelativeTime } from './format';
 
 // Plan tab: long-form markdown brief attached to this workflow. Plans live
-// at <cwd>/.archon/plans/<id>.md and are explicitly attached (never
+// at <cwd>/.arco/plans/<id>.md and are explicitly attached (never
 // auto-bound by cwd, since one folder can host independent projects).
 // Server prepends a one-line "active plan" header to every primary turn so
 // the agent stays aware; on edit it injects the full body once.
@@ -281,7 +281,7 @@ export function PlanTab({
           NO PLAN ATTACHED
         </div>
         <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
-          A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.archon/plans/</code>.
+          A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.arco/plans/</code>.
         </div>
         <button
           onClick={() => { void openArchive('plans'); }}

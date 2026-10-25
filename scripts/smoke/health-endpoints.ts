@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §B2 — liveness (/healthz) + readiness (/readyz) endpoints.
+// ARCO_OPS_PLAN.md §B2 — liveness (/healthz) + readiness (/readyz) endpoints.
 //
 // Hits the LIVE server's GET /healthz, GET /health (back-compat alias), and
 // GET /readyz (the director runs this against a running `npm run dev` on :3001
@@ -16,7 +16,7 @@
 
 import { step, assert, assertEq, summary } from './lib.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 
 interface HealthBody {
   status?: string;

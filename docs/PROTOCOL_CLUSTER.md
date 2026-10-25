@@ -2,7 +2,7 @@
 
 WebSocket messages for cluster mode (parent cluster tab + member workflows + the peer-tool mailbox substrate). Split out of [`PROTOCOL.md`](PROTOCOL.md) (J2, doc-size). See [`CLUSTER_MODE_PLAN.md`](CLUSTER_MODE_PLAN.md) for the feature plan and [`GOTCHAS.md § Cluster mode`](GOTCHAS.md) for invariants. Conventions are defined in [`PROTOCOL.md § Conventions`](PROTOCOL.md#conventions). Source of truth: [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts) (one of the per-domain files under `shared/src/protocol/`; the legacy flat `protocol.ts` is now a barrel shim).
 
-**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` archon-cluster MCP child on CLI; Codex and Z.ai (GLM via the Codex app-server loopback proxy) wire them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` — Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership; see CURSOR_TRANSPORT_PLAN.md Phase 6); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp — `zai` and `cursor` are remote API providers and are uncapped.
+**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` arco-cluster MCP child on CLI; Codex and Z.ai (GLM via the Codex app-server loopback proxy) wire them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` — Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership; see CURSOR_TRANSPORT_PLAN.md Phase 6); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp — `zai` and `cursor` are remote API providers and are uncapped.
 
 **Per-member access mode.** `ClusterMember.accessMode?: 'standard' | 'blind' | 'isolated'` (absent ≡ `standard`; persisted sparse in cluster meta `memberAccessModes`, not in `WorkflowConfig`). `blind` keeps the project cwd but withholds every cluster surface except `peer_send` / `peer_read` (other peer tools return `[error] access_denied`); `isolated` additionally runs the member in a private scratch cwd and is Claude-Native-only. Accepted on `cluster_create_from_scratch` members, `cluster_add_fresh_workers`, and `cluster_member_replace`.
 
@@ -158,7 +158,7 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
     taskBoardKey?: string,           // set for `cluster` mode only — `cluster:<clusterId>`, the namespace key for the private board
     taskBoardAttached: boolean,      // back-compat derived flag for older clients: true for project|cluster, false for none
     name?: string,                   // slice 6a — operator-set display name; client falls back to `<basename(cwd)> · <short-id>` when absent
-    plan?: {                         // Phase 2.6 — shared cluster plan, canonical body under <cwd>/.archon/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
+    plan?: {                         // Phase 2.6 — shared cluster plan, canonical body under <cwd>/.arco/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
       id: string,
       title: string,
       body: string,
@@ -206,7 +206,7 @@ Broadcast to every subscribed WS when the cluster is torn down (operator clicked
 
 ### `cluster_rename` →
 
-Slice 6a — operator renamed a cluster from the `ClusterRightPanel` Members header. Empty `name` clears back to the derived default (`<basename(cwd)> · <short-id>`). Server validates length (≤64), persists to `~/.archon/clusters/<id>/meta.json`'s `name` field, and pushes a fresh `cluster_state` to subscribers.
+Slice 6a — operator renamed a cluster from the `ClusterRightPanel` Members header. Empty `name` clears back to the derived default (`<basename(cwd)> · <short-id>`). Server validates length (≤64), persists to `~/.arco/clusters/<id>/meta.json`'s `name` field, and pushes a fresh `cluster_state` to subscribers.
 
 ```ts
 { type: 'cluster_rename', clusterId: string, name: string }
@@ -292,7 +292,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
 
 ### `cluster_create_from_scratch` →
 
-2026-05-11 — operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow — every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. **This is the one create path that accepts local providers**: provider is the full `ClusterMemberProvider` set (`claude / codex / zai / ollama / llamacpp / cursor`), and the server enforces the **max-one-local cap** — more than one ollama/llamacpp member is rejected with `multiple_local_members` unless `ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. Per-member validation also covers `unknown_provider` / `missing_model` / `provider_model_mismatch` / `unknown_model` / `invalid_tier`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
+2026-05-11 — operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow — every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. **This is the one create path that accepts local providers**: provider is the full `ClusterMemberProvider` set (`claude / codex / zai / ollama / llamacpp / cursor`), and the server enforces the **max-one-local cap** — more than one ollama/llamacpp member is rejected with `multiple_local_members` unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. Per-member validation also covers `unknown_provider` / `missing_model` / `provider_model_mismatch` / `unknown_model` / `invalid_tier`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
 
 ```ts
 {
@@ -319,7 +319,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
 }
 ```
 
-Cluster presets (operator-saved snapshots) are persisted at `~/.archon/cluster-presets.json` and consumed by the CLUSTER-mode WorkflowCreator — see `ClusterPreset` / `ClusterPresetMember` in [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts). Presets are project-agnostic (cwd is intentionally NOT part of a preset); the cluster-create path validates models against the live catalog at apply time.
+Cluster presets (operator-saved snapshots) are persisted at `~/.arco/cluster-presets.json` and consumed by the CLUSTER-mode WorkflowCreator — see `ClusterPreset` / `ClusterPresetMember` in [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts). Presets are project-agnostic (cwd is intentionally NOT part of a preset); the cluster-create path validates models against the live catalog at apply time.
 
 ### `cluster_add_fresh_workers` →
 
@@ -343,7 +343,7 @@ Phase 2.5.1 — operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Memb
 
 ### `cluster_plan_set` →
 
-Phase 2.6 — operator saved the shared cluster plan from `ClusterPlanTab`, hit `PROMOTE TO CLUSTER` from a per-workflow PLAN tab, or clicked `ATTACH TO CLUSTER` on a worker's `PlanCandidateBanner` (member tabs only — see [`PRIMITIVES.md`](PRIMITIVES.md)). Server caps body length at 32768 chars (rejects with `body_too_large:<n>` otherwise) and rejects empty / whitespace bodies with `empty_body` (operator must use `cluster_plan_clear` to wipe). Writes through `clusterPlanBridge.setClusterPlanBody`: updates the cluster's attached per-cwd plan (`<cwd>/.archon/plans/<planId>.md`), or creates one (title from the body's first `# ` heading) and stamps its id into cluster meta. Emits `cluster_plan_changed` (audit shape: timestamp + body length, the full body lives on disk + on the cluster_state push) followed by a fresh `cluster_state`.
+Phase 2.6 — operator saved the shared cluster plan from `ClusterPlanTab`, hit `PROMOTE TO CLUSTER` from a per-workflow PLAN tab, or clicked `ATTACH TO CLUSTER` on a worker's `PlanCandidateBanner` (member tabs only — see [`PRIMITIVES.md`](PRIMITIVES.md)). Server caps body length at 32768 chars (rejects with `body_too_large:<n>` otherwise) and rejects empty / whitespace bodies with `empty_body` (operator must use `cluster_plan_clear` to wipe). Writes through `clusterPlanBridge.setClusterPlanBody`: updates the cluster's attached per-cwd plan (`<cwd>/.arco/plans/<planId>.md`), or creates one (title from the body's first `# ` heading) and stamps its id into cluster meta. Emits `cluster_plan_changed` (audit shape: timestamp + body length, the full body lives on disk + on the cluster_state push) followed by a fresh `cluster_state`.
 
 ```ts
 { type: 'cluster_plan_set', clusterId: string, body: string }
@@ -353,7 +353,7 @@ UI guidance: soft-warn at 28672 chars (PLAN_SOFT_WARN_BYTES), hard-disable SAVE 
 
 ### `cluster_plan_attach` →
 
-Attach an existing per-cwd plan to the cluster **without copying the body** (the canonical body stays at `<cwd>/.archon/plans/<planId>.md`). The cluster holds exactly one active plan at a time, matching workflow plan semantics. Emits `cluster_plan_changed` + a fresh `cluster_state` whose `state.plan` carries `{ id, title, body, updatedAt }`.
+Attach an existing per-cwd plan to the cluster **without copying the body** (the canonical body stays at `<cwd>/.arco/plans/<planId>.md`). The cluster holds exactly one active plan at a time, matching workflow plan semantics. Emits `cluster_plan_changed` + a fresh `cluster_state` whose `state.plan` carries `{ id, title, body, updatedAt }`.
 
 ```ts
 { type: 'cluster_plan_attach', clusterId: string, planId: string }
@@ -361,9 +361,9 @@ Attach an existing per-cwd plan to the cluster **without copying the body** (the
 
 ### `cluster_plan_clear` →
 
-Phase 2.6 — operator hit `CLEAR PLAN` in `ClusterPlanTab`. `clusterPlanBridge.clearClusterPlan` drops the plan id from cluster meta (the per-cwd plan file stays, available to other workers/clusters) and deletes any legacy `~/.archon/clusters/<id>/plan.md`; subsequent member turns see no plan block. Emits a `cluster_plan_changed` with `body=''` + `bodyLength=0`, followed by a fresh `cluster_state` (the `plan` field is absent on the new payload).
+Phase 2.6 — operator hit `CLEAR PLAN` in `ClusterPlanTab`. `clusterPlanBridge.clearClusterPlan` drops the plan id from cluster meta (the per-cwd plan file stays, available to other workers/clusters) and deletes any legacy `~/.arco/clusters/<id>/plan.md`; subsequent member turns see no plan block. Emits a `cluster_plan_changed` with `body=''` + `bodyLength=0`, followed by a fresh `cluster_state` (the `plan` field is absent on the new payload).
 
-> One plan substrate (`server/src/clusterPlanBridge.ts`): the body is canonical under `<cwd>/.archon/plans/<planId>.md` and cluster meta stores only `planId`, for set, attach, tick, write, and review alike. Pre-unification clusters wrote `~/.archon/clusters/<id>/plan.md`; reads lazily migrate that legacy body into the per-cwd store.
+> One plan substrate (`server/src/clusterPlanBridge.ts`): the body is canonical under `<cwd>/.arco/plans/<planId>.md` and cluster meta stores only `planId`, for set, attach, tick, write, and review alike. Pre-unification clusters wrote `~/.arco/clusters/<id>/plan.md`; reads lazily migrate that legacy body into the per-cwd store.
 
 ```ts
 { type: 'cluster_plan_clear', clusterId: string }
@@ -602,9 +602,9 @@ it does not arm the daemon by itself.
 }
 ```
 
-`ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS`,
-`ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS`, and
-`ARCHON_TASK_DISPATCHER_TICK_MS` are smoke/dev overrides for daemon cadence and
+`ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS`,
+`ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS`, and
+`ARCO_TASK_DISPATCHER_TICK_MS` are smoke/dev overrides for daemon cadence and
 clamping. Production UX should keep the daemon visibly armed in the BOARD header
 and should never silently enable it when tasks are created.
 
@@ -677,7 +677,7 @@ durable `task_ledger_event` records and are followed by a cluster-wide
 
 ### Orchestration assist (Stage K)
 
-Director/workers Stage K — operator-armed **draft proposals** for the cluster board. Shapes: [`shared/src/protocol/orchestrationAssist.ts`](../shared/src/protocol/orchestrationAssist.ts); handlers `handleClusterOrchestration*` in `server/src/ws/clusterHandlers.ts`; durable store `<cwd>/.archon/project/orchestration-proposals.json` (`server/src/project/orchestrationProposals.ts`). Every request/list/reject/apply validates that the requester is a current member. Proposals never mutate the task ledger, dispatcher, member config, or worktrees; only an explicit apply does, through the normal task-kernel path. Server replies fan out on both the cluster channel and the requester's workflow channel (so the requester's `events.jsonl` carries the audit row).
+Director/workers Stage K — operator-armed **draft proposals** for the cluster board. Shapes: [`shared/src/protocol/orchestrationAssist.ts`](../shared/src/protocol/orchestrationAssist.ts); handlers `handleClusterOrchestration*` in `server/src/ws/clusterHandlers.ts`; durable store `<cwd>/.arco/project/orchestration-proposals.json` (`server/src/project/orchestrationProposals.ts`). Every request/list/reject/apply validates that the requester is a current member. Proposals never mutate the task ledger, dispatcher, member config, or worktrees; only an explicit apply does, through the normal task-kernel path. Server replies fan out on both the cluster channel and the requester's workflow channel (so the requester's `events.jsonl` carries the audit row).
 
 > **Current state:** the model-call hook is not wired. `cluster_orchestration_assist_request` persists whatever `draft` the request carries (items + rationale); with no draft the proposal is empty and its rationale says so. `model` is recorded as metadata only.
 
@@ -737,9 +737,9 @@ Three guards prevent runaway loops, all env-overridable for smoke harnesses:
 
 | Guard | Default | Env override |
 |---|---|---|
-| Per-recipient cooldown (ms) | 20000 | `ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS` |
-| Per-cluster rate cap (rolling 60s) | 10 | `ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` |
-| Chain-depth cap | 3 | `ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH` |
+| Per-recipient cooldown (ms) | 20000 | `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS` |
+| Per-cluster rate cap (rolling 60s) | 10 | `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` |
+| Chain-depth cap | 3 | `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH` |
 
 Chain depth is carried on `peer_message_sent.chainDepth` (see below); operator-initiated peer-sends ride at depth 0, so the first auto-turn lands at depth 1.
 
@@ -771,7 +771,7 @@ See `server/src/clusterAutoTurn.ts` for the marker lifecycle and `GOTCHAS.md § 
 
 ### `__debug_cluster_auto_turn_inject` → (dev/smoke-only)
 
-Phase 5b test hook: directly invokes the auto-turn detector's `onPeerMessageSent()` with a caller-specified `chainDepth`, so `scripts/smoke/phase-5b.ts` can exercise the depth / rate caps without real LLM turns generating naturally-chained peer-sends. Gated server-side on `process.env.ARCHON_TEST === '1'`.
+Phase 5b test hook: directly invokes the auto-turn detector's `onPeerMessageSent()` with a caller-specified `chainDepth`, so `scripts/smoke/phase-5b.ts` can exercise the depth / rate caps without real LLM turns generating naturally-chained peer-sends. Gated server-side on `process.env.ARCO_TEST === '1'`.
 
 ```ts
 {
@@ -808,7 +808,7 @@ Updated rejection-code set, persisted to the sender's workflow events.jsonl:
 - `content_too_large` — body exceeds the mailbox cap (16 KB default for model-driven, `MAX_CONTENT_BYTES` in `clusterMailbox.ts`; 32 KB for operator-driven via the `maxContentBytes` opt).
 - `enqueue_failed` — `clusterMailbox.enqueue` threw for some other reason.
 - `recipient_not_in_cluster` — recipient is not a member at enqueue time.
-- `duplicate_send` (2026-05-11) — `(from, to, sha256(content))` matched an accepted send within `ARCHON_PEER_SEND_DEDUPE_MS` (default 60_000). Catches the orphan-tool-use retry pattern where a previous turn aborted mid-tool, leaving the model with no memory of having sent, and the next turn re-issues the same `peer_send`. Operator-driven `operator_peer_send` bypasses dedupe (`opts.bypassDedupe`); model-driven sends pay the check. Process-local cache; restarts clear it (which is correct — restarts also wipe the orphan state that caused the retry).
+- `duplicate_send` (2026-05-11) — `(from, to, sha256(content))` matched an accepted send within `ARCO_PEER_SEND_DEDUPE_MS` (default 60_000). Catches the orphan-tool-use retry pattern where a previous turn aborted mid-tool, leaving the model with no memory of having sent, and the next turn re-issues the same `peer_send`. Operator-driven `operator_peer_send` bypasses dedupe (`opts.bypassDedupe`); model-driven sends pay the check. Process-local cache; restarts clear it (which is correct — restarts also wipe the orphan state that caused the retry).
 - `self_send` — `to` resolved to the sender's own workflowId. Per §13 (2026-05-10) this is a model error, NOT a policy rejection — returned to the tool caller but no `peer_send_rejected` event is emitted.
 
 ### `peer_message_*` chat row identity (2026-05-11)
@@ -850,7 +850,7 @@ EFFICIENCY_PLAN.md Phase F — server push reflecting the current codebase-memor
 
 ### Peer tool inventory (not WS messages)
 
-Model-facing tools registered on every cluster member (Native: in-process `server/src/providers/claude-native/peerTools.ts`; CLI Claude / Codex / Z.ai / Cursor: the archon-cluster MCP server, which calls the REST mirror `/api/clusters/:id/peer/<op>` in `server/src/http/clusterRoutes.ts` — `GET list`, `POST` for the rest, body carries the caller's `workflowId`). Tool results are strings; errors are `[error] <code>: <message>`. `blind` / `isolated` members get only `peer_send` / `peer_read`.
+Model-facing tools registered on every cluster member (Native: in-process `server/src/providers/claude-native/peerTools.ts`; CLI Claude / Codex / Z.ai / Cursor: the arco-cluster MCP server, which calls the REST mirror `/api/clusters/:id/peer/<op>` in `server/src/http/clusterRoutes.ts` — `GET list`, `POST` for the rest, body carries the caller's `workflowId`). Tool results are strings; errors are `[error] <code>: <message>`. `blind` / `isolated` members get only `peer_send` / `peer_read`.
 
 | Tool | REST op | Notes |
 |---|---|---|
@@ -864,11 +864,11 @@ Read-only peer tool returning the full canonical plan (`{ title, body, updatedAt
 
 ### `cluster_plan_write` (peer tool, not a WS message)
 
-Worker-emitted peer tool (added 2026-05-11) that authors or rewrites the shared cluster plan body (markdown). By convention only the director calls it; other members propose plan changes via `peer_send`. Model-driven writes are **additive**: when a plan already exists the server rejects writes that remove existing checkbox tasks or change their `[ ]`/`[x]` status (`clusterPeerOps.ts`), routing status changes to `cluster_plan_tick` and destructive edits to the operator's PLAN tab. Body cannot be empty and is capped at 32768 chars. On success it broadcasts `cluster_plan_changed` cluster-wide. Registered on every cluster member (Native in-process + the archon-cluster MCP registry). If the injected plan copy is an outline (prose omitted on string-form transports), call `cluster_plan_read` first so a rewrite doesn't silently drop the prose.
+Worker-emitted peer tool (added 2026-05-11) that authors or rewrites the shared cluster plan body (markdown). By convention only the director calls it; other members propose plan changes via `peer_send`. Model-driven writes are **additive**: when a plan already exists the server rejects writes that remove existing checkbox tasks or change their `[ ]`/`[x]` status (`clusterPeerOps.ts`), routing status changes to `cluster_plan_tick` and destructive edits to the operator's PLAN tab. Body cannot be empty and is capped at 32768 chars. On success it broadcasts `cluster_plan_changed` cluster-wide. Registered on every cluster member (Native in-process + the arco-cluster MCP registry). If the injected plan copy is an outline (prose omitted on string-form transports), call `cluster_plan_read` first so a rewrite doesn't silently drop the prose.
 
 ### `cluster_plan_tick` (peer tool, not a WS message)
 
-Worker-emitted peer tool that toggles a single `- [ ]` / `- [x]` checkbox in the shared cluster plan. Registered on every cluster member alongside `peer_list / peer_send / peer_read` (Native: in-process; CLI Claude / Codex MCP: via the archon-cluster MCP child + `POST /api/clusters/:id/peer/plan-tick`). Tool schema:
+Worker-emitted peer tool that toggles a single `- [ ]` / `- [x]` checkbox in the shared cluster plan. Registered on every cluster member alongside `peer_list / peer_send / peer_read` (Native: in-process; CLI Claude / Codex MCP: via the arco-cluster MCP child + `POST /api/clusters/:id/peer/plan-tick`). Tool schema:
 
 ```ts
 {
@@ -890,7 +890,7 @@ REST surface for the MCP child: `POST /api/clusters/:id/peer/plan-tick` with bod
 
 ## Cluster snapshots (2026-06-12)
 
-Save / restore the full state of a live cluster — member configs, roles/tiers/focus, dispatcher + idle-nudger settings, plan body, and each member's full conversation history — to `~/.archon/cluster-snapshots/<id>/` (`manifest.json` + `members/<wfid>/{meta.json, events.jsonl}`). Server module: `server/src/clusterSnapshots.ts`; handlers in `server/src/ws/clusterHandlers.ts`; client store `client/src/stores/clusterSnapshotsStore.ts` + `SavedClustersList`. Smoke: `npm run smoke:cluster-snapshot`.
+Save / restore the full state of a live cluster — member configs, roles/tiers/focus, dispatcher + idle-nudger settings, plan body, and each member's full conversation history — to `~/.arco/cluster-snapshots/<id>/` (`manifest.json` + `members/<wfid>/{meta.json, events.jsonl}`). Server module: `server/src/clusterSnapshots.ts`; handlers in `server/src/ws/clusterHandlers.ts`; client store `client/src/stores/clusterSnapshotsStore.ts` + `SavedClustersList`. Smoke: `npm run smoke:cluster-snapshot`.
 
 ### `cluster_snapshot_save` →
 
@@ -921,13 +921,13 @@ Request `{ type }`; reply `{ type, snapshots: ClusterSnapshotSummary[] }` (light
 ### Portable file + encrypted cloud layer (2026-07-23)
 
 Large snapshot bytes deliberately use HTTP rather than WebSocket messages. A
-`.archoncluster` file is a gzip-compressed `ARCHCL01` regular-files-only
+`.arcocluster` file is a gzip-compressed `ARCOCL01` regular-files-only
 container with a declared SHA-256 and byte length for every entry. Import
 verifies the complete container before `clusterSnapshots.importSnapshotFiles`
 mints a new local snapshot id; no partial import is possible.
 
-Cloud save wraps that verified bundle in an `ARCHCV01` AES-256-GCM envelope
-using `~/.archon/cluster-vault.key`, then sends only the ciphertext to the
+Cloud save wraps that verified bundle in an `ARCOCV01` AES-256-GCM envelope
+using `~/.arco/cluster-vault.key`, then sends only the ciphertext to the
 tailnet hub. The hub stores an opaque `.bin` plus bounded list metadata and
 never receives the key. Cloud restore downloads/decrypts/imports locally, then
 uses the unchanged `cluster_snapshot_restore` fork path above.
@@ -935,7 +935,7 @@ uses the unchanged `cluster_snapshot_restore` fork path above.
 Cloud names follow the same conflict contract. A first same-name upload returns
 HTTP 409; after operator confirmation,
 `?replaceSnapshotId=<existing.id>` pins the exact existing hub id in
-`X-Archon-Vault-Replace-Id`. The hub validates the id/name pair and updates
+`X-Arco-Vault-Replace-Id`. The hub validates the id/name pair and updates
 that row rather than creating a duplicate.
 
 ### Lost-tab recovery

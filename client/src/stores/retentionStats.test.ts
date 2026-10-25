@@ -8,7 +8,7 @@
 // the optional Chrome `performance.memory`, so it is node-safe).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ChatMessage, WorkerState } from '@archon/shared';
+import type { ChatMessage, WorkerState } from '@arco/shared';
 import { trimJobMemory, MAX_ACTIVITY_ENTRIES, TURN_TOKEN_USAGE_CAP } from './memoryTrim.js';
 import type { JobState } from './appStore.types';
 import { useAppStore } from './appStore.js';

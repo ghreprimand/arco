@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
-import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo, ZaiUsageInfo, ZaiUsageWindow } from '@archon/shared';
+import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo, ZaiUsageInfo, ZaiUsageWindow } from '@arco/shared';
 
 interface Props {
   usage: UsageInfo | null;

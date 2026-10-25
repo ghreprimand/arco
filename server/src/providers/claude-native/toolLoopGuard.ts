@@ -20,7 +20,7 @@
 // "same error recurring," not arg-precise equality.
 //
 // Default posture is warnings-only (a tool_loop_warning event + system_notice);
-// hard-stop is opt-in via ARCHON_TOOL_LOOP_GUARD=stop. Metadata carried in the
+// hard-stop is opt-in via ARCO_TOOL_LOOP_GUARD=stop. Metadata carried in the
 // event is {toolName, argsHash} ONLY — never the raw args (which can hold secrets
 // / large pastes), matching the watchdog-instrumentation discipline.
 
@@ -38,7 +38,7 @@ export type ToolLoopMode = 'off' | 'warn' | 'stop';
 // Operator arming. Default 'warn' (visible, non-blocking). 'stop' aborts the
 // tool loop on the first trip; 'off' disables detection entirely.
 export function toolLoopGuardMode(): ToolLoopMode {
-  const raw = (process.env.ARCHON_TOOL_LOOP_GUARD ?? '').trim().toLowerCase();
+  const raw = (process.env.ARCO_TOOL_LOOP_GUARD ?? '').trim().toLowerCase();
   if (raw === 'stop' || raw === 'hard' || raw === '1' || raw === 'on') return 'stop';
   if (raw === 'off' || raw === '0' || raw === 'false') return 'off';
   return 'warn';
@@ -135,7 +135,7 @@ export function describeToolLoop(v: ToolLoopVerdict, mode: ToolLoopMode): string
     ? `${v.toolName} returned the identical result ${v.sameOutputCount}× with no change`
     : `${v.toolName} called ${v.repeatCount}× with identical arguments`;
   const action = mode === 'stop'
-    ? 'stopping the tool loop (ARCHON_TOOL_LOOP_GUARD=stop)'
-    : 'continuing (set ARCHON_TOOL_LOOP_GUARD=stop to hard-stop)';
+    ? 'stopping the tool loop (ARCO_TOOL_LOOP_GUARD=stop)'
+    : 'continuing (set ARCO_TOOL_LOOP_GUARD=stop to hard-stop)';
   return `Tool-loop guard: ${what} — ${action}.`;
 }

@@ -39,7 +39,7 @@ export interface JsonRpcServerRequest {
   params: unknown;
 }
 
-// Archon runs every thread with `approvalPolicy: 'never'` and no dynamic
+// Arco runs every thread with `approvalPolicy: 'never'` and no dynamic
 // client tools. Clarification questions have an explicit
 // interactive handler; other server requests use safe defaults (newer codex,
 // MCP elicitation, guardian review), answer with the protocol's documented
@@ -66,7 +66,7 @@ export function defaultServerRequestResult(method: string): unknown | null {
         contentItems: [{ type: 'inputText', text: 'Arco does not implement client-side dynamic tools.' }],
         success: false,
       };
-    // account/chatgptAuthTokens/refresh: Archon can't mint tokens — error out
+    // account/chatgptAuthTokens/refresh: Arco can't mint tokens — error out
     // so codex falls back to its own auth handling instead of hanging.
     default:
       return null;

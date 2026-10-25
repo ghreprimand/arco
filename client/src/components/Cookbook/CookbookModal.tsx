@@ -5,7 +5,7 @@ import { CatalogTable } from './CatalogTable';
 import { RecommendDialog } from './RecommendDialog';
 import { ModalHelpButton } from '../help/ModalHelpButton';
 import { fmtBytes } from './fmt';
-import type { HardwareSimPreset } from '@archon/shared';
+import type { HardwareSimPreset } from '@arco/shared';
 
 // Workbench Expansion G2 — Cookbook catalog modal. The fit-scored "what can I
 // run?" table: a header strip showing the detected rig + RESCAN, a filter bar

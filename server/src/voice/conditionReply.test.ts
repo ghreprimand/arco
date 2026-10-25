@@ -11,7 +11,7 @@ import { readConditionReply, restoreConditionReply, retryConditionReply } from '
 import { observedWorker, observeConditionMessage, forgetObservedWorker } from './conditionFacts.js';
 
 async function fixture(events: object[], run: (cwd: string, id: string) => Promise<void>) {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-condition-reply-')), id = randomUUID(), dir = join(cwd, '.archon', 'workflows', id);
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-condition-reply-')), id = randomUUID(), dir = join(cwd, '.arco', 'workflows', id);
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, 'events.jsonl'), events.map((e, i) => JSON.stringify({ workflowId: id, seq: i + 1, ts: Date.now(), ...e })).join('\n') + '\n');
   try { await run(cwd, id); } finally { workflows.delete(id); forgetObservedWorker(id); await rm(cwd, { recursive: true, force: true }); }
@@ -44,7 +44,7 @@ test('reply restoration excludes private workers and cannot overwrite a newer li
 test('unknown restored history is retried only after an explicit resume and still needs semantic observation', async () => fixture([text('Incomplete reply.')], async (cwd, id) => {
   const wf = { config: { kind: 'workflow', workingDirectory: cwd }, primary: { provider: 'codex' }, busy: false } as WorkflowState;
   workflows.set(id, wf); await restoreConditionReply(id, wf); assert(observedWorker(id).truncated);
-  await writeFile(join(cwd,'.archon','workflows',id,'events.jsonl'), [start,text('Which option?')].map((e,i)=>JSON.stringify({seq:i+1,workflowId:id,...e})).join('\n')+'\n');
+  await writeFile(join(cwd,'.arco','workflows',id,'events.jsonl'), [start,text('Which option?')].map((e,i)=>JSON.stringify({seq:i+1,workflowId:id,...e})).join('\n')+'\n');
   await restoreConditionReply(id, wf); assert(observedWorker(id).truncated, 'no event-driven automatic disk retries');
   retryConditionReply(id); await restoreConditionReply(id, wf);
   assert.equal(observedWorker(id).text,'Which option?'); assert.equal(observedWorker(id).truncated,false); assert.equal(observedWorker(id).input,null,'resume never grants permission to ignore a question');

@@ -10,11 +10,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { connect, step, assert, assertEq, summary } from './lib.js';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-cluster-recovery-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-cluster-recovery-'));
   const c = await connect();
   let sourceWfid = '';
   let clusterId = '';

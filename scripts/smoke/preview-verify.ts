@@ -1,6 +1,6 @@
 // G1 + G2 — Preview verification capture smoke.
 //
-// PURE — NO Archon WebSocket / server boot / live model. Exercises the CDP
+// PURE — NO Arco WebSocket / server boot / live model. Exercises the CDP
 // capture module (server/src/preview/captureViaCdp.ts) directly:
 //   - browser discovery is total (returns string | null, never throws)
 //   - graceful degradation: no preview listening → ok:false naming the cause,

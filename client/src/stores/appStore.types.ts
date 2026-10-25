@@ -1,20 +1,20 @@
 // Data-shape declarations for the app store. Extracted verbatim from
 // appStore.ts (Phase 5 file-size refactor) — move-only, no behavior change.
-// This module is dependency-light: it imports only from `@archon/shared`
+// This module is dependency-light: it imports only from `@arco/shared`
 // (plus react/zustand types as needed) and must NOT import from
 // `./appStore` or `./memoryTrim` (avoid an import cycle).
 import type {
   ChatMessage, WorkerState, WorkflowConfig, ModelName, EffortLevel, Capabilities, UsageInfo,
   CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, TokenUsage, GenerationSpeed, AuthStatusByProvider,
-  ProviderName, PrimaryArtifactMessage, ArchonSettings, QuotaStatusMessage,
+  ProviderName, PrimaryArtifactMessage, ArcoSettings, QuotaStatusMessage,
   CliChangeEntry, PrimaryBackgroundJob, PreviewHistoryEntry, ClaudeCatalogSnapshot,
   CodexCatalogSnapshot, GeminiCatalogSnapshot, CursorCatalogSnapshot, PrimaryTurnTokenUsageMessage, ClusterStatePayload,
   WorkflowSessionMetadata, HandoffLockSnapshotMessage, DiagnosticItem,
   LedgerTask, McpServerDef, McpToolInfo, McpWorkflowAllow,
   GenesisSeed, GenesisReadiness, GenesisCodebaseInfo, GenesisAssistField, GenesisAssistIntent, GenesisNameOption,
-  PreviewCaptureSummary, PreviewCaptureKind, ToolPosture, BranchSource, GateStandingApprovalView, ArchonSkillRef,
+  PreviewCaptureSummary, PreviewCaptureKind, ToolPosture, BranchSource, GateStandingApprovalView, ArcoSkillRef,
   BakeoffState,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // G1 — one completed (or failed) preview capture, as held in the store. Mirrors
 // the `preview_capture_ready` broadcast plus the requested facets, so the PREVIEW
@@ -30,7 +30,7 @@ export interface PreviewCaptureRecord {
   completedAt: number;
 }
 
-// ARCHON_OPS_PLAN.md §E1 — registry snapshot row (env-stripped — only key
+// ARCO_OPS_PLAN.md §E1 — registry snapshot row (env-stripped — only key
 // names ride the wire) + the last probe result per server.
 export type McpRegistryRow = Omit<McpServerDef, 'env'> & { envKeys: string[] };
 export interface McpProbeState {
@@ -39,7 +39,7 @@ export interface McpProbeState {
   error?: string;
   at: number;
 }
-// ARCHON_OPS_PLAN.md §C1 — connection-state union for the richer header
+// ARCO_OPS_PLAN.md §C1 — connection-state union for the richer header
 // overlay. The pure deriver lives under ../runtime; this is a type-only import
 // (no values, no cycle — runtimeState imports nothing).
 import type { ConnectionState } from '../runtime/runtimeState';
@@ -272,13 +272,13 @@ export interface JobState {
   // Wall-clock timestamp of the current turn's start, for the composer's
   // elapsed-time counter. Cleared on primary_turn_ended.
   turnStartedAt?: number;
-  // ARCHON_OPS_PLAN.md §C1 — wall-clock of the last *primary* content signal
+  // ARCO_OPS_PLAN.md §C1 — wall-clock of the last *primary* content signal
   // (turn start / text / thinking / tool_use / activity / complete). The
   // runtime-state deriver reads `now - lastPrimaryEventAt` to tell a live-but-
   // working `busy` from a `stuck` worker that's stopped emitting. NOT bumped by
   // worker_* deltas — a child task streaming doesn't prove the primary is alive.
   lastPrimaryEventAt?: number;
-  // ARCHON_OPS_PLAN.md §C1 — set when this workflow is (re)created with a
+  // ARCO_OPS_PLAN.md §C1 — set when this workflow is (re)created with a
   // `resumedVia` (rehydrated from disk/replay). Drives the transient
   // `replay-recovered` badge for REPLAY_RECOVERED_WINDOW_MS. Distinct from
   // `resumedVia` (which persists for the RESUMED chip); this is a freshness
@@ -415,7 +415,7 @@ export interface JobState {
   // drops" works). Transient: not persisted; rebuilt as the agent writes
   // files. Native-only; empty for transports without the write hook.
   diagnosticsByFile?: Record<string, DiagnosticItem[]>;
-  // ARCHON_OPS_PLAN.md Part M (Genesis, M2) — staged-ideation seed + the
+  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — staged-ideation seed + the
   // engine's advisory readiness + next-field prompt for a from-nothing genesis
   // workflow. `genesisSeed` is mirrored from the server's `genesis_seed_updated`
   // (which the GENESIS tab also drives via `genesis_seed_update`). Present only
@@ -437,7 +437,7 @@ export interface JobState {
     options?: GenesisNameOption[];
     error?: string;
   };
-  // ARCHON_OPS_PLAN.md M3 — in-workflow Creative mode. `genesisCreativeArmed`
+  // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode. `genesisCreativeArmed`
   // tracks the operator-armed toggle on an existing real-cwd workflow (distinct
   // from a from-nothing genesis, whose seed has no `creative` flag). `genesisCodebase`
   // is the point-in-time size/established assessment shown as the late-stage warning.
@@ -554,7 +554,7 @@ export function mergeTokens(a: TokenUsage, b?: TokenUsage): TokenUsage {
 
 export interface AppState {
   connected: boolean;
-  // ARCHON_OPS_PLAN.md §C1 — richer overlay on top of `connected`. Set from
+  // ARCO_OPS_PLAN.md §C1 — richer overlay on top of `connected`. Set from
   // the WS hook's /healthz probe: distinguishes a browser/network WS drop
   // (`disconnected`, server alive) from a dead server process (`server-down`).
   // `connected` stays the load-bearing boolean other code reads; this is the
@@ -600,7 +600,7 @@ export interface AppState {
   // Live Cursor catalog — populated by /api/cursor/catalog. Null on cold-start
   // or fetch failure; picker falls back to a static `auto`-only seed.
   cursorCatalog: CursorCatalogSnapshot | null;
-  settings: ArchonSettings | null;
+  settings: ArcoSettings | null;
   showSettings: boolean;
   showGithub: boolean;
   showManual: boolean;
@@ -651,11 +651,11 @@ export interface AppState {
   // and the CLI STATUS card. Empty array = dot off.
   cliChanges: CliChangeEntry[];
   artifactQueue: ArtifactItem[];
-  // ARCHON_OPS_PLAN.md §D1 — project task ledger, keyed by cwd for the default
+  // ARCO_OPS_PLAN.md §D1 — project task ledger, keyed by cwd for the default
   // board and by `${cwd}::${boardKey}` for namespaced boards. Mirrors the
   // server's task_ledger_snapshot broadcasts. A missing key = not yet loaded.
   taskLedger: Record<string, LedgerTask[]>;
-  // ARCHON_OPS_PLAN.md §E1 — global MCP registry snapshot (machine-wide list;
+  // ARCO_OPS_PLAN.md §E1 — global MCP registry snapshot (machine-wide list;
   // CRUD broadcasts replace it wholesale). Empty until the first snapshot.
   mcpRegistry: McpRegistryRow[];
   // Last probe result per serverId — drives the diagnostics + visible tool
@@ -745,7 +745,7 @@ export interface AppState {
 
   // Connection
   setConnected: (connected: boolean, sessionId?: string) => void;
-  // ARCHON_OPS_PLAN.md §C1 — pushed from the WS hook after each socket
+  // ARCO_OPS_PLAN.md §C1 — pushed from the WS hook after each socket
   // transition / healthz probe. Drives the header's connection badge.
   setConnectionState: (state: ConnectionState) => void;
   // §C1 — stamp the last primary content signal (turn start / text / thinking
@@ -767,7 +767,7 @@ export interface AppState {
   setCodexCatalogForAccount: (accountRef: string, snap: CodexCatalogSnapshot) => void;
   setGeminiNativeCatalog: (snap: GeminiCatalogSnapshot | null) => void;
   setCursorCatalog: (snap: CursorCatalogSnapshot | null) => void;
-  setSettings: (s: ArchonSettings) => void;
+  setSettings: (s: ArcoSettings) => void;
   // Themes Phase 2 — applies theme locally (optimistic), patches /api/settings,
   // reverts from authoritative state on failure. No-op on unknown ids.
   setThemeId: (id: string) => Promise<void>;
@@ -787,7 +787,7 @@ export interface AppState {
   // 0 = stock). bg shifts `color-bg*` tokens, text shifts everything else.
   // null/undefined = 0. See themes/apply.ts.
   setBgBrightness: (v: number | null | undefined) => Promise<void>;
-  setPhosphorPreference: <K extends 'phosphorEffects' | 'phosphorSoftness'>(field: K, value: NonNullable<ArchonSettings[K]>) => Promise<void>;
+  setPhosphorPreference: <K extends 'phosphorEffects' | 'phosphorSoftness'>(field: K, value: NonNullable<ArcoSettings[K]>) => Promise<void>;
   setTextBrightness: (v: number | null | undefined) => Promise<void>;
   // Live preview while dragging a brightness slider — applies CSS vars without
   // persisting. setBg/TextBrightness commit on release.
@@ -812,7 +812,7 @@ export interface AppState {
   setActiveDocRef: (v: AppState['activeDocRef']) => void;
   setQuotaState: (q: QuotaSnapshot) => void;
   setCliChanges: (c: CliChangeEntry[]) => void;
-  // ARCHON_OPS_PLAN.md §D1 — replace the cwd's task list from a snapshot.
+  // ARCO_OPS_PLAN.md §D1 — replace the cwd's task list from a snapshot.
   setTaskLedger: (cwd: string, tasks: LedgerTask[], boardKey?: string) => void;
   setMcpRegistry: (defs: McpRegistryRow[]) => void;
   setMcpProbeResult: (serverId: string, result: McpProbeState) => void;
@@ -854,7 +854,7 @@ export interface AppState {
   // Wholesale config replace from the server (workflow_config_synced /
   // workspace_snapshot) — mirrored browsers converge on the server's config.
   replaceJobConfig: (jobId: string, config: WorkflowConfig) => void;
-  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArchonSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
+  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
   // EFFICIENCY_PLAN.md Phase F — mirror of the server's
   // `codebase_memory_state` push onto `job.config.codebaseMemory` so the
   // CONFIG section + Files-tab Blast Radius sub-tab read from one source.
@@ -864,14 +864,14 @@ export interface AppState {
   // displayName fallback; client just drops the override).
   setWorkflowName: (jobId: string, name: string | null) => void;
 
-  // ARCHON_OPS_PLAN.md M2 — Genesis seed/readiness mirror + cwd rebind + scaffold result.
+  // ARCO_OPS_PLAN.md M2 — Genesis seed/readiness mirror + cwd rebind + scaffold result.
   setGenesisSeed: (jobId: string, payload: { seed: GenesisSeed; readiness: GenesisReadiness; nextPrompt: string }) => void;
   setWorkflowCwd: (jobId: string, cwd: string) => void;
   setGenesisScaffold: (jobId: string, result: NonNullable<JobState['genesisScaffold']>) => void;
   setGenesisAssistStarted: (jobId: string, payload: { requestId: string; field: GenesisAssistField; intent: GenesisAssistIntent }) => void;
   setGenesisAssistProposed: (jobId: string, payload: { requestId: string; field: GenesisAssistField; intent: GenesisAssistIntent; suggestion: string; rationale?: string; options?: GenesisNameOption[]; error?: string }) => void;
   clearGenesisAssist: (jobId: string, requestId?: string) => void;
-  // ARCHON_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
+  // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
   setGenesisCreative: (jobId: string, payload: { armed: boolean; seed: GenesisSeed; readiness: GenesisReadiness; nextPrompt: string; codebase?: GenesisCodebaseInfo }) => void;
 
   // Scoped actions (by jobId)
@@ -962,7 +962,7 @@ export interface AppState {
   // Phase 1 — upsert a session JSONL entry into sessionChat (keyed by uuid
   // or content signature). Idempotent: re-emitting the same entry on reconnect
   // does not duplicate chat messages.
-  upsertSessionChat: (jobId: string, entry: import('@archon/shared').SessionEntryMessage['entry'], attachments?: string[]) => void;
+  upsertSessionChat: (jobId: string, entry: import('@arco/shared').SessionEntryMessage['entry'], attachments?: string[]) => void;
   // Tail-first hydration — set the has-earlier flag + page cursor from a
   // `session_history_status` message or transcript fetch response.
   setEarlierState: (jobId: string, patch: Partial<Pick<JobState, 'hasEarlierSessionHistory' | 'earlierTranscriptCursor' | 'earlierSource' | 'transcriptFetch'>>) => void;

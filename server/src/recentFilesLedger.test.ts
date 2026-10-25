@@ -10,12 +10,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 // Point the ledger at a temp file BEFORE importing the module (the path is
 // captured at module load). Dynamic import so the env override is in effect.
-const LEDGER = join(mkdtempSync(join(tmpdir(), 'archon-ledger-')), 'recent-files.jsonl');
-process.env.ARCHON_RECENT_FILES_LEDGER = LEDGER;
+const LEDGER = join(mkdtempSync(join(tmpdir(), 'arco-ledger-')), 'recent-files.jsonl');
+process.env.ARCO_RECENT_FILES_LEDGER = LEDGER;
 const { matchFileEvent, appendRecord, readRecent, resolveMatchPath, LEDGER_PATH } =
   await import('./recentFilesLedger.js');
 
@@ -139,7 +139,7 @@ test('unrelated event (primary_text) → null', () => {
 test('resolveMatchPath: cwd-relative joins cwd; absolute passes through; artifact joins artifactsDir', () => {
   assert.equal(resolveMatchPath({ scope: 'cwd', rel: 'docs/a.md', op: 'modified', tool: 'Write' }, '/home/u/proj', '/x'), '/home/u/proj/docs/a.md');
   assert.equal(resolveMatchPath({ scope: 'cwd', rel: '/abs/a.md', op: 'modified', tool: 'Edit' }, '/home/u/proj', '/x'), '/abs/a.md');
-  assert.equal(resolveMatchPath({ scope: 'artifact', rel: 'review-1.md', op: 'created', tool: 'Review' }, '/home/u/proj', '/home/u/proj/.archon/w/art'), '/home/u/proj/.archon/w/art/review-1.md');
+  assert.equal(resolveMatchPath({ scope: 'artifact', rel: 'review-1.md', op: 'created', tool: 'Review' }, '/home/u/proj', '/home/u/proj/.arco/w/art'), '/home/u/proj/.arco/w/art/review-1.md');
 });
 
 // ── append / read / compaction round-trip ──────────────────────────────────

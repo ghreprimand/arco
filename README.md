@@ -1,8 +1,6 @@
 # Arco
 
-Arco is the public release of Archon, an agent workbench for building and operating software with provider-backed agents. It keeps the same workbench behavior and voice operator while preparing the project for public use across Linux, macOS, and Windows.
-
-The internal name remains Archon where compatibility depends on it. Package names under `@archon/*`, protocol identifiers, `ARCHON_*` environment variables, and the `.archon` state directory are retained so existing tools and state remain compatible. User-facing branding is Arco.
+Arco is an agent workbench for building and operating software with provider-backed agents, with a voice operator, for Linux, macOS, and Windows.
 
 ## Who it is for
 
@@ -41,10 +39,10 @@ The documentation index and first-run guide will be added as the onboarding flow
 
 ## Privacy
 
-Provider requests are made when the operator uses a connected provider. Local workbench state is stored in the compatible `.archon` state area, and project files remain in the selected project folders. The public-safety audit checks the repository for credentials, private machine details, local paths, personal data, and other material that must not ship. See [Persistence](docs/PERSISTENCE.md) for state details; the security guide is planned.
+Provider requests are made when the operator uses a connected provider. Local workbench state is stored in the compatible `.arco` state area, and project files remain in the selected project folders. The public-safety audit checks the repository for credentials, private machine details, local paths, personal data, and other material that must not ship. See [Persistence](docs/PERSISTENCE.md) for state details; the security guide is planned.
 
 ## License
 
 License: to be chosen by the maintainer before public release.
 
-Arco is the public release of a private workbench. Its implementation is being prepared for public use while preserving the behavior and compatibility of Archon.
+Arco is the public release of a private workbench. Its implementation is being prepared for public use while preserving the workbench behavior.

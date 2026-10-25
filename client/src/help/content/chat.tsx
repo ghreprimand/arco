@@ -49,7 +49,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'chat.attach': {
     title: 'Attach to chat', manualSection: 'chat-mode',
     body: <p>Attach images or files to the next message; you can also paste them straight
-      into the composer or drop them anywhere on the window. Uploads are written to <C>~/.archon/uploads</C>, so Incognito chats
+      into the composer or drop them anywhere on the window. Uploads are written to <C>~/.arco/uploads</C>, so Incognito chats
       have no attach button.</p>,
   },
   'chat.input': {

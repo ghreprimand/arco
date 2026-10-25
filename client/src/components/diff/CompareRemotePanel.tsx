@@ -5,7 +5,7 @@ import type {
   CompareDiffstat,
   FetchRemoteResponse,
   WorkingFileDiffResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 import { DiffView } from './DiffView';
 
 // Workbench Expansion I2 — the local ↔ remote comparison view.
@@ -115,22 +115,22 @@ export function CompareRemotePanel({ wfid, cwd }: CompareRemotePanelProps) {
 
   let body: React.ReactNode;
   if (state.kind === 'loading') {
-    body = <div className="archon-diff-empty display-font">Reading comparison…</div>;
+    body = <div className="arco-diff-empty display-font">Reading comparison…</div>;
   } else if (state.kind === 'error') {
     body = (
-      <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
+      <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
         Failed to read comparison: {state.message}
       </div>
     );
   } else {
     const d = state.data;
     if (!d.isRepo) {
-      body = <div className="archon-diff-empty display-font">Not a git working tree — nothing to compare.</div>;
+      body = <div className="arco-diff-empty display-font">Not a git working tree — nothing to compare.</div>;
     } else if (d.detached) {
-      body = <div className="archon-diff-empty display-font">Detached HEAD — no branch to compare against a remote.</div>;
+      body = <div className="arco-diff-empty display-font">Detached HEAD — no branch to compare against a remote.</div>;
     } else if (!d.hasUpstream) {
       body = (
-        <div className="archon-diff-empty display-font">
+        <div className="arco-diff-empty display-font">
           {d.branch ? `Branch "${d.branch}" has no upstream configured.` : 'No upstream configured.'} Set one with{' '}
           <code>git branch --set-upstream-to</code>, then Fetch.
         </div>
@@ -140,7 +140,7 @@ export function CompareRemotePanel({ wfid, cwd }: CompareRemotePanelProps) {
       const behind = d.behind ?? [];
       if (ahead.length === 0 && behind.length === 0) {
         body = (
-          <div className="archon-diff-empty display-font">
+          <div className="arco-diff-empty display-font">
             In sync with {d.upstream}. Nothing to push or pull.
           </div>
         );
@@ -247,7 +247,7 @@ function ComparisonBody({
         {diffDir ? (
           <DirectionDiffPane wfid={wfid} cwd={cwd} dir={diffDir} />
         ) : (
-          <div className="archon-diff-empty display-font">Show a direction's diff to view it here.</div>
+          <div className="arco-diff-empty display-font">Show a direction's diff to view it here.</div>
         )}
       </div>
     </div>
@@ -357,21 +357,21 @@ function DirectionDiffPane({ wfid, cwd, dir }: { wfid: string; cwd?: string; dir
   }, [wfid, cwd, dir]);
 
   if (state.kind === 'loading') {
-    return <div className="archon-diff-empty display-font">Reading diff…</div>;
+    return <div className="arco-diff-empty display-font">Reading diff…</div>;
   }
   if (state.kind === 'error') {
     return (
-      <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
+      <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
         Failed to read diff: {state.message}
       </div>
     );
   }
   const { data } = state;
   if (!data.isRepo) {
-    return <div className="archon-diff-empty display-font">Not a git working tree.</div>;
+    return <div className="arco-diff-empty display-font">Not a git working tree.</div>;
   }
   if (data.binary) {
-    return <div className="archon-diff-empty display-font">Binary or oversized diff — not shown.</div>;
+    return <div className="arco-diff-empty display-font">Binary or oversized diff — not shown.</div>;
   }
   return <DiffView patch={data.patch} emptyText="No diff for this direction." />;
 }

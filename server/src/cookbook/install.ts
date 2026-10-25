@@ -22,7 +22,7 @@
 //     (honours the operator's configurable/remote base URL over Tailscale via
 //     getOllamaBase). HF = a streamed `fetch`. There is no `ollama pull` exec
 //     and no execFile anywhere in this file.
-//   • PATH CONFINEMENT — HF weights land ONLY in ~/.archon/models/. The target
+//   • PATH CONFINEMENT — HF weights land ONLY in ~/.arco/models/. The target
 //     filename is sanitized to a basename (reject leading '-', NUL, separators,
 //     '..', '.', empty) and the FINAL resolved path is prefix-checked to sit
 //     inside the models dir before any byte is written. A malicious repo /
@@ -50,17 +50,17 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
-import type { LlamacppModelDef } from '@archon/shared';
+import type { LlamacppModelDef } from '@arco/shared';
 import { readCatalog, writeCatalog, type LlamacppCatalog } from '../llamacppCatalog.js';
 import { getOllamaBase } from '../providers/ollama.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 // ── Models dir ────────────────────────────────────────────────────────────
 // The ONE fixed directory HF GGUF weights download into. Mirrors the catalog's
-// ~/.archon home. Created on demand. Confinement is checked against the
+// ~/.arco home. Created on demand. Confinement is checked against the
 // RESOLVED real path of this dir, so a symlink swap can't widen the target.
 export function modelsDir(): string {
-  return path.join(archonHome(), 'models');
+  return path.join(arcoHome(), 'models');
 }
 
 // Safety margin layered on top of the model size in the disk pre-flight: a
@@ -544,7 +544,7 @@ async function safeUnlink(p: string): Promise<void> {
     await fs.unlink(p);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error(`[archon] cookbook: failed to delete partial ${p}:`, err instanceof Error ? err.message : err);
+      console.error(`[arco] cookbook: failed to delete partial ${p}:`, err instanceof Error ? err.message : err);
     }
   }
 }

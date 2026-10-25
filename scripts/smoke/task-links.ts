@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §D2 (Part D) — ledger ↔ plan/review/workflow link smoke.
+// ARCO_OPS_PLAN.md §D2 (Part D) — ledger ↔ plan/review/workflow link smoke.
 //
 // Headless / module-level (no live server, no API spend): D2 adds NO protocol —
 // links flow through the existing task_ledger_update path — so the durable
@@ -24,7 +24,7 @@ import type { LedgerTask, TaskLink } from '../../shared/src/protocol/tasks.js';
 const ids = (tasks: LedgerTask[]) => new Set(tasks.map((t) => t.id));
 
 async function main(): Promise<void> {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-links-smoke-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-links-smoke-'));
   try {
     // A small fixed link set we can assert against. Note: PLAN_A and WF_X share
     // the literal ref string "alpha" under different kinds — the cross-match

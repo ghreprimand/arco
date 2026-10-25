@@ -6,7 +6,7 @@
 // the server's `textDocument/publishDiagnostics` notification to the client as
 // a workflow-scoped `diagnostics` message.
 //
-// LSP positions are 0-based (line + character); Archon's UI is 1-based. The
+// LSP positions are 0-based (line + character); Arco's UI is 1-based. The
 // conversion happens once, at the server→protocol mapping boundary
 // (server/src/lsp/client.ts `mapPublishDiagnostics`), so every field below is
 // already 1-based by the time it crosses the wire.
@@ -18,7 +18,7 @@
 
 export type DiagnosticSeverity = 'error' | 'warning' | 'info' | 'hint';
 
-// One diagnostic, already converted to Archon's 1-based line/column model.
+// One diagnostic, already converted to Arco's 1-based line/column model.
 export interface DiagnosticItem {
   severity: DiagnosticSeverity;
   message: string;

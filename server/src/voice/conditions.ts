@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { conditionActionTargets, voiceText, type ComputerConditionRule, type ConditionWorkerFacts, type VoiceOperatorTool } from '@archon/shared';
+import { conditionActionTargets, voiceText, type ComputerConditionRule, type ConditionWorkerFacts, type VoiceOperatorTool } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 import { workflows, workflowCwds } from '../server/state.js';
 import type { WorkflowState } from '../workflows/types.js';
@@ -25,9 +25,9 @@ import { ComputerConditions, conditionRefs, type ConditionCandidate } from './co
 import { hasActiveMailRulesForCluster } from './mailRules.js';
 import { COMPUTER_TOOL_SPECS, computerToolWireArgs } from './toolDefinitions.js';
 import { requestVoiceTool } from './operatorTools.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
-const file=process.env.ARCHON_COMPUTER_CONDITIONS_FILE??join(archonHome(), 'computer-conditions.json');
+const file=process.env.ARCO_COMPUTER_CONDITIONS_FILE??join(arcoHome(), 'computer-conditions.json');
 let store:ComputerConditions|undefined,loading:Promise<ComputerConditions>|undefined,stopped=false,running=false,scheduled=false,warning:string|undefined;
 type Dispatch=(id:string,text:string,guard:(claim:()=>boolean)=>Promise<boolean>)=>Promise<boolean>;
 let dispatch:Dispatch|undefined;
@@ -37,7 +37,7 @@ const observing=new Map<string,AbortController>();
 // Fixed observer budget belongs to the armed script, independent of the optional
 // activity feed. Only changed public replies are sent, batched, never polled.
 const observationRuns=new Map<string,number[]>();
-const deniedTools=new Set(['archon_condition','archon_mail_rule','archon_watch','archon_activity','archon_computer']);
+const deniedTools=new Set(['arco_condition','arco_mail_rule','arco_watch','arco_activity','arco_computer']);
 function toolArgs(a:{name:string;args:Record<string,string>}) {
   if(deniedTools.has(a.name))throw Error('Scripts cannot create automations or change Computer configuration.');
   const spec=COMPUTER_TOOL_SPECS.find((s)=>s.name===a.name);if(!spec)throw Error('Unknown scripted operator tool.');
@@ -237,7 +237,7 @@ export function clearPrivateConditions(ownerId:string){for(const r of store?.rul
 export async function interruptConditions(){stopped=true;for(const a of observing.values())a.abort();for(const t of timers.values())clearTimeout(t);timers.clear();if(store){for(const r of store.rules)store.stop(r.id,'interrupted','Server stopped; re-arm explicitly.');await saveOrStop();publish();}}
 export function conditionCapabilities(){return {
     fields:conditionField.options,unknown:'null is unknown; NOT unknown stays unknown; only TRUE permits an action.',
-    meanings:{has_work:'busy OR queued messages OR pending mail; not a verdict about project completion',needs_input:'Structured question/approval OR Luna LOW interpretation of latest reply. An idle unknown holds when hold_on_input is true; structured questions hold immediately even while busy.',context_percent:'percent 0–100 of provider-reported window; unknown if unreported',turns_finished:'complete queue drains since server boot',compactions_finished:'completed Archon-requested in-place compactions since boot; provider-internal auto-compaction and Ollama next-turn arming are not counted'},
+    meanings:{has_work:'busy OR queued messages OR pending mail; not a verdict about project completion',needs_input:'Structured question/approval OR Luna LOW interpretation of latest reply. An idle unknown holds when hold_on_input is true; structured questions hold immediately even while busy.',context_percent:'percent 0–100 of provider-reported window; unknown if unreported',turns_finished:'complete queue drains since server boot',compactions_finished:'completed Arco-requested in-place compactions since boot; provider-internal auto-compaction and Ollama next-turn arming are not counted'},
     expressions:['{op:worker,worker_id,field,cmp,value}','{op:all|any,conditions:[expressions]}','{op:not,condition:expression}','{op:group,worker_ids,quantifier:all|any|none,field,cmp,value}','{op:count,worker_ids,field,test,value,cmp,count}'],comparisons:['eq','ne','gt','gte','lt','lte'],
     definition:'{label,cluster_ids:[exact ids],hold_on_input:true,hold_worker_ids?:[exact workers to hold for; default all scoped members],stop_on_error?:true,stop_on_interrupt?:true,clauses:[{id,when:expression,actions:[action],repeat:once|changes,watch?:[{worker_id,field}],after?:[earlier clause ids],finish?:true}],ttl_minutes?:positive integer|null,max_actions?:positive integer|null,max_worker_turns?:positive integer|null,cooldown_seconds?:nonnegative integer (default 30)}',
     actions:['{kind:nudge,worker_ids:[ids]} — standard idle-worker nudge, even without mail','{kind:nudge_mail,worker_ids:[ids]} — only idle with NEW pending message IDs','{kind:send_message,worker_id,text} — exact operator instruction, idle only','{kind:compact,worker_id} — server-side native compaction, idle only; watch compacting before continuing; Ollama compacts at next turn','{kind:notify,text}','{kind:tool,name,args:{string:string}} — existing operator tool; browser required, never invent tools or arguments'],
@@ -277,7 +277,7 @@ export async function computerConditionControl(ownerId:string,raw:unknown){
     for(const c of definition.clauses)for(const a of c.actions)if(a.kind==='tool')toolArgs(a);
     for(const id of definition.cluster_ids){await clusters.readCluster(id);if(clusters.isAutoTurnOnMailboxEnabled(id))throw Error('Turn off cluster AUTO-PICKUP before arming a script.');if(hasActiveMailRulesForCluster(id))throw Error('Cancel the legacy mailbox rule in this cluster before arming a script.');}
     rule=await withScope(definition.cluster_ids,async()=>{const facts=await snapshot(definition.cluster_ids);checkOwner();if(facts.length>32)throw Error('Script scope exceeds 32 workers.');for(const c of definition.clauses)for(const a of c.actions)if(a.kind==='tool'){
-      if(['archon_nudge','archon_send_message'].includes(a.name))throw Error('Use typed nudge_mail/send_message actions for worker turns.');
+      if(['arco_nudge','arco_send_message'].includes(a.name))throw Error('Use typed nudge_mail/send_message actions for worker turns.');
       if(a.args.target&&!facts.some((w)=>w.id===a.args.target)&&!definition.cluster_ids.includes(a.args.target))throw Error('Script tool targets must be exact scoped ids.');
       if(a.args.control&&/^\d+$/.test(a.args.control))throw Error('Use a stable control label in scripts, not a temporary screen number.');
     }for(const c of definition.clauses)for(const a of c.actions)if(a.kind==='compact'&&facts.find((w)=>w.id===a.worker_id)?.can_compact===false)throw Error('A selected worker does not support native compaction on its current provider/transport.');if(existing&&(s.get(existing.id)?.revision??0)!==args.expected_revision)throw Error('Script changed while updating; read its current revision again.');return existing?s.update(existing.id,definition,facts):s.create(ownerId,definition,facts,!!owner.config.incognito);});

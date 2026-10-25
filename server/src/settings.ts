@@ -1,6 +1,6 @@
 // Three-layer operator-settings cascade.
 //
-// Read order: defaults → ~/.archon/settings.json (global) → <cwd>/.archon/
+// Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
 // settings.json (project) → in-memory overrides (none in Phase 2 — patches
 // write through to the global file).
 //
@@ -17,22 +17,22 @@ import { promises as fs } from 'fs';
 import { mkdirSync, watch as fsWatch, type FSWatcher } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
-import type { ArchonSettings, ProviderName, ModelName, WorkflowDefaults, EffortLevel, ProviderAccountsConfig, ProviderAccountProfile, FallbackChainsConfig, FallbackLegConfig, PinnedService, OllamaBackendConfig, OllamaUtilityConfig, OllamaCompactionConfig } from '@archon/shared';
-import { VALID_THEME_IDS, VALID_FONT_PACK_IDS, normalizeLegacyThemeId } from '@archon/shared';
+import type { ArcoSettings, ProviderName, ModelName, WorkflowDefaults, EffortLevel, ProviderAccountsConfig, ProviderAccountProfile, FallbackChainsConfig, FallbackLegConfig, PinnedService, OllamaBackendConfig, OllamaUtilityConfig, OllamaCompactionConfig } from '@arco/shared';
+import { VALID_THEME_IDS, VALID_FONT_PACK_IDS, normalizeLegacyThemeId } from '@arco/shared';
 import { describeConfigValue } from './configValue.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const GLOBAL_SETTINGS_DIR = archonHome();
+const GLOBAL_SETTINGS_DIR = arcoHome();
 const GLOBAL_SETTINGS_BASENAME = 'settings.json';
 const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASENAME);
-const PROJECT_SETTINGS_DIRNAME = '.archon';
+const PROJECT_SETTINGS_DIRNAME = '.arco';
 const PROJECT_SETTINGS_BASENAME = 'settings.json';
 
 const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex', 'zai', 'antigravity', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
-function defaults(): ArchonSettings {
+function defaults(): ArcoSettings {
   return {
     enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, zai: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
@@ -153,7 +153,7 @@ function sanitizeFrostedOpacity(raw: unknown): number | undefined {
 // Global theme-brightness shift, in signed points. Clamped −100…100 and
 // rounded (a generous safety bound; the UI sliders constrain each axis to its
 // own range). 0 = no shift. Shared by bgBrightness + textBrightness.
-// See ArchonSettings + client themes/apply.ts.
+// See ArcoSettings + client themes/apply.ts.
 function sanitizeBrightness(raw: unknown): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
   return Math.round(Math.min(100, Math.max(-100, raw)));
@@ -197,10 +197,10 @@ function sanitizeMediaAllowedRoots(raw: unknown): string[] | undefined {
   return out;
 }
 
-function sanitizeAcknowledgedCliVersions(raw: unknown): ArchonSettings['acknowledgedCliVersions'] | undefined {
+function sanitizeAcknowledgedCliVersions(raw: unknown): ArcoSettings['acknowledgedCliVersions'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
-  const out: NonNullable<ArchonSettings['acknowledgedCliVersions']> = {};
+  const out: NonNullable<ArcoSettings['acknowledgedCliVersions']> = {};
   for (const p of ['claude', 'gemini', 'codex'] as const) {
     const v = r[p];
     if (typeof v === 'string' && v.length > 0) out[p] = v;
@@ -311,7 +311,7 @@ function sanitizeClaudeConfig(raw: unknown): { transport?: 'cli' | 'native'; nat
 // Phase 6 — Codex transport selector. 'exec' is the default per-turn worker;
 // 'appserver' opts into the long-lived `codex app-server` worker. Same
 // pass-through shape as `claude.transport` (Phase 7); cascade-readable so
-// `<cwd>/.archon/settings.json` can pin per-project.
+// `<cwd>/.arco/settings.json` can pin per-project.
 function sanitizeCodexConfig(raw: unknown): { transport?: 'exec' | 'appserver'; appserverWarningSeen?: boolean } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
@@ -563,7 +563,7 @@ async function readJsonFile(p: string, label: string): Promise<Record<string, un
     return isPlainObject(parsed) ? parsed : {};
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
-    console.error(`[archon] ${label} settings.json malformed; ignoring:`, err instanceof Error ? err.message : err);
+    console.error(`[arco] ${label} settings.json malformed; ignoring:`, err instanceof Error ? err.message : err);
     return {};
   }
 }
@@ -572,9 +572,9 @@ function projectSettingsPath(cwd: string): string {
   return path.join(cwd, PROJECT_SETTINGS_DIRNAME, PROJECT_SETTINGS_BASENAME);
 }
 
-function mergeWithDefaults(partial: Record<string, unknown>): ArchonSettings {
+function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const base = defaults();
-  const enabled: ArchonSettings['enabledProviders'] = { ...base.enabledProviders };
+  const enabled: ArcoSettings['enabledProviders'] = { ...base.enabledProviders };
   const ep = partial.enabledProviders;
   if (ep && typeof ep === 'object') {
     for (const key of ALL_PROVIDERS) {
@@ -582,7 +582,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArchonSettings {
       if (typeof v === 'boolean') enabled[key] = v;
     }
   }
-  const result: ArchonSettings = { enabledProviders: enabled };
+  const result: ArcoSettings = { enabledProviders: enabled };
   const wd = sanitizeWorkflowDefaults(partial.workflowDefaults);
   if (wd) result.workflowDefaults = wd;
   const providerAccounts = sanitizeProviderAccounts(partial.providerAccounts);
@@ -696,17 +696,17 @@ function sanitizePinnedServices(raw: unknown): PinnedService[] | undefined {
 }
 
 // Read effective settings. With no cwd argument, returns the global cascade
-// (defaults → global). With a cwd, layers <cwd>/.archon/settings.json on top
+// (defaults → global). With a cwd, layers <cwd>/.arco/settings.json on top
 // before sanitization. Project-only overrides for nested objects merge key-
 // by-key with global; arrays replace.
 export async function readSettings(
   cwd?: string,
   opts?: { includeProject?: boolean },
-): Promise<ArchonSettings> {
+): Promise<ArcoSettings> {
   const global = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
   if (!cwd) return mergeWithDefaults(global);
   // DD7 — turn-path callers pass `includeProject: false` for an untrusted repo
-  // so a cloned `.archon/settings.json` can't pin transport / skillsExtraPaths /
+  // so a cloned `.arco/settings.json` can't pin transport / skillsExtraPaths /
   // handoffPromptPath into the model turn. Default true preserves every other
   // caller (UI reads, etc.). The trust decision itself is resolved upstream from
   // global scope only, so this never recurses.
@@ -716,18 +716,18 @@ export async function readSettings(
   return mergeWithDefaults(merged);
 }
 
-export async function writeSettings(next: ArchonSettings): Promise<void> {
+export async function writeSettings(next: ArcoSettings): Promise<void> {
   await atomicWriteFile(GLOBAL_SETTINGS_PATH, JSON.stringify(next, null, 2) + '\n');
 }
 
 // Read-modify-write over one global file. MUST run under the settings file
 // lock — see `patchSettings` below.
-async function patchSettingsUnlocked(patch: Partial<ArchonSettings>): Promise<ArchonSettings> {
+async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<ArcoSettings> {
   // Patches always target the global file. Project-level settings are hand-
   // edited (Phase 2 has no UI for them); the cascade reader picks up edits
   // via fs.watch HMR.
   const current = await readSettings();
-  const merged: ArchonSettings = {
+  const merged: ArcoSettings = {
     enabledProviders: {
       ...current.enabledProviders,
       ...(patch.enabledProviders ?? {}),
@@ -986,7 +986,7 @@ async function patchSettingsUnlocked(patch: Partial<ArchonSettings>): Promise<Ar
 // mutation — reachable from two ConfigTab toggles in quick succession, or two
 // browser tabs saving at once (the atomic write itself can't prevent this;
 // only ordering can). See atomicFile.ts § withFileLock.
-export function patchSettings(patch: Partial<ArchonSettings>): Promise<ArchonSettings> {
+export function patchSettings(patch: Partial<ArcoSettings>): Promise<ArcoSettings> {
   return withFileLock(GLOBAL_SETTINGS_PATH, () => patchSettingsUnlocked(patch));
 }
 
@@ -1009,7 +1009,7 @@ export function onSettingsChange(listener: SettingsChangeListener): () => void {
 
 function fire(kind: SettingsChangeKind, cwd?: string): void {
   for (const l of listeners) {
-    try { l(kind, cwd); } catch (err) { console.error('[archon] settings listener threw:', err); }
+    try { l(kind, cwd); } catch (err) { console.error('[arco] settings listener threw:', err); }
   }
 }
 
@@ -1026,10 +1026,10 @@ export function installGlobalSettingsWatcher(): void {
       globalDebounce = setTimeout(() => { globalDebounce = null; fire('global'); }, 200);
     });
     globalWatcher.on('error', (err) => {
-      console.error('[archon] global settings watcher error:', err);
+      console.error('[arco] global settings watcher error:', err);
     });
   } catch (err) {
-    console.error('[archon] global settings watcher start failed:', err);
+    console.error('[arco] global settings watcher start failed:', err);
   }
 }
 
@@ -1040,7 +1040,7 @@ interface ProjectWatcher {
 }
 const projectWatchers = new Map<string, ProjectWatcher>();
 
-// Acquire a watcher for <cwd>/.archon/. Ref-counted: every workflow living
+// Acquire a watcher for <cwd>/.arco/. Ref-counted: every workflow living
 // in that cwd holds one ref; the last release closes the watcher.
 export function acquireProjectSettingsWatcher(cwd: string): void {
   if (!cwd) return;
@@ -1050,7 +1050,7 @@ export function acquireProjectSettingsWatcher(cwd: string): void {
     return;
   }
   const dir = path.join(cwd, PROJECT_SETTINGS_DIRNAME);
-  // .archon/ may not exist yet on a fresh project. mkdirSync is idempotent
+  // .arco/ may not exist yet on a fresh project. mkdirSync is idempotent
   // (recursive: true won't error on EEXIST). Safe because it's the same dir
   // skills/plans use; we're not introducing a new artifact.
   try { mkdirSync(dir, { recursive: true }); } catch { /* fall through */ }
@@ -1058,7 +1058,7 @@ export function acquireProjectSettingsWatcher(cwd: string): void {
   try {
     watcher = fsWatch(dir, { persistent: false });
   } catch (err) {
-    console.error(`[archon] project settings watcher start failed for ${dir}:`, err);
+    console.error(`[arco] project settings watcher start failed for ${dir}:`, err);
     return;
   }
   const state: ProjectWatcher = { watcher, refCount: 1, debounce: null };
@@ -1068,7 +1068,7 @@ export function acquireProjectSettingsWatcher(cwd: string): void {
     state.debounce = setTimeout(() => { state.debounce = null; fire('project', cwd); }, 200);
   });
   watcher.on('error', (err) => {
-    console.error(`[archon] project settings watcher error for ${dir}:`, err);
+    console.error(`[arco] project settings watcher error for ${dir}:`, err);
   });
   projectWatchers.set(cwd, state);
 }

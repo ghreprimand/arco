@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CompareLegConfig } from '@archon/shared';
+import type { CompareLegConfig } from '@arco/shared';
 
 // WORKBENCH_EXPANSION_PLAN.md §B1 — Compare primitive client store.
 //

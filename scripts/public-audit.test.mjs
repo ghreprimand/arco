@@ -84,18 +84,18 @@ test('release history excludes unreferenced runtime checkpoints; strict diagnost
   git('config', 'user.name', 'Checkpoint fixture');
   git('config', 'user.email', 'checkpoint@example.test');
   const checkpoint = commit('clean checkpoint');
-  git('update-ref', 'refs/archon/fixture/1', checkpoint);
+  git('update-ref', 'refs/arco/fixture/1', checkpoint);
   git('reset', '--hard', clean);
   assert.equal(check('--release-history').status, 0);
   assert.match(check('--history').stderr, /project-history-identity-required/);
   assert.equal(push(update(clean)).status, 0);
-  assert.match(push(update(checkpoint, 'refs/archon/fixture/1')).stderr, /non-publication-ref/);
+  assert.match(push(update(checkpoint, 'refs/arco/fixture/1')).stderr, /non-publication-ref/);
 }));
 test('publication history scans runtime ancestors and content removed from the proposed tip', () => fixture(({ cwd, git, check, push, commit }) => {
   writeFileSync(join(cwd, '.git/private-patterns'), 'private-fixture-owner');
   commit();
   const checkpoint = commit('private-fixture-owner');
-  git('update-ref', 'refs/archon/fixture/1', checkpoint);
+  git('update-ref', 'refs/arco/fixture/1', checkpoint);
   const tip = commit();
   assert.match(check('--release-history').stderr, /local-private-pattern/);
   const result = push(update(tip, 'refs/heads/main', 'refs/heads/main', checkpoint));
@@ -127,8 +127,8 @@ test('push scans exact object IDs even when local ref points to a different clea
 }));
 test('push rejects runtime destinations, including deletions, and malformed/missing objects', () => fixture(({ push, commit }) => {
   const tip = commit();
-  assert.match(push(update(tip, 'refs/heads/main', 'refs/archon/fixture/1')).stderr, /non-publication-ref/);
-  assert.match(push(update(zero, '(delete)', 'refs/archon/fixture/1', tip)).stderr, /non-publication-ref/);
+  assert.match(push(update(tip, 'refs/heads/main', 'refs/arco/fixture/1')).stderr, /non-publication-ref/);
+  assert.match(push(update(zero, '(delete)', 'refs/arco/fixture/1', tip)).stderr, /non-publication-ref/);
   assert.equal(push(update(zero, '(delete)', 'refs/heads/old', tip)).status, 0);
   for (const input of ['bad input\n', update('f'.repeat(40)), update(zero), update(tip, '(delete)'), update(tip, 'HEAD', 'invalid-ref')]) {
     const result = push(input);
@@ -236,7 +236,7 @@ test('installed hooks reject private staged content and commit messages before c
   const tip = git('rev-parse', 'HEAD').toString().trim();
   const hook = input => spawnSync('sh', ['.githooks/pre-push', 'fixture-remote', 'unused'], { cwd, encoding: 'utf8', input });
   assert.equal(hook(update(tip)).status, 0);
-  assert.match(hook(update(tip, 'refs/heads/main', 'refs/archon/fixture/1')).stderr, /non-publication-ref/);
+  assert.match(hook(update(tip, 'refs/heads/main', 'refs/arco/fixture/1')).stderr, /non-publication-ref/);
   writeFileSync(join(cwd, '.git/public-push-hold'), 'Fixture hold');
   assert.match(hook(update(tip)).stderr, /historical-review-unresolved/);
 }));
@@ -357,14 +357,14 @@ test('unapproved email, media and runtime files fail with synthetic exceptions s
   const privateAddress = 'private-owner' + '@' + 'private-mail.net';
   writeFileSync(join(cwd, 'sample.txt'), privateAddress);
   writeFileSync(join(cwd, 'capture.png'), 'fixture');
-  mkdirSync(join(cwd, '.archon'));
-  writeFileSync(join(cwd, '.archon/settings.json'), '{}');
-  git('add', '--force', '.archon/settings.json');
+  mkdirSync(join(cwd, '.arco'));
+  writeFileSync(join(cwd, '.arco/settings.json'), '{}');
+  git('add', '--force', '.arco/settings.json');
   const result = check('--tree');
   for (const rule of ['unapproved-email-address', 'screenshot-or-recording-file', 'local-runtime-state']) assert.ok(result.stderr.includes(rule));
   assert.ok(!result.stderr.includes(privateAddress));
-  rmSync(join(cwd, 'capture.png')); git('rm', '--cached', '-f', '.archon/settings.json'); rmSync(join(cwd, '.archon'), {recursive: true});
-  writeFileSync(join(cwd, 'sample.txt'), [projectEmail, 'git@github.com', 'checkpoint@archon.local', 'fixture@example.test', 'fake@arco.invalid', 'strata@fixture.service'].join('\n'));
+  rmSync(join(cwd, 'capture.png')); git('rm', '--cached', '-f', '.arco/settings.json'); rmSync(join(cwd, '.arco'), {recursive: true});
+  writeFileSync(join(cwd, 'sample.txt'), [projectEmail, 'git@github.com', 'checkpoint@arco.local', 'fixture@example.test', 'fake@arco.invalid', 'strata@fixture.service'].join('\n'));
   assert.equal(check('--tree').status, 0);
   mkdirSync(join(cwd, 'server/src/voice'), {recursive: true});
   writeFileSync(join(cwd, 'server/src/voice/capture-ready.wav'), 'fixture');

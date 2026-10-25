@@ -1,6 +1,6 @@
 # Arco — knowledge base (B3)
 
-A per-cwd, **operator-owned** knowledge store under `<cwd>/.archon/knowledge/` that turns can read — a curated, editable companion to `CLAUDE.md` (repo layout, gotchas, deploy steps, conventions) the operator builds up instead of re-explaining each session. Articles flagged **always include** fold into the next turn's system prompt as a **bounded** block.
+A per-cwd, **operator-owned** knowledge store under `<cwd>/.arco/knowledge/` that turns can read — a curated, editable companion to `CLAUDE.md` (repo layout, gotchas, deploy steps, conventions) the operator builds up instead of re-explaining each session. Articles flagged **always include** fold into the next turn's system prompt as a **bounded** block.
 
 Implemented in `server/src/knowledge/` (`store.ts`, `distill.ts`), exposed over REST (`server/src/http/knowledgeRoutes.ts`) and one workflow-scoped WS pair (`server/src/ws/knowledgeHandlers.ts`). Client surfaces: `client/src/components/RightPanel/KnowledgeTab.tsx` + `KnowledgeWizard.tsx`, store `client/src/stores/knowledgeDistillStore.ts`. Protocol types in `shared/src/protocol/knowledge.ts`.
 
@@ -21,7 +21,7 @@ The only LLM involvement anywhere in this subsystem is the optional drafting ass
 ## Storage layout
 
 ```
-<cwd>/.archon/knowledge/
+<cwd>/.arco/knowledge/
   index.json     → { articles: [{ id, title, tags[], alwaysInclude, createdAt, updatedAt, bytes }] }
   <id>.md        → markdown body (one file per article)
 ```
@@ -100,7 +100,7 @@ GET /api/recall/backlinks?type=kb&id=<articleId>&cwd=<cwd>  →  { entries: Reca
 ```
 
 The query is **cwd-scoped** because article ids are unique only within a cwd
-(articles live under `<cwd>/.archon/knowledge/`). Each back-link is a
+(articles live under `<cwd>/.arco/knowledge/`). Each back-link is a
 click-through that activates the conversation tab when it's open (otherwise it
 points the operator to the project folder to resume). The list degrades to
 nothing on a read failure or when an article has no links — an article with no

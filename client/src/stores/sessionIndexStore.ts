@@ -4,9 +4,9 @@ import type {
   SessionIndexEntry,
   SessionIndexResponse,
   SessionIndexEntryResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §H3 — resume-picker session-index client store.
+// ARCO_OPS_PLAN.md §H3 — resume-picker session-index client store.
 //
 // Kept OUT of appStore (mirrors recallStore / terminalStore): the session index
 // is a per-cwd projection fetched on demand when the resume picker opens, not

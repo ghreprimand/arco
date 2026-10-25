@@ -30,7 +30,7 @@ export interface ToolboxResponse {
   entries: ToolboxEntry[];
 }
 
-// Operator-level settings persisted to ~/.archon/settings.json.
+// Operator-level settings persisted to ~/.arco/settings.json.
 export interface WorkflowDefaults {
   primaryProvider?: ProviderName;
   primaryModel?: ModelName;
@@ -59,7 +59,7 @@ export interface ProviderAccountProfile {
   label: string;
   shortLabel?: string;
   // Codex-only today. Expands ~ on the server. Example:
-  // ~/.archon/provider-accounts/codex-work
+  // ~/.arco/provider-accounts/codex-work
   codexHome?: string;
   authBrowser?: ProviderAccountBrowser;
 }
@@ -69,7 +69,7 @@ export interface ProviderAccountsConfig {
   claude?: ProviderAccountProfile[];
 }
 
-export interface ArchonSettings {
+export interface ArcoSettings {
   enabledProviders: Record<ProviderName, boolean>;
   workflowDefaults?: WorkflowDefaults;
   providerAccounts?: ProviderAccountsConfig;
@@ -136,7 +136,7 @@ export interface ArchonSettings {
   // ships. 'visible' = strip above composer; 'hidden' = today's silent queue.
   queueMode?: 'visible' | 'hidden';
   // Phase 1+: extra directories to scan for skills, beyond the project
-  // <cwd>/.archon/skills and the global ~/.archon/skills paths.
+  // <cwd>/.arco/skills and the global ~/.arco/skills paths.
   skillsExtraPaths?: string[];
   // Phase 7: per-project Claude transport pin. 'cli' = current CLI worker,
   // 'native' = direct-API. `nativeWarningSeen` is the flag the CONFIG-tab
@@ -160,7 +160,7 @@ export interface ArchonSettings {
   // TRANSPORT DEFAULTS pattern). Per-tab `config.autoHandoff` always wins;
   // this only seeds tabs that have never been touched. Absent / partial ⇒
   // the hardcoded fallback (enabled true / warn 75% / auto 90%) fills the
-  // gaps. Cascade-readable so a project `.archon/settings.json` can pin it.
+  // gaps. Cascade-readable so a project `.arco/settings.json` can pin it.
   // WP5 — `mode` is the global default for HOW an auto-handoff is performed
   // ('original-worker' resume vs 'fresh-summarizer'). Per-tab
   // config.autoHandoff.mode wins; absent here ⇒ the provider-resumable
@@ -174,7 +174,7 @@ export interface ArchonSettings {
   // the handoff instead. Resolution: per-request override → this default →
   // the tab's current primary. `model`/`effort` are optional — the resolver
   // fills them from the tab's primary when absent. Cascade-readable so a
-  // project `.archon/settings.json` can pin it.
+  // project `.arco/settings.json` can pin it.
   handoffSummarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
   // Global default for Claude Native's Anthropic server-side compaction
   // (`compact_20260112`) on newly-created tabs. Per-tab
@@ -183,7 +183,7 @@ export interface ArchonSettings {
   // there's zero behavior change for operators who never configure one.
   // Defaults OFF — the server-side beta fires mid-turn at a flat ~150K tokens
   // and can evict a Read-heavy coding tab's working set (NATIVE_COMPACTION_PLAN
-  // §1). Cascade-readable so a project `.archon/settings.json` can pin it.
+  // §1). Cascade-readable so a project `.arco/settings.json` can pin it.
   claudeNativeCompactDefault?: boolean;
   // Ollama daemon endpoint(s).
   //
@@ -223,7 +223,7 @@ export interface ArchonSettings {
     modelHostMap?: Record<string, string[]>;
     utility?: OllamaUtilityConfig;
     // WP3 — operator-facing surface for M8 auto-compaction. Until now these
-    // knobs were env-only (ARCHON_OLLAMA_*); this exposes them in settings.
+    // knobs were env-only (ARCO_OLLAMA_*); this exposes them in settings.
     // Precedence at resolution: this settings field (if set) > env var (if
     // set) > the hardcoded default. Absent ⇒ env/default behavior unchanged.
     compaction?: OllamaCompactionConfig;
@@ -232,7 +232,7 @@ export interface ArchonSettings {
   // `baseUrl` cascade: when set it overrides LMSTUDIO_URL_BASE, which in turn
   // falls back to http://localhost:1234/v1. LM Studio's app serves an
   // OpenAI-compatible REST API there (/v1/chat/completions, /v1/models,
-  // /v1/embeddings); Archon talks to it over that surface rather than the
+  // /v1/embeddings); Arco talks to it over that surface rather than the
   // native lmstudio.js SDK (the standing LE-7 verdict — reuse the HTTP
   // provider plumbing, don't track the app's ws:// API version). The base
   // SHOULD include the /v1 suffix; the provider tolerates a bare host:port
@@ -248,7 +248,7 @@ export interface ArchonSettings {
   // chain is `[primaryLeg, ...the role's configured legs minus one equal to the
   // primary]`. An unset role (or unset `fallbackChains`) ⇒ single-leg chain ⇒
   // today's behavior (no fallback, no regression). NO settings-editor UI in
-  // C2 — opt in by hand-editing ~/.archon/settings.json. The live primary turn
+  // C2 — opt in by hand-editing ~/.arco/settings.json. The live primary turn
   // is NEVER routed through a chain (fence: no mid-conversation provider swap).
   fallbackChains?: FallbackChainsConfig;
   // Slice 6a — operator-preferred top-row tab order. Holds workflowIds AND
@@ -270,7 +270,7 @@ export interface ArchonSettings {
   // the discovery source has no label persistence.
   pinnedServices?: PinnedService[];
   // DD7 — project-trust default for repos with no recorded decision in
-  // ~/.archon/trust.json. USER-SCOPE ONLY: read exclusively from the global
+  // ~/.arco/trust.json. USER-SCOPE ONLY: read exclusively from the global
   // settings.json (never a project layer — a cloned repo must not be able to
   // self-grant trust by shipping a settings.json that sets this to 'always').
   // 'ask' (the absent default) ⇒ suppress the repo's CLAUDE.md / project skills
@@ -320,13 +320,13 @@ export interface OllamaUtilityConfig {
 }
 
 // WP3 — operator-facing M8 auto-compaction knobs. Each mirrors an
-// ARCHON_OLLAMA_* env var (see ollamaRecovery.defaultCompactionConfig); a set
+// ARCO_OLLAMA_* env var (see ollamaRecovery.defaultCompactionConfig); a set
 // field overrides the env, an unset field falls through to env→hardcoded.
 // Sanitizer clamps to the SAME bounds the env parser uses. The byte-cap
 // (maxToolCallArgChars) is intentionally omitted — it's a rarely-tuned safety
 // floor better left to the env knob than a UI control.
 export interface OllamaCompactionConfig {
-  enabled?: boolean;       // master switch (env ARCHON_OLLAMA_AUTO_COMPACT)
+  enabled?: boolean;       // master switch (env ARCO_OLLAMA_AUTO_COMPACT)
   threshold?: number;      // hard trigger, fraction of window 0-1 (default 0.85)
   warn?: number;           // early-warning fraction 0-1 (default 0.75)
   keepLast?: number;       // trailing messages kept verbatim (default 10)

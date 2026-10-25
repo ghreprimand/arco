@@ -7,7 +7,7 @@
 // + the results grid are rendered by the globally-mounted CompareOverlay, so
 // TerminalInput needs no extra render branch.
 
-import type { CompareLegConfig } from '@archon/shared';
+import type { CompareLegConfig } from '@arco/shared';
 import { useCompareStore, sendCompareRequest } from '../../stores/compareStore';
 
 // Open the compare dialog for a workflow. (The dialog and the results grid are

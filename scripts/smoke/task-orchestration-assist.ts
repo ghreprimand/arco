@@ -38,7 +38,7 @@ async function writeWorkflow(cwd: string, workflowId: string): Promise<void> {
   const { initWorkflowStore } = await import('../../server/src/workflowStore.js');
   const now = Date.now();
 
-  await fs.mkdir(path.join(cwd, '.archon', 'workflows', workflowId), { recursive: true });
+  await fs.mkdir(path.join(cwd, '.arco', 'workflows', workflowId), { recursive: true });
   workflowCwds.set(workflowId, cwd);
   workflows.set(workflowId, {
     busy: false,
@@ -77,12 +77,12 @@ async function replayTaskEvents(cwd: string, workflowId: string): Promise<Server
 }
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-orchestration-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-orchestration-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-orchestration-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-orchestration-cwd-'));
   const prevHome = process.env.HOME;
-  const prevNoDispatch = process.env.ARCHON_TEST_NO_TASK_DISPATCH;
+  const prevNoDispatch = process.env.ARCO_TEST_NO_TASK_DISPATCH;
   process.env.HOME = fakeHome;
-  process.env.ARCHON_TEST_NO_TASK_DISPATCH = '1';
+  process.env.ARCO_TEST_NO_TASK_DISPATCH = '1';
 
   try {
     const clusterStore = await import('../../server/src/clusterStore.js');
@@ -276,8 +276,8 @@ async function main(): Promise<void> {
   } finally {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
-    if (prevNoDispatch === undefined) delete process.env.ARCHON_TEST_NO_TASK_DISPATCH;
-    else process.env.ARCHON_TEST_NO_TASK_DISPATCH = prevNoDispatch;
+    if (prevNoDispatch === undefined) delete process.env.ARCO_TEST_NO_TASK_DISPATCH;
+    else process.env.ARCO_TEST_NO_TASK_DISPATCH = prevNoDispatch;
     await fs.rm(fakeHome, { recursive: true, force: true }).catch(() => undefined);
     await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
   }

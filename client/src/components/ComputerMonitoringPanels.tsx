@@ -1,4 +1,4 @@
-import type { ComputerMailRule, ComputerWatch } from '@archon/shared';
+import type { ComputerMailRule, ComputerWatch } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useComputerActivity } from '../voice/activity';
 import { useComputerMailRules, mailRuleRequest } from '../voice/mailRules';

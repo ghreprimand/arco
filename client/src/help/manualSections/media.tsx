@@ -1,7 +1,7 @@
 import type { Section } from '../../components/UserManual/manualTypes';
 import { Code, Note } from '../../components/UserManual/components';
 
-// WORKBENCH_EXPANSION §H1 + Archon Ops Part N (N1–N4) — Media studio manual
+// WORKBENCH_EXPANSION §H1 + Arco Ops Part N (N1–N4) — Media studio manual
 // section. Linked from every media.* / header.media HELP_CONTENT entry
 // (docs:check enforces the link resolves). The media id below is the scoped
 // target the in-modal <ModalHelpButton section="media-studio"> jumps to.
@@ -36,7 +36,7 @@ export const media: Section[] = [
         <p>
           <strong>Imported files are fully editable.</strong> FFmpeg reads files
           from disk, not browser blobs — so an imported file is first staged into
-          Arco's managed scratch area (<Code>~/.archon/media-scratch/</Code>),
+          Arco's managed scratch area (<Code>~/.arco/media-scratch/</Code>),
           then every op runs against it. (An earlier version disabled ops for
           imported files; that limitation is gone.)
         </p>

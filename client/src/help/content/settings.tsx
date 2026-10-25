@@ -54,7 +54,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Every repo Arco opens is checked for three project-local surfaces —{' '}
-          <C>CLAUDE.md</C>, <C>.archon/skills</C>, <C>.archon/settings.json</C> —
+          <C>CLAUDE.md</C>, <C>.arco/skills</C>, <C>.arco/settings.json</C> —
           that would otherwise enter the model&apos;s system prompt unread. Until
           you vouch for a repo they stay suppressed from every turn.
         </p>
@@ -64,7 +64,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           trusted ↔ blocked; <C>FORGET</C> drops the decision so the next turn in
           that repo prompts again. The <C>DEFAULT</C> row is the fallback for
           repos with no decision — <C>ALWAYS</C> effectively disables the gate.
-          Stored in <C>~/.archon/trust.json</C>; effective next turn, no restart.
+          Stored in <C>~/.arco/trust.json</C>; effective next turn, no restart.
         </p>
       </>
     ),
@@ -269,7 +269,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Operator-managed list of GGUF loadouts at <C>~/.archon/llamacpp.json</C>.
+          Operator-managed list of GGUF loadouts at <C>~/.arco/llamacpp.json</C>.
           One row per alias: <C>ggufPath</C>, <C>mmprojPath</C> (vision projector,
           optional), <C>ctxSize</C>, <C>ngl</C> (GPU layers — 999 = all on GPU),
           plus capability flags (tools / vision / thinking).
@@ -300,7 +300,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Edit the seed prompt used by Handoff / Spawn context export. Project
-        overrides live under <C>{'<cwd>/.archon/'}</C>; validation warns if a
+        overrides live under <C>{'<cwd>/.arco/'}</C>; validation warns if a
         template drops required handoff sentinels.
       </p>
     ),
@@ -332,7 +332,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           Per-tab CONFIG settings override these. Reviewers and handoff seeds
           always run on the default transport regardless. Project-level{' '}
-          <C>{'<cwd>/.archon/settings.json'}</C> overrides this global value
+          <C>{'<cwd>/.arco/settings.json'}</C> overrides this global value
           for tabs in that cwd.
         </p>
       </>
@@ -352,7 +352,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           The per-tab <strong>AUTO-HANDOFF</strong> control in the CONFIG tab
           always wins — this only seeds tabs that have never been touched.
-          Project-level <C>{'<cwd>/.archon/settings.json'}</C> overrides this
+          Project-level <C>{'<cwd>/.arco/settings.json'}</C> overrides this
           global value for tabs in that cwd.
         </p>
       </>
@@ -363,7 +363,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Model catalog',
     body: (
       <p>
-        Free-form markdown file (<C>~/.archon/models.md</C>) for documenting
+        Free-form markdown file (<C>~/.arco/models.md</C>) for documenting
         common conventions, preferred models per task type, project notes —
         whatever you want available across workflows. Click <C>EDIT</C> to
         modify; saved to disk on commit.

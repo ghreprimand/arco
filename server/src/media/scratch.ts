@@ -1,6 +1,6 @@
 // ── Media scratch storage (Part N2) ──
 //
-// Archon-managed disk area where IMPORTED media (browser blobs / drag-dropped
+// Arco-managed disk area where IMPORTED media (browser blobs / drag-dropped
 // files / a remote operator's upload) is staged so ffmpeg — which reads files,
 // not object URLs — can act on it. This is what makes "import any file and it
 // just works" true: the client POSTs the bytes here, gets back an absolute
@@ -15,10 +15,10 @@
 //   3. Visible — the staged path is returned to the operator and shown in the
 //      op result; a media op against it broadcasts media_op_result as usual.
 //   4. Reversible — scratch is disposable: the reaper clears it on TTL, and the
-//      operator can delete ~/.archon/media-scratch/ at any time with no loss.
+//      operator can delete ~/.arco/media-scratch/ at any time with no loss.
 //
 // ── Fences (the director reads this file too) ──
-//   • The upload target is ALWAYS inside a fresh ~/.archon/media-scratch/<id>/
+//   • The upload target is ALWAYS inside a fresh ~/.arco/media-scratch/<id>/
 //     subdir under a sanitized basename — never an operator-chosen path. So an
 //     upload can't escape the scratch root no matter what `?name=` contains.
 //   • `isWithinScratch` is the read-side gate the media-op resolver consults:
@@ -32,11 +32,11 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { homedir } from 'os';
 import type { Readable } from 'stream';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 // The scratch root. A sibling of settings.json / clusters / skills under
-// ~/.archon, so it's already an Archon-owned tree the operator knows about.
-export const SCRATCH_ROOT = path.join(archonHome(), 'media-scratch');
+// ~/.arco, so it's already an Arco-owned tree the operator knows about.
+export const SCRATCH_ROOT = path.join(arcoHome(), 'media-scratch');
 
 // Per-upload byte cap. Video can be large, so this is generous; it exists to
 // stop a runaway / hostile upload from filling the disk, not to be tight.

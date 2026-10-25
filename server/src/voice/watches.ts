@@ -5,7 +5,7 @@ import { clearPrivateMailRules, interruptMailRules, mailRuleSettled } from './ma
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { ComputerWatch } from '@archon/shared';
+import type { ComputerWatch } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 import { workflows } from '../server/state.js';
 import { broadcastWorkflow } from '../server/broadcast.js';
@@ -13,10 +13,10 @@ import { emit } from '../notifications.js';
 import { readCluster } from '../clusterStore.js';
 import { ComputerWatches } from './watchStore.js';
 import type { WorkflowState } from '../workflows/types.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const claims = new WeakMap<WorkflowState, number>();
-const file = process.env.ARCHON_COMPUTER_WATCH_FILE ?? join(archonHome(), 'computer-watches.json');
+const file = process.env.ARCO_COMPUTER_WATCH_FILE ?? join(arcoHome(), 'computer-watches.json');
 let store: ComputerWatches | undefined;
 let loading: Promise<ComputerWatches> | undefined;
 let persistenceError: string | undefined;
@@ -62,8 +62,8 @@ export async function computerWatchControl(ownerId: string, action: string, targ
   // Removed private contexts leave no watch metadata behind.
   for (const w of s.list(ownerId)) if (w.private && !workflows.has(w.ownerId)) s.clearPrivate(w.ownerId);
   if (action === 'create') {
-    if (!target || target === ownerId) throw Error('Choose an exact worker or cluster id from archon_targets.');
-    if (!workflows.has(target) && !/^[a-zA-Z0-9-]{8,80}$/.test(target)) throw Error('Choose an exact id from archon_targets.');
+    if (!target || target === ownerId) throw Error('Choose an exact worker or cluster id from arco_targets.');
+    if (!workflows.has(target) && !/^[a-zA-Z0-9-]{8,80}$/.test(target)) throw Error('Choose an exact id from arco_targets.');
     const cluster = workflows.has(target) ? null : await readCluster(target);
     const ids = cluster ? cluster.members.map((id) => ({ id, name: workflows.get(id)?.config.name ?? id })) : [{ id: target, name: workflows.get(target)?.config.name ?? target }];
     if (!ids.every((t) => workflows.has(t.id))) throw Error('One or more workers are unavailable; no watch was created.');

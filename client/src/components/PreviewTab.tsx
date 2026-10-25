@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { PreviewCaptureKind, PreviewViewport } from '@archon/shared';
+import type { PreviewCaptureKind, PreviewViewport } from '@arco/shared';
 import type { JobState } from '../stores/appStore';
 import { readDraft } from '../stores/draftStore';
 import { useAppStore } from '../stores/appStore';
@@ -24,7 +24,7 @@ const ASPECT_HEIGHT: Record<AspectRatio, number> = {
   '16:10': 1200, // 1920 * 10/16
   '16:9': 1080,  // 1920 * 9/16
 };
-const ASPECT_STORAGE_KEY = 'archon.preview.aspect';
+const ASPECT_STORAGE_KEY = 'arco.preview.aspect';
 
 // G2 — capture viewport presets. Distinct from the iframe aspect ratio above:
 // aspect only scales the live iframe, whereas the viewport is the device class
@@ -32,7 +32,7 @@ const ASPECT_STORAGE_KEY = 'archon.preview.aspect';
 // mobile). Persisted so the operator's last choice sticks per browser.
 const CAPTURE_VIEWPORTS: PreviewViewport[] = ['desktop', 'tablet', 'mobile'];
 const VIEWPORT_LABEL: Record<PreviewViewport, string> = { desktop: 'DESKTOP', tablet: 'TABLET', mobile: 'MOBILE' };
-const VIEWPORT_STORAGE_KEY = 'archon.preview.captureViewport';
+const VIEWPORT_STORAGE_KEY = 'arco.preview.captureViewport';
 
 // Live preview of the workflow's dev server. Operator types a port; iframe
 // loads /api/preview/<workflowId>/, which the server proxies to
@@ -99,7 +99,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
   // agent reads the actual capture) plus a short framing line. Appended to any
   // existing draft rather than clobbering it; the operator edits + sends.
   const sendCaptureToComposer = (reportName: string) => {
-    const ref = `@file:.archon/workflows/${job.id}/artifacts/${reportName}`;
+    const ref = `@file:.arco/workflows/${job.id}/artifacts/${reportName}`;
     const seed = `${ref}\n\nThis is a preview verification capture of the running app. Review it and fix anything broken (console errors, failed requests, layout/accessibility issues).`;
     const current = readDraft(job.id);
     setComposerDraft(job.id, current.trim() ? `${current.trimEnd()}\n\n${seed}` : seed);

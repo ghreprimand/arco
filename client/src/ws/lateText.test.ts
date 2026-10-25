@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ServerMessage, WorkflowConfig } from '@archon/shared';
+import type { ServerMessage, WorkflowConfig } from '@arco/shared';
 import { handleServerMessage, type WsDeps } from './handleServerMessage.js';
 import { useAppStore } from '../stores/appStore.js';
 import { streamingMsgs } from './streamState.js';
@@ -8,7 +8,7 @@ import { streamingMsgs } from './streamState.js';
 // Regression guard for the late-text fragmentation bug. The final answer can
 // stream as many primary_text deltas that arrive AFTER primary_turn_ended (the
 // server's settled.then microtask race). The original late-text guard minted
-// one finalized "< ARCHON :: PASSTHROUGH" bubble per delta, so the answer split
+// one finalized "< ARCO :: PASSTHROUGH" bubble per delta, so the answer split
 // into a stack of one-token rows that then persisted to localStorage and
 // reappeared on reload (while a clean seq-ordered RESUME replay showed it
 // coalesced). The fix coalesces consecutive not-in-progress deltas into one

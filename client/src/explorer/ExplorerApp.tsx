@@ -35,7 +35,7 @@ export function ExplorerApp() {
   const [lens, setLens] = useState<LensId>(INITIAL_LENS);
   const [root, setRoot] = useState<string | null>(null);
   const [viewerPath, setViewerPath] = useState<string | null>(null);
-  // Reveal-in-tree (§4.3): switch to TREE with a target path. `.archon`
+  // Reveal-in-tree (§4.3): switch to TREE with a target path. `.arco`
   // artifacts are hidden, so only real project files (RECENTS) trigger this.
   const [reveal, setReveal] = useState<{ path: string; nonce: number } | null>(null);
   // Poll-on-focus (§5): bump on window focus so the active lens refetches when
@@ -51,12 +51,12 @@ export function ExplorerApp() {
   // large, so the baseline trims the whole window to ~85% (approx the earlier
   // compact size). Range dips below 100% so A− can go smaller still.
   const [zoom, setZoom] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem('archon_explorer_zoom3')); return Number.isFinite(v) && v >= 0.6 ? v : 0.85; }
+    try { const v = Number(localStorage.getItem('arco_explorer_zoom3')); return Number.isFinite(v) && v >= 0.6 ? v : 0.85; }
     catch { return 0.85; }
   });
   useEffect(() => {
     (document.documentElement.style as CSSStyleDeclaration & { zoom?: string }).zoom = String(zoom);
-    try { localStorage.setItem('archon_explorer_zoom3', String(zoom)); } catch { /* private mode */ }
+    try { localStorage.setItem('arco_explorer_zoom3', String(zoom)); } catch { /* private mode */ }
   }, [zoom]);
   const bumpZoom = (d: number) => setZoom((z) => Math.min(2, Math.max(0.6, Math.round((z + d) * 100) / 100)));
 

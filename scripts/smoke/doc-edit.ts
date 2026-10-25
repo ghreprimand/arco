@@ -45,7 +45,7 @@ function makeStubManager(replacement: string, captured: CapturedSpawn[], errored
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-docedit-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-docedit-'));
   const workflowId = 'smoke-docedit-wf';
   console.log(`doc-edit smoke — cwd ${cwd}`);
   console.log('');

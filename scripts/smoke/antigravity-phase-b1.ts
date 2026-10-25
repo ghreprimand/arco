@@ -1,11 +1,11 @@
 // ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase B1 — attached-plan smoke.
 //
-// Confirms an Archon-style attached plan flows through the existing
+// Confirms an Arco-style attached plan flows through the existing
 // `buildPlanPrefix()` path to Antigravity and that Antigravity can read +
 // edit the plan file via its normal file tools.
 //
 // What it does:
-//   1. Mkdir a temp workflow cwd with `.archon/plans/<planId>.md` — a small
+//   1. Mkdir a temp workflow cwd with `.arco/plans/<planId>.md` — a small
 //      plan body with one H1, one numbered list, and one unchecked
 //      `- [ ]` item.
 //   2. Build the same one-liner plan prefix `buildPlanPrefix()` emits on
@@ -22,7 +22,7 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import { runAntigravityRpcTurn } from '../../server/src/providers/antigravityRpc.js';
 
@@ -35,7 +35,7 @@ A throwaway plan used to verify Antigravity reads + edits attached plans.
 
 ## Tasks
 
-- [ ] Confirm Antigravity can read .archon/plans/${PLAN_ID}.md
+- [ ] Confirm Antigravity can read .arco/plans/${PLAN_ID}.md
 - [ ] Second item left unchecked on purpose
 `;
 
@@ -52,12 +52,12 @@ function livingDocNote(): string {
 }
 
 function buildPlanPrefix(): string {
-  return `[Active project plan: "${FIRST_HEADING}" — newly attached. Read the brief at .archon/plans/${PLAN_ID}.md to orient. ${livingDocNote()}]\n\n`;
+  return `[Active project plan: "${FIRST_HEADING}" — newly attached. Read the brief at .arco/plans/${PLAN_ID}.md to orient. ${livingDocNote()}]\n\n`;
 }
 
 async function setupWorkflowCwd(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigrav-b1-'));
-  const plansDir = join(cwd, '.archon', 'plans');
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigrav-b1-'));
+  const plansDir = join(cwd, '.arco', 'plans');
   await mkdir(plansDir, { recursive: true });
   await writeFile(join(plansDir, `${PLAN_ID}.md`), PLAN_BODY, 'utf8');
   return cwd;
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   }
 
   const cwd = await setupWorkflowCwd();
-  const planPath = join(cwd, '.archon', 'plans', `${PLAN_ID}.md`);
+  const planPath = join(cwd, '.arco', 'plans', `${PLAN_ID}.md`);
   console.log(`workflow cwd: ${cwd}`);
   console.log(`plan path:    ${planPath}`);
   console.log('');
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
 
   const userPrompt = `Two-step task against the attached plan:
 
-1. Open .archon/plans/${PLAN_ID}.md, read it, and report the text of the first heading (the line starting with "# ") verbatim in your reply.
+1. Open .arco/plans/${PLAN_ID}.md, read it, and report the text of the first heading (the line starting with "# ") verbatim in your reply.
 2. Tick exactly ONE unchecked checkbox in that file (change one "- [ ]" to "- [x]"). Use your file edit tool. Do not add new content or new sections. Do not tick more than one.
 
 When done, reply with: heading, which checkbox you ticked, and a one-line confirmation.`;
@@ -166,7 +166,7 @@ When done, reply with: heading, which checkbox you ticked, and a one-line confir
     fail(`exactly one checkbox flipped (before: ${beforeChecked}✓/${beforeUnchecked}✗, after: ${afterChecked}✓/${afterUnchecked}✗)`);
   }
 
-  const planPathFragment = `.archon/plans/${PLAN_ID}.md`;
+  const planPathFragment = `.arco/plans/${PLAN_ID}.md`;
   const pathBearing = tools.filter((t) => t.input.includes(PLAN_ID) || t.input.includes(planPathFragment) || t.input.includes(planPath));
   const fileShaped = tools.filter((t) => /read|write|edit|file|open|patch/i.test(t.name));
   if (pathBearing.length > 0) {

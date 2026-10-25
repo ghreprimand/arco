@@ -108,7 +108,7 @@ export type ClaudeNativeToolDef =
 // override it per-tab via CONFIG (`WorkflowConfig.webSearchMaxUses`), and the
 // Deep Research primitive (WORKBENCH_EXPANSION_PLAN.md §B2) overrides it
 // per-spawn via the same field tied to the operator's `maxRounds` — see
-// buildClaudeServerTools below. This is an Archon-set ceiling, not an Anthropic
+// buildClaudeServerTools below. This is an Arco-set ceiling, not an Anthropic
 // default: each turn rebuilds the server-tool defs with this `max_uses`.
 const DEFAULT_WEB_TOOL_MAX_USES = 15;
 

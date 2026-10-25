@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { ServerMessage, WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { ServerMessage, WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { ZaiNativeWorker, replayZaiNativeMessages } from './worker.js';
 

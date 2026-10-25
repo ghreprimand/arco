@@ -5,7 +5,7 @@ import { homedir } from 'os';
 
 export interface SessionJsonlEntry {
   type: string;
-  // 'sdk-cli' when Archon's primary/worker spawned the turn; 'cli' when a
+  // 'sdk-cli' when Arco's primary/worker spawned the turn; 'cli' when a
   // native `claude --resume` terminal wrote the entry. Used to detect a
   // concurrent native session writing to the same JSONL.
   entrypoint?: string;
@@ -24,7 +24,7 @@ export function resolveSessionJsonlPath(cwd: string, sessionId: string): string 
   // Claude's CLI encodes cwd by replacing any non-[A-Za-z0-9-] char with '-',
   // not just '/'. So `/home/operator/Projects/Sample_Project` becomes
   // `-home-operator-Projects-Sample-Project`. Earlier versions only replaced
-  // `/`, which made Archon look up the wrong directory for any project whose
+  // `/`, which made Arco look up the wrong directory for any project whose
   // path contained `_`, `.`, or whitespace — JSONL reads returned ENOENT and
   // context-usage broadcasts silently disappeared.
   const encoded = resolve(cwd).replace(/[^A-Za-z0-9-]/g, '-');

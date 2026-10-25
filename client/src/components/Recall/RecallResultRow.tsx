@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RecallSearchHit, RecallLink } from '@archon/shared';
+import type { RecallSearchHit, RecallLink } from '@arco/shared';
 
 // Workbench Expansion §F3 + §F4 — one Recall search result row.
 //

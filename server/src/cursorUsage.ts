@@ -1,4 +1,4 @@
-import type { CursorUsageInfo, CursorUsageEventRow, CursorIncludedUsage } from '@archon/shared';
+import type { CursorUsageInfo, CursorUsageEventRow, CursorIncludedUsage } from '@arco/shared';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
 
 // Cursor usage, read directly from cursor.com's private dashboard API using the

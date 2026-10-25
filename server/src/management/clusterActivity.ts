@@ -9,7 +9,7 @@
 
 import { openSync, fstatSync, readSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ClusterActivityRow } from '@archon/shared';
+import type { ClusterActivityRow } from '@arco/shared';
 
 const TAIL_BYTES = 256 * 1024; // per member
 const PREVIEW_CHARS = 160;
@@ -20,7 +20,7 @@ export const ACTIVITY_MAX_ROWS = 200; // merged cap (most recent kept)
 export function readMemberActivity(cwd: string, wfid: string): ClusterActivityRow[] {
   let fd: number | undefined;
   try {
-    const path = join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
     fd = openSync(path, 'r');
     const size = fstatSync(fd).size;
     if (size === 0) return [];

@@ -4,7 +4,7 @@
 // output shape:
 //
 //   1. Shadow-ref diffs (A2): `git diff <refA> <refB>` between two
-//      `refs/archon/<wfid>/<seq>` checkpoint commits — the per-turn diff is
+//      `refs/arco/<wfid>/<seq>` checkpoint commits — the per-turn diff is
 //      checkpoint N vs N-1.
 //   2. Working-tree diffs (pre-commit): `git diff` (optionally vs HEAD) for
 //      "what has the agent changed since the last commit".
@@ -70,7 +70,7 @@ async function isGitRepo(cwd: string): Promise<boolean> {
 }
 
 // isSafeRev now lives in gitSafe.ts (imported above). Refs may be a shadow
-// checkpoint ref (refs/archon/<wfid>/<seq>) or an ordinary git revision.
+// checkpoint ref (refs/arco/<wfid>/<seq>) or an ordinary git revision.
 
 async function refExists(cwd: string, rev: string): Promise<boolean> {
   const out = await runGit(cwd, ['rev-parse', '--verify', '--quiet', `${rev}^{commit}`]);

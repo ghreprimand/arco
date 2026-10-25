@@ -2,7 +2,7 @@ import React from 'react';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { OperatorQuestionState, ChatMessage } from '@archon/shared';
+import type { OperatorQuestionState, ChatMessage } from '@arco/shared';
 import { OperatorQuestionNotice } from '../../client/src/components/OperatorQuestionNotice';
 import { capMessages } from '../../client/src/stores/memoryTrim';
 import { useAppStore } from '../../client/src/stores/appStore';

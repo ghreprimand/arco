@@ -47,7 +47,7 @@ async function waitUntil(pred: () => boolean, timeoutMs = 4000): Promise<boolean
 }
 
 async function main() {
-  const root = mkdtempSync(join(tmpdir(), 'archon-term-'));
+  const root = mkdtempSync(join(tmpdir(), 'arco-term-'));
   const mgr = new PtyManager();
   const wfid = 'wf-smoke';
 

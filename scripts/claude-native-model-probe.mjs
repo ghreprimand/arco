@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Bulk-probe candidate Claude model IDs against the live Anthropic API
-// using Archon's Claude Native auth. Hits the dev server's
+// using Arco's Claude Native auth. Hits the dev server's
 // /api/auth/claude-native/probe endpoint, which forwards a tiny
 // messages.create round-trip with the standard Claude Code wire
 // fingerprint. Use this to discover which model IDs are actually

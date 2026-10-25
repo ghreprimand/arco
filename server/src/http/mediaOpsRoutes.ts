@@ -14,7 +14,7 @@ import type {
   MediaStemsRequest,
   MediaStemsResult,
   MediaStemsResultMessage,
-} from '@archon/shared';
+} from '@arco/shared';
 import { runMediaOp, MediaOpError, resolveMediaInput, inspectMedia, type MediaAccess } from '../media/ffmpeg.js';
 import { runDemucsStems, DemucsError } from '../media/demucs.js';
 import { saveScratchUpload, ScratchError } from '../media/scratch.js';
@@ -149,7 +149,7 @@ export async function tryHandleMediaOpsRoutes(
 
   // ── POST /api/media/scratch?name=<basename> — stage an imported blob (N2) ──
   //
-  // Streams the raw request body into Archon's media-scratch area so ffmpeg can
+  // Streams the raw request body into Arco's media-scratch area so ffmpeg can
   // act on a picker-imported / drag-dropped file. Returns the absolute on-disk
   // path to feed straight back as a MediaOpRequest.path. Always allowed (the
   // operator put the file here themselves; bounded by per-upload + total caps).

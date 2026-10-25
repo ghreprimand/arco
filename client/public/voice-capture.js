@@ -1,7 +1,7 @@
 // Short PCM chunks feed a local wake detector without waiting for silence.
 // A full overlapping segment is retained so immediate follow-on words survive.
 // Endpointing and wake detection never submit a workflow message.
-class ArchonVoiceCapture extends AudioWorkletProcessor {
+class ArcoVoiceCapture extends AudioWorkletProcessor {
   constructor() {
     super();
     this.samples = [];
@@ -142,4 +142,4 @@ class ArchonVoiceCapture extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor('archon-voice-capture', ArchonVoiceCapture);
+registerProcessor('arco-voice-capture', ArcoVoiceCapture);

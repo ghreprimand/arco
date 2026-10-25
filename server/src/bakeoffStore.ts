@@ -1,6 +1,6 @@
 // Durable manifests for operator-armed worktree bake-offs.
 //
-// Manifests live under ~/.archon rather than inside either the source checkout
+// Manifests live under ~/.arco rather than inside either the source checkout
 // or an attempt worktree, so recording status never dirties a candidate diff.
 // The cwd hash only partitions storage; every read still validates the
 // manifest's sourceCwd + sourceWorkflowId before returning it.
@@ -9,9 +9,9 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import type { BakeoffState } from '@archon/shared';
+import type { BakeoffState } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const ID_RE = /^[a-f0-9-]{8,64}$/i;
 
@@ -20,7 +20,7 @@ function cwdHash(cwd: string): string {
 }
 
 function manifestsDir(cwd: string): string {
-  return path.join(archonHome(), 'bakeoffs', cwdHash(cwd), 'manifests');
+  return path.join(arcoHome(), 'bakeoffs', cwdHash(cwd), 'manifests');
 }
 
 function manifestPath(cwd: string, bakeoffId: string): string {

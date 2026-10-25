@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F1 — pure archive (de)serializer for `archon backup`.
+// ARCO_OPS_PLAN.md §F1 — pure archive (de)serializer for `arco backup`.
 //
 // Dependency-free, pure-node, REGULAR-FILES-ONLY container. NO tar, NO new npm
 // dep. Rationale (plan §F1): the format must "manifest-based, not 'tar a dir'",
@@ -16,7 +16,7 @@
 //   │ MAGIC (8B) │ manifestLen (u32 BE) JSON │ entry · entry · entry · …      │
 //   └────────────┴──────────────────────────┴────────────────────────────────┘
 //
-//   MAGIC        = ASCII "ARCHNBK1" (8 bytes). Wrong magic → reject.
+//   MAGIC        = ASCII "ARCOBK01" (8 bytes). Wrong magic → reject.
 //   manifestLen  = uint32 big-endian byte length of the manifest JSON.
 //   manifest     = UTF-8 JSON (BackupManifest) — the human-readable contract.
 //   each entry   = relPathLen (u32 BE) · relPath (UTF-8) · byteLen (u32 BE) · bytes
@@ -34,7 +34,7 @@
 import { gzipSync, gunzipSync } from 'node:zlib';
 import type { BackupManifest } from './manifest.js';
 
-const MAGIC = Buffer.from('ARCHNBK1', 'ascii'); // 8 bytes
+const MAGIC = Buffer.from('ARCOBK01', 'ascii'); // 8 bytes
 const U32 = 4;
 
 // A single regular-file entry. `relPath` is POSIX-relative (forward slashes,
@@ -85,7 +85,7 @@ export function readArchive(gz: Buffer): ReadArchiveResult {
 
   need(MAGIC.length, 'magic');
   if (!buf.subarray(0, MAGIC.length).equals(MAGIC)) {
-    throw new Error('backup archive: bad magic (not an ARCHNBK1 container)');
+    throw new Error('backup archive: bad magic (not an ARCOBK01 container)');
   }
   off += MAGIC.length;
 

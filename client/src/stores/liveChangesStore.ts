@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { LiveChangesSnapshotMessage, WorkingChangesResponse } from '@archon/shared';
+import type { LiveChangesSnapshotMessage, WorkingChangesResponse } from '@arco/shared';
 
 type Sender = (msg: { type: 'live_changes_subscribe' | 'live_changes_unsubscribe'; workflowId: string; cwd?: string }) => void;
 

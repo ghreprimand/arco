@@ -2,7 +2,7 @@
 //
 // Codex's remote models cache carries two distinct values: context_window is
 // the conservative default, while max_context_window is the largest override
-// this account/model combination currently accepts. Archon defaults Codex
+// this account/model combination currently accepts. Arco defaults Codex
 // workflows to MAX, but reads the live catalog instead of pinning today's
 // 872K value. Missing/malformed metadata fails safe by omitting the override
 // and letting Codex choose its own default.
@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 
 export interface CodexContextMetadata {
   contextWindow?: number;

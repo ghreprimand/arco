@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNotificationStore, unreadCount } from '../stores/notificationStore';
-import { WORKBENCH_NOTICE_CATEGORIES } from '@archon/shared';
-import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@archon/shared';
+import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
+import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §J1 — the header notice center: a bell with an unread
+// ARCO_OPS_PLAN.md §J1 — the header notice center: a bell with an unread
 // badge that opens the durable notice history + per-category mute toggles.
 // Inform-only — nothing here sends a command; the only outbound action is the
 // mute preference (`onSetMutes`, persisted server-side).

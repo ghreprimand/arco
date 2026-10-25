@@ -1,6 +1,6 @@
 // DD7 — project-trust: the set_project_trust handler.
 //
-// Records the operator's decision in ~/.archon/trust.json keyed by the canonical
+// Records the operator's decision in ~/.arco/trust.json keyed by the canonical
 // cwd, so future turns (and cluster peers sharing the cwd) honor it without
 // re-prompting. The decision takes effect on the NEXT turn — the trust gate is
 // re-resolved per turn in handleUserMessage. PERSISTED to disk (trust.json) AND
@@ -8,7 +8,7 @@
 // the operator can flip the decision later or delete the entry by hand.
 
 import { WebSocket } from 'ws';
-import type { SetProjectTrustMessage } from '@archon/shared';
+import type { SetProjectTrustMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
@@ -38,7 +38,7 @@ export async function handleSetProjectTrust(
     // Dismiss the pending prompt for this cwd (and any cluster peer's) — a
     // decision is recorded, so no member should re-raise it.
     projectTrust.clearPromptPending(cwd);
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] project trust recorded: ${msg.decision} for ${key}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] project trust recorded: ${msg.decision} for ${key}`);
   } catch (err) {
     send(ws, {
       type: 'error',

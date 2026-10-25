@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AuthLoginResult, ProviderName } from '@archon/shared';
+import type { AuthLoginResult, ProviderName } from '@arco/shared';
 import { LoginCommand } from './LoginCommand';
 import { useAppStore } from '../stores/appStore';
 
@@ -63,7 +63,7 @@ export function AuthReloginNotice({ provider, body }: Props) {
     try { window.open(data.authorizationUrl, '_blank', 'noopener'); } catch { /* user can copy below */ }
     setState('sent');
     // The paste box is ALWAYS offered. The redirect targets localhost:53692,
-    // which only resolves to the Archon server when the browser runs on that
+    // which only resolves to the Arco server when the browser runs on that
     // same machine — from a laptop/phone over the tailnet it lands on a
     // "can't connect" page whose URL still carries the code. Gating the box on
     // manualFallback (server couldn't bind) left remote logins stuck.

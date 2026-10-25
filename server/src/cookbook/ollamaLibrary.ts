@@ -6,7 +6,7 @@
 // WHY THIS IS STATIC (not a live fetch): Ollama has NO official keyless "list the
 // library" JSON API. The only live options are scraping ollama.com/library (HTML,
 // fragile) or trusting a third-party community mirror — a silent dependency on an
-// unknown endpoint that could vanish or serve tampered data. Per Archon's fence
+// unknown endpoint that could vanish or serve tampered data. Per Arco's fence
 // posture (deterministic, operator-can-read-the-rules, no silent external
 // dependency), the Ollama side is instead this curated manifest: every entry is a
 // real `ollama pull <name>` target, the list is in the repo where the operator can

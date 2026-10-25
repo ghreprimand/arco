@@ -41,7 +41,7 @@ export type ReviewContextRef =
   // earlier turns are surfaced as context but the verdict applies to the
   // slice. Anchored from the HISTORY tab's "REVIEW FROM HERE" button.
   | { kind: 'since-event'; anchorEventSeq: number }
-  // ARCHON_OPS_PLAN.md §G2 — review a preview-capture report artifact. No
+  // ARCO_OPS_PLAN.md §G2 — review a preview-capture report artifact. No
   // transcript: the reviewer sees the markdown report produced by a Preview
   // verification capture (screenshot reference + console/network + layout/a11y
   // notes) and evaluates the running UI from that evidence. `reportName` is the

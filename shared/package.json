@@ -1,11 +1,11 @@
 {
-  "name": "@archon/shared",
+  "name": "@arco/shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "_exports_note": "ARCHON_OPS_PLAN §B1 — dev tooling (Vite serve, `tsx --conditions development`) resolves the live .ts source; bare `node dist/index.js` (production / `archon service`) and `vite build` get the compiled dist. Without this, the compiled server crashes on boot resolving @archon/shared to a .ts file. `types`→src keeps tsc (moduleResolution: bundler) typechecking against live source.",
+  "_exports_note": "ARCO_OPS_PLAN §B1 — dev tooling (Vite serve, `tsx --conditions development`) resolves the live .ts source; bare `node dist/index.js` (production / `arco service`) and `vite build` get the compiled dist. Without this, the compiled server crashes on boot resolving @arco/shared to a .ts file. `types`→src keeps tsc (moduleResolution: bundler) typechecking against live source.",
   "exports": {
     ".": {
       "development": "./src/index.ts",

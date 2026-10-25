@@ -16,11 +16,11 @@ If you're new to the codebase, read in this order:
 4. [`HTTP_API.md`](HTTP_API.md) — every HTTP endpoint with request/response shapes
 5. [`PROVIDERS.md`](PROVIDERS.md) — per-provider deep dive (Claude CLI + Native, Codex exec + app-server, Z.ai native + appserver, Gemini, Ollama, llama.cpp, LM Studio, Strata, Antigravity, Cursor acp + print)
 6. [`PRIMITIVES.md`](PRIMITIVES.md) — Review, Handoff, Spawn deep dives
-7. [`PERSISTENCE.md`](PERSISTENCE.md) — `events.jsonl`, `meta.json`, `.archon/` layout
+7. [`PERSISTENCE.md`](PERSISTENCE.md) — `events.jsonl`, `meta.json`, `.arco/` layout
 8. [`CLIENT.md`](CLIENT.md) — Zustand store, component tree, render pipeline
 8a. [`TASK_LEDGER.md`](TASK_LEDGER.md) — the durable, cwd-scoped project task ledger (a projection over `events.jsonl`)
 9. [`OPERATIONS.md`](OPERATIONS.md) — running locally, ports, launcher, recovery
-9a. [`BACKUP.md`](BACKUP.md) — `archon backup snapshot`: what state is captured / skipped / redacted, and the archive format
+9a. [`BACKUP.md`](BACKUP.md) — `arco backup snapshot`: what state is captured / skipped / redacted, and the archive format
 10. [`GOTCHAS.md`](GOTCHAS.md) — non-obvious invariants
 11. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — dev workflow + how to add a provider/primitive
 
@@ -47,7 +47,7 @@ Beyond the core reading order, each operator-facing subsystem has its own refere
 - [`REMOTE_MANAGEMENT.md`](REMOTE_MANAGEMENT.md) — remote management console (+ [`REMOTE_MANAGEMENT_MAC_SETUP.md`](REMOTE_MANAGEMENT_MAC_SETUP.md))
 - [`NOTIFICATIONS.md`](NOTIFICATIONS.md) — operator notifications
 - [`CHECKPOINTS.md`](CHECKPOINTS.md) — workspace checkpoints
-- [`BACKUP.md`](BACKUP.md) — `archon backup snapshot` (what state is captured / skipped / redacted)
+- [`BACKUP.md`](BACKUP.md) — `arco backup snapshot` (what state is captured / skipped / redacted)
 - [`SERVICE_MODE.md`](SERVICE_MODE.md) — running Arco as a service
 - [`GIT_WORKBENCH.md`](GIT_WORKBENCH.md) — Git workbench surface
 - [`RESUME_INDEX.md`](RESUME_INDEX.md) — resume-index for the session picker
@@ -61,7 +61,7 @@ Plan documents (`REFACTOR_PLAN.md`, `CODEX_PARITY_PLAN.md`, `CONTEXT_ROBUSTNESS_
 Arco has two single-conversation tab kinds. `kind:'workflow'` is the coding
 workbench with a project cwd, tools, primitives, and the right panel.
 `kind:'chat'` is a projectless conversation rendered by `ChatModeView`: it gets
-an Archon-owned storage cwd under `~/.archon/chats/<workflowId>` solely for
+an Arco-owned storage cwd under `~/.arco/chats/<workflowId>` solely for
 durable events/meta, skips project discovery and checkpoints, and runs under
 `WorkerConfig.interactionMode:'chat'`. Chat supports Claude, Codex, Z.ai,
 Cursor, Ollama, llama.cpp, LM Studio, Strata, and DeepSeek; Gemini and Antigravity are not offered.
@@ -75,7 +75,7 @@ saved Chat and off for Incognito, and `chatWebArmed()` in `server/src/chatMode.t
 is the one place that decides.
 
 The hands-free **Computer** is another explicit Chat exception: Codex,
-Claude Native, Ollama and Strata expose only the shared bounded `archon_*`
+Claude Native, Ollama and Strata expose only the shared bounded `arco_*`
 operator tools, relayed to the owning browser. Its header panel selects
 provider/model/effort/history, keeps separate contexts, and fully clears context
 at a clean turn/queue boundary (50% subscription / 75% local by default).
@@ -231,12 +231,12 @@ All workspaces compile through `tsc`; the client uses Vite for dev/HMR.
 A few concepts repeat throughout the system; nailing them down up front saves time later.
 
 - **Chat** — a projectless conversation (`kind:'chat'`), not an Agent tool posture.
-  Saved chats use `~/.archon/chats/<wfid>` as a persistence cwd and reopen through
+  Saved chats use `~/.arco/chats/<wfid>` as a persistence cwd and reopen through
   PAST CHATS. Incognito is memory-only and is lost on close/refresh/restart.
   Provider support and local/provider privacy boundaries: [CHAT.md](CHAT.md).
 
 - **Workflow** — one workflow tab = one primary agent + one cwd. Identified by a stable `workflowId` (UUID). Persists across server restarts; recovered from `meta.json` on disk. See [GLOSSARY](GLOSSARY.md).
-- **Cluster** — a parent tab kind that hosts N member workflows pinned to one cwd (see [Cluster mode](#cluster-mode) below). Persists at `~/.archon/clusters/<clusterId>/`; members are full workflows in their own right.
+- **Cluster** — a parent tab kind that hosts N member workflows pinned to one cwd (see [Cluster mode](#cluster-mode) below). Persists at `~/.arco/clusters/<clusterId>/`; members are full workflows in their own right.
 - **Primary agent** — the single long-lived agent that owns the conversation in a workflow. The provider/model/effort triple is part of `WorkflowConfig`; same-provider model/effort can be swapped live. **Transport** is per-tab (`claudeTransport: 'cli' | 'native'`, `codexTransport: 'exec' | 'appserver'`, `zaiTransport: 'native' | 'appserver'`; Cursor's `print` path is routed by `sandbox: 'read-only'`, not a config field). Codex tabs also carry `codexContextPolicy: 'max' | 'standard'`; absent means MAX.
 - **Primary turn** — one operator prompt → one round of agent work. Bracketed by `primary_turn_started` / `primary_turn_ended`. The composer's `busy` flag mirrors this on the client.
 - **Primitive** — one of three operator-triggered server-side flows: Review (transcript-scoped or plan-scoped), Handoff, Spawn. They're not the primary turn; they spawn separate workers. The structured DOCS / GIT composer surfaces ride the primary-turn machinery rather than spawning workers.
@@ -275,8 +275,8 @@ A few concepts repeat throughout the system; nailing them down up front saves ti
    - `POST /api/shutdown` — graceful exit
    - `POST /api/restart` — graceful exit + respawn dev tree
 5. Open WebSocket endpoint at `/ws`. Heartbeat ping every 15s. The `httpServer.on('upgrade')` fan-out also routes two non-`/ws` WS paths: the per-workflow **preview proxy** (`/api/preview/<wfid>/*`, Vite/Next HMR) and the operator **`/terminal`** channel (Workbench §K1 — the raw PTY byte stream for the integrated terminal, deliberately off the seq'd `/ws` protocol and out of `events.jsonl`; see [`TERMINAL.md`](TERMINAL.md)). Both inherit `/ws`'s loopback-bind access posture.
-6. Listen on `ARCHON_PORT` (default 3001), bound to `ARCHON_HOST` (default `127.0.0.1` — see [`OPERATIONS.md`](OPERATIONS.md#remote-access) for why and when to override).
-7. Inside the `listen()` callback (post-listen, async): recover workflows from disk (`recoverWorkflowsFromDisk()` walks each known cwd's `.archon/workflows/`), ensure the model + llama.cpp catalogs, and install the global settings watcher. Recovery is deliberately post-listen — the seq buffer for each recovered workflow is primed at boot by `crashRecovery.ts` so seq continuity holds even before recovery completes.
+6. Listen on `ARCO_PORT` (default 3001), bound to `ARCO_HOST` (default `127.0.0.1` — see [`OPERATIONS.md`](OPERATIONS.md#remote-access) for why and when to override).
+7. Inside the `listen()` callback (post-listen, async): recover workflows from disk (`recoverWorkflowsFromDisk()` walks each known cwd's `.arco/workflows/`), ensure the model + llama.cpp catalogs, and install the global settings watcher. Recovery is deliberately post-listen — the seq buffer for each recovered workflow is primed at boot by `crashRecovery.ts` so seq continuity holds even before recovery completes.
 8. Install `SIGTERM` / `SIGINT` handlers: SIGKILL all live worker PIDs, flush `events.jsonl`, exit.
 
 ### WebSocket connection lifecycle
@@ -313,7 +313,7 @@ A `WorkflowState` lives in an in-memory `Map<workflowId, WorkflowState>` keyed b
 }
 ```
 
-**Creation** (`handleCreateWorkflow`): operator submits a `WorkflowConfig`. If `resumeSessionId` is set, the server checks every `meta.json` for an existing workflow already owning that session and reuses its `workflowId`. Otherwise a fresh UUID is minted. `initWorkflowStore(cwd, wfid)` primes the events buffer, creates the artifacts directory, and drops `.archon/.gitignore`.
+**Creation** (`handleCreateWorkflow`): operator submits a `WorkflowConfig`. If `resumeSessionId` is set, the server checks every `meta.json` for an existing workflow already owning that session and reuses its `workflowId`. Otherwise a fresh UUID is minted. `initWorkflowStore(cwd, wfid)` primes the events buffer, creates the artifacts directory, and drops `.arco/.gitignore`.
 
 **Persistence**: `meta.json` (atomic writes via `server/src/atomicFile.ts` — the single write-temp/fsync/rename primitive every store shares) records identity, session ledger (`cliSessions[]`), archived sessions (`history[]`), calibration state, attached plan, auto-handoff settings. `events.jsonl` (append-only) records every workflow-scoped server message stamped with `{seq, ts, ...message}`. See [PERSISTENCE.md](PERSISTENCE.md).
 
@@ -387,7 +387,7 @@ Three core operator-triggered flows plus two structured one-off composer surface
 | DOCS / GIT (composer one-off) | `git.ts` + `DocsUpdateDialog` / `GitDialog` (client) | regular `user_message` after the dialog builds the structured prompt | (no artifact — runs through the primary turn) | `events.jsonl` (as part of the next primary turn) |
 | HISTORY-tab actions (Phase 8) | dispatched through Review / Spawn / `create_label_request` | `create_label_request` (`operator_label`); `review_request {kind:'since-event'}`; `spawn_from_here_request {cutoffEventSeq}` | persisted `operator_label` events; reused Review/Spawn outputs | parent's `events.jsonl` |
 
-All three primitives accept a `broadcast` callback so events can be stamped to any workflow. Each persists output as a markdown artifact under `<cwd>/.archon/workflows/<wfid>/`. See [PRIMITIVES.md](PRIMITIVES.md) for sequence diagrams and per-primitive deep dives.
+All three primitives accept a `broadcast` callback so events can be stamped to any workflow. Each persists output as a markdown artifact under `<cwd>/.arco/workflows/<wfid>/`. See [PRIMITIVES.md](PRIMITIVES.md) for sequence diagrams and per-primitive deep dives.
 
 ### Provider abstraction
 
@@ -421,13 +421,13 @@ The provider is selected by `WorkflowConfig.primaryProvider`. **Transport** is p
 
 Subprocess supervision in `server/src/workers/`. Invariants are tracked in [GOTCHAS.md](GOTCHAS.md); the machinery shape is:
 
-- `MAX_WORKER_OUTPUT_BYTES = 50MB` per turn (override via `ARCHON_MAX_WORKER_OUTPUT_BYTES` env, 1 MB floor) — capped in per-provider accumulators. Raised from 5 MB on 2026-05-09: the 2026-04-16 Gemini 63 GB incident was a memory issue (RSS_KILL handles it directly); 50 MB gives Native (1 M context) and long agentic Codex/exec runs comfortable headroom while still catching "model went berserk."
-- `RSS_KILL_BYTES = 32GB` (override via `ARCHON_RSS_KILL_BYTES` env var; raised from 16 GB on 2026-04-28 after a legitimate fan-out workload tripped the cap on a 96 GB box) — tree-RSS auto-kill via `WorkerManager.startActivityPoll`. Per-workflow opt-out via `meta.disableRssGuard`
+- `MAX_WORKER_OUTPUT_BYTES = 50MB` per turn (override via `ARCO_MAX_WORKER_OUTPUT_BYTES` env, 1 MB floor) — capped in per-provider accumulators. Raised from 5 MB on 2026-05-09: the 2026-04-16 Gemini 63 GB incident was a memory issue (RSS_KILL handles it directly); 50 MB gives Native (1 M context) and long agentic Codex/exec runs comfortable headroom while still catching "model went berserk."
+- `RSS_KILL_BYTES = 32GB` (override via `ARCO_RSS_KILL_BYTES` env var; raised from 16 GB on 2026-04-28 after a legitimate fan-out workload tripped the cap on a 96 GB box) — tree-RSS auto-kill via `WorkerManager.startActivityPoll`. Per-workflow opt-out via `meta.disableRssGuard`
 - `detached: true` on every spawn so the process tree survives WS disconnects; `killProcessTree()` takes down descendants on cancel or server exit
 - Linux `/proc`-based activity probe (`processActivity.ts`, polled 1.5s) drives the CPU-pulse UI and silent-exit supervision
-- PID registry persisted to `~/.archon/worker-pids.json` so crash recovery can SIGKILL orphans on next boot
+- PID registry persisted to `~/.arco/worker-pids.json` so crash recovery can SIGKILL orphans on next boot
 - **Stuck-worker breaker (§3.1)** — `server/src/workers/stuckBreaker.ts` is a cross-turn, cross-provider error-persistence detector: the same tool input + same `outputHash` + failing status recurring with no success interleaved latches the workflow paused and surfaces a structured `worker_stuck` event; a later success clears the latch. Diagnostic/pause only — never edits work
-- **In-turn tool-loop guardrail (H9, Native)** — `providers/claude-native/toolLoopGuard.ts` catches a repeated identical tool call inside one turn's own dispatch loop (`ARCHON_TOOL_LOOP_GUARD`)
+- **In-turn tool-loop guardrail (H9, Native)** — `providers/claude-native/toolLoopGuard.ts` catches a repeated identical tool call inside one turn's own dispatch loop (`ARCO_TOOL_LOOP_GUARD`)
 
 ### Security floors
 
@@ -453,13 +453,13 @@ Per-service. Status discovered at boot and cached:
   - **Antigravity** — operator's responsibility; Arco probes the CDP endpoint via `AntigravityManager`
   - **Cursor** — opens a terminal emulator running `cursor-agent login` (browser OAuth). Status is read fresh from `~/.config/cursor/auth.json` (session JWT); there is no `cursor-agent auth status` command. A long-lived ACP child keeps its start-time credentials, so a `Please sign in to continue` answer is converted into the `[AUTH:cursor]` card and the cached worker is retired
   - **Z.ai** — no login flow; `ZAI_API_KEY` or the Settings key (config-value interpolation supported)
-  - **Claude Native** — its own OAuth flow via `/api/auth/claude-native/*` (tokens in `~/.archon/auth.json`)
+  - **Claude Native** — its own OAuth flow via `/api/auth/claude-native/*` (tokens in `~/.arco/auth.json`)
 
 The auth overlay blocks the UI only when no primary-capable provider is authed; specific tabs may still error if their pinned provider is unauthed.
 
 ### Project trust (DD7)
 
-Opening a repo Arco hasn't seen before suppresses its project-local `CLAUDE.md`, project skills, and `.archon/settings.json` from the Native system prompt until the operator vouches for it. The gate emits `project_trust_prompt`; the operator decides via `set_project_trust`; the result (`project_trust_set`) is a deterministic entry in a flat `trust.json` (nearest-ancestor wins). The gate never auto-trusts. Code: `server/src/projectTrust.ts`, `ws/projectTrustHandlers.ts`. `claudeMdDiscovery.ts`'s output is gated behind this.
+Opening a repo Arco hasn't seen before suppresses its project-local `CLAUDE.md`, project skills, and `.arco/settings.json` from the Native system prompt until the operator vouches for it. The gate emits `project_trust_prompt`; the operator decides via `set_project_trust`; the result (`project_trust_set`) is a deterministic entry in a flat `trust.json` (nearest-ancestor wins). The gate never auto-trusts. Code: `server/src/projectTrust.ts`, `ws/projectTrustHandlers.ts`. `claudeMdDiscovery.ts`'s output is gated behind this.
 
 ### Quotas
 
@@ -581,27 +581,27 @@ A diagnostic chip (`b·w·s`) shows next to the CANCEL button when `isBusy` is t
 
 ## Persistence overview
 
-Per-workflow, under `<workflow-cwd>/.archon/workflows/<wfid>/`:
+Per-workflow, under `<workflow-cwd>/.arco/workflows/<wfid>/`:
 
 - `events.jsonl` — append-only NDJSON log of every workflow-scoped server message, stamped with `{seq, ts, ...message}`. Coalesced writes (100 ms debounce or 64 KB threshold). Crash-loss is bounded at ~100 ms; seq gaps tell the client to fall back to snapshot-only.
 - `meta.json` — workflow identity, session ledger, calibration state, plan attachment, auto-handoff settings. Atomic tmp+rename writes.
 - `artifacts/review-<ts>.md` — Review primitive output (YAML frontmatter + body)
 - `handoffs/handoff-<ts>.md` — Handoff primitive output
 
-Operator-global, under `~/.archon/`:
+Operator-global, under `~/.arco/`:
 
-- `chats/<wfid>/` — saved Chat tabs' persistence cwd (the normal `.archon/workflows/<wfid>/` layout nested inside); Incognito never creates one
+- `chats/<wfid>/` — saved Chat tabs' persistence cwd (the normal `.arco/workflows/<wfid>/` layout nested inside); Incognito never creates one
 - `settings.json` — operator preferences
 - `models.md` — model catalog (populates dropdowns)
 - `known-cwds.json` — crash-recovery registry of which cwds host workflows
 - `worker-pids.json` — live worker PIDs for orphan reaping
 - `cli-snapshots/` — provider CLI version snapshots for change detection
 - `antigravity-data/` — isolated Antigravity user-data-dir
-- `clusters/<clusterId>/` — cluster state (`meta.json`, `mailbox/<recipientWfid>/<msgId>.json` file-per-message pending mailbox). The cluster plan body now lives in the per-cwd plan store (`<cwd>/.archon/plans/<planId>.md`); the legacy `clusters/<clusterId>/plan.md` is read-only and lazily migrated. Members' durable conversation history lives in their per-workflow `events.jsonl`; the mailbox is the transient delivery layer.
+- `clusters/<clusterId>/` — cluster state (`meta.json`, `mailbox/<recipientWfid>/<msgId>.json` file-per-message pending mailbox). The cluster plan body now lives in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`); the legacy `clusters/<clusterId>/plan.md` is read-only and lazily migrated. Members' durable conversation history lives in their per-workflow `events.jsonl`; the mailbox is the transient delivery layer.
 - `bakeoffs/<cwd-hash>/` — durable worktree-bake-off manifests plus managed linked worktrees. Attempts are ordinary workflows; only an explicit operator promotion merges one into the source checkout.
-- `skills/`, `handoff*.prompt.md`, `llamacpp.json` — operator-managed skills, handoff prompt overrides, llama.cpp GGUF catalog (project-level mirrors live under `<cwd>/.archon/`).
+- `skills/`, `handoff*.prompt.md`, `llamacpp.json` — operator-managed skills, handoff prompt overrides, llama.cpp GGUF catalog (project-level mirrors live under `<cwd>/.arco/`).
 
-`.archon/workflows/` is `.gitignore`-d on first init. See [PERSISTENCE.md](PERSISTENCE.md) for full layout, file formats, and atomic-write patterns.
+`.arco/workflows/` is `.gitignore`-d on first init. See [PERSISTENCE.md](PERSISTENCE.md) for full layout, file formats, and atomic-write patterns.
 
 ---
 
@@ -614,7 +614,7 @@ Two distinct numbers; both surface in `TokenBadge.tsx` / `TokensFooter`:
 
 **Compaction in Lite (Phase 7c).** The Handoff button is still the operator-driven escape hatch, but Native Claude tabs also have server-side compaction available:
 
-1. `compact_20260112` (server-managed summarization at threshold) — **off by default**; the CONFIG-tab "SERVER-SIDE COMPACTION" toggle sets `WorkflowConfig.claudeNativeCompact: true` (new tabs seed from the global `claudeNativeCompactDefault`). Rides `compact-2026-01-12`; gated on the model's catalog capability flag. Operator COMPACT (`native_compacted`) is the separate, Archon-owned in-place summary.
+1. `compact_20260112` (server-managed summarization at threshold) — **off by default**; the CONFIG-tab "SERVER-SIDE COMPACTION" toggle sets `WorkflowConfig.claudeNativeCompact: true` (new tabs seed from the global `claudeNativeCompactDefault`). Rides `compact-2026-01-12`; gated on the model's catalog capability flag. Operator COMPACT (`native_compacted`) is the separate, Arco-owned in-place summary.
 2. **Auto-handoff** — Arco rotates to a fresh session at threshold. Threshold (`autoAt`) defaults to 90%, warning (`warnAt`) to 75%; both per-tab from the CONFIG pane, persisted in `meta.json`. The global `autoHandoffDefaults` setting seeds new tabs and is materialized onto legacy tabs that have no per-tab value so server state matches the CONFIG UI. Auto-handoff only runs for providers with a trusted context-fill signal: Claude CLI/Native, Codex (both transports), Z.ai, and Ollama. Codex and Z.ai app-server use the latest rollout `last_token_usage` snapshot, not aggregated turn usage; Z.ai native uses the final direct Chat Completions `prompt_tokens` value.
 3. **Cursor ACP** — Cursor automatically summarizes long conversations. Arco's idle-only COMPACT button (or `/compress`) sends Cursor's native `/compress` as an isolated ACP prompt, bypassing the normal cluster/north-star prefix so the slash dispatcher recognizes it. ACP exposes no trusted retained-context count today, so the footer says `CTX: Cursor-managed` and Cursor is intentionally excluded from threshold auto-handoff.
 4. Operator Handoff button — always available regardless of the above.
@@ -669,7 +669,7 @@ The command-line surface for each provider's primary turn (full detail in [PROVI
 
 **Cursor:** No per-turn spawn. A long-lived `cursor-agent acp --model <model> --force` child holds the ACP session warm across turns; turns are driven by `session/prompt` JSON-RPC requests, live model swaps via `session/set_model`, resume via `session/load`. The read-only print path spawns `cursor-agent -p --output-format text --mode ask --force --trust` (prompt over stdin) per primitive.
 
-**Antigravity:** No argv. Arco talks to the desktop app through its local language-server RPC endpoint, using an isolated user-data-dir at `~/.archon/antigravity-data/` by default or the normal signed-in profile when `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set. The localhost debug port is only used as a liveness probe. See Providers below and [PROVIDERS.md](PROVIDERS.md) for the full design.
+**Antigravity:** No argv. Arco talks to the desktop app through its local language-server RPC endpoint, using an isolated user-data-dir at `~/.arco/antigravity-data/` by default or the normal signed-in profile when `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set. The localhost debug port is only used as a liveness probe. See Providers below and [PROVIDERS.md](PROVIDERS.md) for the full design.
 
 ---
 
@@ -677,9 +677,9 @@ The command-line surface for each provider's primary turn (full detail in [PROVI
 
 Drives Google's Antigravity desktop app through its local language-server RPC endpoint. Lazy-spawns the desktop binary on first use against an isolated user-data-dir so it doesn't collide with the operator's own Antigravity installation; set `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` to reuse the normal signed-in profile for subscription-gated desktop models. No subprocess pid in the worker tree, no reliable context accounting, no mid-turn cancellation.
 
-**Reviewer** — one-shot reviewer spawns pass no `resumeSessionId`, so the RPC layer starts a fresh cascade. `runReviewer` collects the returned text and writes the normal Arco review artifact under `.archon/workflows/<wfid>/artifacts/`.
+**Reviewer** — one-shot reviewer spawns pass no `resumeSessionId`, so the RPC layer starts a fresh cascade. `runReviewer` collects the returned text and writes the normal Arco review artifact under `.arco/workflows/<wfid>/artifacts/`.
 
-**Primary** — first turn starts a new cascade; subsequent turns pass the stored cascade id as `resumeSessionId`. Replies and tool activity are read from `GetCascadeTrajectorySteps`. Primary turns prepend `[Project directory: <cwd>]\n\n` to the prompt. `WorkerManager.spawn` skips the safety-footer for antigravity (the `[Archon safety reminders...]` blob derails Gemini into Arco talk).
+**Primary** — first turn starts a new cascade; subsequent turns pass the stored cascade id as `resumeSessionId`. Replies and tool activity are read from `GetCascadeTrajectorySteps`. Primary turns prepend `[Project directory: <cwd>]\n\n` to the prompt. `WorkerManager.spawn` skips the safety-footer for antigravity (the `[Arco safety reminders...]` blob derails Gemini into Arco talk).
 
 **Process probe** — `AntigravityManager` still launches the desktop binary with `--remote-debugging-port=<port>` and probes `/json/version` to know whether the app is running. That port is not used for prompt transport, DOM scraping, or composer automation.
 
@@ -727,7 +727,7 @@ A per-tab posture pill (`full` / `coding` / `chat` / `review`) scopes which Nati
 
 ### Approval gate (DEBAG, Native)
 
-When the operator arms the per-tab `reviewSafeMode` toggle (CONFIG, default OFF, Native-only v1), a sensitivity classifier parks sensitive proposed tool calls: the worker emits `gate_required` and stalls that call until the operator approves (`gate_reply`, optionally editing the tool input first), revokes (`gate_revoke`), or sets a standing "approve all like this" (`gate_standing`, deterministically re-evaluated against a non-lossy signature). Resolution broadcasts `gate_resolved`. Unresolved gates + standing approvals persist in a sidecar at `<cwd>/.archon/workflows/<wfid>/gate-approvals.json` (`providers/claude-native/gateStore.ts` + `gateReview.ts`; handlers in `ws/gateHandlers.ts`), so they survive a systemd restart. Client surface: the `GateApprovalNotice` card. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
+When the operator arms the per-tab `reviewSafeMode` toggle (CONFIG, default OFF, Native-only v1), a sensitivity classifier parks sensitive proposed tool calls: the worker emits `gate_required` and stalls that call until the operator approves (`gate_reply`, optionally editing the tool input first), revokes (`gate_revoke`), or sets a standing "approve all like this" (`gate_standing`, deterministically re-evaluated against a non-lossy signature). Resolution broadcasts `gate_resolved`. Unresolved gates + standing approvals persist in a sidecar at `<cwd>/.arco/workflows/<wfid>/gate-approvals.json` (`providers/claude-native/gateStore.ts` + `gateReview.ts`; handlers in `ws/gateHandlers.ts`), so they survive a systemd restart. Client surface: the `GateApprovalNotice` card. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
 
 ### Restore points / forks (Phase 10, Native-first)
 
@@ -735,13 +735,13 @@ Clicking REWIND CONVERSATION on a HISTORY-tab event sends `revert_to_point_reque
 
 ### ARCHIVE explorer (standalone artifact window)
 
-A chromeless browser window (`?app=explorer`, launched from the ⌸ ARCHIVE header button) that surfaces project artifacts read-only, zero model authority. Three lenses: ARTIFACTS (per-project cards + recent-across-all-projects strip via `explorerArtifacts.ts`), RECENTS (the agent-writes ledger `recentFilesLedger.ts` at `~/.archon/recent-files.jsonl` + an exhaustive changed-within scan `explorerChanged.ts`), and TREE. Backed by `/api/explorer/*` in `server/src/http/explorerRoutes.ts` — every listing endpoint is $HOME-jailed and fail-soft (always 200, degrading to an empty collection on error). Client in `client/src/explorer/`. The agent-writes ledger is fed fire-and-forget from the persisting broadcast chokepoints (`Write` / `Edit` / `NotebookEdit` completions, Review artifacts) and by manual `POST /api/files/write`.
+A chromeless browser window (`?app=explorer`, launched from the ⌸ ARCHIVE header button) that surfaces project artifacts read-only, zero model authority. Three lenses: ARTIFACTS (per-project cards + recent-across-all-projects strip via `explorerArtifacts.ts`), RECENTS (the agent-writes ledger `recentFilesLedger.ts` at `~/.arco/recent-files.jsonl` + an exhaustive changed-within scan `explorerChanged.ts`), and TREE. Backed by `/api/explorer/*` in `server/src/http/explorerRoutes.ts` — every listing endpoint is $HOME-jailed and fail-soft (always 200, degrading to an empty collection on error). Client in `client/src/explorer/`. The agent-writes ledger is fed fire-and-forget from the persisting broadcast chokepoints (`Write` / `Edit` / `NotebookEdit` completions, Review artifacts) and by manual `POST /api/files/write`.
 
 ---
 
 ## Theming
 
-Role-based CSS vars (`--color-accent-primary`, `--color-bg`, `--color-fg-muted`, `--color-warning`, etc.) resolved at runtime from `client/src/themes/definitions/<id>.ts` (42 named palette themes; `VALID_THEME_IDS` has 43 ids counting the `provider-auto` sentinel). **Never hard-code hex literals.** The default theme is `matrix`. Theme apply happens in `client/src/themes/apply.ts` — idempotent: mutates CSS vars on `:root`, sets `data-theme` attribute on `<html>`, lazy-loads Google Fonts (once per session), fires `archon:theme-changed` custom event. Font selection is decoupled from the palette: `client/src/themes/fontPacks.ts` defines ~29 operator-selectable font packs (incl. a legibility-focused set). Global **theme-brightness** shifts (`settings.bgBrightness` / `settings.textBrightness` — independent signed background + text lightness) and a **crisp text** toggle (`settings.crispText`, kills phosphor text-glow except the ARCHON wordmark) are operator display tweaks layered on top — see `CLIENT.md § Apply`. Theme manifests may optionally carry a complete xterm Core + ANSI palette; Red Planet and Everforest use it to preserve their supplied terminal color schemes.
+Role-based CSS vars (`--color-accent-primary`, `--color-bg`, `--color-fg-muted`, `--color-warning`, etc.) resolved at runtime from `client/src/themes/definitions/<id>.ts` (42 named palette themes; `VALID_THEME_IDS` has 43 ids counting the `provider-auto` sentinel). **Never hard-code hex literals.** The default theme is `matrix`. Theme apply happens in `client/src/themes/apply.ts` — idempotent: mutates CSS vars on `:root`, sets `data-theme` attribute on `<html>`, lazy-loads Google Fonts (once per session), fires `arco:theme-changed` custom event. Font selection is decoupled from the palette: `client/src/themes/fontPacks.ts` defines ~29 operator-selectable font packs (incl. a legibility-focused set). Global **theme-brightness** shifts (`settings.bgBrightness` / `settings.textBrightness` — independent signed background + text lightness) and a **crisp text** toggle (`settings.crispText`, kills phosphor text-glow except the ARCO wordmark) are operator display tweaks layered on top — see `CLIENT.md § Apply`. Theme manifests may optionally carry a complete xterm Core + ANSI palette; Red Planet and Everforest use it to preserve their supplied terminal color schemes.
 
 Shaders live under `client/src/themes/shaders/` (~29 fragment shaders). `ThemedBackgroundShader` renders one per theme; CSS gates animations via `data-anim-scan` / `data-anim-pulseHalo` / `data-anim-flicker` attributes set by apply. The shader system uses `highp` precision and bounded hash inputs to prevent long-uptime freezes (see commit `8a5af37`).
 
@@ -753,17 +753,17 @@ See [CLIENT.md](CLIENT.md) for the full theme + shader system.
 
 Five-phase rollout, SHIPPED 2026-05-10. A cluster is a parent tab kind that hosts N member workflows pinned to one cwd. Members can hand notes to each other between operator turns via a budgeted peer-tool substrate. As shipped, the operator is still the only thing that advances any member's turn except explicit operator-armed automations; future model-assisted routing must be visible, logged, reversible, and applied through normal task APIs or explicit operator approval.
 
-**Substrate.** `~/.archon/clusters/<clusterId>/` holds:
+**Substrate.** `~/.arco/clusters/<clusterId>/` holds:
 - `meta.json` — `ClusterState` (cwd, member workflowIds, operator-set name,
   per-member role/tier/focus, sparse `memberAccessModes`, automation settings,
   attached `planId?`, `taskBoardMode?`).
 - `mailbox/<recipientWfid>/<msgId>.json` — file-per-message pending mailbox (16 KB content cap, 32 KB for operator transcript-sends; 50-message per-recipient pending cap, oldest dropped). `clusterMailbox.drain` removes the file when delivered; the durable record lives in the recipient's `events.jsonl` (`peer_message_received`).
 - `isolates/<wfid>/workspace/` — durable private scratch cwd for an ISOLATED
   Claude Native member. It is outside the project tree and mode `0700`.
-- Cluster plan: attached by `planId` in `meta.json`; the body is canonical in the per-cwd plan store at `<cwd>/.archon/plans/<planId>.md`, unified through `clusterPlanBridge.ts`. Legacy `~/.archon/clusters/<id>/plan.md` is read-only and lazily migrated (32 KB cap, 28 KB soft warn).
+- Cluster plan: attached by `planId` in `meta.json`; the body is canonical in the per-cwd plan store at `<cwd>/.arco/plans/<planId>.md`, unified through `clusterPlanBridge.ts`. Legacy `~/.arco/clusters/<id>/plan.md` is read-only and lazily migrated (32 KB cap, 28 KB soft warn).
 
 **Portable snapshots.** A live cluster can be saved locally, exported as a
-verified `.archoncluster` regular-files-only bundle, or encrypted locally and
+verified `.arcocluster` regular-files-only bundle, or encrypted locally and
 uploaded manually to the hub-host management-hub vault. `+NEW → CLUSTER` restores
 from LOCAL, CLOUD, or IMPORT FILE into an operator-selected project cwd. The
 bundle carries Arco config/plan/history, not project files, credentials,
@@ -779,13 +779,13 @@ cluster tools. ISOLATED is Claude-Native-only: it uses the private scratch cwd,
 removes project-derived prompts/resources and shell/project tools, and retains
 only those two mailbox tools. An isolated sender may attach up to 8
 scratch-rooted files / 256 KB total through `peer_send artifact_paths`; drain
-copies them into the recipient's `.archon/peer-artifacts/<msgId>/`.
+copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 
 **Provider wiring.**
 - **Native Claude** — in-process tool registration gated on `worker.config.clusterId`.
-- **CLI Claude** — `--mcp-config <path>` writes a per-spawn `archon-cluster` stdio MCP child via `server/src/mcp/clusterMcpServer.ts`, translating MCP tool calls into REST against `/api/clusters/:id/peer/*`.
-- **Codex `exec` + `app-server`** — same MCP child registered via Codex's `-c mcp_servers.archon-cluster.*` TOML overrides (no `--mcp-config` flag in Codex CLI). The `app-server` transport's MCP child lives for the appserver's lifetime, not per-turn; cluster-context-change recycle in `acquireWorker`.
-- **Ollama / llama.cpp** — local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `zai` / `ollama` / `llamacpp` / `cursor`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical — it now delegates to `isClusterMemberProvider`) rejects anything outside that set (Gemini / Antigravity have no peer-wiring path Arco can drive). Local members are capped at **one per cluster by default** (the cap guards against local-model resource fights); set `ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift it.
+- **CLI Claude** — `--mcp-config <path>` writes a per-spawn `arco-cluster` stdio MCP child via `server/src/mcp/clusterMcpServer.ts`, translating MCP tool calls into REST against `/api/clusters/:id/peer/*`.
+- **Codex `exec` + `app-server`** — same MCP child registered via Codex's `-c mcp_servers.arco-cluster.*` TOML overrides (no `--mcp-config` flag in Codex CLI). The `app-server` transport's MCP child lives for the appserver's lifetime, not per-turn; cluster-context-change recycle in `acquireWorker`.
+- **Ollama / llama.cpp** — local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `zai` / `ollama` / `llamacpp` / `cursor`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical — it now delegates to `isClusterMemberProvider`) rejects anything outside that set (Gemini / Antigravity have no peer-wiring path Arco can drive). Local members are capped at **one per cluster by default** (the cap guards against local-model resource fights); set `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift it.
 - **Cursor** — peer tools ride an in-process loopback StreamableHTTP MCP server (`mcp/clusterMcpLoopback.ts`) whose URL is handed to Cursor in `session/new` / `session/load` `mcpServers`; Cursor ACP honors MCP only over http/sse, not stdio. Fresh-only membership; the server list is refreshed each turn so a mid-life board attach/detach reflects on the next tool call.
 
 **Plan + role propagation.** Native injects via forced system blocks (`FORCED_FIRST_BLOCK → cluster plan → cluster role → appendSystemPrompt → systemPrompt → output style`). CLI Claude and Codex `exec` fold the same blocks into `WorkerConfig.appendSystemPrompt` under a 16 KB soft cap; Codex app-server uses a bounded 48 KB fold so its JSON-RPC path can carry the full 32 KB maximum plan plus small cluster blocks. App-server also sends stable role, Director contract, and code-mode tool mapping as `developerInstructions`, so Codex's built-in `/root` framing cannot outrank the assigned Arco role.
@@ -819,21 +819,21 @@ See `docs/CLUSTER_MODE_PLAN.md` (full plan + §13 decision log), `docs/GOTCHAS.m
 
 Built on top of the cluster + task-ledger substrate. Shipped Stages A–K (`docs/DIRECTOR_WORKERS_WORKFLOW_PLAN.md`). Four layers:
 
-**Task kernel.** Durable, cwd-scoped task store at `<cwd>/.archon/project/tasks.json` (projection over `events.jsonl`). Statuses: `triage / todo / ready / in_progress / blocked / review / done / archived`. Tasks carry durable comments, dependency links (a child stays `todo` until all parents are `done`), and run/attempt history. `done` and `archived` are operator-only; workers may move tasks to `review` but never `done`. Storage: `server/src/project/taskLedger.ts`. Protocol: `shared/src/protocol/tasks.ts`.
+**Task kernel.** Durable, cwd-scoped task store at `<cwd>/.arco/project/tasks.json` (projection over `events.jsonl`). Statuses: `triage / todo / ready / in_progress / blocked / review / done / archived`. Tasks carry durable comments, dependency links (a child stays `todo` until all parents are `done`), and run/attempt history. `done` and `archived` are operator-only; workers may move tasks to `review` but never `done`. Storage: `server/src/project/taskLedger.ts`. Protocol: `shared/src/protocol/tasks.ts`.
 
 **Worker lifecycle peer-tools.** `cluster_task_show / create / link / unlink / comment / heartbeat / block / complete` (plus existing `cluster_task_list / claim / update` aliases) wired across Native + MCP/REST. Heartbeat staleness detection: a run whose heartbeat age exceeds the stale threshold is eligible for recovery. Consecutive-failure breaker (`server/src/ws/taskLedgerHandlers.ts`).
 
-**Operator-armed dispatcher.** `cluster_dispatch_once` (one-shot explicit sweep) + an armed daemon (`cluster_dispatch_toggle` / `cluster_dispatch_settings_update`) with deterministic eligibility, per-cluster/per-member concurrency caps, `dispatch_fired` / `dispatch_skipped` events, and claim + run creation before a synthetic worker turn. Default OFF; persisted in cluster meta; no double-dispatch on restart. Optional `autoWorktree` (default OFF) creates managed git worktrees under `~/.archon/worktrees/` for tasks with `worktreeRequired: true`, injecting path + branch into the worker prompt. Recovery via `task_run_recover` (modes: reclaim / terminate / reassign / fail), protected by a per-cwd advisory lock.
+**Operator-armed dispatcher.** `cluster_dispatch_once` (one-shot explicit sweep) + an armed daemon (`cluster_dispatch_toggle` / `cluster_dispatch_settings_update`) with deterministic eligibility, per-cluster/per-member concurrency caps, `dispatch_fired` / `dispatch_skipped` events, and claim + run creation before a synthetic worker turn. Default OFF; persisted in cluster meta; no double-dispatch on restart. Optional `autoWorktree` (default OFF) creates managed git worktrees under `~/.arco/worktrees/` for tasks with `worktreeRequired: true`, injecting path + branch into the worker prompt. Recovery via `task_run_recover` (modes: reclaim / terminate / reassign / fail), protected by a per-cwd advisory lock.
 
 **Swarm helper.** `cluster_swarm_create` → root blackboard task + N worker tasks + verifier (depends on all workers) + synthesizer (depends on verifier). Convenience scaffold only; operator can edit the resulting task graph freely.
 
-**Orchestration assist (Stage K).** Operator-armed panel on the cluster BOARD tab. Dispatch sends a `cluster_orchestration_assist_request`; the server (or, in the current stub, the requester's `draft`) stores a proposal in `server/src/project/orchestrationProposals.ts` at `<cwd>/.archon/project/`. Proposal kinds: `task_graph / assignments / recovery / synthesis / swarm`. Client previews the proposal in the ASSIST panel inside `ClusterTaskBoardTab.tsx`; accept-selected applies through the normal task-kernel APIs emitting ordinary `task_ledger_event`s; reject mutates nothing. Suggested provider/model/effort stay inert unless explicitly accepted. Hard fence: no model-set `done`, no silent dispatch — everything operator-armed / logged / reversible.
+**Orchestration assist (Stage K).** Operator-armed panel on the cluster BOARD tab. Dispatch sends a `cluster_orchestration_assist_request`; the server (or, in the current stub, the requester's `draft`) stores a proposal in `server/src/project/orchestrationProposals.ts` at `<cwd>/.arco/project/`. Proposal kinds: `task_graph / assignments / recovery / synthesis / swarm`. Client previews the proposal in the ASSIST panel inside `ClusterTaskBoardTab.tsx`; accept-selected applies through the normal task-kernel APIs emitting ordinary `task_ledger_event`s; reject mutates nothing. Suggested provider/model/effort stay inert unless explicitly accepted. Hard fence: no model-set `done`, no silent dispatch — everything operator-armed / logged / reversible.
 
 ---
 
 ## Plan store
 
-`server/src/planStore.ts` manages long-form markdown briefs scoped per cwd. Plans live at `<cwd>/.archon/plans/`:
+`server/src/planStore.ts` manages long-form markdown briefs scoped per cwd. Plans live at `<cwd>/.arco/plans/`:
 
 - `index.json` — fast list of `{id, title, createdAt, updatedAt}` summaries
 - `<planId>.md` — markdown body (max 256 KB)
@@ -842,7 +842,7 @@ Plans survive across workflows (they live in the cwd, not the workflow). The ope
 
 Plans are explicitly attached, not auto-bound — the same plan can be attached to multiple workflows.
 
-**Cluster plan.** A cluster attaches exactly one active plan by `planId` in its `meta.json`; the body lives in the per-cwd plan store (`<cwd>/.archon/plans/<planId>.md`), unified through `clusterPlanBridge.ts` (the legacy `clusterPlanStore.ts` body at `~/.archon/clusters/<id>/plan.md` is read-only and lazily migrated). Cluster members can flip checkboxes via the `cluster_plan_tick` peer tool and pull the full body via `cluster_plan_read` (the per-turn injected copy may be an outline on string-form transports). PROMOTE TO CLUSTER on a worker plan copies its body to the cluster plan and detaches the worker plan to avoid a stale snapshot.
+**Cluster plan.** A cluster attaches exactly one active plan by `planId` in its `meta.json`; the body lives in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`), unified through `clusterPlanBridge.ts` (the legacy `clusterPlanStore.ts` body at `~/.arco/clusters/<id>/plan.md` is read-only and lazily migrated). Cluster members can flip checkboxes via the `cluster_plan_tick` peer tool and pull the full body via `cluster_plan_read` (the per-turn injected copy may be an outline on string-form transports). PROMOTE TO CLUSTER on a worker plan copies its body to the cluster plan and detaches the worker plan to avoid a stale snapshot.
 
 ---
 
@@ -858,16 +858,16 @@ Plans are explicitly attached, not auto-bound — the same plan can be attached 
 | `usage.ts` | Probes Claude's 5-hour and weekly usage from the OAuth API (`https://api.anthropic.com/api/oauth/usage`). Caches at 2-minute TTL. Drives the `UsageBar` in the SystemHeader. |
 | `auth.ts` | Per-provider auth status + login triggers. Handles the terminal-spawn for Gemini/Codex OAuth flows (with TERMINAL fallback chain). Wraps `gh auth status` for GitHub. |
 | `quota.ts` | Per-provider throttle state. Process-local (not persisted; restart re-flips on observed errors). `markThrottled(provider, error, resetsAt?)` and `markAvailable(provider)`. Lazy passive recovery via `resetsAt`. |
-| `capabilities.ts` | Probes each provider CLI's `--version` and help output. Snapshots persist to `~/.archon/cli-snapshots/`. Computes `cliChanges[]` between boots. |
-| `crashRecovery.ts` | Boot-time scan of `~/.archon/known-cwds.json` for workflows active in the last 24h; pre-inits workflowStore so seq continuity holds across restart. |
-| `workers/pidRegistry.ts` | Tracks live worker PIDs in `~/.archon/worker-pids.json`. `reapOrphanWorkers()` SIGKILLs everything still listed on boot (those processes are dead by definition). The terminal PTY pool has its own parallel registry at `terminal/ptyPidRegistry.ts`. |
-| `catalog.ts` | Loads `~/.archon/models.md` (operator-edited model catalog) and `~/.archon/calibration.md` (append-only calibration log). |
-| `settings.ts` | `~/.archon/settings.json` reader/writer. Cross-machine operator preferences (theme, default provider, etc.). |
+| `capabilities.ts` | Probes each provider CLI's `--version` and help output. Snapshots persist to `~/.arco/cli-snapshots/`. Computes `cliChanges[]` between boots. |
+| `crashRecovery.ts` | Boot-time scan of `~/.arco/known-cwds.json` for workflows active in the last 24h; pre-inits workflowStore so seq continuity holds across restart. |
+| `workers/pidRegistry.ts` | Tracks live worker PIDs in `~/.arco/worker-pids.json`. `reapOrphanWorkers()` SIGKILLs everything still listed on boot (those processes are dead by definition). The terminal PTY pool has its own parallel registry at `terminal/ptyPidRegistry.ts`. |
+| `catalog.ts` | Loads `~/.arco/models.md` (operator-edited model catalog) and `~/.arco/calibration.md` (append-only calibration log). |
+| `settings.ts` | `~/.arco/settings.json` reader/writer. Cross-machine operator preferences (theme, default provider, etc.). |
 | `toolbox.ts` | Provider-native skill discovery. Claude CLI: zero-cost `system/init` probe joined with plugin/personal/project `SKILL.md` metadata. Codex: app-server `plugin/list` readiness barrier + authoritative `skills/list`, account/CODEX_HOME-aware. Returns exact native invocation strings (`/name` vs `$name`); unsupported transports say so rather than borrowing another provider's catalog. |
 | `github.ts` | Thin typed wrapper around the GitHub REST API. Uses `gh auth token` to fetch the CLI's active token (no PAT prompt). Re-fetches per call (no caching). |
 | `git.ts` | Drives the `⎇ GIT` composer button. `getGitStatus(cwd)` shells out to `git rev-parse / status / for-each-ref / remote / symbolic-ref` to assemble a `GitStatus` snapshot. `checkoutBranch(cwd, branch, create?)` validates branch names (`/^[A-Za-z0-9._/-]+$/`), refuses on dirty trees, and supports both plain switch and create-from-base. Surfaces via `GET /api/git/status` and `POST /api/git/checkout`. |
-| `llamacppCatalog.ts` | Operator-managed GGUF catalog at `~/.archon/llamacpp.json`. Reader/writer + `isLlamacppModelDef()` validation (alias and ggufPath required strings; bad JSON returns empty catalog so a malformed file doesn't crash the server). Atomic-write pattern (`write → .tmp.<pid> → rename`). Drives the `LlamacppCatalogEditor` UI in SettingsPanel. |
-| `artifacts.ts` | Extracts `archon-artifact` fenced blocks from primary turn text. Invalid JSON silently dropped (artifact extraction must never break chat flow). |
+| `llamacppCatalog.ts` | Operator-managed GGUF catalog at `~/.arco/llamacpp.json`. Reader/writer + `isLlamacppModelDef()` validation (alias and ggufPath required strings; bad JSON returns empty catalog so a malformed file doesn't crash the server). Atomic-write pattern (`write → .tmp.<pid> → rename`). Drives the `LlamacppCatalogEditor` UI in SettingsPanel. |
+| `artifacts.ts` | Extracts `arco-artifact` fenced blocks from primary turn text. Invalid JSON silently dropped (artifact extraction must never break chat flow). |
 | `workers/limits.ts` | `MAX_WORKER_OUTPUT_BYTES` and `RSS_KILL_BYTES` constants + the per-process tree-RSS check. |
 | `workers/processActivity.ts` | Linux `/proc`-based activity probe (1.5s polled). Drives the CPU-pulse UI and silent-exit supervision. ENOENT means the process exited; reported as dead. |
 | `previewProxy.ts` | Per-workflow HTTP+WS proxy at `/api/preview/<wfid>/*`. Two entry paths: explicit prefix (matched against the iframe URL) and Referer fallback (catches Vite's absolute-path sub-resources). `tryHandlePreviewRequest` / `tryHandlePreviewUpgrade` strip hop-by-hop headers (RFC 7230) and force `connection: close` + `cache-control: no-store` to prevent Firefox poisoning the cache with empty-MIME responses. |
@@ -876,33 +876,33 @@ Plans are explicitly attached, not auto-bound — the same plan can be attached 
 | `previewAutoDetect.ts` | Watches `worker_tool_use` (Bash-command sniff via `DEV_SERVER_RE`) and `worker_text` (URL extraction via `URL_PORT_RE`). Races a Layer-1 HTTP probe of common dev ports against a Layer-2 `/proc`-based PID-tree listening-port discovery (`workers/procListening.ts`). First port to commit wins; cross-workflow port-conflict filter prevents one tab from stealing another's bound port; `manual: true` binds are never overridden. |
 | `workers/procListening.ts` | Linux-only. Walks the descendants of a root PID, reads each `/proc/<pid>/fd/*` socket inode, cross-refs `/proc/net/tcp{,6}` LISTEN entries. Used by Layer 2 of preview auto-detect to attribute listening ports to the agent's Bash subprocess tree. |
 | `claudeMdDiscovery.ts` | Walks `<cwd>` upward looking for `CLAUDE.md` and merges with `~/.claude/CLAUDE.md`. Output is folded into the Native worker's `appendSystemPrompt` so Claude Native sees the same project guidance the CLI does — gated behind `projectTrust.ts` (project-local guidance is suppressed for untrusted repos until the operator vouches). |
-| `projectTrust.ts` | DD7 project-trust gate — `decideTrust()` over a flat `trust.json` (nearest-ancestor wins). Suppresses an untrusted repo's `CLAUDE.md` / skills / `.archon/settings.json` from the Native prompt until the operator vouches (`project_trust_prompt` → `set_project_trust` → `project_trust_set`, in `ws/projectTrustHandlers.ts`). Never auto-trusts. |
+| `projectTrust.ts` | DD7 project-trust gate — `decideTrust()` over a flat `trust.json` (nearest-ancestor wins). Suppresses an untrusted repo's `CLAUDE.md` / skills / `.arco/settings.json` from the Native prompt until the operator vouches (`project_trust_prompt` → `set_project_trust` → `project_trust_set`, in `ws/projectTrustHandlers.ts`). Never auto-trusts. |
 | `skillAudit.ts` | H35 operator-triggered skill security audit (invisible-unicode + threat scan). `POST /api/skills/audit` + the editor AUDIT button. Diagnostic only — flags, never blocks. |
 | `skillUsage.ts` | §5.2 skill-usage telemetry sidecar (`use_count` / `last_used`) at `skill-usage.json`. |
 | `primitiveDrift.ts` | §5.1 primitive drift guard — re-resolves the Review / Handoff / Spawn model against the live catalog at dispatch; emits a `system_notice` on drift. |
-| `chatMode.ts` | Chat-tab contract: `CHAT_PROVIDERS` / `INCOGNITO_CHAT_PROVIDERS` / `CHAT_WEB_PROVIDERS`, `chatWebArmed()`, `chatSystemPrompt()`, `~/.archon/chats` root, `listSavedChats()` (backs `GET /api/chats`). |
+| `chatMode.ts` | Chat-tab contract: `CHAT_PROVIDERS` / `INCOGNITO_CHAT_PROVIDERS` / `CHAT_WEB_PROVIDERS`, `chatWebArmed()`, `chatSystemPrompt()`, `~/.arco/chats` root, `listSavedChats()` (backs `GET /api/chats`). |
 | `goalRun.ts` | Goal-run arming normalization, deterministic stop decision (`evaluateGoalRun`), continuation prompt text, token accumulator. |
 | `providers/codexContextWindow.ts` | Codex MAX/STANDARD context-policy resolver over the account's `models_cache.json`; fails safe to Codex's own default. |
 | `providers/goalBlock.ts` | Null-when-empty north-star system block (operator-write / model-read-only, anti-autonomy trailer); folded per-provider into every transport that folds the cluster plan. |
 | `ultracodeFleetWatcher.ts` | Turn-scoped poller of the CLI's `wf_*` subagent transcripts under sticky ultracode; emits transient `ultracode_fleet_progress`. Never steers. |
-| `recentFilesLedger.ts` | Append-only agent-writes ledger at `~/.archon/recent-files.jsonl` (compacted at 1000→500 lines); fed fire-and-forget from persisting broadcasts; read by the ARCHIVE RECENTS lens. |
+| `recentFilesLedger.ts` | Append-only agent-writes ledger at `~/.arco/recent-files.jsonl` (compacted at 1000→500 lines); fed fire-and-forget from persisting broadcasts; read by the ARCHIVE RECENTS lens. |
 | `configValue.ts` | DD12 config-value interpolation (`!cmd` / `${ENV}`) for the Z.ai key + Ollama / LM Studio base URLs. |
-| `prompts.ts` | DD10 parameterized `/prompt` command expansion from `<cwd>/.archon/prompts` + `~/.archon/prompts` templates (bash-positional args). |
+| `prompts.ts` | DD10 parameterized `/prompt` command expansion from `<cwd>/.arco/prompts` + `~/.arco/prompts` templates (bash-positional args). |
 | `memoryMonitor.ts` | H46 RSS / heap trend logging. Gated, off by default. |
 | `workers/stuckBreaker.ts` | §3.1 cross-turn, cross-provider error-persistence detector. Same tool input + same `outputHash` + failing status recurring with no success interleaved latches the workflow paused and emits `worker_stuck`; a later success clears the latch. Diagnostic/pause only. |
 | `providers/llamacppServeDiagnose.ts` | DD13 llama.cpp serve-failure diagnosis (cause + one-click ctx / ngl / extraArgs fixes; surfaces in `ModelHealthPanel` under `model-health.llamacpp-*`). |
 | `codexUsage.ts` | Probes the OpenAI Codex usage endpoint via the `~/.codex` token store; companion to `usage.ts`. Drives the Codex pill in `UsageBar`. Surfaces via `GET /api/codex-usage`. |
 | `codexRolloutTokens.ts` | Phase 6 — reads the on-disk Codex rollout file post-`turn.settled` to extract the per-call `last_token_usage` + `model_context_window`, broadcast as `codex_token_snapshot`. Exists because `codex exec --json`'s `turn.completed.usage` aggregates across internal LLM calls (right for billing, wrong for context-window fill). |
-| `handoffPrompts.ts` | Phase 3 — reads the operator-editable Handoff prompts. `loadEffectivePrompt(mode, cwd)` resolves project (`<cwd>/.archon/handoff*.prompt.md`) → global (`~/.archon/handoff*.prompt.md`) → built-in default. Exports `HANDOFF_SEED_PREFIX` as the single source of truth. Empty/whitespace files fall through (a save can't accidentally blank out the prompt). |
-| `skills.ts` | Scans `<cwd>/.archon/skills/*/SKILL.md` and `~/.archon/skills/*/SKILL.md`. Folders without YAML frontmatter or `name:` are skipped. `buildSkillsManifest` provides progressive-disclosure metadata; `buildPickedSkillsBlock` inlines one-shot operator picks; durable `WorkflowConfig.pinnedSkills` refs are re-resolved under a bounded count/byte budget and `buildPinnedSkillsBlock` injects their full bodies as standing system instructions every turn. CRUD via `/api/skills`. |
-| `providers/llamacppRecovery.ts` | Local-model auto-recovery armed when `ARCHON_LLAMACPP_AUTO_RECOVER` is on. Four detection paths (reasoning runaway / stream stall / tool-cap hit / context fill) all share one budget (`ARCHON_LLAMACPP_MAX_RECOVERIES`, default 2 per turn). Builds deterministic in-place message-stack edits or — for context fill — runs an LLM-driven structured-summary turn. |
+| `handoffPrompts.ts` | Phase 3 — reads the operator-editable Handoff prompts. `loadEffectivePrompt(mode, cwd)` resolves project (`<cwd>/.arco/handoff*.prompt.md`) → global (`~/.arco/handoff*.prompt.md`) → built-in default. Exports `HANDOFF_SEED_PREFIX` as the single source of truth. Empty/whitespace files fall through (a save can't accidentally blank out the prompt). |
+| `skills.ts` | Scans `<cwd>/.arco/skills/*/SKILL.md` and `~/.arco/skills/*/SKILL.md`. Folders without YAML frontmatter or `name:` are skipped. `buildSkillsManifest` provides progressive-disclosure metadata; `buildPickedSkillsBlock` inlines one-shot operator picks; durable `WorkflowConfig.pinnedSkills` refs are re-resolved under a bounded count/byte budget and `buildPinnedSkillsBlock` injects their full bodies as standing system instructions every turn. CRUD via `/api/skills`. |
+| `providers/llamacppRecovery.ts` | Local-model auto-recovery armed when `ARCO_LLAMACPP_AUTO_RECOVER` is on. Four detection paths (reasoning runaway / stream stall / tool-cap hit / context fill) all share one budget (`ARCO_LLAMACPP_MAX_RECOVERIES`, default 2 per turn). Builds deterministic in-place message-stack edits or — for context fill — runs an LLM-driven structured-summary turn. |
 | `claude-native/` (subdir) | Phase 7a — `worker.ts` (long-lived in-process worker), `oauth.ts` (subscription-OAuth bootstrap with port-53692 callback + manual-paste fallback), `tools.ts` (Native tool registry — Read / Edit / Write / Bash / Grep / Glob / KillShell / TodoWrite / EnterPlanMode / ExitPlanMode / AskUserQuestion / Task / TaskOutput), `replay.ts` (`replayMessagesFromEvents` with pair-flush + reset-on-handoff_artifact_ready), `index.ts` (factory + `seedClaudeNativeWorkerFromForeignEvents` for cross-workflow Spawn). Refactor additions: the DEBAG gate (`gateStore.ts` / `gateReview.ts`), context-management (`contextBudget.ts` / `foldDigest.ts` / `toolResultEviction.ts`), posture filtering (`toolPosture.ts`), the MCP registry (`registryTools.ts`) + sandbox tools (`sandboxTools.ts` / `sandboxExecutor.ts`), per-realpath `file-mutation-queue.ts` (DD3), the H17 hardline-command floor (in `pretoolGuards.ts`), multi-strategy fuzzy `editApply.ts` (H50), H10 `rateLimit.ts`, and H9 `toolLoopGuard.ts`. |
 | `codex-appserver/` (subdir) | Phase 6 — `worker.ts` (long-lived `codex app-server` per tab), `jsonRpc.ts` (NDJSON over stdio, no envelope), workspace-lifecycle handlers (`thread/resume`, `turn/start`, `turn/interrupt`, `turn/steer` with `expectedTurnId`). |
-| `clusterStore.ts` | Cluster phase 1 — `ClusterState` (cwd, members, name, memberRoles, idleNudgerEnabled), `createCluster` / `readCluster` / `deleteCluster` / `addMember` / `removeMember` / `renameCluster` / `setMemberRole` / `setIdleNudgerEnabled`. Persists to `~/.archon/clusters/<id>/meta.json` with proper-lockfile atomic writes. Hard fences: no nested clusters, no cross-cluster membership, ≥2 members. |
-| `clusterMailbox.ts` | Cluster phase 1 — file-per-message mailbox at `~/.archon/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. `enqueue` / `peek` / `drain` / `markDelivered` / `depthFor` / `mintMsgId`. 16 KB content cap (32 KB for operator transcript-sends), 50-message per-recipient pending cap (oldest dropped). Drain destroys the file — durable record lives in `events.jsonl`. |
+| `clusterStore.ts` | Cluster phase 1 — `ClusterState` (cwd, members, name, memberRoles, idleNudgerEnabled), `createCluster` / `readCluster` / `deleteCluster` / `addMember` / `removeMember` / `renameCluster` / `setMemberRole` / `setIdleNudgerEnabled`. Persists to `~/.arco/clusters/<id>/meta.json` with proper-lockfile atomic writes. Hard fences: no nested clusters, no cross-cluster membership, ≥2 members. |
+| `clusterMailbox.ts` | Cluster phase 1 — file-per-message mailbox at `~/.arco/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. `enqueue` / `peek` / `drain` / `markDelivered` / `depthFor` / `mintMsgId`. 16 KB content cap (32 KB for operator transcript-sends), 50-message per-recipient pending cap (oldest dropped). Drain destroys the file — durable record lives in `events.jsonl`. |
 | `clusterBudget.ts` | Cluster phase 1 — per-sender per-operator-turn send count cap (15). `recordSend(wfid)` returns `{allowed, count, cap}`. Reset on `primary_turn_started` (per sender). |
-| `clusterPlanBridge.ts` | Unified cluster-plan accessor. Clusters attach one active plan by `planId` in `meta.json`; the body is canonical in the per-cwd plan store (`<cwd>/.archon/plans/<planId>.md`). Wired into `index.ts`, `ws/clusterHandlers.ts`, `ws/turnEngine.ts`, `clusterPeerOps.ts`. 32 KB cap (`PLAN_MAX_BYTES`), 28 KB soft warn. |
-| `clusterPlanStore.ts` | **Legacy / migration-only** — the old shared cluster plan body at `~/.archon/clusters/<id>/plan.md`. Read-only via `clusterPlanBridge.ts`, which lazily migrates it into the per-cwd plan store. |
+| `clusterPlanBridge.ts` | Unified cluster-plan accessor. Clusters attach one active plan by `planId` in `meta.json`; the body is canonical in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`). Wired into `index.ts`, `ws/clusterHandlers.ts`, `ws/turnEngine.ts`, `clusterPeerOps.ts`. 32 KB cap (`PLAN_MAX_BYTES`), 28 KB soft warn. |
+| `clusterPlanStore.ts` | **Legacy / migration-only** — the old shared cluster plan body at `~/.arco/clusters/<id>/plan.md`. Read-only via `clusterPlanBridge.ts`, which lazily migrates it into the per-cwd plan store. |
 | `clusterEfficiency.ts` | Per-cluster efficiency level (`thorough` / `balanced` / `lean`, default `thorough`). Single source of truth for the deterministic 3-effect bundle: restraint doctrine into member system prompts + peer-send budget (15 / 8 / 4) + softer mailbox notice. Set via header chip or `+ NEW`; takes effect next turn; reversible. |
 | `clusterProgress.ts` | `buildProgressDoctrine(mode, hasPlan, hasBoard)` — deterministic plan/board/reconcile clause bundle for the per-cluster progress-tracking mode (default `'both'`). |
 | `clusterDirector.ts` | Deterministic full operating contract derived for operator-assigned Director/Coordinator roles: read mail/full outlined plan, reconcile state, delegate through peers, integrate and continue runnable authorized work; conflicts surface immediately. |
@@ -911,16 +911,16 @@ Plans are explicitly attached, not auto-bound — the same plan can be attached 
 | `providers/codexCodeMode.ts` | Catalog-driven Codex code-mode detection + real exec-cell MCP names. App-server also builds developer-level Arco role/tool/Director instructions to outrank the native `/root` collision. Test: `npm run smoke:astra-cluster-director`. |
 | `clusterPeerOps.ts` | Cluster phase 3 — single source of truth for peer-op behaviour. `peerList` / `peerSend` / `peerRead` shared between Native (`peerTools.ts` delegates here) and the REST handlers in `index.ts`. Emits identical `peer_message_sent` / `peer_send_rejected` / `peer_message_received` events across all transports. |
 | `clusterRehydrate.ts` | Cluster phase 5 — `rehydrateClusterOnce(clusterId)` runs on first `cluster_subscribe` per server lifetime; scans the mailbox dir and re-emits `peer_message_sent` for each undelivered file via `broadcastWorkflow` + `broadcastCluster`. In-memory `rehydratedClusters: Set<string>` prevents re-fires. |
-| `clusterIdleNudger.ts` | Cluster phase 5 — operator-armed per-cluster idle nudger. Polling timer (`floor/2` interval) fires `cluster_member_nudged` when a member matches the 5-AND predicate: `idle ≥ floor` AND cooldown AND `pending ≥ 1` AND `nudgesThisTurn < cap` AND no cluster member busy. `IDLE_FLOOR_SECONDS` reads `ARCHON_CLUSTER_IDLE_FLOOR_SECONDS` env var (default 10s). Per-member counter resets on `primary_turn_started`. **NEVER sends prompts to workers** — toast-only operator alert. |
+| `clusterIdleNudger.ts` | Cluster phase 5 — operator-armed per-cluster idle nudger. Polling timer (`floor/2` interval) fires `cluster_member_nudged` when a member matches the 5-AND predicate: `idle ≥ floor` AND cooldown AND `pending ≥ 1` AND `nudgesThisTurn < cap` AND no cluster member busy. `IDLE_FLOOR_SECONDS` reads `ARCO_CLUSTER_IDLE_FLOOR_SECONDS` env var (default 10s). Per-member counter resets on `primary_turn_started`. **NEVER sends prompts to workers** — toast-only operator alert. |
 | `mcp/clusterMcpServer.ts` | Cluster phase 3 — stdio MCP server child the Claude CLI spawns from `mcp-config.json`. Translates the peer MCP tool calls into REST against `/api/clusters/:id/peer/*`. Same wire surface as Native. |
 | `mcp/clusterMcpTools.ts` | The 17 `registerTool` cluster peer-tool definitions (incl. `cluster_plan_read`), shared by the stdio child and the Cursor loopback server; dispatch into `clusterPeerOps.ts`. |
 | `mcp/clusterMcpLoopback.ts` | In-process loopback StreamableHTTP MCP server for Cursor cluster membership (ACP honors MCP over http/sse only). |
-| `mcp/mcpConfigWriter.ts` | Cluster phases 3+4 — `writeFor` produces Claude-CLI `mcp-config.json` for archon-cluster wiring; `buildCodexMcpOverrides` produces the two `-c mcp_servers.archon-cluster.*` TOML argv pairs for Codex's `exec` and `app-server` transports. `cleanupFor` is best-effort fs.rm on detach. |
-| `project/taskLedger.ts` | Director/workers — durable cwd-scoped task store. Reads/writes `<cwd>/.archon/project/tasks.json` (snapshot) and appends `task_ledger_event` entries to the workflow's `events.jsonl`. Statuses `triage / todo / ready / in_progress / blocked / review / done / archived`; `done` / `archived` operator-only. Comments, dependency links, and run history are first-class. Provides the per-cwd advisory lock used by recovery. |
+| `mcp/mcpConfigWriter.ts` | Cluster phases 3+4 — `writeFor` produces Claude-CLI `mcp-config.json` for arco-cluster wiring; `buildCodexMcpOverrides` produces the two `-c mcp_servers.arco-cluster.*` TOML argv pairs for Codex's `exec` and `app-server` transports. `cleanupFor` is best-effort fs.rm on detach. |
+| `project/taskLedger.ts` | Director/workers — durable cwd-scoped task store. Reads/writes `<cwd>/.arco/project/tasks.json` (snapshot) and appends `task_ledger_event` entries to the workflow's `events.jsonl`. Statuses `triage / todo / ready / in_progress / blocked / review / done / archived`; `done` / `archived` operator-only. Comments, dependency links, and run history are first-class. Provides the per-cwd advisory lock used by recovery. |
 | `taskDispatcher.ts` (top-level) | Director/workers — operator-armed deterministic dispatch daemon + one-shot sweep. Eligibility: `ready` status, no open run at the cap, matching member capability. Fires `dispatch_fired` / `dispatch_skipped` events; creates the claim + run before the synthetic worker turn; persists enabled state + settings in cluster meta. No double-dispatch on server restart. |
 | `ws/taskLedgerHandlers.ts` | Director/workers — `task_run_recover` recovery handler (modes: reclaim / terminate / reassign / fail) + heartbeat-staleness detection + the consecutive-failure breaker. Runs under the per-cwd advisory lock from `taskLedger`. |
-| `project/taskWorktree.ts` | Director/workers — managed git worktrees under `~/.archon/worktrees/` for `worktreeRequired` tasks when `autoWorktree` is armed. Creates, reuses, and cleans up `git worktree add` branches; injects path + branch into the worker prompt. |
-| `project/orchestrationProposals.ts` | Director/workers Stage K — stores operator-armed orchestration proposals in `<cwd>/.archon/project/`. Kinds: `task_graph / assignments / recovery / synthesis / swarm`. Accept-selected applies through normal task-kernel APIs; reject mutates nothing. Live model-call hook deferred; current stub accepts the requester's `draft` as the proposal. |
+| `project/taskWorktree.ts` | Director/workers — managed git worktrees under `~/.arco/worktrees/` for `worktreeRequired` tasks when `autoWorktree` is armed. Creates, reuses, and cleans up `git worktree add` branches; injects path + branch into the worker prompt. |
+| `project/orchestrationProposals.ts` | Director/workers Stage K — stores operator-armed orchestration proposals in `<cwd>/.arco/project/`. Kinds: `task_graph / assignments / recovery / synthesis / swarm`. Accept-selected applies through normal task-kernel APIs; reject mutates nothing. Live model-call hook deferred; current stub accepts the requester's `draft` as the proposal. |
 
 The factory glue and dispatcher live in `server/src/index.ts` (~2300 lines — large by design; consolidating WS routing in one file keeps message-flow grep-able). Per-domain handler modules under `server/src/ws/` (cluster, handoff, …) and route modules under `server/src/http/` are wired in via injected back-edges. Boot-readiness helpers live under `server/src/server/` (`readiness.ts`, `broadcast.ts`, `state.ts`, …).
 
@@ -957,7 +957,7 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/git/status?path=<cwd>` | Live git status for the GitDialog (current branch, ahead/behind, dirty, branches, remotes, defaultBranch) |
 | `POST /api/git/checkout` | Branch switch / create from GitDialog. Refuses on dirty trees, validates branch names. |
 | `GET /api/llamacpp-live` / `POST /api/llamacpp-load` / `POST /api/llamacpp-unload` | llama.cpp lifecycle (singleton model server) |
-| `GET/PATCH /api/llamacpp-catalog` | Operator-managed GGUF catalog at `~/.archon/llamacpp.json` |
+| `GET/PATCH /api/llamacpp-catalog` | Operator-managed GGUF catalog at `~/.arco/llamacpp.json` |
 | `GET /api/auth/claude-native` | Native OAuth token status (Phase 7a) |
 | `POST /api/auth/claude-native/{login,callback,logout,probe}` | Native OAuth bootstrap + empirical model probe |
 | `GET /api/claude-native/catalog[?force=1]` | Distilled Anthropic /v1/models with capability flags; hourly cache |
@@ -967,7 +967,7 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/cursor/catalog[?force=1]` | Live Cursor model roster via `cursor-agent models` (500 on error) |
 | `GET /api/codex/catalog[?force=1][&account=<profileId>]` | Distilled Codex model list; `?account` scopes to a per-account `CODEX_HOME` |
 | `GET /api/git/worktrees?wfid[&path]` | Linked-worktree enumeration for the FilesTab picker (`{isRepo, worktrees[]}`) |
-| `GET /api/skills` / `POST /api/skills` / `DELETE /api/skills` | Phase 1 — operator-managed skills CRUD (`<cwd>/.archon/skills/`, `~/.archon/skills/`) |
+| `GET /api/skills` / `POST /api/skills` / `DELETE /api/skills` | Phase 1 — operator-managed skills CRUD (`<cwd>/.arco/skills/`, `~/.arco/skills/`) |
 | `POST /api/skills/audit` | Operator-triggered skill security audit (H35) — invisible-unicode + threat scan, diagnostic only |
 | `GET /api/handoff-prompts` / `POST /api/handoff-prompts` / `DELETE /api/handoff-prompts` | Phase 3 — operator-editable Handoff prompts |
 | `GET /api/preview/<wfid>/*` (ANY method, WS upgrade supported) / `GET /api/preview/probe?port=N` / `GET /api/preview/listening` | Live Preview tab proxy + port probes |
@@ -989,7 +989,7 @@ For request/response shapes per endpoint, see [`HTTP_API.md`](HTTP_API.md).
 - **Director / workers task-dispatch control plane** → [DIRECTOR_WORKERS_WORKFLOW_PLAN.md](DIRECTOR_WORKERS_WORKFLOW_PLAN.md) + [Director / workers task-dispatch control plane](#director--workers-task-dispatch-control-plane) above; task-kernel deep dive in [TASK_LEDGER.md](TASK_LEDGER.md)
 - **Claude Native transport** → [CLAUDE_NATIVE_PLAN.md](CLAUDE_NATIVE_PLAN.md) + [EFFICIENCY_PLAN.md](EFFICIENCY_PLAN.md)
 - **Codex app-server transport** → [CODEX_APPSERVER_PLAN.md](CODEX_APPSERVER_PLAN.md)
-- **What's in `.archon/`, `events.jsonl`, `meta.json`** → [PERSISTENCE.md](PERSISTENCE.md)
+- **What's in `.arco/`, `events.jsonl`, `meta.json`** → [PERSISTENCE.md](PERSISTENCE.md)
 - **The Zustand store, components, theming, performance** → [CLIENT.md](CLIENT.md)
 - **Running locally, ports, recovering stuck states** → [OPERATIONS.md](OPERATIONS.md)
 - **"Don't regress X because Y"** → [GOTCHAS.md](GOTCHAS.md)
@@ -1013,7 +1013,7 @@ event scheduling and guarded dispatch). `conditionFacts.ts` observes public
 worker output/telemetry at the broadcast chokepoints; `inputObservation.ts` uses
 isolated tool-free Luna LOW turns only for an armed script's human-input facts.
 Explicit Native/Codex questions are authoritative without a model check.
-`archon_condition` capabilities/state/create/manage travels through the existing
+`arco_condition` capabilities/state/create/manage travels through the existing
 single approved voice MCP/catalog/browser relay, then authenticated HTTP.
 Normal worker messages and compaction use synthetic ordinary handlers with a
 last-check claim guard under mailbox locks; compaction does not require a mic.

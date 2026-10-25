@@ -19,7 +19,7 @@ test('split + refs: images by extension, refs fold in the shared shape', () => {
 });
 
 test('loadImages: base64 + mime; empty, oversized and missing files skipped with a reason', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     const ok = join(dir, 'ok.png');
     const empty = join(dir, 'empty.png');
@@ -60,7 +60,7 @@ function dims(path: string): [number, number] {
 
 test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; original untouched', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     // ':' in the name — ImageMagick must not read it as a format prefix.
     const src = join(dir, 'shot at 10:00.png');
@@ -84,7 +84,7 @@ test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; or
 
 test('deriveModelImage: small PNG needs no copy; modelImagePath falls back to the original', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     const src = join(dir, 'small.png');
     gen(src, ['-size', '400x300', 'xc:white']);
@@ -103,7 +103,7 @@ test('deriveModelImage: small PNG needs no copy; modelImagePath falls back to th
 
 test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImages sends it as image/jpeg', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     const src = join(dir, 'noisy.png');
     gen(src, ['-size', '1900x1900', 'xc:', '+noise', 'Random']);
@@ -122,7 +122,7 @@ test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImage
 
 test('queueModelImage + awaitModelImage: awaits the in-flight derivation', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     const src = join(dir, 'tall.jpg');
     gen(src, ['-size', '800x2600', 'gradient:white-black']);
@@ -134,7 +134,7 @@ test('queueModelImage + awaitModelImage: awaits the in-flight derivation', { ski
 });
 
 test('deriveModelImage: failure paths return null, never throw', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-att-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     __resetModelImageStateForTests();
     // Not an image by content / missing file.

@@ -83,13 +83,13 @@ export interface CompactionConfig {
 
 export function defaultCompactionConfig(): CompactionConfig {
   return {
-    enabled: boolEnv('ARCHON_OLLAMA_AUTO_COMPACT', true),
-    contextFillThreshold: floatEnv('ARCHON_OLLAMA_COMPACT_THRESHOLD', 0.85, 0.5, 0.99),
-    warnThreshold: floatEnv('ARCHON_OLLAMA_COMPACT_WARN', 0.75, 0.4, 0.98),
-    maxAutoRecoveries: numEnv('ARCHON_OLLAMA_MAX_COMPACTIONS', 1, 0, 10),
-    keepLastMessages: numEnv('ARCHON_OLLAMA_COMPACT_KEEP_LAST', 10, 2, 100),
-    maxToolCallArgChars: numEnv('ARCHON_OLLAMA_COMPACT_MAX_ARG_CHARS', 8000, 500, 200_000),
-    summaryMaxTokens: numEnv('ARCHON_OLLAMA_COMPACT_SUMMARY_TOKENS', 1024, 128, 4096),
+    enabled: boolEnv('ARCO_OLLAMA_AUTO_COMPACT', true),
+    contextFillThreshold: floatEnv('ARCO_OLLAMA_COMPACT_THRESHOLD', 0.85, 0.5, 0.99),
+    warnThreshold: floatEnv('ARCO_OLLAMA_COMPACT_WARN', 0.75, 0.4, 0.98),
+    maxAutoRecoveries: numEnv('ARCO_OLLAMA_MAX_COMPACTIONS', 1, 0, 10),
+    keepLastMessages: numEnv('ARCO_OLLAMA_COMPACT_KEEP_LAST', 10, 2, 100),
+    maxToolCallArgChars: numEnv('ARCO_OLLAMA_COMPACT_MAX_ARG_CHARS', 8000, 500, 200_000),
+    summaryMaxTokens: numEnv('ARCO_OLLAMA_COMPACT_SUMMARY_TOKENS', 1024, 128, 4096),
   };
 }
 
@@ -111,7 +111,7 @@ export interface CompactionSettingsOverlay {
 // already folds env over the hardcoded baseline); the settings overlay is
 // applied LAST so an operator's CONFIG-tab value wins over a stray env var. A
 // field absent from the overlay leaves the env/default value untouched, so
-// existing ARCHON_OLLAMA_* deployments keep working unchanged when settings is
+// existing ARCO_OLLAMA_* deployments keep working unchanged when settings is
 // absent. Callers (ollama.maybeCompact) trust the settings sanitizer to have
 // clamped the overlay to the same bounds the env parser uses.
 export function resolveCompactionConfig(overlay?: CompactionSettingsOverlay): CompactionConfig {
@@ -314,7 +314,7 @@ export function deterministicDigest(messages: CompactMessage[]): string {
         const name = tc.function?.name ?? '';
         toolCalls.set(name, (toolCalls.get(name) ?? 0) + 1);
         const args = tc.function?.arguments ?? {};
-        // file_path matches Archon's tool shape (ollamaTools.ts) — keep in sync.
+        // file_path matches Arco's tool shape (ollamaTools.ts) — keep in sync.
         if (name === 'Read' && typeof args.file_path === 'string') filesRead.add(args.file_path);
         if ((name === 'Write' || name === 'Edit') && typeof args.file_path === 'string') filesWritten.add(args.file_path);
         if (name === 'Bash' && typeof args.command === 'string') {
@@ -364,7 +364,7 @@ export function compactionSeedMessage(summary: string, foldedCount: number): Com
   return {
     role: 'user',
     content:
-      `[Archon auto-compaction] The earlier ${foldedCount} message(s) of this conversation were summarized to fit the context window. ` +
+      `[Arco auto-compaction] The earlier ${foldedCount} message(s) of this conversation were summarized to fit the context window. ` +
       `Treat the recap below as authoritative state — do NOT re-read files or re-run commands it already records.\n\n` +
       `${summary}\n\n` +
       `Continue from this state.`,

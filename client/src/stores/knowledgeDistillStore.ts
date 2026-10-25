@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel } from '@arco/shared';
 
 // WORKBENCH_EXPANSION_PLAN.md §B3 — knowledge "distill from session" client
 // store. Kept OUT of appStore (mirrors docEditStore): the distill DRAFT is a

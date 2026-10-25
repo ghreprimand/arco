@@ -3,7 +3,7 @@ import type {
   RecallEntry, RecallIndexResponse, ProviderName,
   RecallSearchHit, RecallSearchResponse,
   RecallLink, RecallEntryResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Workbench Expansion §F1 + §F3 — Recall client store.
 //
@@ -80,7 +80,7 @@ interface RecallState {
 }
 
 // §F2 step 3 — localStorage key for the operator-armed on-close toggle.
-const SUMMARIZE_ON_CLOSE_KEY = 'archon.recall.summarizeOnClose';
+const SUMMARIZE_ON_CLOSE_KEY = 'arco.recall.summarizeOnClose';
 
 function readSummarizeOnClose(): boolean {
   try {

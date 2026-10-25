@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useCodexCatalogFor } from '../hooks/useCodexCatalog';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
@@ -93,7 +93,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
   }, [provider, providerAccountRef, codexAccounts, parentConfig.primaryProvider, parentConfig.providerAccountRef]);
 
   // All six providers are spawnable. Antigravity is always-available when
-  // enabled (auth happens inside its desktop app, not via Archon). Local
+  // enabled (auth happens inside its desktop app, not via Arco). Local
   // providers require auth (the WS connection to the daemon, or a
   // configured catalog for llama.cpp).
   const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
@@ -252,7 +252,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 {provider === 'ollama'
                   ? 'No Ollama models installed. Run `ollama pull <model>` and refresh.'
                   : provider === 'llamacpp'
-                    ? 'No llama.cpp models registered. Edit ~/.archon/llamacpp.json (see docs/PROVIDERS.md § llama.cpp) and refresh.'
+                    ? 'No llama.cpp models registered. Edit ~/.arco/llamacpp.json (see docs/PROVIDERS.md § llama.cpp) and refresh.'
                     : 'No models available for this provider.'}
               </div>
             ) : (

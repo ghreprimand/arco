@@ -24,7 +24,7 @@ bootstrapCachedTheme();
 // is always served index.html (Vite dev serves `/` directly; the `^/.*` proxy
 // bypass returns req.url for any non-preview request → Vite's SPA fallback), so it
 // can never collide with the `/terminal` WS upgrade path, `/ws`, or `/api/*`.
-// (Archon ships only as a Vite dev server today — the server at :3001 is API/WS
+// (Arco ships only as a Vite dev server today — the server at :3001 is API/WS
 // only and never serves the client HTML — so dev is the only environment, and this
 // shape is collision-free there. See docs/TERMINAL.md § Pop-out.) The pop-out boots
 // NO app stores and NO `/ws` control plane — it attaches by sessionId over the
@@ -34,7 +34,7 @@ const popoutSessionId = query.get('popoutTerminal');
 // ARCHIVE (docs/ARCHIVE_PLAN.md §3) — the standalone file-explorer window is a
 // second `?app=explorer` branch on the same root entry (no router, same shape
 // as the terminal pop-out above). Serves index.html in both dev (Vite) and
-// prod (ARCHON_SERVE_CLIENT SPA fallback), so it's collision-free everywhere.
+// prod (ARCO_SERVE_CLIENT SPA fallback), so it's collision-free everywhere.
 const explorerApp = query.get('app') === 'explorer';
 // These standalone entries don't mount App's renderer gate. Share only the
 // Phosphor backdrop; no workflow store, connection or layout wrapper is added.

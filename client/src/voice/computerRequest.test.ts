@@ -23,7 +23,7 @@ function setup() {
   registerVoiceToolHandler('computer-text', async () => 'Targets read.');
 }
 
-const call = (id = 'computer-text') => ({ type: 'voice_tool_call' as const, workflowId: id, requestId: 'r', tool: 'archon_targets' as const, args: {} });
+const call = (id = 'computer-text') => ({ type: 'voice_tool_call' as const, workflowId: id, requestId: 'r', tool: 'arco_targets' as const, args: {} });
 
 test('a stale working message becomes idle while queue/reset settlement remains stoppable', () => {
   setup();

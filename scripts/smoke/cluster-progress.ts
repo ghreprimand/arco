@@ -26,7 +26,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-prog-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-prog-'));
   console.log(`Cluster-progress smoke — cwd ${cwd}`);
   console.log('');
 

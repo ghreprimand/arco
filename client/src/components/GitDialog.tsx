@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 // Workbench Expansion I3 — the protected-branch regex moved to shared so the
 // server push guard (gitOps.push) and this dialog share ONE definition.
-import { PROTECTED_BRANCH_RE } from '@archon/shared';
+import { PROTECTED_BRANCH_RE } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 import { ChangesPanel } from './diff/ChangesPanel';
 
@@ -74,7 +74,7 @@ interface Props {
 
 
 function prefsKey(cwd: string): string {
-  return `archon.gitDialog.prefs.${cwd}`;
+  return `arco.gitDialog.prefs.${cwd}`;
 }
 function loadPrefs(cwd: string): RepoPrefs | null {
   try {
@@ -211,7 +211,7 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
       commitSubject: commitSubject.trim(),
       scopeNotes: scopeNotes.trim(),
       isProtected: PROTECTED_BRANCH_RE.test(finalBranch),
-      archonDirtyFiles: archonFiles([...(status.dirtyFiles ?? []), ...(status.stagedFiles ?? [])]).map((f) => displayFile(f)),
+      arcoDirtyFiles: arcoFiles([...(status.dirtyFiles ?? []), ...(status.stagedFiles ?? [])]).map((f) => displayFile(f)),
     });
     if (isCurrentPrimary) {
       // Same-tab dispatch — drops into the existing chat as a regular turn.
@@ -457,16 +457,16 @@ function RepoLine({ status }: { status: GitStatus }) {
   );
 }
 
-function isArchonGeneratedPath(path: string): boolean {
-  return path === '.archon' || path.startsWith('.archon/');
+function isArcoGeneratedPath(path: string): boolean {
+  return path === '.arco' || path.startsWith('.arco/');
 }
 
-function archonFiles(files: GitStatusFile[]): GitStatusFile[] {
-  return files.filter((f) => isArchonGeneratedPath(f.path) || (f.origPath ? isArchonGeneratedPath(f.origPath) : false));
+function arcoFiles(files: GitStatusFile[]): GitStatusFile[] {
+  return files.filter((f) => isArcoGeneratedPath(f.path) || (f.origPath ? isArcoGeneratedPath(f.origPath) : false));
 }
 
 function projectFiles(files: GitStatusFile[]): GitStatusFile[] {
-  return files.filter((f) => !isArchonGeneratedPath(f.path) && !(f.origPath ? isArchonGeneratedPath(f.origPath) : false));
+  return files.filter((f) => !isArcoGeneratedPath(f.path) && !(f.origPath ? isArcoGeneratedPath(f.origPath) : false));
 }
 
 function displayFile(file: GitStatusFile): string {
@@ -490,7 +490,7 @@ function GitStateSummary({ status }: { status: GitStatus }) {
   const toPull = status.toPullFiles ?? [];
   const localFiles = uniqueFiles([...(status.stagedFiles ?? []), ...(status.dirtyFiles ?? [])]);
   const localProject = projectFiles(localFiles);
-  const localArchon = archonFiles(localFiles);
+  const localArco = arcoFiles(localFiles);
 
   return (
     <div
@@ -525,21 +525,21 @@ function GitStateSummary({ status }: { status: GitStatus }) {
       />
       <StatusSection
         title="LOCAL UNCOMMITTED"
-        tone={localProject.length > 0 ? 'accent' : localArchon.length > 0 ? 'warning' : 'muted'}
+        tone={localProject.length > 0 ? 'accent' : localArco.length > 0 ? 'warning' : 'muted'}
         summary={localProject.length > 0
           ? `${localProject.length} project file${localProject.length === 1 ? '' : 's'} dirty`
-          : localArchon.length > 0
+          : localArco.length > 0
             ? 'Only Arco metadata is dirty.'
             : 'Working tree clean.'}
         files={localProject}
         empty="No project files are dirty."
       />
-      {localArchon.length > 0 && (
+      {localArco.length > 0 && (
         <StatusSection
           title="ARCO METADATA"
           tone="warning"
-          summary={`${localArchon.length} generated file${localArchon.length === 1 ? '' : 's'} under .archon/`}
-          files={localArchon}
+          summary={`${localArco.length} generated file${localArco.length === 1 ? '' : 's'} under .arco/`}
+          files={localArco}
           empty=""
           collapsed
         />
@@ -760,7 +760,7 @@ function buildPrompt(args: {
   commitSubject: string;
   scopeNotes: string;
   isProtected: boolean;
-  archonDirtyFiles: string[];
+  arcoDirtyFiles: string[];
 }): string {
   const willPush = args.action !== 'commit';
   const willPR = args.action === 'commit-push-pr';
@@ -783,7 +783,7 @@ function buildPrompt(args: {
   lines.push('');
   lines.push('**Process:**');
   lines.push('1. `git status` to confirm what\'s changed.');
-  lines.push('2. Stage relevant files. Skip what\'s clearly unintentional (lockfile churn you didn\'t introduce, `.env`, debug scripts, `.archon/` runtime metadata, untracked files outside this conversation\'s scope). **Honor the SCOPE NOTES below if any.**');
+  lines.push('2. Stage relevant files. Skip what\'s clearly unintentional (lockfile churn you didn\'t introduce, `.env`, debug scripts, `.arco/` runtime metadata, untracked files outside this conversation\'s scope). **Honor the SCOPE NOTES below if any.**');
   lines.push('3. If there are clearly separable concerns, group them into logical commits. Otherwise one commit is fine.');
   lines.push('4. Write commit messages **from the actual diff** — read it, don\'t rely on session memory. Use a short subject line; body if needed.');
   let stepNum = 5;
@@ -805,10 +805,10 @@ function buildPrompt(args: {
   lines.push('**Pause and ask before:**');
   lines.push('- Force-push, amend, or any history rewrite');
   lines.push('- Including any file you didn\'t touch in this conversation');
-  if (args.archonDirtyFiles.length > 0) {
-    lines.push(`- Staging Arco runtime metadata unless the operator explicitly asks for it: ${args.archonDirtyFiles.map((p) => `\`${p}\``).join(', ')}`);
+  if (args.arcoDirtyFiles.length > 0) {
+    lines.push(`- Staging Arco runtime metadata unless the operator explicitly asks for it: ${args.arcoDirtyFiles.map((p) => `\`${p}\``).join(', ')}`);
   } else {
-    lines.push('- Staging Arco runtime metadata under `.archon/` unless the operator explicitly asks for it');
+    lines.push('- Staging Arco runtime metadata under `.arco/` unless the operator explicitly asks for it');
   }
   if (args.isProtected) {
     lines.push(`- **This branch (\`${args.branch}\`) looks protected — confirm the push target is intentional before pushing.**`);

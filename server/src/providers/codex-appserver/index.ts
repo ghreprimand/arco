@@ -2,7 +2,7 @@
 //
 // The long-lived `CodexAppServerWorker` is cached per workflowId. Each
 // operator turn instantiates a `CodexAppServerTurn` wrapper that adapts
-// the long-lived worker's "events stream forever" surface to Archon's
+// the long-lived worker's "events stream forever" surface to Arco's
 // "one ProviderProcess per turn" contract.
 //
 // `acquireForTurn(workflowId, config)` returns the per-turn wrapper.
@@ -10,7 +10,7 @@
 // to tear down the long-lived child when the operator closes the tab.
 
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { CodexAppServerWorker, computeMcpSignature, bootstrapSurfaceKey, type ToolUseEvent, type PrimaryArtifactEvent, type TurnSettleData } from './worker.js';
 import { codexContextWindowOverride } from '../codexContextWindow.js';
@@ -100,7 +100,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
   get pid(): number | undefined { return this.worker.pid; }
 
   spawn(prompt: string): void {
-    // The app-server child is cached per workflow, but the Archon
+    // The app-server child is cached per workflow, but the Arco
     // WorkerConfig is per turn. Refresh it before ensureStarted()/beginTurn()
     // so attachments, model/effort swaps, cwd, sandbox, and queue hooks match
     // the operator's current send instead of the turn that created the child.

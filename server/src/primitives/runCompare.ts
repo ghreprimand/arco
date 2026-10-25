@@ -21,7 +21,7 @@ import type { WorkerResult } from '../workers/WorkerManager.js';
 import type {
   ServerMessage,
   CompareLegConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface CompareContext {
   workflowId: string;

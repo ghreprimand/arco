@@ -1,7 +1,7 @@
 import type { Theme } from '../types';
 
 // Cute — the deliberately playful one. Soft blush bg, strawberry-pink
-// primary, lilac secondary. Archon's set is otherwise uniformly grave; this is
+// primary, lilac secondary. Arco's set is otherwise uniformly grave; this is
 // the cozy/sweet register it lacked. Light mood: primary must stay legible on
 // the pale bg because ChatMessage paints body text in accent-primary.
 export const cute: Theme = {

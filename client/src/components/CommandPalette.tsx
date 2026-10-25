@@ -165,7 +165,7 @@ export function CommandPalette({ onClose }: Props) {
     { kind: 'command', id: 'cmd:recall', label: 'Recall: search conversations', hint: 'Search every past conversation (F3)', run: () => setShowRecall(true) },
     { kind: 'command', id: 'cmd:settings', label: 'Open Settings', hint: 'Providers, themes, transports', run: () => setShowSettings(true) },
     { kind: 'command', id: 'cmd:manual', label: 'Open User Manual', hint: 'In-app docs', run: () => setShowManual(true) },
-    { kind: 'command', id: 'cmd:shortcuts', label: 'Keyboard shortcuts', hint: 'Cheat sheet (Ctrl/Cmd+?)', run: () => window.dispatchEvent(new CustomEvent('archon:open-shortcuts')) },
+    { kind: 'command', id: 'cmd:shortcuts', label: 'Keyboard shortcuts', hint: 'Cheat sheet (Ctrl/Cmd+?)', run: () => window.dispatchEvent(new CustomEvent('arco:open-shortcuts')) },
     { kind: 'command', id: 'cmd:focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', hint: 'Hide secondary chrome for a full-width chat (I3)', run: () => setFocusMode(!focusMode) },
     { kind: 'command', id: 'cmd:github', label: 'Open GitHub panel', hint: 'PRs, issues', run: () => setShowGithub(true) },
     { kind: 'command', id: 'cmd:media', label: 'Open Media studio', hint: 'Image viewer + audio/video', run: () => openMediaStudio() },

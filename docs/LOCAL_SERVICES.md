@@ -1,6 +1,6 @@
 # Local Services
 
-> Part L of `docs/ARCHON_OPS_PLAN.md`. L1 ships the discovery engine + the
+> Part L of `docs/ARCO_OPS_PLAN.md`. L1 ships the discovery engine + the
 > read-only `GET /api/services` endpoint. L2 (**shipped**) adds the Services tab
 > (open / copy URL / kill / pin) + `DELETE /api/services/:pid` + pin persistence.
 > The tab lives in the **System modal** (alongside Diagnostics / Model Health) —
@@ -31,10 +31,10 @@ the GTK desktop app, the launcher, and `psutil` itself.
 | Discovery engine (socket enumeration + ported heuristics) | `server/src/services/discover.ts` |
 | HTTP routes | `server/src/http/servicesRoutes.ts` (`GET /api/services`, `DELETE /api/services/:pid`) |
 | Shared response types | `shared/src/protocol/services.ts` |
-| Shared pin type | `shared/src/protocol/settings.ts` (`PinnedService` + `ArchonSettings.pinnedServices`) |
+| Shared pin type | `shared/src/protocol/settings.ts` (`PinnedService` + `ArcoSettings.pinnedServices`) |
 | Pin persistence | `server/src/settings.ts` (`sanitizePinnedServices` + `patchSettings`) |
 | UI (L2 + L3) | `client/src/components/ServicesTab.tsx` (rendered in the System modal) |
-| L3 preview-link wire | `client/src/App.tsx` → `SystemHeader.tsx` → `SystemModal.tsx` → `ServicesTab.tsx` (`onSetPreviewPort`); `client/src/components/RightPanel/index.tsx` (`archon:open-preview` listener) |
+| L3 preview-link wire | `client/src/App.tsx` → `SystemHeader.tsx` → `SystemModal.tsx` → `ServicesTab.tsx` (`onSetPreviewPort`); `client/src/components/RightPanel/index.tsx` (`arco:open-preview` listener) |
 | Smoke | `scripts/smoke/services-discovery.ts` (`npm run smoke:services-discovery`) |
 
 The engine is the single source of discovery logic. The route is a thin wrapper
@@ -179,7 +179,7 @@ matching is by the `(cwd, port)` identity.
 
 ### Pin persistence — end to end
 
-Pins are a **machine-level inventory** (`ArchonSettings.pinnedServices:
+Pins are a **machine-level inventory** (`ArcoSettings.pinnedServices:
 PinnedService[]` — `{ cwd: string | null, port, pinnedAt }`), keyed by
 `(cwd, port)`. The client sends the **full new array** on each pin/unpin via
 `POST /api/settings`; `server/src/settings.ts` `sanitizePinnedServices()` drops
@@ -231,8 +231,8 @@ down `App → SystemHeader → SystemModal → ServicesTab` as `onSetPreviewPort
 click time). On click it: (1) `onSetPreviewPort(activeJobId, port, framework)`
 (the same `set_preview_port` message the per-workflow PreviewTab uses, hitting
 the existing `/api/preview/<workflowId>/` proxy); (2) dispatches an
-`archon:open-preview` CustomEvent — `RightPanel` listens for it (sibling to the
-H6 `archon:reveal-in-files` handler) and flips its tab to PREVIEW for the
+`arco:open-preview` CustomEvent — `RightPanel` listens for it (sibling to the
+H6 `arco:reveal-in-files` handler) and flips its tab to PREVIEW for the
 matching workflow; (3) closes the System modal. Manual port binds deliberately
 don't auto-switch (only a fresh auto-detect does), but this explicit operator
 action should.

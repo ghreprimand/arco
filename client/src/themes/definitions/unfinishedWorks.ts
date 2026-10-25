@@ -36,7 +36,7 @@ export const unfinishedWorks: Theme = {
     'color-fg-muted': 'rgba(134, 184, 170, 0.55)',
 
     // Phosphor green — prompts, borders, active chrome. The site's raw --green
-    // is #00ff66 (fully saturated), but on Archon — without the site's screen-
+    // is #00ff66 (fully saturated), but on Arco — without the site's screen-
     // blend CRT film paling it — that read as too vivid/crisp. Nudged paler
     // toward a pastel phosphor green (#4ced95) so it matches the site's
     // rendered appearance. Glow stays teal-ward (rgba(0,138,112)-ish bloom).

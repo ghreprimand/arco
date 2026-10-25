@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VOICE_OUTPUT_OPTIONS, type VoiceOutputId } from '@archon/shared';
+import { VOICE_OUTPUT_OPTIONS, type VoiceOutputId } from '@arco/shared';
 import { useVoiceStore } from '../voice/store';
 
 const control: React.CSSProperties = {

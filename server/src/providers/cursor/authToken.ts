@@ -4,7 +4,7 @@
 //   - macOS: login-keychain generic-password items `cursor-access-token` /
 //     `cursor-refresh-token` (account `cursor-user`) — no auth.json is written,
 //     which made auth.ts/cursorUsage.ts report "not signed in" on Macs.
-// ARCHON_CURSOR_AUTH force-points at a JSON file on any platform and disables
+// ARCO_CURSOR_AUTH force-points at a JSON file on any platform and disables
 // the keychain fallback (an explicit override should never be second-guessed).
 
 import { readFile } from 'fs/promises';
@@ -12,7 +12,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { execFile } from 'child_process';
 
-const AUTH_PATH = process.env.ARCHON_CURSOR_AUTH
+const AUTH_PATH = process.env.ARCO_CURSOR_AUTH
   ?? join(homedir(), '.config', 'cursor', 'auth.json');
 
 const KEYCHAIN_TIMEOUT_MS = 5_000;
@@ -37,7 +37,7 @@ export async function readCursorAccessToken(): Promise<CursorTokenResult> {
       ? { reason: 'missing' }
       : { reason: 'unreadable', detail: `Could not read ${AUTH_PATH}: ${err instanceof Error ? err.message : String(err)}` };
   }
-  if (process.platform === 'darwin' && !process.env.ARCHON_CURSOR_AUTH) {
+  if (process.platform === 'darwin' && !process.env.ARCO_CURSOR_AUTH) {
     const token = await readKeychainToken();
     if (token) return { token, source: 'keychain' };
   }

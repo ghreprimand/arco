@@ -8,7 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { LmstudioModelCapabilities } from './lmstudio.js';
 import { beginLocalModelSwitch, localModelBusyMessage } from './localModelControl.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const exec = promisify(execFile);
 export interface StrataProfile {
@@ -25,7 +25,7 @@ export interface StrataProfileRegistry {
   profiles: StrataProfile[];
 }
 export function strataProfilesPath(): string {
-  return process.env.ARCHON_STRATA_PROFILES || join(archonHome(), 'strata-profiles.json');
+  return process.env.ARCO_STRATA_PROFILES || join(arcoHome(), 'strata-profiles.json');
 }
 export function isManagedStrataEndpoint(base: string): boolean {
   try {

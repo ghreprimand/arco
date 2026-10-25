@@ -1,6 +1,6 @@
-// ARCHON_OPS_PLAN.md Part J (J2) — ntfy external notification transport.
+// ARCO_OPS_PLAN.md Part J (J2) — ntfy external notification transport.
 //
-// Mirrors the management/hubLink gating model: INERT unless ARCHON_NTFY_URL is
+// Mirrors the management/hubLink gating model: INERT unless ARCO_NTFY_URL is
 // set, so an ordinary `npm run dev` is unchanged. When configured, it registers
 // a fire-and-forget sink at the J1 notice chokepoint (server/src/notifications.ts
 // `registerNoticeTransport`) that POSTs each surviving notice to an ntfy topic.
@@ -15,15 +15,15 @@
 // there is no mute logic here.
 
 import { registerNoticeTransport } from './notifications.js';
-import type { WorkbenchNotice, WorkbenchNoticeSeverity } from '@archon/shared';
+import type { WorkbenchNotice, WorkbenchNoticeSeverity } from '@arco/shared';
 
 export interface NtfyConfig {
-  // Full ntfy topic URL to POST to, e.g. http://hub-host.tailnet:3501/archon-<topic>.
+  // Full ntfy topic URL to POST to, e.g. http://hub-host.tailnet:3501/arco-<topic>.
   topicUrl: string;
   // Optional bearer token (ntfy access token) for a protected topic.
   token?: string;
   // The K2 console URL used as the notification's tap target. Derived from
-  // ARCHON_HUB_URL when not given explicitly.
+  // ARCO_HUB_URL when not given explicitly.
   consoleUrl?: string;
   // Workstation label (e.g. "workstation") prefixed onto the body so a glance tells
   // you WHICH machine. Falls back to the OS hostname at init.
@@ -121,7 +121,7 @@ export function getNtfyConfig(): NtfyConfig | null {
 
 /**
  * Initialize the ntfy transport. INERT (no-op, returns false) unless
- * ARCHON_NTFY_URL is set. Idempotent-ish: registers exactly one sink the first
+ * ARCO_NTFY_URL is set. Idempotent-ish: registers exactly one sink the first
  * time it activates. `opts` lets the smoke inject a fake fetch + env + label.
  */
 export function initNtfyTransport(opts?: {
@@ -136,15 +136,15 @@ export function initNtfyTransport(opts?: {
   isRemoteEnabled?: (workflowId: string) => boolean;
 }): boolean {
   const env = opts?.env ?? process.env;
-  const topicUrl = (env.ARCHON_NTFY_URL || '').trim();
+  const topicUrl = (env.ARCO_NTFY_URL || '').trim();
   if (!topicUrl) return false; // inert — ordinary dev run
 
   if (opts?.fetchImpl) fetchImpl = opts.fetchImpl;
   const isRemoteEnabled = opts?.isRemoteEnabled;
   configured = {
     topicUrl,
-    token: (env.ARCHON_NTFY_TOKEN || '').trim() || undefined,
-    consoleUrl: (env.ARCHON_CONSOLE_URL || '').trim() || deriveConsoleUrl(env.ARCHON_HUB_URL),
+    token: (env.ARCO_NTFY_TOKEN || '').trim() || undefined,
+    consoleUrl: (env.ARCO_CONSOLE_URL || '').trim() || deriveConsoleUrl(env.ARCO_HUB_URL),
     instanceLabel: opts?.instanceLabel,
   };
 

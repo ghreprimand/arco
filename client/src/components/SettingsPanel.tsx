@@ -2,7 +2,7 @@ import { MediaAccessSettings } from './MediaAccessSettings';
 import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArchonSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@archon/shared';
+import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
 import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
@@ -154,7 +154,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operatorName: next }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
     } catch {
       // Revert draft to authoritative value on failure.
@@ -167,7 +167,7 @@ export function SettingsPanel({ onClose }: Props) {
   const toggleProviderEnabled = async (provider: ProviderName) => {
     if (savingProvider) return;
     const current = settings?.enabledProviders[provider] !== false;
-    const next: ArchonSettings = {
+    const next: ArcoSettings = {
       enabledProviders: {
         claude: settings?.enabledProviders.claude !== false,
         gemini: settings?.enabledProviders.gemini !== false,
@@ -191,13 +191,13 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
     } catch {
       // Revert on failure — re-fetch authoritative state.
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         setSettings(data);
       } catch { /* leave optimistic — unlikely path */ }
     } finally {
@@ -215,7 +215,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -253,7 +253,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: { utility } }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
     } catch { /* HMR will reconcile */ }
     finally { setOllamaUtilitySaving(false); }
@@ -274,7 +274,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: { utility: next } }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
     } catch { /* HMR will reconcile */ }
     finally { setOllamaUtilitySaving(false); }
@@ -292,7 +292,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lmstudio: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -313,7 +313,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strata: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -1208,9 +1208,9 @@ export function SettingsPanel({ onClose }: Props) {
           <LlamacppCatalogEditor />
         )}
 
-        {/* Phase 1 (operator-features) — Archon-managed skills. Project
-            skills live under <cwd>/.archon/skills/ and version with the
-            project; global skills live under ~/.archon/skills/ and apply
+        {/* Phase 1 (operator-features) — Arco-managed skills. Project
+            skills live under <cwd>/.arco/skills/ and version with the
+            project; global skills live under ~/.arco/skills/ and apply
             everywhere. Manifest of name+description gets injected into
             every primary turn's system prompt; the agent reads each
             SKILL.md on demand via its Read tool. */}
@@ -1237,7 +1237,7 @@ export function SettingsPanel({ onClose }: Props) {
             </button>
           </div>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6', marginBottom: '8px' }}>
-            Project skills live under <code>{'<cwd>/.archon/skills/'}</code> (version with the repo); global skills under <code>~/.archon/skills/</code>. Each is a SKILL.md with frontmatter (name, description). Edits take effect on the next turn — no restart.
+            Project skills live under <code>{'<cwd>/.arco/skills/'}</code> (version with the repo); global skills under <code>~/.arco/skills/</code>. Each is a SKILL.md with frontmatter (name, description). Edits take effect on the next turn — no restart.
           </div>
           {skillsError && (
             <div style={{ fontSize: '10px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)', marginBottom: '6px' }}>
@@ -1290,7 +1290,7 @@ export function SettingsPanel({ onClose }: Props) {
 
         {/* Phase 3 (operator-features) — Handoff prompt overrides. Edits the
             two reflection prompts (`original-worker` and `fresh-summarizer`)
-            that runExportContext loads from .archon/handoff*.prompt.md;
+            that runExportContext loads from .arco/handoff*.prompt.md;
             project beats global beats default. Variables {{cwd}} / {{wfid}}
             / {{handoffPath}} / {{seedPrefix}} substitute at runtime. */}
         <HandoffPromptsEditor cwd={activeCwd} />
@@ -1326,7 +1326,7 @@ export function SettingsPanel({ onClose }: Props) {
           </div>
           {!catalogOpen && (
             <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6' }}>
-              ~/.archon/models.md — routing brain injected to the orchestrator's first turn. Edits take effect on the next fresh / resumed / auto-compacted session.
+              ~/.arco/models.md — routing brain injected to the orchestrator's first turn. Edits take effect on the next fresh / resumed / auto-compacted session.
             </div>
           )}
           {catalogOpen && (
@@ -1442,7 +1442,7 @@ function CodexTransportDefaultsSection() {
         body: JSON.stringify({ codex: { transport: next } }),
       });
       if (res.ok) {
-        const data = (await res.json()) as ArchonSettings;
+        const data = (await res.json()) as ArcoSettings;
         setSettings(data);
       }
     } catch { /* HMR will reconcile */ }
@@ -1459,7 +1459,7 @@ function CodexTransportDefaultsSection() {
         body: JSON.stringify({ claude: { transport: next } }),
       });
       if (res.ok) {
-        const data = (await res.json()) as ArchonSettings;
+        const data = (await res.json()) as ArcoSettings;
         setSettings(data);
       }
     } catch { /* HMR will reconcile */ }
@@ -1573,7 +1573,7 @@ function AutoHandoffDefaultsSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ autoHandoffDefaults: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArchonSettings);
+      if (res.ok) setSettings((await res.json()) as ArcoSettings);
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1595,7 +1595,7 @@ function AutoHandoffDefaultsSection() {
         // null clears it back to "use the tab's current primary".
         body: JSON.stringify({ handoffSummarizer: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArchonSettings);
+      if (res.ok) setSettings((await res.json()) as ArcoSettings);
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1774,7 +1774,7 @@ function ClaudeNativeCompactDefaultSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ claudeNativeCompactDefault: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArchonSettings);
+      if (res.ok) setSettings((await res.json()) as ArcoSettings);
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1823,7 +1823,7 @@ function ClaudeNativeCompactDefaultSection() {
 // prompt per cwd per server lifetime, rendered in the composer of whichever tab
 // hit the gate first; miss it (you were on the cluster parent tab, or a peer
 // consumed it) and the repo stays silently suppressed with no way back short of
-// hand-editing ~/.archon/trust.json. This is that way back, and it's global —
+// hand-editing ~/.arco/trust.json. This is that way back, and it's global —
 // no tab or cluster needed. Per-tab CONFIG and the cluster header chip write
 // the same file.
 function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
@@ -1845,7 +1845,7 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultProjectTrust: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArchonSettings);
+      if (res.ok) setSettings((await res.json()) as ArcoSettings);
       await refresh();
     } catch { /* next refresh reconciles */ }
     finally { setSavingDefault(false); }
@@ -1864,7 +1864,7 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
         PROJECT TRUST
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6, marginBottom: '10px' }}>
-        An untrusted repo's <code>CLAUDE.md</code>, project skills, and <code>.archon/settings.json</code> stay out of every turn — a cloned repo can't inject instructions into your agent before you've read them. Decisions are keyed by directory (nearest ancestor wins) and cover every tab and cluster member pointed at it. Recorded in <code>~/.archon/trust.json</code>; effective on the next turn, no restart.
+        An untrusted repo's <code>CLAUDE.md</code>, project skills, and <code>.arco/settings.json</code> stay out of every turn — a cloned repo can't inject instructions into your agent before you've read them. Decisions are keyed by directory (nearest ancestor wins) and cover every tab and cluster member pointed at it. Recorded in <code>~/.arco/trust.json</code>; effective on the next turn, no restart.
       </div>
 
       {/* Fallback for a cwd with no recorded decision. 'ask' is the safe
@@ -2020,7 +2020,7 @@ function defaultCodexProfileDraft(n: number): CodexProfileDraft {
     id,
     label,
     shortLabel,
-    codexHome: `~/.archon/provider-accounts/codex-${id}`,
+    codexHome: `~/.arco/provider-accounts/codex-${id}`,
     authBrowser: { command: '' },
     authArgsText: '',
   };
@@ -2104,7 +2104,7 @@ function CodexProfilesSection() {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || res.statusText);
       }
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       setSettings(data);
       setEditingIds(new Set());
       const authRes = await fetch('/api/auth-status');
@@ -2271,7 +2271,7 @@ function CodexProfilesSection() {
                     <input
                       value={profile.codexHome ?? ''}
                       onChange={(e) => updateDraft(profile.id, { codexHome: e.target.value })}
-                      placeholder="~/.archon/provider-accounts/codex-work"
+                      placeholder="~/.arco/provider-accounts/codex-work"
                       style={inputStyle}
                       title="CODEX_HOME"
                     />

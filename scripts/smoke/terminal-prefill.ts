@@ -104,7 +104,7 @@ async function main() {
 
   // No-auto-exec end-to-end: spawn a real PTY, run the prefill path, and assert
   // the command sat on the prompt WITHOUT executing.
-  const root = mkdtempSync(join(tmpdir(), 'archon-prefill-'));
+  const root = mkdtempSync(join(tmpdir(), 'arco-prefill-'));
   const mgr = new PtyManager();
 
   await step('no-auto-exec: single-line prefilled command does NOT run', async () => {
@@ -118,7 +118,7 @@ async function main() {
 
     // The channel's PRODUCTION prefill path: wrapPrefillForPty → ptyManager.write.
     // A sentinel token that would only ever appear in OUTPUT if the shell ran it.
-    const SENTINEL = 'ARCHON_PREFILL_SENTINEL_42';
+    const SENTINEL = 'ARCO_PREFILL_SENTINEL_42';
     const command = `echo ${SENTINEL}`;
     const written = wrapPrefillForPty(`${command}\n`); // simulate a client that appended \n
     assert(written.startsWith('\x1b[200~') && written.endsWith('\x1b[201~'), 'production transform wraps in bracketed paste');
@@ -158,8 +158,8 @@ async function main() {
 
     // Two sentinels: the FIRST line's sentinel must never appear as OUTPUT until
     // Enter. If the interior \n auto-submitted line 1, FIRST would echo twice.
-    const FIRST = 'ARCHON_MULTI_FIRST_77';
-    const SECOND = 'ARCHON_MULTI_SECOND_88';
+    const FIRST = 'ARCO_MULTI_FIRST_77';
+    const SECOND = 'ARCO_MULTI_SECOND_88';
     const block = `echo ${FIRST}\necho ${SECOND}`; // interior newline between the two
     const written = wrapPrefillForPty(block);
     assert(written.startsWith('\x1b[200~') && written.endsWith('\x1b[201~'), 'multi-line payload is bracketed-paste wrapped');

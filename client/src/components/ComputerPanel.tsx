@@ -11,7 +11,7 @@ import { Panel } from './primitives/Panel';
 import { ComputerComposer } from './ComputerComposer';
 import { computerRequestActive } from '../voice/computerRequest';
 import { revokeComputerTextTools } from '../voice/toolBridge';
-import { computerResetPercent, type ComputerContextControlMessage } from '@archon/shared';
+import { computerResetPercent, type ComputerContextControlMessage } from '@arco/shared';
 
 const button: React.CSSProperties = {
   background: 'transparent', color: 'var(--color-accent-primary)',

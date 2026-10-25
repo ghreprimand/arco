@@ -17,9 +17,9 @@
 // a cold catalog does not imply a login problem.
 
 import { spawn } from 'node:child_process';
-import type { CursorCatalogModel, CursorCatalogSnapshot } from '@archon/shared';
+import type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
-export type { CursorCatalogModel, CursorCatalogSnapshot } from '@archon/shared';
+export type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const SPAWN_TIMEOUT_MS = 15_000;

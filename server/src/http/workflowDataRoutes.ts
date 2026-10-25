@@ -1,5 +1,5 @@
 import { resolveWorkflowDocument } from './readConfinement.js';
-import type { ChatMessage } from '@archon/shared';
+import type { ChatMessage } from '@arco/shared';
 import { readFile, stat } from 'fs/promises';
 import { IncomingMessage, ServerResponse } from 'http';
 import { homedir } from 'os';
@@ -39,7 +39,7 @@ import {
   setSessionArchived,
   type SessionSelector,
 } from '../workflows/sessionIndex.js';
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 import {
   findCodexRolloutPath,
   loadCodexTranscript,
@@ -219,7 +219,7 @@ export async function tryHandleWorkflowDataRoutes(
         }
       }
       const markdown = lines.join('\n');
-      const filename = `archon-${sessionId.slice(0, 8)}-${exportedAt.slice(0, 10)}.md`;
+      const filename = `arco-${sessionId.slice(0, 8)}-${exportedAt.slice(0, 10)}.md`;
       res.writeHead(200, {
         'Content-Type': 'text/markdown; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -282,7 +282,7 @@ export async function tryHandleWorkflowDataRoutes(
     return true;
   }
 
-  // Archon workflow listing — drives the Resume picker.
+  // Arco workflow listing — drives the Resume picker.
   if (req.url?.match(/^\/api\/workflows(\?|$)/) && req.method === 'GET') {
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -298,9 +298,9 @@ export async function tryHandleWorkflowDataRoutes(
   }
 
   // Conversation purge — irreversibly delete a workflow's on-disk footprint.
-  //   DELETE /api/workflows/<wfid>?path=<cwd>&mode=archon|nuclear
+  //   DELETE /api/workflows/<wfid>?path=<cwd>&mode=arco|nuclear
   //   body: { confirm: true }  (nuclear also requires { confirmName: <name> })
-  // 'archon' removes everything Archon wrote; 'nuclear' also removes the bound
+  // 'arco' removes everything Arco wrote; 'nuclear' also removes the bound
   // provider session files (~/.claude/projects/…, codex rollout). The
   // type-the-name check on nuclear is the secondary verification (no undo).
   if (req.url?.match(/^\/api\/workflows\/[^/?]+(\?|$)/) && req.method === 'DELETE') {
@@ -372,7 +372,7 @@ export async function tryHandleWorkflowDataRoutes(
   }
 
   // Phase 6 handoff artifact reader. Handoff documents live under
-  // `<cwd>/.archon/workflows/<wfid>/handoffs/`. Mirrors the /artifact
+  // `<cwd>/.arco/workflows/<wfid>/handoffs/`. Mirrors the /artifact
   // endpoint's shape + sanitization; separate root to avoid loosening the
   // /artifact endpoint's path-traversal guard.
   if (req.url?.startsWith('/api/workflows/handoff') && req.method === 'GET') {
@@ -476,7 +476,7 @@ export async function tryHandleWorkflowDataRoutes(
   }
 
   // Per-workflow artifact reader. Workers write report-shaped outputs into
-  // `<cwd>/.archon/workflows/<wfid>/artifacts/`; the client fetches them on
+  // `<cwd>/.arco/workflows/<wfid>/artifacts/`; the client fetches them on
   // demand when chat contains `[artifact:<name>]`. Name is strictly sanitized.
   if (req.url?.startsWith('/api/workflows/artifact') && req.method === 'GET') {
     try {
@@ -523,7 +523,7 @@ export async function tryHandleWorkflowDataRoutes(
   }
 
   // ── Plans REST ──
-  // List, read, create, update plans stored at <cwd>/.archon/plans/.
+  // List, read, create, update plans stored at <cwd>/.arco/plans/.
   //
   // Attach is reachable BOTH ways and both land the same `plan_attached`
   // event: the PLAN tab uses the WS `plan_attach` message, while `POST
@@ -534,7 +534,7 @@ export async function tryHandleWorkflowDataRoutes(
   // reverse-engineering the route. `planAuthoringNote` in turnEngine now
   // tells them outright.)
   // ── Plan reference docs ──
-  // <cwd>/.archon/plans/<planId>.refs/<slug>.md. Ahead of every generic
+  // <cwd>/.arco/plans/<planId>.refs/<slug>.md. Ahead of every generic
   // startsWith('/api/plans') handler below (route order decides). Agent-
   // callable like /api/plans (wsAuth AGENT_TOOL_PATHS) — the plan_ref_* MCP
   // tools are thin wrappers over these.

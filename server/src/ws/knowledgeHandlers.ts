@@ -16,7 +16,7 @@ import { replayEvents as replayWorkflowEvents } from '../workflowStore.js';
 import { renderTranscript } from '../primitives/exportContext.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
 import { runDistill } from '../knowledge/distill.js';
-import type { KnowledgeDistillRequestMessage } from '@archon/shared';
+import type { KnowledgeDistillRequestMessage } from '@arco/shared';
 
 export async function handleKnowledgeDistillRequest(
   ws: WebSocket,
@@ -40,7 +40,7 @@ export async function handleKnowledgeDistillRequest(
     const events = await replayWorkflowEvents(cwd, msg.workflowId, 0);
     transcript = renderTranscript(events);
   } catch (err) {
-    console.error(`[archon] [${msg.workflowId.slice(0, 8)}] distill transcript replay failed:`, err);
+    console.error(`[arco] [${msg.workflowId.slice(0, 8)}] distill transcript replay failed:`, err);
   }
   if (!transcript.trim()) {
     send(ws, { type: 'error', message: 'No transcript yet to distill from — run a turn first.' });
@@ -64,11 +64,11 @@ export async function handleKnowledgeDistillRequest(
     { drafter, transcript, focus: msg.focus },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] knowledge distill ${handle.distillId} started (drafter=${msg.drafter.provider}:${msg.drafter.model}@${msg.drafter.effort})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] knowledge distill ${handle.distillId} started (drafter=${msg.drafter.provider}:${msg.drafter.model}@${msg.drafter.effort})`);
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] distill ${handle.distillId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] distill ${handle.distillId} drafted ("${r.title.slice(0, 40)}", ${r.body.length} chars) — awaiting operator Save`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] distill ${handle.distillId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] distill ${handle.distillId} drafted ("${r.title.slice(0, 40)}", ${r.body.length} chars) — awaiting operator Save`);
   }).catch((err) => {
-    console.error(`[archon] distill ${handle.distillId} settle error:`, err);
+    console.error(`[arco] distill ${handle.distillId} settle error:`, err);
   });
 }

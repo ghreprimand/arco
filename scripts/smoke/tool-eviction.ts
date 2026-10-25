@@ -11,7 +11,7 @@
 //       with raw retained as an informative 1-liner (never bare deletion).
 //   (c) the cross-turn tail eviction keeps a recent verbatim tail (the
 //       mechanism §2.1 Fold reuses).
-//   (d) the operator-arm gate is OFF unless ARCHON_TOOL_EVICT is set.
+//   (d) the operator-arm gate is OFF unless ARCO_TOOL_EVICT is set.
 //
 // Run: npm run smoke:tool-eviction   (no server needed)
 
@@ -29,11 +29,11 @@ async function main(): Promise<void> {
   } = await import('../../server/src/providers/claude-native/toolResultEviction.js');
 
   await step('§2.2.0 gate is OFF by default, ON when armed', () => {
-    delete process.env.ARCHON_TOOL_EVICT;
+    delete process.env.ARCO_TOOL_EVICT;
     assertEq(toolEvictEnabled(), false, 'off by default');
-    process.env.ARCHON_TOOL_EVICT = 'on';
+    process.env.ARCO_TOOL_EVICT = 'on';
     assertEq(toolEvictEnabled(), true, 'armed via env');
-    delete process.env.ARCHON_TOOL_EVICT;
+    delete process.env.ARCO_TOOL_EVICT;
   });
 
   await step('§2.2.1 under budget ⇒ no-op', () => {

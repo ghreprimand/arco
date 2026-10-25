@@ -21,7 +21,7 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { GenesisCodebaseInfo } from '@archon/shared';
+import type { GenesisCodebaseInfo } from '@arco/shared';
 
 const execFileAsync = promisify(execFile);
 

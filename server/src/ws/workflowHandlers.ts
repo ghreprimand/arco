@@ -10,8 +10,8 @@ import { workspaceCloseWorkflow } from '../workspace.js';
 import type {
   PreviewHistoryEntry,
   WorkflowConfig,
-} from '@archon/shared';
-import { zaiModelContextWindow, classifyBranchSource } from '@archon/shared';
+} from '@arco/shared';
+import { zaiModelContextWindow, classifyBranchSource } from '@arco/shared';
 import { disposeClaudeNativeWorker } from '../providers/claude-native/index.js';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
@@ -37,7 +37,7 @@ import { runResearch } from '../primitives/runResearch.js';
 import { runDocEdit } from '../primitives/runDocEdit.js';
 import { runMdTuneup, backupAndWriteInstructionFile, discoverInstructionFiles } from '../primitives/runMdTuneup.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
-import { RESEARCH_MAX_ROUNDS_CEILING } from '@archon/shared';
+import { RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
 import { probeHardware, simulatedProfile } from '../cookbook/hardware.js';
 import { searchCatalog } from '../cookbook/catalog.js';
 import { buildRecommendationTopic, filterCandidatesForProfile } from '../cookbook/recommend.js';
@@ -172,7 +172,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       saved.claudeNativeCompact = false;
       saved.lastActiveAt = Date.now();
       await writeMeta(config.workingDirectory, saved).catch((err) => {
-        console.error(`[archon] [${saved.workflowId.slice(0, 8)}] legacy claude.native.compact migration failed:`, err);
+        console.error(`[arco] [${saved.workflowId.slice(0, 8)}] legacy claude.native.compact migration failed:`, err);
       });
     }
     config = {
@@ -263,7 +263,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     }
     resumeSessionId = config.resumeSessionId;
 
-    // If an Archon workflow in this cwd already owns this native session,
+    // If an Arco workflow in this cwd already owns this native session,
     // reuse its wfid so the resumed tab writes into the same events.jsonl
     // and inherits any existing handoff/history state.
     if (config.workingDirectory) {
@@ -315,7 +315,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       // is shared + world-writable (another user's /tmp/CLAUDE.md, AGENTS.md,
       // .claude/settings.json got loaded as project config), so use the
       // per-process 0700 dir. Still never registered as a persistence cwd, and
-      // Archon creates no per-conversation directory or files.
+      // Arco creates no per-conversation directory or files.
       config.workingDirectory = incognitoChatCwd();
       // Strict privacy wins over any stale/crafted client config: an incognito
       // workflow is never eligible for management-hub snapshots or remote
@@ -332,14 +332,14 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         config.workingDirectory = chatStorageDir(workflowId);
         await fsPromises.mkdir(config.workingDirectory, { recursive: true });
       } catch (err) {
-        console.error('[archon] chat storage dir create failed:', err);
+        console.error('[arco] chat storage dir create failed:', err);
         send(ws, { type: 'error', message: 'Could not create the private Chat storage directory.' });
         return;
       }
     }
   }
 
-  // ARCHON_OPS_PLAN.md M2 — from-nothing Genesis. A workflow created with a
+  // ARCO_OPS_PLAN.md M2 — from-nothing Genesis. A workflow created with a
   // genesis seed and no working directory runs the staged conversation in a
   // hidden scratch dir until `genesis_scaffold` creates the real project and
   // rebinds the cwd. Assign the scratch cwd here so the rest of creation (store
@@ -354,12 +354,12 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       await fsPromises.mkdir(scratch, { recursive: true });
       config.workingDirectory = scratch;
     } catch (err) {
-      console.error('[archon] genesis scratch dir create failed:', err);
+      console.error('[arco] genesis scratch dir create failed:', err);
     }
   }
 
   // Reuse any existing WorkflowState for this wfid (resume picker onto a
-  // claimed Archon workflow lands here). Preserves in-flight turn state
+  // claimed Arco workflow lands here). Preserves in-flight turn state
   // if somehow the workflow was still alive from a prior session.
   const existing = workflows.get(workflowId);
   if (existing) {
@@ -389,7 +389,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
 
   if (!config.incognito) {
     console.log(
-      `[archon] Workflow ${resumed ? 'resumed' : 'created'}: "${config.name}" [${workflowId.slice(0, 8)}] | ${primary.provider}:${primary.model} @ ${primary.effort}${
+      `[arco] Workflow ${resumed ? 'resumed' : 'created'}: "${config.name}" [${workflowId.slice(0, 8)}] | ${primary.provider}:${primary.model} @ ${primary.effort}${
         resumeSessionId ? ` | resume=${resumeSessionId.slice(0, 8)}` : ''
       }`,
     );
@@ -440,7 +440,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
           savedMeta.autoHandoff = { ...wf.config.autoHandoff };
           savedMeta.lastActiveAt = Date.now();
           await writeMeta(config.workingDirectory, savedMeta).catch((err) => {
-            console.error(`[archon] [${workflowId.slice(0, 8)}] auto-handoff default meta write failed:`, err);
+            console.error(`[arco] [${workflowId.slice(0, 8)}] auto-handoff default meta write failed:`, err);
           });
         }
       }
@@ -481,7 +481,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
           savedMeta.claudeNativeCompact = false;
           savedMeta.lastActiveAt = Date.now();
           await writeMeta(config.workingDirectory, savedMeta).catch((err) => {
-            console.error(`[archon] [${workflowId.slice(0, 8)}] legacy claude.native.compact migration failed:`, err);
+            console.error(`[arco] [${workflowId.slice(0, 8)}] legacy claude.native.compact migration failed:`, err);
           });
         }
         if (wf) wf.config.claudeNativeCompact = legacyCompact ? false : savedMeta.claudeNativeCompact;
@@ -614,7 +614,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         if (wf) wf.previewHistory = [...savedMeta.previewHistory];
       }
     } catch (err) {
-      console.error(`[archon] workflowStore/meta init failed for ${workflowId.slice(0, 8)}:`, err);
+      console.error(`[arco] workflowStore/meta init failed for ${workflowId.slice(0, 8)}:`, err);
     }
   }
 
@@ -693,9 +693,9 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
           resumeLatestLastPromptTokens = evt.lastPromptTokens;
         }
       }
-      console.log(`[archon] [${workflowId.slice(0, 8)}] resume: replayed ${replayed} events from events.jsonl`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] resume: replayed ${replayed} events from events.jsonl`);
     } catch (err) {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] resume replay failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] resume replay failed:`, err);
     }
   }
 
@@ -829,7 +829,7 @@ export async function handleSetPreviewPort(
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] preview meta write failed:`, err);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] preview meta write failed:`, err);
     }
   }
   broadcastWorkflow(workflowId, {
@@ -860,7 +860,7 @@ export async function handleClearPreviewPort(workflowId: string): Promise<void> 
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] preview meta clear failed:`, err);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] preview meta clear failed:`, err);
     }
   }
   broadcastWorkflow(workflowId, { type: 'preview_cleared', workflowId });
@@ -910,7 +910,7 @@ export function handleCancel(ws: WebSocket, workflowId: string): void {
   // operator cancels a cluster member's in-flight turn.
   void notifyClusterStateForWorkflow(workflowId);
   if (!wf.config.incognito) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] cancel: killed primary turn${dropped > 0 ? ` (discarded ${dropped} queued interjection${dropped === 1 ? '' : 's'})` : ''}`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] cancel: killed primary turn${dropped > 0 ? ` (discarded ${dropped} queued interjection${dropped === 1 ? '' : 's'})` : ''}`);
   }
 }
 
@@ -934,7 +934,7 @@ export function handleCancelQueuedMessage(ws: WebSocket, workflowId: string, cli
   }
   const remaining = wf.queue.steering.length + wf.queue.followUp.length;
   if (!wf.config.incognito) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] queued message cancelled (${clientMessageId.slice(0, 8)}; remaining=${remaining})`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] queued message cancelled (${clientMessageId.slice(0, 8)}; remaining=${remaining})`);
   }
   send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
   broadcastQueueUpdate(workflowId);
@@ -969,7 +969,7 @@ export function handleLoadEarlierMessages(ws: WebSocket, workflowId: string): vo
 }
 
 // Operator closed the tab client-side. Tear down in-memory state so the
-// registry doesn't leak — on-disk state under .archon/workflows/<id>/ is
+// registry doesn't leak — on-disk state under .arco/workflows/<id>/ is
 // kept so the Resume picker can reclaim the workflow later.
 export function handleRemoveWorkflow(workflowId: string): void {
   // Before the registry guard: a tab can be open in the workspace while its
@@ -1042,7 +1042,7 @@ export function handleRemoveWorkflow(workflowId: string): void {
     closeOpenSpansForWorkflow(cwd, workflowId).catch(() => { /* best-effort */ });
     releasePlansWatcher(cwd);
   }
-  // F9 — best-effort unlink of `.archon/<wfid>/mcp-config.json`. May exist
+  // F9 — best-effort unlink of `.arco/<wfid>/mcp-config.json`. May exist
   // because of cluster membership and/or attached codebase-memory; the
   // workflow is gone so nothing should consult the file again. Safe even
   // when the file was never written (cleanupFor uses fs.rm with force).
@@ -1056,7 +1056,7 @@ export function handleRemoveWorkflow(workflowId: string): void {
   for (const s of sessions.values()) {
     s.workflowIds.delete(workflowId);
   }
-  if (!wf.config.incognito) console.log(`[archon] workflow ${workflowId.slice(0, 8)} removed`);
+  if (!wf.config.incognito) console.log(`[arco] workflow ${workflowId.slice(0, 8)} removed`);
 }
 
 // Cancel an in-flight review by killing its worker. The worker's kill path
@@ -1081,13 +1081,13 @@ export function handleCancelReview(ws: WebSocket, workflowId: string, reviewId: 
   }
   const killed = wf.manager.kill(reviewId);
   if (killed) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] review ${reviewId} cancel requested`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] review ${reviewId} cancel requested`);
     return;
   }
   // No live worker — stale row from a prior server run, or the review
   // already settled but the ready message was lost. Broadcast a synthetic
   // settle so observers clear the in-flight UI.
-  console.log(`[archon] [${workflowId.slice(0, 8)}] review ${reviewId} cancel: no live worker, synthesizing settle`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] review ${reviewId} cancel: no live worker, synthesizing settle`);
   send(ws, {
     type: 'review_artifact_ready',
     workflowId,
@@ -1130,7 +1130,7 @@ export function handleHandoffCancel(ws: WebSocket, workflowId: string, handoffId
     });
     return;
   }
-  console.log(`[archon] [${workflowId.slice(0, 8)}] handoff ${handoffId} cancel requested`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] handoff ${handoffId} cancel requested`);
   send(ws, {
     type: 'handoff_artifact_ready',
     workflowId,
@@ -1183,7 +1183,7 @@ export function handleHandoffLockClear(ws: WebSocket, cwd: string, workflowId: s
 // and shows up on every observer's HISTORY timeline. v1 is append-only.
 export async function handleCreateLabelRequest(
   ws: WebSocket,
-  msg: import('@archon/shared').CreateLabelRequestMessage,
+  msg: import('@arco/shared').CreateLabelRequestMessage,
 ): Promise<void> {
   const text = (msg.text ?? '').trim();
   if (!text) {
@@ -1220,7 +1220,7 @@ export async function handleCreateLabelRequest(
     targetEventSeq: msg.targetEventSeq,
     createdAt: Date.now(),
   });
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] label pinned at seq ${msg.targetEventSeq}: ${text.slice(0, 60)}`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] label pinned at seq ${msg.targetEventSeq}: ${text.slice(0, 60)}`);
 }
 
 // PHASE_9_FORKS_PLAN.md — REWIND CONVERSATION. Move the workflow's live head to
@@ -1236,7 +1236,7 @@ export async function handleCreateLabelRequest(
 // byte-identical on disk; "undo the undo" is just another rewind.
 export async function handleRevertToPointRequest(
   ws: WebSocket,
-  msg: import('@archon/shared').RevertToPointRequestMessage,
+  msg: import('@arco/shared').RevertToPointRequestMessage,
 ): Promise<void> {
   if (!Number.isFinite(msg.targetSeq) || msg.targetSeq < 1) {
     send(ws, { type: 'error', message: 'revert_to_point_request requires a valid targetSeq.' });
@@ -1298,14 +1298,14 @@ export async function handleRevertToPointRequest(
   if (meta) {
     meta.leafSeq = await getWorkflowHeadSeq(cwd, msg.workflowId);
     await writeMeta(cwd, meta).catch((err) => {
-      console.warn(`[archon] [${msg.workflowId.slice(0, 8)}] writeMeta(leafSeq) failed:`, err);
+      console.warn(`[arco] [${msg.workflowId.slice(0, 8)}] writeMeta(leafSeq) failed:`, err);
     });
   }
 
   // Drop any live Native worker so the next turn rebuilds from the rewound
   // branch. No-op for non-Native transports / no live worker.
   disposeClaudeNativeWorker(msg.workflowId);
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] rewound conversation to seq ${msg.targetSeq}`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] rewound conversation to seq ${msg.targetSeq}`);
 }
 
 // Workbench Expansion A4 — revert the working tree to a checkpoint.
@@ -1318,7 +1318,7 @@ export async function handleRevertToPointRequest(
 // for the exact git mechanism.
 export async function handleRevertToCheckpoint(
   ws: WebSocket,
-  msg: import('@archon/shared').RevertToCheckpointMessage,
+  msg: import('@arco/shared').RevertToCheckpointMessage,
 ): Promise<void> {
   if (!Number.isFinite(msg.seq) || msg.seq < 0) {
     send(ws, { type: 'error', message: 'revert_to_checkpoint requires a valid seq.' });
@@ -1391,7 +1391,7 @@ export async function handleRevertToCheckpoint(
     ts: Date.now(),
   });
   console.log(
-    `[archon] [${msg.workflowId.slice(0, 8)}] reverted to checkpoint seq ${msg.seq} ` +
+    `[arco] [${msg.workflowId.slice(0, 8)}] reverted to checkpoint seq ${msg.seq} ` +
     `(${result.fileCount} files, ${result.backend}); safety snapshot at seq ${safetyGuardSeq}`,
   );
 }
@@ -1437,7 +1437,7 @@ export async function handleRenameWorkflow(ws: WebSocket, workflowId: string, na
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] rename_workflow meta write failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] rename_workflow meta write failed:`, err);
     }
   }
   const broadcastName: string | null = nextName.length === 0 ? null : nextName;
@@ -1451,12 +1451,12 @@ export async function handleRenameWorkflow(ws: WebSocket, workflowId: string, na
       broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
     }
   }
-  console.log(`[archon] [${workflowId.slice(0, 8)}] renamed → ${broadcastName ?? '(default)'}`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] renamed → ${broadcastName ?? '(default)'}`);
 }
 
 // EFFICIENCY_PLAN.md Phase F + F9 — operator toggled "Attach codebase
 // memory" in the CONFIG tab. Persists intent + indexPath on wf.config +
-// meta.json, eagerly rewrites `.archon/<wfid>/mcp-config.json` (so the
+// meta.json, eagerly rewrites `.arco/<wfid>/mcp-config.json` (so the
 // next CLI Claude spawn picks up the entry without the operator having
 // to send a turn first), and broadcasts `codebase_memory_state` so the
 // section + Blast Radius sub-tab see the same source. Codex transports
@@ -1489,14 +1489,14 @@ export async function handleAttachCodebaseMemory(
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] attach_codebase_memory meta write failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] attach_codebase_memory meta write failed:`, err);
     }
     // F9 — sync mcp-config.json so a subsequent CLI Claude spawn (or the
     // operator inspecting the file) sees the codebase-memory entry merged
-    // with any existing archon-cluster entry. Best-effort; the spawn path
+    // with any existing arco-cluster entry. Best-effort; the spawn path
     // also rewrites on each turn, so a transient write failure isn't fatal.
     await syncMcpConfigForWorkflow(workflowId).catch((err) => {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] attach_codebase_memory mcp-config sync failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] attach_codebase_memory mcp-config sync failed:`, err);
     });
   }
   broadcastWorkflow(workflowId, {
@@ -1507,7 +1507,7 @@ export async function handleAttachCodebaseMemory(
     lastIndexedAt: wf.config.codebaseMemory.lastIndexedAt,
     fileCount: wf.config.codebaseMemory.fileCount,
   });
-  console.log(`[archon] [${workflowId.slice(0, 8)}] codebase-memory attached → ${wf.config.codebaseMemory.indexPath}`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] codebase-memory attached → ${wf.config.codebaseMemory.indexPath}`);
 }
 
 export async function handleDetachCodebaseMemory(ws: WebSocket, workflowId: string): Promise<void> {
@@ -1535,14 +1535,14 @@ export async function handleDetachCodebaseMemory(ws: WebSocket, workflowId: stri
         await writeMeta(cwd, meta);
       }
     } catch (err) {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] detach_codebase_memory meta write failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] detach_codebase_memory meta write failed:`, err);
     }
     // F9 — sync mcp-config.json so the codebase-memory entry disappears
     // from the next CLI Claude spawn. If the workflow is still in a cluster,
-    // the file gets rewritten with just the archon-cluster entry; otherwise
+    // the file gets rewritten with just the arco-cluster entry; otherwise
     // it's unlinked outright. Best-effort.
     await syncMcpConfigForWorkflow(workflowId).catch((err) => {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] detach_codebase_memory mcp-config sync failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] detach_codebase_memory mcp-config sync failed:`, err);
     });
   }
   broadcastWorkflow(workflowId, {
@@ -1553,7 +1553,7 @@ export async function handleDetachCodebaseMemory(ws: WebSocket, workflowId: stri
     lastIndexedAt: wf.config.codebaseMemory.lastIndexedAt,
     fileCount: wf.config.codebaseMemory.fileCount,
   });
-  console.log(`[archon] [${workflowId.slice(0, 8)}] codebase-memory detached`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] codebase-memory detached`);
 }
 
 // Phase 2.5 B3 — minimal native-workflow create returning the new
@@ -1595,7 +1595,7 @@ export async function createBlankNativeWorkflow(
       await initWorkflowStore(config.workingDirectory, workflowId);
       await persistInitialMeta(config.workingDirectory, workflowId, config, primary);
     } catch (err) {
-      console.error(`[archon] createBlankNativeWorkflow init failed for ${workflowId.slice(0, 8)}:`, err);
+      console.error(`[arco] createBlankNativeWorkflow init failed for ${workflowId.slice(0, 8)}:`, err);
     }
   }
   send(ws, {
@@ -1604,7 +1604,7 @@ export async function createBlankNativeWorkflow(
     config,
     ...(options?.backgroundCreated ? { backgroundCreated: true } : {}),
   });
-  console.log(`[archon] Workflow created (blank/native helper): "${config.name}" [${workflowId.slice(0, 8)}]`);
+  console.log(`[arco] Workflow created (blank/native helper): "${config.name}" [${workflowId.slice(0, 8)}]`);
   return workflowId;
 }
 
@@ -1617,12 +1617,12 @@ export async function createBlankNativeWorkflow(
 // is READ from settings; it is never written back — the "config read, not
 // write" fence.
 async function resolveFallbackLegs(
-  configured: import('@archon/shared').FallbackLegConfig[] | undefined,
+  configured: import('@arco/shared').FallbackLegConfig[] | undefined,
   fallbackAccountRef: string | undefined,
   cwd: string,
-): Promise<import('@archon/shared').FallbackLegConfig[] | undefined> {
+): Promise<import('@arco/shared').FallbackLegConfig[] | undefined> {
   if (!configured || configured.length === 0) return undefined;
-  const out: import('@archon/shared').FallbackLegConfig[] = [];
+  const out: import('@arco/shared').FallbackLegConfig[] = [];
   for (const leg of configured) {
     if (leg.provider === 'codex') {
       const acct = await resolveProviderAccount('codex', leg.providerAccountRef ?? fallbackAccountRef, cwd).catch(() => null);
@@ -1642,7 +1642,7 @@ async function resolveFallbackLegs(
 export async function handleReviewRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ReviewRequestMessage,
+  msg: import('@arco/shared').ReviewRequestMessage,
 ): Promise<void> {
   const wf = workflows.get(msg.workflowId);
   if (!wf) {
@@ -1650,7 +1650,7 @@ export async function handleReviewRequest(
     return;
   }
   // Chat tabs are projectless — a reviewer is an Agent worker with project
-  // tools and would read/write against the ~/.archon/chats persistence cwd.
+  // tools and would read/write against the ~/.arco/chats persistence cwd.
   if (isChatWorkflow(wf.config)) {
     send(ws, { type: 'error', message: 'Review is not available in Chat tabs.' });
     return;
@@ -1671,14 +1671,14 @@ export async function handleReviewRequest(
   let builtContent: string; let builtLabel: string;
   if (refKind === 'preview-capture') {
     // §G2 — review a preview-capture report artifact (read + framing + path-confinement in reviewContent.ts).
-    const r = msg.contextRef as Extract<import('@archon/shared').ReviewContextRef, { kind: 'preview-capture' }>;
+    const r = msg.contextRef as Extract<import('@arco/shared').ReviewContextRef, { kind: 'preview-capture' }>;
     const built = await buildPreviewCaptureReviewContent(cwd, msg.workflowId, r.reportName);
     if (built.rejectReason) { send(ws, { type: 'error', message: built.rejectReason }); return; }
     builtContent = built.content; builtLabel = built.label;
   } else if (isPlanRef) {
     const planBuilt = await buildPlanReviewContent(
       cwd,
-      msg.contextRef as Extract<import('@archon/shared').ReviewContextRef, { kind: 'plan-whole' | 'plan-phase' | 'plan-items' }>,
+      msg.contextRef as Extract<import('@arco/shared').ReviewContextRef, { kind: 'plan-whole' | 'plan-phase' | 'plan-items' }>,
       msg.includeGitDiff ?? false,
     );
     if (planBuilt.rejectReason) {
@@ -1689,7 +1689,7 @@ export async function handleReviewRequest(
     builtLabel = planBuilt.label;
   } else if (isClusterPlanRef) {
     const clusterRef = msg.contextRef as Extract<
-      import('@archon/shared').ReviewContextRef,
+      import('@arco/shared').ReviewContextRef,
       { kind: 'cluster-plan-whole' | 'cluster-plan-phase' }
     >;
     const cluster = await clusterStore.readCluster(clusterRef.clusterId).catch(() => null);
@@ -1769,13 +1769,13 @@ export async function handleReviewRequest(
     },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} started (reviewer=${msg.reviewer.provider}:${msg.reviewer.model}@${msg.reviewer.effort}, scope=${builtLabel})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} started (reviewer=${msg.reviewer.provider}:${msg.reviewer.model}@${msg.reviewer.effort}, scope=${builtLabel})`);
 
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} settled${r.verdict ? ` verdict=${r.verdict}` : ''}`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} settled${r.verdict ? ` verdict=${r.verdict}` : ''}`);
   }).catch((err) => {
-    console.error(`[archon] review ${handle.reviewId} settle error:`, err);
+    console.error(`[arco] review ${handle.reviewId} settle error:`, err);
   });
 }
 
@@ -1788,7 +1788,7 @@ export async function handleReviewRequest(
 export async function handleResearchRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ResearchRequestMessage,
+  msg: import('@arco/shared').ResearchRequestMessage,
 ): Promise<void> {
   const wf = workflows.get(msg.workflowId);
   if (!wf) {
@@ -1860,13 +1860,13 @@ export async function handleResearchRequest(
     },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} started (researcher=${msg.researcher.provider}:${msg.researcher.model}@${msg.researcher.effort}, maxRounds=${maxRounds}${msg.seedArtifactName ? `, followUp→${handle.artifactName}` : ''})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} started (researcher=${msg.researcher.provider}:${msg.researcher.model}@${msg.researcher.effort}, maxRounds=${maxRounds}${msg.seedArtifactName ? `, followUp→${handle.artifactName}` : ''})`);
 
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} settled (rounds=${r.roundsUsed}, sources=${r.sourceCount})`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] research ${handle.researchId} settled (rounds=${r.roundsUsed}, sources=${r.sourceCount})`);
   }).catch((err) => {
-    console.error(`[archon] research ${handle.researchId} settle error:`, err);
+    console.error(`[arco] research ${handle.researchId} settle error:`, err);
   });
 }
 
@@ -1891,10 +1891,10 @@ export function handleCancelResearch(ws: WebSocket, workflowId: string, research
   }
   const killed = wf.manager.kill(researchId);
   if (killed) {
-    console.log(`[archon] [${workflowId.slice(0, 8)}] research ${researchId} cancel requested`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] research ${researchId} cancel requested`);
     return;
   }
-  console.log(`[archon] [${workflowId.slice(0, 8)}] research ${researchId} cancel: no live worker, synthesizing settle`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] research ${researchId} cancel: no live worker, synthesizing settle`);
   send(ws, {
     type: 'research_complete',
     workflowId,
@@ -1924,7 +1924,7 @@ export function handleCancelResearch(ws: WebSocket, workflowId: string, research
 export async function handleCookbookRecommendRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').CookbookRecommendRequestMessage,
+  msg: import('@arco/shared').CookbookRecommendRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -1966,13 +1966,13 @@ export async function handleCookbookRecommendRequest(
     { researcher, topic, maxRounds },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} started (profile=${msg.taskProfile}, candidates=${candidates.length}, researcher=${msg.researcher.provider}:${msg.researcher.model}@${msg.researcher.effort}, maxRounds=${maxRounds})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} started (profile=${msg.taskProfile}, candidates=${candidates.length}, researcher=${msg.researcher.provider}:${msg.researcher.model}@${msg.researcher.effort}, maxRounds=${maxRounds})`);
 
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} settled (rounds=${r.roundsUsed})`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook recommend ${handle.researchId} settled (rounds=${r.roundsUsed})`);
   }).catch((err) => {
-    console.error(`[archon] cookbook recommend ${handle.researchId} settle error:`, err);
+    console.error(`[arco] cookbook recommend ${handle.researchId} settle error:`, err);
   });
 }
 
@@ -1995,7 +1995,7 @@ const cookbookDownloads = new Map<string, AbortController>();
 export async function handleCookbookDownloadRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').CookbookDownloadRequestMessage,
+  msg: import('@arco/shared').CookbookDownloadRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -2039,7 +2039,7 @@ export async function handleCookbookDownloadRequest(
     return;
   }
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} started (source=${msg.source}, ${msg.source === 'hf' ? `${msg.repo}@${msg.quant}` : msg.name})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} started (source=${msg.source}, ${msg.source === 'hf' ? `${msg.repo}@${msg.quant}` : msg.name})`);
 
   const run = msg.source === 'hf'
     ? pullHfGguf(
@@ -2071,21 +2071,21 @@ export async function handleCookbookDownloadRequest(
           alias: r.registered.alias,
           message: `Registered as "${r.registered.alias}" — now selectable in CONFIG.`,
         });
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} registered "${r.registered.alias}"`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} registered "${r.registered.alias}"`);
       } else if (r.refused) {
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} REFUSED (size=${r.refused.sizeBytes} free=${r.refused.freeBytes})`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} REFUSED (size=${r.refused.sizeBytes} free=${r.refused.freeBytes})`);
       } else if (r.cancelled) {
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} cancelled`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} cancelled`);
       } else if (r.error) {
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} failed: ${r.error}`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} failed: ${r.error}`);
       } else {
-        console.log(`[archon] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} done`);
+        console.log(`[arco] [${msg.workflowId.slice(0, 8)}] cookbook download ${downloadId} done`);
       }
     })
     .catch((err) => {
       cookbookDownloads.delete(downloadId);
       const m = err instanceof Error ? err.message : String(err);
-      console.error(`[archon] cookbook download ${downloadId} crashed:`, m);
+      console.error(`[arco] cookbook download ${downloadId} crashed:`, m);
       emit({ phase: 'error', message: m });
     });
 }
@@ -2103,7 +2103,7 @@ export function handleCancelCookbookDownload(
   if (ctrl) {
     ctrl.abort();
     cookbookDownloads.delete(downloadId);
-    console.log(`[archon] [${workflowId.slice(0, 8)}] cookbook download ${downloadId} cancel requested`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] cookbook download ${downloadId} cancel requested`);
     return;
   }
   send(ws, {
@@ -2126,7 +2126,7 @@ export function handleCancelCookbookDownload(
 export async function handleDocEditRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').DocEditRequestMessage,
+  msg: import('@arco/shared').DocEditRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -2175,13 +2175,13 @@ export async function handleDocEditRequest(
     },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} started (editor=${msg.editor.provider}:${msg.editor.model}@${msg.editor.effort}, file=${msg.filePath.split('/').pop()}, wholeDoc=${!!msg.wholeDoc})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} started (editor=${msg.editor.provider}:${msg.editor.model}@${msg.editor.effort}, file=${msg.filePath.split('/').pop()}, wholeDoc=${!!msg.wholeDoc})`);
 
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} proposed (${r.replacement.length} chars)`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] doc-edit ${handle.docEditId} proposed (${r.replacement.length} chars)`);
   }).catch((err) => {
-    console.error(`[archon] doc-edit ${handle.docEditId} settle error:`, err);
+    console.error(`[arco] doc-edit ${handle.docEditId} settle error:`, err);
   });
 }
 
@@ -2206,7 +2206,7 @@ function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' 
 export async function handleMdTuneupCandidatesRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').MdTuneupCandidatesRequestMessage,
+  msg: import('@arco/shared').MdTuneupCandidatesRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -2224,7 +2224,7 @@ export async function handleMdTuneupCandidatesRequest(
 export async function handleMdTuneupRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').MdTuneupRequestMessage,
+  msg: import('@arco/shared').MdTuneupRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -2283,25 +2283,25 @@ export async function handleMdTuneupRequest(
     { editor, filePath: abs },
   );
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} started (file=${target}, editor=${msg.editor.provider}:${msg.editor.model}@${msg.editor.effort})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} started (file=${target}, editor=${msg.editor.provider}:${msg.editor.model}@${msg.editor.effort})`);
 
   handle.settled.then((r) => {
-    if (r.error) console.log(`[archon] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} failed: ${r.error}`);
-    else console.log(`[archon] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} proposed (${(r.proposed ?? '').length} chars)`);
+    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} failed: ${r.error}`);
+    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] md-tuneup ${handle.tuneupId} proposed (${(r.proposed ?? '').length} chars)`);
   }).catch((err) => {
-    console.error(`[archon] md-tuneup ${handle.tuneupId} settle error:`, err);
+    console.error(`[arco] md-tuneup ${handle.tuneupId} settle error:`, err);
   });
 }
 
 // Operator accepted a tune-up proposal. Re-read the CURRENT on-disk file, back
-// it up to `.archon/md-backups/<name>.<ts>.bak` (a hidden, .bak-suffixed path no
+// it up to `.arco/md-backups/<name>.<ts>.bak` (a hidden, .bak-suffixed path no
 // agent auto-reads, but recoverable), then write the proposed content through
 // the same resolveWithinCwd guard. The backup is written and fsync-flushed
 // BEFORE the overwrite so a crash mid-write can never lose the original.
 export async function handleMdTuneupAccept(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').MdTuneupAcceptMessage,
+  msg: import('@arco/shared').MdTuneupAcceptMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -2323,11 +2323,11 @@ export async function handleMdTuneupAccept(
   try {
     const abs = resolveWithinCwd(cwd, msg.filePath);
     const { backupPath, bytesWritten } = await backupAndWriteInstructionFile(cwd, abs, msg.proposed, ts);
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] md-tuneup ${msg.tuneupId} applied to ${path.basename(abs)} (${bytesWritten} bytes, backup ${backupPath})`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] md-tuneup ${msg.tuneupId} applied to ${path.basename(abs)} (${bytesWritten} bytes, backup ${backupPath})`);
     send(ws, { type: 'md_tuneup_applied', workflowId: msg.workflowId, tuneupId: msg.tuneupId, filePath: abs, ok: true, backupPath, bytesWritten, ts });
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    console.error(`[archon] md-tuneup ${msg.tuneupId} accept failed:`, error);
+    console.error(`[arco] md-tuneup ${msg.tuneupId} accept failed:`, error);
     send(ws, { type: 'md_tuneup_applied', workflowId: msg.workflowId, tuneupId: msg.tuneupId, filePath: msg.filePath, ok: false, error, ts });
   }
 }
@@ -2348,7 +2348,7 @@ export async function handleMdTuneupAccept(
 export async function handleRecallSummaryRequest(
   ws: WebSocket,
   _session: Session,
-  msg: import('@archon/shared').RecallSummaryRequestMessage,
+  msg: import('@arco/shared').RecallSummaryRequestMessage,
 ): Promise<void> {
   const wfid = msg.wfid;
   // The index entry carries the cwd; resolve a codex account against that cwd
@@ -2374,7 +2374,7 @@ export async function handleRecallSummaryRequest(
   // short-lived read-only spawn (disposed implicitly when it goes out of scope).
   const manager = openWf?.manager ?? new WorkerManager();
 
-  console.log(`[archon] [${wfid.slice(0, 8)}] recall summary requested (summarizer=${msg.summarizer.provider}:${msg.summarizer.model}@${msg.summarizer.effort})`);
+  console.log(`[arco] [${wfid.slice(0, 8)}] recall summary requested (summarizer=${msg.summarizer.provider}:${msg.summarizer.model}@${msg.summarizer.effort})`);
 
   // summarizeWorkflow never throws — but guard the await anyway so a surprise
   // rejection still emits a structured event rather than crashing the handler.
@@ -2386,7 +2386,7 @@ export async function handleRecallSummaryRequest(
     send(ws, { type: 'recall_summary_ready', wfid, summaryRef: null, ok: false, error: m });
     return;
   }
-  console.log(`[archon] [${wfid.slice(0, 8)}] recall summary settled (ok=${result.ok}, ref=${result.summaryRef ?? 'none'})`);
+  console.log(`[arco] [${wfid.slice(0, 8)}] recall summary settled (ok=${result.ok}, ref=${result.summaryRef ?? 'none'})`);
   send(ws, {
     type: 'recall_summary_ready',
     wfid,

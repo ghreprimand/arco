@@ -1,5 +1,5 @@
 import type { EventEmitter } from 'events';
-import type { GenerationSpeed, WorkerConfig } from '@archon/shared';
+import type { GenerationSpeed, WorkerConfig } from '@arco/shared';
 
 // Events a provider process emits. Matches the shape our StreamParser and
 // WorkerManager already expect — so swapping providers is invisible upstream.

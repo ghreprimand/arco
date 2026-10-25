@@ -1,8 +1,8 @@
-// ARCHON_OPS_PLAN.md §B2 — process readiness state.
+// ARCO_OPS_PLAN.md §B2 — process readiness state.
 //
 // Module-level singleton (same mutable-cell pattern as index.ts's `capabilities`
 // cell) tracking whether the server has finished the boot work that must complete
-// before it can take real traffic. Backs GET /readyz, the `archon service status`
+// before it can take real traffic. Backs GET /readyz, the `arco service status`
 // readiness line, and the A1 `core.readiness` diagnostics check.
 //
 // Readiness is EXACTLY two components — `capabilities` + `stores`:

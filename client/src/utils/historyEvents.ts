@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 import type { HistoryEventEntry } from '../stores/appStore';
 
 export function trim80(s: string): string {
@@ -36,14 +36,14 @@ function summarizeToolInput(tool: string, inputJson: string): string {
 }
 
 // Recover the checkpoint guard seq from its ref. Git refs are
-// `refs/archon/<wfid>/<seq>`; the non-git tar fallback ref is
+// `refs/arco/<wfid>/<seq>`; the non-git tar fallback ref is
 // `<wfid>.<seq>.tar`. The guard seq is the value the server's revert handler
 // needs to rebuild the ref (the message's own `seq` field is clobbered by the
 // broadcast seq-stamp, so the ref is the only reliable carrier).
 function guardSeqFromRef(ref: string): number | null {
   if (!ref) return null;
   let token: string | undefined;
-  if (ref.startsWith('refs/archon/')) {
+  if (ref.startsWith('refs/arco/')) {
     token = ref.split('/').pop();
   } else if (ref.endsWith('.tar')) {
     // <wfid>.<seq>.tar — seq is the segment before the .tar extension.
@@ -162,7 +162,7 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
     // broadcast's seq-stamp (`{...message, seq: <eventSeq>}` in
     // persistAndStampSeq), so we CANNOT read the guard seq off `msg.seq`. The
     // guard seq is recovered from the ref's trailing path segment
-    // (`refs/archon/<wfid>/<guardSeq>`), which is never overwritten — that is
+    // (`refs/arco/<wfid>/<guardSeq>`), which is never overwritten — that is
     // the value the server's revert handler needs to rebuild the ref.
     case 'checkpoint_created': {
       const guardSeq = guardSeqFromRef(msg.ref);

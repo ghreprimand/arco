@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §D1 (Part D) — project task ledger smoke.
+// ARCO_OPS_PLAN.md §D1 (Part D) — project task ledger smoke.
 //
 // Headless / module-level (no live server, no API spend): the durable contract
 // — JSON snapshot round-trip + rebuild-from-events + the operator-confirmed-
@@ -29,7 +29,7 @@ import {
 import { writeMeta, type WorkflowMeta } from '../../server/src/workflowMeta.js';
 import type { LedgerTask, TaskLedgerEventMessage } from '../../shared/src/protocol/tasks.js';
 
-const tasksJsonPath = (cwd: string) => path.join(cwd, '.archon', 'project', 'tasks.json');
+const tasksJsonPath = (cwd: string) => path.join(cwd, '.arco', 'project', 'tasks.json');
 
 // Minimal valid meta.json so listWorkflowMetas (used by rebuildFromEvents)
 // enumerates this workflow.
@@ -75,10 +75,10 @@ function emitEvent(
 }
 
 async function main(): Promise<void> {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-ledger-smoke-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-ledger-smoke-'));
   const wfid = randomUUID();
   try {
-    await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+    await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
     await writeMeta(cwd, minimalMeta(cwd, wfid));
     await initWorkflowStore(cwd, wfid);
 

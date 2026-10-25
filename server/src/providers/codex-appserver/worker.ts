@@ -1,7 +1,7 @@
 import { CodexOperatorQuestions } from './operatorQuestions.js';
 // Long-lived per-workflow `codex app-server` worker (Phase 6a + 6b).
 //
-// One Codex CLI subprocess runs for the lifetime of an Archon tab on the
+// One Codex CLI subprocess runs for the lifetime of an Arco tab on the
 // `appserver` transport. Each operator turn is one `turn/start` round-trip
 // against the same JSON-RPC connection, with notifications streaming back
 // as the model thinks/runs tools/replies. Cancel is `turn/interrupt` (not
@@ -43,7 +43,7 @@ import { outputStyleAddendum } from '../outputStyle.js';
 import { goalBlock } from '../goalBlock.js';
 import { awaitModelImage } from '../attachments.js';
 import { codexClusterDeveloperInstructions } from '../codexCodeMode.js';
-import { zaiModelContextWindow, type ProviderName, type SteerItem, type WorkerConfig } from '@archon/shared';
+import { zaiModelContextWindow, type ProviderName, type SteerItem, type WorkerConfig } from '@arco/shared';
 import type { InitializeResponse } from './bindings/InitializeResponse.js';
 import type { ThreadStartParams } from './bindings/v2/ThreadStartParams.js';
 import type { ThreadStartResponse } from './bindings/v2/ThreadStartResponse.js';
@@ -81,8 +81,8 @@ import type { JsonValue } from './bindings/serde_json/JsonValue.js';
 // vendored bindings as a paired change.
 const PINNED_CODEX_CLI_VERSION = '0.128.0';
 
-const ARCHON_CLIENT_NAME = 'archon';
-const ARCHON_CLIENT_VERSION = '0.1.0';
+const ARCO_CLIENT_NAME = 'arco';
+const ARCO_CLIENT_VERSION = '0.1.0';
 
 // Operator cancel: send turn/interrupt, then wait this long for the
 // matching `turn/completed { status: 'interrupted' }` notification before
@@ -95,7 +95,7 @@ const INTERRUPT_ACK_TIMEOUT_MS = 5_000;
 // 120s timer unlocked the tab 38s early and two operator turns bounced with
 // ActiveTurnNotSteerable. Completion is now ONLY the compact turn's own
 // turn/completed notification. Hitting this generous ceiling is a failure: the
-// app-server process is recycled before Archon unlocks the tab.
+// app-server process is recycled before Arco unlocks the tab.
 const COMPACT_TIMEOUT_MS = 10 * 60_000;
 
 type CompactOutcome = 'completed' | 'transport-ended' | 'timeout' | 'request-failed';
@@ -169,7 +169,7 @@ function splitAttachments(paths: string[] | undefined): { images: string[]; nonI
   return { images, nonImages };
 }
 
-// Translate Archon's effort to Codex's ReasoningEffort. The catalog
+// Translate Arco's effort to Codex's ReasoningEffort. The catalog
 // (getCachedCodexModelCapabilities) is consulted when available so we
 // downgrade to the highest *supported* effort for the active model rather
 // than blindly sending `xhigh` to a model that doesn't advertise it (which
@@ -186,8 +186,8 @@ function mapEffort(effort: string | undefined, modelId: string): ReasoningEffort
   return caps.supportedReasoningEfforts[caps.supportedReasoningEfforts.length - 1];
 }
 
-// Archon's EffortLevel maps 1:1 onto Codex's ReasoningEffort now. It did not
-// always: Codex topped out at 'xhigh', so Archon's 'max' was collapsed down to
+// Arco's EffortLevel maps 1:1 onto Codex's ReasoningEffort now. It did not
+// always: Codex topped out at 'xhigh', so Arco's 'max' was collapsed down to
 // it. GPT-6 Astra (2026-09-03) added real 'max' and 'ultra' levels, and keeping
 // the old collapse silently downgraded every MAX turn on Astra. The per-model
 // clamp in mapEffort() is what protects older models that still stop at xhigh —
@@ -438,7 +438,7 @@ export class CodexAppServerWorker extends EventEmitter {
   private readonly operatorQuestions: CodexOperatorQuestions;
   // Operator-triggered native compaction (`thread/compact/start`) is running.
   // While set, the turn-lifecycle notifications for the compact's own internal
-  // turn are isolated from Archon's turn machinery (we don't adopt its turnId
+  // turn are isolated from Arco's turn machinery (we don't adopt its turnId
   // or build a phantom result). Cleared only after the compact's turn/completed
   // arrives, or dispose/teardown drains the waiters.
   private compacting = false;
@@ -522,15 +522,15 @@ export class CodexAppServerWorker extends EventEmitter {
     // project tools, no operator config.toml servers) plus exactly one MCP
     // child whose tools the browser executes. Layered after the reset above.
     if (this.config.interactionMode === 'chat' && this.config.voiceOperator === true) {
-      spawnArgs.push(...buildVoiceMcpOverrides(this.workflowId, parseInt(process.env.ARCHON_PORT || '3001', 10)));
+      spawnArgs.push(...buildVoiceMcpOverrides(this.workflowId, parseInt(process.env.ARCO_PORT || '3001', 10)));
     }
     const codebaseMemoryIndexPath = this.config.codebaseMemoryAttached
       ? this.config.codebaseMemoryIndexPath
       : undefined;
-    // The workflow-scoped `archon` plan entry applies to every workflow with a
+    // The workflow-scoped `arco` plan entry applies to every workflow with a
     // cwd, so this is no longer gated on cluster / codebase-memory.
     if (this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || codebaseMemoryIndexPath)) {
-      const port = parseInt(process.env.ARCHON_PORT || '3001', 10);
+      const port = parseInt(process.env.ARCO_PORT || '3001', 10);
       spawnArgs.push(
         ...buildCodexMcpOverrides(this.workflowId, {
           planToolsCwd: this.config.cwd,
@@ -608,7 +608,7 @@ export class CodexAppServerWorker extends EventEmitter {
 
     try {
       const init = await this.rpc.request<InitializeResponse>('initialize', {
-        clientInfo: { name: ARCHON_CLIENT_NAME, title: 'Arco', version: ARCHON_CLIENT_VERSION },
+        clientInfo: { name: ARCO_CLIENT_NAME, title: 'Arco', version: ARCO_CLIENT_VERSION },
         capabilities: { experimentalApi: true, optOutNotificationMethods: null },
       });
       this.userAgent = init.userAgent;
@@ -677,11 +677,11 @@ export class CodexAppServerWorker extends EventEmitter {
       // injecting `<codex_internal_context source="goal">Continue working
       // toward the active thread goal`. That's standing operator-absent
       // authority over the workflow — the exact pattern CLAUDE.md § Non-goals
-      // fences off — and it's invisible to Archon: the tab shows the turn
+      // fences off — and it's invisible to Arco: the tab shows the turn
       // ended while Codex keeps spending. 2026-07-28 incident: a JWLibrary tab
       // burned 5.4M input tokens over 13 unattended minutes and every operator
       // send bounced with "already has a turn in flight". Clear on every
-      // bootstrap/resume; Archon's NORTH STAR is the operator-owned equivalent.
+      // bootstrap/resume; Arco's NORTH STAR is the operator-owned equivalent.
       await this.clearThreadGoal();
       markAvailable(appServerProvider(this.config));
     } catch (err) {
@@ -840,7 +840,7 @@ export class CodexAppServerWorker extends EventEmitter {
   // this is a single `thread/compact/start` RPC against the live thread; Codex
   // summarizes earlier history into its rollout and the next operator turn
   // continues against the compacted thread (the reduced input shows up on the
-  // CTX bar). Persists automatically in Codex's on-disk rollout — no Archon
+  // CTX bar). Persists automatically in Codex's on-disk rollout — no Arco
   // resume gymnastics, unlike a handoff.
   //
   // Preconditions: bootstrapped (a turn has run, so there's a thread to
@@ -1070,7 +1070,7 @@ export class CodexAppServerWorker extends EventEmitter {
       }
       case 'turn/started': {
         // An operator-triggered compaction runs as Codex's own internal turn.
-        // Don't adopt its turnId as an Archon operator turn — otherwise a real
+        // Don't adopt its turnId as an Arco operator turn — otherwise a real
         // operator turn would be refused ("turn in flight") and the compact's
         // turn/completed would try to settle a turn nobody is listening for.
         const p = n.params as TurnStartedNotification;
@@ -1078,7 +1078,7 @@ export class CodexAppServerWorker extends EventEmitter {
           this.compactTurnId = p.turn.id;
           return;
         }
-        // Only adopt turns ARCHON started. `startedAt` is stamped in
+        // Only adopt turns ARCO started. `startedAt` is stamped in
         // beginTurn() before the `turn/start` RPC, so a genuine operator turn
         // always has it by the time this notification can land — while a turn
         // Codex starts on its own (goal auto-continuation, and anything like
@@ -1487,7 +1487,7 @@ export class CodexAppServerWorker extends EventEmitter {
       this.settleTurn({ error: reason });
       return;
     }
-    // Completed cleanly. Build the Archon-shape result.
+    // Completed cleanly. Build the Arco-shape result.
     const usageSnapshot = this.lastTokenUsage?.turnId === p.turn.id ? this.lastTokenUsage : null;
     const usage = usageSnapshot?.tokenUsage.last;
     const total = usageSnapshot?.tokenUsage.total;
@@ -1504,7 +1504,7 @@ export class CodexAppServerWorker extends EventEmitter {
       ...(usage ? { lastPromptTokens: usage.inputTokens } : {}),
       ...(usage ? {
         usage: {
-          // Map TokenUsageBreakdown → Archon's TokenUsage usageToTokens()
+          // Map TokenUsageBreakdown → Arco's TokenUsage usageToTokens()
           // input. `cached_input_tokens` is a SUBSET of `input_tokens` for
           // OpenAI — see GOTCHAS.md "Codex" section. Surface as cacheRead
           // for the per-worker hover display; the client-side `contextTokens`

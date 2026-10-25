@@ -1,7 +1,7 @@
 // Read live primary-turn state before a deployment. Never sends a prompt.
 import WebSocket from 'ws';
 import { pathToFileURL } from 'node:url';
-import type { ClusterStateMessage, ServerMessage, WorkflowStateSnapshotMessage } from '@archon/shared';
+import type { ClusterStateMessage, ServerMessage, WorkflowStateSnapshotMessage } from '@arco/shared';
 
 type ActiveTurn = { workflowId: string; name?: string };
 export function activeClusterMembers(members: ClusterStateMessage['state']['members']): ActiveTurn[] {
@@ -58,7 +58,7 @@ export async function deploymentPreflight(base = 'http://127.0.0.1:3001'): Promi
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  deploymentPreflight(process.env.ARCHON_PREFLIGHT_URL).then((result) => {
+  deploymentPreflight(process.env.ARCO_PREFLIGHT_URL).then((result) => {
     console.log(JSON.stringify(result, null, 2));
     if (result.active.length) process.exitCode = 2;
   }).catch((error) => { console.error(error.message); process.exitCode = 1; });

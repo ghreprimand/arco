@@ -17,7 +17,7 @@ For the higher-level lifecycle (when these messages fire), see [`ARCHITECTURE.md
 
 ## Connection lifecycle
 
-**Upgrade auth.** `/ws` (and `/terminal`) upgrades need an allowed `Origin` header **and** a valid `archon_session_<port>` cookie, minted by `POST /api/session` (`docs/HTTP_API.md § Session cookie`). Otherwise the server answers `HTTP/1.1 401` and logs `refused upgrade … (peer=… ua=…)`. The client calls `ensureWsSession()` (`client/src/utils/wsSession.ts`) before every connect. Scripted clients (smoke harness) must target a server booted with `ARCHON_WS_AUTH=off`.
+**Upgrade auth.** `/ws` (and `/terminal`) upgrades need an allowed `Origin` header **and** a valid `arco_session_<port>` cookie, minted by `POST /api/session` (`docs/HTTP_API.md § Session cookie`). Otherwise the server answers `HTTP/1.1 401` and logs `refused upgrade … (peer=… ua=…)`. The client calls `ensureWsSession()` (`client/src/utils/wsSession.ts`) before every connect. Scripted clients (smoke harness) must target a server booted with `ARCO_WS_AUTH=off`.
 
 ### `connected` ←
 
@@ -29,7 +29,7 @@ Sent immediately after WS handshake. Carries the server's `sessionId` (per-conne
 
 ### `workspace_sync` →
 
-First message on every WS open. The server owns the open-tab set (`server/src/workspace.ts`, persisted to `~/.archon/workspace.json`); this reports the browser's local non-incognito tabs so the server can **adopt** them — only when the server's workspace is unseeded (`adopt` is a legacy hint, no longer honoured). Task children are never adopted.
+First message on every WS open. The server owns the open-tab set (`server/src/workspace.ts`, persisted to `~/.arco/workspace.json`); this reports the browser's local non-incognito tabs so the server can **adopt** them — only when the server's workspace is unseeded (`adopt` is a legacy hint, no longer honoured). Task children are never adopted.
 
 ```ts
 { type: 'workspace_sync', adopt: boolean,
@@ -161,7 +161,7 @@ has an offline build-metadata fallback. Lifecycle controls are HTTP; see
 `WorkflowConfig.kind` is absent/`workflow` for the coding workbench and `chat`
 for a projectless conversation (`cluster` exists too, but cluster tabs are
 minted by `cluster_create`, never here). A Chat create intentionally sends an empty
-`workingDirectory`; the server assigns `~/.archon/chats/<workflowId>`, persists
+`workingDirectory`; the server assigns `~/.arco/chats/<workflowId>`, persists
 `kind` in `meta.json`, and echoes the resolved config in `workflow_created`.
 Chat provider admission is server-enforced (Claude/Codex/Z.ai/Cursor/Ollama/
 llama.cpp/LM Studio only), not merely a client picker filter.
@@ -178,7 +178,7 @@ memory. Claude CLI runs with `--no-session-persistence`; Codex is forced to
 `exec --ephemeral` (Computer uses a verified pathless ephemeral app-server
 thread); Z.ai is forced to Native. Cursor is rejected because its
 CLI has no non-persistence flag; llama.cpp is rejected because its shared
-Archon-managed daemon writes `~/.archon/llamacpp.log`. Incognito configs are
+Arco-managed daemon writes `~/.arco/llamacpp.log`. Incognito configs are
 excluded from client localStorage and cannot use `resumeWorkflowId` or
 `resumeSessionId`. The server rejects attachments, skills, primitives, remote
 reporting, and every other project/workbench operation on an incognito workflow.
@@ -517,7 +517,7 @@ Opus-5 plan Phase 2 — alias-capability resolution. Emitted by the Claude Nativ
 {
   type: 'model_resolved',
   workflowId: string,
-  requested: string,   // what Archon sent, e.g. 'opus'
+  requested: string,   // what Arco sent, e.g. 'opus'
   served: string,      // what Anthropic ran, e.g. 'claude-opus-5'
 }
 ```
@@ -540,7 +540,7 @@ Opus-5 plan Phase 3 — a Native turn ended with `stop_reason: 'refusal'` (HTTP 
 
 EFFICIENCY_PLAN.md Phase C — Native tool-result filter fired on a tool call. Emitted from `ClaudeNativeWorker.dispatchTool` after the raw output is captured and before it lands in `messages[]`. Cache invariant: filters operate only on the current turn's tool_result; prior turns are never rewritten.
 
-When `originalBytes !== filteredBytes`, the worker gzips the pre-filter raw output to `<cwd>/.archon/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps `rawArtifactPath` (workspace-relative) on the event. The chat-side `FilteredChip` (`ToolCallPill`) renders the byte-shrink summary and offers the path for `zcat` recovery — reversibility is non-negotiable. When a pack runs but doesn't change byte counts (passthrough) the event still fires so transcript review can confirm "filter ran, no change."
+When `originalBytes !== filteredBytes`, the worker gzips the pre-filter raw output to `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps `rawArtifactPath` (workspace-relative) on the event. The chat-side `FilteredChip` (`ToolCallPill`) renders the byte-shrink summary and offers the path for `zcat` recovery — reversibility is non-negotiable. When a pack runs but doesn't change byte counts (passthrough) the event still fires so transcript review can confirm "filter ran, no change."
 
 ```ts
 {
@@ -677,7 +677,7 @@ ULTRACODE_PLAN.md — live per-turn snapshot of the ultracode background subagen
 
 ### `primary_artifact` ←
 
-Inline-expand artifact. Used for `archon-artifact` fenced blocks the primary emits during chat.
+Inline-expand artifact. Used for `arco-artifact` fenced blocks the primary emits during chat.
 
 ```ts
 {
@@ -1035,7 +1035,7 @@ H9 — in-turn tool-loop guardrail (Native). Emitted on the FIRST call where a
 per-turn loop threshold is crossed: the model is re-running the same tool with
 identical args (`identical-repeat`) or getting the byte-identical result back and
 calling again (`no-progress`). `mode` echoes the operator arming
-(`ARCHON_TOOL_LOOP_GUARD`) — `'warn'` (default, non-blocking) or `'stop'` (the
+(`ARCO_TOOL_LOOP_GUARD`) — `'warn'` (default, non-blocking) or `'stop'` (the
 loop was aborted). Metadata is the tool name + an args **HASH** only — never the
 raw args. Persisted.
 
@@ -1165,7 +1165,7 @@ Workflow-scoped (persists to `events.jsonl`). Fired in three cases that share th
 
 1. Initial attach (operator clicks a plan or sends `plan_attach`).
 2. Plan body edited via REST `PATCH` — re-broadcast to every workflow currently attached so other tabs viewing the same plan refresh.
-3. Watcher reconcile after the agent (or any external writer) edits `<cwd>/.archon/plans/<planId>.md` — same payload, debounced 200ms.
+3. Watcher reconcile after the agent (or any external writer) edits `<cwd>/.arco/plans/<planId>.md` — same payload, debounced 200ms.
 
 The client distinguishes "newly attached" from "existing plan changed" by checking whether the message's `planId` matches the workflow's existing `job.plan?.id`. Either way the body is fetched (or refetched) via `GET /api/plans/body` since `updatedAt` advanced.
 
@@ -1330,10 +1330,10 @@ Used for: rate-limit warnings, calibration progress, context-fill warnings, auto
 ### Project-trust gate (DD7)
 
 The untrusted-repo gate. On a turn whose cwd has project-local resources
-(`CLAUDE.md` / project skills / `.archon/settings.json`) **and** no recorded
+(`CLAUDE.md` / project skills / `.arco/settings.json`) **and** no recorded
 trust decision, those resources are suppressed for the turn and the operator is
 prompted to grant trust for future turns. Decisions are recorded in
-`~/.archon/trust.json` keyed by canonical path. Shapes: `serverMessages.ts`
+`~/.arco/trust.json` keyed by canonical path. Shapes: `serverMessages.ts`
 (`project_trust_prompt` / `project_trust_set`) + `clientMessages.ts`
 (`set_project_trust`); the `defaultProjectTrust` config default lives in
 `settings.ts`.
@@ -1687,7 +1687,7 @@ Operator-initiated plan-mode arming. Sent immediately before a `user_message` (s
 
 ### `plan_set` ← (Claude Native)
 
-The Native worker called `EnterPlanMode` and the plan body has been written to `.archon/plans/<planId>.md` and attached (a `plan_attached` fires too). `plan_set` carries the inline body so observers can render it without a separate read.
+The Native worker called `EnterPlanMode` and the plan body has been written to `.arco/plans/<planId>.md` and attached (a `plan_attached` fires too). `plan_set` carries the inline body so observers can render it without a separate read.
 
 ```ts
 {
@@ -1859,7 +1859,7 @@ Native-only edit-before-approve gate. The operator arms the per-tab
 worker parks sensitive tool calls (a static allowlist in `gateReview.ts`) as
 `pendingGates` and lets the operator approve, edit-then-approve, or reject before
 the call runs. Approvals are durable in a `gateStore` sidecar at
-`<cwd>/.archon/workflows/<wfid>/gate-approvals.json` (rehydrate / restart-resume).
+`<cwd>/.arco/workflows/<wfid>/gate-approvals.json` (rehydrate / restart-resume).
 Shapes: `serverMessages.ts` (server) + `clientMessages.ts` (client).
 
 ### `gate_required` ←
@@ -1956,7 +1956,7 @@ Operator revokes a standing approval by its signature.
 
 ## Shadow-git checkpoints (Workbench Expansion §A2 / §A4)
 
-Auto-snapshots of the working tree taken **before** every file-mutating operator turn, stored in a hidden git ref (`refs/archon/<wfid>/<seq>`) — in the project repo, or for non-git workspaces in a shadow bare repo under `~/.archon/checkpoints/<cwd-hash>/git` (size-capped; see `CHECKPOINTS.md`). Pure operator infrastructure — the model never sees them. Shapes: [`shared/src/protocol/checkpoints.ts`](../shared/src/protocol/checkpoints.ts). (The diff / working-changes / upstream-comparison / worktree-list shapes in that file are HTTP, not WS — see `HTTP_API.md`.)
+Auto-snapshots of the working tree taken **before** every file-mutating operator turn, stored in a hidden git ref (`refs/arco/<wfid>/<seq>`) — in the project repo, or for non-git workspaces in a shadow bare repo under `~/.arco/checkpoints/<cwd-hash>/git` (size-capped; see `CHECKPOINTS.md`). Pure operator infrastructure — the model never sees them. Shapes: [`shared/src/protocol/checkpoints.ts`](../shared/src/protocol/checkpoints.ts). (The diff / working-changes / upstream-comparison / worktree-list shapes in that file are HTTP, not WS — see `HTTP_API.md`.)
 
 ### `checkpoint_created` ←
 
@@ -1967,7 +1967,7 @@ Emitted once per checkpoint. Persisted to `events.jsonl` so HISTORY/Activity ren
   type: 'checkpoint_created',
   workflowId: string,
   seq: number,          // the workflow event seq this checkpoint guards; also the ref suffix
-  ref: string,          // refs/archon/<wfid>/<seq> (both backends; legacy events may carry <wfid>.<seq>.tar)
+  ref: string,          // refs/arco/<wfid>/<seq> (both backends; legacy events may carry <wfid>.<seq>.tar)
   label: string,        // e.g. "before turn 42"
   ts: number,
   fileCount: number,
@@ -2265,7 +2265,7 @@ Dispatch a recommendation. There is **no dedicated reply** — the run flows thr
 
 ### `cookbook_download_request` →
 
-Operator-initiated download (HF GGUF → `~/.archon/models/` + auto-register, or Ollama pull). Nothing auto-pulls; the server runs its own authoritative disk pre-flight.
+Operator-initiated download (HF GGUF → `~/.arco/models/` + auto-register, or Ollama pull). Nothing auto-pulls; the server runs its own authoritative disk pre-flight.
 
 ```ts
 {
@@ -2422,9 +2422,9 @@ A cwd-less genesis workflow's working directory was bound after scaffold. The cl
 
 ## Project task ledger (Arco Ops Part D / §K5)
 
-A durable, cwd-scoped task-kernel snapshot that is a rebuildable projection over `events.jsonl` (distinct from the Plan tab and the Phase-7b Tasks panel). Every mutation appends a `task_ledger_event` and re-snapshots `<cwd>/.archon/project/tasks.json` as `{ version, tasks, comments?, runs? }` while preserving legacy `{ tasks }` reads. Shapes: [`shared/src/protocol/tasks.ts`](../shared/src/protocol/tasks.ts).
+A durable, cwd-scoped task-kernel snapshot that is a rebuildable projection over `events.jsonl` (distinct from the Plan tab and the Phase-7b Tasks panel). Every mutation appends a `task_ledger_event` and re-snapshots `<cwd>/.arco/project/tasks.json` as `{ version, tasks, comments?, runs? }` while preserving legacy `{ tasks }` reads. Shapes: [`shared/src/protocol/tasks.ts`](../shared/src/protocol/tasks.ts).
 
-Every message in this family carries an optional `boardKey?: TaskBoardKey`. Absent = the normal project board (`<cwd>/.archon/project/tasks.json`); a key (sanitized to `[A-Za-z0-9_.:-]`, ≤160 chars) selects a private board at `<cwd>/.archon/project/boards/<key>/tasks.json` — how `taskBoardMode:'cluster'` keeps cluster work off the project board without a fake cwd. Clients key snapshots by `cwd` + `boardKey`.
+Every message in this family carries an optional `boardKey?: TaskBoardKey`. Absent = the normal project board (`<cwd>/.arco/project/tasks.json`); a key (sanitized to `[A-Za-z0-9_.:-]`, ≤160 chars) selects a private board at `<cwd>/.arco/project/boards/<key>/tasks.json` — how `taskBoardMode:'cluster'` keeps cluster work off the project board without a fake cwd. Clients key snapshots by `cwd` + `boardKey`.
 
 ### `task_ledger_create` → / `task_ledger_update` → / `task_ledger_delete` →
 
@@ -2642,7 +2642,7 @@ Whether this instance is linked to a management hub (and thus remotely controlla
 {
   type: 'hub_link_status',
   connected: boolean,
-  hubUrl?: string,           // present when ARCHON_HUB_URL is configured
+  hubUrl?: string,           // present when ARCO_HUB_URL is configured
   monitoredCount?: number,   // workflows opted in to remote (= reported to the hub)
   connectedSince?: number,
 }
@@ -2686,7 +2686,7 @@ The current muted-category set. Sent on connect and after every change.
 ```
 { type: 'set_notification_mutes', muted: WorkbenchNoticeCategory[] }
 ```
-Replace the muted set. Persisted server-side (`~/.archon/notification-mutes.json`)
+Replace the muted set. Persisted server-side (`~/.arco/notification-mutes.json`)
 and re-broadcast as `notification_mutes`.
 
 ---
@@ -2726,8 +2726,8 @@ relayed through the server to the window that owns the hands-free session.
 Neither message is persisted; the tool call itself lands in the Computer
 chat's `events.jsonl` as a `primary_tool_use` like any MCP call.
 
-`VoiceOperatorTool` also includes `archon_usage` (read-only quota snapshots)
-and `archon_watch` (create/list/cancel explicit completion watches). The browser
+`VoiceOperatorTool` also includes `arco_usage` (read-only quota snapshots)
+and `arco_watch` (create/list/cancel explicit completion watches). The browser
 uses authenticated `/api/voice/watches` for watch state; `ComputerWatch` binds
 exact worker IDs and busy generations. Saved completions emit the existing
 `workbench_notice` shape with category `computer-watch`, which is also a mute
@@ -2740,7 +2740,7 @@ the HTTP surface plus actual turn-loop settlement.
 These are operator controls for any Computer chat (Codex, Claude Native,
 Ollama or Strata), including supported Incognito Computer chats. Other chats/
 workflows are rejected. The model reaches the same controls through the bounded
-`archon_computer` browser tool, never by emitting protocol messages itself.
+`arco_computer` browser tool, never by emitting protocol messages itself.
 
 | Message | Direction | Fields | Notes |
 |---|---|---|---|
@@ -2758,7 +2758,7 @@ Incognito policies live only in workflow memory, never meta. `voice_tool_result`
 and `computer_context_control` are narrow Incognito protocol exceptions only
 when `voiceOperator:true`; ordinary private chats retain their existing fence.
 
-`archon_computer` actions: status/models/switch/reset/privacy. The browser
+`arco_computer` actions: status/models/switch/reset/privacy. The browser
 validates real catalog IDs/efforts and supports history saved/none (Strata is
 saved-only). Switching uses separate workflows per provider/model/effort/history;
 no transcript is copied between them. Incognito workflows are removed when left.
@@ -2875,11 +2875,11 @@ export type ClientMessage =
   // Workflow rename + codebase memory (EFFICIENCY_PLAN.md Phase F)
   | RenameWorkflowMessage
   | AttachCodebaseMemoryMessage | DetachCodebaseMemoryMessage
-  // Dev/smoke-only test hooks, gated on ARCHON_TEST=1
+  // Dev/smoke-only test hooks, gated on ARCO_TEST=1
   | DebugNativePlanSetMessage
   | DebugNativeAutoCompactProbeMessage
   | DebugClusterAutoTurnInjectMessage
-  // Workbench Expansion / Archon Ops families
+  // Workbench Expansion / Arco Ops families
   | RevertToCheckpointMessage                                       // §A4 shadow-git revert
   | LiveChangesSubscribeMessage | LiveChangesUnsubscribeMessage     // live working-changes feed
   | TerminalOpenMessage | TerminalKillMessage
@@ -2987,7 +2987,7 @@ export type ServerMessage =
   | ClusterOrchestrationProposalRejectedMessage
   | WorkflowRenamedMessage                                           // F5 — operator-set workflow name
   | CodebaseMemoryStateMessage                                       // EFFICIENCY_PLAN Phase F
-  // Workbench Expansion / Archon Ops families
+  // Workbench Expansion / Arco Ops families
   | TerminalOpenedMessage | TerminalKilledMessage | TerminalCommandLoggedMessage | TerminalSessionsMessage
   | TaskLedgerSnapshotMessage | TaskLedgerEventMessage              // task ledger (Part D)
   | McpRegistrySnapshotMessage | McpProbeResultMessage | McpAllowSnapshotMessage | McpMalwareWarningMessage  // MCP registry (Part E) + H21 OSV pre-check
@@ -3003,7 +3003,7 @@ The `WorkerSystemNoticeMessage` is exported from `serverMessages.ts` but is **no
 
 When you add a new message, add it to the relevant union, a server dispatch case (`server/src/index.ts` routes inbound messages to the `server/src/ws/*` handlers), and a case in the client reducer `client/src/ws/handleServerMessage.ts` (called from `hooks/useWebSocket.ts`). The client switch has **no** exhaustive `never` default, so a missing case is silently dropped — not a type error.
 
-Dev/smoke-only hooks (`__debug_native_plan_set`, `__debug_native_auto_compact_probe`, `__debug_cluster_auto_turn_inject`) are in `ClientMessage` but only honored when the server runs with `ARCHON_TEST=1`; they are not part of the operator surface.
+Dev/smoke-only hooks (`__debug_native_plan_set`, `__debug_native_auto_compact_probe`, `__debug_cluster_auto_turn_inject`) are in `ClientMessage` but only honored when the server runs with `ARCO_TEST=1`; they are not part of the operator surface.
 
 ---
 
@@ -3017,10 +3017,10 @@ Dev/smoke-only hooks (`__debug_native_plan_set`, `__debug_native_auto_compact_pr
 
 ### Computer conditional mailbox rule projection
 
-General directives now use `archon_condition`; `archon_mail_rule` is retained
+General directives now use `arco_condition`; `arco_mail_rule` is retained
 for older fixed sequences. `protocol/computerConditions.ts` defines the typed
 worker facts, expression tree, ordered actions, definitions and stored scripts.
-The existing relay accepts `archon_condition` and `archon_compact`. The former
+The existing relay accepts `arco_condition` and `arco_compact`. The former
 uses a JSON-string `definition` argument (HTTP receives the decoded object),
 without recursive JSON-schema references in provider tool catalogs.
 Definitions expose nullable `ttl_minutes`, `max_actions`, `max_worker_turns`;
@@ -3040,7 +3040,7 @@ existing structured protocol. Synthetic worker compact uses the ordinary
 Proof: `npm run smoke:computer-conditions` and `smoke:condition-input`.
 
 The existing `voice_tool_call`/`voice_tool_result` relay additionally accepts
-`archon_mail_rule` (`create`/`list`/`cancel`). `worker_ids` is a JSON array in the
+`arco_mail_rule` (`create`/`list`/`cancel`). `worker_ids` is a JSON array in the
 model schema and JSON-encoded in the relay’s string-valued args; Native, local
 and Codex MCP share `computerToolWireArgs`. The browser validates JSON by calling
 the authenticated `/api/voice/mail-rules` API; no new WebSocket message type.
@@ -3064,6 +3064,6 @@ change; repeated invalidations during a fetch coalesce into another fetch, never
 a timer. Initial selection/context change and reconnect fetch a fresh snapshot,
 so a missed transient push cannot permanently strand the UI. HTTP responses are
 owner/context-epoch guarded. Shared activity kinds/policies/delivery states live
-in `protocol/voiceOperator.ts`. `archon_activity` status/configure/cancel-queued
+in `protocol/voiceOperator.ts`. `arco_activity` status/configure/cancel-queued
 uses the existing voice relay; mailbox-rule tools additionally accept
 pause/resume. Proof: `npm run smoke:computer-activity`.

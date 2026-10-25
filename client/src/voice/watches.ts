@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { voiceText, type ComputerWatch } from '@archon/shared';
+import { voiceText, type ComputerWatch } from '@arco/shared';
 import { useComputerStore } from '../stores/computerStore';
 import { useAppStore } from '../stores/appStore';
 

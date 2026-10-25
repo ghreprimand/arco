@@ -64,7 +64,7 @@ export const cookbook: Section[] = [
         <ul>
           <li>
             <strong>Hugging Face GGUF</strong> — Arco re-queries the repo for the
-            exact quant file, streams it into <Code>~/.archon/models/</Code>, and
+            exact quant file, streams it into <Code>~/.arco/models/</Code>, and
             auto-registers a llama.cpp catalog entry (alias + context + backend).
             The model is <strong>selectable in CONFIG immediately</strong> — no
             manual <Code>llamacpp.json</Code> edit.
@@ -87,7 +87,7 @@ export const cookbook: Section[] = [
         <Note>
           Downloads are operator-initiated, visible in <Code>events.jsonl</Code>{' '}
           (start / progress / done / refused / cancelled), and reversible — delete
-          the file from <Code>~/.archon/models/</Code> and remove the catalog
+          the file from <Code>~/.arco/models/</Code> and remove the catalog
           entry to undo. HF GGUF weights land <strong>only</strong> in the models
           dir (path-confined, sanitized filename); a malicious repo/filename can't
           escape it.

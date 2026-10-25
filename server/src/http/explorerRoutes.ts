@@ -81,7 +81,7 @@ export async function tryHandleExplorerRoutes(
 
   // GET /api/explorer/docs[?project=<abs cwd>] — project-tree DOCUMENTS (§4.1).
   // The docs written FOR a project (Reports/*.md, root *.md, docs/*.md), the
-  // half the .archon artifacts join can't see. Global (known-cwds, bounded
+  // half the .arco artifacts join can't see. Global (known-cwds, bounded
   // per-project) or one project. Always 200; degrades to [] on error.
   if (url.startsWith('/api/explorer/docs') && req.method === 'GET') {
     try {

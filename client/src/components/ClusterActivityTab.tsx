@@ -34,8 +34,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, type ActivityEntry } from '../stores/appStore';
-import type { ClusterStatePayload, ClusterMember } from '@archon/shared';
-import { presetForText } from '@archon/shared';
+import type { ClusterStatePayload, ClusterMember } from '@arco/shared';
+import { presetForText } from '@arco/shared';
 import { coalesceThinkingRuns } from './clusterActivity.helpers';
 
 type ActivityKind =

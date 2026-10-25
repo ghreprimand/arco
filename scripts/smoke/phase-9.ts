@@ -44,10 +44,10 @@ const userContents = (msgs: Awaited<ReturnType<typeof replayMessagesWithResumePo
 
 async function main() {
   const cleanups: string[] = [];
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-phase9-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-phase9-'));
   cleanups.push(cwd);
-  const eventsPath = join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
-  mkdirSync(join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+  const eventsPath = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
+  mkdirSync(join(cwd, '.arco', 'workflows', wfid), { recursive: true });
 
   // Linear turns A, B, then a rewind to the end of turn A (seq 3) followed by a
   // new turn C. The leaf_move's own parent is the linear tail (9) — only its
@@ -89,8 +89,8 @@ async function main() {
   await step('5. rotated-off ancestry → replay flags reconstructed (hygiene-B)', async () => {
     // A separate workflow whose log starts at seq 50 (1..49 rotated off).
     const wf2 = '88888888-0000-1111-2222-333333333333';
-    const ev2 = join(cwd, '.archon', 'workflows', wf2, 'events.jsonl');
-    mkdirSync(join(cwd, '.archon', 'workflows', wf2), { recursive: true });
+    const ev2 = join(cwd, '.arco', 'workflows', wf2, 'events.jsonl');
+    mkdirSync(join(cwd, '.arco', 'workflows', wf2), { recursive: true });
     writeFileSync(ev2,
       line(50, 49, { type: 'user_message_echo', workflowId: wf2, content: 'X' }) +
       line(51, 50, { type: 'primary_text', workflowId: wf2, text: 'x-resp' }) +

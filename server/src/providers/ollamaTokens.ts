@@ -139,7 +139,7 @@ export function estimatePromptTokens(input: {
 
 // Ollama's HISTORICAL default context window when no num_ctx is sent and the
 // Modelfile sets none. Current daemons pick a VRAM-derived default instead
-// (32768 on a 32 GB card, logged as `default_num_ctx`), which Archon measures
+// (32768 on a 32 GB card, logged as `default_num_ctx`), which Arco measures
 // via /api/ps after the first such turn (ollama.ts measuredLoadedCtx). This
 // stays as the conservative floor for a window never measured — it only
 // under-states room, so M9's strict-greater bump check stays safe.
@@ -195,7 +195,7 @@ export function ollamaContextUsage(
 // Ollama's `done` envelope carries exact daemon-side timings: eval_count +
 // eval_duration (decode) and prompt_eval_count + prompt_eval_duration
 // (prefill), durations in nanoseconds. Reading them beats wall-clock timing,
-// which folds in model load, network and Archon's own stream handling.
+// which folds in model load, network and Arco's own stream handling.
 
 export interface GenSpeedSample {
   decodeTokens: number;

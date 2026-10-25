@@ -65,15 +65,15 @@ def harden(env, root):
     home = hardened.get('HOME', str(Path(root) / 'home'))
     hardened.update({
         'DEEPSEEK_URL_BASE': dead + '/v1', 'OLLAMA_URL_BASE': dead, 'LMSTUDIO_URL_BASE': dead + '/v1', 'STRATA_URL_BASE': dead + '/v1',
-        'ARCHON_LLAMACPP_BIN': str(stubs / 'llama-server'), 'ARCHON_LLAMACPP_HOST': '127.0.0.1',
-        'ARCHON_LLAMACPP_PORT': str(closed_port()),
+        'ARCO_LLAMACPP_BIN': str(stubs / 'llama-server'), 'ARCO_LLAMACPP_HOST': '127.0.0.1',
+        'ARCO_LLAMACPP_PORT': str(closed_port()),
         'ANTIGRAVITY_BINARY': str(stubs / 'antigravity'), 'ANTIGRAVITY_CDP_PORT': str(closed_port()),
-        'ARCHON_SEARXNG_URL': dead, 'ARCHON_CHROME_BINARY': str(stubs / 'curl'), 'CHROME_PATH': str(stubs / 'curl'),
+        'ARCO_SEARXNG_URL': dead, 'ARCO_CHROME_BINARY': str(stubs / 'curl'), 'CHROME_PATH': str(stubs / 'curl'),
         'CODEX_HOME': f'{home}/.codex', 'CLAUDE_CONFIG_DIR': f'{home}/.claude',
         'XDG_CONFIG_HOME': f'{home}/.config', 'XDG_DATA_HOME': f'{home}/.local/share', 'XDG_CACHE_HOME': f'{home}/.cache',
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
     })
-    for key in ('ARCHON_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS'):
+    for key in ('ARCO_HUB_URL', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS'):
         hardened.pop(key, None)
     hardened['ARCO_TEST_DENY_LOG'] = str(log)
     return hardened

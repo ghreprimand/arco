@@ -82,7 +82,7 @@ export async function readLatestCodexTokenCount(rolloutPath: string): Promise<Co
   }
 }
 
-// Convert raw rollout usage into Archon's TokenUsage shape. Mirrors the
+// Convert raw rollout usage into Arco's TokenUsage shape. Mirrors the
 // mapping in server/src/workers/WorkerManager.ts:usageToTokens but works
 // directly off the rollout's CodexTokenUsageRaw structure.
 export function rawUsageToTokenUsage(u: CodexTokenUsageRaw): {

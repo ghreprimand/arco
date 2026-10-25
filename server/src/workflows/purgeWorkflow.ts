@@ -1,6 +1,6 @@
 // Conversation purge — irreversibly delete every on-disk artifact of a workflow.
 // Two tiers (REMOTE_MANAGEMENT plan / HISTORY-tab action):
-//   'archon'  — everything Archon wrote: the workflow dir tree (events.jsonl,
+//   'arco'  — everything Arco wrote: the workflow dir tree (events.jsonl,
 //               meta.json, artifacts, handoffs, sandbox, mcp-config, …),
 //               repo + shadow checkpoints, legacy tars/sidecars, the recall
 //               row, and the cluster mailbox.
@@ -38,12 +38,12 @@ export interface PurgeResult {
   error?: string;
 }
 
-// Delete every checkpoint ref `refs/archon/<wfid>/*` in the cwd and shadow
+// Delete every checkpoint ref `refs/arco/<wfid>/*` in the cwd and shadow
 // repos, plus workflow sidecars / legacy tars. All best-effort.
 async function deleteCheckpoints(cwd: string, wfid: string, removed: string[]): Promise<void> {
   // Git-backed: list then delete each ref. Silent when cwd isn't a git repo.
   try {
-    const { stdout } = await execFileAsync('git', ['-C', cwd, 'for-each-ref', '--format=%(refname)', `refs/archon/${wfid}/`]);
+    const { stdout } = await execFileAsync('git', ['-C', cwd, 'for-each-ref', '--format=%(refname)', `refs/arco/${wfid}/`]);
     const refs = stdout.split('\n').map((r) => r.trim()).filter(Boolean);
     for (const ref of refs) {
       await execFileAsync('git', ['-C', cwd, 'update-ref', '-d', ref]).catch(() => {});
@@ -56,7 +56,7 @@ async function deleteCheckpoints(cwd: string, wfid: string, removed: string[]): 
   // checkpoint store. Objects are left for the store's own gc.
   try {
     const shadow = join(checkpointStoreRoot(cwd), 'git');
-    const { stdout } = await execFileAsync('git', ['--git-dir', shadow, 'for-each-ref', '--format=%(refname)', `refs/archon/${wfid}/`]);
+    const { stdout } = await execFileAsync('git', ['--git-dir', shadow, 'for-each-ref', '--format=%(refname)', `refs/arco/${wfid}/`]);
     const refs = stdout.split('\n').map((r) => r.trim()).filter(Boolean);
     for (const ref of refs) {
       await execFileAsync('git', ['--git-dir', shadow, 'update-ref', '-d', ref]).catch(() => {});
@@ -96,7 +96,7 @@ async function deleteProviderSessions(
         if (p) await unlink(p).then(() => removed.push(`codex rollout ${s.sessionId.slice(0, 8)}`)).catch(() => {});
       }
       // gemini raw-session deletion isn't wired in v1 (no stable locator); the
-      // Archon-side data is still fully purged. Noted in HTTP_API / PERSISTENCE.
+      // Arco-side data is still fully purged. Noted in HTTP_API / PERSISTENCE.
     } catch {
       /* best-effort per session */
     }
@@ -130,7 +130,7 @@ export async function purgeWorkflow(
         await handleClusterMemberRemove(clusterId, wfid);
         removed.push(`cluster membership ${clusterId.slice(0, 8)}`);
       } catch (err) {
-        console.error(`[archon] purge: cluster detach failed for ${wfid.slice(0, 8)}:`, err);
+        console.error(`[arco] purge: cluster detach failed for ${wfid.slice(0, 8)}:`, err);
       }
     }
 
@@ -138,7 +138,7 @@ export async function purgeWorkflow(
     try {
       handleRemoveWorkflow(wfid);
     } catch (err) {
-      console.error(`[archon] purge: in-memory teardown failed for ${wfid.slice(0, 8)}:`, err);
+      console.error(`[arco] purge: in-memory teardown failed for ${wfid.slice(0, 8)}:`, err);
     }
 
     // 2. The workflow directory tree (events.jsonl, meta.json, artifacts,
@@ -162,11 +162,11 @@ export async function purgeWorkflow(
     // 7. Nuclear: raw provider session files.
     if (opts.nuclear) await deleteProviderSessions(cwd, sessions, removed);
 
-    console.log(`[archon] purged workflow ${wfid.slice(0, 8)} (${opts.nuclear ? 'nuclear' : 'archon'}): ${removed.join(', ')}`);
+    console.log(`[arco] purged workflow ${wfid.slice(0, 8)} (${opts.nuclear ? 'nuclear' : 'arco'}): ${removed.join(', ')}`);
     return { ok: true, removed };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    console.error(`[archon] purge failed for ${wfid.slice(0, 8)}:`, error);
+    console.error(`[arco] purge failed for ${wfid.slice(0, 8)}:`, error);
     return { ok: false, removed, error };
   }
 }

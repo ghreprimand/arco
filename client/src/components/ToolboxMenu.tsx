@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ProviderName, ToolboxEntry, ToolboxResponse } from '@archon/shared';
+import type { ProviderName, ToolboxEntry, ToolboxResponse } from '@arco/shared';
 
 interface Props {
   onPick: (entry: ToolboxEntry) => void;

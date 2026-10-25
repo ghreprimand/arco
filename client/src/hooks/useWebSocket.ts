@@ -1,7 +1,7 @@
 import { checkBuild } from '../buildCheck';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { ClientMessage, ServerMessage, WorkflowConfig, ModelName, EffortLevel, ChatMessage, ProviderName, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, ClusterMemberProvider, LedgerTaskStatus, TaskLink, GenesisSeed, GenesisGithubParams, GenesisAssistField, GenesisAssistIntent, PreviewCaptureKind, PreviewViewport, WorkbenchNoticeCategory, ArchonSkillRef, BakeoffAttemptSpec } from '@archon/shared';
+import type { ClientMessage, ServerMessage, WorkflowConfig, ModelName, EffortLevel, ChatMessage, ProviderName, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, ClusterMemberProvider, LedgerTaskStatus, TaskLink, GenesisSeed, GenesisGithubParams, GenesisAssistField, GenesisAssistIntent, PreviewCaptureKind, PreviewViewport, WorkbenchNoticeCategory, ArcoSkillRef, BakeoffAttemptSpec } from '@arco/shared';
 // Phase 6 extraction — the per-message dispatch (the former ws.onmessage body)
 // and the streaming-state singletons live under ../ws now. Importing
 // streamState here also loads its module-level useAppStore.subscribe prune
@@ -11,7 +11,7 @@ import { handleServerMessage } from '../ws/handleServerMessage';
 import { ensureWsSession } from '../utils/wsSession';
 import { registerDocEditSender, type DocEditRequestArgs } from '../stores/docEditStore';
 import { registerMdTuneupRequestSender, registerMdTuneupAcceptSender, registerMdTuneupCandidatesSender, type MdTuneupEditor } from '../stores/mdTuneupStore';
-import type { MdTuneupTarget } from '@archon/shared';
+import type { MdTuneupTarget } from '@arco/shared';
 import { registerDistillSender, type DistillRequestArgs } from '../stores/knowledgeDistillStore';
 import { deriveConnectionState, HEALTHZ_PROBE_TIMEOUT_MS } from '../runtime/runtimeState';
 import {
@@ -263,7 +263,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'create_workflow', config }));
   }, []);
 
-  // ARCHON_OPS_PLAN.md M2 — Genesis. Update the workflow's working seed (server
+  // ARCO_OPS_PLAN.md M2 — Genesis. Update the workflow's working seed (server
   // echoes genesis_seed_updated with readiness + next prompt) and trigger the
   // operator-confirmed scaffold (server creates the project, rebinds the cwd).
   const genesisSeedUpdate = useCallback((workflowId: string, seed: GenesisSeed) => {
@@ -281,7 +281,7 @@ export function useWebSocket() {
     }));
   }, []);
 
-  // ARCHON_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing
+  // ARCO_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing
   // workflow (server echoes genesis_creative_armed with the seeded context +
   // codebase assessment).
   const genesisCreativeArm = useCallback((workflowId: string, disarm?: boolean) => {
@@ -749,7 +749,7 @@ export function useWebSocket() {
 
   const updatePrimaryConfig = useCallback((
     workflowId: string,
-    update: { model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArchonSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> },
+    update: { model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> },
   ) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     if (update.model === undefined && update.effort === undefined && update.providerAccountRef === undefined && update.autoHandoff === undefined && update.autoFold === undefined && update.codexTransport === undefined && update.codexContextPolicy === undefined && update.claudeTransport === undefined && update.ultracode === undefined && update.webSearchMaxUses === undefined && update.chatWebAccess === undefined && update.zaiTransport === undefined && update.claudeNativeCompact === undefined && update.claudeNativeForceInterleavedThinkingBeta === undefined && update.claudeNativeThinkingDisplay === undefined && update.nativeCompactAutoContinue === undefined && update.efficiencyToolFilter === undefined && update.efficiencyFactForce === undefined && update.efficiencyConfigProtection === undefined && update.efficiencySandbox === undefined && update.reviewSafeMode === undefined && update.outputStyle === undefined && update.goal === undefined && update.goalRun === undefined && update.pinnedSkills === undefined && update.remoteEnabled === undefined && update.remoteGatesEnabled === undefined && update.ollamaParams === undefined) return;
@@ -922,7 +922,7 @@ export function useWebSocket() {
     }));
   }, []);
 
-  // ARCHON_OPS_PLAN.md §D1 — project task ledger (cwd-scoped, server resolves
+  // ARCO_OPS_PLAN.md §D1 — project task ledger (cwd-scoped, server resolves
   // the cwd from the workflowId). The server re-snapshots after each mutation.
   const taskLedgerCreate = useCallback(
     (workflowId: string, title: string, notes?: string, links?: TaskLink[], boardKey?: string) => {
@@ -1180,7 +1180,7 @@ export function useWebSocket() {
   const addClusterFreshWorkers = useCallback((
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@archon/shared').ClusterMemberAccessMode },
+    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode },
   ) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({
@@ -1401,7 +1401,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'rename_workflow', workflowId, name }));
   }, []);
 
-  // ARCHON_OPS_PLAN.md §E1 — MCP registry. The registry is machine-global;
+  // ARCO_OPS_PLAN.md §E1 — MCP registry. The registry is machine-global;
   // CRUD broadcasts a fresh snapshot to every client. Per-tab enablement +
   // dangerous-tool ticks (mcpWorkflowAllow) and diagnostics (mcpProbe) are
   // workflow-scoped.

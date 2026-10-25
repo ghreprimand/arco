@@ -29,15 +29,15 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { registerClusterTools, type ClusterMcpToolCtx } from './clusterMcpTools.js';
 import { registerPlanTools } from './planMcpTools.js';
-import type { ClusterMemberAccessMode } from '@archon/shared';
+import type { ClusterMemberAccessMode } from '@arco/shared';
 
 export interface ClusterLoopbackCtx {
   clusterId: string;
   workflowId: string;
-  archonPort: number;
-  // Workflow cwd — carries the workflow-scoped `archon` plan tools onto the
+  arcoPort: number;
+  // Workflow cwd — carries the workflow-scoped `arco` plan tools onto the
   // same loopback server. Cursor ACP honors MCP over http/sse only, so it
-  // can't use the `archon` stdio child every other transport gets; folding
+  // can't use the `arco` stdio child every other transport gets; folding
   // the plan tools in here is how a Cursor member reaches plan_create.
   // Absent ⇒ plan tools omitted (cluster tools still register).
   cwd?: string;
@@ -76,18 +76,18 @@ async function handleMcpRequest(entry: LoopbackEntry, req: IncomingMessage, res:
   const toolCtx: ClusterMcpToolCtx = {
     clusterId: entry.ctx.clusterId,
     workflowId: entry.ctx.workflowId,
-    archonPort: entry.ctx.archonPort,
+    arcoPort: entry.ctx.arcoPort,
     taskBoardAttached: entry.ctx.taskBoardAttached,
     accessMode: entry.ctx.accessMode,
     logErr: (...args: unknown[]) => console.error(tag(entry.ctx.workflowId), ...args),
   };
-  const server = new McpServer({ name: 'archon-cluster', version: '1.0.0' });
+  const server = new McpServer({ name: 'arco-cluster', version: '1.0.0' });
   registerClusterTools(server, toolCtx);
   if (entry.ctx.cwd) {
     registerPlanTools(server, {
       workflowId: entry.ctx.workflowId,
       cwd: entry.ctx.cwd,
-      archonPort: entry.ctx.archonPort,
+      arcoPort: entry.ctx.arcoPort,
       logErr: toolCtx.logErr,
     });
   }
@@ -112,7 +112,7 @@ export async function ensureClusterLoopbackMcp(
     // replaced: a refresh that omits it must not unregister the plan_* tools
     // (the per-turn Cursor refresh once did exactly that after turn one).
     existing.ctx = { ...ctx, cwd: ctx.cwd ?? existing.ctx.cwd };
-    return { name: 'archon-cluster', url: urlFor(existing) };
+    return { name: 'arco-cluster', url: urlFor(existing) };
   }
 
   const token = randomBytes(16).toString('hex');
@@ -138,7 +138,7 @@ export async function ensureClusterLoopbackMcp(
 
   servers.set(ctx.workflowId, entry);
   console.log(`${tag(ctx.workflowId)} listening on 127.0.0.1:${entry.port} (cluster=${ctx.clusterId.slice(0, 8)} taskBoard=${ctx.taskBoardAttached ? 'attached' : 'detached'})`);
-  return { name: 'archon-cluster', url: urlFor(entry) };
+  return { name: 'arco-cluster', url: urlFor(entry) };
 }
 
 function urlFor(entry: LoopbackEntry): string {

@@ -5,7 +5,7 @@
 // detached worker process groups, reap PTY/LSP children, then flush every
 // workflow's buffered events.jsonl before exiting. systemd gives a unit only
 // `TimeoutStopUSec` after SIGTERM before it escalates to SIGKILL. If that window
-// is shorter than the time graceful shutdown needs, systemd hard-kills Archon
+// is shorter than the time graceful shutdown needs, systemd hard-kills Arco
 // mid-flush — losing tail events and leaving the durable state inconsistent.
 //
 // This probe reads the unit's TimeoutStopUSec and warns when it's below the
@@ -28,7 +28,7 @@ const execFileAsync = promisify(execFile);
 // is 90s, far above this; only a hand-lowered TimeoutStopSec trips the warning.
 export const GRACEFUL_SHUTDOWN_WINDOW_SEC = 10;
 
-const SERVICE_UNIT = 'archon.service';
+const SERVICE_UNIT = 'arco.service';
 
 // Parse a systemd duration string (as emitted by `systemctl show`) into seconds.
 // Forms: "1min 30s", "90s", "1h 2min", "500ms", "infinity", "0". Returns null

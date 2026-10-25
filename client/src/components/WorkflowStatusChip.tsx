@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 
 // I1 — one compact "workflow status" chip folding the two pieces of urgent,
 // always-visible runtime state that used to live as separate header widgets:

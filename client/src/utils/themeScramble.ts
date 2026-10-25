@@ -148,9 +148,9 @@ export function installThemeScramble(): () => void {
     }
   };
 
-  window.addEventListener('archon:theme-changed', onThemeChanged);
+  window.addEventListener('arco:theme-changed', onThemeChanged);
   return () => {
-    window.removeEventListener('archon:theme-changed', onThemeChanged);
+    window.removeEventListener('arco:theme-changed', onThemeChanged);
     if (raf) cancelAnimationFrame(raf);
     // Restore any in-flight tasks on cleanup.
     for (const t of activeTasks) {

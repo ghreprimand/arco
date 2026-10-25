@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 // DD7 — client side of the project-trust manager (GET/POST /api/project-trust).
 //
-// Backs three surfaces that all write the same user-scope ~/.archon/trust.json:
+// Backs three surfaces that all write the same user-scope ~/.arco/trust.json:
 // the global PROJECT TRUST section in SettingsPanel (works with no tab open),
 // the per-tab CONFIG row, and the cluster header chip. Trust is keyed by cwd,
 // not by workflow, so whichever surface records the decision covers every tab

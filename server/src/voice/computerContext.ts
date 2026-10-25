@@ -1,7 +1,7 @@
 import { computerProjectionChanged } from './activityBus.js';
 import { clearPrivateWatches } from './watches.js';
 import type { WebSocket } from 'ws';
-import { computerResetPercent, type ComputerContextState, type ComputerContextControlMessage } from '@archon/shared';
+import { computerResetPercent, type ComputerContextState, type ComputerContextControlMessage } from '@arco/shared';
 import { withFileLock } from '../atomicFile.js';
 import { readMeta, updateMeta } from '../workflowMeta.js';
 import { scanEventsOfTypes, replayEventsWithTs } from '../workflowStore.js';

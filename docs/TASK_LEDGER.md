@@ -1,6 +1,6 @@
 # Task Ledger
 
-> Status: shipped (ARCHON_OPS_PLAN.md §D1 + §D2, Tier 2). The cwd-scoped,
+> Status: shipped (ARCO_OPS_PLAN.md §D1 + §D2, Tier 2). The cwd-scoped,
 > durable project task list with bidirectional links (D2). D3 adds a cluster
 > board view.
 
@@ -25,8 +25,8 @@ turn.
 
 ## Storage
 
-- **Location:** `<cwd>/.archon/project/tasks.json`, scoped by working directory
-  (the same `<cwd>/.archon/...` convention `planStore.ts` / `workflowMeta.ts`
+- **Location:** `<cwd>/.arco/project/tasks.json`, scoped by working directory
+  (the same `<cwd>/.arco/...` convention `planStore.ts` / `workflowMeta.ts`
   use). Many tabs can share one cwd; they all see the same ledger. Stage B
   writes a versioned task-kernel snapshot:
 
@@ -173,7 +173,7 @@ attach/detach, save/load round-trip of links).
 
 ## §D3 — Cluster task board + task peer-tools
 
-The Archon-shaped win: a kanban **view over the ledger** for clusters, plus
+The Arco-shaped win: a kanban **view over the ledger** for clusters, plus
 worker peer-tools to read / show / claim / update / comment / block / complete
 tasks. The ledger remains the source of truth — D3 adds the `assignee` field
 and board sub-tab; the director/workers lifecycle slice adds durable comments
@@ -191,7 +191,7 @@ and `isLedgerTask` treats it as optional so pre-D3 snapshots load.
 
 Cluster-gated — registered ONLY when `worker.config.clusterId` is set, alongside
 `peer_*` and `cluster_plan_*`. Names use underscores (Anthropic regex); the
-MCP-prefixed form on CLI Claude / Codex is `mcp__archon-cluster__cluster_task_*`.
+MCP-prefixed form on CLI Claude / Codex is `mcp__arco-cluster__cluster_task_*`.
 **Full transport parity:** wired into the Native worker
 (`claude-native/peerTools.ts`) AND the MCP child (`mcp/clusterMcpServer.ts` →
 REST in `http/clusterRoutes.ts`), exactly like `cluster_plan_tick` /
@@ -300,7 +300,7 @@ exactly the same `persistLedgerMutation` path the peer-tools use.
    `synthesis`), optionally supplies input refs and a prompt, and clicks REQUEST
    PROPOSAL. The server validates cluster membership, creates an
    `OrchestrationProposal` record, and persists it to
-   `<cwd>/.archon/project/orchestration-proposals.json`.
+   `<cwd>/.arco/project/orchestration-proposals.json`.
 2. **Proposed** — the proposal broadcasts to all cluster members as
    `cluster_orchestration_proposals_snapshot`. It is preview data: no
    `task_ledger_event` has fired, `tasks.json` is unchanged.
@@ -398,8 +398,8 @@ git lifecycle lives in **`server/src/project/taskWorktree.ts`**; the WS glue in
 **`server/src/ws/taskWorktreeHandlers.ts`**.
 
 - **Where it lives.** The worktree is created under a **managed root outside the
-  user's tree** — `~/.archon/worktrees/<cwd-hash>/<taskId>` — checked out on a
-  dedicated `archon/task/<taskId>` branch off the current HEAD. It is **never**
+  user's tree** — `~/.arco/worktrees/<cwd-hash>/<taskId>` — checked out on a
+  dedicated `arco/task/<taskId>` branch off the current HEAD. It is **never**
   placed inside the project folder.
 - **The task pointer.** `LedgerTask.worktree?: TaskWorktree` (`{ path, branch,
   baseRef, createdAt }`) is **server-set only** — clients ask via

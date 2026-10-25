@@ -299,7 +299,7 @@ export const ptyManager = new PtyManager();
 export function reapOrphanTerminals(): void {
   const stale = readRegisteredTerminalProcs();
   if (stale.length === 0) {
-    console.log('[archon] Terminal orphan sweep: registry clean, nothing to reap');
+    console.log('[arco] Terminal orphan sweep: registry clean, nothing to reap');
     return;
   }
   // H44 — start-time-verified reap so a recycled pid (now an unrelated process)
@@ -312,7 +312,7 @@ export function reapOrphanTerminals(): void {
     else gone++;
   }
   console.log(
-    `[archon] Terminal orphan sweep (${stale.length} tracked): reaped ${killed}, ` +
+    `[arco] Terminal orphan sweep (${stale.length} tracked): reaped ${killed}, ` +
     `already gone ${gone}, skipped ${reused} (pid recycled)`,
   );
   clearRegisteredTerminalPids();

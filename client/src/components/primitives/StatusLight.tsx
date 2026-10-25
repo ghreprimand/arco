@@ -17,7 +17,7 @@ import type { CSSProperties } from 'react';
 //   idle     → --color-fg-muted
 //
 // The dot's `color` CSS property is set to the state colour so the halo CSS
-// (matrix.css → .archon-led + led-breathe-* keyframes) can use currentColor,
+// (matrix.css → .arco-led + led-breathe-* keyframes) can use currentColor,
 // which lets every theme pick up the right glow hue without per-theme rules.
 //
 // color-mix(in srgb, currentColor N%, transparent) approximates the rgba()
@@ -59,7 +59,7 @@ export function StatusLight({ state, label, size = 7 }: Props) {
   };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span className={`archon-led ${ANIM_CLASS[state]}`} style={dotStyle} aria-hidden />
+      <span className={`arco-led ${ANIM_CLASS[state]}`} style={dotStyle} aria-hidden />
       {label !== undefined && (
         <span
           className="display-font"

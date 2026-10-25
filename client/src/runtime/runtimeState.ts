@@ -1,4 +1,4 @@
-// Observable runtime-state deriver (ARCHON_OPS_PLAN.md §C1).
+// Observable runtime-state deriver (ARCO_OPS_PLAN.md §C1).
 //
 // Why pure: this module is the single source of truth for the operator-visible
 // connection / workflow states, and the C1 acceptance ("killing the server vs
@@ -17,12 +17,12 @@
 export type ConnectionState =
   // (a is split across the next two) WS has never opened yet — initial boot.
   | 'connecting'
-  // WS OPEN — talking to Archon.
+  // WS OPEN — talking to Arco.
   | 'online'
   // (a) WS closed BUT /healthz reachable → a browser/network/WS-layer drop;
-  // the Archon server process is alive and will accept a reconnect.
+  // the Arco server process is alive and will accept a reconnect.
   | 'disconnected'
-  // (b) WS closed AND /healthz unreachable → the Archon server process itself
+  // (b) WS closed AND /healthz unreachable → the Arco server process itself
   // is gone/unresponsive; RESTART/RECONNECT won't help until it's back.
   | 'server-down';
 
@@ -104,7 +104,7 @@ export function deriveWorkflowState(input: {
   return 'idle';
 }
 
-// ARCHON_OPS_PLAN.md §C2 — targeted retry paths per state.
+// ARCO_OPS_PLAN.md §C2 — targeted retry paths per state.
 //
 // C1 made each failure observable; C2 maps each observable state to its ONE
 // correct recovery action instead of a generic "retry". The honest mapping

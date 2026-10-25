@@ -1,5 +1,5 @@
 // Deterministic regression for the Astra director incident. No model call:
-// this pins the prompt material Archon controls before app-server receives it.
+// this pins the prompt material Arco controls before app-server receives it.
 
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,7 +19,7 @@ const ROLE = "Director role. Delegate via peer_send, never Task; don't write cod
 
 async function main(): Promise<void> {
   await step('Astra receives developer-level Arco director identity', () => {
-    const home = mkdtempSync(join(tmpdir(), 'archon-astra-director-'));
+    const home = mkdtempSync(join(tmpdir(), 'arco-astra-director-'));
     writeFileSync(join(home, 'models_cache.json'), JSON.stringify({
       models: [{ slug: 'gpt-6-astra', tool_mode: 'code_mode_only', multi_agent_version: 'v2' }],
     }));
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     assert(instructions?.includes('Do not write or edit product code or tests yourself'), 'director delegates implementation');
     assert(instructions?.includes('never in the plan body'), 'status stays out of the plan');
     assert(!instructions?.includes('Continue the next plan step in the same turn'), 'no do-it-yourself continuation rule');
-    assert(instructions?.includes('tools.mcp__archon_cluster__peer_read'), 'real Astra tool name is present');
+    assert(instructions?.includes('tools.mcp__arco_cluster__peer_read'), 'real Astra tool name is present');
   });
 
   await step('app-server carries a long plan that CLI must outline', () => {

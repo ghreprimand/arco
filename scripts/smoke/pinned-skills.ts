@@ -12,8 +12,8 @@ import { tmpdir } from 'node:os';
 import { connect, step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const cwd = await fs.mkdtemp(path.join(tmpdir(), 'archon-pinned-skills-smoke-'));
-  const skillDir = path.join(cwd, '.archon', 'skills', 'standing-check');
+  const cwd = await fs.mkdtemp(path.join(tmpdir(), 'arco-pinned-skills-smoke-'));
+  const skillDir = path.join(cwd, '.arco', 'skills', 'standing-check');
   await fs.mkdir(skillDir, { recursive: true });
   await fs.writeFile(path.join(skillDir, 'SKILL.md'), [
     '---',
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     });
 
     await step('pin is durable in meta.json', async () => {
-      const meta = JSON.parse(await fs.readFile(path.join(cwd, '.archon', 'workflows', workflowId, 'meta.json'), 'utf8'));
+      const meta = JSON.parse(await fs.readFile(path.join(cwd, '.arco', 'workflows', workflowId, 'meta.json'), 'utf8'));
       assertEq(meta.pinnedSkills?.[0]?.scope, 'project', 'scope persisted');
       assertEq(meta.pinnedSkills?.[0]?.slug, 'standing-check', 'slug persisted');
     });
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
       c.send({ type: 'update_primary_config', workflowId, pinnedSkills: [] });
       const event = await c.waitFor((m) => m.type === 'pinned_skills_set', 5000, 'pinned_skills_set clear');
       assertEq((event.skills as unknown[]).length, 0, 'event reports zero pins');
-      const meta = JSON.parse(await fs.readFile(path.join(cwd, '.archon', 'workflows', workflowId, 'meta.json'), 'utf8'));
+      const meta = JSON.parse(await fs.readFile(path.join(cwd, '.arco', 'workflows', workflowId, 'meta.json'), 'utf8'));
       assert(meta.pinnedSkills === undefined, 'meta pin field removed');
     });
   } finally {

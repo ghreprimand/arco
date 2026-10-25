@@ -71,10 +71,10 @@ test('mtime bump invalidates the in-memory cache', () => {
 test('addendum names the exec-cell tool namespace verbatim', () => {
   const text = codexCodeModeClusterAddendum();
   // Live-verified names (exec + app-server transports, codex-cli 0.144.0):
-  // server "archon-cluster" mangles dash→underscore, then mcp__<server>__<tool>.
-  assert.match(text, /tools\.mcp__archon_cluster__peer_read\(\)/);
-  assert.match(text, /tools\.mcp__archon_cluster__peer_send\(\{to, content\}\)/);
-  assert.match(text, /tools\.mcp__archon_cluster__peer_list\(\)/);
+  // server "arco-cluster" mangles dash→underscore, then mcp__<server>__<tool>.
+  assert.match(text, /tools\.mcp__arco_cluster__peer_read\(\)/);
+  assert.match(text, /tools\.mcp__arco_cluster__peer_send\(\{to, content\}\)/);
+  assert.match(text, /tools\.mcp__arco_cluster__peer_list\(\)/);
   // The real peer_send param is `content` — a `message` param silently fails.
   assert.doesNotMatch(text, /\{to, message\}/);
   // Must disclaim the harness's native collaboration tools and directorship.
@@ -100,7 +100,7 @@ test('Astra director gets developer-level Arco identity and operating contract',
   assert.ok(text?.includes('Landing is yours'));
   assert.ok(text?.includes('The plan holds standing rules and tasks only'));
   assert.ok(!text?.includes('Do not end with a status-only response'));
-  assert.ok(text?.includes('tools.mcp__archon_cluster__peer_send'));
+  assert.ok(text?.includes('tools.mcp__arco_cluster__peer_send'));
 });
 
 test('non-cluster Codex thread gets no cluster developer instructions', () => {

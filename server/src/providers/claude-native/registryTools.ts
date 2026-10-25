@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §E1 (E1-Native) — registry MCP tools for the in-process
+// ARCO_OPS_PLAN.md §E1 (E1-Native) — registry MCP tools for the in-process
 // Claude Native host.
 //
 // Two responsibilities, kept OUT of worker.ts so the smoke can test them
@@ -18,7 +18,7 @@
 // is included iff its bare name is in that set; everything safe is always in.
 
 import type { ClaudeToolDef } from './tools.js';
-import type { ResolvedMcpServer } from '@archon/shared';
+import type { ResolvedMcpServer } from '@arco/shared';
 import { classifyDangerous, isMcpToolReadOnly, type McpSession } from '../../mcp/client.js';
 
 // Wire-name prefix for a registry server's tools. The `key` is already the

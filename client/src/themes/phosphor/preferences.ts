@@ -1,7 +1,7 @@
 import { phosphorEmission } from './emission';
 
-const EFFECTS_KEY = 'archon_phosphor_effects';
-const SOFTNESS_KEY = 'archon_phosphor_softness';
+const EFFECTS_KEY = 'arco_phosphor_effects';
+const SOFTNESS_KEY = 'arco_phosphor_softness';
 export function readPhosphorPreferences(): { phosphorEffects: boolean; phosphorSoftness: number } {
   try {
     const value = localStorage.getItem(SOFTNESS_KEY);

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
 // Conversation purge modal (HISTORY tab → PURGE). Two tiers:
-//   archon  — delete everything Archon wrote for this workflow.
+//   arco  — delete everything Arco wrote for this workflow.
 //   nuclear — also delete the bound provider session files (Claude/Codex), so
 //             the conversation is gone from those CLIs too. Irreversible, so the
 //             nuclear tier requires typing the workflow name to confirm.
-// Hits DELETE /api/workflows/<wfid>?path=<cwd>&mode=archon|nuclear.
+// Hits DELETE /api/workflows/<wfid>?path=<cwd>&mode=arco|nuclear.
 
 interface Props {
   workflowId: string;
@@ -16,13 +16,13 @@ interface Props {
 }
 
 export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurged }: Props) {
-  const [mode, setMode] = useState<'archon' | 'nuclear'>('archon');
+  const [mode, setMode] = useState<'arco' | 'nuclear'>('arco');
   const [confirmName, setConfirmName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const nameMatches = confirmName.trim() === name;
-  const canPurge = mode === 'archon' || nameMatches;
+  const canPurge = mode === 'arco' || nameMatches;
 
   const purge = async () => {
     if (!canPurge || submitting) return;
@@ -50,7 +50,7 @@ export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurge
     }
   };
 
-  const Radio = ({ value, title, desc }: { value: 'archon' | 'nuclear'; title: string; desc: string }) => (
+  const Radio = ({ value, title, desc }: { value: 'arco' | 'nuclear'; title: string; desc: string }) => (
     <label
       style={{
         display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '8px 10px', cursor: 'pointer',
@@ -87,7 +87,7 @@ export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurge
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <Radio value="archon" title="ARCO DATA ONLY" desc="Everything Arco wrote. The provider's own session file is left, so the bare CLI could still resume it." />
+          <Radio value="arco" title="ARCO DATA ONLY" desc="Everything Arco wrote. The provider's own session file is left, so the bare CLI could still resume it." />
           <Radio value="nuclear" title="☢ NUCLEAR — EVERYTHING" desc="Also deletes the underlying Claude/Codex session files. Gone from those tools too." />
         </div>
 

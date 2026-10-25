@@ -12,7 +12,7 @@
 // triggered). Pure deterministic index.
 //
 // Storage: SQLite (better-sqlite3 — already a server dep, first usage here) at
-// ~/.archon/recall/recall.db. MACHINE-GLOBAL, never per-cwd. The DB is a
+// ~/.arco/recall/recall.db. MACHINE-GLOBAL, never per-cwd. The DB is a
 // rebuildable projection: delete it and the next backfill reconstructs it from
 // disk. The schema reserves `summaryRef` (F2) + `tags` (F4) columns now so
 // those phases don't migrate the table, and the `entries` table is shaped so
@@ -28,16 +28,16 @@ import { promises as fs } from 'fs';
 import fsSync from 'fs';
 import path from 'path';
 import os from 'os';
-import type { ProviderName, RecallEntry, RecallLink } from '@archon/shared';
+import type { ProviderName, RecallEntry, RecallLink } from '@arco/shared';
 import { readMeta, listWorkflowMetas, latestCliSessionFor, type WorkflowMeta } from '../workflowMeta.js';
 import { extractSessionName } from '../workflows/sessionDiscovery.js';
 import { encodeProjectDir } from '../http/fileRead.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 80;
 // §F2 — bound how much summary body we mirror into the FTS5 `summary` column.
-// The full body lives on disk at ~/.archon/recall/<wfid>/summary.md (source of
+// The full body lives on disk at ~/.arco/recall/<wfid>/summary.md (source of
 // truth); FTS only needs enough text for keyword search to hit it. Keeps the
 // DB small even with thousands of summarized conversations.
 const FTS_SUMMARY_MAX = 8000;
@@ -46,7 +46,7 @@ const FTS_SUMMARY_MAX = 8000;
 // recall-summary HTTP route + summarize.ts so the location is computed in ONE
 // place, cross-platform (os.homedir(), never a hardcoded /home/...).
 export function recallHomeDir(): string {
-  return path.join(archonHome(), 'recall');
+  return path.join(arcoHome(), 'recall');
 }
 
 // §F2 — the summary.md path for one workflow. wfid MUST be validated by the
@@ -78,11 +78,11 @@ function readSummaryBodyFrom(recallHome: string, wfid: string): string {
   }
 }
 
-// Registry of cwds Archon has touched — backfill walks these. Mirrors
+// Registry of cwds Arco has touched — backfill walks these. Mirrors
 // crashRecovery.ts's known-cwds.json (the single source of truth for "where
 // have workflows lived").
 function knownCwdsPath(): string {
-  return path.join(archonHome(), 'known-cwds.json');
+  return path.join(arcoHome(), 'known-cwds.json');
 }
 
 export interface RecallQuery {
@@ -133,7 +133,7 @@ export class RecallIndex {
   private db: Database.Database | null = null;
 
   // dbPath override exists for smokes/tests — point the index at a temp dir
-  // so a test never writes to the real ~/.archon/recall/.
+  // so a test never writes to the real ~/.arco/recall/.
   constructor(dbPath?: string) {
     this.dbPath = dbPath ?? defaultDbPath();
     this.recallHome = path.dirname(this.dbPath);
@@ -328,7 +328,7 @@ export class RecallIndex {
         this.indexFts(persisted, body);
       }
     } catch (err) {
-      console.error('[archon] recall FTS index failed:', err);
+      console.error('[arco] recall FTS index failed:', err);
     }
   }
 
@@ -367,7 +367,7 @@ export class RecallIndex {
         | undefined;
       if (row) this.indexFts(rowToEntry(row), summaryBody);
     } catch (err) {
-      console.error('[archon] recall FTS summary index failed:', err);
+      console.error('[arco] recall FTS summary index failed:', err);
     }
   }
 
@@ -445,7 +445,7 @@ export class RecallIndex {
       const body = entry.summaryRef ? readSummaryBodyFrom(this.recallHome, entry.wfid) : undefined;
       this.indexFts(entry, body);
     } catch (err) {
-      console.error('[archon] recall FTS reindex failed:', err);
+      console.error('[arco] recall FTS reindex failed:', err);
     }
     return entry;
   }
@@ -490,7 +490,7 @@ export class RecallIndex {
       this.ensureFts();
       this.conn.prepare('DELETE FROM entries_fts WHERE wfid = ?').run(wfid);
     } catch (err) {
-      console.error(`[archon] recall delete failed for ${wfid.slice(0, 8)}:`, err);
+      console.error(`[arco] recall delete failed for ${wfid.slice(0, 8)}:`, err);
     }
   }
 
@@ -694,7 +694,7 @@ async function findAiTitle(meta: WorkflowMeta): Promise<string | undefined> {
 // first operator message used by the title chain.
 async function scanEvents(cwd: string, wfid: string): Promise<{ turnCount: number; firstMessage: string }> {
   if (!WFID_PATTERN.test(wfid)) return { turnCount: 0, firstMessage: '' };
-  const eventsPath = path.join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
   let raw: string;
   try {
     raw = await fs.readFile(eventsPath, 'utf8');
@@ -750,16 +750,16 @@ export function getRecallIndex(): RecallIndex {
       singleton.load();
     } catch (err) {
       if (isMissingNativeBinding(err)) {
-        console.error('[archon] ─────────────────────────────────────────────────────────────');
-        console.error('[archon] RECALL DISABLED — better-sqlite3 native binding is not built.');
-        console.error('[archon] Fix:  npm rebuild better-sqlite3');
-        console.error('[archon] Cause: npm 12 blocks install scripts unless the root');
-        console.error('[archon]        package.json `allowScripts` entry matches the INSTALLED');
-        console.error('[archon]        version. Check `npm install-scripts ls` after a dep bump.');
-        console.error('[archon] Everything else works; transcript recall/search is off.');
-        console.error('[archon] ─────────────────────────────────────────────────────────────');
+        console.error('[arco] ─────────────────────────────────────────────────────────────');
+        console.error('[arco] RECALL DISABLED — better-sqlite3 native binding is not built.');
+        console.error('[arco] Fix:  npm rebuild better-sqlite3');
+        console.error('[arco] Cause: npm 12 blocks install scripts unless the root');
+        console.error('[arco]        package.json `allowScripts` entry matches the INSTALLED');
+        console.error('[arco]        version. Check `npm install-scripts ls` after a dep bump.');
+        console.error('[arco] Everything else works; transcript recall/search is off.');
+        console.error('[arco] ─────────────────────────────────────────────────────────────');
       } else {
-        console.error('[archon] recall index load failed:', err);
+        console.error('[arco] recall index load failed:', err);
       }
     }
   }

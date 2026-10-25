@@ -174,7 +174,7 @@ export class PreviewAutoDetect {
     const candidates = buildCandidates(command);
     if (candidates.length === 0) return;
     this.kickProbe(workflowId, candidates, frameworkLabel(command), toolUseId).catch((err) => {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] preview auto-detect failed:`, err);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] preview auto-detect failed:`, err);
     });
   }
 
@@ -189,7 +189,7 @@ export class PreviewAutoDetect {
     const ports = extractLocalhostPorts(text);
     if (ports.length === 0) return;
     this.kickProbe(workflowId, ports, undefined, undefined).catch((err) => {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] preview text-scan failed:`, err);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] preview text-scan failed:`, err);
     });
   }
 

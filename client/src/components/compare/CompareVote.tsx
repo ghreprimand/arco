@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CompareLegConfig } from '@archon/shared';
+import type { CompareLegConfig } from '@arco/shared';
 
 // Compare vote / synthesize footer — WORKBENCH_EXPANSION_PLAN.md §B1.
 //

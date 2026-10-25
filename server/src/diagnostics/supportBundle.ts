@@ -1,7 +1,7 @@
-// ── Support bundle builder (ARCHON_OPS_PLAN.md §A2 + Appendix D) ──
+// ── Support bundle builder (ARCO_OPS_PLAN.md §A2 + Appendix D) ──
 //
 // Produces a paste-ready, REDACTED snapshot of this machine: the A1 diagnostics
-// report + Archon version + git rev + platform/runtime + best-effort service
+// report + Arco version + git rev + platform/runtime + best-effort service
 // mode. Suitable for dropping into an issue or handing to another agent.
 //
 // Redaction is the load-bearing requirement (Appendix D): we build the bundle
@@ -37,7 +37,7 @@ import type {
   DiagnosticsReport,
   SupportBundle,
   SupportBundleResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 
 import { runDiagnostics } from './checks.js';
 
@@ -49,10 +49,10 @@ const execFileAsync = promisify(execFile);
 // `<path>/<basename>` placeholder, so a private directory layout never leaks into
 // a pasted bundle. Operates on free text — it scans for path-shaped tokens rather
 // than assuming the whole string is one path (a detail line like
-// "wrote /home/operator/.archon but readback mismatched" must redact only the path).
+// "wrote /home/operator/.arco but readback mismatched" must redact only the path).
 //
 // Order matters: rewrite the home prefix to `~` FIRST, then reduce any remaining
-// absolute path. `~/.archon/...` stays readable (the home prefix is gone) and is
+// absolute path. `~/.arco/...` stays readable (the home prefix is gone) and is
 // left intact; only genuine absolute (`/...`) paths get basename-reduced.
 export function redactPaths(input: string): string {
   if (!input) return input;
@@ -72,8 +72,8 @@ export function redactPaths(input: string): string {
   //    A bare "/" or a path with no further segment is left alone.
   //
   //    Crucially, a path immediately preceded by `~` (i.e. the home-collapsed
-  //    `~/.archon/…` from step 1) is left INTACT — its private prefix is already
-  //    gone, and reducing it would mangle `~/.archon` into `~<path>/…`. The
+  //    `~/.arco/…` from step 1) is left INTACT — its private prefix is already
+  //    gone, and reducing it would mangle `~/.arco` into `~<path>/…`. The
   //    `(?<![~\w])` lookbehind also skips a `/` that's part of a word like
   //    "and/or" — we only reduce a `/` that begins or follows whitespace/quotes.
   out = out.replace(/(?<![~\w])\/[^\s'"`)]*[^\s'"`)/]/g, (match) => {
@@ -103,7 +103,7 @@ function redactReport(report: DiagnosticsReport): DiagnosticsReport {
       return redacted;
     }),
   }));
-  // archonVersion / platform are safe constants; generatedAt is a number.
+  // arcoVersion / platform are safe constants; generatedAt is a number.
   return { ...report, groups };
 }
 
@@ -144,7 +144,7 @@ export function scrubSecrets(text: string): string {
 
 // ── metadata probes ──────────────────────────────────────────────────────────
 
-// Short git rev of the Archon checkout. execFile, argv array, no shell, timeout.
+// Short git rev of the Arco checkout. execFile, argv array, no shell, timeout.
 // The repo root is two levels above this module's dir (server/src/diagnostics →
 // repo root). A missing git / non-repo / error resolves to "unknown".
 async function gitRev(): Promise<string> {
@@ -161,18 +161,18 @@ async function gitRev(): Promise<string> {
   }
 }
 
-let archonVersionCache: string | undefined;
-async function archonVersion(): Promise<string> {
-  if (archonVersionCache !== undefined) return archonVersionCache;
+let arcoVersionCache: string | undefined;
+async function arcoVersion(): Promise<string> {
+  if (arcoVersionCache !== undefined) return arcoVersionCache;
   try {
     const url = new URL('../../../package.json', import.meta.url);
     const raw = await fs.readFile(url, 'utf8');
     const pkg = JSON.parse(raw) as { version?: string };
-    archonVersionCache = typeof pkg.version === 'string' ? pkg.version : 'unknown';
+    arcoVersionCache = typeof pkg.version === 'string' ? pkg.version : 'unknown';
   } catch {
-    archonVersionCache = 'unknown';
+    arcoVersionCache = 'unknown';
   }
-  return archonVersionCache;
+  return arcoVersionCache;
 }
 
 // Best-effort service/transport mode. Service mode proper lands in Part B; for
@@ -204,7 +204,7 @@ function renderText(b: SupportBundle): string {
   lines.push('## Arco support bundle');
   lines.push('');
   lines.push(`- generated: ${new Date(b.generatedAt).toISOString()}`);
-  lines.push(`- archon: v${b.archonVersion} (${b.gitRev})`);
+  lines.push(`- arco: v${b.arcoVersion} (${b.gitRev})`);
   lines.push(`- platform: ${b.platform}`);
   lines.push(`- runtime: node ${b.runtime.node}, ${b.runtime.serviceMode}`);
   lines.push('');
@@ -234,11 +234,11 @@ const REDACTION_NOTE =
 // "unknown". Returns both the typed JSON and the copy-ready text — both passed
 // through the secret scrub as the final defense-in-depth layer.
 export async function buildSupportBundle(): Promise<SupportBundleResponse> {
-  const [report, version, rev] = await Promise.all([runDiagnostics(), archonVersion(), gitRev()]);
+  const [report, version, rev] = await Promise.all([runDiagnostics(), arcoVersion(), gitRev()]);
 
   const bundle: SupportBundle = {
     generatedAt: Date.now(),
-    archonVersion: version,
+    arcoVersion: version,
     gitRev: rev,
     platform: report.platform,
     runtime: { node: process.version, serviceMode: serviceMode() },

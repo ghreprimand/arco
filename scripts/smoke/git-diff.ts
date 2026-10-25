@@ -29,12 +29,12 @@ async function main() {
   const cleanups: string[] = [];
 
   // ── Repo with a committed base, then dirtied three ways ──
-  const repo = mkdtempSync(join(tmpdir(), 'archon-gitworking-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-gitworking-'));
   cleanups.push(repo);
 
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   writeFileSync(join(repo, 'staged.txt'), 'staged base line\n');
   writeFileSync(join(repo, 'unstaged.txt'), 'unstaged base line\n');
   git(repo, 'add', 'staged.txt', 'unstaged.txt');
@@ -105,7 +105,7 @@ async function main() {
   });
 
   await step('non-git directory degrades gracefully', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'archon-gitworking-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'arco-gitworking-plain-'));
     cleanups.push(plain);
     writeFileSync(join(plain, 'a.txt'), 'alpha\n');
     const changes = await getWorkingChanges(plain);

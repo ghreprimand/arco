@@ -12,7 +12,7 @@
 //      dispatched as a follow-up turn after the current turn's result (Cursor
 //      never calls drainSteer, so the generic post-turn drain applies).
 //
-//   ARCHON_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-3.ts
+//   ARCO_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-3.ts
 //
 // ⚠️ METERED: makes ~3 real Cursor turns (tiny prompts). `auto` draws the
 // Auto+Composer pool; the swap target (`glm-5.2`) draws the frontier pool.

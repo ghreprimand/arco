@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useDraftStore, dropDraftForJob } from './draftStore';
 import { useComputerStore } from './computerStore';
 import { persist } from 'zustand/middleware';
-import type { ChatMessage, WorkflowConfig, ProviderName, ArchonSettings } from '@archon/shared';
+import type { ChatMessage, WorkflowConfig, ProviderName, ArcoSettings } from '@arco/shared';
 import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
 import { applyTheme, applyCrispText } from '../themes/apply';
 import { applyPhosphorPreferences } from '../themes/phosphor/preferences';
@@ -72,7 +72,7 @@ function applyThemeForSelection(
 // Bundle the two signed brightness shifts from a settings object into the
 // { bg, text } shape applyTheme expects. Used at every applyThemeForSelection
 // call site so theme/font/frosted changes don't drop the operator's shifts.
-function brightnessOf(s: ArchonSettings | null | undefined): { bg?: number; text?: number } {
+function brightnessOf(s: ArcoSettings | null | undefined): { bg?: number; text?: number } {
   return { bg: s?.bgBrightness, text: s?.textBrightness };
 }
 
@@ -104,14 +104,14 @@ async function commitBrightness(
       body: JSON.stringify({ [field]: v ?? null }),
     });
     if (!res.ok) throw new Error(`settings POST ${res.status}`);
-    const data = await res.json() as ArchonSettings;
+    const data = await res.json() as ArcoSettings;
     applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
     writeBrightnessCache(field, data[field]);
     set({ settings: data });
   } catch {
     try {
       const res = await fetch('/api/settings');
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
       writeBrightnessCache(field, data[field]);
       set({ settings: data });
@@ -121,7 +121,7 @@ async function commitBrightness(
 
 export const useAppStore = create<AppState>()(persist((set, get) => ({
   connected: false,
-  // ARCHON_OPS_PLAN.md §C1 — richer connection overlay. Boots in 'connecting'
+  // ARCO_OPS_PLAN.md §C1 — richer connection overlay. Boots in 'connecting'
   // (WS never opened). Not persisted (absent from partialize) so a reload
   // always re-derives it from a live socket rather than a stale snapshot.
   connectionState: 'connecting',
@@ -147,7 +147,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   showManual: false,
   showRecall: false,
   // I3 — restore the operator's last focus-mode choice across reloads.
-  focusMode: (() => { try { return localStorage.getItem('archon.focusMode') === '1'; } catch { return false; } })(),
+  focusMode: (() => { try { return localStorage.getItem('arco.focusMode') === '1'; } catch { return false; } })(),
   mediaStudio: { open: false },
   helpMode: false,
   activeHelpPopover: null,
@@ -334,12 +334,12 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     try {
       const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: value }) });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      get().setSettings(await res.json() as ArchonSettings);
+      get().setSettings(await res.json() as ArcoSettings);
     } catch {
       try {
         const res = await fetch('/api/settings');
         if (!res.ok) throw new Error('settings read failed');
-        get().setSettings(await res.json() as ArchonSettings);
+        get().setSettings(await res.json() as ArcoSettings);
       } catch { get().setSettings({ ...get().settings!, [field]: prev[field] }); }
       get().pushNotification('error', 'Could not save Phosphor preference. The saved value has been restored.');
     }
@@ -359,7 +359,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ themeId: id }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       // Re-apply from authoritative response in case the server normalized.
       applyThemeForSelection(data.themeId, data.fontPackOverride, get().getActiveJob()?.config.primaryProvider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
       writeCachedThemeId(data.themeId ?? DEFAULT_THEME_ID);
@@ -370,7 +370,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       // Roll back — re-fetch authoritative settings and re-apply its theme.
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         applyThemeForSelection(data.themeId, data.fontPackOverride, get().getActiveJob()?.config.primaryProvider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
         writeCachedThemeId(data.themeId ?? DEFAULT_THEME_ID);
         writeCachedFontPackOverride(data.fontPackOverride ?? null);
@@ -394,14 +394,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ fontPackOverride: id ?? null }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
       writeCachedFontPackOverride(data.fontPackOverride ?? null);
       set({ settings: data });
     } catch {
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
         writeCachedFontPackOverride(data.fontPackOverride ?? null);
         set({ settings: data });
@@ -422,14 +422,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ frostedOverride: v ?? null }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
       writeCachedFrostedOverride(data.frostedOverride);
       set({ settings: data });
     } catch {
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
         writeCachedFrostedOverride(data.frostedOverride);
         set({ settings: data });
@@ -453,14 +453,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ frostedOpacity: v ?? null }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
       writeCachedFrostedOpacity(data.frostedOpacity);
       set({ settings: data });
     } catch {
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         applyThemeForSelection(data.themeId, data.fontPackOverride, provider, data.frostedOverride, data.frostedOpacity, brightnessOf(data));
         writeCachedFrostedOpacity(data.frostedOpacity);
         set({ settings: data });
@@ -512,14 +512,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ crispText: v }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       applyCrispText(data.crispText ?? false);
       writeCachedCrispText(data.crispText);
       set({ settings: data });
     } catch {
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         applyCrispText(data.crispText ?? false);
         writeCachedCrispText(data.crispText);
         set({ settings: data });
@@ -542,13 +542,13 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ tabOrder }),
       });
       if (!res.ok) throw new Error(`settings POST ${res.status}`);
-      const data = await res.json() as ArchonSettings;
+      const data = await res.json() as ArcoSettings;
       set({ settings: data });
     } catch {
       // Roll back from authoritative settings on failure.
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArchonSettings;
+        const data = await res.json() as ArcoSettings;
         set({ settings: data });
       } catch { /* leave optimistic */ }
     }
@@ -559,7 +559,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setShowGithub: (showGithub) => set({ showGithub }),
   setShowRecall: (showRecall) => set({ showRecall }),
   setFocusMode: (focusMode) => {
-    try { localStorage.setItem('archon.focusMode', focusMode ? '1' : '0'); } catch { /* no-op */ }
+    try { localStorage.setItem('arco.focusMode', focusMode ? '1' : '0'); } catch { /* no-op */ }
     set({ focusMode });
   },
 
@@ -597,7 +597,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         body: JSON.stringify({ acknowledgedCliVersions: { [provider]: toVersion } }),
       });
       if (res.ok) {
-        const updated = (await res.json()) as ArchonSettings;
+        const updated = (await res.json()) as ArcoSettings;
         set((s) => ({
           settings: updated,
           cliChanges: s.cliChanges.filter((c) => c.provider !== provider),
@@ -912,7 +912,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       config: { ...j.config, name: name ?? '' },
     }))),
 
-  // ARCHON_OPS_PLAN.md M2 — Genesis. Mirror the server's genesis_seed_updated
+  // ARCO_OPS_PLAN.md M2 — Genesis. Mirror the server's genesis_seed_updated
   // (seed + advisory readiness + next-field prompt) onto the workflow. The seed
   // also rides config.genesisSeed so it survives reload via the persisted config
   // (the durable home while the workflow is still cwd-less).
@@ -963,7 +963,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       return { genesisAssist: undefined };
     })),
 
-  // ARCHON_OPS_PLAN.md M3 — mirror the server's genesis_creative_armed. Stores the
+  // ARCO_OPS_PLAN.md M3 — mirror the server's genesis_creative_armed. Stores the
   // (possibly prefilled) seed + readiness + next prompt like setGenesisSeed, plus the
   // armed flag and the codebase assessment. The seed rides config.genesisSeed so the
   // creative arming survives a reload via the persisted config.
@@ -1843,7 +1843,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       };
     })),
 }), {
-  name: 'archon-jobs',
+  name: 'arco-jobs',
   // Lazy-stringify storage — serialization happens once per debounced flush,
   // NOT per set(). Do not swap back to createJSONStorage(...): that pays a
   // full-state JSON.stringify on every store update (see persistence.ts).
@@ -1980,18 +1980,18 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 }));
 
 if (typeof window !== 'undefined') {
-  const archonWindow = window as Window & {
-    __ARCHON_MEMORY_STATS__?: () => AppMemoryStats;
-    __ARCHON_TRIM_MEMORY__?: () => AppMemoryStats;
-    __ARCHON_TRIM_MEMORY_TIMER__?: ReturnType<typeof setInterval>;
+  const arcoWindow = window as Window & {
+    __ARCO_MEMORY_STATS__?: () => AppMemoryStats;
+    __ARCO_TRIM_MEMORY__?: () => AppMemoryStats;
+    __ARCO_TRIM_MEMORY_TIMER__?: ReturnType<typeof setInterval>;
   };
-  archonWindow.__ARCHON_MEMORY_STATS__ = () => getAppMemoryStats(useAppStore.getState());
-  archonWindow.__ARCHON_TRIM_MEMORY__ = () => {
+  arcoWindow.__ARCO_MEMORY_STATS__ = () => getAppMemoryStats(useAppStore.getState());
+  arcoWindow.__ARCO_TRIM_MEMORY__ = () => {
     useAppStore.getState().trimMemory();
     return getAppMemoryStats(useAppStore.getState());
   };
-  if (!archonWindow.__ARCHON_TRIM_MEMORY_TIMER__) {
-    archonWindow.__ARCHON_TRIM_MEMORY_TIMER__ = setInterval(() => {
+  if (!arcoWindow.__ARCO_TRIM_MEMORY_TIMER__) {
+    arcoWindow.__ARCO_TRIM_MEMORY_TIMER__ = setInterval(() => {
       useAppStore.getState().trimMemory();
     }, 30_000);
   }

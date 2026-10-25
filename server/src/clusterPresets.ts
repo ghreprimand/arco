@@ -1,6 +1,6 @@
 // Cluster presets — operator-saved cluster member templates.
 //
-// Layout: ~/.archon/cluster-presets.json — flat array of presets, each a
+// Layout: ~/.arco/cluster-presets.json — flat array of presets, each a
 // snapshot of the per-member configs + optional cluster-name template. Cwd is
 // intentionally NOT persisted (presets are project-agnostic by design;
 // operators apply the same shape to whatever working directory they pick).
@@ -12,10 +12,10 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@archon/shared';
-import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode } from '@archon/shared';
+import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@arco/shared';
+import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const NAME_MAX = 64;
 const MAX_PRESETS = 50;
@@ -25,7 +25,7 @@ const ROLE_MAX = 120;
 const DISPLAY_NAME_MAX = 80;
 
 function presetsPath(): string {
-  return path.join(archonHome(), 'cluster-presets.json');
+  return path.join(arcoHome(), 'cluster-presets.json');
 }
 
 interface PresetsFile {

@@ -92,7 +92,7 @@ automatic gain control OFF (`autoGainControl:false`), retaining echo
 cancellation and noise suppression. Arco does not automatically adjust the
 operator's system mic gain. This capture constraint applies when enabling the
 microphone; after deployment, reload and re-enable hands-free.
-`voiceStore.speechThreshold` persists as `archon.voice.threshold.v1` and is
+`voiceStore.speechThreshold` persists as `arco.voice.threshold.v1` and is
 posted to the live worklet; adaptive onset remains max(minimum, noise × 2.2).
 This does not change system mic gain. Compare input peak, floor and onset.
 If Last heard contains “older” or “over it”, the segment reached ASR but was
@@ -149,7 +149,7 @@ updates wait for one actual deadline, and queued/delivering/delivered/failed/
 interrupted/cancelled states remain visible. CLEAR QUEUED UPDATES discards waiting
 updates without stopping workers or conditions. No automatic retry/replay after
 a failed update or server restart. A locked durable atomic file
-`~/.archon/computer-activity.json` holds public recent facts/settings/inbox/rate
+`~/.arco/computer-activity.json` holds public recent facts/settings/inbox/rate
 counters. Private settings, inbox, matched-condition facts and counters stay in
 memory, disappear on a full private clear/removal, and never enter saved logs or
 external notifications. Public worker metadata remains public when a private
@@ -159,13 +159,13 @@ service is required.
 Voice controls: “Enable worker updates to you”, “Only send you matched condition
 updates”, “Stop sending activity to your agent”, “Pause all my mailbox
 automations”, “Resume them”, “Show recent activity”, “Clear queued activity
-updates”, “Pause that mailbox rule” and “Resume that rule”. `archon_activity`
-status/configure/cancel-queued and `archon_mail_rule` pause/resume implement these
+updates”, “Pause that mailbox rule” and “Resume that rule”. `arco_activity`
+status/configure/cancel-queued and `arco_mail_rule` pause/resume implement these
 through the shared model-interpreted tool catalog, without phrase matching.
 
 ### Conditional scripts
 
-`archon_condition` is the general event-driven scripting
+`arco_condition` is the general event-driven scripting
 surface. Luna translates the operator's requested policy into a validated
 declaration; the server evaluates it against real state. This replaces the
 fixed mailbox recipe for new directives. No Director action is implicit.
@@ -177,7 +177,7 @@ agent; Luna remains LOW by default. There is no utterance/role phrase parser.
 Facts include busy, queued message count, pending mail, `has_work` (busy OR
 queued OR pending mail), human-input state, context tokens/window/percentage,
 native-compaction capability and progress, and counts of completed/failed/
-interrupted turns, finished Archon-requested in-place compactions and mail arrivals since server boot. `has_work` is operational
+interrupted turns, finished Arco-requested in-place compactions and mail arrivals since server boot. `has_work` is operational
 state, not a project-quality verdict or a claim that all assigned work is done.
 The last app-server request's prompt usage is exposed for ordinary workers too;
 aggregate turn usage is never substituted for context fullness. Unreported
@@ -287,7 +287,7 @@ separately). Expand a script for its declaration, full counts and limits;
 Disabling the activity master switch shows armed scripts as paused, while
 completion watches remain active. The activity master switch
 also pauses these scripts. Saved scripts use locked durable atomic
-`~/.archon/computer-conditions.json`, survive saved context/model changes and
+`~/.arco/computer-conditions.json`, survive saved context/model changes and
 browser closure for server actions, and become interrupted on restart. Private
 definitions/state/notifications remain memory-only and clear with the private
 context; they never enter saved audits or external notices. Worker replies used
@@ -314,9 +314,9 @@ not squeeze the conversation out of the panel.
 ### Legacy mailbox rules
 
 Existing fixed-sequence rules remain
-manageable with `archon_mail_rule`. New directives use the scripts above. The
+manageable with `arco_mail_rule`. New directives use the scripts above. The
 compatibility HTTP API retains the finite sequence with
-`archon_mail_rule` create/list/cancel. Example: “Nudge Builder 1 in SignalQueue,
+`arco_mail_rule` create/list/cancel. Example: “Nudge Builder 1 in SignalQueue,
 keep nudging it when more mail arrives, then once only the Director has mail,
 nudge the Director and let me know.” The model resolves exact cluster, selected
 worker and final-recipient IDs once; the server checks mailbox IDs and busy/queue
@@ -344,7 +344,7 @@ AUTO-PICKUP being enabled, mailbox errors, limit/expiry and server restart stop
 the rule visibly. Mailbox snapshot plus final busy claim share the mailbox lock;
 a cancelled or stale preflight cannot quietly enqueue a nudge.
 
-Saved rules use `~/.archon/computer-mail-rules.json` and durable lifecycle/dispatch
+Saved rules use `~/.arco/computer-mail-rules.json` and durable lifecycle/dispatch
 notices; they survive context/model changes and browser closure, but restart
 marks active rules interrupted and requires re-arming. Private rules stay in
 memory, are visible only to their private Computer owner, and clear with that
@@ -357,8 +357,8 @@ scripting or a model polling workers.
 
 ### Completion watches
 
-`archon_watch` create/list/cancel arms an explicit
-one-shot notification. Resolve exact IDs via `archon_targets`: “Builder 1 in
+`arco_watch` create/list/cancel arms an explicit
+one-shot notification. Resolve exact IDs via `arco_targets`: “Builder 1 in
 SignalQueue” pins only that member, while the cluster ID snapshots currently
 busy members. The server binds each ID to its busy-claim generation. Only the
 complete user-turn drain loop (including queued messages) reports finished;
@@ -372,7 +372,7 @@ Legacy mailbox rules follow the same active/paused/history grouping, and their
 section is omitted when no legacy records/errors exist. New directives use
 conditional scripts, not that legacy section. Historical records cannot run.
 Saved watches (32 active, 100 total records) use durable atomic writes under
-`~/.archon/computer-watches.json`, survive model/context changes and reloads,
+`~/.arco/computer-watches.json`, survive model/context changes and reloads,
 and become interrupted after server restart. Computer shows targets/status and
 Cancel Watch; saved lifecycle notices enter its transcript and the bell’s
 `computer-watch` category. Transient `computer_activity_changed` WebSocket invalidations refresh state on
@@ -387,7 +387,7 @@ reviewable even if the microphone is off or a reload interrupts playback.
 
 ### Quota and interface access
 
-`archon_usage` reads Codex/Claude/Cursor/Z.ai
+`arco_usage` reads Codex/Claude/Cursor/Z.ai
 usage snapshots, their freshness/errors, and separate throttling state. Codex
 uses the existing cached `/api/codex-usage` endpoint without forcing scraping
 or opening login. Percentages are derived only from explicit used/remaining
@@ -423,11 +423,11 @@ does), a wake or wake-led segment is ignored as probably its own voice
 ### Computer chat and intent handling
 
 A projectless Chat with `WorkflowConfig.voiceOperator`; Codex
-app-server (gpt-6-luna, low) remains the default. Its one MCP child `archon-voice`
+app-server (gpt-6-luna, low) remains the default. Its one MCP child `arco-voice`
 (`server/src/mcp/voiceMcpServer.ts`, `default_tools_approval_mode="approve"`)
 relays each tool call to the browser that owns the hands-free session:
 `POST /api/voice/tool` → WS `voice_tool_call` → `VoiceExecutor.runTool` →
-`voice_tool_result`. Every utterance is prefixed with an `[Archon context]`
+`voice_tool_result`. Every utterance is prefixed with an `[Arco context]`
 roster line. The prompt (`server/src/voice/operatorPrompt.ts`) classifies
 each utterance as TASK (do it, reply "Done." which the client swallows), ASK
 (ambiguous target or an error that could not be worked around: one question
@@ -435,9 +435,9 @@ or the error text), or CONVERSATION (answer by voice in two to five sentences
 after looking things up silently), plus DICTATION (verbatim text after
 "dictate" / "verbatim" / "word for word", or the whole next utterance after
 "I want to dictate a message to X" → "Go ahead."). Where it looks: how Arco
-works → `archon_open manual` + `archon_read_text` filter; a project's state →
-`archon_read_recent` / `archon_status` on it or its Director; the screen →
-`archon_read_text`; general knowledge → just answers. A question *about* a
+works → `arco_open manual` + `arco_read_text` filter; a project's state →
+`arco_read_recent` / `arco_status` on it or its Director; the screen →
+`arco_read_text`; general knowledge → just answers. A question *about* a
 project is answered; only a question *addressed to* a worker is typed to it.
 
 ### Follow-up recipients
@@ -449,7 +449,7 @@ established. Count candidates inside that scope, not globally. “Any mail in
 SignalQueue?” → “Director has 15, Builder has 2” → “Nudge the builder” means
 SignalQueue's unique builder, even if another cluster is selected. Use an
 exact workflow ID or a qualified tool target to preserve that scope; look up
-IDs through `archon_targets` if needed. A question followed by a directive does
+IDs through `arco_targets` if needed. A question followed by a directive does
 not automatically change topics. A new explicit project/recipient supersedes
 the earlier topic. Two matching builders within the relevant cluster still
 require a short question naming only those builders; busy state, mail count
@@ -481,13 +481,13 @@ request. A blocked script is distinct from an active Computer turn.
 COMPUTER offers provider/model/effort/history
 and USE AGENT. Codex, Claude Native (Haiku/Sonnet/etc.), Ollama and Strata share
 the same `toolDefinitions.ts` schema catalog and browser executor. Codex uses
-the sole `archon-voice` MCP child; Native/local APIs call the same relay directly.
+the sole `arco-voice` MCP child; Native/local APIs call the same relay directly.
 No project tools are exposed. Saved contexts are separate per provider/model/
 effort; switching back resumes that selection. No messages are copied between
 selections or into saved history. `ComputerConversation` waits for the server's
 `computer_context_updated {settled:true}` clean boundary, not an intermediate
 provider `primary_turn_ended`, before switching. Preferences alone persist in
-`archon.computer.selection.v1`; the microphone stays off on reload.
+`arco.computer.selection.v1`; the microphone stays off on reload.
 
 ### No history and privacy
 
@@ -499,13 +499,13 @@ a clear, model/privacy switch, page close/reload, or service restart. A clear
 empties the visible transcript and pending capture too. Late recognition from
 the previous context is rejected; the microphone stays armed. Strata is explicitly saved-only while its
 standalone service logs/image cache persist. Selecting it never silently disables
-privacy. Voice recognition requests carry `X-Archon-Voice-Private: 1`; server
+privacy. Voice recognition requests carry `X-Arco-Voice-Private: 1`; server
 recognition/diagnostic logs and private tool-relay logs are suppressed. Privacy
 is bound to audio at capture time so a late response cannot leak after a switch.
 Cloud inference and Microsoft speech still receive the text they process;
 messages sent to another worker retain the destination's history rules.
 
-`archon_computer` offers status/models/switch/reset/privacy. It lists real model
+`arco_computer` offers status/models/switch/reset/privacy. It lists real model
 IDs/efforts before switching and asks about ambiguous variants; no client phrase
 matching. “Clear your context” means full reset, “use Haiku” means switch, “go
 incognito” means history none, “save our conversations again” means saved.
@@ -517,7 +517,7 @@ are sent while switching; late recognition across a selection boundary is droppe
 ### Reply voices
 
 The default is Microsoft Edge's standard
-`en-GB-SoniaNeural` (`ARCHON_VOICE_EDGE_VOICE` overrides the server default),
+`en-GB-SoniaNeural` (`ARCO_VOICE_EDGE_VOICE` overrides the server default),
 not a special voice file or a TNG clone. Recognition stays local. Spoken
 reply text goes to Microsoft, which returns MP3; local Kokoro Emma is the
 offline fallback. The selected agent supplies the conversational text independently.
@@ -530,7 +530,7 @@ Irish (Emily), Kenyan (Asilia), New Zealand (Molly), Nigerian (Ezinne),
 Singaporean (Luna), South African (Leah), Tanzanian (Imani). Ana and Maisie
 are child voices and labeled as such. The catalog is shared by the picker
 and server validation; no new speech backend or runtime catalog fetch. Only
-that preference persists in browser storage (`archon.voice.output.v1`); reload still disarms the mic.
+that preference persists in browser storage (`arco.voice.output.v1`); reload still disarms the mic.
 Changing it preserves the lease, current capture and conversation, applies
 to the next reply, and never cuts an ongoing reply or changes its prefetched
 sentences. Sentence playback, prefetch and barge-in use the existing path.
@@ -601,19 +601,19 @@ server + fake Codex, no paid inference).
 
 `shared/src/protocol/voiceOperator.ts` defines the tool names;
 `server/src/voice/toolDefinitions.ts` owns their schemas and descriptions.
-Tools include `archon_condition`, `archon_compact`, `archon_activity`, `archon_mail_rule`, `archon_watch`, `archon_usage`, `archon_computer`, `archon_targets`,
-`archon_select`, `archon_open_panel`, `archon_open` (settings / manual /
-knowledge…), `archon_open_dialog` (nudge, broadcast, review, handoff, spawn,
+Tools include `arco_condition`, `arco_compact`, `arco_activity`, `arco_mail_rule`, `arco_watch`, `arco_usage`, `arco_computer`, `arco_targets`,
+`arco_select`, `arco_open_panel`, `arco_open` (settings / manual /
+knowledge…), `arco_open_dialog` (nudge, broadcast, review, handoff, spawn,
 plan, docs, git, tuneup, research, transcript — opens, never acts),
-`archon_send_message` (steer / follow-up; a cluster target routes to its
-single Director), `archon_nudge`, `archon_cancel_turn`, `archon_read_latest`,
-`archon_read_recent`, `archon_status`, and the generic layer in
-`client/src/voice/screen.ts`: `archon_screen` (every visible control,
+`arco_send_message` (steer / follow-up; a cluster target routes to its
+single Director), `arco_nudge`, `arco_cancel_turn`, `arco_read_latest`,
+`arco_read_recent`, `arco_status`, and the generic layer in
+`client/src/voice/screen.ts`: `arco_screen` (every visible control,
 numbered and labelled from aria-label / label / text / help title, grouped by
 open dialog or area, with state; role-less fixed full-viewport overlays count
-as dialogs), `archon_act` (click / toggle / type / select / press / options / focus / hover /
+as dialogs), `arco_act` (click / toggle / type / select / press / options / focus / hover /
 double_click / context_menu / scroll; DANGER
-labels need `confirm`), `archon_read_text` (the open dialog's text, or one
+labels need `confirm`), `arco_read_text` (the open dialog's text, or one
 section by heading, or passages mentioning a word).
 
 ### Source map
@@ -648,7 +648,7 @@ Computer reports "the page needs a reload" instead of "Unknown tool.".
 For live diagnostics (private recognition/tool logs remain suppressed):
 
 ```bash
-journalctl --user -u archon.service -f | rg '\[voice|voice tool'
+journalctl --user -u arco.service -f | rg '\[voice|voice tool'
 ```
 
 Source edits are not live in production. Deploy only on an explicit operator
@@ -670,14 +670,14 @@ Restart interrupts active scripts without replay; it does not re-arm them.
 | `npm run smoke:voice-scroll` | Actual virtualized conversation following after voice selection/send/nudge, with isolated APIs |
 
 For the panel browser fixture, first run
-`ARCHON_CLIENT_PORT=5193 npm run dev:client`; its APIs and WebSocket are mocked.
+`ARCO_CLIENT_PORT=5193 npm run dev:client`; its APIs and WebSocket are mocked.
 `scripts/voice/check-phrases.py` exercises synthetic TTS → recognizer wake/closing
 regressions. Microphone echo and real-room barge-in still need live testing;
 the canned model suite does not exercise audio capture.
 
-The real-agent suite accepts `ARCHON_VOICE_PROVIDER=ollama|claude|codex`,
-`ARCHON_VOICE_MODEL`, optional `ARCHON_VOICE_PORT`, and
-`ARCHON_VOICE_INCOGNITO=1`; default remains Luna LOW. Existing Native Claude
+The real-agent suite accepts `ARCO_VOICE_PROVIDER=ollama|claude|codex`,
+`ARCO_VOICE_MODEL`, optional `ARCO_VOICE_PORT`, and
+`ARCO_VOICE_INCOGNITO=1`; default remains Luna LOW. Existing Native Claude
 auth is used only as a temporary access-token copy (never refresh production
 auth). Real-agent scenarios use canned tools, never real worker/UI actions.
 
@@ -695,19 +695,19 @@ Arco window. It is off on every load and requires an explicit operator gesture.
 Run `npm run voice:setup` once. It installs a private Python 3.12 environment,
 CPU-only sherpa-onnx and Vosk, a small English reserved-phrase model, an English
 Moonshine fallback, the preferred Linux Parakeet v3 INT8 transcription model, and Kokoro British
-female speech-output voices under `~/.archon/voice`. Emma is the offline default;
+female speech-output voices under `~/.arco/voice`. Emma is the offline default;
 the microphone test page can audition Emma and Isabella without enabling its
 microphone. An existing Piper installation remains a fallback when Kokoro is
 absent. `uv` is required for installation.
-`ARCHON_VOICE_HOME` can select a different asset directory. Installation starts
+`ARCO_VOICE_HOME` can select a different asset directory. Installation starts
 no listener, microphone capture or model service.
 
 Setup on Linux, macOS and Windows: `npm run voice:setup` runs
 `scripts/voice/run.mjs`, which starts `scripts/voice/setup.py` through
 `uv run --python 3.12`, so no system Python is required; uv downloads a Python
 3.12 runtime when none is present. The voice home is `ARCO_VOICE_HOME`, then
-`ARCHON_VOICE_HOME`, then `voice` inside the Arco home (`ARCO_HOME`, then
-`ARCHON_HOME`, then `~/.archon`, which is `%USERPROFILE%\.archon` on Windows).
+`ARCO_VOICE_HOME`, then `voice` inside the Arco home (`ARCO_HOME`, then
+`ARCO_HOME`, then `~/.arco`, which is `%USERPROFILE%\.arco` on Windows).
 The venv interpreter is `venv/bin/python`, or `venv\Scripts\python.exe` on
 Windows. Each model archive is downloaded from its upstream release and
 checked against a SHA-256 pinned in `setup.py`; a mismatch stops the install
@@ -864,7 +864,7 @@ to 8,000 characters, and cleared on disable/disconnect/close.
 | `discard draft` | Clear draft text |
 | `nudge <member>` | Send the shared idle/active mailbox reminder through normal chat |
 | `read latest response` | Speak latest assistant text; code blocks are omitted and long replies capped |
-| (status, progress, "what's going on", "is it stuck") | No fast path: Computer reads the project through `archon_read_recent` and answers in its own words |
+| (status, progress, "what's going on", "is it stuck") | No fast path: Computer reads the project through `arco_read_recent` and answers in its own words |
 | `call this <alias>` | Assign a temporary spoken alias |
 | `choose two` | Resolve the current spoken ambiguity list |
 | `scroll up/down/top/bottom` | Scroll the visible conversation |
@@ -904,7 +904,7 @@ Arco's disk policy. Sending to a worker creates its ordinary message history.
 Strata cannot honor strict Incognito and is refused rather than downgraded.
 Only non-content agent/output preferences persist. Closing/reloading disarms
 the microphone; it is never restored armed. Explicit audition scripts save only
-their fixed sample audio under `~/.archon/voice/audition-logs`.
+their fixed sample audio under `~/.arco/voice/audition-logs`.
 
 
 ## Architecture and lifecycle
@@ -1004,7 +1004,7 @@ isolated browser pipeline also passed normal and faster/quieter speech at 12%
 gain, retaining a ten-second initial pause and opening Plan only after the
 closing phrase. Browser recognition requests measured 49–63 ms after 352 ms
 endpoint silence, with no Luna call and no page errors. Evidence:
-`/tmp/archon-voice-user-test-49pgwqfn/parakeet-browser-1-result.json` and
+`/tmp/arco-voice-user-test-49pgwqfn/parakeet-browser-1-result.json` and
 `parakeet-browser-0.12-result.json`. All 49 voice tests, five HTTP smoke steps,
 browser lifecycle/routing checks, help checks, workspace typechecks and isolated
 shared/server/client compilation passed. Synthetic sample results do not
@@ -1039,11 +1039,11 @@ passed on 2026-10-16; the operator's actual microphone accuracy remains to be as
 Verification on 2026-10-16 passed: all 44 unit tests, all five isolated server
 smoke steps, browser acceptance with a fake microphone, workspace typechecks,
 help/documentation checks, and shared/server/client production compilation to
-`/tmp/archon-voice-build.R6DmBt`. That staged verification left the production build and service untouched;
+`/tmp/arco-voice-build.R6DmBt`. That staged verification left the production build and service untouched;
 The operator subsequently authorized deployment once workers finished. The browser check also verifies that another
 window cannot claim the microphone while the first window owns it.
 
-Production was then built and archon.service restarted on 2026-10-16. Health
+Production was then built and arco.service restarted on 2026-10-16. Health
 returned live; the real production browser loaded the voice controls, streaming
 worklet and TNG WAV with localSpeech/fastWake available, no page errors, and
 zero microphone requests before enable. Refresh an existing page after deploy.
@@ -1074,7 +1074,7 @@ now permits the bounded correction described above. Recognition still needs
 operator testing with actual speech and noise. The END CAPTURE button remains
 an explicit fallback; a sample test does not establish microphone accuracy.
 
-The original implementation used an optional local `~/.archon/voice/computer-ready.wav`.
+The original implementation used an optional local `~/.arco/voice/computer-ready.wav`.
 The operator's former sample was TNG “Ready for input 1”
 (0.852 seconds), restored by [Star Trek Dimension](https://stdimension.org/MediaLib/computere.htm).
 Original sound copyrights remain with their respective holders. The sample
@@ -1105,7 +1105,7 @@ wait for stable words and add substantial delay. Final phrase recognition
 confirms reserved boundaries alongside general transcription. All inference
 runs locally, without a subscription or speech API charge.
 
-`~/.archon/voice/venv/bin/python scripts/voice/check-phrases.py` generates fixed
+`~/.arco/voice/venv/bin/python scripts/voice/check-phrases.py` generates fixed
 synthetic speech in memory and checks normal plus faster/quieter Computer,
 prefix/later-mention rejection, End/Cancel capture and a directive with the
 closing phrase. No microphone, audio files or provider calls. This complements
@@ -1120,7 +1120,7 @@ full-ASR request for standalone Computer, and 1414 ms before the request for
 Computer open the plan. The latter retained the complete directive, emitted
 one acknowledgement and accepted manual End capture, with zero Luna calls.
 These are pipeline timings for synthetic speech, not a human wake-latency
-measurement. Evidence: `/tmp/archon-voice-user-test-49pgwqfn/fast-wake-check.py`
+measurement. Evidence: `/tmp/arco-voice-user-test-49pgwqfn/fast-wake-check.py`
 and `fast-wake-initial-result.json` in the same directory. This validates
 the actual audio path for that sample, not the operator's microphone accuracy.
 
@@ -1138,7 +1138,7 @@ recorded operator audio. Full build/restart deployed the update on 2026-10-16.
 **2026-10-17 acknowledgement auditions.** The operator wanted an almost
 inaudible macOS-like UI tap rather than a chime or the TNG effect. Three
 original, non-tonal filtered-noise transients are available locally under
-`~/.archon/voice/audition-logs/edge-comparison/quiet-taps/`: soft tap (55 ms),
+`~/.arco/voice/audition-logs/edge-comparison/quiet-taps/`: soft tap (55 ms),
 dry tick (35 ms), muted thup (75 ms), plus an `index.html` comparison with
 volume control, served by the existing :5196 audition server. Peaks are
 0.065/0.050/0.075; no borrowed macOS recordings. No application behavior
@@ -1170,7 +1170,7 @@ production delivery verified byte-for-byte at 230 ms / peak 0.065.
 TNG clone and asks for a soothing woman's voice, without an accent requirement.
 The in-app Reply voice picker above uses the existing Edge path. A standalone
 comparison is also reproducible with
-`~/.archon/voice/venv/bin/python scripts/voice/audition-edge.py --serve`:
+`~/.arco/voice/venv/bin/python scripts/voice/audition-edge.py --serve`:
 Jenny/Ava/Clara/Michelle and current-default Sonia, with short and conversational
 samples, MP3 plus timing metadata and a local listening page on :5196. No mic,
 GPU, model call, activation or service restart. First check (10 calls): short
@@ -1182,7 +1182,7 @@ The notes below describe the earlier GPU experiments, not the live speaker.
 The operator finds the Kokoro British voices (Emma, grade B-; Isabella, grade C in
 Kokoro's own voice table) too robotic. The preview page's **Voice audition**
 now compares them against two local GPU engines, each in its own venv under
-`~/.archon/voice/` so the production voice venv is untouched:
+`~/.arco/voice/` so the production voice venv is untouched:
 
 | Option | Engine | venv | Needs |
 |---|---|---|---|
@@ -1207,7 +1207,7 @@ generated 8.6 s of speech in 26.8 s (about three times slower than real time).
 Both are quality auditions, not live-feedback latencies. Under the miner,
 Chatterbox is the only one near real time; Chatterbox Turbo and the Qwen 0.6B
 variant are the untested faster options. Generated samples are cached in
-`~/.archon/voice/audition-logs/<voice>.wav` (+ `.json` timing) and replayed by
+`~/.arco/voice/audition-logs/<voice>.wav` (+ `.json` timing) and replayed by
 the preview; **Regenerate** makes a fresh one.
 
 Warm short-reply benchmark ("Opened the plan.", three calls in one process,
@@ -1258,7 +1258,7 @@ voice.
 
 ## Spoken Computer conversation
 
-**Implemented.** The mode indicator says ARCHON CONTROL
+**Implemented.** The mode indicator says ARCO CONTROL
 or COMPUTER CHAT. Both modes accept these global switches, with no extra Execute:
 
 - “Computer, let's talk about my question. End capture” enters conversation and
@@ -1305,10 +1305,10 @@ the Director's answer appears in the window and nothing is spoken (Computer
 replies `Done.`, which the client swallows and shows as status). Computer
 speaks only to ask back ("Which builder: Opus Builder or SOL Builder?"), to
 report a tool error, or to answer a question aimed at itself — general
-knowledge, or a glance at the workspace through `archon_read_recent`
+knowledge, or a glance at the workspace through `arco_read_recent`
 (working/idle and since when, current tool, queued messages, plan, mailbox,
 last few messages): "is GroundTruth busy?" → "Yes, about seven minutes".
-`archon_status` is the one-line busy/idle check and `archon_read_latest` is
+`arco_status` is the one-line busy/idle check and `arco_read_latest` is
 "what did it say". Spaced names such as Fire light and P S five still match
 Firelight and PS5 without fuzzy guessing.
 
@@ -1455,16 +1455,16 @@ and showed `Would execute: panel · plan · 62 ms recognition`. The initial
 standalone test used an incorrect expected label and timed out; corrected
 selector passed. None of this establishes accuracy with the operator's microphone.
 
-Evidence lives in `/tmp/archon-voice-user-test-49pgwqfn/`, especially
+Evidence lives in `/tmp/arco-voice-user-test-49pgwqfn/`, especially
 `parakeet-browser-{1,0.12}-result.json`, `parakeet-browser.py` and
 `parakeet-preview-check.py`. The isolated compiled tree is
-`/tmp/archon-voice-build.R6DmBt`; it predates the final minor parser guard/Luna
+`/tmp/arco-voice-build.R6DmBt`; it predates the final minor parser guard/Luna
 instruction edits, so rebuild it before relying on it as the latest source.
 Temporary servers on 5193, 5194 and 5195 were stopped during handoff. Production
 3001 was not restarted. The private test HOME is in the same evidence directory;
 never use production HOME/workspace for a destructive smoke.
 
-Assets are in `~/.archon/voice/`: Parakeet v3 INT8 and existing Moonshine, Vosk,
+Assets are in `~/.arco/voice/`: Parakeet v3 INT8 and existing Moonshine, Vosk,
 Kokoro/Piper models. faster-whisper 1.2.1 and small.en were installed for an
 isolated comparison but are not used by Arco. No microphone/OS listener was
 installed. `voice:setup` installs assets without listening.
@@ -1515,20 +1515,20 @@ Useful commands: `npm run test:voice`, `npm run smoke:voice`,
 `python3 scripts/smoke/voice-browser.py`. The HTTP smoke uses its own server/HOME
 and fixture Codex. `npm run voice:preview` offers recognition-only testing on
 5194, with the mic off until explicit enable. Full production deployment is
-`npm run build` followed by an authorized safe `archon.service` restart; inspect
-busy workers first and warn about interruption. Never use `scripts/archon start`
+`npm run build` followed by an authorized safe `arco.service` restart; inspect
+busy workers first and warn about interruption. Never use `scripts/arco start`
 for smoke tests. Do not print the systemd unit/overrides: they contain a secret.
 
 ## Mouse-and-keyboard tools and stale tabs (2026-10-17)
 
-When no named `archon_*` tool does exactly what was said, Computer uses the
-screen: `archon_screen` lists every visible control (numbered, labelled,
-grouped by open dialog or area, with state) and `archon_act` clicks, toggles,
+When no named `arco_*` tool does exactly what was said, Computer uses the
+screen: `arco_screen` lists every visible control (numbered, labelled,
+grouped by open dialog or area, with state) and `arco_act` clicks, toggles,
 types into or selects one, or presses Escape, Enter, Tab or an arrow. Dialogs
 without a `role="dialog"` (most of Arco's modals: DOCS, GIT, SPAWN, REVIEW,
 HANDOFF, SYSTEM, the nudge picker) still count as dialogs: any fixed
 full-viewport overlay that takes pointer events is reported by its heading.
-`archon_read_text` reads the words on screen (the open dialog, or the page), or
+`arco_read_text` reads the words on screen (the open dialog, or the page), or
 just the section whose heading matches a word: "Computer, read me the section on
 Strata from the manual, over" opens the manual, finds the section and reads it
 back in full; ask for a summary if you want one.

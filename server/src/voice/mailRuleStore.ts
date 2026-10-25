@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ComputerMailRule } from '@archon/shared';
+import type { ComputerMailRule } from '@arco/shared';
 
 export interface MailMember { id: string; name: string; busy: boolean; pending: string[] }
 export interface MailSnapshot { members: MailMember[]; autoPickup: boolean }

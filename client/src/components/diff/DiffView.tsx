@@ -54,17 +54,17 @@ function FileDiff({ file, viewType }: { file: FileData; viewType: 'unified' | 's
   const { adds, dels } = useMemo(() => countChanges(file), [file]);
 
   return (
-    <div className="archon-diff-file">
+    <div className="arco-diff-file">
       <button
         type="button"
-        className="archon-diff-file-header display-font"
+        className="arco-diff-file-header display-font"
         onClick={() => setCollapsed((c) => !c)}
       >
-        <span className="archon-diff-file-caret">{collapsed ? '▸' : '▾'}</span>
-        <span className="archon-diff-file-path">{renderPathLabel(file, path)}</span>
-        <span className="archon-diff-file-stat">
-          {adds > 0 && <span className="archon-diff-stat-add">+{adds}</span>}
-          {dels > 0 && <span className="archon-diff-stat-del">−{dels}</span>}
+        <span className="arco-diff-file-caret">{collapsed ? '▸' : '▾'}</span>
+        <span className="arco-diff-file-path">{renderPathLabel(file, path)}</span>
+        <span className="arco-diff-file-stat">
+          {adds > 0 && <span className="arco-diff-stat-add">+{adds}</span>}
+          {dels > 0 && <span className="arco-diff-stat-del">−{dels}</span>}
         </span>
       </button>
       {!collapsed && (
@@ -73,7 +73,7 @@ function FileDiff({ file, viewType }: { file: FileData; viewType: 'unified' | 's
           diffType={file.type}
           hunks={file.hunks}
           tokens={tokens}
-          className="archon-diff-table"
+          className="arco-diff-table"
         >
           {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
         </Diff>
@@ -121,17 +121,17 @@ export function DiffView({
   }, [patch, files]);
 
   if (parsed.length === 0) {
-    return <div className="archon-diff-empty display-font">{emptyText}</div>;
+    return <div className="arco-diff-empty display-font">{emptyText}</div>;
   }
 
   return (
-    <div className="archon-diff-view">
+    <div className="arco-diff-view">
       {!hideToolbar && (
-        <div className="archon-diff-toolbar display-font">
-          <span className="archon-diff-filecount">
+        <div className="arco-diff-toolbar display-font">
+          <span className="arco-diff-filecount">
             {parsed.length} file{parsed.length === 1 ? '' : 's'} changed
           </span>
-          <div className="archon-diff-viewtoggle">
+          <div className="arco-diff-viewtoggle">
             {(['unified', 'split'] as const).map((v) => (
               <button
                 key={v}
@@ -145,7 +145,7 @@ export function DiffView({
           </div>
         </div>
       )}
-      <div className="archon-diff-files">
+      <div className="arco-diff-files">
         {parsed.map((file) => (
           <FileDiff
             key={`${file.oldRevision}-${file.newRevision}-${file.newPath || file.oldPath}`}

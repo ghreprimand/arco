@@ -8,8 +8,8 @@
 //   uiModule.showError(msg)
 //   uiModule.styledConfirm(message, opts) -> Promise<boolean>
 // — so rather than drag in the entire windowing tree we provide a small,
-// self-contained, Archon-themed shim. Toasts render as a transient bottom-centre
-// pill using Archon's CSS vars; styledConfirm falls back to the native
+// self-contained, Arco-themed shim. Toasts render as a transient bottom-centre
+// pill using Arco's CSS vars; styledConfirm falls back to the native
 // window.confirm (the only consumer is the "flatten the base layer?" guard in
 // layer-panel.js, where a plain confirm is perfectly adequate for the alpha).
 //

@@ -5,12 +5,12 @@ import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import type { PortableSnapshotFile } from './clusterSnapshots.js';
 
-const MAGIC = Buffer.from('ARCHCL01', 'ascii');
+const MAGIC = Buffer.from('ARCOCL01', 'ascii');
 const MAX_FILES = 256;
 export const MAX_CLUSTER_BUNDLE_BYTES = 1024 * 1024 * 1024;
 
 interface BundleHeader {
-  format: 'archon-cluster/1';
+  format: 'arco-cluster/1';
   createdAt: string;
   files: Array<{ path: string; bytes: number; sha256: string }>;
 }
@@ -43,7 +43,7 @@ export function writeClusterBundle(files: PortableSnapshotFile[]): Buffer {
   }
   if (total > MAX_CLUSTER_BUNDLE_BYTES) throw new Error('cluster bundle exceeds 1 GiB cap');
   const header: BundleHeader = {
-    format: 'archon-cluster/1',
+    format: 'arco-cluster/1',
     createdAt: new Date().toISOString(),
     files: files.map((f) => ({ path: f.relPath, bytes: f.bytes.length, sha256: sha256(f.bytes) })),
   };
@@ -79,7 +79,7 @@ export function readClusterBundle(gzip: Buffer): PortableSnapshotFile[] {
   } catch {
     throw new Error('invalid cluster bundle header');
   }
-  if (header.format !== 'archon-cluster/1' || !Array.isArray(header.files) || header.files.length > MAX_FILES) {
+  if (header.format !== 'arco-cluster/1' || !Array.isArray(header.files) || header.files.length > MAX_FILES) {
     throw new Error('unsupported cluster bundle format');
   }
   const files: PortableSnapshotFile[] = [];

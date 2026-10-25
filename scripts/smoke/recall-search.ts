@@ -15,7 +15,7 @@
 //      reused A5 ripgrep engine — skipped gracefully if `rg` isn't on PATH.
 //
 // Everything is pointed at a temp HOME + temp cwds so the smoke NEVER writes to
-// the real ~/.archon.
+// the real ~/.arco.
 //
 // Run: npm run smoke:recall-search  (no dev server needed)
 
@@ -26,13 +26,13 @@ import { join } from 'node:path';
 import type { WorkflowMeta } from '../../server/src/workflowMeta.js';
 
 function writeMetaFixture(cwd: string, meta: WorkflowMeta): void {
-  const dir = join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = join(cwd, '.arco', 'workflows', meta.workflowId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 }
 
 function writeEvents(cwd: string, wfid: string, userMessages: string[]): void {
-  const dir = join(cwd, '.archon', 'workflows', wfid);
+  const dir = join(cwd, '.arco', 'workflows', wfid);
   mkdirSync(dir, { recursive: true });
   const lines: string[] = [];
   let seq = 1;
@@ -64,14 +64,14 @@ type ProviderShim = WorkflowMeta['primaryProvider'];
 
 async function main() {
   const cleanups: string[] = [];
-  const fakeHome = mkdtempSync(join(tmpdir(), 'archon-recall-search-home-'));
+  const fakeHome = mkdtempSync(join(tmpdir(), 'arco-recall-search-home-'));
   cleanups.push(fakeHome);
   const realHome = homedir();
   process.env.HOME = fakeHome;
   assert(homedir() === fakeHome, `HOME override failed (got ${homedir()})`);
 
-  const cwdA = mkdtempSync(join(tmpdir(), 'archon-rsearch-projA-'));
-  const cwdB = mkdtempSync(join(tmpdir(), 'archon-rsearch-projB-'));
+  const cwdA = mkdtempSync(join(tmpdir(), 'arco-rsearch-projA-'));
+  const cwdB = mkdtempSync(join(tmpdir(), 'arco-rsearch-projB-'));
   cleanups.push(cwdA, cwdB);
 
   // Distinct tokens: zebracorn (A1 title), narwhalflux (B1 title), and a
@@ -90,15 +90,15 @@ async function main() {
   // Title token is generic; the distinctive token lives only in a later turn.
   writeEvents(cwdA, wfA2, ['Some ordinary task', 'now also handle the quokkaprime edge case']);
 
-  const archonDir = join(fakeHome, '.archon');
-  mkdirSync(archonDir, { recursive: true });
-  writeFileSync(join(archonDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
+  const arcoDir = join(fakeHome, '.arco');
+  mkdirSync(arcoDir, { recursive: true });
+  writeFileSync(join(arcoDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
 
   const { RecallIndex } = await import('../../server/src/recall/index.js');
   const { search } = await import('../../server/src/recall/search.js');
   const { RIPGREP_BIN } = await import('../../server/src/contentSearch.js');
 
-  const dbPath = join(fakeHome, '.archon', 'recall', 'recall.db');
+  const dbPath = join(fakeHome, '.arco', 'recall', 'recall.db');
   const index = new RecallIndex(dbPath);
 
   await step('backfill indexes all three workflows + builds FTS', async () => {

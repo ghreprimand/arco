@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md Part J — Workbench Notifications.
+// ARCO_OPS_PLAN.md Part J — Workbench Notifications.
 //
 // A single in-app event contract so the J1 toast/notice-center surface and the
 // (future) J2 external transports (email / ntfy / Pushover / desktop push)

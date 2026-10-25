@@ -13,11 +13,11 @@ export const CLASSIC_THEME_IDS = ['matrix', 'arch', 'amber-crt', 'braun', 'bluep
 export const VALID_THEME_IDS = [...CLASSIC_THEME_IDS, ...PHOSPHOR_PALETTE_IDS.map(id => `phosphor:arco:${id}` as const)] as const;
 export type ThemeId = typeof VALID_THEME_IDS[number];
 
-// Saved settings from Archon builds name the two ported terminal themes, the
+// Saved settings from upstream builds name the two ported terminal themes, the
 // Phosphor family token and its CRT palette with a different leading word
 // (`<word>-default`, `<word>-jungle`, `phosphor:<word>:<id>`, `<word>-crt`).
 // Map any such id onto the Arco id with the same suffix so a theme chosen in
-// Archon still resolves in Arco. Ids that are already valid pass through.
+// the upstream still resolves in Arco. Ids that are already valid pass through.
 export function normalizeLegacyThemeId(raw: string): string | undefined {
   const valid = VALID_THEME_IDS as readonly string[];
   if (valid.includes(raw)) return raw;

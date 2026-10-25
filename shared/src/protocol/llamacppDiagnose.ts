@@ -15,7 +15,7 @@
 // verdict and NOT an auto-remediation — the operator reads it and clicks.
 //
 // Scope: the llama.cpp subset only. The upstream reference also covered
-// vLLM/SGLang; those are deliberately DROPPED — Archon serves GGUF via llama.cpp.
+// vLLM/SGLang; those are deliberately DROPPED — Arco serves GGUF via llama.cpp.
 
 // A structured, one-click remediation. Each maps onto a field the
 // LlamacppCatalogEditor already edits (ctxSize / ngl / extraArgs) so applying it

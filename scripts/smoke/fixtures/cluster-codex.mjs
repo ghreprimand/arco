@@ -48,8 +48,8 @@ for (let i = 0; i < argv.length - 1; i++) {
 }
 const children = new Set();
 async function clusterTools() {
-  const command = overrides['mcp_servers.archon-cluster.command'];
-  const args = overrides['mcp_servers.archon-cluster.args'];
+  const command = overrides['mcp_servers.arco-cluster.command'];
+  const args = overrides['mcp_servers.arco-cluster.args'];
   assert.equal(command, 'node');
   assert.ok(args[0].endsWith('/server/dist/mcp/clusterMcpServer.js'));
   const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });

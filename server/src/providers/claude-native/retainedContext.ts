@@ -123,7 +123,7 @@ export function pruneServerToolEvidenceAfterTurn(
       next.push({
         type: 'text',
         text:
-          `\n\n[Archon retained-history note: ${removedInMessage} server-side web/code tool evidence block(s) ` +
+          `\n\n[Arco retained-history note: ${removedInMessage} server-side web/code tool evidence block(s) ` +
           'from this completed turn were omitted from future prompt context. The final answer above preserved the relevant findings; search/fetch again if raw evidence is needed.]',
       });
       msg.content = next.length > 0 ? next : [{ type: 'text', text: '[server-tool evidence omitted after completed turn]' }];

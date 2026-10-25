@@ -1,5 +1,5 @@
-import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, zaiModelContextWindow, ollamaEffortsFor } from '@archon/shared';
-import type { TokenUsage, ProviderName, ModelName, EffortLevel, ClaudeCatalogSnapshot, CodexCatalogSnapshot, OllamaThinkingInfo } from '@archon/shared';
+import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, zaiModelContextWindow, ollamaEffortsFor } from '@arco/shared';
+import type { TokenUsage, ProviderName, ModelName, EffortLevel, ClaudeCatalogSnapshot, CodexCatalogSnapshot, OllamaThinkingInfo } from '@arco/shared';
 
 // Ollama per-model graded-thinking levels, fed from the auth snapshot
 // (appStore.setAuthStatus). A module registry rather than another parameter:
@@ -57,7 +57,7 @@ export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
 //
 //   Claude (Anthropic): input_tokens, cache_read_input_tokens, and
 //     cache_creation_input_tokens are DISJOINT — they sum to the total
-//     prompt. Archon's ctx for Claude is `input + cacheCreate`, matching
+//     prompt. Arco's ctx for Claude is `input + cacheCreate`, matching
 //     server/src/index.ts:maybeAutoCompact's threshold metric. Cache-reads
 //     are deliberately excluded because the prior cached prefix isn't NEW
 //     context being sent (it's already-counted cumulative state).
@@ -67,7 +67,7 @@ export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
 //     informational ("of those input_tokens, this many were served from
 //     prefix cache"). Confirmed against real rollout payloads where
 //     input=8402, cached=7296 with input being the only number that
-//     matches what the model actually saw. So Archon's ctx for Codex is
+//     matches what the model actually saw. So Arco's ctx for Codex is
 //     just `input` — adding cacheRead would double-count the cached
 //     portion (and was the source of an inflated "89k after 3 prompts"
 //     report before this was fixed, 2026-04-26).
@@ -126,7 +126,7 @@ export function cacheHitPercent(t: TokenUsage): number | null {
 
 // Default auto-compact threshold if settings.autoCompactInputTokens is unset.
 // Mirrors AUTO_COMPACT_INPUT_TOKENS_THRESHOLD in server/src/index.ts.
-// Claude-specific concept; Codex doesn't have an Archon-managed auto-compact.
+// Claude-specific concept; Codex doesn't have an Arco-managed auto-compact.
 export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 
 // Per-provider effort levels that the CLI actually honors. Used by the
@@ -142,7 +142,7 @@ export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 //   Gemini    — CLI has no effort flag (gemini.ts:buildArgs comment confirms).
 //               Value is ignored. Empty array → hide the picker entirely.
 //   Ollama    — same as Gemini, no effort flag.
-//   Antigravity — operator sets effort inside the desktop app; Archon
+//   Antigravity — operator sets effort inside the desktop app; Arco
 //               doesn't pass anything. Hide the picker.
 //
 // When the array is empty, callers should hide the effort UI rather than
@@ -190,7 +190,7 @@ export function clampEffortForProvider(
 //   3. effortsForProvider (full set)
 // Resolution order for Codex:
 //   1. live catalog (from /api/codex/catalog → app-server's model/list,
-//      the authoritative source). Codex's enum is wider than Archon's
+//      the authoritative source). Codex's enum is wider than Arco's
 //      (none/minimal/low/medium/high/xhigh/max/ultra); we filter to the
 //      EffortLevel values the picker surfaces.
 //   2. CODEX_MODEL_INFO.supportedEfforts (compile-time fallback)
@@ -206,16 +206,16 @@ export function effortsForModel(
     if (codexCatalog && codexCatalog.models.length > 0) {
       const live = codexCatalog.models.find((m) => m.id === id);
       if (live) {
-        // Codex's enum carries values Archon has no picker slot for
+        // Codex's enum carries values Arco has no picker slot for
         // (none/minimal); intersect with the EffortLevel values we surface.
         // 'max' and 'ultra' MUST be in this list — omitting them is how GPT-6
         // Astra's top two levels stayed invisible in the picker on release day
         // (2026-09-04) even though the live catalog advertised both.
-        const archonLevels: EffortLevel[] = [];
+        const arcoLevels: EffortLevel[] = [];
         for (const e of live.supportedReasoningEfforts) {
-          if (e === 'low' || e === 'medium' || e === 'high' || e === 'xhigh' || e === 'max' || e === 'ultra') archonLevels.push(e);
+          if (e === 'low' || e === 'medium' || e === 'high' || e === 'xhigh' || e === 'max' || e === 'ultra') arcoLevels.push(e);
         }
-        if (archonLevels.length > 0) return archonLevels;
+        if (arcoLevels.length > 0) return arcoLevels;
       }
     }
     const info = CODEX_MODEL_INFO[id];

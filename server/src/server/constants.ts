@@ -1,7 +1,7 @@
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-export const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+export const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 export const DIRECTORY_NAME_COLLATOR = new Intl.Collator(undefined, {
   sensitivity: 'base',
   numeric: true,
@@ -9,11 +9,11 @@ export const DIRECTORY_NAME_COLLATOR = new Intl.Collator(undefined, {
 // Bind loopback by default. The HTTP/WS surface has no auth and exposes
 // filesystem + GitHub-token-adjacent endpoints; binding 0.0.0.0 would expose
 // them to the LAN. Operators who genuinely need a different bind (containers,
-// custom forwarding) can set ARCHON_HOST=0.0.0.0 explicitly.
-export const HOST = process.env.ARCHON_HOST || '127.0.0.1';
-// ARCHON_UPLOADS_DIR relocates uploads (the Docker image keeps them on the data
+// custom forwarding) can set ARCO_HOST=0.0.0.0 explicitly.
+export const HOST = process.env.ARCO_HOST || '127.0.0.1';
+// ARCO_UPLOADS_DIR relocates uploads (the Docker image keeps them on the data
 // volume); the default stays the server's working directory.
-export const UPLOADS_DIR = process.env.ARCHON_UPLOADS_DIR || join(process.cwd(), 'uploads');
+export const UPLOADS_DIR = process.env.ARCO_UPLOADS_DIR || join(process.cwd(), 'uploads');
 export const UPLOAD_IMAGE_EXT: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',
@@ -33,7 +33,7 @@ export function compareDirectoryNames(a: string, b: string): number {
 }
 
 // How long after a foreign (non-sdk-cli) JSONL write we keep blocking new
-// Archon turns. Picked to cover brief TUI pokes while still unblocking the
+// Arco turns. Picked to cover brief TUI pokes while still unblocking the
 // operator soon after they close the terminal.
 export const FOREIGN_WRITE_BLOCK_MS = 60_000;
 // Debounce window for the in-chat concurrent-session warning.
@@ -59,7 +59,7 @@ export const CODEX_SCAN_DAYS = 30;
 // reasoning tokens at high rate from local thinking models) are dropped
 // rather than queued. Without this, a runaway llama.cpp turn pumping
 // 30+ reasoning tokens/sec at hundreds of bytes per delta blows the
-// Node heap and the browser flags Archon as slowing the system.
+// Node heap and the browser flags Arco as slowing the system.
 //
 // 1MB is generous: even on a slow link, queue drains in <1s at typical
 // WS throughput. Past that we're almost certainly in a runaway and the

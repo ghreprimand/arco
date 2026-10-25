@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §E1 (E1-Native) — Claude Native MCP host smoke.
+// ARCO_OPS_PLAN.md §E1 (E1-Native) — Claude Native MCP host smoke.
 //
 // Covers the two surfaces E1-Native added WITHOUT booting a real Native turn
 // (that needs the Anthropic API — the full turn path is the UI recipe):
@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), 'archon-mcp-native-smoke-'));
+  const root = await mkdtemp(join(tmpdir(), 'arco-mcp-native-smoke-'));
 
   const { connectServer } = await import('../../server/src/mcp/client.js');
   const { registryToolDefs, parseRegistryToolName, registryNamespace, isRegistryToolAllowed } =

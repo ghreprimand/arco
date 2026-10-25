@@ -1,6 +1,6 @@
 """Compare the existing Computer speech service's voices without changing it.
 
-~/.archon/voice/venv/bin/python scripts/voice/audition-edge.py --serve
+~/.arco/voice/venv/bin/python scripts/voice/audition-edge.py --serve
 Only the fixed audition text goes to Edge. No microphone, model or GPU.
 """
 import argparse
@@ -86,7 +86,7 @@ document.addEventListener('play',e=>{if(e.target.tagName==='AUDIO')for(const a o
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--out', type=Path, default=Path.home() / '.archon/voice/audition-logs/edge-comparison')
+    parser.add_argument('--out', type=Path, default=Path.home() / '.arco/voice/audition-logs/edge-comparison')
     parser.add_argument('--serve', action='store_true')
     parser.add_argument('--port', type=int, default=5196)
     args = parser.parse_args()

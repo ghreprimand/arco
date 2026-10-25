@@ -16,7 +16,7 @@
 // there is no WS surface exposing the raw dispatched prompt. Same live-model
 // posture as cursor-phase-3.
 //
-//   ARCHON_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-4.ts
+//   ARCO_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-4.ts
 //
 // ⚠️ METERED: makes 1 real Cursor turn (tiny prompt) on `auto`. The worker must
 // be logged in (`cursor-agent login`).

@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { LocalRecognizer, localVoiceAvailable, localWakeAvailable, voicePaths } from '../voice/localRecognizer.js';
 import { readFile } from 'node:fs/promises';
 import { endVoiceSession, getVoiceSession, interpretVoice, parseVoiceContext, renewVoiceSession, resolveOutputVoice, selectSessionOutputVoice, startVoiceSession, VOICE_EDGE_VOICE } from '../voice/sessions.js';
-import { VOICE_OUTPUT_OPTIONS, VOICE_OUTPUT_SAMPLE } from '@archon/shared';
+import { VOICE_OUTPUT_OPTIONS, VOICE_OUTPUT_SAMPLE } from '@arco/shared';
 import { computerWatchControl } from '../voice/watches.js';
 import { workflows } from '../server/state.js';
 import { VOICE_LUNA_EFFORT, VOICE_LUNA_MODEL } from '../voice/luna.js';
@@ -34,7 +34,7 @@ export async function tryHandleVoiceRoutes(req: IncomingMessage, res: ServerResp
     if (!res.destroyed && !res.writableEnded) { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); }
     return true;
   };
-  // VOICE_AGENT_PLAN.md — relay for the archon-voice MCP child (loopback
+  // VOICE_AGENT_PLAN.md — relay for the arco-voice MCP child (loopback
   // only; exempt from the cookie gate like the cluster peer routes). The
   // Computer chat must exist and carry the voiceOperator flag; the browser
   // that owns the hands-free session answers.
@@ -111,9 +111,9 @@ export async function tryHandleVoiceRoutes(req: IncomingMessage, res: ServerResp
     }
     // Pipeline diagnostics (2026-10-17): the browser's per-frame decisions
     // land in the journal next to the recognizer lines below, so a missed
-    // wake word can be read back (`journalctl --user -u archon.service | grep '\[voice'`)
+    // wake word can be read back (`journalctl --user -u arco.service | grep '\[voice'`)
     // instead of guessed at. Local server, operator's own speech.
-    const privateRequest = req.headers['x-archon-voice-private'] === '1';
+    const privateRequest = req.headers['x-arco-voice-private'] === '1';
     const vlog = (message: string) => { if (!privateRequest) console.log(`[voice ${id.slice(0, 8)}] ${message}`); };
     if (url.pathname === '/api/voice/diag' && req.method === 'POST') {
       const body = JSON.parse((await readBytes(req, 64_000)).toString());

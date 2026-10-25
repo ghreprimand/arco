@@ -97,7 +97,7 @@ export async function maybeGenerateModelTitle(
     const applied = await applyModelTitle(meta.cwd, wfid, title, { sourceHash: entry.sourceHash });
     return applied.status === 'applied' ? 'applied' : 'skipped';
   } catch (err) {
-    console.error('[archon] model title generation failed:', err);
+    console.error('[arco] model title generation failed:', err);
     return 'failed';
   } finally {
     inFlight.delete(wfid);

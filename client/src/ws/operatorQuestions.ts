@@ -1,4 +1,4 @@
-import type { OperatorQuestionState } from '@archon/shared';
+import type { OperatorQuestionState } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 export const questionMessageId = (requestId: string) => `operator-question-${requestId}`;

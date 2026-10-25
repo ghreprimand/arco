@@ -12,8 +12,8 @@ No server code, no halting — pure read-only analysis of logs on disk.
 """
 import json, glob, hashlib, collections, datetime, os, sys
 
-# Point at any project's worker logs: WATCHDOG_LOGDIR=/path/to/<proj>/.archon/workflows
-LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".archon", "workflows"))
+# Point at any project's worker logs: WATCHDOG_LOGDIR=/path/to/<proj>/.arco/workflows
+LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".arco", "workflows"))
 
 # ---- thresholds (the whole game is tuning these) -------------------------
 LOOP_REPEAT_K   = 4     # same (tool,input) this many times...

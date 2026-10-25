@@ -12,7 +12,7 @@ import {
   isThinkingBindingError,
   markDeferred,
   popTrailingSystemMessages,
-  removeArchonSystemMessages,
+  removeArcoSystemMessages,
   renderSystemDelta,
   sortToolDefs,
   stripAllThinkingBlocks,
@@ -97,23 +97,23 @@ test('buildPrefixUpdateMessage: null when nothing changed; text first, then tool
   assert.equal(buildPrefixUpdateMessage(null, []), null);
   const msg = buildPrefixUpdateMessage('delta', buildToolChangeBlocks([], ['Bash']))!;
   assert.equal(msg.role, 'system');
-  assert.equal(msg.archon, 'system_delta');
+  assert.equal(msg.arco, 'system_delta');
   assert.equal(msg.content[0].type, 'text');
   assert.equal(msg.content[1].type, 'tool_removal');
   const toolsOnly = buildPrefixUpdateMessage(null, buildToolChangeBlocks(['Bash'], []))!;
-  assert.equal(toolsOnly.archon, 'tool_set_change');
+  assert.equal(toolsOnly.arco, 'tool_set_change');
   const wire = toWireMessages([{ role: 'user', content: 'hi' }, msg]) as Array<Record<string, unknown>>;
-  assert.equal('archon' in wire[1], false);
+  assert.equal('arco' in wire[1], false);
   assert.equal(wire[1].role, 'system');
   assert.equal(wire[0], wire[0]); // non-system entries pass through by reference
 });
 
-test('popTrailingSystemMessages: pops only the trailing run; removeArchonSystemMessages clears all', () => {
+test('popTrailingSystemMessages: pops only the trailing run; removeArcoSystemMessages clears all', () => {
   const s = buildPrefixUpdateMessage('x', [])!;
   const history: unknown[] = [{ role: 'user', content: 'a' }, s, { role: 'assistant', content: 'b' }, { role: 'user', content: 'c' }, s, s];
   assert.equal(popTrailingSystemMessages(history), 2);
   assert.equal(history.length, 4);
-  assert.equal(removeArchonSystemMessages(history), 1);
+  assert.equal(removeArcoSystemMessages(history), 1);
   assert.equal(history.length, 3);
 });
 

@@ -10,8 +10,8 @@ import { readConditionContext, restoreConditionContext } from './conditionContex
 import { observedWorker, observeConditionMessage, forgetObservedWorker } from './conditionFacts.js';
 
 async function fixture(run: (id: string, wf: WorkflowState, write: (events: object[]) => Promise<void>, cwd: string) => Promise<void>) {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-condition-context-')), id = randomUUID();
-  const dir = join(cwd, '.archon', 'workflows', id); await mkdir(dir, { recursive: true });
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-condition-context-')), id = randomUUID();
+  const dir = join(cwd, '.arco', 'workflows', id); await mkdir(dir, { recursive: true });
   const write = (events: object[]) => writeFile(join(dir, 'events.jsonl'), events.map((e, i) => JSON.stringify({ workflowId: id, seq: i + 1, ts: Date.now(), ...e })).join('\n') + '\n');
   const wf = { config: { kind: 'workflow', workingDirectory: cwd }, primary: { provider: 'claude', model: 'claude-opus-5-5' }, busy: false } as WorkflowState;
   try { await run(id, wf, write, cwd); } finally { workflows.delete(id); forgetObservedWorker(id); await rm(cwd, { recursive: true, force: true }); }
@@ -28,7 +28,7 @@ test('restart restores final-request tokens rather than billing totals; absolute
 test('older Codex events recover the current account/session rollout; compaction boundaries refuse old measurements', async () => fixture(async (id, wf, write, cwd) => {
   wf.primary = { provider: 'codex', model: 'gpt-6-luna', effort: 'low' }; wf.primarySessionId = randomUUID(); wf.config.providerAccountRef = 'fixture';
   const home = join(cwd, 'account'), sessions = join(home, 'sessions', '2026', '10', '17'); await mkdir(sessions, { recursive: true });
-  await writeFile(join(cwd, '.archon', 'settings.json'), JSON.stringify({ providerAccounts: { codex: [{ id: 'fixture', label: 'Fixture', codexHome: home }] } }));
+  await writeFile(join(cwd, '.arco', 'settings.json'), JSON.stringify({ providerAccounts: { codex: [{ id: 'fixture', label: 'Fixture', codexHome: home }] } }));
   await writeFile(join(sessions, `rollout-fixture-${wf.primarySessionId}.jsonl`), JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { input_tokens: 333333 }, total_token_usage: { input_tokens: 99999999 }, model_context_window: 828400 } } }) + '\n');
   await write([{ type: 'primary_complete', tokens: { input: 99999999 }, modelContextWindow: 828400 }]);
   assert.equal((await readConditionContext(id, wf))?.tokens, 333333);

@@ -4,8 +4,8 @@ import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
 import { DiffView } from '../diff/DiffView';
 import { useAppStore } from '../../stores/appStore';
 import { useDocEditStore } from '../../stores/docEditStore';
-import { DOC_EDIT_CONTEXT_LIMIT } from '@archon/shared';
-import type { ProviderName, ModelName } from '@archon/shared';
+import { DOC_EDIT_CONTEXT_LIMIT } from '@arco/shared';
+import type { ProviderName, ModelName } from '@arco/shared';
 
 // WORKBENCH_EXPANSION_PLAN.md §A7 — AI-collaborative document editing affordance.
 //

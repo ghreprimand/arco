@@ -13,12 +13,12 @@
 //     before its cluster_created lands) can be momentarily absent from a
 //     snapshot; diffing against the last snapshot keeps that from closing it.
 
-import type { WorkspaceSnapshotPayload } from '@archon/shared';
+import type { WorkspaceSnapshotPayload } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 // Per-origin flag: this browser's local tabs were merged into the server's set
 // once. Afterwards the server is authoritative and local extras are dropped.
-const ADOPTED_KEY = 'archon.workspaceAdopted';
+const ADOPTED_KEY = 'arco.workspaceAdopted';
 
 let lastIds: Set<string> | null = null;
 let lastClusterIds: Set<string> | null = null;

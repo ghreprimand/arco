@@ -22,7 +22,7 @@ import { NorthStarBar } from './NorthStarBar';
 import { AccountBadge, accountBadgeForJob } from './TabBar';
 import { useAppStore } from '../stores/appStore';
 import type { JobState } from '../stores/appStore';
-import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef } from '@arco/shared';
 
 interface Props {
   job: JobState;

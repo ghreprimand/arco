@@ -4,7 +4,7 @@
  *
  * The spike (item 8) established: Cursor ACP advertises `mcpCapabilities:{http:true,sse:true}`
  * and NO stdio — a stdio `mcpServers` entry was accepted but its tool was never called. Before
- * we wire the loopback `archon-cluster` peer-tools MCP for real, this micro-probe confirms the
+ * we wire the loopback `arco-cluster` peer-tools MCP for real, this micro-probe confirms the
  * OTHER half of that finding: that a loopback HTTP/SSE MCP server's tools DO appear + are
  * callable over ACP. GO/NO-GO for all Cursor cluster membership.
  *
@@ -13,7 +13,7 @@
  * ⚠️ METERED COST: makes real Cursor turns on `--model auto` (the Auto+Composer pool, not the
  * $20 frontier pool). Two tiny turns (one HTTP session, one SSE session). Kept minimal.
  *
- * It stands up ONE loopback MCP server (SDK McpServer, `archon_probe_ping`) exposed on
+ * It stands up ONE loopback MCP server (SDK McpServer, `arco_probe_ping`) exposed on
  * 127.0.0.1 over BOTH transports at once:
  *   - Streamable HTTP  at  http://127.0.0.1:<port>/mcp
  *   - Legacy SSE       at  http://127.0.0.1:<port>/sse  (+ POST /messages)
@@ -54,9 +54,9 @@ const toolCalls: Array<{ transport: string; word: string }> = [];
 
 // ---- loopback MCP server (SDK), one instance, both transports ----------------
 function buildMcpServer(transportLabel: string): McpServer {
-  const server = new McpServer({ name: 'archon-probe', version: '0.0.0' });
+  const server = new McpServer({ name: 'arco-probe', version: '0.0.0' });
   server.registerTool(
-    'archon_probe_ping',
+    'arco_probe_ping',
     {
       description:
         'Arco Phase-6 loopback-MCP probe. Call this tool with any word to confirm the ' +
@@ -65,8 +65,8 @@ function buildMcpServer(transportLabel: string): McpServer {
     },
     async ({ word }: { word: string }) => {
       toolCalls.push({ transport: transportLabel, word });
-      wire('MCP', `[${transportLabel}] tools/call archon_probe_ping word=${JSON.stringify(word)}`);
-      return { content: [{ type: 'text' as const, text: `archon_probe_ping OK: received "${word}"` }] };
+      wire('MCP', `[${transportLabel}] tools/call arco_probe_ping word=${JSON.stringify(word)}`);
+      return { content: [{ type: 'text' as const, text: `arco_probe_ping OK: received "${word}"` }] };
     },
   );
   return server;
@@ -226,7 +226,7 @@ async function driveSession(
     await Promise.race([
       peer.request('session/prompt', {
         sessionId,
-        prompt: [{ type: 'text', text: 'Call the tool named archon_probe_ping with word="hello". Then reply DONE.' }],
+        prompt: [{ type: 'text', text: 'Call the tool named arco_probe_ping with word="hello". Then reply DONE.' }],
       }),
       sleep(90000).then(() => { throw new Error('prompt timeout (90s)'); }),
     ]);
@@ -256,8 +256,8 @@ async function selfTest(): Promise<void> {
     const client = new Client({ name: 'selftest', version: '0.0.0' });
     await client.connect(makeTransport());
     const tools = await client.listTools();
-    const hasPing = tools.tools.some((t: any) => t.name === 'archon_probe_ping');
-    const r: any = await client.callTool({ name: 'archon_probe_ping', arguments: { word: `st-${label}` } });
+    const hasPing = tools.tools.some((t: any) => t.name === 'arco_probe_ping');
+    const r: any = await client.callTool({ name: 'arco_probe_ping', arguments: { word: `st-${label}` } });
     const fired = toolCalls.slice(before).some((c) => c.transport === label);
     note(`selftest ${label}`, `tools/list has ping=${hasPing}, handler fired=${fired}, result=${JSON.stringify(r?.content?.[0]?.text).slice(0, 60)}`);
     await client.close();
@@ -312,11 +312,11 @@ async function main(): Promise<void> {
 
   // ACP HTTP MCP descriptor. The ACP McpServer union tags network variants with `type`.
   const httpRes = await driveSession(peer, cwd, 'HTTP', {
-    type: 'http', name: 'archon-probe', url: httpUrl, headers: [],
+    type: 'http', name: 'arco-probe', url: httpUrl, headers: [],
   });
   // ACP SSE MCP descriptor.
   const sseRes = await driveSession(peer, cwd, 'SSE', {
-    type: 'sse', name: 'archon-probe', url: sseUrl, headers: [],
+    type: 'sse', name: 'arco-probe', url: sseUrl, headers: [],
   });
 
   // ---- verdict ----

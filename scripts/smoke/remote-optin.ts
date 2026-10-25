@@ -36,10 +36,10 @@ function fakePost() {
   return { calls, fetchImpl };
 }
 
-const NTFY_ENV = { ARCHON_NTFY_URL: 'http://hub:3501/archon-x', ARCHON_HUB_URL: 'ws://hub:3500/agent' };
+const NTFY_ENV = { ARCO_NTFY_URL: 'http://hub:3501/arco-x', ARCO_HUB_URL: 'ws://hub:3500/agent' };
 
 async function main() {
-  _setMutesPathForTest(join(tmpdir(), `archon-remote-optin-smoke-${process.pid}.json`));
+  _setMutesPathForTest(join(tmpdir(), `arco-remote-optin-smoke-${process.pid}.json`));
   await initNotifications(() => { /* swallow in-app broadcasts */ });
 
   await step('opted-IN set gates per-workflow: only enabled workflows push', async () => {

@@ -421,7 +421,7 @@ export const voice: Section[] = [{
       (Arco was rebuilt and restarted under it). “Computer, reload the page,
       over” or the button fixes it. In saved mode, voice decisions and
       tool relays are in the server journal; no-history mode suppresses them:
-      <Code>journalctl --user -u archon.service | grep '\[voice'</Code>, so a
+      <Code>journalctl --user -u arco.service | grep '\[voice'</Code>, so a
       missed wake word or a wrong action can be read back rather than
       guessed at.</p>
   </>,

@@ -8,7 +8,7 @@ import { NorthStarBar } from './NorthStarBar';
 import { Panel } from './primitives/Panel';
 import { useAppStore } from '../stores/appStore';
 import type { JobState } from '../stores/appStore';
-import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, PreviewCaptureKind, PreviewViewport, ArchonSkillRef, BakeoffAttemptSpec } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, PreviewCaptureKind, PreviewViewport, ArcoSkillRef, BakeoffAttemptSpec } from '@arco/shared';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { TaskLedgerPatch } from './RightPanel/types';
 
@@ -37,7 +37,7 @@ interface Props {
     summarizer?: { provider: ProviderName; model: ModelName; effort: EffortLevel },
   ) => void;
   onSpawn?: (newConfig: WorkflowConfig, newDirection: string, includePlan: boolean) => void;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArchonSkillRef[]; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; ollamaParams?: Record<string, unknown> }) => void;
   onLoadEarlier?: () => void;
   onRecalibrate?: () => void;
   onFreshAntigravityCascade?: () => void;
@@ -91,10 +91,10 @@ interface Props {
   onBakeoffStart?: (workflowId: string, prompt: string, attempts: BakeoffAttemptSpec[], name?: string) => void;
   onBakeoffPromote?: (workflowId: string, bakeoffId: string, attemptId: string) => void;
   onBakeoffCleanup?: (workflowId: string, bakeoffId: string, attemptIds: string[]) => void;
-  onGenesisSeedUpdate?: (workflowId: string, seed: import('@archon/shared').GenesisSeed) => void;
-  onGenesisScaffold?: (workflowId: string, root?: string, github?: import('@archon/shared').GenesisGithubParams) => void;
+  onGenesisSeedUpdate?: (workflowId: string, seed: import('@arco/shared').GenesisSeed) => void;
+  onGenesisScaffold?: (workflowId: string, root?: string, github?: import('@arco/shared').GenesisGithubParams) => void;
   onGenesisCreativeArm?: (workflowId: string, disarm?: boolean) => void;
-  onGenesisAssistRequest?: (workflowId: string, requestId: string, field: import('@archon/shared').GenesisAssistField, intent: import('@archon/shared').GenesisAssistIntent, seed: import('@archon/shared').GenesisSeed, instruction?: string) => void;
+  onGenesisAssistRequest?: (workflowId: string, requestId: string, field: import('@arco/shared').GenesisAssistField, intent: import('@arco/shared').GenesisAssistIntent, seed: import('@arco/shared').GenesisSeed, instruction?: string) => void;
   mcp?: McpSenders;
 }
 
@@ -102,7 +102,7 @@ interface Props {
 // Width is stored as a 0–1 fraction of the container in localStorage so the
 // splitter survives reloads. REVIEW/HANDOFFS/SPAWN buttons near the composer
 // arrive in Phases 5–7.
-const WIDTH_KEY = 'archon.sidePanelWidth';
+const WIDTH_KEY = 'arco.sidePanelWidth';
 const MIN_FRACTION = 0.2;
 const MAX_FRACTION = 0.55;
 const DEFAULT_FRACTION = 0.34;
@@ -194,7 +194,7 @@ export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetTo
         >
           {/* `no-frost`: the chat column is a transparent transcript scaffold,
               not a glass content panel. Under frosted-glass mode the generic
-              `.archon-panel` backdrop-filter blur would soften the ambient
+              `.arco-panel` backdrop-filter blur would soften the ambient
               shader (e.g. matrix rain) behind the chat — the glyphs read blurry.
               Opting out keeps the rain crisp here (matching the cluster
               transcript, which isn't a Panel at all) while real content panels

@@ -2,11 +2,11 @@ import { readFile, readdir, stat } from 'fs/promises';
 import { openSync, fstatSync, readSync, closeSync } from 'node:fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
-import type { SessionInfo } from '@archon/shared';
+import type { SessionInfo } from '@arco/shared';
 import { UUID_PATTERN, CODEX_SCAN_DAYS } from '../server/constants.js';
 import { accountShortLabel, configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
 import { discoverGeminiSessions } from '../providers/gemini.js';
-import { listWorkflowMetas, readMeta, archonInternalSessionInfoForMeta } from '../workflowMeta.js';
+import { listWorkflowMetas, readMeta, arcoInternalSessionInfoForMeta } from '../workflowMeta.js';
 import { backfillSessionIndex } from './sessionIndex.js';
 import { getRecallIndex } from '../recall/index.js';
 import { encodeProjectDir } from '../http/fileRead.js';
@@ -229,12 +229,12 @@ export async function extractCodexSessionInfo(path: string, wantCwd: string): Pr
 
 // First operator message of a workflow, read straight from the HEAD of its
 // events.jsonl (the first `user_message_echo`). Deterministic topic source for
-// Archon-internal sessions that have no provider .jsonl and may not yet be in
+// Arco-internal sessions that have no provider .jsonl and may not yet be in
 // the recall index. Bounded head read, best-effort, never throws.
 function readFirstUserText(cwd: string, wfid: string): string | undefined {
   let fd: number | undefined;
   try {
-    fd = openSync(join(cwd, '.archon', 'workflows', wfid, 'events.jsonl'), 'r');
+    fd = openSync(join(cwd, '.arco', 'workflows', wfid, 'events.jsonl'), 'r');
     const size = fstatSync(fd).size;
     if (size === 0) return undefined;
     const len = Math.min(size, 256 * 1024);
@@ -265,26 +265,26 @@ function readFirstUserText(cwd: string, wfid: string): string | undefined {
 export async function discoverSessions(targetDir: string): Promise<SessionInfo[]> {
   if (!targetDir) return [];
   const resolved = resolve(targetDir);
-  // ARCHON_OPS_PLAN.md §H1 — resume-discovery trigger. Refresh the project-local
+  // ARCO_OPS_PLAN.md §H1 — resume-discovery trigger. Refresh the project-local
   // session index for every workflow under this cwd (covers ones created by a
   // prior server process with no turn this run). Fired-and-logged, never awaited
   // into the picker result — the index is a rebuildable projection.
   void backfillSessionIndex(resolved, readMeta).catch((err) => {
-    console.error('[archon] session index backfill failed:', err);
+    console.error('[arco] session index backfill failed:', err);
   });
-  const [claude, codex, gemini, archonMetas] = await Promise.all([
+  const [claude, codex, gemini, arcoMetas] = await Promise.all([
     discoverClaudeSessions(resolved),
     discoverCodexSessions(resolved),
     discoverGeminiSessions(resolved),
     listWorkflowMetas(resolved),
   ]);
 
-  // Index native sessionId → archon workflow so the picker can display a
+  // Index native sessionId → arco workflow so the picker can display a
   // friendly workflow name and the server can reuse the existing wfid on
   // resume (rather than creating a duplicate meta.json for the same CLI
   // session).
   const claimedBy = new Map<string, { workflowId: string; name: string }>();
-  for (const meta of archonMetas) {
+  for (const meta of arcoMetas) {
     if (meta.lastClaudeSessionId) {
       claimedBy.set(meta.lastClaudeSessionId, { workflowId: meta.workflowId, name: meta.name });
     }
@@ -292,7 +292,7 @@ export async function discoverSessions(targetDir: string): Promise<SessionInfo[]
 
   // For Codex claims we need the full cliSessions[] (meta summaries only
   // expose the latest Claude entry). Read the meta.json directly.
-  for (const meta of archonMetas) {
+  for (const meta of arcoMetas) {
     try {
       const full = await readMeta(resolved, meta.workflowId);
       if (!full) continue;
@@ -309,18 +309,18 @@ export async function discoverSessions(targetDir: string): Promise<SessionInfo[]
   const all: SessionInfo[] = [...claude, ...codex, ...gemini].map((s) => {
     const claim = claimedBy.get(s.sessionId);
     return claim
-      ? { ...s, archonWorkflowId: claim.workflowId, archonName: claim.name }
+      ? { ...s, arcoWorkflowId: claim.workflowId, arcoName: claim.name }
       : s;
   });
-  const listedWorkflowIds = new Set(all.map((s) => s.archonWorkflowId).filter((id): id is string => typeof id === 'string'));
-  for (const meta of archonMetas) {
+  const listedWorkflowIds = new Set(all.map((s) => s.arcoWorkflowId).filter((id): id is string => typeof id === 'string'));
+  for (const meta of arcoMetas) {
     if (listedWorkflowIds.has(meta.workflowId)) continue;
     try {
       const full = await readMeta(resolved, meta.workflowId);
       if (!full) continue;
-      const internal = archonInternalSessionInfoForMeta(full);
+      const internal = arcoInternalSessionInfoForMeta(full);
       if (internal) {
-        // Archon-internal sessions (Native / in-process) have no provider .jsonl
+        // Arco-internal sessions (Native / in-process) have no provider .jsonl
         // to mine, so their `name` defaults to the workflow name (= the cwd
         // folder, e.g. "Limits") — indistinguishable in the resume list. Borrow
         // the recall index's deterministic title (ai-title → first user message →

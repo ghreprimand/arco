@@ -26,7 +26,7 @@ import {
   reasoningBudgetExceeded,
   type RecoveryConfig,
 } from './llamacppRecovery.js';
-import type { WorkerConfig, WorkerStatus, LlamacppModelDef } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus, LlamacppModelDef } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 
 // llama.cpp via llama-server's OpenAI-compatible HTTP endpoint. Different
@@ -62,9 +62,9 @@ export function parseLlamacppThrottle(_text: string): { resetsAt?: number } | nu
 // loop costs ~25 × stall_timeout instead of unbounded time. Combined with
 // the auto-continue recovery (which resets the counter once with a recap)
 // the worst-case bound is ~50 turns of bounded work. Tune via
-// ARCHON_LLAMACPP_MAX_TOOL_TURNS.
+// ARCO_LLAMACPP_MAX_TOOL_TURNS.
 const MAX_TOOL_TURNS = (() => {
-  const env = process.env.ARCHON_LLAMACPP_MAX_TOOL_TURNS;
+  const env = process.env.ARCO_LLAMACPP_MAX_TOOL_TURNS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n > 0 && n <= 200) return n;
@@ -84,12 +84,12 @@ const MAX_TOOL_TURNS = (() => {
 // Tune via env if a workflow legitimately needs full results (e.g. the
 // model is doing log analysis).
 const TOOL_RESULT_HEAD_BYTES = (() => {
-  const env = process.env.ARCHON_LLAMACPP_TOOL_HEAD_BYTES;
+  const env = process.env.ARCO_LLAMACPP_TOOL_HEAD_BYTES;
   if (env) { const n = parseInt(env, 10); if (Number.isFinite(n) && n >= 0) return n; }
   return 4096;
 })();
 const TOOL_RESULT_TAIL_BYTES = (() => {
-  const env = process.env.ARCHON_LLAMACPP_TOOL_TAIL_BYTES;
+  const env = process.env.ARCO_LLAMACPP_TOOL_TAIL_BYTES;
   if (env) { const n = parseInt(env, 10); if (Number.isFinite(n) && n >= 0) return n; }
   return 2048;
 })();
@@ -204,9 +204,9 @@ function truncateToolResult(name: string, raw: string): string {
 //
 // 100ms gives a smooth thinking stream in the UI (~10 updates/sec, which
 // already feels live) while reducing the per-token cost by ~10x. Tune via
-// ARCHON_LLAMACPP_THINKING_FLUSH_MS; set to 0 to disable.
+// ARCO_LLAMACPP_THINKING_FLUSH_MS; set to 0 to disable.
 const THINKING_FLUSH_MS = (() => {
-  const env = process.env.ARCHON_LLAMACPP_THINKING_FLUSH_MS;
+  const env = process.env.ARCO_LLAMACPP_THINKING_FLUSH_MS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 0 && n <= 5000) return n;
@@ -755,7 +755,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         result = `[error] tool "${name}" arguments rejected: ${argError}`;
       } else if (!autoMode) {
         result =
-          `[Archon SAFE mode] tool "${name}" was not executed. ` +
+          `[Arco SAFE mode] tool "${name}" was not executed. ` +
           'The local provider runs tools server-side only when AUTO mode is enabled on this workflow. ' +
           'Tell the operator what you were going to do, or answer from what they have shown you.';
       } else if (!cwd) {
@@ -814,8 +814,8 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       : defaultModel(catalog);
     if (!def) {
       const reason = requested
-        ? `model "${requested}" not in ~/.archon/llamacpp.json`
-        : 'no models configured in ~/.archon/llamacpp.json';
+        ? `model "${requested}" not in ~/.arco/llamacpp.json`
+        : 'no models configured in ~/.arco/llamacpp.json';
       this.fail(reason);
       return;
     }
@@ -973,7 +973,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         const recap = deterministicSummary(messages);
         messages.push({
           role: 'user',
-          content: `[Archon stall recovery] The previous generation hung. Here is a recap of the work done so far so you don't have to re-derive it:\n\n${recap}\n\nResume from this state. Make ONE concrete next action.`,
+          content: `[Arco stall recovery] The previous generation hung. Here is a recap of the work done so far so you don't have to re-derive it:\n\n${recap}\n\nResume from this state. Make ONE concrete next action.`,
         });
         continue;
       }
@@ -995,7 +995,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         const recap = deterministicSummary(messages);
         messages.push({
           role: 'user',
-          content: `[Archon wall-clock recovery] The previous generation ran past its time budget without producing a final answer. Here is a recap of the work done so far:\n\n${recap}\n\nResume from this state. Make ONE concrete next action — either call a single tool, or write the final answer for the operator. Do not enter a long planning phase.`,
+          content: `[Arco wall-clock recovery] The previous generation ran past its time budget without producing a final answer. Here is a recap of the work done so far:\n\n${recap}\n\nResume from this state. Make ONE concrete next action — either call a single tool, or write the final answer for the operator. Do not enter a long planning phase.`,
         });
         continue;
       }
@@ -1037,7 +1037,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
           messages.push({
             role: 'user',
             content: (
-              `[Archon empty-completion recovery] You ended the previous response with reasoning only — no user-facing text and no tool call. ` +
+              `[Arco empty-completion recovery] You ended the previous response with reasoning only — no user-facing text and no tool call. ` +
               `That looks like nothing happened from the operator's view. ` +
               `Choose ONE of these now: ` +
               `(a) write a brief summary for the operator describing what you found, what you changed, and what's next; or ` +
@@ -1244,8 +1244,8 @@ export async function probeLlamacpp(): Promise<{
   // Cheap stat via execFile-equivalent — but to keep this tight we just
   // look for /usr/local/bin/llama-server which is where the PKGBUILD
   // installs it. Operators on a other box can override via
-  // ARCHON_LLAMACPP_BIN.
-  const binPath = process.env.ARCHON_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
+  // ARCO_LLAMACPP_BIN.
+  const binPath = process.env.ARCO_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
   try {
     statSync(binPath);
   } catch {
@@ -1274,7 +1274,7 @@ export async function probeLlamacpp(): Promise<{
 let cachedVersion: { version: string | undefined; mtimeMs: number } | null = null;
 
 async function probeBinaryVersion(): Promise<string | undefined> {
-  const binPath = process.env.ARCHON_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
+  const binPath = process.env.ARCO_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
   let mtimeMs = 0;
   try { mtimeMs = statSync(binPath).mtimeMs; } catch { /* binary missing — fall through */ }
   if (cachedVersion && cachedVersion.mtimeMs === mtimeMs) return cachedVersion.version;
@@ -1303,7 +1303,7 @@ export async function probeLlamacppLive(): Promise<{
   pid?: number;
   error?: string;
 }> {
-  const binPath = process.env.ARCHON_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
+  const binPath = process.env.ARCO_LLAMACPP_BIN ?? '/usr/local/bin/llama-server';
   try {
     statSync(binPath);
   } catch {

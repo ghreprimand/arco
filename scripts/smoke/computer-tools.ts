@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { connect, step, summary, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-computer-tools-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-computer-tools-'));
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
@@ -20,7 +20,7 @@ async function main() {
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -87,7 +87,7 @@ async function main() {
       c!.send({ type: 'create_workflow', config: { ...config, incognito: true } });
       const p = await c!.waitFor((m) => m.type === 'workflow_created', 10000), privateId = String(p.workflowId);
       await begin(b2, 'slow private watch finish');
-      const file = join(home, '.archon', 'computer-watches.json'); const before = readFileSync(file, 'utf8');
+      const file = join(home, '.arco', 'computer-watches.json'); const before = readFileSync(file, 'utf8');
       const w = (await api({ action: 'create', target: b2 }, privateId)).watch;
       assert(w.private); assert.equal(readFileSync(file, 'utf8'), before);
       assert(!(await api()).watches.some((x: any) => x.id === w.id));
@@ -103,7 +103,7 @@ async function main() {
     });
     await step('a persistence failure refuses arming and leaves no hidden active watch', async () => {
       await begin(b2, 'hang while testing disk failure');
-      const file = join(home, '.archon', 'computer-watches.json');
+      const file = join(home, '.arco', 'computer-watches.json');
       renameSync(file, file + '.saved'); mkdirSync(file);
       try {
         await assert.rejects(api({ action: 'create', target: b2 }), /could not be saved/);

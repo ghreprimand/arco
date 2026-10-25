@@ -1,4 +1,4 @@
-// ── Genesis WS handlers (ARCHON_OPS_PLAN.md M2) ──
+// ── Genesis WS handlers (ARCO_OPS_PLAN.md M2) ──
 //
 // Two operator-driven messages for a from-nothing genesis workflow:
 //   genesis_seed_update  → store the seed (config + meta mirror), echo readiness.
@@ -25,8 +25,8 @@ import type {
   GenesisScaffoldMessage,
   GenesisSeed,
   GenesisSeedUpdateMessage,
-} from '@archon/shared';
-import { emptyGenesisSeed } from '@archon/shared';
+} from '@arco/shared';
+import { emptyGenesisSeed } from '@arco/shared';
 import { workflows, workflowCwds } from '../server/state.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { updateMeta } from '../workflowMeta.js';
@@ -269,7 +269,7 @@ export async function handleGenesisSeedUpdate(ws: WebSocket, msg: GenesisSeedUpd
     await updateMeta(cwd, msg.workflowId, (meta) => {
       meta.genesisSeed = seed;
     }).catch((err) => {
-      console.error('[archon] genesis seed meta write failed:', err);
+      console.error('[arco] genesis seed meta write failed:', err);
     });
   }
   broadcastSeed(msg.workflowId, msg.seed);
@@ -278,7 +278,7 @@ export async function handleGenesisSeedUpdate(ws: WebSocket, msg: GenesisSeedUpd
 // Separator-agnostic test for the hidden from-nothing scratch ideation dir. A
 // Creative-mode workflow must NOT be one of these (it runs in a real project cwd).
 function isScratchCwd(cwd: string): boolean {
-  return /[\\/]\.archon[\\/]genesis[\\/]/.test(cwd);
+  return /[\\/]\.arco[\\/]genesis[\\/]/.test(cwd);
 }
 
 // Mirror the (possibly creative) seed into meta.json when a cwd exists. Best-effort.
@@ -287,7 +287,7 @@ async function mirrorSeedToMeta(cwd: string, workflowId: string, seed: GenesisSe
   await updateMeta(cwd, workflowId, (meta) => {
     meta.genesisSeed = seed;
   }).catch((err) => {
-    console.error('[archon] genesis creative seed meta write failed:', err);
+    console.error('[arco] genesis creative seed meta write failed:', err);
   });
 }
 
@@ -530,15 +530,15 @@ function planBodyFor(seed: GenesisSeed): string {
   ].join('\n');
 }
 
-// Move the on-disk workflow store dir (.archon/workflows/<wfid>, holding
+// Move the on-disk workflow store dir (.arco/workflows/<wfid>, holding
 // events.jsonl + artifacts) from the scratch ideation cwd to the real project
 // cwd. Prefer an atomic rename; fall back to recursive copy + remove across
 // filesystems (EXDEV). The caller flushes the scratch buffer first and re-inits
 // the store at the destination afterward (which recovers the seq from the moved
 // events.jsonl), so transcript continuity + monotonic seq survive the move.
 async function moveWorkflowStoreDir(scratchCwd: string, realCwd: string, wfid: string): Promise<void> {
-  const fromDir = path.join(scratchCwd, '.archon', 'workflows', wfid);
-  const toDir = path.join(realCwd, '.archon', 'workflows', wfid);
+  const fromDir = path.join(scratchCwd, '.arco', 'workflows', wfid);
+  const toDir = path.join(realCwd, '.arco', 'workflows', wfid);
   const fromExists = await fs.lstat(fromDir).then(() => true).catch(() => false);
   if (!fromExists) return; // nothing ran yet — no store to carry over
   await fs.mkdir(path.dirname(toDir), { recursive: true });
@@ -604,7 +604,7 @@ async function handleCreativeScaffold(
     planId = plan.id;
     await recordAttachment(cwd, plan.id, msg.workflowId, wf.config.name).catch(() => { /* best-effort */ });
   } catch (err) {
-    console.error('[archon] genesis creative plan seed failed (non-fatal):', err);
+    console.error('[arco] genesis creative plan seed failed (non-fatal):', err);
   }
 
   broadcastWorkflow(msg.workflowId, {
@@ -646,7 +646,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   // dir (assigned at creation). Anything else means it was already scaffolded or
   // created with a real cwd.
   const scratchCwd = workflowCwds.get(msg.workflowId) ?? wf.config.workingDirectory ?? '';
-  if (!scratchCwd || !/[\\/]\.archon[\\/]genesis[\\/]/.test(scratchCwd)) {
+  if (!scratchCwd || !/[\\/]\.arco[\\/]genesis[\\/]/.test(scratchCwd)) {
     fail(ws, 'This workflow is not a from-nothing genesis (no scratch ideation dir to rebind).');
     return;
   }
@@ -677,11 +677,11 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   try {
     await initWorkflowStore(targetDir, msg.workflowId);
   } catch (err) {
-    console.error('[archon] genesis workflowStore init failed:', err);
+    console.error('[arco] genesis workflowStore init failed:', err);
   }
 
   // Write the seed docs (hardened writer — Appendix D). targetDir is freshly
-  // created; the moved .archon/ lives beside the docs without collision.
+  // created; the moved .arco/ lives beside the docs without collision.
   const gh = msg.github ?? seed.github;
   const scaffoldSeed = effectiveScaffoldSeed(seed, gh);
   wf.config.genesisSeed = scaffoldSeed;
@@ -701,7 +701,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
 
   // Local git init + initial commit (best-effort, non-fatal).
   await gitInitCommit(targetDir).catch((err) => {
-    console.error('[archon] genesis git init/commit failed (non-fatal):', err);
+    console.error('[arco] genesis git init/commit failed (non-fatal):', err);
   });
 
   // Optional GitHub repo (best-effort, non-fatal). `msg.github` overrides the seed.
@@ -713,7 +713,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
       repoUrl = await ghCreateRepo(targetDir, repoName, gh.visibility);
     } catch (err) {
       repoError = (err as Error).message;
-      console.error('[archon] genesis gh repo create failed (non-fatal):', err);
+      console.error('[arco] genesis gh repo create failed (non-fatal):', err);
     }
   }
 
@@ -721,7 +721,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   // its cwd field is stale; persistInitialMeta no-ops when meta already exists, so
   // we always rewrite cwd + seed + plan below). Seed + attach a plan.
   await persistInitialMeta(targetDir, msg.workflowId, wf.config, wf.primary).catch((err) => {
-    console.error('[archon] genesis persistInitialMeta failed:', err);
+    console.error('[arco] genesis persistInitialMeta failed:', err);
   });
   let planId: string | undefined;
   try {
@@ -729,7 +729,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     planId = plan.id;
     await recordAttachment(targetDir, plan.id, msg.workflowId, wf.config.name).catch(() => { /* best-effort */ });
   } catch (err) {
-    console.error('[archon] genesis plan seed failed (non-fatal):', err);
+    console.error('[arco] genesis plan seed failed (non-fatal):', err);
   }
 
   // Rewrite meta.json: stamp the real cwd, the seed mirror, and the plan id.
@@ -739,7 +739,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     meta.genesisSeed = scaffoldSeed;
     if (planId) meta.planId = planId;
   }).catch((err) => {
-    console.error('[archon] genesis final meta write failed:', err);
+    console.error('[arco] genesis final meta write failed:', err);
   });
   if (planId) wf.planId = planId;
 

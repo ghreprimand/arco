@@ -1,9 +1,9 @@
-// Remote Management (Archon Ops Part K + J2) — the typed contract for the whole
+// Remote Management (Arco Ops Part K + J2) — the typed contract for the whole
 // tier. See docs/REMOTE_MANAGEMENT.md §12.
 //
-// K1 (the per-host archon-agent) consumes the LifecycleCommand + signed-envelope
+// K1 (the per-host arco-agent) consumes the LifecycleCommand + signed-envelope
 // shapes here. K2 (the hub) consumes the instance/register/heartbeat/action
-// shapes. K3 (the mobile console) renders ManagedArchonInstance + the action
+// shapes. K3 (the mobile console) renders ManagedArcoInstance + the action
 // surface. Defining the full contract up front — all six §13 decisions are
 // resolved (2026-06-03) — keeps every phase building against one source of truth.
 //
@@ -14,10 +14,10 @@
 export type Platform = 'linux' | 'macos' | 'windows' | 'unknown';
 export type ServiceMode = 'systemd' | 'launchd' | 'dev' | 'manual' | 'unknown';
 
-// One managed Archon install. instanceId is a persisted UUID (~/.archon/instance-id,
+// One managed Arco install. instanceId is a persisted UUID (~/.arco/instance-id,
 // §13.4) so a rename/hostname change never orphans history; `name` is the
 // operator-assigned friendly label the console addresses.
-export interface ManagedArchonInstance {
+export interface ManagedArcoInstance {
   instanceId: string;
   name: string;
   platform: Platform;
@@ -37,16 +37,16 @@ export interface ManagedArchonInstance {
   lastHeartbeatAt: number; // ms epoch; hub derives online/stale/offline
 }
 
-// The fixed inbound vocabulary of archon-agent (§6). Nothing outside this enum
+// The fixed inbound vocabulary of arco-agent (§6). Nothing outside this enum
 // is executable — no file access, no workflow access, no free-form shell.
 export const LIFECYCLE_COMMANDS = [
-  'archon.status',
-  'archon.start',
-  'archon.stop',
-  'archon.restart',
-  'archon.logs.tail',
-  'archon-agent.status',
-  'archon-agent.restart',
+  'arco.status',
+  'arco.start',
+  'arco.stop',
+  'arco.restart',
+  'arco.logs.tail',
+  'arco-agent.status',
+  'arco-agent.restart',
 ] as const;
 export type LifecycleCommand = (typeof LIFECYCLE_COMMANDS)[number];
 
@@ -143,7 +143,7 @@ export interface InstanceActionResultMessage {
 }
 
 // ── Workflow-reporting layer ─────────────────────────────────────────────────
-// A live Archon SERVICE (not the lifecycle agent) connects at /instance and
+// A live Arco SERVICE (not the lifecycle agent) connects at /instance and
 // pushes its workflow + pending-request state, and applies routed reply/stop/
 // continue actions (re-validating locally). One machine has up to two hub
 // connections: the agent (/agent, lifecycle) and the service (/instance,
@@ -421,7 +421,7 @@ export interface ClusterActionResultMessage {
 export interface InstanceRegisterMessage {
   type: 'instance_register';
   role?: InstanceRole; // default 'agent' (lifecycle); 'service' = workflow layer
-  instance: ManagedArchonInstance;
+  instance: ManagedArcoInstance;
 }
 export interface InstanceHeartbeatMessage {
   type: 'instance_heartbeat';
@@ -440,16 +440,16 @@ export interface LifecycleResultMessage {
   result: LifecycleResult;
 }
 
-// ── Workstation Archon ↔ its OWN desktop clients ─────────────────────────────
+// ── Workstation Arco ↔ its OWN desktop clients ─────────────────────────────
 // Transparency surface (trust boundary): the desktop UI shows whether this
 // instance is linked to a management hub (and thus remotely controllable), and
-// offers a local kill switch. These travel on the normal Archon client/server
+// offers a local kill switch. These travel on the normal Arco client/server
 // WS (NOT the hub WS), so they live in ServerMessage / ClientMessage, not in
 // RemoteManagementMessage.
 export interface HubLinkStatusMessage {
   type: 'hub_link_status';
   connected: boolean; // true once the outbound link to the hub is open
-  hubUrl?: string; // present when ARCHON_HUB_URL is configured
+  hubUrl?: string; // present when ARCO_HUB_URL is configured
   // Header transparency (§9): how many of this instance's workflows are opted in
   // to remote (= reported to the hub). Lets the HUB chip show "N monitored".
   monitoredCount?: number;

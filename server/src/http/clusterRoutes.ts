@@ -19,7 +19,7 @@ import {
 import { updateMeta } from '../workflowMeta.js';
 import { formatBoardForModel } from '../project/taskLedger.js';
 import type { HttpDeps } from './router.js';
-import type { LedgerTaskStatus, TaskLink } from '@archon/shared';
+import type { LedgerTaskStatus, TaskLink } from '@arco/shared';
 
 // Cluster / sandbox / codebase-memory route group — peeled verbatim from
 // router.ts (see docs/FILE_SIZE_REFACTOR_PLAN.md). Returns true when a route
@@ -31,14 +31,14 @@ export async function tryHandleClusterRoutes(
   deps: HttpDeps,
 ): Promise<boolean> {
   // Durable live-cluster catalog. Cluster tabs are a browser-side working set,
-  // while ~/.archon/clusters is authoritative; this read-only surface lets an
+  // while ~/.arco/clusters is authoritative; this read-only surface lets an
   // operator reopen an intact cluster whose localStorage tab was lost without
   // forking from an older snapshot.
   if (req.url === '/api/clusters' && req.method === 'GET') {
     try {
       // `open`: in the server-authoritative workspace (some browser has the
       // tab). `cwdExists`: false for clusters whose project folder is gone —
-      // mostly /tmp/archon-smoke-* leftovers — so the creator can flag them
+      // mostly /tmp/arco-smoke-* leftovers — so the creator can flag them
       // and offer a bulk clean-up instead of listing them as reopenable.
       const clusters = await Promise.all((await clusterStore.loadAllClustersFromDisk())
         .map(async (cluster) => ({
@@ -838,7 +838,7 @@ export async function tryHandleClusterRoutes(
         return true;
       }
       // One-shot spawn. The binary auto-edits agent config files unless
-      // --skip-config is passed — that's a hard invariant for Archon.
+      // --skip-config is passed — that's a hard invariant for Arco.
       const child = spawn('codebase-memory-mcp', ['reindex', '--path', indexPath, '--skip-config'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -888,7 +888,7 @@ export async function tryHandleClusterRoutes(
             meta.lastActiveAt = now;
           });
         } catch (err) {
-          console.error(`[archon] [${workflowId.slice(0, 8)}] reindex meta write failed:`, err);
+          console.error(`[arco] [${workflowId.slice(0, 8)}] reindex meta write failed:`, err);
         }
       }
       broadcastWorkflow(workflowId, {

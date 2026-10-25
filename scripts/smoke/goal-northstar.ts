@@ -29,7 +29,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-goal-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-goal-'));
   console.log(`Goal-northstar smoke — cwd ${cwd}`);
   console.log('');
 

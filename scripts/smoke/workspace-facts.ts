@@ -3,7 +3,7 @@
 // Headless / module-level (no live server, no API spend). Runs the REAL
 // probeProjectFacts against this repo's root + a synthetic temp project, proving:
 //
-//   (a) the Archon repo is detected as a node project with real verify commands
+//   (a) the Arco repo is detected as a node project with real verify commands
 //       (npm run build, npm test/run …) — the system block the worker injects;
 //   (b) the block renders with those commands (what the model sees);
 //   (c) a temp repo with a Cargo.toml is detected as rust;
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     assert(facts.ecosystem.includes('node'), `node detected, got ${facts.ecosystem.join(',')}`);
     assert(facts.verifyCommands.length > 0, 'at least one verify command');
     assert(!!facts.primaryVerify, `primaryVerify set: ${facts.primaryVerify}`);
-    // Archon's root package.json has a `build` script.
+    // Arco's root package.json has a `build` script.
     assert(facts.verifyCommands.some((c) => c.includes('build')), 'has a build verify command');
   });
 
@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   });
 
   await step('H54.c rust temp project detected', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'archon-facts-rust-'));
+    const dir = mkdtempSync(join(tmpdir(), 'arco-facts-rust-'));
     try {
       writeFileSync(join(dir, 'Cargo.toml'), '[package]\nname = "x"\n');
       const facts = await probeProjectFacts(dir);

@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';

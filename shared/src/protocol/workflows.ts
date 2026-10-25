@@ -9,7 +9,7 @@ export interface WorkflowSessionMetadata {
   sessionKind?: 'antigravity-cascade';
   cascadeId?: string;
   opaqueContext?: boolean;
-  archonAutoCompact?: boolean;
+  arcoAutoCompact?: boolean;
   contextLabel?: string;
 }
 
@@ -28,10 +28,10 @@ export function isToolPosture(v: unknown): v is ToolPosture {
 }
 export const TOOL_POSTURE_DEFAULT: ToolPosture = 'full';
 
-// Stable identity for an Archon-managed skill. Bodies deliberately stay on
+// Stable identity for an Arco-managed skill. Bodies deliberately stay on
 // disk: a pinned tab re-resolves SKILL.md every turn so edits take effect
 // immediately without bloating meta.json or the wire protocol.
-export interface ArchonSkillRef {
+export interface ArcoSkillRef {
   scope: 'project' | 'global';
   slug: string;
 }
@@ -52,7 +52,7 @@ export interface WorkflowConfig {
   // cluster tabs to WorkflowView.
   kind?: 'workflow' | 'cluster' | 'chat';
   // Chat-only privacy mode. Incognito conversations live solely in server +
-  // browser memory: no Archon events.jsonl/meta.json/Recall entry and no
+  // browser memory: no Arco events.jsonl/meta.json/Recall entry and no
   // localStorage job snapshot. A reload, tab close, or server restart loses
   // the conversation. Provider-side API retention remains provider-owned.
   incognito?: boolean;
@@ -65,8 +65,8 @@ export interface WorkflowConfig {
   // agent toolset anyway.
   chatWebAccess?: boolean;
   // VOICE_AGENT_PLAN.md — this Chat is the hands-free "Computer" operator. It
-  // exposes bounded archon_* tools that run in the owning browser. Codex
-  // carries one archon-voice MCP child; Native/local APIs share its relay. Second documented exception to toolless Chat.
+  // exposes bounded arco_* tools that run in the owning browser. Codex
+  // carries one arco-voice MCP child; Native/local APIs share its relay. Second documented exception to toolless Chat.
   voiceOperator?: boolean;
   computerContext?: import('./voiceOperator.js').ComputerContextState;
   primaryProvider?: ProviderName;
@@ -103,7 +103,7 @@ export interface WorkflowConfig {
   skipPermissions: boolean;
   workingDirectory: string;
   resumeSessionId?: string;
-  // Archon workflow id to resume. Kept for back-compat with any old
+  // Arco workflow id to resume. Kept for back-compat with any old
   // persisted state; Phase 3 replaced the picker with native-session ids.
   resumeWorkflowId?: string;
   // Narrow which provider pools this tab may use. Undefined or empty means
@@ -201,7 +201,7 @@ export interface WorkflowConfig {
   // Off by default; "conservative" fires at 75 then every 50; "aggressive"
   // at 50 then every 25. Today the event is informational (the chat
   // divider per Phase D §8c surfaces it); no automated compaction lands
-  // until "compact" has a clear meaning in Archon's surfaces. The chip in
+  // until "compact" has a clear meaning in Arco's surfaces. The chip in
   // the composer (6b.1) reads `toolCallsSinceHandoff`; this is its
   // server-side counterpart for transcript-side persistence.
   efficiencyAutoCompact?: 'off' | 'conservative' | 'aggressive';
@@ -252,7 +252,7 @@ export interface WorkflowConfig {
   // tools exist and what they're useful for. Per-tab opt-in; default
   // `'off'`. Native-only — CLI / Codex / Gemini ignore the field.
   // Per-tab SQLite database (with an FTS5 virtual table over chunk
-  // content) lives at <cwd>/.archon/workflows/<wfId>/sandbox.db and is
+  // content) lives at <cwd>/.arco/workflows/<wfId>/sandbox.db and is
   // unlinked on tab close (remove_workflow) or operator Clear-DB.
   efficiencySandbox?: 'off' | 'on';
   // DEBAG_PLAN.md — operator-armed durable HITL review gate. When `'on'`, the
@@ -310,18 +310,18 @@ export interface WorkflowConfig {
     tokensUsed: number;
     tokenBudget?: number;
   };
-  // Operator-pinned Archon skills. Unlike one-shot `pickedSkills`, these are
+  // Operator-pinned Arco skills. Unlike one-shot `pickedSkills`, these are
   // re-resolved and injected as standing system instructions on every primary
   // turn until removed. Durable across restart / Handoff / Native compaction.
   // References only; SKILL.md remains the source of truth.
-  pinnedSkills?: ArchonSkillRef[];
+  pinnedSkills?: ArcoSkillRef[];
   // REMOTE_MANAGEMENT.md §1.4 — per-workflow opt-in to the management hub. The
   // documented `REMOTE CONTINUATION` gate: default OFF. When false (the
   // default), this workflow is NOT reported to the hub (invisible in the VPS
   // console), remote actions (reply/stop/continue/handoff) are rejected
   // (`remote-disabled`), and it generates NO phone notifications. Flip true to
   // monitor / respond / get notified from the tailnet console. Persists to
-  // meta.json. Only meaningful when the instance is hub-linked (ARCHON_HUB_URL
+  // meta.json. Only meaningful when the instance is hub-linked (ARCO_HUB_URL
   // set); inert otherwise.
   remoteEnabled?: boolean;
   // R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §9.2) — SECOND arming for remote DEBAG
@@ -333,7 +333,7 @@ export interface WorkflowConfig {
   remoteGatesEnabled?: boolean;
   // EFFICIENCY_PLAN.md Phase F — operator-attached `DeusData/codebase-memory-
   // mcp` for this tab. The binary is operator-installed once per machine
-  // (see docs/OPERATIONS.md) and Archon invokes it with `--skip-config` so
+  // (see docs/OPERATIONS.md) and Arco invokes it with `--skip-config` so
   // it doesn't auto-edit other agent configs. Phase F ships UX wiring only;
   // the actual `--mcp-config` write-in at CLI spawn time is deferred to the
   // follow-up that piggybacks on Cluster Phase 3's `mcpConfigWriter`.
@@ -347,7 +347,7 @@ export interface WorkflowConfig {
     lastIndexedAt?: number;
     fileCount?: number;
   };
-  // ARCHON_OPS_PLAN.md Part M (Genesis, M2) — the staged-ideation seed for a
+  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — the staged-ideation seed for a
   // from-nothing genesis workflow. THE durable home for the seed while the
   // workflow has no working directory: it rides the client-persisted config and
   // is re-sent on `rehydrate_workflows`, so a server restart mid-ideation
@@ -379,17 +379,17 @@ export interface SessionInfo {
   providerAccountRef?: string;
   providerAccountLabel?: string;
   providerAccountShortLabel?: string;
-  // True when an Archon workflow meta.json already claims this session. The
-  // Resume picker can show "Archon: <name>" instead of the raw first-turn
+  // True when an Arco workflow meta.json already claims this session. The
+  // Resume picker can show "Arco: <name>" instead of the raw first-turn
   // preview and — on server-side — reuse the existing workflow id rather
   // than minting a new one on resume.
-  archonWorkflowId?: string;
-  archonName?: string;
-  // True for workflows resumed by Archon workflow id instead of a native
+  arcoWorkflowId?: string;
+  arcoName?: string;
+  // True for workflows resumed by Arco workflow id instead of a native
   // provider session picker id. Used for providers whose continuity is
-  // Archon-managed rather than native-session-managed, such as Claude Native
+  // Arco-managed rather than native-session-managed, such as Claude Native
   // event replay, Antigravity workflow-id rows, and Ollama transcript replay.
-  archonInternal?: boolean;
+  arcoInternal?: boolean;
   // Claude's dynamic conversation title (`ai-title` entry in the session
   // JSONL). Claude writes this AT MOST ONCE per session — many sessions
   // never get one — so treat it as "Claude's best guess at naming the
@@ -403,7 +403,7 @@ export interface SessionInfo {
 }
 
 // Entry returned by GET /api/workflows?path=<cwd>. Built from
-// <cwd>/.archon/workflows/<wfid>/meta.json. Phase 3 Lite shifted the Resume
+// <cwd>/.arco/workflows/<wfid>/meta.json. Phase 3 Lite shifted the Resume
 // picker to /api/sessions (native CLI sessions unified); this summary is
 // still emitted for tooling / debugging.
 export interface WorkflowMetaSummary {
@@ -518,7 +518,7 @@ export interface WorkerConfig {
   // `handleUserMessage` and threaded through to the dispatcher; reviewers
   // hard-code `'exec'`. See docs/CODEX_APPSERVER_PLAN.md.
   codexTransport?: 'exec' | 'appserver';
-  // Resolved per-tab Codex context policy. Absent means Archon's MAX default.
+  // Resolved per-tab Codex context policy. Absent means Arco's MAX default.
   codexContextPolicy?: 'max' | 'standard';
   // Phase 7a — Claude transport selector. `'cli'` (default, undefined) keeps
   // the per-turn `claude -p` CLI spawn. `'native'` opts into the long-lived
@@ -638,7 +638,7 @@ export interface WorkerConfig {
   // do not automatically share a board.
   clusterTaskBoardAttached?: boolean;
   // Shared cluster plan body, resolved by handleUserMessage at turn start
-  // from the cluster's active <cwd>/.archon/plans/<id>.md.
+  // from the cluster's active <cwd>/.arco/plans/<id>.md.
   // Threaded into the worker so buildSystemBlocks() can inject it as a
   // forced system block after FORCED_FIRST_BLOCK. Empty / undefined ⇒ no
   // block. Hard cap 32768 chars (enforced server-side at write time).
@@ -688,7 +688,7 @@ export interface WorkerConfig {
   // Native ignores both — see F10.
   codebaseMemoryAttached?: boolean;
   codebaseMemoryIndexPath?: string;
-  // ARCHON_OPS_PLAN.md §E1 — namespaced tool names (`mcp__<key>__<tool>`) for
+  // ARCO_OPS_PLAN.md §E1 — namespaced tool names (`mcp__<key>__<tool>`) for
   // dangerous-and-UNticked tools of the workflow's operator-enabled registry
   // servers. The CLI Claude provider appends each as `--disallowedTools`,
   // which composes with `--dangerously-skip-permissions` (verified) and
@@ -696,7 +696,7 @@ export interface WorkerConfig {
   // it ignores this field (documented gap). Native ignores it in this pass
   // (E1-Native is pass 2).
   mcpDisallowedTools?: string[];
-  // ARCHON_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry MCP servers
+  // ARCO_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry MCP servers
   // for this workflow turn. The Codex providers (exec / app-server) build
   // `-c mcp_servers.<key>.*` TOML overrides from these (Codex has no
   // --mcp-config). CLI Claude gets the SAME servers via the merged
@@ -738,9 +738,9 @@ export interface WorkerConfig {
   ollamaFormat?: 'json' | Record<string, unknown>;
 }
 
-// ── ARCHON_OPS_PLAN.md §H1 — project-local session index ──
+// ── ARCO_OPS_PLAN.md §H1 — project-local session index ──
 //
-// `<cwd>/.archon/session-index.json` is a per-project PROJECTION of that
+// `<cwd>/.arco/session-index.json` is a per-project PROJECTION of that
 // project's resumable sessions — one entry per (provider, sessionId) the
 // project has run. It exists so the resume surface (§H3) can render rich rows
 // (title / subtitle / last-active / outcome) WITHOUT re-scanning every
@@ -752,17 +752,17 @@ export interface WorkerConfig {
 //
 // ACCEPTANCE INVARIANT (§H1): building / updating the index NEVER mutates a
 // provider's own session files (~/.claude, ~/.codex, …). It only reads them
-// and only writes <cwd>/.archon/session-index.json.
+// and only writes <cwd>/.arco/session-index.json.
 export interface SessionIndexEntry {
   // Which provider CLI/transport owns the resumable session.
   provider: ProviderName;
-  // The native provider session id, or — for Archon-internal continuity
+  // The native provider session id, or — for Arco-internal continuity
   // (Claude Native replay / Antigravity / Ollama, which have no native
-  // resume token) — the Archon workflow id. The (provider, sessionId) pair
+  // resume token) — the Arco workflow id. The (provider, sessionId) pair
   // is the index key.
   sessionId: string;
-  // The Archon workflow that owns this session, when one claims it. Absent for
-  // a native session discovered on disk with no Archon meta.json.
+  // The Arco workflow that owns this session, when one claims it. Absent for
+  // a native session discovered on disk with no Arco meta.json.
   workflowId?: string;
   // Absolute cwd the session ran under (constant within one project file, but
   // carried per-entry so entries stay self-describing if ever aggregated).
@@ -778,7 +778,7 @@ export interface SessionIndexEntry {
   // title whose source ranks at or below it, so a `model`-generated or
   // `operator`-renamed title survives an opportunistic refresh. Absent on
   // legacy (H1) entries → treated as `deterministic` (lowest rank).
-  //   deterministic — first meaningful operator ask / Archon workflow name / label
+  //   deterministic — first meaningful operator ask / Arco workflow name / label
   //   dynamic       — fell back to a non-trivial later message
   //   model         — H2 background 5–8 word generated title (gated/opt-in)
   //   operator      — H3 manual rename (always wins)
@@ -824,7 +824,7 @@ export interface SessionIndex {
 }
 
 // H2 — append-only audit line for a session-title change, written to
-// <cwd>/.archon/title-events.jsonl. Satisfies the §H2 "record title-generation
+// <cwd>/.arco/title-events.jsonl. Satisfies the §H2 "record title-generation
 // events" requirement (CLAUDE.md four-question fence #3 — visible on disk for
 // review) without minting a new per-workflow events.jsonl ServerMessage type.
 // Currently emitted only when a `model` title is applied (the generation event);

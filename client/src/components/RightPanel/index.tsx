@@ -1,6 +1,6 @@
 import { useVoicePanelRequest } from '../../voice/panels';
 import { useCallback, useState, useEffect, useRef } from 'react';
-import type { TaskLink } from '@archon/shared';
+import type { TaskLink } from '@arco/shared';
 import { GitHubPanel } from '../GitHubPanel';
 import { PreviewTab } from '../PreviewTab';
 import { TasksPanel } from '../TasksPanel';
@@ -74,7 +74,7 @@ const NARROW_PX = 360;
 // PREVIEW too (most felt wrong since PREVIEW is empty until a dev server
 // binds). Map shape: { [workflowId]: RightTab }. Default for unknown
 // workflowIds is 'files' — fresh workflows always land on FILES.
-const STORAGE_KEY = 'archon.sidePanelTab.byWorkflow';
+const STORAGE_KEY = 'arco.sidePanelTab.byWorkflow';
 
 function loadTabsByWorkflow(): Record<string, RightTab> {
   try {
@@ -167,8 +167,8 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
       const detail = (e as CustomEvent<{ workflowId?: string }>).detail;
       if (detail?.workflowId === job.id) setTab('files');
     };
-    window.addEventListener('archon:reveal-in-files', onReveal as EventListener);
-    return () => window.removeEventListener('archon:reveal-in-files', onReveal as EventListener);
+    window.addEventListener('arco:reveal-in-files', onReveal as EventListener);
+    return () => window.removeEventListener('arco:reveal-in-files', onReveal as EventListener);
   }, [job.id, setTab]);
 
   // L3 — explicit "Open in Live Preview" from the machine-wide System modal's
@@ -181,8 +181,8 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
       const detail = (e as CustomEvent<{ workflowId?: string }>).detail;
       if (detail?.workflowId === job.id) setTab('preview');
     };
-    window.addEventListener('archon:open-preview', onOpenPreview as EventListener);
-    return () => window.removeEventListener('archon:open-preview', onOpenPreview as EventListener);
+    window.addEventListener('arco:open-preview', onOpenPreview as EventListener);
+    return () => window.removeEventListener('arco:open-preview', onOpenPreview as EventListener);
   }, [job.id, setTab]);
 
   // Auto-switch to PREVIEW when an auto-detected dev server lands. Fires
@@ -197,7 +197,7 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
   }, [job.id, job.previewUnread, markPreviewSeen]);
 
   const cwd = job.config.workingDirectory;
-  // ARCHON_OPS_PLAN.md §D1 — request the cwd's ledger snapshot when the LEDGER
+  // ARCO_OPS_PLAN.md §D1 — request the cwd's ledger snapshot when the LEDGER
   // tab is opened. The server also pushes one on rehydrate; this covers a
   // fresh open without a reconnect (e.g. a sibling tab created tasks).
   useEffect(() => {
@@ -213,12 +213,12 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
   // back to plain FileExplorer is one click.
   const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>('files');
   const hasTaskChildren = !!(job.taskChildren && Object.keys(job.taskChildren).length > 0);
-  // ARCHON_OPS_PLAN.md M2/M3 — GENESIS tab visibility.
+  // ARCO_OPS_PLAN.md M2/M3 — GENESIS tab visibility.
   //  • M2 from-nothing: this is a genesis workflow still in its scratch ideation dir.
   //  • M3 Creative mode: any real-cwd workflow can ARM Creative mode here, and an
   //    already-armed workflow keeps the tab to edit the alternative seed + scaffold.
   const wfCwd = job.config.workingDirectory ?? '';
-  const inScratch = /[\\/]\.archon[\\/]genesis[\\/]/.test(wfCwd);
+  const inScratch = /[\\/]\.arco[\\/]genesis[\\/]/.test(wfCwd);
   const isGenesisScratch = !!job.genesisSeed && inScratch;
   const hasRealCwd = wfCwd.trim().length > 0 && !inScratch;
   // Visible for the from-nothing flow, for any real-cwd workflow (to arm Creative

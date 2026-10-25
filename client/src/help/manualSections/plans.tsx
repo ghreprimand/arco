@@ -12,12 +12,12 @@ export const plans: Section[] = [
           A <strong>plan</strong> is an itemized markdown checklist of things to
           complete that pins to a workflow (or cluster) so the agent stays
           oriented. Long-form detail belongs in the plan's{' '}
-          <strong>reference docs</strong>, not the checklist (see below). Plans live at <Code>&lt;cwd&gt;/.archon/plans/&lt;id&gt;.md</Code>;
+          <strong>reference docs</strong>, not the checklist (see below). Plans live at <Code>&lt;cwd&gt;/.arco/plans/&lt;id&gt;.md</Code>;
           one cwd can host many, and the same plan can be attached to multiple
           workflows simultaneously.
         </p>
         <p>A one-line header naming the plan is prepended to every primary turn invisibly so the agent stays oriented — the full body is <em>not</em> injected (that was earlier behavior; it now reads the file on demand to save per-turn bandwidth). The stable-form header the agent sees:</p>
-        <Pre>{`[Active project plan: "<title>" — file: .archon/plans/<id>.md. <living-doc note>]
+        <Pre>{`[Active project plan: "<title>" — file: .arco/plans/<id>.md. <living-doc note>]
 
 <your message>`}</Pre>
         <p>The header names the plan title + file path and tells the agent to keep the checklist current (tick <Code>- [ ]</Code> → <Code>- [x]</Code>) without adding new sections on its own. On first attach it instead says "newly attached — read the brief…"; after an operator edit it says "edited since last turn — re-read…". An fs watcher catches agent-driven <Code>.md</Code> edits and refreshes the panel live.</p>
@@ -134,7 +134,7 @@ export const plans: Section[] = [
           "create a plan and attach it to this workflow." Every turn where no
           plan is attached carries a short note telling the agent how. On
           Codex, CLI Claude, and Cursor cluster members there's a real tool —{' '}
-          <Code>plan_create</Code> (MCP server <Code>archon</Code>) takes a
+          <Code>plan_create</Code> (MCP server <Code>arco</Code>) takes a
           title and body, creates the plan, and attaches it in one call; it
           also <em>rejects</em> a body with no phases or checkboxes and says
           why, so a malformed plan is caught as it's written. Elsewhere the
@@ -143,7 +143,7 @@ export const plans: Section[] = [
           path the PLAN tab click takes), plus the body shape Arco actually
           parses. Before that note existed, agents would write a markdown file
           somewhere and report "plan attached" — the file was invisible, because
-          a plan only exists once it's in <Code>.archon/plans/index.json</Code>.
+          a plan only exists once it's in <Code>.arco/plans/index.json</Code>.
           Claude Native tabs never had this problem: their <Code>EnterPlanMode</Code>{' '}
           tool attaches for real. The PLAN button remains the most reliable
           route on any provider; prose now works too.
@@ -205,7 +205,7 @@ export const plans: Section[] = [
           A plan should read as a list of things to do. Specs, research, design
           notes, API contracts — the detail a task depends on — go in{' '}
           <strong>reference docs</strong> attached to that plan, stored at{' '}
-          <Code>&lt;cwd&gt;/.archon/plans/&lt;id&gt;.refs/&lt;slug&gt;.md</Code>.
+          <Code>&lt;cwd&gt;/.arco/plans/&lt;id&gt;.refs/&lt;slug&gt;.md</Code>.
           A task links one as <Code>[label](ref:slug)</Code>,{' '}
           <Code>[[ref:slug]]</Code>, or a bare <Code>ref:slug</Code> in prose; the
           PLAN tab renders the link as a chip that opens the doc. A link to a ref nobody wrote yet shows dashed and dim —
@@ -222,7 +222,7 @@ export const plans: Section[] = [
         <p>
           Agents create refs with the <Code>plan_ref_write</Code> /{' '}
           <Code>plan_ref_list</Code> / <Code>plan_ref_read</Code> tools (MCP server{' '}
-          <Code>archon</Code>), or by writing the file directly. An agent asked to
+          <Code>arco</Code>), or by writing the file directly. An agent asked to
           write a plan is told a plan is two parts — the checklist and its refs —
           and to link each ref from the tasks that depend on it;{' '}
           <Code>plan_create</Code> returns a warning when a body runs long or a
@@ -299,7 +299,7 @@ export const plans: Section[] = [
         </ul>
         <p>
           <strong>Inline artifacts</strong> are a third flavor: fenced{' '}
-          <Code>```archon-artifact</Code> blocks the agent emits during chat. They
+          <Code>```arco-artifact</Code> blocks the agent emits during chat. They
           render as inline-expand pills and persist as{' '}
           <Code>PrimaryArtifactMessage</Code> events in <Code>events.jsonl</Code>.
           Use them for focused outputs (a generated config, a snippet to commit) the

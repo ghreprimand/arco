@@ -11,7 +11,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-// ARCHON_OPS_PLAN.md §C1/§C2 — sits between the chat panel and the composer
+// ARCO_OPS_PLAN.md §C1/§C2 — sits between the chat panel and the composer
 // (alongside PlanCandidateBanner). Surfaces ONLY the two genuinely-new
 // per-workflow runtime states: `stuck` (busy but no primary content for
 // ≥STUCK_THRESHOLD_MS while online) and `replay-recovered` (just rehydrated

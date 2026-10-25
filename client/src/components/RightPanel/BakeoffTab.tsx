@@ -6,7 +6,7 @@ import type {
   EffortLevel,
   ModelName,
   ProviderName,
-} from '@archon/shared';
+} from '@arco/shared';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
@@ -119,7 +119,7 @@ export function BakeoffTab({ job, onList, onStart, onPromote, onCleanup }: Props
   const promote = (bakeoff: BakeoffState, attempt: BakeoffAttempt) => {
     if (!onPromote) return;
     const ok = window.confirm(
-      `Promote ${attempt.label}?\n\nArchon will commit its project changes and merge ${attempt.branch} into the original checkout. The original checkout must still be clean and at ${shortRef(bakeoff.baseRef)}.`,
+      `Promote ${attempt.label}?\n\nArco will commit its project changes and merge ${attempt.branch} into the original checkout. The original checkout must still be clean and at ${shortRef(bakeoff.baseRef)}.`,
     );
     if (ok) onPromote(job.id, bakeoff.id, attempt.id);
   };

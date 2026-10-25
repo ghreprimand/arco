@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { ConditionExpression, ConditionWorkerFacts } from '@archon/shared';
+import type { ConditionExpression, ConditionWorkerFacts } from '@arco/shared';
 import { ComputerConditions, testCondition } from './conditionStore.js';
 import { parseConditionDefinition, savedConditionRule } from './conditionSchema.js';
 const b='builder-0001',c='builder-0002',d='director-001',cluster='cluster-0001';
@@ -50,7 +50,7 @@ test('operator-requested per-worker limits and cooldowns still stop further nudg
 });
 test('sequences wait for their own observations, compaction and every finishing action',()=>{
   const f=[worker(b),worker(c)],def=parseConditionDefinition({label:'Compact then continue',cluster_ids:[cluster],hold_on_input:false,clauses:[
-    {id:'compact',when:fact(b,'context_percent',40,'gte'),actions:[{kind:'tool',name:'archon_compact',args:{target:b}}]},
+    {id:'compact',when:fact(b,'context_percent',40,'gte'),actions:[{kind:'tool',name:'arco_compact',args:{target:b}}]},
     {id:'continue',after:['compact'],when:fact(b,'busy',false),actions:[{kind:'send_message',worker_id:b,text:'Continue the task.'},{kind:'send_message',worker_id:c,text:'Review the result.'}],finish:true},
   ]});
   const s=new ComputerConditions(),r=s.create('owner-0001',def,f,false,0);

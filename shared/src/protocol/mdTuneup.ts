@@ -7,7 +7,7 @@
 // file. The proposal comes back as `md_tuneup_proposed`; the client previews it
 // as an A3 diff (original vs proposed) plus the agent's notes, and the operator
 // Accepts or Rejects. On Accept the client fires `md_tuneup_accept`; the server
-// backs up the original to `.archon/md-backups/<name>.<ts>.bak` and only THEN
+// backs up the original to `.arco/md-backups/<name>.<ts>.bak` and only THEN
 // writes the proposed content through the `resolveWithinCwd`-guarded path.
 //
 // Fence note (CLAUDE.md "hard fences" → "LLM-mutated instructions across
@@ -27,7 +27,7 @@ import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 // resolves it through resolveWithinCwd and refuses anything escaping the cwd.
 export type MdTuneupTarget = string;
 
-// The set of filenames Archon treats as agent-instruction files when scanning a
+// The set of filenames Arco treats as agent-instruction files when scanning a
 // repo for tune-up candidates. Single source of truth for client + server.
 export const INSTRUCTION_FILE_NAMES = ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'GEMINI.md'] as const;
 

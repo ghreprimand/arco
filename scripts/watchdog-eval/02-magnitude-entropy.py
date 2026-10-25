@@ -9,7 +9,7 @@ worker and rank, so we can see if any threshold cleanly separates.
 import json, glob, collections, os
 
 import os
-LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".archon", "workflows"))
+LOGDIR = os.environ.get("WATCHDOG_LOGDIR", os.path.join(os.getcwd(), ".arco", "workflows"))
 
 def norm_input(tool, raw):
     try: d = json.loads(raw) if isinstance(raw,str) else (raw or {})

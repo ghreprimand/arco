@@ -23,7 +23,7 @@
 //   (3) cache note — the filtered tools[] is part of the cached request prefix,
 //       so flipping posture re-breaks that breakpoint once (then re-warms).
 
-import { TOOL_POSTURE_DEFAULT, type ToolPosture } from '@archon/shared';
+import { TOOL_POSTURE_DEFAULT, type ToolPosture } from '@arco/shared';
 
 // The core Native tool universe this filter knows about. A name here that a
 // bundle omits is genuinely DROPPED; a name NOT here is a dynamic opt-in and

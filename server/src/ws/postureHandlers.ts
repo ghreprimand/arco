@@ -8,7 +8,7 @@
 // non-Native tab accepts the field but no provider reads it (no-op, no error).
 
 import { WebSocket } from 'ws';
-import { isToolPosture, type SetToolPostureMessage } from '@archon/shared';
+import { isToolPosture, type SetToolPostureMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';

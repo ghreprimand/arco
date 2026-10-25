@@ -1,5 +1,5 @@
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText } from '@archon/shared';
-import type { ModelName, MemberTier, ClusterMemberProvider } from '@archon/shared';
+import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText } from '@arco/shared';
+import type { ModelName, MemberTier, ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { deriveDisplayNames } from './modelOptions';
 import { useAppStore } from '../../stores/appStore';
@@ -10,7 +10,7 @@ import type { ClusterMembersSectionProps } from './types';
 // rows; click [↓ edit] to expand into a full per-member editor (display name,
 // provider, model, effort, role, tier, permissions, fast-mode, filter,
 // output-style). Cluster fence: per-row provider picker shows Claude, Codex,
-// and local providers that can receive Archon-injected peer tools.
+// and local providers that can receive Arco-injected peer tools.
 //
 // `claudeModelsForPicker` / `codexModelsForPicker` are passed in from the
 // parent so per-row pickers use the same live-catalog list as the

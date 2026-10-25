@@ -1,7 +1,7 @@
 // Slot 5 — Continuity Phase D. Per-workflow event log on disk.
 //
 // Every workflow-scoped ServerMessage broadcast by the server is appended
-// (with a monotonic `seq`) to <cwd>/.archon/workflows/<wfid>/events.jsonl.
+// (with a monotonic `seq`) to <cwd>/.arco/workflows/<wfid>/events.jsonl.
 // On reconnect, handleRehydrateWorkflows consults this log to stream any
 // events the client missed while disconnected — making reconnect lossless
 // across drops of arbitrary length.
@@ -22,7 +22,7 @@
 import { promises as fs, createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import path from 'path';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 const FLUSH_DEBOUNCE_MS = 100;
 const FLUSH_BYTES_THRESHOLD = 64 * 1024;
@@ -57,7 +57,7 @@ function bufferKey(cwd: string, wfid: string): string {
 }
 
 function workflowDir(cwd: string, wfid: string): string {
-  return path.join(cwd, '.archon', 'workflows', wfid);
+  return path.join(cwd, '.arco', 'workflows', wfid);
 }
 
 function eventsPath(cwd: string, wfid: string): string {
@@ -133,7 +133,7 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
   try {
     buf.seq = await readLatestSeq(eventsPath(cwd, wfid));
   } catch (err) {
-    console.error(`[archon] workflowStore init failed for ${wfid.slice(0, 8)}:`, err);
+    console.error(`[arco] workflowStore init failed for ${wfid.slice(0, 8)}:`, err);
     buf.seq = 0;
   }
   // Pre-create the artifacts directory. The worker-safety footer advertises
@@ -143,20 +143,20 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
   try {
     await fs.mkdir(path.join(workflowDir(cwd, wfid), 'artifacts'), { recursive: true });
   } catch (err) {
-    console.error(`[archon] artifacts dir mkdir failed for ${wfid.slice(0, 8)}:`, err);
+    console.error(`[arco] artifacts dir mkdir failed for ${wfid.slice(0, 8)}:`, err);
   }
-  // Drop a .archon/.gitignore on first-workflow-init per cwd so per-workflow
+  // Drop a .arco/.gitignore on first-workflow-init per cwd so per-workflow
   // state (events.jsonl, transcript.md, artifacts, etc.) doesn't land in git
   // if the operator commits from the repo root. STATE.md + SCRATCHPADS/ live
-  // at .archon/ top level (outside workflows/) and stay committable.
+  // at .arco/ top level (outside workflows/) and stay committable.
   // Write-once: skip if the file already exists so operator edits aren't
   // clobbered on every rehydrate.
   try {
-    const gitignorePath = path.join(cwd, '.archon', '.gitignore');
+    const gitignorePath = path.join(cwd, '.arco', '.gitignore');
     await fs.access(gitignorePath).catch(async () => {
       await fs.writeFile(
         gitignorePath,
-        // session-index.json (ARCHON_OPS_PLAN.md §H1) + title-events.jsonl (§H2)
+        // session-index.json (ARCO_OPS_PLAN.md §H1) + title-events.jsonl (§H2)
         // are rebuildable projections of meta.json/events.jsonl — ephemeral like
         // workflows/, so they're ignored too.
         '# Arco per-workflow state — ephemeral, don\'t commit\nworkflows/\nsession-index.json\ntitle-events.jsonl\n',
@@ -164,7 +164,7 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
       );
     });
   } catch (err) {
-    console.error(`[archon] .archon/.gitignore write failed for ${wfid.slice(0, 8)}:`, err);
+    console.error(`[arco] .arco/.gitignore write failed for ${wfid.slice(0, 8)}:`, err);
   }
   buf.initialized = true;
 }
@@ -254,7 +254,7 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         await fs.appendFile(filePath, chunk, 'utf8');
       } catch (err) {
-        console.error(`[archon] workflowStore flush failed for ${buf.wfid.slice(0, 8)}:`, err);
+        console.error(`[arco] workflowStore flush failed for ${buf.wfid.slice(0, 8)}:`, err);
         // Events are lost from disk for this round. The seq gap the client
         // sees on next reconnect triggers the snapshot-only fallback.
         return;

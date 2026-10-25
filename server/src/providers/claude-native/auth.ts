@@ -1,6 +1,6 @@
 // Phase 7a — token store for Claude Native OAuth credentials.
 //
-// Storage shape: ~/.archon/auth.json with `claude.native` namespace so a
+// Storage shape: ~/.arco/auth.json with `claude.native` namespace so a
 // future `claude.cli` token persistence (or Codex / Gemini OAuth wins)
 // can share the file without collision. Mode 0600, parent dir 0700,
 // atomic tmp+rename, proper-lockfile around read/refresh/write.
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import * as lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../../atomicFile.js';
-import { archonHome } from '../../archonHome.js';
+import { arcoHome } from '../../arcoHome.js';
 
 export interface ClaudeNativeTokens {
   accessToken: string;
@@ -31,11 +31,11 @@ interface AuthFileShape {
   };
 }
 
-const ARCHON_DIR = archonHome();
-const AUTH_PATH = join(ARCHON_DIR, 'auth.json');
+const ARCO_DIR = arcoHome();
+const AUTH_PATH = join(ARCO_DIR, 'auth.json');
 
 async function ensureDir(): Promise<void> {
-  await fs.mkdir(ARCHON_DIR, { recursive: true, mode: 0o700 });
+  await fs.mkdir(ARCO_DIR, { recursive: true, mode: 0o700 });
 }
 
 async function readRaw(): Promise<AuthFileShape> {

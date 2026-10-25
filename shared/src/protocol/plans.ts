@@ -1,6 +1,6 @@
 // ── Plans ──
 // A Plan is a long-form markdown brief stored at
-// <cwd>/.archon/plans/<planId>.md. Multiple plans can live in a single cwd;
+// <cwd>/.arco/plans/<planId>.md. Multiple plans can live in a single cwd;
 // a workflow attaches 0 or 1 via meta.planId. The active plan's title +
 // last-updated timestamp get injected as a one-line system note at the start
 // of every primary turn so the agent stays aware. CRUD on plan bodies/list
@@ -49,7 +49,7 @@ export interface PlanDetachedMessage {
 }
 
 // Phase 7b — Claude Native EnterPlanMode broadcast. The worker writes the
-// plan body to a real plan file under .archon/plans/ and attaches it (plan_attached
+// plan body to a real plan file under .arco/plans/ and attaches it (plan_attached
 // fires too); plan_set carries the inline body so observers can render it
 // without a separate read. `source: 'native-tool'` distinguishes this from a
 // future operator-initiated plan-set surface.
@@ -130,7 +130,7 @@ export interface PlanFull extends PlanSummary {
 
 // Plan reference doc — long-form detail (specs, research, designs) that
 // belongs to one plan but would bloat its checklist. Stored as
-// `<cwd>/.archon/plans/<planId>.refs/<slug>.md` and directory-listed (no
+// `<cwd>/.arco/plans/<planId>.refs/<slug>.md` and directory-listed (no
 // index entry), so an agent with plain file tools can add one by writing a
 // file. Plan bodies link a ref as `[label](ref:slug)` or `[[ref:slug]]`.
 // `title` is the doc's first H1, else the slug.

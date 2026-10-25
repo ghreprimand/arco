@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JobState } from '../stores/appStore';
 import { contextTokens } from '../utils/format';
-import { parseCursorModelId, cursorEffortKey, CURSOR_EFFORT_LABELS } from '@archon/shared';
+import { parseCursorModelId, cursorEffortKey, CURSOR_EFFORT_LABELS } from '@arco/shared';
 
 // The honest effort label for a Cursor model id: the effort parsed OUT of the
 // id (never `config.primaryEffort`, which the Cursor worker ignores). `auto`

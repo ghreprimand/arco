@@ -203,7 +203,7 @@ function HandoffRow({
           )}
           {loadError && (
             <div style={{ color: 'var(--color-warning)', fontSize: '11px' }}>
-              Artifact load failed: {loadError}. Open `.archon/workflows/{workflowId.slice(0, 8)}/handoffs/{handoff?.artifactName ?? ''}` directly.
+              Artifact load failed: {loadError}. Open `.arco/workflows/{workflowId.slice(0, 8)}/handoffs/{handoff?.artifactName ?? ''}` directly.
             </div>
           )}
           {body !== null && (

@@ -8,12 +8,12 @@ For the higher-level lifecycle context, see [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
 ## Two roots
 
-The internal name remains Archon for state compatibility, so both roots use the `.archon` directory name and a checkout can move between Archon and Arco without migrating state.
+Both roots use the `.arco` directory name.
 
 Arco writes to two places:
 
-1. **Per-workflow** under `<cwd>/.archon/workflows/<wfid>/` — tied to the workflow's working directory. Survives `git clone` only if you commit `.archon/` (Arco `.gitignore`s it by default). **Chat tabs** (`kind:'chat'`) are projectless: their synthetic persistence cwd is `~/.archon/chats/<wfid>`, so the same layout lands at `~/.archon/chats/<wfid>/.archon/workflows/<wfid>/`.
-2. **Operator-global** under `~/.archon/` — tied to the user, not the project. Settings, model catalog, crash-recovery registry, isolated browser profiles, and managed bake-off worktrees/manifests.
+1. **Per-workflow** under `<cwd>/.arco/workflows/<wfid>/` — tied to the workflow's working directory. Survives `git clone` only if you commit `.arco/` (Arco `.gitignore`s it by default). **Chat tabs** (`kind:'chat'`) are projectless: their synthetic persistence cwd is `~/.arco/chats/<wfid>`, so the same layout lands at `~/.arco/chats/<wfid>/.arco/workflows/<wfid>/`.
+2. **Operator-global** under `~/.arco/` — tied to the user, not the project. Settings, model catalog, crash-recovery registry, isolated browser profiles, and managed bake-off worktrees/manifests.
 
 **Incognito writes neither.** `WorkflowConfig.incognito` workflows never register a persistence cwd, never init the workflow store, never write `meta.json` / `events.jsonl` / recall / session-index rows / operational logs / PID entries, and the browser excludes them from localStorage. Transcript continuity is memory-only; an observerless incognito workflow is dropped after a 10 s reconnect grace. See `docs/CHAT.md`.
 
@@ -24,7 +24,7 @@ after server restart discards obsolete private browser rows; no old context is
 reconstructed from the page. Saved Computer
 contexts retain transcript history but record a reset boundary that all provider
 replays obey. The browser stores only non-content agent preferences in
-`archon.computer.selection.v1` (provider/model/effort/history), never private
+`arco.computer.selection.v1` (provider/model/effort/history), never private
 workflow IDs or messages. Voice diagnostic/recognition text is suppressed for
 private captures. Strata's service logs/cache still exclude it from Incognito.
 
@@ -35,7 +35,7 @@ Conversation records are append-only as a rule — Arco never auto-deletes `even
 ## Per-workflow layout
 
 ```
-<cwd>/.archon/
+<cwd>/.arco/
 ├── .gitignore                       # "workflows/" + projections — drops on first init
 ├── settings.json                    # per-project settings overrides (Phase 2)
 ├── session-index.json               # §H3 resume-picker projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
@@ -85,7 +85,7 @@ The `.gitignore` is written once (skipped if present) and lists `workflows/`, `s
 
 ### Purge (irreversible)
 
-Closing a tab (`remove_workflow`) does **not** delete this tree — it tears down in-memory state, unlinks `sandbox.db` + `mcp-config.json`, and closes open plan spans; the workflow stays resumable. The HISTORY-tab **PURGE CONVERSATION** action (→ `DELETE /api/workflows/:wfid`, `server/src/workflows/purgeWorkflow.ts`) deletes this whole tree plus the out-of-tree artifacts keyed by `<wfid>`: git checkpoints (`refs/archon/<wfid>/*` — in the cwd repo and the shadow store), skipped-path sidecars and legacy tar checkpoints (`~/.archon/checkpoints/<cwd-hash>/<wfid>.*`), the recall row (`recall.db` entries + FTS), and the cluster mailbox (`~/.archon/clusters/<cid>/mailbox/<wfid>/`). The `nuclear` tier additionally removes the bound provider session files (`~/.claude/projects/…`, Codex rollout). There is no undo — the recall row is dropped immediately rather than waiting for the projection GC.
+Closing a tab (`remove_workflow`) does **not** delete this tree — it tears down in-memory state, unlinks `sandbox.db` + `mcp-config.json`, and closes open plan spans; the workflow stays resumable. The HISTORY-tab **PURGE CONVERSATION** action (→ `DELETE /api/workflows/:wfid`, `server/src/workflows/purgeWorkflow.ts`) deletes this whole tree plus the out-of-tree artifacts keyed by `<wfid>`: git checkpoints (`refs/arco/<wfid>/*` — in the cwd repo and the shadow store), skipped-path sidecars and legacy tar checkpoints (`~/.arco/checkpoints/<cwd-hash>/<wfid>.*`), the recall row (`recall.db` entries + FTS), and the cluster mailbox (`~/.arco/clusters/<cid>/mailbox/<wfid>/`). The `nuclear` tier additionally removes the bound provider session files (`~/.claude/projects/…`, Codex rollout). There is no undo — the recall row is dropped immediately rather than waiting for the projection GC.
 
 ---
 
@@ -183,7 +183,7 @@ Called when deciding between replay and snapshot-only. If `clientLastSeq + 1 < f
 
 1. Validate the wfid shape.
 2. Look up or create the buffer.
-3. If new buffer: `mkdir -p workflows/<wfid>/artifacts/`, drop `.archon/.gitignore` if missing.
+3. If new buffer: `mkdir -p workflows/<wfid>/artifacts/`, drop `.arco/.gitignore` if missing.
 4. Read latest seq from disk to seed `buf.seq`.
 5. Mark `initialized = true`.
 
@@ -218,7 +218,7 @@ interface WorkflowMeta {
   schemaVersion?: number;                // 2 = Phase 0 onwards; absent / 1 = pre-Phase-0 (events.jsonl has no parentEventSeq)
   name: string;
   cwd: string;
-  kind?: 'workflow' | 'chat';            // 'chat' ⇒ projectless Chat tab (cwd = ~/.archon/chats/<wfid>)
+  kind?: 'workflow' | 'chat';            // 'chat' ⇒ projectless Chat tab (cwd = ~/.arco/chats/<wfid>)
   createdAt: number;
   lastActiveAt: number;
   lastUserPreview?: string;              // flattened newest operator turn — Past Chats subtitle without reading JSONL
@@ -341,7 +341,7 @@ Why each part:
 - **`previewHistory`** — most-recent-first list of bound dev-server ports for this workflow (capped at 5). Append on every successful `set_preview_port`; consecutive same-port events dedupe to a timestamp refresh. Replayed via `preview_history` on rehydrate alongside `preview_set` so reconnect doesn't lose the chain.
 - **`claudeTransport`** — `'cli' | 'native' | undefined` (Phase 7a). Per-tab override of the global `claude.transport` setting. Persisted so tab reload picks up the choice without consulting cascade. **Meta-reconcile is gated on `claudeTransport !== 'native'`** — Native sessions write no CLI rollout, so the dispatcher must not pin a phantom CLI session UUID on `wf.primarySessionId` (it would auto-degrade an original-worker Spawn into a `claude --resume <phantom>` against a missing rollout, killing the handoff silently). **Session storage note:** the Claude Native transport writes to the same `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl` path that the CLI transport uses — it's Claude Code's own session file, written by the SDK's built-in JSONL logger. Arco reads this file via the session watcher (`chokidar`) to drive `session_entry` events regardless of transport.
 - **`codexTransport`** — `'exec' | 'appserver' | undefined` (Phase 6e). Per-tab override of the global `codex.transport` setting; same persistence semantics.
-- **`claudeNativeCompact`** / **`autoHandoff`** — Phase 7c per-tab toggles for Native server-side compaction and Archon-managed handoff. See PROVIDERS.md § Claude Native § Context management.
+- **`claudeNativeCompact`** / **`autoHandoff`** — Phase 7c per-tab toggles for Native server-side compaction and Arco-managed handoff. See PROVIDERS.md § Claude Native § Context management.
 - **`efficiencyAutoCompact`** — `'off' | 'conservative' | 'aggressive' | undefined` (EFFICIENCY_PLAN.md Phase 6b.2). Per-tab opt-in to the auto-threshold `ctx_action {trigger: 'auto-threshold'}` emission. Honored only on Claude Native turns.
 - **`efficiencyToolFilter`** — `'off' | 'conservative' | 'aggressive' | undefined` (EFFICIENCY_PLAN.md Phase C). Per-tab Native tool-result filter mode. Honored only on Claude Native turns.
 - **`outputStyle`** — `'normal' | 'lite' | 'terse' | undefined` (OUTPUT_STYLE_PLAN.md). Per-tab output-style picker. Persists across server restart; honored by Claude Native, Codex app-server, and Z.ai turns. Review / Handoff seed / DOCS / GIT primitives hard-code `'normal'` regardless of the persisted value. Legacy `'caveman'` values in pre-2026-05-10 meta.json files are auto-aliased to `'terse'` on read. See PROVIDERS.md § Claude Native § Output style.
@@ -349,7 +349,7 @@ Why each part:
 - **`ultracode`** — `boolean | undefined` (ULTRACODE_PLAN.md). Sticky ultracode mode; default OFF. Survives restart so a tab left in ultracode resumes there. Claude-only.
 - **`webSearchMaxUses`** — `number | undefined`. Per-tab Native `web_search`/`web_fetch` per-turn budget (server-tool `max_uses`). Absent ⇒ server default (15). Native-only.
 - **`claudeNativeThinkingDisplay`** — `'omitted' | 'summarized' | 'updates' | undefined`. Adaptive-thinking display; default `'omitted'` when absent; `'summarized'` streams thinking into the Activity tab; `'updates'` only on models with `supportsThinkingDisplayUpdates`. Native-only.
-- **`kind` / `lastUserPreview` / `chatWebAccess`** — Chat-mode fields. `kind:'chat'` routes the meta to `~/.archon/chats/`, skips the project session-index upsert, and is what `GET /api/chats` filters on; `lastUserPreview` is capped + flattened on write so Past Chats never reads JSONL; `chatWebAccess` is written only for chat metas.
+- **`kind` / `lastUserPreview` / `chatWebAccess`** — Chat-mode fields. `kind:'chat'` routes the meta to `~/.arco/chats/`, skips the project session-index upsert, and is what `GET /api/chats` filters on; `lastUserPreview` is capped + flattened on write so Past Chats never reads JSONL; `chatWebAccess` is written only for chat metas.
 - **`codexContextPolicy`** — `'max' | 'standard' | undefined`. Absent ⇒ MAX, resolved at spawn from the account's `$CODEX_HOME/models_cache.json`. Part of the app-server bootstrap signature, so a change recycles the child and resumes the same thread.
 - **`resolvedModelId`** — the concrete id the API served behind an alias (`opus` → `claude-opus-5-5`), written fire-and-forget by the Native worker so turn 1 after a restart gates capabilities correctly. The alias stays in `primaryModel` so auto-tracking is preserved.
 - **`parentWorkflowId`** (Phase 7b) — set when this workflow was minted by a Native `Task` tool call. Both `meta.json` and the broadcast `workflow_created` carry it; the client uses it to suppress tab creation + active-tab switch while the workflow is parented + unpromoted (TabBar filters parented children where `!promoted`).
@@ -371,7 +371,7 @@ Why each part:
 
 ## sandbox.db (Phase E)
 
-`<cwd>/.archon/workflows/<wfid>/sandbox.db` — per-tab SQLite database opened by `server/src/providers/claude-native/sandboxStore.ts` (via `better-sqlite3`). Holds chunks produced by `ctx_execute` for later retrieval via `ctx_search` (BM25 over FTS5) / `ctx_fetch` (by chunkId). Only created when the operator flips `efficiencySandbox = 'on'` on a Claude Native tab; tabs that never opt in have no file on disk.
+`<cwd>/.arco/workflows/<wfid>/sandbox.db` — per-tab SQLite database opened by `server/src/providers/claude-native/sandboxStore.ts` (via `better-sqlite3`). Holds chunks produced by `ctx_execute` for later retrieval via `ctx_search` (BM25 over FTS5) / `ctx_fetch` (by chunkId). Only created when the operator flips `efficiencySandbox = 'on'` on a Claude Native tab; tabs that never opt in have no file on disk.
 
 Schema (one `chunks` table + one FTS5 virtual table + two triggers keeping the mirror in sync):
 
@@ -401,13 +401,13 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(content, content='chunks', content_ro
 
 ## gate-approvals.json (DEBAG)
 
-`<cwd>/.archon/workflows/<wfid>/gate-approvals.json` — per-workflow, session-scoped sidecar written by `server/src/providers/claude-native/gateStore.ts` (atomic tmp+rename). Shape `{ schemaVersion: 1, pending: PendingGateRecord[], standing: StandingApproval[] }`. `pending[]` holds any UNRESOLVED gate so a systemd restart can re-surface the approval card (`rehydrateGatesOnce`); `standing[]` holds "approve all like this" approvals keyed by the gate's non-lossy `signature` (a changed signature ⇒ a fresh gate, never silently re-approved). **events.jsonl stays the durable gate audit source of truth** (`gate_required` / `gate_resolved` / `gate_standing`); this sidecar is only the fast rehydrate lookup. Per-wfid (never cross-member on a shared cwd) and Native tool dispatch is sequential, so the read-modify-write needs no lock. Only written when the operator arms `reviewSafeMode='on'` on a Claude Native tab; tabs that never opt in have no file on disk. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
+`<cwd>/.arco/workflows/<wfid>/gate-approvals.json` — per-workflow, session-scoped sidecar written by `server/src/providers/claude-native/gateStore.ts` (atomic tmp+rename). Shape `{ schemaVersion: 1, pending: PendingGateRecord[], standing: StandingApproval[] }`. `pending[]` holds any UNRESOLVED gate so a systemd restart can re-surface the approval card (`rehydrateGatesOnce`); `standing[]` holds "approve all like this" approvals keyed by the gate's non-lossy `signature` (a changed signature ⇒ a fresh gate, never silently re-approved). **events.jsonl stays the durable gate audit source of truth** (`gate_required` / `gate_resolved` / `gate_standing`); this sidecar is only the fast rehydrate lookup. Per-wfid (never cross-member on a shared cwd) and Native tool dispatch is sequential, so the read-modify-write needs no lock. Only written when the operator arms `reviewSafeMode='on'` on a Claude Native tab; tabs that never opt in have no file on disk. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
 
 ---
 
 ## Artifacts
 
-`<cwd>/.archon/workflows/<wfid>/artifacts/review-<ts>.md` — Review primitive outputs. YAML frontmatter + body:
+`<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md` — Review primitive outputs. YAML frontmatter + body:
 
 ```markdown
 ---
@@ -436,7 +436,7 @@ Served by `GET /api/workflows/artifact?path=<cwd>&workflowId=<wfid>&name=<filena
 
 ## Handoffs
 
-`<cwd>/.archon/workflows/<wfid>/handoffs/handoff-<ts>.md` — Handoff primitive outputs.
+`<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md` — Handoff primitive outputs.
 
 The two modes produce different content:
 
@@ -449,7 +449,7 @@ Served by `GET /api/workflows/handoff?path=<cwd>&workflowId=<wfid>&name=<filenam
 
 ## Plan store
 
-`server/src/planStore.ts` manages long-form markdown briefs scoped per cwd. Plans live at `<cwd>/.archon/plans/`:
+`server/src/planStore.ts` manages long-form markdown briefs scoped per cwd. Plans live at `<cwd>/.arco/plans/`:
 
 ```
 plans/
@@ -498,7 +498,7 @@ Constraints:
 
 ### Filesystem watcher
 
-`acquirePlansWatcher(cwd)` / `releasePlansWatcher(cwd)` (in `server/src/server/broadcast.ts`) ref-count an `fs.watch` on `<cwd>/.archon/plans/`. Acquired on `plan_attach` (and on rehydrate when meta.planId resurfaces); released on `plan_detach`, mark-complete (auto-detach path), tab close, and plan delete.
+`acquirePlansWatcher(cwd)` / `releasePlansWatcher(cwd)` (in `server/src/server/broadcast.ts`) ref-count an `fs.watch` on `<cwd>/.arco/plans/`. Acquired on `plan_attach` (and on rehydrate when meta.planId resurfaces); released on `plan_detach`, mark-complete (auto-detach path), tab close, and plan delete.
 
 The watcher debounces 200ms and filters to `*.md`. On fire it calls `reconcilePlanFile` and:
 
@@ -513,9 +513,9 @@ When `wf.planId` is set, `buildPlanPrefix()` prepends a one-line `[Active projec
 
 | State | Variant |
 |---|---|
-| `lastSeen === 0` (first turn after attach) | `"…newly attached. Read the brief at .archon/plans/<id>.md to orient. <livingDocNote>"` |
-| `plan.updatedAt > lastSeen` (edited since last turn) | `"…edited since last turn. Re-read .archon/plans/<id>.md if you need the current state. <livingDocNote>"` |
-| stable | `"…file: .archon/plans/<id>.md. <livingDocNote>"` |
+| `lastSeen === 0` (first turn after attach) | `"…newly attached. Read the brief at .arco/plans/<id>.md to orient. <livingDocNote>"` |
+| `plan.updatedAt > lastSeen` (edited since last turn) | `"…edited since last turn. Re-read .arco/plans/<id>.md if you need the current state. <livingDocNote>"` |
+| stable | `"…file: .arco/plans/<id>.md. <livingDocNote>"` |
 
 `<livingDocNote>` is the directive to keep the plan current as work progresses: tick `- [ ]` → `- [x]`, add findings, update open questions, append sections.
 
@@ -529,7 +529,7 @@ Plans survive across workflows, server restarts, and Handoffs. `wf.planId` persi
 
 ### Plan continuity across Handoff and Spawn
 
-- **Handoff** preserves the attachment in-place. The same workflowId and meta.json carry forward; `wf.planId` doesn't move. To make sure the post-handoff session realizes there's a plan attached (its agent has zero context of the prior session), `handleHandoffRequest` resets `meta.planLastSeenUpdatedAt = 0` so the seed turn's `buildPlanPrefix` emits the *newly-attached* form ("Read the brief at .archon/plans/<id>.md to orient") rather than the stable one-liner.
+- **Handoff** preserves the attachment in-place. The same workflowId and meta.json carry forward; `wf.planId` doesn't move. To make sure the post-handoff session realizes there's a plan attached (its agent has zero context of the prior session), `handleHandoffRequest` resets `meta.planLastSeenUpdatedAt = 0` so the seed turn's `buildPlanPrefix` emits the *newly-attached* form ("Read the brief at .arco/plans/<id>.md to orient") rather than the stable one-liner.
 - **Spawn** is plan-free by default. A new workflowId + fresh `meta.json` means `planId` isn't carried over. The SpawnDialog exposes an "Include plan from parent" checkbox (only when the parent has one attached); checking it sets `SpawnFromHereRequestMessage.includePlan: true`. Server-side, `handleSpawnFromHere` then mirrors `handlePlanAttach` for the new workflow: writes `planId` to its meta, runs `recordAttachment` (so the plan's `attachments[]` shows the spawn under "Active in"), acquires the plans-watcher, and broadcasts `plan_attached` to the new tab. The seed turn's prefix is "newly attached" because the new meta starts with `planLastSeenUpdatedAt = 0`.
 
 ### Lifecycle: complete vs. delete
@@ -547,13 +547,13 @@ Plans survive across workflows, server restarts, and Handoffs. `wf.planId` persi
 
 ## Knowledge base (per-cwd)
 
-`server/src/knowledge/store.ts` manages an operator-owned, per-cwd knowledge base at `<cwd>/.archon/knowledge/` — `index.json` (`{ articles: [{ id, title, tags, alwaysInclude, ... }] }`, with each article's summary + byte length mirrored so list/query stay O(N)) plus `<id>.md` bodies. Atomic tmp+rename, cloned from `planStore.ts` / `workflowMeta.ts`. THE FENCE: this store is pure operator-curated state — never LLM-mutated. `alwaysInclude` articles are folded into the primary turn's system prompt up to a KB budget.
+`server/src/knowledge/store.ts` manages an operator-owned, per-cwd knowledge base at `<cwd>/.arco/knowledge/` — `index.json` (`{ articles: [{ id, title, tags, alwaysInclude, ... }] }`, with each article's summary + byte length mirrored so list/query stay O(N)) plus `<id>.md` bodies. Atomic tmp+rename, cloned from `planStore.ts` / `workflowMeta.ts`. THE FENCE: this store is pure operator-curated state — never LLM-mutated. `alwaysInclude` articles are folded into the primary turn's system prompt up to a KB budget.
 
 ---
 
 ## Project task ledger (per-cwd)
 
-`server/src/project/taskLedger.ts` writes `<cwd>/.archon/project/tasks.json` — a versioned task-kernel snapshot. The full shape is `{ version, tasks, comments?, runs? }` where `comments` and `runs` are omitted when empty. Legacy `{ tasks }` snapshots (no `version`) still load and are upgraded on the next save. Atomic tmp+rename.
+`server/src/project/taskLedger.ts` writes `<cwd>/.arco/project/tasks.json` — a versioned task-kernel snapshot. The full shape is `{ version, tasks, comments?, runs? }` where `comments` and `runs` are omitted when empty. Legacy `{ tasks }` snapshots (no `version`) still load and are upgraded on the next save. Atomic tmp+rename.
 
 `comments` are durable per-task notes (appended via `cluster_task_comment` / `peerTaskComment`); `runs` are per-task attempt records (opened by dispatch, closed by heartbeat timeout or recovery). Both are rebuilt from `events.jsonl` on cache miss via `rebuildCommentsFromEvents` / `rebuildRunsFromEvents`, so the file is a rebuildable projection — deleting it forces a rebuild from the event log, losing nothing permanent.
 
@@ -563,22 +563,22 @@ Full field-level documentation: [`TASK_LEDGER.md`](TASK_LEDGER.md).
 
 ## Orchestration proposals (per-cwd)
 
-`server/src/project/orchestrationProposals.ts` writes `<cwd>/.archon/project/orchestration-proposals.json` — the persisted proposal cache for Stage K operator-armed orchestration assist. Shape: `{ version, proposals: OrchestrationProposal[] }`. Atomic write via the shared `atomicFile.ts` primitive.
+`server/src/project/orchestrationProposals.ts` writes `<cwd>/.arco/project/orchestration-proposals.json` — the persisted proposal cache for Stage K operator-armed orchestration assist. Shape: `{ version, proposals: OrchestrationProposal[] }`. Atomic write via the shared `atomicFile.ts` primitive.
 
 Proposals are stored only while they are pending operator action (accept / apply / reject). An applied proposal executes through the normal task-kernel APIs (emitting ordinary `task_ledger_event`s) and is then removed from the store; a rejected proposal is removed without mutation. The file is ephemeral by design — deleting it loses any pending proposals but nothing in the task kernel. Full shape and lifecycle: [`TASK_LEDGER.md § Orchestration proposals`](TASK_LEDGER.md).
 
 ## Managed task worktrees
 
-`~/.archon/worktrees/<cwd-hash>/` — isolated git worktrees pinned to individual tasks (one per task when `worktreeRequired` or `autoWorktree` is set). Created by `cluster_task_worktree_create` / `task_worktree_create` WS messages via `server/src/project/taskWorktree.ts`. Removed by the corresponding `*_remove` message or when the task is archived. These are standard git worktrees (`git worktree add`) and survive server restarts; the path is stored in `LedgerTask.worktree` (task-kernel field, not a separate file). Worktrees for tasks in different cwds are isolated by the `<cwd-hash>` prefix.
+`~/.arco/worktrees/<cwd-hash>/` — isolated git worktrees pinned to individual tasks (one per task when `worktreeRequired` or `autoWorktree` is set). Created by `cluster_task_worktree_create` / `task_worktree_create` WS messages via `server/src/project/taskWorktree.ts`. Removed by the corresponding `*_remove` message or when the task is archived. These are standard git worktrees (`git worktree add`) and survive server restarts; the path is stored in `LedgerTask.worktree` (task-kernel field, not a separate file). Worktrees for tasks in different cwds are isolated by the `<cwd-hash>` prefix.
 
 ---
 
-## Operator-global state (`~/.archon/`)
+## Operator-global state (`~/.arco/`)
 
 ```
-~/.archon/
+~/.arco/
 ├── settings.json                    # operator preferences (global layer)
-├── chats/<wfid>/.archon/workflows/<wfid>/ # saved projectless Chat meta + events (never incognito)
+├── chats/<wfid>/.arco/workflows/<wfid>/ # saved projectless Chat meta + events (never incognito)
 ├── auth.json                        # Claude Native OAuth token (claude.native namespace, 0600)
 ├── provider-secrets.json            # Z.ai API key (providerSecrets.ts; 0600, never returned to clients)
 ├── models.md                        # vestigial model catalog (Settings-editable, unconsumed — see below)
@@ -587,7 +587,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 ├── workspace.json                   # server-authoritative open tabs: { version, workflows: {wfid → {config, parentWorkflowId?, openedAt}}, clusters: [id] } (workspace.ts; workspace-<port>.json off 3001)
 ├── worker-pids.json                 # live worker PIDs + start times for orphan reaping
 ├── terminal-pids.json               # same shape, terminal PTYs (terminal/ptyPidRegistry.ts)
-├── logs/archon.log[.1–.5]           # structured JSONL log, size-rotated (server/logger.ts; ARCHON_LOG_MAX_BYTES, default 5 MB)
+├── logs/arco.log[.1–.5]           # structured JSONL log, size-rotated (server/logger.ts; ARCO_LOG_MAX_BYTES, default 5 MB)
 ├── llamacpp.log                     # shared llama-server daemon log (why llama.cpp is refused for incognito)
 ├── media-scratch/<uuid>/            # imported media staged for ffmpeg/demucs (media/scratch.ts; 24 h TTL, 16 GiB cap)
 ├── camoufox-chatgpt-profile/        # headless-browser profile for the Codex usage scrape (codexUsage.ts)
@@ -615,7 +615,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 │   └── codex-<id>/                  # CODEX_HOME for a configured Codex account (config.toml)
 ├── checkpoints/                     # non-git checkpoint store (gitSnapshots.ts)
 │   └── <cwd-hash>/
-│       ├── git/                     # bare shadow repo — refs/archon/<wfid>/<seq>
+│       ├── git/                     # bare shadow repo — refs/arco/<wfid>/<seq>
 │       ├── <wfid>.<seq>.skipped.json
 │       └── <wfid>.<seq>.tar         # LEGACY only — read, never created
 ├── bakeoffs/                        # operator-armed implementation races
@@ -661,7 +661,7 @@ attempt checkout are excluded from candidate diffs and promotion.
 
 Per-cluster directory tree, created by `POST /api/clusters` or the WS create path (`server/src/clusterStore.ts`). `meta.json` is written under `proper-lockfile` (cross-process writer serialization) **and** through `atomicFile.ts` (crash-safe body) — complementary, neither substitutes for the other. The cluster plan body lives at `plan.md` alongside `meta.json` (`server/src/clusterPlanStore.ts`), with a `plan.meta.json` sidecar holding `{ updatedAt }`.
 
-Phase 12's board surface introduces **no new persistence**: `taskBoardMode` (`'project'` for new clusters — the default-attach — `'none'`, or a cluster-private board keyed by `taskBoardKey`) in cluster `meta.json` selects the board, and the board reads/writes the existing per-cwd project task ledger (`<cwd>/.archon/project/tasks.json` + the `task_ledger_event` stream covered above). Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** — default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
+Phase 12's board surface introduces **no new persistence**: `taskBoardMode` (`'project'` for new clusters — the default-attach — `'none'`, or a cluster-private board keyed by `taskBoardKey`) in cluster `meta.json` selects the board, and the board reads/writes the existing per-cwd project task ledger (`<cwd>/.arco/project/tasks.json` + the `task_ledger_event` stream covered above). Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** — default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
 
 **Mailbox** — one file per pending peer message under `mailbox/<recipientWfId>/<msgId>.json`. `peer_send` writes the file **atomically** (`atomicFile.ts`; a concurrent drain reading a half-written message would parse-fail and be unlinked as "stale", silently losing it); the recipient's `peer_read` tool call drains (`clusterMailbox.drain` reads + unlinks all files). Drain is destructive: the file is removed after reading. The durable record of each delivered peer message lives in the recipient's `events.jsonl` as a `peer_message_received` event — mailbox files are ephemeral by design. Operator can cancel an individual pending message via `DELETE /api/clusters/:id/mailbox/:wfid/:msgId` (`clusterMailbox.discard` — unlinks the file without emitting any event). Message id format: `<epochMs>-<8-char-uuid>` — ms prefix gives lexicographic chronological order without `stat()`.
 
@@ -675,24 +675,24 @@ New events on workflow `events.jsonl` (one or more, depending on activity): `pee
 
 ### recall/recall.db (Workbench §F1)
 
-`server/src/recall/index.ts`. A **machine-global, cross-cwd SQLite index** of every workflow ever run — one row per workflow: `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef?, tags[] }` plus the F4 `pinned` flag and KB/task links, with an FTS5 table alongside for F3 search (`better-sqlite3`, as is the per-tab `sandbox.db`). F2 summaries live beside it as `~/.archon/recall/<wfid>/summary.md` (linked by `summaryRef`) — unlike the index they are operator-produced content, not a projection. Purge drops the row immediately.
+`server/src/recall/index.ts`. A **machine-global, cross-cwd SQLite index** of every workflow ever run — one row per workflow: `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef?, tags[] }` plus the F4 `pinned` flag and KB/task links, with an FTS5 table alongside for F3 search (`better-sqlite3`, as is the per-tab `sandbox.db`). F2 summaries live beside it as `~/.arco/recall/<wfid>/summary.md` (linked by `summaryRef`) — unlike the index they are operator-produced content, not a projection. Purge drops the row immediately.
 
 **Rebuildable projection — delete-safe.** `recall.db` holds nothing authoritative; it is a deterministic projection of each workflow's `meta.json` + `events.jsonl`. Delete `recall.db` and the next server boot's backfill reconstructs it from disk (tags / pins / links are operator state stored only in the DB, so deleting it loses those; don't delete the whole `recall/` dir — it also holds the summaries). `RecallIndex.rebuild()` does the same on demand (drop + re-backfill). The index is populated three ways: (1) on boot, `getRecallIndex().backfill()` walks every cwd in `known-cwds.json`; (2) `writeMeta` fires a single failure-isolated upsert per write so live workflows stay current; (3) `rebuild()` for an explicit from-scratch reconstruction. All three upsert by `wfid` (idempotent — re-running never duplicates). See `docs/RECALL.md`.
 
 ### recent-files.jsonl
 
-`server/src/recentFilesLedger.ts`. A machine-global, append-only NDJSON ledger of agent (and manual) file writes, newest-appended-last, at `~/.archon/recent-files.jsonl` (override `ARCHON_RECENT_FILES_LEDGER` for tests). Record shape `LedgerRecord { ts, path (absolute), op:'created'|'modified', workflowId, tabTitle, provider, tool, project? }` (`project` = basename of cwd, optional for back-compat). Self-compacts: once the file exceeds `MAX_LINES = 1000` lines it is rewritten (tmp+rename) to the newest `KEEP_LINES = 500`.
+`server/src/recentFilesLedger.ts`. A machine-global, append-only NDJSON ledger of agent (and manual) file writes, newest-appended-last, at `~/.arco/recent-files.jsonl` (override `ARCO_RECENT_FILES_LEDGER` for tests). Record shape `LedgerRecord { ts, path (absolute), op:'created'|'modified', workflowId, tabTitle, provider, tool, project? }` (`project` = basename of cwd, optional for back-compat). Self-compacts: once the file exceeds `MAX_LINES = 1000` lines it is rewritten (tmp+rename) to the newest `KEEP_LINES = 500`.
 
 **Fed from the persisting broadcast chokepoints, best-effort.** `recordFilesLedger()` (`server/src/server/broadcast.ts`) runs a pure `matchFileEvent` over each broadcast in both `send()` and `broadcastWorkflow()` — v1 matches completed `primary_tool_use` Write/Edit/NotebookEdit (→ `modified`, cwd-scoped), `review_artifact_ready` (→ `created`), and media results. The manual `POST /api/files/write` handler also appends (`fileWriteRoutes.ts`). Every append is fire-and-forget `void appendRecord(...)`; `appendRecord` swallows its own errors so a ledger write can never break a broadcast. Read side: `readRecent(limit=100)` (newest-first, skips malformed) consumed by `GET /api/explorer/recents` (`explorerRoutes.ts`).
 
 ### settings.json
 
-`server/src/settings.ts`. Three-layer cascade: built-in defaults → `~/.archon/settings.json` (global) → `<cwd>/.archon/settings.json` (project). Deep-merge for nested objects; arrays replace. Project-level file overrides specific keys without touching the rest — useful for per-repo default provider or model.
+`server/src/settings.ts`. Three-layer cascade: built-in defaults → `~/.arco/settings.json` (global) → `<cwd>/.arco/settings.json` (project). Deep-merge for nested objects; arrays replace. Project-level file overrides specific keys without touching the rest — useful for per-repo default provider or model.
 
 Global shape (representative subset):
 
 ```ts
-// ArchonSettings (shared/src/protocol/settings.ts)
+// ArcoSettings (shared/src/protocol/settings.ts)
 {
   enabledProviders: Record<ProviderName, boolean>,
   workflowDefaults?: { primaryProvider?, primaryModel?, primaryEffort?, providerAccountRef?, ... },
@@ -715,7 +715,7 @@ A `.bak-phase1` file may be present from earlier migrations.
 
 ### llamacpp.json
 
-Operator-maintained GGUF catalog at `~/.archon/llamacpp.json`: `{ models: LlamacppModelDef[] }` (each `{ alias, ggufPath, ctxSize?, ngl?, extraArgs?, ... }` plus optional capability flags; the first entry is the default; 64 KB cap; a commented stub is seeded on first read). Managed by `server/src/llamacppCatalog.ts`. Editable via the CONFIG tab's llama.cpp section or by hand. Arco reads it at boot and on capabilities refresh; each alias becomes a selectable model in the llama.cpp provider's model dropdown. Version-mtime cache in `llamacppManager` skips re-probing the binary when its mtime hasn't changed.
+Operator-maintained GGUF catalog at `~/.arco/llamacpp.json`: `{ models: LlamacppModelDef[] }` (each `{ alias, ggufPath, ctxSize?, ngl?, extraArgs?, ... }` plus optional capability flags; the first entry is the default; 64 KB cap; a commented stub is seeded on first read). Managed by `server/src/llamacppCatalog.ts`. Editable via the CONFIG tab's llama.cpp section or by hand. Arco reads it at boot and on capabilities refresh; each alias becomes a selectable model in the llama.cpp provider's model dropdown. Version-mtime cache in `llamacppManager` skips re-probing the binary when its mtime hasn't changed.
 
 ### notification-mutes.json / cluster-presets.json / templates.json / mcp/registry.json
 
@@ -723,30 +723,30 @@ Small global JSON stores, each written through `atomicFile.ts` (`notification-mu
 
 - **`notification-mutes.json`** (`server/src/notifications.ts`) — JSON array of muted notification category strings. Path is mutable for tests via the module-level `mutesPath`.
 - **`cluster-presets.json`** (`server/src/clusterPresets.ts`) — saved cluster presets (`{ version, presets: [...] }`).
-- **`cluster-snapshots/`** (`server/src/clusterSnapshots.ts`) — named full-cluster captures (`manifest.json` plus each member's `meta.json` / `events.jsonl`). `clusterSnapshotBundle.ts` exports/imports the same regular files as verified `.archoncluster` containers. Confirmed same-name replacement builds a hidden complete staging directory, atomically swaps it at the stable snapshot id, then removes the hidden backup; an unconfirmed conflict or failed build leaves the old directory untouched.
+- **`cluster-snapshots/`** (`server/src/clusterSnapshots.ts`) — named full-cluster captures (`manifest.json` plus each member's `meta.json` / `events.jsonl`). `clusterSnapshotBundle.ts` exports/imports the same regular files as verified `.arcocluster` containers. Confirmed same-name replacement builds a hidden complete staging directory, atomically swaps it at the stable snapshot id, then removes the hidden backup; an unconfirmed conflict or failed build leaves the old directory untouched.
 - **`cluster-vault.key`** (`server/src/clusterVaultCrypto.ts`) — base64url 32-byte AES-GCM key, mode 0600. Generated on first cloud save or explicitly installed from another computer. It is never included in a snapshot bundle or hub request and must not be committed to source control.
 - **`templates.json`** (`server/src/templates/store.ts`) — workflow templates (`{ version: 1, templates: [...] }`), the single-tab analogue of cluster presets; carries optional seedPrompt + plan body.
-- **`mcp/registry.json`** (`server/src/mcp/registry.ts`) — operator-registered MCP server defs (`{ servers: [...] }`). Per-workflow allow-lists live in `meta.json` (`mcpAllow`), keyed by serverId. Honors `ARCHON_HOME` env override.
+- **`mcp/registry.json`** (`server/src/mcp/registry.ts`) — operator-registered MCP server defs (`{ servers: [...] }`). Per-workflow allow-lists live in `meta.json` (`mcpAllow`), keyed by serverId. Honors `ARCO_HOME` env override.
 
 ### skill-usage.json (§5.2)
 
-`server/src/skillUsage.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs SKILL.md path>: { count, lastUsed } } }`. Incremented deterministically on a `Read` tool_use whose `file_path` resolves to a `.archon/skills/<slug>/SKILL.md` (project or global) — there is no `skill_view` tool, so the Read of the manifest path *is* the use signal. Purely diagnostic (counts render in the Skills UI; nothing is auto-archived — archiving is an operator decision). Fail-safe: a malformed/absent file reads as empty and write errors are swallowed (telemetry must never break a turn). Atomic write (`durability: 'advisory'` — telemetry); the read-modify-write is serialized through `withFileLock` so concurrent tabs don't clobber.
+`server/src/skillUsage.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs SKILL.md path>: { count, lastUsed } } }`. Incremented deterministically on a `Read` tool_use whose `file_path` resolves to a `.arco/skills/<slug>/SKILL.md` (project or global) — there is no `skill_view` tool, so the Read of the manifest path *is* the use signal. Purely diagnostic (counts render in the Skills UI; nothing is auto-archived — archiving is an operator decision). Fail-safe: a malformed/absent file reads as empty and write errors are swallowed (telemetry must never break a turn). Atomic write (`durability: 'advisory'` — telemetry); the read-modify-write is serialized through `withFileLock` so concurrent tabs don't clobber.
 
 ### trust.json (DD7)
 
-`server/src/projectTrust.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs cwd>: { decision: 'always' | 'never', at } } }`. Gates the three project-local injection surfaces (CLAUDE.md, project skills, project `.archon/settings.json`) behind an explicit operator trust decision; nearest-ancestor wins (a `never` on a subdir overrides an `always` on its parent). The fallback default lives in global `settings.json` under `defaultProjectTrust` (`'ask' | 'always' | 'never'`, default `'ask'`) — resolved from USER/GLOBAL scope ONLY before any project-local file is read, so a cloned repo cannot self-grant trust via a checked-in `.archon/settings.json`. A recorded decision is one line the operator can flip or delete by hand.
+`server/src/projectTrust.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs cwd>: { decision: 'always' | 'never', at } } }`. Gates the three project-local injection surfaces (CLAUDE.md, project skills, project `.arco/settings.json`) behind an explicit operator trust decision; nearest-ancestor wins (a `never` on a subdir overrides an `always` on its parent). The fallback default lives in global `settings.json` under `defaultProjectTrust` (`'ask' | 'always' | 'never'`, default `'ask'`) — resolved from USER/GLOBAL scope ONLY before any project-local file is read, so a cloned repo cannot self-grant trust via a checked-in `.arco/settings.json`. A recorded decision is one line the operator can flip or delete by hand.
 
 ### prompts/ (DD10)
 
-Operator-authored `<name>.md` markdown templates expanded by the `/prompt <name> args…` composer command (`server/src/prompts.ts`); bash-positional args (`$1`..`$9` / `${N}`) interpolate into the body. Two scopes: `~/.archon/prompts/` (global — the operator's own, ungated) and `<cwd>/.archon/prompts/` (project — only expanded when the repo is DD7-trusted, since a cloned repo could ship a hostile template). Project wins over global on a name clash. Optional `--- description: … ---` frontmatter; everything after is the template.
+Operator-authored `<name>.md` markdown templates expanded by the `/prompt <name> args…` composer command (`server/src/prompts.ts`); bash-positional args (`$1`..`$9` / `${N}`) interpolate into the body. Two scopes: `~/.arco/prompts/` (global — the operator's own, ungated) and `<cwd>/.arco/prompts/` (project — only expanded when the repo is DD7-trusted, since a cloned repo could ship a hostile template). Project wins over global on a name clash. Optional `--- description: … ---` frontmatter; everything after is the template.
 
 ### provider-accounts/
 
-`server/src/providerAccounts.ts`. Per-account isolated provider home directories under `~/.archon/provider-accounts/`. For Codex, `codex-<id>/` is the `CODEX_HOME` for a configured account; `ensureCodexAccountHome` `mkdir`s it and seeds a `config.toml` with `cli_auth_credentials_store = "file"`. The account list itself (labels, refs, custom homes) lives in `settings.json` under `providerAccounts`, not here.
+`server/src/providerAccounts.ts`. Per-account isolated provider home directories under `~/.arco/provider-accounts/`. For Codex, `codex-<id>/` is the `CODEX_HOME` for a configured account; `ensureCodexAccountHome` `mkdir`s it and seeds a `config.toml` with `cli_auth_credentials_store = "file"`. The account list itself (labels, refs, custom homes) lives in `settings.json` under `providerAccounts`, not here.
 
 ### checkpoints/
 
-`server/src/gitSnapshots.ts`. Non-git cwds use a bare shadow repo at `~/.archon/checkpoints/<cwd-hash>/git`, with the same `refs/archon/<wfid>/<seq>` namespace as project repos. A `<wfid>.<seq>.skipped.json` sidecar records paths excluded by the per-file cap so rewind preserves them even if their size changes. Oldest refs and sidecars beyond the per-workflow cap are pruned together; workflow purge removes both. Legacy `<wfid>.<seq>.tar` files remain readable but are no longer created. Project-repo capture uses a unique transient scratch index under `$TMPDIR` (outside the worktree); shadow capture uses the same per-operation naming inside its bare repo.
+`server/src/gitSnapshots.ts`. Non-git cwds use a bare shadow repo at `~/.arco/checkpoints/<cwd-hash>/git`, with the same `refs/arco/<wfid>/<seq>` namespace as project repos. A `<wfid>.<seq>.skipped.json` sidecar records paths excluded by the per-file cap so rewind preserves them even if their size changes. Oldest refs and sidecars beyond the per-workflow cap are pruned together; workflow purge removes both. Legacy `<wfid>.<seq>.tar` files remain readable but are no longer created. Project-repo capture uses a unique transient scratch index under `$TMPDIR` (outside the worktree); shadow capture uses the same per-operation naming inside its bare repo.
 
 ### auth.json
 
@@ -756,8 +756,8 @@ Operator-authored `<name>.md` markdown templates expanded by the `/prompt <name>
 
 Operator-defined playbooks live in two scopes:
 
-- **Project**: `<cwd>/.archon/skills/<slug>/SKILL.md`
-- **Global**: `~/.archon/skills/<slug>/SKILL.md`
+- **Project**: `<cwd>/.arco/skills/<slug>/SKILL.md`
+- **Global**: `~/.arco/skills/<slug>/SKILL.md`
 
 Each `SKILL.md` has YAML frontmatter (`name`, `description`) followed by the body. The slug is the directory name and is the stable identifier — renaming the skill doesn't require renaming the directory. Managed by `server/src/skills.ts`. The manifest injected into every primary turn's system prompt contains name + description + absolute path only; the agent reads the full body on demand via its `Read` tool.
 
@@ -765,10 +765,10 @@ Each `SKILL.md` has YAML frontmatter (`name`, `description`) followed by the bod
 
 Custom handoff prompt bodies live at:
 
-- `<cwd>/.archon/handoff.prompt.md` — project original-worker override
-- `<cwd>/.archon/handoff.summarizer.prompt.md` — project fresh-summarizer override
-- `~/.archon/handoff.prompt.md` — global original-worker override
-- `~/.archon/handoff.summarizer.prompt.md` — global fresh-summarizer override
+- `<cwd>/.arco/handoff.prompt.md` — project original-worker override
+- `<cwd>/.arco/handoff.summarizer.prompt.md` — project fresh-summarizer override
+- `~/.arco/handoff.prompt.md` — global original-worker override
+- `~/.arco/handoff.summarizer.prompt.md` — global fresh-summarizer override
 - `ollama.compaction.prompt.md` — `ollama-compaction` override, same two scopes
 
 Project scope takes precedence over global; both fall back to built-in templates. Managed by `server/src/handoffPrompts.ts`. Body max 64 KB. The editor warns (advisory, non-blocking) when an `original-worker` body omits `{{handoffPath}}` or `[HANDOFF_COMPLETE]`.
@@ -779,7 +779,7 @@ Project scope takes precedence over global; both fall back to built-in templates
 
 ```json
 [
-  "~/Projects/Archon",
+  "~/Projects/Arco",
   "~/Projects/sample-app"
 ]
 ```
@@ -798,7 +798,7 @@ Updated synchronously on each worker spawn / settle. On boot, `reapOrphanWorkers
 
 ### cli-snapshots/
 
-`server/src/capabilities.ts` writes `~/.archon/cli-snapshots/<provider>.txt` (raw `--version`/help capture) plus `<provider>.meta.json` per provider, and a diff file when a change is detected. Used to detect CLI upgrades between boots and emit `capabilities_changed` events. The CONFIG tab's red-dot indicator fires on any change.
+`server/src/capabilities.ts` writes `~/.arco/cli-snapshots/<provider>.txt` (raw `--version`/help capture) plus `<provider>.meta.json` per provider, and a diff file when a change is detected. Used to detect CLI upgrades between boots and emit `capabilities_changed` events. The CONFIG tab's red-dot indicator fires on any change.
 
 ### antigravity-data/
 
@@ -808,7 +808,7 @@ Isolated Chromium user-data-dir for the Antigravity desktop app spawn. Keeps Arc
 
 ## .gitignore
 
-On first workflow init in a cwd (`workflowStore.ts`), Arco writes `<cwd>/.archon/.gitignore` if the file doesn't already exist. It lists the rebuildable/ephemeral projections:
+On first workflow init in a cwd (`workflowStore.ts`), Arco writes `<cwd>/.arco/.gitignore` if the file doesn't already exist. It lists the rebuildable/ephemeral projections:
 
 ```
 workflows/
@@ -824,8 +824,8 @@ This stops `events.jsonl` and friends from being accidentally committed. The wri
 
 On boot, `recoverWorkflowsFromDisk()` (`server/src/crashRecovery.ts`):
 
-1. Loads `~/.archon/known-cwds.json`.
-2. For each cwd, lists `<cwd>/.archon/workflows/*/meta.json` (`listWorkflowMetas`; a missing dir yields nothing — the registry is not pruned).
+1. Loads `~/.arco/known-cwds.json`.
+2. For each cwd, lists `<cwd>/.arco/workflows/*/meta.json` (`listWorkflowMetas`; a missing dir yields nothing — the registry is not pruned).
 3. Keeps only workflows active in the last **24 h** (`RECOVERY_WINDOW_MS`); older ones stay on disk and come back via client `rehydrate_workflows` / RESUME.
 4. `await initWorkflowStore` for each survivor **before** any broadcast (else seqs restart at 0 and duplicate on disk), and hands them back for in-memory cwd registration.
 
@@ -834,7 +834,7 @@ Separately `index.ts` runs `reapOrphanWorkers()` / `reapOrphanTerminals()`. Noth
 The client side does its own crash-recovery via `useWebSocket.ts` — on connect, persisted jobs in localStorage send `rehydrate_workflows` and the server replays from `events.jsonl`.
 
 Saved Chat conversations use the same `meta.json` + `events.jsonl` contract,
-but their synthetic cwd is `~/.archon/chats/<wfid>` and they are intentionally
+but their synthetic cwd is `~/.arco/chats/<wfid>` and they are intentionally
 absent from `known-cwds.json` and project `session-index.json`. `GET /api/chats`
 scans those metas for the Past Chats picker.
 
@@ -845,9 +845,9 @@ limits are collected in [CHAT.md](CHAT.md).
 
 ## Client-side localStorage
 
-The Zustand store (`client/src/stores/appStore.ts`) persists a slim subset of state to `localStorage` under the key **`archon-jobs`** via `zustand/middleware/persist` with a custom `debouncedJSONStorage()` (`client/src/stores/persistence.ts` — stringifies once per debounced flush, flushes on `visibilitychange`/`pagehide`; do not swap back to `createJSONStorage`, which re-serializes the whole slice on every `set()`). The `partialize` function explicitly includes:
+The Zustand store (`client/src/stores/appStore.ts`) persists a slim subset of state to `localStorage` under the key **`arco-jobs`** via `zustand/middleware/persist` with a custom `debouncedJSONStorage()` (`client/src/stores/persistence.ts` — stringifies once per debounced flush, flushes on `visibilitychange`/`pagehide`; do not swap back to `createJSONStorage`, which re-serializes the whole slice on every `set()`). The `partialize` function explicitly includes:
 
-Since the server-authoritative workspace (`~/.archon/workspace.json`), this slice is a **cache**: on every connect the client reconciles `jobs` / `clusters` to the server's open set (dropping tabs closed elsewhere, materializing tabs opened elsewhere). `archon.workspaceAdopted` (separate key) records that this browser's local tabs were merged into the server set once.
+Since the server-authoritative workspace (`~/.arco/workspace.json`), this slice is a **cache**: on every connect the client reconciles `jobs` / `clusters` to the server's open set (dropping tabs closed elsewhere, materializing tabs opened elsewhere). `arco.workspaceAdopted` (separate key) records that this browser's local tabs were merged into the server set once.
 
 - **`jobs`** — per-workflow entries: `id`, `currentSessionId`, `config`, the last 200 `messages`, cost/token totals, `resolvedPrimaryModel`, the last 40 `reviews` / `research` / `handoffs`, `lastSeq`, `taskChildren` / `parentWorkflowId` / `promoted` (Phase 7b), and the last 500 `historyEvents` (Phase 8). `workers` is persisted as `{}` — the server re-pushes live state on reconnect.
 - **`activeJobId`** — the focused tab (nulled when it is incognito).
@@ -867,9 +867,9 @@ per request. External API retention is outside Arco's storage boundary.
 
 **`taskChildren`** — Settled Task-child records (Phase 7b) are included in the partialize allow-list so the TASKS sub-tab and TaskCard renders correctly after a page reload without waiting for the replay path to re-deliver lifecycle events. The server also re-broadcasts `task_started` / `task_status` on rehydrate regardless of `clientLastSeq` as a belt-and-suspenders; the idempotent client-side actions make the two paths safe to combine.
 
-**HISTORY tab filter strip** — Per-workflow filter selection is stored under `archon.historyFilter.byWorkflow.<workflowId>` in `localStorage` (separate from the main Zustand key) by `client/src/components/HistoryTab.tsx`. No server-side persistence; resets to default on first load for any given workflow.
+**HISTORY tab filter strip** — Per-workflow filter selection is stored under `arco.historyFilter.byWorkflow.<workflowId>` in `localStorage` (separate from the main Zustand key) by `client/src/components/HistoryTab.tsx`. No server-side persistence; resets to default on first load for any given workflow.
 
-**Computer reply voice** — `archon.voice.output.v1` stores only a validated
+**Computer reply voice** — `arco.voice.output.v1` stores only a validated
 output-voice ID for this browser. Missing/invalid values use the server default;
 choosing System default removes the key. `voice/store.ts` never persists voice
 arming, a session ID, captured speech or sample audio. Reload remains mic-off.
@@ -902,7 +902,7 @@ Deletion is operator-only: PURGE CONVERSATION (`DELETE /api/workflows/:wfid`, se
 
 ### Computer completion watches
 
-`~/.archon/computer-watches.json` holds up to 100 saved watch records, at most
+`~/.arco/computer-watches.json` holds up to 100 saved watch records, at most
 32 active. `voice/watches.ts` serializes snapshots through `withFileLock` and
 `atomicWriteFile` (durable, mode 0600); arm acknowledgment waits for persistence.
 IDs plus busy generations bind current runs in memory. Pending saved watches
@@ -913,7 +913,7 @@ never emit global/external notices; a private full clear/removal drops them.
 
 ### Computer conditional mailbox rules
 
-`~/.archon/computer-mail-rules.json` holds up to 100 saved rule records (≤16
+`~/.arco/computer-mail-rules.json` holds up to 100 saved rule records (≤16
 active, one per cluster). `voice/mailRules.ts` uses the shared locked durable
 atomic writer, mode 0600. Arming and dispatch preflight require successful
 persistence; I/O failure stops active saved rules. Exact cluster membership,
@@ -928,7 +928,7 @@ standard reminder still enters its normal destination worker’s transcript.
 
 ### Computer conditional scripts
 
-General scripts use a separate `~/.archon/computer-conditions.json` (locked
+General scripts use a separate `~/.arco/computer-conditions.json` (locked
 durable atomic writes, mode 0600, ≤100 retained/16 active). Records include
 validated definitions/pinned scope, clause/action state, deduplication hashes
 and mail IDs, worker-turn counts, expiry, status/reason and notification claims.
@@ -957,7 +957,7 @@ file is unchanged; it cannot coexist with general scripts in the same scope.
 
 ### Computer activity and agent inbox
 
-`~/.archon/computer-activity.json` (`voice/activity.ts`/`activityStore.ts`) stores
+`~/.arco/computer-activity.json` (`voice/activity.ts`/`activityStore.ts`) stores
 200 public metadata facts, per-owner settings (100 max), bounded public delivery
 records and rolling-hour batch counters. The shared locked durable atomic writer
 uses mode 0600 and coalesces concurrent event writes. Original workflow events

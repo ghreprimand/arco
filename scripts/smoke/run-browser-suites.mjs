@@ -1,6 +1,6 @@
 // Runs the Playwright browser smokes one at a time. Each suite gets its own Vite dev server on the
 // port its script expects; every API and WebSocket call is fulfilled inside the script, so no
-// Arco server, provider or credential is involved. Chromium comes from ARCHON_TEST_CHROME
+// Arco server, provider or credential is involved. Chromium comes from ARCO_TEST_CHROME
 // (or Playwright's own install via `python3 -m playwright install chromium`).
 // Usage: node scripts/smoke/run-browser-suites.mjs [suite-name ...]   (default: every listed suite)
 import { spawn, spawnSync } from 'node:child_process';
@@ -31,8 +31,8 @@ if (!selected.length) { console.error('No matching browser suites.'); process.ex
 const viteBin = join(root, 'node_modules/vite/bin/vite.js');
 const results = [];
 for (const suite of selected) {
-  const env = { ...process.env, ARCHON_CLIENT_PORT: String(suite.port) };
-  if (env.ARCHON_TEST_CHROME) env.CHROMIUM_PATH = env.ARCHON_TEST_CHROME;
+  const env = { ...process.env, ARCO_CLIENT_PORT: String(suite.port) };
+  if (env.ARCO_TEST_CHROME) env.CHROMIUM_PATH = env.ARCO_TEST_CHROME;
   const vite = spawn(process.execPath, [viteBin, 'client', '--host', '127.0.0.1', '--port', String(suite.port), '--strictPort'], { cwd: root, env, stdio: 'ignore' });
   let ready = false;
   for (let i = 0; i < 60 && !ready; i++) {

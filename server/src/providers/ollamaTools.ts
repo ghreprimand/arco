@@ -2,11 +2,11 @@
 // Path A). The Ollama HTTP API is stateless: the model emits `tool_calls`
 // and the *caller* is responsible for executing them and feeding results
 // back. Subprocess providers (Claude/Codex/Gemini) own their own tool
-// runtimes inside the CLI; for Ollama, Archon is the runtime.
+// runtimes inside the CLI; for Ollama, Arco is the runtime.
 //
 // Security model — every tool path is resolved against the workflow cwd
 // and rejected if the resolved path escapes. The Ollama branch is the only
-// way a local model can touch the filesystem in Archon, and a model trained
+// way a local model can touch the filesystem in Arco, and a model trained
 // on adversarial corpora is not assumed safe — without this guard, a single
 // `Read {file_path: "/etc/shadow"}` call would succeed. Path validation
 // happens here (not in the loop layer) so a future allowlist expansion
@@ -56,18 +56,18 @@ const WEBFETCH_STEALTH_TIMEOUT_MS = 30_000;
 // rather than env-var because the SSRF guard below blocks the model from
 // calling 127.0.0.1 directly via WebFetch; this is the *internal* call
 // from the WebSearch executor, which bypasses the guard intentionally.
-const SEARXNG_URL = process.env.ARCHON_SEARXNG_URL ?? 'http://127.0.0.1:8888';
+const SEARXNG_URL = process.env.ARCO_SEARXNG_URL ?? 'http://127.0.0.1:8888';
 
 // Camoufox interpreter path. Configurable in case the operator moves the
 // venv; defaults to /opt/camoufox.
-const CAMOUFOX_PYTHON = process.env.ARCHON_CAMOUFOX_PYTHON ?? '/opt/camoufox/bin/python';
+const CAMOUFOX_PYTHON = process.env.ARCO_CAMOUFOX_PYTHON ?? '/opt/camoufox/bin/python';
 
 // Default skip-directories for Grep recursion. Mirrors the safety footer's
 // "skip node_modules / .git / .cache" guidance.
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
-  '.archon',
+  '.arco',
   'dist',
   'build',
   '.next',
@@ -926,16 +926,16 @@ const BashTool: OllamaToolEntry = {
 
 // ── Cluster Peer Tools ────────────────────────────────────────────────────
 
-function archonClusterPeerBase(ctx: OllamaToolContext): string {
+function arcoClusterPeerBase(ctx: OllamaToolContext): string {
   if (!ctx.clusterId || !ctx.workflowId) {
     throw new Error('cluster tool requires this workflow to be a cluster member');
   }
-  const port = parseInt(process.env.ARCHON_PORT ?? '3001', 10);
+  const port = parseInt(process.env.ARCO_PORT ?? '3001', 10);
   return `http://127.0.0.1:${port}/api/clusters/${encodeURIComponent(ctx.clusterId)}/peer`;
 }
 
 async function clusterFetch(ctx: OllamaToolContext, op: string, init: RequestInit): Promise<string> {
-  const url = `${archonClusterPeerBase(ctx)}/${op}`;
+  const url = `${arcoClusterPeerBase(ctx)}/${op}`;
   const res = await fetch(url, { ...init, signal: ctx.abortSignal });
   const text = await res.text();
   if (!res.ok) {
@@ -960,7 +960,7 @@ const PeerListTool: OllamaToolEntry = {
     },
   },
   execute: async (_args, ctx) => {
-    const base = archonClusterPeerBase(ctx);
+    const base = arcoClusterPeerBase(ctx);
     const res = await fetch(`${base}/list?workflowId=${encodeURIComponent(ctx.workflowId!)}`, {
       method: 'GET',
       signal: ctx.abortSignal,
@@ -1167,7 +1167,7 @@ export async function executeOllamaTool(
 //
 // Threshold pick: 2 successful dispatches, coach on the 3rd attempt. First
 // re-call is sometimes legit (model wants to verify after a write); a third
-// identical call almost never is. Set ARCHON_LOOP_COACH_THRESHOLD to tune.
+// identical call almost never is. Set ARCO_LOOP_COACH_THRESHOLD to tune.
 const DEFAULT_DEDUP_THRESHOLD = 2;
 
 // After this many coaching attempts on the same (name, args) key, stop
@@ -1177,7 +1177,7 @@ const DEFAULT_DEDUP_THRESHOLD = 2;
 const MAX_COACHED_REPEATS = 3;
 
 function loopThreshold(): number {
-  const env = process.env.ARCHON_LOOP_COACH_THRESHOLD;
+  const env = process.env.ARCO_LOOP_COACH_THRESHOLD;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 1 && n <= 20) return n;
@@ -1220,7 +1220,7 @@ export class ToolLoopDetector {
   // the final-summary path on its next iteration check.
   terminationMessage(name: string, attemptNumber: number): string {
     return (
-      `[Archon loop termination] You have called "${name}" with these exact arguments ${attemptNumber} times this turn. ` +
+      `[Arco loop termination] You have called "${name}" with these exact arguments ${attemptNumber} times this turn. ` +
       `Coaching has been ignored. The tool loop is ending now and a handoff summary will be requested. ` +
       `Do not call any more tools.`
     );
@@ -1233,7 +1233,7 @@ export class ToolLoopDetector {
   // narration nudges them off the fence.
   coachingMessage(name: string, attemptNumber: number): string {
     return (
-      `[Archon loop detection] You have called "${name}" with these exact arguments ${attemptNumber} times this turn. ` +
+      `[Arco loop detection] You have called "${name}" with these exact arguments ${attemptNumber} times this turn. ` +
       `The tool result is unchanged and will not change on re-execution. ` +
       `Looking at your reasoning above, you have already decided what to do — execute it now. ` +
       `Choose ONE: ` +

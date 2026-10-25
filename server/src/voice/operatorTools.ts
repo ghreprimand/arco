@@ -1,10 +1,10 @@
-// VOICE_AGENT_PLAN.md — server-side relay for the archon-voice MCP child.
+// VOICE_AGENT_PLAN.md — server-side relay for the arco-voice MCP child.
 // The server never executes a voice tool: it forwards the call to the browser
 // that owns the hands-free session (a subscriber of the Computer chat) and
 // hands the browser's answer back to the MCP child. Pending calls are
 // process-local; a browser that disappears times out the call.
 import { randomUUID } from 'node:crypto';
-import { VOICE_TOOL_TIMEOUT_MS, isVoiceOperatorTool, voiceText, type VoiceOperatorTool, type VoiceToolCallMessage, type VoiceToolResultMessage } from '@archon/shared';
+import { VOICE_TOOL_TIMEOUT_MS, isVoiceOperatorTool, voiceText, type VoiceOperatorTool, type VoiceToolCallMessage, type VoiceToolResultMessage } from '@arco/shared';
 
 type Publish = (workflowId: string, message: VoiceToolCallMessage) => number;
 let publish: Publish | null = null;

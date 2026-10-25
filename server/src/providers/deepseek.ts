@@ -16,7 +16,7 @@ export async function probeDeepSeek(): Promise<{
 }> {
   try {
     const registry = await readDeepSeekProfiles(await getDeepSeekBase());
-    if (!registry) return { up: false, models: [], error: 'Register the prepared DeepSeek Xolotl profiles in ~/.archon/deepseek-profiles.json.' };
+    if (!registry) return { up: false, models: [], error: 'Register the prepared DeepSeek Xolotl profiles in ~/.arco/deepseek-profiles.json.' };
     return { up: true, models: registry.profiles.map((p) => p.model),
       labels: Object.fromEntries(registry.profiles.map((p) => [p.model, p.label])),
       capabilities: Object.fromEntries(registry.profiles.map((p) => [p.model, p.capabilities])) };

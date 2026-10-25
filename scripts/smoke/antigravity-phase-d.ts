@@ -13,7 +13,7 @@
 
 import { existsSync } from 'fs';
 import { spawnSync } from 'child_process';
-import { isClusterMemberProvider } from '@archon/shared';
+import { isClusterMemberProvider } from '@arco/shared';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import { probeAntigravityRpcToolBridge } from '../../server/src/providers/antigravityRpc.js';
 import {
@@ -57,9 +57,9 @@ async function main(): Promise<void> {
   }
 
   if (antigravityClusterBridgeEnabled()) {
-    fail('ARCHON_ANTIGRAVITY_CLUSTER_BRIDGE is disabled by default');
+    fail('ARCO_ANTIGRAVITY_CLUSTER_BRIDGE is disabled by default');
   } else {
-    pass('ARCHON_ANTIGRAVITY_CLUSTER_BRIDGE is disabled by default');
+    pass('ARCO_ANTIGRAVITY_CLUSTER_BRIDGE is disabled by default');
   }
 
   const stub = buildAntigravityClusterToolStub();

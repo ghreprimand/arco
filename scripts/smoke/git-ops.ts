@@ -60,11 +60,11 @@ function mockRes(): { res: any; captured: () => { code: number; body: any } } {
 async function main() {
   const cleanups: string[] = [];
 
-  const repo = mkdtempSync(join(tmpdir(), 'archon-gitops-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-gitops-'));
   cleanups.push(repo);
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   // Pin a deterministic default branch name so the protected-branch check is
   // testable regardless of the host git's init.defaultBranch.
   git(repo, 'checkout', '-q', '-B', 'main');
@@ -242,7 +242,7 @@ async function main() {
 
     // events.jsonl persistence.
     await flushAll();
-    const logPath = join(repo, '.archon', 'workflows', wfid, 'events.jsonl');
+    const logPath = join(repo, '.arco', 'workflows', wfid, 'events.jsonl');
     assert(existsSync(logPath), 'events.jsonl should exist');
     const lines = readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
     assert(lines.some((l) => l.type === 'git_op_result' && l.op === 'stage'),

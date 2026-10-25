@@ -63,7 +63,7 @@ export function HandoffPromptsEditor({ cwd }: Props) {
         HANDOFF PROMPTS
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6', marginBottom: '8px' }}>
-        Override the prompts the Handoff primitive uses. Project overrides live at <code>{'<cwd>/.archon/handoff.prompt.md'}</code> and <code>{'.archon/handoff.summarizer.prompt.md'}</code>; global at <code>~/.archon/</code>. Project beats global beats default. Variables: <code>{'{{cwd}}'}</code>, <code>{'{{wfid}}'}</code>, <code>{'{{handoffPath}}'}</code>, <code>{'{{seedPrefix}}'}</code>.
+        Override the prompts the Handoff primitive uses. Project overrides live at <code>{'<cwd>/.arco/handoff.prompt.md'}</code> and <code>{'.arco/handoff.summarizer.prompt.md'}</code>; global at <code>~/.arco/</code>. Project beats global beats default. Variables: <code>{'{{cwd}}'}</code>, <code>{'{{wfid}}'}</code>, <code>{'{{handoffPath}}'}</code>, <code>{'{{seedPrefix}}'}</code>.
       </div>
       {error && (
         <div style={{ fontSize: '10px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)', marginBottom: '6px' }}>

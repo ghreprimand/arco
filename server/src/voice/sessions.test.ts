@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { isVoiceCommand, type VoiceInterpretResult } from '@archon/shared';
+import { isVoiceCommand, type VoiceInterpretResult } from '@arco/shared';
 import { endVoiceSession, getVoiceSession, interpretVoice, parseVoiceContext, selectSessionOutputVoice, startVoiceSession, VOICE_EDGE_VOICE } from './sessions.js';
 import { lunaArgs } from './luna.js';
 

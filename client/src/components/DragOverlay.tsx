@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
 // App-wide drag-and-drop overlay. Listens at the window level so users can
-// drop files anywhere in Archon, not just on the terminal input. On drop,
-// dispatches `archon:attach-files` on window with the File[] payload —
+// drop files anywhere in Arco, not just on the terminal input. On drop,
+// dispatches `arco:attach-files` on window with the File[] payload —
 // TerminalInput listens for this event and uploads + appends to the active
 // workflow's attachment list.
 export function DragOverlay() {
@@ -37,7 +37,7 @@ export function DragOverlay() {
       e.preventDefault();
       const files = Array.from(e.dataTransfer?.files ?? []);
       if (files.length === 0) return;
-      window.dispatchEvent(new CustomEvent('archon:attach-files', { detail: { files } }));
+      window.dispatchEvent(new CustomEvent('arco:attach-files', { detail: { files } }));
     };
 
     window.addEventListener('dragenter', onEnter);

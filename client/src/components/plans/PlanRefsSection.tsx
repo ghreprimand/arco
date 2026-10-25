@@ -9,7 +9,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { PlanRefSummary } from '@archon/shared';
+import type { PlanRefSummary } from '@arco/shared';
 import { fetchPlanRef, removePlanRef, savePlanRef, REF_SLUG_RE, slugify } from './planRefs';
 
 interface Props {
@@ -256,7 +256,7 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
           ) : body === null ? (
             !error && <div style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>loading…</div>
           ) : (
-            <div className="archon-markdown" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55 }}>
+            <div className="arco-markdown" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55 }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
             </div>
           )}

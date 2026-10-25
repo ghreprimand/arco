@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DiffResponse } from '@archon/shared';
+import type { DiffResponse } from '@arco/shared';
 import { DiffView } from './DiffView';
 
 // Workbench Expansion A3 — data-fetching wrapper around the source-agnostic
@@ -44,17 +44,17 @@ export function ChangesPanel({ wfid, cwd, from, to, defaultViewType, refreshKey 
   }, [wfid, cwd, from, to, refreshKey]);
 
   if (state.kind === 'loading') {
-    return <div className="archon-diff-empty display-font">Reading diff…</div>;
+    return <div className="arco-diff-empty display-font">Reading diff…</div>;
   }
   if (state.kind === 'error') {
-    return <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>Failed to read diff: {state.message}</div>;
+    return <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>Failed to read diff: {state.message}</div>;
   }
   const { data } = state;
   if (!data.isRepo) {
-    return <div className="archon-diff-empty display-font">Not a git working tree — no diff available.</div>;
+    return <div className="arco-diff-empty display-font">Not a git working tree — no diff available.</div>;
   }
   if (data.missingRef) {
-    return <div className="archon-diff-empty display-font">Revision not found: {data.missingRef}</div>;
+    return <div className="arco-diff-empty display-font">Revision not found: {data.missingRef}</div>;
   }
   return (
     <DiffView

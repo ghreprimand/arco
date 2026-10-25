@@ -1,9 +1,9 @@
 // ── Shadow-git checkpoints (Workbench Expansion A2) ──
 //
 // Auto-snapshots of the working tree taken BEFORE every file-mutating
-// operator turn, stored in a hidden git ref (`refs/archon/<wfid>/<seq>`) — in
+// operator turn, stored in a hidden git ref (`refs/arco/<wfid>/<seq>`) — in
 // the project repo, or for non-git workspaces in a shadow bare repo under
-// `~/.archon/checkpoints/<cwd-hash>/git`. Pure operator infrastructure — the
+// `~/.arco/checkpoints/<cwd-hash>/git`. Pure operator infrastructure — the
 // model never sees these, there is no tool, and nothing about them lands in
 // any system prompt. Undo-the-agent independent of the user's real history.
 
@@ -17,7 +17,7 @@ export interface CheckpointCreatedMessage {
   // guards). Doubles as the unique suffix of the git ref / tar filename, so
   // a given turn maps deterministically to one checkpoint.
   seq: number;
-  // Git ref (`refs/archon/<wfid>/<seq>`) — same format on both backends. Old
+  // Git ref (`refs/arco/<wfid>/<seq>`) — same format on both backends. Old
   // events may carry a legacy tar name (`<wfid>.<seq>.tar`) from the pre-shadow
   // non-git fallback; guardSeqFromRef parses both.
   ref: string;
@@ -38,7 +38,7 @@ export interface CheckpointCreatedMessage {
 //
 // HTTP (not WS): GET /api/workflows/diff?wfid&path&from&to returns this shape.
 // `from`/`to` are git revisions — a shadow checkpoint ref
-// (`refs/archon/<wfid>/<seq>`), HEAD, a sha, or the literal WORKTREE sentinel
+// (`refs/arco/<wfid>/<seq>`), HEAD, a sha, or the literal WORKTREE sentinel
 // for a pre-commit working-tree comparison. The DiffView renderer is
 // source-agnostic and consumes only `patch`; the rest is for the UI header /
 // empty-state messaging.
@@ -92,7 +92,7 @@ export interface WorkingChangesResponse {
 
 // One entry from `git worktree list`. Powers the FilesTab worktree picker so
 // the LIVE / CHANGES / SOURCE / REMOTE views can watch the tree a worker is
-// actually editing (an Archon task worktree under ~/.archon/worktrees, or one
+// actually editing (an Arco task worktree under ~/.arco/worktrees, or one
 // a worker created itself) instead of only the shared cluster checkout — those
 // edits never touch the main tree, so it looks "clean" while work is happening.
 export interface WorktreeInfo {

@@ -37,7 +37,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-cmr-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-cmr-'));
   console.log(`cluster_member_rehydrate smoke — cwd ${cwd}`);
   console.log('');
 

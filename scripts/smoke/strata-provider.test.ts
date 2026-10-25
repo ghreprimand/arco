@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { StrataProvider, probeStrata } from '../../server/src/providers/strata.js';
 import { CHAT_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatWebArmed } from '../../server/src/chatMode.js';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 
-process.env.ARCHON_STRATA_PROFILES = join(tmpdir(), `archon-no-strata-profiles-${process.pid}.json`);
+process.env.ARCO_STRATA_PROFILES = join(tmpdir(), `arco-no-strata-profiles-${process.pid}.json`);
 
 const model = 'qwen3.8-flash-next-iq3_xxs-262k';
 const discovery = (vision = true) => new Response(JSON.stringify({ data: [{ id: model,
@@ -76,7 +76,7 @@ test('Strata streaming reasoning + fragmented tool round trip executes only Chat
 });
 
 test('Chat rejects hallucinated project tools even with web and AUTO, and offline omits tools', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-boundary-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-boundary-'));
   const file = join(dir, 'must-not-exist.txt');
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   for (const armed of [false, true]) {
@@ -95,7 +95,7 @@ test('Chat rejects hallucinated project tools even with web and AUTO, and offlin
 });
 
 test('Strata forwards image data and Agent tools while honoring restricted primitive tools', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-image-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-image-'));
   const file = join(dir, 'sample.png'); writeFileSync(file, Buffer.from('test-image'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const bodies: any[] = [];
@@ -139,7 +139,7 @@ test('Strata cancel aborts an active request and settles without a result', asyn
 });
 
 test('Strata retains Read middle lines and Bash output beyond the LM Studio compact limits', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-tool-results-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-tool-results-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const file = join(dir, 'report.txt');
   const content = Array.from({ length: 400 }, (_, i) => `line ${i}: ${'detail '.repeat(6)}`).join('\n');
@@ -161,7 +161,7 @@ test('Strata retains Read middle lines and Bash output beyond the LM Studio comp
 });
 
 test('Strata still honors the shared runtime Read cap', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-read-cap-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-read-cap-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const file = join(dir, 'large.txt');
   writeFileSync(file, 'r'.repeat(40 * 1024));

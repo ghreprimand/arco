@@ -34,7 +34,7 @@ import {
   probeVideoCodec,
   MediaOpError,
 } from '../../server/src/media/ffmpeg.js';
-import type { MediaOpSpec } from '@archon/shared';
+import type { MediaOpSpec } from '@arco/shared';
 
 function run(bin: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -130,7 +130,7 @@ async function main() {
 
   // ── SECURITY: out-of-cwd input is REJECTED (independent of ffmpeg) ──
   await step('runVideoOp REJECTS an out-of-cwd input path', async () => {
-    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-video-cwd-'));
+    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-video-cwd-'));
     try {
       let code: string | undefined;
       try {
@@ -159,7 +159,7 @@ async function main() {
       assert(true, 'skipped (no ffmpeg)');
     });
   } else {
-    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-video-run-'));
+    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-video-run-'));
     try {
       // Generate a 2s 320x240 testsrc video + 440Hz sine audio MP4 fixture.
       const fixture = path.join(cwd, 'fixture.mp4');

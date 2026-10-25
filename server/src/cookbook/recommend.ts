@@ -4,7 +4,7 @@
 // reasons over the G1 hardware profile + the G2 fit-filtered candidate set + the
 // operator's chosen task profile, and recommends a SPECIFIC model + quant +
 // context allocation, with a rationale grounded in the provided fit numbers and a
-// ready-to-apply Archon config block.
+// ready-to-apply Arco config block.
 //
 // ── REUSE B2, do NOT fork it ──
 // The recommendation is ONE bounded research-style turn. We do NOT spawn a worker
@@ -29,11 +29,11 @@
 import type {
   CatalogRow,
   HardwareProfile,
-} from '@archon/shared';
+} from '@arco/shared';
 import {
   COOKBOOK_TASK_PROFILES,
   type CookbookTaskProfile,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // How many top fit-filtered candidates to embed in the grounding prompt. Bounds
 // the prompt size; the agent recommends FROM these (grounded, not from memory).
@@ -161,7 +161,7 @@ function candidateTable(rows: CatalogRow[]): string {
 //
 // The output instructs the agent to return a STRUCTURED recommendation: the single
 // best model + quant, the recommended context, expected t/s + mode, a rationale
-// grounded in the PROVIDED fit numbers, and a ready-to-apply Archon config block
+// grounded in the PROVIDED fit numbers, and a ready-to-apply Arco config block
 // (a llama.cpp catalog entry for HF/GGUF picks, an `ollama pull` line for Ollama
 // picks). Web search is allowed ONLY to confirm current facts; the recommendation
 // must come from the PROVIDED candidates. The operator applies the result.
@@ -203,9 +203,9 @@ The single best pick as **<model repo or ollama name> @ <QUANT>** on one line, t
 ## Rationale
 Why this pick beats the runners-up FOR THIS TASK PROFILE, grounded explicitly in the fit numbers above (VRAM headroom, MAX CTX, t/s, verdict, score). Name at least one runner-up and say why it lost.
 
-## Apply (ready-to-paste Archon config)
+## Apply (ready-to-paste Arco config)
 A fenced code block the operator can apply directly:
-- For a Hugging Face GGUF pick, a llama.cpp catalog entry (this is the shape Arco's ~/.archon/llamacpp.json "models" array takes — the operator pastes it there, then fills in the real downloaded ggufPath in G4):
+- For a Hugging Face GGUF pick, a llama.cpp catalog entry (this is the shape Arco's ~/.arco/llamacpp.json "models" array takes — the operator pastes it there, then fills in the real downloaded ggufPath in G4):
 \`\`\`json
 {
   "alias": "<short-alias>",

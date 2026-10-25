@@ -29,7 +29,7 @@ import type {
   CompareDiffstat,
   UpstreamComparisonResponse,
   FetchRemoteResponse,
-} from '@archon/shared';
+} from '@arco/shared';
 
 const execFileAsync = promisify(execFile);
 

@@ -12,11 +12,11 @@
 // A unique scratch index under the OS temp dir is fed to a `git add -A`
 // via the `GIT_INDEX_FILE` env var, then `write-tree` materialises the tree
 // and `commit-tree` wraps it in a parentless commit stored at
-// `refs/archon/<wfid>/<seq>`. The user's `git status` is byte-identical
+// `refs/arco/<wfid>/<seq>`. The user's `git status` is byte-identical
 // before and after — see scripts/smoke/checkpoints.ts for the assertion.
 //
 // Non-git workspaces fall back to a SHADOW git repo (bare, at
-// `~/.archon/checkpoints/<cwd-hash>/git`) driven with --git-dir/--work-tree so
+// `~/.arco/checkpoints/<cwd-hash>/git`) driven with --git-dir/--work-tree so
 // the feature works everywhere without ever leaving a .git in the user's
 // directory. See the fallback section below for the size-cap scope rules.
 //
@@ -31,14 +31,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 const execFileAsync = promisify(execFile);
 
 const GIT_TIMEOUT_MS = 15_000;
 const GIT_MAX_BUFFER = 16 * 1024 * 1024;
 // Retained checkpoints per workflow. Oldest beyond this are pruned after each
-// snapshot so a long session can't grow refs/archon unbounded.
+// snapshot so a long session can't grow refs/arco unbounded.
 const MAX_CHECKPOINTS_PER_WORKFLOW = 50;
 
 export interface CreateCheckpointArgs {
@@ -52,7 +52,7 @@ export interface CreateCheckpointArgs {
 }
 
 export interface CheckpointResult {
-  // Git ref (`refs/archon/<wfid>/<seq>`) — same format on both backends (the
+  // Git ref (`refs/arco/<wfid>/<seq>`) — same format on both backends (the
   // shadow store keeps its refs in the per-cwd shadow repo).
   ref: string;
   // Tracked + untracked files captured in the snapshot.
@@ -60,7 +60,7 @@ export interface CheckpointResult {
   // Epoch ms the snapshot was taken.
   ts: number;
   // Which store backed this checkpoint. 'shadow-git' = the non-git-cwd
-  // fallback repo under ~/.archon/checkpoints/<cwd-hash>/git.
+  // fallback repo under ~/.arco/checkpoints/<cwd-hash>/git.
   backend: 'git' | 'shadow-git';
   label: string;
   // Shadow backend only: regular files excluded from the snapshot for
@@ -109,7 +109,7 @@ function validateWfid(wfid: string): void {
 }
 
 function refFor(workflowId: string, seq: number): string {
-  return `refs/archon/${workflowId}/${seq}`;
+  return `refs/arco/${workflowId}/${seq}`;
 }
 
 // Count files in a tree object (recursive). Used for the fileCount surfaced to
@@ -129,7 +129,7 @@ async function pruneOldCheckpoints(
   workflowId: string,
   metadataRoot?: string,
 ): Promise<void> {
-  const prefix = `refs/archon/${workflowId}/`;
+  const prefix = `refs/arco/${workflowId}/`;
   const listed = await runGit(cwd, [
     '--git-dir', gitDir,
     'for-each-ref', '--format=%(refname)', prefix,
@@ -164,10 +164,10 @@ async function createGitCheckpoint(
   // Separate, per-operation index so the user's staging area is never touched
   // and simultaneous workflows in one cwd cannot contend on one .lock file.
   // Keep it OUTSIDE the worktree: otherwise a concurrent snapshot can stage
-  // another operation's scratch file when .archon is not globally ignored.
+  // another operation's scratch file when .arco is not globally ignored.
   const snapIndex = path.join(
     tmpdir(),
-    `archon-snapshot-${cwdHash(cwd)}-${process.pid}-${randomUUID()}.index`,
+    `arco-snapshot-${cwdHash(cwd)}-${process.pid}-${randomUUID()}.index`,
   );
   // Start the separate index from the current HEAD tree when HEAD exists, so
   // `add -A` only has to record the working-tree delta (cheaper, and matches
@@ -180,19 +180,19 @@ async function createGitCheckpoint(
     if (headExists) {
       const readTree = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', 'HEAD'], snapEnv);
       if (readTree.code !== 0) {
-        console.error(`[archon] gitSnapshots read-tree failed: ${readTree.stderr.trim()}`);
+        console.error(`[arco] gitSnapshots read-tree failed: ${readTree.stderr.trim()}`);
         return null;
       }
     }
     // Stage the whole working tree into the SEPARATE index (never the user's).
     const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], snapEnv);
     if (add.code !== 0) {
-      console.error(`[archon] gitSnapshots add -A failed: ${add.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots add -A failed: ${add.stderr.trim()}`);
       return null;
     }
     const writeTree = await runGit(cwd, ['--git-dir', gitDir, 'write-tree'], snapEnv);
     if (writeTree.code !== 0) {
-      console.error(`[archon] gitSnapshots write-tree failed: ${writeTree.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots write-tree failed: ${writeTree.stderr.trim()}`);
       return null;
     }
     const tree = writeTree.stdout.trim();
@@ -203,18 +203,18 @@ async function createGitCheckpoint(
     // (or pollute) the user's git config. Message carries the label + seq.
     const commitEnv: NodeJS.ProcessEnv = {
       ...snapEnv,
-      GIT_AUTHOR_NAME: 'archon-checkpoint',
-      GIT_AUTHOR_EMAIL: 'checkpoint@archon.local',
-      GIT_COMMITTER_NAME: 'archon-checkpoint',
-      GIT_COMMITTER_EMAIL: 'checkpoint@archon.local',
+      GIT_AUTHOR_NAME: 'arco-checkpoint',
+      GIT_AUTHOR_EMAIL: 'checkpoint@arco.local',
+      GIT_COMMITTER_NAME: 'arco-checkpoint',
+      GIT_COMMITTER_EMAIL: 'checkpoint@arco.local',
     };
     const commit = await runGit(
       cwd,
-      ['--git-dir', gitDir, 'commit-tree', tree, '-m', `archon checkpoint: ${label} (seq ${seq})`],
+      ['--git-dir', gitDir, 'commit-tree', tree, '-m', `arco checkpoint: ${label} (seq ${seq})`],
       commitEnv,
     );
     if (commit.code !== 0) {
-      console.error(`[archon] gitSnapshots commit-tree failed: ${commit.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots commit-tree failed: ${commit.stderr.trim()}`);
       return null;
     }
     const sha = commit.stdout.trim();
@@ -223,7 +223,7 @@ async function createGitCheckpoint(
     const ref = refFor(workflowId, seq);
     const update = await runGit(cwd, ['--git-dir', gitDir, 'update-ref', ref, sha]);
     if (update.code !== 0) {
-      console.error(`[archon] gitSnapshots update-ref failed: ${update.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots update-ref failed: ${update.stderr.trim()}`);
       return null;
     }
 
@@ -239,7 +239,7 @@ async function createGitCheckpoint(
 
 // ── Non-git fallback: shadow git store ──
 //
-// A bare repo per non-git cwd at `~/.archon/checkpoints/<cwd-hash>/git`,
+// A bare repo per non-git cwd at `~/.arco/checkpoints/<cwd-hash>/git`,
 // driven with `--git-dir`/`--work-tree` (the dotfiles pattern) so nothing ever
 // lands in the user's directory — it stays non-git from their point of view.
 //
@@ -260,7 +260,7 @@ async function createGitCheckpoint(
 // total cap on the included
 // bytes backstops pathological many-small-file trees; over it the snapshot is
 // skipped entirely (null = "no checkpoint this turn"). Overrides:
-// ARCHON_CHECKPOINT_FILE_CAP_BYTES / ARCHON_CHECKPOINT_TOTAL_CAP_BYTES
+// ARCO_CHECKPOINT_FILE_CAP_BYTES / ARCO_CHECKPOINT_TOTAL_CAP_BYTES
 // (0 disables either). Caps apply only to this fallback, never to real repos.
 const DEFAULT_FILE_CAP_BYTES = 32 * 1024 * 1024; // 32 MiB per file
 const DEFAULT_TOTAL_CAP_BYTES = 1024 * 1024 * 1024; // 1 GiB included total
@@ -274,8 +274,8 @@ function envCap(name: string, fallback: number): number {
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
-const fileCapBytes = (): number => envCap('ARCHON_CHECKPOINT_FILE_CAP_BYTES', DEFAULT_FILE_CAP_BYTES);
-const totalCapBytes = (): number => envCap('ARCHON_CHECKPOINT_TOTAL_CAP_BYTES', DEFAULT_TOTAL_CAP_BYTES);
+const fileCapBytes = (): number => envCap('ARCO_CHECKPOINT_FILE_CAP_BYTES', DEFAULT_FILE_CAP_BYTES);
+const totalCapBytes = (): number => envCap('ARCO_CHECKPOINT_TOTAL_CAP_BYTES', DEFAULT_TOTAL_CAP_BYTES);
 
 function cwdHash(cwd: string): string {
   return createHash('sha256').update(path.resolve(cwd)).digest('hex').slice(0, 16);
@@ -284,7 +284,7 @@ function cwdHash(cwd: string): string {
 // Per-cwd checkpoint store root: holds the shadow repo (`git/`) and any legacy
 // tar checkpoints from the pre-shadow fallback.
 export function checkpointStoreRoot(cwd: string): string {
-  return path.join(archonHome(), 'checkpoints', cwdHash(cwd));
+  return path.join(arcoHome(), 'checkpoints', cwdHash(cwd));
 }
 
 function shadowGitDir(cwd: string): string {
@@ -303,7 +303,7 @@ interface SnapshotWalk {
   exceededTotal: boolean;
 }
 
-// Enumerate what a shadow snapshot covers. Skips the top-level .archon (our
+// Enumerate what a shadow snapshot covers. Skips the top-level .arco (our
 // own workflow-state dir) and every `.git` at ANY depth — git refuses .git
 // pathspecs, and a nested repo's internals aren't operator content (its
 // working files ARE included). Symlinks are included (git stores the link
@@ -323,7 +323,7 @@ async function collectSnapshotFiles(
     const entries = await fs.readdir(abs, { withFileTypes: true }).catch(() => []);
     for (const ent of entries) {
       if (ent.name === '.git') continue;
-      if (rel === '' && ent.name === '.archon') continue;
+      if (rel === '' && ent.name === '.arco') continue;
       const relPath = rel ? `${rel}/${ent.name}` : ent.name;
       if (ent.isDirectory()) {
         stack.push(relPath);
@@ -361,7 +361,7 @@ async function ensureShadowRepo(cwd: string): Promise<string | null> {
     // Another workflow may have won the first-use race after our access check.
     const initialized = await fs.access(path.join(gitDir, 'HEAD')).then(() => true, () => false);
     if (initialized) return gitDir;
-    console.error(`[archon] gitSnapshots shadow init failed: ${init.stderr.trim()}`);
+    console.error(`[arco] gitSnapshots shadow init failed: ${init.stderr.trim()}`);
     return null;
   }
   return gitDir;
@@ -399,7 +399,7 @@ async function stagePathspecs(
     );
     return true;
   } catch (err) {
-    console.error(`[archon] gitSnapshots shadow staging failed: ${(err as Error).message}`);
+    console.error(`[arco] gitSnapshots shadow staging failed: ${(err as Error).message}`);
     return false;
   } finally {
     await fs.rm(pathspecFile, { force: true }).catch(() => {});
@@ -467,8 +467,8 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
   const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
   if (walk.exceededTotal) {
     console.error(
-      `[archon] [${workflowId.slice(0, 8)}] gitSnapshots: shadow snapshot skipped — ` +
-        `${cwd} exceeds the included-total cap (ARCHON_CHECKPOINT_TOTAL_CAP_BYTES)`,
+      `[arco] [${workflowId.slice(0, 8)}] gitSnapshots: shadow snapshot skipped — ` +
+        `${cwd} exceeds the included-total cap (ARCO_CHECKPOINT_TOTAL_CAP_BYTES)`,
     );
     return null;
   }
@@ -486,7 +486,7 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
 
     const writeTree = await runGit(cwd, ['--git-dir', gitDir, 'write-tree'], env);
     if (writeTree.code !== 0) {
-      console.error(`[archon] gitSnapshots shadow write-tree failed: ${writeTree.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots shadow write-tree failed: ${writeTree.stderr.trim()}`);
       return null;
     }
     const tree = writeTree.stdout.trim();
@@ -494,18 +494,18 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
 
     const commitEnv: NodeJS.ProcessEnv = {
       ...env,
-      GIT_AUTHOR_NAME: 'archon-checkpoint',
-      GIT_AUTHOR_EMAIL: 'checkpoint@archon.local',
-      GIT_COMMITTER_NAME: 'archon-checkpoint',
-      GIT_COMMITTER_EMAIL: 'checkpoint@archon.local',
+      GIT_AUTHOR_NAME: 'arco-checkpoint',
+      GIT_AUTHOR_EMAIL: 'checkpoint@arco.local',
+      GIT_COMMITTER_NAME: 'arco-checkpoint',
+      GIT_COMMITTER_EMAIL: 'checkpoint@arco.local',
     };
     const commit = await runGit(
       cwd,
-      ['--git-dir', gitDir, 'commit-tree', tree, '-m', `archon checkpoint: ${label} (seq ${seq})`],
+      ['--git-dir', gitDir, 'commit-tree', tree, '-m', `arco checkpoint: ${label} (seq ${seq})`],
       commitEnv,
     );
     if (commit.code !== 0) {
-      console.error(`[archon] gitSnapshots shadow commit-tree failed: ${commit.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots shadow commit-tree failed: ${commit.stderr.trim()}`);
       return null;
     }
     const sha = commit.stdout.trim();
@@ -516,7 +516,7 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
     const update = await runGit(cwd, ['--git-dir', gitDir, 'update-ref', ref, sha]);
     if (update.code !== 0) {
       await fs.rm(skippedManifestPath(cwd, workflowId, seq), { force: true }).catch(() => {});
-      console.error(`[archon] gitSnapshots shadow update-ref failed: ${update.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots shadow update-ref failed: ${update.stderr.trim()}`);
       return null;
     }
 
@@ -553,7 +553,7 @@ export async function createCheckpoint(args: CreateCheckpointArgs): Promise<Chec
     }
     return await createShadowGitCheckpoint(args);
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] createCheckpoint failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] createCheckpoint failed:`, err);
     return null;
   }
 }
@@ -624,19 +624,19 @@ async function revertGitCheckpoint(
   const ref = refFor(workflowId, seq);
   const tree = await resolveCheckpointTree(cwd, gitDir, ref);
   if (!tree) {
-    console.error(`[archon] gitSnapshots revert: checkpoint ${ref} not found (pruned?)`);
+    console.error(`[arco] gitSnapshots revert: checkpoint ${ref} not found (pruned?)`);
     return null;
   }
 
   // Scratch index — NEVER the user's. CRUCIAL: it must live OUTSIDE the working
   // tree. `read-tree -u --reset` sweeps working-tree files (and now-empty dirs)
-  // absent from the target tree; an index under cwd/.archon would get deleted
+  // absent from the target tree; an index under cwd/.arco would get deleted
   // mid-operation ("unable to write new index file"). The OS temp dir sidesteps
-  // that. (The snapshot path keeps its index under .archon because it never
+  // that. (The snapshot path keeps its index under .arco because it never
   // runs `-u`, so no worktree sweep happens there.)
   const revertIndex = path.join(
     tmpdir(),
-    `archon-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
+    `arco-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
   );
   const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: revertIndex };
 
@@ -649,40 +649,40 @@ async function revertGitCheckpoint(
     // — that's what makes "files created after the checkpoint are removed"
     // work. HEAD seeds tracked files; `add -A` folds in untracked + deletions.
     //
-    // Exclude .archon (live workflow state — our own dir) and .git from the
+    // Exclude .arco (live workflow state — our own dir) and .git from the
     // seed so a revert never sweeps them even if a project failed to gitignore
-    // .archon. Checkpoint trees normally don't contain .archon anyway (it's
+    // .arco. Checkpoint trees normally don't contain .arco anyway (it's
     // gitignored in a project cwd), so the target tree won't re-create it.
     const headExists = (await runGit(cwd, ['--git-dir', gitDir, 'rev-parse', '--verify', 'HEAD'], env)).code === 0;
     if (headExists) {
       const rt = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', 'HEAD'], env);
       if (rt.code !== 0) {
-        console.error(`[archon] gitSnapshots revert seed read-tree failed: ${rt.stderr.trim()}`);
+        console.error(`[arco] gitSnapshots revert seed read-tree failed: ${rt.stderr.trim()}`);
         return null;
       }
     }
-    // NOTE: this used to be `add -A -- ':!.archon' ':!.git'`, but an
+    // NOTE: this used to be `add -A -- ':!.arco' ':!.git'`, but an
     // exclude-only pathspec makes git treat matched-but-IGNORED dirs as
-    // explicitly requested — with a global `**/.archon/` ignore rule (the operator's
-    // ~/.config/git/ignore) the add REFUSED (.archon "ignored by one of your
-    // .gitignore files") and every revert in a repo containing .archon failed
+    // explicitly requested — with a global `**/.arco/` ignore rule (the operator's
+    // ~/.config/git/ignore) the add REFUSED (.arco "ignored by one of your
+    // .gitignore files") and every revert in a repo containing .arco failed
     // (found 2026-08-19). Plain `add -A` skips ignored files silently; the
-    // follow-up `rm --cached` then drops .archon from the seed where a project
-    // does NOT ignore it. Both must succeed — a seeded .archon would be swept
+    // follow-up `rm --cached` then drops .arco from the seed where a project
+    // does NOT ignore it. Both must succeed — a seeded .arco would be swept
     // from the working tree by `read-tree -u --reset` (it's absent from every
     // checkpoint tree).
     const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], env);
     if (add.code !== 0) {
-      console.error(`[archon] gitSnapshots revert seed add -A failed: ${add.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots revert seed add -A failed: ${add.stderr.trim()}`);
       return null;
     }
     const drop = await runGit(
       cwd,
-      ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.archon'],
+      ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.arco'],
       env,
     );
     if (drop.code !== 0) {
-      console.error(`[archon] gitSnapshots revert seed .archon drop failed: ${drop.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots revert seed .arco drop failed: ${drop.stderr.trim()}`);
       return null;
     }
 
@@ -693,7 +693,7 @@ async function revertGitCheckpoint(
     // safety snapshot). Operates against the scratch index only.
     const restore = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', '-u', '--reset', tree], env);
     if (restore.code !== 0) {
-      console.error(`[archon] gitSnapshots revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
       return null;
     }
 
@@ -718,7 +718,7 @@ async function revertTarCheckpoint(
   try {
     await fs.access(tarPath);
   } catch {
-    console.error(`[archon] gitSnapshots revert: tar checkpoint ${tarName} not found (pruned?)`);
+    console.error(`[arco] gitSnapshots revert: tar checkpoint ${tarName} not found (pruned?)`);
     return null;
   }
 
@@ -739,7 +739,7 @@ async function revertTarCheckpoint(
     (err: NodeJS.ErrnoException) => ({ ok: false as const, err }),
   );
   if (!extract.ok) {
-    console.error('[archon] gitSnapshots revert tar extract failed:', extract.err?.message ?? extract.err);
+    console.error('[arco] gitSnapshots revert tar extract failed:', extract.err?.message ?? extract.err);
     return null;
   }
 
@@ -781,7 +781,7 @@ async function revertShadowGitCheckpoint(
   // (`read-tree -u` sweeps worktree files absent from the target tree).
   const revertIndex = path.join(
     tmpdir(),
-    `archon-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
+    `arco-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
   );
   const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: revertIndex };
 
@@ -790,7 +790,7 @@ async function revertShadowGitCheckpoint(
 
     const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
     if (walk.exceededTotal) {
-      console.error('[archon] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
+      console.error('[arco] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
       return null;
     }
 
@@ -803,7 +803,7 @@ async function revertShadowGitCheckpoint(
       targetPaths.some((targetPath) => pathsOverlap(skipped, targetPath)));
     if (unsafeCurrent.length > 0) {
       console.error(
-        `[archon] gitSnapshots shadow revert aborted: ${unsafeCurrent.length} currently capped path(s) overlap the target tree`,
+        `[arco] gitSnapshots shadow revert aborted: ${unsafeCurrent.length} currently capped path(s) overlap the target tree`,
       );
       return null;
     }
@@ -813,7 +813,7 @@ async function revertShadowGitCheckpoint(
     // deleting them merely because they are absent from the checkpoint tree.
     const targetSkipped = await readSkippedManifest(cwd, workflowId, seq);
     if (!targetSkipped) {
-      console.error('[archon] gitSnapshots shadow revert aborted: skipped-path manifest is unreadable');
+      console.error('[arco] gitSnapshots shadow revert aborted: skipped-path manifest is unreadable');
       return null;
     }
     const seedFiles = walk.files.filter((file) =>
@@ -826,7 +826,7 @@ async function revertShadowGitCheckpoint(
       env,
     );
     if (restore.code !== 0) {
-      console.error(`[archon] gitSnapshots shadow revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
+      console.error(`[arco] gitSnapshots shadow revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
       return null;
     }
 
@@ -860,7 +860,7 @@ export async function revertToCheckpoint(args: RevertCheckpointArgs): Promise<Re
     }
     return await revertShadowGitCheckpoint(cwd, workflowId, seq);
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] revertToCheckpoint failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] revertToCheckpoint failed:`, err);
     return null;
   }
 }

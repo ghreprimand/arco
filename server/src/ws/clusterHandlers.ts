@@ -30,7 +30,7 @@ import {
   type OrchestrationProposal,
   type OrchestrationProposalItem,
   type WorkflowConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 import { WebSocket } from 'ws';
 import * as clusterAutoTurn from '../clusterAutoTurn.js';
 import * as clusterBudget from '../clusterBudget.js';
@@ -226,12 +226,12 @@ export async function handleClusterCreate(
   if (payload) {
     send(ws, { type: 'cluster_created', clusterId: cluster.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${cluster.clusterId.slice(0, 8)} created with ${cluster.members.length} members`);
+  console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} created with ${cluster.members.length} members`);
 }
 
 export async function handleClusterDelete(clusterId: string): Promise<void> {
   // Phase 3 — snapshot the member list BEFORE deleteCluster wipes the on-
-  // disk state so we can clean up each member's `.archon/<wfid>/mcp-config.json`
+  // disk state so we can clean up each member's `.arco/<wfid>/mcp-config.json`
   // (the CLI cluster wiring written by `mcpConfigWriter.writeFor`). The
   // next CLI spawn on a member with no clusterId would otherwise still
   // see the stale config and try to spawn an MCP child for a cluster
@@ -270,13 +270,13 @@ export async function handleClusterDelete(clusterId: string): Promise<void> {
   // (explicit tab subscribe, another cluster sub).
   for (const wfid of membersToCleanup) detachRemovedMemberFromClusterObservers(clusterId, wfid);
   for (const sess of sessions.values()) sess.clusterIds.delete(clusterId);
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} deleted`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} deleted`);
 }
 
 export async function handleClusterBroadcast(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterBroadcastMessage,
+  msg: import('@arco/shared').ClusterBroadcastMessage,
 ): Promise<void> {
   const state = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!state) {
@@ -333,7 +333,7 @@ export async function handleClusterBroadcast(
       isInterjection ? 'follow-up' : undefined,
       undefined,
     ).catch((err) => {
-      console.error(`[archon] cluster_broadcast fan-out failed for ${wfid.slice(0, 8)}:`, err);
+      console.error(`[arco] cluster_broadcast fan-out failed for ${wfid.slice(0, 8)}:`, err);
     });
   }
   send(ws, {
@@ -348,7 +348,7 @@ export async function handleClusterBroadcast(
 
 export async function handleClusterDispatchOnce(
   ws: WebSocket,
-  msg: import('@archon/shared').ClusterDispatchOnceMessage,
+  msg: import('@arco/shared').ClusterDispatchOnceMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
@@ -444,7 +444,7 @@ export async function handleClusterTaskBoardModeSet(
 }
 
 export function dispatchTaskTurnSynthetic(workflowId: string, prompt: string): void {
-  if (process.env.ARCHON_TEST_NO_TASK_DISPATCH === '1') return;
+  if (process.env.ARCO_TEST_NO_TASK_DISPATCH === '1') return;
   setImmediate(() => {
     const fakeWs = {
       readyState: WebSocket.CLOSED,
@@ -467,7 +467,7 @@ export function dispatchTaskTurnSynthetic(workflowId: string, prompt: string): v
       undefined,
       undefined,
     ).catch((err) => {
-      console.error(`[archon] task-dispatch handleUserMessage failed for ${workflowId.slice(0, 8)}:`, err);
+      console.error(`[arco] task-dispatch handleUserMessage failed for ${workflowId.slice(0, 8)}:`, err);
     });
   });
 }
@@ -499,7 +499,7 @@ export async function broadcastTaskDispatchResult(result: taskDispatcher.Dispatc
 
 export async function handleClusterDispatchToggle(
   ws: WebSocket,
-  msg: import('@archon/shared').ClusterDispatchToggleMessage,
+  msg: import('@arco/shared').ClusterDispatchToggleMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
@@ -524,12 +524,12 @@ export async function handleClusterDispatchToggle(
   if (payload) {
     broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${msg.clusterId.slice(0, 8)} task-dispatcher ${msg.enabled ? 'enabled' : 'disabled'} by ${msg.workflowId.slice(0, 8)}`);
+  console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} task-dispatcher ${msg.enabled ? 'enabled' : 'disabled'} by ${msg.workflowId.slice(0, 8)}`);
 }
 
 export async function handleClusterDispatchSettingsUpdate(
   ws: WebSocket,
-  msg: import('@archon/shared').ClusterDispatchSettingsUpdateMessage,
+  msg: import('@arco/shared').ClusterDispatchSettingsUpdateMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
@@ -554,7 +554,7 @@ export async function handleClusterDispatchSettingsUpdate(
   if (payload) {
     broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${msg.clusterId.slice(0, 8)} task-dispatcher settings updated by ${msg.workflowId.slice(0, 8)}`);
+  console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} task-dispatcher settings updated by ${msg.workflowId.slice(0, 8)}`);
 }
 
 const SWARM_GOAL_MAX = 8 * 1024;
@@ -1203,7 +1203,7 @@ export async function handleClusterOrchestrationProposalApply(
 export const OPERATOR_PEER_SEND_MAX_BYTES = 32 * 1024;
 export async function handleOperatorPeerSend(
   ws: WebSocket,
-  msg: import('@archon/shared').OperatorPeerSendMessage,
+  msg: import('@arco/shared').OperatorPeerSendMessage,
 ): Promise<void> {
   const state = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!state) {
@@ -1257,7 +1257,7 @@ export async function handleClusterRename(ws: WebSocket, clusterId: string, name
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} renamed → ${updated.name ?? '(default)'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} renamed → ${updated.name ?? '(default)'}`);
 }
 
 // Drop every per-workflow cluster module map entry (idle-nudger, auto-turn,
@@ -1278,7 +1278,7 @@ export function dropClusterWorkflowState(workflowId: string): void {
 // we forward a cluster_deleted in that case so subscribers drop the tab.
 export async function handleClusterMemberRemove(clusterId: string, workflowId: string): Promise<void> {
   // Phase 3 — snapshot the member cwd BEFORE removeMember + the workflow
-  // tear-down so we can clean up the member's `.archon/<wfid>/mcp-config.json`
+  // tear-down so we can clean up the member's `.arco/<wfid>/mcp-config.json`
   // even when removeMember collapses the cluster (collapse path implicitly
   // tears down meta + mailbox; we still need to drop the per-workflow
   // mcp-config for every member that's leaving).
@@ -1328,7 +1328,7 @@ export async function handleClusterMemberRemove(clusterId: string, workflowId: s
       detachRemovedMemberFromClusterObservers(clusterId, otherWfid);
     }
     for (const sess of sessions.values()) sess.clusterIds.delete(clusterId);
-    console.log(`[archon] cluster ${clusterId.slice(0, 8)} collapsed after member ${workflowId.slice(0, 8)} removed (sub-2 members)`);
+    console.log(`[arco] cluster ${clusterId.slice(0, 8)} collapsed after member ${workflowId.slice(0, 8)} removed (sub-2 members)`);
     return;
   }
   broadcastCluster(clusterId, { type: 'cluster_member_removed', clusterId, workflowId });
@@ -1336,7 +1336,7 @@ export async function handleClusterMemberRemove(clusterId: string, workflowId: s
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} removed`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} removed`);
 }
 
 // Phase 2.5 B2 — operator picked a Native tab and chose "Add to existing
@@ -1391,7 +1391,7 @@ export async function handleClusterMemberAdd(ws: WebSocket, clusterId: string, w
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} added`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} added`);
 }
 
 // 2026-05-11 — pragmatic catalog validator for the cluster fresh-spawn
@@ -1443,7 +1443,7 @@ export function inferClusterProviderFromModel(modelId: string): ClusterMemberPro
   const id = modelId.trim();
   if (!id) return undefined;
   // Cursor-exclusive ids first: bare `auto` (the Auto+Composer default) and the
-  // grok-* family only reach Archon through Cursor today. NOTE: Cursor also
+  // grok-* family only reach Arco through Cursor today. NOTE: Cursor also
   // PROXIES the claude-*/gpt-*/glm-* families, so those prefixes below can't
   // distinguish Cursor from the native provider — model-id-only inference for a
   // Cursor member on a proxied model is impossible; the operator picks provider
@@ -1483,7 +1483,7 @@ export function resolveClusterOverrideProvider(
 export async function handleClusterCreateWithFreshWorkers(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterCreateWithFreshWorkersMessage,
+  msg: import('@arco/shared').ClusterCreateWithFreshWorkersMessage,
 ): Promise<void> {
   const source = workflows.get(msg.sourceWorkflowId);
   if (!source) {
@@ -1561,7 +1561,7 @@ export async function handleClusterCreateWithFreshWorkers(
       const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newWorkflowIds.push(newId);
     } catch (err) {
-      console.error(`[archon] cluster_create_with_fresh_workers: child ${i + 1} create failed:`, err);
+      console.error(`[arco] cluster_create_with_fresh_workers: child ${i + 1} create failed:`, err);
       send(ws, { type: 'error', message: `cluster_create_with_fresh_workers: child ${i + 1} create failed` });
       return;
     }
@@ -1590,7 +1590,7 @@ export async function handleClusterCreateWithFreshWorkers(
   if (payload) {
     send(ws, { type: 'cluster_created', clusterId: cluster.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${cluster.clusterId.slice(0, 8)} created with ${1 + n} members (1 source + ${n} fresh)`);
+  console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} created with ${1 + n} members (1 source + ${n} fresh)`);
 }
 
 // 2026-05-11 — operator picked CLUSTER mode in the +NEW WorkflowCreator
@@ -1616,7 +1616,7 @@ export async function handleClusterCreateWithFreshWorkers(
 export async function handleClusterCreateFromScratch(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterCreateFromScratchMessage,
+  msg: import('@arco/shared').ClusterCreateFromScratchMessage,
 ): Promise<void> {
   if (typeof msg.cwd !== 'string' || msg.cwd.trim().length === 0) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_cwd' });
@@ -1627,7 +1627,7 @@ export async function handleClusterCreateFromScratch(
     return;
   }
   const localMemberCount = msg.members.filter((m) => m.provider === 'ollama' || m.provider === 'llamacpp').length;
-  if (localMemberCount > 1 && process.env.ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL !== '1') {
+  if (localMemberCount > 1 && process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL !== '1') {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: multiple_local_members (default max is 1)' });
     return;
   }
@@ -1694,7 +1694,7 @@ export async function handleClusterCreateFromScratch(
       const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newWorkflowIds.push(newId);
     } catch (err) {
-      console.error(`[archon] cluster_create_from_scratch: member ${i + 1} create failed:`, err);
+      console.error(`[arco] cluster_create_from_scratch: member ${i + 1} create failed:`, err);
       send(ws, { type: 'error', message: `cluster_create_from_scratch: member ${i + 1} create failed` });
       return;
     }
@@ -1748,7 +1748,7 @@ export async function handleClusterCreateFromScratch(
   if (payload) {
     send(ws, { type: 'cluster_created', clusterId: cluster.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${cluster.clusterId.slice(0, 8)} created from scratch with ${newWorkflowIds.length} fresh members`);
+  console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} created from scratch with ${newWorkflowIds.length} fresh members`);
 }
 
 // Phase 2.5.1 — operator clicked "+ ADD WORKER" inside ClusterRightPanel
@@ -1759,7 +1759,7 @@ export async function handleClusterCreateFromScratch(
 export async function handleClusterAddFreshWorkers(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterAddFreshWorkersMessage,
+  msg: import('@arco/shared').ClusterAddFreshWorkersMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
@@ -1861,7 +1861,7 @@ export async function handleClusterAddFreshWorkers(
       const id = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newIds.push(id);
     } catch (err) {
-      console.error(`[archon] cluster_add_fresh_workers: child ${i + 1} create failed:`, err);
+      console.error(`[arco] cluster_add_fresh_workers: child ${i + 1} create failed:`, err);
       send(ws, { type: 'error', message: `cluster_add_fresh_workers: child ${i + 1} create failed` });
       return;
     }
@@ -1888,7 +1888,7 @@ export async function handleClusterAddFreshWorkers(
       broadcastCluster(msg.clusterId, { type: 'cluster_member_added', clusterId: msg.clusterId, member });
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'add_failed';
-      console.error(`[archon] cluster_add_fresh_workers: addMember ${newId.slice(0, 8)} failed: ${code}`);
+      console.error(`[arco] cluster_add_fresh_workers: addMember ${newId.slice(0, 8)} failed: ${code}`);
       send(ws, { type: 'error', message: `cluster_add_fresh_workers: addMember failed: ${code}` });
     }
   }
@@ -1896,7 +1896,7 @@ export async function handleClusterAddFreshWorkers(
   if (payload) {
     broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${msg.clusterId.slice(0, 8)} grew by ${newIds.length} fresh workers`);
+  console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} grew by ${newIds.length} fresh workers`);
 }
 
 const REPLACEMENT_HISTORY_MAX_BYTES = 512 * 1024;
@@ -1907,7 +1907,7 @@ const REPLACEMENT_HISTORY_MAX_BYTES = 512 * 1024;
 export async function handleClusterMemberReplace(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterMemberReplaceMessage,
+  msg: import('@arco/shared').ClusterMemberReplaceMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   const source = workflows.get(msg.workflowId);
@@ -2145,7 +2145,7 @@ export async function handleClusterPlanSet(ws: WebSocket, clusterId: string, bod
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} plan set (${rec.body.length} chars)`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} plan set (${rec.body.length} chars)`);
 }
 
 export async function handleClusterPlanAttach(ws: WebSocket, clusterId: string, planId: string): Promise<void> {
@@ -2181,11 +2181,11 @@ export async function handleClusterPlanAttach(ws: WebSocket, clusterId: string, 
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} attached plan ${planId.slice(0, 8)}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} attached plan ${planId.slice(0, 8)}`);
 }
 
 // Operator hit "Clear plan" from ClusterPlanTab. This detaches the cluster
-// from its active plan; the canonical .archon/plans/<id>.md file remains
+// from its active plan; the canonical .arco/plans/<id>.md file remains
 // available to future workers and clusters in the same cwd.
 export async function handleClusterPlanClear(ws: WebSocket, clusterId: string): Promise<void> {
   const state = await clusterStore.readCluster(clusterId).catch(() => null);
@@ -2206,7 +2206,7 @@ export async function handleClusterPlanClear(ws: WebSocket, clusterId: string): 
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} plan cleared`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} plan cleared`);
 }
 
 // Phase 2.6 — operator typed a role hint into a member row (pencil-edit
@@ -2230,7 +2230,7 @@ export async function handleClusterMemberRoleSet(ws: WebSocket, clusterId: strin
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   const stored = updated.memberRoles?.[workflowId];
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} role ${stored ? `→ "${stored.slice(0, 40)}"` : 'cleared'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} role ${stored ? `→ "${stored.slice(0, 40)}"` : 'cleared'}`);
 }
 
 // 2026-05-11 — operator picked a builder-tier from a member row's tier
@@ -2260,7 +2260,7 @@ export async function handleClusterMemberTierSet(
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   const stored = updated.memberTiers?.[workflowId];
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} tier ${stored ? `→ ${stored}` : 'cleared'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} tier ${stored ? `→ ${stored}` : 'cleared'}`);
 }
 
 // 2026-05-11 — operator edited a member's focus (sub-specialty) from the
@@ -2286,7 +2286,7 @@ export async function handleClusterMemberFocusSet(
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   const stored = updated.memberFocuses?.[workflowId];
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} focus ${stored ? `→ "${stored.slice(0, 40)}${stored.length > 40 ? '…' : ''}"` : 'cleared'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} focus ${stored ? `→ "${stored.slice(0, 40)}${stored.length > 40 ? '…' : ''}"` : 'cleared'}`);
 }
 
 // CLUSTER_MODE_PLAN.md Phase 5 — operator flipped the idle-nudger chip in
@@ -2308,7 +2308,7 @@ export async function handleClusterIdleNudgerToggle(
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} idle-nudger ${enabled ? 'enabled' : 'disabled'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} idle-nudger ${enabled ? 'enabled' : 'disabled'}`);
 }
 
 // 2026-06-15 — operator set the cluster's efficiency level (+ optional
@@ -2335,7 +2335,7 @@ export async function handleClusterEfficiencySet(
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} efficiency → ${level}${addendum !== undefined ? ' (addendum updated)' : ''}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} efficiency → ${level}${addendum !== undefined ? ' (addendum updated)' : ''}`);
 }
 
 // R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — operator flipped the cluster-level
@@ -2357,7 +2357,7 @@ export async function handleClusterRemoteSet(
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   refreshHubReporting();
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} remote → ${enabled ? 'ON' : 'OFF'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} remote → ${enabled ? 'ON' : 'OFF'}`);
 }
 
 // 2026-07-18 (§9.2 follow-up) — operator flipped the cluster-level ⛨ GATES
@@ -2378,7 +2378,7 @@ export async function handleClusterGatesSet(
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   refreshHubReporting();
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} remote-gates → ${enabled ? 'ON' : 'OFF'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} remote-gates → ${enabled ? 'ON' : 'OFF'}`);
 }
 
 // 2026-07-17 — operator drag-reordered the member grid. setMemberOrder
@@ -2403,7 +2403,7 @@ export async function handleClusterMemberReorder(
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} members reordered`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} members reordered`);
 }
 
 // 2026-06-29 — operator set the cluster's progress-tracking mode (plan / board
@@ -2429,7 +2429,7 @@ export async function handleClusterProgressSet(
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} progress-tracking → ${mode}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} progress-tracking → ${mode}`);
 }
 
 // CLUSTER_MODE_PLAN.md Phase 5b — operator flipped the auto-turn-on-mailbox
@@ -2452,12 +2452,12 @@ export async function handleClusterAutoTurnToggle(
   if (payload) {
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
-  console.log(`[archon] cluster ${clusterId.slice(0, 8)} auto-turn-on-mailbox ${enabled ? 'enabled' : 'disabled'}`);
+  console.log(`[arco] cluster ${clusterId.slice(0, 8)} auto-turn-on-mailbox ${enabled ? 'enabled' : 'disabled'}`);
 }
 
 // EFFICIENCY_PLAN.md Phase F9 — recompute the desired MCP wiring for a
 // workflow from in-memory state (cluster membership + codebase-memory
-// intent) and rewrite `.archon/<wfid>/mcp-config.json` accordingly. The
+// intent) and rewrite `.arco/<wfid>/mcp-config.json` accordingly. The
 // writer unlinks the file when neither entry applies, so toggling both
 // off leaves nothing on disk to poison a future CLI spawn. Used by attach
 // / detach handlers and cluster-context-change paths where the workflow
@@ -2476,12 +2476,12 @@ export async function syncMcpConfigForWorkflow(workflowId: string): Promise<void
   // rewritten file too, so toggling cluster/codebase-memory off-path doesn't
   // drop the registry entries. The dangerous-tool denials are only consumed
   // at turn time (CLI argv), so they aren't part of the on-disk config.
-  let registryServers: import('@archon/shared').ResolvedMcpServer[] = [];
+  let registryServers: import('@arco/shared').ResolvedMcpServer[] = [];
   try {
     const meta = await readMeta(cwd, workflowId);
     registryServers = (await resolveRegistryWiring(meta?.mcpAllow ?? [])).registryServers;
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] mcp registry resolve failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] mcp registry resolve failed:`, err);
   }
   await mcpConfigWriter.writeFor(cwd, workflowId, {
     clusterId,
@@ -2512,7 +2512,7 @@ async function sendSnapshotList(ws: WebSocket): Promise<void> {
 
 export async function handleClusterSnapshotSave(
   ws: WebSocket,
-  msg: import('@archon/shared').ClusterSnapshotSaveMessage,
+  msg: import('@arco/shared').ClusterSnapshotSaveMessage,
 ): Promise<void> {
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
@@ -2548,7 +2548,7 @@ export async function handleClusterSnapshotSave(
     });
     send(ws, { type: 'cluster_snapshot_saved', snapshot });
     await sendSnapshotList(ws);
-    console.log(`[archon] cluster ${msg.clusterId.slice(0, 8)} snapshot saved → "${snapshot.name}" (${snapshot.memberCount} members)`);
+    console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} snapshot saved → "${snapshot.name}" (${snapshot.memberCount} members)`);
   } catch (err) {
     if (err instanceof clusterSnapshots.SnapshotConflictError) {
       send(ws, {
@@ -2568,14 +2568,14 @@ export async function handleClusterSnapshotList(ws: WebSocket): Promise<void> {
   try {
     await sendSnapshotList(ws);
   } catch (err) {
-    console.error('[archon] cluster_snapshot_list failed:', err);
+    console.error('[arco] cluster_snapshot_list failed:', err);
     send(ws, { type: 'cluster_snapshot_error', op: 'list', message: 'snapshot list failed' });
   }
 }
 
 export async function handleClusterSnapshotDelete(
   ws: WebSocket,
-  msg: import('@archon/shared').ClusterSnapshotDeleteMessage,
+  msg: import('@arco/shared').ClusterSnapshotDeleteMessage,
 ): Promise<void> {
   try {
     const removed = await clusterSnapshots.deleteSnapshot(msg.snapshotId);
@@ -2584,9 +2584,9 @@ export async function handleClusterSnapshotDelete(
       return;
     }
     await sendSnapshotList(ws);
-    console.log(`[archon] cluster snapshot ${msg.snapshotId.slice(0, 8)} deleted`);
+    console.log(`[arco] cluster snapshot ${msg.snapshotId.slice(0, 8)} deleted`);
   } catch (err) {
-    console.error('[archon] cluster_snapshot_delete failed:', err);
+    console.error('[arco] cluster_snapshot_delete failed:', err);
     send(ws, { type: 'cluster_snapshot_error', op: 'delete', message: 'snapshot delete failed' });
   }
 }
@@ -2601,7 +2601,7 @@ export async function handleClusterSnapshotDelete(
 export async function handleClusterSnapshotRestore(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').ClusterSnapshotRestoreMessage,
+  msg: import('@arco/shared').ClusterSnapshotRestoreMessage,
 ): Promise<void> {
   let result: Awaited<ReturnType<typeof clusterSnapshots.restoreSnapshot>>;
   try {
@@ -2726,8 +2726,8 @@ export async function handleClusterSnapshotRestore(
         ws.send(JSON.stringify({ type: 'replay_batch', workflowId: newId, events }));
       }
     } catch (err) {
-      console.error(`[archon] restore replay failed for ${newId.slice(0, 8)}:`, err);
+      console.error(`[arco] restore replay failed for ${newId.slice(0, 8)}:`, err);
     }
   }
-  console.log(`[archon] cluster ${cluster.clusterId.slice(0, 8)} restored from snapshot ${msg.snapshotId.slice(0, 8)} (${members.length} members → ${targetCwd})`);
+  console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} restored from snapshot ${msg.snapshotId.slice(0, 8)} (${members.length} members → ${targetCwd})`);
 }

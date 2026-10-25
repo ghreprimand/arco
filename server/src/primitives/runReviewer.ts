@@ -4,7 +4,7 @@
 // the tab's events.jsonl. Output is NOT mirrored into chat (that would
 // conflate the reviewer's commentary with the primary's work); instead the
 // reviewer's text is collected internally and persisted as a markdown
-// artifact under `<cwd>/.archon/workflows/<wfid>/artifacts/review-<ts>.md`.
+// artifact under `<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md`.
 // The Review tab reads the artifact via the existing
 // `GET /api/workflows/artifact` endpoint.
 //
@@ -26,7 +26,7 @@ import type {
   EffortLevel,
   ReviewContextRef,
   FallbackLegConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface ReviewerConfig {
   provider: ProviderName;

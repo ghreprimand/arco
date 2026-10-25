@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import type { GitOpResult, GitStashEntry } from '@archon/shared';
-import { isProtectedBranch } from '@archon/shared';
+import type { GitOpResult, GitStashEntry } from '@arco/shared';
+import { isProtectedBranch } from '@arco/shared';
 
 // Workbench Expansion I3 — operator git-op controls for the Changes view.
 //

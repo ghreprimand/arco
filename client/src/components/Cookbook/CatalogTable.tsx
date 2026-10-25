@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import type { CatalogRow } from '@archon/shared';
+import type { CatalogRow } from '@arco/shared';
 import { fmtBytes, fmtCtx, fmtTps, fmtParams, verdictColor } from './fmt';
 import { DownloadActions } from './DownloadActions';
 

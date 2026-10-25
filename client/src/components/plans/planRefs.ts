@@ -1,10 +1,10 @@
 // Plan reference docs — client half. Refs live at
-// <cwd>/.archon/plans/<planId>.refs/<slug>.md (server planStore.ts); these are
+// <cwd>/.arco/plans/<planId>.refs/<slug>.md (server planStore.ts); these are
 // thin wrappers over /api/plans/refs plus the link syntax the plan body uses
 // to point at one: `[label](ref:slug)` or `[[ref:slug]]`.
 
 import { useCallback, useEffect, useState } from 'react';
-import type { PlanRefFull, PlanRefSummary } from '@archon/shared';
+import type { PlanRefFull, PlanRefSummary } from '@arco/shared';
 
 export const REF_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 

@@ -7,7 +7,7 @@
 //
 // Asserts the M11 contract:
 //   - the GATE picks native for a tools-capable probe and fenced for a non-tool
-//     probe; the override flag (ARCHON_OLLAMA_TOOL_MODE) forces either way.
+//     probe; the override flag (ARCO_OLLAMA_TOOL_MODE) forces either way.
 //   - the injected protocol block is STABLE across turns (prefix-cache safe) —
 //     byte-identical for a stable tool subset.
 //   - the parser extracts a well-formed fenced call AND a messy one (prose
@@ -50,7 +50,7 @@ function check(name: string, cond: boolean): void {
 }
 
 // Clean env for the default-auto path.
-delete process.env.ARCHON_OLLAMA_TOOL_MODE;
+delete process.env.ARCO_OLLAMA_TOOL_MODE;
 
 const fullCluster: OllamaToolDefinition[] = getOllamaToolDefinitions({ clusterEnabled: true });
 const fullNoCluster: OllamaToolDefinition[] = getOllamaToolDefinitions({ clusterEnabled: false });
@@ -72,13 +72,13 @@ check('override fenced: forces fenced even for a tools-capable model',
   resolveToolMode({ hasTools: true, nativeCapable: true, override: 'fenced' }) === 'fenced');
 
 // Override env parsing.
-process.env.ARCHON_OLLAMA_TOOL_MODE = 'fenced';
+process.env.ARCO_OLLAMA_TOOL_MODE = 'fenced';
 check('env override fenced parsed', resolveToolModeOverride() === 'fenced');
-process.env.ARCHON_OLLAMA_TOOL_MODE = 'NATIVE';
+process.env.ARCO_OLLAMA_TOOL_MODE = 'NATIVE';
 check('env override native parsed (case-insensitive)', resolveToolModeOverride() === 'native');
-process.env.ARCHON_OLLAMA_TOOL_MODE = 'garbage';
+process.env.ARCO_OLLAMA_TOOL_MODE = 'garbage';
 check('env override garbage → auto', resolveToolModeOverride() === 'auto');
-delete process.env.ARCHON_OLLAMA_TOOL_MODE;
+delete process.env.ARCO_OLLAMA_TOOL_MODE;
 check('env override unset → auto', resolveToolModeOverride() === 'auto');
 
 // ── 2. Stable protocol block (prefix-cache safety) ───────────────────────────

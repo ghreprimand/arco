@@ -14,19 +14,19 @@ import assert from 'node:assert/strict';
 import { buildSafeEnv } from './client.js';
 
 test('drops host secrets but keeps the safe base', () => {
-  process.env.ARCHON_TEST_SECRET = 'oauth-token-xyz';
+  process.env.ARCO_TEST_SECRET = 'oauth-token-xyz';
   process.env.GITHUB_TOKEN = 'ghp_should_not_leak';
   process.env.LC_ALL = 'en_US.UTF-8';
   process.env.XDG_CONFIG_HOME = '/home/u/.config';
   try {
     const env = buildSafeEnv();
-    assert.equal(env.ARCHON_TEST_SECRET, undefined, 'arbitrary secret must be dropped');
+    assert.equal(env.ARCO_TEST_SECRET, undefined, 'arbitrary secret must be dropped');
     assert.equal(env.GITHUB_TOKEN, undefined, 'GITHUB_TOKEN must be dropped');
     assert.ok(typeof env.PATH === 'string' && env.PATH.length > 0, 'PATH must pass through');
     assert.equal(env.LC_ALL, 'en_US.UTF-8', 'LC_* family must pass through');
     assert.equal(env.XDG_CONFIG_HOME, '/home/u/.config', 'XDG_* family must pass through');
   } finally {
-    delete process.env.ARCHON_TEST_SECRET;
+    delete process.env.ARCO_TEST_SECRET;
     delete process.env.GITHUB_TOKEN;
     delete process.env.LC_ALL;
     delete process.env.XDG_CONFIG_HOME;

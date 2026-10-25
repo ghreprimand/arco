@@ -11,7 +11,7 @@
 // `research_request`. This mirrors how DOCS/GIT spawn a fresh tab, except the
 // new tab issues a structured research request rather than a chat turn.
 
-import type { ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel } from '@arco/shared';
 
 export interface PendingResearch {
   topic: string;

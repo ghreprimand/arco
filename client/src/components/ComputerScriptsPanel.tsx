@@ -1,6 +1,6 @@
 import { useAppStore } from '../stores/appStore';
 import { useComputerConditions, conditionRequest } from '../voice/conditions';
-import type { ComputerConditionRule } from '@archon/shared';
+import type { ComputerConditionRule } from '@arco/shared';
 import { ComputerAutomationSection } from './ComputerAutomationSection';
 import { useComputerActivity } from '../voice/activity';
 const button:React.CSSProperties={background:'transparent',color:'var(--color-accent-primary)',border:'1px solid var(--color-border-hairline)',padding:'4px 8px',fontSize:11,cursor:'pointer'};

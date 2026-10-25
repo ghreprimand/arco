@@ -19,8 +19,8 @@ import {
   writeScaffold,
 } from '../../server/src/genesis/scaffold.js';
 import { ALTERNATIVE_DIR, assessCodebase, gatherProjectContext } from '../../server/src/genesis/creative.js';
-import { emptyGenesisSeed } from '@archon/shared';
-import type { GenesisSeed } from '@archon/shared';
+import { emptyGenesisSeed } from '@arco/shared';
+import type { GenesisSeed } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   check('slugify lowercases + dashes', slugify('Port Watch!') === 'port-watch');
   check('slugify empty → fallback', slugify('') === 'untitled-project');
 
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-genesis-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-genesis-'));
   try {
     const dir1 = await uniqueProjectDir(tmpRoot, 'Port Watch!');
     check('uniqueProjectDir slugified name', path.basename(dir1) === 'port-watch', path.basename(dir1));
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     check('seed docs are the 7 expected files',
       docs.map((d) => d.path).join(',') === '.gitignore,README.md,SPEC.md,TODO.md,AGENTS.md,CLAUDE.md,GEMINI.md',
       docs.map((d) => d.path).join(','));
-    check('.gitignore ignores Arco metadata', docs[0].content.includes('.archon/'));
+    check('.gitignore ignores Arco metadata', docs[0].content.includes('.arco/'));
     check('.gitignore ignores local agent notes', docs[0].content.includes('AGENTS.md') && docs[0].content.includes('CLAUDE.md') && docs[0].content.includes('GEMINI.md'));
     check('README carries the concept', docs[1].content.includes(SEED.concept));
     check('SPEC carries the spark', docs[2].content.includes(SEED.spark));

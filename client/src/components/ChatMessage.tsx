@@ -4,7 +4,7 @@ import { useAppStore, type ClusterMemberLabel } from '../stores/appStore';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { ChatMessage as ChatMessageType } from '@archon/shared';
+import type { ChatMessage as ChatMessageType } from '@arco/shared';
 import { cleanPrimaryText } from '../utils/chatText';
 import { ArtifactPill } from './ArtifactPill';
 import { AuthReloginNotice, parseAuthNotice } from './AuthReloginNotice';
@@ -31,7 +31,7 @@ const LONG_MESSAGE_CHAR_THRESHOLD = 800;
 const LONG_MESSAGE_LINE_THRESHOLD = 12;
 // Worker-written reports are surfaced as [artifact:<name>] markers in the
 // orchestrator's chat text. Render each as an inline-expand pill that fetches
-// the file on demand from `<cwd>/.archon/workflows/<wfid>/artifacts/<name>`.
+// the file on demand from `<cwd>/.arco/workflows/<wfid>/artifacts/<name>`.
 // Filename grammar is intentionally permissive (anything up to a `]`, no
 // whitespace) so the client renders the pill even for unexpected names — the
 // server endpoint does the strict sanitizing and returns 404 on bad refs.
@@ -441,7 +441,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   const isAssistant = message.role === 'assistant';
 
   // Strip orchestrator-internal JSON blocks (worker specs, state mutations,
-  // QC verdicts, archon-artifact) from the rendered chat — the task body
+  // QC verdicts, arco-artifact) from the rendered chat — the task body
   // already lives on the worker card / detail modal, the JSON is just for the
   // server's parsers. Source text stays untouched (orchestrator's --resume
   // context still sees the original).
@@ -661,7 +661,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
           Operator text stays plain; system rows only opt into markdown when
           they carry markdown-shaped file references. */}
       <div
-        className={isAssistant || renderSystemMarkdown ? 'archon-markdown' : undefined}
+        className={isAssistant || renderSystemMarkdown ? 'arco-markdown' : undefined}
         style={{
           padding: isSystem ? '4px 0' : '8px 12px',
           borderLeft: chatPresentation || isSystem
@@ -708,7 +708,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
           (() => {
             const parsed = parseArtifactSystemRow(displayContent)!;
             const dir = parsed.kind === 'handoff' ? 'handoffs' : 'artifacts';
-            const path = `${jobCwd}/.archon/workflows/${jobId}/${dir}/${parsed.artifactName}`;
+            const path = `${jobCwd}/.arco/workflows/${jobId}/${dir}/${parsed.artifactName}`;
             return (
               <>
                 {parsed.prefix}

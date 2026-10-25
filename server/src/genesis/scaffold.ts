@@ -1,4 +1,4 @@
-// ── Genesis scaffold writer + seed-doc generation (ARCHON_OPS_PLAN.md M2) ──
+// ── Genesis scaffold writer + seed-doc generation (ARCO_OPS_PLAN.md M2) ──
 //
 // Turns a ready GenesisSeed into a real project folder: deterministic seed docs
 // (README.md / SPEC.md / TODO.md plus local ignored agent notes) written under a
@@ -22,8 +22,8 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { GenesisSeed } from '@archon/shared';
-import { archonHome } from '../archonHome.js';
+import type { GenesisSeed } from '@arco/shared';
+import { arcoHome } from '../arcoHome.js';
 
 // Hard ceiling on files a single scaffold run may write. The deterministic seed-doc
 // set is small; the cap is the backstop against a future seed-driven generator looping.
@@ -45,10 +45,10 @@ export function expandHome(input: string): string {
 // The hidden scratch ideation dir for a from-nothing genesis workflow, before it
 // is scaffolded + rebound to a real project dir. The turn engine requires a cwd, so
 // the staged conversation runs here; `genesis_scaffold` moves the on-disk store out
-// of here into the real project dir and removes this. Lives under ~/.archon so it
+// of here into the real project dir and removes this. Lives under ~/.arco so it
 // never pollutes the operator's project space.
 export function genesisScratchDir(wfid: string): string {
-  return path.join(archonHome(), 'genesis', wfid);
+  return path.join(arcoHome(), 'genesis', wfid);
 }
 
 export function slugify(input: string): string {
@@ -281,7 +281,7 @@ function publicRepoSafety(seed: GenesisSeed): string[] {
 function seedGitignore(): string {
   return [
     '# Arco Genesis local state',
-    '.archon/',
+    '.arco/',
     '',
     '# Local agent guidance generated from the Genesis seed',
     'AGENTS.md',

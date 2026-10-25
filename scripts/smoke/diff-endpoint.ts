@@ -29,13 +29,13 @@ async function main() {
   const cleanups: string[] = [];
 
   // ── Repo with a committed base, then a dirty working tree ──
-  const repo = mkdtempSync(join(tmpdir(), 'archon-diff-git-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-diff-git-'));
   cleanups.push(repo);
   const wfid = '11111111-2222-3333-4444-555555555555';
 
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   writeFileSync(join(repo, 'tracked.txt'), 'line one\nline two\nline three\n');
   git(repo, 'add', 'tracked.txt');
   git(repo, 'commit', '-q', '-m', 'initial');
@@ -82,18 +82,18 @@ async function main() {
   });
 
   await step('missing ref degrades gracefully', async () => {
-    const result = await computeDiff({ cwd: repo, from: 'refs/archon/does/not/exist', to: refB });
+    const result = await computeDiff({ cwd: repo, from: 'refs/arco/does/not/exist', to: refB });
     assert(result.isRepo, 'should still detect a git repo');
     assertEq(result.patch, '', 'patch should be empty for a missing ref');
     assert(!!result.missingRef, 'missingRef should be set');
   });
 
   await step('clean tree returns an empty patch (no error)', async () => {
-    const clean = mkdtempSync(join(tmpdir(), 'archon-diff-clean-'));
+    const clean = mkdtempSync(join(tmpdir(), 'arco-diff-clean-'));
     cleanups.push(clean);
     git(clean, 'init', '-q');
-    git(clean, 'config', 'user.email', 'test@archon.local');
-    git(clean, 'config', 'user.name', 'archon-test');
+    git(clean, 'config', 'user.email', 'test@arco.local');
+    git(clean, 'config', 'user.name', 'arco-test');
     writeFileSync(join(clean, 'f.txt'), 'content\n');
     git(clean, 'add', 'f.txt');
     git(clean, 'commit', '-q', '-m', 'init');
@@ -104,7 +104,7 @@ async function main() {
   });
 
   await step('non-git directory degrades gracefully', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'archon-diff-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'arco-diff-plain-'));
     cleanups.push(plain);
     writeFileSync(join(plain, 'a.txt'), 'alpha\n');
     const result = await computeDiff({ cwd: plain, to: WORKTREE });

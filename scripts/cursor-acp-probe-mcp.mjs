@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // THROWAWAY — companion to cursor-acp-probe.ts (spike item 8).
-// A minimal MCP stdio server exposing one tool, `archon_probe_ping`. The probe
+// A minimal MCP stdio server exposing one tool, `arco_probe_ping`. The probe
 // passes this server to `session/new`'s `mcpServers` array and then asks the
 // Cursor agent to call the tool. If the tool call arrives here (we log it to
 // stderr and answer), Cursor's ACP honors per-session MCP config → cluster
@@ -26,7 +26,7 @@ function handle(msg) {
       id,
       result: {
         protocolVersion: params?.protocolVersion ?? '2025-06-18',
-        serverInfo: { name: 'archon-probe-mcp', version: '0.0.0' },
+        serverInfo: { name: 'arco-probe-mcp', version: '0.0.0' },
         capabilities: { tools: {} },
       },
     });
@@ -40,7 +40,7 @@ function handle(msg) {
       result: {
         tools: [
           {
-            name: 'archon_probe_ping',
+            name: 'arco_probe_ping',
             description:
               'Arco spike probe. Call this tool with any word to confirm MCP wiring works.',
             inputSchema: {
@@ -56,12 +56,12 @@ function handle(msg) {
   }
   if (method === 'tools/call') {
     const word = params?.arguments?.word ?? '(none)';
-    log(`>>> tools/call archon_probe_ping word=${JSON.stringify(word)} <<<`);
+    log(`>>> tools/call arco_probe_ping word=${JSON.stringify(word)} <<<`);
     send({
       jsonrpc: '2.0',
       id,
       result: {
-        content: [{ type: 'text', text: `archon_probe_ping OK: received "${word}"` }],
+        content: [{ type: 'text', text: `arco_probe_ping OK: received "${word}"` }],
       },
     });
     return;

@@ -8,7 +8,7 @@ import * as clusterMailbox from './clusterMailbox.js';
 import * as clusterStore from './clusterStore.js';
 
 test('member replacement transfers pending mail for workers and the director', async () => {
-  const cwd = await fs.mkdtemp(join(tmpdir(), 'archon-cluster-replace-mail-'));
+  const cwd = await fs.mkdtemp(join(tmpdir(), 'arco-cluster-replace-mail-'));
   const directorId = randomUUID();
   const oldWorkerId = randomUUID();
   const newWorkerId = randomUUID();

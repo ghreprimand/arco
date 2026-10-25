@@ -9,7 +9,7 @@
 //   node scripts/antigravity-probe.mjs [duration_seconds]
 //
 // Run this, then send a short prompt in Antigravity (ideally asking it to
-// "Name your primary artifact archon_probe_<timestamp>.md") and observe
+// "Name your primary artifact arco_probe_<timestamp>.md") and observe
 // the event stream. Goal: answer §9.1-9.3 open questions in the plan.
 
 import { watch, statSync, readFileSync, existsSync, createWriteStream, mkdirSync, readdirSync } from 'node:fs';

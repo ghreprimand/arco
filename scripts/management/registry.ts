@@ -1,6 +1,6 @@
-// archon-management §3/§4 — the instance registry.
+// arco-management §3/§4 — the instance registry.
 //
-// Tracks every registered Archon instance + its last heartbeat/rollup, and
+// Tracks every registered Arco instance + its last heartbeat/rollup, and
 // derives online/stale/offline from heartbeat recency. PURE of I/O (no sockets,
 // no timers) so the smoke can assert state transitions with an injected clock;
 // the hub (hub.ts) owns the sockets and feeds this.
@@ -13,14 +13,14 @@
 import type {
   ClusterSummary,
   InstanceRollup,
-  ManagedArchonInstance,
+  ManagedArcoInstance,
   WorkflowSummary,
 } from '../../shared/src/protocol/remoteManagement.js';
 
 export type InstanceLiveState = 'online' | 'stale' | 'offline';
 
 export interface RegistryEntry {
-  instance: ManagedArchonInstance;
+  instance: ManagedArcoInstance;
   lastHeartbeatAt: number;
   rollup?: InstanceRollup;
   workflows?: WorkflowSummary[]; // pushed by the service connection (workflow layer)
@@ -47,7 +47,7 @@ export class InstanceRegistry {
 
   // Register (or re-register) an instance. Re-registration after a reconnect
   // refreshes the descriptor and stamps the heartbeat; never duplicates.
-  register(instance: ManagedArchonInstance, now: number): void {
+  register(instance: ManagedArcoInstance, now: number): void {
     const existing = this.entries.get(instance.instanceId);
     this.entries.set(instance.instanceId, {
       instance: { ...instance, lastHeartbeatAt: now },

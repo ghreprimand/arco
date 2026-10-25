@@ -1,6 +1,6 @@
-// Part G — Preview Verification (ARCHON_OPS §G1).
+// Part G — Preview Verification (ARCO_OPS §G1).
 //
-// Operator-triggered capture against the running Live Preview. Archon launches a
+// Operator-triggered capture against the running Live Preview. Arco launches a
 // system headless Chromium, points it at the workflow's bound preview port
 // (`http://127.0.0.1:<port>/`), and collects a screenshot + console errors +
 // failed/error network requests + the page title/URL — turning the preview into
@@ -65,7 +65,7 @@ export interface PreviewNetworkEntry {
 
 // G2 — basic layout + accessibility notes, collected by a single in-page script
 // (`Runtime.evaluate`) once the page has settled. Deterministic, cheap, and
-// purely observational — Archon never mutates the page. These are *signals*, not
+// purely observational — Arco never mutates the page. These are *signals*, not
 // a conformance audit: a non-zero count means "worth a look", and the report
 // renders each as a short human line. `viewport`/`width`/`height` record the
 // device class the page was actually rendered at.

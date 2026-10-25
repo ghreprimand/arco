@@ -1,7 +1,7 @@
 // ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase C — tool activity and permission bridge smoke.
 //
 // Verifies that Antigravity trajectory steps are normalized into stable,
-// non-duplicating Archon Activity rows, that the debug trace file is written
+// non-duplicating Arco Activity rows, that the debug trace file is written
 // when ANTIGRAVITY_RPC_TRACE_STEPS=1, and that shell/file/web activity each
 // produce the expected merged rows.
 //
@@ -18,7 +18,7 @@ import { existsSync } from 'fs';
 import { mkdtemp, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { antigravityManager } from '../../server/src/providers/antigravityManager.js';
 import { runAntigravityRpcTurn } from '../../server/src/providers/antigravityRpc.js';
 
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
   process.env.ANTIGRAVITY_RPC_TRACE_STEPS = '1';
 
   // Shared workflow cwd across all turns so the trace accumulates there.
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-antigrav-c-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-antigrav-c-'));
   console.log(`workflow cwd: ${cwd}`);
   console.log('');
 
@@ -251,11 +251,11 @@ async function main(): Promise<void> {
   // ── Test 4: ANTIGRAVITY_RPC_TRACE_STEPS creates JSONL ────────────────────
   console.log('');
   console.log('Test 4: ANTIGRAVITY_RPC_TRACE_STEPS=1 creates JSONL trace');
-  const traceFile = join(cwd, '.archon', 'workflows', WORKFLOW_ID, 'debug', 'antigravity-rpc-steps.jsonl');
+  const traceFile = join(cwd, '.arco', 'workflows', WORKFLOW_ID, 'debug', 'antigravity-rpc-steps.jsonl');
   if (existsSync(traceFile)) {
     const content = await readFile(traceFile, 'utf8');
     const lines = content.trim().split('\n').filter(Boolean);
-    pass(`trace file exists at .archon/workflows/${WORKFLOW_ID}/debug/antigravity-rpc-steps.jsonl`);
+    pass(`trace file exists at .arco/workflows/${WORKFLOW_ID}/debug/antigravity-rpc-steps.jsonl`);
     pass(`trace file contains ${lines.length} JSONL line(s)`);
     // Parse first line to check structure.
     try {

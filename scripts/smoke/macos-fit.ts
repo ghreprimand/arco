@@ -20,7 +20,7 @@
 import { step, assert, assertEq, summary } from './lib.js';
 import { scoreFit, APPLE_BANDWIDTH_BY_CORES } from '../../server/src/cookbook/fit.js';
 import { appleUnifiedMemoryBudget, parseAppleGpu } from '../../server/src/cookbook/hardware.js';
-import type { HardwareProfile, ModelSpec } from '@archon/shared';
+import type { HardwareProfile, ModelSpec } from '@arco/shared';
 
 const GB = 1024 * 1024 * 1024;
 

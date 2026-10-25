@@ -16,7 +16,7 @@ import { workflowCwds } from '../server/state.js';
 //   wfid  — workflow id (validated; resolves the cwd when ?path is omitted).
 //   path  — explicit cwd (mirrors the other workflow-scoped routes). Falls
 //           back to the wfid's live cwd if absent.
-//   from  — base revision (a shadow ref like refs/archon/<wfid>/<seq>, or any
+//   from  — base revision (a shadow ref like refs/arco/<wfid>/<seq>, or any
 //           git rev). Omit for "working tree vs HEAD".
 //   to    — target revision, or the literal WORKTREE for a pre-commit diff
 //           (the default when omitted).
@@ -26,7 +26,7 @@ import { workflowCwds } from '../server/state.js';
 // choking on a 500.
 
 // Workflow ids are UUIDs; reject anything that could escape the ref namespace
-// when interpolated into refs/archon/<wfid>/… by the caller. Mirrors the
+// when interpolated into refs/arco/<wfid>/… by the caller. Mirrors the
 // gitSnapshots.validateWfid pattern (kept local — no cross-module import for a
 // one-line guard).
 function isValidWfid(wfid: string): boolean {

@@ -9,7 +9,7 @@ import { WebSocket } from 'ws';
 import { observeConditionMessage } from '../voice/conditionFacts.js';
 import { watch as fsWatch, mkdirSync, type FSWatcher } from 'fs';
 import { basename, join } from 'path';
-import type { ClusterTaskBoardMode, ServerMessage } from '@archon/shared';
+import type { ClusterTaskBoardMode, ServerMessage } from '@arco/shared';
 import type { PlansWatcher } from '../workflows/types.js';
 import {
   sessions,
@@ -237,7 +237,7 @@ export function releaseClusterPlansWatcher(clusterId: string): void {
 }
 
 export function plansDir(cwd: string): string {
-  return join(cwd, '.archon', 'plans');
+  return join(cwd, '.arco', 'plans');
 }
 
 export function acquirePlansWatcher(cwd: string): void {
@@ -256,7 +256,7 @@ export function acquirePlansWatcher(cwd: string): void {
   try {
     watcher = fsWatch(dir, { persistent: false });
   } catch (err) {
-    console.error(`[archon] plans watcher start failed for ${dir}:`, err);
+    console.error(`[arco] plans watcher start failed for ${dir}:`, err);
     return;
   }
   const state: PlansWatcher = {
@@ -276,7 +276,7 @@ export function acquirePlansWatcher(cwd: string): void {
     state.timer = setTimeout(() => flushPlansWatcher(cwd, state), 200);
   });
   watcher.on('error', (err) => {
-    console.error(`[archon] plans watcher error for ${dir}:`, err);
+    console.error(`[arco] plans watcher error for ${dir}:`, err);
   });
   plansWatchers.set(cwd, state);
 }
@@ -358,7 +358,7 @@ export async function flushPlansWatcher(cwd: string, state: PlansWatcher): Promi
         }
       }
     } catch (err) {
-      console.error(`[archon] reconcile failed for ${cwd}/.archon/plans/${planId}.md:`, err);
+      console.error(`[arco] reconcile failed for ${cwd}/.arco/plans/${planId}.md:`, err);
     }
   }
 }
@@ -506,7 +506,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     role?: string;
     tier?: clusterStore.MemberTier;
     focus?: string;
-    accessMode?: import('@archon/shared').ClusterMemberAccessMode;
+    accessMode?: import('@arco/shared').ClusterMemberAccessMode;
   }>;
   mailboxDepth: Record<string, number>;
   createdAt: string;
@@ -562,8 +562,8 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
   }
   // Unified plans — surface the active per-cwd plan body in the cluster
   // state push so the client doesn't need a separate fetch. This also lazily
-  // migrates legacy ~/.archon/clusters/<id>/plan.md bodies into
-  // <cwd>/.archon/plans/.
+  // migrates legacy ~/.arco/clusters/<id>/plan.md bodies into
+  // <cwd>/.arco/plans/.
   const planRec = await clusterPlanBridge.readClusterPlan(clusterId).catch(() => null);
   if (planRec) {
     ensureClusterPlansWatcher(clusterId, state.cwd);

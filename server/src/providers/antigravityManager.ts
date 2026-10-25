@@ -1,6 +1,6 @@
-// Singleton for the Archon-driven Antigravity desktop instance.
+// Singleton for the Arco-driven Antigravity desktop instance.
 //
-// Archon talks to Antigravity through its local language-server RPC (see
+// Arco talks to Antigravity through its local language-server RPC (see
 // antigravityRpc.ts). The desktop binary still needs to be running for that
 // RPC endpoint to exist — this module:
 //   - probes whether the desktop process is up by checking the localhost
@@ -23,11 +23,11 @@ import {
   configuredAntigravityModelId,
   type AntigravityCapabilities,
 } from './antigravityCapabilities.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const DEFAULT_PORT = 9222;
 const DEFAULT_BINARY = process.env.ANTIGRAVITY_BINARY ?? '/opt/antigravity/antigravity';
-const DEFAULT_USER_DATA = join(archonHome(), 'antigravity-data');
+const DEFAULT_USER_DATA = join(arcoHome(), 'antigravity-data');
 const DEFAULT_WORKSPACE = expandHome(process.env.ANTIGRAVITY_WORKSPACE?.trim() || join(homedir(), 'Projects'));
 const SPAWN_WAIT_MS = 15_000;
 const PROBE_INTERVAL_MS = 500;
@@ -164,7 +164,7 @@ export class AntigravityManager {
     if (!this.installed()) {
       throw new Error(`Antigravity binary not found at ${DEFAULT_BINARY}. Install Antigravity or set ANTIGRAVITY_BINARY in the environment.`);
     }
-    // Spawn detached so the child survives if the Archon server dies.
+    // Spawn detached so the child survives if the Arco server dies.
     const args = [
       ...(this.userDataDir ? [`--user-data-dir=${this.userDataDir}`] : []),
       `--remote-debugging-port=${this.port}`,
@@ -200,5 +200,5 @@ export class AntigravityManager {
 }
 
 // Server-wide singleton. Constructed on import; survives the life of the
-// Archon server process.
+// Arco server process.
 export const antigravityManager = new AntigravityManager();

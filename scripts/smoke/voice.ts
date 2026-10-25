@@ -11,18 +11,18 @@ import { homedir, tmpdir } from 'node:os';
 import { connect, step, summary, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-voice-smoke-'));
-  const bin = join(dir, 'bin'), home = join(dir, 'home'); mkdirSync(bin); mkdirSync(join(home, '.archon'), { recursive: true });
+  const dir = mkdtempSync(join(tmpdir(), 'arco-voice-smoke-'));
+  const bin = join(dir, 'bin'), home = join(dir, 'home'); mkdirSync(bin); mkdirSync(join(home, '.arco'), { recursive: true });
   const executable = join(bin, 'codex'); copyFileSync('scripts/smoke/fixtures/voice-codex.mjs', executable);
   writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
   writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const original=cp.spawn;cp.spawn=(command,args,options)=>original(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
-  const voiceHome = process.env.ARCHON_VOICE_HOME || join(homedir(), '.archon', 'voice');
+  const voiceHome = process.env.ARCO_VOICE_HOME || join(homedir(), '.arco', 'voice');
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_VOICE_HOME: voiceHome }, stdio: ['ignore', log, log],
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_VOICE_HOME: voiceHome }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   let session = '';
@@ -64,20 +64,20 @@ async function main() {
       assert.deepEqual(r.body.usage, { inputTokens: 200, cachedInputTokens: 100, outputTokens: 20 });
     });
     await step('Computer voice-operator tool calls relay to the subscribed window and nowhere else', async () => {
-      // VOICE_AGENT_PLAN.md — the archon-voice MCP child POSTs to /api/voice/tool
+      // VOICE_AGENT_PLAN.md — the arco-voice MCP child POSTs to /api/voice/tool
       // (loopback, cookie-exempt); the server forwards voice_tool_call to the
       // chat's observers and returns the window's voice_tool_result.
-      const refused = await post('/api/voice/tool', { workflowId, tool: 'archon_status', args: {} });
+      const refused = await post('/api/voice/tool', { workflowId, tool: 'arco_status', args: {} });
       assert.equal(refused.status, 404, 'an ordinary workflow is not a voice operator');
       c!.send({ type: 'create_workflow', config: { kind: 'chat', name: 'Computer', workingDirectory: '', primaryProvider: 'codex', primaryModel: 'gpt-6-luna', primaryEffort: 'low', codexTransport: 'appserver', chatWebAccess: false, voiceOperator: true, skipPermissions: false } });
       const chatId = String((await c!.waitFor((m) => m.type === 'workflow_created' && m.workflowId !== workflowId, 10000)).workflowId);
-      const inFlight = post('/api/voice/tool', { workflowId: chatId, tool: 'archon_select', args: { target: 'reviewer' } });
+      const inFlight = post('/api/voice/tool', { workflowId: chatId, tool: 'arco_select', args: { target: 'reviewer' } });
       const call = await c!.waitFor((m) => m.type === 'voice_tool_call', 5000);
-      assert.equal(call.workflowId, chatId); assert.equal(call.tool, 'archon_select'); assert.deepEqual(call.args, { target: 'reviewer' });
+      assert.equal(call.workflowId, chatId); assert.equal(call.tool, 'arco_select'); assert.deepEqual(call.args, { target: 'reviewer' });
       c!.send({ type: 'voice_tool_result', workflowId: chatId, requestId: call.requestId, ok: true, result: 'Reviewer selected.' });
       const answered = await inFlight;
       assert.equal(answered.status, 200); assert.deepEqual(answered.body, { ok: true, result: 'Reviewer selected.' });
-      const bad = await post('/api/voice/tool', { workflowId: chatId, tool: 'archon_shell', args: {} });
+      const bad = await post('/api/voice/tool', { workflowId: chatId, tool: 'arco_shell', args: {} });
       assert.deepEqual(bad.body, { ok: false, error: 'Unknown voice tool.' });
     });
     await step('local sample audio is recognized in memory and local speech output is a WAV', async () => {
@@ -103,10 +103,10 @@ async function main() {
       await fetch(base + `/api/voice/session?session=${session}`, { method: 'DELETE' });
       assert.equal((await post(`/api/voice/heartbeat?session=${session}`, {})).status, 400);
       assert.equal((await fetch(base + `/api/voice/wake?session=${session}&utterance=3`, { method: 'POST', body: Buffer.alloc(100) })).status, 400);
-      const events = readFileSync(join(dir, '.archon/workflows', workflowId, 'events.jsonl'), 'utf8');
+      const events = readFileSync(join(dir, '.arco/workflows', workflowId, 'events.jsonl'), 'utf8');
       assert(!events.includes('Bring up my reviewer')); assert(!events.includes('yellow lamps')); assert(!events.includes('Hands free is ready'));
       assert(!readFileSync(join(dir, 'server.log'), 'utf8').includes('Bring up my reviewer'));
-      assert(!readdirSync(join(home, '.archon')).includes('voice-history'));
+      assert(!readdirSync(join(home, '.arco')).includes('voice-history'));
     });
   } finally {
     if (session) await fetch(base + `/api/voice/session?session=${session}`, { method: 'DELETE' }).catch(() => {});

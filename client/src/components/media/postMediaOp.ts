@@ -7,7 +7,7 @@ import type {
   StemModel,
   StemName,
   StemFormat,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Part N2 — the single client entry point for running an ffmpeg media op,
 // shared by AudioOpsPanel + VideoOpsPanel. It resolves the INPUT the server
@@ -18,7 +18,7 @@ import type {
 //   • on-disk (`diskPath` + `fileContext`) — a file opened from the workflow's
 //     FILES panel. Sent as-is; the server confines it to the cwd.
 //   • imported (`importedFile`) — a picker / drag-dropped browser File with no
-//     server path. We first POST the bytes to /api/media/scratch (Archon's
+//     server path. We first POST the bytes to /api/media/scratch (Arco's
 //     managed scratch area), then run the op against the absolute path it
 //     returns. A scratch op carries NO workflow cwd.
 //

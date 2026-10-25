@@ -17,8 +17,8 @@ import {
   nextField,
 } from '../../server/src/genesis/stages.js';
 import { buildGenesisSystemBlock, nextFieldPrompt } from '../../server/src/genesis/prompts.js';
-import { emptyGenesisSeed } from '@archon/shared';
-import type { GenesisField, GenesisSeed, GenesisStage } from '@archon/shared';
+import { emptyGenesisSeed } from '@arco/shared';
+import type { GenesisField, GenesisSeed, GenesisStage } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;

@@ -53,7 +53,7 @@ const REAL_IMAGE: AnyContentBlock = {
 // ── Fix: buildImageBlock rejects 0-byte files (via buildUserMessageContent) ──
 
 test('0-byte image attachment falls back to a text reference, not an empty image block', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-empty-img-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-empty-img-'));
   try {
     const p = join(dir, 'empty-image.png');
     writeFileSync(p, '');
@@ -66,7 +66,7 @@ test('0-byte image attachment falls back to a text reference, not an empty image
 });
 
 test('non-empty image attachment still becomes an image block', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-real-img-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-real-img-'));
   try {
     const p = join(dir, 'real-image.png');
     writeFileSync(p, Buffer.from('89504e47', 'hex'));

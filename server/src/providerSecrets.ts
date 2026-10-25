@@ -4,7 +4,7 @@ import { homedir } from 'os';
 
 import { describeConfigValue, resolveConfigValue } from './configValue.js';
 import { atomicWriteFile } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 // `env` = ZAI_API_KEY directly set in the process environment (overrides the
 // file, input disabled in the UI). DD12 adds the indirect FILE-stored forms:
@@ -16,7 +16,7 @@ interface ProviderSecretsFile {
   zaiApiKey?: string;
 }
 
-const SECRETS_PATH = join(archonHome(), 'provider-secrets.json');
+const SECRETS_PATH = join(arcoHome(), 'provider-secrets.json');
 
 async function readSecretsFile(): Promise<ProviderSecretsFile> {
   try {

@@ -1,4 +1,4 @@
-import type { ModelName, EffortLevel, WorkflowConfig, ProviderName, ReviewContextRef, LedgerTaskStatus, TaskLink, GenesisSeed, GenesisGithubParams, GenesisAssistField, GenesisAssistIntent, PreviewCaptureKind, PreviewViewport, BakeoffAttemptSpec } from '@archon/shared';
+import type { ModelName, EffortLevel, WorkflowConfig, ProviderName, ReviewContextRef, LedgerTaskStatus, TaskLink, GenesisSeed, GenesisGithubParams, GenesisAssistField, GenesisAssistIntent, PreviewCaptureKind, PreviewViewport, BakeoffAttemptSpec } from '@arco/shared';
 import type { JobState } from '../../stores/appStore';
 import type { McpSenders } from './McpRegistrySection';
 
@@ -20,11 +20,11 @@ export interface Props {
   // "Fix" button can dispatch a scoped follow-up turn (kind: 'follow-up').
   // Operator-click-only; no auto-send. Same signature as the composer's onSend.
   onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git') => void;
-  // ARCHON_OPS_PLAN.md M2 — Genesis tab: update the seed (debounced) and trigger
+  // ARCO_OPS_PLAN.md M2 — Genesis tab: update the seed (debounced) and trigger
   // the operator-confirmed scaffold. Threaded from App.tsx → useWebSocket senders.
   onGenesisSeedUpdate?: (workflowId: string, seed: GenesisSeed) => void;
   onGenesisScaffold?: (workflowId: string, root?: string, github?: GenesisGithubParams) => void;
-  // ARCHON_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing workflow.
+  // ARCO_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing workflow.
   onGenesisCreativeArm?: (workflowId: string, disarm?: boolean) => void;
   onGenesisAssistRequest?: (workflowId: string, requestId: string, field: GenesisAssistField, intent: GenesisAssistIntent, seed: GenesisSeed, instruction?: string) => void;
   onCancelHandoff?: (handoffId: string) => void;
@@ -50,7 +50,7 @@ export interface Props {
   onSetPreviewPort?: (port: number, framework?: string) => void;
   onClearPreviewPort?: () => void;
   onPreviewCapture?: (captures?: PreviewCaptureKind[], viewport?: PreviewViewport) => void;
-  // ARCHON_OPS_PLAN.md §G2 — attach a preview-capture report to a Review (fires
+  // ARCO_OPS_PLAN.md §G2 — attach a preview-capture report to a Review (fires
   // a reviewer over the report artifact, reusing the tab's primary config).
   onReviewCapture?: (reportName: string) => void;
   onFreshAntigravityCascade?: () => void;
@@ -63,7 +63,7 @@ export interface Props {
   // WorkflowView → RightPanel → ConfigTab → CodebaseMemorySection.
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
-  // ARCHON_OPS_PLAN.md §D1 — project task ledger mutations (LEDGER tab).
+  // ARCO_OPS_PLAN.md §D1 — project task ledger mutations (LEDGER tab).
   // cwd-scoped; the server resolves the cwd from the workflowId.
   onTaskLedgerCreate?: (workflowId: string, title: string, notes?: string) => void;
   onTaskLedgerUpdate?: (
@@ -79,7 +79,7 @@ export interface Props {
   onBakeoffStart?: (workflowId: string, prompt: string, attempts: BakeoffAttemptSpec[], name?: string) => void;
   onBakeoffPromote?: (workflowId: string, bakeoffId: string, attemptId: string) => void;
   onBakeoffCleanup?: (workflowId: string, bakeoffId: string, attemptIds: string[]) => void;
-  // ARCHON_OPS_PLAN.md §E1 — MCP registry senders bundle, routed App →
+  // ARCO_OPS_PLAN.md §E1 — MCP registry senders bundle, routed App →
   // WorkflowView → RightPanel → ConfigTab → McpRegistrySection.
   mcp?: McpSenders;
 }

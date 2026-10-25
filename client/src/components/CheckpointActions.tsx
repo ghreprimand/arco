@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { WORKTREE_REV } from '@archon/shared';
+import { WORKTREE_REV } from '@arco/shared';
 import type { HistoryEventEntry } from '../stores/appStore';
 import { useAppStore } from '../stores/appStore';
 import { ChangesPanel } from './diff/ChangesPanel';

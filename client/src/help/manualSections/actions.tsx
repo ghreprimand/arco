@@ -23,11 +23,11 @@ export const actions: Section[] = [
             [<strong key="s">Spawn</strong>, <>Forks the conversation to a new tab. Configurable model/effort for the new tab. Original tab continues in parallel.</>],
             [<strong key="l">Live config swap</strong>, <>Edit MODEL and EFFORT (and Codex sandbox, Claude tools) in CONFIG. Takes effect on the next turn. Provider swaps require a Handoff.</>],
             [<strong key="rsm">Review safe-mode</strong>, <>Native-only CONFIG toggle (default off). Pauses the turn on a sensitive tool call so you can edit / approve / reject it inline before it runs.</>],
-            [<strong key="d">DOCS</strong>, <>Composer button: structured prompt to update repo markdown docs from recent git activity. Excludes <Code>.archon/plans/</Code>. RUN AS picker can dispatch in-tab or to a new tab.</>],
+            [<strong key="d">DOCS</strong>, <>Composer button: structured prompt to update repo markdown docs from recent git activity. Excludes <Code>.arco/plans/</Code>. RUN AS picker can dispatch in-tab or to a new tab.</>],
             [<strong key="g">GIT</strong>, <>Composer button: live git status, branch picker, action picker (commit / +push / +PR), protected-branch warnings, per-repo prefs. Branch switch dispatched server-side before the prompt.</>],
             [<strong key="rs">RESEARCH</strong>, <>Composer button: bounded cited web-research turn with a hard round cap; writes a markdown report to the RESEARCH tab.</>],
             [<strong key="cmp">COMPARE</strong>, <>Composer button: race one prompt across 2–6 read-only legs side-by-side, blind by default; you pick the winner.</>],
-            [<strong key="sk">+SKILL</strong>, <>Archon-managed skills offer <strong>APPLY ONCE</strong> for the next turn or <strong>PIN TO TAB</strong> to apply every turn until removed. Pinned skills survive compaction, Handoff, reload, and restart.</>],
+            [<strong key="sk">+SKILL</strong>, <>Arco-managed skills offer <strong>APPLY ONCE</strong> for the next turn or <strong>PIN TO TAB</strong> to apply every turn until removed. Pinned skills survive compaction, Handoff, reload, and restart.</>],
             [<strong key="tm">TUNE MD</strong>, <>Composer button: a read-only worker proposes a compacted agent-instruction file (<Code>CLAUDE.md</Code> / <Code>AGENTS.md</Code> / <Code>GEMINI.md</Code>) as a diff; the original is backed up before any write, and you Accept / Reject each file.</>],
             [<strong key="ra">RUN AS</strong>, <>Shared picker inside DOCS, GIT, RESEARCH, and COMPARE dialogs. Pick the same provider/model/effort as your tab to dispatch in-tab; pick something different to spawn a new tab and run the work there.</>],
           ]}
@@ -291,7 +291,7 @@ export const actions: Section[] = [
         </p>
         <Note kind="warn">
           The prompt explicitly says <strong>do not modify any file under{' '}
-          <Code>.archon/plans/</Code></strong>. Plan files have load-bearing
+          <Code>.arco/plans/</Code></strong>. Plan files have load-bearing
           checkbox / H3 phase structure that the Plan tab parses for per-phase review
           and the spawn-from-task surface. Agents (especially Qwen) have rewritten
           plans as prose and broken those features. Don't loosen this — it's why the
@@ -472,7 +472,7 @@ export const actions: Section[] = [
           byte-delta and the agent's notes); you <Code>ACCEPT</Code> or{' '}
           <Code>REJECT</Code> each one, then advance to the next file in the queue.
           On accept the server backs up the original to{' '}
-          <Code>.archon/md-backups/&lt;name&gt;.&lt;ts&gt;.bak</Code> and only then
+          <Code>.arco/md-backups/&lt;name&gt;.&lt;ts&gt;.bak</Code> and only then
           writes the proposed content through the cwd-guarded path.
         </p>
         <Note kind="info">

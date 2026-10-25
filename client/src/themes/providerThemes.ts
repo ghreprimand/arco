@@ -1,8 +1,8 @@
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 import type { Theme } from './types';
 
 // Provider auto-tint (idea ported from the Odysseus gpt/claude "mimic the app"
-// themes, 2026-06-05). Archon is a multi-provider workbench, so the novel move
+// themes, 2026-06-05). Arco is a multi-provider workbench, so the novel move
 // is a single `provider-auto` theme that re-tints the whole UI to match the
 // ACTIVE tab's provider — Claude tab → Claude clay, Codex tab → OpenAI green,
 // Gemini tab → Google blue, etc. The picker shows only `provider-auto`; the

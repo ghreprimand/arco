@@ -28,7 +28,7 @@ client/vite.config.js.map
 client/vite.config.d.ts
 
 # Local workbench state and agent session metadata.
-.archon/
+.arco/
 .claude/
 .codex
 

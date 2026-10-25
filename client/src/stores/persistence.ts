@@ -22,7 +22,7 @@ export function debouncedJSONStorage<S>(): PersistStorage<S> {
         // Quota overflow keeps the PREVIOUS persisted state (the write is
         // atomic per key) — survivable, but silent loss masked the 2026-06-12
         // blank-workers debugging, so at least say it happened.
-        console.warn('[archon] persist flush failed (localStorage quota?):', err);
+        console.warn('[arco] persist flush failed (localStorage quota?):', err);
       }
       pending = null;
     }

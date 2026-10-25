@@ -10,10 +10,10 @@ import type {
   RecallEntryResponse,
   RecallBacklinksResponse,
   RecallLink,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // §F2 — only basenames matching this can index a recall path. Blocks traversal
-// (`..`, slashes) before joining into ~/.archon/recall/<wfid>/summary.md.
+// (`..`, slashes) before joining into ~/.arco/recall/<wfid>/summary.md.
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 
 // Workbench Expansion §F1 + §F3 — Recall index + search endpoints.
@@ -80,7 +80,7 @@ export async function tryHandleRecallRoutes(
   // need their own route. wfid is validated against WFID_PATTERN (no `..`, no
   // separators) BEFORE it's joined into a path — recallSummaryPath re-checks
   // and returns null on a bad wfid, so a traversal attempt can't escape
-  // ~/.archon/recall/<wfid>/. Always serves only summary.md under that dir.
+  // ~/.arco/recall/<wfid>/. Always serves only summary.md under that dir.
   if (req.url?.startsWith('/api/recall/summary') && req.method === 'GET') {
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -100,7 +100,7 @@ export async function tryHandleRecallRoutes(
       }
       return send(200, { wfid, summary: body });
     } catch (err) {
-      console.error('[archon] recall summary read failed:', err);
+      console.error('[arco] recall summary read failed:', err);
       return send(500, { error: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -119,7 +119,7 @@ export async function tryHandleRecallRoutes(
       });
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall search failed:', err);
+      console.error('[arco] recall search failed:', err);
       const body: RecallSearchResponse = { hits: [], transcriptsAvailable: false };
       return send(200, body);
     }
@@ -142,7 +142,7 @@ export async function tryHandleRecallRoutes(
       const body: RecallBacklinksResponse = { entries };
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall backlinks failed:', err);
+      console.error('[arco] recall backlinks failed:', err);
       const body: RecallBacklinksResponse = { entries: [] };
       return send(200, body);
     }
@@ -161,7 +161,7 @@ export async function tryHandleRecallRoutes(
       const body: RecallEntryResponse = { entry };
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall setTags failed:', err);
+      console.error('[arco] recall setTags failed:', err);
       return send(500, { error: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -180,7 +180,7 @@ export async function tryHandleRecallRoutes(
       const body: RecallEntryResponse = { entry };
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall setPinned failed:', err);
+      console.error('[arco] recall setPinned failed:', err);
       return send(500, { error: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -199,7 +199,7 @@ export async function tryHandleRecallRoutes(
       const body: RecallEntryResponse = { entry };
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall link failed:', err);
+      console.error('[arco] recall link failed:', err);
       return send(500, { error: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -213,7 +213,7 @@ export async function tryHandleRecallRoutes(
       const body: RecallIndexResponse = { entries };
       return send(200, body);
     } catch (err) {
-      console.error('[archon] recall index query failed:', err);
+      console.error('[arco] recall index query failed:', err);
       const body: RecallIndexResponse = { entries: [] };
       return send(200, body);
     }

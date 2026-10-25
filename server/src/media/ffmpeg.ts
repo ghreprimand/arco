@@ -74,7 +74,7 @@ import {
   type MediaOpErrorCode,
   type MediaInspectStream,
   type MediaInspectResult,
-} from '@archon/shared';
+} from '@arco/shared';
 import { SCRATCH_ROOT } from './scratch.js';
 
 // ── ffmpeg presence (cached) ────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export function __resetFfmpegCache(): void {
 }
 
 // ffprobe presence (cached) — the metadata-probe sibling of ffmpeg. Diagnostics
-// (ARCHON_OPS_PLAN §A1) reports the two separately since a box can ship one
+// (ARCO_OPS_PLAN §A1) reports the two separately since a box can ship one
 // without the other. Same graceful-missing discipline as ffmpegAvailable.
 let ffprobeAvailableCache: boolean | undefined;
 
@@ -852,7 +852,7 @@ async function safeUnlink(p: string): Promise<void> {
     await fs.unlink(p);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error(`[archon] media: failed to delete partial ${p}:`, err instanceof Error ? err.message : err);
+      console.error(`[arco] media: failed to delete partial ${p}:`, err instanceof Error ? err.message : err);
     }
   }
 }

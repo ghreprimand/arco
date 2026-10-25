@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { ROLE_PRESETS, presetForText, MEMBER_TIERS } from '@archon/shared';
-import type { ClusterStatePayload, MemberTier } from '@archon/shared';
+import { ROLE_PRESETS, presetForText, MEMBER_TIERS } from '@arco/shared';
+import type { ClusterStatePayload, MemberTier } from '@arco/shared';
 import { ReplaceMemberDialog } from './ReplaceMemberDialog';
 
 // Phase 2.6 — operator-set role hint cap, mirrored from the server enum in

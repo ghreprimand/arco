@@ -1,13 +1,13 @@
 // EFFICIENCY_PLAN.md Phase E §9a — per-tab sandbox store. SQLite + FTS5
 // virtual table holds chunks produced by ctx_execute. Stored at
-// <cwd>/.archon/workflows/<wfid>/sandbox.db so the file lives next to the
+// <cwd>/.arco/workflows/<wfid>/sandbox.db so the file lives next to the
 // workflow's events.jsonl + meta.json. Cleared on tab close (the
 // remove_workflow handler unlinks the file) and on explicit
 // POST /api/workflows/:wfId/sandbox/clear.
 //
 // Trust model: the database is operator-curated. Only ctx_execute writes
 // (chunks are bytes the model itself chose to spill via stdout-redirect or
-// `archon.chunks.put(...)`), and only ctx_search / ctx_fetch read. No
+// `arco.chunks.put(...)`), and only ctx_search / ctx_fetch read. No
 // silent retroactive mutation of chunk contents; updates are append-only.
 //
 // The default `unicode61` tokenizer survives 'added' and 'fix' (both
@@ -142,7 +142,7 @@ export class SandboxStore {
 const cache = new Map<string, SandboxStore>();
 
 function dbPathFor(cwd: string, workflowId: string): string {
-  return join(cwd, '.archon', 'workflows', workflowId, 'sandbox.db');
+  return join(cwd, '.arco', 'workflows', workflowId, 'sandbox.db');
 }
 
 export function getSandboxStore(cwd: string, workflowId: string): SandboxStore {

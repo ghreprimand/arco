@@ -1,5 +1,5 @@
 // How plan reference docs reach a working agent. The plan is a lean checklist;
-// the detail a task needs lives in refs at .archon/plans/<planId>.refs/<slug>.md,
+// the detail a task needs lives in refs at .arco/plans/<planId>.refs/<slug>.md,
 // linked from the checklist as `[label](ref:slug)`. A ref only helps if the
 // agent working the task actually opens it, so every surface that hands an
 // agent plan work goes through here:
@@ -32,7 +32,7 @@ export function extractRefSlugs(text: string): string[] {
 }
 
 export function refsDirFor(planId: string): string {
-  return `.archon/plans/${planId}.refs/`;
+  return `.arco/plans/${planId}.refs/`;
 }
 
 // One line, no newline — rides inside PLAN_PREFIX_RE's single-line bracket, so

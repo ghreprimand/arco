@@ -1,10 +1,10 @@
 // Phase 3 (operator-features) — operator-editable Handoff prompts.
 //
 // Two override files per scope:
-//   <root>/.archon/handoff.prompt.md            — `original-worker` reflection
-//   <root>/.archon/handoff.summarizer.prompt.md — `fresh-summarizer` framing
+//   <root>/.arco/handoff.prompt.md            — `original-worker` reflection
+//   <root>/.arco/handoff.summarizer.prompt.md — `fresh-summarizer` framing
 //
-// Roots: project (<cwd>) wins over global (~/.archon). When neither exists,
+// Roots: project (<cwd>) wins over global (~/.arco). When neither exists,
 // `runExportContext` falls back to the hard-coded default templates exported
 // here. The defaults double as the editor's seed text — the UI shows them as
 // the starting point operators can edit, and [RESET TO DEFAULT] writes the
@@ -29,7 +29,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 // 'ollama-compaction' rides the same project>global>default override + editor
 // machinery as the two handoff prompts (WP4). It is not a Handoff mode — it
@@ -58,7 +58,7 @@ const BODY_MAX = 64 * 1024;
 // `{{handoffPath}}` placeholder replaces what was previously a string-
 // concat'd absolute path.
 
-const DEFAULT_ORIGINAL_WORKER_TEMPLATE = `[ARCHON HANDOFF — INTERNAL INSTRUCTION]
+const DEFAULT_ORIGINAL_WORKER_TEMPLATE = `[ARCO HANDOFF — INTERNAL INSTRUCTION]
 
 You are being asked to generate a handoff document to preserve this session's context for a successor agent. You have full context of what happened this session; the successor will have none. Your job is to ORIENT the successor, not to transcribe the session.
 
@@ -195,9 +195,9 @@ export const DEFAULT_TEMPLATES: Record<HandoffPromptMode, string> = {
 };
 
 function rootForScope(scope: HandoffPromptScope, cwd: string): string {
-  if (scope === 'global') return archonHome();
+  if (scope === 'global') return arcoHome();
   if (!cwd) throw new Error('project scope requires cwd');
-  return path.join(cwd, '.archon');
+  return path.join(cwd, '.arco');
 }
 
 function overridePath(scope: HandoffPromptScope, mode: HandoffPromptMode, cwd: string): string {

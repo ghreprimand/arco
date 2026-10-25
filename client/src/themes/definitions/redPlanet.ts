@@ -2,7 +2,7 @@ import type { Theme } from '../types';
 
 // Red Planet — faithful palette port from the operator-supplied Paletty
 // preview of mbadolato/iTerm2-Color-Schemes. The Core + ANSI values below are
-// copied exactly; Archon's role tokens map that terminal vocabulary onto app
+// copied exactly; Arco's role tokens map that terminal vocabulary onto app
 // chrome (bright red lead, bright cyan secondary, sand text, moss success).
 // Flat charcoal surfaces, JetBrains Mono, no shader: the source identity is
 // the palette itself rather than an effect layered over it.

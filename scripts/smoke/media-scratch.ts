@@ -126,9 +126,9 @@ async function main() {
     summary('media-scratch');
   }
 
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n2-cwd-'));
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n2-outside-'));
-  const dest = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-n2-dest-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n2-cwd-'));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n2-outside-'));
+  const dest = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-n2-dest-'));
   let scratchDir: string | null = null;
   try {
     // A fixture OUTSIDE the workflow cwd (stand-in for an SMB-mounted file).

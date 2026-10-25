@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { VOICE_OUTPUT_SAMPLE } from '@archon/shared';
+import { VOICE_OUTPUT_SAMPLE } from '@arco/shared';
 import { tryHandleVoiceRoutes } from './voiceRoutes.js';
 import { LocalRecognizer } from '../voice/localRecognizer.js';
 import { endVoiceSession, getVoiceSession, startVoiceSession } from '../voice/sessions.js';
@@ -94,9 +94,9 @@ test('private microphone recognition and diagnostics do not write transcript tex
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = `http://127.0.0.1:${(server.address() as {port:number}).port}`;
   try {
-    const audio = await fetch(`${base}/api/voice/audio?session=${session.id}`, {method:'POST',headers:{'X-Archon-Voice-Private':'1'},body:Buffer.alloc(32)});
+    const audio = await fetch(`${base}/api/voice/audio?session=${session.id}`, {method:'POST',headers:{'X-Arco-Voice-Private':'1'},body:Buffer.alloc(32)});
     assert.equal((await audio.json()).text,'PRIVATE_AUDIO_SENTINEL_7481');
-    const diag = await fetch(`${base}/api/voice/diag?session=${session.id}`, {method:'POST',headers:{'X-Archon-Voice-Private':'1'},body:JSON.stringify({events:[{ev:'heard',text:'PRIVATE_DIAG_SENTINEL_7481'}]})});
+    const diag = await fetch(`${base}/api/voice/diag?session=${session.id}`, {method:'POST',headers:{'X-Arco-Voice-Private':'1'},body:JSON.stringify({events:[{ev:'heard',text:'PRIVATE_DIAG_SENTINEL_7481'}]})});
     assert.equal(diag.status,200); assert.equal(logged.length,0);
   } finally { endVoiceSession(session.id); server.closeAllConnections(); await new Promise<void>((r)=>server.close(()=>r())); }
 });

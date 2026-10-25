@@ -1,4 +1,4 @@
-import type { VoiceCommand, VoiceContext, VoiceTarget } from '@archon/shared';
+import type { VoiceCommand, VoiceContext, VoiceTarget } from '@arco/shared';
 
 // Only an explicit first word arms command parsing. No aliases or "hey"
 // preamble: incidental speech must not reach the interpreter or executor.

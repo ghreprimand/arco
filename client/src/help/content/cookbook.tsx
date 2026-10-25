@@ -114,7 +114,7 @@ export const cookbookHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Fetch this model's weights. For a <strong>Hugging Face GGUF</strong> the
-        file streams into <C>~/.archon/models/</C> and Arco auto-registers a
+        file streams into <C>~/.arco/models/</C> and Arco auto-registers a
         llama.cpp catalog entry — selectable in CONFIG immediately. For{' '}
         <strong>Ollama</strong>, it runs <C>ollama pull</C> over the HTTP{' '}
         <C>/api/pull</C> endpoint (Ollama auto-discovers the tag). A disk

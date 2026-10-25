@@ -23,9 +23,9 @@ import { join } from 'node:path';
 
 async function main() {
   // The EnterPlanMode coverage rides the __debug_native_plan_set hook, which
-  // index.ts gates on ARCHON_TEST=1 so production never honours it.
-  requireServerEnv({ ARCHON_TEST: '1' }, 'Phase 2.6 (__debug_native_plan_set hook)');
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-2.6-'));
+  // index.ts gates on ARCO_TEST=1 so production never honours it.
+  requireServerEnv({ ARCO_TEST: '1' }, 'Phase 2.6 (__debug_native_plan_set hook)');
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-2.6-'));
   console.log(`Phase 2.6 smoke — cwd ${cwd}`);
   console.log('');
 
@@ -277,7 +277,7 @@ async function main() {
   // the PlanCandidateBanner can offer SAVE & ATTACH TO WORKER / ATTACH TO
   // CLUSTER / DISCARD. `plan_set` still fires for the events.jsonl audit;
   // `plan_attached` MUST NOT fire on this path. Driven via the
-  // ARCHON_TEST-gated `__debug_native_plan_set` hook so we don't burn real
+  // ARCO_TEST-gated `__debug_native_plan_set` hook so we don't burn real
   // Anthropic spend.
   await step('cluster member: EnterPlanMode emits plan_candidate_ready, not plan_attached', async () => {
     const planBody = '# Cluster member plan\n\n- step one\n- step two\n';

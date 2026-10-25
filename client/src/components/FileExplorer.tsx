@@ -65,7 +65,7 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
 
   // ARCHIVE reveal — expand every ancestor dir between cwd and revealPath, then
   // select the file (opens the viewer). Fetches each level directly rather than
-  // leaning on loadDir's async state timing. `.archon` and other dotdirs are
+  // leaning on loadDir's async state timing. `.arco` and other dotdirs are
   // filtered server-side, so artifacts under them aren't revealable — callers
   // only pass paths that live in the visible tree (real project files).
   useEffect(() => {

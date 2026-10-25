@@ -86,7 +86,7 @@
 }
 
 /* NATIVE_COMPACTION_PLAN Phase 3 — compaction-takeover spinner rotation. */
-@keyframes archon-spin {
+@keyframes arco-spin {
   to { transform: rotate(360deg); }
 }
 
@@ -147,7 +147,7 @@
  * we can't rgba()-decompose a CSS var at runtime. Chromium, Gecko, and
  * WebKit have shipped it since mid-2023; the app already requires a
  * modern baseline (WebGL2, backdrop-filter). */
-.archon-led {
+.arco-led {
   box-shadow:
     0 0 3px currentColor,
     0 0 8px color-mix(in srgb, currentColor 55%, transparent),
@@ -200,34 +200,34 @@
 }
 
 /* ── Rendered markdown / code preview ── */
-/* Scoped to .archon-markdown so highlight.js defaults (loaded globally
+/* Scoped to .arco-markdown so highlight.js defaults (loaded globally
    via atom-one-dark.css) stay inside the file viewer only. */
-.archon-markdown {
+.arco-markdown {
   color: var(--color-accent-primary);
   font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.6;
 }
-.archon-markdown h1,
-.archon-markdown h2,
-.archon-markdown h3,
-.archon-markdown h4,
-.archon-markdown h5,
-.archon-markdown h6 {
+.arco-markdown h1,
+.arco-markdown h2,
+.arco-markdown h3,
+.arco-markdown h4,
+.arco-markdown h5,
+.arco-markdown h6 {
   font-family: var(--font-display);
   color: var(--color-accent-primary);
   letter-spacing: 1px;
   margin: 1.2em 0 0.4em;
   text-shadow: 0 0 6px var(--color-accent-primary-glow);
 }
-.archon-markdown h1 { font-size: 20px; }
-.archon-markdown h2 { font-size: 17px; }
-.archon-markdown h3 { font-size: 14px; }
-.archon-markdown h4,
-.archon-markdown h5,
-.archon-markdown h6 { font-size: 13px; }
-.archon-markdown p { margin: 0.6em 0; }
-.archon-markdown a {
+.arco-markdown h1 { font-size: 20px; }
+.arco-markdown h2 { font-size: 17px; }
+.arco-markdown h3 { font-size: 14px; }
+.arco-markdown h4,
+.arco-markdown h5,
+.arco-markdown h6 { font-size: 13px; }
+.arco-markdown p { margin: 0.6em 0; }
+.arco-markdown a {
   /* --color-link lets a theme override the link hue when its accent-secondary
      is too low-contrast for links (e.g. Frutiger Aero's mint on light glass —
      operator report 2026-06-05). Falls back to accent-secondary everywhere
@@ -235,38 +235,38 @@
   color: var(--color-link, var(--color-accent-secondary));
   text-decoration: underline dotted;
 }
-.archon-markdown a:hover { color: var(--color-link-hover, var(--color-accent-secondary-bright)); }
-.archon-markdown ul, .archon-markdown ol { padding-left: 1.4em; margin: 0.4em 0; }
-.archon-markdown li { margin: 0.2em 0; }
-.archon-markdown blockquote {
+.arco-markdown a:hover { color: var(--color-link-hover, var(--color-accent-secondary-bright)); }
+.arco-markdown ul, .arco-markdown ol { padding-left: 1.4em; margin: 0.4em 0; }
+.arco-markdown li { margin: 0.2em 0; }
+.arco-markdown blockquote {
   border-left: 2px solid var(--color-accent-secondary-dim);
   padding-left: 10px;
   color: var(--color-fg-muted);
   margin: 0.6em 0;
 }
-.archon-markdown hr {
+.arco-markdown hr {
   border: none;
   border-top: 1px solid var(--color-border-hairline);
   margin: 1em 0;
 }
-.archon-markdown table {
+.arco-markdown table {
   border-collapse: collapse;
   margin: 0.6em 0;
   font-size: 12px;
 }
-.archon-markdown th,
-.archon-markdown td {
+.arco-markdown th,
+.arco-markdown td {
   border: 1px solid var(--color-border-hairline);
   padding: 4px 10px;
   text-align: left;
 }
-.archon-markdown th {
+.arco-markdown th {
   color: var(--color-accent-primary);
   background: var(--color-accent-primary-a04);
   font-family: var(--font-display);
   letter-spacing: 0.5px;
 }
-.archon-markdown code {
+.arco-markdown code {
   font-family: var(--font-body);
   font-size: 12px;
   background: var(--color-accent-primary-a08);
@@ -274,7 +274,7 @@
   border-radius: 3px;
   color: var(--color-accent-secondary);
 }
-.archon-markdown pre {
+.arco-markdown pre {
   background: var(--color-bg-sunken);
   border: 1px solid var(--color-border-hairline);
   border-radius: 4px;
@@ -282,13 +282,13 @@
   overflow-x: auto;
   margin: 0.6em 0;
 }
-.archon-markdown pre code {
+.arco-markdown pre code {
   background: transparent;
   padding: 0;
   color: inherit;
   font-size: 12px;
 }
-.archon-markdown img {
+.arco-markdown img {
   max-width: 100%;
   height: auto;
 }
@@ -332,16 +332,16 @@ body.tension-active::before {
   transition: opacity 0.4s ease-out;
 }
 
-@keyframes archon-scan {
+@keyframes arco-scan {
   0%   { transform: translateY(-100%); opacity: 0; }
   10%  { opacity: 0.55; }
   90%  { opacity: 0.55; }
   100% { transform: translateY(2400%); opacity: 0; }
 }
-.archon-scan-host {
+.arco-scan-host {
   position: relative;
 }
-.archon-scan-host::after {
+.arco-scan-host::after {
   content: '';
   position: absolute;
   left: 0;
@@ -355,7 +355,7 @@ body.tension-active::before {
     transparent
   );
   pointer-events: none;
-  animation: archon-scan 4.5s linear infinite;
+  animation: arco-scan 4.5s linear infinite;
   mix-blend-mode: screen;
 }
 
@@ -364,22 +364,22 @@ body.tension-active::before {
    for whether the class even renders. Cheaper than threading each theme's
    flag through every component. Matrix + Blueprint / Dark Academia opt in;
    Braun / Riso / Solar Paper / Blueprint opt out of scan. */
-html[data-anim-scan="0"] .archon-scan-host::after {
+html[data-anim-scan="0"] .arco-scan-host::after {
   display: none;
 }
-html[data-anim-pulse-halo="0"] .archon-pulse-halo {
+html[data-anim-pulse-halo="0"] .arco-pulse-halo {
   animation: none;
   box-shadow: none;
 }
 
 /* ─── Soft pulse halo for active status dots ───────────────────────── */
-@keyframes archon-pulse-halo {
+@keyframes arco-pulse-halo {
   0%   { box-shadow: 0 0 0 0 var(--color-accent-secondary-a55); }
   70%  { box-shadow: 0 0 0 6px var(--color-accent-secondary-a00); }
   100% { box-shadow: 0 0 0 0 var(--color-accent-secondary-a00); }
 }
-.archon-pulse-halo {
-  animation: archon-pulse-halo 2s ease-out infinite;
+.arco-pulse-halo {
+  animation: arco-pulse-halo 2s ease-out infinite;
 }
 
 /* ─── Oscilloscope — CRT phosphor text bloom ────────────────────────
@@ -447,7 +447,7 @@ html[data-theme="bloodmoon"] body {
 }
 
 /* Red Planet's source palette uses bright red as command/label ink, not body
- * prose. Keep the terminal-like accents while long Archon text uses sand. */
+ * prose. Keep the terminal-like accents while long Arco text uses sand. */
 html[data-theme="red-planet"] body {
   color: var(--color-fg);
 }
@@ -609,7 +609,7 @@ html[data-theme="dsky"] h1.glow-text-bright {
 /* ─── Atmospheric emissive wordmark — deeper halos, no flicker. These
  * themes (Cherenkov, Infrared, Aurora, Nebula, Night City, Cicada,
  * Midnight Tokyo) aren't CRT-register, so the flicker reads wrong. They
- * just get a bigger drop-shadow stack so the ARCHON mark glows harder
+ * just get a bigger drop-shadow stack so the ARCO mark glows harder
  * than the chat chrome. */
 /* Cicada intentionally omitted — its register is "barely perceptible"
  * and the heavy h1 stack fought that identity. The base
@@ -1062,8 +1062,8 @@ html[data-theme="solar-paper"]::after {
 
 /* ─── Holographic — iridescent dichroic text on top-level titles ────
  * Discipline rule (plan §3 Phase 5 step 4): iridescence on 1–2 elements
- * per screen max. Scoped to <h1> only, which in Archon today is exactly
- * WorkflowCreator's splash + SystemHeader's ARCHON mark — so at most two
+ * per screen max. Scoped to <h1> only, which in Arco today is exactly
+ * WorkflowCreator's splash + SystemHeader's ARCO mark — so at most two
  * iridescent reads on screen simultaneously, and scarcity carries it.
  *
  * `-webkit-text-fill-color: transparent` (not `color: transparent`) so the
@@ -1153,14 +1153,14 @@ html[data-theme="frutiger-aero"]::before {
   z-index: 0;
 }
 
-/* Phase 7 — Panel primitive now stamps `.archon-panel` on every migrated
+/* Phase 7 — Panel primitive now stamps `.arco-panel` on every migrated
    panel site (ChatPanel wrapper, WorkerCard, StatePanel, QualityLog,
    OrchestratorNode, SettingsPanel). Coverage that was partial in Phase 6
    (glass only on `.glow-border` surfaces) goes full: every Panel-mediated
    surface now carries the blur + inner top-highlight. `.glow-border` keeps
    its own scoped rule below for the box-shadow override so active panels
    pick up the brighter rim. Closes the Phase 6 deferred fix. */
-html[data-theme="frutiger-aero"] .archon-panel {
+html[data-theme="frutiger-aero"] .arco-panel {
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   box-shadow:
@@ -1181,7 +1181,7 @@ html[data-theme="frutiger-aero"] .glow-border {
    surfaces so the (translucent) panel tokens read the backdrop through. Uses a
    gentler blur than frutiger's 20px since the opt-in themes (e.g. lavender)
    pair it with already-translucent panel tokens. Ported from Odysseus, 2026-06-05. */
-html[data-frosted="1"] .archon-panel,
+html[data-frosted="1"] .arco-panel,
 html[data-frosted="1"] .glow-border {
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -1193,7 +1193,7 @@ html[data-frosted="1"] .glow-border {
    blurry matrix-rain glyphs. Suppress the blur here so the rain stays crisp,
    matching the cluster transcript (a plain div, never a Panel). More specific
    than the rule above (extra `.no-frost` class), so it wins without !important. */
-html[data-frosted="1"] .archon-panel.no-frost {
+html[data-frosted="1"] .arco-panel.no-frost {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -1220,7 +1220,7 @@ html[data-theme="arch"] body {
 /* Flat by design: no text glow anywhere. text-shadow on body cascades to every
  * text site, so one rule at the root would be enough for inherited halos, but
  * .glow-text* set it directly — hence the descendant sweep. Unlike the
- * data-crisp kill-switch this does NOT exempt .archon-wordmark: a phosphor
+ * data-crisp kill-switch this does NOT exempt .arco-wordmark: a phosphor
  * wordmark on a flat pastel theme reads as a leftover, not a brand. */
 html[data-theme="arch"] body,
 html[data-theme="arch"] body * {
@@ -1235,7 +1235,7 @@ html[data-theme="arch"] .glow-border {
 
 /* The 3-layer LED halo collapses to a single tight ring. Same "this dot is
  * lit" read at a third of the shadow rasterisation. */
-html[data-theme="arch"] .archon-led {
+html[data-theme="arch"] .arco-led {
   box-shadow: 0 0 3px currentColor;
 }
 

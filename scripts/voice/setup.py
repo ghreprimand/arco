@@ -22,13 +22,13 @@ if sys.version_info < (3, 12):
 
 
 def voice_home() -> Path:
-    # ARCO_VOICE_HOME, then ARCHON_VOICE_HOME, then <Arco home>/voice, where the
-    # Arco home is ARCO_HOME, then ARCHON_HOME, then ~/.archon.
-    explicit = os.environ.get('ARCO_VOICE_HOME') or os.environ.get('ARCHON_VOICE_HOME')
+    # ARCO_VOICE_HOME, then <Arco home>/voice, where the Arco home is
+    # ARCO_HOME, then ~/.arco.
+    explicit = os.environ.get('ARCO_VOICE_HOME')
     if explicit:
         return Path(explicit).expanduser().resolve()
-    home = os.environ.get('ARCO_HOME') or os.environ.get('ARCHON_HOME')
-    return (Path(home).expanduser().resolve() if home else Path.home() / '.archon') / 'voice'
+    home = os.environ.get('ARCO_HOME')
+    return (Path(home).expanduser().resolve() if home else Path.home() / '.arco') / 'voice'
 
 
 root = voice_home()

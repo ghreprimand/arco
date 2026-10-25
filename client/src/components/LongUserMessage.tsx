@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ChatMessage as ChatMessageType } from '@archon/shared';
+import type { ChatMessage as ChatMessageType } from '@arco/shared';
 import { AttachmentPill } from './AttachmentPill';
 import { linkifyText } from '../utils/linkify';
 import { useOperatorLabel } from '../utils/operatorLabel';

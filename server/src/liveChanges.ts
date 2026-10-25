@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import type { LiveChangesSnapshotMessage, LiveChangesSubscribeMessage, LiveChangesUnsubscribeMessage, WorkingChangesResponse } from '@archon/shared';
+import type { LiveChangesSnapshotMessage, LiveChangesSubscribeMessage, LiveChangesUnsubscribeMessage, WorkingChangesResponse } from '@arco/shared';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { getWorkingChanges } from './gitWorking.js';
@@ -129,7 +129,7 @@ async function pollSlot(key: string, force: boolean): Promise<void> {
     for (const ws of Array.from(slot.sockets)) {
       if (ws.readyState === WebSocket.OPEN) ws.send(payload);
     }
-    console.error(`[archon] live changes poll failed for ${slot.cwd}:`, err);
+    console.error(`[arco] live changes poll failed for ${slot.cwd}:`, err);
   } finally {
     const current = slots.get(key);
     if (current) current.running = false;

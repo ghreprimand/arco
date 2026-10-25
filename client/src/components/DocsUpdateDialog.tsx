@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 
 // Composer-button sibling for REVIEW / HANDOFF / SPAWN / PLAN. One-click
 // path to "update the repo's documentation" with a load-bearing prompt
-// that explicitly tells the agent NOT to touch `.archon/plans/` (the
+// that explicitly tells the agent NOT to touch `.arco/plans/` (the
 // foot-gun that originally motivated this button — Qwen rewriting a
 // plan as prose, stripping the checkbox structure the Plan tab parses).
 //
@@ -29,7 +29,7 @@ const BASE_PROMPT = `Update the repo's documentation to reflect recent changes.
 3. Update only those docs. Be precise — change the parts that are now stale; don't rewrite sections that are still accurate.
 
 **Constraints:**
-- **DO NOT modify any file under \`.archon/plans/\`.** Plan files are managed separately by the operator and have load-bearing structure (checkboxes, H3 phase headings) that the Plan tab parses to power per-phase review, custom-review picker, and spawn-from-task. Touching them breaks those features. If something in a plan looks stale, mention it in your summary so I can fix it manually.
+- **DO NOT modify any file under \`.arco/plans/\`.** Plan files are managed separately by the operator and have load-bearing structure (checkboxes, H3 phase headings) that the Plan tab parses to power per-phase review, custom-review picker, and spawn-from-task. Touching them breaks those features. If something in a plan looks stale, mention it in your summary so I can fix it manually.
 - Don't add new doc files unless something genuinely requires a new doc. Update existing docs in place.
 - Don't restate what the code already says clearly. Docs capture HOW/WHY for someone who hasn't read the code.
 - If you spot sections referencing things that no longer exist, flag them or fix them.
@@ -100,7 +100,7 @@ export function DocsUpdateDialog({ parentConfig, onConfirm, onSpawn, onCancel }:
             marginBottom: '12px',
           }}
         >
-          Sends the current agent a structured prompt to update README, DEVLOG, CLAUDE.md, and other markdown docs based on recent git activity. <strong style={{ color: 'var(--color-warning)' }}>Plan files under <code>.archon/plans/</code> are explicitly excluded.</strong>
+          Sends the current agent a structured prompt to update README, DEVLOG, CLAUDE.md, and other markdown docs based on recent git activity. <strong style={{ color: 'var(--color-warning)' }}>Plan files under <code>.arco/plans/</code> are explicitly excluded.</strong>
         </div>
         <div style={{ marginBottom: '12px' }}>
           <RunAsPicker current={currentPrimary} selection={runAs} onChange={setRunAs} />

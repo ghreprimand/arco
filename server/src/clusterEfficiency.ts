@@ -27,7 +27,7 @@ import {
   CLUSTER_EFFICIENCY_ADDENDUM_MAX,
   isClusterEfficiencyLevel,
   type ClusterEfficiencyLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Per-turn peer-send budget by level. thorough keeps the historical 15
 // (matches the old clusterBudget constant). balanced/lean tighten it so the

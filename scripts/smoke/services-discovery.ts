@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §L1/§L2/§L3 (Part L) — Local services discovery + kill +
+// ARCO_OPS_PLAN.md §L1/§L2/§L3 (Part L) — Local services discovery + kill +
 // health-probe smoke.
 //
 // Hits the LIVE server's GET /api/services + DELETE /api/services/:pid (the
@@ -7,7 +7,7 @@
 // + numeric `generatedAt`, every service typed correctly, ports are integers
 // ≥1024, url matches http://localhost:<port>/, and the list is sorted by port.
 //
-// Since the operator runs Archon's own dev stack (Vite on 5173, server on 3001),
+// Since the operator runs Arco's own dev stack (Vite on 5173, server on 3001),
 // we expect AT LEAST ONE service AND either a recognized framework somewhere OR
 // a `detail` (so the test is meaningful but not flaky if lsof is somehow absent
 // — we branch on `detail`).
@@ -24,7 +24,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { step, assert, assertEq, summary } from './lib.js';
 import type { ServicesResponse, LocalService } from '../../shared/src/protocol/services.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 
 // A fixed high port unlikely to clash with anything the operator runs.
 const KILL_PORT = 39271;

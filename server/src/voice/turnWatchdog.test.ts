@@ -10,7 +10,7 @@ test('silent startup and an answered read followed by a hung code runner both ti
   t.mock.timers.tick(1);assert.match(expired[0],/No action tools were dispatched/);
   startup.progress();t.mock.timers.tick(300_000);assert.equal(expired.length,1);
   const read=new ComputerTurnWatchdog((reason)=>expired.push(reason));
-  read.tool({tool:'archon_screen',phase:'requested'});read.tool({tool:'archon_screen',phase:'answered'});
+  read.tool({tool:'arco_screen',phase:'requested'});read.tool({tool:'arco_screen',phase:'answered'});
   t.mock.timers.tick(59_999);assert.equal(expired.length,1);
   t.mock.timers.tick(1);assert.equal(expired.length,2);assert.match(expired[1],/no progress/);
 });
@@ -18,7 +18,7 @@ test('silent startup and an answered read followed by a hung code runner both ti
 test('healthy progress renews the idle clock, but a repeated-tool loop cannot exceed five minutes', (t)=>{
   t.mock.timers.enable({apis:['setTimeout']});const expired:string[]=[];
   const guard=new ComputerTurnWatchdog((reason)=>expired.push(reason));
-  guard.tool({tool:'archon_nudge',phase:'requested'});
+  guard.tool({tool:'arco_nudge',phase:'requested'});
   for(let i=0;i<5;i++){t.mock.timers.tick(50_000);guard.progress();}
   assert.equal(expired.length,0);t.mock.timers.tick(50_000);
   assert.equal(expired.length,1);assert.match(expired[0],/time limit/);assert.match(expired[0],/Some actions may already have happened/);

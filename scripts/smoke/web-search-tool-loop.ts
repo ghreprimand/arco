@@ -10,11 +10,11 @@
 // the model narrates "I'll research X", Activity shows the tool calls, but
 // `tools 0B` and the turn ends in ~6s. Surfaced by Opus 4.8.
 //
-// Fix (worker.ts): continue the loop based on the WORK Archon must do in the
+// Fix (worker.ts): continue the loop based on the WORK Arco must do in the
 // response (any client tool_use, OR the documented pause_turn server-tool
 // continuation), not on stop_reason. Anthropic server tools resolve inside the
 // assistant turn; do not treat a bare server_tool_use under end_turn as pending
-// Archon work.
+// Arco work.
 //
 // This scenario reproduces the screenshot exactly — a prompt that forces BOTH a
 // local client tool (Read of a seeded file) AND a server-side web_search — then
@@ -42,10 +42,10 @@ import { join } from 'node:path';
 const TURN_TIMEOUT_MS = 120_000;
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-toolloop-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-toolloop-'));
   // Unique marker the model can only know by Read-ing the file — guards against
   // it answering the local half from priors instead of dispatching a client tool.
-  const marker = 'ARCHON-PAUSETURN-MARKER-7Q2';
+  const marker = 'ARCO-PAUSETURN-MARKER-7Q2';
   writeFileSync(join(cwd, 'NOTES.md'), `# Local notes\n\nProject codename: ${marker}\n`);
 
   console.log(`web_search tool-loop smoke — cwd ${cwd}`);

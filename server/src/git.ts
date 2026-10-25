@@ -47,8 +47,8 @@ export interface GitStatus {
   stagedCount: number;
   // File-level summaries for the composer Git dialog. `toPushFiles` are files
   // changed by local-only commits vs upstream; `dirtyFiles` are unstaged +
-  // untracked local files. Archon metadata is not filtered here — the client
-  // separates `.archon/` so the operator can see why the repo is technically
+  // untracked local files. Arco metadata is not filtered here — the client
+  // separates `.arco/` so the operator can see why the repo is technically
   // dirty without mistaking it for project source.
   toPushFiles: GitStatusFile[];
   toPullFiles: GitStatusFile[];

@@ -24,7 +24,7 @@ import type {
   WorkerState,
   TokenUsage,
   GenerationSpeed,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Lite: spawn specs are constructed per-primitive (seedWorker / runReviewer)
 // rather than parsed from an orchestrator dispatch block. Keep the shape
@@ -130,7 +130,7 @@ export class WorkerManager {
       interactionMode?: WorkerConfig['interactionMode'];
       // Chat-only web-tool arming; ignored by agent-mode spawns.
       chatWebAccess?: boolean;
-      // Chat-only: the Computer voice operator (archon-voice MCP child).
+      // Chat-only: the Computer voice operator (arco-voice MCP child).
       voiceOperator?: boolean;
       incognito?: boolean;
       // Skip the tree-RSS auto-kill for this worker. Only the primary-turn
@@ -221,10 +221,10 @@ export class WorkerManager {
       // path threaded into Codex providers for `-c mcp_servers.*` overrides.
       codebaseMemoryAttached?: WorkerConfig['codebaseMemoryAttached'];
       codebaseMemoryIndexPath?: WorkerConfig['codebaseMemoryIndexPath'];
-      // ARCHON_OPS_PLAN.md §E1 — dangerous-and-unticked MCP registry tool
+      // ARCO_OPS_PLAN.md §E1 — dangerous-and-unticked MCP registry tool
       // names for CLI Claude's --disallowedTools. Other transports ignore.
       mcpDisallowedTools?: WorkerConfig['mcpDisallowedTools'];
-      // ARCHON_OPS_PLAN.md §E1 — operator-enabled registry servers. Codex
+      // ARCO_OPS_PLAN.md §E1 — operator-enabled registry servers. Codex
       // builds `-c` overrides from these; CLI Claude gets them via the
       // mcp-config merge (so it ignores this field).
       mcpRegistryServers?: WorkerConfig['mcpRegistryServers'];
@@ -493,7 +493,7 @@ export class WorkerManager {
       });
       worker.on('error', (error: string) => {
         if (settled) {
-          console.log(`[archon] [worker ${spec.id}] post-settle error ignored: ${error.slice(0, 100)}`);
+          console.log(`[arco] [worker ${spec.id}] post-settle error ignored: ${error.slice(0, 100)}`);
           return;
         }
         markSettled();
@@ -511,10 +511,10 @@ export class WorkerManager {
     // Listeners are wired; now fire the subprocess. The activity probe catches
     // silent exits (no result/error within the grace window).
     //
-    // Skip the Archon safety footer for Antigravity — it's agent-in-agent
+    // Skip the Arco safety footer for Antigravity — it's agent-in-agent
     // (desktop app has its own sandboxing + permission model), and the
-    // footer's "[Archon safety reminders...]" text confuses Gemini into
-    // responding about Archon instead of the operator's actual project.
+    // footer's "[Arco safety reminders...]" text confuses Gemini into
+    // responding about Arco instead of the operator's actual project.
     const footer = spec.provider === 'antigravity' || options?.interactionMode === 'chat'
       ? ''
       : buildWorkerSafetyFooter(options?.cwd, options?.workflowId);
@@ -568,11 +568,11 @@ export class WorkerManager {
           // we don't log every poll tick. Nothing else is bypassed: 5MB
           // output cap + cancel-time process-tree kill still apply.
           if (!rssWarned) {
-            console.warn(`[archon] worker ${workerId} exceeded RSS cap (${usedGb}GB > ${capGb}GB) — RSS guard disabled for this workflow; not killing`);
+            console.warn(`[arco] worker ${workerId} exceeded RSS cap (${usedGb}GB > ${capGb}GB) — RSS guard disabled for this workflow; not killing`);
             rssWarned = true;
           }
         } else {
-          console.error(`[archon] worker ${workerId} exceeded RSS cap (${usedGb}GB > ${capGb}GB); killing process tree`);
+          console.error(`[arco] worker ${workerId} exceeded RSS cap (${usedGb}GB > ${capGb}GB); killing process tree`);
           // §3.1 — route the hard RSS kill through the breaker surface FIRST so
           // it lands in events.jsonl as a structured 'limit' trip, not just a
           // bare error string. The kill still follows (a 32GB runaway can't be
@@ -602,7 +602,7 @@ export class WorkerManager {
         const sinceLastActivity = Date.now() - meta.lastActivityAt;
         const graceMs = meta.hadAnyEvent ? 20_000 : 60_000;
         if (sinceLastActivity > graceMs) {
-          console.error(`[archon] worker ${workerId} exited silently (no result/error within ${graceMs}ms grace); synthesizing worker_error`);
+          console.error(`[arco] worker ${workerId} exited silently (no result/error within ${graceMs}ms grace); synthesizing worker_error`);
           worker.emit('error', '[worker exited silently]');
           worker.kill();
           clearInterval(interval);

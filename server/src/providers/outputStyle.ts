@@ -7,7 +7,7 @@
 //
 // Design pattern is inspired by JuliusBrussee/caveman (MIT) —
 // https://github.com/JuliusBrussee/caveman — but the addendum text below
-// is written fresh in Archon's voice (terse, factual). Don't import or
+// is written fresh in Arco's voice (terse, factual). Don't import or
 // fetch from upstream; this file is the source of truth and changes only
 // via code review + commit.
 //

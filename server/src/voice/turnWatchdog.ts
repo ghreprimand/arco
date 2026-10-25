@@ -1,6 +1,6 @@
-import type { VoiceOperatorTool } from '@archon/shared';
+import type { VoiceOperatorTool } from '@arco/shared';
 
-const READS = new Set<VoiceOperatorTool>(['archon_targets', 'archon_status', 'archon_screen', 'archon_read_text', 'archon_read_latest', 'archon_read_recent']);
+const READS = new Set<VoiceOperatorTool>(['arco_targets', 'arco_status', 'arco_screen', 'arco_read_text', 'arco_read_latest', 'arco_read_recent']);
 export const COMPUTER_TIMEOUT = '[COMPUTER TIMEOUT]';
 export const COMPUTER_DEADLINES = { startup: 90_000, idle: 60_000, total: 300_000 };
 

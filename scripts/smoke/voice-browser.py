@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright
 
 async def main():
  async with async_playwright() as p:
-  browser = await p.chromium.launch(executable_path=os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')), args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
+  browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')), args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
   context = await browser.new_context(viewport={'width':1600,'height':1000}, permissions=['microphone'])
   errors, messages, requests = [], [], []
   transcripts = deque()
@@ -73,8 +73,8 @@ async def main():
    window.AudioWorkletNode=class extends OriginalNode{constructor(...args){super(...args);window.voiceNode=this;}};
   ''')
   page = await context.new_page(); page.on('pageerror',lambda e:errors.append(str(e)))
-  page.on('console',lambda m:errors.append(m.text) if '[archon] render boundary caught' in m.text else None)
-  await page.goto(os.environ.get('ARCHON_VOICE_PREVIEW_URL','http://127.0.0.1:5193/')); await page.wait_for_timeout(700)
+  page.on('console',lambda m:errors.append(m.text) if '[arco] render boundary caught' in m.text else None)
+  await page.goto(os.environ.get('ARCO_VOICE_PREVIEW_URL','http://127.0.0.1:5193/')); await page.wait_for_timeout(700)
   await page.evaluate('''async()=>{
    // Match modules already loaded by Vite, including any HMR timestamp.
    const loaded=path=>performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path) ?? path;
@@ -103,9 +103,9 @@ async def main():
   # Only one tab on this browser origin may own the microphone.
   other = await context.new_page()
   other.on('pageerror', lambda e: errors.append('other: '+str(e)))
-  await other.goto(os.environ.get('ARCHON_VOICE_PREVIEW_URL','http://127.0.0.1:5193/'))
+  await other.goto(os.environ.get('ARCO_VOICE_PREVIEW_URL','http://127.0.0.1:5193/'))
   await other.wait_for_timeout(700)
-  # Archon's existing single-tab guard blocks the duplicate App. Mount
+  # Arco's existing single-tab guard blocks the duplicate App. Mount
   # the real voice controls alone to exercise the additional mic lock.
   await other.evaluate('''async()=>{
    const reactModule=await import('/node_modules/.vite/deps/react.js');
@@ -144,11 +144,11 @@ async def main():
   await page.wait_for_function("voiceStore.getState().status.startsWith('Finishing the last phrase')")
   await page.wait_for_timeout(400)
   assert await page.evaluate("voiceStore.getState().commandText") == 'open'
-  assert not (await page.evaluate("localStorage.getItem('archon.clusterSidePanelTab.byCluster')") or '').find('plan') >= 0
+  assert not (await page.evaluate("localStorage.getItem('arco.clusterSidePanelTab.byCluster')") or '').find('plan') >= 0
   slow.set()
-  await page.wait_for_function("voiceStore.getState().commandText===null && localStorage.getItem('archon.clusterSidePanelTab.byCluster')?.includes('plan')")
+  await page.wait_for_function("voiceStore.getState().commandText===null && localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('plan')")
   await say('Computer show member two. End capture',"testStore.getState().clusterFocusedMember.atlas==='worker-b'")
-  await say('Computer open activity. End capture',"localStorage.getItem('archon.clusterSidePanelTab.byCluster')?.includes('activity')")
+  await say('Computer open activity. End capture',"localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('activity')")
   await say('Computer message this worker. End capture',"voiceStore.getState().dictatingId==='worker-b'")
   await say('Check the failing tests.',"readVoiceDraft('worker-b')==='Check the failing tests.'")
   await page.evaluate("testStore.getState().setClusterFocusedMember('atlas','worker-a')")
@@ -167,26 +167,26 @@ async def main():
   created=[m for m in messages if m.get('type')=='create_workflow']
   assert len(created)==1 and created[0]['config']['voiceOperator'] is True and created[0]['config']['kind']=='chat',created
   chat_sent=[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='computer-chat']
-  assert len(chat_sent)==1 and chat_sent[0]['content'].startswith('[Archon context] selected: Builder one') and chat_sent[0]['content'].endswith('\n\nbring up my reviewer please'),chat_sent
+  assert len(chat_sent)==1 and chat_sent[0]['content'].startswith('[Arco context] selected: Builder one') and chat_sent[0]['content'].endswith('\n\nbring up my reviewer please'),chat_sent
   assert '/api/voice/interpret' not in requests
   # The model calls a tool: the server relays it to this window, which executes
   # it through the bounded executor and answers; the window never guesses.
-  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r1','tool':'archon_select','args':{'target':'member two'}})
+  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r1','tool':'arco_select','args':{'target':'member two'}})
   try: await page.wait_for_function("testStore.getState().clusterFocusedMember.atlas==='worker-b'", timeout=8000)
   except Exception:
-   dbg=await page.evaluate('''async()=>{const loaded=path=>performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path) ?? path;const m=await import(loaded('/src/voice/toolBridge.ts'));let out=null;const handled=await m.dispatchVoiceToolCall({type:'voice_tool_call',workflowId:'computer-chat',requestId:'dbg',tool:'archon_status',args:{}},(r)=>{out=r;});return {handled,out,wsSendRaw:typeof testStore.getState().wsSendRaw};}''')
+   dbg=await page.evaluate('''async()=>{const loaded=path=>performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path) ?? path;const m=await import(loaded('/src/voice/toolBridge.ts'));let out=null;const handled=await m.dispatchVoiceToolCall({type:'voice_tool_call',workflowId:'computer-chat',requestId:'dbg',tool:'arco_status',args:{}},(r)=>{out=r;});return {handled,out,wsSendRaw:typeof testStore.getState().wsSendRaw};}''')
    print('TOOL DEBUG direct dispatch:', dbg, 'results:', [m for m in messages if m.get('type')=='voice_tool_result'], 'errors:', errors); raise
   await page.wait_for_function("true")
   results=[m for m in messages if m.get('type')=='voice_tool_result']
   assert results==[{'type':'voice_tool_result','workflowId':'computer-chat','requestId':'r1','ok':True,'result':'Reviewer selected.'}],results
-  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r2','tool':'archon_send_message','args':{'target':'reviewer','text':'Please re-run the failing tests.','mode':'follow-up'}})
+  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r2','tool':'arco_send_message','args':{'target':'reviewer','text':'Please re-run the failing tests.','mode':'follow-up'}})
   await page.wait_for_function("true")
   await page.wait_for_timeout(200)
   relayed=[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='worker-b' and m.get('kind')=='follow-up']
   assert len(relayed)==2 and relayed[-1]['content']=='Please re-run the failing tests.',relayed
   results=[m for m in messages if m.get('type')=='voice_tool_result']
   assert results[-1]['ok'] is True and results[-1]['result']=='Follow-up queued to Reviewer.',results
-  push({'type':'voice_tool_call','workflowId':'other-chat','requestId':'r3','tool':'archon_status','args':{}})
+  push({'type':'voice_tool_call','workflowId':'other-chat','requestId':'r3','tool':'arco_status','args':{}})
   await page.wait_for_timeout(200)
   assert len([m for m in messages if m.get('type')=='voice_tool_result'])==2, 'a call for a chat this window did not open is ignored'
   # The settled reply of the Computer chat is spoken (status) once; a late reply after disable is not.
@@ -201,7 +201,7 @@ async def main():
   await say('Computer means here.', "voiceStore.getState().commandText==='Explain what Computer means here.'")
   await say('End capture', "testStore.getState().jobs['computer-chat'].messages.filter(m=>m.role==='user').length===2")
   chat_sent = [m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='computer-chat']
-  assert chat_sent[-1]['content'].endswith('\n\nExplain what Computer means here') and chat_sent[-1]['content'].startswith('[Archon context] selected: Reviewer'),chat_sent
+  assert chat_sent[-1]['content'].endswith('\n\nExplain what Computer means here') and chat_sent[-1]['content'].startswith('[Arco context] selected: Reviewer'),chat_sent
   assert await page.evaluate("testStore.getState().activeClusterId") == 'atlas', 'voice never moves the operator onto the Computer tab'
   assert len([m for m in messages if m.get('type')=='create_workflow']) == 1
   await page.evaluate("testStore.getState().setActiveCluster('atlas')")
@@ -212,7 +212,7 @@ async def main():
   await page.evaluate("testStore.getState().addMessage('computer-chat',{id:'a2',role:'assistant',content:'Late answer.',isStreaming:false,timestamp:Date.now()})")
   await page.wait_for_timeout(150)
   assert await page.evaluate("voiceStore.getState().status") != 'Late answer.', 'a reply after disable is not spoken'
-  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r4','tool':'archon_select','args':{'target':'member two'}})
+  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r4','tool':'arco_select','args':{'target':'member two'}})
   await page.wait_for_timeout(200)
   assert len([m for m in messages if m.get('type')=='voice_tool_result'])==2, 'no tool runs after disable'
   assert await page.evaluate("testStore.getState().clusterFocusedMember.atlas") == 'worker-a'
@@ -225,7 +225,7 @@ async def main():
   await page.get_by_role('button',name='DISABLE · MIC OFF',exact=True).click()
   await page.evaluate('window.releaseMic()')
   await page.wait_for_function("micStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-  await page.screenshot(path='/tmp/archon-voice-browser.png')
+  await page.screenshot(path='/tmp/arco-voice-browser.png')
   assert not errors,errors
   await page.reload(); await page.wait_for_timeout(600)
   assert await page.evaluate('window.micCalls') == 0

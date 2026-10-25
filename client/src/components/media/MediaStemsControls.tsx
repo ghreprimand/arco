@@ -7,7 +7,7 @@ import {
   type StemName,
   type StemFormat,
   type MediaStemFile,
-} from '@archon/shared';
+} from '@arco/shared';
 import { postMediaStems, type MediaOpSource } from './postMediaOp';
 import type { PickOptions, PickResult } from './DirectoryPicker';
 

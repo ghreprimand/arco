@@ -1,5 +1,5 @@
 import { activityRequest } from './activity';
-import { voiceText, type WorkflowConfig, type ModelName } from '@archon/shared';
+import { voiceText, type WorkflowConfig, type ModelName } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useVoiceStore } from './store';
 import { useComputerStore, type ComputerSelection } from '../stores/computerStore';
@@ -10,10 +10,10 @@ type Selection = { clusterId: string | null; workflowId: string | null };
 // VOICE_AGENT_PLAN.md — voice replaces the mouse and keyboard. When Computer
 // has done what was asked it answers with a bare "Done." (the prompt asks for
 // exactly that) and nothing is spoken; the operator reads the result in
-// Archon. Anything else (a question back, an answer, an error) is spoken.
+// Arco. Anything else (a question back, an answer, an error) is spoken.
 export const COMPUTER_SILENT = /^\s*(?:done|ok|okay)[.!]?\s*$/i;
 // VOICE_AGENT_PLAN.md — the Computer chat is the voice operator: a projectless
-// Chat with the archon-voice MCP child. A pre-plan "Computer" chat without
+// Chat with the arco-voice MCP child. A pre-plan "Computer" chat without
 // the flag is not reused (it has no tools); a new one is created beside it.
 const matches = (config: WorkflowConfig, selection = useComputerStore.getState().selection) => config.kind === 'chat'
   && config.voiceOperator === true && config.primaryProvider === selection.provider
@@ -41,7 +41,7 @@ export class ComputerConversation {
   constructor(private senders: {
     createWorkflow?: (config: WorkflowConfig) => void;
     sendMessage: (id: string, text: string) => boolean;
-  }, private reply: (text: string, mode?: 'archon' | 'conversation') => void) {
+  }, private reply: (text: string, mode?: 'arco' | 'conversation') => void) {
     const unsubscribe = useAppStore.subscribe(() => { if (useComputerStore.getState().pending) void this.applyPending(); });
     registerComputerSwitch((selection) => {
       useComputerStore.setState({ pending: selection, error: null });
@@ -78,9 +78,9 @@ export class ComputerConversation {
   // The chat id the voice tool bridge should answer for (null until opened).
   get chatId(): string | null { return this.id; }
 
-  // Send one utterance to Computer. `context` is the compact [Archon context]
+  // Send one utterance to Computer. `context` is the compact [Arco context]
   // line the executor builds (selection + roster) so the model rarely needs
-  // archon_targets. Replies come back through `watchReply` → `reply`.
+  // arco_targets. Replies come back through `watchReply` → `reply`.
   async talk(text: string, signal: AbortSignal, context = ''): Promise<string> {
     signal.throwIfAborted();
     if (this.switching || useComputerStore.getState().pending) return 'Computer is changing agents. Please wait before the next request.';
@@ -117,7 +117,7 @@ export class ComputerConversation {
   back(): string {
     ++this.generation;
     this.stopReply?.();
-    useVoiceStore.setState({ mode: 'archon', dictatingId: null });
+    useVoiceStore.setState({ mode: 'arco', dictatingId: null });
     const s = useAppStore.getState();
     const previous = this.previous;
     this.previous = null;
@@ -188,7 +188,7 @@ export class ComputerConversation {
         }
         // Computer replies are spoken in the ordinary control mode; there is
         // no separate conversation mode any more (VOICE_AGENT_PLAN.md).
-        this.reply(voiceText(response.content.replace(/^\[ERROR\] (?:\[COMPUTER TIMEOUT\] )?/, '').replace(/```[\s\S]*?```/g, ' Code block omitted. '), 4500), 'archon');
+        this.reply(voiceText(response.content.replace(/^\[ERROR\] (?:\[COMPUTER TIMEOUT\] )?/, '').replace(/```[\s\S]*?```/g, ' Code block omitted. '), 4500), 'arco');
       }
     });
   }

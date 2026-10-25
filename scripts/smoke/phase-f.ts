@@ -4,10 +4,10 @@
 //
 //   1. attach_codebase_memory → codebase_memory_state{attached:true}
 //   2. meta.json on disk carries codebaseMemory.attached=true
-//   3. F9: .archon/<wfid>/mcp-config.json materializes on attach with the
+//   3. F9: .arco/<wfid>/mcp-config.json materializes on attach with the
 //      codebase-memory entry pointing at the operator-supplied indexPath
 //   4. detach_codebase_memory → codebase_memory_state{attached:false}
-//   5. F9: .archon/<wfid>/mcp-config.json is gone after detach (no other
+//   5. F9: .arco/<wfid>/mcp-config.json is gone after detach (no other
 //      MCP wiring applies to this workflow)
 //   6. POST /api/workflows/:wfId/codebase-memory/reindex returns 200 or 503
 //      (either is acceptable — binary may or may not be installed)
@@ -21,10 +21,10 @@ import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_URL || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_URL || 'http://localhost:3001';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-phase-f-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-phase-f-'));
   console.log(`Phase F smoke — cwd ${cwd}`);
   console.log('');
 
@@ -49,7 +49,7 @@ async function main() {
     assert(wfid.length > 0, 'workflowId returned');
   });
 
-  const customIndexPath = '/tmp/archon-smoke-phase-f-index';
+  const customIndexPath = '/tmp/arco-smoke-phase-f-index';
 
   await step('attach_codebase_memory: state propagates with indexPath', async () => {
     c.send({ type: 'attach_codebase_memory', workflowId: wfid, indexPath: customIndexPath });
@@ -64,8 +64,8 @@ async function main() {
 
   await step('meta.json reflects codebaseMemory.attached=true', async () => {
     // Read meta.json directly from disk. The path follows the same shape
-    // every persisted workflow uses: <cwd>/.archon/workflows/<wfid>/meta.json.
-    const metaPath = join(cwd, '.archon', 'workflows', wfid, 'meta.json');
+    // every persisted workflow uses: <cwd>/.arco/workflows/<wfid>/meta.json.
+    const metaPath = join(cwd, '.arco', 'workflows', wfid, 'meta.json');
     let raw: string;
     try {
       raw = readFileSync(metaPath, 'utf8');
@@ -78,10 +78,10 @@ async function main() {
     assertEq(meta.codebaseMemory.indexPath, customIndexPath, 'meta.codebaseMemory.indexPath persisted');
   });
 
-  // F9 — attach syncs `.archon/<wfid>/mcp-config.json` eagerly so the
+  // F9 — attach syncs `.arco/<wfid>/mcp-config.json` eagerly so the
   // next CLI Claude spawn (or operator inspection) sees the entry.
   await step('F9: mcp-config.json carries codebase-memory entry on attach', async () => {
-    const cfgPath = join(cwd, '.archon', wfid, 'mcp-config.json');
+    const cfgPath = join(cwd, '.arco', wfid, 'mcp-config.json');
     assert(existsSync(cfgPath), `mcp-config.json present at ${cfgPath}`);
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf8')) as {
       mcpServers?: Record<string, { command?: string; args?: string[] }>;
@@ -97,7 +97,7 @@ async function main() {
     assertEq(entry.args![3], '--skip-config', 'args[3]=--skip-config (load-bearing)');
     // No cluster wiring applies to this lone Native workflow → only the
     // codebase-memory entry should be present.
-    assert(!cfg.mcpServers!['archon-cluster'], 'no archon-cluster entry (workflow is not in a cluster)');
+    assert(!cfg.mcpServers!['arco-cluster'], 'no arco-cluster entry (workflow is not in a cluster)');
   });
 
   await step('detach_codebase_memory: attached flips to false', async () => {
@@ -115,7 +115,7 @@ async function main() {
   // F9 — detach syncs the file too: with no cluster wiring and codebase-
   // memory off, the writer unlinks the file outright.
   await step('F9: mcp-config.json is gone after detach', async () => {
-    const cfgPath = join(cwd, '.archon', wfid, 'mcp-config.json');
+    const cfgPath = join(cwd, '.arco', wfid, 'mcp-config.json');
     assert(!existsSync(cfgPath), `mcp-config.json absent at ${cfgPath}`);
   });
 

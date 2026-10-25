@@ -4,7 +4,7 @@
 // tools through Native/stdio-MCP. Cursor wires them through an in-process
 // loopback HTTP MCP server (CURSOR_TRANSPORT_PLAN.md Phase 6 — Cursor ACP honors
 // MCP over http/sse only, not stdio). Local providers (ollama/llamacpp) use
-// Archon's in-process tool runtime and are serialized per provider to avoid
+// Arco's in-process tool runtime and are serialized per provider to avoid
 // local model fights.
 export type ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor';
 
@@ -18,7 +18,7 @@ export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider 
 // member shape. `blind` keeps the project cwd but withholds every cluster
 // surface except peer_send / peer_read. `isolated` additionally runs the
 // worker against a private scratch cwd; v1 is Claude-Native-only because its
-// file-tool root can be enforced by Archon and Bash can be removed.
+// file-tool root can be enforced by Arco and Bash can be removed.
 export const CLUSTER_MEMBER_ACCESS_MODES = ['standard', 'blind', 'isolated'] as const;
 export type ClusterMemberAccessMode = (typeof CLUSTER_MEMBER_ACCESS_MODES)[number];
 export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessMode {
@@ -242,7 +242,7 @@ export interface ClusterStatePayload {
   // to the derived default.
   name?: string;
   // Shared cluster plan. The body is canonical under
-  // <cwd>/.archon/plans/<id>.md, and the cluster attaches exactly one active
+  // <cwd>/.arco/plans/<id>.md, and the cluster attaches exactly one active
   // plan at a time, matching workflow plan semantics. Absent ≡ no plan
   // attached. The body is capped to 32768 chars for cluster prompt injection.
   plan?: { id: string; title: string; body: string; updatedAt: number };
@@ -442,7 +442,7 @@ export interface ClusterCreateFromScratchMessage {
 // 2026-05-11 — cluster presets. Operator-saved snapshot of a cluster's
 // per-member configs + optional name template, so a familiar shape can be
 // re-applied to a different cwd. Persisted server-side at
-// ~/.archon/cluster-presets.json; consumed by the WorkflowCreator's CLUSTER
+// ~/.arco/cluster-presets.json; consumed by the WorkflowCreator's CLUSTER
 // mode (PRESETS row above DEFAULT FOR NEW MEMBERS). CWD is intentionally NOT
 // part of a preset — presets are project-agnostic.
 //
@@ -482,7 +482,7 @@ export interface ClusterPreset {
 // member's complete conversation history (meta.json + events.jsonl). Unlike a
 // preset (config-only, project-agnostic), a snapshot is heavyweight and
 // carries history, so it lives in its own on-disk directory tree at
-// ~/.archon/cluster-snapshots/<snapshotId>/ rather than a flat JSON file.
+// ~/.arco/cluster-snapshots/<snapshotId>/ rather than a flat JSON file.
 //
 // Restore is fork semantics: a brand-new clusterId + brand-new member
 // workflowIds are minted (never reuse the originals — the source cluster may
@@ -799,7 +799,7 @@ export interface ClusterStateMessage {
 }
 
 // A persisted client tab subscribed to an id that no longer exists on this
-// Archon instance. Structured separately from generic errors so the client can
+// Arco instance. Structured separately from generic errors so the client can
 // prune only that stale mirror instead of showing "Unknown cluster" on every
 // reconnect forever.
 export interface ClusterNotFoundMessage {
@@ -848,7 +848,7 @@ export interface ClusterMemberReplacedMessage {
 // plan body changes (set or cleared). `body` carries the new full text
 // (empty string ≡ plan cleared). `updatedAt` is wall-clock ms.
 // `bodyLength` is logged into events.jsonl (the lightweight audit shape —
-// the full body lives on disk under <cwd>/.archon/plans/ and in the next
+// the full body lives on disk under <cwd>/.arco/plans/ and in the next
 // cluster_state push). Fired on cluster_plan_set / attach / clear.
 export interface ClusterPlanChangedMessage {
   type: 'cluster_plan_changed';
@@ -1046,7 +1046,7 @@ export interface ClusterMemberNudgedMessage {
 // "(auto-pickup) ..." prompt. Three guards prevent runaway loops: 20s per-
 // recipient cooldown, 10/minute per-cluster rate cap, and a chain-depth cap
 // of 3 carried on PeerMessageSentMessage.chainDepth. All guards are env-
-// overridable (ARCHON_CLUSTER_AUTO_TURN_*). Mirrors the four-question test
+// overridable (ARCO_CLUSTER_AUTO_TURN_*). Mirrors the four-question test
 // (plan §2): operator-armed, deterministic, events.jsonl-visible, reversible.
 export interface ClusterAutoTurnToggleMessage {
   type: 'cluster_auto_turn_toggle';
@@ -1076,7 +1076,7 @@ export interface ClusterAutoTurnFiredMessage {
 // detector's onPeerMessageSent() with a caller-specified chainDepth. Used by
 // scripts/smoke/phase-5b.ts to exercise the depth cap + rate cap without
 // needing real LLM turns to generate naturally-chained peer_sends. Gated
-// server-side on `process.env.ARCHON_TEST === '1'`.
+// server-side on `process.env.ARCO_TEST === '1'`.
 export interface DebugClusterAutoTurnInjectMessage {
   type: '__debug_cluster_auto_turn_inject';
   clusterId: string;

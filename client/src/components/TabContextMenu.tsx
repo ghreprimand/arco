@@ -20,8 +20,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { clusterDisplayName } from './TabBar';
-import { DEFAULT_CODEX_MODEL } from '@archon/shared';
-import type { ClusterMemberProvider } from '@archon/shared';
+import { DEFAULT_CODEX_MODEL } from '@arco/shared';
+import type { ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../utils/format';
 import { modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 
@@ -180,7 +180,7 @@ export function TabContextMenu({
     return null;
   }
 
-  // Anchor is eligible to seed/join a cluster if Archon can inject peer
+  // Anchor is eligible to seed/join a cluster if Arco can inject peer
   // tools into its provider.
   const anchorIsNative =
     isClusterProvider(anchor.config.primaryProvider ?? 'claude');

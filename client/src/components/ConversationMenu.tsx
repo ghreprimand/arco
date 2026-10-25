@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ProviderName, SessionIndexEntry, SessionInfo } from '@archon/shared';
+import type { ProviderName, SessionIndexEntry, SessionInfo } from '@arco/shared';
 import { entryKey, useSessionIndexStore } from '../stores/sessionIndexStore';
 
 interface Props {

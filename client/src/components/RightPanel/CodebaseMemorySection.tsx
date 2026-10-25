@@ -6,7 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 // tab. Pure UX wiring: the toggle and Re-index button drive WS / HTTP calls;
 // the actual `--mcp-config` write-in at CLI spawn time is deferred until
 // Cluster Phase 3's `mcpConfigWriter` lands. The binary is operator-
-// installed once per machine (see docs/OPERATIONS.md) and Archon always
+// installed once per machine (see docs/OPERATIONS.md) and Arco always
 // invokes it with `--skip-config` so it doesn't auto-edit other agent
 // configs — that invariant lives in the server-side reindex handler + the
 // future spawn-site wiring.

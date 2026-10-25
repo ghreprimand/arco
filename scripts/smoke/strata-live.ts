@@ -1,5 +1,5 @@
-// Opt-in live acceptance: a running Strata + SearXNG and a throwaway Archon.
-// ARCHON_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:strata-live
+// Opt-in live acceptance: a running Strata + SearXNG and a throwaway Arco.
+// ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:strata-live
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,7 +8,7 @@ import { connect, assert } from './lib.js';
 async function main() {
 const c = await connect();
 const ids: string[] = [];
-const artifactDir = process.env.STRATA_SMOKE_ARTIFACTS || mkdtempSync(join(tmpdir(), 'archon-strata-live-'));
+const artifactDir = process.env.STRATA_SMOKE_ARTIFACTS || mkdtempSync(join(tmpdir(), 'arco-strata-live-'));
 const model = process.env.STRATA_SMOKE_MODEL || 'qwen3.8-flash-next-iq3_xxs-262k';
 const events: unknown[] = [];
 async function create(kind: 'chat' | 'workflow') {

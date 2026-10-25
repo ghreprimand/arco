@@ -16,7 +16,7 @@ const goalRunNotice = (needle: string) => (m: AnyMessage) =>
   m.type === 'system_notice' && String(m.content).includes('[GOAL RUN]') && String(m.content).includes(needle);
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-goalrun-live-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-goalrun-live-'));
   console.log(`Goal-run LIVE — cwd ${cwd}`);
   const c = await connect();
   let wfid = '';

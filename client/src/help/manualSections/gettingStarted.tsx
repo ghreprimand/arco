@@ -92,7 +92,7 @@ export const gettingStarted: Section[] = [
         </ul>
         <Note>
           An older autonomous-orchestration version of Arco is preserved at git branch{' '}
-          <Code>archon-autonomous</Code> for reference. The current (Lite) architecture
+          <Code>arco-autonomous</Code> for reference. The current (Lite) architecture
           is the active design.
         </Note>
       </>
@@ -309,7 +309,7 @@ export const gettingStarted: Section[] = [
           any project without leaking paths from where you first built it.
         </p>
         <Note>
-          Presets are stored at <Code>~/.archon/cluster-presets.json</Code>
+          Presets are stored at <Code>~/.arco/cluster-presets.json</Code>
           (capped at 50). Names are unique case-insensitively. Models stored in
           a preset aren't validated against the live catalog until you apply +
           submit — so a since-renamed model surfaces in the picker but only

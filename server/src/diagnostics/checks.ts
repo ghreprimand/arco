@@ -1,4 +1,4 @@
-// ── Diagnostics check registry (ARCHON_OPS_PLAN.md §A1) ──
+// ── Diagnostics check registry (ARCO_OPS_PLAN.md §A1) ──
 //
 // The single source of probe logic behind GET /api/diagnostics. Every check is
 // a deterministic, READ-ONLY probe of one moving part on this machine, returning
@@ -38,7 +38,7 @@ import type {
   DiagnosticGroupId,
   DiagnosticsReport,
   DiagnosticStatus,
-} from '@archon/shared';
+} from '@arco/shared';
 
 import { readSettings } from '../settings.js';
 import { ffmpegAvailable, ffprobeAvailable } from '../media/ffmpeg.js';
@@ -54,10 +54,10 @@ import { readinessSnapshot } from '../server/readiness.js';
 import { getLogFilePath } from '../server/logger.js';
 import { probeCodeSkew } from './codeSkew.js';
 import { probeShutdownWindow } from './shutdownWindow.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const execFileAsync = promisify(execFile);
-const ARCHON_HOME = archonHome();
+const ARCO_HOME = arcoHome();
 
 // ── result helpers ──────────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ async function probeVersion(bin: string, flags: string[] = ['--version']): Promi
 }
 
 // Directory size + existence. Best-effort recursive byte sum; never throws.
-// Returns { exists, bytes }. Bounded by the dir's own contents — the Archon
+// Returns { exists, bytes }. Bounded by the dir's own contents — the Arco
 // dirs are small (settings, catalogs, recall db, per-cwd events).
 async function dirInfo(dir: string): Promise<{ exists: boolean; bytes: number }> {
   let total = 0;
@@ -167,30 +167,30 @@ function fmtBytes(bytes: number): string {
 
 // ── CORE ─────────────────────────────────────────────────────────────────────
 
-// Data/config dir read+write. Writes a throwaway probe file under ~/.archon and
+// Data/config dir read+write. Writes a throwaway probe file under ~/.arco and
 // removes it — never touches a real workflow log.
 async function checkDataDirRw(): Promise<DiagnosticCheck> {
   const id = 'core.data-dir-rw';
   const label = 'Data/config dir read+write';
-  await fs.mkdir(ARCHON_HOME, { recursive: true });
-  const probe = join(ARCHON_HOME, `.diag-probe-${process.pid}-${Date.now()}`);
-  await fs.writeFile(probe, 'archon-diagnostics-probe\n', 'utf8');
+  await fs.mkdir(ARCO_HOME, { recursive: true });
+  const probe = join(ARCO_HOME, `.diag-probe-${process.pid}-${Date.now()}`);
+  await fs.writeFile(probe, 'arco-diagnostics-probe\n', 'utf8');
   const back = await fs.readFile(probe, 'utf8');
   await fs.rm(probe, { force: true });
-  if (!back.includes('archon-diagnostics-probe')) {
-    return mk(id, 'core', label, 'error', `wrote ${ARCHON_HOME} but readback mismatched`);
+  if (!back.includes('arco-diagnostics-probe')) {
+    return mk(id, 'core', label, 'error', `wrote ${ARCO_HOME} but readback mismatched`);
   }
-  return mk(id, 'core', label, 'ok', `${ARCHON_HOME} is readable and writable`);
+  return mk(id, 'core', label, 'ok', `${ARCO_HOME} is readable and writable`);
 }
 
 // events.jsonl append+read round-trip — against a THROWAWAY temp path, not a
 // real workflow log (the plan is explicit about not corrupting a real log).
-// Proves the append-then-read pattern Archon's persistence relies on works on
+// Proves the append-then-read pattern Arco's persistence relies on works on
 // this filesystem.
 async function checkEventsLogRoundTrip(): Promise<DiagnosticCheck> {
   const id = 'core.events-log-roundtrip';
   const label = 'events.jsonl append+read round-trip';
-  const dir = await fs.mkdtemp(join(tmpdir(), 'archon-diag-events-'));
+  const dir = await fs.mkdtemp(join(tmpdir(), 'arco-diag-events-'));
   const log = join(dir, 'events.jsonl');
   try {
     const lines = [
@@ -220,16 +220,16 @@ async function checkSettingsCascade(): Promise<DiagnosticCheck> {
   const label = 'Settings cascade parse';
   const settings = await readSettings();
   const providers = settings.enabledProviders ? Object.keys(settings.enabledProviders).length : 0;
-  return mk(id, 'core', label, 'ok', `parsed (defaults → ~/.archon/settings.json); ${providers} provider toggles present`);
+  return mk(id, 'core', label, 'ok', `parsed (defaults → ~/.arco/settings.json); ${providers} provider toggles present`);
 }
 
-// Workflow-recovery registry readable. ~/.archon/known-cwds.json is the
+// Workflow-recovery registry readable. ~/.arco/known-cwds.json is the
 // crash-recovery registry; a missing file is normal (no workflows yet) and is
 // reported ok-empty, not an error. Malformed JSON degrades to warn.
 async function checkRecoveryRegistry(): Promise<DiagnosticCheck> {
   const id = 'core.recovery-registry';
   const label = 'Workflow-recovery registry readable';
-  const regPath = join(ARCHON_HOME, 'known-cwds.json');
+  const regPath = join(ARCO_HOME, 'known-cwds.json');
   let raw: string;
   try {
     raw = await fs.readFile(regPath, 'utf8');
@@ -244,11 +244,11 @@ async function checkRecoveryRegistry(): Promise<DiagnosticCheck> {
     const n = Array.isArray(parsed) ? parsed.length : 0;
     return mk(id, 'core', label, 'ok', `known-cwds.json parses; ${n} known cwd(s)`);
   } catch {
-    return mk(id, 'core', label, 'warn', 'known-cwds.json is present but not valid JSON', 'delete ~/.archon/known-cwds.json to reset recovery');
+    return mk(id, 'core', label, 'warn', 'known-cwds.json is present but not valid JSON', 'delete ~/.arco/known-cwds.json to reset recovery');
   }
 }
 
-// Process readiness (ARCHON_OPS_PLAN.md §B2). Read-only snapshot of the /readyz
+// Process readiness (ARCO_OPS_PLAN.md §B2). Read-only snapshot of the /readyz
 // gate. not-ready maps to `warn`, NOT `error`: not-ready is a transient boot
 // state (the window before capabilities probe + store recovery finish), not a
 // fault. By the time the operator can run this through the diagnostics endpoint
@@ -264,17 +264,17 @@ async function checkReadiness(): Promise<DiagnosticCheck> {
   return mk(id, 'core', label, 'warn', `still booting — pending: ${snap.pending.join(', ')}`, 'transient during boot; /readyz returns 503 until capabilities + stores are ready');
 }
 
-// Structured file-logging status (ARCHON_OPS_PLAN.md §B3). Read-only: when file
-// logging is active (getLogFilePath() non-null — set by ARCHON_LOG_FILE=1 in the
+// Structured file-logging status (ARCO_OPS_PLAN.md §B3). Read-only: when file
+// logging is active (getLogFilePath() non-null — set by ARCO_LOG_FILE=1 in the
 // systemd unit) report ok with the path + current size; when off (dev /
-// ARCHON_LOG_FILE unset) report `skipped` — there is nothing to inspect and it's
+// ARCO_LOG_FILE unset) report `skipped` — there is nothing to inspect and it's
 // not a fault. One statSync, guarded.
 async function checkLogs(): Promise<DiagnosticCheck> {
   const id = 'core.logs';
   const label = 'Structured file logging';
   const path = getLogFilePath();
   if (!path) {
-    return mk(id, 'core', label, 'skipped', 'file logging off (dev / ARCHON_LOG_FILE unset) — console only');
+    return mk(id, 'core', label, 'skipped', 'file logging off (dev / ARCO_LOG_FILE unset) — console only');
   }
   try {
     const st = await fs.stat(path);
@@ -325,7 +325,7 @@ async function checkClaudeNative(): Promise<DiagnosticCheck> {
   const label = 'Claude Native (OAuth)';
   const tokens = await loadClaudeNativeTokens();
   if (!tokens) {
-    return mk(id, 'providers', label, 'warn', 'no OAuth tokens at ~/.archon/auth.json', 'log in via Settings → Claude Native, or use the CLI transport');
+    return mk(id, 'providers', label, 'warn', 'no OAuth tokens at ~/.arco/auth.json', 'log in via Settings → Claude Native, or use the CLI transport');
   }
   const expired = typeof tokens.expiresAt === 'number' && tokens.expiresAt < Date.now();
   if (expired) {
@@ -377,7 +377,7 @@ async function checkLlamacpp(): Promise<DiagnosticCheck> {
     catalogReadable = false;
   }
   if (!catalogReadable) {
-    return mk(id, 'providers', label, 'warn', `manager state: ${status.state}; catalog (~/.archon/llamacpp.json) unreadable`, 'check ~/.archon/llamacpp.json is valid JSON');
+    return mk(id, 'providers', label, 'warn', `manager state: ${status.state}; catalog (~/.arco/llamacpp.json) unreadable`, 'check ~/.arco/llamacpp.json is valid JSON');
   }
   if (status.state === 'failed') {
     return mk(id, 'providers', label, 'error', `last launch failed: ${status.error ?? 'unknown'}; ${catalogCount} model(s) registered`);
@@ -434,7 +434,7 @@ async function checkFfprobe(): Promise<DiagnosticCheck> {
     : mk(id, 'local-tools', label, 'warn', 'ffprobe not found', 'install ffmpeg (ships ffprobe) for media metadata');
 }
 
-// LSP server detection — best-effort PATH lookup for the language servers Archon
+// LSP server detection — best-effort PATH lookup for the language servers Arco
 // lazy-spawns after a Native Write/Edit. Absence is `warn`, never `error`: the
 // LSP subsystem is a silent no-op without a server (the operator installs them
 // upstream). Many boxes have some-but-not-all (this one has rust-analyzer but
@@ -489,7 +489,7 @@ async function checkPreviewProxy(): Promise<DiagnosticCheck> {
   return mk(id, 'workbench', label, 'ok', 'proxy route mounted (per-workflow targets bind on demand)');
 }
 
-// Recall index health — the machine-global recall.db under ~/.archon/recall.
+// Recall index health — the machine-global recall.db under ~/.arco/recall.
 // Absent is normal on a fresh machine (ok-empty); present-and-readable is ok.
 //
 // The binding probe comes FIRST: statting the db file says nothing about
@@ -522,13 +522,13 @@ async function checkRecall(): Promise<DiagnosticCheck> {
   }
 }
 
-// Knowledge index health — per-cwd <cwd>/.archon/knowledge/index.json. There is
+// Knowledge index health — per-cwd <cwd>/.arco/knowledge/index.json. There is
 // no machine-global knowledge store (it's project-scoped), so without a cwd the
 // honest readout is `skipped` with that explanation.
 async function checkKnowledge(): Promise<DiagnosticCheck> {
   const id = 'workbench.knowledge-index';
   const label = 'Knowledge index';
-  return mk(id, 'workbench', label, 'skipped', 'knowledge bases are per-project (<cwd>/.archon/knowledge) — no machine-global index to probe');
+  return mk(id, 'workbench', label, 'skipped', 'knowledge bases are per-project (<cwd>/.arco/knowledge) — no machine-global index to probe');
 }
 
 // Cookbook hardware probe reachable — probeHardware is read-only and degrades to
@@ -544,28 +544,28 @@ async function checkCookbookHardware(): Promise<DiagnosticCheck> {
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
 
-async function checkArchonHomeStorage(): Promise<DiagnosticCheck> {
-  const id = 'storage.archon-home';
-  const label = '~/.archon size';
-  const info = await dirInfo(ARCHON_HOME);
+async function checkArcoHomeStorage(): Promise<DiagnosticCheck> {
+  const id = 'storage.arco-home';
+  const label = '~/.arco size';
+  const info = await dirInfo(ARCO_HOME);
   if (!info.exists) {
-    return mk(id, 'storage', label, 'ok', '~/.archon does not exist yet (created on first use)');
+    return mk(id, 'storage', label, 'ok', '~/.arco does not exist yet (created on first use)');
   }
-  return mk(id, 'storage', label, 'ok', `${ARCHON_HOME} — ${fmtBytes(info.bytes)}`);
+  return mk(id, 'storage', label, 'ok', `${ARCO_HOME} — ${fmtBytes(info.bytes)}`);
 }
 
-// Per-cwd .archon storage. No single cwd is in scope for a global diagnostics
+// Per-cwd .arco storage. No single cwd is in scope for a global diagnostics
 // call (workflows each have their own), so report `skipped` with the per-cwd
 // location so the operator knows where to look.
 async function checkProjectStorage(): Promise<DiagnosticCheck> {
-  const id = 'storage.project-archon';
-  const label = 'Per-project .archon size';
-  return mk(id, 'storage', label, 'skipped', 'per-cwd <cwd>/.archon (events.jsonl, meta.json, plans) — scoped to each workflow, not a global path');
+  const id = 'storage.project-arco';
+  const label = 'Per-project .arco size';
+  return mk(id, 'storage', label, 'skipped', 'per-cwd <cwd>/.arco (events.jsonl, meta.json, plans) — scoped to each workflow, not a global path');
 }
 
-// ── SECURITY / EXPOSURE POSTURE (ARCHON_OPS_PLAN.md §A4) ──────────────────────
+// ── SECURITY / EXPOSURE POSTURE (ARCO_OPS_PLAN.md §A4) ──────────────────────
 //
-// Read-only exposure readout. The unifying rationale: Archon's HTTP/WS surface
+// Read-only exposure readout. The unifying rationale: Arco's HTTP/WS surface
 // has NO AUTH and exposes a shell (PTY terminal), git/GitHub ops, filesystem
 // read+write under cwd roots, and provider credentials. So the severity of every
 // capability is CONDITIONED ON THE BIND ADDRESS — bound to loopback, only this
@@ -598,7 +598,7 @@ export function classifyBindAddress(
       status: 'warn',
       detail:
         'bound to 0.0.0.0 — the no-auth HTTP/WS surface (shell, git, filesystem, provider creds) is reachable by anything that can route to this host',
-      hint: 'set ARCHON_HOST=127.0.0.1 unless you intend LAN exposure',
+      hint: 'set ARCO_HOST=127.0.0.1 unless you intend LAN exposure',
     };
   }
   if (isPrivateHost(host)) {
@@ -618,7 +618,7 @@ async function checkRemoteAccess(): Promise<DiagnosticCheck> {
   const id = 'security.remote-access';
   const label = 'Remote access exposure';
   // Honest + deterministic: an external SSH/Vite tunnel is a documented operator
-  // workflow Archon cannot detect from inside the process, so we report only
+  // workflow Arco cannot detect from inside the process, so we report only
   // what the bind tells us.
   if (isLoopbackBind(HOST)) {
     return mk(id, 'security', label, 'ok', 'no exposure from Arco\'s own bind; remote use via SSH/Vite tunnel (a documented manual workflow) is not auto-detectable');
@@ -661,12 +661,12 @@ async function checkGitOpsExposure(): Promise<DiagnosticCheck> {
   return mk(id, 'security', label, 'warn', 'git operations are reachable by non-local clients');
 }
 
-// Count of writable cwd roots from ~/.archon/known-cwds.json (mirrors
+// Count of writable cwd roots from ~/.arco/known-cwds.json (mirrors
 // checkRecoveryRegistry's read). NEVER lists the paths — count only.
 async function checkWritableCwdRoots(): Promise<DiagnosticCheck> {
   const id = 'security.writable-cwd-roots';
   const label = 'Writable cwd roots exposure';
-  const regPath = join(ARCHON_HOME, 'known-cwds.json');
+  const regPath = join(ARCO_HOME, 'known-cwds.json');
   let count = 0;
   try {
     const raw = await fs.readFile(regPath, 'utf8');
@@ -714,7 +714,7 @@ async function checkPreviewProxyExposure(): Promise<DiagnosticCheck> {
 async function checkLocalModelEndpoints(): Promise<DiagnosticCheck> {
   const id = 'security.local-model-endpoints';
   const label = 'Local model endpoint exposure';
-  const llamaHost = process.env.ARCHON_LLAMACPP_HOST ?? '127.0.0.1';
+  const llamaHost = process.env.ARCO_LLAMACPP_HOST ?? '127.0.0.1';
   const llamaLoopback = isLoopbackBind(llamaHost);
 
   // Resolve the Ollama base URL host (settings → OLLAMA_URL_BASE → default).
@@ -730,7 +730,7 @@ async function checkLocalModelEndpoints(): Promise<DiagnosticCheck> {
   const ollamaPrivate = isPrivateHost(ollamaHost);
 
   if (llamaHost === '0.0.0.0') {
-    return mk(id, 'security', label, 'warn', 'llama-server bound to 0.0.0.0', 'set ARCHON_LLAMACPP_HOST=127.0.0.1 unless you intend LAN exposure');
+    return mk(id, 'security', label, 'warn', 'llama-server bound to 0.0.0.0', 'set ARCO_LLAMACPP_HOST=127.0.0.1 unless you intend LAN exposure');
   }
   if (!ollamaLoopback && !ollamaPrivate) {
     return mk(id, 'security', label, 'warn', 'Ollama configured to a non-private host');
@@ -746,15 +746,15 @@ async function checkLocalModelEndpoints(): Promise<DiagnosticCheck> {
 
 // Allowlist of known-risky env keys. Small + documented on purpose: report only
 // these by NAME when set to a risky value — never the value itself.
-//   ARCHON_HOST                    — flagged only when it is a non-loopback bind
+//   ARCO_HOST                    — flagged only when it is a non-loopback bind
 //   NODE_TLS_REJECT_UNAUTHORIZED   — flagged only when '0' (TLS verification off)
 //   /DANGEROUS|UNSAFE|SKIP_PERMISSION|NO_AUTH|YOLO/i — any env key matching this
 async function checkRiskyEnvConfig(): Promise<DiagnosticCheck> {
   const id = 'security.risky-env-config';
   const label = 'Risky env / config flags';
   const flagged: string[] = [];
-  if (process.env.ARCHON_HOST && !isLoopbackBind(process.env.ARCHON_HOST)) {
-    flagged.push('ARCHON_HOST');
+  if (process.env.ARCO_HOST && !isLoopbackBind(process.env.ARCO_HOST)) {
+    flagged.push('ARCO_HOST');
   }
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
     flagged.push('NODE_TLS_REJECT_UNAUTHORIZED');
@@ -830,8 +830,8 @@ const GROUPS: GroupSpec[] = [
     id: 'storage',
     label: 'Storage',
     probes: [
-      { id: 'storage.archon-home', label: '~/.archon size', fn: checkArchonHomeStorage },
-      { id: 'storage.project-archon', label: 'Per-project .archon size', fn: checkProjectStorage },
+      { id: 'storage.arco-home', label: '~/.arco size', fn: checkArcoHomeStorage },
+      { id: 'storage.project-arco', label: 'Per-project .arco size', fn: checkProjectStorage },
     ],
   },
   {
@@ -851,9 +851,9 @@ const GROUPS: GroupSpec[] = [
   },
 ];
 
-let archonVersionCache: string | undefined;
-async function archonVersion(): Promise<string> {
-  if (archonVersionCache !== undefined) return archonVersionCache;
+let arcoVersionCache: string | undefined;
+async function arcoVersion(): Promise<string> {
+  if (arcoVersionCache !== undefined) return arcoVersionCache;
   // package.json sits two levels above server/src at the repo root; resolve via
   // PROJECT_ROOT-style climb from this module. Best-effort — a miss reports
   // "unknown" rather than failing the report.
@@ -861,11 +861,11 @@ async function archonVersion(): Promise<string> {
     const url = new URL('../../../package.json', import.meta.url);
     const raw = await fs.readFile(url, 'utf8');
     const pkg = JSON.parse(raw) as { version?: string };
-    archonVersionCache = typeof pkg.version === 'string' ? pkg.version : 'unknown';
+    arcoVersionCache = typeof pkg.version === 'string' ? pkg.version : 'unknown';
   } catch {
-    archonVersionCache = 'unknown';
+    arcoVersionCache = 'unknown';
   }
-  return archonVersionCache;
+  return arcoVersionCache;
 }
 
 // Build the full diagnostics report. Runs every probe concurrently across all
@@ -881,7 +881,7 @@ export async function runDiagnostics(): Promise<DiagnosticsReport> {
   return {
     groups,
     generatedAt: Date.now(),
-    archonVersion: await archonVersion(),
+    arcoVersion: await arcoVersion(),
     platform: `${platform()}/${arch()}`,
   };
 }

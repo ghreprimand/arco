@@ -54,7 +54,7 @@ The real edits: trim/clip to the region, convert format, normalize, mono/stereo,
 
 - **Types:** `shared/src/protocol/media.ts` — the `MediaOpSpec` discriminated union, the `AUDIO_FORMATS` whitelist (codec/ext), bounded `AUDIO_BITRATES`/`AUDIO_SAMPLE_RATES`, the request/result shapes, and `MediaOpResultMessage`.
 - **On-disk audio now plays:** `MediaModalHost` points the `AudioEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) audio open; imported audio still uses its object URL. The video on-disk note is kept (H7).
-- **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx` — CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch → server kills the child), and on success the output path + **REVEAL IN FILES** (a `archon:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
+- **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx` — CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch → server kills the child), and on success the output path + **REVEAL IN FILES** (a `arco:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
 
 **Honest constraint (load-bearing):** FFmpeg needs an **on-disk** source — it can't read a browser object URL. So ops are enabled only for an on-disk (contextual) open; an **imported** file disables the ops with an inline note ("Open this file from the Files panel to run FFmpeg ops"). The blob is **not** uploaded in this phase.
 
@@ -73,7 +73,7 @@ The video half of the FFmpeg studio: preview + scrub + in/out markers, then **cl
   - **Resolution = `VideoResolution`** = a bounded preset (`'source' | '480p' | '720p' | '1080p'`, each mapping to a **fixed** scale filter `scale=-2:<h>` that we control) **OR** an explicit `{ w, h }` pair of validated positive integers (≤ `VIDEO_DIM_MAX = 7680`), composed by us into `scale=<w>:<h>`. **Never** raw operator text into `-vf`.
 - **`deriveOutputBasename`** now picks the target ext by op: `vconvert` → the `VIDEO_FORMATS` container ext, `extract-audio` → the chosen `AUDIO_FORMATS` ext, `vclip` (and the audio clip ops) → the source ext.
 - **On-disk video now plays:** `MediaModalHost` points the `VideoEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) video open (same Range-able serve route H6 added); imported video uses its object URL. `onDiskMediaUnsupported` no longer fires for video — it's now only the rare contextual-open-without-fileContext edge (no cwd to confine against) for either audio or video.
-- **Editor:** `client/src/components/media/VideoEditor/` — `VideoEditor.tsx` (native `<video>` preview + scrub + editable `IN`/`OUT` markers in `mm:ss.mmm` + SET IN/OUT from playhead; emits `onRegionChange` the host holds in a ref) and `VideoOpsPanel.tsx` (CLIP + re-encode toggle, CONVERT + format/resolution pickers, EXTRACT AUDIO + audio-format picker; POSTs `/api/media/op`, spinner + CANCEL, success path + REVEAL IN FILES via the `archon:reveal-in-files` event). Mirrors `AudioOpsPanel` one-for-one.
+- **Editor:** `client/src/components/media/VideoEditor/` — `VideoEditor.tsx` (native `<video>` preview + scrub + editable `IN`/`OUT` markers in `mm:ss.mmm` + SET IN/OUT from playhead; emits `onRegionChange` the host holds in a ref) and `VideoOpsPanel.tsx` (CLIP + re-encode toggle, CONVERT + format/resolution pickers, EXTRACT AUDIO + audio-format picker; POSTs `/api/media/op`, spinner + CANCEL, success path + REVEAL IN FILES via the `arco:reveal-in-files` event). Mirrors `AudioOpsPanel` one-for-one.
 
 **Honest constraint (load-bearing):** same as H6 — FFmpeg needs an **on-disk** source, so the video ops are enabled only for an on-disk (contextual) open; an **imported** video plays but disables the ops with an inline note. No blob upload this phase.
 
@@ -233,14 +233,14 @@ Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes
 `server/src/media/ffmpeg.ts::resolveMediaInput` / `resolveMediaOutputDir` replace the single `resolveWithinCwd` gate with **three tiers**, checked in order:
 
 1. **Inside the workflow cwd** → always allowed (the pre-N2 behavior, unchanged).
-2. **Inside Arco's media-scratch** (`~/.archon/media-scratch/`) → always allowed regardless of the setting — the operator put the file there through the upload endpoint.
+2. **Inside Arco's media-scratch** (`~/.arco/media-scratch/`) → always allowed regardless of the setting — the operator put the file there through the upload endpoint.
 3. **Anywhere else** → allowed **only** when `mediaUnconfined !== false` (Settings → Media; default open). Otherwise rejected with `code: 'bad-path'`.
 
-`unconfined: false` reproduces the pre-N2 fence **exactly** (cwd + scratch only), which is why the positional `runMediaOp(cwd, path, spec)` form the audio/video smokes use — no `opts` ⇒ `unconfined` defaults to `false` — still rejects `/etc/hosts` and `../../` escapes. The setting is read per-op from the cascade (`readSettings(cwd)`), so a project `.archon/settings.json` can pin it. **Default-open matters because Arco can be tunnelled** — the operator switches to CONFINED on an exposed instance.
+`unconfined: false` reproduces the pre-N2 fence **exactly** (cwd + scratch only), which is why the positional `runMediaOp(cwd, path, spec)` form the audio/video smokes use — no `opts` ⇒ `unconfined` defaults to `false` — still rejects `/etc/hosts` and `../../` escapes. The setting is read per-op from the cascade (`readSettings(cwd)`), so a project `.arco/settings.json` can pin it. **Default-open matters because Arco can be tunnelled** — the operator switches to CONFINED on an exposed instance.
 
 ### Scratch storage
 
-`server/src/media/scratch.ts` — `~/.archon/media-scratch/<uuid>/<sanitized-name>`. `saveScratchUpload` streams the request body to a fresh per-upload dir (so the write can't escape no matter what `?name=` contains), enforces a **per-upload byte cap** (4 GiB) mid-stream, and reaps on a **24h TTL** + a **total-size cap** (16 GiB, oldest evicted) after every upload. `isWithinScratch` is the read-side tier-2 gate. Scratch is disposable — the reaper clears it; the operator can delete the dir at any time.
+`server/src/media/scratch.ts` — `~/.arco/media-scratch/<uuid>/<sanitized-name>`. `saveScratchUpload` streams the request body to a fresh per-upload dir (so the write can't escape no matter what `?name=` contains), enforces a **per-upload byte cap** (4 GiB) mid-stream, and reaps on a **24h TTL** + a **total-size cap** (16 GiB, oldest evicted) after every upload. `isWithinScratch` is the read-side tier-2 gate. Scratch is disposable — the reaper clears it; the operator can delete the dir at any time.
 
 ### Output destination (save dialog)
 

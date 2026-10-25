@@ -208,9 +208,9 @@ export interface OllamaFitReport {
   fetchedAt: number;
 }
 
-// Operator-declared llama.cpp model entry. Lives in ~/.archon/llamacpp.json.
+// Operator-declared llama.cpp model entry. Lives in ~/.arco/llamacpp.json.
 // Unlike Ollama (which auto-discovers via /api/tags), llama-server takes one
-// model per process — the operator names each loadout up front so Archon's
+// model per process — the operator names each loadout up front so Arco's
 // lifecycle manager can spawn `llama-server` with the right -m / --mmproj /
 // -ngl flags on demand. Capabilities are operator-declared since llama-server
 // has no equivalent of /api/show.
@@ -245,7 +245,7 @@ export interface LlamacppModelDef {
 }
 
 // Live llama-server snapshot. Reports the binary version (cached at server
-// start since it doesn't change between Archon restarts) and the currently-
+// start since it doesn't change between Arco restarts) and the currently-
 // loaded model state from the lifecycle manager. Polled on the same cadence
 // as Ollama's live indicator and gated identically on enabledProviders +
 // auth probe success.
@@ -292,7 +292,7 @@ export interface CursorUsageEventRow {
   outputTokens: number;
   cacheReadTokens: number;
   // ACP sessionId of the turn that produced this event — lets us attribute
-  // spend to an Archon workflow. Absent for non-ACP (dashboard/IDE) turns.
+  // spend to an Arco workflow. Absent for non-ACP (dashboard/IDE) turns.
   conversationId?: string;
 }
 

@@ -1,11 +1,11 @@
-// ARCHON_OPS_PLAN.md §K5 — git worktrees per ledger task smoke.
+// ARCO_OPS_PLAN.md §K5 — git worktrees per ledger task smoke.
 //
 // Tests the MECHANISM directly (no WS, no server, no LLM): drives
 // project/taskWorktree.ts against a temp git repo and asserts the load-bearing
 // invariants:
 //
 //   1. createTaskWorktree spins a worktree under the MANAGED root (outside the
-//      user's tree), on an `archon/task/<id>` branch off HEAD; the dir exists,
+//      user's tree), on an `arco/task/<id>` branch off HEAD; the dir exists,
 //      `git worktree list` registers it, the branch exists.
 //   2. Idempotent: a second create returns the same path without error.
 //   3. The shadow-git checkpoint store works INSIDE the worktree (the plan's
@@ -44,15 +44,15 @@ async function main() {
   const cleanups: string[] = [];
   const wtRoots: string[] = [];
 
-  const repo = mkdtempSync(join(tmpdir(), 'archon-wt-git-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-wt-git-'));
   cleanups.push(repo);
   wtRoots.push(worktreesRoot(repo));
   const taskId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   const wfid = '11111111-2222-3333-4444-555555555555';
 
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   // Force a deterministic main branch name so the assertion is stable across
   // git defaults (init.defaultBranch may be main or master).
   git(repo, 'checkout', '-q', '-B', 'main');
@@ -65,14 +65,14 @@ async function main() {
   const statusBefore = git(repo, 'status', '--porcelain');
 
   let wtPath = '';
-  const expectedBranch = `archon/task/${taskId}`;
+  const expectedBranch = `arco/task/${taskId}`;
 
   await step('create: worktree lands under the managed root, on its own branch', async () => {
     const wt = await createTaskWorktree(repo, taskId);
     wtPath = wt.path;
     const root = worktreesRoot(repo);
     assert(wt.path === root || wt.path.startsWith(root + sep), `worktree path should be under ${root}, got ${wt.path}`);
-    assertEq(wt.branch, expectedBranch, 'branch should be archon/task/<taskId>');
+    assertEq(wt.branch, expectedBranch, 'branch should be arco/task/<taskId>');
     assertEq(wt.baseRef, headBefore, 'baseRef should be the HEAD it branched from');
     assert(existsSync(wtPath), `worktree dir should exist at ${wtPath}`);
     assert(existsSync(join(wtPath, 'tracked.txt')), 'worktree should contain the checked-out tree');
@@ -130,7 +130,7 @@ async function main() {
   });
 
   await step('error: createTaskWorktree on a non-repo throws not-a-repo', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'archon-wt-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'arco-wt-plain-'));
     cleanups.push(plain);
     let caught: unknown;
     try { await createTaskWorktree(plain, taskId); } catch (e) { caught = e; }
@@ -139,7 +139,7 @@ async function main() {
   });
 
   await step('error: createTaskWorktree with no commits throws no-commit', async () => {
-    const empty = mkdtempSync(join(tmpdir(), 'archon-wt-empty-'));
+    const empty = mkdtempSync(join(tmpdir(), 'arco-wt-empty-'));
     cleanups.push(empty);
     wtRoots.push(worktreesRoot(empty));
     git(empty, 'init', '-q');

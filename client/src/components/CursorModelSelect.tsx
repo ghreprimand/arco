@@ -23,7 +23,7 @@ import {
   CURSOR_EFFORT_LABELS,
   type CursorEffort,
   type CursorModelIndex,
-} from '@archon/shared';
+} from '@arco/shared';
 
 interface Props {
   value: string;                       // current catalog id (e.g. "claude-opus-4-8-high")

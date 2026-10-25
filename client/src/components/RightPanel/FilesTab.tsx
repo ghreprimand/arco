@@ -8,7 +8,7 @@ import { CompareRemotePanel } from '../diff/CompareRemotePanel';
 import { LiveChangesPanel } from '../diff/LiveChangesPanel';
 import { useAppStore } from '../../stores/appStore';
 import type { JobState } from '../../stores/appStore';
-import type { ClusterStatePayload, WorktreeInfo, WorktreeListResponse } from '@archon/shared';
+import type { ClusterStatePayload, WorktreeInfo, WorktreeListResponse } from '@arco/shared';
 
 export type FilesSubTab = 'files' | 'live' | 'changes' | 'source' | 'remote' | 'blast-radius' | 'sandbox';
 export type ClusterFilesSubTab = 'files' | 'live' | 'changes' | 'source' | 'remote';
@@ -358,7 +358,7 @@ function worktreeLabel(w: WorktreeInfo | undefined, path: string, rootLabel: str
 }
 
 // Worktree-aware git views. A worker (cluster member or solo) often edits inside
-// a git worktree — an Archon task worktree under ~/.archon/worktrees, or one it
+// a git worktree — an Arco task worktree under ~/.arco/worktrees, or one it
 // ran `git worktree add` for itself. Those edits never touch the shared checkout,
 // so watching `baseCwd` reads "clean" mid-work. This resolves the tree the worker
 // is actually editing (AUTO = its active-task worktree from the ledger) and lets

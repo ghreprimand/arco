@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ServerMessage, WorkflowConfig } from '@archon/shared';
+import type { ServerMessage, WorkflowConfig } from '@arco/shared';
 import { handleServerMessage, type WsDeps } from './handleServerMessage.js';
 import { useAppStore } from '../stores/appStore.js';
 

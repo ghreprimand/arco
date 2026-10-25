@@ -52,7 +52,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         grouped <C>CHANGING</C> / <C>NEW FILES</C> / <C>STAGED</C>, auto-polling
         (~1.2s) so an agent&apos;s edits surface as they land (freshly-touched
         rows flash a <C>LIVE</C> marker). Click a file to see its changed lines
-        highlighted inline. Arco&apos;s own <C>.archon</C> state files are
+        highlighted inline. Arco&apos;s own <C>.arco</C> state files are
         hidden; shows an empty state when the tree is clean or the cwd isn&apos;t
         a git repo.
       </p>
@@ -234,7 +234,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Handoff documents written when sessions in this tab were rotated. They
-        live forever in <C>.archon/workflows/&lt;wfid&gt;/handoffs/</C>. An
+        live forever in <C>.arco/workflows/&lt;wfid&gt;/handoffs/</C>. An
         in-flight handoff shows a <C>✕</C> on its <C>RUN…</C> row to cancel it
         (kills the worker and frees the tab) — hidden for Antigravity, whose RPC
         has no stop method.
@@ -276,7 +276,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           Nothing chooses or merges a winner automatically. <C>PROMOTE</C> is
           an explicit operator action: Arco refuses a dirty or moved source
           checkout, commits project changes on the candidate branch, excludes{' '}
-          <C>.archon</C> state, and performs a no-fast-forward merge. Cleanup
+          <C>.arco</C> state, and performs a no-fast-forward merge. Cleanup
           removes managed worktrees but preserves their branches.
         </p>
       </>
@@ -441,7 +441,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <p>
         Native-only. A per-turn cap on the Claude Native <C>web_search</C> +{' '}
         <C>web_fetch</C> server tools (the Anthropic <C>max_uses</C> parameter).
-        This is an <strong>Archon-set ceiling, not an Anthropic account limit</strong> —
+        This is an <strong>Arco-set ceiling, not an Anthropic account limit</strong> —
         it resets every turn, and when a turn exhausts it the model reports web
         access ran out. Default <C>15</C>; raise it for research-heavy tabs.
         Takes effect on the next turn. CLI Claude ignores this (it routes web
@@ -516,7 +516,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Whether this tab&apos;s repo may fold its own <C>CLAUDE.md</C>, project
-          skills (<C>.archon/skills</C>), and <C>.archon/settings.json</C> into
+          skills (<C>.arco/skills</C>), and <C>.arco/settings.json</C> into
           the model turn. Untrusted repos have those suppressed — a repo you
           clone can&apos;t inject instructions into your agent before you&apos;ve
           read them. The turn still runs either way.
@@ -527,7 +527,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           one-time composer prompt. Decisions are keyed by <em>directory</em>{' '}
           (nearest ancestor wins), so setting it here covers every tab and every
           cluster member pointed at the same cwd. Recorded in{' '}
-          <C>~/.archon/trust.json</C>; manage all of them at once in SETTINGS →
+          <C>~/.arco/trust.json</C>; manage all of them at once in SETTINGS →
           PROJECT TRUST.
         </p>
       </>
@@ -627,7 +627,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <>
         <p>
           The project task ledger — a durable, cwd-scoped task list that persists
-          across sessions, stored at <C>.archon/project/tasks.json</C>. Distinct
+          across sessions, stored at <C>.arco/project/tasks.json</C>. Distinct
           from PLAN (plan-scoped review) and TASKS (in-turn subagent children):
           the ledger is the cross-session backbone tasks attach to.
         </p>
@@ -663,7 +663,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <>
         <p>
           <C>ISOLATE</C> spins an isolated <C>git worktree</C> for this task — a
-          separate checkout on its own <C>archon/task/…</C> branch off the current
+          separate checkout on its own <C>arco/task/…</C> branch off the current
           HEAD — so parallel work on one repo doesn't collide. It lives under a
           managed path outside your project tree; shadow-git checkpoints work
           inside it and share the repo's object store.
@@ -846,7 +846,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Per-project knowledge base — durable facts, gotchas, and links stored as
-        markdown under <C>.archon/knowledge/</C>. Mark an article{' '}
+        markdown under <C>.arco/knowledge/</C>. Mark an article{' '}
         <em>always include</em> to fold it into every turn's system prompt
         (within a bounded byte budget); leave it on-demand to keep it readable
         here only. Articles are operator-authored or agent-drafted, but nothing
@@ -877,7 +877,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.knowledge.delete': {
     title: 'Delete article',
-    body: <p>Remove this article from the knowledge base (deletes its markdown file under <C>.archon/knowledge/</C>).</p>,
+    body: <p>Remove this article from the knowledge base (deletes its markdown file under <C>.arco/knowledge/</C>).</p>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.backlinks': {

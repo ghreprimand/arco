@@ -6,20 +6,20 @@ import type { IncomingMessage } from 'http';
 // Ports come from the launcher when present (which probes for free ports
 // before invoking npm run dev). Defaults match the historical hardcoded
 // values so `npm run dev` from a shell still works.
-const CLIENT_PORT = Number(process.env.ARCHON_CLIENT_PORT ?? 5173);
-const SERVER_PORT = Number(process.env.ARCHON_PORT ?? 3001);
+const CLIENT_PORT = Number(process.env.ARCO_CLIENT_PORT ?? 5173);
+const SERVER_PORT = Number(process.env.ARCO_PORT ?? 3001);
 const SERVER_TARGET = `http://localhost:${SERVER_PORT}`;
 
 // True when the request looks like a sub-resource fetched from inside a
 // Preview-tab iframe — the iframe URL is `/api/preview/<wfid>/`, so the
 // browser's Referer header points back to that path. We forward those to
-// the Archon server, which has the per-workflow port mapping in memory and
+// the Arco server, which has the per-workflow port mapping in memory and
 // already implements a Referer fallback (server/src/previewProxy.ts).
 //
 // Why this exists: the dev server's HTML uses absolute paths (Vite emits
 // `/src/main.tsx`, `/@vite/client`, etc.). The browser resolves those
-// against the iframe's origin = Archon's :5173, where Vite would otherwise
-// try to serve them out of Archon's own source tree (wrong file, wrong
+// against the iframe's origin = Arco's :5173, where Vite would otherwise
+// try to serve them out of Arco's own source tree (wrong file, wrong
 // MIME). The proxy short-circuits that for any request whose Referer
 // proves it came from the iframe.
 //
@@ -41,7 +41,7 @@ function blessPath(path: string | undefined, wfid: string): void {
   // Normalize off the query string — Vite's pre-bundled deps include `?v=hash`
   // versions and the Referer of their sub-imports does too, but `URL(ref).pathname`
   // (the lookup key) strips it. Without this, sub-chunks of `three.js?v=...`
-  // miss the bless map and leak to Archon's own Vite.
+  // miss the bless map and leak to Arco's own Vite.
   const pathname = path.split('?')[0];
   blessedPaths.set(pathname, { wfid, expireAt: Date.now() + BLESS_TTL_MS });
 }
@@ -63,13 +63,13 @@ function previewWfidForRequest(req: IncomingMessage): string | null {
   return lookupBlessedReferer(ref);
 }
 
-console.log('[archon-vite-preview] plugin loaded — preview-referer proxy active');
+console.log('[arco-vite-preview] plugin loaded — preview-referer proxy active');
 
 export default defineConfig({
   plugins: [
     react(),
     {
-      name: 'archon-ws-proxy',
+      name: 'arco-ws-proxy',
       configureServer(server) {
         // Create the WS proxy ONCE, at startup. The prior shape created a fresh
         // createProxyMiddleware on EVERY upgrade event and called `.upgrade()`
@@ -87,7 +87,7 @@ export default defineConfig({
           ws: true,
           changeOrigin: true,
         });
-        // Intercept WebSocket upgrades and proxy them to the Archon server.
+        // Intercept WebSocket upgrades and proxy them to the Arco server.
         // `/ws` = the main seq'd protocol; `/terminal` = the operator-PTY raw
         // stream (XtermView / K4 pop-out) — both must reach the server, else the
         // in-app terminal AND the pop-out are dead in the browser / over a 5173
@@ -100,7 +100,7 @@ export default defineConfig({
           const previewWfid = previewWfidForRequest(req);
           const wsPath = (req.url || '').split('?')[0];
           if (wsPath === '/ws' || wsPath === '/terminal' || previewWfid) {
-            if (previewWfid) console.log('[archon-vite-preview] WS upgrade wfid=', previewWfid, 'ref=', req.headers.referer);
+            if (previewWfid) console.log('[arco-vite-preview] WS upgrade wfid=', previewWfid, 'ref=', req.headers.referer);
             wsProxy.upgrade!(req, socket, head);
           }
         });
@@ -139,7 +139,7 @@ export default defineConfig({
           blessPath(req.url, wfid);
           const original = req.url || '/';
           (req as { url?: string }).url = `/api/preview/${wfid}${original}`;
-          console.log('[archon-vite-preview] PROXY', req.method, original, '→', req.url);
+          console.log('[arco-vite-preview] PROXY', req.method, original, '→', req.url);
           return undefined; // proceed with proxy
         },
       },

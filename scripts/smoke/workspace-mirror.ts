@@ -8,8 +8,8 @@
 //
 // Run against a NON-prod port (the smoke server writes workspace-3099.json,
 // never prod's workspace.json):
-//   ARCHON_WS_AUTH=off ARCHON_PORT=3099 npm run dev:server &
-//   ARCHON_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:workspace-mirror
+//   ARCO_WS_AUTH=off ARCO_PORT=3099 npm run dev:server &
+//   ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:workspace-mirror
 
 import { connect, step, assert, summary, type AnyMessage } from './lib.js';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -20,7 +20,7 @@ type Snap = { workflows: Array<{ workflowId: string; config: { name: string; pri
 const has = (m: AnyMessage, id: string) => ((m.workspace as Snap).workflows ?? []).some((w) => w.workflowId === id);
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-workspace-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-workspace-'));
   console.log(`workspace-mirror smoke — cwd ${cwd}\n`);
   const a = await connect();
   const b = await connect();

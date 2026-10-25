@@ -71,7 +71,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         </p>
         <p>
           LOCAL snapshots live on this computer. FILE exports produce a verified{' '}
-          <C>.archoncluster</C> bundle. CLOUD stores an encrypted copy on the
+          <C>.arcocluster</C> bundle. CLOUD stores an encrypted copy on the
           configured management hub.
         </p>
         <p>
@@ -113,7 +113,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>
           FILE downloads a regular-files-only, integrity-checked{' '}
-          <C>.archoncluster</C> bundle. IMPORT FILE verifies the complete bundle
+          <C>.arcocluster</C> bundle. IMPORT FILE verifies the complete bundle
           before adding it to LOCAL snapshots; malformed, truncated, or
           path-traversing bundles are rejected without writing a partial snapshot.
         </p>
@@ -137,7 +137,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         <p>
           Every computer needs the same vault key. Use COPY VAULT KEY on the
           source computer and SET VAULT KEY on the destination. The key is stored
-          locally at <C>~/.archon/cluster-vault.key</C> and is never uploaded.
+          locally at <C>~/.arco/cluster-vault.key</C> and is never uploaded.
         </p>
         <p>
           A same-name cloud save asks for confirmation and updates that cloud
@@ -312,7 +312,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           (<C>rate_capped</C> / <C>depth_capped</C> / <C>cooldown</C> /{' '}
           <C>recipient_busy</C>); fires emit the same event with{' '}
           <C>reason: mailbox_arrival</C>. All env-overridable via{' '}
-          <C>ARCHON_CLUSTER_AUTO_TURN_*</C>.
+          <C>ARCO_CLUSTER_AUTO_TURN_*</C>.
         </p>
         <p>
           <strong>Distinct from the idle nudger.</strong> The nudger is
@@ -1124,7 +1124,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Persists the current cluster plan body to a fresh
-        <C> .archon/plans/&lt;id&gt;.md</C> file. After saving, the plan shows
+        <C> .arco/plans/&lt;id&gt;.md</C> file. After saving, the plan shows
         up in other clusters / workflows in the same cwd and can be imported
         via the cluster PLAN tab&apos;s EXISTING PLANS list (or attached
         directly from a worker&apos;s PLAN tab). One-time snapshot — later
@@ -1137,7 +1137,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Import existing plan',
     body: (
       <p>
-        Copies a plan body from <C>.archon/plans/</C> into this cluster&apos;s
+        Copies a plan body from <C>.arco/plans/</C> into this cluster&apos;s
         shared plan via <C>cluster_plan_set</C>. One-way copy — subsequent
         cluster edits won&apos;t flow back to the source <C>.md</C> file. Use
         SAVE AS PLAN later if you want to round-trip the result.
@@ -1163,7 +1163,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         4 px col-resize splitter between the cluster member trio (grid +
         detail) and the right panel (Members / Mailbox / Plan / Activity /
         Reviews). Position persists per-browser to{' '}
-        <C>archon.clusterRightPanelWidth</C> in localStorage; range{' '}
+        <C>arco.clusterRightPanelWidth</C> in localStorage; range{' '}
         <C>0.18 – 0.5</C>.
       </p>
     ),
@@ -1174,7 +1174,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Per-member inbox depth. Backed by a budgeted file-per-message store at{' '}
-        <C>~/.archon/clusters/&lt;id&gt;/mailbox/&lt;wfid&gt;/</C>. Drains
+        <C>~/.arco/clusters/&lt;id&gt;/mailbox/&lt;wfid&gt;/</C>. Drains
         destroy the files; the durable record lives in each member's{' '}
         <C>events.jsonl</C>.
       </p>
@@ -1315,7 +1315,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Whether this cluster&apos;s repo may fold its own <C>CLAUDE.md</C>,
-          project skills, and <C>.archon/settings.json</C> into member turns.
+          project skills, and <C>.arco/settings.json</C> into member turns.
           Untrusted repos have those suppressed so a cloned repo can&apos;t
           inject instructions into your agents. Every member shares the
           cluster&apos;s cwd, so one click covers all of them.

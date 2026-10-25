@@ -268,7 +268,7 @@ The prompt asks for `## Recommendation` (model + quant), `## Configuration`
 (recommended context ≤ MAX CTX, expected t/s + mode, backend), `## Rationale`
 (grounded in the fit numbers, naming a runner-up), and `## Apply` — a ready-to-paste
 config block: a **llama.cpp catalog entry** (`{ alias, ggufPath, ctxSize, ngl,
-capabilities }` — the `~/.archon/llamacpp.json` "models" shape) for a HF/GGUF pick,
+capabilities }` — the `~/.arco/llamacpp.json` "models" shape) for a HF/GGUF pick,
 or an `ollama pull <model:tag>` line for an Ollama pick. Web search is allowed ONLY
 to confirm current facts about a candidate already in the set — never to discover
 models outside it.
@@ -342,7 +342,7 @@ shell string anywhere in `install.ts`** — the entire file is HTTP-`fetch` + `f
 
 ### Models dir + path confinement (load-bearing)
 
-HF weights land **only** in `~/.archon/models/` (created on demand). The target
+HF weights land **only** in `~/.arco/models/` (created on demand). The target
 filename is sanitized to a **basename** (`sanitizeModelFilename` rejects empty, a
 path separator `/`\\`, NUL, `.` / `..` / any `..` substring, a leading `-`, and a
 non-`.gguf` extension). The final write path is then `path.join`ed onto the models
@@ -387,7 +387,7 @@ weights (the only caller is the WS router's `cookbook_download_request` case).
 **Bounded** — one fetch, a hard cancel. **Visible** — start / progress / done /
 refused / cancelled all broadcast with the `workflowId`, so `send()` persists them
 to `events.jsonl` (audit trail; refusals logged too). **Reversible** — the operator
-deletes the file from `~/.archon/models/` and removes the catalog entry. **No
+deletes the file from `~/.arco/models/` and removes the catalog entry. **No
 API-billing surface** — HF + Ollama are keyless; weights are artifacts (not system
 packages, so the distribution packaging rule doesn't apply — but G4 surfaces
 size + free disk before pulling).
@@ -396,7 +396,7 @@ size + free disk before pulling).
 
 `scripts/smoke/cookbook-install.ts` (`npm run smoke:cookbook-install`) — pure
 import, NO network / server / WS, and it **never** touches the real
-`~/.archon/llamacpp.json` or `~/.archon/models/` (injected paths / fixtures).
+`~/.arco/llamacpp.json` or `~/.arco/models/` (injected paths / fixtures).
 Asserts: (a) `preflight` rejects an oversized pull and accepts one that fits; (b)
 the sanitizer rejects `../escape`, leading-dash, NUL, separators, `.` / `..`, and
 non-`.gguf`, and `resolveWithinModelsDir` confines a clean basename to the models

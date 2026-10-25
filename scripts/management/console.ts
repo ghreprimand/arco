@@ -1,11 +1,11 @@
-// archon-management §8 (K3) — the server-rendered mobile console.
+// arco-management §8 (K3) — the server-rendered mobile console.
 //
 // Server-rendered by the hub (operator decision 2026-06-03): the hub ships
 // static HTML + CSS + a little vanilla JS; the phone's browser does all the
 // rendering, so this is near-zero load on hub-host (no React bundle, no build
-// step). The look lifts Archon's ACTUAL theme tokens (client/src/styles/
+// step). The look lifts Arco's ACTUAL theme tokens (client/src/styles/
 // global.css) — phosphor-green-on-near-black terminal aesthetic, mono fonts,
-// sharp corners, hairline-green borders — so it reads as Archon, not an
+// sharp corners, hairline-green borders — so it reads as Arco, not an
 // approximation. See docs/REMOTE_MANAGEMENT.md §8 "visual bar".
 //
 // Mobile-first: one-handed, large tap targets (≥44px), no hover-only behavior,
@@ -13,7 +13,7 @@
 // SERVICE-LIFECYCLE layer (Home screen) — workflow reply/stop/continue screens
 // arrive once the workflow-reporting layer lands.
 
-// Archon theme tokens, lifted verbatim from client/src/styles/global.css so the
+// Arco theme tokens, lifted verbatim from client/src/styles/global.css so the
 // console matches the workbench rather than guessing.
 const THEME_CSS = `
 :root {
@@ -50,7 +50,7 @@ body {
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  /* faint phosphor vignette + scanlines for the Archon CRT feel */
+  /* faint phosphor vignette + scanlines for the Arco CRT feel */
   background-image:
     radial-gradient(120% 80% at 50% -10%, var(--color-accent-primary-glow), transparent 60%),
     repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px);
@@ -259,11 +259,11 @@ export function consoleJs(): string {
   // are the fixed allowlist; the hub signs + routes them.
   return `
 const LIFECYCLE = [
-  { cmd: 'archon.status',  label: 'Status' },
-  { cmd: 'archon.start',   label: 'Start' },
-  { cmd: 'archon.restart', label: 'Restart' },
-  { cmd: 'archon.stop',    label: 'Stop', danger: true },
-  { cmd: 'archon.logs.tail', label: 'Logs' },
+  { cmd: 'arco.status',  label: 'Status' },
+  { cmd: 'arco.start',   label: 'Start' },
+  { cmd: 'arco.restart', label: 'Restart' },
+  { cmd: 'arco.stop',    label: 'Stop', danger: true },
+  { cmd: 'arco.logs.tail', label: 'Logs' },
 ];
 const $ = (sel) => document.querySelector(sel);
 function ago(ms) {
@@ -426,7 +426,7 @@ function card(entry) {
   el.appendChild(actions);
   el.appendChild(out);
 
-  // ── workflow layer (only when the live Archon service is reporting) ──
+  // ── workflow layer (only when the live Arco service is reporting) ──
   // R3 — cluster members render grouped under their cluster card; standalone
   // workflows keep the flat Workflows section.
   const wfs = entry.workflows || [];
@@ -1125,7 +1125,7 @@ setInterval(refreshAndLink, 5000);
 }
 
 // Standalone read-only transcript page (opened in a new tab). Reuses the hub's
-// /console.css for the Archon theme, then its own conversation layout. Rendered
+// /console.css for the Arco theme, then its own conversation layout. Rendered
 // server-side from the turns the owning service reconstructed.
 export function transcriptHtml(
   title: string,
@@ -1322,7 +1322,7 @@ setInterval(poll, 4000);
 }
 
 // PWA manifest — turns Android Chrome's "Add to Home screen" into a standalone
-// install (no URL bar, Archon icon, dark splash). Tailnet-only; no offline SW.
+// install (no URL bar, Arco icon, dark splash). Tailnet-only; no offline SW.
 export function consoleManifest(): string {
   return JSON.stringify({
     name: 'Arco Management',

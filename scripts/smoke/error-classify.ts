@@ -9,7 +9,7 @@
 
 import { classifyError } from '../../server/src/providers/errorClassifier.js';
 import type { FailoverReason, FailoverAction } from '../../server/src/providers/errorClassifier.js';
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 
 let passes = 0;
 let fails = 0;

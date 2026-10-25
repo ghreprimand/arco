@@ -508,7 +508,7 @@ function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owne
             />
           </div>
         ) : (
-          <div className="archon-markdown" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', overflow: 'hidden' }}>
+          <div className="arco-markdown" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', overflow: 'hidden' }}>
             <Markdown value={'```' + lang + '\n' + decoded + '\n```'} />
           </div>
         )

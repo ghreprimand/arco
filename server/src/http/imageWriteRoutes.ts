@@ -1,7 +1,7 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { writeFile, stat, mkdir } from 'fs/promises';
 import { dirname, extname, relative } from 'path';
-import type { ImageWriteRequest, ImageWriteResult } from '@archon/shared';
+import type { ImageWriteRequest, ImageWriteResult } from '@arco/shared';
 import { boundCwdError, confineRealPath, resolveBoundCwd } from './writeConfinement.js';
 
 // ── Guarded raster-image WRITE endpoint (Workbench Expansion §H2 part 1) ──────

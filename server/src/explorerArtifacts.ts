@@ -1,10 +1,10 @@
 // ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — the ARTIFACTS join. Answers "what have
 // agents produced for me to review?" by aggregating workflow artifacts across
 // projects into a flat, attributed list — NEVER raw-browsing the opaque
-// `.archon/workflows/<uuid>/` tree (the overwhelming majority of those dirs are
+// `.arco/workflows/<uuid>/` tree (the overwhelming majority of those dirs are
 // empty; UUID folders are meaningless to a human).
 //
-// For each known cwd, glob `<cwd>/.archon/workflows/*/artifacts/**` with two
+// For each known cwd, glob `<cwd>/.arco/workflows/*/artifacts/**` with two
 // prunes that kill the noise: skip empty dirs (a recursive file walk naturally
 // yields nothing for them) and skip `raw-tools/` (gzipped filtered/evicted
 // tool-output spills — recovery data, not review material; see PERSISTENCE.md).
@@ -17,7 +17,7 @@
 import { readFile, readdir, realpath, stat } from 'fs/promises';
 import { basename, join, resolve, sep } from 'path';
 import { homedir } from 'os';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
 export interface ArtifactEntry {
   path: string;        // absolute, realpath-resolved, ⊆ $HOME
@@ -31,7 +31,7 @@ export interface ArtifactEntry {
   cwd: string;         // the owning project cwd (reveal-in-tree + attribution)
 }
 
-const KNOWN_CWDS = join(archonHome(), 'known-cwds.json');
+const KNOWN_CWDS = join(arcoHome(), 'known-cwds.json');
 // Defensive caps — artifact trees are shallow + small in practice, but a
 // pathological or symlink-looped tree must not hang the request.
 const MAX_DEPTH = 8;
@@ -67,7 +67,7 @@ export async function readKnownCwds(): Promise<string[]> {
 async function readWorkflowMeta(cwd: string, wfid: string): Promise<{ tabTitle: string; provider: string }> {
   const fallback = { tabTitle: wfid.slice(0, 8), provider: 'unknown' };
   try {
-    const raw = await readFile(join(cwd, '.archon', 'workflows', wfid, 'meta.json'), 'utf8');
+    const raw = await readFile(join(cwd, '.arco', 'workflows', wfid, 'meta.json'), 'utf8');
     const meta = JSON.parse(raw) as { name?: string; primaryProvider?: string };
     return {
       tabTitle: meta.name && meta.name.trim().length > 0 ? meta.name.trim() : fallback.tabTitle,
@@ -103,7 +103,7 @@ async function walkArtifactFiles(dir: string, depth: number, out: string[]): Pro
 // workflow's artifacts/, joins meta.json.
 async function collectForCwd(cwd: string): Promise<ArtifactEntry[]> {
   const project = basename(cwd);
-  const workflowsDir = join(cwd, '.archon', 'workflows');
+  const workflowsDir = join(cwd, '.arco', 'workflows');
   let wfdirs;
   try {
     wfdirs = await readdir(workflowsDir, { withFileTypes: true });

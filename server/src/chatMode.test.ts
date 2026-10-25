@@ -51,7 +51,7 @@ test('chat web access defaults on for saved chats, off for incognito and tool-le
 
 test('Ollama Chat gets only the armed web pair and executes it without Agent AUTO', () => {
   const base = {
-    cwd: '/tmp/archon-chat-test', interactionMode: 'chat' as const,
+    cwd: '/tmp/arco-chat-test', interactionMode: 'chat' as const,
     skipPermissions: false,
   };
   assert.equal(ollamaToolCandidates({ ...base, chatWebAccess: false }), undefined);
@@ -70,7 +70,7 @@ test('Ollama Chat gets only the armed web pair and executes it without Agent AUT
 });
 
 test('chat web arming reaches each provider transport as an explicit flag', () => {
-  const base = { model: 'test-model', effort: 'medium' as const, interactionMode: 'chat' as const, cwd: '/tmp/archon-chat-test' };
+  const base = { model: 'test-model', effort: 'medium' as const, interactionMode: 'chat' as const, cwd: '/tmp/arco-chat-test' };
   const armed = ClaudeProvider.create('chat-claude-web', { ...base, provider: 'claude', chatWebAccess: true }) as unknown as { buildArgs(): string[] };
   const armedArgs = armed.buildArgs();
   assert.equal(armedArgs[armedArgs.indexOf('--tools') + 1], 'WebSearch,WebFetch');
@@ -88,14 +88,14 @@ test('strict incognito suppresses async operational logs and delayed id-bearing 
     assert.equal(shouldSuppressOperationalLog('provider emitted a generic error'), true);
   });
   registerPrivateLogToken('12345678-private-workflow');
-  assert.equal(shouldSuppressOperationalLog('[archon] 12345678-private-workflow settled'), true);
-  assert.equal(shouldSuppressOperationalLog('[archon] 12345678 removed'), true);
+  assert.equal(shouldSuppressOperationalLog('[arco] 12345678-private-workflow settled'), true);
+  assert.equal(shouldSuppressOperationalLog('[arco] 12345678 removed'), true);
 });
 
 test('chat storage is isolated from a project and mode survives meta rehydrate', () => {
   const id = '12345678-1234-1234-1234-123456789abc';
   const cwd = chatStorageDir(id);
-  assert.match(cwd, /\.archon[\\/]chats[\\/]12345678-/);
+  assert.match(cwd, /\.arco[\\/]chats[\\/]12345678-/);
   const meta: WorkflowMeta = {
     workflowId: id, name: 'Chat', cwd, kind: 'chat', createdAt: 1, lastActiveAt: 1,
     primaryProvider: 'ollama', primaryModel: 'local', primaryEffort: 'medium',
@@ -108,7 +108,7 @@ test('chat storage is isolated from a project and mode survives meta rehydrate',
 });
 
 test('CLI chat workers keep the no-project boundary in their argv', () => {
-  const base = { model: 'test-model', effort: 'medium' as const, interactionMode: 'chat' as const, cwd: '/tmp/archon-chat-test' };
+  const base = { model: 'test-model', effort: 'medium' as const, interactionMode: 'chat' as const, cwd: '/tmp/arco-chat-test' };
   const claude = ClaudeProvider.create('chat-claude', { ...base, provider: 'claude' }) as unknown as { buildArgs(): string[] };
   const claudeArgs = claude.buildArgs();
   const toolsAt = claudeArgs.indexOf('--tools');
@@ -149,22 +149,22 @@ test('incognito CLI workers disable provider session persistence', () => {
 });
 
 test('saved Chat index reconstructs reopen config and ignores non-Chat meta', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'archon-chat-index-'));
+  const root = await mkdtemp(join(tmpdir(), 'arco-chat-index-'));
   const chatId = 'aaaaaaaa-1234-1234-1234-123456789abc';
   const workflowId = 'bbbbbbbb-1234-1234-1234-123456789abc';
   try {
     const chatCwd = join(root, chatId);
     const workflowCwd = join(root, workflowId);
-    await mkdir(join(chatCwd, '.archon', 'workflows', chatId), { recursive: true });
-    await mkdir(join(workflowCwd, '.archon', 'workflows', workflowId), { recursive: true });
+    await mkdir(join(chatCwd, '.arco', 'workflows', chatId), { recursive: true });
+    await mkdir(join(workflowCwd, '.arco', 'workflows', workflowId), { recursive: true });
     const baseMeta = {
       name: 'Saved chat', createdAt: 1, lastActiveAt: 2,
       primaryProvider: 'codex', primaryModel: 'gpt-test', primaryEffort: 'high',
       codexTransport: 'exec', cliSessions: [], operator: 'local',
       lastEventSeq: null, lastTranscriptSeq: null, compactedAt: null,
     };
-    await writeFile(join(chatCwd, '.archon', 'workflows', chatId, 'meta.json'), JSON.stringify({ ...baseMeta, workflowId: chatId, cwd: chatCwd, kind: 'chat' }));
-    await writeFile(join(workflowCwd, '.archon', 'workflows', workflowId, 'meta.json'), JSON.stringify({ ...baseMeta, workflowId, cwd: workflowCwd }));
+    await writeFile(join(chatCwd, '.arco', 'workflows', chatId, 'meta.json'), JSON.stringify({ ...baseMeta, workflowId: chatId, cwd: chatCwd, kind: 'chat' }));
+    await writeFile(join(workflowCwd, '.arco', 'workflows', workflowId, 'meta.json'), JSON.stringify({ ...baseMeta, workflowId, cwd: workflowCwd }));
 
     const chats = await listSavedChats(root);
     assert.equal(chats.length, 1);

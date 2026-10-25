@@ -10,8 +10,8 @@ ServerMessage,
 SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
-} from '@archon/shared';
-import { type WorkflowSessionMetadata, zaiModelContextWindow } from '@archon/shared';
+} from '@arco/shared';
+import { type WorkflowSessionMetadata, zaiModelContextWindow } from '@arco/shared';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
@@ -126,7 +126,7 @@ const PUBLIC_REPO_SAFETY_SYSTEM_BLOCK = [
 export interface TurnEngineDeps {
   previewAutoDetect: PreviewAutoDetect;
   handleCreateWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<void>;
-  handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@archon/shared').HandoffRequestMessage) => Promise<void>;
+  handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@arco/shared').HandoffRequestMessage) => Promise<void>;
 }
 let deps: TurnEngineDeps;
 export function initTurnEngine(d: TurnEngineDeps): void { deps = d; }
@@ -153,7 +153,7 @@ export function extractFilePath(tool: string, input: unknown): string | undefine
 }
 
 export function stripSafetyReminder(text: string): string {
-  const marker = '[Archon safety reminders';
+  const marker = '[Arco safety reminders';
   const markerIdx = text.indexOf(marker);
   if (markerIdx === -1) return text;
   const before = text.slice(0, markerIdx).trimEnd();
@@ -185,7 +185,7 @@ export function toSessionEntries(raw: SessionJsonlEntry): SessionEntryPayload[] 
   // phantom bubbles over real answers.
   if (raw.type === 'assistant' && raw.message?.model === '<synthetic>') return [];
   // Skip slash-command echoes. When a resumed `claude --print "/<cmd>"` runs
-  // (e.g. Archon's /context calibration), Claude writes three rows into the
+  // (e.g. Arco's /context calibration), Claude writes three rows into the
   // session JSONL: a `<local-command-caveat>` user turn with isMeta:true, a
   // `<command-name>` user turn (no isMeta flag), and a `system` row holding
   // the command's stdout. The system row is already dropped by the type check
@@ -356,9 +356,9 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
     } else {
       dispose(); // workflow gone — clean up immediately
     }
-    console.log(`[archon] [${workflowId.slice(0, 8)}] session watcher started (${tail.length} emitted / ${earlier.length} deferred / ${entries.length} total, ${byteLength}B)`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] session watcher started (${tail.length} emitted / ${earlier.length} deferred / ${entries.length} total, ${byteLength}B)`);
   }).catch((err) => {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] session watcher init failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] session watcher init failed:`, err);
   });
 }
 
@@ -431,7 +431,7 @@ export function sessionMetadataForWorkflow(wf: WorkflowState): WorkflowSessionMe
     sessionKind: 'antigravity-cascade',
     ...(wf.primarySessionId ? { cascadeId: wf.primarySessionId } : {}),
     opaqueContext: true,
-    archonAutoCompact: false,
+    arcoAutoCompact: false,
     contextLabel: 'Antigravity-managed',
   };
 }
@@ -523,7 +523,7 @@ async function migrateLegacyClaudeNativeCompact(cwd: string, workflowId: string,
     workflowId,
     content: '[claude] Disabled legacy Anthropic server-side compaction for this workflow. Use Arco COMPACT/HANDOFF instead, or re-enable it in CONFIG if you explicitly want Anthropic compact_20260112.',
   });
-  console.log(`[archon] [${workflowId.slice(0, 8)}] migrated legacy claude.native.compact true → false`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] migrated legacy claude.native.compact true → false`);
 }
 
 // Return any open WebSocket observing workflowId — used as the `ws` argument
@@ -615,7 +615,7 @@ export async function drainQueueIfIdle(workflowId: string): Promise<boolean> {
   try {
     await handleUserMessage(obs, session, workflowId, '', undefined, undefined, false, undefined, undefined, undefined, { fromQueue: true });
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] queue drain dispatch failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] queue drain dispatch failed:`, err);
   }
   return true;
 }
@@ -640,7 +640,7 @@ export function disarmGoalRun(workflowId: string, wf: WorkflowState, why: string
   });
   broadcastWorkflow(workflowId, { type: 'goal_run_state', workflowId, ...snapshotGoalRun(state) });
   delete wf.config.goalRun;
-  if (!wf.config.incognito) console.log(`[archon] [${workflowId.slice(0, 8)}] goal run disarmed (${why}) after ${spent}/${state.total}`);
+  if (!wf.config.incognito) console.log(`[arco] [${workflowId.slice(0, 8)}] goal run disarmed (${why}) after ${spent}/${state.total}`);
 }
 
 // §2.1 — minimum bytes a fold must reclaim to count as "productive". Below this
@@ -699,7 +699,7 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   broadcastTransient(workflowId, { type: 'primary_turn_ended', workflowId, endedAt: Date.now() });
 
   if (!res.ok) {
-    console.warn(`[archon] [${workflowId.slice(0, 8)}] auto-fold failed: ${res.error}`);
+    console.warn(`[arco] [${workflowId.slice(0, 8)}] auto-fold failed: ${res.error}`);
     return false;
   }
   // Anti-thrash (delta 2): productive fold resets the counter; an ineffective
@@ -718,7 +718,7 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
       content: `[AUTO-FOLD] Context budget at ${pct}% — folded older history into a deterministic digest${kb}. Same session continues.`,
     });
   }
-  console.log(`[archon] [${workflowId.slice(0, 8)}] auto-fold fired at ${pct}% budget, byteDelta=${res.byteDelta ?? 0}`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] auto-fold fired at ${pct}% budget, byteDelta=${res.byteDelta ?? 0}`);
   return true;
 }
 
@@ -756,7 +756,7 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
         content: `[CONTEXT] ${percentOfWindow}% — handoff recommended. Auto-handoff at ${ah.autoAt}%.`,
       });
     }
-    console.log(`[archon] [${workflowId.slice(0, 8)}] context warning: ${percentOfWindow}% >= ${ah.warnAt}%`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] context warning: ${percentOfWindow}% >= ${ah.warnAt}%`);
   }
 
   // Auto-handoff
@@ -764,10 +764,10 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
     ah.autoFired = true;
     const obs = anyObserver(workflowId);
     if (!obs) {
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] auto-handoff: no observer to broadcast on`);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: no observer to broadcast on`);
       return;
     }
-    console.log(`[archon] [${workflowId.slice(0, 8)}] auto-handoff: context at ${percentOfWindow}%, firing`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: context at ${percentOfWindow}%, firing`);
     send(obs, {
       type: 'system_notice',
       workflowId,
@@ -788,7 +788,7 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
       wf.autoHandoff.mode
       ?? cascade?.autoHandoffDefaults?.mode
       ?? 'original-worker';
-    const synthMsg: import('@archon/shared').HandoffRequestMessage = {
+    const synthMsg: import('@arco/shared').HandoffRequestMessage = {
       type: 'handoff_request',
       workflowId,
       mode,
@@ -810,7 +810,7 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
       const dummySession: Session = sessions.get(obs) ?? { id: 'auto', workflowIds: new Set([workflowId]), clusterIds: new Set(), clusterObserved: new Map() };
       await deps.handleHandoffRequest(obs, dummySession, synthMsg);
     } catch (err) {
-      console.error(`[archon] [${workflowId.slice(0, 8)}] auto-handoff failed:`, err);
+      console.error(`[arco] [${workflowId.slice(0, 8)}] auto-handoff failed:`, err);
       const obs2 = anyObserver(workflowId);
       if (obs2) {
         send(obs2, {
@@ -914,13 +914,13 @@ export async function maybeAutoCompactNative(
         content: `[CONTEXT] ${percent}% — Native auto-compaction at ${compactAt}% (${mode}).`,
       });
     }
-    console.log(`[archon] [${workflowId.slice(0, 8)}] native auto-compact warning: ${percent}% >= ${warnAt}%`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] native auto-compact warning: ${percent}% >= ${warnAt}%`);
   }
 
   // Compact.
   if (percent >= compactAt && !wf.autoCompactFired) {
     wf.autoCompactFired = true;
-    console.log(`[archon] [${workflowId.slice(0, 8)}] native auto-compact: context at ${percent}%, firing (${mode}, threshold ${compactAt}%)`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] native auto-compact: context at ${percent}%, firing (${mode}, threshold ${compactAt}%)`);
     broadcastWorkflow(workflowId, {
       type: 'system_notice',
       workflowId,
@@ -987,7 +987,7 @@ export async function maybeAutoCompactNative(
       // turn. Kept behind the flag: between-turn compaction ends the turn, so
       // auto-continuing is autonomous continuation (CLAUDE.md autonomy fence).
       if (wf.config.nativeCompactAutoContinue === true && ws && session) {
-        console.log(`[archon] [${workflowId.slice(0, 8)}] native auto-compact: auto-continue armed — dispatching continuance turn`);
+        console.log(`[arco] [${workflowId.slice(0, 8)}] native auto-compact: auto-continue armed — dispatching continuance turn`);
         await maybeAutoContinueAfterCompact(workflowId, ws, session);
       }
     } else {
@@ -1022,7 +1022,7 @@ export async function maybeAutoContinueAfterCompact(
   try {
     await handleUserMessage(ws, session, workflowId, COMPACT_CONTINUE_PROMPT, undefined, undefined, false, undefined, undefined);
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] auto-continue dispatch failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] auto-continue dispatch failed:`, err);
   }
 }
 
@@ -1080,7 +1080,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
   const zone = highestUncalibratedZoneCrossed(fromPercent, currentPercent, cal.zonesCalibrated);
   if (!zone) return;
 
-  console.log(`[archon] [${workflowId.slice(0, 8)}] calibrating zone ${zone} at ${currentPercent}%`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] calibrating zone ${zone} at ${currentPercent}%`);
 
   let result: import('../contextCalibrator.js').CalibrationResult | null = null;
   try {
@@ -1088,12 +1088,12 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
       wf.cancelCalibration = cancelFn;
     });
   } catch (err) {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] calibration error:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] calibration error:`, err);
   }
   wf.cancelCalibration = undefined;
 
   if (!result) {
-    console.warn(`[archon] [${workflowId.slice(0, 8)}] calibration zone ${zone} failed or was cancelled`);
+    console.warn(`[arco] [${workflowId.slice(0, 8)}] calibration zone ${zone} failed or was cancelled`);
     return;
   }
 
@@ -1106,11 +1106,11 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
   // Persist so server restarts don't drop back to the byte-count heuristic.
   // Best-effort — a failed write just means the next restart recalibrates.
   writeCalibrationToMeta(cwd, workflowId, cal.ratio, cal.overhead, cal.lastGroundTruth).catch((err) => {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] calibration meta write failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] calibration meta write failed:`, err);
   });
 
   console.log(
-    `[archon] [${workflowId.slice(0, 8)}] calibration zone ${zone} complete:` +
+    `[arco] [${workflowId.slice(0, 8)}] calibration zone ${zone} complete:` +
     ` ratio=${result.ratio.toFixed(2)} B/T, overhead=${result.overhead},` +
     ` ground-truth total=${result.groundTruthTotalTokens}, messages=${result.groundTruthMessagesTokens}`,
   );
@@ -1134,7 +1134,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
 // this workflow" and getting a confident "Plan attached" that attached nothing.
 // The capability was always there (`POST /api/plans` with `attach:true`), just
 // undiscoverable: only Claude Native's EnterPlanMode reaches it via a tool, so
-// every other transport had to guess that Archon has a local HTTP API and
+// every other transport had to guess that Arco has a local HTTP API and
 // reverse-engineer the route with curl + jq. One worker eventually got there
 // after several turns; another wrote a markdown file into its artifacts dir and
 // reported success. Neither outcome is the model's fault — nothing told it.
@@ -1164,7 +1164,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
 function planAuthoringNote(cwd: string, workflowId: string): string {
   return (
     `[No project plan is attached to this Arco workflow. If asked to create/attach one, do NOT just write a ` +
-    `markdown file — a loose file is invisible to Arco. Prefer the \`plan_create\` tool (MCP server \`archon\`) ` +
+    `markdown file — a loose file is invisible to Arco. Prefer the \`plan_create\` tool (MCP server \`arco\`) ` +
     `if you have it — one call, title + body, creates and attaches. Otherwise write the body to a scratch file, then POST it (this ` +
     `two-step avoids hand-escaping markdown into JSON): ` +
     `jq -n --rawfile body /tmp/plan.md --arg t 'Plan title' '{title:$t,body:$body,workflowId:"${workflowId}",attach:true}' ` +
@@ -1176,7 +1176,7 @@ function planAuthoringNote(cwd: string, workflowId: string): string {
     `top-level \`- [ ] task\` checkbox line (indent subtasks under it). A plan without checkboxes parses to zero ` +
     `reviewable items. An Arco plan has two parts: a lean checklist (one or two lines per task) and its reference ` +
     `docs, which hold the specs/research/design detail. After creating the plan, write each doc with \`plan_ref_write\` ` +
-    `(or as files at .archon/plans/<planId>.refs/<slug>.md — not loose design files elsewhere in the repo) and link it ` +
+    `(or as files at .arco/plans/<planId>.refs/<slug>.md — not loose design files elsewhere in the repo) and link it ` +
     `from every task that depends on it as \`[label](ref:slug)\`; whoever works that task reads the linked ref first. ` +
     `Don't create a plan unless asked.]\n\n`
   );
@@ -1227,11 +1227,11 @@ export async function buildPlanPrefix(
   // the agent should re-read for fresh content.
   let header: string;
   if (isFirstAttach) {
-    header = `[Active project plan: "${plan.title}" — newly attached. Read the brief at .archon/plans/${plan.id}.md to orient.${refsNote} ${livingDocNote}]\n\n`;
+    header = `[Active project plan: "${plan.title}" — newly attached. Read the brief at .arco/plans/${plan.id}.md to orient.${refsNote} ${livingDocNote}]\n\n`;
   } else if (wasEdited) {
-    header = `[Active project plan: "${plan.title}" — edited since last turn. Re-read .archon/plans/${plan.id}.md if you need the current state.${refsNote} ${livingDocNote}]\n\n`;
+    header = `[Active project plan: "${plan.title}" — edited since last turn. Re-read .arco/plans/${plan.id}.md if you need the current state.${refsNote} ${livingDocNote}]\n\n`;
   } else {
-    header = `[Active project plan: "${plan.title}" — file: .archon/plans/${plan.id}.md.${refsNote} ${livingDocNote}]\n\n`;
+    header = `[Active project plan: "${plan.title}" — file: .arco/plans/${plan.id}.md.${refsNote} ${livingDocNote}]\n\n`;
   }
   // Bump lastSeen so the next turn sees the stable form unless there's
   // another edit between now and then. Best-effort — a meta write failure
@@ -1303,7 +1303,7 @@ export function drainSteerForWorker(workflowId: string, ws: WebSocket): SteerIte
       drainedAt: Date.now(),
     });
   }
-  console.log(`[archon] [${workflowId.slice(0, 8)}] mid-turn steer drained (${drained.length} item${drained.length === 1 ? '' : 's'}; follow-up bucket untouched)`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] mid-turn steer drained (${drained.length} item${drained.length === 1 ? '' : 's'}; follow-up bucket untouched)`);
   return drained.map((d) => ({
     // §D1 — mid-turn steer is delivered as a single `content` string through
     // the provider steer APIs (SteerItem has no separate context block), so a
@@ -1353,7 +1353,7 @@ export function requeueSteerForWorker(
   // is preferable to flicker-restoring it; the queue strip is the source of
   // truth for "items waiting" and the re-broadcast above repopulates it.
   console.log(
-    `[archon] [${workflowId.slice(0, 8)}] mid-turn steer re-queued (bucket=${bucket}, items=${items.length})`,
+    `[arco] [${workflowId.slice(0, 8)}] mid-turn steer re-queued (bucket=${bucket}, items=${items.length})`,
   );
   // ws is unused today (no per-originator notification); keep the parameter
   // for parity with drainSteerForWorker so future per-tab signaling can wire
@@ -1554,7 +1554,7 @@ export async function handleUserMessage(
   // context-refs + before any echo/record) so events.jsonl carries the expanded
   // turn, and so `@`-refs inside an expanded template still expand below. A
   // project-scope template is gated behind DD7 trust (key on the raw decision —
-  // a cloned repo's `.archon/prompts/*.md` is an injection vector). No matching
+  // a cloned repo's `.arco/prompts/*.md` is an injection vector). No matching
   // template ⇒ the text passes through untouched as a normal turn.
   if (projectContextEnabled && !fromQueue) {
     const invocation = parsePromptInvocation(content);
@@ -1564,7 +1564,7 @@ export async function handleUserMessage(
       ).catch(() => 'ask' as const);
       const includeProject = trustStatus === 'always';
       const expanded = await expandPromptCommand(invocation.name, invocation.argsRaw, cwd, { includeProject }).catch((err) => {
-        console.error(`[archon] [${workflowId.slice(0, 8)}] prompt-command expansion failed:`, err);
+        console.error(`[arco] [${workflowId.slice(0, 8)}] prompt-command expansion failed:`, err);
         return null;
       });
       if (expanded) {
@@ -1597,7 +1597,7 @@ export async function handleUserMessage(
   const contextExpansion = !projectContextEnabled || fromQueue
     ? { block: '', notices: [], expandedCount: 0 }
     : await expandContextRefs(cwd, content, { windowSize: lookupCtx(wf.primary.model) }).catch((err) => {
-    console.error(`[archon] [${workflowId.slice(0, 8)}] context-ref expansion failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] context-ref expansion failed:`, err);
     return { block: '', notices: [], expandedCount: 0 };
   });
   if (contextExpansion.notices.length > 0) {
@@ -1631,7 +1631,7 @@ export async function handleUserMessage(
     if (!interjection) {
       // Non-interjection arriving while busy is a client bug (didn't tag it),
       // but we still queue rather than error — drops fewer operator messages.
-      console.warn(`[archon] [${workflowId.slice(0, 8)}] user_message while busy without interjection flag — queuing anyway`);
+      console.warn(`[arco] [${workflowId.slice(0, 8)}] user_message while busy without interjection flag — queuing anyway`);
     }
     const bucket: 'steer' | 'follow-up' = isComputerBackgroundClaim(workflowId) ? 'follow-up' : kind ?? 'follow-up';
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
@@ -1647,7 +1647,7 @@ export async function handleUserMessage(
     });
     broadcastQueueUpdate(workflowId);
     console.log(
-      `[archon] [${workflowId.slice(0, 8)}] queued as ${bucket} (depth: steer=${wf.queue.steering.length}, follow-up=${wf.queue.followUp.length})`,
+      `[arco] [${workflowId.slice(0, 8)}] queued as ${bucket} (depth: steer=${wf.queue.steering.length}, follow-up=${wf.queue.followUp.length})`,
     );
     return;
   }
@@ -1655,7 +1655,7 @@ export async function handleUserMessage(
   // Refuse the turn if a native `claude --resume` terminal has written to
   // this session JSONL recently. Two concurrent writers corrupt session
   // state — the JSONL interleaves sdk-cli and cli entries, the model sees
-  // synthetic "Continue from where you left off" turns, and Archon's chat
+  // synthetic "Continue from where you left off" turns, and Arco's chat
   // drifts from the CLI's internal state. The block clears itself
   // FOREIGN_WRITE_BLOCK_MS after the last foreign write (i.e. ~60s after
   // the operator closes the native terminal), without needing explicit
@@ -1695,7 +1695,7 @@ export async function handleUserMessage(
   if (fromQueue) {
     const drained = [...wf.queue.steering.splice(0), ...wf.queue.followUp.splice(0)];
     if (drained.length === 0) return;
-    if (!incognito) console.log(`[archon] [${workflowId.slice(0, 8)}] idle drain: flushing ${drained.length} queued message(s) as a fresh turn`);
+    if (!incognito) console.log(`[arco] [${workflowId.slice(0, 8)}] idle drain: flushing ${drained.length} queued message(s) as a fresh turn`);
     broadcastQueueUpdate(workflowId);
     const drainedClientIds = drained
       .map((d) => d.clientMessageId)
@@ -1769,7 +1769,7 @@ export async function handleUserMessage(
     ).catch((err) => {
     // Fail SAFE: on any gate error, suppress project resources rather than
     // leaking an unvetted repo's instructions into the turn.
-    console.error(`[archon] [${workflowId.slice(0, 8)}] project-trust gate failed; suppressing project resources:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] project-trust gate failed; suppressing project resources:`, err);
     return { includeProject: false, needsPrompt: false, status: 'ask' as const, resources: [] };
   });
   const includeProject = trustGate.includeProject;
@@ -1947,7 +1947,7 @@ export async function handleUserMessage(
     : 'off';
   // OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Honored by
   // Claude Native and by Codex app-server providers (including Z.ai). Other
-  // transports ignore it because Archon has no stable per-turn prompt-prefix
+  // transports ignore it because Arco has no stable per-turn prompt-prefix
   // insertion point there.
   // Default `normal` (no addendum, status quo). Plan §6 hard exclusion:
   // in-tab DOCS / GIT one-off composer dispatches force normal even when
@@ -1981,7 +1981,7 @@ export async function handleUserMessage(
 
   try {
     while (true) {
-      console.log(`[archon] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
 
       // Peer mailbox: don't auto-drain pre-turn. Just count what's pending and
       // surface a short notice so the worker knows it has peer mail and reads
@@ -1994,7 +1994,7 @@ export async function handleUserMessage(
       // Phrase the notice as INTENT ("read them now with the peer_read tool"),
       // not as the imperative "Call the `peer_read` tool…". Incident: the old
       // backtick-wrapped imperative was occasionally PARROTED back by the model
-      // as literal text (`<invoke name="peer_read">` under ARCHON ::
+      // as literal text (`<invoke name="peer_read">` under ARCO ::
       // PASSTHROUGH) instead of issuing a real tool_use — so the mailbox never
       // drained and the operator had to re-nudge. This notice fires on every
       // pending-mail turn (nudge or not), so it's the shared trigger; the
@@ -2047,7 +2047,7 @@ export async function handleUserMessage(
             meta.lastActiveAt = Date.now();
             meta.lastUserPreview = preview;
           }).catch((err) => {
-            console.warn(`[archon] [${workflowId.slice(0, 8)}] Chat activity meta write failed:`, err);
+            console.warn(`[arco] [${workflowId.slice(0, 8)}] Chat activity meta write failed:`, err);
           });
         }
       }
@@ -2107,7 +2107,7 @@ export async function handleUserMessage(
               : [...events];
           })()
         : null;
-      // Phase 1 — Archon-managed skills. Scan project + global skill
+      // Phase 1 — Arco-managed skills. Scan project + global skill
       // directories on every turn (cheap — small dir count, single SKILL.md
       // read each), build the XML manifest, and route it to wherever the
       // provider's system prompt actually lives. Manifest holds only name +
@@ -2125,7 +2125,7 @@ export async function handleUserMessage(
           global: catalog.global.filter((s) => !pinnedKeys.has(`global:${s.slug}`)),
         });
       } catch (err) {
-        console.error(`[archon] [${workflowId.slice(0, 8)}] skills scan failed:`, err);
+        console.error(`[arco] [${workflowId.slice(0, 8)}] skills scan failed:`, err);
       }
       if (wf.primary.provider === 'ollama') {
         primarySystemPrompt = chatMode ? chatSystemPrompt(chatWeb) : OLLAMA_PRIMARY_SYSTEM_PROMPT;
@@ -2147,7 +2147,7 @@ export async function handleUserMessage(
           const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: !chatMode })).trim();
           if (rendered) primaryAppendSystemPrompt = rendered;
         } catch (err) {
-          console.error(`[archon] [${workflowId.slice(0, 8)}] ollama transcript build failed:`, err);
+          console.error(`[arco] [${workflowId.slice(0, 8)}] ollama transcript build failed:`, err);
         }
       } else if (wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek') || (chatMode && wf.primary.provider === 'cursor')) {
         // M13 — LM Studio reuses llama.cpp's transcript-rebuild path verbatim:
@@ -2186,7 +2186,7 @@ export async function handleUserMessage(
           const combined = parts.join('\n\n').trim();
           if (combined) primaryAppendSystemPrompt = combined;
         } catch (err) {
-          console.error(`[archon] [${workflowId.slice(0, 8)}] ${wf.primary.provider} transcript build failed:`, err);
+          console.error(`[arco] [${workflowId.slice(0, 8)}] ${wf.primary.provider} transcript build failed:`, err);
         }
       } else if (incognito
           && ((wf.primary.provider === 'claude' && claudeTransport !== 'native')
@@ -2221,7 +2221,7 @@ export async function handleUserMessage(
       // is the trust-gate output, so untrusted repos stay suppressed for GLM too.
       let finalAppend = baseWithSkills;
       // VOICE_AGENT_PLAN.md — the Computer voice operator chat has its own
-      // base instructions and real (archon-voice) tools; the generic Chat
+      // base instructions and real (arco-voice) tools; the generic Chat
       // preamble ("do not use backend tools… continue in an Agent tab") made
       // Luna refuse them (2026-10-17 smoke:voice-luna regression).
       if (chatMode && wf.config.voiceOperator === true) {
@@ -2245,7 +2245,7 @@ export async function handleUserMessage(
               : claudeMd;
           }
         } catch (err) {
-          console.warn(`[archon] [${workflowId.slice(0, 8)}] CLAUDE.md discovery failed:`, err);
+          console.warn(`[arco] [${workflowId.slice(0, 8)}] CLAUDE.md discovery failed:`, err);
         }
       }
 
@@ -2273,7 +2273,7 @@ export async function handleUserMessage(
             }
           }
         } catch (err) {
-          console.warn(`[archon] [${workflowId.slice(0, 8)}] knowledge-base injection failed:`, err);
+          console.warn(`[arco] [${workflowId.slice(0, 8)}] knowledge-base injection failed:`, err);
         }
       }
 
@@ -2401,7 +2401,7 @@ export async function handleUserMessage(
       // For Claude CLI: also write the per-workflow mcp-config.json so the
       // claude CLI's `--mcp-config <path>` spawns the per-turn MCP stdio
       // child. For Codex: nothing to write — the codex provider builds
-      // `-c mcp_servers.archon-cluster.*` TOML overrides at spawn time
+      // `-c mcp_servers.arco-cluster.*` TOML overrides at spawn time
       // from `WorkerConfig.clusterId` (Phase 4 §13 decision: Codex CLI has
       // no `--mcp-config <path>` flag, but `-c` overrides leave the
       // operator's `~/.codex/config.toml` untouched and avoid TOML merge).
@@ -2442,8 +2442,8 @@ export async function handleUserMessage(
         }
         // docs/CODEX_GPT56_CLUSTER_INCOMPAT.md — code-mode models run
         // OpenAI's own multi-agent "code mode" harness, which renames the
-        // archon-cluster MCP tools into the exec code cell's `tools`
-        // namespace (`tools.mcp__archon_cluster__peer_send`) and gives the
+        // arco-cluster MCP tools into the exec code cell's `tools`
+        // namespace (`tools.mcp__arco_cluster__peer_send`) and gives the
         // harness's native send_message top billing. Without this addendum
         // a code-mode member can't find the peer substrate (2026-07-09
         // incident: 236 tool calls, zero peer/cluster). Detection is
@@ -2486,7 +2486,7 @@ export async function handleUserMessage(
         );
         if (planTruncatedFrom !== undefined) {
           console.log(
-            `[archon] [${workflowId.slice(0, 8)}] cluster plan over string-form fold budget ` +
+            `[arco] [${workflowId.slice(0, 8)}] cluster plan over string-form fold budget ` +
             `(${planTruncatedFrom} bytes → ${usedFallback ? 'outline fallback' : 'head-truncated'}; ` +
             `${clusterAppendCap} total cap; notice/role/addendum/doctrines preserved)`,
           );
@@ -2496,9 +2496,9 @@ export async function handleUserMessage(
         }
       }
 
-      // ARCHON_OPS_PLAN.md M2 — Genesis staged-ideation system block. A
+      // ARCO_OPS_PLAN.md M2 — Genesis staged-ideation system block. A
       // from-nothing genesis workflow runs its staged conversation in a hidden
-      // scratch dir (~/.archon/genesis/<wfid>) until `genesis_scaffold` creates
+      // scratch dir (~/.arco/genesis/<wfid>) until `genesis_scaffold` creates
       // the real project and rebinds the cwd. While the workflow is still in that
       // scratch dir we fold the staged framing into the turn the same way cluster
       // hints do — finalSystemPrompt for ollama/llamacpp, finalAppend (a system
@@ -2510,7 +2510,7 @@ export async function handleUserMessage(
       // cluster member), so this never double-injects with the block above.
       const genesisSeed = wf.config.genesisSeed;
       // Separator-agnostic scratch-dir check (POSIX primary; tolerate Windows).
-      const inGenesisScratch = !!genesisSeed && /[\\/]\.archon[\\/]genesis[\\/]/.test(cwd);
+      const inGenesisScratch = !!genesisSeed && /[\\/]\.arco[\\/]genesis[\\/]/.test(cwd);
       // M3 Creative mode runs the same staged framing inside an EXISTING workflow
       // (real cwd) — gated on the operator-armed seed.creative flag instead of the
       // scratch-dir path. buildGenesisSystemBlock folds in seed.projectContext for
@@ -2546,14 +2546,14 @@ export async function handleUserMessage(
       // is the one place that covers operator turns AND primitive seeds without
       // double-injecting.
 
-      // ARCHON_OPS_PLAN.md §E1 — resolve the operator-enabled-and-allowed
+      // ARCO_OPS_PLAN.md §E1 — resolve the operator-enabled-and-allowed
       // registry MCP servers for this workflow from the global registry + the
       // workflow's per-tab allowlist (meta.mcpAllow). Produces BOTH the merged
       // server entries (for the mcp-config write / Codex `-c` overrides) AND
       // the dangerous-and-unticked `--disallowedTools` set for CLI Claude.
       // This is the ONLY model-exposed expansion besides cluster /
       // codebase-memory — no hidden, model-selected servers.
-      let turnRegistryServers: import('@archon/shared').ResolvedMcpServer[] = [];
+      let turnRegistryServers: import('@arco/shared').ResolvedMcpServer[] = [];
       let turnMcpDisallowedTools: string[] = [];
       if (projectContextEnabled) try {
         const metaForMcp = await readMeta(cwd, workflowId);
@@ -2561,10 +2561,10 @@ export async function handleUserMessage(
         turnRegistryServers = wiring.registryServers;
         turnMcpDisallowedTools = wiring.disallowedTools;
       } catch (err) {
-        console.error(`[archon] [${workflowId.slice(0, 8)}] mcp registry resolve failed:`, err);
+        console.error(`[arco] [${workflowId.slice(0, 8)}] mcp registry resolve failed:`, err);
       }
 
-      // EFFICIENCY_PLAN.md Phase F9 — write `.archon/<wfid>/mcp-config.json`
+      // EFFICIENCY_PLAN.md Phase F9 — write `.arco/<wfid>/mcp-config.json`
       // for CLI Claude turns when cluster membership, the operator-attached
       // codebase-memory entry, OR §E1 registry servers apply. All coexist; the
       // writer merges deterministically and unlinks when none apply. Codex
@@ -2573,7 +2573,7 @@ export async function handleUserMessage(
       if (projectContextEnabled && wf.primary.provider === 'claude' && claudeTransport === 'cli') {
         const cbm = wf.config.codebaseMemory;
         const wantsCodebaseMemory = projectContextEnabled && cbm?.attached === true;
-        // The workflow-scoped `archon` plan entry applies to EVERY workflow, so
+        // The workflow-scoped `arco` plan entry applies to EVERY workflow, so
         // the config is now written unconditionally (cwd is the only
         // precondition) rather than only when a cluster / codebase-memory /
         // registry entry applies.
@@ -2591,7 +2591,7 @@ export async function handleUserMessage(
               registryServers: turnRegistryServers,
             });
           } catch (err) {
-            console.error(`[archon] [${workflowId.slice(0, 8)}] mcp-config write failed:`, err);
+            console.error(`[arco] [${workflowId.slice(0, 8)}] mcp-config write failed:`, err);
           }
         }
       }
@@ -2637,7 +2637,7 @@ export async function handleUserMessage(
             });
           })
           .catch((err) => {
-            console.error(`[archon] [${workflowId.slice(0, 8)}] checkpoint hook failed:`, err);
+            console.error(`[arco] [${workflowId.slice(0, 8)}] checkpoint hook failed:`, err);
           });
       }
 
@@ -2729,7 +2729,7 @@ export async function handleUserMessage(
           && wf.primary.provider === 'claude' && claudeTransport !== 'native') {
         wf.primarySessionId = turn.initialSessionId;
         reconcileLatestCliSession(cwd, workflowId, 'claude', turn.initialSessionId).catch((err) => {
-          console.error(`[archon] [${workflowId.slice(0, 8)}] meta reconcile (claude mint) failed:`, err);
+          console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (claude mint) failed:`, err);
         });
       }
 
@@ -2739,7 +2739,7 @@ export async function handleUserMessage(
         if (!wf.primarySessionId) wf.primarySessionId = sid;
         if (wf.primary.provider === 'antigravity') broadcastSessionMetadata(workflowId, wf);
         reconcileLatestCliSession(cwd, workflowId, wf.primary.provider, sid, providerAccount?.profile.id).catch((err) => {
-          console.error(`[archon] [${workflowId.slice(0, 8)}] meta reconcile (${wf.primary.provider}) failed:`, err);
+          console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (${wf.primary.provider}) failed:`, err);
         });
       });
 
@@ -2765,7 +2765,7 @@ export async function handleUserMessage(
       } finally {
         fleetWatcher?.stop();
       }
-      console.log(`[archon] [${workflowId.slice(0, 8)}] turn settled${outcome.error ? ' with error: ' + outcome.error : ''}`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] turn settled${outcome.error ? ' with error: ' + outcome.error : ''}`);
       lastTurnErrored = !!outcome.error;
       watchHadError ||= lastTurnErrored;
       if (firstIteration && opts?.backgroundEvent) opts.onBackgroundSettled?.(outcome.error ?? undefined);
@@ -2961,7 +2961,7 @@ export async function handleUserMessage(
       const mergedRefs = drained.map((d) => d.expandedContext ?? '').filter(Boolean).join('');
       promptExpandedContext = mergedRefs.length > 0 ? mergedRefs : undefined;
       promptClientMessageId = undefined;
-      console.log(`[archon] [${workflowId.slice(0, 8)}] flushing ${drained.length} queued interjection(s) as merged follow-up turn`);
+      console.log(`[arco] [${workflowId.slice(0, 8)}] flushing ${drained.length} queued interjection(s) as merged follow-up turn`);
     }
     watchLoopFinished = true;
   } finally {
@@ -3079,7 +3079,7 @@ async function maybeGoalRun(
         `Re-arm with \`/goal run <n>\`.`,
     });
     broadcastWorkflow(workflowId, { type: 'goal_run_state', workflowId, ...snapshotGoalRun(state) });
-    console.log(`[archon] [${workflowId.slice(0, 8)}] goal run stopped (${decision.reason}) after ${spent}/${state.total}`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] goal run stopped (${decision.reason}) after ${spent}/${state.total}`);
     return;
   }
 
@@ -3097,7 +3097,7 @@ async function maybeGoalRun(
       `Type \`/goal run stop\` (or click the chip) to stop.`,
   });
   broadcastWorkflow(workflowId, { type: 'goal_run_state', workflowId, ...snapshotGoalRun(state) });
-  console.log(`[archon] [${workflowId.slice(0, 8)}] goal run tick ${decision.iteration}/${state.total}`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] goal run tick ${decision.iteration}/${state.total}`);
 
   if (!ws || !session) {
     // No socket to dispatch through (server-originated turn path). Stop rather
@@ -3114,7 +3114,7 @@ async function maybeGoalRun(
     await handleUserMessage(ws, session, workflowId, prompt, undefined, undefined, false, undefined, undefined);
   } catch (err) {
     state.enabled = false;
-    console.error(`[archon] [${workflowId.slice(0, 8)}] goal run dispatch failed:`, err);
+    console.error(`[arco] [${workflowId.slice(0, 8)}] goal run dispatch failed:`, err);
     broadcastWorkflow(workflowId, {
       type: 'system_notice',
       workflowId,

@@ -1,5 +1,5 @@
 // Xolotl has its own assets, flags and guarded launcher. Keep it out of the
-// Qwen-only Strata registry and never launch the engine beneath an Archon worker.
+// Qwen-only Strata registry and never launch the engine beneath an Arco worker.
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import type { LmstudioModelCapabilities } from './lmstudio.js';
 import { isManagedStrataEndpoint } from './strataProfiles.js';
 import { beginLocalModelSwitch, localModelBusyMessage } from './localModelControl.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const exec = promisify(execFile);
 export interface DeepSeekProfile {
@@ -28,7 +28,7 @@ export interface DeepSeekStatus {
   activity?: { in_flight?: number };
 }
 export function deepseekProfilesPath(): string {
-  return process.env.ARCHON_DEEPSEEK_PROFILES || join(archonHome(), 'deepseek-profiles.json');
+  return process.env.ARCO_DEEPSEEK_PROFILES || join(arcoHome(), 'deepseek-profiles.json');
 }
 
 export async function readDeepSeekProfiles(base: string): Promise<DeepSeekRegistry | null> {
@@ -187,7 +187,7 @@ export class DeepSeekProfileManager {
       throw err;
     } finally { release(); }
   }
-  // Caller owns the global unload guard and has checked Archon's active work.
+  // Caller owns the global unload guard and has checked Arco's active work.
   async unload(base: string): Promise<'unloaded' | 'idle'> {
     const registry = await this.deps.registry(base);
     if (!registry) throw new Error('No managed DeepSeek profiles match this endpoint.');

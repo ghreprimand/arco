@@ -15,7 +15,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, type JobState } from '../stores/appStore';
 import { TabContextMenu } from './TabContextMenu';
-import type { ClusterMemberProvider, ClusterStatePayload, ArchonSettings, ProviderName } from '@archon/shared';
+import type { ClusterMemberProvider, ClusterStatePayload, ArcoSettings, ProviderName } from '@arco/shared';
 
 interface Props {
   // Server-side lifecycle: tells the server to tear down the WorkflowState +
@@ -62,7 +62,7 @@ function workflowProvider(job: JobState): ProviderName {
   return job.config.primaryProvider ?? 'claude';
 }
 
-export function accountBadgeForJob(job: JobState, settings: ArchonSettings | null | undefined): string | null {
+export function accountBadgeForJob(job: JobState, settings: ArcoSettings | null | undefined): string | null {
   const provider = workflowProvider(job);
   if (provider !== 'codex') return null;
   const ref = job.config.providerAccountRef;

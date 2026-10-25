@@ -1,6 +1,6 @@
 // CLUSTER_MODE_PLAN.md Phase 4 — headless WS+REST smoke for Codex transports.
 //
-// Phase 3 wired CLI Claude into clusters via the archon-cluster MCP stdio
+// Phase 3 wired CLI Claude into clusters via the arco-cluster MCP stdio
 // child. Phase 4 lifts the fence further so the same substrate accepts
 // Codex (`exec` and `app-server` transports). The peer.* protocol is
 // provider-agnostic — every check below is identical to Phase 3's, just
@@ -26,11 +26,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MAX_CONTENT_BYTES } from '../../server/src/clusterMailbox.js';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-4-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-4-'));
   console.log(`Phase 4 smoke — cwd ${cwd}`);
   console.log('');
 
@@ -176,7 +176,7 @@ async function main(): Promise<void> {
     // `mcpConfigWriter.writeFor` writes is Claude-CLI-only; if a Codex
     // cluster member ever produced one it'd be a regression.
     for (const id of execMembers) {
-      const cfgPath = join(cwd, '.archon', id, 'mcp-config.json');
+      const cfgPath = join(cwd, '.arco', id, 'mcp-config.json');
       assert(!existsSync(cfgPath), `mcp-config.json absent for Codex member ${id.slice(0, 8)}`);
     }
   });

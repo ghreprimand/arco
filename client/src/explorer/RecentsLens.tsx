@@ -34,9 +34,9 @@ interface Row {
 }
 
 function basename(p: string): string { return p.split('/').filter(Boolean).pop() || p; }
-// Under `.archon` (artifacts) the tree can't reveal it (dotdirs are hidden
+// Under `.arco` (artifacts) the tree can't reveal it (dotdirs are hidden
 // server-side); only real project files get OPEN IN TREE.
-function revealable(path: string): boolean { return !path.includes('/.archon/'); }
+function revealable(path: string): boolean { return !path.includes('/.arco/'); }
 
 export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   const [sub, setSub] = useState<SubTab>('writes');

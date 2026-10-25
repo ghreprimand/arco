@@ -24,12 +24,11 @@ export const configuration: Section[] = [
           open troubleshooting tips. Antigravity auth lives inside the desktop app.
         </p>
         <p>
-          Settings cascade as defaults → <Code>~/.archon/settings.json</Code> →
-          <Code>&lt;cwd&gt;/.archon/settings.json</Code> → per-workflow CONFIG. Project
+          Settings cascade as defaults → <Code>~/.arco/settings.json</Code> →
+          <Code>&lt;cwd&gt;/.arco/settings.json</Code> → per-workflow CONFIG. Project
           settings deep-merge nested objects and replace arrays; edits are watched
-          live. The internal name remains Archon for state compatibility: state stays
-          under <Code>.archon/</Code> and environment variables keep the{' '}
-          <Code>ARCHON_</Code> prefix (an <Code>ARCO_</Code> variable of the same name takes precedence).
+          live. State lives under <Code>.arco/</Code> and environment variables use
+          the <Code>ARCO_</Code> prefix.
         </p>
       </>
     ),
@@ -378,8 +377,8 @@ export const configuration: Section[] = [
         </p>
         <p>
           <strong>Skills</strong> are CRUD-managed from Settings and stored as
-          <Code>SKILL.md</Code> files under project <Code>.archon/skills/</Code> or
-          global <Code>~/.archon/skills/</Code>. The primary sees a compact manifest
+          <Code>SKILL.md</Code> files under project <Code>.arco/skills/</Code> or
+          global <Code>~/.arco/skills/</Code>. The primary sees a compact manifest
           each turn; it reads the full skill body on demand with normal file tools.
           From the composer, <strong>APPLY ONCE</strong> inlines one body into the
           next turn, while <strong>PIN TO TAB</strong> keeps reapplying the current
@@ -387,7 +386,7 @@ export const configuration: Section[] = [
         </p>
         <p>
           <strong>Handoff prompts</strong> are editable from Settings. Project-level
-          overrides live under <Code>&lt;cwd&gt;/.archon/</Code> and can customize the
+          overrides live under <Code>&lt;cwd&gt;/.arco/</Code> and can customize the
           original-worker and fresh-summarizer handoff seed prompts without changing
           code.
         </p>
@@ -411,7 +410,7 @@ export const configuration: Section[] = [
           <li><strong>ULTRACODE</strong> (Claude, sticky toggle below TRANSPORT) — the same deep multi-agent mode as <Code>ultracode</Code> in the Claude CLI. While on, every turn Claude authors a <Code>Workflow</Code> that fans out a fleet of subagents (find → verify → synthesize) which the harness runs in the background. The WorkflowTool lives only in the <Code>claude</Code> binary, so ultracode forces the <Code>cli</Code> transport + pins <Code>xhigh</Code>; your selected base transport is preserved and restored when you turn it off. Stays on across turns (and restart) until you flip it off; takes effect next turn; reversible. It runs a fleet of agents <strong>unattended with full system access and spends heavily</strong> — a per-turn cost. A background workflow reports an early "launched" checkpoint then the real synthesis; Arco coalesces to the synthesis and surfaces checkpoints as progress notices. The full Workflow script shows inline in the Activity tab; per-subagent detail lives in the harness workflow journal. Can also be armed at tab creation (the <Code>⚡ ULTRACODE</Code> box).</li>
           <li><strong>TRANSPORT</strong> (Codex, Phase 6e) — <Code>exec</Code> per-turn spawn vs <Code>app-server</Code> long-lived per-tab process. App-server unlocks structured <Code>turn/interrupt</Code> cancel and non-destructive <Code>turn/steer</Code> mid-turn input. Reviewers and handoff seeds always run on <Code>exec</Code> regardless. One-shot warning gate (<Code>appserverWarningSeen</Code>) fires the first time you flip a tab to app-server.</li>
           <li><strong>CONTEXT WINDOW</strong> (Codex) — <Code>MAX</Code> (default) vs <Code>STANDARD</Code>. MAX asks Codex for the largest window the selected model + account accepts, read live from that account's <Code>models_cache.json</Code> rather than a pinned number; STANDARD leaves Codex at its conservative default. Each button shows the effective size. Takes effect next turn on exec and app-server (an app-server child recycles and resumes the same thread). The CTX footer prefers Codex's own reported window; missing catalog metadata falls back to Codex defaults.</li>
-          <li><strong>TRANSPORT</strong> (Z.ai) — <Code>native</Code> talks to Z.ai's Coding Plan Chat Completions directly (preserved <Code>reasoning_content</Code> + Archon-local tools) vs <Code>appserver</Code>, a legacy Codex app-server proxy fallback for if native GLM behavior regresses. Cascade default in <Code>settings.json</Code> <Code>zai.transport</Code>. Takes effect on the next operator turn.</li>
+          <li><strong>TRANSPORT</strong> (Z.ai) — <Code>native</Code> talks to Z.ai's Coding Plan Chat Completions directly (preserved <Code>reasoning_content</Code> + Arco-local tools) vs <Code>appserver</Code>, a legacy Codex app-server proxy fallback for if native GLM behavior regresses. Cascade default in <Code>settings.json</Code> <Code>zai.transport</Code>. Takes effect on the next operator turn.</li>
           <li><strong>OUTPUT STYLE</strong> (Claude Native / Codex app-server / Z.ai) — <Code>normal</Code> / <Code>lite</Code> / <Code>terse</Code>. Appends a small stable prompt addendum telling the model how terse to be: <Code>lite</Code> drops fillers/hedging; <Code>terse</Code> also drops articles (fragments OK). Code blocks, error strings, and file paths are preserved verbatim. ~10–25% output reduction on Opus 4.7; Codex/Z.ai effect is model-dependent. Review / Handoff / DOCS / GIT always run as <Code>normal</Code> regardless of source tab.</li>
           <li><strong>SERVER-SIDE COMPACTION</strong> (Claude Native, Phase 7c) — default-on toggle that pins <Code>compact_20260112</Code> on every <Code>messages.create</Code> unless disabled. Only renders when the active model's catalog entry advertises <Code>compact</Code> support. <Code>clear_thinking</Code> + <Code>clear_tool_uses</Code> are intentionally not default-on because they can clear live research evidence; compaction sits beneath operator Handoff.</li>
           <li><strong>INTERLEAVED THINKING BETA</strong> (Claude Native debug) — default-off A/B toggle. Adaptive Claude models already reason between tool calls without the legacy <Code>interleaved-thinking-2025-05-14</Code> beta; this forces the beta anyway on the next turn if you need to compare behavior on a suspicious workflow.</li>
@@ -424,8 +423,8 @@ export const configuration: Section[] = [
           <li><strong>AUTO-FOLD</strong> (Claude Native, default <Code>off</Code>) — a checkbox plus a <Code>FOLD AT</Code> percentage slider held below the warning threshold. Before a handoff is recommended, deterministically folds older history into a digest and keeps a verbatim recent tail in the same session — instant, no model round. The raw transcript stays in <Code>events.jsonl</Code>. Pair the manual composer <Code>FOLD</Code> button with this for on-demand trims.</li>
           <li><strong>REVIEW SAFE-MODE</strong> (Claude Native, default <Code>off</Code>) — when <Code>on</Code>, the worker pauses the turn on a sensitive tool call (<Code>Bash</Code>, <Code>KillShell</Code>, writes outside the project, <Code>git push</Code> / <Code>reset --hard</Code> / <Code>clean</Code>) and surfaces an editable proposal you approve, edit, or reject before it runs. Standing "approve all like this" approvals are listed beneath the toggle with a REVOKE button.</li>
           <li><strong>EFFICIENCY</strong> (Claude Native) — per-tab knobs that trim context and guard edits: TOOL-RESULT FILTER (<Code>off</Code> / <Code>conservative</Code> / <Code>aggressive</Code> — trims noisy tool output, raw bytes gzipped under <Code>artifacts/raw-tools/</Code> for recovery), FACT-FORCE FIRST EDIT (default <Code>off</Code>; when opted in, the first <Code>Edit</Code>/<Code>Write</Code>/<Code>MultiEdit</Code> per turn must cite importers + API surface first), CONFIG-PROTECTION GATE (default <Code>on</Code> — blocks edits to lint/format/type-check config so the model fixes the code instead of weakening the gate), and opt-in SANDBOX TOOLS.</li>
-          <li><strong>WEB LOOKUPS / TURN</strong> (Claude Native) — per-tab cap on the <Code>web_search</Code> + <Code>web_fetch</Code> server tools (the Anthropic <Code>max_uses</Code> parameter). An Archon-set per-turn ceiling, not an Anthropic account limit: it resets every turn, and when a turn exhausts it the model reports web access ran out. Default <Code>15</Code> (presets 10 / 15 / 25 / 50); raise it for research-heavy tabs. CLI Claude ignores it — that transport routes web tooling through the <Code>claude</Code> binary, which budgets itself. Deep Research overrides it with the run's <Code>maxRounds</Code>.</li>
-          <li><strong>RSS GUARD</strong> — opt-out per workflow; the global default is 32 GB tree-RSS auto-kill (override via <Code>ARCHON_RSS_KILL_BYTES</Code>).</li>
+          <li><strong>WEB LOOKUPS / TURN</strong> (Claude Native) — per-tab cap on the <Code>web_search</Code> + <Code>web_fetch</Code> server tools (the Anthropic <Code>max_uses</Code> parameter). An Arco-set per-turn ceiling, not an Anthropic account limit: it resets every turn, and when a turn exhausts it the model reports web access ran out. Default <Code>15</Code> (presets 10 / 15 / 25 / 50); raise it for research-heavy tabs. CLI Claude ignores it — that transport routes web tooling through the <Code>claude</Code> binary, which budgets itself. Deep Research overrides it with the run's <Code>maxRounds</Code>.</li>
+          <li><strong>RSS GUARD</strong> — opt-out per workflow; the global default is 32 GB tree-RSS auto-kill (override via <Code>ARCO_RSS_KILL_BYTES</Code>).</li>
           <li><strong>CODEBASE MEMORY</strong> — per-tab attach/detach of the operator-installed <Code>codebase-memory-mcp</Code> (RAG over the indexed tree). Attach points it at an index path, RE-INDEX rebuilds it, and a <Code>BLAST RADIUS</Code> sub-tab appears under FILES while it's attached. Arco always invokes the binary with <Code>--skip-config</Code> so it never auto-edits other agents' configs. Distinct from the operator-curated KNOWLEDGE tab.</li>
           <li><strong>MCP REGISTRY</strong> — two layers: a global REGISTER list (machine-wide MCP server defs by command/args/env, master enable) and a per-tab enable toggle for each globally-enabled server. Non-dangerous tools expose automatically; dangerous tools (name denylist) stay off until ticked per tab. On CLI Claude the denylist is real (unticked tools become <Code>--disallowedTools</Code>); on Codex there is no per-tool gate, so enabling a server exposes all its tools — surfaced as a warning.</li>
           <li><strong>CLI STATUS</strong> — the version snapshot the workflow saw at start. Red dot if it changed since.</li>

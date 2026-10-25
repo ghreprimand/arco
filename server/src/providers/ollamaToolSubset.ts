@@ -2,14 +2,14 @@
 // relevant-tool subsetting for the Ollama primary path.
 //
 // ── Why subset at all ───────────────────────────────────────────────────────
-// Archon advertises its ENTIRE tool registry on every /api/chat turn. On
+// Arco advertises its ENTIRE tool registry on every /api/chat turn. On
 // 7B–30B-class local models a large tool-schema payload degrades tool
 // selection (wrong-tool / single-token-stop failures — odysseus #1567) AND
 // burns input context (the schemas ride every request). We trim the advertised
 // set to a relevant top-K so the schema stays small and selection stays sharp.
 //
 // ── Why a HEURISTIC (no embeddings) ─────────────────────────────────────────
-// Archon's catalog is ~12 tools. Keyword/term-overlap ranking against the
+// Arco's catalog is ~12 tools. Keyword/term-overlap ranking against the
 // task context is more than enough; an embedding model + vector index (what
 // odysseus's tool_index.py uses) is rejected as overkill for a 12-item set
 // (Hardening §1 "Out"). Deterministic, readable, inspectable — the M10
@@ -67,7 +67,7 @@ const OLLAMA_CLUSTER_CORE: readonly string[] = [
 const DEFAULT_CAP = 9;
 
 function resolveCap(): number {
-  const env = process.env.ARCHON_OLLAMA_TOOL_CAP;
+  const env = process.env.ARCO_OLLAMA_TOOL_CAP;
   if (env) {
     const n = parseInt(env, 10);
     // Floor at the core size: a cap below the core would be meaningless (the
@@ -81,11 +81,11 @@ function resolveCap(): number {
 // Subsetting is ON by default (it only ever NARROWS, and only when the full
 // list exceeds the cap). An operator who wants the full kit every turn — e.g.
 // debugging tool selection, or running a model big enough not to care — sets
-// ARCHON_OLLAMA_TOOL_SUBSET to a falsey value to get the untouched list back.
+// ARCO_OLLAMA_TOOL_SUBSET to a falsey value to get the untouched list back.
 // Reversibility guardrail: dropping a tool is non-destructive (it's just not
 // advertised this turn); the disable flag restores the full set wholesale.
 export function isSubsettingEnabled(): boolean {
-  const env = process.env.ARCHON_OLLAMA_TOOL_SUBSET;
+  const env = process.env.ARCO_OLLAMA_TOOL_SUBSET;
   if (env === undefined) return true;
   const lc = env.trim().toLowerCase();
   return !(lc === '0' || lc === 'off' || lc === 'false' || lc === 'no');

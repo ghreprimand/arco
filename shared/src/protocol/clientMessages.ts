@@ -11,7 +11,7 @@ import type {
   BakeoffStartMessage,
 } from './bakeoffs.js';
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
-import type { WorkflowConfig, ToolPosture, ArchonSkillRef } from './workflows.js';
+import type { WorkflowConfig, ToolPosture, ArcoSkillRef } from './workflows.js';
 import type { ReviewRequestMessage, CancelReviewMessage } from './reviews.js';
 import type { ResearchRequestMessage, CancelResearchMessage } from './research.js';
 import type {
@@ -142,7 +142,7 @@ export interface UserMessage {
   // free-form knob. Other primitive sites (Review, Handoff seed) bypass
   // this path and force normal at their own spawn sites.
   primitive?: 'docs' | 'git';
-  // DD8 — operator-picked Archon skills to inline into THIS turn. Each skill's
+  // DD8 — operator-picked Arco skills to inline into THIS turn. Each skill's
   // full SKILL.md body is folded into the model prompt server-side (no Read
   // round-trip), so this is how operator-only skills (withheld from the model
   // manifest) get applied. Resolved + inlined in handleUserMessage; the chat
@@ -156,7 +156,7 @@ export interface CancelMessage {
 }
 
 // Operator-triggered in-place compaction. Provider-routed: Claude Native and
-// Z.ai Native run one Archon-owned summarization round and replace retained
+// Z.ai Native run one Arco-owned summarization round and replace retained
 // native history with a summary seed; Codex app-server and Z.ai appserver
 // fallback fire `thread/compact/start` against the live Codex thread. Far
 // cheaper than a handoff: same tab, no portable doc, no fresh worker.
@@ -187,7 +187,7 @@ export interface SetToolPostureMessage {
 }
 
 // DD7 — operator answered the project-trust prompt for a cwd. Records the
-// decision in ~/.archon/trust.json keyed by canonical path, so future turns
+// decision in ~/.arco/trust.json keyed by canonical path, so future turns
 // (and cluster peers sharing the cwd) honor it without re-prompting. `decision`
 // 'always' ⇒ the repo's CLAUDE.md / project skills / project settings layer is
 // folded into turns; 'never' ⇒ permanently suppressed (no further prompts).
@@ -213,7 +213,7 @@ export interface CancelQueuedMessageMessage {
 
 // Operator closed the tab. Server tears down any in-flight worker, drops the
 // in-memory WorkflowState, and releases observer references. On-disk state
-// under `.archon/workflows/<id>/` is preserved — the Resume picker can
+// under `.arco/workflows/<id>/` is preserved — the Resume picker can
 // re-attach later. See INTERFACE_FIXES_PLAN.md Fix 2.
 export interface RemoveWorkflowMessage {
   type: 'remove_workflow';
@@ -301,7 +301,7 @@ export interface UpdatePrimaryConfigMessage {
   // tab closes (or the next turn picks the new transport up). Persists into
   // meta.json + WorkflowConfig.codexTransport so it survives server restart.
   codexTransport?: 'exec' | 'appserver';
-  // Per-tab Codex context policy. MAX is Archon's default; STANDARD leaves
+  // Per-tab Codex context policy. MAX is Arco's default; STANDARD leaves
   // Codex on its smaller catalog default. Takes effect on the next turn.
   codexContextPolicy?: 'max' | 'standard';
   // Phase 7a — per-tab Claude transport override. `'native'` opts the
@@ -381,7 +381,7 @@ export interface UpdatePrimaryConfigMessage {
   goal?: string;
   // Replace the tab's complete pinned-skill set. Empty clears it. The server
   // validates + resolves these references before persisting them.
-  pinnedSkills?: ArchonSkillRef[];
+  pinnedSkills?: ArcoSkillRef[];
   // REMOTE_MANAGEMENT.md §1.4 — per-workflow hub opt-in (`REMOTE CONTINUATION`).
   // Persists to meta.json + WorkflowConfig.remoteEnabled. Default false. Flipping
   // it re-pushes the hub snapshot immediately and re-broadcasts hub_link_status
@@ -511,7 +511,7 @@ export interface RevertToPointRequestMessage {
 // Dev/smoke-only test hook: directly invokes the registered Claude Native
 // `EnterPlanMode` broadcast for a workflow with a caller-provided plan body,
 // without going through a real Anthropic API turn. Gated server-side on
-// `process.env.ARCHON_TEST === '1'`. Used by scripts/smoke/phase-2.6.ts to
+// `process.env.ARCO_TEST === '1'`. Used by scripts/smoke/phase-2.6.ts to
 // verify the cluster-member auto-attach gate fires `plan_candidate_ready`
 // instead of `plan_attached` — without burning real API spend.
 export interface DebugNativePlanSetMessage {
@@ -526,7 +526,7 @@ export interface DebugNativePlanSetMessage {
 // `maybeAutoCompactNative` trigger at a synthetic turn boundary. The probe
 // worker uses a canned summary (no Anthropic API call), so the smoke can assert
 // the real native_compacted emission + keep-tail + bounded-once behavior without
-// spend. Gated server-side on `process.env.ARCHON_TEST === '1'`. Used by
+// spend. Gated server-side on `process.env.ARCO_TEST === '1'`. Used by
 // scripts/smoke/native-auto-compact.ts.
 export interface DebugNativeAutoCompactProbeMessage {
   type: '__debug_native_auto_compact_probe';

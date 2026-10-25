@@ -19,7 +19,7 @@ import type {
   HardwareProfile,
   GpuInfo,
   HardwareSimPreset,
-} from '@archon/shared';
+} from '@arco/shared';
 
 const execFileAsync = promisify(execFile);
 

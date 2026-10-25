@@ -8,7 +8,7 @@
 // (read on rehydrate). Keep the two blocks below in sync when adding a field.
 
 import { WebSocket } from 'ws';
-import type { UpdatePrimaryConfigMessage } from '@archon/shared';
+import type { UpdatePrimaryConfigMessage } from '@arco/shared';
 import { send, broadcastWorkflow, broadcastTransient } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { capGoal } from '../providers/goalBlock.js';
@@ -41,7 +41,7 @@ export async function handleUpdatePrimaryConfig(
     }
     wf.config.providerAccountRef = msg.providerAccountRef || undefined;
     disposeProviderResources(msg.workflowId);
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] provider.account updated → ${msg.providerAccountRef || 'default'}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] provider.account updated → ${msg.providerAccountRef || 'default'}`);
   }
 
   // Phase 3 — update auto-handoff config. Mirrors into wf.config so the
@@ -51,7 +51,7 @@ export async function handleUpdatePrimaryConfig(
     wf.autoHandoff.warnAt = msg.autoHandoff.warnAt;
     wf.autoHandoff.autoAt = msg.autoHandoff.autoAt;
     wf.config.autoHandoff = { ...msg.autoHandoff };
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] auto-handoff updated → enabled=${msg.autoHandoff.enabled} warn=${msg.autoHandoff.warnAt}% auto=${msg.autoHandoff.autoAt}%`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] auto-handoff updated → enabled=${msg.autoHandoff.enabled} warn=${msg.autoHandoff.warnAt}% auto=${msg.autoHandoff.autoAt}%`);
   }
 
   // §2.1 — auto-fold config. Mirror into the live state (deriveAutoFold carries
@@ -60,7 +60,7 @@ export async function handleUpdatePrimaryConfig(
   if (msg.autoFold !== undefined) {
     wf.config.autoFold = { ...msg.autoFold };
     wf.autoFold = deriveAutoFold(wf.config);
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] auto-fold updated → enabled=${msg.autoFold.enabled} foldAt=${msg.autoFold.foldAt}%`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] auto-fold updated → enabled=${msg.autoFold.enabled} foldAt=${msg.autoFold.foldAt}%`);
   }
 
   // GOAL_RUN_PLAN.md — arm / re-arm / disarm the north-star auto-continue.
@@ -82,7 +82,7 @@ export async function handleUpdatePrimaryConfig(
     }
     goalRunBroadcast = next;
     console.log(
-      `[archon] [${msg.workflowId.slice(0, 8)}] goal run ${next.enabled ? `armed → ${next.total} iteration(s)` : 'disarmed'}`,
+      `[arco] [${msg.workflowId.slice(0, 8)}] goal run ${next.enabled ? `armed → ${next.total} iteration(s)` : 'disarmed'}`,
     );
   }
 
@@ -91,7 +91,7 @@ export async function handleUpdatePrimaryConfig(
   // effect on the next message — each turn recomputes chatWebArmed().
   if (msg.chatWebAccess !== undefined) {
     wf.config.chatWebAccess = msg.chatWebAccess;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] chat.web updated → ${msg.chatWebAccess ? 'armed' : 'off'}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] chat.web updated → ${msg.chatWebAccess ? 'armed' : 'off'}`);
   }
 
   // Phase 6e — per-tab Codex transport. handleUserMessage prefers this over
@@ -101,11 +101,11 @@ export async function handleUpdatePrimaryConfig(
   // sees the operator's pinned choice.
   if (msg.codexTransport !== undefined) {
     wf.config.codexTransport = msg.codexTransport;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] codex.transport updated → ${msg.codexTransport}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] codex.transport updated → ${msg.codexTransport}`);
   }
   if (msg.codexContextPolicy !== undefined) {
     wf.config.codexContextPolicy = msg.codexContextPolicy;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] codex.context updated → ${msg.codexContextPolicy}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] codex.context updated → ${msg.codexContextPolicy}`);
   }
   // Phase 7a — same shape for Claude. Honored only on Claude tabs but written
   // unconditionally so a Handoff that swaps from codex→claude on the same
@@ -127,7 +127,7 @@ export async function handleUpdatePrimaryConfig(
     } else if (wf.config.workingDirectory) {
       startSessionWatcher(msg.workflowId, wf, wf.config.workingDirectory, ws);
     }
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] claude.transport updated → ${msg.claudeTransport}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.transport updated → ${msg.claudeTransport}`);
   }
   // ULTRACODE_PLAN.md — sticky ultracode toggle. We deliberately do NOT mutate
   // wf.config.claudeTransport here: turnEngine forces 'cli' at turn time while
@@ -135,7 +135,7 @@ export async function handleUpdatePrimaryConfig(
   // when ultracode flips off. Takes effect on the next turn; reversible.
   if (msg.ultracode !== undefined) {
     wf.config.ultracode = msg.ultracode;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] ultracode → ${msg.ultracode ? 'ON (CLI + Workflow + xhigh forced next turn)' : 'OFF'}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] ultracode → ${msg.ultracode ? 'ON (CLI + Workflow + xhigh forced next turn)' : 'OFF'}`);
   }
   // Per-tab Claude Native web budget (server-tool max_uses). Clamp to a sane
   // range; 0/negative would disable web tools entirely, which is what the
@@ -143,72 +143,72 @@ export async function handleUpdatePrimaryConfig(
   if (msg.webSearchMaxUses !== undefined) {
     const clamped = Math.max(1, Math.min(50, Math.round(msg.webSearchMaxUses)));
     wf.config.webSearchMaxUses = clamped;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] web search budget → ${clamped}/turn`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] web search budget → ${clamped}/turn`);
   }
   if (msg.zaiTransport !== undefined) {
     wf.config.zaiTransport = msg.zaiTransport;
     disposeProviderResources(msg.workflowId);
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] zai.transport updated → ${msg.zaiTransport}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] zai.transport updated → ${msg.zaiTransport}`);
   }
   // Phase 7c-followup — Claude Native server-side compaction. Honored on
   // Native tabs only, but stored unconditionally so a transport flip
   // back to Native picks up the operator's last pinned value.
   if (msg.claudeNativeCompact !== undefined) {
     wf.config.claudeNativeCompact = msg.claudeNativeCompact;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] claude.native.compact updated → ${msg.claudeNativeCompact}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.native.compact updated → ${msg.claudeNativeCompact}`);
   }
   if (msg.claudeNativeForceInterleavedThinkingBeta !== undefined) {
     wf.config.claudeNativeForceInterleavedThinkingBeta = msg.claudeNativeForceInterleavedThinkingBeta;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] claude.native.force-interleaved-beta updated → ${msg.claudeNativeForceInterleavedThinkingBeta}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.native.force-interleaved-beta updated → ${msg.claudeNativeForceInterleavedThinkingBeta}`);
   }
   // Adaptive-thinking display. Stored unconditionally so a CLI→Native
   // transport flip picks up the operator's last pinned value; only the
   // Native worker's buildThinkingParams reads it. Takes effect next turn.
   if (msg.claudeNativeThinkingDisplay !== undefined) {
     wf.config.claudeNativeThinkingDisplay = msg.claudeNativeThinkingDisplay;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] claude.native.thinking-display updated → ${msg.claudeNativeThinkingDisplay}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.native.thinking-display updated → ${msg.claudeNativeThinkingDisplay}`);
   }
   // NATIVE_COMPACTION_PLAN Phase 3 — opt-in auto-continue after compaction.
   // Stored unconditionally so a transport flip back to Native picks up the
   // operator's last pinned value; only the Native compaction paths read it.
   if (msg.nativeCompactAutoContinue !== undefined) {
     wf.config.nativeCompactAutoContinue = msg.nativeCompactAutoContinue;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] native.compact.auto-continue updated → ${msg.nativeCompactAutoContinue}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] native.compact.auto-continue updated → ${msg.nativeCompactAutoContinue}`);
   }
   // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode. Stored
   // unconditionally so a CLI→Native transport flip picks up the operator's
   // last pinned value; only honored on Native turns at handleUserMessage.
   if (msg.efficiencyToolFilter !== undefined) {
     wf.config.efficiencyToolFilter = msg.efficiencyToolFilter;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] efficiency.tool-filter updated → ${msg.efficiencyToolFilter}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.tool-filter updated → ${msg.efficiencyToolFilter}`);
   }
   // EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate. Stored
   // unconditionally so a CLI→Native transport flip picks up the operator's
   // last pinned value; only honored on Native turns at handleUserMessage.
   if (msg.efficiencyFactForce !== undefined) {
     wf.config.efficiencyFactForce = msg.efficiencyFactForce;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] efficiency.fact-force updated → ${msg.efficiencyFactForce}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.fact-force updated → ${msg.efficiencyFactForce}`);
   }
   // Config-protection write-gate. Stored unconditionally so a CLI→Native
   // transport flip picks up the operator's last pinned value; only honored
   // on Native turns (the gate lives in the Native worker's dispatchTool).
   if (msg.efficiencyConfigProtection !== undefined) {
     wf.config.efficiencyConfigProtection = msg.efficiencyConfigProtection;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] efficiency.config-protection updated → ${msg.efficiencyConfigProtection}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.config-protection updated → ${msg.efficiencyConfigProtection}`);
   }
   // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tools. Stored
   // unconditionally so a CLI→Native flip picks up the last pinned
   // value; honored only on Native turns at handleUserMessage.
   if (msg.efficiencySandbox !== undefined) {
     wf.config.efficiencySandbox = msg.efficiencySandbox;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] efficiency.sandbox updated → ${msg.efficiencySandbox}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.sandbox updated → ${msg.efficiencySandbox}`);
   }
   // DEBAG_PLAN.md — operator-armed durable review gate. Stored unconditionally
   // so a transport flip picks up the last pinned value; honored only on Native
   // turns (the gate lives in the Native worker's dispatchTool).
   if (msg.reviewSafeMode !== undefined) {
     wf.config.reviewSafeMode = msg.reviewSafeMode;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] review-safe-mode updated → ${msg.reviewSafeMode}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review-safe-mode updated → ${msg.reviewSafeMode}`);
   }
   // OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Stored
   // unconditionally so a transport/provider flip picks up the last pinned
@@ -218,7 +218,7 @@ export async function handleUpdatePrimaryConfig(
   if (msg.outputStyle !== undefined) {
     const normalized = (msg.outputStyle as string) === 'caveman' ? 'terse' : msg.outputStyle;
     wf.config.outputStyle = normalized;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] output-style updated → ${normalized}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] output-style updated → ${normalized}`);
   }
   // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Trim + byte-cap;
   // empty / whitespace-only ⇒ clear (delete the field so pre-feature meta.json
@@ -265,14 +265,14 @@ export async function handleUpdatePrimaryConfig(
   if (msg.remoteEnabled !== undefined && msg.remoteEnabled !== wf.config.remoteEnabled) {
     wf.config.remoteEnabled = msg.remoteEnabled;
     remoteEnabledChanged = true;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] remote-enabled updated → ${msg.remoteEnabled}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] remote-enabled updated → ${msg.remoteEnabled}`);
   }
   // R1 §9.2 — remote-gates arming shares remoteEnabled's re-push semantics so
   // the console's gate buttons track the flip without waiting for the 4s tick.
   if (msg.remoteGatesEnabled !== undefined && msg.remoteGatesEnabled !== wf.config.remoteGatesEnabled) {
     wf.config.remoteGatesEnabled = msg.remoteGatesEnabled;
     remoteEnabledChanged = true;
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] remote-gates updated → ${msg.remoteGatesEnabled}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] remote-gates updated → ${msg.remoteGatesEnabled}`);
   }
 
   // LOCAL_AI_MASTER_PLAN.md M3 — Ollama per-tab param preset blob. Stored
@@ -289,7 +289,7 @@ export async function handleUpdatePrimaryConfig(
   if (msg.ollamaParams !== undefined) {
     wf.config.ollamaParams = msg.ollamaParams;
     const keys = Object.keys(msg.ollamaParams).join(', ') || '(cleared)';
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] ollama.params updated → ${keys} (prefix cache invalidates next turn)`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] ollama.params updated → ${keys} (prefix cache invalidates next turn)`);
   }
 
   // Mirror into the wire-facing config too so rehydrate / snapshot reflects the
@@ -353,7 +353,7 @@ export async function handleUpdatePrimaryConfig(
         meta.lastActiveAt = Date.now();
       });
     } catch (err) {
-      console.error(`[archon] [${msg.workflowId.slice(0, 8)}] update_primary_config meta write failed:`, err);
+      console.error(`[arco] [${msg.workflowId.slice(0, 8)}] update_primary_config meta write failed:`, err);
     }
   }
 
@@ -367,7 +367,7 @@ export async function handleUpdatePrimaryConfig(
       goal: goalBroadcast.goal,
       byteLen: goalBroadcast.byteLen,
     });
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] north-star ${goalBroadcast.goal ? `set → ${goalBroadcast.byteLen}B` : 'cleared'}`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] north-star ${goalBroadcast.goal ? `set → ${goalBroadcast.byteLen}B` : 'cleared'}`);
   }
   if (goalRunBroadcast) {
     broadcastWorkflow(msg.workflowId, {
@@ -391,7 +391,7 @@ export async function handleUpdatePrimaryConfig(
       ...pinnedSkillsBroadcast,
     });
     console.log(
-      `[archon] [${msg.workflowId.slice(0, 8)}] pinned skills → ${pinnedSkillsBroadcast.skills.length} active (${pinnedSkillsBroadcast.bytes}B)` +
+      `[arco] [${msg.workflowId.slice(0, 8)}] pinned skills → ${pinnedSkillsBroadcast.skills.length} active (${pinnedSkillsBroadcast.bytes}B)` +
       (pinnedSkillsBroadcast.missing.length ? `; skipped ${pinnedSkillsBroadcast.missing.join(', ')}` : ''),
     );
   }
@@ -412,5 +412,5 @@ export async function handleUpdatePrimaryConfig(
     broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
   }
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] primary updated → ${wf.primary.provider}:${wf.primary.model}@${wf.primary.effort}`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] primary updated → ${wf.primary.provider}:${wf.primary.model}@${wf.primary.effort}`);
 }

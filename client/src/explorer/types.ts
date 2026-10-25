@@ -27,7 +27,7 @@ export interface RecentRecord {
 }
 
 // Project-tree DOCUMENT entry (mirror of the server DocEntry). The docs written
-// FOR a project, alongside the .archon workflow artifacts.
+// FOR a project, alongside the .arco workflow artifacts.
 export interface DocEntry {
   path: string;
   name: string;
@@ -105,7 +105,7 @@ export function rollupProjects(items: ProjectItem[]): ProjectSummary[] {
 }
 
 // Merge the two server read-models into one newest-first item list. Docs prune
-// `.archon`, artifacts live only under it, so paths never collide — but dedup
+// `.arco`, artifacts live only under it, so paths never collide — but dedup
 // defensively anyway.
 export function mergeItems(artifacts: ArtifactEntry[], docs: DocEntry[]): ProjectItem[] {
   const seen = new Set<string>();

@@ -12,7 +12,7 @@
 //   (d) no LIVE (reachable) fetch to a non-existent backend remains — every
 //       `/api/gallery/upload`, `/api/gallery/{id}/replace`, `/api/editor-drafts`,
 //       `/api/gallery/library`, `/api/cookbook/packages` fetch must sit behind an
-//       ARCHON VENDOR PATCH guard (an early `return;` before the fetch).
+//       ARCO VENDOR PATCH guard (an early `return;` before the fetch).
 //   (e) the clean save seam exportPNG() is still exported (the wrapper relies on it).
 //
 // Run: npm run smoke:image-editor-vendor   (no dev server / network needed)
@@ -66,9 +66,9 @@ async function main(): Promise<void> {
     const src = readFileSync(GALLERY, 'utf8');
     const importSrc = readFileSync(path.join(VENDOR, 'editor', 'wire-import.js'), 'utf8');
     // For each neutralized endpoint, assert the fetch line is preceded (within
-    // its function) by an ARCHON VENDOR PATCH early-return guard. We check the
+    // its function) by an ARCO VENDOR PATCH early-return guard. We check the
     // simpler invariant the gate cares about: a `return;` sits between the
-    // ARCHON VENDOR PATCH marker and the fetch for that endpoint.
+    // ARCO VENDOR PATCH marker and the fetch for that endpoint.
     const checks: Array<{ file: string; text: string; needle: RegExp }> = [
       { file: 'galleryEditor.js', text: src, needle: /\/api\/gallery\/\$\{state\.imageId\}\/replace/ },
       { file: 'galleryEditor.js', text: src, needle: /\/api\/gallery\/upload/ },
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
       // (2400 chars) because some neutralized handlers preserve a long original
       // body verbatim below the guard (e.g. the ge-save toBlob flow).
       const before = text.slice(Math.max(0, idx - 2400), idx);
-      assert(/ARCHON VENDOR PATCH/.test(before), `fetch in ${file} not preceded by an ARCHON VENDOR PATCH note (${needle})`);
+      assert(/ARCO VENDOR PATCH/.test(before), `fetch in ${file} not preceded by an ARCO VENDOR PATCH note (${needle})`);
       assert(/\n\s*return;/.test(before), `fetch in ${file} not behind an early return guard (${needle})`);
     }
     // editor-drafts: every fetch to it must likewise be guarded; assert no

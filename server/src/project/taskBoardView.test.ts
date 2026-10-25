@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { LedgerTask, LedgerTaskStatus } from '@archon/shared';
+import type { LedgerTask, LedgerTaskStatus } from '@arco/shared';
 import { formatBoardForModel } from './taskLedger.js';
 
 function mk(over: Partial<LedgerTask> & { id: string; status: LedgerTaskStatus }): LedgerTask {

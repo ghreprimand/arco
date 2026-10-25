@@ -1,4 +1,4 @@
-import type { HardwareSimPreset } from '@archon/shared';
+import type { HardwareSimPreset } from '@arco/shared';
 
 // Workbench Expansion G2 — the Cookbook filter bar: free-text search, task/type
 // select, quant preference, and the hardware-simulation preset selector. Pure

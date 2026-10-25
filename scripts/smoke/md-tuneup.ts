@@ -49,7 +49,7 @@ const TUNED = '# Project\n\n## Architecture\nDurable stuff worth keeping.\n';
 const NOTES = '- Removed the 2026-05-12 session log (belongs in DEVLOG)\n- Kept the Architecture section verbatim';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-mdtuneup-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-mdtuneup-'));
   const workflowId = 'smoke-mdtuneup-wf';
   console.log(`md-tuneup smoke — cwd ${cwd}`);
   console.log('');
@@ -150,7 +150,7 @@ async function main() {
     const { backupPath, bytesWritten } = await backupAndWriteInstructionFile(cwd, 'CLAUDE.md', TUNED, ts);
     assertEq(readFileSync(join(cwd, 'CLAUDE.md'), 'utf8'), TUNED, 'file now holds the tuned content');
     assertEq(readFileSync(backupPath, 'utf8'), ORIGINAL, 'backup holds the ORIGINAL verbatim');
-    assert(backupPath.includes('.archon/md-backups/'), 'backup lives under .archon/md-backups/');
+    assert(backupPath.includes('.arco/md-backups/'), 'backup lives under .arco/md-backups/');
     assert(backupPath.endsWith('.bak'), 'backup is .bak-suffixed (no agent auto-reads it)');
     assertEq(bytesWritten, Buffer.byteLength(TUNED, 'utf8'), 'reports bytes written');
   });
@@ -168,13 +168,13 @@ async function main() {
     catch { threw = true; }
     assert(threw, 'escaping path rejected by resolveWithinCwd');
     // sanity: backup dir exists and only holds .bak files
-    mkdirSync(join(cwd, '.archon', 'md-backups'), { recursive: true });
-    const baks = readdirSync(join(cwd, '.archon', 'md-backups'));
+    mkdirSync(join(cwd, '.arco', 'md-backups'), { recursive: true });
+    const baks = readdirSync(join(cwd, '.arco', 'md-backups'));
     assert(baks.every((f) => f.endsWith('.bak')), 'backup dir holds only .bak files');
   });
 
   await step('discovery: finds root + nested directive files, skips heavy dirs', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'archon-smoke-mdtuneup-disc-'));
+    const root = mkdtempSync(join(tmpdir(), 'arco-smoke-mdtuneup-disc-'));
     writeFileSync(join(root, 'CLAUDE.md'), '# root claude', 'utf8');
     writeFileSync(join(root, 'AGENTS.md'), '# root agents', 'utf8');
     mkdirSync(join(root, 'packages', 'api'), { recursive: true });

@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import fragment from './ambient.frag.glsl?raw';
 
 export const ambientStats = { frames: 0, running: false, context: 'pending', width: 0, height: 0, cpuMs: 0, maxCpuMs: 0, resources: 0 };
-Object.assign(window, { archonPhosphorStats: ambientStats });
+Object.assign(window, { arcoPhosphorStats: ambientStats });
 
 // One low-resolution, opaque pass. CSS owns all glyph emission and raster.
 // Idle draws stop entirely; a pointer wakes a bounded 30fps decay, with no sweep.
@@ -50,7 +50,7 @@ export const Ambient = memo(function Ambient() {
     function palette() {
       if (!gl || !program) return;
       const css = getComputedStyle(document.documentElement);
-      // Follow Archon's independently shifted background token, including its
+      // Follow Arco's independently shifted background token, including its
       // rgb() serialization. Palette-only aliases miss the background dimmer.
       for (const [name, token] of [['tint', '--arco-emission'], ['cold', '--arco-cold'], ['baseColor', '--color-bg']]) {
         const raw = css.getPropertyValue(token).trim();
@@ -91,14 +91,14 @@ export const Ambient = memo(function Ambient() {
     function onLost(e: Event) { e.preventDefault(); lost = true; stop(); program = buffer = null; ambientStats.resources = 0; ambientStats.context = 'lost'; canvas.hidden = true; }
     function onRestored() { lost = false; failed = false; sync(); }
     window.addEventListener('pointermove', pointer, { passive: true }); window.addEventListener('resize', sync);
-    window.addEventListener('archon:theme-changed', palette); document.addEventListener('visibilitychange', sync);
+    window.addEventListener('arco:theme-changed', palette); document.addEventListener('visibilitychange', sync);
     motion.addEventListener('change', sync); coarse.addEventListener('change', sync);
     canvas.addEventListener('webglcontextlost', onLost); canvas.addEventListener('webglcontextrestored', onRestored);
     sync();
     return () => {
       stop(); dispose();
       window.removeEventListener('pointermove', pointer); window.removeEventListener('resize', sync);
-      window.removeEventListener('archon:theme-changed', palette); document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('arco:theme-changed', palette); document.removeEventListener('visibilitychange', sync);
       motion.removeEventListener('change', sync); coarse.removeEventListener('change', sync);
       canvas.removeEventListener('webglcontextlost', onLost); canvas.removeEventListener('webglcontextrestored', onRestored);
       gl?.getExtension('WEBGL_lose_context')?.loseContext();

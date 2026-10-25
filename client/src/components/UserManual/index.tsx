@@ -32,7 +32,7 @@ export function UserManual({ onClose }: Props) {
   }, [onClose]);
 
   // The contextual-help popover's "READ MORE IN MANUAL →" button dispatches
-  // archon:manual-jump after opening this modal. We listen and scroll.
+  // arco:manual-jump after opening this modal. We listen and scroll.
   useEffect(() => {
     const onJump = (e: Event) => {
       const id = (e as CustomEvent<{ sectionId?: string }>).detail?.sectionId;
@@ -46,8 +46,8 @@ export function UserManual({ onClose }: Props) {
         }
       });
     };
-    window.addEventListener('archon:manual-jump', onJump);
-    return () => window.removeEventListener('archon:manual-jump', onJump);
+    window.addEventListener('arco:manual-jump', onJump);
+    return () => window.removeEventListener('arco:manual-jump', onJump);
   }, []);
 
   const sections = useMemo<Section[]>(() => MANUAL_SECTIONS, []);
@@ -118,7 +118,7 @@ export function UserManual({ onClose }: Props) {
       className="help-system-ui manual-overlay"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="archon-manual-title"
+      aria-labelledby="arco-manual-title"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -159,7 +159,7 @@ export function UserManual({ onClose }: Props) {
         >
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', minWidth: 0 }}>
             <h2
-              id="archon-manual-title"
+              id="arco-manual-title"
               className="display-font glow-text-bright"
               style={{ fontSize: '14px', letterSpacing: '4px', margin: 0 }}
             >

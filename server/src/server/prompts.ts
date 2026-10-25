@@ -5,7 +5,7 @@
 // agent cooperation; this nudge is the safety net for the long-tail case
 // where the agent picks something exotic.
 export const PREVIEW_NUDGE = [
-  '[Archon: PREVIEW tab] Arco shows the operator a PREVIEW pane that can iframe a dev server you start.',
+  '[Arco: PREVIEW tab] Arco shows the operator a PREVIEW pane that can iframe a dev server you start.',
   'Prefer the standard port for the framework (5173 Vite, 3000 Next, 4321 Astro, 8000 uvicorn/python http.server, etc.) — Arco auto-detects those.',
   'If you bind a non-standard port, tell the operator the exact `http://localhost:<port>/` URL in chat so they can type the port into PREVIEW manually.',
   'No need to ask permission to run dev servers in the background — that\'s the expected pattern.',

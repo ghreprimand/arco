@@ -8,7 +8,7 @@ const TEXT_EXTENSIONS = new Set(['.md', '.txt', '.json']);
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, ...IMAGE_EXTENSIONS]);
 const EXCLUDED_DIRS = new Set([
-  '.archon',
+  '.arco',
   '.git',
   '.hg',
   '.svn',

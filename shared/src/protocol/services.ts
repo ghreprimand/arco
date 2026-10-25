@@ -1,4 +1,4 @@
-// ── Local services discovery (ARCHON_OPS_PLAN.md §L1, Part L) ──
+// ── Local services discovery (ARCO_OPS_PLAN.md §L1, Part L) ──
 //
 // The shared response contract for GET /api/services — "what local web/dev
 // services am I running right now, and where?". The server enumerates listening

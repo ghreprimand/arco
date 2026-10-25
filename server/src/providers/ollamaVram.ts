@@ -22,7 +22,7 @@
 import { execFile } from 'node:child_process';
 import os from 'node:os';
 import { promisify } from 'node:util';
-import type { OllamaVramReport, OllamaFitReport, ModelSpec } from '@archon/shared';
+import type { OllamaVramReport, OllamaFitReport, ModelSpec } from '@arco/shared';
 import { probeHardware } from '../cookbook/hardware.js';
 import { estimateVram } from '../cookbook/fit.js';
 import { getOllamaBase, probeOllamaLive } from './ollama.js';

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { connect, step, summary, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-computer-conditions-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-computer-conditions-'));
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
@@ -20,7 +20,7 @@ async function main() {
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -53,7 +53,7 @@ async function main() {
     await c!.waitFor((m)=>m.type==='user_message_echo'&&m.workflowId===id&&m.content===content,15000);
     await c!.waitFor((m)=>m.type==='primary_turn_started'&&m.workflowId===id,15000);
   };
-  const ruleFile = join(home,'.archon','computer-conditions.json');
+  const ruleFile = join(home,'.arco','computer-conditions.json');
   try {
     await ready(); c = await connect(`ws://127.0.0.1:${port}/ws`);
     c.send({type:'create_workflow',config}); const created=await c.waitFor((m)=>m.type==='workflow_created',10000); owner=String(created.workflowId); ownerConfig=created.config;
@@ -127,7 +127,7 @@ async function main() {
       await begin(b1,'large settled context');await c!.waitFor((m)=>m.type==='primary_turn_ended'&&m.workflowId===b1,10000);
       let filled=false;for(let i=0;i<100;i++){const state=await api({action:'state',cluster_ids:[cluster]});if(state.workers.find((w:any)=>w.id===b1).context_percent>=40){filled=true;break;}await new Promise((r)=>setTimeout(r,30));}assert(filled,'latest per-request context reaches 40 percent');
       const r=(await arm({label:'Compact then resume exactly',cluster_ids:[cluster],hold_on_input:false,clauses:[
-        {id:'compact',when:{op:'all',conditions:[{op:'worker',worker_id:b1,field:'busy',cmp:'eq',value:false},{op:'worker',worker_id:b1,field:'context_percent',cmp:'gte',value:40}]},actions:[{kind:'tool',name:'archon_compact',args:{target:b1}}]},
+        {id:'compact',when:{op:'all',conditions:[{op:'worker',worker_id:b1,field:'busy',cmp:'eq',value:false},{op:'worker',worker_id:b1,field:'context_percent',cmp:'gte',value:40}]},actions:[{kind:'tool',name:'arco_compact',args:{target:b1}}]},
         {id:'resume',after:['compact'],when:{op:'worker',worker_id:b1,field:'compacting',cmp:'eq',value:false},actions:[{kind:'send_message',worker_id:b1,text:'Resume the exact assigned task after compaction.'},{kind:'notify',text:'Compaction ended; requested continuation sent.'}],finish:true},
       ]})).rule;
       await until((s)=>s.rules.find((x:any)=>x.id===r.id)?.status==='finished');
@@ -146,7 +146,7 @@ async function main() {
       await post(`/api/voice/activity?owner=${owner}`,{action:'configure',enabled:true});await until((s)=>s.rules.find((x:any)=>x.id===r.id)?.actions===1);
       await api({action:'cancel',rule_id:r.id});await read(b1);
       await assert.rejects(arm({...def(),clauses:[{id:'bad',when:{op:'worker',worker_id:'outside-worker',field:'busy',cmp:'eq',value:false},actions:[{kind:'notify',text:'bad'}]}]}),/outside/);
-      await assert.rejects(arm({...def(),clauses:[{id:'bad',when:group('busy',false),actions:[{kind:'tool',name:'archon_condition',args:{action:'list'}}]}]}),/cannot create/);
+      await assert.rejects(arm({...def(),clauses:[{id:'bad',when:group('busy',false),actions:[{kind:'tool',name:'arco_condition',args:{action:'list'}}]}]}),/cannot create/);
     });
     await step('STOP is a default terminal guard; explicitly requested interruption handling can notify instead',async()=>{
       await begin(b2,'hang for interruption policy');
@@ -179,7 +179,7 @@ async function main() {
       try{await assert.rejects(arm(def()),/Could not save/);}finally{rmSync(ruleFile,{recursive:true});renameSync(ruleFile+'.saved',ruleFile);}
       const r=(await arm({...def(),clauses:[def().clauses[0]]})).rule;
       await c!.close();server.kill('SIGTERM');await once(server,'exit');
-      const history=join(project,'.archon','workflows',director,'events.jsonl');
+      const history=join(project,'.arco','workflows',director,'events.jsonl');
       let seq=JSON.parse(readFileSync(history,'utf8').trim().split('\n').at(-1)!).seq;
       const entries=[{type:'user_message_echo',content:'Report your status.',timestamp:Date.now()},
         {type:'primary_turn_started',startedAt:Date.now()},

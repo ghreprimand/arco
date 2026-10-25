@@ -19,13 +19,13 @@
 import * as clusterStore from './clusterStore.js';
 import { emit as emitNotice } from './notifications.js';
 import * as clusterMailbox from './clusterMailbox.js';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 // Idle floor. Production default 10s. Smoke can drop to 1s via the
-// ARCHON_CLUSTER_IDLE_FLOOR_SECONDS env var so the test doesn't sit on a
+// ARCO_CLUSTER_IDLE_FLOOR_SECONDS env var so the test doesn't sit on a
 // 10s wait for every nudge cycle. Documented in CLUSTER_MODE_PLAN.md §13.
 export const IDLE_FLOOR_SECONDS = (() => {
-  const raw = process.env.ARCHON_CLUSTER_IDLE_FLOOR_SECONDS;
+  const raw = process.env.ARCO_CLUSTER_IDLE_FLOOR_SECONDS;
   if (!raw) return 10;
   const parsed = parseFloat(raw);
   if (!Number.isFinite(parsed) || parsed < 0.1) return 10;

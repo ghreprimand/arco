@@ -1,4 +1,4 @@
-// Opt-in real GPU acceptance against an isolated Archon. Never stops a miner.
+// Opt-in real GPU acceptance against an isolated Arco. Never stops a miner.
 // First coordinate GPU use; require explicit opt-in AND an explicit WS target.
 import { writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,10 +6,10 @@ import { join } from 'node:path';
 import { connect, assert } from './lib.js';
 
 async function main() {
-  if (process.env.ARCHON_DEEPSEEK_LIVE !== '1' || !process.env.ARCHON_SMOKE_WS_URL) {
-    throw Error('Coordinate GPU use first. Set ARCHON_DEEPSEEK_LIVE=1 and ARCHON_SMOKE_WS_URL for an isolated Arco; see docs/DEEPSEEK.md.');
+  if (process.env.ARCO_DEEPSEEK_LIVE !== '1' || !process.env.ARCO_SMOKE_WS_URL) {
+    throw Error('Coordinate GPU use first. Set ARCO_DEEPSEEK_LIVE=1 and ARCO_SMOKE_WS_URL for an isolated Arco; see docs/DEEPSEEK.md.');
   }
-  const api = new URL(process.env.ARCHON_SMOKE_WS_URL);
+  const api = new URL(process.env.ARCO_SMOKE_WS_URL);
   api.protocol = api.protocol === 'wss:' ? 'https:' : 'http:'; api.pathname = '';
   const control = async (body: unknown) => {
     const res = await fetch(`${api.origin}/api/deepseek`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -17,11 +17,11 @@ async function main() {
     if (!res.ok) throw Error(data.error || `DeepSeek HTTP ${res.status}`);
     return data;
   };
-  const artifacts = process.env.DEEPSEEK_SMOKE_ARTIFACTS || mkdtempSync(join(tmpdir(), 'archon-deepseek-live-'));
+  const artifacts = process.env.DEEPSEEK_SMOKE_ARTIFACTS || mkdtempSync(join(tmpdir(), 'arco-deepseek-live-'));
   mkdirSync(artifacts, { recursive: true });
   const events: unknown[] = [], ids: string[] = [];
   let ownsServices = false;
-  const secret = 'ARCHON-READ-72941'; writeFileSync(join(artifacts, 'fact.txt'), `${secret}\n`);
+  const secret = 'ARCO-READ-72941'; writeFileSync(join(artifacts, 'fact.txt'), `${secret}\n`);
   const c = await connect();
   const create = async (profile: string) => {
     c.send({ type: 'create_workflow', config: { kind: 'workflow', name: `DeepSeek ${profile} acceptance`,
@@ -71,8 +71,8 @@ async function main() {
       const id = await create(profile);
       const tools = await turn(id, 'Use the Read tool to read fact.txt in the working directory. Reply with the file contents and nothing else. Do not modify files or use other tools.');
       assert(tools.read && tools.text.includes(secret), `${profile}: real Read round trip`);
-      if (process.env.ARCHON_DEEPSEEK_VISION_IMAGE) {
-        const image = await turn(id, 'Read the numeric code in the attached image. Reply with just that code. Do not use tools.', false, [process.env.ARCHON_DEEPSEEK_VISION_IMAGE]);
+      if (process.env.ARCO_DEEPSEEK_VISION_IMAGE) {
+        const image = await turn(id, 'Read the numeric code in the attached image. Reply with just that code. Do not use tools.', false, [process.env.ARCO_DEEPSEEK_VISION_IMAGE]);
         assert(image.text.includes('48263'), `${profile}: actual screenshot text reached the model through Arco`);
       }
       c.send({ type: 'update_primary_config', workflowId: id, effort: 'medium' });
@@ -89,7 +89,7 @@ async function main() {
       }
       const idle = await (await fetch('http://127.0.0.1:8150/v1/status')).json() as any;
       assert(idle.activity?.in_flight === 0, `${profile}: cancellation released engine request`);
-      console.log(`PASS ${profile}: Read, native context, reasoning, streaming, cancellation${process.env.ARCHON_DEEPSEEK_VISION_IMAGE ? ", screenshot OCR" : ""}.`);
+      console.log(`PASS ${profile}: Read, native context, reasoning, streaming, cancellation${process.env.ARCO_DEEPSEEK_VISION_IMAGE ? ", screenshot OCR" : ""}.`);
     }
     await control({ action: 'unload' });
     const after = await (await fetch(`${api.origin}/api/deepseek`)).json() as any;
@@ -98,7 +98,7 @@ async function main() {
   } finally {
     for (const workflowId of ids) c.send({ type: 'cancel', workflowId });
     // A failure can leave a recently cancelled request settling. Retry cleanup;
-    // never bypass Archon's busy refusal or kill unrelated GPU processes.
+    // never bypass Arco's busy refusal or kill unrelated GPU processes.
     let unloaded = !ownsServices;
     for (let i = 0; ownsServices && i < 20; i++) {
       try { await control({ action: 'unload' }); unloaded = true; break; }

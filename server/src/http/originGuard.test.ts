@@ -17,14 +17,14 @@ test('hostnames: loopback, IP literals, self, tailnet allowed; foreign DNS names
   }
 });
 
-test('ARCHON_ALLOWED_HOSTS adds exact names and *.suffix wildcards', () => {
-  process.env.ARCHON_ALLOWED_HOSTS = 'archon.example.com, *.corp.example';
+test('ARCO_ALLOWED_HOSTS adds exact names and *.suffix wildcards', () => {
+  process.env.ARCO_ALLOWED_HOSTS = 'arco.example.com, *.corp.example';
   try {
-    assert.equal(isAllowedHostname('archon.example.com'), true);
+    assert.equal(isAllowedHostname('arco.example.com'), true);
     assert.equal(isAllowedHostname('a.corp.example'), true);
     assert.equal(isAllowedHostname('corp.example.evil'), false);
   } finally {
-    delete process.env.ARCHON_ALLOWED_HOSTS;
+    delete process.env.ARCO_ALLOWED_HOSTS;
   }
 });
 

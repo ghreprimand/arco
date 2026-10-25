@@ -27,8 +27,8 @@ import type {
   EffortLevel,
   PlanSummary,
   PlanFull,
-} from '@archon/shared';
-import { ROLE_PRESETS } from '@archon/shared';
+} from '@arco/shared';
+import { ROLE_PRESETS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { PlanBodyRenderer, CHECKBOX_RE } from './PlanBodyRenderer';
 import { PlanRefsSection, PlanRefChips } from './plans/PlanRefsSection';
@@ -88,7 +88,7 @@ interface Props {
     contextRef: ReviewContextRef,
     includeGitDiff: boolean,
   ) => void;
-  // Snapshot the current cluster plan into a normal .archon/plans/ file and
+  // Snapshot the current cluster plan into a normal .arco/plans/ file and
   // attach that plan id to one chosen member's workflow.
   onAttachPlanToMember?: (workflowId: string, planId: string) => void;
 }
@@ -184,13 +184,13 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   const overSoft = byteLen > PLAN_SOFT_WARN_BYTES;
   const overHard = byteLen > PLAN_MAX_BYTES;
 
-  // Existing-plans list — same `.archon/plans/` directory the per-workflow
+  // Existing-plans list — same `.arco/plans/` directory the per-workflow
   // PLAN tab reads from. Attaching one here binds the cluster to the same
   // canonical plan file workers use; future edits stay shared.
   const [plansList, setPlansList] = useState<PlanSummary[] | null>(null);
   const [importing, setImporting] = useState(false);
   // DUPLICATE PLAN — still available as an explicit duplicate action, but the
-  // main SAVE path already writes through .archon/plans automatically.
+  // main SAVE path already writes through .arco/plans automatically.
   const [saveAsTitle, setSaveAsTitle] = useState<string | null>(null);
   const [saveAsBusy, setSaveAsBusy] = useState(false);
   const [attachSavedPlan, setAttachSavedPlan] = useState<{ plan: PlanFull; clearClusterAfterAttach: boolean } | null>(null);
@@ -512,7 +512,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
       </div>
 
       {/* DUPLICATE PLAN — inline title prompt. The active cluster plan is
-          already stored under .archon/plans/ automatically; this creates a
+          already stored under .arco/plans/ automatically; this creates a
           separate copy only when the operator asks for one. */}
       {saveAsTitle !== null && (
         <div
@@ -529,7 +529,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
             DUPLICATE CLUSTER PLAN
           </div>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>
-            Writes a separate file to <code>.archon/plans/</code>. The active cluster plan is already stored there automatically.
+            Writes a separate file to <code>.arco/plans/</code>. The active cluster plan is already stored there automatically.
           </div>
           <input
             value={saveAsTitle}
@@ -609,7 +609,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
             ATTACH EXISTING PLAN
           </div>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>
-            Uses the same <code>.archon/plans/</code> file workers can attach.
+            Uses the same <code>.arco/plans/</code> file workers can attach.
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {plansList.filter((p) => p.completedAt == null).map((p) => (
@@ -763,7 +763,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
           No plan attached yet. Write one above + click SAVE PLAN, attach an
           existing plan from the list, or PROMOTE TO CLUSTER from any
           member&apos;s per-workflow PLAN tab. The plan is stored under this
-          cwd&apos;s <code>.archon/plans/</code> directory.
+          cwd&apos;s <code>.arco/plans/</code> directory.
         </div>
       )}
 

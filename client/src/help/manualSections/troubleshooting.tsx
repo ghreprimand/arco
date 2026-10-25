@@ -39,8 +39,8 @@ export const troubleshooting: Section[] = [
             index, Cookbook hardware probe.
           </li>
           <li>
-            <strong>Storage</strong> — <Code>~/.archon</Code> size (per-project{' '}
-            <Code>.archon</Code> is workflow-scoped, so reported{' '}
+            <strong>Storage</strong> — <Code>~/.arco</Code> size (per-project{' '}
+            <Code>.arco</Code> is workflow-scoped, so reported{' '}
             <Code>skipped</Code> from the global report).
           </li>
           <li>
@@ -83,7 +83,7 @@ export const troubleshooting: Section[] = [
           HEAD the running build booted from and compares it to the on-disk HEAD,
           reporting <strong>WARN</strong> ("running build is N commits behind on-disk
           HEAD") when the running dist is stale. The fix is <Code>npm run build</Code>{' '}
-          + <Code>systemctl --user restart archon.service</Code>. Under the{' '}
+          + <Code>systemctl --user restart arco.service</Code>. Under the{' '}
           <Code>tsx watch</Code> dev runtime source is already live, so the check
           reports <Code>skipped</Code>.
         </p>
@@ -106,10 +106,10 @@ export const troubleshooting: Section[] = [
           </li>
           <li>
             <strong>llama.cpp</strong> — the <Code>llama-server</Code> binary path,
-            registered loadouts (<Code>~/.archon/llamacpp.json</Code>), the
+            registered loadouts (<Code>~/.arco/llamacpp.json</Code>), the
             lifecycle-manager state, the loaded alias/port/pid, the{' '}
             <strong>last launch args</strong>, and a tail of{' '}
-            <Code>~/.archon/llamacpp.log</Code> (the last stderr). A failed last
+            <Code>~/.arco/llamacpp.log</Code> (the last stderr). A failed last
             launch is the one <strong>ERROR</strong> case — and when it fails, Model
             Health runs a deterministic diagnosis over the stderr tail and names a
             likely <strong>cause</strong> (port-in-use, gguf-missing, ctx-too-large,
@@ -122,7 +122,7 @@ export const troubleshooting: Section[] = [
           <li>
             <strong>Cookbook</strong> — the detected hardware profile (backend /
             VRAM / RAM / cores / GPUs), downloaded GGUFs under{' '}
-            <Code>~/.archon/models</Code>, and{' '}
+            <Code>~/.arco/models</Code>, and{' '}
             <strong>fit-score mismatch warnings</strong> — registered loadouts that
             won't fit this hardware on GPU at a useful context (scored with the
             same engine the Cookbook catalog uses). A mismatch is an actionable{' '}
@@ -364,7 +364,7 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
         <p><strong>"process tree exceeded 32 GB RSS safety cap"</strong></p>
         <ul>
           <li>Something the agent ran (a recursive find, a huge build, a runaway test) ballooned memory. The kill is intentional.</li>
-          <li>If your project legitimately needs &gt;32 GB, opt out of the RSS guard from CONFIG for that workflow specifically (or shrink/raise the cap with <Code>ARCHON_RSS_KILL_BYTES</Code>).</li>
+          <li>If your project legitimately needs &gt;32 GB, opt out of the RSS guard from CONFIG for that workflow specifically (or shrink/raise the cap with <Code>ARCO_RSS_KILL_BYTES</Code>).</li>
         </ul>
       </>
     ),

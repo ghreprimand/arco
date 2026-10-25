@@ -3,10 +3,10 @@ Type=Application
 Name=Quit Arco
 GenericName=Stop Arco
 Comment=Stop the Arco dev server and workers
-# Exec needs scripts/archon on PATH, or replace it with the absolute path of the checkout.
-Exec=archon stop
+# Exec needs scripts/arco on PATH, or replace it with the absolute path of the checkout.
+Exec=arco stop
 Icon=application-exit
 Terminal=false
 Categories=Development;Utility;
 StartupNotify=false
-Keywords=archon;quit;stop;
+Keywords=arco;quit;stop;

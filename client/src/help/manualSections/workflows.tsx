@@ -15,7 +15,7 @@ export const workflows: Section[] = [
           <li>A working directory (cwd) — the project root.</li>
           <li>A primary provider, model, effort, and (for Claude) tool allowlist.</li>
           <li>A primary CLI session id (Claude UUID or Codex thread_id, where the provider supports resume).</li>
-          <li>A persistent log at <Code>&lt;cwd&gt;/.archon/workflows/&lt;wfid&gt;/events.jsonl</Code>.</li>
+          <li>A persistent log at <Code>&lt;cwd&gt;/.arco/workflows/&lt;wfid&gt;/events.jsonl</Code>.</li>
           <li>A meta file <Code>meta.json</Code> tracking session history, attached plan, calibration, etc.</li>
           <li>Optional artifacts under <Code>artifacts/</Code> and <Code>handoffs/</Code> alongside.</li>
         </ul>
@@ -43,7 +43,7 @@ claude --resume <session-uuid>
 # Codex — resume by thread id
 codex exec resume <thread-id> "next prompt"
 
-# Gemini — resume by index (Archon stores the UUID and resolves to index)
+# Gemini — resume by index (Arco stores the UUID and resolves to index)
 gemini -r <index>`}</Pre>
         <p>
           And vice versa — start a session in a terminal, then pick it up in Arco
@@ -74,9 +74,9 @@ gemini -r <index>`}</Pre>
     body: (
       <>
         <p>Project workflow records live under the project's cwd. Saved Chat uses
-          its own directory under <Code>~/.archon/chats</Code>; Incognito has no
+          its own directory under <Code>~/.arco/chats</Code>; Incognito has no
           persistent record. Global settings, clusters and indexes are also separate.</p>
-        <Pre>{`<cwd>/.archon/
+        <Pre>{`<cwd>/.arco/
   workflows/
     <workflowId>/
       events.jsonl      # append-only event log; lossless replay source
@@ -95,9 +95,9 @@ gemini -r <index>`}</Pre>
           <Code>events.jsonl</Code>, which is append-only.
         </p>
         <p>
-          Cluster state lives separately, in <Code>~/.archon/clusters/&lt;clusterId&gt;/</Code>:
+          Cluster state lives separately, in <Code>~/.arco/clusters/&lt;clusterId&gt;/</Code>:
         </p>
-        <Pre>{`~/.archon/clusters/<clusterId>/
+        <Pre>{`~/.arco/clusters/<clusterId>/
   meta.json                           # cluster name, members, plan, idle nudger
   mailbox/
     <recipientWfid>/<msgId>.json      # per-recipient peer-message inbox`}</Pre>

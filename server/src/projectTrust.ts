@@ -1,6 +1,6 @@
 // DD7 — project-trust gate. Closes the cloned-repo prompt-injection vector:
-// a repo you clone and open in Archon ships a `CLAUDE.md`, project skills, and
-// `.archon/settings.json` that Archon would otherwise fold into the model's
+// a repo you clone and open in Arco ships a `CLAUDE.md`, project skills, and
+// `.arco/settings.json` that Arco would otherwise fold into the model's
 // system prompt UNREAD by the operator. A hostile repo can therefore inject
 // instructions into your agent the moment you point a tab at it. This module
 // gates those three project-local surfaces behind an explicit trust decision.
@@ -27,9 +27,9 @@ import { homedir } from 'node:os';
 import { readSettings } from './settings.js';
 import { isValidSlug } from './skills.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const TRUST_FILE = path.join(archonHome(), 'trust.json');
+const TRUST_FILE = path.join(arcoHome(), 'trust.json');
 
 export type TrustDecision = 'always' | 'never';
 export type TrustStatus = TrustDecision | 'ask';
@@ -112,7 +112,7 @@ export async function readTrustFile(): Promise<TrustFile> {
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error('[archon] trust.json malformed; treating as empty:', err instanceof Error ? err.message : err);
+      console.error('[arco] trust.json malformed; treating as empty:', err instanceof Error ? err.message : err);
     }
   }
   return { version: 1, entries: {} };
@@ -166,25 +166,25 @@ export async function readDefaultProjectTrust(): Promise<DefaultProjectTrust> {
 // prompt body / log line.
 export async function hasTrustRequiringProjectResources(cwd: string): Promise<string[]> {
   const found: string[] = [];
-  // Archon's own CLAUDE.md is repo-root; a cloned repo's is the injection risk.
+  // Arco's own CLAUDE.md is repo-root; a cloned repo's is the injection risk.
   try {
     const st = await fs.stat(path.join(cwd, 'CLAUDE.md'));
     if (st.isFile()) found.push('CLAUDE.md');
   } catch { /* absent */ }
   // Project settings layer.
   try {
-    const st = await fs.stat(path.join(cwd, '.archon', 'settings.json'));
-    if (st.isFile()) found.push('.archon/settings.json');
+    const st = await fs.stat(path.join(cwd, '.arco', 'settings.json'));
+    if (st.isFile()) found.push('.arco/settings.json');
   } catch { /* absent */ }
   // Project skills — at least one valid-slug subdir with a SKILL.md.
   try {
-    const skillsRoot = path.join(cwd, '.archon', 'skills');
+    const skillsRoot = path.join(cwd, '.arco', 'skills');
     const slugs = await fs.readdir(skillsRoot);
     for (const slug of slugs) {
       if (!isValidSlug(slug)) continue;
       try {
         const st = await fs.stat(path.join(skillsRoot, slug, 'SKILL.md'));
-        if (st.isFile()) { found.push('.archon/skills'); break; }
+        if (st.isFile()) { found.push('.arco/skills'); break; }
       } catch { /* not a skill dir */ }
     }
   } catch { /* no skills dir */ }
@@ -223,7 +223,7 @@ export function clearPromptPending(cwd: string): void {
 // Resolve the trust DECISION for a cwd, independent of whether it ships any of
 // the gateProjectResources surfaces. Side-effect-free (no prompt/notice). Used by
 // DD10: a project-scoped `/prompt` command must require an explicit 'always'
-// decision — a cloned repo can ship a hostile `.archon/prompts/deploy.md`, and
+// decision — a cloned repo can ship a hostile `.arco/prompts/deploy.md`, and
 // the presence of a prompts dir alone is NOT one of the gate's resource triggers,
 // so we key on the raw decision here rather than on `includeProject`.
 export async function resolveTrustStatus(cwd: string): Promise<TrustStatus> {

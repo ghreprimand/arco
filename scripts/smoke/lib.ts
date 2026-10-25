@@ -15,7 +15,7 @@
 
 import WebSocket from 'ws';
 
-const DEFAULT_URL = process.env.ARCHON_SMOKE_WS_URL || 'ws://localhost:3001/ws';
+const DEFAULT_URL = process.env.ARCO_SMOKE_WS_URL || 'ws://localhost:3001/ws';
 const DEFAULT_TIMEOUT_MS = 5000;
 
 export interface AnyMessage {
@@ -24,7 +24,7 @@ export interface AnyMessage {
 }
 
 // Several scenarios need the server booted with a specific env var (the
-// ARCHON_TEST debug hooks, a shortened cluster idle floor). Prod deliberately
+// ARCO_TEST debug hooks, a shortened cluster idle floor). Prod deliberately
 // runs without them, so pointing a smoke at the live service produced a
 // cryptic 8s waitFor timeout that read like a product regression. Call this
 // first to fail immediately with the actual fix.
@@ -34,10 +34,10 @@ export function requireServerEnv(vars: Record<string, string>, scenario: string)
   const set = missing.map(([k, v]) => `${k}=${v}`).join(' ');
   console.error(
     `\n${scenario} needs the server booted with: ${set}\n` +
-    `The live archon.service does NOT set these (by design), so this scenario\n` +
+    `The live arco.service does NOT set these (by design), so this scenario\n` +
     `cannot pass against it. Start a dev server with them instead:\n\n` +
-    `  ${set} ARCHON_PORT=3099 npm run dev:server &\n` +
-    `  ${set} ARCHON_PORT=3099 ARCHON_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:...\n\n` +
+    `  ${set} ARCO_PORT=3099 npm run dev:server &\n` +
+    `  ${set} ARCO_PORT=3099 ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:...\n\n` +
     `Re-run with the same vars exported here so this check passes.\n`,
   );
   process.exit(1);
@@ -138,9 +138,9 @@ export async function connect(url: string = DEFAULT_URL): Promise<SmokeClient> {
     const onError = (e: Error) => {
       ws.off('open', onOpen);
       // server/src/http/wsAuth.ts — /ws needs a browser session cookie unless
-      // the target server was booted with ARCHON_WS_AUTH=off.
+      // the target server was booted with ARCO_WS_AUTH=off.
       if (/\b401\b/.test(e.message)) {
-        reject(new Error(`${e.message}\nThe server refused the upgrade (session-cookie gate). Boot the smoke target with ARCHON_WS_AUTH=off, e.g.\n  ARCHON_WS_AUTH=off ARCHON_PORT=3099 npm run dev:server &\n  ARCHON_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:...`));
+        reject(new Error(`${e.message}\nThe server refused the upgrade (session-cookie gate). Boot the smoke target with ARCO_WS_AUTH=off, e.g.\n  ARCO_WS_AUTH=off ARCO_PORT=3099 npm run dev:server &\n  ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:...`));
         return;
       }
       reject(e);

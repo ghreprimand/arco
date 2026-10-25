@@ -1,13 +1,13 @@
-// ARCHON_OPS_PLAN.md §F1 — backup snapshot smoke (no live server, no real ~/.archon).
+// ARCO_OPS_PLAN.md §F1 — backup snapshot smoke (no live server, no real ~/.arco).
 //
-// Builds a temp fake Archon home with a known .archon tree (captured files, a
+// Builds a temp fake Arco home with a known .arco tree (captured files, a
 // secret tree, a regenerable cache, a cluster mailbox, settings with a secret
 // field, and a SYMLINK to prove it's skipped), runs the PURE snapshot builder
 // over it, then asserts:
 //   • the archive round-trips (read entries back) to exactly the captured files;
 //   • the manifest is truthful — every archive file is in a category, the symlink
 //     + secret + cache + mailbox are in `skipped` with the right reasons;
-//   • createdAt / archonVersion match the INJECTED fixture values (determinism);
+//   • createdAt / arcoVersion match the INJECTED fixture values (determinism);
 //   • no secret/token path is present in the archive (redaction holds).
 //
 // Run: npm run smoke:backup-snapshot   (no :3001 needed)
@@ -17,15 +17,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { step, assert, assertEq, summary } from './lib.js';
-import { walkArchonHome, buildManifest, classify, redactSettingsJson } from '../backup/manifest.js';
+import { walkArcoHome, buildManifest, classify, redactSettingsJson } from '../backup/manifest.js';
 import { writeArchive, readArchive } from '../backup/archive.js';
 
 const FIXED_VERSION = '9.9.9-fixture';
 const FIXED_CREATED_AT = '2026-01-02T03:04:05.000Z';
 
 async function buildFakeHome(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'archon-backup-smoke-'));
-  const home = join(root, '.archon');
+  const root = await mkdtemp(join(tmpdir(), 'arco-backup-smoke-'));
+  const home = join(root, '.arco');
   await mkdir(home, { recursive: true });
 
   // Captured categories.
@@ -57,7 +57,7 @@ async function buildFakeHome(): Promise<string> {
   await mkdir(join(home, 'cli-snapshots'), { recursive: true });
   await writeFile(join(home, 'cli-snapshots', 'probe.json'), '{}');
   await mkdir(join(home, 'logs'), { recursive: true });
-  await writeFile(join(home, 'logs', 'archon.log'), 'log line');
+  await writeFile(join(home, 'logs', 'arco.log'), 'log line');
 
   // SYMLINK — must be skipped as special-file, never followed.
   await symlink(join(home, 'settings.json'), join(home, 'settings.link.json'));
@@ -92,21 +92,21 @@ async function main(): Promise<void> {
   });
 
   await step('build snapshot over fake home (injected clock/version)', async () => {
-    const walk = await walkArchonHome(home);
+    const walk = await walkArcoHome(home);
     manifest = buildManifest({
-      archonVersion: FIXED_VERSION,
+      arcoVersion: FIXED_VERSION,
       createdAt: FIXED_CREATED_AT,
-      sourceRoot: '~/.archon',
+      sourceRoot: '~/.arco',
       walk,
     });
     archiveBuf = writeArchive(manifest, walk.files);
     assert(archiveBuf.length > 0, 'archive buffer non-empty');
   });
 
-  await step('determinism: createdAt / archonVersion match injected values', () => {
-    assertEq(manifest.archonVersion, FIXED_VERSION, 'version injected');
+  await step('determinism: createdAt / arcoVersion match injected values', () => {
+    assertEq(manifest.arcoVersion, FIXED_VERSION, 'version injected');
     assertEq(manifest.createdAt, FIXED_CREATED_AT, 'createdAt injected');
-    assertEq(manifest.format, 'archon-backup/1', 'format tag');
+    assertEq(manifest.format, 'arco-backup/1', 'format tag');
   });
 
   await step('archive round-trips to exactly the captured regular files', () => {

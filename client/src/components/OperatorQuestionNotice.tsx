@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { OperatorQuestionState } from '@archon/shared';
+import type { OperatorQuestionState } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 export function OperatorQuestionNotice({ workflowId, question, error }: { workflowId: string; question: OperatorQuestionState; error?: string }) {

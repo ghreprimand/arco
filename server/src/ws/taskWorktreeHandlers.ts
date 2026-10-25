@@ -1,4 +1,4 @@
-// server/src/ws/taskWorktreeHandlers.ts — git worktrees per task (ARCHON_OPS_PLAN.md §K5).
+// server/src/ws/taskWorktreeHandlers.ts — git worktrees per task (ARCO_OPS_PLAN.md §K5).
 //
 // Spin / tear down an isolated `git worktree` for a ledger task, then record the
 // result on the task by funnelling an update through the SAME event-sourced
@@ -7,7 +7,7 @@
 // in project/taskWorktree.ts; this file is the WS glue.
 
 import { WebSocket } from 'ws';
-import type { TaskWorktreeCreateMessage, TaskWorktreeRemoveMessage } from '@archon/shared';
+import type { TaskWorktreeCreateMessage, TaskWorktreeRemoveMessage } from '@arco/shared';
 import { send } from '../server/broadcast.js';
 import {
   cwdForWorkflow,

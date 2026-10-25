@@ -1,7 +1,7 @@
 // Workbench Expansion §F4 — Recall tags + pin-as-memory + links smoke.
 //
 // Tests the MECHANISM directly (no WS, no LLM, no server): drives RecallIndex
-// against a temp DB + temp .archon/workflows fixtures, then exercises the F4
+// against a temp DB + temp .arco/workflows fixtures, then exercises the F4
 // mutations and asserts persistence + that a meta-write save() upsert does NOT
 // clobber operator-set tags / pin / links (the ON CONFLICT guarantee). Asserts:
 //
@@ -24,13 +24,13 @@ import Database from 'better-sqlite3';
 import type { WorkflowMeta } from '../../server/src/workflowMeta.js';
 
 function writeMetaFixture(cwd: string, meta: WorkflowMeta): void {
-  const dir = join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = join(cwd, '.arco', 'workflows', meta.workflowId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 }
 
 function writeEvents(cwd: string, wfid: string, userMessages: string[]): void {
-  const dir = join(cwd, '.archon', 'workflows', wfid);
+  const dir = join(cwd, '.arco', 'workflows', wfid);
   mkdirSync(dir, { recursive: true });
   const lines: string[] = [];
   let seq = 1;
@@ -62,14 +62,14 @@ function metaFixture(cwd: string, wfid: string, lastActiveAt: number): WorkflowM
 async function main() {
   const cleanups: string[] = [];
 
-  const fakeHome = mkdtempSync(join(tmpdir(), 'archon-recall4-home-'));
+  const fakeHome = mkdtempSync(join(tmpdir(), 'arco-recall4-home-'));
   cleanups.push(fakeHome);
   const realHome = homedir();
   process.env.HOME = fakeHome;
   assert(homedir() === fakeHome, `HOME override failed (got ${homedir()})`);
 
-  const cwdA = mkdtempSync(join(tmpdir(), 'archon-recall4-projA-'));
-  const cwdB = mkdtempSync(join(tmpdir(), 'archon-recall4-projB-'));
+  const cwdA = mkdtempSync(join(tmpdir(), 'arco-recall4-projA-'));
+  const cwdB = mkdtempSync(join(tmpdir(), 'arco-recall4-projB-'));
   cleanups.push(cwdA, cwdB);
 
   const wfA = 'aaaaaaaa-1111-2222-3333-444444444444';
@@ -80,13 +80,13 @@ async function main() {
   writeMetaFixture(cwdB, metaFixture(cwdB, wfB, 9000));
   writeEvents(cwdB, wfB, ['first operator message for B']);
 
-  const archonDir = join(fakeHome, '.archon');
-  mkdirSync(archonDir, { recursive: true });
-  writeFileSync(join(archonDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
+  const arcoDir = join(fakeHome, '.arco');
+  mkdirSync(arcoDir, { recursive: true });
+  writeFileSync(join(arcoDir, 'known-cwds.json'), JSON.stringify([cwdA, cwdB], null, 2) + '\n');
 
   const { RecallIndex } = await import('../../server/src/recall/index.js');
 
-  const dbPath = join(fakeHome, '.archon', 'recall', 'recall.db');
+  const dbPath = join(fakeHome, '.arco', 'recall', 'recall.db');
   const index = new RecallIndex(dbPath);
 
   await step('backfill indexes both workflows', async () => {
@@ -160,7 +160,7 @@ async function main() {
     // Build a DB WITHOUT the F4 columns by hand (the F1/F2 on-disk shape), insert
     // a row, close it, then open it with RecallIndex — load() must ALTER TABLE
     // the missing columns and read the row with pinned=false / links=[].
-    const oldDbDir = mkdtempSync(join(tmpdir(), 'archon-recall4-old-'));
+    const oldDbDir = mkdtempSync(join(tmpdir(), 'arco-recall4-old-'));
     cleanups.push(oldDbDir);
     const oldDbPath = join(oldDbDir, 'recall.db');
     const raw = new Database(oldDbPath);

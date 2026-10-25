@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import type { VoiceCommand, VoiceContext } from '@archon/shared';
+import type { VoiceCommand, VoiceContext } from '@arco/shared';
 import { resolveVoiceTarget, voiceCommandBody } from './commands.js';
 import { VoiceExecutor } from './executor.js';
 import { VoiceRuntime } from './runtime.js';
@@ -27,7 +27,7 @@ const context: VoiceContext = { currentId: 'worker-a', clusterId: 'cluster-a', t
   { id: 'worker-c', name: 'Other reviewer', kind: 'member', clusterId: 'cluster-b', role: 'reviewer' },
 ] };
 const cmd = (action: VoiceCommand['action'], target = '', value = ''): VoiceCommand => ({ action, target, value });
-const reset = () => useVoiceStore.setState({ enabled: true, mode: 'archon', phase: 'listening', spokenFeedback: false, lunaEnabled: true, draftId: null, dictatingId: null, choices: [], pendingCommand: null, commandText: null });
+const reset = () => useVoiceStore.setState({ enabled: true, mode: 'arco', phase: 'listening', spokenFeedback: false, lunaEnabled: true, draftId: null, dictatingId: null, choices: [], pendingCommand: null, commandText: null });
 afterEach(() => {
   useChatFollowStore.setState({ request: null });
   useComputerStore.getState().setOpen(false);
@@ -359,7 +359,7 @@ test('early wake keeps the context from the start of audio rather than rebinding
 test('global spoken mode switches preserve a first request and ignore quoted mentions', () => {
   assert.deepEqual(voiceModeSwitch("let's talk about my question"), { mode: 'conversation', body: 'my question' });
   assert.deepEqual(voiceModeSwitch('Let’s talk. What should I do?'), { mode: 'conversation', body: 'What should I do?' });
-  assert.deepEqual(voiceModeSwitch('back to Arco, switch to PS5'), { mode: 'archon', body: 'switch to PS5' });
+  assert.deepEqual(voiceModeSwitch('back to Arco, switch to PS5'), { mode: 'arco', body: 'switch to PS5' });
   assert.equal(voiceModeSwitch('what does back to Arco mean?'), null);
 });
 
@@ -368,13 +368,13 @@ test('mode changes and ordinary Computer conversation need no interpreter call o
   const runtime = new VoiceRuntime({ context: () => context, execute: async (c) => { executed.push(c); return ''; },
     dictate: () => { throw new Error('Unexpected worker dictation'); }, canInterpret: () => true,
     converse: async (text) => { talks.push(text); return ''; },
-    returnToControl: () => { useVoiceStore.setState({ mode: 'archon' }); return 'Arco control.'; } });
+    returnToControl: () => { useVoiceStore.setState({ mode: 'arco' }); return 'Arco control.'; } });
   await runtime.receive("Computer let's talk about the weather. End capture");
   assert.deepEqual(talks, ['the weather']);
   await runtime.receive('Computer open plan. End capture');
   assert.deepEqual(talks, ['the weather', 'open plan']); assert.deepEqual(executed, [], 'nothing is executed outside Computer');
   await runtime.receive('Computer back to Arco, switch to PS5. End capture');
-  assert.equal(useVoiceStore.getState().mode, 'archon'); assert.deepEqual(talks, ['the weather', 'open plan', 'switch to PS5']);
+  assert.equal(useVoiceStore.getState().mode, 'arco'); assert.deepEqual(talks, ['the weather', 'open plan', 'switch to PS5']);
   await runtime.receive('Computer stop listening');
   assert.equal(talks.length, 3); assert.equal(useVoiceStore.getState().enabled, false);
 });
@@ -387,12 +387,12 @@ test('Computer is a projectless voice-operator chat; voice keeps the operator se
   const computer = new ComputerConversation({ createWorkflow: (config) => {
     created++; assert.equal(config.kind, 'chat'); assert.equal(config.workingDirectory, '');
     assert.equal(config.primaryModel, 'gpt-6-luna'); assert.equal(config.primaryEffort, 'low'); assert.equal(config.chatWebAccess, false);
-    assert.equal(config.voiceOperator, true, 'the Computer chat carries the archon-voice tools');
+    assert.equal(config.voiceOperator, true, 'the Computer chat carries the arco-voice tools');
     useAppStore.getState().createJob('computer-chat', config);
   }, sendMessage: (id, text) => { sent.push([id, text]); return true; } }, () => {});
   try {
-    assert.equal(await computer.talk('How does this work?', controller.signal, '[Archon context] selected: Builder #1.'), '');
-    assert.deepEqual(sent, [['computer-chat', '[Archon context] selected: Builder #1.\n\nHow does this work?']]);
+    assert.equal(await computer.talk('How does this work?', controller.signal, '[Arco context] selected: Builder #1.'), '');
+    assert.deepEqual(sent, [['computer-chat', '[Arco context] selected: Builder #1.\n\nHow does this work?']]);
     assert.equal(computer.chatId, 'computer-chat');
     assert.equal(useVoiceStore.getState().dictatingId, null);
     // Voice never leaves the operator on the Computer tab: tools act on the selection.
@@ -453,7 +453,7 @@ test('Computer opening cancelled by disabling voice cannot send a late question'
   controller.abort();
   await assert.rejects(pending, /cancelled/);
   useAppStore.getState().createJob('computer-chat', created);
-  assert.equal(sent, false); assert.equal(useVoiceStore.getState().mode, 'archon');
+  assert.equal(sent, false); assert.equal(useVoiceStore.getState().mode, 'arco');
 });
 
 test('Computer reads only its new settled answer and returning to Arco cancels readback', async () => {
@@ -634,11 +634,11 @@ test('conversation receives all captured words once; later Computer cannot reset
 test('Computer receives the complete accumulated instruction with context only after the closing phrase', async () => {
   reset(); useVoiceStore.setState({ calls: 0 }); const requests: string[][] = [], executed: VoiceCommand[] = [];
   const runtime = new VoiceRuntime({ context: () => context, execute: async (c) => { executed.push(c); return ''; }, dictate: () => '', canInterpret: () => true,
-    converse: async (text, _signal, ctx) => { requests.push([text, ctx ?? '']); return 'Brought up the reviewer.'; }, contextLine: () => '[Archon context] selected: Builder #1.' });
+    converse: async (text, _signal, ctx) => { requests.push([text, ctx ?? '']); return 'Brought up the reviewer.'; }, contextLine: () => '[Arco context] selected: Builder #1.' });
   await runtime.receive('Computer could you bring up'); await runtime.receive('my reviewer please');
   assert.equal(requests.length, 0); assert.equal(executed.length, 0);
   await runtime.receive('End capture');
-  assert.deepEqual(requests, [['could you bring up my reviewer please', '[Archon context] selected: Builder #1.']]);
+  assert.deepEqual(requests, [['could you bring up my reviewer please', '[Arco context] selected: Builder #1.']]);
   assert.deepEqual(executed, [], 'the model acts through tools, not through the direct executor');
   assert.equal(useVoiceStore.getState().status, 'Brought up the reviewer.');
   assert.equal(useVoiceStore.getState().calls, 1);
@@ -653,11 +653,11 @@ test('every directive goes to Computer with the context line; spaced spoken proj
   reset(); const executed: VoiceCommand[] = []; const conversed: string[][] = [];
   useVoiceStore.setState({ lunaEnabled: true });
   const runtime = new VoiceRuntime({ context: () => spoken, execute: async (c) => { executed.push(c); return ''; }, dictate: () => '', canInterpret: () => true,
-    converse: async (text, _s, ctx) => { conversed.push([text, ctx ?? '']); return 'ok'; }, contextLine: () => '[Archon context] selected: PS5 [workflow].' });
+    converse: async (text, _s, ctx) => { conversed.push([text, ctx ?? '']); return 'ok'; }, contextLine: () => '[Arco context] selected: PS5 [workflow].' });
   for (const said of ["Computer switch to PS5 and tell me where we're at. End capture", 'Computer open the plan. End capture', 'Computer status. End capture']) await runtime.receive(said);
   assert.deepEqual(executed, []);
   assert.deepEqual(conversed.map((c) => c[0]), ["switch to PS5 and tell me where we're at", 'open the plan', 'status']);
-  assert.equal(conversed[0][1], '[Archon context] selected: PS5 [workflow].');
+  assert.equal(conversed[0][1], '[Arco context] selected: PS5 [workflow].');
   useVoiceStore.setState({ lunaEnabled: false });
   await runtime.receive('Computer open the plan. End capture');
   assert.equal(conversed.length, 3); assert.match(useVoiceStore.getState().status, /Computer is off/); runtime.stop();
@@ -674,12 +674,12 @@ test('the context line names every open target even when member roles are long p
     state.createJob(name.toLowerCase(), { name, workingDirectory: '/tmp/voice-fixture', skipPermissions: false, primaryProvider: 'codex', primaryModel: 'gpt-6-luna', primaryEffort: 'low' });
   const line = executor.contextLine();
   for (const name of ['atlantis-maint', 'REA', 'SignalQueue', 'GroundTruth', 'firelight', 'kestrel', 'atlas', 'ACME-email-migration']) state.removeJob(name.toLowerCase());
-  assert.match(line, /^\[Archon context\] selected: Director \(Director\) in cluster Atlas\. Open: cluster Atlas: Director \(Director\), Builder 1 \(BUILDER\); workflows: /);
+  assert.match(line, /^\[Arco context\] selected: Director \(Director\) in cluster Atlas\. Open: cluster Atlas: Director \(Director\), Builder 1 \(BUILDER\); workflows: /);
   for (const name of ['atlantis-maint', 'REA', 'SignalQueue', 'GroundTruth', 'ACME-email-migration']) assert(line.includes(name), name);
   assert(!line.includes('peer_send'), 'role prose is not in the line'); assert(line.length < 600, String(line.length));
 });
 
-test('Computer can read what a project is doing through archon_read_recent and archon_status', async () => {
+test('Computer can read what a project is doing through arco_read_recent and arco_status', async () => {
   const { executor } = fixture(); const state = useAppStore.getState();
   const now = Date.now();
   state.addMessage('worker-b', { id: 'u1', role: 'user', content: 'Refactor the parser and add tests.', isStreaming: false, timestamp: now - 600000 });
@@ -687,7 +687,7 @@ test('Computer can read what a project is doing through archon_read_recent and a
   state.addMessage('worker-b', { id: 'a2', role: 'assistant', content: 'Three tests fail in tokenizer.test.ts, fixing.', isStreaming: true, timestamp: now - 60000 });
   useAppStore.setState((s) => ({ jobs: { ...s.jobs, 'worker-b': { ...s.jobs['worker-b'], turnStartedAt: now - 290000, lastPrimaryEventAt: now - 5000,
     activity: [{ id: 't1', kind: 'tool_use', tool: 'Bash', status: 'in_progress', at: now - 5000 }], plan: { id: 'p', title: 'Parser rewrite', updatedAt: now } } } }));
-  const digest = await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_read_recent', args: { target: 'builder two', messages: '2' } });
+  const digest = await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_read_recent', args: { target: 'builder two', messages: '2' } });
   assert.match(digest, /^Builder #2, agent workflow on codex gpt-6-luna\./);
   assert.match(digest, /State: working, turn started 5 minutes ago, last activity 1 minute ago/);
   assert.match(digest, /Current or latest tool: Bash \(in_progress\)/);
@@ -697,9 +697,9 @@ test('Computer can read what a project is doing through archon_read_recent and a
   assert.doesNotMatch(digest, /Refactor the parser/);
   assert.match(digest, /Builder #2: Parser refactored\. \(code omitted\) Running tests next\./);
   assert.match(digest, /Builder #2 \(still writing\): Three tests fail/);
-  assert.match(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_read_recent', args: { target: 'this' } }), /^Builder #1, .*\nState: idle\./);
-  assert.equal(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_status', args: { target: 'builder two' } }), 'Builder #2 is active.');
-  assert.match(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_status', args: {} }), /Builder #1: idle, 1 pending mail/);
+  assert.match(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_read_recent', args: { target: 'this' } }), /^Builder #1, .*\nState: idle\./);
+  assert.equal(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_status', args: { target: 'builder two' } }), 'Builder #2 is active.');
+  assert.match(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_status', args: {} }), /Builder #1: idle, 1 pending mail/);
 });
 test('target resolution understands number words, stable IDs, scoped roles and qualified names', () => {
   assert.equal(resolveVoiceTarget('builder two', context)[0]?.id, 'worker-b');
@@ -729,9 +729,9 @@ test('voice compaction requires an exact idle supported worker and acknowledges 
   const sent:unknown[]=[];
   useAppStore.setState({wsSendRaw:(m)=>{sent.push(m);useAppStore.setState((next)=>({jobs:{...next.jobs,'worker-a':{...next.jobs['worker-a'],busy:true}}}));}});
   try{
-    const reply=await executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'compact',tool:'archon_compact',args:{target:'worker-a'}});
+    const reply=await executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'compact',tool:'arco_compact',args:{target:'worker-a'}});
     assert.match(reply,/requested/);assert.deepEqual(sent,[{type:'compact_workflow',workflowId:'worker-a'}]);
-    await assert.rejects(executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'again',tool:'archon_compact',args:{target:'worker-a'}}),/busy/);
+    await assert.rejects(executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'again',tool:'arco_compact',args:{target:'worker-a'}}),/busy/);
   }finally{useAppStore.setState({wsSendRaw:original});}
 });
 
@@ -762,7 +762,7 @@ test('voice navigation and successful sends follow the selected transcript witho
   await executor.execute(cmd('nudge', 'member two'));
   assert.equal(useChatFollowStore.getState().request, current, 'a background recipient cannot scroll the selected worker');
   const disconnected = new VoiceExecutor({ sendMessage: () => false, cancel: () => {} });
-  await assert.rejects(disconnected.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_send_message', args: { target: 'worker-a', text: 'Not delivered.' } }), /Disconnected/);
+  await assert.rejects(disconnected.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_send_message', args: { target: 'worker-a', text: 'Not delivered.' } }), /Disconnected/);
   assert.equal(useChatFollowStore.getState().request, current, 'a failed send cannot re-pin history');
   await executor.execute(cmd('member', 'member two'));
   assert.equal(useChatFollowStore.getState().request?.workflowId, 'worker-b');
@@ -842,9 +842,9 @@ test('active nudges use gentle steer wording; idle nudges use wake-up wording', 
 });
 test('an ambiguous name comes back to Computer as a question and nothing is sent', async () => {
   const { executor, sent } = fixture();
-  await assert.rejects(executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_send_message', args: { target: 'builder', text: 'stop' } }), /Which one: Builder #1, Builder #2\?/);
+  await assert.rejects(executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_send_message', args: { target: 'builder', text: 'stop' } }), /Which one: Builder #1, Builder #2\?/);
   assert.equal(sent.length, 0);
-  assert.equal(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_select', args: { target: 'Zorblax' } }), 'No open target is named Zorblax.');
+  assert.equal(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_select', args: { target: 'Zorblax' } }), 'No open target is named Zorblax.');
 });
 test('Incognito targets stay outside interpreter context', async () => {
   const { executor } = fixture();
@@ -1041,9 +1041,9 @@ test('"stop" closes only an empty capture; inside a directive it is literal, and
   assert.deepEqual(buffer.accept('quiet'), { kind: 'cancel' });
 });
 
-test('archon_open_dialog opens a picker, never the action; unavailable dialogs are reported, not claimed', async () => {
+test('arco_open_dialog opens a picker, never the action; unavailable dialogs are reported, not claimed', async () => {
   const { executor, sent } = fixture();
-  const call = (name: string) => executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_open_dialog', args: { name } });
+  const call = (name: string) => executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_open_dialog', args: { name } });
   assert.match(await call('settings'), /There is no settings dialog/);
   // No component owns the dialogs here (node): requests stay unhandled and say so.
   assert.match(await call('nudge dialog'), /nudge dialog is not available for the current selection/);
@@ -1055,7 +1055,7 @@ test('archon_open_dialog opens a picker, never the action; unavailable dialogs a
 
 test('a message addressed to a cluster goes to its single Director; otherwise the members are listed', async () => {
   const { executor, sent } = fixture();
-  const call = () => executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'archon_send_message', args: { target: 'Atlas', text: 'What is going on?' } });
+  const call = () => executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_send_message', args: { target: 'Atlas', text: 'What is going on?' } });
   await assert.rejects(call, /Atlas is a cluster with no Director; name one of its members: Builder #1, Builder #2\./);
   const state = useAppStore.getState();
   state.setClusterState('cluster-a', { ...state.clusters['cluster-a'], members: [
@@ -1089,7 +1089,7 @@ test('Computer profiles are not worker targets or private-name blockers, includi
   useAppStore.setState({activeJobId:null,activeClusterId:null});
   const executor = new VoiceExecutor({sendMessage:()=>true,cancel:()=>{}});
   assert.equal(executor.canInterpret('clear Computer context'),true);
-  const targets = JSON.parse(await executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'targets',tool:'archon_targets',args:{}}));
+  const targets = JSON.parse(await executor.runTool({type:'voice_tool_call',workflowId:'computer-chat',requestId:'targets',tool:'arco_targets',args:{}}));
   assert(!targets.targets.some((t:{id:string})=>t.id==='computer-chat'));
 });
 

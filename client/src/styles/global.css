@@ -152,12 +152,12 @@ body {
    glyph edges stay hard. Structural box-shadow glow on borders/LEDs is left
    alone. Reversible; per-operator.
 
-   Exception: the ARCHON header wordmark (.archon-wordmark) keeps its phosphor
+   Exception: the ARCO header wordmark (.arco-wordmark) keeps its phosphor
    glow always — it's the one branded element the operator wants lit regardless.
    Its glow rides text-shadow (+ a filter drop-shadow on some themes, which this
    never touches), so exempting it from the kill-switch is enough. */
 :root[data-crisp="1"] body,
-:root[data-crisp="1"] body *:not(.archon-wordmark) {
+:root[data-crisp="1"] body *:not(.arco-wordmark) {
   text-shadow: none !important;
 }
 

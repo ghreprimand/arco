@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { isVoiceCommand, VOICE_ACTIONS, type VoiceContext, type VoiceInterpretResult } from '@archon/shared';
+import { isVoiceCommand, VOICE_ACTIONS, type VoiceContext, type VoiceInterpretResult } from '@arco/shared';
 import { killProcessTree } from '../workers/processKill.js';
 
 export const VOICE_LUNA_MODEL = 'gpt-6-luna';
@@ -32,7 +32,7 @@ async function lunaScratch(): Promise<string> {
   // Stable instructions/cwd preserve Codex's prefix cache across discrete
   // turns. These two files contain no command, roster, audio or history.
   if (!scratch) scratch = (async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'archon-voice-luna-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'arco-voice-luna-'));
     process.once('exit', () => { try { rmSync(cwd, { recursive: true, force: true }); } catch { /* fixed resources only */ } });
     await writeFile(join(cwd, 'instructions.txt'), INSTRUCTIONS);
     await writeFile(join(cwd, 'command.schema.json'), JSON.stringify({

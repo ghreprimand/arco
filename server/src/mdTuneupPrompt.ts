@@ -23,7 +23,7 @@
 // surfaced to the operator alongside the diff and never touch the file. A robust
 // split means a model that ignores the notes convention still produces a valid
 // file (whole output = file).
-export const MD_TUNEUP_NOTES_SENTINEL = '===ARCHON_TUNEUP_NOTES===';
+export const MD_TUNEUP_NOTES_SENTINEL = '===ARCO_TUNEUP_NOTES===';
 
 // Split a tune-up worker's raw output into the proposed file content and the
 // operator-facing notes. Defensive: no sentinel → all of it is the file.

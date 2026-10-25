@@ -1,11 +1,11 @@
-// Workflow-scoped `archon` MCP tools — plan create / attach / list, plus the
+// Workflow-scoped `arco` MCP tools — plan create / attach / list, plus the
 // plan_ref_* reference-doc tools.
 //
 // Why these exist (2026-07-28): asking a worker to "create a plan and attach it
 // to this workflow" produced a confident "Plan attached" that attached nothing.
 // Attach was always reachable over REST, but only Claude Native's
 // `EnterPlanMode` reaches it via a tool — every other transport had to infer
-// that Archon has a local HTTP API and reverse-engineer the route with curl.
+// that Arco has a local HTTP API and reverse-engineer the route with curl.
 // `planAuthoringNote` (turnEngine) papered over that by handing the model the
 // exact curl; these tools remove the guessing entirely:
 //
@@ -17,9 +17,9 @@
 //     discovered when per-phase Review comes up empty.
 //
 // Transport-agnostic by the same split as `clusterMcpTools.ts`: this module
-// registers onto an `McpServer`, and both the stdio child (`archonMcpServer.ts`,
+// registers onto an `McpServer`, and both the stdio child (`arcoMcpServer.ts`,
 // for CLI Claude and both Codex transports) and Cursor's in-process loopback
-// call it. Every tool is a thin translation to Archon's local REST plan API,
+// call it. Every tool is a thin translation to Arco's local REST plan API,
 // so (workflowId, cwd, port) is the entire context a registration needs.
 //
 // Model authority: bounded and reversible. Creating/attaching a plan emits the
@@ -34,7 +34,7 @@ export interface PlanMcpToolCtx {
   workflowId: string;
   // The workflow's cwd — every plan REST route is keyed by `?path=<cwd>`.
   cwd: string;
-  archonPort: number;
+  arcoPort: number;
   // stdio children MUST log to stderr (stdout is the MCP wire).
   logErr?: (...args: unknown[]) => void;
 }
@@ -95,8 +95,8 @@ export function leanPlanWarnings(body: string): string[] {
 }
 
 export function registerPlanTools(server: McpServer, ctx: PlanMcpToolCtx): void {
-  const BASE = `http://127.0.0.1:${ctx.archonPort}`;
-  const logErr = ctx.logErr ?? ((...a: unknown[]) => console.error('[archon-mcp]', ...a));
+  const BASE = `http://127.0.0.1:${ctx.arcoPort}`;
+  const logErr = ctx.logErr ?? ((...a: unknown[]) => console.error('[arco-mcp]', ...a));
   const q = (extra: Record<string, string> = {}) =>
     new URLSearchParams({ path: ctx.cwd, ...extra }).toString();
 
@@ -148,8 +148,8 @@ export function registerPlanTools(server: McpServer, ctx: PlanMcpToolCtx): void 
           planId: json.plan.id,
           title: json.plan.title,
           attached: true,
-          file: `.archon/plans/${json.plan.id}.md`,
-          refsDir: `.archon/plans/${json.plan.id}.refs/`,
+          file: `.arco/plans/${json.plan.id}.md`,
+          refsDir: `.arco/plans/${json.plan.id}.refs/`,
           note: 'Attached to this workflow and visible in the PLAN tab. Tick items off as you complete them.',
           ...(warnings.length > 0 ? { warnings } : {}),
         });
@@ -211,7 +211,7 @@ export function registerPlanTools(server: McpServer, ctx: PlanMcpToolCtx): void 
   );
 
   // ── Reference docs ──
-  // A ref is plain markdown under .archon/plans/<planId>.refs/<slug>.md; these
+  // A ref is plain markdown under .arco/plans/<planId>.refs/<slug>.md; these
   // tools save the shell round-trip and validate slug + size. planId defaults
   // to nothing — the caller passes it (plan_list / plan_create return it), so
   // the tools work for cluster plans too, not just this workflow's.
@@ -241,7 +241,7 @@ export function registerPlanTools(server: McpServer, ctx: PlanMcpToolCtx): void 
           logErr('plan_ref_write failed', res.status, json.error);
           return textResult({ error: json.error ?? `ref write failed (HTTP ${res.status})` }, true);
         }
-        return textResult({ ok: true, created: json.created, ref: json.ref, link: `[${slug}](ref:${slug})`, file: `.archon/plans/${planId}.refs/${slug}.md` });
+        return textResult({ ok: true, created: json.created, ref: json.ref, link: `[${slug}](ref:${slug})`, file: `.arco/plans/${planId}.refs/${slug}.md` });
       } catch (err) {
         logErr('plan_ref_write threw', err);
         return textResult({ error: err instanceof Error ? err.message : String(err) }, true);

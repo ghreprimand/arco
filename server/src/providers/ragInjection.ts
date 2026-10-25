@@ -7,7 +7,7 @@
 // + relevance threshold, hybrid BM25+vector RRF).
 //
 // ── SCOPE (honest, per the M14 brief) ──
-// There is NO live retrieval/index path in Archon today that injects ranked
+// There is NO live retrieval/index path in Arco today that injects ranked
 // snippets into prompts (the M7 worker's note + LOCAL_AI_MASTER_PLAN §M7 confirm
 // it). What exists is:
 //   - recall/ — retrospective CONVERSATION search (FTS5 bm25 + ripgrep); never

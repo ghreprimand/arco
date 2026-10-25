@@ -104,7 +104,7 @@ export function classifyCodeSkew(input: CodeSkewInput): CodeSkewResult {
     return {
       status: 'warn',
       detail: `running build is ${input.behind} ${plural} behind on-disk HEAD (boot ${short(input.bootRev)} → HEAD ${short(input.headRev)})`,
-      hint: 'rebuild + restart the service to deploy on-disk HEAD: npm run build && systemctl --user restart archon.service',
+      hint: 'rebuild + restart the service to deploy on-disk HEAD: npm run build && systemctl --user restart arco.service',
     };
   }
   // HEAD differs but isn't a linear advance (reset/rebase/force) — still skew.

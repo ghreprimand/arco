@@ -14,7 +14,7 @@
 // the wire surface.
 
 import type { ClaudeToolDef } from './tools.js';
-import type { ClusterMemberAccessMode, ServerMessage, LedgerTaskStatus, TaskLink } from '@archon/shared';
+import type { ClusterMemberAccessMode, ServerMessage, LedgerTaskStatus, TaskLink } from '@arco/shared';
 import * as peerOps from '../../clusterPeerOps.js';
 import { formatBoardForModel } from '../../project/taskLedger.js';
 
@@ -48,7 +48,7 @@ const PEER_TOOL_NAMES = new Set([
   'cluster_plan_tick',
   'cluster_plan_write',
   // §D3 task-board peer-tools. Underscores only (Anthropic name regex); the
-  // MCP-prefixed form on CLI/Codex is mcp__archon-cluster__cluster_task_*.
+  // MCP-prefixed form on CLI/Codex is mcp__arco-cluster__cluster_task_*.
   'cluster_task_list',
   'cluster_task_show',
   'cluster_task_create',

@@ -10,14 +10,14 @@ import { randomUUID } from 'node:crypto';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-daemon-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-dispatch-daemon-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-daemon-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-daemon-cwd-'));
   const prevHome = process.env.HOME;
-  const prevMinInterval = process.env.ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS;
-  const prevDefaultInterval = process.env.ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
+  const prevMinInterval = process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS;
+  const prevDefaultInterval = process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
   process.env.HOME = fakeHome;
-  process.env.ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS = '100';
-  process.env.ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS = '100';
+  process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS = '100';
+  process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS = '100';
 
   try {
     const clusterStore = await import('../../server/src/clusterStore.js');
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     const workerA = randomUUID();
     const workerB = randomUUID();
     for (const wfid of [requester, workerA, workerB]) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, {
         busy: false,
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
       await dispatcher.sweepDispatcherDaemon();
       assertEq(dispatched.length, before, 'no dispatch after disable');
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'tasks.json'), { force: true });
       const rebuilt = await taskLedger.loadKernel(cwd);
       assert(rebuilt.runs.some((run) => run.taskId === first.id), 'dispatch run replayed');
     });
@@ -151,10 +151,10 @@ async function main(): Promise<void> {
   } finally {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
-    if (prevMinInterval === undefined) delete process.env.ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS;
-    else process.env.ARCHON_TASK_DISPATCHER_MIN_INTERVAL_MS = prevMinInterval;
-    if (prevDefaultInterval === undefined) delete process.env.ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
-    else process.env.ARCHON_TASK_DISPATCHER_DEFAULT_INTERVAL_MS = prevDefaultInterval;
+    if (prevMinInterval === undefined) delete process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS;
+    else process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS = prevMinInterval;
+    if (prevDefaultInterval === undefined) delete process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
+    else process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS = prevDefaultInterval;
     await fs.rm(fakeHome, { recursive: true, force: true }).catch(() => undefined);
     await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
   }

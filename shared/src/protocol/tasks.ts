@@ -1,9 +1,9 @@
-// ── Project task ledger (ARCHON_OPS_PLAN.md §D1, Part D) ──
+// ── Project task ledger (ARCO_OPS_PLAN.md §D1, Part D) ──
 //
 // A durable, cwd-scoped task list that is a *rebuildable projection over
 // events.jsonl*, NOT a source of truth (Appendix B). Every mutation appends a
 // `task_ledger_event` to the originating workflow's events.jsonl AND atomically
-// rewrites the JSON snapshot at <cwd>/.archon/project/tasks.json; the snapshot
+// rewrites the JSON snapshot at <cwd>/.arco/project/tasks.json; the snapshot
 // is a cache that can be rebuilt by folding the events.
 //
 // DISTINCT from the two existing transcript-bound surfaces:
@@ -16,7 +16,7 @@
 export const TASK_KERNEL_VERSION = 1;
 
 // Optional namespace for task ledgers under the same cwd. Absent / undefined
-// is the normal project board at <cwd>/.archon/project/tasks.json. Cluster
+// is the normal project board at <cwd>/.arco/project/tasks.json. Cluster
 // boards use a stable key so cluster work can stay private without pretending
 // it lives in a different working directory.
 export type TaskBoardKey = string;
@@ -34,7 +34,7 @@ export type LedgerTaskStatus =
   | 'done'
   | 'archived';
 
-// A small typed reference from a task to something else in Archon. D2 extends
+// A small typed reference from a task to something else in Arco. D2 extends
 // the *usage* (bidirectional plan/review/workflow links); D1 just defines the
 // shape so the storage + protocol carry it forward without a later migration.
 export interface TaskLink {
@@ -50,8 +50,8 @@ export interface TaskLink {
 // common case). Additive + projection-safe: pre-K5 tasks never carry it, and the
 // field rides through the ledger projection (load/rebuild spread the task as-is).
 export interface TaskWorktree {
-  path: string;       // absolute managed path (under ~/.archon/worktrees/…) — NEVER inside the user's tree
-  branch: string;     // the branch the worktree checked out (archon/task/<short>)
+  path: string;       // absolute managed path (under ~/.arco/worktrees/…) — NEVER inside the user's tree
+  branch: string;     // the branch the worktree checked out (arco/task/<short>)
   baseRef: string;    // the commit the worktree branched from (resolved HEAD sha)
   createdAt: number;  // ms epoch
 }

@@ -203,7 +203,7 @@ test('sniffImageMediaType recognizes PNG / JPEG / GIF / WEBP and rejects junk', 
 });
 
 test('buildUserMessageContent: real type from bytes, oversized + unrecognized fold to text refs', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-img-guard-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-img-guard-'));
   try {
     const mislabeled = join(dir, 'shot.png');
     writeFileSync(mislabeled, JPEG);
@@ -263,7 +263,7 @@ function hookFile(dir: string, cmd: string): void {
 }
 
 test('discoverHooks: untrusted repo loads user-level only; $HOME file read once', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'archon-hooks-'));
+  const root = mkdtempSync(join(tmpdir(), 'arco-hooks-'));
   try {
     const home = join(root, 'home');
     const repo = join(home, 'repo');

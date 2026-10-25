@@ -30,7 +30,7 @@ function r(id: string, toolName: string, content: string, inputJson?: string, is
 
 test('summary: never bare — always single line with the evicted marker', () => {
   const s = summarizeToolResultLine('Bash', JSON.stringify({ command: 'npm test' }), big(5000));
-  assert.match(s, /Archon evicted/);
+  assert.match(s, /Arco evicted/);
   assert.ok(!s.includes('\n'), 'summary is a single line');
   assert.match(s, /npm test/);
 });

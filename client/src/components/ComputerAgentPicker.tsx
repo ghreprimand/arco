@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { COMPUTER_PROVIDERS, type ComputerProvider, type ModelName } from '@archon/shared';
+import { COMPUTER_PROVIDERS, type ComputerProvider, type ModelName } from '@arco/shared';
 import { useComputerStore } from '../stores/computerStore';
 import { defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 import { clampEffortForModel, effortsForModel } from '../utils/format';

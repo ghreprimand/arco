@@ -1,5 +1,5 @@
 {
-  "name": "archon",
+  "name": "arco",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -81,7 +81,7 @@
     "smoke:phase-9": "tsx scripts/smoke/phase-9.ts",
     "smoke:debag-gate": "tsx scripts/smoke/debag-gate.ts",
     "smoke:task-worktrees": "tsx scripts/smoke/task-worktrees.ts",
-    "smoke:archon-agent": "tsx scripts/smoke/archon-agent.ts",
+    "smoke:arco-agent": "tsx scripts/smoke/arco-agent.ts",
     "smoke:management-hub": "tsx scripts/smoke/management-hub.ts",
     "smoke:workflow-reporting": "tsx scripts/smoke/workflow-reporting.ts",
     "smoke:remote-r1": "tsx scripts/smoke/remote-r1.ts",
@@ -104,9 +104,9 @@
     "smoke:rag-injection": "tsx scripts/smoke/rag-injection.ts",
     "smoke:ssh-lifecycle": "tsx scripts/smoke/ssh-lifecycle.ts",
     "smoke:docker": "node scripts/smoke/docker.mjs",
-    "archon:agent": "tsx scripts/archon-agent.ts",
-    "archon:service": "tsx scripts/archon-service.ts",
-    "archon:management": "tsx scripts/archon-management.ts",
+    "arco:agent": "tsx scripts/arco-agent.ts",
+    "arco:service": "tsx scripts/arco-service.ts",
+    "arco:management": "tsx scripts/arco-management.ts",
     "smoke:context-refs": "tsx scripts/smoke/context-refs.ts",
     "smoke:review-findings": "tsx scripts/smoke/review-findings.ts",
     "smoke:diff-endpoint": "tsx scripts/smoke/diff-endpoint.ts",

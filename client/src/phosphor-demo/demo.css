@@ -17,7 +17,7 @@
 .demo-app :focus-visible,.demo-dialog :focus-visible { outline:2px solid var(--color-accent-primary); outline-offset:2px; }
 .demo-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid var(--color-border-bright); background:var(--color-bg-panel); flex-shrink:0; }
 .demo-brand { display:flex; align-items:baseline; gap:14px; }
-.demo-brand .archon-wordmark { font:700 24px/1.1 var(--font-display); letter-spacing:.12em; color:var(--color-accent-primary); }
+.demo-brand .arco-wordmark { font:700 24px/1.1 var(--font-display); letter-spacing:.12em; color:var(--color-accent-primary); }
 .demo-brand>.muted { font-size:10px; letter-spacing:.1em; }
 .demo-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 .demo-tag { font-size:10px; color:var(--color-warning); padding:2px 6px; border:1px solid var(--color-border-hairline); }
@@ -150,7 +150,7 @@
 .transcript-results summary { cursor:pointer; overflow-wrap:anywhere; }
 .transcript-results pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:10px; font:12px/1.6 var(--font-code); }
 
-/* Reference stack at 100%; emission.ts tightens the default to 50% for Archon's
+/* Reference stack at 100%; emission.ts tightens the default to 50% for Arco's
    transcript. Per-element currentColor; never a full-content blur/filter. */
 html[data-family=phosphor] { color-scheme:dark; --phosphor-text:0 0 2px currentColor,0 0 7px color-mix(in srgb,currentColor 54%,transparent),0 0 20px color-mix(in srgb,currentColor 24%,transparent),.7px 0 1px rgba(255,51,68,.15),-.7px 0 1px rgba(0,255,255,.15); }
 html[data-family=phosphor][data-demo-effects=on] :where(.demo-app,.demo-app *,.demo-dialog,.demo-dialog *,.demo-toast) { text-shadow:var(--phosphor-text); }
@@ -171,10 +171,10 @@ html[data-family=phosphor] .section-heading { background:linear-gradient(90deg,r
    at the tube's bottom edge. Text softness is independent of this treatment. */
 .phosphor-glass { background:radial-gradient(ellipse at center,transparent 0 54%,rgba(0,0,0,.14) 80%,rgba(0,0,0,.28) 100%),linear-gradient(180deg,rgba(var(--arco-glass-rgb),.04),transparent 13%,transparent 83%,rgba(0,0,0,.08)),radial-gradient(120% 90% at 18% -12%,rgba(var(--arco-glass-rgb),.08),transparent 52%); }
 html[data-family=phosphor] :is(.demo-app,.demo-dialog) * { animation:none!important; }
-html[data-family=phosphor] :is(pre,pre *,code,code *,.archon-diff-view,.archon-diff-view *,.terminal-body,.terminal-body *,.send-button,.send-button *,.palette-swatches,.demo-dialog input,.demo-dialog select,.demo-dialog textarea) { text-shadow:none!important; }
-html[data-family=phosphor] .archon-markdown { color:var(--color-fg)!important; }
-html[data-family=phosphor] .archon-diff-file-path { white-space:normal; overflow-wrap:anywhere; }
-html[data-family=phosphor] .archon-markdown pre { color:var(--color-fg); background:var(--color-bg-input); font-size:12px; overflow:auto; }
+html[data-family=phosphor] :is(pre,pre *,code,code *,.arco-diff-view,.arco-diff-view *,.terminal-body,.terminal-body *,.send-button,.send-button *,.palette-swatches,.demo-dialog input,.demo-dialog select,.demo-dialog textarea) { text-shadow:none!important; }
+html[data-family=phosphor] .arco-markdown { color:var(--color-fg)!important; }
+html[data-family=phosphor] .arco-diff-file-path { white-space:normal; overflow-wrap:anywhere; }
+html[data-family=phosphor] .arco-markdown pre { color:var(--color-fg); background:var(--color-bg-input); font-size:12px; overflow:auto; }
 html[data-family=phosphor] .hljs { background:var(--color-bg-input); color:var(--color-fg); }
 html[data-family=phosphor] :is(.hljs-keyword,.hljs-selector-tag,.hljs-literal) { color:var(--arco-purple); }
 html[data-family=phosphor] :is(.hljs-string,.hljs-regexp,.hljs-addition) { color:var(--arco-green); }
@@ -214,7 +214,7 @@ html[data-demo-effects=off] .section-heading { background:none; }
   .project-nav { max-height:210px; border-bottom:1px solid var(--color-border-bright); }
   .project-nav .nav-bottom { display:none; }
   .demo-header { padding:8px; }
-  .demo-brand .archon-wordmark { font-size:22px; }
+  .demo-brand .arco-wordmark { font-size:22px; }
   .demo-display { padding:8px; }
   .display-note { width:100%; margin:0; }
   .demo-display select { max-width:190px; }

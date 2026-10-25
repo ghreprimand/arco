@@ -57,7 +57,7 @@ export async function resolveWorkflowDocument(cwd: string, workflowId: string, k
   let bound = await resolveBoundCwd(cwd, workflowId);
   if (!bound.ok) bound = await resolveBoundCwd(cwd, undefined);
   if (!bound.ok) throw new FileAccessError();
-  const root = path.join(bound.cwd, '.archon', 'workflows', workflowId, kind);
+  const root = path.join(bound.cwd, '.arco', 'workflows', workflowId, kind);
   const target = path.join(root, name);
   confinedPath(target, [bound.cwd]);
   return confinedPath(target, [root]);

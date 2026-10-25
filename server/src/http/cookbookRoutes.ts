@@ -8,7 +8,7 @@ import {
   type CatalogResponse,
   type HardwareProfile,
   type HardwareSimPreset,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Workbench Expansion G2 — Cookbook catalog + hardware endpoints.
 //
@@ -74,7 +74,7 @@ export async function tryHandleCookbookRoutes(
       const hw = await rescanHardware();
       return send(200, hw);
     } catch (err) {
-      console.error('[archon] cookbook hardware rescan failed:', err);
+      console.error('[arco] cookbook hardware rescan failed:', err);
       // Probe never throws by contract, but stay defensive.
       const hw = await probeHardware();
       return send(200, hw);
@@ -87,7 +87,7 @@ export async function tryHandleCookbookRoutes(
       const hw = await probeHardware();
       return send(200, hw);
     } catch (err) {
-      console.error('[archon] cookbook hardware probe failed:', err);
+      console.error('[arco] cookbook hardware probe failed:', err);
       return send(200, { gpus: [], totalVramBytes: 0, systemRamBytes: 0, cores: 0, backend: 'cpu', note: 'probe error' } satisfies HardwareProfile);
     }
   }
@@ -102,7 +102,7 @@ export async function tryHandleCookbookRoutes(
       return send(200, body);
     } catch (err) {
       // searchCatalog is designed never to throw; this is the last-resort net.
-      console.error('[archon] cookbook catalog search failed:', err);
+      console.error('[arco] cookbook catalog search failed:', err);
       const hw = await probeHardware().catch(() => ({
         gpus: [], totalVramBytes: 0, systemRamBytes: 0, cores: 0, backend: 'cpu' as const,
       }));

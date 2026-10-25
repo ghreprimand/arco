@@ -12,9 +12,9 @@ import { randomUUID } from 'crypto';
 import { replayTailEvents } from './workflowStore.js';
 
 async function seed(lines: object[]): Promise<{ cwd: string; wfid: string }> {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-replay-tail-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-replay-tail-'));
   const wfid = randomUUID();
-  const dir = path.join(cwd, '.archon', 'workflows', wfid);
+  const dir = path.join(cwd, '.arco', 'workflows', wfid);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'events.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
   return { cwd, wfid };
@@ -50,7 +50,7 @@ test('big log: window starts at a turn boundary, never mid-turn', async () => {
 });
 
 test('missing log: empty', async () => {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-replay-tail-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-replay-tail-'));
   const r = await replayTailEvents(cwd, randomUUID(), 1024);
   assert.deepEqual(r, { events: [], truncated: false });
 });

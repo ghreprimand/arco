@@ -8,7 +8,7 @@ import { join } from 'node:path';
 test('Phosphor settings persist, validate and preserve Classic/operator preferences in an isolated directory', async () => {
   // Never point the settings module at the operator's real home. No server is
   // started, so worker orphan recovery and settings broadcasts cannot run.
-  const fixture = await mkdtemp(join(os.tmpdir(), 'archon-phosphor-settings-'));
+  const fixture = await mkdtemp(join(os.tmpdir(), 'arco-phosphor-settings-'));
   mock.method(os, 'homedir', () => fixture);
   syncBuiltinESMExports();
   try {
@@ -26,7 +26,7 @@ test('Phosphor settings persist, validate and preserve Classic/operator preferen
     assert.equal(saved.phosphorSoftness, 35);
     assert.equal(saved.phosphorEffects, false);
     for (const key of ['fontPackOverride', 'bgBrightness', 'textBrightness', 'crispText', 'frostedOverride', 'operatorName'] as const) assert.equal(saved[key], classic[key]);
-    const file = join(fixture, '.archon', 'settings.json');
+    const file = join(fixture, '.arco', 'settings.json');
     const before = await readFile(file, 'utf8');
     for (const patch of [{ themeId: 'phosphor:arco:invalid' }, { phosphorSoftness: -1 }, { phosphorSoftness: 101 }, { phosphorSoftness: NaN }, { phosphorEffects: 'yes' }]) {
       await assert.rejects(() => patchSettings(patch as never));

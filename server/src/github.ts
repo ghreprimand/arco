@@ -47,7 +47,7 @@ async function gh<T>(path: string, init: FetchInit = {}): Promise<T> {
     Authorization: `Bearer ${token}`,
     Accept: init.accept || 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'archon-local',
+    'User-Agent': 'arco-local',
   };
   const req: RequestInit = { method: init.method || 'GET', headers };
   if (init.body !== undefined) {
@@ -510,7 +510,7 @@ export const github = {
         Authorization: `Bearer ${token}`,
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'archon-local',
+        'User-Agent': 'arco-local',
       },
     });
     if (!res.ok) {

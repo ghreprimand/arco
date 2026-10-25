@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { voiceText, type ComputerConditionRule } from '@archon/shared';
+import { voiceText, type ComputerConditionRule } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useComputerStore } from '../stores/computerStore';
 export const useComputerConditions=create<{rules:ComputerConditionRule[];error:string|null;observationTurns:number}>(()=>({rules:[],error:null,observationTurns:0}));

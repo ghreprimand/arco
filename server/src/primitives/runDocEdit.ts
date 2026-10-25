@@ -16,13 +16,13 @@
 // four-question test.
 
 import { WorkerManager } from '../workers/WorkerManager.js';
-import { DOC_EDIT_CONTEXT_LIMIT } from '@archon/shared';
+import { DOC_EDIT_CONTEXT_LIMIT } from '@arco/shared';
 import type {
   ServerMessage,
   ProviderName,
   ModelName,
   EffortLevel,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export interface DocEditorConfig {
   provider: ProviderName;

@@ -1,7 +1,7 @@
 // Long-lived Cursor (ACP) worker, cached per workflowId. Spawns
 // `cursor-agent acp`, drives the Agent Client Protocol handshake, and adapts
 // its "streams forever" surface to the per-turn events the CursorAcpTurn
-// wrapper (index.ts) re-emits as an Archon ProviderProcess.
+// wrapper (index.ts) re-emits as an Arco ProviderProcess.
 //
 // Simpler than the Codex app-server worker it was forked from: ACP's
 // `session/prompt` is a REQUEST that RESOLVES with `{stopReason}` when the turn
@@ -17,7 +17,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { readFile, writeFile } from 'fs/promises';
 import { isAbsolute, resolve as resolvePath } from 'path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { killProcessTree } from '../../workers/processKill.js';
 import { goalBlock } from '../goalBlock.js';
 import { awaitModelImages, loadImages, splitAttachmentPaths, withAttachmentRefs } from '../attachments.js';
@@ -149,7 +149,7 @@ export class CursorAcpWorker extends EventEmitter {
 
   // Phase 6 — build the ACP `mcpServers` array for session/new|load. When this
   // workflow is a cluster member, stand up (or refresh) the loopback HTTP MCP
-  // server carrying the archon-cluster peer tools and hand Cursor its URL. Cursor
+  // server carrying the arco-cluster peer tools and hand Cursor its URL. Cursor
   // ACP advertises MCP over http/sse only (spike-8), so this is an HTTP descriptor
   // — not the stdio child Claude CLI / Codex members spawn. Non-members → [].
   private async resolveMcpServers(): Promise<Array<Record<string, unknown>>> {
@@ -161,12 +161,12 @@ export class CursorAcpWorker extends EventEmitter {
       }
       return [];
     }
-    const archonPort = parseInt(process.env.ARCHON_PORT || '3001', 10);
+    const arcoPort = parseInt(process.env.ARCO_PORT || '3001', 10);
     try {
       this.clusterMcpDescriptor = await ensureClusterLoopbackMcp({
         clusterId: this.config.clusterId,
         workflowId: this.workflowId,
-        archonPort,
+        arcoPort,
         cwd: this.config.cwd,
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
@@ -309,7 +309,7 @@ export class CursorAcpWorker extends EventEmitter {
       await ensureClusterLoopbackMcp({
         clusterId: this.config.clusterId,
         workflowId: this.workflowId,
-        archonPort: parseInt(process.env.ARCHON_PORT || '3001', 10),
+        arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10),
         // cwd carries the plan_* tools; omitting it here dropped them after
         // the first turn.
         cwd: this.config.cwd,
@@ -548,7 +548,7 @@ export class CursorAcpWorker extends EventEmitter {
         this.emit('system_notice', `Cursor: permission request offered no allow-once option (${(opts ?? []).map((o) => o.optionId ?? o.kind).join(', ') || 'none'}); declined.`);
         return { outcome: { outcome: 'cancelled' } };
       }
-      // Blocking Cursor extensions that wait on an interactive UI Archon doesn't
+      // Blocking Cursor extensions that wait on an interactive UI Arco doesn't
       // have. Answer explicitly (docs: cursor.com/docs/cli/acp) — an empty `{}`
       // has no `outcome` and leaves the agent guessing.
       case 'cursor/ask_question': {

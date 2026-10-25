@@ -66,7 +66,7 @@ type ReviewContextRef =
   | { kind: 'plan-items'; planId: string; itemIds: string[]; mode: PlanReviewMode }
   // Cluster-plan-scoped — body comes from the cluster's attached plan
   // (`clusterPlanBridge.readClusterPlan(clusterId)`, canonical under
-  // <cwd>/.archon/plans/<planId>.md) instead of `readPlan(cwd, planId)`.
+  // <cwd>/.arco/plans/<planId>.md) instead of `readPlan(cwd, planId)`.
   // `workflowId` on the request still names
   // the worker that runs the review (a member, the cluster plan tab's REVIEW
   // PLAN / VERIFY WORK buttons pop a ClusterMemberPicker); `clusterId` names
@@ -79,7 +79,7 @@ type ReviewContextRef =
   // the HISTORY tab's "REVIEW FROM HERE" button. Reviewer framing names
   // the operator label when the anchor is an `operator_label` event.
   | { kind: 'since-event'; anchorEventSeq: number }
-  // ARCHON_OPS_PLAN.md §G2 — review a preview-capture report artifact. No
+  // ARCO_OPS_PLAN.md §G2 — review a preview-capture report artifact. No
   // transcript: the reviewer sees the markdown report produced by a Preview
   // verification capture (screenshot reference + console/network + layout/a11y
   // notes) and evaluates the running UI from that evidence. `reportName` is the
@@ -99,7 +99,7 @@ For plan-scoped variants:
 
 For the preview-capture variant:
 
-- **`preview-capture`** — no transcript. The reviewer sees the markdown report produced by a Preview verification capture (screenshot reference + console/network errors + layout/a11y notes; see [`PREVIEW_VERIFY.md`](PREVIEW_VERIFY.md)) and evaluates the running UI from that evidence. `reportName` is the artifact basename under the workflow's artifacts dir. Triggered by the ATTACH TO REVIEW button on the Preview tab's capture result strip (ARCHON_OPS §G2).
+- **`preview-capture`** — no transcript. The reviewer sees the markdown report produced by a Preview verification capture (screenshot reference + console/network errors + layout/a11y notes; see [`PREVIEW_VERIFY.md`](PREVIEW_VERIFY.md)) and evaluates the running UI from that evidence. `reportName` is the artifact basename under the workflow's artifacts dir. Triggered by the ATTACH TO REVIEW button on the Preview tab's capture result strip (ARCO_OPS §G2).
 
 Mode semantics:
 
@@ -369,7 +369,7 @@ Optional progress signal fired when the worker is spawned.
 
 ## Agent-instruction-file tune-up (TUNE MD — §A7 sibling)
 
-Proposes a compacted version of an instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md` / `GEMINI.md`) — the per-turn token tax of an accreted instruction file, paid back. ONE bounded, **read-only** worker turn: the agent has **no Write/Edit tool** and never touches disk. On Accept the server re-reads the file, backs the original up to `.archon/md-backups/<name>.<ts>.bak`, then writes through the `resolveWithinCwd`-guarded path. Same propose-then-approve posture as doc-editing — operator-initiated, source is the file itself (not session traces), reviewed as a diff before any write. Defined in `shared/src/protocol/mdTuneup.ts`; `INSTRUCTION_FILE_NAMES = ['CLAUDE.md','CLAUDE.local.md','AGENTS.md','GEMINI.md']`.
+Proposes a compacted version of an instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md` / `GEMINI.md`) — the per-turn token tax of an accreted instruction file, paid back. ONE bounded, **read-only** worker turn: the agent has **no Write/Edit tool** and never touches disk. On Accept the server re-reads the file, backs the original up to `.arco/md-backups/<name>.<ts>.bak`, then writes through the `resolveWithinCwd`-guarded path. Same propose-then-approve posture as doc-editing — operator-initiated, source is the file itself (not session traces), reviewed as a diff before any write. Defined in `shared/src/protocol/mdTuneup.ts`; `INSTRUCTION_FILE_NAMES = ['CLAUDE.md','CLAUDE.local.md','AGENTS.md','GEMINI.md']`.
 
 ### `md_tuneup_candidates_request` → / `md_tuneup_candidates` ←
 
@@ -515,7 +515,7 @@ cwd-scoped handoff-lock coordination (a cwd holds at most one running handoff ac
   type: 'handoff_artifact_ready',
   workflowId: string,
   handoffId: string,
-  artifactName: string,             // handoff-<ts>.md under .archon/workflows/<wfid>/handoffs/
+  artifactName: string,             // handoff-<ts>.md under .arco/workflows/<wfid>/handoffs/
   error?: string,
   cancelled?: boolean,              // set when the operator cancelled; rendered as CANCEL, distinct from error
   completedAt: number,

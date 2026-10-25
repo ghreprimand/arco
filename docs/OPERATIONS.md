@@ -25,12 +25,12 @@ Open <http://localhost:5173>.
 
 | | Linux | macOS | Windows |
 |---|---|---|---|
-| Arco home | `~/.archon` | `~/.archon` | `%USERPROFILE%\.archon` |
+| Arco home | `~/.arco` | `~/.arco` | `%USERPROFILE%\.arco` |
 | Terminal shell | `$SHELL`, else `/bin/bash` | `$SHELL`, else `/bin/zsh` | `powershell.exe` |
 | `npm run dev`, `npm start` | yes | yes | yes |
-| `scripts/archon` launcher, `archon service` | yes (bash, systemd `--user`) | launcher yes; service is manual (see [`SERVICE_MODE.md`](SERVICE_MODE.md)) | no; use `npm start` |
+| `scripts/arco` launcher, `arco service` | yes (bash, systemd `--user`) | launcher yes; service is manual (see [`SERVICE_MODE.md`](SERVICE_MODE.md)) | no; use `npm start` |
 
-`ARCO_HOME` (or `ARCHON_HOME`) relocates the whole Arco home. The internal directory name stays `.archon` for state compatibility with Archon. On Windows, provider CLIs installed through npm are `.cmd` shims; native-run acceptance on Windows is pending.
+`ARCO_HOME` relocates the whole Arco home. Arco does not share state with the private upstream; a user moving from it copies the home folder to `~/.arco` and each project's state folder to `<project>/.arco`. On Windows, provider CLIs installed through npm are `.cmd` shims; native-run acceptance on Windows is pending.
 
 **npm 12 and the native deps.** npm 12 blocks install scripts unless the root `package.json` `allowScripts` block covers them; it does, so `npm install` suffices on a fresh clone — though on npm 12 prefer `npm ci`, which builds the same natives without renormalizing `package-lock.json` (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md#setup) for why that churn must not be committed). The pins are version-keyed, so a dep bump can un-cover a package — `npm install` warns (`N packages had install scripts blocked…`) and `npm install-scripts ls` shows the state. Approving after an install (`npm install-scripts approve <pkg>`) records the entry but does **not** build; follow it with `npm rebuild better-sqlite3 node-pty`.
 
@@ -38,8 +38,8 @@ The failure mode to recognize: an unbuilt `better-sqlite3` doesn't break the bui
 
 | Boot log line | Meaning |
 |---|---|
-| `[archon] Recall index backfilled N workflows` | healthy |
-| `[archon] RECALL DISABLED — better-sqlite3 native binding is not built.` | run `npm rebuild better-sqlite3` |
+| `[arco] Recall index backfilled N workflows` | healthy |
+| `[arco] RECALL DISABLED — better-sqlite3 native binding is not built.` | run `npm rebuild better-sqlite3` |
 
 `npm run dev` runs `concurrently --kill-others -n server,client` against:
 
@@ -65,15 +65,15 @@ To run the build in the foreground on any platform:
 npm start           # server + built client on http://localhost:3001
 ```
 
-`npm start` (`scripts/start.mjs`) sets `ARCHON_SERVE_CLIENT=1` and `NODE_ENV=production` unless they are already set, then runs `server/dist/index.js` from the repository root. It refuses to start until `npm run build` has produced `server/dist` and `client/dist`.
+`npm start` (`scripts/start.mjs`) sets `ARCO_SERVE_CLIENT=1` and `NODE_ENV=production` unless they are already set, then runs `server/dist/index.js` from the repository root. It refuses to start until `npm run build` has produced `server/dist` and `client/dist`.
 
-For a durable, restartable production runtime use **service mode**: the compiled server serves `client/dist` itself (gated on `ARCHON_SERVE_CLIENT=1`) under a systemd `--user` unit that restarts on crash.
+For a durable, restartable production runtime use **service mode**: the compiled server serves `client/dist` itself (gated on `ARCO_SERVE_CLIENT=1`) under a systemd `--user` unit that restarts on crash.
 
 ```bash
-archon service install && archon service start   # build + write+enable unit + start
+arco service install && arco service start   # build + write+enable unit + start
 ```
 
-See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, and the `ARCHON_SERVE_CLIENT` gate. A reverse proxy fronting `node server/dist/index.js` (with the proxy serving the client bundle) remains a valid alternative — also covered there.
+See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, and the `ARCO_SERVE_CLIENT` gate. A reverse proxy fronting `node server/dist/index.js` (with the proxy serving the client bundle) remains a valid alternative — also covered there.
 
 ---
 
@@ -81,10 +81,10 @@ See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, an
 
 | Port | Service | Notes |
 |---|---|---|
-| 3001 | HTTP + WebSocket | Server. Override with `ARCHON_PORT` |
-| 5173 | Vite dev server | Client. Override with `ARCHON_CLIENT_PORT` |
+| 3001 | HTTP + WebSocket | Server. Override with `ARCO_PORT` |
+| 5173 | Vite dev server | Client. Override with `ARCO_CLIENT_PORT` |
 | 8081 | Strata service | Standalone OpenAI-compatible `/v1`; `STRATA_URL_BASE` or Settings → STRATA ENDPOINT |
-| 8888 | SearXNG | Default search backend for local web tools; `ARCHON_SEARXNG_URL` |
+| 8888 | SearXNG | Default search backend for local web tools; `ARCO_SEARXNG_URL` |
 | 11434 | Ollama daemon | Default Ollama port; override the URL via `OLLAMA_URL_BASE` |
 | 9222 | Antigravity desktop debug port | Liveness probe only; RPC uses the local language-server endpoint |
 
@@ -107,13 +107,13 @@ Arco page can mint (`server/src/http/wsAuth.ts`). This stops local processes —
 including Arco's own agents — from scripting the control plane, short of
 deliberately forging browser headers. Refusals log as `refused upgrade` /
 `refused session mint` / `refused <METHOD> <path>` in the journal. Emergency off-switch (also what test
-servers for the smoke harness use): `ARCHON_WS_AUTH=off`, e.g. an
-`Environment=ARCHON_WS_AUTH=off` line in the unit's `override.conf`, then
+servers for the smoke harness use): `ARCO_WS_AUTH=off`, e.g. an
+`Environment=ARCO_WS_AUTH=off` line in the unit's `override.conf`, then
 restart.
 
 To use Arco remotely, **prefer an SSH or Vite tunnel** (forward `5173`/`3001`
 over SSH, or `ssh -L`) so the bind stays loopback and only your authenticated
-SSH session reaches it. Set `ARCHON_HOST=0.0.0.0` **only** when you deliberately
+SSH session reaches it. Set `ARCO_HOST=0.0.0.0` **only** when you deliberately
 want LAN/tailnet clients to reach the no-auth surface directly — there is no
 access control to fall back on.
 
@@ -134,90 +134,90 @@ env will fail. See `docs/MCP_REGISTRY.md`.
 
 ## Environment variables
 
-The internal name remains Archon for state compatibility: variables keep the `ARCHON_` prefix and state stays under `.archon/`. Every `ARCHON_<NAME>` variable can also be set as `ARCO_<NAME>`, which takes precedence when both are set.
+Variables use the `ARCO_` prefix and state lives under `.arco/`. For service units written before the rename, a variable with the upstream prefix fills the matching unset `ARCO_<NAME>` at startup (`server/src/envAliases.ts`); a set `ARCO_<NAME>` always wins.
 
 ### Server-affecting
 
 | Var | Default | Purpose |
 |---|---|---|
-| `ARCHON_PORT` | `3001` | Server HTTP/WS port |
-| `ARCHON_HOST` | `127.0.0.1` | Server bind address. Loopback by default — the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
-| `ARCHON_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only — never leave it on `archon.service` |
-| `ARCHON_HOME` | `~/.archon` (`%USERPROFILE%\.archon` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and `archon backup`'s source. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.archon/` |
-| `ARCHON_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset → Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
+| `ARCO_PORT` | `3001` | Server HTTP/WS port |
+| `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default — the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
+| `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only — never leave it on `arco.service` |
+| `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and `arco backup`'s source. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
+| `ARCO_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset → Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 | `NODE_ENV` | unset | The service unit sets `production`; this rejects test-only HTTP routes (e.g. the cluster `_test_insert` smoke hook) and switches identity to `systemd` service mode |
 | `OLLAMA_URL_BASE` | `http://localhost:11434` | Ollama daemon endpoint |
 | `STRATA_URL_BASE` | `http://127.0.0.1:8081/v1` | Standalone Strata endpoint; `settings.strata.baseUrl` takes precedence |
-| `ARCHON_STRATA_PROFILES` | `~/.archon/strata-profiles.json` | Optional prepared-profile registry; exact matching loopback endpoint only; see [STRATA.md](STRATA.md) |
+| `ARCO_STRATA_PROFILES` | `~/.arco/strata-profiles.json` | Optional prepared-profile registry; exact matching loopback endpoint only; see [STRATA.md](STRATA.md) |
 | `LMSTUDIO_URL_BASE` | `http://localhost:1234/v1` | LM Studio OpenAI-compat endpoint |
-| `ARCHON_CURSOR_AUTH` | `~/.config/cursor/auth.json` | Path to the Cursor session-JWT file; read fresh each poll by the auth-status check and the `/api/cursor-usage` poller (test/override seam) |
-| `ARCHON_LLAMACPP_BIN` | `/usr/local/bin/llama-server` | Path to the `llama-server` binary |
-| `ARCHON_LLAMACPP_HOST` | `127.0.0.1` | `llama-server` bind host; loopback by default |
-| `ARCHON_LLAMACPP_PORT` | `8923` | `llama-server` bind port (chosen to avoid common dev ports) |
-| `ARCHON_LLAMACPP_KEEPALIVE_MS` | `600000` (10 min) | Idle timeout before `llamacppManager` SIGTERMs the running `llama-server` (see § llama.cpp manager lifecycle) |
-| `ARCHON_RSS_KILL_BYTES` | `32 * 1024^3` (32 GB) | Tree-RSS auto-kill threshold (per worker tree); raised from 16 GB on 2026-04-28. Must be ≥ 1 GB or it's ignored |
-| `ARCHON_MAX_WORKER_OUTPUT_BYTES` | `52428800` (50 MB) | Per-worker text-output cap before force-settle + truncation notice. Must be ≥ 1 MB or it's ignored |
-| `ARCHON_TOOL_LOOP_GUARD` | `warn` | In-turn tool-loop guardrail mode (Claude Native, H9). `warn` = emit `tool_loop_warning` + `system_notice` only; `stop` (or `hard`/`1`/`on`) aborts the tool loop on the first trip; `off` (or `0`/`false`) disables detection |
-| `ARCHON_LOG_FILE` | unset | Set `1` to enable rotating file logging under `~/.archon/logs/` (the service unit sets this) |
-| `ARCHON_LOG_DIR` | `~/.archon/logs` | Override the file-log directory (also enables file logging when set) |
-| `ARCHON_OAUTH_CALLBACK_HOST` | `127.0.0.1` | Loopback host for the Claude Native OAuth callback |
-| `ARCHON_INSTANCE_NAME` | (hostname-derived) | Friendly instance name reported to the management hub |
-| `ARCHON_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell |
-| `ARCHON_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present |
-| `ARCHON_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
+| `ARCO_CURSOR_AUTH` | `~/.config/cursor/auth.json` | Path to the Cursor session-JWT file; read fresh each poll by the auth-status check and the `/api/cursor-usage` poller (test/override seam) |
+| `ARCO_LLAMACPP_BIN` | `/usr/local/bin/llama-server` | Path to the `llama-server` binary |
+| `ARCO_LLAMACPP_HOST` | `127.0.0.1` | `llama-server` bind host; loopback by default |
+| `ARCO_LLAMACPP_PORT` | `8923` | `llama-server` bind port (chosen to avoid common dev ports) |
+| `ARCO_LLAMACPP_KEEPALIVE_MS` | `600000` (10 min) | Idle timeout before `llamacppManager` SIGTERMs the running `llama-server` (see § llama.cpp manager lifecycle) |
+| `ARCO_RSS_KILL_BYTES` | `32 * 1024^3` (32 GB) | Tree-RSS auto-kill threshold (per worker tree); raised from 16 GB on 2026-04-28. Must be ≥ 1 GB or it's ignored |
+| `ARCO_MAX_WORKER_OUTPUT_BYTES` | `52428800` (50 MB) | Per-worker text-output cap before force-settle + truncation notice. Must be ≥ 1 MB or it's ignored |
+| `ARCO_TOOL_LOOP_GUARD` | `warn` | In-turn tool-loop guardrail mode (Claude Native, H9). `warn` = emit `tool_loop_warning` + `system_notice` only; `stop` (or `hard`/`1`/`on`) aborts the tool loop on the first trip; `off` (or `0`/`false`) disables detection |
+| `ARCO_LOG_FILE` | unset | Set `1` to enable rotating file logging under `~/.arco/logs/` (the service unit sets this) |
+| `ARCO_LOG_DIR` | `~/.arco/logs` | Override the file-log directory (also enables file logging when set) |
+| `ARCO_OAUTH_CALLBACK_HOST` | `127.0.0.1` | Loopback host for the Claude Native OAuth callback |
+| `ARCO_INSTANCE_NAME` | (hostname-derived) | Friendly instance name reported to the management hub |
+| `ARCO_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell |
+| `ARCO_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present |
+| `ARCO_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
 | `ZAI_API_KEY` | unset | Z.ai Coding Plan key. Overrides the stored Settings key and disables that field; the stored key (not the env var) accepts `!cmd` / `${ENV}` interpolation |
-| `ARCHON_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
-| `ARCHON_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata / Z.ai native, and Ollama/Strata Chat web toggles) |
-| `ARCHON_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
-| `ARCHON_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the Camoufox-driven Codex usage probe and the local `WebFetch` stealth fallback |
+| `ARCO_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
+| `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata / Z.ai native, and Ollama/Strata Chat web toggles) |
+| `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
+| `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the Camoufox-driven Codex usage probe and the local `WebFetch` stealth fallback |
 | `ANTIGRAVITY_BINARY` | `/opt/antigravity/antigravity` | Antigravity desktop app path |
 | `ANTIGRAVITY_USE_DEFAULT_PROFILE` | unset | Set `1` to omit `--user-data-dir` and reuse the signed-in Antigravity profile |
-| `ANTIGRAVITY_USER_DATA_DIR` | `~/.archon/antigravity-data` | Custom Antigravity profile path; `default` or `none` omits `--user-data-dir` |
+| `ANTIGRAVITY_USER_DATA_DIR` | `~/.arco/antigravity-data` | Custom Antigravity profile path; `default` or `none` omits `--user-data-dir` |
 | `ANTIGRAVITY_CDP_PORT` | `9222` | Antigravity desktop debug port used only for liveness probing |
 | `ANTIGRAVITY_WORKSPACE` | `~/Projects` | Folder opened when Arco lazy-spawns Antigravity |
 | `ANTIGRAVITY_RPC_MODEL` | `gemini-3-flash-agent` | Antigravity RPC model id; `gemini-3-flash-agent` is Gemini 3.5 Flash High |
 | `TERMINAL` | (auto-detect) | Preferred terminal for Gemini / Codex auth flows; falls back through `konsole`, `gnome-terminal`, `kgx`, `kitty`, `alacritty` |
 | `OPENAI_API_KEY` | unset | Env-var auth fallback for Codex (subscription auth preferred); detected by the auth-status probe |
 | `GEMINI_API_KEY` | unset | Env-var auth fallback for Gemini (OAuth preferred); detected by the auth-status probe |
-| `ARCHON_CLUSTER_IDLE_FLOOR_SECONDS` | `10` | Minimum idle time before the nudger fires; set to `1` when running cluster smoke tests |
-| `ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS` | `20000` | Per-recipient cooldown for AUTO-PICKUP turns |
-| `ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` | `10` | Cluster-wide rate cap for auto-turns |
-| `ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH` | `3` | Maximum peer-message chain depth before auto-turn refuses to fire |
-| `ARCHON_CLUSTER_ALLOW_MULTIPLE_LOCAL` | unset | Set `1` to allow more than one local-provider member per cluster (normally refused) |
-| `ARCHON_PEER_SEND_DEDUPE_MS` | `60000` | Dedup window for `peer_send` (same from/to/content hash within window is rejected as `duplicate_send`) |
+| `ARCO_CLUSTER_IDLE_FLOOR_SECONDS` | `10` | Minimum idle time before the nudger fires; set to `1` when running cluster smoke tests |
+| `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS` | `20000` | Per-recipient cooldown for AUTO-PICKUP turns |
+| `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` | `10` | Cluster-wide rate cap for auto-turns |
+| `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH` | `3` | Maximum peer-message chain depth before auto-turn refuses to fire |
+| `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL` | unset | Set `1` to allow more than one local-provider member per cluster (normally refused) |
+| `ARCO_PEER_SEND_DEDUPE_MS` | `60000` | Dedup window for `peer_send` (same from/to/content hash within window is rejected as `duplicate_send`) |
 
 ### Launcher-affecting
 
 | Var | Default | Purpose |
 |---|---|---|
-| `ARCHON_DIR` | the checkout containing `scripts/archon` | Project root the launcher manages |
-| `ARCHON_CLIENT_PORT` | `5173` | Vite port for browser open + port checks |
-| `ARCHON_SERVER_PORT` | `3001` | Mirror of `ARCHON_PORT` for launcher checks |
+| `ARCO_DIR` | the checkout containing `scripts/arco` | Project root the launcher manages |
+| `ARCO_CLIENT_PORT` | `5173` | Vite port for browser open + port checks |
+| `ARCO_SERVER_PORT` | `3001` | Mirror of `ARCO_PORT` for launcher checks |
 | `XDG_CACHE_HOME` | `$HOME/.cache` | Where launcher logs/pids/locks live |
 
 ---
 
 ## The launcher script
 
-`scripts/archon` is a bash 3.2-compatible launcher for desktop / CLI use.
+`scripts/arco` is a bash 3.2-compatible launcher for desktop / CLI use.
 
 ### Commands
 
 ```bash
-scripts/archon start     # boot Archon + open browser
-scripts/archon stop      # graceful API shutdown + signal cleanup
-scripts/archon restart   # stop then start
-scripts/archon status    # report running/stopped + log path
-scripts/archon logs [N]  # tail -f -n N of the log (default 100)
+scripts/arco start     # boot Arco + open browser
+scripts/arco stop      # graceful API shutdown + signal cleanup
+scripts/arco restart   # stop then start
+scripts/arco status    # report running/stopped + log path
+scripts/arco logs [N]  # tail -f -n N of the log (default 100)
 ```
 
 ### Start
 
 1. Acquire `mkdir`-based atomic lock at `$CACHE_DIR/start.lock.d` to prevent races.
 2. Check existing Arco processes (PID file + ports + signature). If any exist, call `stop` first (the operator's preference: launch = clean slate; resume via the in-app picker, not by reattaching to a half-dead process).
-3. `pkill -f` belt-and-suspenders for `tsx.*(server|src)/index\.ts` and `concurrently.*archon` signatures.
+3. `pkill -f` belt-and-suspenders for `tsx.*(server|src)/index\.ts` and `concurrently.*arco` signatures.
 4. Brief 1-second settle so the kernel releases ports.
-5. Refuse if a non-Archon process is squatting on either port.
+5. Refuse if a non-Arco process is squatting on either port.
 6. `nohup setsid npm run dev >> $LOG_FILE 2>&1 &` and store the pid.
 7. `wait_ready 60` polls both ports every 0.5s — 60 tries, so up to ~30 seconds (the failure toast says "within 30s").
 8. Open the browser to `http://localhost:5173` (rate-limited to one open per 5s window).
@@ -227,38 +227,38 @@ scripts/archon logs [N]  # tail -f -n N of the log (default 100)
 1. POST `/api/shutdown` (graceful — server broadcasts `shutdown` WS message to every connected tab).
 2. Wait 2 seconds for the server's 1.5s client-notify window plus slack.
 3. Fall back to signalling the PGID directly (kill `-- -<pgid>`).
-4. `reap_orphans()` SIGKILLs any Archon-tied processes still holding the ports.
+4. `reap_orphans()` SIGKILLs any Arco-tied processes still holding the ports.
 5. Last-resort `pkill -f` for known dev process signatures.
 6. Remove the PID file.
 
 ### Logs
 
-Live at `$XDG_CACHE_HOME/archon/archon.log`. The launcher trace (separate file, what command ran when) lives at `$XDG_CACHE_HOME/archon/launcher-trace.log`.
+Live at `$XDG_CACHE_HOME/arco/arco.log`. The launcher trace (separate file, what command ran when) lives at `$XDG_CACHE_HOME/arco/launcher-trace.log`.
 
 ### Desktop entries (Linux freedesktop)
 
 ```bash
-cp scripts/archon.desktop scripts/archon-quit.desktop ~/.local/share/applications/
+cp scripts/arco.desktop scripts/arco-quit.desktop ~/.local/share/applications/
 update-desktop-database ~/.local/share/applications
 ```
 
-Installs **Arco** (start + open browser) and **Quit Arco** (stop) as desktop entries. Both call into `scripts/archon`.
+Installs **Arco** (start + open browser) and **Quit Arco** (stop) as desktop entries. Both call into `scripts/arco`.
 
 ---
 
 ## Production service
 
-`scripts/archon` runs the **dev** stack. For a durable runtime that survives a terminal close and restarts on crash, use **service mode** — the compiled server serves `client/dist` itself under a systemd `--user` unit:
+`scripts/arco` runs the **dev** stack. For a durable runtime that survives a terminal close and restarts on crash, use **service mode** — the compiled server serves `client/dist` itself under a systemd `--user` unit:
 
 ```bash
-archon service install && archon service start
-archon service status
-archon service logs
+arco service install && arco service start
+arco service status
+arco service logs
 ```
 
-Full CLI, the rendered systemd unit, the `ARCHON_SERVE_CLIENT` static-serve gate, and the macOS caveat (manual run; launchd later) are in [`SERVICE_MODE.md`](SERVICE_MODE.md).
+Full CLI, the rendered systemd unit, the `ARCO_SERVE_CLIENT` static-serve gate, and the macOS caveat (manual run; launchd later) are in [`SERVICE_MODE.md`](SERVICE_MODE.md).
 
-The service runs compiled `dist/`, so source edits are invisible to it until `npm run build` + `systemctl --user restart archon.service`. **That restart kills every in-flight worker in every open tab** (same as a dev `tsx watch` restart), and a rebuild ships all uncommitted working-tree changes along with yours — diff before deploying. After committing or pulling without rebuilding, the live service keeps running the old compiled `dist`. The Diagnostics tab's `core.code-skew` check (H43) WARNs when the running build is behind on-disk HEAD and points at `npm run build && systemctl --user restart archon.service`. The `core.systemd-shutdown-window` check (H42) WARNs if the unit's stop timeout is too short for graceful shutdown + flush. See [`DIAGNOSTICS.md`](DIAGNOSTICS.md).
+The service runs compiled `dist/`, so source edits are invisible to it until `npm run build` + `systemctl --user restart arco.service`. **That restart kills every in-flight worker in every open tab** (same as a dev `tsx watch` restart), and a rebuild ships all uncommitted working-tree changes along with yours — diff before deploying. After committing or pulling without rebuilding, the live service keeps running the old compiled `dist`. The Diagnostics tab's `core.code-skew` check (H43) WARNs when the running build is behind on-disk HEAD and points at `npm run build && systemctl --user restart arco.service`. The `core.systemd-shutdown-window` check (H42) WARNs if the unit's stop timeout is too short for graceful shutdown + flush. See [`DIAGNOSTICS.md`](DIAGNOSTICS.md).
 
 Run `npm run deploy:preflight` immediately before restarting. It reads the live
 open workspace: standalone workflow snapshots use `busy`, while cluster
@@ -279,12 +279,12 @@ old chunks, and replace `client/dist/index.html` last. Browser refresh picks up
 the new client without interrupting server workers. Backend changes still require
 rebuild/restart coordination. See [the help audit](DOCUMENTATION_AUDIT.md).
 
-`install` bakes `ARCHON_HUB_URL` / `ARCHON_NTFY_URL` into the unit **only if they are set in the shell at install time** (remote-management is operator-supplied config, not baked into the repo). A clean checkout that just runs `archon service install` produces a working but hub-*unlinked* unit. To reproduce the current workstation deployment exactly:
+`install` bakes `ARCO_HUB_URL` / `ARCO_NTFY_URL` into the unit **only if they are set in the shell at install time** (remote-management is operator-supplied config, not baked into the repo). A clean checkout that just runs `arco service install` produces a working but hub-*unlinked* unit. To reproduce the current workstation deployment exactly:
 
 ```bash
-ARCHON_HUB_URL=ws://<hub-tailnet-ip>:3500 \
-ARCHON_NTFY_URL=http://<hub-tailnet-ip>:3501/archon-<topic> \
-npm run archon:service install -- --enable
+ARCO_HUB_URL=ws://<hub-tailnet-ip>:3500 \
+ARCO_NTFY_URL=http://<hub-tailnet-ip>:3501/arco-<topic> \
+npm run arco:service install -- --enable
 ```
 
 All *code* fixes (IPv6 hard-block, the usage-fetch guard, the global crash net) travel with the repo and need no env.
@@ -295,10 +295,10 @@ This deployment has IPv4 egress but no usable IPv6 route. The server hard-blocks
 
 ### Recovering from `start-limit-hit`
 
-If `archon service status` shows `failed (Result: start-limit-hit)`, systemd has stopped retrying. Clear the counter and start again:
+If `arco service status` shows `failed (Result: start-limit-hit)`, systemd has stopped retrying. Clear the counter and start again:
 
 ```bash
-systemctl --user reset-failed archon && systemctl --user start archon
+systemctl --user reset-failed arco && systemctl --user start arco
 ```
 
 ---
@@ -312,7 +312,7 @@ The UI's SystemHeader has a small power-button cluster:
 
 The client keeps the tab open during `server_restarting` and reconnects on the new process. On `server_stopping` it tries to close the tab (browsers usually block this; the `ShutdownOverlay` stays visible).
 
-In dev mode, the respawn script is written to `/tmp/archon-respawn-{pid}.sh`. If restart fails silently, look at `/tmp/archon-respawn.log`.
+In dev mode, the respawn script is written to `/tmp/arco-respawn-{pid}.sh`. If restart fails silently, look at `/tmp/arco-respawn.log`.
 
 On every stop the server logs one **shutdown forensics** line (H42, `server/src/diagnostics/shutdownForensics.ts`) recording the `signal`, `uptime`, `rss`, how many in-flight turns were truncated (broken down by provider), the worker-reap tally (`killed`/`reused`/`gone`), PTY session count, and the flush budget. Grep the server log after an unexpected stop to see exactly what the shutdown interrupted.
 
@@ -340,7 +340,7 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login — Arco spawns/manages `llama-server`) | `llama-server` reachable |
 
-CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Native uses a separate set of `/api/auth/claude-native/*` endpoints (see [`HTTP_API.md`](HTTP_API.md) § Claude Native auth). The auth-status endpoint is `GET /api/auth-status`. Polled every 2 minutes by the client. Native tokens persist to `~/.archon/auth.json`; refresh races serialize via `proper-lockfile`.
+CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Native uses a separate set of `/api/auth/claude-native/*` endpoints (see [`HTTP_API.md`](HTTP_API.md) § Claude Native auth). The auth-status endpoint is `GET /api/auth-status`. Polled every 2 minutes by the client. Native tokens persist to `~/.arco/auth.json`; refresh races serialize via `proper-lockfile`.
 
 ### Strata and large MoE operation
 
@@ -383,8 +383,8 @@ The Media studio's audio ops (H6: clip / convert / normalize / mono / stereo / f
 
 The studio is a **general** media tool: it can open a picker-imported file, a file on an SMB mount, or anything outside a workflow folder, and write output to a chosen destination.
 
-- **Import scratch:** an imported (browser-blob) file is staged to **`~/.archon/media-scratch/<uuid>/`** so ffmpeg (which reads files, not object URLs) can act on it. Bounded — per-upload byte cap (4 GiB), a **24h TTL**, and a 16 GiB total cap (oldest evicted) — and reaped automatically. It's disposable: safe to `rm -rf ~/.archon/media-scratch/` at any time.
-- **Access setting `mediaUnconfined`** (Settings → **MEDIA ACCESS**; default **open**): when open, ops + the `/api/media/raw` serve may reach an **arbitrary absolute path** and write to an arbitrary (existing) output dir. When **CONFINED** (`false`), they're restricted to the workflow cwd **plus** the import scratch — picker-imported files still convert/clip, but arbitrary disk paths are rejected. **Switch to CONFINED on a tunnel-exposed Arco.** Read per-op from the settings cascade, so a project `.archon/settings.json` can pin `"mediaUnconfined": false`. Output is always uniquified and never overwrites the source, regardless of the setting.
+- **Import scratch:** an imported (browser-blob) file is staged to **`~/.arco/media-scratch/<uuid>/`** so ffmpeg (which reads files, not object URLs) can act on it. Bounded — per-upload byte cap (4 GiB), a **24h TTL**, and a 16 GiB total cap (oldest evicted) — and reaped automatically. It's disposable: safe to `rm -rf ~/.arco/media-scratch/` at any time.
+- **Access setting `mediaUnconfined`** (Settings → **MEDIA ACCESS**; default **open**): when open, ops + the `/api/media/raw` serve may reach an **arbitrary absolute path** and write to an arbitrary (existing) output dir. When **CONFINED** (`false`), they're restricted to the workflow cwd **plus** the import scratch — picker-imported files still convert/clip, but arbitrary disk paths are rejected. **Switch to CONFINED on a tunnel-exposed Arco.** Read per-op from the settings cascade, so a project `.arco/settings.json` can pin `"mediaUnconfined": false`. Output is always uniquified and never overwrites the source, regardless of the setting.
 
 ### Demucs (optional — Media studio stem separation, N4)
 
@@ -402,16 +402,16 @@ The audio panel's **STEMS** control shells out to **`demucs`** (Python + torch) 
 
 | Source | Path | Notes |
 |---|---|---|
-| Server (and client dev) | `$XDG_CACHE_HOME/archon/archon.log` | Combined stdout/stderr from `npm run dev` |
-| Launcher trace | `$XDG_CACHE_HOME/archon/launcher-trace.log` | What launcher command ran when |
-| Restart script | `/tmp/archon-respawn-<pid>.sh` | Generated each restart |
-| Restart output | `/tmp/archon-respawn.log` | Stdout/stderr of the respawned `npm run dev` |
+| Server (and client dev) | `$XDG_CACHE_HOME/arco/arco.log` | Combined stdout/stderr from `npm run dev` |
+| Launcher trace | `$XDG_CACHE_HOME/arco/launcher-trace.log` | What launcher command ran when |
+| Restart script | `/tmp/arco-respawn-<pid>.sh` | Generated each restart |
+| Restart output | `/tmp/arco-respawn.log` | Stdout/stderr of the respawned `npm run dev` |
 | Antigravity RPC diagnostics | Server log + future RPC smoke output | Confirms desktop liveness, profile mode, and RPC model resolution |
-| Service mode (systemd) | journald + `~/.archon/logs/` | The unit sets `ARCHON_LOG_FILE=1` (rotating file log) and journald captures stdout/stderr. View via `archon service logs`. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
+| Service mode (systemd) | journald + `~/.arco/logs/` | The unit sets `ARCO_LOG_FILE=1` (rotating file log) and journald captures stdout/stderr. View via `arco service logs`. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 
-To watch live: `scripts/archon logs` or `tail -f $XDG_CACHE_HOME/archon/archon.log` (dev); `archon service logs` (service mode).
+To watch live: `scripts/arco logs` or `tail -f $XDG_CACHE_HOME/arco/arco.log` (dev); `arco service logs` (service mode).
 
-**Memory trend (H46).** When file logging is enabled (service mode sets `ARCHON_LOG_FILE=1`), the server logs a periodic `[archon][mem:…] rss=… heapUsed=… heapTotal=… external=… rssΔ=… rssPeak=…` line every 5 minutes, plus a boot baseline and a shutdown final sample. Grep `\[archon\]\[mem` to tell whether RSS crept up over hours or spiked in a single turn before an RSS-guard kill. Inert in dev (no file log path).
+**Memory trend (H46).** When file logging is enabled (service mode sets `ARCO_LOG_FILE=1`), the server logs a periodic `[arco][mem:…] rss=… heapUsed=… heapTotal=… external=… rssΔ=… rssPeak=…` line every 5 minutes, plus a boot baseline and a shutdown final sample. Grep `\[arco\]\[mem` to tell whether RSS crept up over hours or spiked in a single turn before an RSS-guard kill. Inert in dev (no file log path).
 
 ---
 
@@ -434,13 +434,13 @@ For a Chromium/Brave tab, the large process is usually a `--type=renderer` child
 In the Arco tab DevTools console:
 
 ```js
-window.__ARCHON_MEMORY_STATS__()
-window.__ARCHON_TRIM_MEMORY__()
+window.__ARCO_MEMORY_STATS__()
+window.__ARCO_TRIM_MEMORY__()
 ```
 
-`__ARCHON_MEMORY_STATS__()` reports workflow/cluster counts, hot row counts (`messages`, `sessionChat`, `activity`, `historyEvents`, worker tool calls), approximate persisted-store bytes, and Chromium heap size when available.
+`__ARCO_MEMORY_STATS__()` reports workflow/cluster counts, hot row counts (`messages`, `sessionChat`, `activity`, `historyEvents`, worker tool calls), approximate persisted-store bytes, and Chromium heap size when available.
 
-`__ARCHON_TRIM_MEMORY__()` applies the same client working-set trim that runs automatically every 30 seconds, then returns fresh stats. It does not restart Arco, kill workers, drain mailboxes, or delete server-side history.
+`__ARCO_TRIM_MEMORY__()` applies the same client working-set trim that runs automatically every 30 seconds, then returns fresh stats. It does not restart Arco, kill workers, drain mailboxes, or delete server-side history.
 
 Current behavior to expect:
 
@@ -449,7 +449,7 @@ Current behavior to expect:
 - All live/running workers are retained; only old settled worker records can be pruned.
 - Old detail trimmed from the browser should still be recovered from `events.jsonl`, provider transcripts, artifacts, or snapshots where that data is durably recorded.
 
-If Brave/Chromium climbs steadily after `__ARCHON_TRIM_MEMORY__()` and the hot row counts stay flat, investigate render-layer or browser-resource retention next: React derived data, markdown/highlight caches, Vite/HMR state, WebGL/theme resources, or browser graphics memory.
+If Brave/Chromium climbs steadily after `__ARCO_TRIM_MEMORY__()` and the hot row counts stay flat, investigate render-layer or browser-resource retention next: React derived data, markdown/highlight caches, Vite/HMR state, WebGL/theme resources, or browser graphics memory.
 
 ---
 
@@ -458,8 +458,8 @@ If Brave/Chromium climbs steadily after `__ARCHON_TRIM_MEMORY__()` and the hot r
 Settings are read in three layers, lowest precedence first:
 
 1. **Defaults** — hard-coded in `server/src/settings.ts` `defaults()` (all providers enabled).
-2. **Global** — `~/.archon/settings.json`. Hand-edited or written by `POST /api/settings` (the operator-facing patch path used by SystemHeader / SettingsPanel).
-3. **Project** — `<cwd>/.archon/settings.json`. Hand-edited only; lets a repo pin theme, default model, transport, etc., independent of the operator's machine-wide global.
+2. **Global** — `~/.arco/settings.json`. Hand-edited or written by `POST /api/settings` (the operator-facing patch path used by SystemHeader / SettingsPanel).
+3. **Project** — `<cwd>/.arco/settings.json`. Hand-edited only; lets a repo pin theme, default model, transport, etc., independent of the operator's machine-wide global.
 
 A fourth conceptual layer exists in the protocol for transient runtime overrides ("in-memory"), but Phase 2 has no consumer for it — `patchSettings` writes through to global, so the effective value matches what's on disk.
 
@@ -472,11 +472,11 @@ A fourth conceptual layer exists in the protocol for transient runtime overrides
 Example:
 
 ```jsonc
-// ~/.archon/settings.json
+// ~/.arco/settings.json
 { "themeId": "sentinel",
   "workflowDefaults": { "primaryProvider": "claude", "primaryModel": "claude-opus-4-7" } }
 
-// ~/Projects/sample-app/.archon/settings.json
+// ~/Projects/sample-app/.arco/settings.json
 { "themeId": "amber-crt",
   "workflowDefaults": { "primaryProvider": "codex" } }
 
@@ -488,7 +488,7 @@ Example:
 ### Reading effective settings
 
 - `GET /api/settings` → global cascade (defaults → global).
-- `GET /api/settings?cwd=<path>` → project cascade (defaults → global → `<path>/.archon/settings.json`).
+- `GET /api/settings?cwd=<path>` → project cascade (defaults → global → `<path>/.arco/settings.json`).
 
 The client is responsible for passing the active tab's cwd when it wants the project layer applied. There's no implicit "active cwd" on the server side.
 
@@ -496,8 +496,8 @@ The client is responsible for passing the active tab's cwd when it wants the pro
 
 The server watches:
 
-- `~/.archon/` — installed once at boot. (Also holds `media-scratch/` — the N2 import-staging area; not watched, reaped on its own TTL.)
-- `<cwd>/.archon/` — installed per workflow cwd, ref-counted (every workflow attached to that cwd holds one ref). Released when the last workflow for the cwd is removed.
+- `~/.arco/` — installed once at boot. (Also holds `media-scratch/` — the N2 import-staging area; not watched, reaped on its own TTL.)
+- `<cwd>/.arco/` — installed per workflow cwd, ref-counted (every workflow attached to that cwd holds one ref). Released when the last workflow for the cwd is removed.
 
 Both watch the parent **directory** (not the file) — atomic-rename writers replace the inode, breaking file-level watchers. Filename is filtered to `settings.json`; events are debounced 200 ms to coalesce the temp+rename pair from atomic writers and Linux's tendency to fire multiple events per save.
 
@@ -515,7 +515,7 @@ existing IDs never migrate automatically. Crisp text overrides glow; effects-off
 overrides decorative frost without deleting its saved setting. Reduced motion
 keeps static treatment. See [PHOSPHOR_ROLLOUT.md](PHOSPHOR_ROLLOUT.md).
 
-The full schema is `ArchonSettings` in `shared/src/protocol/settings.ts` (barrel-exported). Selected operator keys, not an exhaustive schema:
+The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-exported). Selected operator keys, not an exhaustive schema:
 
 | Key | Purpose | Wired? |
 |---|---|---|
@@ -533,9 +533,9 @@ The full schema is `ArchonSettings` in `shared/src/protocol/settings.ts` (barrel
 | `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff thresholds/mode; pin a fresh-summarizer provider/model for handoffs | Yes |
 | `defaultProjectTrust` (`ask`/`always`/`never`) | DD7 default for unseen repos; read from global scope only | Yes |
 | `mediaUnconfined` | Media studio path fence (see External dependencies) | Yes |
-| `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.archon/handoff*.prompt.md` are the normal surface) | Yes (Phase 3) |
+| `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.arco/handoff*.prompt.md` are the normal surface) | Yes (Phase 3) |
 | `queueMode` (`'visible' \| 'hidden'`) | Queue UX mode | Yes (Phase 4) |
-| `skillsExtraPaths` (`string[]`) | Extra skill scan dirs beyond `<cwd>/.archon/skills/` and `~/.archon/skills/` | Yes (Phase 1) |
+| `skillsExtraPaths` (`string[]`) | Extra skill scan dirs beyond `<cwd>/.arco/skills/` and `~/.arco/skills/` | Yes (Phase 1) |
 
 Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, warnAt, autoAt }` (trusted context-signal providers only; enabled by default for new tabs), `claudeNativeCompact` (Phase 7c — server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (Phase 6e — one-shot warning gate when an operator first flips Codex transport to `appserver`).
 
@@ -543,7 +543,7 @@ Per-workflow `meta.json` carries a few keys that are part of the same configurat
 
 ## Capabilities + CLI change detection
 
-`server/src/capabilities.ts` probes each provider CLI's `--version` and help output. Snapshots persist to `~/.archon/cli-snapshots/<provider>-snapshot.json`. Re-probes:
+`server/src/capabilities.ts` probes each provider CLI's `--version` and help output. Snapshots persist to `~/.arco/cli-snapshots/<provider>-snapshot.json`. Re-probes:
 
 - At server boot
 - Every 4 hours via `PERIODIC_PROBE_INTERVAL_MS`
@@ -593,22 +593,22 @@ None of these controls are model-initiated — all are operator actions or deter
 
 ## Cluster startup and shutdown
 
-Clusters don't have their own boot sequence — they're recovered alongside regular workflows because the cluster record lives at `~/.archon/clusters/<clusterId>/meta.json` and the server reads it on reconnect.
+Clusters don't have their own boot sequence — they're recovered alongside regular workflows because the cluster record lives at `~/.arco/clusters/<clusterId>/meta.json` and the server reads it on reconnect.
 
 **On server start:**
 - `clusterStore` loads per-cluster state from disk lazily (first access per clusterId triggers a read).
 - `clusterRehydrate` re-emits undelivered `peer_message_sent` events to any subscriber that was offline when the message arrived (rehydrate-on-subscribe). This fires when a client sends `cluster_subscribe` after reconnect.
-- Mailbox files (`~/.archon/clusters/<clusterId>/mailbox/<recipientWfid>/<msgId>.json`) are left on disk as-is — drain happens only when the model calls `peer_read`.
+- Mailbox files (`~/.arco/clusters/<clusterId>/mailbox/<recipientWfid>/<msgId>.json`) are left on disk as-is — drain happens only when the model calls `peer_read`.
 
 **On server stop / restart:**
 - Pending mailbox files survive across restarts (they're on disk). Messages already delivered are in `events.jsonl`; undelivered ones remain in the mailbox directory.
 - Active auto-turn state (the in-memory cooldown + rate counters in `clusterAutoTurn.ts`) is lost on restart and resets to zero. Operators with AUTO-PICKUP enabled should be aware that the chain-depth counter also resets, which is correct — the orphan state that triggered it is also gone.
-- No explicit mailbox cleanup happens on shutdown; operators can manually remove `~/.archon/clusters/<clusterId>/mailbox/` if they want a clean slate.
+- No explicit mailbox cleanup happens on shutdown; operators can manually remove `~/.arco/clusters/<clusterId>/mailbox/` if they want a clean slate.
 
 **Idle nudger (default OFF):**
-The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the Arco UI when a cluster member has been idle longer than the configured floor (default 10s, test override via `ARCHON_CLUSTER_IDLE_FLOOR_SECONDS`). It is **operator-armed per cluster** in the NUDGES toggle and is **toast-only** — it never sends a prompt to any worker automatically. The toggle survives server restarts because the armed state is part of the cluster record.
+The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the Arco UI when a cluster member has been idle longer than the configured floor (default 10s, test override via `ARCO_CLUSTER_IDLE_FLOOR_SECONDS`). It is **operator-armed per cluster** in the NUDGES toggle and is **toast-only** — it never sends a prompt to any worker automatically. The toggle survives server restarts because the armed state is part of the cluster record.
 
-**AUTO-PICKUP** (distinct from nudger) is also operator-armed per cluster (OFF by default). When ON, a `peer_message_sent` event that arrives while the recipient is idle fires a synthetic turn on the recipient. Guards: 20s cooldown per recipient, 10/min rate cap per cluster, max chain depth 3. Chain depth resets on `primary_turn_ended`. Env overrides: `ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS`, `ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE`, `ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH`.
+**AUTO-PICKUP** (distinct from nudger) is also operator-armed per cluster (OFF by default). When ON, a `peer_message_sent` event that arrives while the recipient is idle fires a synthetic turn on the recipient. Guards: 20s cooldown per recipient, 10/min rate cap per cluster, max chain depth 3. Chain depth resets on `primary_turn_ended`. Env overrides: `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS`, `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE`, `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH`.
 
 ---
 
@@ -622,9 +622,9 @@ Arco distinguishes six observable states so a failure tells you *which* failure 
 |---|---|---|---|
 | `online` | ONLINE / SYNCING… | WebSocket open, talking to Arco. | Nothing. |
 | `disconnected` | OFFLINE / RECONNECTING… | The WebSocket dropped but the **server process is still alive** (the `/healthz` probe succeeded) — a browser sleep, network blip, or proxy hiccup. | Wait for the automatic reconnect, or click **RECONNECT**. |
-| `server-down` | SERVER DOWN | The WebSocket is closed **and** `/healthz` is unreachable — the **Arco server process itself is gone or unresponsive**. RECONNECT/RESTART can't help until it's back. | Check `archon service status` and `archon service logs`; relaunch the service if it's stopped. (The header RESTART asks the running server to restart, so it only works once the process is back.) |
+| `server-down` | SERVER DOWN | The WebSocket is closed **and** `/healthz` is unreachable — the **Arco server process itself is gone or unresponsive**. RECONNECT/RESTART can't help until it's back. | Check `arco service status` and `arco service logs`; relaunch the service if it's stopped. (The header RESTART asks the running server to restart, so it only works once the process is back.) |
 
-The split is driven by the B2 `/healthz` endpoint: a closed socket plus a failed probe is the only thing that promotes OFFLINE to SERVER DOWN. See the B-tier `archon service …` commands above.
+The split is driven by the B2 `/healthz` endpoint: a closed socket plus a failed probe is the only thing that promotes OFFLINE to SERVER DOWN. See the B-tier `arco service …` commands above.
 
 **Per-workflow runtime (pill above the composer — what your tab's agent is doing):**
 
@@ -676,7 +676,7 @@ C1 made each failure observable; C2 mapped each to its one correct retry; C3 is 
 These verify the *internal correctness* the harness deliberately does not fake. The harness still asserts the observable end-state each would produce when the mechanic works.
 
 - **Case 5 — Codex resume correctness.** Start a Codex app-server tab, send a turn, then kill the `codex app-server` child (`pkill -f 'codex app-server'` — leaves the Arco server up). Observe: the tab shows `replay-recovered` briefly, then `idle`, with the prior conversation intact. Send a follow-up that references earlier context to confirm the session resumed (not a fresh session). Continuity is also covered headlessly by `smoke:cluster-4` / `smoke:compare`.
-- **Case 6 — Native replay does not block the UI.** Open a Claude Native tab with a large `events.jsonl` (long session), restart the Arco server (`archon service restart`), and reload the client. Observe: the tab rehydrates showing `replay-recovered` while the header stays `ONLINE` (no `SERVER DOWN`/`OFFLINE` flash), and the UI stays interactive (you can scroll / switch tabs) throughout the replay — the in-process pre-warm replay must not jank the render loop.
+- **Case 6 — Native replay does not block the UI.** Open a Claude Native tab with a large `events.jsonl` (long session), restart the Arco server (`arco service restart`), and reload the client. Observe: the tab rehydrates showing `replay-recovered` while the header stays `ONLINE` (no `SERVER DOWN`/`OFFLINE` flash), and the UI stays interactive (you can scroll / switch tabs) throughout the replay — the in-process pre-warm replay must not jank the render loop.
 - **Case 7 — Terminal orphan reaping.** Open a terminal session in a tab, note its child pid, then hard-kill the Arco server (not a clean shutdown) so the child is orphaned. Relaunch the server; the boot sweep (`reapOrphanTerminals`) SIGKILLs anything in the pid registry. Verify the orphaned pid is gone (`ps -p <pid>`). The registry round-trip is asserted headlessly by `smoke:terminal`.
 
 ---
@@ -685,10 +685,10 @@ These verify the *internal correctness* the harness deliberately does not fake. 
 
 If you restart the server (or it crashes), workflows are recovered automatically on next boot. The recovery flow:
 
-1. Read `~/.archon/known-cwds.json` for the list of cwds hosting workflows.
-2. For each cwd, walk `<cwd>/.archon/workflows/` and validate each `<wfid>/meta.json`.
+1. Read `~/.arco/known-cwds.json` for the list of cwds hosting workflows.
+2. For each cwd, walk `<cwd>/.arco/workflows/` and validate each `<wfid>/meta.json`.
 3. Drop cwds with no live workflows.
-4. `reapOrphanWorkers()` reaps stale worker processes recorded in `~/.archon/worker-pids.json`. Each pid is stored with its process **start time** (H44, `server/src/workers/pidRegistry.ts`); at reap time the live start time is re-read so a **recycled pid** that now belongs to an unrelated process is left alone — only genuinely-stale workers are SIGKILLed (outcomes logged as `killed`/`reused`/`gone`). A pid whose start time can't be read on either side fails toward kill. The on-disk format is `{ "procs": [{ "pid", "startTime" }] }`; a legacy `{ "pids": [...] }` file is still read (start time null ⇒ fail-toward-kill).
+4. `reapOrphanWorkers()` reaps stale worker processes recorded in `~/.arco/worker-pids.json`. Each pid is stored with its process **start time** (H44, `server/src/workers/pidRegistry.ts`); at reap time the live start time is re-read so a **recycled pid** that now belongs to an unrelated process is left alone — only genuinely-stale workers are SIGKILLed (outcomes logged as `killed`/`reused`/`gone`). A pid whose start time can't be read on either side fails toward kill. The on-disk format is `{ "procs": [{ "pid", "startTime" }] }`; a legacy `{ "pids": [...] }` file is still read (start time null ⇒ fail-toward-kill).
 5. The client's persisted jobs in localStorage send `rehydrate_workflows` on reconnect; server replays from `events.jsonl`.
 
 Result: all tabs survive a server restart with full chat history. Live in-flight turns are lost (the worker is dead), but the operator sees the partial chat and can resend.
@@ -724,13 +724,13 @@ Either the operator clicked Remove (the workflow directory was deleted), or `kno
 Arco could not reach the desktop app or discover its local RPC language-server endpoint:
 
 - Confirm the Antigravity desktop app is launched, or that the binary exists at `ANTIGRAVITY_BINARY` (default `/opt/antigravity/antigravity`) so Arco can lazy-spawn it.
-- Check the profile. The default Arco mode is an isolated profile at `~/.archon/antigravity-data/`; use `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` when you need the normal signed-in subscription-backed profile.
+- Check the profile. The default Arco mode is an isolated profile at `~/.arco/antigravity-data/`; use `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` when you need the normal signed-in subscription-backed profile.
 - If you set `ANTIGRAVITY_USER_DATA_DIR`, make sure that custom profile is signed in. Wrong-profile failures look like unavailable model/auth failures.
 - Confirm `ANTIGRAVITY_RPC_MODEL=gemini-3-flash-agent` unless you intentionally changed it. That id is the Gemini 3.5 Flash High route Arco expects.
 - Restart from the launcher or restart the server process after external env changes. In-app restart inherits the already-running server environment and will not pick up new shell exports.
 - The debug port is liveness only, not prompt transport. A reachable `ANTIGRAVITY_CDP_PORT` means the desktop process is up; the actual turn still depends on discovering the language-server RPC endpoint.
 - If ACTIVITY shows `waiting_unbridged_tool` and then `timed_out`, model access worked but Antigravity is waiting on a tool shape Arco cannot bridge yet.
-- Attachments are path-only: Arco stages uploads under `.archon/workflows/<id>/attachments/` and tells Antigravity the local paths. Native image attachment support is not claimed.
+- Attachments are path-only: Arco stages uploads under `.arco/workflows/<id>/attachments/` and tells Antigravity the local paths. Native image attachment support is not claimed.
 - Artifacts are partial. Text files surface as `[artifact:<name>]`; image files are copied to `artifacts/images/` and shown by path/file viewer. Generated-image RPC step shape is still unproven.
 - Clusters are disabled for Antigravity; it cannot be added as a cluster member until a deterministic peer-tool bridge exists.
 
@@ -740,7 +740,7 @@ A long-lived `cursor-agent acp` child keeps the credentials (and CLI binary) it 
 
 ### Worker output exceeds the output cap
 
-Worker is force-settled and a truncation notice appears. The cap is per-turn — next turn isn't affected. The default is **50 MB** of text output; raise it with `ARCHON_MAX_WORKER_OUTPUT_BYTES` (values below 1 MB are ignored). This is distinct from the tree-RSS *memory* kill (`ARCHON_RSS_KILL_BYTES`, default 32 GB), which a workflow doing known-huge work can opt out of with `disableRssGuard: true` in its `meta.json` — that flag skips only the RSS kill, never the output cap.
+Worker is force-settled and a truncation notice appears. The cap is per-turn — next turn isn't affected. The default is **50 MB** of text output; raise it with `ARCO_MAX_WORKER_OUTPUT_BYTES` (values below 1 MB are ignored). This is distinct from the tree-RSS *memory* kill (`ARCO_RSS_KILL_BYTES`, default 32 GB), which a workflow doing known-huge work can opt out of with `disableRssGuard: true` in its `meta.json` — that flag skips only the RSS kill, never the output cap.
 
 ### Server log shows ENOENT on `/proc/...`
 
@@ -762,25 +762,25 @@ What to do: read the `system_notice` — the worker is repeating a failing comma
 
 ### Project CLAUDE.md / skills / settings aren't being applied
 
-DD7's project-trust gate (`server/src/projectTrust.ts`) suppresses a repo's project-local `CLAUDE.md`, project skills, and `<cwd>/.archon/settings.json` from the agent's system prompt until you explicitly trust the repo — a cloned repo can otherwise inject instructions into your agent the moment you point a tab at it. When a cwd is untrusted, the composer shows an inline **⚠ UNTRUSTED PROJECT** banner listing the suppressed resources with **▸ TRUST** / **NEVER** buttons. The first turn runs with the resources suppressed; clicking TRUST records the decision in `~/.archon/trust.json` (keyed by canonical absolute path, deepest recorded ancestor wins) and folds them in on the **next** turn. Reversible — edit or delete the entry in `trust.json` by hand. Default posture is `ask`; a global `defaultProjectTrust` (`ask`/`always`/`never`) in `~/.archon/settings.json` changes it, resolved from user/global scope only so a cloned repo can't self-grant trust.
+DD7's project-trust gate (`server/src/projectTrust.ts`) suppresses a repo's project-local `CLAUDE.md`, project skills, and `<cwd>/.arco/settings.json` from the agent's system prompt until you explicitly trust the repo — a cloned repo can otherwise inject instructions into your agent the moment you point a tab at it. When a cwd is untrusted, the composer shows an inline **⚠ UNTRUSTED PROJECT** banner listing the suppressed resources with **▸ TRUST** / **NEVER** buttons. The first turn runs with the resources suppressed; clicking TRUST records the decision in `~/.arco/trust.json` (keyed by canonical absolute path, deepest recorded ancestor wins) and folds them in on the **next** turn. Reversible — edit or delete the entry in `trust.json` by hand. Default posture is `ask`; a global `defaultProjectTrust` (`ask`/`always`/`never`) in `~/.arco/settings.json` changes it, resolved from user/global scope only so a cloned repo can't self-grant trust.
 
 ### A tab is parked on a review gate
 
-With `reviewSafeMode` armed (CONFIG, default OFF, Claude Native only), a sensitive tool call (any `Bash` command, a git-destructive command, a write outside the cwd) is not run — it parks as a `gate_required` and surfaces an editable approval card. The worker waits until you approve / edit-then-approve / reject (`gate_reply`) or revoke a standing approval (`gate_revoke`). Parked gates are durable: a server restart re-surfaces any unresolved gate from `<cwd>/.archon/workflows/<wfid>/gate-approvals.json` (via `rehydrateGatesOnce`), and standing "approve all like this" approvals survive too. If a tab looks stuck with no output, check for a pending gate card before cancelling. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
+With `reviewSafeMode` armed (CONFIG, default OFF, Claude Native only), a sensitive tool call (any `Bash` command, a git-destructive command, a write outside the cwd) is not run — it parks as a `gate_required` and surfaces an editable approval card. The worker waits until you approve / edit-then-approve / reject (`gate_reply`) or revoke a standing approval (`gate_revoke`). Parked gates are durable: a server restart re-surfaces any unresolved gate from `<cwd>/.arco/workflows/<wfid>/gate-approvals.json` (via `rehydrateGatesOnce`), and standing "approve all like this" approvals survive too. If a tab looks stuck with no output, check for a pending gate card before cancelling. See [`DEBAG_PLAN.md`](DEBAG_PLAN.md).
 
 ---
 
 ## Disk usage
 
-`<cwd>/.archon/workflows/<wfid>/events.jsonl` grows append-only. There's no automatic rotation. At the 100 MB rotation cap (a soft target, not enforced), the on-disk file may be manually trimmed — but Arco never does this automatically.
+`<cwd>/.arco/workflows/<wfid>/events.jsonl` grows append-only. There's no automatic rotation. At the 100 MB rotation cap (a soft target, not enforced), the on-disk file may be manually trimmed — but Arco never does this automatically.
 
 If a workflow's events.jsonl gets unwieldy:
 - Use Handoff to rotate the session (the new session has a fresh events.jsonl).
 - Or manually trim the file to keep only the latest N MB; the snapshot-only fallback handles the case where the client's `lastSeq` falls below the new `firstSeq`.
 
-Saved Chat tabs live under `~/.archon/chats/<wfid>/`; closing a chat tab does not delete it (it stays in PAST CHATS). Removing a chat's directory while Arco is stopped deletes it for good. Incognito chats never write there.
+Saved Chat tabs live under `~/.arco/chats/<wfid>/`; closing a chat tab does not delete it (it stays in PAST CHATS). Removing a chat's directory while Arco is stopped deletes it for good. Incognito chats never write there.
 
-The `~/.archon/antigravity-data/` Chromium profile can also grow. Clear it with `rm -rf ~/.archon/antigravity-data/` while Arco and the desktop app are stopped; the next use will spawn a fresh isolated profile and you'll need to re-authenticate Antigravity. If `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set, Arco uses Antigravity's normal profile instead, so do not remove it as part of Arco cleanup.
+The `~/.arco/antigravity-data/` Chromium profile can also grow. Clear it with `rm -rf ~/.arco/antigravity-data/` while Arco and the desktop app are stopped; the next use will spawn a fresh isolated profile and you'll need to re-authenticate Antigravity. If `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set, Arco uses Antigravity's normal profile instead, so do not remove it as part of Arco cleanup.
 
 ---
 
@@ -800,7 +800,7 @@ ssh -L 5173:localhost:5173 dev-box
 
 Only port 5173 needs forwarding — Vite proxies WS and API to the server. **Do not forward port 3001 directly** unless you're aware that the WS endpoint has no auth.
 
-The server binds `127.0.0.1` by default (`ARCHON_HOST`, see [Configuration](../README.md#configuration)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token — none of it is authed. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
+The server binds `127.0.0.1` by default (`ARCO_HOST`, see [Configuration](../README.md#configuration)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token — none of it is authed. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
 
 The auth model assumes single-operator local-only usage. Multi-user / public deployment isn't supported.
 
@@ -812,8 +812,8 @@ The auth model assumes single-operator local-only usage. Multi-user / public dep
 
 - **Lazy spawn** — the server starts without loading any model. The first `ensureLoaded(alias)` call (from a workflow turn or the explicit `POST /api/llamacpp-load`) spawns `llama-server` with the alias's registered arguments and blocks until `/health` passes.
 - **Alias switch** — calling `ensureLoaded` with a different alias SIGTERMs the running process before spawning the new one. The previous model is evicted from VRAM first.
-- **Idle unload** — after a configurable idle period (default: 10 minutes without a turn, matching Ollama's KEEP_ALIVE; override via `ARCHON_LLAMACPP_KEEPALIVE_MS`), the manager sends SIGTERM to `llama-server` and records state as `idle`. The next turn respawns it.
-- **Orphan reaping** — if the server restarts while a `llama-server` was running, the orphan's PID is in `~/.archon/worker-pids.json`. `reapOrphanWorkers()` at boot SIGKILLs it so ports aren't held.
+- **Idle unload** — after a configurable idle period (default: 10 minutes without a turn, matching Ollama's KEEP_ALIVE; override via `ARCO_LLAMACPP_KEEPALIVE_MS`), the manager sends SIGTERM to `llama-server` and records state as `idle`. The next turn respawns it.
+- **Orphan reaping** — if the server restarts while a `llama-server` was running, the orphan's PID is in `~/.arco/worker-pids.json`. `reapOrphanWorkers()` at boot SIGKILLs it so ports aren't held.
 - **Version + mtime cache** — `llama-server --version` output is cached alongside the binary's mtime; if the binary changes on disk the cache is invalidated on next use.
 
 The `POST /api/llamacpp-load?alias=<name>` endpoint provides the operator-facing preload path. `POST /api/llamacpp-unload` forces immediate eviction without waiting for the idle timer.
@@ -875,7 +875,7 @@ rtk --version             # verify
 
 1. Open the ACTIVITY tab → "TOKEN USAGE" section.
 2. Run a tab through a few turns that exercise `git status` or `cargo test`.
-3. Check `events.jsonl` (under `<cwd>/.archon/workflows/<wfid>/events.jsonl`) for `hook_rewrote_input` entries — each one names the hook command (`rtk hook`), the original input, and the rewritten input.
+3. Check `events.jsonl` (under `<cwd>/.arco/workflows/<wfid>/events.jsonl`) for `hook_rewrote_input` entries — each one names the hook command (`rtk hook`), the original input, and the rewritten input.
 4. Compare `toolResultBytes` on the `primary_turn_token_usage` entries before vs. after enabling rtk; rtk-rewritten Bash calls produce smaller tool_results so `toolResultBytes` should drop on green-path runs.
 
 Arco does **not** auto-install rtk into per-workflow config. Operator opts in once at the user level. If a future revision wants to bundle rtk it ships as a separate plan doc — see EFFICIENCY_PLAN.md §13 Q8.
@@ -892,7 +892,7 @@ Arco does **not** auto-install rtk into per-workflow config. Operator opts in on
 # 1. Download the latest release for your platform from upstream and place
 #    it on $PATH (rename / move to wherever you keep operator binaries).
 # 2. CRITICAL — install with --skip-config so the binary does NOT auto-edit
-#    your ~/.claude/settings.json (or other agent config files). Archon
+#    your ~/.claude/settings.json (or other agent config files). Arco
 #    drives the per-workflow MCP wiring itself; the binary's auto-edit
 #    behavior would conflict with that.
 codebase-memory-mcp install --skip-config
@@ -911,7 +911,7 @@ codebase-memory-mcp --version
 3. Click **Re-index now.** If the binary is on PATH, the spawn returns 200 + a fresh status line ("Indexed: N files · last sync just now"). If it's missing, a top-right toast reads "codebase-memory-mcp not installed — see docs/OPERATIONS.md."
 4. FILES tab gains a `FILES | BLAST RADIUS` sub-tab nav (when memory is attached). The Blast Radius panel renders `detect_changes` output against the current `git diff` once the F9 follow-up lands (see `docs/MASTER_REFACTOR.md` §3.3) — until then it shows a placeholder.
 
-**Diagnostics.** The reindex endpoint logs to the server console (`[archon] [<wfid>] codebase-memory attached → <path>`). Failures land in `events.jsonl` via the `codebase_memory_state` broadcast. If the binary fails after a successful install, run `codebase-memory-mcp reindex --path <p> --skip-config` directly to confirm the binary works outside Arco's spawn.
+**Diagnostics.** The reindex endpoint logs to the server console (`[arco] [<wfid>] codebase-memory attached → <path>`). Failures land in `events.jsonl` via the `codebase_memory_state` broadcast. If the binary fails after a successful install, run `codebase-memory-mcp reindex --path <p> --skip-config` directly to confirm the binary works outside Arco's spawn.
 
 ---
 

@@ -1,7 +1,7 @@
 // Regression tests for the 2026-07-28 plan-attach incident. Two failures came
 // out of one root cause — the model was never told how attach works:
 //   - a worker wrote markdown into its artifacts dir and reported "Plan
-//     attached to the Archon workflow" (nothing was attached),
+//     attached to the Arco workflow" (nothing was attached),
 //   - another reverse-engineered `POST /api/plans` with curl + jq over several
 //     turns, and produced a plan with no checkboxes, which `parsePlan` reads as
 //     zero reviewable tasks.
@@ -15,13 +15,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stripPlanPrefix } from './turnEngine.js';
 
-const USER = 'go ahead and create the plan and attach it to this archon workflow';
+const USER = 'go ahead and create the plan and attach it to this arco workflow';
 
 // Shape-identical to planAuthoringNote's output, including the literal `- [ ]`
 // that the greedy `[^\n]*\]` has to survive.
 const NOTE =
   "[No project plan is attached to this Arco workflow. If asked to create/attach one, do NOT just write a " +
-  "markdown file — a loose file is invisible to Arco. Prefer the `plan_create` tool (MCP server `archon`) if you " +
+  "markdown file — a loose file is invisible to Arco. Prefer the `plan_create` tool (MCP server `arco`) if you " +
   "have it — one call, title + body, creates and attaches. Otherwise write the body to a scratch file, then POST it (this " +
   "two-step avoids hand-escaping markdown into JSON): jq -n --rawfile body /tmp/plan.md --arg t 'Plan title' " +
   "'{title:$t,body:$body,workflowId:\"abc\",attach:true}' | curl -sS --fail-with-body -X POST " +
@@ -44,7 +44,7 @@ test('the literal "- [ ]" inside the note does not end the match early', () => {
 });
 
 test('attached-plan one-liner still strips', () => {
-  const prefix = '[Active project plan: "Ship v2" — file: .archon/plans/abc.md. Tick off items.]\n\n';
+  const prefix = '[Active project plan: "Ship v2" — file: .arco/plans/abc.md. Tick off items.]\n\n';
   assert.equal(stripPlanPrefix(prefix + USER), USER);
 });
 
@@ -64,7 +64,7 @@ test('a prefix-shaped line mid-message is untouched (anchored at start)', () => 
 });
 
 test('prefixes carrying the refs hint and a [label](ref:slug) example still strip', () => {
-  const attached = '[Active project plan: "Ship v2" — file: .archon/plans/abc.md. Reference docs (.archon/plans/abc.refs/<slug>.md, linked from the plan as ref:<slug>): api-spec, ui-notes — read one when a task links it. Tick off items.]\n\n';
+  const attached = '[Active project plan: "Ship v2" — file: .arco/plans/abc.md. Reference docs (.arco/plans/abc.refs/<slug>.md, linked from the plan as ref:<slug>): api-spec, ui-notes — read one when a task links it. Tick off items.]\n\n';
   assert.equal(stripPlanPrefix(attached + USER), USER);
   const note = NOTE.replace(" Don't create a plan unless asked.]", " Keep it lean — put detail in reference docs linked from a task as `[label](ref:slug)`. Don't create a plan unless asked.]");
   assert.equal(stripPlanPrefix(note + USER), USER);

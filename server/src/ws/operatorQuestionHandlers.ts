@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import type { OperatorQuestionReplyMessage } from '@archon/shared';
+import type { OperatorQuestionReplyMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import { workflows } from '../server/state.js';
 import { replyToOperatorQuestion } from '../providers/codex-appserver/operatorQuestions.js';

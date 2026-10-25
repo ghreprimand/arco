@@ -37,12 +37,12 @@ function requireTask(tasks: LedgerTask[], predicate: (task: LedgerTask) => boole
 }
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-swarm-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-swarm-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-swarm-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-swarm-cwd-'));
   const prevHome = process.env.HOME;
-  const prevNoDispatch = process.env.ARCHON_TEST_NO_TASK_DISPATCH;
+  const prevNoDispatch = process.env.ARCO_TEST_NO_TASK_DISPATCH;
   process.env.HOME = fakeHome;
-  process.env.ARCHON_TEST_NO_TASK_DISPATCH = '1';
+  process.env.ARCO_TEST_NO_TASK_DISPATCH = '1';
 
   try {
     const clusterStore = await import('../../server/src/clusterStore.js');
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     const synthesizer = randomUUID();
     const wfids = [requester, workerA, workerB, verifier, synthesizer];
     for (const wfid of wfids) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, {
         busy: false,
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
 
     await step('(c) swarm graph replays from events after snapshot deletion', async () => {
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'tasks.json'), { force: true });
       const state = await taskLedger.loadKernel(cwd);
       const root = state.tasks.find((task) => task.id === rootId);
       const workers = state.tasks.filter((task) => workerTaskIds.includes(task.id));
@@ -218,8 +218,8 @@ async function main(): Promise<void> {
   } finally {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
-    if (prevNoDispatch === undefined) delete process.env.ARCHON_TEST_NO_TASK_DISPATCH;
-    else process.env.ARCHON_TEST_NO_TASK_DISPATCH = prevNoDispatch;
+    if (prevNoDispatch === undefined) delete process.env.ARCO_TEST_NO_TASK_DISPATCH;
+    else process.env.ARCO_TEST_NO_TASK_DISPATCH = prevNoDispatch;
     await fs.rm(fakeHome, { recursive: true, force: true }).catch(() => undefined);
     await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
   }

@@ -5,7 +5,7 @@
 > deterministic title, dynamic "where this left off" subtitle, an optional gated
 > `model` title, and a title-change audit log); H3 = the resume-picker UI upgrade
 > (rich rows + operator **pin / rename / archive / filter**, with the server-side
-> operator ops + HTTP routes). Part H of `docs/ARCHON_OPS_PLAN.md`.
+> operator ops + HTTP routes). Part H of `docs/ARCO_OPS_PLAN.md`.
 
 When you reopen Arco against a project you want to see **what you were doing**,
 fast: a short title, where each session left off, when it was last active. That
@@ -20,9 +20,9 @@ reversible (delete the file; it rebuilds itself).
 
 ## Where it lives, and why project-local
 
-`<cwd>/.archon/session-index.json` — one small JSON file per project.
+`<cwd>/.arco/session-index.json` — one small JSON file per project.
 
-This is deliberately **not** the machine-global Recall index (`~/.archon/recall/
+This is deliberately **not** the machine-global Recall index (`~/.arco/recall/
 recall.db`, see `docs/RECALL.md`). Recall is the cross-project, SQLite-backed,
 full-text-searchable history of every workflow ever run. The session index is the
 opposite axis: a single project's resumable sessions, in a file the resume UI can
@@ -33,8 +33,8 @@ and small, so JSON is the right tool here.
 It is a **rebuildable projection, never a source of truth.** `meta.json` +
 `events.jsonl` remain authoritative; deleting `session-index.json` costs nothing —
 the next turn or resume-discovery rebuilds it. Because it's ephemeral, the
-`.archon/.gitignore` Arco drops on first-workflow-init lists it alongside
-`workflows/` (and in this repo `.archon/` is wholly ignored).
+`.arco/.gitignore` Arco drops on first-workflow-init lists it alongside
+`workflows/` (and in this repo `.arco/` is wholly ignored).
 
 ## Shape (`shared/src/protocol/workflows.ts`)
 
@@ -43,7 +43,7 @@ per **(provider, sessionId)** — that pair is the key. An entry carries:
 
 | field | source / meaning |
 |---|---|
-| `provider`, `sessionId` | the resumable session's key. For Archon-internal continuity (Claude Native replay / Antigravity / Ollama — no native resume token) `sessionId` is the Arco **workflow id**, mirroring `archonInternalSessionInfoForMeta`. |
+| `provider`, `sessionId` | the resumable session's key. For Arco-internal continuity (Claude Native replay / Antigravity / Ollama — no native resume token) `sessionId` is the Arco **workflow id**, mirroring `arcoInternalSessionInfoForMeta`. |
 | `workflowId?` | the owning Arco workflow, when one claims the session. Absent for a native session found on disk with no `meta.json`. |
 | `cwd`, `startedAt`, `lastActiveAt` | from `meta.json`. |
 | `title` | **never blank.** Resolved through the layered chain below. |
@@ -97,7 +97,7 @@ idempotent re-upsert is a no-op. `applyModelTitle` mirrors this: it **caches** b
 
 ## The module (`server/src/workflows/sessionIndex.ts`)
 
-Self-contained, atomic writes (tmp + rename), path-confined to `<cwd>/.archon/`.
+Self-contained, atomic writes (tmp + rename), path-confined to `<cwd>/.arco/`.
 It imports only the `WorkflowMeta` **type** from `workflowMeta.ts` (type-only —
 erased at runtime), so the one runtime edge is `writeMeta → sessionIndex` and
 there's no import cycle. Exports:
@@ -121,7 +121,7 @@ there's no import cycle. Exports:
 - `buildTitleFraming(transcript)` (H2) — the 5–8-word prompt contract H3's
   worker feeds to `applyModelTitle`.
 
-### Title-change audit log (`<cwd>/.archon/title-events.jsonl`)
+### Title-change audit log (`<cwd>/.arco/title-events.jsonl`)
 
 H2 satisfies the §H2 "record title-generation events" requirement (and the
 CLAUDE.md four-question fence #3 — visible on disk for review) with an
@@ -130,7 +130,7 @@ append-only `title-events.jsonl` rather than minting a new per-workflow
 (`{ ts, workflowId, provider, sessionId, from, to, source, sourceHash? }`).
 Currently emitted only when a `model` title is applied (the generation event);
 H3 will log `operator` renames too. Like `session-index.json` it's a rebuildable
-projection, so the `.archon/.gitignore` seed lists it.
+projection, so the `.arco/.gitignore` seed lists it.
 
 ## Update triggers (all three from the §H1 goal)
 
@@ -155,8 +155,8 @@ summary write. The index is rebuildable, so failing closed loses nothing.
 ### Acceptance invariant (§H1)
 
 Building or updating the index **never mutates a provider's own session files**
-(`~/.claude`, `~/.codex`, …). It only reads Archon-owned state (`meta.json` +
-`events.jsonl`) and only writes `<cwd>/.archon/session-index.json`.
+(`~/.claude`, `~/.codex`, …). It only reads Arco-owned state (`meta.json` +
+`events.jsonl`) and only writes `<cwd>/.arco/session-index.json`.
 
 ## Operator surface (H3) — the resume picker
 
@@ -168,7 +168,7 @@ SESSION…` view) is the consumer of everything above. On open it fetches
 entry: the layered title, the subtitle, pin/archive state. Rows sort
 **pinned-first, then last-active**, and a filter box matches title / subtitle /
 provider tag. The merge is safe because `(provider, sessionId)` is identical
-between `SessionInfo` and `SessionIndexEntry` for both native and archon-internal
+between `SessionInfo` and `SessionIndexEntry` for both native and arco-internal
 sessions (the latter both key on the workflow id).
 
 ### Server ops (`server/src/workflows/sessionIndex.ts`)
@@ -208,7 +208,7 @@ are the remaining nicety.
 Two pure scenarios (no Arco server/WS, no Recall db).
 
 `npm run smoke:resume-titles` (`scripts/smoke/resume-titles.ts`, H2) — against a
-throwaway `.archon` tree it asserts: a generic opener is skipped so the title is
+throwaway `.arco` tree it asserts: a generic opener is skipped so the title is
 the first real ask; the dynamic subtitle is the last non-trivial message (and a
 single-ask session gets none); `applyModelTitle` applies / caches (no duplicate
 log line) / is outranked by an operator title; a model title survives a
@@ -217,7 +217,7 @@ Recall-summary subtitle is sticky across a later upsert; and `buildTitleFraming`
 states the 5–8-word contract.
 
 `npm run smoke:session-index` (`scripts/smoke/session-index.ts`, H1) — against a
-throwaway `.archon` tree it asserts:
+throwaway `.arco` tree it asserts:
 
 - a single workflow builds one entry keyed on its native `(provider, sessionId)`,
   with `title` = first operator message and `lastSeq` / `sourceHash` mirroring
@@ -225,7 +225,7 @@ throwaway `.archon` tree it asserts:
 - re-upsert is idempotent (one entry);
 - an operator title survives a no-material-change re-upsert, and a material change
   (new `lastEventSeq`) refreshes the deterministic title;
-- an archon-internal workflow (no `cliSessions`) keys on `(primaryProvider,
+- an arco-internal workflow (no `cliSessions`) keys on `(primaryProvider,
   workflowId)`;
 - `recordSessionSummary` sets the subtitle to the first non-empty summary line;
 - `backfillSessionIndex` indexes every workflow under a cwd;
@@ -234,5 +234,5 @@ throwaway `.archon` tree it asserts:
   title-event; `setSessionPinned` / `setSessionArchived` toggle flags that
   survive an upsert; a mutation on an unknown key returns `null`;
 - **the acceptance invariant**: after an upsert, the only changed file under the
-  tree is `.archon/session-index.json` — a sentinel "provider session file" and
+  tree is `.arco/session-index.json` — a sentinel "provider session file" and
   everything else are byte-for-byte unchanged.

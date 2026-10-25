@@ -34,13 +34,13 @@ async function main() {
   const tarRoots: string[] = [];
 
   // ── Repo-backed faithful revert ──
-  const repo = mkdtempSync(join(tmpdir(), 'archon-revert-git-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-revert-git-'));
   cleanups.push(repo);
   const wfid = '22222222-3333-4444-5555-666666666666';
 
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   // Initial commit so HEAD exists and we have a branch to assert unchanged.
   writeFileSync(join(repo, 'A.txt'), 'v1\n');
   git(repo, 'add', 'A.txt');
@@ -121,12 +121,12 @@ async function main() {
   });
 
   // ── Non-git shadow-store revert ──
-  const plain = mkdtempSync(join(tmpdir(), 'archon-revert-plain-'));
+  const plain = mkdtempSync(join(tmpdir(), 'arco-revert-plain-'));
   cleanups.push(plain);
   const plainWfid = '77777777-6666-5555-4444-333333333333';
   tarRoots.push(checkpointStoreRoot(plain));
   // Small per-file cap for the whole section so big.bin is out of scope.
-  process.env.ARCHON_CHECKPOINT_FILE_CAP_BYTES = '1024';
+  process.env.ARCO_CHECKPOINT_FILE_CAP_BYTES = '1024';
   try {
     writeFileSync(join(plain, 'a.txt'), 'alpha-v1\n');
     writeFileSync(join(plain, 'big.bin'), Buffer.alloc(4096, 7)); // over the cap
@@ -180,7 +180,7 @@ async function main() {
     await step('legacy tar: pre-shadow checkpoints remain revertible + report the limitation', async () => {
       // Hand-craft a legacy tar in the store, as the pre-2026-08-19 fallback
       // would have written it, at a seq the shadow repo does not hold.
-      const legacySrc = mkdtempSync(join(tmpdir(), 'archon-revert-legacy-'));
+      const legacySrc = mkdtempSync(join(tmpdir(), 'arco-revert-legacy-'));
       cleanups.push(legacySrc);
       writeFileSync(join(legacySrc, 'a.txt'), 'legacy-v0\n');
       execFileSync('tar', ['-cf', join(checkpointStoreRoot(plain), `${plainWfid}.9.tar`), '-C', legacySrc, '.']);
@@ -193,7 +193,7 @@ async function main() {
         'tar revert should document the files-added-after limitation');
     });
   } finally {
-    delete process.env.ARCHON_CHECKPOINT_FILE_CAP_BYTES;
+    delete process.env.ARCO_CHECKPOINT_FILE_CAP_BYTES;
   }
 
   // Cleanup

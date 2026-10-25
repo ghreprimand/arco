@@ -11,7 +11,7 @@ import type {
   BakeoffState,
   ProviderName,
   WorkflowConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 import type { WebSocket } from 'ws';
 import { listBakeoffs, readBakeoff, writeBakeoff } from '../bakeoffStore.js';
 import {

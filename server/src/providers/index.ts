@@ -1,4 +1,4 @@
-import type { ProviderName, WorkerConfig } from '@archon/shared';
+import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
 import { ClaudeProvider } from './claude.js';
@@ -35,9 +35,9 @@ const PROVIDERS: Record<ProviderName, Provider> = {
 
 // M13 — LM Studio joins ollama/llamacpp on the serial local queue. LM Studio's
 // app typically serves one loaded model at a time on the configured endpoint,
-// so running multiple Archon turns against it concurrently would contend on the
+// so running multiple Arco turns against it concurrently would contend on the
 // same backend; serializing matches the local-runtime pattern. (Override the
-// serial behavior via ARCHON_LOCAL_PROVIDER_SERIAL_QUEUE=0, except Strata:
+// serial behavior via ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0, except Strata:
 // its profile manager requires the slot for the entire tool loop.)
 type LocalProviderName = 'ollama' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek';
 
@@ -160,7 +160,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   if (name === 'cursor' && config.sandbox === 'read-only') {
     return CursorPrintProvider.create(id, config);
   }
-  if (name === 'strata' || name === 'deepseek' || ((name === 'ollama' || name === 'llamacpp' || name === 'lmstudio') && process.env.ARCHON_LOCAL_PROVIDER_SERIAL_QUEUE !== '0')) {
+  if (name === 'strata' || name === 'deepseek' || ((name === 'ollama' || name === 'llamacpp' || name === 'lmstudio') && process.env.ARCO_LOCAL_PROVIDER_SERIAL_QUEUE !== '0')) {
     return new QueuedLocalProcess(id, name, config);
   }
   const provider = PROVIDERS[name];

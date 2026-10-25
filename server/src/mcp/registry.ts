@@ -1,8 +1,8 @@
-// ARCHON_OPS_PLAN.md §E1 — global MCP server registry.
+// ARCO_OPS_PLAN.md §E1 — global MCP server registry.
 //
-// Stores operator-registered MCP server defs at `~/.archon/mcp/registry.json`
-// (override base via $ARCHON_HOME, else $HOME/.archon — same convention as the
-// rest of ~/.archon state). The registry is GLOBAL (one machine-wide list);
+// Stores operator-registered MCP server defs at `~/.arco/mcp/registry.json`
+// (override base via $ARCO_HOME, else $HOME/.arco — same convention as the
+// rest of ~/.arco state). The registry is GLOBAL (one machine-wide list);
 // per-workflow enablement + dangerous-tool ticks live in each workflow's
 // meta.json (workflowMeta.mcpAllow), keyed by serverId.
 //
@@ -14,17 +14,17 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import type { McpServerDef } from '@archon/shared';
+import type { McpServerDef } from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const NAME_MAX = 200;
 
-// archonHome() resolves per call (not at module load) so the smoke can point
-// HOME/ARCHON_HOME at a temp dir before driving the registry.
+// arcoHome() resolves per call (not at module load) so the smoke can point
+// HOME/ARCO_HOME at a temp dir before driving the registry.
 function registryDir(): string {
-  return path.join(archonHome(), 'mcp');
+  return path.join(arcoHome(), 'mcp');
 }
 
 function registryPath(): string {

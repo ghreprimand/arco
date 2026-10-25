@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import type { DiscoveredEndpoint, EndpointDiscoverResponse } from '@archon/shared';
+import type { DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 
 // Workbench Expansion §D2 — OpenAI-compatible / Ollama endpoint auto-discovery.
 //

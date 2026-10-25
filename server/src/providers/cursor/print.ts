@@ -19,7 +19,7 @@
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus } from '@archon/shared';
+import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { killProcessTree } from '../../workers/processKill.js';
 import type { Provider, ProviderProcess } from '../types.js';
 import { goalBlock } from '../goalBlock.js';

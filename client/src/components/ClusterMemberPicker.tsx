@@ -10,8 +10,8 @@
 // click cancels.
 
 import { useEffect } from 'react';
-import { presetForText } from '@archon/shared';
-import type { ClusterStatePayload, ClusterMember } from '@archon/shared';
+import { presetForText } from '@arco/shared';
+import type { ClusterStatePayload, ClusterMember } from '@arco/shared';
 
 interface Props {
   cluster: ClusterStatePayload;

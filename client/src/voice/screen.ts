@@ -3,14 +3,14 @@
 // that there's no specific tool for. This needs to work like my mouse and
 // keyboard." Named tools cover the common moves; this covers the rest the
 // way a person does: look at the screen, find the control by its label,
-// click it or type into it. Two tools: `archon_screen` lists every visible
+// click it or type into it. Two tools: `arco_screen` lists every visible
 // control (numbered, labelled, grouped by dialog/area, with state) and
-// `archon_act` clicks / types / toggles / selects / presses a key on one.
+// `arco_act` clicks / types / toggles / selects / presses a key on one.
 // Nothing here knows what any button does; the UI's own handlers run, so
 // every effect is the same as a click, logged the same way, and the tool
 // call itself lands in the Computer transcript.
 
-import { voiceText } from '@archon/shared';
+import { voiceText } from '@arco/shared';
 
 export interface ScreenControl {
   n: number; kind: string; label: string; region: string; state?: string; danger?: boolean; el: Element;
@@ -41,7 +41,7 @@ function visible(el: Element): boolean {
   return true;
 }
 
-// Most Archon modals are a fixed full-viewport backdrop with no role="dialog"
+// Most Arco modals are a fixed full-viewport backdrop with no role="dialog"
 // (2026-10-17: the nudge picker was invisible as a dialog to Computer). Any
 // fixed ancestor that covers the viewport and takes pointer events is one;
 // the phosphor backdrops are pointer-events:none and never qualify.
@@ -182,7 +182,7 @@ export function readScreen(doc: Document, options: ScreenOptions = {}): { contro
     const items = list.slice(0, Math.max(0, limit - shown)).map((c) => `[${c.n}] ${c.kind} ${c.label}${c.state ? ` (${c.state})` : ''}${c.danger ? ' !' : ''}`);
     shown += items.length;
     if (items.length) lines.push(`${region}: ${items.join('; ')}`);
-    if (shown >= limit) { lines.push(`… ${controls.length - shown} more; call archon_screen with a filter word.`); break; }
+    if (shown >= limit) { lines.push(`… ${controls.length - shown} more; call arco_screen with a filter word.`); break; }
   }
   if (!controls.length) lines.push(filter ? `No visible control matches "${options.filter}".` : 'No visible controls.');
   lines.push('Controls marked ! are destructive and need confirm.');
@@ -194,14 +194,14 @@ function resolve(doc: Document, query: string, options: ScreenOptions): ScreenCo
   if (/^\d+$/.test(q)) {
     const hit = lastSnapshot[Number(q) - 1];
     if (hit && hit.el.isConnected && visible(hit.el)) return hit;
-    return `Control ${q} is no longer on screen. Call archon_screen again.`;
+    return `Control ${q} is no longer on screen. Call arco_screen again.`;
   }
   const { controls } = readScreen(doc, { helpTitle: options.helpTitle, limit: 1000 });
   const lower = q.toLowerCase();
   const exact = controls.filter((c) => c.label.toLowerCase() === lower || `${c.kind} ${c.label}`.toLowerCase() === lower);
   let pick = exact.length ? exact : controls.filter((c) => `${c.kind} ${c.label}`.toLowerCase().includes(lower));
   if (pick.length === 1) return pick[0];
-  if (!pick.length) return `No visible control is labelled "${q}". Call archon_screen to see what is on screen.`;
+  if (!pick.length) return `No visible control is labelled "${q}". Call arco_screen to see what is on screen.`;
   // Prefer the open dialog: it is what the operator is looking at.
   const inDialog = pick.filter((c) => c.region.startsWith('dialog'));
   if (inDialog.length) pick = inDialog;
@@ -285,11 +285,11 @@ export async function actOnScreen(doc: Document, request: ActRequest, options: S
   if (typeof hit === 'string') return hit;
   const el = hit.el as HTMLElement;
   if ((el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true') return `${hit.label} is disabled right now.`;
-  if (hit.danger && ['click', 'toggle', 'double_click', 'press'].includes(request.action) && !request.confirm) return `${hit.label} looks destructive. Ask the operator to confirm it, then call archon_act again with confirm set to true.`;
+  if (hit.danger && ['click', 'toggle', 'double_click', 'press'].includes(request.action) && !request.confirm) return `${hit.label} looks destructive. Ask the operator to confirm it, then call arco_act again with confirm set to true.`;
   const where = hit.region.startsWith('dialog') ? ` in ${hit.region}` : '';
   switch (request.action) {
     case 'options': {
-      if (el.tagName.toLowerCase() !== 'select') return `${hit.label} is a custom control. Click it, then inspect archon_screen to see its options.`;
+      if (el.tagName.toLowerCase() !== 'select') return `${hit.label} is a custom control. Click it, then inspect arco_screen to see its options.`;
       return JSON.stringify(Array.from((el as HTMLSelectElement).options).filter((o) => !request.text || `${o.textContent} ${o.value}`.toLowerCase().includes(request.text.toLowerCase())).slice(0, 120).map((o) => ({ label: collapse(o.textContent), value: o.value, disabled: o.disabled || !!o.closest('optgroup[disabled]'), selected: o.selected })));
     }
     case 'focus': el.focus?.(); return finish(doc, before, `Focused ${hit.label}.`);
@@ -352,7 +352,7 @@ async function finish(doc: Document, before: string[], did: string): Promise<str
 // ---- Reading words, not controls ------------------------------------------
 // 2026-10-17: "read me the section on Strata from the user manual" — Computer
 // opened the manual and clicked the right entry, then said the text was not
-// exposed to it. archon_screen lists controls; this reads the text of the
+// exposed to it. arco_screen lists controls; this reads the text of the
 // open dialog (or the page), optionally one section by heading.
 export interface ReadTextOptions { filter?: string; limit?: number }
 const BLOCK_TAG = /^(p|div|li|ul|ol|h[1-6]|section|article|header|footer|tr|td|th|pre|blockquote|dt|dd|details|summary|label|table|br|hr|nav|aside|main|form|fieldset|legend|figcaption|figure)$/;
@@ -400,7 +400,7 @@ export function readText(doc: Document, options: ReadTextOptions = {}): string {
       // No heading matched: the smallest visible elements whose text mentions it, with a little context.
       const hits = Array.from(scope.querySelectorAll('p, li, td, dd, blockquote, pre, div, span')).filter((e) => visible(e)
         && collapse(e.textContent).toLowerCase().includes(filter) && !Array.from(e.children).some((c) => collapse(c.textContent).toLowerCase().includes(filter)));
-      if (!hits.length) return `Nothing on screen in ${scopeName} mentions "${options.filter}". Call archon_read_text without a filter to read all of it, or archon_screen to see the controls.`;
+      if (!hits.length) return `Nothing on screen in ${scopeName} mentions "${options.filter}". Call arco_read_text without a filter to read all of it, or arco_screen to see the controls.`;
       const passages = hits.slice(0, 20).map((e) => {
         const own = tidy(visibleText(e));
         const parent = e.parentElement ? tidy(visibleText(e.parentElement)) : '';

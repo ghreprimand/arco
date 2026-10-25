@@ -31,7 +31,7 @@ import {
   probeAudioCodec,
   MediaOpError,
 } from '../../server/src/media/ffmpeg.js';
-import type { MediaOpSpec } from '@archon/shared';
+import type { MediaOpSpec } from '@arco/shared';
 
 function run(bin: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -89,7 +89,7 @@ async function main() {
 
   // ── SECURITY: out-of-cwd input is REJECTED (independent of ffmpeg) ──
   await step('runAudioOp REJECTS an out-of-cwd input path', async () => {
-    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-audio-cwd-'));
+    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-audio-cwd-'));
     try {
       let code: string | undefined;
       try {
@@ -119,7 +119,7 @@ async function main() {
       assert(true, 'skipped (no ffmpeg)');
     });
   } else {
-    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-audio-run-'));
+    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-audio-run-'));
     try {
       // Generate a 3s 440Hz sine WAV fixture.
       const fixture = path.join(cwd, 'fixture.wav');

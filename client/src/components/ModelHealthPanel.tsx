@@ -7,9 +7,9 @@ import type {
   LlamacppServeFix,
   ModelHealthReport,
   OllamaHealth,
-} from '@archon/shared';
+} from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §A3 — Local model health panel inside the System modal.
+// ARCO_OPS_PLAN.md §A3 — Local model health panel inside the System modal.
 //
 // Fetches GET /api/diagnostics/model-health on mount + on Refresh and renders the
 // three subsystems (Ollama / llama.cpp / Cookbook), each with a roll-up status

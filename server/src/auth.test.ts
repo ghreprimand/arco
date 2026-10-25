@@ -7,7 +7,7 @@ import { getClaudeAuthStatus, triggerAuthLogin } from './auth.js';
 
 // A fake `claude` on PATH whose `auth status --json` behavior is picked by the
 // FAKE_CLAUDE_MODE env var at call time (execFile inherits process.env).
-const binDir = mkdtempSync(join(tmpdir(), 'archon-auth-test-'));
+const binDir = mkdtempSync(join(tmpdir(), 'arco-auth-test-'));
 writeFileSync(join(binDir, 'claude'), `#!/bin/sh
 case "$FAKE_CLAUDE_MODE" in
   in)      echo '{"loggedIn": true, "email": "a@b.c"}' ;;

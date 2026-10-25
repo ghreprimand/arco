@@ -7,7 +7,7 @@
 //      (peer_message_sent on the sender, peer_message_received on drain).
 //   4. cluster_snapshot_save → assert cluster_snapshot_saved + the on-disk
 //      manifest.json + members/<wfid>/events.jsonl files exist under
-//      ~/.archon/cluster-snapshots/<id>/.
+//      ~/.arco/cluster-snapshots/<id>/.
 //   5. cluster_snapshot_list → the saved snapshot appears in the summary.
 //   6. cluster_snapshot_restore → a NEW cluster_created arrives with a NEW
 //      clusterId + 2 members with NEW workflowIds; the client is DELIVERED each
@@ -33,13 +33,13 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, appendFileSync, writeFil
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
 const REST_BASE = `http://127.0.0.1:${PORT}`;
-const SNAPSHOTS_ROOT = join(homedir(), '.archon', 'cluster-snapshots');
+const SNAPSHOTS_ROOT = join(homedir(), '.arco', 'cluster-snapshots');
 
 async function main(): Promise<void> {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-snap-src-'));
-  const restoreCwd = mkdtempSync(join(tmpdir(), 'archon-snap-dst-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-snap-src-'));
+  const restoreCwd = mkdtempSync(join(tmpdir(), 'arco-snap-dst-'));
   const snapName = `smoke-snap-${Date.now().toString(36)}`;
   console.log(`Cluster-snapshot smoke — src ${cwd}`);
   console.log(`                         dst ${restoreCwd}`);
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
     // artifact. Seed fake source-machine ids so save + restore both prove they
     // cannot leak into a fork.
     for (const wfid of members) {
-      const metaPath = join(cwd, '.archon', 'workflows', wfid, 'meta.json');
+      const metaPath = join(cwd, '.arco', 'workflows', wfid, 'meta.json');
       const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
         cliSessions: Array<{ provider: string; sessionId: string; createdAt: number }>;
       };
@@ -149,7 +149,7 @@ async function main(): Promise<void> {
     // scan keyed off the highest seq, so colliding would corrupt ordering).
     await new Promise((r) => setTimeout(r, 200));
     const seededWfid = members[0];
-    const seededEvents = join(cwd, '.archon', 'workflows', seededWfid, 'events.jsonl');
+    const seededEvents = join(cwd, '.arco', 'workflows', seededWfid, 'events.jsonl');
     let maxSeq = 0;
     if (existsSync(seededEvents)) {
       for (const line of readFileSync(seededEvents, 'utf8').split('\n')) {
@@ -423,7 +423,7 @@ async function main(): Promise<void> {
     for (const id of restoredMembers) {
       assert(!members.includes(id), `restored member ${id.slice(0, 8)} is a NEW workflowId`);
       const restoredMeta = JSON.parse(
-        readFileSync(join(restoreCwd, '.archon', 'workflows', id, 'meta.json'), 'utf8'),
+        readFileSync(join(restoreCwd, '.arco', 'workflows', id, 'meta.json'), 'utf8'),
       ) as { cliSessions?: unknown[] };
       assertEq(restoredMeta.cliSessions?.length, 0, `restored member ${id.slice(0, 8)} has no source-machine session`);
     }
@@ -431,14 +431,14 @@ async function main(): Promise<void> {
     // The restored members' events.jsonl must exist in the TARGET cwd with the
     // history replayed (proves the workflowId rewrite + copy landed).
     const anyRestoredHistory = restoredMembers.some((wfid) => {
-      const p = join(restoreCwd, '.archon', 'workflows', wfid, 'events.jsonl');
+      const p = join(restoreCwd, '.arco', 'workflows', wfid, 'events.jsonl');
       return existsSync(p) && readFileSync(p, 'utf8').includes('snapshot history seed');
     });
     assert(anyRestoredHistory, 'restored member events.jsonl carries the replayed history in the target cwd');
 
     // The rewritten events.jsonl must reference the NEW member ids, not the old.
     for (const wfid of restoredMembers) {
-      const p = join(restoreCwd, '.archon', 'workflows', wfid, 'events.jsonl');
+      const p = join(restoreCwd, '.arco', 'workflows', wfid, 'events.jsonl');
       if (!existsSync(p)) continue;
       const text = readFileSync(p, 'utf8');
       for (const oldId of members) {
@@ -451,11 +451,11 @@ async function main(): Promise<void> {
     // must keep exactly 2 primary_turn_started markers (we seeded 3, restored
     // with turnsPerMember: 2).
     const seededRestored = restoredMembers.find((wfid) => {
-      const p = join(restoreCwd, '.archon', 'workflows', wfid, 'events.jsonl');
+      const p = join(restoreCwd, '.arco', 'workflows', wfid, 'events.jsonl');
       return existsSync(p) && readFileSync(p, 'utf8').includes('body alpha');
     });
     assert(!!seededRestored, 'found the restored member mapping from the seeded source');
-    const seededText = readFileSync(join(restoreCwd, '.archon', 'workflows', seededRestored!, 'events.jsonl'), 'utf8');
+    const seededText = readFileSync(join(restoreCwd, '.arco', 'workflows', seededRestored!, 'events.jsonl'), 'utf8');
     const markerCount = seededText
       .split('\n')
       .filter((l) => l.trim())

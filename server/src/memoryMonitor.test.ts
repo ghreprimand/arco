@@ -22,7 +22,7 @@ const sample: NodeJS.MemoryUsage = {
 
 test('formatMemorySample: core fields present', () => {
   const line = formatMemorySample(sample);
-  assert.match(line, /\[archon\]\[mem\]/);
+  assert.match(line, /\[arco\]\[mem\]/);
   assert.match(line, /rss=512\.0MB/);
   assert.match(line, /heapUsed=210\.0MB/);
   assert.match(line, /heapTotal=260\.0MB/);
@@ -31,7 +31,7 @@ test('formatMemorySample: core fields present', () => {
 
 test('formatMemorySample: delta + peak when provided', () => {
   const line = formatMemorySample(sample, { prevRss: 500 * MB, peakRss: 480 * MB, label: 'tick' });
-  assert.match(line, /\[archon\]\[mem:tick\]/);
+  assert.match(line, /\[arco\]\[mem:tick\]/);
   assert.match(line, /rssΔ=\+12\.0MB/);   // 512 - 500
   assert.match(line, /rssPeak=512\.0MB/); // peak max(480, 512)
 });
@@ -51,7 +51,7 @@ test('startMemoryMonitor: disabled → inert, no output', () => {
   } finally {
     console.log = orig;
   }
-  assert.equal(logs.filter((l) => l.includes('[archon][mem')).length, 0, 'no memory lines when disabled');
+  assert.equal(logs.filter((l) => l.includes('[arco][mem')).length, 0, 'no memory lines when disabled');
 });
 
 test('startMemoryMonitor: enabled → emits a boot baseline', () => {
@@ -64,7 +64,7 @@ test('startMemoryMonitor: enabled → emits a boot baseline', () => {
     console.log = orig;
     stopMemoryMonitor(); // tear down the (unref'd) interval immediately
   }
-  assert.ok(logs.some((l) => l.includes('[archon][mem:boot]')), 'boot baseline emitted');
+  assert.ok(logs.some((l) => l.includes('[arco][mem:boot]')), 'boot baseline emitted');
 });
 
 test('logMemorySample: emits a single labelled line', () => {
@@ -76,5 +76,5 @@ test('logMemorySample: emits a single labelled line', () => {
   } finally {
     console.log = orig;
   }
-  assert.equal(logs.filter((l) => l.includes('[archon][mem:shutdown]')).length, 1);
+  assert.equal(logs.filter((l) => l.includes('[arco][mem:shutdown]')).length, 1);
 });

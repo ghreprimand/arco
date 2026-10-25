@@ -1,4 +1,4 @@
-// ── Guarded Demucs stem-separation runner (Archon Ops §N4) ──
+// ── Guarded Demucs stem-separation runner (Arco Ops §N4) ──
 //
 // True AI source separation (vocals / drums / bass / other, or a two-stems
 // karaoke split) via the local **Demucs** CLI. Separate from the ffmpeg wrapper:
@@ -35,7 +35,7 @@ import {
   type MediaStemsErrorCode,
   type MediaStemFile,
   type MediaStemsResult,
-} from '@archon/shared';
+} from '@arco/shared';
 import { resolveMediaInput, resolveMediaOutputDir, MediaOpError, type MediaAccess } from './ffmpeg.js';
 
 const DEMUCS_BIN = 'demucs';
@@ -291,7 +291,7 @@ async function rmDir(dir: string): Promise<void> {
   try {
     await fs.rm(dir, { recursive: true, force: true });
   } catch (err) {
-    console.error(`[archon] demucs: failed to clean ${dir}:`, err instanceof Error ? err.message : err);
+    console.error(`[arco] demucs: failed to clean ${dir}:`, err instanceof Error ? err.message : err);
   }
 }
 

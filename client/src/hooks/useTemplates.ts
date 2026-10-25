@@ -1,11 +1,11 @@
 // Workbench Expansion §D4 — project / session templates ("recipes") persisted
-// at ~/.archon/templates.json. CRUD through the three HTTP endpoints
+// at ~/.arco/templates.json. CRUD through the three HTTP endpoints
 // (GET / POST / DELETE /api/templates). Single-tab analogue of
 // useClusterPresets; the persisted model is validated against the live catalog
 // at apply time in the creator (not here).
 
 import { useCallback, useEffect, useState } from 'react';
-import type { WorkflowTemplate, WorkflowTemplateConfig } from '@archon/shared';
+import type { WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 
 export interface SaveTemplateInput {
   name: string;

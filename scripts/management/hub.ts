@@ -1,7 +1,7 @@
-// archon-management §2/§5/§6 — the hub core.
+// arco-management §2/§5/§6 — the hub core.
 //
 // One tailnet-only service that:
-//   - accepts OUTBOUND WS connections from Archon instances / archon-agents at
+//   - accepts OUTBOUND WS connections from Arco instances / arco-agents at
 //     path /agent (instance_register, instance_heartbeat, lifecycle_result),
 //   - keeps an InstanceRegistry with online/stale/offline derivation,
 //   - SIGNS lifecycle commands with the hub Ed25519 private key and routes them
@@ -114,7 +114,7 @@ export function createHub(opts: HubOptions): Hub {
   );
 
   // One machine has up to two connections: the lifecycle agent (/agent) and the
-  // live Archon service (/instance, workflow layer). Tracked separately, both
+  // live Arco service (/instance, workflow layer). Tracked separately, both
   // keyed by instanceId, merged into one registry card.
   const agentSockets = new Map<string, WebSocket>();
   const serviceSockets = new Map<string, WebSocket>();
@@ -133,7 +133,7 @@ export function createHub(opts: HubOptions): Hub {
 
   const httpServer = createServer((req, res) => handleHttp(req, res));
   // Accept WS upgrades on any path (conventionally /agent for the lifecycle
-  // agent, /instance for the live Archon service) — the `role` on register
+  // agent, /instance for the live Arco service) — the `role` on register
   // disambiguates, so the path is cosmetic. HTTP control routes are separate
   // (non-upgrade requests handled by handleHttp).
   const wss = new WebSocketServer({ server: httpServer });
@@ -330,7 +330,7 @@ export function createHub(opts: HubOptions): Hub {
     });
   }
 
-  // Workflow-layer routing: forward an action to the owning live Archon SERVICE.
+  // Workflow-layer routing: forward an action to the owning live Arco SERVICE.
   // The service re-validates against its CURRENT workflow state before applying
   // (the hub is a router, never an authority on validity). Correlated by
   // actionId with a timeout, like lifecycle commands.
@@ -523,8 +523,8 @@ export function createHub(opts: HubOptions): Hub {
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/cluster-vault') {
-      const encoded = req.headers['x-archon-vault-meta'];
-      const replaceId = req.headers['x-archon-vault-replace-id'];
+      const encoded = req.headers['x-arco-vault-meta'];
+      const replaceId = req.headers['x-arco-vault-replace-id'];
       let metadata: Omit<CloudClusterSnapshot, 'id' | 'uploadedAt'>;
       try {
         if (typeof encoded !== 'string') throw new Error('missing metadata');

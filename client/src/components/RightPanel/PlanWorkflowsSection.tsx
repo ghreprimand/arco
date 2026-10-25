@@ -1,4 +1,4 @@
-import type { PlanAttachmentSpan } from '@archon/shared';
+import type { PlanAttachmentSpan } from '@arco/shared';
 import { splitAttachments, formatRelativeTime } from './format';
 
 // "Workflows using this plan" — active spans inline, past spans behind a

@@ -1,5 +1,5 @@
 // Durable cluster recovery. Snapshots fork; this surface simply reopens the
-// original cluster id that still exists under ~/.archon/clusters but isn't
+// original cluster id that still exists under ~/.arco/clusters but isn't
 // open as a tab anywhere (the open set is server-authoritative — see
 // server/src/workspace.ts). Collapsed by default: it used to render every
 // cluster dir ever created at ~75px a row, smoke-test leftovers included.
@@ -23,7 +23,7 @@ interface Props {
   onReopen: (clusterId: string) => void;
 }
 
-const EXPANDED_KEY = 'archon.closedClustersExpanded';
+const EXPANDED_KEY = 'arco.closedClustersExpanded';
 
 const btn = (color: string): React.CSSProperties => ({
   padding: '1px 7px',

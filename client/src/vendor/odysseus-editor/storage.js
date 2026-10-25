@@ -1,7 +1,7 @@
 // VENDOR SHIM — replaces Odysseus `static/js/storage.js`.
 //
 // The upstream Storage module is a thin localStorage JSON helper used app-wide.
-// In Archon the only consumer reaching this file is the vendored `dragSort.js`,
+// In Arco the only consumer reaching this file is the vendored `dragSort.js`,
 // which calls `Storage.setJSON(key, value)` to optionally persist a layer-order
 // when a `storageKey` option is supplied. The editor never passes one, so this
 // path is effectively dead — but we keep a faithful, dependency-free shim so the

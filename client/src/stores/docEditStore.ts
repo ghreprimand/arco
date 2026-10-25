@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ProviderName, ModelName, EffortLevel } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel } from '@arco/shared';
 
 // WORKBENCH_EXPANSION_PLAN.md §A7 — AI-collaborative document editing client
 // store. Kept OUT of appStore (mirrors recallStore / terminalStore): doc-edit

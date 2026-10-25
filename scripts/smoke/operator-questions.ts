@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os';
 import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-question-smoke-'));
-  const bin = join(dir, 'bin'), home = join(dir, 'home'); mkdirSync(bin); mkdirSync(join(home, '.archon'), { recursive: true });
+  const dir = mkdtempSync(join(tmpdir(), 'arco-question-smoke-'));
+  const bin = join(dir, 'bin'), home = join(dir, 'home'); mkdirSync(bin); mkdirSync(join(home, '.arco'), { recursive: true });
   const executable = join(bin, 'codex'); copyFileSync('scripts/smoke/fixtures/question-codex.mjs', executable);
   writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
@@ -19,7 +19,7 @@ async function main() {
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

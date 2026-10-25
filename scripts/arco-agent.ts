@@ -1,9 +1,9 @@
 #!/usr/bin/env -S npx tsx
-// ARCHON_OPS_PLAN.md §K1 — `archon-agent` per-host lifecycle supervisor.
+// ARCO_OPS_PLAN.md §K1 — `arco-agent` per-host lifecycle supervisor.
 //
 // A tiny always-on supervisor (one per workstation) that the management hub (K2)
 // drives over a tailnet WebSocket to start/stop/restart/tail-logs the LOCAL
-// Archon service — and nothing else. Its entire inbound vocabulary is the fixed
+// Arco service — and nothing else. Its entire inbound vocabulary is the fixed
 // LifecycleCommand allowlist, and it executes a command ONLY when signed by the
 // hub's Ed25519 key (§13.2). No file access, no workflow access, no free-form
 // shell. See docs/REMOTE_MANAGEMENT.md §6.
@@ -13,7 +13,7 @@
 //                        private half to the hub, hub.pub to each agent)
 //   install [--enable] [--hub URL]
 //                        write the systemd --user unit (+ enable for autostart)
-//   start|stop|status|restart   systemctl --user on archon-agent.service
+//   start|stop|status|restart   systemctl --user on arco-agent.service
 //   logs [-n N] [--journal]     tail the agent log / journal
 //   uninstall            stop + disable + remove unit
 //   selftest             offline crypto+allowlist confidence check (no hub)
@@ -27,7 +27,7 @@
 // Subprocess safety: execFile/spawn with argv arrays only — never shell:true,
 // never sudo (a --user unit needs neither).
 
-import '../server/src/envAliases.js'; // ARCO_* aliases take precedence over ARCHON_*
+import '../server/src/envAliases.js'; // upstream-prefixed variables fill unset ARCO_* names
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -41,10 +41,10 @@ import { NonceStore } from './agent/handle.js';
 import { createAgentConnection, systemctlRunner } from './agent/agent.js';
 import { buildInstanceDescriptor, detectPlatform } from './agent/identity.js';
 import { LIFECYCLE_COMMANDS } from '../shared/src/protocol/remoteManagement.js';
-import { archonHome } from '../server/src/archonHome.js';
+import { arcoHome } from '../server/src/arcoHome.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const UNIT_NAME = 'archon-agent.service';
+const UNIT_NAME = 'arco-agent.service';
 const isMac = process.platform === 'darwin';
 
 function unitDir(): string {
@@ -58,10 +58,10 @@ function unitPath(): string {
   return join(unitDir(), UNIT_NAME);
 }
 function agentDir(): string {
-  return join(archonHome(), 'agent');
+  return join(arcoHome(), 'agent');
 }
 function defaultPubkeyPath(): string {
-  return process.env.ARCHON_HUB_PUBKEY || join(agentDir(), 'hub.pub');
+  return process.env.ARCO_HUB_PUBKEY || join(agentDir(), 'hub.pub');
 }
 function repoVersion(): string {
   try {
@@ -77,7 +77,7 @@ function repoVersion(): string {
 function macNotice(): void {
   console.log(
     [
-      'systemd is not available on macOS — `archon-agent` service actions are Linux-only.',
+      'systemd is not available on macOS — `arco-agent` service actions are Linux-only.',
       'macOS does not autostart the agent in v1 (it starts with the app launcher); a launchd',
       'unit is a later add. keygen / selftest / run still work manually here.',
     ].join('\n'),
@@ -88,7 +88,7 @@ function systemctlInherit(args: string[]): Promise<number> {
   return new Promise((res) => {
     const child = spawn('systemctl', ['--user', ...args], { stdio: 'inherit' });
     child.on('error', (err) => {
-      console.error(`[archon-agent] failed to spawn systemctl: ${err.message}`);
+      console.error(`[arco-agent] failed to spawn systemctl: ${err.message}`);
       res(127);
     });
     child.on('exit', (code) => res(code ?? 1));
@@ -100,7 +100,7 @@ async function doKeygen(args: AgentArgs): Promise<number> {
   if (!args.out) {
     console.log('# Ed25519 hub keypair (§13.2)');
     console.log('# Keep the PRIVATE key on the hub ONLY (never commit). Copy the');
-    console.log('# PUBLIC key to each agent at ~/.archon/agent/hub.pub.\n');
+    console.log('# PUBLIC key to each agent at ~/.arco/agent/hub.pub.\n');
     console.log('## hub.key (PRIVATE — hub only)\n' + privateKey);
     console.log('## hub.pub (PUBLIC — distribute to agents)\n' + publicKey);
     return 0;
@@ -110,8 +110,8 @@ async function doKeygen(args: AgentArgs): Promise<number> {
   const pubPath = join(args.out, 'hub.pub');
   await writeFile(keyPath, privateKey, { mode: 0o600 });
   await writeFile(pubPath, publicKey, { mode: 0o644 });
-  console.log(`[archon-agent] wrote ${keyPath} (PRIVATE — hub only, mode 600)`);
-  console.log(`[archon-agent] wrote ${pubPath} (PUBLIC — copy to each agent)`);
+  console.log(`[arco-agent] wrote ${keyPath} (PRIVATE — hub only, mode 600)`);
+  console.log(`[arco-agent] wrote ${pubPath} (PUBLIC — copy to each agent)`);
   return 0;
 }
 
@@ -120,7 +120,7 @@ async function doInstall(args: AgentArgs): Promise<number> {
     macNotice();
     return 0;
   }
-  const hubUrl = args.hubUrl || process.env.ARCHON_HUB_URL;
+  const hubUrl = args.hubUrl || process.env.ARCO_HUB_URL;
   const unit = renderAgentUnit({
     repoRoot: REPO_ROOT,
     ...(hubUrl ? { hubUrl } : {}),
@@ -128,19 +128,19 @@ async function doInstall(args: AgentArgs): Promise<number> {
   });
   await mkdir(unitDir(), { recursive: true });
   await writeFile(unitPath(), unit, 'utf8');
-  console.log(`[archon-agent] wrote ${unitPath()}`);
+  console.log(`[arco-agent] wrote ${unitPath()}`);
   if (!hubUrl) {
-    console.log('[archon-agent] NOTE: no --hub URL and ARCHON_HUB_URL unset — set it before `run`.');
+    console.log('[arco-agent] NOTE: no --hub URL and ARCO_HUB_URL unset — set it before `run`.');
   }
   if (!existsSync(defaultPubkeyPath())) {
-    console.log(`[archon-agent] NOTE: hub public key missing at ${defaultPubkeyPath()} — provision it before \`run\`.`);
+    console.log(`[arco-agent] NOTE: hub public key missing at ${defaultPubkeyPath()} — provision it before \`run\`.`);
   }
   await systemctlInherit(['daemon-reload']);
   if (args.enable) {
     await systemctlInherit(['enable', UNIT_NAME]);
-    console.log('[archon-agent] enabled (autostart on next login).');
+    console.log('[arco-agent] enabled (autostart on next login).');
   }
-  console.log('[archon-agent] installed. Start with: archon-agent start');
+  console.log('[arco-agent] installed. Start with: arco-agent start');
   return 0;
 }
 
@@ -153,10 +153,10 @@ async function doUninstall(): Promise<number> {
   await systemctlInherit(['disable', UNIT_NAME]);
   if (existsSync(unitPath())) {
     await rm(unitPath(), { force: true });
-    console.log(`[archon-agent] removed ${unitPath()}`);
+    console.log(`[arco-agent] removed ${unitPath()}`);
   }
   await systemctlInherit(['daemon-reload']);
-  console.log('[archon-agent] uninstalled.');
+  console.log('[arco-agent] uninstalled.');
   return 0;
 }
 
@@ -166,7 +166,7 @@ async function doSystemctlAction(args: AgentArgs): Promise<number> {
     return 0;
   }
   if (!existsSync(unitPath()) && args.command !== 'status') {
-    console.error(`[archon-agent] no unit at ${unitPath()} — run \`archon-agent install\` first.`);
+    console.error(`[arco-agent] no unit at ${unitPath()} — run \`arco-agent install\` first.`);
     return 1;
   }
   switch (args.command) {
@@ -193,7 +193,7 @@ async function doLogs(args: AgentArgs): Promise<number> {
   return new Promise((res) => {
     const child = spawn('journalctl', jargs, { stdio: 'inherit' });
     child.on('error', (err) => {
-      console.error(`[archon-agent] failed to spawn journalctl: ${err.message}`);
+      console.error(`[arco-agent] failed to spawn journalctl: ${err.message}`);
       res(127);
     });
     child.on('exit', (code) => res(code ?? 0));
@@ -217,7 +217,7 @@ function doSelftest(): number {
   };
   const ok = (m: string) => console.log(`  ✓ ${m}`);
 
-  console.log(`archon-agent selftest (platform=${platform})`);
+  console.log(`arco-agent selftest (platform=${platform})`);
 
   for (const cmd of LIFECYCLE_COMMANDS) {
     const signed = signCommand(privateKey, { cmd, instanceId, nonce: newNonce(), issuedAt: now });
@@ -237,7 +237,7 @@ function doSelftest(): number {
   }
 
   // Negative cases.
-  const base = { cmd: 'archon.status' as const, instanceId, nonce: newNonce(), issuedAt: now };
+  const base = { cmd: 'arco.status' as const, instanceId, nonce: newNonce(), issuedAt: now };
   const good = signCommand(privateKey, base);
 
   // Flip a LEADING (data) char — not the trailing '=' padding, which decodes to
@@ -266,15 +266,15 @@ function doSelftest(): number {
 }
 
 async function doRun(args: AgentArgs): Promise<number> {
-  const hubUrl = args.hubUrl || process.env.ARCHON_HUB_URL;
+  const hubUrl = args.hubUrl || process.env.ARCO_HUB_URL;
   if (!hubUrl) {
-    console.error('[archon-agent] run: no hub URL — set ARCHON_HUB_URL or pass --hub ws://<hub>:<port>');
-    console.error('[archon-agent] the management hub is K2; until it is deployed there is nothing to connect to.');
+    console.error('[arco-agent] run: no hub URL — set ARCO_HUB_URL or pass --hub ws://<hub>:<port>');
+    console.error('[arco-agent] the management hub is K2; until it is deployed there is nothing to connect to.');
     return 2;
   }
   const pubPath = defaultPubkeyPath();
   if (!existsSync(pubPath)) {
-    console.error(`[archon-agent] run: hub public key missing at ${pubPath} — run \`archon-agent keygen\` on the hub and copy hub.pub here.`);
+    console.error(`[arco-agent] run: hub public key missing at ${pubPath} — run \`arco-agent keygen\` on the hub and copy hub.pub here.`);
     return 2;
   }
   const publicKeyPem = readFileSync(pubPath, 'utf8');
@@ -283,14 +283,14 @@ async function doRun(args: AgentArgs): Promise<number> {
     version: repoVersion(),
     serviceRestart: detectPlatform() === 'linux',
   });
-  console.log(`[archon-agent] starting as "${instance.name}" (${instance.instanceId}) → hub ${hubUrl}`);
+  console.log(`[arco-agent] starting as "${instance.name}" (${instance.instanceId}) → hub ${hubUrl}`);
   const conn = createAgentConnection({
     hubUrl,
     instance,
     publicKeyPem,
     runner: systemctlRunner(),
     nonceStore: new NonceStore(),
-    log: (m) => console.log(`[archon-agent] ${m}`),
+    log: (m) => console.log(`[arco-agent] ${m}`),
   });
   conn.start();
   // Run until signaled.
@@ -308,7 +308,7 @@ async function doRun(args: AgentArgs): Promise<number> {
 function usage(): void {
   console.error(
     [
-      'Usage: archon-agent <command> [options]',
+      'Usage: arco-agent <command> [options]',
       '',
       'Commands:',
       '  keygen [--out DIR]   generate an Ed25519 hub keypair',
@@ -317,7 +317,7 @@ function usage(): void {
       '  logs [-n N]          follow the agent journal',
       '  uninstall            stop + disable + remove the unit',
       '  selftest             offline crypto + allowlist confidence check',
-      '  run                  connect to the hub and supervise (needs ARCHON_HUB_URL)',
+      '  run                  connect to the hub and supervise (needs ARCO_HUB_URL)',
       '',
       `Recognized commands: ${AGENT_COMMANDS.join(', ')}`,
     ].join('\n'),
@@ -327,7 +327,7 @@ function usage(): void {
 async function main(): Promise<void> {
   const args = parseAgentArgs(process.argv.slice(2));
   if (args.unknown.length > 0) {
-    console.error(`[archon-agent] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    console.error(`[arco-agent] unrecognized argument(s): ${args.unknown.join(' ')}`);
     usage();
     process.exit(2);
   }

@@ -22,7 +22,7 @@ import {
 } from './contextRefs.js';
 
 async function tmpProject(files: Record<string, string>): Promise<string> {
-  const dir = await fs.mkdtemp(join(tmpdir(), 'archon-refs-'));
+  const dir = await fs.mkdtemp(join(tmpdir(), 'arco-refs-'));
   for (const [name, body] of Object.entries(files)) {
     await fs.writeFile(join(dir, name), body, 'utf8');
   }

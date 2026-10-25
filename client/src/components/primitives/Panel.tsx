@@ -98,7 +98,7 @@ export const Panel = forwardRef<HTMLElement, PanelProps & NativeProps>(function 
   const isRough = theme.borderRenderer === 'rough';
 
   const mergedClass = useMemo(() => {
-    const parts = ['archon-panel'];
+    const parts = ['arco-panel'];
     if (className) parts.push(className);
     // CSS themes opt into the glow-border utility when active; rough themes
     // carry the active read via stroke weight instead.
@@ -158,8 +158,8 @@ const RoughPanel = forwardRef<HTMLElement, RoughPanelProps & NativeProps>(functi
 
   useEffect(() => {
     const onTheme = () => setThemeTick((t) => t + 1);
-    window.addEventListener('archon:theme-changed', onTheme);
-    return () => window.removeEventListener('archon:theme-changed', onTheme);
+    window.addEventListener('arco:theme-changed', onTheme);
+    return () => window.removeEventListener('arco:theme-changed', onTheme);
   }, []);
 
   // Observe container size — we redraw whenever the box changes so the rough

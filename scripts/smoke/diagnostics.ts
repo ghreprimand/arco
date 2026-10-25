@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §A1 — Diagnostics endpoint smoke.
+// ARCO_OPS_PLAN.md §A1 — Diagnostics endpoint smoke.
 //
 // Hits the LIVE server's GET /api/diagnostics (the director runs this against a
 // running `npm run dev`). Asserts the report is well-formed: 200, all six
@@ -15,7 +15,7 @@ import type {
   DiagnosticGroupId,
 } from '../../shared/src/protocol/opsDiagnostics.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 const VALID_STATUS: DiagnosticStatus[] = ['ok', 'warn', 'error', 'skipped'];
 const EXPECTED_GROUPS: DiagnosticGroupId[] = [
   'core',
@@ -35,7 +35,7 @@ async function main() {
     report = (await r.json()) as DiagnosticsReport;
     assert(report && Array.isArray(report.groups), 'report has a groups array');
     assert(typeof report.generatedAt === 'number', 'generatedAt is a number');
-    assert(typeof report.archonVersion === 'string', 'archonVersion is a string');
+    assert(typeof report.arcoVersion === 'string', 'arcoVersion is a string');
     assert(typeof report.platform === 'string' && report.platform.includes('/'), 'platform looks like os/arch');
   });
 

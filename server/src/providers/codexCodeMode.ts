@@ -5,11 +5,11 @@
 // multi-agent harness — the
 // model is told it is `/root` in a team of agents, given native spawn_agent /
 // send_message tools, and its tool surface becomes a JS `exec` code cell.
-// Archon's cluster MCP tools are NOT gone in that mode: they appear inside
+// Arco's cluster MCP tools are NOT gone in that mode: they appear inside
 // the exec cell's `tools` namespace under mangled names
-// (`tools.mcp__archon_cluster__peer_send` — server dash → underscore, then
+// (`tools.mcp__arco_cluster__peer_send` — server dash → underscore, then
 // `mcp__<server>__<tool>`). The 2026-07-09 incident member ignored the peer
-// substrate because Archon's role text said "peer_send", a name that doesn't
+// substrate because Arco's role text said "peer_send", a name that doesn't
 // exist in its world, while the harness gave its own send_message top
 // billing. Telling the model the real names fixes it — verified live on both
 // `codex exec` and the app-server transport (terra ACKed the director via
@@ -26,7 +26,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { WorkerConfig } from '@archon/shared';
+import type { WorkerConfig } from '@arco/shared';
 import { buildClusterDirectorDoctrine } from '../clusterDirector.js';
 
 interface CodeModeEntry {
@@ -91,22 +91,22 @@ export function codexModelUsesCodeMode(modelId: string, codexHome?: string): boo
 // Folded into the string-form cluster blocks (after the role hint) for Codex
 // members on code-mode models. Names the exec-cell tool namespace verbatim —
 // the whole fix is that the model can't discover `peer_send` under the name
-// Archon's generic role text uses. Phrased conditionally ("if your tool
+// Arco's generic role text uses. Phrased conditionally ("if your tool
 // surface is an exec code cell") so a fail-open inclusion on an unknown
 // model is harmless: a plain function-calling model reads it as inapplicable.
 export function codexCodeModeClusterAddendum(): string {
   return [
     '--- Codex code-mode notice ---',
     'If your tool surface is an `exec` code cell and you have native collaboration tools (spawn_agent / send_message / followup_task, "you are /root"): those collaboration tools belong to Codex\'s own harness and do NOT reach this Arco cluster. Never use them for cluster coordination, and being "/root" of that harness does not make you this cluster\'s director — your cluster role is stated above.',
-    'Your REAL Arco cluster tools live INSIDE the exec code cell\'s `tools` namespace, named `tools.mcp__archon_cluster__<tool>`:',
-    '  await tools.mcp__archon_cluster__peer_read()          — drain your peer mailbox',
-    '  await tools.mcp__archon_cluster__peer_send({to, content}) — message a peer (workflowId / 8-char prefix / displayName / role)',
-    '  await tools.mcp__archon_cluster__peer_list()          — list peers',
-    'All other archon-cluster tools (cluster_task_*, cluster_plan_*) follow the same `tools.mcp__archon_cluster__<tool>` naming. Call them from exec like any other tools.* function.',
+    'Your REAL Arco cluster tools live INSIDE the exec code cell\'s `tools` namespace, named `tools.mcp__arco_cluster__<tool>`:',
+    '  await tools.mcp__arco_cluster__peer_read()          — drain your peer mailbox',
+    '  await tools.mcp__arco_cluster__peer_send({to, content}) — message a peer (workflowId / 8-char prefix / displayName / role)',
+    '  await tools.mcp__arco_cluster__peer_list()          — list peers',
+    'All other arco-cluster tools (cluster_task_*, cluster_plan_*) follow the same `tools.mcp__arco_cluster__<tool>` naming. Call them from exec like any other tools.* function.',
   ].join('\n');
 }
 
-// app-server can place Archon's durable cluster identity at developer level
+// app-server can place Arco's durable cluster identity at developer level
 // when a thread starts/resumes. Per-turn plan content still rides in user
 // input because it is mutable; the stable role and tool contract do not need
 // to compete with Codex's own `/root` developer framing there.

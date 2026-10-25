@@ -1,4 +1,4 @@
-// archon-agent §13.3 — pure helpers: CLI arg parsing + systemd `--user` unit
+// arco-agent §13.3 — pure helpers: CLI arg parsing + systemd `--user` unit
 // rendering for the agent supervisor. Side-effect-free so the smoke imports and
 // asserts on them without an install. Mirrors scripts/service/unit.ts.
 //
@@ -34,7 +34,7 @@ export interface AgentArgs {
   command: AgentCommand | null;
   enable: boolean; // install --enable → systemctl enable (autostart on login)
   out?: string; // keygen --out <dir>
-  hubUrl?: string; // run/install --hub <url> (override ARCHON_HUB_URL)
+  hubUrl?: string; // run/install --hub <url> (override ARCO_HUB_URL)
   lines?: number; // logs -n N
   unknown: string[];
 }
@@ -73,26 +73,26 @@ export function parseAgentArgs(argv: string[]): AgentArgs {
 export interface AgentUnitOptions {
   repoRoot: string;
   hubUrl?: string; // baked into the unit env when provided
-  publicKeyPath?: string; // hub.pub location; defaults to ~/.archon/agent/hub.pub
+  publicKeyPath?: string; // hub.pub location; defaults to ~/.arco/agent/hub.pub
   restartSec?: number;
 }
 
-// Render the archon-agent systemd `--user` unit. The agent runs via tsx (it is
+// Render the arco-agent systemd `--user` unit. The agent runs via tsx (it is
 // a small long-lived script, not part of the compiled server bundle) so it can
 // share the repo's scripts/ without a separate build step. Restart=always
 // because the agent is a supervisor — it should come back whenever it dies.
 export function renderAgentUnit(opts: AgentUnitOptions): string {
   const restartSec = opts.restartSec ?? 3;
-  const entry = posixJoin(opts.repoRoot, 'scripts', 'archon-agent.ts');
+  const entry = posixJoin(opts.repoRoot, 'scripts', 'arco-agent.ts');
   const execStart = `npx tsx ${entry} run`;
 
   const env: string[] = [];
-  if (opts.hubUrl) env.push(`Environment=ARCHON_HUB_URL=${opts.hubUrl}`);
-  if (opts.publicKeyPath) env.push(`Environment=ARCHON_HUB_PUBKEY=${opts.publicKeyPath}`);
+  if (opts.hubUrl) env.push(`Environment=ARCO_HUB_URL=${opts.hubUrl}`);
+  if (opts.publicKeyPath) env.push(`Environment=ARCO_HUB_PUBKEY=${opts.publicKeyPath}`);
 
   return [
     '[Unit]',
-    'Description=archon-agent — per-host lifecycle supervisor (tailnet-only)',
+    'Description=arco-agent — per-host lifecycle supervisor (tailnet-only)',
     'Documentation=https://github.com/ghreprimand/arco',
     'After=network-online.target',
     'Wants=network-online.target',

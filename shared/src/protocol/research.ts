@@ -9,7 +9,7 @@
 //
 // Fence note (CLAUDE.md "hard fences"): there is NO orchestrator LLM, NO
 // second-LLM synthesis, and NO LLM "is it done?" judge. The "bounded rounds"
-// map to the provider's natural bounded tool-use iterations; Archon enforces a
+// map to the provider's natural bounded tool-use iterations; Arco enforces a
 // HARD ceiling (`maxRounds`, default 4 — translated to web-tool `max_uses`)
 // and the model's own "sufficient" signal is advisory only. One provider, one
 // bounded turn. Operator-initiated + bounded + artifact-reviewed ⇒ clears the

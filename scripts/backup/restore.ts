@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F3 — safe restore: verify-first, manual regular-file
+// ARCO_OPS_PLAN.md §F3 — safe restore: verify-first, manual regular-file
 // extraction, conservative refusal on anything suspicious.
 //
 // SECURITY MODEL. The F1 archive format (archive.ts) can ONLY represent regular
@@ -10,7 +10,7 @@
 //
 //   1. Symlink in the TARGET. The archive can't carry one, but the destination
 //      might ALREADY contain a symlinked directory (attacker-planted, or a
-//      pre-existing `~/.archon` symlink). Writing `foo/bar` where `foo` is a
+//      pre-existing `~/.arco` symlink). Writing `foo/bar` where `foo` is a
 //      symlink to `/etc` escapes the root. applyRestore lstat()s EVERY
 //      intermediate path component and REFUSES to descend through any that is a
 //      symlink (records the entry rejected; never follows it).
@@ -25,9 +25,9 @@
 //   4. Resource exhaustion. A per-run cap on file COUNT and total BYTES. Exceeding
 //      either ABORTS the whole restore (planRestore returns `aborted`, nothing is
 //      applied) — no partial extraction.
-//   5. Non-destructive default. Restore NEVER writes into the live ~/.archon by
+//   5. Non-destructive default. Restore NEVER writes into the live ~/.arco by
 //      default. The CLI requires --into <DIR> (or a fresh staging dir) and
-//      default-refuses a target that is or is inside the live Archon home unless
+//      default-refuses a target that is or is inside the live Arco home unless
 //      an explicit --force-into-live escape is given. (That refusal lives in the
 //      CLI, which knows the live home; planRestore/applyRestore are home-agnostic
 //      and operate purely on the targetRoot they're handed.)

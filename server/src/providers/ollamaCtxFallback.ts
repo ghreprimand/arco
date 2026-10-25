@@ -104,7 +104,7 @@ export interface CtxEscalationInput {
 //   2. peer_backend — a different backend whose probed window for the same model
 //      is strictly larger than the failing window.
 // We do NOT invent a small→large model-name mapping: LE-8 mentions "a bigger
-// model" as an option but no mapping config exists in Archon, and the scope
+// model" as an option but no mapping config exists in Arco, and the scope
 // discipline is to reuse M4's probed-window substrate rather than build one.
 export function planCtxEscalation(input: CtxEscalationInput): CtxEscalationTarget | null {
   const { failedWindow, failedBase, failedProbedNumCtx, backends, alreadyEscalated } = input;
@@ -179,7 +179,7 @@ export function planCtxEscalation(input: CtxEscalationInput): CtxEscalationTarge
 // local ceiling, then maybe a bigger-window peer). Overridable via env for the
 // rare larger fleet, clamped to a sane range.
 export const MAX_CTX_ESCALATIONS = (() => {
-  const env = process.env.ARCHON_OLLAMA_CTX_MAX_ESCALATIONS;
+  const env = process.env.ARCO_OLLAMA_CTX_MAX_ESCALATIONS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n >= 1 && n <= 4) return n;

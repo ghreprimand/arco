@@ -33,7 +33,7 @@ import { join } from 'node:path';
 const TURN_TIMEOUT_MS = 300_000;
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-ultracode-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-ultracode-'));
   // Seed files with distinct line counts so the classification answer is
   // deterministic and only knowable by the fleet actually reading them.
   writeFileSync(join(cwd, 'alpha.txt'), 'one\n');                       // 1 line → short

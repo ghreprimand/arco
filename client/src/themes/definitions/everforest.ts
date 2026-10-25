@@ -1,6 +1,6 @@
 import type { Theme } from '../types';
 
-// Everforest — the reference monitor palette, expanded into Archon's role tokens
+// Everforest — the reference monitor palette, expanded into Arco's role tokens
 // with the matching ANSI colors from OdyTTY's MIT-licensed sainnhe port. The
 // eight reference source colors stay exact; the palette itself carries the theme,
 // so it remains flat and shader-free.

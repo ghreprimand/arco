@@ -37,13 +37,13 @@ function auditionStatus(): Record<string, { available: boolean; reason?: string 
   return Object.fromEntries(Object.entries(AUDITIONS).map(([id, a]) => {
     const python = join(root, a.venv, 'bin/python');
     if (!existsSync(python)) return [id, { available: false, reason: `install ${a.venv} first` }];
-    if (a.ref && !existsSync(join(root, 'reference', a.ref))) return [id, { available: false, reason: `needs ~/.archon/voice/reference/${a.ref}` }];
+    if (a.ref && !existsSync(join(root, 'reference', a.ref))) return [id, { available: false, reason: `needs ~/.arco/voice/reference/${a.ref}` }];
     return [id, { available: true }];
   }));
 }
 async function audition(id: string, signal: AbortSignal): Promise<{ wav: Buffer; timing: string }> {
   const a = AUDITIONS[id]; const root = voicePaths().root;
-  const out = join(tmpdir(), `archon-audition-${randomUUID()}.wav`);
+  const out = join(tmpdir(), `arco-audition-${randomUUID()}.wav`);
   const script = fileURLToPath(new URL('./audition.py', import.meta.url));
   const argv = [script, '--engine', a.engine, '--text', AUDITION_TEXT, '--out', out, ...(a.ref ? ['--ref', join(root, 'reference', a.ref)] : []), ...(a.extra ?? [])];
   const child = spawn(join(root, a.venv, 'bin/python'), ['-u', ...argv], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', HF_HUB_DISABLE_TELEMETRY: '1' } });
@@ -211,7 +211,7 @@ const server = createServer(async (req, res) => {
     json(404, { error: 'Unknown test operation.' });
   } catch (e) { json(400, { error: e instanceof Error ? e.message : 'Recognition failed.' }); }
 });
-server.listen(Number(process.env.ARCHON_VOICE_PREVIEW_PORT ?? 5194), '127.0.0.1', () => {
+server.listen(Number(process.env.ARCO_VOICE_PREVIEW_PORT ?? 5194), '127.0.0.1', () => {
   const addr = server.address() as { port: number };
   console.log(`Voice recognition test: http://127.0.0.1:${addr.port}/ — microphone off until enabled; no workers or Luna.`);
 });

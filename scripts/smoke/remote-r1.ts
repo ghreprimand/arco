@@ -1,7 +1,7 @@
 // Remote Control v2 — R1 smoke (docs/REMOTE_CLUSTER_CONTROL_PLAN.md §5 R1).
 //
 // Same shape as workflow-reporting.ts: REAL hub (scripts/management/hub.ts) +
-// REAL connector (server/src/management/hubLink.ts) in-process, Archon seams
+// REAL connector (server/src/management/hubLink.ts) in-process, Arco seams
 // faked (the turn engine isn't exercised; initHubLink.applyAction's semantics
 // are mirrored against fake state). Asserts the R1 additions:
 //
@@ -32,7 +32,7 @@ import type {
   InstanceActionRequest,
   InstanceActionResult,
   InstanceRollup,
-  ManagedArchonInstance,
+  ManagedArcoInstance,
   WorkflowActionRequest,
   WorkflowActionResult,
   WorkflowSummary,
@@ -53,7 +53,7 @@ async function until(pred: () => boolean, timeoutMs: number): Promise<void> {
   }
 }
 
-function descriptor(): ManagedArchonInstance {
+function descriptor(): ManagedArcoInstance {
   return {
     instanceId: INSTANCE_ID,
     name: 'r1-smoke-box',

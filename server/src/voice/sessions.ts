@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_VOICE_OUTPUT, isVoiceOutputId, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceContext, type VoiceInterpretResult } from '@archon/shared';
+import { DEFAULT_VOICE_OUTPUT, isVoiceOutputId, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceContext, type VoiceInterpretResult } from '@arco/shared';
 import { interpretWithLuna } from './luna.js';
 import { LocalRecognizer } from './localRecognizer.js';
 
-export const VOICE_EDGE_VOICE = process.env.ARCHON_VOICE_EDGE_VOICE || DEFAULT_VOICE_OUTPUT;
+export const VOICE_EDGE_VOICE = process.env.ARCO_VOICE_EDGE_VOICE || DEFAULT_VOICE_OUTPUT;
 
 export function resolveOutputVoice(value: unknown): string {
   if (value == null) return VOICE_EDGE_VOICE;

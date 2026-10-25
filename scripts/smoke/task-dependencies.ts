@@ -15,8 +15,8 @@ import { randomUUID } from 'node:crypto';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-deps-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-deps-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-deps-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-deps-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     const wfA = randomUUID();
     const wfB = randomUUID();
     for (const wfid of [wfA, wfB]) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, { observers: new Set(), config: { workingDirectory: cwd } } as unknown as Parameters<typeof workflows.set>[1]);
       await writeMeta(cwd, {

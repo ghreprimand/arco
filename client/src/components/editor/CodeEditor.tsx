@@ -58,7 +58,7 @@ function langExtension(lang?: string): Extension[] {
 // Theme bound to the app's CSS vars so the editor matches surrounding surfaces
 // in every theme (matrix / etc.) without hard-coding colors. CodeMirror reads
 // these at render time, so a theme swap reflows the editor for free.
-const archonTheme = EditorView.theme({
+const arcoTheme = EditorView.theme({
   '&': {
     color: 'var(--color-fg)',
     backgroundColor: 'var(--color-bg-input, var(--color-bg))',
@@ -166,7 +166,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         ...langExtension(language),
-        archonTheme,
+        arcoTheme,
         EditorView.lineWrapping,
         EditorState.readOnly.of(readOnly),
         EditorView.editable.of(!readOnly),

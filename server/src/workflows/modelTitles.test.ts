@@ -27,9 +27,9 @@ function makeMeta(cwd: string, workflowId: string): WorkflowMeta {
 }
 
 async function seeded(messages: string[]): Promise<{ cwd: string; meta: WorkflowMeta }> {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-model-titles-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-model-titles-'));
   const meta = makeMeta(cwd, 'wf-title001');
-  const dir = path.join(cwd, '.archon', 'workflows', meta.workflowId);
+  const dir = path.join(cwd, '.arco', 'workflows', meta.workflowId);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta), 'utf8');
   const lines = messages.map((content, i) => JSON.stringify({ seq: i + 1, type: 'user_message_echo', content }));

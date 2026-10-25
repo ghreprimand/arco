@@ -26,7 +26,7 @@
 import path from 'path';
 import { getRecallIndex, RecallIndex, type RecallFtsRow } from './index.js';
 import { searchContent, RIPGREP_BIN } from '../contentSearch.js';
-import type { ProviderName, RecallEntry, RecallSearchHit, RecallSearchResponse } from '@archon/shared';
+import type { ProviderName, RecallEntry, RecallSearchHit, RecallSearchResponse } from '@arco/shared';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const SNIPPET_MAX = 240;
@@ -151,7 +151,7 @@ export async function search(opts: RecallSearchOpts, index: RecallIndex = getRec
       for (const entry of candidates) {
         if (seen.has(entry.wfid)) continue; // already an FTS hit — title beats transcript
         if (!WFID_PATTERN.test(entry.wfid)) continue;
-        const dir = path.join(entry.cwd, '.archon', 'workflows', entry.wfid);
+        const dir = path.join(entry.cwd, '.arco', 'workflows', entry.wfid);
         const res = await searchContent({ cwd: dir, query: q, maxHits: 1, bin });
         if (!res.available) { transcriptsAvailable = false; continue; }
         const firstHit = res.hits[0];

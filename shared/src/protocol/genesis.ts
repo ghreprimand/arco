@@ -1,11 +1,11 @@
-// ── Genesis: staged project-ideation seed model (ARCHON_OPS_PLAN.md Part M, M1) ──
+// ── Genesis: staged project-ideation seed model (ARCO_OPS_PLAN.md Part M, M1) ──
 //
 // Genesis adapts the *process* (not the agent loop) from the Seedbank project: a
 // staged, collaborative "vague idea → defined, scaffolded project" flow that rides
-// Archon's existing primary-agent interaction via forced/appended system blocks.
+// Arco's existing primary-agent interaction via forced/appended system blocks.
 // There is NO new DB and NO orchestrator — the `GenesisSeed` is folded into a
 // workflow's metadata (M2) and the engine (server/src/genesis/) only assembles the
-// system block(s) Archon already sends plus the next field prompt.
+// system block(s) Arco already sends plus the next field prompt.
 //
 // The seed compresses Seedbank's 8-field idea into a 4-rung narrative ladder:
 //   Spark → Concept → Case → Build-direction

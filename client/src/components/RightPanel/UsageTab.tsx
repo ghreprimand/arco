@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
-import type { CursorUsageInfo, ProviderName, UsageProviderStats, UsageStatsResponse } from '@archon/shared';
+import type { CursorUsageInfo, ProviderName, UsageProviderStats, UsageStatsResponse } from '@arco/shared';
 import { EmptyState } from './FilesTab';
 import { formatTokens, cacheUnreported } from './format';
 import { CursorIncludedGauge } from '../CursorIncludedGauge';

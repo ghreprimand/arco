@@ -6,7 +6,7 @@
 // or REPL the operator started inside a terminal leaks across the restart with
 // no record to reap it. This mirrors `server/src/workers/pidRegistry.ts` for
 // worker subprocesses: persist every spawned PTY pid to
-// `~/.archon/terminal-pids.json`, clear on clean kill/exit, and on boot reap
+// `~/.arco/terminal-pids.json`, clear on clean kill/exit, and on boot reap
 // anything still alive from a prior crashed run.
 //
 // Kept in a SEPARATE file (and a separate JSON) from the worker registry so the
@@ -26,9 +26,9 @@ import { join } from 'path';
 
 import { readStartTime, type TrackedProc } from '../workers/processStartTime.js';
 import { atomicWriteFileSync } from '../atomicFile.js';
-import { archonHome } from '../archonHome.js';
+import { arcoHome } from '../arcoHome.js';
 
-const DIR = archonHome();
+const DIR = arcoHome();
 const FILE = join(DIR, 'terminal-pids.json');
 
 let cache: Map<number, string | null> | null = null;
@@ -64,7 +64,7 @@ function save(): void {
     const procs: TrackedProc[] = Array.from(cache, ([pid, startTime]) => ({ pid, startTime }));
     atomicWriteFileSync(FILE, JSON.stringify({ procs }));
   } catch (err) {
-    console.error('[archon] terminal pid registry save failed:', (err as Error).message);
+    console.error('[arco] terminal pid registry save failed:', (err as Error).message);
   }
 }
 

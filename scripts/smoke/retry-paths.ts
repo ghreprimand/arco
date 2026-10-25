@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §C2 — targeted retry paths acceptance.
+// ARCO_OPS_PLAN.md §C2 — targeted retry paths acceptance.
 //
 // Pure-deriver smoke (no live server, no provider spend, deterministic — same
 // shape as runtime-states.ts). Imports the §C1 derivers + the §C2
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
   // ── Acceptance contrast (the §C2 headline) ──
 
   await step('ACCEPTANCE: killed server vs silent worker yield DIFFERENT actions', () => {
-    // Operator killed the Archon server process: socket closed + healthz down.
+    // Operator killed the Arco server process: socket closed + healthz down.
     const killedServerState = deriveConnectionState({
       wsState: 'closed',
       everOpened: true,

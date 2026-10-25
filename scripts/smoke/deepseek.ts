@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-deepseek-smoke-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-deepseek-smoke-'));
   const models = ['exact', 'light'].map((id) => `deepseek-v4.1-flash-1017-${id}`);
   const stateFile = join(dir, 'runtime.json');
   writeFileSync(stateFile, JSON.stringify({ index: -1, calls: [], mining: false }));
@@ -38,8 +38,8 @@ async function main() {
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = (reservation.address() as { port: number }).port;
   await new Promise<void>((resolve) => reservation.close(() => resolve()));
-  const home = join(dir, 'home'); mkdirSync(join(home, '.archon'), { recursive: true });
-  writeFileSync(join(home, '.archon/settings.json'), JSON.stringify({ enabledProviders: { deepseek: true }, deepseek: { baseUrl: base } }));
+  const home = join(dir, 'home'); mkdirSync(join(home, '.arco'), { recursive: true });
+  writeFileSync(join(home, '.arco/settings.json'), JSON.stringify({ enabledProviders: { deepseek: true }, deepseek: { baseUrl: base } }));
   const asset = join(dir, 'asset'); writeFileSync(asset, 'fixture');
   writeFileSync(join(dir, 'vision.py'), 'fixture'); writeFileSync(join(dir, 'image_processor.py'), 'fixture');
   const launcher = join(dir, 'guarded.py');
@@ -51,7 +51,7 @@ async function main() {
       args: ['--ctx', '262144', '-m', asset, '--engram', dir, '--rank', asset, '--route-bias', i ? '0.25' : '0', '--route-bias-file', i ? '0.15' : '0'] }));
     return { id, model, label: `${id} · Xolotl`, config };
   });
-  const registry = join(home, '.archon/deepseek-profiles.json');
+  const registry = join(home, '.arco/deepseek-profiles.json');
   writeFileSync(registry, JSON.stringify({ baseUrl: base, runtime: dir, launcher: { python: '/usr/bin/python3', script: launcher }, profiles }));
   const preload = join(dir, 'isolate.mjs');
   writeFileSync(preload, `import os from 'node:os'; import cp from 'node:child_process'; import fs from 'node:fs'; import {promisify} from 'node:util'; import {syncBuiltinESMExports} from 'node:module';
@@ -71,7 +71,7 @@ globalThis.fetch=(url,init)=>{const u=new URL(String(url));
  return realFetch(url,init);};\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
+    env: { ...process.env, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

@@ -51,7 +51,7 @@ body.help-mode [data-help]:hover {
 
 /* Nested handling — when a child [data-help] is hovered, suppress the
  * parent's highlight so the most specific target reads cleanly. CSS :has()
- * is supported everywhere Archon ships (Chromium, Firefox 121+, Safari 15.4+). */
+ * is supported everywhere Arco ships (Chromium, Firefox 121+, Safari 15.4+). */
 body.help-mode [data-help]:has([data-help]:hover) {
   outline: none !important;
   background-color: transparent !important;
@@ -64,7 +64,7 @@ body.help-mode .help-system-ui * {
   pointer-events: auto !important;
 }
 
-@keyframes archon-help-pop-in {
+@keyframes arco-help-pop-in {
   from {
     opacity: 0;
     transform: translateY(4px) scale(0.97);
@@ -75,7 +75,7 @@ body.help-mode .help-system-ui * {
   }
 }
 
-@keyframes archon-help-pulse {
+@keyframes arco-help-pulse {
   0%, 100% {
     box-shadow: 0 0 0 0 var(--color-accent-primary-a30, rgba(74, 240, 102, 0.3));
   }

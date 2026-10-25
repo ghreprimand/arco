@@ -1,6 +1,6 @@
-// `archon` MCP plan tools — end-to-end over real stdio MCP.
+// `arco` MCP plan tools — end-to-end over real stdio MCP.
 //
-// Spawns the same `archonMcpServer` child that Claude CLI and both Codex
+// Spawns the same `arcoMcpServer` child that Claude CLI and both Codex
 // transports spawn, speaks MCP to it over stdin/stdout, and drives the tools
 // exactly as a model would. That's the point: the previous smoke
 // (`plan-attach`) proves the REST recipe works, this one proves the tool
@@ -31,7 +31,7 @@ class McpStdio {
   private pending = new Map<number, (msg: Record<string, unknown>) => void>();
 
   constructor(workflowId: string, cwd: string) {
-    const entry = resolve('server/src/mcp/archonMcpServer.ts');
+    const entry = resolve('server/src/mcp/arcoMcpServer.ts');
     this.child = spawn('npx', ['tsx', entry, workflowId, cwd, '3001'], { stdio: ['pipe', 'pipe', 'pipe'] });
     this.child.stderr?.on('data', () => { /* the child logs to stderr by contract; ignore */ });
     this.rl = createInterface({ input: this.child.stdout! });
@@ -63,7 +63,7 @@ class McpStdio {
     await this.request('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'archon-smoke', version: '1.0.0' },
+      clientInfo: { name: 'arco-smoke', version: '1.0.0' },
     });
     this.notify('notifications/initialized', {});
   }
@@ -102,7 +102,7 @@ release. Everything should be tested along the way.
 `;
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-planmcp-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-planmcp-'));
   console.log(`Plan-MCP smoke — cwd ${cwd}`);
   console.log('');
 

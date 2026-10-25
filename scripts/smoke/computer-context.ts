@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { connect, step, summary, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-computer-smoke-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-computer-smoke-'));
   const home = join(dir, 'home'), bin = join(dir, 'bin'); mkdirSync(bin); mkdirSync(home);
   const codexHome = join(home, '.codex'); mkdirSync(codexHome);
   const executable = join(bin, 'codex');
@@ -23,7 +23,7 @@ async function main() {
   const log = openSync(join(dir, 'server.log'), 'w');
   let durablePrivate = false;
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_COMPUTER_TEST_CODEX_HOME: codexHome, ARCHON_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -75,7 +75,7 @@ async function main() {
       await c!.waitFor((m) => m.type === 'primary_text' && String(m.text).includes('Completed large slow automatic'), 15000);
       const boundary = await fresh(3); assert.equal((boundary.state as any).resets, 3);
       assert.equal((boundary.state as any).lastResetReason, 'threshold');
-      const meta = JSON.parse(readFileSync(join(resolvedConfig.workingDirectory, '.archon', 'workflows', id, 'meta.json'), 'utf8'));
+      const meta = JSON.parse(readFileSync(join(resolvedConfig.workingDirectory, '.arco', 'workflows', id, 'meta.json'), 'utf8'));
       assert.equal(meta.cliSessions.length, 0); assert.equal(meta.history.length, 3);
     });
     await step('OFF preserves a large context, manual fresh still works, and invalid thresholds are rejected', async () => {
@@ -162,7 +162,7 @@ async function main() {
       c!.send({ type: 'user_message', workflowId: id, content: 'after private clear' });
       await c!.waitFor((m) => m.type === 'primary_text' && m.workflowId === id && String(m.text).includes('after private clear'), 15000);
       await c!.waitFor((m) => m.type === 'computer_context_updated' && m.workflowId === id && m.settled === true, 15000);
-      const privateDir = join(String((made.config as any).workingDirectory), '.archon', 'workflows', id);
+      const privateDir = join(String((made.config as any).workingDirectory), '.arco', 'workflows', id);
       const { existsSync } = await import('node:fs');
       assert.equal(existsSync(privateDir), false);
       assert(!readFileSync(join(dir, 'server.log'), 'utf8').includes('PRIVATE_CODEX_SENTINEL_8217'));

@@ -19,7 +19,7 @@ import { HeaderAuthChip } from './HeaderAuthChip';
 import { NotificationCenter } from './NotificationCenter';
 import { HubLinkChip } from './HubLinkChip';
 import { StatusLight } from './primitives/StatusLight';
-import type { WorkbenchNoticeCategory } from '@archon/shared';
+import type { WorkbenchNoticeCategory } from '@arco/shared';
 
 interface Props {
   onReconnect: () => void;
@@ -148,7 +148,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
         flexShrink: 0,
       }}
     >
-      {/* Row 1: ARCHON title + grouped controls */}
+      {/* Row 1: ARCO title + grouped controls */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 20px', gap: '8px', minHeight: '36px', flexWrap: 'wrap' }}>
         {/* Left group: wordmark + the hub-link chip pinned right beside it.
             Moved here from the right status cluster (it was crowded there) — the
@@ -156,8 +156,8 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
             Renders nothing when no hub is configured. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <h1
-            data-help="header.archon-mark"
-            className="display-font glow-text-bright archon-wordmark"
+            data-help="header.arco-mark"
+            className="display-font glow-text-bright arco-wordmark"
             style={{ fontSize: '16px', letterSpacing: '4px', fontWeight: 400 }}
           >
             ARCO
@@ -279,7 +279,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
                   ? serverDown
                     // §C1 — server PROCESS is unreachable (/healthz failed). A WS
                     // RECONNECT/RESTART can't help until it's back up.
-                    ? 'Arco server process is unreachable (the /healthz probe failed). RECONNECT/RESTART won’t help until it’s back — check `archon service status` / `archon service logs`, or relaunch it.'
+                    ? 'Arco server process is unreachable (the /healthz probe failed). RECONNECT/RESTART won’t help until it’s back — check `arco service status` / `arco service logs`, or relaunch it.'
                     : reconnectState?.attempting
                       ? reconnectState.nextAttemptIn > 0
                         ? `Server is reachable — WebSocket dropped. Automatic reconnect scheduled in ${Math.round(reconnectState.nextAttemptIn / 100) / 10}s`

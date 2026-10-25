@@ -1,4 +1,4 @@
-// File-size budget guardrail for Archon's project-wide size refactor.
+// File-size budget guardrail for Arco's project-wide size refactor.
 //
 // Why: a handful of monoliths (index.ts, RightPanel.tsx, protocol.ts, ...) drove
 // merge pain and oversized hot-reload blast radius. The size refactor breaks
@@ -39,7 +39,7 @@ const EXCLUDE_PATTERNS: RegExp[] = [
   /(^|\/)codex-appserver\/bindings\//,
   // Vendored third-party code — not a refactor target (see VENDOR.md). The
   // Odysseus image editor (H2) ships galleryEditor.js at ~3.8k lines + a ~5.3k
-  // extracted CSS; both are upstream artifacts, not Archon monoliths.
+  // extracted CSS; both are upstream artifacts, not Arco monoliths.
   /(^|\/)vendor\//,
   // Lockfiles.
   /(^|\/)package-lock\.json$/,

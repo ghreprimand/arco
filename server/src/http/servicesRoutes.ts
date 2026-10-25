@@ -1,8 +1,8 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { discoverServices } from '../services/discover.js';
-import type { ServicesResponse } from '@archon/shared';
+import type { ServicesResponse } from '@arco/shared';
 
-// ARCHON_OPS_PLAN.md §L1/§L2 (Part L — Local Services) — Services routes.
+// ARCO_OPS_PLAN.md §L1/§L2 (Part L — Local Services) — Services routes.
 //
 //   GET    /api/services       → ServicesResponse { services, generatedAt, detail? }   (L1, read-only)
 //   DELETE /api/services/:pid  → { ok, pid, signal } | error                            (L2, the ONE mutation)
@@ -44,7 +44,7 @@ export async function tryHandleServicesRoutes(
       const report = await discoverServices();
       return send(200, report);
     } catch (err) {
-      console.error('[archon] services discovery failed:', err);
+      console.error('[arco] services discovery failed:', err);
       const body: ServicesResponse = {
         services: [],
         generatedAt: Date.now(),
@@ -66,8 +66,8 @@ export async function tryHandleServicesRoutes(
 // Kill guard. The mutation lives behind three fences (rationale inline):
 //   (1) pid shape — a positive integer > 1. Rejecting pid <= 1 keeps us away
 //       from init / the kernel idle task / a negative process-group signal.
-//   (2) self-kill refusal — pid === process.pid would SIGTERM the Archon server
-//       itself (the tab lists Archon's own listeners), bricking the session.
+//   (2) self-kill refusal — pid === process.pid would SIGTERM the Arco server
+//       itself (the tab lists Arco's own listeners), bricking the session.
 //   (3) re-scan blast-radius bound — only kill a pid that currently owns a
 //       listening socket per a fresh discoverServices() scan. The tab can only
 //       kill what it actually shows; a stale or forged pid never reaches kill().
@@ -100,7 +100,7 @@ async function killService(
       return send(404, { ok: false, error: 'no listening service with that pid' });
     }
   } catch (err) {
-    console.error('[archon] services kill re-scan failed:', err);
+    console.error('[arco] services kill re-scan failed:', err);
     return send(500, { ok: false, error: 'could not verify the service before killing' });
   }
 
@@ -117,7 +117,7 @@ async function killService(
     if (code === 'EPERM') {
       return send(403, { ok: false, error: 'permission denied — not allowed to signal that process' });
     }
-    console.error('[archon] services kill failed:', err);
+    console.error('[arco] services kill failed:', err);
     return send(500, { ok: false, error: 'kill failed' });
   }
 }

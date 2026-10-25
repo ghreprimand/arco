@@ -9,7 +9,7 @@
 //        • recipient has had no auto-turn fired in the last 20s (cooldown)
 //        • cluster has fired < 10 auto-turns in the last 60s (rate cap)
 //        • triggering peer message's chainDepth < 3 (depth cap)
-//      All caps are env-overridable for smoke (ARCHON_CLUSTER_AUTO_TURN_*).
+//      All caps are env-overridable for smoke (ARCO_CLUSTER_AUTO_TURN_*).
 //   3. events.jsonl visible — cluster_auto_turn_fired { fired: true |
 //      false, reason } rides through broadcastWorkflow on every fire AND on
 //      every guard refusal. Skip events are rate-limited (1/min/cluster) so
@@ -38,13 +38,13 @@
 
 import * as clusterStore from './clusterStore.js';
 import * as clusterMailbox from './clusterMailbox.js';
-import type { ServerMessage } from '@archon/shared';
+import type { ServerMessage } from '@arco/shared';
 
 // Per-recipient cooldown — once an auto-turn fires for R, the next auto-turn
 // for R is suppressed until this many ms have passed. Prevents tight A↔B
 // ping-pong even if the rate cap hasn't been reached.
 export const AUTO_TURN_COOLDOWN_MS = (() => {
-  const raw = process.env.ARCHON_CLUSTER_AUTO_TURN_COOLDOWN_MS;
+  const raw = process.env.ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS;
   if (!raw) return 20000;
   const parsed = parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 0) return 20000;
@@ -55,7 +55,7 @@ export const AUTO_TURN_COOLDOWN_MS = (() => {
 // 60-second window across the entire cluster. A runaway loop hits this
 // before it hits the depth cap when the loop is wide (many members).
 export const AUTO_TURN_RATE_CAP_PER_MINUTE = (() => {
-  const raw = process.env.ARCHON_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE;
+  const raw = process.env.ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE;
   if (!raw) return 10;
   const parsed = parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 1) return 10;
@@ -69,7 +69,7 @@ export const AUTO_TURN_RATE_CAP_PER_MINUTE = (() => {
 // recipient peer_sends as a result, depth=2; the next auto-turn lands at
 // depth 2; depth=3 from that send means no further auto-turn.
 export const AUTO_TURN_MAX_CHAIN_DEPTH = (() => {
-  const raw = process.env.ARCHON_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH;
+  const raw = process.env.ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH;
   if (!raw) return 3;
   const parsed = parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 1) return 3;
@@ -118,7 +118,7 @@ let sweepTimer: NodeJS.Timeout | undefined;
 // up to 4 retry chances per cooldown window — enough to catch members that
 // idled with stale mail without spamming the rate cap.
 const SWEEP_INTERVAL_MS = (() => {
-  const raw = process.env.ARCHON_CLUSTER_AUTO_TURN_SWEEP_INTERVAL_MS;
+  const raw = process.env.ARCO_CLUSTER_AUTO_TURN_SWEEP_INTERVAL_MS;
   if (!raw) return 5000;
   const parsed = parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 500) return 5000;
@@ -359,7 +359,7 @@ export function onPeerMessageSent(opts: {
       // (intentional — we still consumed the budget; the operator can see
       // the dropped fire via the absence of a corresponding primary_turn_started
       // following the cluster_auto_turn_fired event).
-      console.error(`[archon] auto-turn dispatch failed for ${recipientWfid.slice(0, 8)}:`, err);
+      console.error(`[arco] auto-turn dispatch failed for ${recipientWfid.slice(0, 8)}:`, err);
     }
   });
 }

@@ -22,7 +22,7 @@ import type {
   EffortLevel,
   SteerItem,
   WorkerConfig,
-} from '@archon/shared';
+} from '@arco/shared';
 import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterBudget from '../clusterBudget.js';
 import * as clusterStore from '../clusterStore.js';
@@ -310,7 +310,7 @@ export function runPrimaryTurn(
     // §4.1 — posture-based toolset (session-local). Resolved from
     // WorkflowState.toolPosture in handleUserMessage; threaded to the Native
     // worker which filters buildToolDefs(). Other transports ignore.
-    toolPosture?: import('@archon/shared').ToolPosture;
+    toolPosture?: import('@arco/shared').ToolPosture;
     // CLUSTER_MODE_PLAN.md Phase 1 — when set, the Native worker registers
     // peer_* tools and routes their tool_use blocks via peerTools.
     // Resolved by handleUserMessage from clusterStore.getClusterIdForWorkflow
@@ -349,12 +349,12 @@ export function runPrimaryTurn(
     // they can build `-c mcp_servers.codebase-memory.*` TOML overrides.
     codebaseMemoryAttached?: boolean;
     codebaseMemoryIndexPath?: string;
-    // ARCHON_OPS_PLAN.md §E1 — registry MCP servers + dangerous-tool denials
+    // ARCO_OPS_PLAN.md §E1 — registry MCP servers + dangerous-tool denials
     // for this turn, resolved from the global registry + the workflow's
     // allowlist. registryServers feed the Codex `-c` overrides AND the CLI
     // Claude mcp-config merge; mcpDisallowedTools feed CLI Claude's
     // --disallowedTools. Reviewers / handoff seeds leave them unset.
-    mcpRegistryServers?: import('@archon/shared').ResolvedMcpServer[];
+    mcpRegistryServers?: import('@arco/shared').ResolvedMcpServer[];
     mcpDisallowedTools?: string[];
     // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama param preset blob, resolved
     // from WorkflowConfig.ollamaParams in handleUserMessage (Ollama tabs only).
@@ -578,7 +578,7 @@ export function runPrimaryTurn(
         // result carries an outputHash (started/in_progress ticks don't), so
         // this fires once per completed tool call. `failing` is the union of the
         // provider's signals: explicit 'failed' status, a non-zero exit code, or
-        // the `[error]` sentinel Archon prefixes onto tool errors.
+        // the `[error]` sentinel Arco prefixes onto tool errors.
         if (ev.outputHash) {
           const failing =
             ev.status === 'failed' ||

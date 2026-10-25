@@ -1,4 +1,4 @@
-import type { PlanSummary } from '@archon/shared';
+import type { PlanSummary } from '@arco/shared';
 import { splitAttachments, planRowSubtitle } from './format';
 
 // Single row in the EXISTING PLANS list. Title is a click-to-attach button

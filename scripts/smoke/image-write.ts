@@ -23,7 +23,7 @@ import path from 'path';
 import { Readable } from 'stream';
 import { step, assert, assertEq, summary } from './lib.js';
 import { tryHandleImageWriteRoutes } from '../../server/src/http/imageWriteRoutes.js';
-import type { ImageWriteResult } from '@archon/shared';
+import type { ImageWriteResult } from '@arco/shared';
 import { workflowCwds } from '../../server/src/server/state.js';
 
 // 1×1 transparent PNG (known-good 68-byte raster). Used as the valid fixture.
@@ -52,9 +52,9 @@ async function call(body: unknown): Promise<{ status: number; result: ImageWrite
 }
 
 async function main() {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-image-write-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-image-write-'));
   // A sibling dir OUTSIDE cwd to prove the escape never lands a file.
-  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-image-outside-'));
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-image-outside-'));
   // A caller-supplied cwd must be a root the server knows (writeConfinement.ts);
   // register the temp cwd as a live workflow's so the no-workflowId calls bind.
   workflowCwds.set('smoke-image-write', cwd);

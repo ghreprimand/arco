@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { discoverEndpoints } from '../providers/endpointDiscovery.js';
-import type { EndpointDiscoverResponse } from '@archon/shared';
+import type { EndpointDiscoverResponse } from '@arco/shared';
 
 // Workbench Expansion §D2 — Endpoint auto-discovery route.
 //
@@ -32,7 +32,7 @@ export async function tryHandleEndpointDiscoveryRoutes(
     const result = await discoverEndpoints();
     return send(200, result);
   } catch (err) {
-    console.error('[archon] endpoint discovery failed:', err);
+    console.error('[arco] endpoint discovery failed:', err);
     const body: EndpointDiscoverResponse = {
       endpoints: [],
       tailscaleAvailable: false,

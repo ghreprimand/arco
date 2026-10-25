@@ -16,20 +16,20 @@
 // restart, when the in-memory registry is empty; the live registry's config
 // wins whenever the workflow is registered.
 //
-// One file per port so a smoke server on 3099 sharing ~/.archon can't clobber
+// One file per port so a smoke server on 3099 sharing ~/.arco can't clobber
 // prod's set (same reason the session cookie name carries the port).
 
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { WorkflowConfig, WorkspaceSnapshotPayload, WorkspaceWorkflowEntry } from '@archon/shared';
+import type { WorkflowConfig, WorkspaceSnapshotPayload, WorkspaceWorkflowEntry } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
 import { workflows } from './server/state.js';
 import * as clusterStore from './clusterStore.js';
-import { archonHome } from './archonHome.js';
+import { arcoHome } from './arcoHome.js';
 
-const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
-const WORKSPACE_FILE = join(archonHome(), PORT === 3001 ? 'workspace.json' : `workspace-${PORT}.json`);
+const PORT = parseInt(process.env.ARCO_PORT || '3001', 10);
+const WORKSPACE_FILE = join(arcoHome(), PORT === 3001 ? 'workspace.json' : `workspace-${PORT}.json`);
 const WFID_RE = /^[a-zA-Z0-9-]{1,64}$/;
 const MAX_ENTRIES = 256;
 
@@ -73,7 +73,7 @@ export function loadWorkspace(): Promise<void> {
         seeded = true;
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          console.error('[archon] workspace.json unreadable — starting empty (will re-seed from browsers):', err);
+          console.error('[arco] workspace.json unreadable — starting empty (will re-seed from browsers):', err);
         }
       }
     })();
@@ -96,7 +96,7 @@ function persist(): void {
   const body = JSON.stringify(state, null, 2);
   writeChain = writeChain
     .then(() => atomicWriteFile(WORKSPACE_FILE, body))
-    .catch((err) => console.error('[archon] workspace.json write failed:', err));
+    .catch((err) => console.error('[arco] workspace.json write failed:', err));
 }
 
 function changed(): void {

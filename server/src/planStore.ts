@@ -1,6 +1,6 @@
 // Plan store — long-form markdown briefs that workflows can attach to.
 //
-// Layout under <cwd>/.archon/plans/:
+// Layout under <cwd>/.arco/plans/:
 //   - index.json     → { plans: [{ id, title, createdAt, updatedAt }] }
 //   - <planId>.md    → markdown body
 //   - <planId>.refs/<slug>.md → reference docs for that plan (directory-
@@ -13,7 +13,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import type { PlanSummary, PlanFull, PlanRefSummary, PlanRefFull } from '@archon/shared';
+import type { PlanSummary, PlanFull, PlanRefSummary, PlanRefFull } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 
 const PLAN_ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
@@ -21,7 +21,7 @@ const TITLE_MAX = 200;
 const BODY_MAX = 256 * 1024; // 256 KB — generous for long-form briefs
 
 function plansDir(cwd: string): string {
-  return path.join(cwd, '.archon', 'plans');
+  return path.join(cwd, '.arco', 'plans');
 }
 
 function indexPath(cwd: string): string {
@@ -332,7 +332,7 @@ function extractTitleFromBody(body: string): string {
   return m[1].trim().slice(0, TITLE_MAX);
 }
 
-// Watcher-driven reconcile: a `.md` file under `.archon/plans/` changed on
+// Watcher-driven reconcile: a `.md` file under `.arco/plans/` changed on
 // disk (most often because the agent edited it with its native file tools).
 // Fold the change into index.json so the per-turn header + UI list pick it
 // up. Cases:

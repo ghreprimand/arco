@@ -1,6 +1,6 @@
 // ── Knowledge base (WORKBENCH_EXPANSION_PLAN.md §B3) ──
 //
-// A per-cwd, OPERATOR-OWNED knowledge store at <cwd>/.archon/knowledge/. A
+// A per-cwd, OPERATOR-OWNED knowledge store at <cwd>/.arco/knowledge/. A
 // curated, editable companion to CLAUDE.md (repo layout, gotchas, deploy
 // steps) that the operator builds up instead of re-explaining each session.
 // Articles flagged `alwaysInclude` fold into the next turn's system prompt as

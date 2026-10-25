@@ -69,5 +69,5 @@ export function formatShutdownForensics(f: ShutdownForensics): string {
   parts.push(`pty=${f.ptySessions}`);
   parts.push(`flush-budget=${f.flushBudgetMs}ms`);
 
-  return `[archon][shutdown] ${parts.join(' ')}`;
+  return `[arco][shutdown] ${parts.join(' ')}`;
 }

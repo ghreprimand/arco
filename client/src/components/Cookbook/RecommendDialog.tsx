@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { ProviderName, ModelName, EffortLevel, CookbookTaskProfile, HardwareSimPreset } from '@archon/shared';
-import { COOKBOOK_TASK_PROFILES, RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, CookbookTaskProfile, HardwareSimPreset } from '@arco/shared';
+import { COOKBOOK_TASK_PROFILES, RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { sendCookbookRecommend } from '../../stores/cookbookStore';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';

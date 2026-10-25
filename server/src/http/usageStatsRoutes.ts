@@ -11,13 +11,13 @@ import type {
   UsageProviderStats,
   UsageStatsResponse,
   UsageTotals,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // Workbench Expansion §D3 — Usage analytics over time.
 //
 //   GET /api/usage-stats?path=<cwd>[&from=<epochMs>][&to=<epochMs>]
 //     → aggregate every workflow's existing `primary_turn_token_usage` events
-//       under <cwd>/.archon/workflows/, bucketed per (provider, local-day).
+//       under <cwd>/.arco/workflows/, bucketed per (provider, local-day).
 //
 // DETERMINISTIC, READ-ONLY, NO NEW CAPTURE: this only sums events already on
 // disk; it never spawns an LLM, never writes, never mutates events.jsonl. The
@@ -41,7 +41,7 @@ import type {
 
 // Day bucketing uses the SERVER-LOCAL timezone: turnStartedAt (epoch ms) is
 // formatted to YYYY-MM-DD via the local calendar. This matches the operator's
-// own "what did I do today" mental model when Archon runs on their machine.
+// own "what did I do today" mental model when Arco runs on their machine.
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 
 // Providers whose token shape is Anthropic-style (input/cacheRead/cacheCreate
@@ -200,7 +200,7 @@ export function aggregateUsage(
 // (mirrors recall/index.ts's tolerant read).
 async function collectWorkflowUsage(cwd: string, wfid: string, out: unknown[]): Promise<void> {
   if (!WFID_PATTERN.test(wfid)) return;
-  const eventsPath = path.join(cwd, '.archon', 'workflows', wfid, 'events.jsonl');
+  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
   let stream;
   try {
     stream = createReadStream(eventsPath, { encoding: 'utf8' });
@@ -224,7 +224,7 @@ async function collectWorkflowUsage(cwd: string, wfid: string, out: unknown[]): 
   }
 }
 
-// Scan every workflow under <cwd>/.archon/workflows/, collect their usage
+// Scan every workflow under <cwd>/.arco/workflows/, collect their usage
 // events, and aggregate. Exported so the smoke can drive the fs path against a
 // temp cwd without booting HTTP.
 export async function aggregateUsageForCwd(
@@ -234,7 +234,7 @@ export async function aggregateUsageForCwd(
   const events: unknown[] = [];
   let workflowsScanned = 0;
   if (cwd) {
-    const workflowsDir = path.join(cwd, '.archon', 'workflows');
+    const workflowsDir = path.join(cwd, '.arco', 'workflows');
     let names: string[] = [];
     try {
       names = await fs.readdir(workflowsDir);
@@ -285,7 +285,7 @@ export async function tryHandleUsageStatsRoutes(
     } catch (err) {
       // Degrade to an empty aggregation rather than a 500 so the analytics
       // view renders an empty state instead of an error (mirrors recall).
-      console.error('[archon] usage-stats aggregation failed:', err);
+      console.error('[arco] usage-stats aggregation failed:', err);
       const empty: UsageStatsResponse = {
         days: [],
         perProvider: {},

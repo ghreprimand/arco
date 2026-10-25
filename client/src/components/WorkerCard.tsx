@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { WorkerState } from '@archon/shared';
+import type { WorkerState } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { Panel } from './primitives/Panel';
 import { formatModelLabel, totalTokens } from '../utils/format';
@@ -52,7 +52,7 @@ export function WorkerCard({ jobId, worker }: Props) {
       onClick={() => openDetail({ jobId, workerId: worker.id })}
       data-help="activity.worker-card"
       title="Click for full worker detail"
-      className={isActive ? 'archon-scan-host' : undefined}
+      className={isActive ? 'arco-scan-host' : undefined}
       style={{
         all: 'unset',
         cursor: 'pointer',

@@ -2,7 +2,7 @@
 // throwaway temp workflows — no dev server. Asserts the load-bearing tier
 // difference:
 //
-//   archon  → the workflow dir tree is deleted, but the bound provider session
+//   arco  → the workflow dir tree is deleted, but the bound provider session
 //             file (~/.claude/projects/…) is KEPT.
 //   nuclear → the workflow dir AND the provider session file are deleted.
 //
@@ -26,8 +26,8 @@ async function exists(p: string): Promise<boolean> {
 }
 
 async function seed(wfid: string, sessionId: string): Promise<{ cwd: string; wfDir: string; sessionFile: string }> {
-  const cwd = await mkdtemp(join(tmpdir(), 'archon-purge-'));
-  const wfDir = join(cwd, '.archon', 'workflows', wfid);
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-purge-'));
+  const wfDir = join(cwd, '.arco', 'workflows', wfid);
   await mkdir(join(wfDir, 'artifacts'), { recursive: true });
   await writeFile(join(wfDir, 'meta.json'), JSON.stringify({
     workflowId: wfid, name: 'Purge Test', cwd, createdAt: 1, lastActiveAt: 1,
@@ -45,14 +45,14 @@ async function seed(wfid: string, sessionId: string): Promise<{ cwd: string; wfD
 }
 
 async function main() {
-  await step('archon tier: deletes the workflow dir, KEEPS the provider session file', async () => {
-    const wfid = 'purge-archon-1111';
-    const { cwd, wfDir, sessionFile } = await seed(wfid, 'sess-archon-aaaa');
+  await step('arco tier: deletes the workflow dir, KEEPS the provider session file', async () => {
+    const wfid = 'purge-arco-1111';
+    const { cwd, wfDir, sessionFile } = await seed(wfid, 'sess-arco-aaaa');
     const res = await purgeWorkflow(cwd, wfid, { nuclear: false });
     assert(res.ok, `purge ok (${res.error ?? ''})`);
     assertEq(await exists(wfDir), false, 'workflow dir deleted');
     assert(res.removed.includes('workflow dir'), 'removed list mentions workflow dir');
-    assertEq(await exists(sessionFile), true, 'provider session file KEPT on archon tier');
+    assertEq(await exists(sessionFile), true, 'provider session file KEPT on arco tier');
     await rm(cwd, { recursive: true, force: true });
     await rm(join(homedir(), '.claude', 'projects', encodeProjectDir(cwd)), { recursive: true, force: true });
   });
@@ -69,7 +69,7 @@ async function main() {
   });
 
   await step('purge of an absent workflow is a safe no-op (ok, nothing removed beyond best-effort)', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'archon-purge-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'arco-purge-'));
     const res = await purgeWorkflow(cwd, 'purge-absent-3333', { nuclear: false });
     assert(res.ok, 'purge of absent workflow still returns ok (rm force)');
     await rm(cwd, { recursive: true, force: true });

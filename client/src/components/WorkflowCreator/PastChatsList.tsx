@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SavedChatSummary, WorkflowConfig } from '@archon/shared';
+import type { SavedChatSummary, WorkflowConfig } from '@arco/shared';
 
 interface Props {
   onReopen: (config: WorkflowConfig) => void;

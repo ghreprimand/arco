@@ -37,18 +37,18 @@ test('mint: only a same-origin browser POST fetch', () => {
   assert.equal(checkMintRequest(req({ ...BROWSER_FETCH, 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' }, 'POST')).ok, false);
 });
 
-test('upgrade: needs Origin AND a valid cookie; ARCHON_WS_AUTH=off bypasses', () => {
+test('upgrade: needs Origin AND a valid cookie; ARCO_WS_AUTH=off bypasses', () => {
   const cookie = `other=1; ${SESSION_COOKIE}=${mintToken()}`;
   assert.equal(checkUpgradeAuth(req({ origin: 'http://localhost:5173', cookie })).ok, true);
   assert.equal(checkUpgradeAuth(req({ cookie })).ok, false);
   assert.equal(checkUpgradeAuth(req({ origin: 'http://localhost:5173' })).ok, false);
   assert.equal(checkUpgradeAuth(req({ origin: 'http://localhost:5173', cookie: `${SESSION_COOKIE}=forged` })).ok, false);
-  const prev = process.env.ARCHON_WS_AUTH;
-  process.env.ARCHON_WS_AUTH = 'off';
+  const prev = process.env.ARCO_WS_AUTH;
+  process.env.ARCO_WS_AUTH = 'off';
   try {
     assert.equal(checkUpgradeAuth(req({})).ok, true);
   } finally {
-    if (prev === undefined) delete process.env.ARCHON_WS_AUTH; else process.env.ARCHON_WS_AUTH = prev;
+    if (prev === undefined) delete process.env.ARCO_WS_AUTH; else process.env.ARCO_WS_AUTH = prev;
   }
 });
 

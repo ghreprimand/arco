@@ -7,7 +7,7 @@ import {
   type VideoResPreset,
   type AudioFormat,
   type MediaOpSpec,
-} from '@archon/shared';
+} from '@arco/shared';
 import { postMediaOp, postMediaInspect } from '../postMediaOp';
 import { MediaSaveControls } from '../MediaSaveControls';
 import { MediaAdvancedOps } from '../MediaAdvancedOps';
@@ -22,7 +22,7 @@ import { useDirectoryPicker } from '../DirectoryPicker';
 // partial output. This mirrors AudioOpsPanel one-for-one.
 //
 // N2 — ffmpeg still needs an ON-DISK source, but an IMPORTED file is no longer a
-// dead end: postMediaOp stages the blob in Archon's scratch area first. So ops
+// dead end: postMediaOp stages the blob in Arco's scratch area first. So ops
 // are enabled for BOTH on-disk (workflow) AND imported files; SAVE TO… picks the
 // output destination (gated server-side).
 //

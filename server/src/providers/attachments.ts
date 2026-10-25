@@ -15,7 +15,7 @@ import { dirname, extname, join, resolve } from 'path';
 import { promisify } from 'util';
 import { UPLOADS_DIR } from '../server/constants.js';
 
-// Claude API caps base64 images at 5 MB; every Archon provider uses the same
+// Claude API caps base64 images at 5 MB; every Arco provider uses the same
 // ceiling so one attachment behaves the same on every transport.
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -154,7 +154,7 @@ function detectImageTool(): Promise<ImageTool | null> {
       } catch { /* next candidate */ }
     }
     if (process.platform === 'darwin' && existsSync('/usr/bin/sips')) return { kind: 'sips', bin: '/usr/bin/sips' };
-    console.warn('[archon] no ImageMagick/sips found — image attachments go to the model at full size');
+    console.warn('[arco] no ImageMagick/sips found — image attachments go to the model at full size');
     return null;
   })();
   return toolPromise;
@@ -268,11 +268,11 @@ export async function deriveModelImage(path: string): Promise<string | null> {
       if (outSize === 0 || outSize > MODEL_IMAGE_MAX_RAW_BYTES) throw new Error(`derived copy is ${outSize} bytes`);
       const out = `${path}${MODEL_TAG}${outExt}`;
       await rename(tmp, out);
-      console.log(`[archon] model image: ${path} (${dims.w}x${dims.h}, ${size}B) -> ${out} (${outSize}B)`);
+      console.log(`[arco] model image: ${path} (${dims.w}x${dims.h}, ${size}B) -> ${out} (${outSize}B)`);
       return out;
     });
   } catch (err) {
-    console.warn(`[archon] model image derivation failed for ${path}: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[arco] model image derivation failed for ${path}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   } finally {
     for (const t of tmps) await unlink(t).catch(() => {});

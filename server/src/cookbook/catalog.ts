@@ -40,7 +40,7 @@ import type {
   CatalogRow,
   HardwareProfile,
   ModelSpec,
-} from '@archon/shared';
+} from '@arco/shared';
 import { scoreFit } from './fit.js';
 import { OLLAMA_LIBRARY } from './ollamaLibrary.js';
 
@@ -172,7 +172,7 @@ async function fetchRawSources(query: CatalogQuery): Promise<RawSources> {
   const [hfRes] = await Promise.allSettled([fetchHf(query)]);
   const hf = hfRes.status === 'fulfilled' ? hfRes.value : [];
   if (hfRes.status === 'rejected') {
-    console.error('[archon] cookbook HF fetch failed:', hfRes.reason);
+    console.error('[arco] cookbook HF fetch failed:', hfRes.reason);
   }
   return {
     hf,

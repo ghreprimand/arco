@@ -3,14 +3,14 @@
 // Tests the MECHANISM directly (no LLM turn, no WS): calls createCheckpoint
 // against a temp git repo and asserts the load-bearing invariants:
 //
-//   1. A new `refs/archon/<wfid>/<seq>` ref exists after a snapshot.
+//   1. A new `refs/arco/<wfid>/<seq>` ref exists after a snapshot.
 //   2. The user's index / HEAD / `git status --porcelain` are UNCHANGED
 //      (the must-not-touch-real-index rule — see docs/GOTCHAS.md).
 //   3. The snapshot tree actually captured the dirty working-tree changes
 //      (modified tracked file content + the untracked file are both in the
 //      commit's tree).
 //   4. Non-git fallback: a shadow-git checkpoint lands in the bare repo under
-//      ~/.archon/checkpoints/<cwd-hash>/git for a plain (non-repo) directory,
+//      ~/.arco/checkpoints/<cwd-hash>/git for a plain (non-repo) directory,
 //      the cwd stays non-git, per-file/total size caps are honored, and
 //      unchanged files dedupe at the object level across snapshots.
 //
@@ -32,14 +32,14 @@ async function main() {
   const tarRoots: string[] = [];
 
   // ── Repo-backed path ──
-  const repo = mkdtempSync(join(tmpdir(), 'archon-ckpt-git-'));
+  const repo = mkdtempSync(join(tmpdir(), 'arco-ckpt-git-'));
   cleanups.push(repo);
   const wfid = '11111111-2222-3333-4444-555555555555';
 
   // Bootstrap a repo with an initial commit, then dirty the tree.
   git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@archon.local');
-  git(repo, 'config', 'user.name', 'archon-test');
+  git(repo, 'config', 'user.email', 'test@arco.local');
+  git(repo, 'config', 'user.name', 'arco-test');
   writeFileSync(join(repo, 'tracked.txt'), 'original content\n');
   git(repo, 'add', 'tracked.txt');
   git(repo, 'commit', '-q', '-m', 'initial');
@@ -62,12 +62,12 @@ async function main() {
     const cp = await createCheckpoint({ cwd: repo, workflowId: wfid, seq: 7, label: 'before turn 7' });
     assert(cp !== null, 'checkpoint should not be null in a git repo');
     assertEq(cp!.backend, 'git', 'backend should be git');
-    assert(cp!.ref === `refs/archon/${wfid}/7`, `ref should be refs/archon/<wfid>/7, got ${cp!.ref}`);
+    assert(cp!.ref === `refs/arco/${wfid}/7`, `ref should be refs/arco/<wfid>/7, got ${cp!.ref}`);
     assert(cp!.fileCount >= 3, `fileCount should include tracked+untracked+staged (>=3), got ${cp!.fileCount}`);
     gitRef = cp!.ref;
   });
 
-  await step('git: show-ref lists the new refs/archon ref', async () => {
+  await step('git: show-ref lists the new refs/arco ref', async () => {
     const refs = git(repo, 'show-ref');
     assert(refs.includes(gitRef), `show-ref should list ${gitRef}\n${refs}`);
   });
@@ -76,8 +76,8 @@ async function main() {
     assertEq(git(repo, 'rev-parse', 'HEAD'), headBefore, 'HEAD must be unchanged');
     assertEq(git(repo, 'status', '--porcelain'), statusBefore, 'git status porcelain must be unchanged');
     assertEq(git(repo, 'write-tree'), indexTreeBefore, "user's index tree must be unchanged");
-    // Repo capture must not create Archon scratch state inside the worktree.
-    assert(!existsSync(join(repo, '.archon')), 'snapshot scratch index must stay outside the worktree');
+    // Repo capture must not create Arco scratch state inside the worktree.
+    assert(!existsSync(join(repo, '.arco')), 'snapshot scratch index must stay outside the worktree');
   });
 
   await step('git: snapshot tree contains the dirty working-tree content', async () => {
@@ -103,13 +103,13 @@ async function main() {
     ]);
     assert(a !== null && b !== null, 'both concurrent repo checkpoints should succeed');
     const refs = git(repo, 'show-ref');
-    assert(refs.includes(`refs/archon/${wfid}/8`), 'concurrent ref 8 should exist');
-    assert(refs.includes(`refs/archon/${wfid}/9`), 'concurrent ref 9 should exist');
-    assert(!existsSync(join(repo, '.archon')), 'concurrent scratch indexes must stay outside the worktree');
+    assert(refs.includes(`refs/arco/${wfid}/8`), 'concurrent ref 8 should exist');
+    assert(refs.includes(`refs/arco/${wfid}/9`), 'concurrent ref 9 should exist');
+    assert(!existsSync(join(repo, '.arco')), 'concurrent scratch indexes must stay outside the worktree');
   });
 
   // ── Non-git fallback path ──
-  const plain = mkdtempSync(join(tmpdir(), 'archon-ckpt-plain-'));
+  const plain = mkdtempSync(join(tmpdir(), 'arco-ckpt-plain-'));
   cleanups.push(plain);
   const plainWfid = '99999999-8888-7777-6666-555555555555';
   writeFileSync(join(plain, 'a.txt'), 'alpha\n');
@@ -122,7 +122,7 @@ async function main() {
     const cp = await createCheckpoint({ cwd: plain, workflowId: plainWfid, seq: 3 });
     assert(cp !== null, 'fallback checkpoint should not be null');
     assertEq(cp!.backend, 'shadow-git', 'backend should be shadow-git for a non-git dir');
-    assertEq(cp!.ref, `refs/archon/${plainWfid}/3`, 'shadow ref should use the standard ref format');
+    assertEq(cp!.ref, `refs/arco/${plainWfid}/3`, 'shadow ref should use the standard ref format');
     assert(cp!.fileCount >= 2, `fileCount should count a.txt + b.txt (>=2), got ${cp!.fileCount}`);
     // The ref lives in the SHADOW repo; the user's dir stays non-git.
     assert(!existsSync(join(plain, '.git')), 'cwd must stay non-git (no .git created)');
@@ -134,7 +134,7 @@ async function main() {
   });
 
   await step('non-git: files over the per-file cap are SKIPPED (and counted)', async () => {
-    process.env.ARCHON_CHECKPOINT_FILE_CAP_BYTES = '1024';
+    process.env.ARCO_CHECKPOINT_FILE_CAP_BYTES = '1024';
     try {
       writeFileSync(join(plain, 'big.bin'), Buffer.alloc(4096));
       const cp = await createCheckpoint({ cwd: plain, workflowId: plainWfid, seq: 4 });
@@ -149,17 +149,17 @@ async function main() {
         'shadow snapshot should persist its skipped-path manifest',
       );
     } finally {
-      delete process.env.ARCHON_CHECKPOINT_FILE_CAP_BYTES;
+      delete process.env.ARCO_CHECKPOINT_FILE_CAP_BYTES;
     }
   });
 
   await step('non-git: snapshot is SKIPPED entirely over the included-total cap', async () => {
-    process.env.ARCHON_CHECKPOINT_TOTAL_CAP_BYTES = '1024';
+    process.env.ARCO_CHECKPOINT_TOTAL_CAP_BYTES = '1024';
     try {
       const cp = await createCheckpoint({ cwd: plain, workflowId: plainWfid, seq: 5 });
       assert(cp === null, 'over-total-cap snapshot should return null (skipped)');
     } finally {
-      delete process.env.ARCHON_CHECKPOINT_TOTAL_CAP_BYTES;
+      delete process.env.ARCO_CHECKPOINT_TOTAL_CAP_BYTES;
     }
   });
 
@@ -172,7 +172,7 @@ async function main() {
     assert(cp !== null, 'snapshot #6 should succeed');
     const objOf = (ref: string): string =>
       execFileSync('git', ['--git-dir', shadowDir, 'rev-parse', `${ref}:a.txt`], { encoding: 'utf8' }).trim();
-    assertEq(objOf(`refs/archon/${plainWfid}/3`), objOf(`refs/archon/${plainWfid}/6`),
+    assertEq(objOf(`refs/arco/${plainWfid}/3`), objOf(`refs/arco/${plainWfid}/6`),
       'unchanged a.txt should resolve to the same blob in both snapshots');
   });
 
@@ -183,8 +183,8 @@ async function main() {
     ]);
     assert(a !== null && b !== null, 'both concurrent shadow checkpoints should succeed');
     const refs = execFileSync('git', ['--git-dir', shadowDir, 'show-ref'], { encoding: 'utf8' });
-    assert(refs.includes(`refs/archon/${plainWfid}/7`), 'concurrent shadow ref 7 should exist');
-    assert(refs.includes(`refs/archon/${plainWfid}/8`), 'concurrent shadow ref 8 should exist');
+    assert(refs.includes(`refs/arco/${plainWfid}/7`), 'concurrent shadow ref 7 should exist');
+    assert(refs.includes(`refs/arco/${plainWfid}/8`), 'concurrent shadow ref 8 should exist');
     const scratch = readdirSync(shadowDir).filter((name) => name.startsWith('snap-') || name.startsWith('pathspec-'));
     assertEq(scratch.length, 0, `shadow scratch files should be cleaned up, found: ${scratch.join(', ')}`);
   });

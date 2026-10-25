@@ -71,7 +71,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
   const [importedName, setImportedName] = useState<string | null>(null);
   const importedUrlRef = useRef<string | null>(null);
   // N2 — the imported File itself. ffmpeg ops on an imported source stage these
-  // bytes to Archon scratch (postMediaOp), so the ops panels need the raw File,
+  // bytes to Arco scratch (postMediaOp), so the ops panels need the raw File,
   // not just the playback object URL.
   const [importedFile, setImportedFile] = useState<File | null>(null);
 

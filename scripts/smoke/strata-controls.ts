@@ -1,4 +1,4 @@
-// Self-contained source-server smoke: never uses the live Archon or Strata.
+// Self-contained source-server smoke: never uses the live Arco or Strata.
 import { createServer, type ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, openSync, closeSync } from 'node:fs';
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-controls-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-controls-'));
   const model = 'strata-controls-fixture';
   let pending: ServerResponse | undefined;
   let requestBody: any;
@@ -33,8 +33,8 @@ async function main() {
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = (reservation.address() as { port: number }).port;
   await new Promise<void>((resolve) => reservation.close(() => resolve()));
-  const home = join(dir, 'home'); mkdirSync(join(home, '.archon'), { recursive: true });
-  writeFileSync(join(home, '.archon/settings.json'), JSON.stringify({
+  const home = join(dir, 'home'); mkdirSync(join(home, '.arco'), { recursive: true });
+  writeFileSync(join(home, '.arco/settings.json'), JSON.stringify({
     enabledProviders: { strata: true, ollama: false, lmstudio: false, llamacpp: false },
     strata: { baseUrl: `${base}/v1` }, ollama: { baseUrl: base }, lmstudio: { baseUrl: `${base}/v1` },
   }));
@@ -50,7 +50,7 @@ globalThis.fetch = (url, init) => {
 };\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
+    env: { ...process.env, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

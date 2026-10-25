@@ -29,7 +29,7 @@ async function main() {
 
   // A workflow cwd, plus a sibling "outside" dir to prove escapes can't reach
   // it. Both live under tmpdir; the sibling is NOT under cwd.
-  const root = mkdtempSync(join(tmpdir(), 'archon-fw-'));
+  const root = mkdtempSync(join(tmpdir(), 'arco-fw-'));
   cleanups.push(root);
   const cwd = join(root, 'project');
   const outside = join(root, 'outside');

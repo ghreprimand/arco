@@ -1,6 +1,6 @@
 // H46 — server RSS/heap trend logging (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
 //
-// A long-lived Archon prod process accumulates memory across many turns,
+// A long-lived Arco prod process accumulates memory across many turns,
 // Native workers, catalogs, and recall indexes. When the operator later sees the
 // RSS guard fire or the box swap, there's no history to tell whether it crept up
 // over hours or spiked in one turn. This emits a periodic one-line snapshot of
@@ -9,7 +9,7 @@
 // log file.
 //
 // OFF BY DEFAULT: gated on the SAME signal as structured file logging
-// (ARCHON_LOG_FILE / ARCHON_LOG_DIR → getLogFilePath() non-null). In dev it's
+// (ARCO_LOG_FILE / ARCO_LOG_DIR → getLogFilePath() non-null). In dev it's
 // inert. The lines go through console.log, which the file-logging tee captures.
 //
 // The interval timer is .unref()'d so it never holds the event loop open — a
@@ -36,7 +36,7 @@ export function formatMemorySample(
   ];
   if (opts.prevRss !== undefined) parts.push(`rssΔ=${signedMb(mem.rss - opts.prevRss)}`);
   if (opts.peakRss !== undefined) parts.push(`rssPeak=${mb(Math.max(opts.peakRss, mem.rss))}`);
-  const tag = opts.label ? `[archon][mem:${opts.label}]` : '[archon][mem]';
+  const tag = opts.label ? `[arco][mem:${opts.label}]` : '[arco][mem]';
   return `${tag} ${parts.join(' ')}`;
 }
 

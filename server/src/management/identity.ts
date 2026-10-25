@@ -1,9 +1,9 @@
-// Workflow-reporting layer — instance descriptor for the live Archon SERVICE.
+// Workflow-reporting layer — instance descriptor for the live Arco SERVICE.
 //
-// Reuses the SAME identity files as the lifecycle agent (~/.archon/instance-id +
-// ~/.archon/instance-name) so the service and the agent register under one
+// Reuses the SAME identity files as the lifecycle agent (~/.arco/instance-id +
+// ~/.arco/instance-name) so the service and the agent register under one
 // instanceId and the hub merges them into a single card. Capabilities differ:
-// the service reports workflows/requests/approvals (it is the live Archon);
+// the service reports workflows/requests/approvals (it is the live Arco);
 // serviceRestart belongs to the agent, not here.
 
 import { randomUUID } from 'node:crypto';
@@ -11,14 +11,14 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir, hostname, platform as osPlatform } from 'node:os';
 import { join, dirname } from 'node:path';
-import type { ManagedArchonInstance, Platform, ServiceMode } from '@archon/shared';
-import { archonHome } from '../archonHome.js';
+import type { ManagedArcoInstance, Platform, ServiceMode } from '@arco/shared';
+import { arcoHome } from '../arcoHome.js';
 
-function archonDir(): string {
-  return archonHome();
+function arcoDir(): string {
+  return arcoHome();
 }
 function instanceIdPath(): string {
-  return process.env.ARCHON_INSTANCE_ID_FILE || join(archonDir(), 'instance-id');
+  return process.env.ARCO_INSTANCE_ID_FILE || join(arcoDir(), 'instance-id');
 }
 
 function detectPlatform(): Platform {
@@ -47,10 +47,10 @@ function loadOrCreateInstanceId(): string {
 }
 
 export function loadFriendlyName(): string {
-  if (process.env.ARCHON_INSTANCE_NAME && process.env.ARCHON_INSTANCE_NAME.trim()) {
-    return process.env.ARCHON_INSTANCE_NAME.trim();
+  if (process.env.ARCO_INSTANCE_NAME && process.env.ARCO_INSTANCE_NAME.trim()) {
+    return process.env.ARCO_INSTANCE_NAME.trim();
   }
-  const path = join(archonDir(), 'instance-name');
+  const path = join(arcoDir(), 'instance-name');
   if (existsSync(path)) {
     const name = readFileSync(path, 'utf8').trim();
     if (name) return name;
@@ -82,7 +82,7 @@ function detectTailscale(): { magicDns?: string; ip?: string } | undefined {
   }
 }
 
-export function buildServiceInstanceDescriptor(repoRoot: string, version: string): ManagedArchonInstance {
+export function buildServiceInstanceDescriptor(repoRoot: string, version: string): ManagedArcoInstance {
   const tailscale = detectTailscale();
   const serviceMode: ServiceMode = process.env.NODE_ENV === 'production' ? 'systemd' : 'dev';
   return {

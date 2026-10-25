@@ -1,4 +1,4 @@
-// archon-agent §4/§6 — the outbound hub connection: register, heartbeat, and
+// arco-agent §4/§6 — the outbound hub connection: register, heartbeat, and
 // dispatch inbound signed lifecycle commands.
 //
 // The connection is OUTBOUND from the agent to the hub (no inbound port on the
@@ -15,7 +15,7 @@ import WebSocket from 'ws';
 import type {
   InstanceRollup,
   LifecycleCommandMessage,
-  ManagedArchonInstance,
+  ManagedArcoInstance,
 } from '../../shared/src/protocol/remoteManagement.js';
 import {
   handleSignedCommand,
@@ -27,7 +27,7 @@ import type { RenderOptions } from './allowlist.js';
 
 export interface AgentConnectionOptions {
   hubUrl: string;
-  instance: ManagedArchonInstance;
+  instance: ManagedArcoInstance;
   publicKeyPem: string;
   runner: CommandRunner;
   // Optional injections (defaults are production-sane).
@@ -191,7 +191,7 @@ export function createAgentConnection(opts: AgentConnectionOptions): AgentConnec
 }
 
 // Production runner: spawn the allowlisted argv, capture stdout/stderr, never
-// shell. Used by archon-agent.ts `run`. The smoke injects a fake runner instead.
+// shell. Used by arco-agent.ts `run`. The smoke injects a fake runner instead.
 export function systemctlRunner(): CommandRunner {
   // Lazy import keeps this module importable in tests without node:child_process
   // spawning anything.

@@ -10,7 +10,7 @@ import {
   CLUSTER_PROGRESS_MODES,
   CLUSTER_PROGRESS_LABELS,
   type ClusterProgressMode,
-} from '@archon/shared';
+} from '@arco/shared';
 
 export function ProgressControl({
   clusterId,

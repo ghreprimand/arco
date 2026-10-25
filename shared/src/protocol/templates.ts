@@ -3,7 +3,7 @@
 // A WorkflowTemplate is the single-tab analogue of a cluster preset
 // (shared/src/protocol/clusters.ts ClusterPreset): an operator-saved snapshot
 // of a creator's config so a new tab can be minted in one click. Persisted at
-// ~/.archon/templates.json; CRUD over HTTP (GET/POST/DELETE /api/templates) —
+// ~/.arco/templates.json; CRUD over HTTP (GET/POST/DELETE /api/templates) —
 // NOT the workflow-scoped WS, since this is a global library with no replay
 // semantics. See server/src/templates/store.ts.
 //

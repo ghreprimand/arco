@@ -7,7 +7,7 @@ modules live in `client/src/themes/phosphor/`; demo paths re-export them.
 Review URL: **http://127.0.0.1:5178/phosphor-demo.html**
 
 This is a separate Vite entry, with synthetic data and local operation adapters.
-It does not replace the Arco entry, deploy a build, restart `archon.service`,
+It does not replace the Arco entry, deploy a build, restart `arco.service`,
 or change production theme contracts. All preview choices reset on reload.
 
 **Review boundary (operator feedback):** approval is for the visual treatment,
@@ -121,7 +121,7 @@ Current production flow remains unchanged:
    effective palette through `resolveProviderTheme`; it is not a new palette ID.
 4. `applyTheme` applies tokens, optional font pack, theme density and animation
    flags; handles background images and frosted surface alpha; and emits
-   `archon:theme-changed`. `applyCrispText` is an independent root attribute.
+   `arco:theme-changed`. `applyCrispText` is an independent root attribute.
 5. Shared `VALID_THEME_IDS` validates persistent selections server-side.
 
 **Classic:** imports all 43 existing registry entries unchanged. Original IDs,
@@ -217,7 +217,7 @@ removes all listeners, releases its context on unmount, and rebuilds after
 context restoration. Hidden pages, reduced motion and coarse/small screens stop
 canvas activity. CSS remains under reduced motion, loss or unavailable WebGL.
 Effects-off unmounts decoration and disables text glow. Stats are inspectable
-as `window.archonPhosphorStats` without per-frame React state updates.
+as `window.arcoPhosphorStats` without per-frame React state updates.
 
 ## Verification and rollout boundary
 
@@ -230,7 +230,7 @@ controls, streaming/queue, search, modal Escape/focus, tooltip focus, responsive
 reduced-motion states, context loss/restoration and unavailable WebGL. The
 visibility listener is tested with a controlled hidden state because headless
 Chromium keeps background pages visible. Screenshots and machine-readable
-results are in `/tmp/archon-phosphor-review/`.
+results are in `/tmp/arco-phosphor-review/`.
 
 Performance measurements use headless Chromium/SwiftShader at 1536×1080, with a
 900×633 ambient buffer. Measurements report browser task time and JS draw-submit

@@ -10,9 +10,9 @@
  * harmless dead CSS, kept to avoid hand-splitting 690 rules. See VENDOR.md.
  *
  * THEME SHIM: Odysseus theming hangs off `:root { --bg --fg --panel --border
- * --red --accent ... }`. Archon uses `--color-bg`, `--color-fg`,
+ * --red --accent ... }`. Arco uses `--color-bg`, `--color-fg`,
  * `--color-accent-primary`, `--color-border-*`, etc. We re-point the Odysseus
- * tokens at Archon's so the vendored editor inherits the active Archon theme
+ * tokens at Arco's so the vendored editor inherits the active Arco theme
  * (global / matrix / …) without touching any of the 690 rules below. Scoped to
  * the editor container so it can't leak the aliases into the rest of the app.
  * Each alias keeps a literal fallback (the Odysseus default) for safety.
@@ -20,7 +20,7 @@
 
 #gallery-editor-container,
 #gallery-editor-container .gallery-editor {
-  /* Core palette → Archon vars */
+  /* Core palette → Arco vars */
   --bg: var(--color-bg, #282c34);
   --fg: var(--color-fg, #9cdef2);
   --fg-muted: var(--color-fg-muted, #6b8a94);
@@ -41,9 +41,9 @@
  * a fully TRANSPARENT dropdown (you can see the page through the Save menu).
  * Re-declare the editor's OWN-namespace aliases on :root so any body-level
  * editor surface resolves them too. Only the bare `--bg/--panel/…` names are
- * globalised here — verified unused elsewhere in Archon, so this is inert
+ * globalised here — verified unused elsewhere in Arco, so this is inert
  * outside the editor. The three `--color-*` semantic aliases are deliberately
- * NOT globalised: Archon defines --color-success (and friends) globally, and
+ * NOT globalised: Arco defines --color-success (and friends) globally, and
  * overriding those would bleed the editor's palette into the whole app. */
 :root {
   --bg: var(--color-bg, #282c34);
@@ -59,9 +59,9 @@
  * fall back to the UA ButtonText system colour (≈ black) — unreadable on the
  * dark panel. (The non-button section headers inherit the light fg, which is
  * why only the items go dark.) The upstream app leaned on a global
- * `button { color: inherit }` reset Archon doesn't have. Force the editor fg
+ * `button { color: inherit }` reset Arco doesn't have. Force the editor fg
  * on every menu item; child SVG icons using fill:currentColor follow. Scoped
- * to the editor's own menu classes so Archon's buttons are untouched. */
+ * to the editor's own menu classes so Arco's buttons are untouched. */
 .ge-save-menu .dropdown-item-compact,
 .ge-image-menu .dropdown-item-compact,
 .ge-filter-menu .dropdown-item-compact,

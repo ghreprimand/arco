@@ -1,7 +1,7 @@
 // Context-reference parser for the composer (WORKBENCH_EXPANSION_PLAN.md §D1).
 //
 // The operator types inline `@`-refs in the composer — `@file:src/x.ts`,
-// `@diff`, `@staged`, `@git:3`, `@url:…` — and Archon expands them into the
+// `@diff`, `@staged`, `@git:3`, `@url:…` — and Arco expands them into the
 // turn's context at send time (server-side). This module is the PARSE half:
 // it turns the raw composer text into a structured list of refs so the
 // composer can render a chip per ref (with a remove affordance) and so the

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
-import { strataEngineReleaseVersion } from '@archon/shared';
+import { strataEngineReleaseVersion } from '@arco/shared';
 
 // Shared in-app release/source history for operator-managed runtimes.
 // GitHub is an explicit link; opening a version row never opens a browser.

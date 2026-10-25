@@ -7,7 +7,7 @@
 // (events.jsonl), and re-reads status so the UI refreshes.
 //
 // ⚠ Contrast with A2 checkpoints (server/src/gitSnapshots.ts): checkpoints NEVER
-// touch the real index/HEAD — they write shadow refs under refs/archon/. I3 is
+// touch the real index/HEAD — they write shadow refs under refs/arco/. I3 is
 // the OPPOSITE — it mutates real git state. The two code paths are kept STRICTLY
 // separate: this module never imports gitSnapshots.ts and vice versa. See
 // docs/GOTCHAS.md § "A2 checkpoints vs I3 real mutation" and CLAUDE.md's
@@ -32,8 +32,8 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { GitOpResult, GitStashEntry, GitOpChangesSnapshot } from '@archon/shared';
-import { isProtectedBranch } from '@archon/shared';
+import type { GitOpResult, GitStashEntry, GitOpChangesSnapshot } from '@arco/shared';
+import { isProtectedBranch } from '@arco/shared';
 import { isSafePath, isSafeRef, isSafeRemote } from './gitSafe.js';
 import { getWorkingChanges } from './gitWorking.js';
 

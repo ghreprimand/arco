@@ -26,7 +26,7 @@ test('refsDoctrine stays one line (PLAN_PREFIX_RE in turnEngine is single-line-a
 });
 
 test('resolveLinkedRefs marks existing vs dangling and returns paths', async () => {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-plan-ref-ctx-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-plan-ref-ctx-'));
   try {
     const plan = await createPlan(cwd, { title: 'P', body: '### A\n- [ ] x per [s](ref:spec)\n' });
     assert.ok((await writePlanRef(cwd, plan.id, 'spec', '# The Spec\n\nDo the thing.\n')).ok);
@@ -35,7 +35,7 @@ test('resolveLinkedRefs marks existing vs dangling and returns paths', async () 
     const missing = linked.find((r) => r.slug === 'missing');
     assert.equal(spec?.exists, true);
     assert.equal(spec?.title, 'The Spec');
-    assert.equal(spec?.path, `.archon/plans/${plan.id}.refs/spec.md`);
+    assert.equal(spec?.path, `.arco/plans/${plan.id}.refs/spec.md`);
     assert.equal(missing?.exists, false);
     assert.deepEqual(await resolveLinkedRefs(cwd, [plan.id], ['no links here']), []);
   } finally {
@@ -44,7 +44,7 @@ test('resolveLinkedRefs marks existing vs dangling and returns paths', async () 
 });
 
 test('renderLinkedRefsForReview inlines linked refs and flags missing ones', async () => {
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-plan-ref-ctx-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-plan-ref-ctx-'));
   try {
     const plan = await createPlan(cwd, { title: 'P', body: '### A\n- [x] x\n' });
     await writePlanRef(cwd, plan.id, 'spec', '# The Spec\n\nUNIQUE-SPEC-BODY\n');

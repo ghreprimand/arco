@@ -1,5 +1,5 @@
-import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_PICKER_MODELS, ZAI_MODELS } from '@archon/shared';
-import type { ProviderName, ModelName, PlanSummary, PlanAttachmentSpan } from '@archon/shared';
+import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_PICKER_MODELS, ZAI_MODELS } from '@arco/shared';
+import type { ProviderName, ModelName, PlanSummary, PlanAttachmentSpan } from '@arco/shared';
 import type { ActivityEntry } from '../../stores/appStore';
 
 const CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODEL_VALUES] as ModelName[];

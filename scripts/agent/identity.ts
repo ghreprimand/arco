@@ -1,12 +1,12 @@
-// archon-agent §13.4 — instance identity + descriptor assembly.
+// arco-agent §13.4 — instance identity + descriptor assembly.
 //
-// instanceId is a persisted UUID at ~/.archon/instance-id so a hostname/friendly
+// instanceId is a persisted UUID at ~/.arco/instance-id so a hostname/friendly
 // rename never orphans history. The friendly name (operator-assigned) is read
-// from ~/.archon/instance-name (or ARCHON_INSTANCE_NAME), falling back to the
+// from ~/.arco/instance-name (or ARCO_INSTANCE_NAME), falling back to the
 // hostname. Capabilities reflect that this is the AGENT host — it can restart
-// the service; the workflow/approval capabilities belong to the Archon process
+// the service; the workflow/approval capabilities belong to the Arco process
 // and are reported true here because the agent's presence is what makes remote
-// lifecycle + (via the live Archon) workflow control reachable.
+// lifecycle + (via the live Arco) workflow control reachable.
 
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -14,20 +14,20 @@ import { homedir, hostname, platform as osPlatform } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type {
-  ManagedArchonInstance,
+  ManagedArcoInstance,
   Platform,
   ServiceMode,
 } from '../../shared/src/protocol/remoteManagement.js';
-import { archonHome } from '../../server/src/archonHome.js';
+import { arcoHome } from '../../server/src/arcoHome.js';
 
-function archonDir(): string {
-  return archonHome();
+function arcoDir(): string {
+  return arcoHome();
 }
 function instanceIdPath(): string {
-  return process.env.ARCHON_INSTANCE_ID_FILE || join(archonDir(), 'instance-id');
+  return process.env.ARCO_INSTANCE_ID_FILE || join(arcoDir(), 'instance-id');
 }
 function instanceNamePath(): string {
-  return join(archonDir(), 'instance-name');
+  return join(arcoDir(), 'instance-name');
 }
 
 export function detectPlatform(): Platform {
@@ -66,8 +66,8 @@ export function loadOrCreateInstanceId(): string {
 }
 
 export function loadFriendlyName(): string {
-  if (process.env.ARCHON_INSTANCE_NAME && process.env.ARCHON_INSTANCE_NAME.trim()) {
-    return process.env.ARCHON_INSTANCE_NAME.trim();
+  if (process.env.ARCO_INSTANCE_NAME && process.env.ARCO_INSTANCE_NAME.trim()) {
+    return process.env.ARCO_INSTANCE_NAME.trim();
   }
   const path = instanceNamePath();
   if (existsSync(path)) {
@@ -114,7 +114,7 @@ export interface BuildInstanceOptions {
   serviceRestart: boolean; // true once the agent unit is the supervisor path
 }
 
-export function buildInstanceDescriptor(opts: BuildInstanceOptions): ManagedArchonInstance {
+export function buildInstanceDescriptor(opts: BuildInstanceOptions): ManagedArcoInstance {
   const tailscale = detectTailscale();
   return {
     instanceId: loadOrCreateInstanceId(),

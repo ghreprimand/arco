@@ -1,12 +1,12 @@
 // VOICE_AGENT_PLAN.md — the "Computer" voice operator. A projectless Chat
 // tab with `voiceOperator: true` exposes only bounded operator tools.
-// Codex carries one MCP child (`archon-voice`); Native/local APIs use the
+// Codex carries one MCP child (`arco-voice`); Native/local APIs use the
 // same definitions and relay. Tools execute in the browser that owns the
 // hands-free session, through the same bounded VoiceExecutor actions the
 // direct voice commands use. The server only relays.
 export const VOICE_OPERATOR_TOOLS = [
-  'archon_condition', 'archon_compact', 'archon_activity', 'archon_mail_rule', 'archon_watch', 'archon_usage', 'archon_computer', 'archon_targets', 'archon_select', 'archon_open_panel', 'archon_send_message',
-  'archon_nudge', 'archon_cancel_turn', 'archon_read_latest', 'archon_read_recent', 'archon_status', 'archon_open', 'archon_open_dialog', 'archon_screen', 'archon_act', 'archon_read_text',
+  'arco_condition', 'arco_compact', 'arco_activity', 'arco_mail_rule', 'arco_watch', 'arco_usage', 'arco_computer', 'arco_targets', 'arco_select', 'arco_open_panel', 'arco_send_message',
+  'arco_nudge', 'arco_cancel_turn', 'arco_read_latest', 'arco_read_recent', 'arco_status', 'arco_open', 'arco_open_dialog', 'arco_screen', 'arco_act', 'arco_read_text',
 ] as const;
 export type VoiceOperatorTool = typeof VOICE_OPERATOR_TOOLS[number];
 export const VOICE_TOOL_TIMEOUT_MS = 20_000;
@@ -53,7 +53,7 @@ export interface VoiceToolResultMessage {
   workflowId: string;
   requestId: string;
   ok: boolean;
-  result?: string;           // spoken-style one-liner or JSON for archon_targets
+  result?: string;           // spoken-style one-liner or JSON for arco_targets
   error?: string;
 }
 export function isVoiceOperatorTool(value: unknown): value is VoiceOperatorTool {

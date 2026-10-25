@@ -262,7 +262,7 @@ export interface CookbookRecommendRequestMessage {
 // The lifecycle is bounded (one fetch), visible (start/progress/done/refused/
 // cancelled persist to events.jsonl via the workflowId), and reversible (the
 // operator deletes the file + removes the catalog entry). HF weights land ONLY
-// in ~/.archon/models/ (path-confined, sanitized basename); a disk pre-flight
+// in ~/.arco/models/ (path-confined, sanitized basename); a disk pre-flight
 // REFUSES an oversized pull before a byte downloads; a cancel/error deletes the
 // partial file and writes NO catalog entry.
 

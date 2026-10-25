@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { COMPUTER_PROVIDERS, type ComputerProvider, type EffortLevel } from '@archon/shared';
+import { COMPUTER_PROVIDERS, type ComputerProvider, type EffortLevel } from '@arco/shared';
 
 export interface ComputerSelection { provider: ComputerProvider; model: string; effort: EffortLevel; history: 'saved' | 'none' }
-const KEY = 'archon.computer.selection.v1';
+const KEY = 'arco.computer.selection.v1';
 const defaults: ComputerSelection = { provider: 'codex', model: 'gpt-6-luna', effort: 'low', history: 'saved' };
 function load(): ComputerSelection {
   try {

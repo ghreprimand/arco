@@ -18,7 +18,7 @@
 //      honest behavioural proxy for "the primitive ran in its own throwaway
 //      session, read-only", since no WS surface exposes the `--mode ask` flag.
 //
-//   ARCHON_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-5.ts
+//   ARCO_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-5.ts
 //
 // ⚠️ METERED: makes ~2 primary Cursor turns + 1 reviewer turn (tiny prompts) on
 // `auto`. The worker must be logged in (`cursor-agent login`).

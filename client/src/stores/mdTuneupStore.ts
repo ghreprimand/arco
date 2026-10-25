@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ProviderName, ModelName, EffortLevel, MdTuneupTarget, MdTuneupCandidate } from '@archon/shared';
+import type { ProviderName, ModelName, EffortLevel, MdTuneupTarget, MdTuneupCandidate } from '@arco/shared';
 
 // Agent-instruction-file tune-up client store — see shared/src/protocol/mdTuneup.ts.
 // Kept OUT of appStore (mirrors docEditStore / recallStore): a tune-up is a

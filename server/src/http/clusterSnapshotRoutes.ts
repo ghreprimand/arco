@@ -50,7 +50,7 @@ function readRaw(req: IncomingMessage, cap = MAX_HTTP_BYTES): Promise<Buffer> {
 }
 
 function hubBase(): URL | null {
-  const raw = process.env.ARCHON_HUB_URL?.trim();
+  const raw = process.env.ARCO_HUB_URL?.trim();
   if (!raw) return null;
   try {
     const url = new URL(raw);
@@ -79,7 +79,7 @@ async function hubJson(pathname: string, init?: RequestInit): Promise<unknown> {
 
 function safeDownloadName(name: string): string {
   const base = name.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'cluster';
-  return `${base.slice(0, 80)}.archoncluster`;
+  return `${base.slice(0, 80)}.arcocluster`;
 }
 
 function sameOrigin(req: IncomingMessage): boolean {
@@ -150,7 +150,7 @@ export async function tryHandleClusterSnapshotRoutes(
       if (!summary) return json(res, 404, { error: 'snapshot not found' });
       const bundle = writeClusterBundle(await readSnapshotFiles(id));
       res.writeHead(200, {
-        'Content-Type': 'application/vnd.archon.cluster+gzip',
+        'Content-Type': 'application/vnd.arco.cluster+gzip',
         'Content-Disposition': `attachment; filename="${safeDownloadName(summary.name)}"`,
         'Content-Length': String(bundle.length),
         'Cache-Control': 'no-store',
@@ -201,8 +201,8 @@ export async function tryHandleClusterSnapshotRoutes(
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
-          'X-Archon-Vault-Meta': Buffer.from(JSON.stringify(metadata)).toString('base64url'),
-          ...(replaceSnapshotId ? { 'X-Archon-Vault-Replace-Id': replaceSnapshotId } : {}),
+          'X-Arco-Vault-Meta': Buffer.from(JSON.stringify(metadata)).toString('base64url'),
+          ...(replaceSnapshotId ? { 'X-Arco-Vault-Replace-Id': replaceSnapshotId } : {}),
         },
         body: Uint8Array.from(encrypted).buffer,
       });

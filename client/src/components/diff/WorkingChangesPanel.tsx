@@ -4,7 +4,7 @@ import type {
   WorkingChangeEntry,
   WorkingFileDiffResponse,
   GitOpResult,
-} from '@archon/shared';
+} from '@arco/shared';
 import { DiffView } from './DiffView';
 import { GitOpsBar } from './GitOpsBar';
 
@@ -106,18 +106,18 @@ export function WorkingChangesPanel({ wfid, cwd, refreshKey }: WorkingChangesPan
   useEffect(() => { setSelected(null); }, [wfid, cwd, refreshKey, internalRefresh]);
 
   if (state.kind === 'loading') {
-    return <div className="archon-diff-empty display-font">Reading changes…</div>;
+    return <div className="arco-diff-empty display-font">Reading changes…</div>;
   }
   if (state.kind === 'error') {
     return (
-      <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
+      <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
         Failed to read changes: {state.message}
       </div>
     );
   }
   const { data } = state;
   if (!data.isRepo) {
-    return <div className="archon-diff-empty display-font">Not a git working tree — no changes to show.</div>;
+    return <div className="arco-diff-empty display-font">Not a git working tree — no changes to show.</div>;
   }
   const total = data.staged.length + data.unstaged.length + data.untracked.length;
 
@@ -132,7 +132,7 @@ export function WorkingChangesPanel({ wfid, cwd, refreshKey }: WorkingChangesPan
         }}
       >
         {total === 0 ? (
-          <div className="archon-diff-empty display-font" style={{ padding: '8px' }}>Working tree clean.</div>
+          <div className="arco-diff-empty display-font" style={{ padding: '8px' }}>Working tree clean.</div>
         ) : (
           <>
             <FileGroup label={GROUP_LABEL.staged} group="staged" files={data.staged} selected={selected} onSelect={setSelected} onFileOp={onFileOp} />
@@ -146,7 +146,7 @@ export function WorkingChangesPanel({ wfid, cwd, refreshKey }: WorkingChangesPan
         {selected ? (
           <FileDiffPane wfid={wfid} cwd={cwd} path={selected.path} group={selected.group} />
         ) : (
-          <div className="archon-diff-empty display-font">Select a file to view its diff.</div>
+          <div className="arco-diff-empty display-font">Select a file to view its diff.</div>
         )}
       </div>
     </div>
@@ -270,21 +270,21 @@ function FileDiffPane({
   useEffect(() => load(), [load]);
 
   if (state.kind === 'loading') {
-    return <div className="archon-diff-empty display-font">Reading diff…</div>;
+    return <div className="arco-diff-empty display-font">Reading diff…</div>;
   }
   if (state.kind === 'error') {
     return (
-      <div className="archon-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
+      <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>
         Failed to read diff: {state.message}
       </div>
     );
   }
   const { data } = state;
   if (!data.isRepo) {
-    return <div className="archon-diff-empty display-font">Not a git working tree.</div>;
+    return <div className="arco-diff-empty display-font">Not a git working tree.</div>;
   }
   if (data.binary) {
-    return <div className="archon-diff-empty display-font">Binary or oversized file — diff not shown.</div>;
+    return <div className="arco-diff-empty display-font">Binary or oversized file — diff not shown.</div>;
   }
   return <DiffView patch={data.patch} emptyText="No diff for this file." />;
 }

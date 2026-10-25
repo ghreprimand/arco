@@ -1,6 +1,6 @@
 # Workbench Notifications
 
-> ARCHON_OPS_PLAN.md **Part J**. In-app event notices for workbench events,
+> ARCO_OPS_PLAN.md **Part J**. In-app event notices for workbench events,
 > behind a single event contract so the (future) **J2** external transports
 > (email / ntfy / Pushover / desktop push) reuse the same shape.
 >
@@ -49,7 +49,7 @@ One chokepoint so every source is a one-liner and J2 can hang off the same
 `emit()`:
 
 - `initNotifications(broadcastFn)` — inject the global all-clients sender +
-  load persisted mutes from `~/.archon/notification-mutes.json`. Called once at
+  load persisted mutes from `~/.arco/notification-mutes.json`. Called once at
   boot (`index.ts`), wired to `for (const ws of sessions.keys()) send(ws, msg)`.
 - `emit(notice)` — mint `id` + `ts`, **suppress if the category is muted**
   (returns `null`, nothing broadcast), else broadcast `workbench_notice`.
@@ -124,13 +124,13 @@ title/body/priority + a tap-link to the K2 console; nothing inbound is read.
 
 ### ntfy transport (`server/src/ntfyTransport.ts`)
 
-- **Inert** unless `ARCHON_NTFY_URL` is set (mirrors `hubLink` gating — an
+- **Inert** unless `ARCO_NTFY_URL` is set (mirrors `hubLink` gating — an
   ordinary `npm run dev` is unchanged). `initNtfyTransport({instanceLabel})` is
   called from `index.ts` after `initNotifications`, labeled with the friendly
   instance name (`loadFriendlyName()`).
-- Env: `ARCHON_NTFY_URL` (full topic URL, required to activate) ·
-  `ARCHON_NTFY_TOKEN` (optional bearer) · console tap-link from
-  `ARCHON_CONSOLE_URL`, else **derived** from `ARCHON_HUB_URL`
+- Env: `ARCO_NTFY_URL` (full topic URL, required to activate) ·
+  `ARCO_NTFY_TOKEN` (optional bearer) · console tap-link from
+  `ARCO_CONSOLE_URL`, else **derived** from `ARCO_HUB_URL`
   (`deriveConsoleUrl`: `ws→http` / `wss→https`, path dropped).
 - `buildNtfyRequest(notice, cfg)` (pure, exported for the smoke) → `{url, headers,
   body}`. Headers: `Title` (ascii-safe — em/en-dashes + smart quotes
@@ -159,12 +159,12 @@ J1 category-mute chokepoint, so a muted category is still suppressed first. Smok
 
 ### Deployed ntfy (hub-host)
 
-Self-contained binary under PM2 (matches `archon-management`; reboot-durable via
+Self-contained binary under PM2 (matches `arco-management`; reboot-durable via
 the existing `pm2-root.service`), **never apt/systemd-wide** so nothing else on
 the shared box is touched:
 
 - `/root/ntfy/ntfy` (release binary) · `serve --config /root/ntfy/server.yml` ·
-  `pm2 start … --name archon-ntfy && pm2 save`.
+  `pm2 start … --name arco-ntfy && pm2 save`.
 - `server.yml`: `listen-http: <hub-tailnet-ip>:3501` (**tailnet IP only, never
   `0.0.0.0`/public** — the trust boundary) · `base-url: http://<hub-tailnet-ip>:3501`
   · `upstream-base-url: https://ntfy.sh`. The upstream forwards only an **opaque
@@ -172,8 +172,8 @@ the shared box is touched:
   message **content stays on the tailnet** (the phone polls `:3501` directly).
 - **Topic name is the secret** (no auth in v1; the server is tailnet-only). The
   live topic lives in `/root/ntfy/topic.txt` on the box and in the workstation's
-  `ARCHON_NTFY_URL` — deliberately **NOT** committed here. Add a per-topic ntfy
-  access token (`ARCHON_NTFY_TOKEN`) to harden further.
+  `ARCO_NTFY_URL` — deliberately **NOT** committed here. Add a per-topic ntfy
+  access token (`ARCO_NTFY_TOKEN`) to harden further.
 
 ### Phone (official ntfy Android app)
 

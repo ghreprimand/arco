@@ -18,8 +18,8 @@ import { randomUUID } from 'node:crypto';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-life-home-'));
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'archon-task-life-cwd-'));
+  const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-life-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-life-cwd-'));
   const prevHome = process.env.HOME;
   process.env.HOME = fakeHome;
 
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
     const wfA = randomUUID();
     const wfB = randomUUID();
     for (const wfid of [wfA, wfB]) {
-      await fs.mkdir(path.join(cwd, '.archon', 'workflows', wfid), { recursive: true });
+      await fs.mkdir(path.join(cwd, '.arco', 'workflows', wfid), { recursive: true });
       workflowCwds.set(wfid, cwd);
       workflows.set(wfid, { observers: new Set(), config: { workingDirectory: cwd } } as unknown as Parameters<typeof workflows.set>[1]);
       await writeMeta(cwd, {
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
 
     await step('(e) comments replay from events after snapshot deletion', async () => {
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'tasks.json'), { force: true });
       const state = await taskLedger.loadKernel(cwd);
       assert(state.comments.some((c) => c.body.includes('Starting work.')), 'plain comment replays');
       assert(state.comments.some((c) => c.body.includes('BLOCKED')), 'blocked comment replays');
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
 
     await step('(f) the director sign-off replays from events after snapshot deletion', async () => {
       await flushAll();
-      await fs.rm(path.join(cwd, '.archon', 'project', 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'tasks.json'), { force: true });
       const state = await taskLedger.loadKernel(cwd);
       const rebuilt = state.tasks.find((t) => t.id === task.id);
       assertEq(rebuilt?.signoff?.state, 'not_met', 'sign-off verdict replays from events');

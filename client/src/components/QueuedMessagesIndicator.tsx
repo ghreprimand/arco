@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { JobState } from '../stores/appStore';
-import type { ProviderName } from '@archon/shared';
+import type { ProviderName } from '@arco/shared';
 import { linkifyText } from '../utils/linkify';
 
 interface Props {

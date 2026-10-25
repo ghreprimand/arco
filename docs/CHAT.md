@@ -19,7 +19,7 @@ limited tool set inside a project Agent, not a Chat tab.
 Gemini and Antigravity are Agent-only: the creator filters them and the server
 rejects a crafted request. Provider enabled/auth/model availability gates also
 apply. Cursor's CLI has no ephemeral-session flag and llama.cpp's shared daemon
-always logs to `~/.archon/llamacpp.log`, so both are rejected for Incognito. Strata is also excluded because its standalone
+always logs to `~/.arco/llamacpp.log`, so both are rejected for Incognito. Strata is also excluded because its standalone
 request logs and encoded-image cache persist outside Arco.
 
 **Header.** Shows the tab name, a **model + effort picker** (same provider only;
@@ -76,7 +76,7 @@ tools it now has.
 ## Attachments
 
 Attach with **＋**, paste, or drop anywhere on the view (the app-wide
-DragOverlay dispatches `archon:attach-files`; `ChatModeView` listens for it just
+DragOverlay dispatches `arco:attach-files`; `ChatModeView` listens for it just
 as `TerminalInput` does on Agent tabs). Uploads go through `POST /upload`. A
 failed upload shows an inline notice instead of vanishing. Send is held while an
 upload is still in flight, so a pasted screenshot can't miss its message.
@@ -120,11 +120,11 @@ original goes through as before.
 
 ## Persistence and privacy boundaries
 
-Saved Chat uses `~/.archon/chats/<wfid>` as a **persistence cwd**, not a project.
+Saved Chat uses `~/.arco/chats/<wfid>` as a **persistence cwd**, not a project.
 The existing store layout is nested beneath that:
 
 ```text
-~/.archon/chats/<wfid>/.archon/workflows/<wfid>/
+~/.arco/chats/<wfid>/.arco/workflows/<wfid>/
   meta.json
   events.jsonl
 ```

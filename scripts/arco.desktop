@@ -3,10 +3,10 @@ Type=Application
 Name=Arco - Dev
 GenericName=AI Orchestration
 Comment=Arco dev stack (npm run dev — Vite + tsx-watch). Not the systemd service; stop the service first to avoid a port-3001 conflict.
-# Exec needs scripts/archon on PATH, or replace it with the absolute path of the checkout.
-Exec=archon start
+# Exec needs scripts/arco on PATH, or replace it with the absolute path of the checkout.
+Exec=arco start
 Icon=applications-development
 Terminal=false
 Categories=Development;Utility;Network;
 StartupNotify=false
-Keywords=claude;ai;orchestrator;agent;workflow;archon;
+Keywords=claude;ai;orchestrator;agent;workflow;arco;

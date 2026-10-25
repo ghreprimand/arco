@@ -50,8 +50,8 @@ import type {
   OllamaPsBackend,
   OllamaPsModel,
   OllamaThinkingInfo,
-} from '@archon/shared';
-import { ollamaThinkParam, parseOllamaThinking } from '@archon/shared';
+} from '@arco/shared';
+import { ollamaThinkParam, parseOllamaThinking } from '@arco/shared';
 import { readSettings } from '../settings.js';
 import { resolveConfigValue } from '../configValue.js';
 import type { Provider, ProviderProcess } from './types.js';
@@ -283,9 +283,9 @@ interface OllamaChatRequest {
 // work than the original 25 (model preparation paralysis, retries on Edit
 // exact-string-match, etc.). The ToolLoopDetector below catches *pointless*
 // repetition in 3 turns, so this cap only fires when real progress is being
-// made and there's just a lot of it. Tune via ARCHON_OLLAMA_MAX_TOOL_TURNS.
+// made and there's just a lot of it. Tune via ARCO_OLLAMA_MAX_TOOL_TURNS.
 const MAX_TOOL_TURNS = (() => {
-  const env = process.env.ARCHON_OLLAMA_MAX_TOOL_TURNS;
+  const env = process.env.ARCO_OLLAMA_MAX_TOOL_TURNS;
   if (env) {
     const n = parseInt(env, 10);
     if (Number.isFinite(n) && n > 0 && n <= 200) return n;
@@ -378,7 +378,7 @@ function classifyAttachment(path: string): { kind: 'image' } | { kind: 'other' }
 //
 // Operators who want forever-loaded behavior can override with the
 // `OLLAMA_KEEP_ALIVE` env at the daemon level — that wins for any request
-// that doesn't carry an explicit keep_alive (none from Archon today, but
+// that doesn't carry an explicit keep_alive (none from Arco today, but
 // open-webui / external clients would inherit it).
 const KEEP_ALIVE = '10m';
 
@@ -1186,7 +1186,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
         result = `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`;
       } else if (!autoMode) {
         result =
-          `[Archon SAFE mode] tool "${name}" was not executed. ` +
+          `[Arco SAFE mode] tool "${name}" was not executed. ` +
           'The local provider runs tools server-side only when AUTO mode is enabled on this workflow. ' +
           'Tell the operator what you were going to do, or answer from what they have shown you.';
       } else if (!cwd) {
@@ -1669,7 +1669,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       : false;
 
     // WP3 — three-layer config: settings.ollama.compaction (operator UI) over
-    // env (ARCHON_OLLAMA_*) over hardcoded default. readSettings is the same
+    // env (ARCO_OLLAMA_*) over hardcoded default. readSettings is the same
     // path produceCompactionSummary uses below; tolerate a read failure by
     // falling through to env/default (resolveCompactionConfig with no overlay).
     let overlay;
@@ -1941,7 +1941,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           `Ollama tool-subset (M10): advertising ${subset.kept.length}/${gated.length} tools ` +
             `[${subset.kept.join(', ')}]; dropped [${subset.dropped.join(', ')}] ` +
             `(cap ${subset.cap}, ranked vs ${subset.signalSource} — stable across turns, prefix-cache-safe). ` +
-            `Disable with ARCHON_OLLAMA_TOOL_SUBSET=0.`,
+            `Disable with ARCO_OLLAMA_TOOL_SUBSET=0.`,
         );
       }
     }
@@ -1984,7 +1984,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     //            executeOllamaTool path (emulating tool-calling for non-tool
     //            models — the M11 deliverable).
     //   none   — no subset this turn (no cwd / structured one-shot).
-    // Operator-overridable via ARCHON_OLLAMA_TOOL_MODE (auto|native|fenced) —
+    // Operator-overridable via ARCO_OLLAMA_TOOL_MODE (auto|native|fenced) —
     // the reversibility guardrail: forcing native reverts to "non-tool models
     // just don't get tools" (the pre-M11 fallback). The gate reads the SAME
     // probed `tools` capability M1/M3 already surface; it does NOT add a new
@@ -2003,7 +2003,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       if (toolMode === 'fenced') {
         // LE-5 — split the subset into ACTION tools (exposed via the fenced
         // protocol) and CONTEXT-reader tools (prompt-injected as context, NOT
-        // exposed — a weak model is unreliable at polling them and Archon
+        // exposed — a weak model is unreliable at polling them and Arco
         // already injects their state via appendSystemPrompt). See
         // partitionFencedTools. The protocol describes ONLY the action tools.
         const { action: fencedAction, contextInjected } = partitionFencedTools(toolSubset);
@@ -2042,7 +2042,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           'system_notice',
           `Ollama tool-mode (M11): FENCED — model "${this.config.model}" lacks native tool capability; ` +
             `injecting fenced tool protocol for ${fencedAction.length} action tool(s) [${fencedAction.map((t) => t.function.name).join(', ')}] ` +
-            `and parsing fenced calls from the response. Override with ARCHON_OLLAMA_TOOL_MODE=native.`,
+            `and parsing fenced calls from the response. Override with ARCO_OLLAMA_TOOL_MODE=native.`,
         );
       } else {
         // native — leave `tools` as the subset on the wire (unchanged path).

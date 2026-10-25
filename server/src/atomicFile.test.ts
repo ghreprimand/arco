@@ -15,7 +15,7 @@ import os from 'os';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 
 async function tmpDir(): Promise<string> {
-  return await fs.mkdtemp(path.join(os.tmpdir(), 'archon-atomic-'));
+  return await fs.mkdtemp(path.join(os.tmpdir(), 'arco-atomic-'));
 }
 
 async function leftoverTemps(dir: string): Promise<string[]> {

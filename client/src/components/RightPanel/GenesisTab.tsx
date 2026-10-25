@@ -1,4 +1,4 @@
-// GENESIS tab (ARCHON_OPS_PLAN.md M2 + M3). The operator's seed editor for Genesis.
+// GENESIS tab (ARCO_OPS_PLAN.md M2 + M3). The operator's seed editor for Genesis.
 // Two flows share this tab:
 //
 //   M2 — from-nothing: a genesis workflow living in its scratch ideation dir. Edit
@@ -18,7 +18,7 @@
 // echoes back readiness + the next prompt (rendered from the live job state).
 
 import { useEffect, useRef, useState } from 'react';
-import type { GenesisAssistField, GenesisAssistIntent, GenesisNameOption, GenesisSeed } from '@archon/shared';
+import type { GenesisAssistField, GenesisAssistIntent, GenesisNameOption, GenesisSeed } from '@arco/shared';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
 
@@ -52,7 +52,7 @@ const input: React.CSSProperties = {
 };
 const area: React.CSSProperties = { ...input, resize: 'vertical', minHeight: '64px' };
 
-const SCRATCH_RE = /[\\/]\.archon[\\/]genesis[\\/]/;
+const SCRATCH_RE = /[\\/]\.arco[\\/]genesis[\\/]/;
 
 const emptySeed = (): GenesisSeed => ({ title: '', spark: '', concept: '', theCase: '', buildDirection: '' });
 const emptyNameWorkbench = () => ({ shortlisted: [] as string[], rejected: [] as string[] });

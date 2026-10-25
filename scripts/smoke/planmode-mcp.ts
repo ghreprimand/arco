@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), 'archon-planmode-mcp-smoke-'));
+  const root = await mkdtemp(join(tmpdir(), 'arco-planmode-mcp-smoke-'));
 
   const { connectServer, isMcpToolReadOnly } = await import('../../server/src/mcp/client.js');
   const { registryToolDefs, isRegistryToolReadOnly } =

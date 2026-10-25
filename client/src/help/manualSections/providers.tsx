@@ -49,7 +49,7 @@ export const providers: Section[] = [
           per-turn <Code>claude</Code> subprocess with full Claude Code feature
           surface and two-way terminal interop. <Code>native</Code> is a
           long-lived in-process worker using <Code>@anthropic-ai/sdk</Code> with
-          Claude-Code-compatible OAuth headers, Archon-owned tools, mid-turn
+          Claude-Code-compatible OAuth headers, Arco-owned tools, mid-turn
           steer, hooks, plan-mode, Task fan-out, and context-management controls.
         </p>
         <p>
@@ -66,7 +66,7 @@ export const providers: Section[] = [
           run in Arco's terminal (it prints a URL and a paste-code prompt, so it
           works from any device); API-key fallback if <Code>ANTHROPIC_API_KEY</Code>{' '}
           is set. Native uses Arco's in-app Claude Native OAuth flow and stores
-          tokens under <Code>~/.archon/auth.json</Code>. Its approval redirects to{' '}
+          tokens under <Code>~/.arco/auth.json</Code>. Its approval redirects to{' '}
           <Code>localhost:53692</Code>, which only resolves when your browser is on the
           Arco machine — from another device, copy the "can't connect" page's URL
           into the paste box.
@@ -440,10 +440,10 @@ export const providers: Section[] = [
           rows={[
             [<Code key="r">Read</Code>, '32 KB byte cap, refuses directories. Chunk via offset/limit for larger files.'],
             [<Code key="g">Glob</Code>, 'Node 22 fs.promises.glob. Cwd-rooted.'],
-            [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .archon. 64 KB output cap.'],
+            [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .arco. 64 KB output cap.'],
             [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
             [<Code key="b">Bash</Code>, '/bin/sh -c in cwd. 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
-            [<Code key="ws">WebSearch</Code>, <>Hits operator's local SearXNG (<Code>ARCHON_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
+            [<Code key="ws">WebSearch</Code>, <>Hits operator's local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
             [<Code key="wf">WebFetch</Code>, <>Native <Code>fetch()</Code> fast path, Camoufox stealth fallback for Cloudflare-gated pages. SSRF guard blocks loopback/RFC1918.</>],
           ]}
         />
@@ -507,7 +507,7 @@ export const providers: Section[] = [
       <>
         <p>
           Local-first like Ollama, but Arco owns the daemon. The catalog at{' '}
-          <Code>~/.archon/llamacpp.json</Code> declares each loadout up front
+          <Code>~/.arco/llamacpp.json</Code> declares each loadout up front
           (alias / GGUF path / context size / GPU layers / capability flags), and a
           singleton <Code>llama-server</Code> process is spawned with the right flags
           on first use. Switching aliases mid-workflow SIGTERMs the old server and
@@ -522,8 +522,8 @@ export const providers: Section[] = [
         </p>
         <p><strong>Auth:</strong> none. Arco probes for the binary
           (<Code>/usr/local/bin/llama-server</Code> by default; override with{' '}
-          <Code>ARCHON_LLAMACPP_BIN</Code>) and confirms{' '}
-          <Code>~/.archon/llamacpp.json</Code> parses cleanly. Capabilities are
+          <Code>ARCO_LLAMACPP_BIN</Code>) and confirms{' '}
+          <Code>~/.arco/llamacpp.json</Code> parses cleanly. Capabilities are
           operator-declared (no <Code>--show</Code>-equivalent on llama-server).
         </p>
         <p><strong>Catalog editing.</strong> Settings panel ships a{' '}
@@ -532,7 +532,7 @@ export const providers: Section[] = [
           <Code>Load now</Code> pre-warms the binary so the next workflow turn
           doesn't pay the 20-30 s cold-start. <Code>Unload</Code> frees VRAM
           immediately without waiting for the idle eviction timer
-          (<Code>ARCHON_LLAMACPP_KEEPALIVE_MS</Code>, default 10 minutes).
+          (<Code>ARCO_LLAMACPP_KEEPALIVE_MS</Code>, default 10 minutes).
         </p>
         <p>
           <strong>Mid-turn steer.</strong> Like Ollama, llama.cpp runs through
@@ -554,7 +554,7 @@ export const providers: Section[] = [
             stream, injects a coaching message that forces commitment.
           </li>
           <li><strong>Stream stall</strong> — no SSE event for{' '}
-            <Code>ARCHON_LLAMACPP_STALL_TIMEOUT_MS</Code> (default 90 s). Builds a
+            <Code>ARCO_LLAMACPP_STALL_TIMEOUT_MS</Code> (default 90 s). Builds a
             deterministic summary (no LLM call) and continues.
           </li>
           <li><strong>Tool-cap exhaustion</strong> — 50-turn cap fires on a
@@ -563,7 +563,7 @@ export const providers: Section[] = [
           </li>
           <li><strong>Context fill</strong> — at clean turn boundaries, when the
             input/ctxSize ratio crosses{' '}
-            <Code>ARCHON_LLAMACPP_COMPACT_THRESHOLD</Code> (default 0.85), asks the
+            <Code>ARCO_LLAMACPP_COMPACT_THRESHOLD</Code> (default 0.85), asks the
             model to write a compaction summary and replaces the in-memory message
             stack with that summary. Conversation continues; tool history is dropped.
           </li>
@@ -662,7 +662,7 @@ export const providers: Section[] = [
           AUTO/SAFE dispatch contract as Ollama and llama.cpp — AUTO executes
           server-side, SAFE returns a denial string the model reads as the result.
           Tool-loop cap defaults to 25 turns
-          (<Code>ARCHON_LMSTUDIO_MAX_TOOL_TURNS</Code>).
+          (<Code>ARCO_LMSTUDIO_MAX_TOOL_TURNS</Code>).
         </p>
         <p><strong>Quirks worth knowing:</strong></p>
         <ul>
@@ -688,13 +688,13 @@ export const providers: Section[] = [
             <strong>Serial local queue.</strong> LM Studio shares the
             one-worker-at-a-time local queue with Ollama and llama.cpp (its app
             typically serves one loaded model at a time). Override with{' '}
-            <Code>ARCHON_LOCAL_PROVIDER_SERIAL_QUEUE=0</Code>.
+            <Code>ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0</Code>.
           </li>
         </ul>
         <Note kind="tip">
           Use LM Studio when you already manage models in its app (or want to point
           Arco at a remote LM Studio host) and prefer its model management over
-          Archon-owned llama.cpp loadouts.
+          Arco-owned llama.cpp loadouts.
         </Note>
       </>
     ),
@@ -709,7 +709,7 @@ export const providers: Section[] = [
           Google's Antigravity desktop app, driven through its local
           language-server RPC endpoint. Arco launches the desktop binary{' '}
           <em>once</em> on first use against an isolated user-data-dir at{' '}
-          <Code>~/.archon/antigravity-data/</Code> so it doesn't collide with your
+          <Code>~/.arco/antigravity-data/</Code> so it doesn't collide with your
           own Antigravity installation. Set <Code>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</Code>
           to reuse your normal signed-in Antigravity profile instead.
         </p>

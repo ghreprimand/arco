@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mailRuleToolResult } from './mailRules';
-import type { ComputerMailRule } from '@archon/shared';
+import type { ComputerMailRule } from '@arco/shared';
 test('mailbox-rule tool projections fit the relay without truncating JSON or Unicode', () => {
   const rule: ComputerMailRule = {id:'a'.repeat(80),ownerId:'o',clusterId:'c'.repeat(80),label:'😀"\\'.repeat(100),memberIds:[],finalId:'f'.repeat(80),finalName:'😀'.repeat(100),status:'watching',reason:'Long reason '.repeat(100),createdAt:1,expiresAt:2,cooldownMs:30000,maxNudgesPerWorker:8,
     workers:Array.from({length:16},()=>({id:'w'.repeat(80),name:'😀'.repeat(100),nudges:8}))};

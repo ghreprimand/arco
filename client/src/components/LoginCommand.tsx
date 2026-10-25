@@ -4,7 +4,7 @@ import { useTerminalTarget } from '../hooks/useTerminalTarget';
 
 // The one login surface every AUTH button funnels into. POST /api/auth-login
 // returns the provider's headless login command; this shows it with RUN IN
-// TERMINAL (pre-fills Archon's own terminal — a shell on the server box — and
+// TERMINAL (pre-fills Arco's own terminal — a shell on the server box — and
 // the operator presses Enter; the §K3 prefill fence never auto-runs) plus COPY
 // as the fallback when no workflow has a terminal root (fresh boot, incognito
 // chat). The CLI then prints a link / code the operator opens on whatever

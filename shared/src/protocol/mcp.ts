@@ -1,8 +1,8 @@
-// ── MCP registry (ARCHON_OPS_PLAN.md §E1, Part E) ──
+// ── MCP registry (ARCO_OPS_PLAN.md §E1, Part E) ──
 //
 // A first-class registry of external MCP servers the operator can register
 // once (globally) and then enable per workflow tab. Replaces the ad-hoc
-// per-provider MCP wiring (cluster archon-cluster child + codebase-memory)
+// per-provider MCP wiring (cluster arco-cluster child + codebase-memory)
 // with an operator-curated surface that funnels through the SAME
 // `mcpConfigWriter` backbone the providers already accept.
 //
@@ -31,7 +31,7 @@
 //     the only transport that enforces the per-tool denylist in-process.
 
 // A registered MCP server definition. Stored globally at
-// `~/.archon/mcp/registry.json`. `command` + `args` spawn a stdio child
+// `~/.arco/mcp/registry.json`. `command` + `args` spawn a stdio child
 // (NEVER shell:true, NEVER sudo). `env` is merged over the spawn environment;
 // values are secret-bearing and are NEVER logged.
 export interface McpServerDef {
@@ -46,7 +46,7 @@ export interface McpServerDef {
   createdAt: number;
 }
 
-// One tool as reported by a server's `tools/list`, plus Archon's dangerous
+// One tool as reported by a server's `tools/list`, plus Arco's dangerous
 // classification (computed from the tool NAME via the denylist regex). The
 // classification is advisory transparency on Codex and load-bearing on CLI
 // Claude (drives the `--disallowedTools` set).

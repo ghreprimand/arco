@@ -35,7 +35,7 @@ interface MetaShape {
 }
 
 function readMeta(cwd: string, workflowId: string): MetaShape {
-  const path = join(cwd, '.archon', 'workflows', workflowId, 'meta.json');
+  const path = join(cwd, '.arco', 'workflows', workflowId, 'meta.json');
   const raw = readFileSync(path, 'utf8');
   return JSON.parse(raw) as MetaShape;
 }
@@ -52,7 +52,7 @@ async function waitForMeta(cwd: string, workflowId: string, predicate: (m: MetaS
   throw new Error(`meta.json predicate not satisfied within ${timeoutMs}ms`);
 }
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 
 async function postJson(path: string, body: unknown): Promise<{ status: number; json: unknown }> {
   const r = await fetch(`${HTTP_BASE}${path}`, {
@@ -75,14 +75,14 @@ async function getJson(path: string): Promise<{ status: number; json: unknown }>
 }
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-smoke-e-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-smoke-e-'));
   console.log(`Phase E smoke — cwd ${cwd}`);
   console.log('');
 
   const c = await connect();
 
   let wfid = '';
-  const dbPath = () => join(cwd, '.archon', 'workflows', wfid, 'sandbox.db');
+  const dbPath = () => join(cwd, '.arco', 'workflows', wfid, 'sandbox.db');
 
   await step('create Native workflow with efficiencySandbox="on"', async () => {
     c.send({

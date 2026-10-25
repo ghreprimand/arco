@@ -10,7 +10,7 @@
 //      a Codex event with IDENTICAL raw numbers must yield DIFFERENT ratios
 //      (Claude denom = input+cacheRead+cacheCreate; Codex denom = input).
 //   3. Assert a malformed event is SKIPPED (not summed, doesn't throw).
-//   4. Integration leg: write a temp <tmp>/.archon/workflows/<wfid>/events.jsonl
+//   4. Integration leg: write a temp <tmp>/.arco/workflows/<wfid>/events.jsonl
 //      with seeded events + noise lines, call aggregateUsageForCwd() against the
 //      temp cwd, assert totals match the hand-count. Clean up.
 //
@@ -170,7 +170,7 @@ async function main() {
 
   // ── Integration leg: fs-scan + aggregate against a temp cwd ──
   await step('aggregateUsageForCwd scans events.jsonl and totals match the hand-count', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'archon-usage-cwd-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'arco-usage-cwd-'));
     cleanups.push(cwd);
 
     // Two workflows, each with a mix of usage events + noise lines (other
@@ -181,7 +181,7 @@ async function main() {
       [wf1, [claudeD1a, claudeD1b]],
       [wf2, [codexD1, claudeD2]],
     ] as [string, Record<string, unknown>[]][]) {
-      const dir = join(cwd, '.archon', 'workflows', wfid);
+      const dir = join(cwd, '.arco', 'workflows', wfid);
       mkdirSync(dir, { recursive: true });
       const lines: string[] = [];
       lines.push(JSON.stringify({ type: 'workflow_created', workflowId: wfid }));
@@ -203,7 +203,7 @@ async function main() {
   });
 
   await step('aggregateUsageForCwd on a missing cwd returns an empty aggregation', async () => {
-    const agg = await aggregateUsageForCwd(join(tmpdir(), 'archon-usage-does-not-exist-xyz'));
+    const agg = await aggregateUsageForCwd(join(tmpdir(), 'arco-usage-does-not-exist-xyz'));
     assertEq(agg.turnsAggregated, 0, 'no turns for a missing cwd');
     assertEq(agg.days.length, 0, 'no days');
     assertEq(agg.from, null, 'from null when nothing matched');

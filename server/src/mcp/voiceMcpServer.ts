@@ -1,4 +1,4 @@
-import '../envAliases.js'; // ARCO_* aliases resolve before any module reads ARCHON_* (see envAliases.ts)
+import '../envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
 // VOICE_AGENT_PLAN.md — per-spawn stdio MCP child for the "Computer" voice
 // operator chat. Stateless: (workflowId, port) from argv; every tool call is
 // one loopback POST to /api/voice/tool, which the server relays to the
@@ -16,8 +16,8 @@ import { COMPUTER_TOOL_SPECS, computerToolWireArgs } from '../voice/toolDefiniti
 const VOICE_TOOL_TIMEOUT_MS = 20_000;
 
 const [, , WORKFLOW_ID, PORT_RAW] = process.argv;
-if (!WORKFLOW_ID) { console.error('[archon-voice-mcp] usage: voiceMcpServer <workflowId> [<archonPort>]'); process.exit(2); }
-const PORT = parseInt(PORT_RAW ?? process.env.ARCHON_PORT ?? '3001', 10);
+if (!WORKFLOW_ID) { console.error('[arco-voice-mcp] usage: voiceMcpServer <workflowId> [<arcoPort>]'); process.exit(2); }
+const PORT = parseInt(PORT_RAW ?? process.env.ARCO_PORT ?? '3001', 10);
 
 async function call(tool: string, args: Record<string, string>): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   try {
@@ -35,13 +35,13 @@ async function call(tool: string, args: Record<string, string>): Promise<{ conte
 }
 
 async function main(): Promise<void> {
-  const server = new McpServer({ name: 'archon-voice', version: '1.0.0' });
+  const server = new McpServer({ name: 'arco-voice', version: '1.0.0' });
   for (const spec of COMPUTER_TOOL_SPECS) {
     server.registerTool(spec.name, { description: spec.description, inputSchema: spec.shape },
       async (args: Record<string, unknown>) => call(spec.name, computerToolWireArgs(args)));
   }
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`[archon-voice-mcp] ready for workflow ${WORKFLOW_ID} on port ${PORT}`);
+  console.error(`[arco-voice-mcp] ready for workflow ${WORKFLOW_ID} on port ${PORT}`);
 }
-main().catch((e) => { console.error('[archon-voice-mcp] fatal', e); process.exit(1); });
+main().catch((e) => { console.error('[arco-voice-mcp] fatal', e); process.exit(1); });

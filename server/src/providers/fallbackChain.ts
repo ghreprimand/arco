@@ -35,7 +35,7 @@
 
 import { classifyError } from './errorClassifier.js';
 import type { FailoverAction, FailoverReason } from './errorClassifier.js';
-import type { EffortLevel, ModelName, ProviderName } from '@archon/shared';
+import type { EffortLevel, ModelName, ProviderName } from '@arco/shared';
 
 // ── Leg shape ─────────────────────────────────────────────────────────────
 

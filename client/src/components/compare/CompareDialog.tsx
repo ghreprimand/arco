@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { WorkflowConfig, ProviderName, ModelName, EffortLevel, CompareLegConfig } from '@archon/shared';
-import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@archon/shared';
+import type { WorkflowConfig, ProviderName, ModelName, EffortLevel, CompareLegConfig } from '@arco/shared';
+import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
 
 // Compare primitive dialog — WORKBENCH_EXPANSION_PLAN.md §B1.

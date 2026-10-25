@@ -16,11 +16,11 @@ function readPositiveIntEnv(name: string, fallback: number): number {
 }
 
 export const RESUME_EXACT_REPLAY_BYTES = readPositiveIntEnv(
-  'ARCHON_CLAUDE_NATIVE_EXACT_REPLAY_BYTES',
+  'ARCO_CLAUDE_NATIVE_EXACT_REPLAY_BYTES',
   DEFAULT_REPLAY_BYTES,
 );
 export const RESUME_RECENT_TAIL_BYTES = readPositiveIntEnv(
-  'ARCHON_CLAUDE_NATIVE_RECENT_TAIL_BYTES',
+  'ARCO_CLAUDE_NATIVE_RECENT_TAIL_BYTES',
   DEFAULT_REPLAY_BYTES,
 );
 
@@ -111,7 +111,7 @@ type SummaryBuild = {
 };
 
 function workflowDir(cwd: string, workflowId: string): string {
-  return join(cwd, '.archon', 'workflows', workflowId);
+  return join(cwd, '.arco', 'workflows', workflowId);
 }
 
 function eventsPath(cwd: string, workflowId: string): string {

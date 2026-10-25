@@ -2,7 +2,7 @@
 //
 // PURE-CORE phase (no server, no WS, NO network): imports the deterministic,
 // side-effect-free cores from install.ts directly and asserts the load-bearing
-// guards WITHOUT touching the real ~/.archon/llamacpp.json or ~/.archon/models/.
+// guards WITHOUT touching the real ~/.arco/llamacpp.json or ~/.arco/models/.
 // Per the plan: "stub a small pull, assert progress events + a catalog entry
 // written; assert the disk-space pre-flight rejects an oversized pull." Stubbing
 // a live HTTP stream in a unit smoke is impractical, so the gate is the cores:
@@ -35,11 +35,11 @@ import {
   buildCatalogEntry,
   freeBytesOn,
 } from '../../server/src/cookbook/install.js';
-import type { LlamacppModelDef } from '@archon/shared';
+import type { LlamacppModelDef } from '@arco/shared';
 
 const GB = 1024 * 1024 * 1024;
-// An injected models-dir fixture — NEVER the real ~/.archon/models/.
-const MODELS = '/tmp/archon-smoke-models';
+// An injected models-dir fixture — NEVER the real ~/.arco/models/.
+const MODELS = '/tmp/arco-smoke-models';
 
 async function main() {
   await step('preflight REJECTS an oversized pull (size + margin > free)', () => {
@@ -86,7 +86,7 @@ async function main() {
   await step('confinement rejects a traversal / escaping filename', () => {
     assert(!resolveWithinModelsDir(MODELS, '../../etc/passwd.gguf').ok, 'traversal rejected');
     assert(!resolveWithinModelsDir(MODELS, '../sibling.gguf').ok, '../sibling rejected');
-    // A models-dir-prefix sibling (e.g. /tmp/archon-smoke-models-evil) must NOT
+    // A models-dir-prefix sibling (e.g. /tmp/arco-smoke-models-evil) must NOT
     // be accepted as "inside" — the trailing-sep prefix check guards this. We
     // can only reach that via the resolved path; sanitizer already blocks
     // separators, so the escape path is the resolve-prefix check. Confirm a

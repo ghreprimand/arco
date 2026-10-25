@@ -8,9 +8,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
-URL = os.environ.get('ARCHON_HELP_PREVIEW_URL', 'http://127.0.0.1:5179/')
-CHROME = os.environ.get('ARCHON_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
-ART = Path('/tmp/archon-help-docs-review')
+URL = os.environ.get('ARCO_HELP_PREVIEW_URL', 'http://127.0.0.1:5179/')
+CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+ART = Path('/tmp/arco-help-docs-review')
 
 async def main():
     ART.mkdir(exist_ok=True)

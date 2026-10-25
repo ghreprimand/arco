@@ -1,4 +1,4 @@
-// Part G — Preview Verification (ARCHON_OPS §G1).
+// Part G — Preview Verification (ARCO_OPS §G1).
 //
 // CDP-based capture of the running Live Preview: screenshot + console errors +
 // failed/error network requests + page title/URL. We do NOT bundle a browser
@@ -26,7 +26,7 @@ import type {
   PreviewNetworkEntry,
   PreviewLayoutNotes,
   PreviewViewport,
-} from '@archon/shared';
+} from '@arco/shared';
 
 // G2 — device-class presets. `desktop` is the G1 default (no mobile emulation);
 // `tablet`/`mobile` set a narrower logical viewport and flip on mobile device-
@@ -101,10 +101,10 @@ const MACOS_CANDIDATES = [
 ];
 
 // Resolve a usable Chrome/Chromium executable, or null if none is installed.
-// Honors `ARCHON_CHROME_BINARY` / `CHROME_PATH` overrides first so the operator
+// Honors `ARCO_CHROME_BINARY` / `CHROME_PATH` overrides first so the operator
 // can point at a non-standard install (and so the smoke can pin a known binary).
 export function findBrowserBinary(): string | null {
-  const override = process.env.ARCHON_CHROME_BINARY || process.env.CHROME_PATH;
+  const override = process.env.ARCO_CHROME_BINARY || process.env.CHROME_PATH;
   if (override && existsSync(override)) return override;
 
   const pathDirs = (process.env.PATH || '').split(delimiter).filter(Boolean);
@@ -236,7 +236,7 @@ function delay(ms: number): Promise<void> {
 // port=0` lets the OS pick a free port; Chrome writes it (plus the browser ws
 // path) to `<user-data-dir>/DevToolsActivePort`, which we poll.
 async function launchHeadless(binary: string, viewport: { width: number; height: number }): Promise<LaunchedBrowser> {
-  const userDataDir = await mkdtemp(join(tmpdir(), 'archon-preview-'));
+  const userDataDir = await mkdtemp(join(tmpdir(), 'arco-preview-'));
   const args = [
     '--headless=new',
     '--disable-gpu',
@@ -347,7 +347,7 @@ export async function capturePreview(opts: CaptureOptions): Promise<CaptureResul
     return {
       ok: false,
       error:
-        'No Chrome/Chromium found. Install one, or set ARCHON_CHROME_BINARY to its path, to enable preview capture.',
+        'No Chrome/Chromium found. Install one, or set ARCO_CHROME_BINARY to its path, to enable preview capture.',
       console: [],
       network: [],
     };

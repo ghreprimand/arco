@@ -118,7 +118,7 @@ export function SpawnSeedPill({ content }: Props) {
           >
             {body && (
               <div
-                className="archon-markdown"
+                className="arco-markdown"
                 style={{
                   fontSize: '13px',
                   color: 'var(--color-accent-secondary-dim)',

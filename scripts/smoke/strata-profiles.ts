@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-strata-profiles-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-strata-profiles-'));
   const models = ['qwen-original-fixture', 'qwen-abliterated-fixture'];
   const units = ['strata-fixture@original.service', 'strata-fixture@abliterated.service'];
   const stateFile = join(dir, 'runtime.json');
@@ -43,8 +43,8 @@ async function main() {
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = (reservation.address() as { port: number }).port;
   await new Promise<void>((resolve) => reservation.close(() => resolve()));
-  const home = join(dir, 'home'); mkdirSync(join(home, '.archon'), { recursive: true });
-  writeFileSync(join(home, '.archon/settings.json'), JSON.stringify({ enabledProviders: { strata: true, ollama: false, lmstudio: false, llamacpp: false }, strata: { baseUrl: base } }));
+  const home = join(dir, 'home'); mkdirSync(join(home, '.arco'), { recursive: true });
+  writeFileSync(join(home, '.arco/settings.json'), JSON.stringify({ enabledProviders: { strata: true, ollama: false, lmstudio: false, llamacpp: false }, strata: { baseUrl: base } }));
   const prepared = join(dir, 'prepared'); writeFileSync(prepared, 'fixture');
   const preflight = join(dir, 'preflight.py'); writeFileSync(preflight, 'import sys\nassert sys.argv[1] == "check-switch"\n');
   const profiles = models.map((model, i) => {
@@ -52,7 +52,7 @@ async function main() {
     writeFileSync(config, JSON.stringify({ model_name: model, exe: prepared, tokenizer: prepared, args: ['--max-context', '262144', '--pack', prepared, '--native', prepared, '--ple-gguf', prepared, '--vision'], vision: { exe: prepared, model: prepared, mmproj: prepared } }));
     return { id: i ? 'abliterated' : 'original', model, label: i ? 'SC117 Abliterated' : 'Original', unit: units[i], config };
   });
-  const registryFile = join(home, '.archon/strata-profiles.json');
+  const registryFile = join(home, '.arco/strata-profiles.json');
   writeFileSync(registryFile, JSON.stringify({ baseUrl: base, launcher: { python: '/usr/bin/python3', script: preflight }, profiles }));
   const preload = join(dir, 'isolate.mjs');
   writeFileSync(preload, `import os from 'node:os'; import cp from 'node:child_process'; import fs from 'node:fs'; import {promisify} from 'node:util'; import {syncBuiltinESMExports} from 'node:module';
@@ -73,7 +73,7 @@ globalThis.fetch = (url, init) => {
 };\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCHON_PORT: String(port), ARCHON_WS_AUTH: 'off', ARCHON_SERVE_CLIENT: '0', ARCHON_STRATA_PROFILES: registryFile, ARCHON_LOCAL_PROVIDER_SERIAL_QUEUE: '0' }, stdio: ['ignore', log, log],
+    env: { ...process.env, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_STRATA_PROFILES: registryFile, ARCO_LOCAL_PROVIDER_SERIAL_QUEUE: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

@@ -6,7 +6,7 @@
 // server/src/primitives/runCompare.ts (modeled on runReviewer/runResearch).
 
 import { WebSocket } from 'ws';
-import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@archon/shared';
+import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@arco/shared';
 import { send } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
@@ -28,7 +28,7 @@ const activeCompares = new Map<string, CompareRecord>();
 export async function handleCompareRequest(
   ws: WebSocket,
   session: Session,
-  msg: import('@archon/shared').CompareRequestMessage,
+  msg: import('@arco/shared').CompareRequestMessage,
 ): Promise<void> {
   void session;
   const wf = workflows.get(msg.workflowId);
@@ -78,11 +78,11 @@ export async function handleCompareRequest(
   record.compareId = handle.compareId;
   activeCompares.set(handle.compareId, record);
 
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] compare ${handle.compareId} started (${resolvedLegs.length} legs${msg.blind ? ', blind' : ''})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] compare ${handle.compareId} started (${resolvedLegs.length} legs${msg.blind ? ', blind' : ''})`);
   handle.settled.then((r) => {
-    console.log(`[archon] [${msg.workflowId.slice(0, 8)}] compare ${handle.compareId} settled (${r.succeededLegs}/${resolvedLegs.length} legs succeeded)`);
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] compare ${handle.compareId} settled (${r.succeededLegs}/${resolvedLegs.length} legs succeeded)`);
   }).catch((err) => {
-    console.error(`[archon] compare ${handle.compareId} settle error:`, err);
+    console.error(`[arco] compare ${handle.compareId} settle error:`, err);
   });
 }
 
@@ -91,7 +91,7 @@ export async function handleCompareRequest(
 // and carries the winner's identity so a blind-mode client can reveal it.
 export function handleCompareVote(
   ws: WebSocket,
-  msg: import('@archon/shared').CompareVoteMessage,
+  msg: import('@arco/shared').CompareVoteMessage,
 ): void {
   const rec = activeCompares.get(msg.compareId);
   if (!rec) {
@@ -110,7 +110,7 @@ export function handleCompareVote(
     winner: rec.legs[msg.winnerLegIndex],
     votedAt: Date.now(),
   });
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] compare ${msg.compareId} vote: leg ${msg.winnerLegIndex} (${rec.legs[msg.winnerLegIndex].provider}:${rec.legs[msg.winnerLegIndex].model})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] compare ${msg.compareId} vote: leg ${msg.winnerLegIndex} (${rec.legs[msg.winnerLegIndex].provider}:${rec.legs[msg.winnerLegIndex].model})`);
 }
 
 // Operator-chosen synthesize follow-up: ONE more bounded read-only leg, run by
@@ -120,7 +120,7 @@ export function handleCompareVote(
 // only fires when the operator clicks SYNTHESIZE.
 export async function handleCompareSynthesize(
   ws: WebSocket,
-  msg: import('@archon/shared').CompareSynthesizeMessage,
+  msg: import('@arco/shared').CompareSynthesizeMessage,
 ): Promise<void> {
   const wf = workflows.get(msg.workflowId);
   const rec = activeCompares.get(msg.compareId);
@@ -192,7 +192,7 @@ export async function handleCompareSynthesize(
       error: err instanceof Error ? err.message : String(err), completedAt: Date.now(),
     });
   });
-  console.log(`[archon] [${msg.workflowId.slice(0, 8)}] compare ${msg.compareId} synthesize via leg ${idx} (${synthLeg.provider}:${synthLeg.model})`);
+  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] compare ${msg.compareId} synthesize via leg ${idx} (${synthLeg.provider}:${synthLeg.model})`);
 }
 
 // Cancel an in-flight race — kill every leg worker for this compare. Mirrors
@@ -204,5 +204,5 @@ export function handleCancelCompare(ws: WebSocket, workflowId: string, compareId
   if (!wf || !rec) return;
   for (let i = 0; i < rec.legs.length; i++) wf.manager.kill(`${compareId}-leg${i}`);
   wf.manager.kill(`${compareId}-synth`);
-  console.log(`[archon] [${workflowId.slice(0, 8)}] compare ${compareId} cancel requested`);
+  console.log(`[arco] [${workflowId.slice(0, 8)}] compare ${compareId} cancel requested`);
 }

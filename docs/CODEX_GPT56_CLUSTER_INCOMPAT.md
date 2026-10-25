@@ -5,7 +5,7 @@
 told *"You are `/root`, the primary agent in a team of agents"*, gets native `spawn_agent` /
 `send_message` tools, and its tool surface becomes a JS `exec` code cell). Arco's cluster peer
 tools are **not removed** in that mode — they move INSIDE the exec cell's `tools` namespace under
-mangled names (`tools.mcp__archon_cluster__peer_send`). The incident member ignored the peer
+mangled names (`tools.mcp__arco_cluster__peer_send`). The incident member ignored the peer
 substrate because Arco's role text said "peer_send" — a name that doesn't exist in its world —
 while the harness gave its own `send_message` top billing. **Fix (shipped): a code-mode addendum
 folded into the cluster role blocks that names the exec-cell tools verbatim and disclaims the
@@ -34,26 +34,26 @@ called from inside `functions.exec`."* The model's tool surface becomes a JS `ex
 (`custom_tool_call` items running `await tools.exec_command({...})` style code).
 
 The original write-up concluded the MCP tools were demoted and unreachable. **That was wrong.**
-Live enumeration of `Object.keys(tools)` inside a terra exec cell (with the archon-cluster MCP
+Live enumeration of `Object.keys(tools)` inside a terra exec cell (with the arco-cluster MCP
 server wired exactly as Arco wires it) shows the peer tools present and callable:
 
 ```
-mcp__archon_cluster__peer_list
-mcp__archon_cluster__peer_read
-mcp__archon_cluster__peer_send
+mcp__arco_cluster__peer_list
+mcp__arco_cluster__peer_read
+mcp__arco_cluster__peer_send
 ```
 
-Note the mangling: server name `archon-cluster` → `archon_cluster` (dash → underscore), then
+Note the mangling: server name `arco-cluster` → `arco_cluster` (dash → underscore), then
 `mcp__<server>__<tool>`. This is a **third** wire shape for the same tool — Native sees bare
-`peer_send`, Claude CLI sees `mcp__archon-cluster__peer_send` (dash preserved), Codex code mode
-sees `tools.mcp__archon_cluster__peer_send` (dash → underscore, inside the exec namespace).
+`peer_send`, Claude CLI sees `mcp__arco-cluster__peer_send` (dash preserved), Codex code mode
+sees `tools.mcp__arco_cluster__peer_send` (dash → underscore, inside the exec namespace).
 
 So the two symptoms decompose as:
 
 | Symptom | Mechanism |
 |---|---|
 | "Thinks it's the director" | Codex's harness prompt tells it *it* is `/root`, the primary agent of its own team. Arco's folded "Standard Builder" role hint loses to it. |
-| "Never sends peer mail" | The model is told to coordinate via native `spawn_agent`/`send_message`; Arco's role text names `peer_send`, which does not exist as a top-level tool in code mode. The model can't map "peer_send" to `tools.mcp__archon_cluster__peer_send`, so it never finds the substrate. It DID try to coordinate — the incident rollout shows 6 native `send_message` calls (to `/root`, i.e. its reply channel) — through the only surface it knew. |
+| "Never sends peer mail" | The model is told to coordinate via native `spawn_agent`/`send_message`; Arco's role text names `peer_send`, which does not exist as a top-level tool in code mode. The model can't map "peer_send" to `tools.mcp__arco_cluster__peer_send`, so it never finds the substrate. It DID try to coordinate — the incident rollout shows 6 native `send_message` calls (to `/root`, i.e. its reply channel) — through the only surface it knew. |
 
 **Not an Arco wiring bug** — the MCP child was alive, the role text reached the prompt, and the
 tools were in the namespace the whole time. A discoverability collision, not a capability loss.
@@ -74,10 +74,10 @@ Post-incident verification (2026-07-09, this investigation):
 
 | Test | Transport | Result |
 |---|---|---|
-| `Object.keys(tools)` enumeration in exec cell | `codex exec`, default code mode | `mcp__archon_cluster__peer_*` present |
+| `Object.keys(tools)` enumeration in exec cell | `codex exec`, default code mode | `mcp__arco_cluster__peer_*` present |
 | "call peer_read" with exact exec-namespace name | `codex exec`, default code mode | tool call received by MCP server, first try |
 | Amended role hint (see §5) + file task | `codex exec`, default code mode | peer_read → task → peer_send ACK → *"No, I am not the Director; I'm the Standard Builder."* |
-| Same, via `thread/start` + `turn/start` with Arco's exact app-server param shapes and `-c mcp_servers.archon-cluster.*` overrides | **app-server** | peer_read → peer_list → task (verified) → peer_send ACK → *"No—I am the Standard Builder, not the Director."* 10.8 s turn. MCP calls surface as normal `mcpToolCall` items. |
+| Same, via `thread/start` + `turn/start` with Arco's exact app-server param shapes and `-c mcp_servers.arco-cluster.*` overrides | **app-server** | peer_read → peer_list → task (verified) → peer_send ACK → *"No—I am the Standard Builder, not the Director."* 10.8 s turn. MCP calls surface as normal `mcpToolCall` items. |
 
 ## 4. The fix (shipped)
 
@@ -87,7 +87,7 @@ Post-incident verification (2026-07-09, this investigation):
 - **`codexCodeModeClusterAddendum()`** — a ~700-byte block that (a) disclaims the harness's native
   collaboration tools ("spawn_agent / send_message do NOT reach this Arco cluster; being `/root`
   does not make you this cluster's director"), and (b) names the real tools verbatim:
-  `await tools.mcp__archon_cluster__peer_read()`, `…peer_send({to, content})`, `…peer_list()`, plus
+  `await tools.mcp__arco_cluster__peer_read()`, `…peer_send({to, content})`, `…peer_list()`, plus
   the naming rule for `cluster_task_*` / `cluster_plan_*`. The whole fix is the verbatim names —
   the model executes them correctly the moment it knows them.
 - **`codexModelUsesCodeMode(modelId, codexHome)`** — catalog-driven detection, no model-name regex.
@@ -110,8 +110,8 @@ Zero model authority added — pure context, same four-question posture as the p
 The live-verified amendment, in role-hint position:
 
 > IMPORTANT — your Arco peer tools are MCP tools that live INSIDE your exec code environment's
-> tools namespace: `tools.mcp__archon_cluster__peer_read()`,
-> `tools.mcp__archon_cluster__peer_send({to, content})`, `tools.mcp__archon_cluster__peer_list()`.
+> tools namespace: `tools.mcp__arco_cluster__peer_read()`,
+> `tools.mcp__arco_cluster__peer_send({to, content})`, `tools.mcp__arco_cluster__peer_list()`.
 > The native spawn_agent / send_message / followup_task tools belong to a DIFFERENT system and do
 > not reach your Arco cluster; do not use them for cluster coordination. You are NOT the director.
 
@@ -165,7 +165,7 @@ The multi-agent harness is a feature 5.6 ships to Plus in full, not a limitation
 ## 9. Reproduce / re-verify
 
 ```bash
-export CODEX_HOME=~/.archon/provider-accounts/codex-home   # or -work
+export CODEX_HOME=~/.arco/provider-accounts/codex-home   # or -work
 cd /tmp/scratch
 
 # Which models are code-mode, per the catalog codex actually uses:
@@ -174,11 +174,11 @@ python3 -c "import json,os; [print(m['slug'], m.get('tool_mode'), m.get('multi_a
 
 # Enumerate the exec-cell tools namespace with an MCP server wired (any stdio MCP server):
 codex exec --dangerously-bypass-approvals-and-sandbox \
-  -c 'mcp_servers.archon-cluster.command="node"' \
-  -c 'mcp_servers.archon-cluster.args=["<path to any stdio MCP server>"]' \
+  -c 'mcp_servers.arco-cluster.command="node"' \
+  -c 'mcp_servers.arco-cluster.args=["<path to any stdio MCP server>"]' \
   --model gpt-5.6-terra --skip-git-repo-check \
   "In your exec code environment, evaluate Object.keys(tools) and report the result verbatim."
-# → expect mcp__archon_cluster__* entries. If a future codex changes the mangling, update
+# → expect mcp__arco_cluster__* entries. If a future codex changes the mangling, update
 #   codexCodeModeClusterAddendum() and its test.
 
 # Harness present/absent probe (original recipe still valid):
@@ -199,7 +199,7 @@ never reached the model. The director's shared plan block was 18.7 KB, and the s
 first, so the cap silently evicted everything behind it: the peer-mailbox notice, the role hint,
 the code-mode addendum, and the efficiency doctrine. Rollout forensics
 (`rollout-2026-07-09T23-11-12-*.jsonl`, workflow `6e7c4bce`): the injected block contains the plan
-+ truncation marker and zero occurrences of `peer_read` / `mcp__archon_cluster__` / "Your role in
++ truncation marker and zero occurrences of `peer_read` / `mcp__arco_cluster__` / "Your role in
 this cluster". The member behaved exactly as §2 predicts for an unbriefed code-mode model — called
 native `list_agents`, picked plan items (Bugs 3–5), started freelancing.
 

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { ChatMessage as ChatMessageType } from '@archon/shared';
+import type { ChatMessage as ChatMessageType } from '@arco/shared';
 import { ChatMessage } from './ChatMessage';
 import { PriorSessionsSection } from './PriorSessionsSection';
 import { isHandoffSeed } from './HandoffSeedPill';
@@ -812,7 +812,7 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
                 border: '2px solid var(--color-accent-primary-dim)',
                 borderTopColor: 'var(--color-accent-primary)',
                 borderRadius: '50%',
-                animation: 'archon-spin 0.8s linear infinite',
+                animation: 'arco-spin 0.8s linear infinite',
               }}
             />
             COMPACTING CONVERSATION…

@@ -1,4 +1,4 @@
-// ── Operations diagnostics (ARCHON_OPS_PLAN.md §A1) ──
+// ── Operations diagnostics (ARCO_OPS_PLAN.md §A1) ──
 //
 // The shared response contract for GET /api/diagnostics. The server builds a
 // DiagnosticsReport from a pure check registry (server/src/diagnostics/checks.ts);
@@ -15,7 +15,7 @@ import type { LlamacppServeDiagnosis } from './llamacppDiagnose.js';
 // Status semantics (deterministic, operator-readable — four-question fence):
 //   ok      — the probe ran and the thing works.
 //   warn    — degraded or an optional dependency is absent (e.g. ffmpeg not
-//             installed, TS language server not on PATH). Not an error: Archon
+//             installed, TS language server not on PATH). Not an error: Arco
 //             still functions, the operator just loses a capability.
 //   error   — something that should work doesn't (e.g. the data dir is not
 //             writable). A thrown probe also lands here with its message.
@@ -56,13 +56,13 @@ export interface DiagnosticsReport {
   groups: DiagnosticGroup[];
   // ms epoch the report was generated.
   generatedAt: number;
-  // Archon package version (package.json `version`).
-  archonVersion: string;
+  // Arco package version (package.json `version`).
+  arcoVersion: string;
   // `${process.platform}/${process.arch}` — e.g. "linux/x64", "darwin/arm64".
   platform: string;
 }
 
-// ── Support bundle (ARCHON_OPS_PLAN.md §A2 + Appendix D) ──
+// ── Support bundle (ARCO_OPS_PLAN.md §A2 + Appendix D) ──
 //
 // A paste-ready, REDACTED snapshot of this machine's diagnostics + versions,
 // suitable for an issue or another agent. Built server-side by
@@ -85,9 +85,9 @@ export interface SupportBundleRuntime {
 export interface SupportBundle {
   // ms epoch the bundle was generated.
   generatedAt: number;
-  // Archon package version (package.json `version`).
-  archonVersion: string;
-  // Short git rev of the Archon checkout (e.g. "9ed6aef"), or "unknown".
+  // Arco package version (package.json `version`).
+  arcoVersion: string;
+  // Short git rev of the Arco checkout (e.g. "9ed6aef"), or "unknown".
   gitRev: string;
   // `${os}/${arch}` — e.g. "linux/x64".
   platform: string;
@@ -106,7 +106,7 @@ export interface SupportBundleResponse {
   text: string;
 }
 
-// ── Local model health panel (ARCHON_OPS_PLAN.md §A3) ──
+// ── Local model health panel (ARCO_OPS_PLAN.md §A3) ──
 //
 // A model-operator-focused readout: "what can I run now / what's running / what
 // failed last time / is my config stale?". Distinct from the A1 Diagnostics tab
@@ -157,7 +157,7 @@ export interface LlamacppHealth {
   status: DiagnosticStatus;
   // Resolved llama-server binary path (which lookup), or null if not on PATH.
   binaryPath: string | null;
-  // Registered loadouts from ~/.archon/llamacpp.json (alias + GGUF basename).
+  // Registered loadouts from ~/.arco/llamacpp.json (alias + GGUF basename).
   modelCount: number;
   models: ModelHealthModel[];
   // Lifecycle-manager state + the live-load fields when a model is resident.
@@ -170,7 +170,7 @@ export interface LlamacppHealth {
   // The argv of the most recent llama-server spawn (retained in-process by the
   // manager). Absent if no spawn has happened this server lifetime.
   lastLaunchArgs?: string[];
-  // Tail of ~/.archon/llamacpp.log (the manager's spawn/stderr sink) — the last
+  // Tail of ~/.arco/llamacpp.log (the manager's spawn/stderr sink) — the last
   // ~40 lines, redaction-free paths since this is a local-operator panel. Absent
   // if the log doesn't exist yet.
   lastStderrTail?: string;
@@ -205,7 +205,7 @@ export interface ModelFitWarning {
 export interface CookbookHealth {
   status: DiagnosticStatus;
   hardware: HardwareProfile;
-  // GGUF files present under ~/.archon/models (the Cookbook download target).
+  // GGUF files present under ~/.arco/models (the Cookbook download target).
   downloadedModelCount: number;
   downloadedModels: ModelHealthModel[];
   // Fit mismatches across the registered llama.cpp catalog vs detected hardware.

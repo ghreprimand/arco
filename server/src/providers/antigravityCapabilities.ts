@@ -3,7 +3,7 @@
 // manager for `ensureRunning()`). Splitting these constants out breaks the
 // import cycle.
 //
-// Values reflect what Archon's RPC integration actually drives today, not
+// Values reflect what Arco's RPC integration actually drives today, not
 // what Antigravity-the-desktop-app supports. Keep this list narrow: any field
 // that flips to `true` / `supported` must have a smoke test or docs entry
 // backing it.
@@ -21,7 +21,7 @@
 //                            from the workflow cwd, plus exact cascade brain
 //                            dirs when present. Generated-image RPC shapes
 //                            remain unproven, so this stays `partial`.
-//   contextAccounting      — Antigravity owns context; Archon does not invent
+//   contextAccounting      — Antigravity owns context; Arco does not invent
 //                            CTX percentages for this provider.
 
 export type AntigravityCapabilityState =

@@ -41,8 +41,8 @@ import { useTabSingleton } from './hooks/useTabSingleton';
 import { useTensionDriver } from './hooks/useTension';
 import { installThemeScramble } from './utils/themeScramble';
 import { useAppStore } from './stores/appStore';
-import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArchonSettings } from '@archon/shared';
-import { PRIMARY_PROVIDERS, RESEARCH_DEFAULT_ROUNDS } from '@archon/shared';
+import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
+import { PRIMARY_PROVIDERS, RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
 
 const USAGE_POLL_MS = 3 * 60 * 1000;
 // Faster cadence than auth so the LIVE/READY swap actually tracks model
@@ -115,7 +115,7 @@ function AppBody() {
   // mid-restart), in which case the on-mount HTTP fetches race the listener
   // and fail silently. The WS reconnects on its own; re-keying the fetch
   // effects on `connected` makes settings/capabilities/auth repopulate
-  // without a manual page refresh after every Archon restart.
+  // without a manual page refresh after every Arco restart.
   const connected = useAppStore((s) => s.connected);
 
   const restartServer = async () => {
@@ -160,7 +160,7 @@ function AppBody() {
   useEffect(() => {
     if (!connected) return;
     fetch('/api/settings')
-      .then((r) => r.json() as Promise<ArchonSettings>)
+      .then((r) => r.json() as Promise<ArcoSettings>)
       .then(setSettings)
       .catch(() => { /* fail-open: components treat null settings as all-enabled */ });
   }, [setSettings, connected]);
@@ -448,8 +448,8 @@ function AppBody() {
   // mouse-only discovery opens the same cheat sheet the hotkey toggles.
   useEffect(() => {
     const onOpen = () => setCheatSheetOpen(true);
-    window.addEventListener('archon:open-shortcuts', onOpen);
-    return () => window.removeEventListener('archon:open-shortcuts', onOpen);
+    window.addEventListener('arco:open-shortcuts', onOpen);
+    return () => window.removeEventListener('arco:open-shortcuts', onOpen);
   }, []);
 
   const activeJob = activeJobId ? jobs[activeJobId] : undefined;
@@ -475,7 +475,7 @@ function AppBody() {
   // disables git-diff for member routing, so null here is defensive only.
   const buildClusterReviewTask = (
     targetWfid: string,
-    contextRef: import('@archon/shared').ReviewContextRef,
+    contextRef: import('@arco/shared').ReviewContextRef,
     includeGitDiff: boolean,
   ): string | null => {
     const store = useAppStore.getState();
@@ -488,7 +488,7 @@ function AppBody() {
       const m = cluster?.members.find((mm) => mm.workflowId === targetWfid);
       return m?.displayName ?? targetWfid.slice(0, 8);
     })();
-    const formatMessage = (m: import('@archon/shared').ChatMessage): string | null => {
+    const formatMessage = (m: import('@arco/shared').ChatMessage): string | null => {
       if (m.role === 'ctx-divider' || m.toolUse) return null;
       if (m.role === 'system') {
         // Strip pure-metadata pills; keep substantive system content (inlined
@@ -889,7 +889,7 @@ ${scopeBody}
                 setClusterPlan(cid, body);
                 // After promotion, detach the worker's local plan so the
                 // cluster plan is the single source of truth. Without this,
-                // the per-tab `.archon/plans/<planId>.md` file lingers as a
+                // the per-tab `.arco/plans/<planId>.md` file lingers as a
                 // snapshot and Read tools see a stale version after
                 // cluster_plan_tick updates the cluster plan body — the
                 // exact confusion the operator hit on 2026-05-11.
@@ -959,7 +959,7 @@ ${scopeBody}
           // we close the modal so the panel is visible.
           onRevealInFiles={() => {
             if (activeJob) {
-              window.dispatchEvent(new CustomEvent('archon:reveal-in-files', { detail: { workflowId: activeJob.id } }));
+              window.dispatchEvent(new CustomEvent('arco:reveal-in-files', { detail: { workflowId: activeJob.id } }));
             }
             setMediaStudio({ open: false });
           }}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {ComputerActivity} from './activityStore.js';
-import type {ComputerActivityEvent} from '@archon/shared';
+import type {ComputerActivityEvent} from '@arco/shared';
 const event=(id:string,kind:ComputerActivityEvent['kind']='worker_finished',ownerId?:string):ComputerActivityEvent=>({id,kind,at:Date.now(),workflowId:'builder-1',ownerId,name:'Builder 1'});
 test('default collects facts without model calls; opt-in selects completion or matched events',()=>{
   const s=new ComputerActivity();s.add(event('a'));assert.equal(s.snapshot('c').ledger.length,1);assert.equal(s.queued('c').length,0);

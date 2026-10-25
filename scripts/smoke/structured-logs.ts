@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §B3 — structured file logger smoke.
+// ARCO_OPS_PLAN.md §B3 — structured file logger smoke.
 //
 // Tests the PURE logger only — createFileLogger's JSONL format + size-based
 // rotation + keep-bound — and the new `logs --journal` arg-parse. NO live
@@ -22,10 +22,10 @@ function lineCount(file: string): number {
 }
 
 async function main() {
-  const dir = mkdtempSync(join(tmpdir(), 'archon-logs-'));
+  const dir = mkdtempSync(join(tmpdir(), 'arco-logs-'));
   try {
     await step('each write is one JSON line with ts/level/msg + merged fields', () => {
-      const sub = mkdtempSync(join(tmpdir(), 'archon-logs-fmt-'));
+      const sub = mkdtempSync(join(tmpdir(), 'arco-logs-fmt-'));
       const log = createFileLogger({ dir: sub });
       try {
         log.write('info', 'hello world', { wfid: 'abc12345', n: 7 });
@@ -48,19 +48,19 @@ async function main() {
       }
     });
 
-    await step('exceeding maxBytes rotates: archon.log.1 appears, live log resets', () => {
+    await step('exceeding maxBytes rotates: arco.log.1 appears, live log resets', () => {
       // ~120-byte lines; maxBytes 400 forces a rotation every ~3-4 lines. keep
       // is set high enough that no rotated file rolls off within N lines, so the
       // "every line accounted for" sum below is exact.
       const log = createFileLogger({ dir, maxBytes: 400, keep: 20 });
-      const live = join(dir, 'archon.log');
-      const rotated1 = join(dir, 'archon.log.1');
+      const live = join(dir, 'arco.log');
+      const rotated1 = join(dir, 'arco.log.1');
       try {
         const N = 20;
         for (let i = 0; i < N; i++) {
           log.write('info', `line number ${i} with some padding to grow the byte count nicely`, { i });
         }
-        assert(existsSync(rotated1), 'archon.log.1 exists after rotation');
+        assert(existsSync(rotated1), 'arco.log.1 exists after rotation');
         // The live log holds only the post-last-rotation tail → strictly fewer
         // than all N lines, and its byte counter was reset below maxBytes.
         const liveLines = lineCount(live);
@@ -70,7 +70,7 @@ async function main() {
         // Every written line is accounted for across live + all rotated files.
         let total = lineCount(live);
         for (const f of readdirSync(dir)) {
-          if (/^archon\.log\.\d+$/.test(f)) total += lineCount(join(dir, f));
+          if (/^arco\.log\.\d+$/.test(f)) total += lineCount(join(dir, f));
         }
         assertEq(total, N, `all ${N} lines accounted for across live + rotated files`);
       } finally {
@@ -79,7 +79,7 @@ async function main() {
     });
 
     await step('keep bound respected: no unbounded .6/.7 rotated files', () => {
-      const sub = mkdtempSync(join(tmpdir(), 'archon-logs-keep-'));
+      const sub = mkdtempSync(join(tmpdir(), 'arco-logs-keep-'));
       const keep = 3;
       const log = createFileLogger({ dir: sub, maxBytes: 200, keep });
       try {
@@ -87,7 +87,7 @@ async function main() {
         for (let i = 0; i < 200; i++) {
           log.write('info', `padding line ${i} aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`);
         }
-        const rotated = readdirSync(sub).filter((f) => /^archon\.log\.\d+$/.test(f));
+        const rotated = readdirSync(sub).filter((f) => /^arco\.log\.\d+$/.test(f));
         assert(rotated.length <= keep, `at most ${keep} rotated files (got ${rotated.length}: ${rotated.join(', ')})`);
         // The highest index must not exceed `keep` (no .4 when keep=3).
         for (const f of rotated) {

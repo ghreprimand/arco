@@ -12,7 +12,7 @@
 // codex-appserver/catalog.ts.
 
 import { ensureLiveTokens, ensureProjectId } from './auth.js';
-import type { GeminiCatalogModel, GeminiCatalogSnapshot } from '@archon/shared';
+import type { GeminiCatalogModel, GeminiCatalogSnapshot } from '@arco/shared';
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 

@@ -32,7 +32,7 @@ const CLIENT_ID = Buffer.from(CLIENT_ID_B64, 'base64').toString('utf8');
 
 const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
 const TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
-const CALLBACK_HOST = process.env.ARCHON_OAUTH_CALLBACK_HOST || '127.0.0.1';
+const CALLBACK_HOST = process.env.ARCO_OAUTH_CALLBACK_HOST || '127.0.0.1';
 const CALLBACK_PORT = 53692;
 const CALLBACK_PATH = '/callback';
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
@@ -380,7 +380,7 @@ export function getClaudeAuthProblem(): { since: number; detail: string } | null
   return claudeAuthProblem;
 }
 
-// Thrown when ~/.archon/auth.json has no claude.native key. The worker
+// Thrown when ~/.arco/auth.json has no claude.native key. The worker
 // catches `code === 'NO_AUTH'` and surfaces the [AUTH:claude] system_notice
 // that the chat renderer turns into a RE-LOGIN button.
 export class ClaudeNativeNoAuthError extends Error {

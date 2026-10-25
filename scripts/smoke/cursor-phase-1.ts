@@ -5,7 +5,7 @@
 // exercises the real `cursor-agent acp` transport end-to-end (spawn → ACP
 // handshake → session/new → session/prompt → session/update deltas → settle).
 //
-//   ARCHON_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-1.ts
+//   ARCO_SMOKE_WS_URL=ws://localhost:3011/ws npx tsx scripts/smoke/cursor-phase-1.ts
 //
 // ⚠️ METERED: makes one real Cursor turn on `--model auto` (tiny prompt). The
 // worker must be logged in (`cursor-agent login`) or the turn fails.

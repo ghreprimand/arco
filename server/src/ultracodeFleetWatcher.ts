@@ -19,7 +19,7 @@
 
 import { readFile, readdir, stat } from 'fs/promises';
 import { join } from 'path';
-import type { UltracodeFleetProgressMessage, UltracodeFleetAgent } from '@archon/shared';
+import type { UltracodeFleetProgressMessage, UltracodeFleetAgent } from '@arco/shared';
 import { resolveSubagentsWorkflowsDir } from './sessionJsonl.js';
 
 const POLL_MS = 1500;

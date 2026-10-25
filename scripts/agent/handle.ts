@@ -1,9 +1,9 @@
-// archon-agent §6 — handle a signed lifecycle command end-to-end:
+// arco-agent §6 — handle a signed lifecycle command end-to-end:
 //   verify (signature/freshness/replay/instance) → render allowlisted argv →
 //   execute via an injectable runner → return a LifecycleResult.
 //
 // The runner is injected so the smoke can assert which argv was dispatched
-// WITHOUT spawning systemctl (and so it runs on macOS too). archon-agent.ts
+// WITHOUT spawning systemctl (and so it runs on macOS too). arco-agent.ts
 // supplies the real systemctl/journalctl runner.
 //
 // Import path for scripts/smoke: '../agent/handle.js'

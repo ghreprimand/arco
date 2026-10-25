@@ -167,7 +167,7 @@ export async function runCalibration(
     if (registerCancel) registerCancel(cancelFn);
 
     try {
-      // Pass --model so /context renders for the model Archon's session is
+      // Pass --model so /context renders for the model Arco's session is
       // actually using. Without it, claude resumes with the user's default
       // model — whose /context output may not reconcile (sessions with
       // mid-flight kills can show messages > total under some models, which

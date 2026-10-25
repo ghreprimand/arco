@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo): void {
     this.setState({ componentStack: info.componentStack ?? null });
     // Surface to the console too, so it lands in any log capture.
-    console.error('[archon] render boundary caught:', error, info.componentStack);
+    console.error('[arco] render boundary caught:', error, info.componentStack);
   }
 
   private reset = () => this.setState({ error: null, componentStack: null });

@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §A2 — Support bundle endpoint + redaction smoke.
+// ARCO_OPS_PLAN.md §A2 — Support bundle endpoint + redaction smoke.
 //
 // Two halves:
 //   1. Unit-tests the redaction helpers directly (imported from the server
@@ -16,7 +16,7 @@ import { step, assert, assertEq, summary } from './lib.js';
 import { redactPaths, scrubSecrets } from '../../server/src/diagnostics/supportBundle.js';
 import type { SupportBundleResponse } from '../../shared/src/protocol/opsDiagnostics.js';
 
-const HTTP_BASE = process.env.ARCHON_SMOKE_HTTP_BASE || 'http://localhost:3001';
+const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
 
 // Secret shapes the bundle must never contain. Mirror the builder's patterns;
 // the smoke is the independent assertion that the scrub holds.
@@ -32,9 +32,9 @@ async function main() {
   // ── unit: redactPaths ──
   await step('redactPaths: collapses the home dir to ~', () => {
     const home = process.env.HOME || '/home/nobody';
-    const out = redactPaths(`wrote ${home}/.archon but readback mismatched`);
+    const out = redactPaths(`wrote ${home}/.arco but readback mismatched`);
     assert(!out.includes(home), `home dir must not survive (got: ${out})`);
-    assert(out.includes('~/.archon') || out.includes('~'), `home should collapse to ~ (got: ${out})`);
+    assert(out.includes('~/.arco') || out.includes('~'), `home should collapse to ~ (got: ${out})`);
   });
 
   await step('redactPaths: reduces a non-home absolute path to a basename placeholder', () => {
@@ -54,7 +54,7 @@ async function main() {
   });
 
   await step('scrubSecrets: a short git rev (7 hex) is NOT mistaken for a secret', () => {
-    const out = scrubSecrets('archon: v0.1.0 (9ed6aef)');
+    const out = scrubSecrets('arco: v0.1.0 (9ed6aef)');
     assert(out.includes('9ed6aef'), `short rev must survive (got: ${out})`);
   });
 
@@ -73,7 +73,7 @@ async function main() {
   await step('bundle.json carries the allowlisted fields + the diagnostics report', () => {
     const j = body.json;
     assert(typeof j.generatedAt === 'number', 'generatedAt is a number');
-    assert(typeof j.archonVersion === 'string', 'archonVersion is a string');
+    assert(typeof j.arcoVersion === 'string', 'arcoVersion is a string');
     assert(typeof j.gitRev === 'string', 'gitRev is a string');
     assert(typeof j.platform === 'string' && j.platform.includes('/'), 'platform looks like os/arch');
     assert(j.runtime && typeof j.runtime.node === 'string', 'runtime.node present');

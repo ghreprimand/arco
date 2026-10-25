@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
 
-const CWD = '/home/operator/Projects/Archon';
+const CWD = '/home/operator/Projects/Arco';
 
 async function main(): Promise<void> {
   const { evaluateGate, gateSignature, classifyGate, gateOutcome } = await import(

@@ -1,7 +1,7 @@
 import { PendingQuestionsButton } from './PendingQuestionsButton';
 import { GenerationSpeedReadout } from './GenerationSpeedReadout';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { EffortLevel, ModelName, ProviderName } from '@archon/shared';
+import type { EffortLevel, ModelName, ProviderName } from '@arco/shared';
 import { useAppStore, type DraftAttachment, type JobState } from '../stores/appStore';
 import { useDraftStore } from '../stores/draftStore';
 import { claudeModelLabel, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
@@ -23,7 +23,7 @@ interface Props {
 const MAX_INPUT_HEIGHT_PX = 200;
 
 // Client mirror of the server's CHAT_WEB_PROVIDERS (server/src/chatMode.ts).
-// Only these transports have a web tool Archon can arm per turn — the rest
+// Only these transports have a web tool Arco can arm per turn — the rest
 // stay offline, and the header says so rather than showing a dead toggle.
 const WEB_CAPABLE: ReadonlySet<ProviderName> = new Set<ProviderName>(['claude', 'codex', 'ollama', 'strata', 'deepseek']);
 
@@ -56,7 +56,7 @@ export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, o
   // incognito (a search query leaves the machine, so incognito opts in).
   const webArmed = webCapable
     && (typeof job.config.chatWebAccess === 'boolean' ? job.config.chatWebAccess : !incognito);
-  // Uploads land in ~/.archon/uploads and are logged there by name, which an
+  // Uploads land in ~/.arco/uploads and are logged there by name, which an
   // incognito chat's "nothing touches disk" contract can't allow.
   const canAttach = !incognito;
 
@@ -103,7 +103,7 @@ export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, o
     if (failed.length > 0) setUploadError(`Upload failed: ${failed.join(', ')}`);
   }, [onUpload, addAttachment, job.id, canAttach]);
 
-  // App-wide drops land here via DragOverlay's `archon:attach-files` event.
+  // App-wide drops land here via DragOverlay's `arco:attach-files` event.
   // TerminalInput owns that event on Agent tabs; a Chat tab never mounts
   // TerminalInput, so without this listener a dropped file vanished silently
   // despite the "paste or drop" hint.
@@ -112,8 +112,8 @@ export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, o
       const detail = (e as CustomEvent).detail as { files: File[] } | undefined;
       if (detail?.files?.length) void uploadAndAppend(detail.files);
     };
-    window.addEventListener('archon:attach-files', handler);
-    return () => window.removeEventListener('archon:attach-files', handler);
+    window.addEventListener('arco:attach-files', handler);
+    return () => window.removeEventListener('arco:attach-files', handler);
   }, [uploadAndAppend]);
 
   const submit = () => {

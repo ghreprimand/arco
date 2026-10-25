@@ -1,4 +1,4 @@
-// ARCHON_OPS_PLAN.md §F3 — backup restore smoke (no live server, no real ~/.archon).
+// ARCO_OPS_PLAN.md §F3 — backup restore smoke (no live server, no real ~/.arco).
 //
 // This is the SECURITY acceptance gate the director reviews line by line. It
 // exercises the pure planRestore + the effecting applyRestore against temp dirs
@@ -50,9 +50,9 @@ function buildGoodManifest(files: ArchiveFile[]): BackupManifest {
     redactions: [],
   };
   return buildManifest({
-    archonVersion: FIXED_VERSION,
+    arcoVersion: FIXED_VERSION,
     createdAt: FIXED_CREATED_AT,
-    sourceRoot: '~/.archon',
+    sourceRoot: '~/.arco',
     walk,
   });
 }
@@ -65,7 +65,7 @@ function freshRoot(): string {
 }
 
 async function main(): Promise<void> {
-  SCRATCH = mkdtempSync(join(tmpdir(), 'archon-restore-smoke-'));
+  SCRATCH = mkdtempSync(join(tmpdir(), 'arco-restore-smoke-'));
   const goodArchive = writeArchive(buildGoodManifest(FIXTURE_FILES), FIXTURE_FILES);
 
   await step('happy path: clean archive plans + applies; bytes + structure match', () => {
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
       // Build a manifest that "declares" the evil path so verify's cross-check
       // wouldn't be the thing failing — we want to prove the PATH check fires.
       const walk: WalkResult = { files: files.map((f) => ({ ...f })), skipped: [], redactions: [] };
-      const m = buildManifest({ archonVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
+      const m = buildManifest({ arcoVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
       const archive = writeArchive(m, files);
       const plan = planRestore(archive, root);
       assert(plan.aborted !== undefined, `malicious relPath "${evil}" must abort the plan`);
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
     const root = freshRoot();
     const files: ArchiveFile[] = [{ relPath: 'skills/ok/file.md', bytes: Buffer.from('safe', 'utf8') }];
     const walk: WalkResult = { files: files.map((f) => ({ ...f })), skipped: [], redactions: [] };
-    const m = buildManifest({ archonVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
+    const m = buildManifest({ arcoVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
     const plan = planRestore(writeArchive(m, files), root);
     // Sanity: the safe path is planned (so we know the harness builds valid archives).
     assert(plan.aborted === undefined, 'safe archive does not abort');
@@ -168,7 +168,7 @@ async function main(): Promise<void> {
     symlinkSync(elsewhere, join(root, 'skills', 'linkdir'));
 
     const walk: WalkResult = { files: files.map((f) => ({ ...f })), skipped: [], redactions: [] };
-    const m = buildManifest({ archonVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
+    const m = buildManifest({ arcoVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
     const plan = planRestore(writeArchive(m, files), root);
     assert(plan.aborted === undefined, 'plan itself does not abort (symlink is a target-tree concern)');
 
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
       many.push({ relPath: `skills/f${i}.md`, bytes: Buffer.alloc(0) });
     }
     const walk: WalkResult = { files: many.map((f) => ({ ...f })), skipped: [], redactions: [] };
-    const m = buildManifest({ archonVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
+    const m = buildManifest({ arcoVersion: FIXED_VERSION, createdAt: FIXED_CREATED_AT, sourceRoot: '~', walk });
     const plan = planRestore(writeArchive(m, many), root);
     assert(plan.aborted !== undefined, 'over-cap archive aborts the plan');
     assert(/cap/i.test(plan.aborted!), `abort reason names the cap (got: ${plan.aborted})`);

@@ -5,7 +5,7 @@ import { connect, step, assert, assertEq, summary } from './lib.js';
 import * as taskLedger from '../../server/src/project/taskLedger.js';
 
 async function main() {
-  const cwd = mkdtempSync(join(tmpdir(), 'archon-cluster-replace-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-cluster-replace-'));
   const c = await connect();
   let clusterId = '';
   let original = '';
@@ -107,7 +107,7 @@ async function main() {
     );
     isolatedMember = (added.member as { workflowId: string }).workflowId;
     assert(
-      existsSync(join(homedir(), '.archon', 'clusters', clusterId, 'isolates', isolatedMember, 'workspace')),
+      existsSync(join(homedir(), '.arco', 'clusters', clusterId, 'isolates', isolatedMember, 'workspace')),
       'isolated workspace exists outside project',
     );
   });

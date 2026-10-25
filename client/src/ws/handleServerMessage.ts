@@ -17,7 +17,7 @@ import { useHubLinkStore } from '../stores/hubLinkStore';
 import { useOrchestrationAssistStore } from '../stores/orchestrationAssistStore';
 import { useLiveChangesStore } from '../stores/liveChangesStore';
 import { useClusterSnapshotsStore } from '../stores/clusterSnapshotsStore';
-import type { ServerMessage, ChatMessage, ModelName, EffortLevel, GenerationSpeed } from '@archon/shared';
+import type { ServerMessage, ChatMessage, ModelName, EffortLevel, GenerationSpeed } from '@arco/shared';
 import { formatTokPerSec, tokensPerSecond } from '../utils/format';
 import { narrativeEventFromMessage, trim80 } from '../utils/historyEvents';
 import { getStreamRef, streamingMsgs, looksLikePlan } from './streamState';
@@ -556,7 +556,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // But a late burst is rarely a single chunk — the final answer can
           // stream as dozens of deltas after primary_turn_ended. The original
           // guard minted one finalized bubble *per delta*, so the whole answer
-          // fragmented into a stack of "< ARCHON :: PASSTHROUGH" rows (one per
+          // fragmented into a stack of "< ARCO :: PASSTHROUGH" rows (one per
           // token-ish chunk). That fragmented state then persisted to
           // localStorage and reappeared on reload, while a clean seq-ordered
           // RESUME replay (where the text sits before primary_turn_ended) showed
@@ -1257,7 +1257,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             } catch (err) {
               // One malformed historical event must not abort the rest of the
               // member's history.
-              console.error('[archon] replay_batch event failed:', err);
+              console.error('[arco] replay_batch event failed:', err);
             }
           }
           break;
@@ -2184,7 +2184,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // graph; this result is kept for future audit/toast surfaces.
           break;
         case 'task_ledger_snapshot':
-          // ARCHON_OPS_PLAN.md §D1 — full cwd-scoped task list. Replace-in-
+          // ARCO_OPS_PLAN.md §D1 — full cwd-scoped task list. Replace-in-
           // place keyed by cwd; the server re-snapshots after every mutation
           // so the client never has to fold deltas.
           store.setTaskLedger(msg.cwd, msg.tasks, msg.boardKey);
@@ -2196,7 +2196,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // rebuildFromEvents. No-op on the wire.
           break;
         case 'mcp_registry_snapshot':
-          // ARCHON_OPS_PLAN.md §E1 — global registry (machine-wide). Replace
+          // ARCO_OPS_PLAN.md §E1 — global registry (machine-wide). Replace
           // wholesale; CRUD broadcasts re-snapshot every client.
           store.setMcpRegistry(msg.defs);
           break;
@@ -2216,7 +2216,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // dialog in the MCP config section (proceed re-sends with override).
           store.setMcpMalwareWarning({ pending: msg.pending, packages: msg.packages });
           break;
-        // ARCHON_OPS_PLAN.md M2 — Genesis.
+        // ARCO_OPS_PLAN.md M2 — Genesis.
         case 'genesis_seed_updated':
           store.setGenesisSeed(msg.workflowId, { seed: msg.seed, readiness: msg.readiness, nextPrompt: msg.nextPrompt });
           break;
@@ -2258,7 +2258,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 : `Genesis scaffold created ${msg.cwd}${msg.repoUrl ? ` · ${msg.repoUrl}` : ''}`,
           );
           break;
-        // ARCHON_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
+        // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
         case 'genesis_creative_armed':
           store.setGenesisCreative(msg.workflowId, {
             armed: msg.armed,

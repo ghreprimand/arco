@@ -48,7 +48,7 @@ models installed by `npm run voice:setup` are not part of the image.
 
 ## Persistence and permissions
 
-The arco-data volume is mounted at /data. HOME is /data/home, containing .archon,
+The arco-data volume is mounted at /data. HOME is /data/home, containing .arco,
 .codex and .claude. Uploads use /data/uploads. Container replacement preserves
 this volume. docker compose down preserves it; adding --volumes deletes it.
 Project files remain in the host bind mount.
@@ -137,7 +137,7 @@ Before replacing a running instance, finish or cancel active turns. From an
 Arco checkout with its npm dependencies installed, query the local instance you
 plan to update:
 
-    ARCHON_PREFLIGHT_URL=http://127.0.0.1:3001 npm run deploy:preflight
+    ARCO_PREFLIGHT_URL=http://127.0.0.1:3001 npm run deploy:preflight
 
 The default is http://127.0.0.1:3001; use the actual published loopback port if
 `ARCO_PORT` differs. Do not include credentials in the URL.
