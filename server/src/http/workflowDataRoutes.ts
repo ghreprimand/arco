@@ -3,7 +3,7 @@ import type { ChatMessage } from '@archon/shared';
 import { readFile, stat } from 'fs/promises';
 import { IncomingMessage, ServerResponse } from 'http';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { join, resolve, sep } from 'path';
 import {
   createPlan,
   deletePlan,

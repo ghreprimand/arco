@@ -29,7 +29,7 @@ A process-wide singleton `ptyManager` owns all sessions, keyed by id and tagged
 with their owning `workflowId`:
 
 - `spawn(workflowId, workflowRoot, requestedCwd?)` → spawns the operator's
-  `$SHELL` (fallback `/bin/bash`; on Windows `ComSpec` / `cmd.exe`) in a cwd
+  `$SHELL` (fallback `/bin/zsh` on macOS, `/bin/bash` elsewhere; `powershell.exe` on Windows) in a cwd
   resolved through **`resolveWithinCwd`** against the workflow root. A cwd that
   escapes the root **throws — no shell is spawned**. Returns the new `PtySession`.
 - `attach(sessionId, onData, onExit?)` → adds a viewer's listeners and returns

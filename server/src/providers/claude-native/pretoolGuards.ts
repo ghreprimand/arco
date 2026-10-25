@@ -24,7 +24,7 @@
 // (`config-protection` / `fact-force-first-edit`) so transcript review can
 // distinguish them.
 
-import { resolve, basename } from 'node:path';
+import { resolve, basename, parse, sep } from 'node:path';
 
 // Paths considered config that the model should not edit. Matched on the
 // resolved absolute path's basename — so any depth in the tree counts (a
@@ -271,7 +271,8 @@ function isCatastrophicRm(segment: string, cwd: string): boolean {
     // an ancestor of it (so `rm -rf ..`, `rm -rf $cwd`, `rm -rf /` all catch).
     let abs: string;
     try { abs = resolve(cwd, t); } catch { continue; }
-    if (abs === '/' || abs === resolve(cwd) || (resolve(cwd) + '/').startsWith(abs + '/')) return true;
+    // parse().root and sep keep the ancestor test right on Windows drive paths.
+    if (abs === '/' || abs === parse(abs).root || abs === resolve(cwd) || (resolve(cwd) + sep).startsWith(abs + sep)) return true;
   }
   return false;
 }

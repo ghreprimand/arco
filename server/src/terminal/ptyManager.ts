@@ -79,13 +79,13 @@ export interface PtySessionInfo {
 }
 
 // Resolve the operator's login shell. POSIX-first: $SHELL is the operator's
-// configured shell; fall back to /bin/bash. On Windows-port we can't assume a
-// POSIX shell, so honor ComSpec / cmd.exe there.
+// configured shell; fall back to /bin/zsh on macOS (its default login shell)
+// and /bin/bash elsewhere. Windows has no $SHELL; Windows PowerShell ships with
+// every supported release, so it is the default there.
 function resolveShell(): string {
-  if (process.platform === 'win32') {
-    return process.env.ComSpec || 'cmd.exe';
-  }
-  return process.env.SHELL || '/bin/bash';
+  if (process.platform === 'win32') return 'powershell.exe';
+  if (process.env.SHELL) return process.env.SHELL;
+  return process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash';
 }
 
 export class PtyManager {

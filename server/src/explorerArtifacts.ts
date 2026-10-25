@@ -15,7 +15,7 @@
 // is returned. `realpathWithinHome` is exported for the Phase 4 changed scan.
 
 import { readFile, readdir, realpath, stat } from 'fs/promises';
-import { basename, join, resolve } from 'path';
+import { basename, join, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { archonHome } from './archonHome.js';
 
@@ -44,7 +44,7 @@ export async function realpathWithinHome(p: string): Promise<string | null> {
   const home = resolve(homedir());
   try {
     const rp = await realpath(p);
-    if (rp === home || rp.startsWith(home + '/')) return rp;
+    if (rp === home || rp.startsWith(home + sep)) return rp;
     return null;
   } catch {
     return null;

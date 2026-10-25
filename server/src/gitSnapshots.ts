@@ -456,7 +456,7 @@ async function listTreePaths(cwd: string, gitDir: string, tree: string): Promise
 // File-vs-directory type changes matter too, so overlap includes descendants
 // in either direction rather than only exact pathname equality.
 function pathsOverlap(a: string, b: string): boolean {
-  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+  return a === b || a.startsWith(`${b}${path.sep}`) || b.startsWith(`${a}${path.sep}`);
 }
 
 async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<CheckpointResult | null> {

@@ -10,7 +10,7 @@ import { chmodSync,writeFileSync } from 'fs';
 import { mkdir,readdir,readFile,writeFile } from 'fs/promises';
 import { IncomingMessage,ServerResponse } from 'http';
 import { homedir,tmpdir } from 'os';
-import { basename,extname,join,resolve } from 'path';
+import { basename,extname,join,resolve,sep } from 'path';
 import { unloadLocalModels } from '../localModels.js';
 import { getAuthStatus,triggerAuthLogin } from '../auth.js';
 import { cliSnapshotDir,runCliUpdate,refreshRuntimeVersions,type CliProvider } from '../capabilities.js';
@@ -1036,7 +1036,7 @@ export async function handleHttpRequest(
       const fullPath = resolve(PROJECT_ROOT, requested);
       // Belt + suspenders: even after `..` rejection, ensure the canonical
       // path stayed inside PROJECT_ROOT (catches symlink shenanigans).
-      if (!fullPath.startsWith(PROJECT_ROOT + '/') && fullPath !== PROJECT_ROOT) {
+      if (!fullPath.startsWith(PROJECT_ROOT + sep) && fullPath !== PROJECT_ROOT) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'path escape' }));
         return;
@@ -2051,7 +2051,7 @@ async function tryServeClientDist(req: IncomingMessage, res: ServerResponse): Pr
   // Resolve against client/dist and confirm the canonical path stayed inside —
   // belt + suspenders over URL parsing already stripping `..` segments.
   const candidate = resolve(CLIENT_DIST, '.' + pathname);
-  const inDist = candidate === CLIENT_DIST || candidate.startsWith(CLIENT_DIST + '/');
+  const inDist = candidate === CLIENT_DIST || candidate.startsWith(CLIENT_DIST + sep);
 
   const sendFile = async (file: string, status: number): Promise<boolean> => {
     try {
