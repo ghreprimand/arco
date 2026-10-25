@@ -47,6 +47,8 @@ jobs:
       # scripts/test-unit.mjs isolates HOME, provider commands and (on Linux, when permitted) the
       # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
       - name: Unit tests
+        # A hung test must fail the step with output instead of holding the runner for the job limit.
+        timeout-minutes: 20
         run: npm run test:unit
       # Optional operator-held patterns (names, hosts) for the audit. The secret is written to a
       # temporary file and exposed only as ARCO_PRIVATE_PATTERNS_FILE; absent secret = no-op.
