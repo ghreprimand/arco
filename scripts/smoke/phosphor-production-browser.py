@@ -25,7 +25,7 @@ async def main():
     patch=req.post_data_json; writes.append(patch); settings={**settings, **patch}
    data={}
    if path == '/api/settings': data=settings
-   elif path == '/api/auth-status': data={name:{'loggedIn':name=='claude','installed':True,'cliInstalled':True} for name in ['claude','gemini','codex','zai','cursor','ollama','llamacpp','lmstudio','antigravity','github']}
+   elif path == '/api/auth-status': data={name:{'loggedIn':name=='claude','installed':True,'cliInstalled':True} for name in ['claude','gemini','codex','zai','cursor','ollama','llamacpp','lmstudio','strata','antigravity','deepseek','github']}
    elif path == '/api/capabilities': data={'efforts':['low','medium','high'],'models':['claude-opus-4-6'],'cliVersion':'fixture'}
    elif path == '/api/usage': data={'available':False}
    elif path.endswith('/catalog'): data={'models':[]}
@@ -44,7 +44,7 @@ async def main():
   await context.route_web_socket('**/*', lambda ws: ws.on_message(lambda msg: messages.append(msg)))
   page=await context.new_page(); page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('console',lambda msg: print(msg.text) if msg.type=='error' and 'Error' in msg.text else None)
-  await page.goto('http://127.0.0.1:5179/')
+  await page.goto(f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
   await page.wait_for_timeout(1000)
   await page.evaluate('''async () => {
     const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
@@ -115,7 +115,7 @@ async def main():
   assert settings['bgBrightness']==1
   assert await page.locator('html').evaluate("e=>e.style.getPropertyValue('--color-fg')")==before_ink
   await page.keyboard.press('ArrowLeft')
-  await page.get_by_role('button',name='CLOSE ✕',exact=True).click()
+  await page.get_by_role('button',name='Close settings',exact=True).click()
   await page.emulate_media(reduced_motion='reduce');await page.wait_for_timeout(200)
   frames=await page.evaluate('arcoPhosphorStats.frames');await page.wait_for_timeout(200)
   assert await page.evaluate('arcoPhosphorStats.frames')==frames

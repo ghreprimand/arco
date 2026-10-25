@@ -1,3 +1,4 @@
+import { useStartupStore } from '../stores/startupStore';
 // Client half of the server-authoritative workspace (server/src/workspace.ts).
 // The server owns which workflow / chat / cluster tabs are open; this module
 // reconciles the local Zustand store to it so every browser pointed at one
@@ -47,6 +48,7 @@ export function sendWorkspaceSync(ws: WebSocket): void {
 }
 
 export function applyWorkspace(ws: WebSocket | null, workspace: WorkspaceSnapshotPayload, initial: boolean): void {
+  useStartupStore.getState().setWorkspaceSynced(true);
   const store = useAppStore.getState();
   const wfIds = new Set(workspace.workflows.map((w) => w.workflowId));
   const clusterIds = new Set(workspace.clusters.map((c) => c.clusterId));

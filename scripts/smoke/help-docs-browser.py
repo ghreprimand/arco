@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
-URL = os.environ.get('ARCO_HELP_PREVIEW_URL', 'http://127.0.0.1:5179/')
+URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
 CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
 ART = Path('/tmp/arco-help-docs-review')
 
@@ -26,7 +26,7 @@ async def main():
                 writes.append(path)
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': []}
             if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}}
-            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'zai', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'antigravity', 'github']}
+            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'zai', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
             elif path.endswith('/catalog'): data = {'models': []}
             elif path == '/api/list-dirs': data = {'dirs': [], 'path': '/demo', 'parent': '/'}

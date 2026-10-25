@@ -2,6 +2,18 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'auth.connections': {
+    title: 'Connections', manualSection: 'settings-providers',
+    body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
+  },
+  'auth.login-flow': {
+    title: 'Provider sign-in', manualSection: 'settings-providers',
+    body: <p>Open the provider sign-in link and follow its instructions. Enter a returned code only when requested. The provider CLI stores credentials in the server home. Cancel stops this login; the terminal command remains available as a fallback.</p>,
+  },
+  'auth.provider-outage': {
+    title: 'Provider connection status', manualSection: 'settings-providers',
+    body: <p>Saved work remains available while providers are disconnected. Retry checks status, Connect a provider opens Connections, and Provider settings opens the existing controls. A connection check does not send a model turn.</p>,
+  },
   // -------------------------------------------------------------- CHAT PANEL
   'chat.panel': {
     title: 'Chat panel',

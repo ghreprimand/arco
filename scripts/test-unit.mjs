@@ -1,4 +1,4 @@
-// Aggregate only the fixture-based source unit tests, never smoke/live scripts.
+// Aggregate fixture-based source unit tests and the standalone onboarding UI unit suite.
 // Credentials and runtime settings from the invoking shell are not inherited.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ function testsIn(directory) {
     return entry.isFile() && /\.test\.(?:[cm]?js|tsx?)$/.test(entry.name) ? [path] : [];
   });
 }
-const files = ['shared/src', 'server/src', 'client/src'].flatMap(path => testsIn(join(root, path))).sort();
+const files = ['shared/src', 'server/src', 'client/src'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
 if (!files.length) throw new Error('No unit tests discovered.');
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-unit-'));
 try {

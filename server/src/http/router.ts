@@ -1,3 +1,8 @@
+import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
+import { tryHandleAuthLoginRoutes } from './authLoginRoutes.js';
+import { IN_APP_LOGIN, startLoginSession } from '../authLoginSession.js';
+import { arcoHome } from '../arcoHome.js';
+import { listSavedChats } from '../chatMode.js';
 import { tryHandleDeepSeekRoutes } from './deepseekRoutes.js';
 import { tryHandleVoiceRoutes } from './voiceRoutes.js';
 import type {
@@ -1171,6 +1176,35 @@ export async function handleHttpRequest(
     return;
   }
 
+  if (await tryHandleConnectionsRoutes(req, res)) return;
+  if (req.url === '/api/installation-history' && req.method === 'GET') {
+    const home = arcoHome();
+    try {
+      const results = await Promise.allSettled([
+        readFile(join(home, 'known-cwds.json'), 'utf8').then((raw) => {
+          const values: unknown = JSON.parse(raw);
+          if (!Array.isArray(values)) throw new Error('invalid known folders');
+          return values.some((value) => typeof value === 'string' && value.length > 0);
+        }).catch((error) => {
+          if (['ENOENT', 'ENOTDIR'].includes(error?.code)) return false;
+          throw error;
+        }),
+        readdir(join(home, 'chats')).then(async (names) => names.length > 0 && (await listSavedChats(join(home, 'chats'))).length > 0).catch((error) => {
+          if (['ENOENT', 'ENOTDIR'].includes(error?.code)) return false;
+          throw error;
+        }),
+      ]);
+      const used = results.some((result) => result.status === 'fulfilled' && result.value);
+      if (!used && results.some((result) => result.status === 'rejected')) throw new Error('history unreadable');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ used }));
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Installation history is unavailable.' }));
+    }
+    return;
+  }
+
   if (req.url === '/api/auth-status' && req.method === 'GET') {
     const status = await getAuthStatus();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1654,6 +1688,8 @@ export async function handleHttpRequest(
     return;
   }
 
+  if (await tryHandleAuthLoginRoutes(req, res)) return;
+
   if (req.url?.startsWith('/api/auth-login') && req.method === 'POST') {
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -1667,6 +1703,11 @@ export async function handleHttpRequest(
         : 'claude';
       const account = url.searchParams.get('account') || undefined;
       const result = await triggerAuthLogin(provider, account);
+      if (url.searchParams.get('inApp') === '1' && result.command && IN_APP_LOGIN[provider]) {
+        const session = startLoginSession(provider, result.command);
+        result.started = session.status === 'pending';
+        result.session = session;
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {

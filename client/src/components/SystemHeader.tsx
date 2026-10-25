@@ -1,3 +1,4 @@
+import { useStartupStore } from '../stores/startupStore';
 import { VoiceButton } from './VoiceControl';
 import { headerActionStyle as actionBtn } from './headerActionStyle';
 import { FreeVramButton } from './FreeVramButton';
@@ -229,6 +230,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
 
           {/* System group — settings, manual stay outside the dropdowns as the
               always-reachable "frame" controls; connection health + power follow. */}
+          <button className="display-font" style={actionBtn} onClick={() => useStartupStore.getState().openConnections()}>CONNECTIONS</button>
           <button
             onClick={() => setShowSettings(true)}
             data-help="header.settings"

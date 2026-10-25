@@ -51,3 +51,5 @@ export * from './localModels.js';
 export * from './operatorQuestions.js';
 export * from './voiceOperator.js';
 export * from './computerConditions.js';
+
+export * from './connections.js';

@@ -165,6 +165,33 @@ try {
   const authHeaders = { Cookie: await cookie(), Origin: base, 'Content-Type': 'application/json' };
   const authStatus = async () => (await fetch(`${base}/api/auth-status`, { headers: authHeaders })).json();
   assert.equal((await authStatus()).codex.loggedIn, false);
+  if (process.env.ARCO_TEST_CHROME) {
+    execFileSync('python3', ['scripts/smoke/docker-onboarding-browser.py'], { env: { ...process.env, ARCO_SMOKE_BASE_URL: base }, stdio: 'inherit' });
+    docker('exec', name, 'sh', '-c', 'rm -f "$CODEX_HOME/fixture-login"');
+  }
+  const manual = await (await fetch(`${base}/api/auth-login?provider=claude`, { method: 'POST', headers: authHeaders })).json();
+  assert.equal(manual.started, false, 'existing header/settings callers keep terminal-only login');
+  assert.equal(manual.session, undefined);
+  assert.match(manual.command, /claude auth login/);
+  const idleSession = await (await fetch(`${base}/api/auth-login/session?provider=claude`, { headers: authHeaders })).json();
+  assert.equal(idleSession.session, null);
+  const inApp = await (await fetch(`${base}/api/auth-login?provider=claude&inApp=1`, { method: 'POST', headers: authHeaders })).json();
+  assert.equal(inApp.started, true);
+  let session;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    session = await (await fetch(`${base}/api/auth-login/session?provider=claude`, { headers: authHeaders })).json();
+    if (session.session?.awaitingCode) break;
+    await delay(100);
+  }
+  assert.match(session.session.url, /auth\.example\.test\/claude/);
+  assert.equal((await fetch(`${base}/api/auth-login/code`, { method: 'POST', headers: authHeaders, body: JSON.stringify({ provider: 'claude', code: 'ARCO-FIXTURE-PASTE' }) })).status, 200);
+  for (let attempt = 0; attempt < 100; attempt++) {
+    session = await (await fetch(`${base}/api/auth-login/session?provider=claude`, { headers: authHeaders })).json();
+    if (session.session?.status === 'completed') break;
+    await delay(100);
+  }
+  assert.equal(session.session.status, 'completed');
+  console.log('PASS: in-app Claude paste-back session completes against the provider CLI fixture');
   const device = docker('exec', name, 'codex', 'login', '--device-auth');
   assert.match(device, /https:\/\/auth\.example\.test\/codex\/device/);
   assert.match(device, /ARCO-FIXTURE-CODE/);

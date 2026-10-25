@@ -4,29 +4,31 @@ import { useTerminalTarget } from '../hooks/useTerminalTarget';
 
 // The one login surface every AUTH button funnels into. POST /api/auth-login
 // returns the provider's headless login command; this shows it with RUN IN
-// TERMINAL (pre-fills Arco's own terminal — a shell on the server box — and
+// TERMINAL (pre-fills Arco's own terminal  -  a shell on the server box  -  and
 // the operator presses Enter; the §K3 prefill fence never auto-runs) plus COPY
 // as the fallback when no workflow has a terminal root (fresh boot, incognito
 // chat). The CLI then prints a link / code the operator opens on whatever
 // device they're using, so this works the same locally or over the tailnet.
-export function LoginCommand({ command }: { command: string }) {
+export function LoginCommand({ command, hostCommand }: { command: string; hostCommand?: string }) {
   const { workflowId, root } = useTerminalTarget();
   const prefillInTerminal = useTerminalStore((s) => s.prefillInTerminal);
   const [note, setNote] = useState<string | null>(null);
   const canRun = Boolean(workflowId && root);
+  const useHost = Boolean(hostCommand);
+  const displayedCommand = useHost ? hostCommand! : command;
 
   const run = () => {
     if (!workflowId) return;
     prefillInTerminal(workflowId, command);
-    setNote('Pre-filled in the terminal — press Enter there, then open the link it prints.');
+    setNote('Pre-filled in the terminal  -  press Enter there, then open the link it prints.');
   };
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(command);
-      setNote('Copied. Paste it into a shell on the Arco machine.');
+      await navigator.clipboard.writeText(displayedCommand);
+      setNote(useHost ? 'Copied. Run it in your local terminal from the Arco folder containing compose.yaml.' : 'Copied. Paste it into a shell on the Arco server.');
     } catch {
-      setNote('Clipboard unavailable — select the command above and copy it.');
+      setNote('Clipboard unavailable  -  select the command above and copy it.');
     }
   };
 
@@ -43,6 +45,9 @@ export function LoginCommand({ command }: { command: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {useHost && <div style={{ fontSize: '11px', lineHeight: 1.5, color: 'var(--color-fg-muted)' }}>
+        Run in Windows Terminal, PowerShell, or your local terminal from the Arco folder containing compose.yaml.
+      </div>}
       <code
         style={{
           display: 'block',
@@ -57,7 +62,7 @@ export function LoginCommand({ command }: { command: string }) {
           userSelect: 'all',
         }}
       >
-        {command}
+        {displayedCommand}
       </code>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         {canRun && (

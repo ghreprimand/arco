@@ -35,13 +35,35 @@ export type AuthLoginTarget = ProviderName | 'github';
 // operator runs in Arco's own terminal (a shell on the server box): every
 // supported CLI prints a URL / device code instead of needing a local browser,
 // so the same flow works at the desk, from a laptop over the tailnet, or from
-// a phone. The server no longer spawns logins itself — the old detached
-// `claude auth login` (stdio ignored) and desktop-terminal launches failed
-// silently whenever no browser/display was reachable.
+// a phone. Connections can explicitly request an in-app session; other
+// callers keep the terminal command flow.
 export interface AuthLoginResult {
   started: boolean;
   manual?: string;
   command?: string;
+  // Docker deployment: run from the host folder containing compose.yaml.
+  // `command` remains the command for Arco's in-container terminal.
+  hostCommand?: string;
+  // In-app login: the server runs the provider CLI itself and relays the
+  // link and code. Present for explicitly requested Codex or Claude sessions.
+  session?: AuthLoginSession;
+}
+
+// One provider login run by the server (server/src/authLoginSession.ts).
+export interface AuthLoginSession {
+  provider: AuthLoginTarget;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  // Claude: the browser shows a code the operator pastes back here.
+  needsCode: boolean;
+  // The CLI reached its paste prompt (Claude).
+  awaitingCode?: boolean;
+  codeSubmitted?: boolean;
+  url?: string;
+  // Codex: the one-time code to enter on the page.
+  code?: string;
+  message?: string;
+  startedAt: number;
+  finishedAt?: number;
 }
 
 // Ordering helper for the effort floor. Typed as a total Record so a new

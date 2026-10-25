@@ -36,22 +36,24 @@ const portFree = (port) => new Promise((done) => {
 });
 const results = [];
 for (const suite of selected) {
-  const env = { ...process.env, ARCO_CLIENT_PORT: String(suite.port) };
+  const port = suite.port === 5179 ? Number(process.env.ARCO_BROWSER_ALT_PORT || suite.port) : suite.port;
+  const env = { ...process.env, ARCO_CLIENT_PORT: String(port) };
   if (env.ARCO_TEST_CHROME) env.CHROMIUM_PATH = env.ARCO_TEST_CHROME;
-  if (!(await portFree(suite.port))) {
-    console.error(`${suite.name}: port ${suite.port} is already in use by another process; stop it and rerun`);
+  if (!(await portFree(port))) {
+    console.error(`${suite.name}: port ${port} is already in use by another process; stop it and rerun`);
     results.push({ ...suite, status: 'fail' });
     console.log(`browser suite ${suite.name}: fail`);
     continue;
   }
-  const vite = spawn(process.execPath, [viteBin, 'client', '--host', '127.0.0.1', '--port', String(suite.port), '--strictPort'], { cwd: root, env, stdio: ['ignore', process.env.ARCO_BROWSER_VITE_LOG ? 'inherit' : 'ignore', 'inherit'] });
+  const vite = spawn(process.execPath, [viteBin, 'client', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, env, stdio: ['ignore', process.env.ARCO_BROWSER_VITE_LOG ? 'inherit' : 'ignore', 'inherit'] });
   let ready = false;
   for (let i = 0; i < 60 && !ready; i++) {
     await new Promise((r) => setTimeout(r, 500));
-    ready = await fetch(`http://127.0.0.1:${suite.port}/`).then((r) => r.ok, () => false);
+    if (vite.exitCode !== null || vite.signalCode !== null) break;
+    ready = await fetch(`http://127.0.0.1:${port}/`).then((r) => r.ok, () => false);
   }
   let status = 'fail';
-  if (!ready) console.error(`${suite.name}: Vite did not start on ${suite.port}`);
+  if (!ready) console.error(`${suite.name}: Vite did not start on ${port}`);
   else {
     const run = spawnSync('python3', [join(root, 'scripts/smoke', suite.script)], { cwd: root, env, stdio: 'inherit', timeout: 240_000 });
     status = run.status === 0 ? 'pass' : 'fail';

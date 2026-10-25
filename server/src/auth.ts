@@ -1,3 +1,4 @@
+import { authLoginInstructions } from './authLoginInstructions.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { access, readFile, stat } from 'fs/promises';
@@ -460,8 +461,20 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
   return { claude, gemini, ollama, codex, zai, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor };
 }
 
-// Login is operator-run in Arco's own terminal (a PTY on this box), never
-// spawned here. Each command below is the CLI's headless mode — it prints a
+// Explicit Connections check: probe only the operator-selected integration.
+// This reuses provider-owned detection and never starts an inference turn.
+export async function getConnectionStatus(provider: AuthLoginTarget): Promise<AuthStatus> {
+  const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
+    claude:getClaudeAuthStatus, codex:getCodexAuthStatus, gemini:getGeminiAuthStatus,
+    zai:getZaiAuthStatus, github:getGithubAuthStatus, cursor:getCursorAuthStatus,
+    ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
+    llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus, antigravity:getAntigravityAuthStatus,
+  };
+  return probes[provider]();
+}
+
+// Terminal login commands remain available in Arco (a PTY on the server).
+// Connections can explicitly request a relayed session through the HTTP route. Each command below is the CLI's headless mode — it prints a
 // URL / device code (and a paste prompt where the flow needs one) instead of
 // requiring a browser on this machine, so it works identically at the desk,
 // from a laptop over the tailnet, or from a phone. Prior incident: the old
@@ -477,22 +490,18 @@ function shellQuote(s: string): string {
 
 const TERMINAL_HINT = 'Run it in Arco\'s terminal (TOOLS → TERMINAL) — it prints a link/code to open on whatever device you\'re using.';
 
-function loginManual(command: string, extra?: string): string {
-  return `Run \`${command}\`. ${TERMINAL_HINT}${extra ? ` ${extra}` : ''}`;
-}
-
 export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', accountRef?: string): Promise<AuthLoginResult> {
   if (provider === 'claude') {
     // Prints the authorize URL + a "Paste code here" prompt when no browser
     // opens; at the desk it also opens the local browser and completes itself.
     const command = 'claude auth login --claudeai';
-    return { started: false, command, manual: loginManual(command, 'Sign in, then paste the code it shows back into the terminal.') };
+    return authLoginInstructions(command, 'Sign in, then paste the code it shows back into the terminal.');
   }
   if (provider === 'gemini') {
     // Gemini CLI has no `auth login` — OAuth runs inside the interactive TUI.
     // NO_BROWSER switches it to the print-URL / paste-code flow.
     const command = 'env NO_BROWSER=true gemini';
-    return { started: false, command, manual: loginManual(command, 'Finish the Google sign-in, then /quit.') };
+    return authLoginInstructions(command, 'Finish the Google sign-in, then /quit.');
   }
   if (provider === 'codex') {
     const account = accountRef ? await resolveProviderAccount('codex', accountRef) : null;
@@ -505,7 +514,7 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
     // separation) is moot here — the operator picks the browser the link opens in.
     const command = `${account?.codexHome ? `env CODEX_HOME=${shellQuote(account.codexHome)} ` : ''}codex login --device-auth`;
     const label = account?.profile.label ? ` Sign in with the ${account.profile.label} ChatGPT account.` : '';
-    return { started: false, command, manual: loginManual(command, `Open the link and enter the one-time code.${label}`) };
+    return authLoginInstructions(command, `Open the link and enter the one-time code.${label}`);
   }
   if (provider === 'zai') {
     return {
@@ -518,7 +527,7 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
     // cursorUsage read fresh on each poll. The CLI polls for completion, so no
     // paste step.
     const command = 'env NO_OPEN_BROWSER=1 cursor-agent login';
-    return { started: false, command, manual: loginManual(command, 'Open the link it prints; it finishes on its own.') };
+    return authLoginInstructions(command, 'Open the link it prints; it finishes on its own.');
   }
   if (provider === 'ollama') {
     // No login flow. Surface a hint instead so the UI can show actionable text
@@ -539,7 +548,7 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
   if (provider === 'github') {
     // --web = device flow: prints a one-time code + github.com/login/device.
     const command = 'gh auth login --hostname github.com --git-protocol https --web';
-    return { started: false, command, manual: loginManual(command, 'Open github.com/login/device and enter the one-time code.') };
+    return authLoginInstructions(command, 'Open github.com/login/device and enter the one-time code.');
   }
   return { started: false, manual: `Unknown provider: ${provider}` };
 }

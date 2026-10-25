@@ -1,3 +1,9 @@
+import './components/Connections/connections.css';
+import { parseConnectionStatus } from './components/Connections/model';
+import { useConnectionsDeepLinks } from './components/Connections/Connections';
+import { useStartupStore } from './stores/startupStore';
+import { anyPrimaryProviderConnected, fetchInstallationHistory, startupGate } from './utils/startupGate';
+import { ProviderOutageBanner } from './components/ProviderOutageBanner';
 import { VoiceControl } from './components/VoiceControl';
 import { ComputerPanel } from './components/ComputerPanel';
 import { useComputerStore } from './stores/computerStore';
@@ -42,8 +48,9 @@ import { useTensionDriver } from './hooks/useTension';
 import { installThemeScramble } from './utils/themeScramble';
 import { useAppStore } from './stores/appStore';
 import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
-import { PRIMARY_PROVIDERS, RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
+import { RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
 
+const HISTORY_RETRY_MS = 15_000;
 const USAGE_POLL_MS = 3 * 60 * 1000;
 // Faster cadence than auth so the LIVE/READY swap actually tracks model
 // load/unload events. Only runs while ollama is enabled in settings AND
@@ -66,6 +73,7 @@ export function App() {
 }
 
 function AppBody() {
+  useConnectionsDeepLinks();
   useTensionDriver();
   useHelpMode();
   useEffect(() => installThemeScramble(), []);
@@ -138,13 +146,46 @@ function AppBody() {
   // Also drives the HeaderAuthChip: a slow interval while Claude is logged in,
   // a faster one while it reads logged-out; the chip's re-login flow adds its
   // own fast poll on top.
-  const claudeLoggedIn = authStatus?.claude.loggedIn ?? null;
+  // Startup gate. Local runtimes are primary-capable too; a Strata-only
+  // installation must not require a cloud login. A provider outage never
+  // replaces an established workspace: the full-screen setup appears only
+  // when nothing (open tabs or clusters, the server's record of earlier
+  // workflows, or a deferral in this tab) says the installation is in use.
+  const providerConnected = anyPrimaryProviderConnected(authStatus, (p) => settings?.enabledProviders?.[p] !== false);
+  const hasOpenWork = useAppStore((s) => Object.keys(s.jobs).length > 0 || Object.keys(s.clusters).length > 0);
+  const workspaceSynced = useStartupStore((s) => s.workspaceSynced);
+  const setupDeferred = useStartupStore((s) => s.setupDeferred);
+  const setupOpen = useStartupStore((s) => s.setupOpen);
+  const [hasHistory, setHasHistory] = useState<boolean | null>(null);
+  // Forget a cached answer once work exists or a provider connects, so a later
+  // outage after closing every tab re-asks the server instead of trusting it.
+  useEffect(() => {
+    if (providerConnected || hasOpenWork) setHasHistory(null);
+  }, [providerConnected, hasOpenWork]);
+  const needHistory = !!authStatus && !providerConnected && !hasOpenWork && hasHistory === null;
+  const [historyAttempt, setHistoryAttempt] = useState(0);
+  useEffect(() => {
+    if (!needHistory) return;
+    let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    // An unknown answer (network error, non-2xx, malformed body) keeps the
+    // workspace and asks again later; it never reads as a first run.
+    void fetchInstallationHistory().then((used) => {
+      if (cancelled) return;
+      if (used === null) retry = setTimeout(() => setHistoryAttempt((n) => n + 1), HISTORY_RETRY_MS);
+      else setHasHistory(used);
+    });
+    return () => { cancelled = true; if (retry) clearTimeout(retry); };
+  }, [needHistory, connected, historyAttempt]);
+  const gate = startupGate({ authKnown: !!authStatus, providerConnected, setupDeferred, hasOpenWork, hasHistory, workspaceSynced });
+
+  const claudeLoggedIn = authStatus?.claude?.loggedIn ?? null;
   useEffect(() => {
     let cancelled = false;
     const run = () => {
       fetch('/api/auth-status')
-        .then((r) => r.json() as Promise<AuthStatusByProvider>)
-        .then((d) => { if (!cancelled) setAuthStatus(d); })
+        .then(async (r) => parseConnectionStatus(r.ok, await r.json()))
+        .then((d) => { if (!cancelled && d) setAuthStatus(d); })
         .catch(() => { /* leave previous value */ });
     };
     // First mount (claudeLoggedIn === null) fetches once; the value landing
@@ -171,11 +212,11 @@ function AppBody() {
   // hidden) and don't fetch. We deliberately don't poll a disabled or
   // unreachable daemon — the user called this out as wasted work.
   const ollamaEnabled = settings?.enabledProviders?.ollama !== false;
-  const ollamaDaemonUp = authStatus?.ollama.loggedIn ?? false;
+  const ollamaDaemonUp = authStatus?.ollama?.loggedIn ?? false;
   const codexEnabled = settings?.enabledProviders?.codex !== false;
-  const codexLoggedIn = authStatus?.codex.loggedIn ?? false;
+  const codexLoggedIn = authStatus?.codex?.loggedIn ?? false;
   const zaiEnabled = settings?.enabledProviders?.zai !== false;
-  const zaiLoggedIn = authStatus?.zai.loggedIn ?? false;
+  const zaiLoggedIn = authStatus?.zai?.loggedIn ?? false;
   const cursorEnabled = settings?.enabledProviders?.cursor !== false;
   const cursorLoggedIn = authStatus?.cursor?.loggedIn ?? false;
   useEffect(() => {
@@ -602,9 +643,7 @@ ${scopeBody}
 
   // Local runtimes are primary-capable too; a Strata-only installation must
   // not require a cloud login to get past the startup gate.
-  const noProviderAuthed = authStatus && !PRIMARY_PROVIDERS.some((provider) =>
-    settings?.enabledProviders[provider] !== false && authStatus[provider]?.loggedIn);
-  if (noProviderAuthed) {
+  if (gate === 'setup') {
     // Settings panel sits on top of the overlay so the operator can re-enable
     // a disabled provider from inside the gate.
     return (
@@ -644,6 +683,7 @@ ${scopeBody}
       >
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
+        <ProviderOutageBanner />
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}
@@ -927,6 +967,7 @@ ${scopeBody}
       </div>
 
       {computerOpen && <ComputerPanel onLoadEarlier={loadEarlierMessages} onCancel={cancel} onSend={sendMessage} />}
+      {setupOpen && !showSettings && <AuthOverlay mode="dialog" />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showManual && <UserManual onClose={() => setShowManual(false)} />}
       <HelpBanner />

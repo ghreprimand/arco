@@ -1,3 +1,4 @@
+import { EndpointHelp, useSettingsSectionFocus } from './EndpointHelp';
 import { MediaAccessSettings } from './MediaAccessSettings';
 import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
@@ -56,6 +57,7 @@ interface Props {
 }
 
 export function SettingsPanel({ onClose }: Props) {
+  useSettingsSectionFocus();
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
   const settings = useAppStore((s) => s.settings);
@@ -540,6 +542,7 @@ export function SettingsPanel({ onClose }: Props) {
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close settings"
             className="display-font"
             style={{
               background: 'transparent',
@@ -837,12 +840,12 @@ export function SettingsPanel({ onClose }: Props) {
             AUTHENTICATION
           </div>
           <div data-help="settings.authentication" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
-              <label className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
+            <div id="connection-advanced-ollama" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
+              <label htmlFor="ollama-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 OLLAMA ENDPOINT
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
+                <input id="ollama-endpoint" aria-describedby="ollama-endpoint-help"
                   value={ollamaBaseDraft}
                   onChange={(e) => setOllamaBaseDraft(e.target.value)}
                   onBlur={commitOllamaBaseUrl}
@@ -867,6 +870,7 @@ export function SettingsPanel({ onClose }: Props) {
                   {ollamaBaseSaving ? 'SAVING…' : ''}
                 </span>
               </div>
+              <EndpointHelp id="ollama-endpoint-help" />
               <div data-help="settings.endpoint-discovery" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
                 <button
                   type="button"
@@ -1020,12 +1024,12 @@ export function SettingsPanel({ onClose }: Props) {
                 ENABLED off pauses every utility job (compaction falls back to the deterministic digest, titles stop) while keeping the model + host saved. SESSION TITLES (opt-in) names RESUME-picker sessions with a short generated title. The small model that writes Ollama auto-compaction summaries (and any utility jobs). Type a model name — local models are offered as suggestions, but you can enter one that only exists on the remote host below. Blank ⇒ a deterministic text digest is used instead. Ollama-specific — Claude/Codex use their vendors' native compaction. Leave the host blank to use your default Ollama endpoint; set it to run the summarizer on a separate machine/GPU (e.g. a spare card on another box) so it never competes with your primary model for VRAM.
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
-              <label className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
+            <div id="connection-advanced-lmstudio" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
+              <label htmlFor="lmstudio-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 LM STUDIO ENDPOINT
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
+                <input id="lmstudio-endpoint" aria-describedby="lmstudio-endpoint-help"
                   value={lmstudioBaseDraft}
                   onChange={(e) => setLmstudioBaseDraft(e.target.value)}
                   onBlur={commitLmstudioBaseUrl}
@@ -1050,17 +1054,18 @@ export function SettingsPanel({ onClose }: Props) {
                   {lmstudioBaseSaving ? 'SAVING…' : ''}
                 </span>
               </div>
+              <EndpointHelp id="lmstudio-endpoint-help" />
               <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
                 OpenAI-compatible REST endpoint (LM Studio app → Developer → Start Server). The /v1 suffix is added automatically if omitted.
               </span>
             </div>
             <DeepSeekControls />
             <div data-help="settings.strata-endpoint" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
-              <label className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
+              <label htmlFor="strata-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 STRATA ENDPOINT
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
+                <input id="strata-endpoint" aria-describedby="strata-endpoint-help"
                   value={strataBaseDraft}
                   onChange={(e) => setStrataBaseDraft(e.target.value)}
                   onBlur={commitStrataBaseUrl}
@@ -1085,6 +1090,7 @@ export function SettingsPanel({ onClose }: Props) {
                   {strataBaseSaving ? 'SAVING…' : ''}
                 </span>
               </div>
+              <EndpointHelp id="strata-endpoint-help" />
               <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
                 Standalone Strata inference service. Prepared local profiles load on the next message; live context and image capabilities follow the service. The /v1 suffix is added automatically if omitted.
               </span>

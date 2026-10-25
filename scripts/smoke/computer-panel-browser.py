@@ -45,7 +45,7 @@ async def main():
                 await route.fulfill(body=audio.getvalue(), content_type='audio/wav')
                 return
             elif path == '/api/auth-status':
-                data = {n: {'loggedIn': n == 'codex', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'zai', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'github']}
+                data = {n: {'loggedIn': n == 'codex', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'zai', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'deepseek', 'github']}
             elif path == '/api/capabilities':
                 data = {'efforts': ['low', 'medium', 'high'], 'models': ['gpt-6-luna'], 'cliVersion': 'fixture', 'codexVersion': '0.163.0'}
             elif path.endswith('/catalog'):
