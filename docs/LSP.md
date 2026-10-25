@@ -1,12 +1,10 @@
 # LSP diagnostics
 
-> WORKBENCH_EXPANSION_PLAN.md §C3. After a Write/Edit in a Claude **Native**
-> turn, Arco lazy-spawns the project's language server, opens the changed
-> file, and surfaces the server's semantic diagnostics (errors/warnings) inline
-> on the Activity tab. The agent and operator see real compiler/type errors
-> within a couple of seconds; fixing the error clears the badge.
+After a successful Write or Edit in a Claude Native turn, Arco can start the
+project's language server, open the changed file, and show semantic diagnostics
+inline on the Activity tab. Fixing an error clears its diagnostic badge.
 
-This is its own subsystem under `server/src/lsp/`. It is deliberately small —
+This is its own subsystem under `server/src/lsp/`. It is deliberately small,
 the **diagnostics slice of LSP only**. No completion, hover, formatting, or
 code actions.
 
@@ -26,7 +24,7 @@ candidate that resolves wins; the result is cached per process.
 
 **Bring your own upstream tool.** This is the same pattern as the caveman
 output style: Arco does not bundle or install language servers. If the server
-for a file's language is **not on PATH**, the subsystem is a **silent no-op** —
+for a file's language is **not on PATH**, the subsystem is a **silent no-op**,
 no message, no error, no crash, just no diagnostics.
 
 > **TS note:** TS diagnostics require **`typescript-language-server`** (the LSP
@@ -38,16 +36,16 @@ no message, no error, no crash, just no diagnostics.
 
 ```
 Write/Edit (claude-native/tools.ts)
-  └─ ctx.onFileWritten?.(abs)        ← fire-and-forget, wrapped in try/catch
+  └─ ctx.onFileWritten?.(abs)        <- fire-and-forget, wrapped in try/catch
        └─ worker.ts NativeToolContext.onFileWritten
             └─ lspManager.notifyWritten(absPath, cwd, workflowId, sink)
-                 ├─ languageIdForPath → null? no-op
-                 ├─ ensure(cwd, languageId) → spawn or reuse server (dedup)
-                 ├─ initialize → initialized handshake
+                 ├─ languageIdForPath -> null? no-op
+                 ├─ ensure(cwd, languageId) -> spawn or reuse server (dedup)
+                 ├─ initialize -> initialized handshake
                  ├─ textDocument/didOpen (close+reopen on re-write)
-                 └─ server → textDocument/publishDiagnostics notification
-                      └─ mapPublishDiagnostics → DiagnosticsMessage
-                           └─ sink → worker.workflowEventBroadcast
+                 └─ server -> textDocument/publishDiagnostics notification
+                      └─ mapPublishDiagnostics -> DiagnosticsMessage
+                           └─ sink -> worker.workflowEventBroadcast
                                 └─ WS `diagnostics {workflowId, file, items[]}`
                                      └─ client store.setDiagnostics
                                           └─ ActivityTab DIAGNOSTICS section
@@ -59,17 +57,17 @@ Write/Edit (claude-native/tools.ts)
 the successful `fs.writeFile` in **both** `Write` and `Edit`
 (`claude-native/tools.ts`). It is:
 
-- **never awaited** — the tool returns its normal string immediately;
-- **wrapped in `try { … } catch { /* best-effort */ }`** at the call site so a
+- **never awaited**, the tool returns its normal string immediately;
+- **wrapped in `try { ... } catch { /* best-effort */ }`** at the call site so a
   hook throw can't fail the tool;
 - the worker's wiring additionally `void`s the returned promise and attaches a
   `.catch()` so an async rejection can't become an unhandled rejection.
 
 The write path is load-bearing (P0). A diagnostics failure must **never** break
-a Write/Edit. The hook does not change write semantics, the plan-mode gate, the
+a Write/Edit. The hook does not change write semantics, plan-mode checks, the
 read-set check, or the tool's return string.
 
-### 0-based → 1-based conversion
+### 0-based -> 1-based conversion
 
 LSP positions are **0-based** (`range.start.line` / `.character`). Arco's UI
 is **1-based**. The conversion happens **once**, at the single boundary
@@ -94,7 +92,7 @@ DiagnosticItem     = { severity:'error'|'warning'|'info'|'hint', message,
 ```
 
 Each `diagnostics` message **replaces** the prior set for its `file`. An empty
-`items[]` clears the file's diagnostics — that is how "fix the error, badge
+`items[]` clears the file's diagnostics, that is how "fix the error, badge
 drops" works. The client stores them per-file in
 `JobState.diagnosticsByFile`; the store action drops the key on an empty array.
 
@@ -127,7 +125,7 @@ registry + boot-sweep in `server/src/workers/pidRegistry.ts`), the LSP subsystem
 does **not** add a durable pid registry. On a hard `kill -9` of the Node server
 (no signal handler runs), a language-server child can leak until the OS reaps
 it. This is an accepted trade-off for a best-effort, cheap, idle-reaped
-diagnostics subsystem — language servers don't consume API tokens and idle-reap
+diagnostics subsystem, language servers don't consume API tokens and idle-reap
 bounds their lifetime under normal operation. If this ever proves load-bearing,
 mirror `pidRegistry` here.
 
@@ -143,13 +141,13 @@ mirror `pidRegistry` here.
   against the workflow cwd).
 
 > **Open-at-line gap:** the viewer does not yet scroll to the diagnostic's line
-> — clicking opens the file at the top. The line/column is shown in the row and
+>, clicking opens the file at the top. The line/column is shown in the row and
 > in the click tooltip. Wiring line-scroll into the shared viewer is left for a
 > later pass.
 
 ## Config knobs
 
-- `ARCO_LSP_KEEPALIVE_MS` — idle-evict window (ms). `0` ⇒ keep servers loaded
+- `ARCO_LSP_KEEPALIVE_MS`, idle-evict window (ms). `0` => keep servers loaded
   forever. Default `300000` (5 min).
 
 ## Testing
@@ -159,7 +157,7 @@ mirror `pidRegistry` here.
 - **always-green unit core** (no server required): `FrameReader` reassembles
   Content-Length frames including split-across-chunks and byte-at-a-time drip,
   multiple frames in one chunk, and a malformed-frame skip; `mapPublishDiagnostics`
-  proves the 0→1 conversion + severity table + empty-array clear;
+  proves the 0->1 conversion + severity table + empty-array clear;
 - **gated real leg**: if `rust-analyzer` or `typescript-language-server` is on
   PATH, spawns it and asserts a real diagnostic surfaces; otherwise prints a
   clear `SKIP:` line and exits 0.
