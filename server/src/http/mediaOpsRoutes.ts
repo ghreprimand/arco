@@ -1,7 +1,7 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { createReadStream } from 'fs';
+import { createReadStream, constants } from 'fs';
 import { pipeline } from 'stream/promises';
-import { stat } from 'fs/promises';
+import { open } from 'fs/promises';
 import { extname } from 'path';
 import type {
   MediaOpRequest,
@@ -106,9 +106,11 @@ export async function tryHandleMediaOpsRoutes(
       return send(res, 200, { ok: false, code: 'bad-path', error: 'cwd is not a known workflow or project directory' } satisfies MediaOpResult);
     }
     const spec = body.spec as MediaOpSpec;
-    // N2 access fence — read the cascade value (a project settings.json can pin
-    // it per-repo). Undefined ⇒ open; only an explicit `false` locks it.
-    const unconfined = (await readSettings(cwd || undefined)).mediaUnconfined !== false;
+    // Extra media roots come only from global operator settings. A project's
+    // settings.json cannot widen the browser file boundary.
+    const mediaSettings = await readSettings();
+    const unconfined = mediaSettings.mediaUnconfined === true;
+    const allowedRoots = mediaSettings.mediaAllowedRoots ?? [];
 
     // Cancel seam: if the request socket closes (operator hit Cancel / nav away),
     // abort → the ffmpeg child is SIGKILLed and the partial output unlinked.
@@ -119,6 +121,7 @@ export async function tryHandleMediaOpsRoutes(
       const result = await runMediaOp(cwd, body.path, spec, {
         signal: ac.signal,
         unconfined,
+        allowedRoots,
         output: body.output,
       });
       // relPath is set only for an output inside the workflow cwd; otherwise the
@@ -191,7 +194,9 @@ export async function tryHandleMediaOpsRoutes(
     if (cwd === null) {
       return send(res, 200, { ok: false, code: 'bad-path', error: 'cwd is not a known workflow or project directory' } satisfies MediaStemsResult);
     }
-    const unconfined = (await readSettings(cwd || undefined)).mediaUnconfined !== false;
+    const mediaSettings = await readSettings();
+    const unconfined = mediaSettings.mediaUnconfined === true;
+    const allowedRoots = mediaSettings.mediaAllowedRoots ?? [];
 
     // Cancel seam: socket close → SIGKILL the demucs child + rm the fresh dir.
     const ac = new AbortController();
@@ -201,6 +206,7 @@ export async function tryHandleMediaOpsRoutes(
       const result = await runDemucsStems(cwd, body.path, {
         signal: ac.signal,
         unconfined,
+        allowedRoots,
         model: body.model,
         twoStems: body.twoStems,
         format: body.format,
@@ -239,8 +245,10 @@ export async function tryHandleMediaOpsRoutes(
     if (cwd === null) {
       return send(res, 200, { ok: false, code: 'bad-path', error: 'cwd is not a known workflow or project directory' } satisfies MediaInspectResult);
     }
-    const unconfined = (await readSettings(cwd || undefined)).mediaUnconfined !== false;
-    const access: MediaAccess = { cwd: cwd || undefined, unconfined };
+    const mediaSettings = await readSettings();
+    const unconfined = mediaSettings.mediaUnconfined === true;
+    const allowedRoots = mediaSettings.mediaAllowedRoots ?? [];
+    const access: MediaAccess = { cwd: cwd || undefined, unconfined, allowedRoots };
     const result = await inspectMedia(access, body.path);
     return send(res, 200, result);
   }
@@ -263,26 +271,32 @@ export async function tryHandleMediaOpsRoutes(
       }
       // THE gate — same tiered resolver as the op (cwd | scratch | unconfined).
       // A '../' / absolute-outside path with the fence locked throws → 403.
-      const unconfined = (await readSettings(cwd || undefined)).mediaUnconfined !== false;
-      const access: MediaAccess = { cwd: cwd || undefined, unconfined };
+      const mediaSettings = await readSettings();
+      const unconfined = mediaSettings.mediaUnconfined === true;
+      const allowedRoots = mediaSettings.mediaAllowedRoots ?? [];
+      const access: MediaAccess = { cwd: cwd || undefined, unconfined, allowedRoots };
       let abs: string;
       try {
         abs = resolveMediaInput(access, rel);
       } catch {
         res.writeHead(403, { 'Content-Type': 'text/plain' });
-        res.end('path is outside the workflow folder (enable Unconfined media access to reach arbitrary paths)');
+        res.end('media path is unavailable or outside permitted folders; configure allowed media folders in Settings');
         return true;
       }
 
       let st;
+      let handle;
       try {
-        st = await stat(abs);
+        handle = await open(abs, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        st = await handle.stat();
       } catch {
+        await handle?.close();
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('not found');
         return true;
       }
       if (!st.isFile()) {
+        await handle.close();
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('not a file');
         return true;
@@ -302,6 +316,7 @@ export async function tryHandleMediaOpsRoutes(
           if (Number.isNaN(start)) start = 0;
           if (Number.isNaN(end) || end >= total) end = total - 1;
           if (start > end || start >= total) {
+            await handle.close();
             res.writeHead(416, { 'Content-Range': `bytes */${total}` });
             res.end();
             return true;
@@ -313,7 +328,7 @@ export async function tryHandleMediaOpsRoutes(
             'Accept-Ranges': 'bytes',
             'Cache-Control': 'no-store',
           });
-          streamToResponse(createReadStream(abs, { start, end }), res);
+          streamToResponse(handle.createReadStream({ start, end }), res);
           return true;
         }
       }
@@ -325,7 +340,7 @@ export async function tryHandleMediaOpsRoutes(
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-store',
       });
-      streamToResponse(createReadStream(abs), res);
+      streamToResponse(handle.createReadStream(), res);
       return true;
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });

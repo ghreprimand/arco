@@ -268,7 +268,7 @@ async function main() {
       } catch (e) { code = e instanceof MediaOpError ? e.code : 'other'; }
       assertEq(code, 'bad-path', 'locked fence rejects the out-of-cwd extra input');
       // And it's accepted when unconfined.
-      const r = await runMediaOp(cwd, 'a1.wav', { op: 'join', extraInputs: [stray], video: false }, { unconfined: true });
+      const r = await runMediaOp(cwd, 'a1.wav', { op: 'join', extraInputs: [stray], video: false }, { unconfined: true, allowedRoots: [outside] });
       const st = await fs.stat(r.outputPath);
       assert(st.isFile() && st.size > 0, 'unconfined join across dirs runs');
     });

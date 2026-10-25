@@ -105,6 +105,8 @@ import {
 flushAll as flushAllWorkflowEvents
 } from '../workflowStore.js';
 import { readFileForExplorer } from './fileRead.js';
+import { listBrowserDirectory, resolveBrowserRead } from './readConfinement.js';
+import { confinedPath, safeDirectory } from '../fileAccessPolicy.js';
 import { tryHandleClusterRoutes } from './clusterRoutes.js';
 import { tryHandleClusterSnapshotRoutes } from './clusterSnapshotRoutes.js';
 import { tryHandleDiffRoutes } from './diffRoutes.js';
@@ -358,13 +360,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: 'name must be a single, non-hidden path segment' }));
         return;
       }
-      const resolvedParent = resolve(parent);
-      const home = homedir();
-      if (resolvedParent !== home && !resolvedParent.startsWith(home + '/')) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'parent must be inside your home directory' }));
-        return;
-      }
+      const resolvedParent = safeDirectory(resolve(parent));
       const target = join(resolvedParent, name);
       await mkdir(target, { recursive: true });
       console.log(`[archon] Created directory: ${target}`);
@@ -387,13 +383,10 @@ export async function handleHttpRequest(
     const fallbackRoot = settings?.defaultWorkingDirectory || join(homedir(), 'Projects');
     const requested = url.searchParams.get('path') || fallbackRoot;
     const listAt = async (dir: string) => {
-      const resolved = resolve(dir);
-      const entries = await readdir(resolved, { withFileTypes: true });
-      const dirs = entries
-        .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-        .map((e) => ({ name: e.name, path: join(resolved, e.name) }))
+      const { root, entries } = await listBrowserDirectory(dir, true);
+      const dirs = entries.map(({ name, path }) => ({ name, path }))
         .sort((a, b) => compareDirectoryNames(a.name, b.name));
-      return { parent: resolved, dirs };
+      return { parent: root, dirs };
     };
     // Resolve the listing BEFORE writing headers — listAt() can throw and the
     // fallback must be free to write its own headers (writing first then
@@ -1048,7 +1041,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: 'path escape' }));
         return;
       }
-      const content = await readFile(fullPath, 'utf-8');
+      const content = await readFile(confinedPath(fullPath, [PROJECT_ROOT]), 'utf-8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ path: requested, content }));
     } catch (err) {
@@ -1968,50 +1961,13 @@ export async function handleHttpRequest(
       const path = url.searchParams.get('path') || '';
       const cwd = url.searchParams.get('cwd') || '';
       const workflowId = url.searchParams.get('workflowId') || '';
-      // Chat heuristics may guess the wrong location for a filename — agents
-      // routinely refer to artifacts they wrote by bare basename. A RELATIVE
-      // path with a caller-supplied cwd resolves in-cwd FIRST (confined) —
-      // `resolve(path)` alone resolves against the server process cwd, which
-      // only matches the workflow cwd by coincidence (generated-image popups
-      // ENOENT'd for every tab not rooted at the Archon repo). Then the
-      // literal path; on ENOENT, fall back to the workflow's artifacts dir
-      // when caller passed cwd+workflowId. Same `name` sanity rules as
-      // /api/workflows/artifact (no slashes, no traversal, no leading dot).
-      const candidates: string[] = [];
-      if (cwd && !path.startsWith('/')) {
-        try {
-          candidates.push(resolveWithinCwd(cwd, path));
-        } catch {
-          // Escapes the workflow cwd — skip the in-cwd candidate.
-        }
-      }
-      candidates.push(resolve(path));
-      if (cwd && workflowId && /^[0-9a-f-]+$/i.test(workflowId)) {
-        const base = path.split('/').pop() || '';
-        if (base && !base.includes('\0') && base !== '.' && base !== '..' && !base.startsWith('.')) {
-          candidates.push(resolve(artifactsDir(cwd, workflowId), base));
-        }
-      }
-      let payload: Awaited<ReturnType<typeof readFileForExplorer>> | { type: 'error'; error: string } | null = null;
-      let lastError: unknown = null;
-      for (const c of candidates) {
-        try {
-          payload = await readFileForExplorer(c);
-          break;
-        } catch (err) {
-          lastError = err;
-          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') break;
-        }
-      }
-      if (!payload) {
-        const message = lastError instanceof Error ? lastError.message : String(lastError);
-        payload = { type: 'error', error: message };
-      }
+      const target = await resolveBrowserRead(path, cwd, workflowId);
+      const payload = await readFileForExplorer(target);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(payload));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ type: 'error', error: message }));
     }
     return;
@@ -2021,15 +1977,8 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
       const dir = url.searchParams.get('path') || '.';
-      const resolved = resolve(dir);
-      const entries = await readdir(resolved, { withFileTypes: true });
+      const { root: resolved, entries } = await listBrowserDirectory(dir, false);
       const files = entries
-        .filter((e) => !e.name.startsWith('.'))
-        .map((e) => ({
-          name: e.name,
-          path: join(resolved, e.name),
-          isDirectory: e.isDirectory(),
-        }))
         .sort((a, b) => {
           if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
           return compareDirectoryNames(a.name, b.name);

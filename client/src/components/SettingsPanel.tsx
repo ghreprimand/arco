@@ -1,3 +1,4 @@
+import { MediaAccessSettings } from './MediaAccessSettings';
 import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -109,7 +110,6 @@ export function SettingsPanel({ onClose }: Props) {
   // back to /api/settings on blur or Enter so each keystroke isn't a request.
   const [operatorDraft, setOperatorDraft] = useState<string>(settings?.operatorName ?? '');
   const [operatorSaving, setOperatorSaving] = useState(false);
-  const [mediaSaving, setMediaSaving] = useState(false);
   const [ollamaBaseDraft, setOllamaBaseDraft] = useState<string>(settings?.ollama?.baseUrl ?? '');
   const [ollamaBaseSaving, setOllamaBaseSaving] = useState(false);
   const [ollamaUtilitySaving, setOllamaUtilitySaving] = useState(false);
@@ -161,29 +161,6 @@ export function SettingsPanel({ onClose }: Props) {
       setOperatorDraft(settings?.operatorName ?? '');
     } finally {
       setOperatorSaving(false);
-    }
-  };
-
-  // Part N2 — media access fence. Undefined ⇒ open (default); we persist only the
-  // explicit boolean. Locking (false) confines ffmpeg ops + raw serve to the
-  // workflow cwd + Archon scratch; opening (true/undefined) lets them reach any
-  // absolute path. Matters on a tunnelled instance — see Settings → Media copy.
-  const mediaUnconfined = settings?.mediaUnconfined !== false;
-  const toggleMediaUnconfined = async () => {
-    const next = !mediaUnconfined;
-    setMediaSaving(true);
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaUnconfined: next }),
-      });
-      const data = await res.json() as ArchonSettings;
-      setSettings(data);
-    } catch {
-      /* leave as-is; the toggle reflects authoritative settings on next render */
-    } finally {
-      setMediaSaving(false);
     }
   };
 
@@ -779,41 +756,7 @@ export function SettingsPanel({ onClose }: Props) {
 
         <WorkingDirectoryDefault />
 
-        <div data-help="settings.media-unconfined">
-          <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
-            MEDIA ACCESS
-          </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-            <button
-              onClick={() => { void toggleMediaUnconfined(); }}
-              disabled={mediaSaving}
-              className="display-font"
-              title="Allow the Media Studio to read/write arbitrary paths outside the workflow folder"
-              style={{
-                background: mediaUnconfined ? 'var(--color-accent-primary-a10)' : 'transparent',
-                border: `1px solid ${mediaUnconfined ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-                borderRadius: '3px',
-                color: mediaUnconfined ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                cursor: mediaSaving ? 'wait' : 'pointer',
-                fontSize: '10px',
-                letterSpacing: '1.5px',
-                padding: '5px 12px',
-              }}
-            >
-              {mediaUnconfined ? '● UNCONFINED' : '○ CONFINED'}
-            </button>
-            <span className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
-              {mediaSaving ? 'SAVING…' : ''}
-            </span>
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
-            <strong>Unconfined</strong> (default): the Media Studio can open files from any path and write output
-            anywhere — what makes it a general tool for files on an SMB mount or outside a workflow. <strong>Confined</strong>:
-            ops are restricted to the workflow folder plus Arco's import scratch (picker-imported files still
-            convert/clip). Switch to Confined if this Arco is exposed over a tunnel. Imported-file uploads and
-            output never overwrite the source either way.
-          </div>
-        </div>
+        <MediaAccessSettings />
 
         <div data-help="settings.enabled-providers">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>

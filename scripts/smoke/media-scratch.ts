@@ -5,7 +5,7 @@
 //
 //   (a) RESOLVER — resolveMediaInput gates by tier. Confined (unconfined:false)
 //       ALLOWS an in-cwd path, REJECTS an out-of-cwd / absolute path. Unconfined
-//       (true) ALLOWS the same absolute path. A scratch path is ALWAYS allowed
+//       (true) requires an explicit folder grant. Uploaded scratch stays allowed
 //       regardless of the fence.
 //   (b) SCRATCH — sanitizeScratchBasename rejects traversal / flag / separator
 //       names; saveScratchUpload writes the bytes under a fresh dir AND rejects a
@@ -14,7 +14,7 @@
 //       op's target extension; targetOutputExt is correct per op.
 //   (d) REAL ffmpeg (skip-with-notice if absent): an op on a SCRATCH file runs
 //       even with the fence LOCKED; an op on an absolute out-of-cwd file runs
-//       only when UNCONFINED and is rejected when CONFINED; an explicit output
+//       only with an explicit folder grant and is rejected when CONFINED; an explicit output
 //       dir is honored; the output is a NEW file, never the source.
 //
 // Run: npm run smoke:media-scratch   (no dev server / network needed)
@@ -50,30 +50,40 @@ function run(bin: string, args: string[]): Promise<void> {
 }
 
 async function main() {
-  // ── (a) RESOLVER tiers ──
-  await step('resolveMediaInput — confined allows in-cwd, rejects out-of-cwd', () => {
-    const cwd = '/tmp/archon-cwd';
-    const confined: MediaAccess = { cwd, unconfined: false };
-    assertEq(resolveMediaInput(confined, 'sub/in.wav'), path.join(cwd, 'sub/in.wav'), 'in-cwd relative resolves');
-    for (const bad of ['../../../etc/passwd', '/etc/hosts']) {
+  const resolverRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-media-resolver-'));
+  const resolverCwd = path.join(resolverRoot, 'project');
+  const resolverMedia = path.join(resolverRoot, 'media');
+  await fs.mkdir(path.join(resolverCwd, 'sub'), { recursive: true });
+  await fs.mkdir(resolverMedia);
+  await fs.writeFile(path.join(resolverCwd, 'sub', 'in.wav'), 'fixture');
+  const external = path.join(resolverMedia, 'clip.mp4');
+  await fs.writeFile(external, 'fixture');
+  const scratchUpload = await saveScratchUpload(Readable.from(Buffer.from('fixture')), 'imported.ogg');
+  try {
+    await step('resolveMediaInput - confined allows real in-cwd files and rejects escapes', () => {
+      const confined: MediaAccess = { cwd: resolverCwd, unconfined: false };
+      assertEq(resolveMediaInput(confined, 'sub/in.wav'), path.join(resolverCwd, 'sub/in.wav'), 'in-cwd relative resolves');
+      for (const bad of [external, '/etc/hosts']) {
+        let code: string | undefined;
+        try { resolveMediaInput(confined, bad); } catch (e) { code = e instanceof MediaOpError ? e.code : 'other'; }
+        assertEq(code, 'bad-path', 'confined rejects an outside file');
+      }
+    });
+    await step('resolveMediaInput - the switch requires an explicit media folder', () => {
       let code: string | undefined;
-      try { resolveMediaInput(confined, bad); } catch (e) { code = e instanceof MediaOpError ? e.code : 'other'; }
-      assertEq(code, 'bad-path', `confined rejects "${bad}"`);
-    }
-  });
-
-  await step('resolveMediaInput — unconfined allows an absolute out-of-cwd path', () => {
-    const open: MediaAccess = { cwd: '/tmp/archon-cwd', unconfined: true };
-    assertEq(resolveMediaInput(open, '/srv/media/clip.mp4'), '/srv/media/clip.mp4', 'unconfined allows /srv path');
-  });
-
-  await step('resolveMediaInput — a scratch path is allowed even when CONFINED', () => {
-    const scratchAbs = path.join(SCRATCH_ROOT, 'abc-123', 'imported.ogg');
-    const confined: MediaAccess = { cwd: '/tmp/archon-cwd', unconfined: false };
-    assertEq(resolveMediaInput(confined, scratchAbs), scratchAbs, 'scratch path clears the fence');
-    assert(isWithinScratch(scratchAbs), 'isWithinScratch true for a path under the root');
-    assert(!isWithinScratch('/tmp/elsewhere/x.ogg'), 'isWithinScratch false outside the root');
-  });
+      try { resolveMediaInput({ cwd: resolverCwd, unconfined: true }, external); }
+      catch (e) { code = e instanceof MediaOpError ? e.code : 'other'; }
+      assertEq(code, 'bad-path', 'the switch alone grants no path');
+      assertEq(resolveMediaInput({ cwd: resolverCwd, unconfined: true, allowedRoots: [resolverMedia] }, external), external, 'explicit grant allows the file');
+    });
+    await step('resolveMediaInput - an uploaded scratch file stays allowed when confined', () => {
+      assertEq(resolveMediaInput({ unconfined: false }, scratchUpload.path), scratchUpload.path, 'scratch clears the fence');
+      assert(isWithinScratch(scratchUpload.path), 'scratch membership');
+    });
+  } finally {
+    await fs.rm(resolverRoot, { recursive: true, force: true });
+    await fs.rm(path.dirname(scratchUpload.path), { recursive: true, force: true });
+  }
 
   // ── (b) SCRATCH basename + upload ──
   await step('sanitizeScratchBasename — rejects traversal / separators / flags', () => {
@@ -137,7 +147,7 @@ async function main() {
       const r = await runMediaOp(
         cwd, outsideFixture,
         { op: 'convert', format: 'mp3', bitrate: '128k' },
-        { unconfined: true, output: { dir: dest, basename: 'mytake' } },
+        { unconfined: true, allowedRoots: [outside, dest], output: { dir: dest, basename: 'mytake' } },
       );
       assert(r.outputPath !== outsideFixture, 'output is a NEW file, never the source');
       assertEq(path.dirname(r.outputPath), dest, 'output landed in the chosen dir');
@@ -162,7 +172,7 @@ async function main() {
       let code: string | undefined;
       try {
         await runMediaOp(cwd, outsideFixture, { op: 'convert', format: 'mp3' },
-          { unconfined: true, output: { dir: path.join(dest, 'does-not-exist') } });
+          { unconfined: true, allowedRoots: [outside, dest], output: { dir: path.join(dest, 'does-not-exist') } });
       } catch (e) { code = e instanceof MediaOpError ? e.code : 'other'; }
       assertEq(code, 'output-dir-missing', 'a missing output dir is rejected');
     });

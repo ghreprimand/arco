@@ -1,3 +1,4 @@
+import { confinedPath } from './fileAccessPolicy.js';
 // ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — the RECENTLY MODIFIED scan. The
 // exhaustive, UNATTRIBUTED catch-all: an on-demand walk that surfaces files the
 // agent-writes ledger never saw (Bash redirects, generated images, ffmpeg /
@@ -73,6 +74,7 @@ async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProj
     for (const e of entries) {
       const childSegs = [...segs, e.name];
       const abs = join(dir, e.name);
+      try { confinedPath(abs, [root], 'either'); } catch { continue; }
       if (e.isDirectory()) {
         if (depth + 1 > MAX_DEPTH) continue;
         if (PRUNE_DIRS.has(e.name)) continue;

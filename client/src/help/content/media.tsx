@@ -370,7 +370,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   // — Save destination (N2) —
   'media.save-to': {
     title: 'Save to…',
-    body: <p>Opens a <strong>folder picker</strong> to choose where op output lands (navigate folders, make a new one, optionally name the file). Blank = next to the source — but an <em>imported</em> file would go to scratch, so running an op without a destination pops this picker automatically. A destination outside the workflow folder needs <strong>Unconfined media access</strong>.</p>,
+    body: <p>Opens a <strong>folder picker</strong> to choose where op output lands (navigate folders, make a new one, optionally name the file). Blank = next to the source — but an <em>imported</em> file would go to scratch, so running an op without a destination pops this picker automatically. A destination outside the workflow folder needs outside-folder access and an explicit allowed folder in Settings.</p>,
     manualSection: S,
   },
   'media.op-output': {

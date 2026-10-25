@@ -256,16 +256,11 @@ export interface ArchonSettings {
   // sorted by this list; entries not present here fall to the end in their
   // natural creation order. Persisted via the existing /api/settings POST.
   tabOrder?: string[];
-  // Part N2 — Media Studio access fence. When ON (the default for local use),
-  // ffmpeg ops + the raw-media serve may reach an ARBITRARY absolute path and
-  // write to an arbitrary output directory — what makes the studio a general
-  // tool for files on an SMB mount or anywhere outside a workflow folder. When
-  // OFF, ops are confined to the workflow cwd PLUS Archon's own media-scratch
-  // dir (so picker-imported files still convert/clip, but arbitrary disk paths
-  // are rejected). Default-open matters because Archon can be tunnelled — the
-  // operator turns this OFF on an exposed instance. Undefined ⇒ open (the
-  // server reads it as `!== false`). See docs/GOTCHAS.md § Media access fence.
+  // Outside-project media is opt-in and requires explicit mediaAllowedRoots.
+  // Provider state, runtime secrets and pseudo-files remain inaccessible.
   mediaUnconfined?: boolean;
+  // Global, explicit outside-project media folders; the switch alone grants none.
+  mediaAllowedRoots?: string[];
   // Ops L2 — operator-pinned local services. Pins are a MACHINE-LEVEL inventory
   // (the Services tab is global, not workflow-scoped), keyed by a stable
   // (cwd, port) identity so a service surviving a restart re-matches and a

@@ -131,6 +131,7 @@ export function buildDemucsArgs(
 export interface RunDemucsOpts {
   signal?: AbortSignal;
   unconfined?: boolean;
+  allowedRoots?: string[];
   model?: StemModel;
   twoStems?: StemName;
   format?: StemFormat;
@@ -149,7 +150,7 @@ export async function runDemucsStems(
 
   const model = opts.model ?? DEFAULT_MODEL;
   const format = opts.format ?? DEFAULT_FORMAT;
-  const access: MediaAccess = { cwd: cwd || undefined, unconfined: opts.unconfined ?? false };
+  const access: MediaAccess = { cwd: cwd || undefined, unconfined: opts.unconfined ?? false, allowedRoots: opts.allowedRoots };
 
   // 2. Resolve + gate the INPUT (cwd | scratch | unconfined). The shared resolver
   //    throws a MediaOpError('bad-path'); re-key it as a DemucsError so the route
@@ -278,7 +279,10 @@ function gateOrThrow(fn: () => string): string {
   try {
     return fn();
   } catch (err) {
-    if (err instanceof MediaOpError) throw new DemucsError('bad-path', err.message);
+    if (err instanceof MediaOpError) {
+      const code = err.code === 'input-missing' || err.code === 'output-dir-missing' ? err.code : 'bad-path';
+      throw new DemucsError(code, err.message);
+    }
     throw err;
   }
 }

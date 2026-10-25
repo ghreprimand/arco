@@ -125,9 +125,10 @@ export const media: Section[] = [
         </p>
         <Note kind="warn">
           A destination <strong>outside the workflow folder</strong> needs{' '}
-          <strong>Unconfined media access</strong> (Settings → MEDIA ACCESS; on by
-          default — switch it to CONFINED on a tunnel-exposed Arco). Confined mode
-          still allows the workflow folder plus the import scratch.
+          outside-folder access and an explicit allowed folder in Settings,
+          under MEDIA ACCESS. Access starts confined to the workflow folder,
+          uploads and import scratch. Removing a folder or turning access off
+          revokes the extra access on the next request.
         </Note>
 
         <h4>Working with results</h4>

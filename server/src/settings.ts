@@ -182,6 +182,20 @@ function sanitizeDefaultWorkingDirectory(raw: unknown): string | undefined {
   return cleaned;
 }
 
+// Explicit media folders are absolute, normalized, distinct and bounded.
+function sanitizeMediaAllowedRoots(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  for (const entry of raw) {
+    const cleaned = sanitizeDefaultWorkingDirectory(entry);
+    if (!cleaned) continue;
+    const normalized = path.resolve(cleaned);
+    if (!out.includes(normalized)) out.push(normalized);
+    if (out.length >= 32) break;
+  }
+  return out;
+}
+
 function sanitizeAcknowledgedCliVersions(raw: unknown): ArchonSettings['acknowledgedCliVersions'] | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
@@ -601,6 +615,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArchonSettings {
   if (skillsExtraPaths) result.skillsExtraPaths = skillsExtraPaths;
   const mediaUnconfined = sanitizeMediaUnconfined(partial.mediaUnconfined);
   if (mediaUnconfined !== undefined) result.mediaUnconfined = mediaUnconfined;
+  const mediaAllowedRoots = sanitizeMediaAllowedRoots(partial.mediaAllowedRoots);
+  if (mediaAllowedRoots) result.mediaAllowedRoots = mediaAllowedRoots;
   const claude = sanitizeClaudeConfig(partial.claude);
   if (claude) result.claude = claude;
   const codex = sanitizeCodexConfig(partial.codex);
@@ -844,6 +860,12 @@ async function patchSettingsUnlocked(patch: Partial<ArchonSettings>): Promise<Ar
   } else if (current.mediaUnconfined !== undefined) {
     merged.mediaUnconfined = current.mediaUnconfined;
   }
+  if ('mediaAllowedRoots' in patch) {
+    merged.mediaAllowedRoots = sanitizeMediaAllowedRoots(patch.mediaAllowedRoots) ?? [];
+  } else if (current.mediaAllowedRoots) {
+    merged.mediaAllowedRoots = current.mediaAllowedRoots;
+  }
+
   // §C2 — fallback chains are hand-edited only (no UI patches them in C2);
   // pass through whatever's on disk so a UI-driven POST /api/settings doesn't
   // drop the operator's chains.

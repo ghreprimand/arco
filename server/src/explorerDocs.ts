@@ -1,3 +1,4 @@
+import { confinedPath } from './fileAccessPolicy.js';
 // ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — project-DOCUMENT scan. The ARTIFACTS
 // lens is a project-artifact tool, and the documents an operator most wants to
 // find live in the PROJECT TREE (e.g. `Codex/Reports/2026-07-10_*.md`, top-level
@@ -53,6 +54,7 @@ export async function collectProjectDocs(project: string, limit = 1000): Promise
     try { entries = await readdir(dir, { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       const abs = join(dir, e.name);
+      try { confinedPath(abs, [root], 'either'); } catch { continue; }
       if (e.isDirectory()) {
         if (depth + 1 > MAX_DEPTH) continue;
         if (PRUNE_DIRS.has(e.name)) continue;

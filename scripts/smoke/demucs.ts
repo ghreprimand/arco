@@ -121,7 +121,7 @@ async function main() {
       } catch (e) { code = e instanceof DemucsError ? e.code : 'other'; }
       assertEq(code, 'bad-path', 'locked fence rejects the out-of-cwd input');
       // And UNCONFINED honors it.
-      const r = await runDemucsStems(cwd, stray, { format: 'mp3', unconfined: true });
+      const r = await runDemucsStems(cwd, stray, { format: 'mp3', unconfined: true, allowedRoots: [outside] });
       assert(r.ok && (r.stems?.length ?? 0) > 0, 'unconfined out-of-cwd separation runs');
     });
 

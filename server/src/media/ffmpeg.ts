@@ -39,6 +39,8 @@
 import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { confinedPath, isPathWithin, safeDirectory } from '../fileAccessPolicy.js';
+import { UPLOADS_DIR } from '../server/constants.js';
 import {
   AUDIO_FORMATS,
   VIDEO_FORMATS,
@@ -73,7 +75,7 @@ import {
   type MediaInspectStream,
   type MediaInspectResult,
 } from '@archon/shared';
-import { isWithinScratch } from './scratch.js';
+import { SCRATCH_ROOT } from './scratch.js';
 
 // ── ffmpeg presence (cached) ────────────────────────────────────────────────
 //
@@ -132,26 +134,13 @@ export function sanitizeOutputBasename(name: string): string | null {
 // ── Media access fence (Part N2) ─────────────────────────────────────────────
 //
 // The studio is a GENERAL tool: it must act on a workflow file, on a picker-
-// imported file staged in Archon's scratch, OR — when the operator opts in — on
-// an arbitrary absolute path (an SMB mount, anywhere). This resolver is the one
-// gate that decides which. Three tiers, checked in order:
-//
-//   1. INSIDE the workflow cwd  → always allowed (today's confined behavior).
-//   2. INSIDE Archon's scratch  → always allowed (the operator uploaded it via
-//      POST /api/media/scratch — Archon-managed, regardless of the setting).
-//   3. ANYWHERE else            → allowed ONLY when `unconfined` (the operator
-//      enabled mediaUnconfined in Settings). Otherwise rejected.
-//
-// `unconfined: false` reproduces the pre-N2 fence EXACTLY (cwd + scratch only),
-// which is why the positional `runMediaOp(cwd, path, spec)` form the audio/video
-// smokes use — no opts → unconfined defaults to false — still rejects /etc/hosts
-// and ../../escapes.
+// imported file staged in Arco scratch, or inside a finite operator-approved
+// media directory. All tiers share canonical containment and protected-state
+// checks. The boolean alone never authorizes arbitrary server paths.
 export interface MediaAccess {
-  // The workflow root for confined relative-path resolution. Empty/absent for a
-  // general-tool op on a scratch / absolute path (which must be absolute).
   cwd?: string;
-  // The operator opted into arbitrary-path access (mediaUnconfined !== false).
   unconfined: boolean;
+  allowedRoots?: string[];
 }
 
 // Resolve a path string (absolute, or relative-to-cwd) to an absolute path.
@@ -164,30 +153,29 @@ function toAbs(access: MediaAccess, p: string, what: string): string {
   throw new MediaOpError('bad-path', `${what} "${p}" is relative but no workflow cwd is bound — pass an absolute path`);
 }
 
-// The tiered gate. Returns `abs` if it clears a tier; throws bad-path otherwise.
-function gate(access: MediaAccess, abs: string, what: string): string {
-  if (access.cwd) {
-    const rel = path.relative(path.resolve(access.cwd), abs);
-    if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) return abs; // tier 1: inside cwd
+function gate(access: MediaAccess, abs: string, kind: 'file' | 'directory'): string {
+  const roots = [access.cwd, SCRATCH_ROOT, UPLOADS_DIR,
+    ...(access.unconfined ? (access.allowedRoots ?? []).slice(0, 32) : [])]
+    .filter((root): root is string => Boolean(root));
+  try { return confinedPath(abs, roots, kind); } catch (err) {
+    // Preserve the existing missing-file/destination recovery codes for a
+    // nonexistent path spelled inside an otherwise authorized ordinary root.
+    // No path is returned or opened when canonical resolution failed.
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT' && roots.some((root) => {
+      try { return isPathWithin(root, abs) || isPathWithin(safeDirectory(root), abs); } catch { return false; }
+    })) {
+      throw new MediaOpError(kind === 'file' ? 'input-missing' : 'output-dir-missing', 'media file or destination does not exist');
+    }
+    throw new MediaOpError('bad-path', 'media path is unavailable or outside permitted folders; add an allowed media folder in Settings for outside-project files');
   }
-  if (isWithinScratch(abs)) return abs; // tier 2: Arco scratch
-  if (access.unconfined) return abs;    // tier 3: operator opted in
-  throw new MediaOpError(
-    'bad-path',
-    `${what} "${abs}" is outside the workflow folder — enable "Unconfined media access" in Settings to reach arbitrary paths`,
-  );
 }
 
-// Resolve + gate the INPUT path.
 export function resolveMediaInput(access: MediaAccess, p: string): string {
-  return gate(access, toAbs(access, p, 'input path'), 'input path');
+  return gate(access, toAbs(access, p, 'input path'), 'file');
 }
 
-// Resolve + gate the OUTPUT directory. `dir` absent ⇒ alongside the (already
-// gated) input. An explicit dir is resolved + gated by the same tiers.
 export function resolveMediaOutputDir(access: MediaAccess, dir: string | undefined, inputAbs: string): string {
-  if (dir === undefined || dir === '') return path.dirname(inputAbs);
-  return gate(access, toAbs(access, dir, 'output dir'), 'output dir');
+  return gate(access, dir ? toAbs(access, dir, 'output dir') : path.dirname(inputAbs), 'directory');
 }
 
 // The EXTRA input paths a multi-input op carries (join's concatenands, swap-
@@ -685,10 +673,10 @@ export interface RunMediaOpOpts {
   // Cancel seam — the route wires req.on('close') → abort, which SIGKILLs the
   // ffmpeg child and unlinks the partial output.
   signal?: AbortSignal;
-  // N2 — operator opted into arbitrary-path access (mediaUnconfined !== false).
-  // ABSENT/false reproduces the pre-N2 fence EXACTLY: cwd + scratch only. The
-  // audio/video smokes pass no opts, so their path-escape assertions still hold.
+  // Explicit outside-project access is limited to allowedRoots. Absent/false
+  // allows only the workflow cwd, uploads and managed scratch.
   unconfined?: boolean;
+  allowedRoots?: string[];
   // N2 — explicit output destination. `dir` (absolute or cwd-relative) chooses
   // where the new file lands (gated by the SAME tiers as the input); absent ⇒
   // alongside the input. `basename` chooses the filename (sanitized; the op's
@@ -731,7 +719,7 @@ export async function runMediaOp(
   const specErr = validateSpec(spec);
   if (specErr) throw new MediaOpError('bad-spec', specErr);
 
-  const access: MediaAccess = { cwd: cwd || undefined, unconfined: opts.unconfined ?? false };
+  const access: MediaAccess = { cwd: cwd || undefined, unconfined: opts.unconfined ?? false, allowedRoots: opts.allowedRoots };
 
   // 2. Resolve + gate the INPUT path (cwd | scratch | unconfined). A '../' /
   //    absolute-outside path with the fence locked throws → bad-path.

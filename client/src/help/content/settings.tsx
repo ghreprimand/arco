@@ -141,12 +141,12 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Media access',
     body: (
       <p>
-        Governs the Media Studio's file reach. <C>UNCONFINED</C> (default) lets
-        ffmpeg ops read any path and write output anywhere — what makes the studio
-        a general tool for files on an SMB mount or outside a workflow. <C>CONFINED</C>
-        restricts ops to the workflow folder plus Arco's import scratch (so
-        picker-imported files still work). Switch to Confined on a tunnel-exposed
-        Arco. Either way, output is uniquified and never overwrites the source.
+        Media Studio starts confined to the workflow folder, browser uploads and
+        Arco's import scratch. To use an outside folder, turn on outside-folder
+        access and add that folder to the explicit list. Both are required.
+        Provider accounts, credentials and system folders stay blocked. Remove a
+        folder, turn access off or choose Revoke all to end extra access on the
+        next request. Output uses a new filename and never overwrites the source.
       </p>
     ),
     manualSection: 'settings-operator',

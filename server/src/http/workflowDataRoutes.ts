@@ -1,3 +1,4 @@
+import { resolveWorkflowDocument } from './readConfinement.js';
 import type { ChatMessage } from '@archon/shared';
 import { readFile, stat } from 'fs/promises';
 import { IncomingMessage, ServerResponse } from 'http';
@@ -26,7 +27,6 @@ import {
   workflowCwds,
   workflows,
 } from '../server/state.js';
-import { artifactsDir } from '../workers/limits.js';
 import { listWorkflowMetas, readMeta, WFID_PATTERN } from '../workflowMeta.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { readEventsPageBefore as readWorkflowEventsPageBefore } from '../workflowStore.js';
@@ -391,14 +391,7 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'invalid handoff name' }));
         return true;
       }
-      const { resolve: resolvePath } = await import('path');
-      const root = resolvePath(cwd, '.archon', 'workflows', workflowId, 'handoffs');
-      const target = resolvePath(root, name);
-      if (!target.startsWith(root + '/') && target !== root) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'handoff path escapes workflow directory' }));
-        return true;
-      }
+      const target = await resolveWorkflowDocument(cwd, workflowId, 'handoffs', name);
       let stats;
       try {
         stats = await stat(target);
@@ -447,13 +440,7 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'invalid artifact name' }));
         return true;
       }
-      const root = artifactsDir(cwd, workflowId);
-      const target = resolve(root, name);
-      if (!target.startsWith(resolve(root) + '/') && target !== resolve(root)) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'artifact path escapes workflow directory' }));
-        return true;
-      }
+      const target = await resolveWorkflowDocument(cwd, workflowId, 'artifacts', name);
       let stats;
       try {
         stats = await stat(target);
@@ -507,13 +494,7 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'invalid artifact name' }));
         return true;
       }
-      const root = artifactsDir(cwd, workflowId);
-      const target = resolve(root, name);
-      if (!target.startsWith(resolve(root) + '/') && target !== resolve(root)) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'artifact path escapes workflow directory' }));
-        return true;
-      }
+      const target = await resolveWorkflowDocument(cwd, workflowId, 'artifacts', name);
       let stats;
       try {
         stats = await stat(target);

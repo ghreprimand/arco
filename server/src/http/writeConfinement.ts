@@ -21,6 +21,7 @@ import path from 'path';
 import { workflowCwds, workflows } from '../server/state.js';
 import * as clusterStore from '../clusterStore.js';
 import { readSettings } from '../settings.js';
+import { safeDirectory, assertSafePath } from '../fileAccessPolicy.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
 
 const WFID_RE = /^[A-Za-z0-9._-]{1,64}$/;
@@ -40,7 +41,7 @@ async function readKnownCwdsRegistry(): Promise<string[]> {
 // the crash-recovery registry, and the explorer window's default root
 // (settings.defaultWorkingDirectory || ~/Projects — what /api/list-dirs hands
 // ExplorerApp as its FileExplorer cwd).
-async function knownRoots(): Promise<Set<string>> {
+export async function knownRoots(): Promise<Set<string>> {
   const out = new Set<string>();
   for (const cwd of workflowCwds.values()) if (cwd) out.add(path.resolve(cwd));
   for (const wf of workflows.values()) {
@@ -73,11 +74,17 @@ export async function resolveBoundCwd(
   if (workflowId) {
     if (!WFID_RE.test(workflowId)) return { ok: false, reason: 'unknown-workflow' };
     const bound = workflowCwds.get(workflowId) || workflows.get(workflowId)?.config.workingDirectory || '';
-    return bound ? { ok: true, cwd: bound } : { ok: false, reason: 'unknown-workflow' };
+    try { if (bound) { safeDirectory(bound); return { ok: true, cwd: bound }; } } catch { /* protected or missing root */ }
+    return { ok: false, reason: 'unknown-workflow' };
   }
   if (!callerCwd) return { ok: false, reason: 'none' };
+  try { safeDirectory(callerCwd); } catch { return { ok: false, reason: 'unknown-cwd' }; }
   const roots = await knownRoots();
-  return roots.has(path.resolve(callerCwd)) ? { ok: true, cwd: callerCwd } : { ok: false, reason: 'unknown-cwd' };
+  const canonical = safeDirectory(callerCwd);
+  for (const root of roots) {
+    try { if (safeDirectory(root) === canonical) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
+  }
+  return { ok: false, reason: 'unknown-cwd' };
 }
 
 export function boundCwdError(reason: 'none' | 'unknown-workflow' | 'unknown-cwd'): string {
@@ -101,7 +108,8 @@ function isWithin(root: string, target: string): boolean {
  */
 export async function confineRealPath(cwd: string, p: string): Promise<string> {
   const abs = resolveWithinCwd(cwd, p);
-  const realRoot = await fs.realpath(path.resolve(cwd));
+  const realRoot = safeDirectory(cwd);
+  assertSafePath(abs);
   // Walk up to the deepest existing ancestor; realpath it; re-append the tail.
   let probe = abs;
   const tail: string[] = [];
@@ -125,6 +133,7 @@ export async function confineRealPath(cwd: string, p: string): Promise<string> {
       throw new Error(`path "${p}" is a dangling symlink`);
     }
     const resolved = path.join(real, ...tail);
+    assertSafePath(resolved);
     if (!isWithin(realRoot, resolved)) {
       throw new Error(`path "${p}" resolves outside the workflow cwd (symlink)`);
     }
