@@ -205,6 +205,13 @@ try {
 } finally {
   await disconnect();
   await hostModel.close();
+  // The container user (uid 1000) creates files in the bind-mounted project.
+  // When the host user has another uid (hosted runners use 1001), the host
+  // cannot delete them, so hand them to everyone from inside a container first.
+  const openUp = ['chmod', '-R', 'a+rwX', '/projects'];
+  try { docker('exec', '-u', '0', name, ...openUp); } catch {
+    try { docker('run', '--rm', '-u', '0', '--entrypoint', openUp[0], '--mount', `type=bind,src=${project},dst=/projects`, image, ...openUp.slice(1)); } catch { /* Image or daemon unavailable. */ }
+  }
   try { docker('rm', '-f', name); } catch { /* Already removed. */ }
   try { docker('volume', 'rm', volume); } catch { /* Not created. */ }
   rmSync(project, { recursive: true, force: true });
