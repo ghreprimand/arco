@@ -99,6 +99,7 @@
     "smoke:lmstudio-provider": "tsx scripts/smoke/lmstudio-provider.ts",
     "smoke:rag-injection": "tsx scripts/smoke/rag-injection.ts",
     "smoke:ssh-lifecycle": "tsx scripts/smoke/ssh-lifecycle.ts",
+    "smoke:docker": "node scripts/smoke/docker.mjs",
     "archon:agent": "tsx scripts/archon-agent.ts",
     "archon:service": "tsx scripts/archon-service.ts",
     "archon:management": "tsx scripts/archon-management.ts",

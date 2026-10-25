@@ -11,7 +11,9 @@ export const DIRECTORY_NAME_COLLATOR = new Intl.Collator(undefined, {
 // them to the LAN. Operators who genuinely need a different bind (containers,
 // custom forwarding) can set ARCHON_HOST=0.0.0.0 explicitly.
 export const HOST = process.env.ARCHON_HOST || '127.0.0.1';
-export const UPLOADS_DIR = join(process.cwd(), 'uploads');
+// ARCHON_UPLOADS_DIR relocates uploads (the Docker image keeps them on the data
+// volume); the default stays the server's working directory.
+export const UPLOADS_DIR = process.env.ARCHON_UPLOADS_DIR || join(process.cwd(), 'uploads');
 export const UPLOAD_IMAGE_EXT: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',

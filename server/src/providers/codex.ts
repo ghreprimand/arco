@@ -516,7 +516,8 @@ export async function probeCodexLoggedIn(codexHome?: string): Promise<{ loggedIn
     proc.on('exit', () => {
       clearTimeout(timeout);
       const combined = `${out}\n${err}`;
-      const loggedIn = /logged in/i.test(combined);
+      // "Not logged in" also contains "logged in"; a negative answer wins.
+      const loggedIn = /logged in/i.test(combined) && !/\bnot logged in\b/i.test(combined);
       const cliAccount = /Logged in (?:to \S+ )?(?:as|using)\s+(\S+)/i.exec(combined)?.[1];
       // Fall back to JWT email when the CLI output contains no email address.
       const account = (cliAccount && cliAccount.includes('@')) ? cliAccount : (readCodexAuthEmail(codexHome) ?? cliAccount);

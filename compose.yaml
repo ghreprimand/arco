@@ -1,0 +1,21 @@
+services:
+  arco:
+    build: .
+    image: arco:local
+    ports:
+      - "127.0.0.1:${ARCO_PORT:-3001}:3001"
+      # Claude Native browser sign-in returns to localhost:53692 on this computer.
+      - "127.0.0.1:53692:53692"
+    volumes:
+      - type: bind
+        source: ${ARCO_PROJECTS_DIR:?Set ARCO_PROJECTS_DIR in .env to an existing project folder}
+        target: /projects
+        bind:
+          create_host_path: false
+      - arco-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    stop_grace_period: 45s
+volumes:
+  arco-data:

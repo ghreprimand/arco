@@ -1,0 +1,27 @@
+# Build context allowlist: no Git history, local config, reports or runtime data.
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!tsconfig.json
+!client/
+!client/**
+!server/
+!server/**
+!shared/
+!shared/**
+!scripts/
+!scripts/container/
+!scripts/container/entrypoint.sh
+# In-app documentation opened from the help (DocViewer through /api/docs).
+!docs/
+!docs/*.md
+**/node_modules
+**/dist
+**/.archon
+**/.claude
+**/.codex
+**/.env*
+**/*.log
+**/*.sqlite*
+**/*.db
