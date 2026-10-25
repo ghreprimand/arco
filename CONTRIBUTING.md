@@ -9,7 +9,7 @@ For the architecture map, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Fo
 ## Setup
 
 ```bash
-git clone https://github.com/ghreprimand/arco.git
+git clone <repository-url>
 cd arco
 npm install
 npm run dev
@@ -17,19 +17,19 @@ npm run dev
 
 Open <http://localhost:5173>.
 
-**Native deps under npm 12.** npm 12 blocks package install scripts by default. The root `package.json` carries an `allowScripts` block covering the three that matter — `better-sqlite3` (recall index), `node-pty` (integrated terminal), `esbuild` (two versions resolve in this tree) — so a fresh clone needs nothing beyond `npm install`. Three things to know:
+**Native deps under npm 12.** npm 12 blocks package install scripts by default. The root `package.json` carries an `allowScripts` block covering the three that matter,  `better-sqlite3` (recall index), `node-pty` (integrated terminal), `esbuild` (two versions resolve in this tree),  so a fresh clone needs nothing beyond `npm install`. Three things to know:
 
-- **On npm 12, prefer `npm ci`.** `npm install` under npm 12 renormalizes `package-lock.json`, dropping 26 `"peer": true` flags from esbuild's platform-optional deps. It's cosmetic — no dependency version moves — but **don't commit it**: npm 10 puts them straight back, so whichever form is committed leaves the *other* machine's tree dirty. Measured in both directions; it ping-pongs. `npm ci` installs from the lock without ever writing it, honors `allowScripts` identically, and builds both natives — so it's the clean call on any npm 12 machine. If you already ran `npm install` there, `git checkout package-lock.json`. The lock stays npm 10-authored until this project's Node floor moves (npm 12 wants Node `^22.22.2 || ^24.15.0 || >=26`).
-- **The pins are version-keyed** (`better-sqlite3@12.9.0`). Bump one of those deps without updating its pin and npm silently stops running its scripts. `npm install` says so — `N packages had install scripts blocked because they are not covered by allowScripts` — so read that warning rather than scrolling past it. `npm install-scripts ls` lists the current state.
+- **On npm 12, prefer `npm ci`.** `npm install` under npm 12 renormalizes `package-lock.json`, dropping 26 `"peer": true` flags from esbuild's platform-optional deps. It's cosmetic,  no dependency version moves,  but **don't commit it**: npm 10 puts them straight back, so whichever form is committed leaves the *other* machine's tree dirty. Measured in both directions; it ping-pongs. `npm ci` installs from the lock without ever writing it, honors `allowScripts` identically, and builds both natives,  so it's the clean call on any npm 12 machine. If you already ran `npm install` there, `git checkout package-lock.json`. The lock stays npm 10-authored until this project's Node floor moves (npm 12 wants Node `^22.22.2 || ^24.15.0 || >=26`).
+- **The pins are version-keyed** (`better-sqlite3@12.9.0`). Bump one of those deps without updating its pin and npm silently stops running its scripts. `npm install` says so,  `N packages had install scripts blocked because they are not covered by allowScripts`,  so read that warning rather than scrolling past it. `npm install-scripts ls` lists the current state.
 - **Approving after the fact does not build anything.** `npm install-scripts approve <pkg>` writes the `allowScripts` entry and prints `added <pkg>`, but npm won't re-run scripts for an already-unpacked package. Follow it with `npm rebuild better-sqlite3 node-pty`.
 
 A missed `better-sqlite3` build is the quiet one: `npm run build` passes, the server boots, and only transcript recall is dead. A healthy boot logs `Recall index backfilled N workflows`; a broken one logs a `RECALL DISABLED` block naming the rebuild command. The System modal's Recall-index check reports `warn` in that state too.
 
 Requirements:
 
-- Node.js **22+** (developed on 24.x LTS; 22.x is in maintenance until 2027-04-30). Crossing a Node major changes the native ABI, so `better-sqlite3` and `node-pty` need `npm rebuild` afterwards — the tell is `RECALL DISABLED` or `ERR_DLOPEN_FAILED` at boot.
-- One or more authed providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), a Z.ai key (`ZAI_API_KEY`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
-- Linux or macOS (cross-platform — see [`docs/GOTCHAS.md`](docs/GOTCHAS.md) cross-platform notes)
+- Node.js **22+** (developed on 24.x LTS; 22.x is in maintenance until 2027-04-30). Crossing a Node major changes the native ABI, so `better-sqlite3` and `node-pty` need `npm rebuild` afterwards,  the tell is `RECALL DISABLED` or `ERR_DLOPEN_FAILED` at boot.
+- One or more configured providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), a Z.ai key (`ZAI_API_KEY`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
+- Linux or macOS (cross-platform,  see [`docs/GOTCHAS.md`](docs/GOTCHAS.md) cross-platform notes)
 
 `npm run dev` starts both the server (port 3001, `tsx watch`) and the client (port 5173, Vite) under `concurrently --kill-others`. If one dies, both die.
 
@@ -39,14 +39,14 @@ Requirements:
 
 ```
 Arco/
-├── shared/src/protocol/             # WS message types (split per-domain) — shared
+├── shared/src/protocol/             # shared WS message types split by domain
 │   │                                #   between client and server. `shared/src/protocol.ts`
 │   │                                #   is a thin barrel re-exporting `./protocol/index.js`.
 ├── server/src/
 │   ├── index.ts                     # boot, WS dispatcher switch, workflow lifecycle
-│   ├── ws/                          # per-domain WS handlers — turnEngine (primary-turn dispatch,
+│   ├── ws/                          # per-domain WS handlers: turnEngine (primary-turn dispatch,
 │   │                                #   post-settle armed actions), updatePrimaryConfig,
-│   │                                #   cluster/handoff/compact/gate/posture/bakeoff/…Handlers
+│   │                                #   cluster/handoff/compact/gate/posture/bakeoff handlers
 │   ├── http/                        # router.ts + per-domain *Routes.ts
 │   ├── chatMode.ts                  # Chat-tab contract (provider sets, web toggle, saved-chat list)
 │   ├── goalRun.ts                   # goal-run arming + deterministic stop decision
@@ -61,12 +61,12 @@ Arco/
 │   │                                #   shared: codexCodeMode, goalBlock, outputStyle
 │   ├── mcp/                         # MCP registry + clusterMcpServer/clusterMcpTools +
 │   │                                #   clusterMcpLoopback (Cursor) + osvCheck + safeEnv
-│   ├── projectTrust.ts              # DD7 — untrusted-repo CLAUDE.md/skills/settings gate
-│   ├── skillAudit.ts                # H35 — operator skill security audit
-│   ├── skillUsage.ts                # §5.2 — skill-usage telemetry sidecar
-│   ├── primitiveDrift.ts            # §5.1 — Review/Handoff/Spawn model vs live catalog
-│   ├── configValue.ts              # DD12 — !cmd / ${ENV} config interpolation
-│   ├── prompts.ts                   # DD10 — parameterized /prompt template expansion
+│   ├── projectTrust.ts              # untrusted-repository skills/settings gate
+│   ├── skillAudit.ts                # user-triggered skill security audit
+│   ├── skillUsage.ts                # skill-usage telemetry sidecar
+│   ├── primitiveDrift.ts            # Review/Handoff/Spawn model vs live catalog
+│   ├── configValue.ts              # !cmd / ${ENV} config interpolation
+│   ├── prompts.ts                   # parameterized /prompt template expansion
 │   ├── memoryMonitor.ts             # RSS/heap trend logging (gated)
 │   ├── clusterEfficiency.ts         # per-cluster efficiency-level bundle
 │   ├── ultracodeFleetWatcher.ts     # ultracode background-subagent fleet telemetry
@@ -80,12 +80,12 @@ Arco/
 │   ├── contextEstimator.ts          # byte-count fill
 │   ├── contextCalibrator.ts         # ground-truth calibration
 │   ├── auth.ts                      # per-provider login triggers
-│   ├── catalog.ts                   # operator catalog + Phase 7a live Anthropic /v1/models
-│   ├── claudeMdDiscovery.ts         # CLAUDE.md walker (cwd → root + ~/.claude)
+│   ├── catalog.ts                   # provider model catalog and live model discovery
+│   ├── claudeMdDiscovery.ts         # CLAUDE.md walker (cwd -> root + ~/.claude)
 │   ├── codexUsage.ts                # Codex 5h/weekly usage probe
-│   ├── codexRolloutTokens.ts        # Phase 6 — per-call token snapshot from on-disk rollout
-│   ├── handoffPrompts.ts            # Phase 3 — operator-editable Handoff prompts
-│   ├── skills.ts                    # Phase 1 — .arco/skills/ scanner + manifest builder
+│   ├── codexRolloutTokens.ts        # per-call token usage snapshot
+│   ├── handoffPrompts.ts            # user-editable Handoff prompts
+│   ├── skills.ts                    # .arco/skills/ scanner + manifest builder
 │   ├── git.ts                       # GitDialog backing (status + checkout)
 │   ├── settings.ts                  # operator settings (cascade: defaults → global → project)
 │   ├── usage.ts                     # Claude 5h/weekly usage probe
@@ -101,17 +101,18 @@ Arco/
 │   ├── App.tsx                      # top-level layout + routing
 │   ├── components/                  # all UI components
 │   ├── stores/appStore.ts           # Zustand store (~2000 lines; types in appStore.types.ts)
-│   ├── ws/handleServerMessage.ts    # the server→client message switch
+│   ├── ws/handleServerMessage.ts    # server-to-client message switch
 │   ├── hooks/
 │   │   ├── useWebSocket.ts          # WS connection + reconnect + rehydrate
 │   │   └── useTabSingleton.ts       # duplicate-tab gate
 │   ├── themes/                      # role-based CSS vars + shaders
-│   └── utils/                       # format (efforts, ctx windows), modelCatalog, chatText, linkify, …
+│   └── utils/                       # format (efforts, ctx windows), modelCatalog, chatText, linkify, and related utilities
 ├── scripts/arco                   # launcher (start/stop/restart/status/logs)
 ├── docs/                            # this doc set
 ├── DEVLOG.md                        # chronological development log
-├── CLAUDE.md                        # AI-agent guidance for in-repo work
-├── README.md                        # operator-facing intro
+├── AGENTS.md                        # contributor and agent guidance
+├── README.md                        # user-facing introduction
+├── AGENTS.md                        # repository contribution rules
 └── CONTRIBUTING.md                  # this file
 ```
 
@@ -132,61 +133,54 @@ Client files (under `client/src/`) hot-reload via Vite without affecting workers
 
 ### The live service does not see source edits
 
-If Arco runs as the `arco.service` systemd user unit (service mode), it serves the compiled `server/dist` + `client/dist` and watches nothing. Edits reach it only via `npm run build` + `systemctl --user restart arco.service` — and that restart kills in-flight workers in every tab, and ships whatever else is in the working tree. See `docs/SERVICE_MODE.md`.
+If Arco runs as the `arco.service` systemd user unit (service mode), it serves the compiled `server/dist` + `client/dist` and watches nothing. Edits reach it only via `npm run build` + `systemctl --user restart arco.service`,  and that restart kills in-flight workers in every tab, and ships whatever else is in the working tree. See `docs/SERVICE_MODE.md`.
 
 ### Vite HMR keeps WS connection
 
-Vite's HMR doesn't reset the WebSocket — the same connection persists across client-side hot reloads. If you change `useWebSocket.ts` itself, the new code runs against the same socket. Sometimes a manual page reload is cleaner than HMR for WS-handler changes.
+Vite's HMR doesn't reset the WebSocket,  the same connection persists across client-side hot reloads. If you change `useWebSocket.ts` itself, the new code runs against the same socket. Sometimes a manual page reload is cleaner than HMR for WS-handler changes.
 
 ---
 
 ## Headless smoke harness
 
-`scripts/smoke/` contains headless WebSocket scenario scripts. The harness (`scripts/smoke/lib.ts`) exports `connect()` → `SmokeClient` with `send()`, `waitFor(predicate, timeoutMs)`, and `close()`. Each scenario boots a workflow, exercises a protocol surface, asserts on broadcasts, and tears down.
+`scripts/smoke/` contains WebSocket scenarios for protocol and workflow behavior.
+The harness in `scripts/smoke/lib.ts` provides `connect()`, `send()`,
+`waitFor(predicate, timeoutMs)`, and `close()` helpers. Scenarios create a
+workflow, exercise a protocol surface, assert broadcasts, and clean up.
 
-**Running:**
+List the available commands with:
+
 ```bash
-# NOTE: these connect to whatever is listening on 3001 — see the warning below.
-# Against a dev server on port 3001:
-npm run smoke:cluster-26   # cluster Phase 2.6 observer tests
-npm run smoke:cluster-3    # Phase 3 peer tools (plan-tick, etc.)
-npm run smoke:cluster-4    # Phase 4 AUTO-PICKUP + nudger
-npm run smoke:cluster-5    # Phase 5 rehydrate-on-subscribe + idle-nudger
-npm run smoke:cluster-5b   # Phase 5b auto-turn chain depth
-npm run smoke:fold         # context Fold + auto-fold
-npm run smoke:posture-toolset  # posture-based toolsets
-npm run smoke:project-trust    # DD7 project-trust gate
-npm run smoke:debag-gate   # DeBAG HITL gate
-npm run smoke:task-board   # Phase 12 cluster task board
+npm run | grep smoke:
 ```
 
-`scripts/smoke/` holds ~150 scenarios (now including `cursor-phase-*`, `ultracode`, `goal`, `cluster-progress`); run `npm run | grep smoke:` to list them all.
+Run a smoke only against an isolated server with a temporary `ARCO_HOME` and a
+synthetic project. Do not point it at an installed or shared Arco service. Smoke
+startup and cleanup can interact with persisted workflows and worker state.
 
-> **The harness does NOT boot a server.** `lib.ts` connects to `ws://localhost:3001/ws` and tests whatever already answers there. On a machine where Arco runs as a service, that is the **prod `arco.service` compiled `dist/` — not your working tree**. A green smoke run therefore proves nothing about uncommitted source changes. To exercise your edits, run a side server and point the smoke at it:
->
-> ```bash
-> ARCO_PORT=3099 npm run dev:server &
-> ARCO_PORT=3099 ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:<name>
-> ```
->
-> Check `~/.arco/worker-pids.json` is `{"procs":[]}` first — a second server's boot-time orphan reap will SIGKILL pids tracked there, which may belong to the live instance's workers.
+```bash
+ARCO_HOME=<temporary-arco-home> ARCO_PORT=3099 npm run dev:server
+ARCO_HOME=<temporary-arco-home> ARCO_PORT=3099 ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:<name>
+```
 
-**Server env some scenarios require.** These are deliberately absent from the live service, so the affected scenarios can never pass against it. `requireServerEnv()` in `lib.ts` makes them exit immediately with the right command rather than timing out cryptically — use it when you add a scenario with an env prerequisite.
+Use a separate temporary home and port for each concurrent server. Some
+scenarios require environment variables. `requireServerEnv()` in `lib.ts` makes
+a scenario stop immediately with a clear message when a prerequisite is absent.
+`ARCO_TEST=1` enables test-only debug hooks; do not set it in a shared service
+environment.
 
-| Env | Needed by | Why prod omits it |
-|---|---|---|
-| `ARCO_CLUSTER_IDLE_FLOOR_SECONDS=1` | `cluster-5` | Production floor is 10s; the smoke's `waitFor` budget assumes 1s |
-| `ARCO_TEST=1` | `cluster-26`, `cluster-5b` | Gates the `__debug_native_plan_set` / `__debug_cluster_auto_turn_inject` hooks so production never honours them |
-
-**Assert against real constants, not copies.** `cluster-3` / `cluster-4` hard-coded a 9 KB payload against an 8 KB cap; when the cap was raised to 16 KB the assertion silently began passing the wrong status for months. Import the constant (`MAX_CONTENT_BYTES` is exported from `clusterMailbox.ts` for this reason) and size the fixture off it.
-
-**Adding a scenario:** every phase that adds protocol surface (new WS messages, new broadcasts, new store fields) ships a `scripts/smoke/<feature>.ts` scenario alongside the feature — descriptive names (`fold.ts`, `project-trust.ts`, `task-board.ts`) are now the convention; only the cluster/efficiency/phase-9 scenarios still use `phase-N.ts`. Add a matching `"smoke:<feature>": "tsx scripts/smoke/<feature>.ts"` entry in `package.json`. The acceptance recipe in the plan doc then shrinks to UI-only steps; everything else is covered by the smoke.
+Assertions should use real exported constants rather than copied values. A
+smoke should derive fixture size from the relevant limit so later limit changes
+do not silently invalidate the assertion. A feature that adds protocol messages,
+broadcasts, or persisted store fields should include a descriptive scenario
+under `scripts/smoke/` and a matching `smoke:<feature>` script in `package.json`.
+Keep fixtures synthetic and isolate provider calls.
 
 ---
 
 ## Type checks + builds
 
-There are no test runs in CI. Type checks are the load-bearing safety net.
+Hosted CI runs the build, typecheck, unit suite, privacy audit, and configured smoke checks. Type checks and tests are required before landing changes.
 
 ```bash
 # Type check across all three workspaces (no emit):
@@ -196,11 +190,11 @@ npm run typecheck
 npm run build
 ```
 
-Anything failing `tsc` fails the workspace's `build`. The `ClientMessage` / `ServerMessage` discriminated unions (in `shared/src/protocol/clientMessages.ts` / `serverMessages.ts`, re-exported via the `shared/src/protocol.ts` barrel) are exhaustively switched on the client and the server — adding a new variant without updating both sides will compile-error.
+Anything failing `tsc` fails the workspace's `build`. The `ClientMessage` / `ServerMessage` discriminated unions (in `shared/src/protocol/clientMessages.ts` / `serverMessages.ts`, re-exported via the `shared/src/protocol.ts` barrel) are exhaustively switched on the client and the server,  adding a new variant without updating both sides will compile-error.
 
 ### Unit tests
 
-Pure-logic modules ship a co-located `*.test.ts` run under the Node built-in runner: `node --conditions development --import tsx --test <file>`. Each is wired as a `test:<name>` script (root `package.json` + `server/package.json`), e.g. `npm run test:cursor-models`. Convention: any new deterministic parser/budgeter/matcher ships one alongside the feature (recent examples: `clusterStringFold.test.ts`, `clusterPlanOutline.test.ts`, `recentFilesLedger.test.ts`, `codexCodeMode.test.ts`). There is no aggregate `npm test` and no CI — run the relevant `test:*` script plus `npm run typecheck` before considering a change done.
+Pure-logic modules ship a co-located `*.test.ts` run under the Node built-in runner: `node --conditions development --import tsx --test <file>`. Each is wired as a `test:<name>` script (root `package.json` + `server/package.json`), e.g. `npm run test:cursor-models`. Convention: add a co-located test for each new deterministic parser, budgeter, or matcher. Run the relevant `test:*` script and `npm run typecheck`; run the aggregate unit suite with `npm run test:unit`.
 
 ---
 
@@ -215,17 +209,17 @@ npm run docs:check -- --self-test   # fixture self-test (proves it fails loudly)
 
 What it enforces (hard-fails the build):
 
-- **Every `data-help` key has a `HELP_CONTENT` entry.** A clicked element with no help text is the dangerous direction — it's a hard error.
-- **Every `manualSection` link resolves to a real section id.** Dangling "Read more in manual" link → hard error.
+- **Every `data-help` key has a `HELP_CONTENT` entry.** A clicked element with no help text is the dangerous direction,  it's a hard error.
+- **Every `manualSection` link resolves to a real section id.** Dangling "Read more in manual" link -> hard error.
 
 What it reports without failing:
 
-- **Unreferenced entries** (an entry no element points at) → **warning**, not error. This is the normal mid-coverage-pass state: a phase may pre-author help for an element it hasn't wired yet. Wire it or remove the entry when convenient.
-- **Coverage %** — interactive elements carrying `data-help`, informational only (the survey put it ~40%; J2 raises it).
+- **Unreferenced entries** (an entry no element points at) -> **warning**, not error. This is the normal mid-coverage-pass state: a phase may pre-author help for an element it hasn't wired yet. Wire it or remove the entry when convenient.
+- **Coverage %**,  interactive elements carrying `data-help`, informational only (the current fraction is informational).
 
-Dynamic keys (`data-help={`rightpanel.tab.${id}`}`) and forwarded-prop helpers (`helpKey="…"`, `const helpKey = … ? 'a' : 'b'`, `{ 'data-help': key }`) are recognized so they don't produce false errors — see the header comment in `scripts/docs-check.ts` for the exact heuristics, and `docs/CLIENT.md § help system`.
+Dynamic keys (`data-help={`rightpanel.tab.${id}`}`) and forwarded-prop helpers (`helpKey="..."`, `const helpKey = ... ? 'a' : 'b'`, `{ 'data-help': key }`) are recognized so they don't produce false errors,  see the header comment in `scripts/docs-check.ts` for the exact heuristics, and `docs/CLIENT.md § help system`.
 
-**Per-phase obligation:** every feature phase ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) as part of its DONE checklist, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and `npm run size:check` before considering a phase done.
+**Per-phase obligation:** every feature phase ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) as part of its DONE checklist, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and the unit suite before landing a documentation change.
 
 ---
 
@@ -241,7 +235,7 @@ Dynamic keys (`data-help={`rightpanel.tab.${id}`}`) and forwarded-prop helpers (
 
 ### Comments
 
-This repo uses comments to capture *why*, not *what*. Long comment blocks before tricky code blocks are normal — they explain the load-bearing detail, the prior incident that motivated the choice, or the constraint that the reader would otherwise miss.
+This repo uses comments to capture *why*, not *what*. Long comment blocks before tricky code blocks are normal,  they explain the load-bearing detail, the constraint that motivates the choice, or the constraint that the reader would otherwise miss.
 
 If you remove a comment, you're saying its content is no longer load-bearing. Make sure that's true. If a comment describes an invariant, the invariant should also be in [`docs/GOTCHAS.md`](docs/GOTCHAS.md) so the next agent finds it without reading the file.
 
@@ -249,23 +243,23 @@ If you remove a comment, you're saying its content is no longer load-bearing. Ma
 
 **Never hard-code hex literals in components.** All colors come from theme tokens via `var(--color-...)`. Themes live under `client/src/themes/definitions/<id>.ts`.
 
-Fonts come from theme tokens too: `var(--font-display)` for terminal/UI labels (small caps, letter-spaced), `var(--font-body)` for prose, `var(--font-code)` for code. Operators can override the active theme's font stack with a curated pack via Settings → Font Pack Override; the substitution is global across all themes.
+Fonts come from theme tokens too: `var(--font-display)` for terminal/UI labels (small caps, letter-spaced), `var(--font-body)` for prose, `var(--font-code)` for code. Operators can override the active theme's font stack with a curated pack via Settings -> Font Pack Override; the substitution is global across all themes.
 
 ### Logging
 
-Server-side logs go to stdout; the dev launcher captures them at `$XDG_CACHE_HOME/arco/arco.log`, service mode sends them to journald plus the rotating `~/.arco/logs/`. Incognito workflows suppress workflow-scoped log lines — don't add a logging path that bypasses the console tee.
+Server-side logs go to stdout; the dev launcher captures them at `$XDG_CACHE_HOME/arco/arco.log`, service mode sends them to journald plus the rotating `~/.arco/logs/`. Incognito workflows suppress workflow-scoped log lines,  don't add a logging path that bypasses the console tee.
 
-Use `console.log('[arco] [<wfid-prefix>] <message>')` for workflow-scoped logs and `console.log('[arco] <message>')` for global ones. Don't bring in a logging library — the existing pattern is enough for the scale Arco operates at.
+Use `console.log('[arco] [<wfid-prefix>] <message>')` for workflow-scoped logs and `console.log('[arco] <message>')` for global ones. Don't bring in a logging library,  the existing pattern is enough for the scale Arco operates at.
 
 ### Naming
 
-Phase 8 renamed all `orchestrator*` identifiers to `primary*` (store keys, event types, component names, config fields). Do not reintroduce `orchestrator*` names — the rename was load-bearing for store serialization and protocol compatibility.
+Use `primary*` identifiers for workflow roles. Do not reintroduce `orchestrator*` names; the persisted store keys and protocol rely on the current names.
 
 ### Cross-platform
 
 See [`docs/GOTCHAS.md`](docs/GOTCHAS.md) "Cross-platform" section. Briefly:
 
-- No `setsid` binary — use `spawn(..., { detached: true })`.
+- No `setsid` binary,  use `spawn(..., { detached: true })`.
 - Bash 3.2 in scripts (macOS default). No bash-4 features.
 - `/proc/` reads need a platform check.
 - `pkill -f` matches differently on Linux vs macOS.
@@ -274,12 +268,12 @@ See [`docs/GOTCHAS.md`](docs/GOTCHAS.md) "Cross-platform" section. Briefly:
 
 ## Adding a new provider
 
-Ten providers ship today: Claude (with `cli` + `native` transports), Codex (with `exec` + `appserver` transports), Gemini (CLI; a `gemini-native/` auth+catalog stub exists but has no worker yet — see `docs/GEMINI_NATIVE_PLAN.md`), Z.ai GLM (`zai-native/` in-process worker on direct Chat Completions by default; optional `appserver` transport routes through the Codex app-server via a loopback Responses proxy — `ZAI_API_KEY`; default model `glm-5.2`, 1M context; other GLMs 128K–200K), Ollama, llama.cpp, LM Studio (OpenAI-compat `/v1`), Strata (standalone `/v1`, shared HTTP worker), Antigravity, Cursor (`cursor-agent` via the Agent Client Protocol; long-lived `acp` worker by default + a stateless `print` one-shot `cursor-agent -p --mode ask` for read-only primitives — reasoning effort is baked into the model id, ~150-model catalog). To add a new one (let's call it `foo`):
+Ten providers ship today: Claude (with `cli` + `native` transports), Codex (with `exec` + `appserver` transports), Gemini (CLI; a `gemini-native/` auth+catalog stub exists but has no worker yet,  see `docs/GEMINI_NATIVE_PLAN.md`), Z.ai GLM (`zai-native/` in-process worker on direct Chat Completions by default; optional `appserver` transport routes through the Codex app-server via a loopback Responses proxy,  `ZAI_API_KEY`; default model `glm-5.2`, 1M context; other GLMs 128K-200K), Ollama, llama.cpp, LM Studio (OpenAI-compat `/v1`), Strata (standalone `/v1`, shared HTTP worker), Antigravity, Cursor (`cursor-agent` via the Agent Client Protocol; long-lived `acp` worker by default + a stateless `print` one-shot `cursor-agent -p --mode ask` for read-only primitives,  reasoning effort is baked into the model id, ~150-model catalog). To add a new one (let's call it `foo`):
 
 > **Several providers use a subdirectory layout** rather than a single file (claude-native/, codex-appserver/, zai-native/, cursor/, and the gemini-native/ stub):
-> - `server/src/providers/claude-native/` — in-process Anthropic SDK worker (Phase 7a). Read `docs/PROVIDERS.md § Claude Native` and `docs/GOTCHAS.md § Claude Native transport` before touching it; the forced-first-system-block, replay-on-restart pair-flush, and depth-1 Task cap are load-bearing.
-> - `server/src/providers/codex-appserver/` — long-lived per-tab `codex app-server` process (Phase 6). Read `docs/PROVIDERS.md § Codex § app-server transport` and `docs/GOTCHAS.md § Codex § App-server transport invariants`.
-> - `server/src/providers/cursor/` — long-lived `cursor-agent acp` ACP worker + stateless `print.ts` one-shot. Read `docs/PROVIDERS.md § Cursor`; ACP is bidirectional JSON-RPC (the agent sends fs/permission requests mid-turn that must be answered), and cluster membership rides an in-process loopback HTTP MCP (`mcp/clusterMcpLoopback.ts`), not stdio.
+> - `server/src/providers/claude-native/`,  in-process Anthropic SDK worker . Read `docs/PROVIDERS.md § Claude Native` and `docs/GOTCHAS.md § Claude Native transport` before touching it; the forced-first-system-block, replay-on-restart pair-flush, and depth-1 Task cap are load-bearing.
+> - `server/src/providers/codex-appserver/`,  long-lived per-tab `codex app-server` process . Read `docs/PROVIDERS.md § Codex § app-server transport` and `docs/GOTCHAS.md § Codex § App-server transport invariants`.
+> - `server/src/providers/cursor/`,  long-lived `cursor-agent acp` ACP worker + stateless `print.ts` one-shot. Read `docs/PROVIDERS.md § Cursor`; ACP is bidirectional JSON-RPC (the agent sends fs/permission requests mid-turn that must be answered), and cluster membership rides an in-process loopback HTTP MCP (`mcp/clusterMcpLoopback.ts`), not stdio.
 >
 > New single-transport providers should use a single file like `ollama.ts`; new dual-transport providers should use the subdirectory pattern.
 
@@ -314,13 +308,13 @@ export class FooProcess implements ProviderProcess {
 ```
 
 The unified event stream you must emit:
-- `init` — `{ model, sessionId? }` on first response
-- `text` — `{ text }` deltas
-- `thinking` — `{ text }` reasoning blocks (skip if not supported)
-- `tool_use` — `{ tool, input, toolUseId? }` (skip if not supported)
-- `result` — `{ costUsd, durationMs, tokens? }` on settle
-- `error` — `{ error, detail? }` on failure
-- `system_notice` — `{ text }` for transient out-of-band issues
+- `init`,  `{ model, sessionId? }` on first response
+- `text`,  `{ text }` deltas
+- `thinking`,  `{ text }` reasoning blocks (skip if not supported)
+- `tool_use`,  `{ tool, input, toolUseId? }` (skip if not supported)
+- `result`,  `{ costUsd, durationMs, tokens? }` on settle
+- `error`,  `{ error, detail? }` on failure
+- `system_notice`,  `{ text }` for transient out-of-band issues
 
 Reference implementations: `claude.ts` is the most full-featured subprocess provider; `lmstudio.ts` is the smallest HTTP provider (it reuses the Ollama tool runtime rather than owning one).
 
@@ -369,11 +363,11 @@ In the WorkflowCreator's provider dropdown and the CONFIG tab's provider/model s
 
 ### 7. Chat, Incognito, clusters
 
-Decide explicitly — nothing opts a provider in by default:
+Decide explicitly,  nothing opts a provider in by default:
 
-- **Chat** — add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor `WorkerConfig.interactionMode:'chat'` (no project tools, isolated cwd). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
-- **Incognito** — add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor and llama.cpp are excluded for exactly this.
-- **Clusters** — `isClusterMemberProvider` + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See `docs/CLUSTER_MODE_PLAN.md`.
+- **Chat**,  add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor `WorkerConfig.interactionMode:'chat'` (no project tools, isolated cwd). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
+- **Incognito**,  add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor and llama.cpp are excluded for exactly this.
+- **Clusters**,  `isClusterMemberProvider` + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See `docs/CLUSTER_MODE_PLAN.md`.
 
 ### 8. Docs
 
@@ -394,11 +388,11 @@ Update [`docs/PROVIDERS.md`](docs/PROVIDERS.md) with a section matching the exis
 The three operator primitives (Review / Handoff / Spawn) live under `server/src/primitives/`. Adding a fourth (call it `Bar`) requires:
 
 > **Cluster substrate is not a primitive**, but if your primitive interacts with clusters (peer messaging, plan, mailbox) you must go through the cluster substrate layer rather than directly reading the cluster files:
-> - `server/src/clusterStore.ts` — cluster record persistence (create/read/delete)
-> - `server/src/clusterMailbox.ts` — file-per-message mailbox (`enqueue`, `peek`, `drain`, `discard`)
-> - `server/src/clusterPeerOps.ts` — peer tool implementations (`peerList`, `peerSend`, `peerRead`, `peerPlanTick`, `peerPlanWrite`)
-> - `server/src/clusterRehydrate.ts` — rehydrate-on-subscribe (re-emits undelivered `peer_message_sent` to reconnecting subscribers)
-> - `server/src/clusterIdleNudger.ts` — idle detection + operator-armed toast (never sends prompts)
+> - `server/src/clusterStore.ts`,  cluster record persistence (create/read/delete)
+> - `server/src/clusterMailbox.ts`,  file-per-message mailbox (`enqueue`, `peek`, `drain`, `discard`)
+> - `server/src/clusterPeerOps.ts`,  peer tool implementations (`peerList`, `peerSend`, `peerRead`, `peerPlanTick`, `peerPlanWrite`)
+> - `server/src/clusterRehydrate.ts`,  rehydrate-on-subscribe (re-emits undelivered `peer_message_sent` to reconnecting subscribers)
+> - `server/src/clusterIdleNudger.ts`,  idle detection + operator-armed toast (never sends prompts)
 >
 > Read `docs/CLUSTER_MODE_PLAN.md` (relevant phase) and `docs/GOTCHAS.md § Cluster mode` before touching these files.
 
@@ -472,16 +466,16 @@ Update [`docs/PRIMITIVES.md`](docs/PRIMITIVES.md) with a new section, and [`docs
 
 ## Authoring an Arco skill
 
-Operators create skills from the SettingsPanel SKILLS section, but the on-disk shape is hand-editable too — useful when checking project skills into git.
+Operators create skills from the SettingsPanel SKILLS section, but the on-disk shape is hand-editable too,  useful when checking project skills into git.
 
 Layout:
 
 ```
 <cwd>/.arco/skills/<slug>/SKILL.md      # project (versioned with the repo)
-~/.arco/skills/<slug>/SKILL.md          # global (this machine)
+~/.arco/skills/<slug>/SKILL.md          # global (user home)
 ```
 
-`<slug>` is the directory name and the stable identifier — it survives renames of the operator-facing `name` field. Slug pattern: `^[a-z0-9][a-z0-9-]{0,63}$`.
+`<slug>` is the directory name and the stable identifier,  it survives renames of the user-facing `name` field. Slug pattern: `^[a-z0-9][a-z0-9-]{0,63}$`.
 
 `SKILL.md` shape:
 
@@ -489,17 +483,17 @@ Layout:
 ---
 name: <operator-facing name>
 description: <one-line summary the agent reads to decide when to apply this skill>
-operator-only: <true to withhold from the model manifest — only injectable via the +SKILL composer pick (DD8)>
+operator-only: <true to withhold from the model manifest; available through the +SKILL composer pick>
 ---
 
-<body — the playbook the agent follows>
+<body: the playbook the agent follows>
 ```
 
 Frontmatter is required (YAML, single-line values, optional surrounding quotes). Skills missing a `name:` are silently skipped during the scan. `operator-only` is optional (parsed case-insensitively; any value but `true` leaves it model-visible).
 
 Per primary turn, the server scans both roots, builds an XML `<arco-skills>` manifest of name + description + absolute path, and prepends it to the system prompt. Only the manifest goes into the prompt; the agent reads the full body via its `Read` tool when it picks a skill (Pi's progressive-disclosure model). This bounds prompt cost while leaving the skill body unbounded.
 
-Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the operator inlines their body on demand via the `+SKILL` composer picker (DD8). Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, H35 — diagnostic only) and the project-trust gate (untrusted-repo skills are suppressed until the operator vouches — `server/src/projectTrust.ts`, DD7).
+Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the user includes the body on demand via the `+SKILL` composer picker. Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, diagnostic only) and the project-trust gate (skills from an untrusted repository are suppressed until a user approves the repository, `server/src/projectTrust.ts`).
 
 Server module: `server/src/skills.ts`. HTTP surface: `/api/skills` (see `docs/HTTP_API.md`). UI: `SettingsPanel.tsx` SKILLS section + `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
 
@@ -539,7 +533,7 @@ export const myTheme: Theme = {
 };
 ```
 
-Match the existing tokens by reading another theme — `matrix.ts` is the canonical reference.
+Match the existing tokens by reading another theme,  `matrix.ts` is the canonical reference.
 
 ### 2. Registry
 
@@ -558,7 +552,7 @@ Also add `'my-theme'` to `CLASSIC_THEME_IDS` (which feeds `VALID_THEME_IDS`) in 
 
 ### 3. Test
 
-Open the SettingsPanel → Theme picker. Switch to your theme. Verify:
+Open the SettingsPanel -> Theme picker. Switch to your theme. Verify:
 - Chat is readable (operator/assistant/system contrast)
 - Composer focus ring is visible
 - Right-panel tab labels are legible
@@ -579,7 +573,7 @@ revision/hash notes, adapt roles in `paletteAdapter.ts`, and regenerate the orde
 server validation must accept the same namespaced IDs. Run `npm run test:phosphor`
 and review representative palettes, Classic restoration, fonts/brightness/crisp,
 reduced motion and effects-off. Keep the family-specific ambient renderer mutually
-exclusive with Classic Three.js. See [Phosphor integration](docs/PHOSPHOR_ROLLOUT.md).
+exclusive with Classic Three.js. See `docs/CLIENT.md` for the supported theme catalog and rendering rules.
 
 ### Documentation for operator-visible changes
 
@@ -596,7 +590,7 @@ Treat these as separate checks; a green link checker does not prove accuracy:
    client type/build checks. Open the actual manual, search new topics/table rows,
    and click contextual help. Record surfaces not exercised.
 
-Documentation audit scope and remaining gaps: [DOCUMENTATION_AUDIT.md](docs/DOCUMENTATION_AUDIT.md).
+Use `docs/INDEX.md` to locate maintained documentation.
 
 ---
 
@@ -607,9 +601,9 @@ Shaders live under `client/src/themes/shaders/<name>.frag.glsl` and are imported
 ### Constraints
 
 - Use `precision highp float;` (Mali GPU NaN cascades on `mediump`)
-- Bound any `hash` inputs to a sane range — long-uptime drift can produce NaN that propagates through the whole pixel grid (see commit `8a5af37`)
-- Keep instruction count low — these run per-pixel at 60fps
-- **No smooth radial gradients (vignettes / atmospheric noise washes / breathing blobs / orbs) on dark themes.** They posterize visibly under 8-bit alpha compositing against near-black. Use structural elements only — particles, streaks, grids, dots, vein lines, scanlines, hard-edged cells. See `docs/GOTCHAS.md` § Themes / shaders for the full rule + the 2026-04-27 sweep that established it.
+- Bound any `hash` inputs to a sane range,  long-uptime drift can produce NaN that propagates through the whole pixel grid (see commit `8a5af37`)
+- Keep instruction count low,  these run per-pixel at 60fps
+- **No smooth radial gradients (vignettes / atmospheric noise washes / breathing blobs / orbs) on dark themes.** They posterize visibly under 8-bit alpha compositing against near-black. Use structural elements only,  particles, streaks, grids, dots, vein lines, scanlines, hard-edged cells. See `docs/GOTCHAS.md` § Themes / shaders for the current palette and shader constraints.
 
 ### Pattern
 
@@ -637,7 +631,7 @@ void main() {
 
 ## Adding a right-panel tab
 
-`client/src/components/RightPanel/index.tsx`. RightPanel was split into a directory — each tab body lives as its own module under `client/src/components/RightPanel/<Name>Tab.tsx` (e.g. `ConfigTab.tsx`, `ActivityTab.tsx`, `ReviewTab.tsx`).
+`client/src/components/RightPanel/index.tsx`. RightPanel was split into a directory,  each tab body lives as its own module under `client/src/components/RightPanel/<Name>Tab.tsx` (e.g. `ConfigTab.tsx`, `ActivityTab.tsx`, `ReviewTab.tsx`).
 
 ### 1. Component
 
@@ -655,7 +649,7 @@ const TABS: { id: RightTab; label: string }[] = [
 ];
 ```
 
-Add `'mytab'` to the `RightTab` union in `RightPanel/types.ts`. Tabs are also bucketed into the WORKSPACE / AGENT / MEMORY / RUNTIME `GROUPS` array — add the new id to the relevant group's `tabs` list or it won't render. Then add the render-on-active block:
+Add `'mytab'` to the `RightTab` union in `RightPanel/types.ts`. Tabs are also bucketed into the WORKSPACE / AGENT / MEMORY / RUNTIME `GROUPS` array,  add the new id to the relevant group's `tabs` list or it won't render. Then add the render-on-active block:
 
 ```tsx
 {tab === 'mytab' && <MyTabPanel job={job} />}
@@ -669,17 +663,17 @@ The right panel persists the active tab to localStorage at `STORAGE_KEY`. Adding
 
 ## Working with the WS protocol
 
-### Client → Server
+### Client -> Server
 
 Send via `wsRef.current?.send(JSON.stringify({ type: 'foo', ... }))`. The dispatcher in `useWebSocket.ts` doesn't help with sends; senders are scattered across components (each composer button, the workflow creator, the recalibrate button, etc.).
 
-### Server → Client
+### Server -> Client
 
-Add a case to the switch in `client/src/ws/handleServerMessage.ts` (`useWebSocket.ts` owns the socket and hands frames to it). The Math.max-based `lastSeq` update is automatic — you only need to handle the per-message-type state mutation.
+Add a case to the switch in `client/src/ws/handleServerMessage.ts` (`useWebSocket.ts` owns the socket and hands frames to it). The Math.max-based `lastSeq` update is automatic,  you only need to handle the per-message-type state mutation.
 
 ### Persistence
 
-If your message has a `workflowId`, it's automatically stamped with `seq` and persisted in `events.jsonl` by `persistAndStampSeq()`. If you specifically want it transient (broadcast but not persisted — like `quota_status` or `context_usage`), use `broadcastTransient()` instead of `send()`.
+If your message has a `workflowId`, it's automatically stamped with `seq` and persisted in `events.jsonl` by `persistAndStampSeq()`. If you specifically want it transient (broadcast but not persisted,  like `quota_status` or `context_usage`), use `broadcastTransient()` instead of `send()`.
 
 See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the persisted-vs-transient breakdown.
 
@@ -689,7 +683,7 @@ See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the persisted-vs-transient breakd
 
 ### See what's on the wire
 
-Browser devtools → Network → WS frames. The single `/ws` connection carries all the chatter; filter by message type with the search box.
+Browser devtools -> Network -> WS frames. The single `/ws` connection carries all the chatter; filter by message type with the search box.
 
 ### See what's persisted
 
@@ -705,7 +699,7 @@ The diagnostic chip (`b·w·s`) next to CANCEL tells you which flag is keeping t
 
 ### Worker output truncated
 
-50 MB cap per worker per turn (`ARCO_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal — there's a truncation notice at the end if it hit the cap.
+50 MB cap per worker per turn (`ARCO_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal,  there's a truncation notice at the end if it hit the cap.
 
 ### Antigravity tool rows missing or mis-labelled
 
@@ -715,16 +709,16 @@ Antigravity is RPC-only now (the CDP port is liveness only), so DOM-scrape tooli
 
 ## Commit / PR conventions
 
-The repo's commit style:
+The repo's commit-message format:
 
 ```
 Subject prefix: concise description in active voice
 
 Optional body explaining the WHY. Wrap at 80 chars. Bullet points
-for multi-part changes. No "Co-Authored-By: Claude" trailers.
+for multi-part changes. Do not add co-author or tool-attribution trailers.
 ```
 
-Examples from the recent log:
+Example subjects:
 
 ```
 Restart: SIGKILL the dev tree and tighten kill-vs-respawn timing
@@ -732,27 +726,27 @@ Shaders: highp + bounded hash inputs to prevent long-uptime freeze
 Theme system overhaul: new themes, shaders, header chips
 ```
 
-PRs are welcome but the operator typically lands changes directly to `main`. If you do open a PR, expect direct discussion rather than formal review templates.
+Pull requests are welcome. Include a concise change summary, verification results, and any remaining limitations.
 
 ---
 
 ## DEVLOG
 
-Significant changes get a chronological entry in [`DEVLOG.md`](DEVLOG.md) at the top. Read the top entry when resuming work — it's the running context log. Don't move entries around; append to the top.
+Significant changes get a chronological entry in [`DEVLOG.md`](DEVLOG.md) at the top. Read the top entry when resuming work,  it's the running context log. Don't move entries around; append to the top.
 
-For agents working in this repo: read [`CLAUDE.md`](CLAUDE.md) before starting. It has the agent-specific guidance the operator wants applied to every session.
+For contributors and agents, read [`AGENTS.md`](AGENTS.md) before starting. It contains the repository rules and development-log requirements.
 
 ---
 
 ## Cross-references
 
-- [README](README.md) — operator-facing intro
-- [Architecture](docs/ARCHITECTURE.md) — system map
-- [Protocol](docs/PROTOCOL.md) — WS message reference
-- [Providers](docs/PROVIDERS.md) — per-provider deep dive
-- [Primitives](docs/PRIMITIVES.md) — Review/Handoff/Spawn
-- [Persistence](docs/PERSISTENCE.md) — disk layout
-- [Client](docs/CLIENT.md) — store, components, themes
-- [Operations](docs/OPERATIONS.md) — running, stopping, recovery
-- [Gotchas](docs/GOTCHAS.md) — invariants and "don't regress"
-- [Glossary](docs/GLOSSARY.md) — terminology
+- [README](README.md),  user-facing introduction
+- [Architecture](docs/ARCHITECTURE.md),  system map
+- [Protocol](docs/PROTOCOL.md),  WS message reference
+- [Providers](docs/PROVIDERS.md),  per-provider deep dive
+- [Primitives](docs/PRIMITIVES.md),  Review/Handoff/Spawn
+- [Persistence](docs/PERSISTENCE.md),  disk layout
+- [Client](docs/CLIENT.md),  store, components, themes
+- [Operations](docs/OPERATIONS.md),  running, stopping, recovery
+- [Gotchas](docs/GOTCHAS.md),  invariants and "don't regress"
+- [Glossary](docs/GLOSSARY.md),  terminology
