@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -47,8 +48,23 @@ jobs:
       # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
       - name: Unit tests
         run: npm run test:unit
+      # Optional operator-held patterns (names, hosts) for the audit. The secret is written to a
+      # temporary file and exposed only as ARCO_PRIVATE_PATTERNS_FILE; absent secret = no-op.
+      - name: Load private audit patterns
+        env:
+          ARCO_PRIVATE_PATTERNS: ${{ secrets.ARCO_PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$ARCO_PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$ARCO_PRIVATE_PATTERNS" > "$RUNNER_TEMP/arco-private-patterns"
+            echo "ARCO_PRIVATE_PATTERNS_FILE=$RUNNER_TEMP/arco-private-patterns" >> "$GITHUB_ENV"
+          else
+            echo "No ARCO_PRIVATE_PATTERNS secret; using built-in rules only."
+          fi
       - name: Public-safety audit (tree)
         run: npm run audit:public -- --tree
+      # A fresh CI checkout holds only branch refs, so --history covers everything. Locally,
+      # refs/arco/* checkpoint refs make --history fail; use --release-history there (it
+      # inspects branches, tags and remotes only).
       - name: Public-safety audit (history, identity and trailers)
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/public-audit.mjs --history
@@ -56,11 +72,12 @@ jobs:
       - name: Help registry check
         run: npm run docs:check
 
+  # The browser and docker jobs do not wait for the verify matrix: a macOS or Windows failure must
+  # not hide the Linux browser and container results.
   browser:
     name: browser smokes (ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: verify
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,7 +102,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     timeout-minutes: 30
-    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -113,17 +129,21 @@ jobs:
     name: docker smoke (ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: verify
     steps:
       - uses: actions/checkout@v4
       - name: Detect Dockerfile
         id: detect
         run: |
           if [ -f Dockerfile ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
-      - name: Build image
+      - uses: actions/setup-node@v4
         if: steps.detect.outputs.present == 'true'
-        run: docker build -t arco:ci .
-      - name: Smoke
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install smoke dependencies
         if: steps.detect.outputs.present == 'true'
-        run: |
-          if [ -f scripts/docker-smoke.sh ]; then sh scripts/docker-smoke.sh arco:ci; else echo "No docker smoke script yet; image build only."; fi
+        run: npm ci --include=dev
+      # smoke:docker builds arco:development itself and drives it with temporary projects, volumes and fixture providers.
+      - name: Docker smoke
+        if: steps.detect.outputs.present == 'true'
+        run: npm run smoke:docker
