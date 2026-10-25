@@ -17,6 +17,9 @@ async def main():
   async def api(route):
    nonlocal settings
    req=route.request; path=urlparse(req.url).path
+   # POST /api/session mints the WebSocket session cookie (client/src/utils/wsSession.ts).
+   if req.method != 'GET' and path == '/api/session':
+    await route.fulfill(json={'ok':True}); return
    if req.method != 'GET':
     assert path == '/api/settings', 'Unexpected consequential operation: '+path
     patch=req.post_data_json; writes.append(patch); settings={**settings, **patch}
@@ -28,6 +31,7 @@ async def main():
    elif path.endswith('/catalog'): data={'models':[]}
    elif path == '/api/project-trust': data={'entries':[],'defaultProjectTrust':'ask'}
    elif path == '/api/skills': data={'project':[],'global':[]}
+   elif path == '/api/deepseek': data={'managed':False,'profiles':[],'live':None}
    elif path == '/api/list-dirs': data={'dirs':[],'path':'/demo/Arco','parent':'/demo'}
    elif path == '/api/handoff-prompts':
     modes=['original-worker','fresh-summarizer','ollama-compaction']

@@ -132,8 +132,39 @@ async def main():
   assert await page.evaluate('testStore.getState().activeClusterId') is None
   await page.wait_for_timeout(10000)
   assert await page.evaluate('testStore.getState().activeClusterId') is None
+  # Every directive goes to the Computer chat (runtime.ts: no exact matching);
+  # the model acts through voice_tool_call round trips, which this fixture
+  # plays the part of. A settled "Done." reply ends each request silently.
+  chat_sent=lambda:[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='computer-chat']
+  tool_results=lambda:[m for m in messages if m.get('type')=='voice_tool_result']
+  replies=[0]
+  async def sent_to_computer(count, ending):
+   for _ in range(100):
+    if len(chat_sent())>=count: break
+    await page.wait_for_timeout(100)
+   assert len(chat_sent())==count and chat_sent()[-1]['content'].endswith('\n\n'+ending),chat_sent()
+  async def computer_tool(request_id, tool, args, predicate):
+   push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':request_id,'tool':tool,'args':args})
+   try: await page.wait_for_function(predicate, timeout=8000)
+   except Exception:
+    print('Tool failed:',tool,args,[r for r in tool_results() if r['requestId']==request_id],await page.evaluate('JSON.stringify({cluster:testStore.getState().activeClusterId,job:testStore.getState().activeJobId,status:voiceStore.getState().status})'),errors)
+    raise
+   for _ in range(50):
+    if any(r['requestId']==request_id for r in tool_results()): break
+    await page.wait_for_timeout(100)
+   result=[r for r in tool_results() if r['requestId']==request_id]
+   assert len(result)==1 and result[0]['ok'] is True,result
+   return result[0]['result']
+  async def settle():
+   replies[0]+=1
+   await page.evaluate("id=>testStore.getState().addMessage('computer-chat',{id,role:'assistant',content:'Done.',isStreaming:false,timestamp:Date.now()})",f'done-{replies[0]}')
+   await page.wait_for_function("voiceStore.getState().status==='Done.'")
   await say('open Atlas',"voiceStore.getState().commandText==='open Atlas'")
-  await say({'text':'And capture','phrases':'end capture'},"testStore.getState().activeClusterId==='atlas'")
+  await say({'text':'And capture','phrases':'end capture'},"voiceStore.getState().calls===1 && !!testStore.getState().jobs['computer-chat']")
+  await sent_to_computer(1,'open Atlas')
+  assert await page.evaluate('testStore.getState().activeClusterId') is None, 'nothing moves before Computer acts'
+  await computer_tool('n1','arco_select',{'target':'Atlas'},"testStore.getState().activeClusterId==='atlas'")
+  await settle()
   # The END CAPTURE button flushes the real worklet and queues behind the
   # phrase still being recognized, so the directive keeps its last words.
   await say('Computer open',"voiceStore.getState().commandText==='open'")
@@ -144,77 +175,71 @@ async def main():
   await page.wait_for_function("voiceStore.getState().status.startsWith('Finishing the last phrase')")
   await page.wait_for_timeout(400)
   assert await page.evaluate("voiceStore.getState().commandText") == 'open'
-  assert not (await page.evaluate("localStorage.getItem('arco.clusterSidePanelTab.byCluster')") or '').find('plan') >= 0
+  assert len(chat_sent())==1, 'nothing reaches Computer before the last phrase is recognized'
   slow.set()
-  await page.wait_for_function("voiceStore.getState().commandText===null && localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('plan')")
-  await say('Computer show member two. End capture',"testStore.getState().clusterFocusedMember.atlas==='worker-b'")
-  await say('Computer open activity. End capture',"localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('activity')")
-  await say('Computer message this worker. End capture',"voiceStore.getState().dictatingId==='worker-b'")
-  await say('Check the failing tests.',"readVoiceDraft('worker-b')==='Check the failing tests.'")
-  await page.evaluate("testStore.getState().setClusterFocusedMember('atlas','worker-a')")
-  await say('Keep the current API.',"readVoiceDraft('worker-b').includes('Keep the current API.')")
-  assert await page.evaluate("readVoiceDraft('worker-a')") == ''
-  await say('Computer finish message. End capture',"voiceStore.getState().dictatingId===null")
-  await say('Computer send as a follow-up. End capture',"readVoiceDraft('worker-b')===''")
-  sent = [m for m in messages if m.get('type')=='user_message']
-  assert len(sent)==1 and sent[0]['workflowId']=='worker-b' and sent[0]['kind']=='follow-up',sent
-  assert sent[0]['content']=='Check the failing tests. Keep the current API.'
+  await page.wait_for_function("voiceStore.getState().commandText===null")
+  await sent_to_computer(2,'open plan')
+  await computer_tool('n2','arco_open_panel',{'panel':'plan'},"localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('plan')")
+  await settle()
+  await say('Computer show member two. End capture',"voiceStore.getState().commandText===null && voiceStore.getState().calls===3")
+  await sent_to_computer(3,'show member two')
+  await computer_tool('n3','arco_select',{'target':'member two'},"testStore.getState().clusterFocusedMember.atlas==='worker-b'")
+  await settle()
+  await say('Computer open activity. End capture',"voiceStore.getState().commandText===null && voiceStore.getState().calls===4")
+  await sent_to_computer(4,'open activity')
+  await computer_tool('n4','arco_open_panel',{'panel':'activity'},"localStorage.getItem('arco.clusterSidePanelTab.byCluster')?.includes('activity')")
+  await settle()
   assert '/api/voice/interpret' not in requests
-  # VOICE_AGENT_PLAN.md — anything the deterministic parser does not match goes
-  # to the Computer chat (a voiceOperator Chat); voice keeps the operator's
-  # selection, and the model acts through voice_tool_call round trips.
-  await say('Computer bring up my reviewer please. End capture',"voiceStore.getState().calls===1 && testStore.getState().jobs['computer-chat'] && testStore.getState().clusterFocusedMember.atlas==='worker-a' && testStore.getState().activeClusterId==='atlas'")
+  await page.evaluate("testStore.getState().setClusterFocusedMember('atlas','worker-a')")
+  await say('Computer bring up my reviewer please. End capture',"voiceStore.getState().calls===5 && testStore.getState().clusterFocusedMember.atlas==='worker-a' && testStore.getState().activeClusterId==='atlas'")
   created=[m for m in messages if m.get('type')=='create_workflow']
   assert len(created)==1 and created[0]['config']['voiceOperator'] is True and created[0]['config']['kind']=='chat',created
-  chat_sent=[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='computer-chat']
-  assert len(chat_sent)==1 and chat_sent[0]['content'].startswith('[Arco context] selected: Builder one') and chat_sent[0]['content'].endswith('\n\nbring up my reviewer please'),chat_sent
+  await sent_to_computer(5,'bring up my reviewer please')
+  assert chat_sent()[-1]['content'].startswith('[Arco context] selected: Builder one'),chat_sent()
   assert '/api/voice/interpret' not in requests
   # The model calls a tool: the server relays it to this window, which executes
   # it through the bounded executor and answers; the window never guesses.
-  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r1','tool':'arco_select','args':{'target':'member two'}})
-  try: await page.wait_for_function("testStore.getState().clusterFocusedMember.atlas==='worker-b'", timeout=8000)
-  except Exception:
-   dbg=await page.evaluate('''async()=>{const loaded=path=>performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path) ?? path;const m=await import(loaded('/src/voice/toolBridge.ts'));let out=null;const handled=await m.dispatchVoiceToolCall({type:'voice_tool_call',workflowId:'computer-chat',requestId:'dbg',tool:'arco_status',args:{}},(r)=>{out=r;});return {handled,out,wsSendRaw:typeof testStore.getState().wsSendRaw};}''')
-   print('TOOL DEBUG direct dispatch:', dbg, 'results:', [m for m in messages if m.get('type')=='voice_tool_result'], 'errors:', errors); raise
-  await page.wait_for_function("true")
-  results=[m for m in messages if m.get('type')=='voice_tool_result']
-  assert results==[{'type':'voice_tool_result','workflowId':'computer-chat','requestId':'r1','ok':True,'result':'Reviewer selected.'}],results
-  push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r2','tool':'arco_send_message','args':{'target':'reviewer','text':'Please re-run the failing tests.','mode':'follow-up'}})
-  await page.wait_for_function("true")
-  await page.wait_for_timeout(200)
+  assert await computer_tool('r1','arco_select',{'target':'member two'},"testStore.getState().clusterFocusedMember.atlas==='worker-b'") == 'Reviewer selected.'
+  assert await computer_tool('r2','arco_send_message',{'target':'reviewer','text':'Please re-run the failing tests.','mode':'follow-up'},"true") == 'Follow-up queued to Reviewer.'
   relayed=[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='worker-b' and m.get('kind')=='follow-up']
-  assert len(relayed)==2 and relayed[-1]['content']=='Please re-run the failing tests.',relayed
-  results=[m for m in messages if m.get('type')=='voice_tool_result']
-  assert results[-1]['ok'] is True and results[-1]['result']=='Follow-up queued to Reviewer.',results
+  assert len(relayed)==1 and relayed[-1]['content']=='Please re-run the failing tests.',relayed
+  before=len(tool_results())
   push({'type':'voice_tool_call','workflowId':'other-chat','requestId':'r3','tool':'arco_status','args':{}})
   await page.wait_for_timeout(200)
-  assert len([m for m in messages if m.get('type')=='voice_tool_result'])==2, 'a call for a chat this window did not open is ignored'
+  assert len(tool_results())==before, 'a call for a chat this window did not open is ignored'
   # The settled reply of the Computer chat is spoken (status) once; a late reply after disable is not.
   await page.evaluate("testStore.getState().addMessage('computer-chat',{id:'a1',role:'assistant',content:'Your reviewer is up.',isStreaming:false,timestamp:Date.now()})")
   await page.wait_for_function("voiceStore.getState().status==='Your reviewer is up.'")
-  await say("Computer go to notes and find out where things stand with it. End capture", "testStore.getState().activeJobId==='notes' && voiceStore.getState().status.includes('Asking notes')")
+  await say("Computer go to notes and find out where things stand with it. End capture", "voiceStore.getState().calls===6")
+  await sent_to_computer(6,'go to notes and find out where things stand with it')
+  # A project update is now the model's choice of tools: select, then ask.
+  assert await computer_tool('n5','arco_select',{'target':'notes'},"testStore.getState().activeJobId==='notes'") == 'notes selected.'
+  assert await computer_tool('n6','arco_send_message',{'target':'notes','text':'Give me a concise status update. Do not start new work.','mode':'follow-up'},"true") == 'Follow-up queued to notes.'
   updates=[m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='notes']
   assert len(updates)==1 and 'Do not start new work' in updates[0]['content'],updates
+  await settle()
   await page.evaluate("testStore.getState().setActiveCluster('atlas');testStore.getState().setClusterFocusedMember('atlas','worker-b')")
   await say('Computer', "voiceStore.getState().commandText===''")
   await say('Explain what', "voiceStore.getState().commandText==='Explain what'")
   await say('Computer means here.', "voiceStore.getState().commandText==='Explain what Computer means here.'")
-  await say('End capture', "testStore.getState().jobs['computer-chat'].messages.filter(m=>m.role==='user').length===2")
-  chat_sent = [m for m in messages if m.get('type')=='user_message' and m.get('workflowId')=='computer-chat']
-  assert chat_sent[-1]['content'].endswith('\n\nExplain what Computer means here') and chat_sent[-1]['content'].startswith('[Arco context] selected: Reviewer'),chat_sent
+  await say('End capture', "voiceStore.getState().calls===7")
+  await sent_to_computer(7,'Explain what Computer means here')
+  assert chat_sent()[-1]['content'].startswith('[Arco context] selected: Reviewer'),chat_sent()
   assert await page.evaluate("testStore.getState().activeClusterId") == 'atlas', 'voice never moves the operator onto the Computer tab'
   assert len([m for m in messages if m.get('type')=='create_workflow']) == 1
   await page.evaluate("testStore.getState().setActiveCluster('atlas')")
   await page.evaluate("testStore.getState().setClusterFocusedMember('atlas','worker-a')")
-  await say('Computer tell me something slow please. End capture', "testStore.getState().jobs['computer-chat'].messages.filter(m=>m.role==='user').length===3")
+  await say('Computer tell me something slow please. End capture', "voiceStore.getState().calls===8")
+  await sent_to_computer(8,'tell me something slow please')
   await page.get_by_role('button',name='DISABLE · MIC OFF',exact=True).click()
   assert await page.evaluate("micStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
   await page.evaluate("testStore.getState().addMessage('computer-chat',{id:'a2',role:'assistant',content:'Late answer.',isStreaming:false,timestamp:Date.now()})")
   await page.wait_for_timeout(150)
   assert await page.evaluate("voiceStore.getState().status") != 'Late answer.', 'a reply after disable is not spoken'
+  before=len(tool_results())
   push({'type':'voice_tool_call','workflowId':'computer-chat','requestId':'r4','tool':'arco_select','args':{'target':'member two'}})
   await page.wait_for_timeout(200)
-  assert len([m for m in messages if m.get('type')=='voice_tool_result'])==2, 'no tool runs after disable'
+  assert len(tool_results())==before, 'no tool runs after disable'
   assert await page.evaluate("testStore.getState().clusterFocusedMember.atlas") == 'worker-a'
   assert not await page.evaluate('voiceStore.getState().enabled')
   # A permission/device promise resolving after disable must close its stream.
@@ -230,6 +255,6 @@ async def main():
   await page.reload(); await page.wait_for_timeout(600)
   assert await page.evaluate('window.micCalls') == 0
   assert await page.get_by_role('button',name='Hands-free voice controls',exact=True).get_attribute('aria-pressed')=='false'
-  print('PASS: standalone Computer survives a ten-second pause until End capture; later Computer is literal text and cannot reset capture; off has zero mic access; explicit enable; cluster/member/panel navigation; pinned dictation; follow-up; END button waits for in-flight recognition; free-form requests go to the voiceOperator Computer chat with the context line while the operator selection is kept; voice_tool_call round trips execute through the bounded executor and ignore other chats; settled replies are spoken once and never after disable; late permission closes tracks; reload stays off; no page errors.')
+  print('PASS: standalone Computer survives a ten-second pause until End capture; later Computer is literal text and cannot reset capture; off has zero mic access; explicit enable; cluster/member/panel navigation through Computer tool calls; follow-up; END button waits for in-flight recognition; free-form requests go to the voiceOperator Computer chat with the context line while the operator selection is kept; voice_tool_call round trips execute through the bounded executor and ignore other chats; settled replies are spoken once and never after disable; late permission closes tracks; reload stays off; no page errors.')
   await browser.close()
 asyncio.run(main())

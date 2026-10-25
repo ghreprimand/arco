@@ -20,7 +20,9 @@ async def main():
         errors, writes, messages = [], [], []
         async def api(route):
             path = urlparse(route.request.url).path
-            if route.request.method != 'GET':
+            # POST /api/session mints the WebSocket session cookie (client/src/utils/wsSession.ts);
+            # it changes no state, so it is not a write.
+            if route.request.method != 'GET' and path != '/api/session':
                 writes.append(path)
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': []}
             if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}}
@@ -33,7 +35,8 @@ async def main():
         await context.route('**/api/**', api)
         await context.route('**/healthz', lambda r: r.fulfill(json={'status': 'live'}))
         await context.route('https://**/*', lambda r: r.abort())
-        await context.route_web_socket('**/*', lambda ws: ws.on_message(lambda msg: messages.append(msg)))
+        # The client's keepalive ping is not an operation; anything else sent over the socket is.
+        await context.route_web_socket('**/*', lambda ws: ws.on_message(lambda msg: None if msg == '{"type":"ping"}' else messages.append(msg)))
         page = await context.new_page()
         page.on('pageerror', lambda e: errors.append(str(e)))
         await page.goto(URL)
@@ -48,7 +51,7 @@ async def main():
         await page.get_by_role('button', name='READ MORE IN MANUAL →').click()
         await page.locator('#manual-chat-mode').wait_for()
         search = page.get_by_placeholder('Search…', exact=True)
-        for query, section in [('incognito', 'incognito-chat'), ('session/load', 'providers-overview'), ('922K', 'provider-codex'), ('Phosphor', 'settings-themes'), ('Research', 'research-action'), ('platform binary', 'provider-updates')]:
+        for query, section in [('incognito', 'incognito-chat'), ('session/load', 'providers-overview'), ('828K', 'provider-codex'), ('Phosphor', 'settings-themes'), ('Research', 'research-action'), ('platform binary', 'provider-updates')]:
             await search.fill(query)
             target = page.locator('#manual-' + section)
             title = await target.locator('h3').inner_text()
