@@ -128,7 +128,11 @@ async function expandFile(cwd: string, arg: string | undefined): Promise<{ body:
   } catch {
     return { body: '', notice: `@file:${arg} skipped — file not found` };
   }
-  const rel = relative(resolve(cwd), real);
+  // Compare against the project's own realpath: when the project is reached
+  // through a symlink (macOS tmp and /var are links to /private), the file's
+  // realpath would otherwise always look outside it.
+  const root = await realpath(cwd).catch(() => resolve(cwd));
+  const rel = relative(root, real);
   if (rel.startsWith('..') || isAbsolute(rel)) {
     return { body: '', notice: `@file:${arg} refused — path not allowed (symlink escapes workflow directory)` };
   }

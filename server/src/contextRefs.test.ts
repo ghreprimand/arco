@@ -29,6 +29,26 @@ async function tmpProject(files: Record<string, string>): Promise<string> {
   return dir;
 }
 
+test('a project reached through a symlinked path still expands its files', async () => {
+  // macOS tmpdir() is /var/..., a symlink to /private/var/...; any project
+  // folder opened through a symlink has the same shape.
+  const real = await tmpProject({ 'a.txt': 'hello' });
+  const link = `${real}-link`;
+  await fs.symlink(real, link, 'dir');
+  const r = await expandContextRefs(link, 'see @file:a.txt', { windowSize: 200_000 });
+  assert.equal(r.expandedCount, 1);
+  assert.ok(!r.notices.some((n) => n.includes('refused')), 'nothing refused');
+});
+
+test('a symlink inside the project that points outside it is still refused', async () => {
+  const outside = await tmpProject({ 'secret.txt': 'outside' });
+  const dir = await tmpProject({});
+  await fs.symlink(join(outside, 'secret.txt'), join(dir, 'leak.txt'));
+  const r = await expandContextRefs(dir, '@file:leak.txt', { windowSize: 200_000 });
+  assert.equal(r.expandedCount, 0);
+  assert.ok(r.notices.some((n) => n.includes('symlink escapes')), 'refused as a symlink escape');
+});
+
 test('estimateRefTokens: bytes/4, deterministic', () => {
   assert.equal(estimateRefTokens('a'.repeat(400)), 100);
   assert.equal(estimateRefTokens('x'), estimateRefTokens('x'));
