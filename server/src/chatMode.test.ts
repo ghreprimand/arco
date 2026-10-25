@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CHAT_PROVIDERS, CHAT_SYSTEM_PROMPT, CHAT_WEB_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, chatSystemPrompt, chatWebArmed, incognitoChatCwd, isChatWorkflow, listSavedChats } from './chatMode.js';
 import { workflowConfigFromMeta, type WorkflowMeta } from './workflowMeta.js';
+import { arcoHome } from './arcoHome.js';
 import { ClaudeProvider } from './providers/claude.js';
 import { CodexProvider } from './providers/codex.js';
 import { ollamaChatWebReminder, ollamaToolCallAllowed, ollamaToolCandidates, ollamaToolsAutoExecute } from './providers/ollama.js';
@@ -95,7 +96,7 @@ test('strict incognito suppresses async operational logs and delayed id-bearing 
 test('chat storage is isolated from a project and mode survives meta rehydrate', () => {
   const id = '12345678-1234-1234-1234-123456789abc';
   const cwd = chatStorageDir(id);
-  assert.match(cwd, /\.arco[\\/]chats[\\/]12345678-/);
+  assert.equal(cwd, join(arcoHome(), 'chats', id), 'chats live under the Arco home, wherever ARCO_HOME puts it');
   const meta: WorkflowMeta = {
     workflowId: id, name: 'Chat', cwd, kind: 'chat', createdAt: 1, lastActiveAt: 1,
     primaryProvider: 'ollama', primaryModel: 'local', primaryEffort: 'medium',

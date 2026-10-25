@@ -11,6 +11,9 @@ test('Phosphor settings persist, validate and preserve Classic/operator preferen
   const fixture = await mkdtemp(join(os.tmpdir(), 'arco-phosphor-settings-'));
   mock.method(os, 'homedir', () => fixture);
   syncBuiltinESMExports();
+  // An exported ARCO_HOME would otherwise send these writes to that home.
+  const previousHome = process.env.ARCO_HOME;
+  delete process.env.ARCO_HOME;
   try {
     const { patchSettings, readSettings } = await import('../../server/src/settings');
     const { VALID_THEME_IDS, PHOSPHOR_PALETTE_IDS } = await import('../../shared/src/protocol/themes');
@@ -38,5 +41,6 @@ test('Phosphor settings persist, validate and preserve Classic/operator preferen
     await patchSettings({ phosphorEffects: null, phosphorSoftness: null } as never);
     assert.equal((await readSettings()).phosphorEffects, undefined);
     assert.equal((await readSettings()).phosphorSoftness, undefined);
-  } finally { mock.restoreAll(); syncBuiltinESMExports(); }
+  } finally {
+    if (previousHome !== undefined) process.env.ARCO_HOME = previousHome; mock.restoreAll(); syncBuiltinESMExports(); }
 });
