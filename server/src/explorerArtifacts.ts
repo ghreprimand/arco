@@ -41,7 +41,9 @@ const MAX_ENTRIES = 2000;
 // can't escape the home dir after the join, then confirms containment. Returns
 // the resolved absolute path, or null when the target is missing or escapes.
 export async function realpathWithinHome(p: string): Promise<string | null> {
-  const home = resolve(homedir());
+  // Compare realpath with realpath: a home reached through a symlink would
+  // otherwise put every project outside it.
+  const home = await realpath(homedir()).catch(() => resolve(homedir()));
   try {
     const rp = await realpath(p);
     if (rp === home || rp.startsWith(home + sep)) return rp;
