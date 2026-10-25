@@ -18,9 +18,10 @@ import type {
   Platform,
   ServiceMode,
 } from '../../shared/src/protocol/remoteManagement.js';
+import { archonHome } from '../../server/src/archonHome.js';
 
 function archonDir(): string {
-  return join(homedir(), '.archon');
+  return archonHome();
 }
 function instanceIdPath(): string {
   return process.env.ARCHON_INSTANCE_ID_FILE || join(archonDir(), 'instance-id');

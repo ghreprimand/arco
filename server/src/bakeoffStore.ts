@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import type { BakeoffState } from '@archon/shared';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const ID_RE = /^[a-f0-9-]{8,64}$/i;
 
@@ -19,7 +20,7 @@ function cwdHash(cwd: string): string {
 }
 
 function manifestsDir(cwd: string): string {
-  return path.join(homedir(), '.archon', 'bakeoffs', cwdHash(cwd), 'manifests');
+  return path.join(archonHome(), 'bakeoffs', cwdHash(cwd), 'manifests');
 }
 
 function manifestPath(cwd: string, bakeoffId: string): string {

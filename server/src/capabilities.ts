@@ -11,6 +11,7 @@ import { getDeepSeekBase } from './providers/deepseek.js';
 import { probeStrataVersion, installedXolotlRevision, strataEngineReleaseVersion } from './providers/runtimeVersions.js';
 import { atomicWriteFile } from './atomicFile.js';
 import { resolveInstallableVersion } from './npmPlatformResolve.js';
+import { archonHome } from './archonHome.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -302,7 +303,7 @@ async function runUpdateCommand(cmd: string, args: string[]): Promise<string> {
 // toast in the UI so the operator isn't left discovering new CLI features
 // by accident. Snapshots live at `~/.archon/cli-snapshots/`.
 
-const SNAPSHOT_DIR = join(homedir(), '.archon', 'cli-snapshots');
+const SNAPSHOT_DIR = join(archonHome(), 'cli-snapshots');
 
 const HELP_PROBES: Record<CliProvider, string[][]> = {
   claude: [['--help'], ['config', '--help'], ['mcp', '--help']],

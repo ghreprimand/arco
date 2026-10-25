@@ -27,6 +27,7 @@ import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import type { TaskWorktree, WorktreeInfo } from '@archon/shared';
+import { archonHome } from '../archonHome.js';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 20_000;
@@ -70,7 +71,7 @@ function cwdHash(cwd: string): string {
 // Managed root for a cwd's task worktrees. Always under ~/.archon — outside the
 // user's tree by construction (the removal-safety invariant depends on this).
 export function worktreesRoot(cwd: string): string {
-  return path.join(homedir(), '.archon', 'worktrees', cwdHash(cwd));
+  return path.join(archonHome(), 'worktrees', cwdHash(cwd));
 }
 
 function worktreePath(cwd: string, taskId: string): string {

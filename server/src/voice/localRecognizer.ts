@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { killProcessTree } from '../workers/processKill.js';
+import { archonHome } from '../archonHome.js';
 
 export function voicePaths() {
-  const root = process.env.ARCHON_VOICE_HOME || join(homedir(), '.archon', 'voice');
+  const root = process.env.ARCHON_VOICE_HOME || join(archonHome(), 'voice');
   const kokoro = join(root, 'kokoro-multi-lang-v1_0');
   const parakeet = join(root, 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8');
   return { root, python: join(root, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),

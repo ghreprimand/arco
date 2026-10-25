@@ -25,8 +25,9 @@ import { ComputerConditions, conditionRefs, type ConditionCandidate } from './co
 import { hasActiveMailRulesForCluster } from './mailRules.js';
 import { COMPUTER_TOOL_SPECS, computerToolWireArgs } from './toolDefinitions.js';
 import { requestVoiceTool } from './operatorTools.js';
+import { archonHome } from '../archonHome.js';
 
-const file=process.env.ARCHON_COMPUTER_CONDITIONS_FILE??join(homedir(),'.archon','computer-conditions.json');
+const file=process.env.ARCHON_COMPUTER_CONDITIONS_FILE??join(archonHome(), 'computer-conditions.json');
 let store:ComputerConditions|undefined,loading:Promise<ComputerConditions>|undefined,stopped=false,running=false,scheduled=false,warning:string|undefined;
 type Dispatch=(id:string,text:string,guard:(claim:()=>boolean)=>Promise<boolean>)=>Promise<boolean>;
 let dispatch:Dispatch|undefined;

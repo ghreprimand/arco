@@ -23,6 +23,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { GenesisSeed } from '@archon/shared';
+import { archonHome } from '../archonHome.js';
 
 // Hard ceiling on files a single scaffold run may write. The deterministic seed-doc
 // set is small; the cap is the backstop against a future seed-driven generator looping.
@@ -47,7 +48,7 @@ export function expandHome(input: string): string {
 // of here into the real project dir and removes this. Lives under ~/.archon so it
 // never pollutes the operator's project space.
 export function genesisScratchDir(wfid: string): string {
-  return path.join(os.homedir(), '.archon', 'genesis', wfid);
+  return path.join(archonHome(), 'genesis', wfid);
 }
 
 export function slugify(input: string): string {

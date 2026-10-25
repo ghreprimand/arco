@@ -16,16 +16,13 @@ import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { McpServerDef } from '@archon/shared';
 import { atomicWriteFile } from '../atomicFile.js';
+import { archonHome } from '../archonHome.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const NAME_MAX = 200;
 
-// Resolved per-call (not at module load) so the smoke can point HOME/ARCHON_HOME
-// at a temp dir before driving the registry. homedir() respects $HOME on POSIX.
-function archonHome(): string {
-  return process.env.ARCHON_HOME || path.join(homedir(), '.archon');
-}
-
+// archonHome() resolves per call (not at module load) so the smoke can point
+// HOME/ARCHON_HOME at a temp dir before driving the registry.
 function registryDir(): string {
   return path.join(archonHome(), 'mcp');
 }

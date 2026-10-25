@@ -22,6 +22,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { format } from 'node:util';
+import { archonHome } from '../archonHome.js';
 
 export interface FileLoggerOptions {
   dir: string;
@@ -168,7 +169,7 @@ export function initFileLogging(): boolean {
   if (enabled) {
     const dir = process.env.ARCHON_LOG_DIR && process.env.ARCHON_LOG_DIR.trim()
       ? process.env.ARCHON_LOG_DIR
-      : join(homedir(), '.archon', 'logs');
+      : join(archonHome(), 'logs');
     singleton = createFileLogger({ dir, maxBytes, keep });
     activePath = singleton.path;
   }

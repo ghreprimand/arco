@@ -7,7 +7,12 @@ import { createServer } from 'http';
 import { createHash, randomBytes } from 'crypto';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
+
+// Arco home: ARCO_HOME, then ARCHON_HOME, else ~/.archon.
+const ARCHON_HOME = (process.env.ARCO_HOME || process.env.ARCHON_HOME || '').trim()
+  ? resolve((process.env.ARCO_HOME || process.env.ARCHON_HOME).trim())
+  : join(homedir(), '.archon');
 
 // Gemini CLI client — registered for broader scopes than the Antigravity client
 const CLIENT_ID   = '681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com';
@@ -23,7 +28,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/generative-language',
 ].join(' ');
 
-const TOKEN_PATH = join(homedir(), '.archon', 'gemini-antigravity-tokens.json');
+const TOKEN_PATH = join(ARCHON_HOME, 'gemini-antigravity-tokens.json');
 
 // ── PKCE helpers ────────────────────────────────────────────────────────────
 function base64url(buf) {
@@ -127,7 +132,7 @@ async function exchangeCode(code) {
     saved_at:      new Date().toISOString(),
   };
 
-  await mkdir(join(homedir(), '.archon'), { recursive: true });
+  await mkdir(ARCHON_HOME, { recursive: true });
   await writeFile(TOKEN_PATH, JSON.stringify(tokens, null, 2), 'utf8');
   console.log(`\nTokens saved to ${TOKEN_PATH}`);
 

@@ -12,9 +12,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir, hostname, platform as osPlatform } from 'node:os';
 import { join, dirname } from 'node:path';
 import type { ManagedArchonInstance, Platform, ServiceMode } from '@archon/shared';
+import { archonHome } from '../archonHome.js';
 
 function archonDir(): string {
-  return join(homedir(), '.archon');
+  return archonHome();
 }
 function instanceIdPath(): string {
   return process.env.ARCHON_INSTANCE_ID_FILE || join(archonDir(), 'instance-id');

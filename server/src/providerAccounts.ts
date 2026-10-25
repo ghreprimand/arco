@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'path';
 import { homedir } from 'os';
 import type { ProviderName, ProviderAccountProfile } from '@archon/shared';
 import { readSettings } from './settings.js';
+import { archonHome } from './archonHome.js';
 
 export interface ResolvedProviderAccount {
   provider: ProviderName;
@@ -17,7 +18,7 @@ export function expandHomePath(p: string): string {
 }
 
 function defaultCodexHome(id: string): string {
-  return join(homedir(), '.archon', 'provider-accounts', `codex-${id}`);
+  return join(archonHome(), 'provider-accounts', `codex-${id}`);
 }
 
 export function accountShortLabel(profile: ProviderAccountProfile): string {

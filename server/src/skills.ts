@@ -22,6 +22,7 @@ import { homedir } from 'os';
 import path from 'path';
 
 import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
+import { archonHome } from './archonHome.js';
 
 export type SkillScope = 'project' | 'global';
 export interface SkillRef { scope: SkillScope; slug: string }
@@ -70,7 +71,7 @@ function projectSkillsRoot(cwd: string): string {
 }
 
 function globalSkillsRoot(): string {
-  return path.join(homedir(), '.archon', 'skills');
+  return path.join(archonHome(), 'skills');
 }
 
 function rootForScope(scope: SkillScope, cwd: string): string {

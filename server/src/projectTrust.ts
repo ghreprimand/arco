@@ -27,8 +27,9 @@ import { homedir } from 'node:os';
 import { readSettings } from './settings.js';
 import { isValidSlug } from './skills.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const TRUST_FILE = path.join(homedir(), '.archon', 'trust.json');
+const TRUST_FILE = path.join(archonHome(), 'trust.json');
 
 export type TrustDecision = 'always' | 'never';
 export type TrustStatus = TrustDecision | 'ask';

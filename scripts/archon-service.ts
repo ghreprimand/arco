@@ -32,6 +32,7 @@ import {
   SERVICE_COMMANDS,
   type ServiceArgs,
 } from './service/unit.js';
+import { archonHome } from '../server/src/archonHome.js';
 
 // Repo root: this file lives at <root>/scripts/archon-service.ts.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,7 +57,7 @@ const isMac = process.platform === 'darwin';
 function logFilePath(): string {
   const dir = process.env.ARCHON_LOG_DIR && process.env.ARCHON_LOG_DIR.trim()
     ? process.env.ARCHON_LOG_DIR
-    : join(homedir(), '.archon', 'logs');
+    : join(archonHome(), 'logs');
   return join(dir, 'archon.log');
 }
 

@@ -41,6 +41,7 @@ import { flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore } from './
 import { readClusterPlan } from './clusterPlanBridge.js';
 import { rememberCwd } from './crashRecovery.js';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const NAME_MAX = 64;
 const MAX_SNAPSHOTS = 100;
@@ -53,7 +54,7 @@ const MAX_SNAPSHOTS = 100;
 const MAX_MEMBER_EVENTS_BYTES = 512 * 1024 * 1024;
 
 function snapshotsRoot(): string {
-  return path.join(homedir(), '.archon', 'cluster-snapshots');
+  return path.join(archonHome(), 'cluster-snapshots');
 }
 
 function snapshotDir(snapshotId: string): string {

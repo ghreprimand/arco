@@ -6,9 +6,10 @@ import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const MAGIC = Buffer.from('ARCHCV01', 'ascii');
-const KEY_PATH = path.join(homedir(), '.archon', 'cluster-vault.key');
+const KEY_PATH = path.join(archonHome(), 'cluster-vault.key');
 
 export async function readVaultKey(create = false): Promise<Buffer | null> {
   try {

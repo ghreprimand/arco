@@ -32,10 +32,11 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { homedir } from 'os';
 import type { Readable } from 'stream';
+import { archonHome } from '../archonHome.js';
 
 // The scratch root. A sibling of settings.json / clusters / skills under
 // ~/.archon, so it's already an Archon-owned tree the operator knows about.
-export const SCRATCH_ROOT = path.join(homedir(), '.archon', 'media-scratch');
+export const SCRATCH_ROOT = path.join(archonHome(), 'media-scratch');
 
 // Per-upload byte cap. Video can be large, so this is generous; it exists to
 // stop a runaway / hostile upload from filling the disk, not to be tight.

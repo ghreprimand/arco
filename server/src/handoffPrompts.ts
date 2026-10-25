@@ -29,6 +29,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
+import { archonHome } from './archonHome.js';
 
 // 'ollama-compaction' rides the same project>global>default override + editor
 // machinery as the two handoff prompts (WP4). It is not a Handoff mode — it
@@ -194,7 +195,7 @@ export const DEFAULT_TEMPLATES: Record<HandoffPromptMode, string> = {
 };
 
 function rootForScope(scope: HandoffPromptScope, cwd: string): string {
-  if (scope === 'global') return path.join(homedir(), '.archon');
+  if (scope === 'global') return archonHome();
   if (!cwd) throw new Error('project scope requires cwd');
   return path.join(cwd, '.archon');
 }

@@ -16,6 +16,7 @@ import { basename, join, relative } from 'path';
 import { readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { realpathWithinHome } from './explorerArtifacts.js';
+import { archonHome } from './archonHome.js';
 
 export interface DocEntry {
   path: string;
@@ -70,7 +71,7 @@ export async function collectProjectDocs(project: string, limit = 1000): Promise
   return out.slice(0, limit);
 }
 
-const KNOWN_CWDS = join(homedir(), '.archon', 'known-cwds.json');
+const KNOWN_CWDS = join(archonHome(), 'known-cwds.json');
 
 async function readKnownCwds(): Promise<string[]> {
   try {

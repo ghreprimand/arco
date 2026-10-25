@@ -24,8 +24,9 @@ import os from 'os';
 import { listWorkflowMetas, readMeta, type WorkflowMeta } from './workflowMeta.js';
 import { initWorkflowStore } from './workflowStore.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const REGISTRY_PATH = path.join(os.homedir(), '.archon', 'known-cwds.json');
+const REGISTRY_PATH = path.join(archonHome(), 'known-cwds.json');
 const RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 async function readRegistry(): Promise<string[]> {

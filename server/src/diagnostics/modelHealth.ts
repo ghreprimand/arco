@@ -50,9 +50,10 @@ import { probeHardware } from '../cookbook/hardware.js';
 import { scoreFit } from '../cookbook/fit.js';
 import { parseParams } from '../cookbook/catalog.js';
 import { modelsDir } from '../cookbook/install.js';
+import { archonHome } from '../archonHome.js';
 
 const execFileAsync = promisify(execFile);
-const ARCHON_HOME = join(homedir(), '.archon');
+const ARCHON_HOME = archonHome();
 const LLAMACPP_LOG = join(ARCHON_HOME, 'llamacpp.log');
 
 // Lines of llama-server log to surface as the "last stderr" tail. The full log

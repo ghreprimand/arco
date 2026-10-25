@@ -54,9 +54,10 @@ import { readinessSnapshot } from '../server/readiness.js';
 import { getLogFilePath } from '../server/logger.js';
 import { probeCodeSkew } from './codeSkew.js';
 import { probeShutdownWindow } from './shutdownWindow.js';
+import { archonHome } from '../archonHome.js';
 
 const execFileAsync = promisify(execFile);
-const ARCHON_HOME = join(homedir(), '.archon');
+const ARCHON_HOME = archonHome();
 
 // ── result helpers ──────────────────────────────────────────────────────────
 

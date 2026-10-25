@@ -20,8 +20,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const USAGE_FILE = path.join(homedir(), '.archon', 'skill-usage.json');
+const USAGE_FILE = path.join(archonHome(), 'skill-usage.json');
 
 export interface SkillUsageEntry {
   count: number;

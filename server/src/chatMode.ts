@@ -3,6 +3,7 @@ import { promises as fs, mkdtempSync, rmSync } from 'fs';
 import path from 'path';
 import type { ProviderName, SavedChatSummary, WorkflowConfig } from '@archon/shared';
 import { readMeta, workflowConfigFromMeta } from './workflowMeta.js';
+import { archonHome } from './archonHome.js';
 
 export const CHAT_PROVIDERS = new Set<ProviderName>([
   'claude', 'codex', 'zai', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
@@ -91,7 +92,7 @@ export function incognitoChatCwd(): string {
 }
 
 export function chatRootDir(): string {
-  return path.join(homedir(), '.archon', 'chats');
+  return path.join(archonHome(), 'chats');
 }
 
 export async function listSavedChats(root = chatRootDir()): Promise<SavedChatSummary[]> {

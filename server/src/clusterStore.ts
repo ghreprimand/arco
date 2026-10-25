@@ -37,8 +37,9 @@ import {
   isClusterMemberAccessMode,
 } from '@archon/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const ARCHON_HOME = join(homedir(), '.archon');
+const ARCHON_HOME = archonHome();
 const CLUSTERS_DIR = join(ARCHON_HOME, 'clusters');
 
 export interface ClusterState {

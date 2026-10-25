@@ -21,8 +21,9 @@ import type { ArchonSettings, ProviderName, ModelName, WorkflowDefaults, EffortL
 import { VALID_THEME_IDS, VALID_FONT_PACK_IDS, normalizeLegacyThemeId } from '@archon/shared';
 import { describeConfigValue } from './configValue.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const GLOBAL_SETTINGS_DIR = path.join(homedir(), '.archon');
+const GLOBAL_SETTINGS_DIR = archonHome();
 const GLOBAL_SETTINGS_BASENAME = 'settings.json';
 const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASENAME);
 const PROJECT_SETTINGS_DIRNAME = '.archon';

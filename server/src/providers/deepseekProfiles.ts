@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import type { LmstudioModelCapabilities } from './lmstudio.js';
 import { isManagedStrataEndpoint } from './strataProfiles.js';
 import { beginLocalModelSwitch, localModelBusyMessage } from './localModelControl.js';
+import { archonHome } from '../archonHome.js';
 
 const exec = promisify(execFile);
 export interface DeepSeekProfile {
@@ -27,7 +28,7 @@ export interface DeepSeekStatus {
   activity?: { in_flight?: number };
 }
 export function deepseekProfilesPath(): string {
-  return process.env.ARCHON_DEEPSEEK_PROFILES || join(homedir(), '.archon', 'deepseek-profiles.json');
+  return process.env.ARCHON_DEEPSEEK_PROFILES || join(archonHome(), 'deepseek-profiles.json');
 }
 
 export async function readDeepSeekProfiles(base: string): Promise<DeepSeekRegistry | null> {

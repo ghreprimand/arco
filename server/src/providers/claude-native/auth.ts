@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import * as lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../../atomicFile.js';
+import { archonHome } from '../../archonHome.js';
 
 export interface ClaudeNativeTokens {
   accessToken: string;
@@ -30,7 +31,7 @@ interface AuthFileShape {
   };
 }
 
-const ARCHON_DIR = join(homedir(), '.archon');
+const ARCHON_DIR = archonHome();
 const AUTH_PATH = join(ARCHON_DIR, 'auth.json');
 
 async function ensureDir(): Promise<void> {

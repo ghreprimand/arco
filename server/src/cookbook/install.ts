@@ -53,13 +53,14 @@ import { homedir } from 'os';
 import type { LlamacppModelDef } from '@archon/shared';
 import { readCatalog, writeCatalog, type LlamacppCatalog } from '../llamacppCatalog.js';
 import { getOllamaBase } from '../providers/ollama.js';
+import { archonHome } from '../archonHome.js';
 
 // ── Models dir ────────────────────────────────────────────────────────────
 // The ONE fixed directory HF GGUF weights download into. Mirrors the catalog's
 // ~/.archon home. Created on demand. Confinement is checked against the
 // RESOLVED real path of this dir, so a symlink swap can't widen the target.
 export function modelsDir(): string {
-  return path.join(homedir(), '.archon', 'models');
+  return path.join(archonHome(), 'models');
 }
 
 // Safety margin layered on top of the model size in the disk pre-flight: a

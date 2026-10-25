@@ -26,9 +26,10 @@ import type { WorkflowConfig, WorkspaceSnapshotPayload, WorkspaceWorkflowEntry }
 import { atomicWriteFile } from './atomicFile.js';
 import { workflows } from './server/state.js';
 import * as clusterStore from './clusterStore.js';
+import { archonHome } from './archonHome.js';
 
 const PORT = parseInt(process.env.ARCHON_PORT || '3001', 10);
-const WORKSPACE_FILE = join(homedir(), '.archon', PORT === 3001 ? 'workspace.json' : `workspace-${PORT}.json`);
+const WORKSPACE_FILE = join(archonHome(), PORT === 3001 ? 'workspace.json' : `workspace-${PORT}.json`);
 const WFID_RE = /^[a-zA-Z0-9-]{1,64}$/;
 const MAX_ENTRIES = 256;
 

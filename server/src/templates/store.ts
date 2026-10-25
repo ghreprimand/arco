@@ -27,6 +27,7 @@ import type {
   WorkflowTemplateConfig,
 } from '@archon/shared';
 import { atomicWriteFile } from '../atomicFile.js';
+import { archonHome } from '../archonHome.js';
 
 const NAME_MAX = 64;
 const MAX_TEMPLATES = 50;
@@ -35,7 +36,7 @@ const PLAN_MAX = 32768; // matches the cluster-plan body cap
 const PROVIDER_ACCOUNT_MAX = 200;
 
 function templatesPath(): string {
-  return path.join(homedir(), '.archon', 'templates.json');
+  return path.join(archonHome(), 'templates.json');
 }
 
 interface TemplatesFile {

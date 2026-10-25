@@ -13,9 +13,10 @@ import { emit } from '../notifications.js';
 import { readCluster } from '../clusterStore.js';
 import { ComputerWatches } from './watchStore.js';
 import type { WorkflowState } from '../workflows/types.js';
+import { archonHome } from '../archonHome.js';
 
 const claims = new WeakMap<WorkflowState, number>();
-const file = process.env.ARCHON_COMPUTER_WATCH_FILE ?? join(homedir(), '.archon', 'computer-watches.json');
+const file = process.env.ARCHON_COMPUTER_WATCH_FILE ?? join(archonHome(), 'computer-watches.json');
 let store: ComputerWatches | undefined;
 let loading: Promise<ComputerWatches> | undefined;
 let persistenceError: string | undefined;

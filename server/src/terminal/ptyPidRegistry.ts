@@ -26,8 +26,9 @@ import { join } from 'path';
 
 import { readStartTime, type TrackedProc } from '../workers/processStartTime.js';
 import { atomicWriteFileSync } from '../atomicFile.js';
+import { archonHome } from '../archonHome.js';
 
-const DIR = join(homedir(), '.archon');
+const DIR = archonHome();
 const FILE = join(DIR, 'terminal-pids.json');
 
 let cache: Map<number, string | null> | null = null;

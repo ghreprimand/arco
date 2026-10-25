@@ -11,11 +11,12 @@ import path from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function archonUserDir(): string {
-  return path.join(homedir(), '.archon');
+  return archonHome();
 }
 
 function modelsPath(): string {

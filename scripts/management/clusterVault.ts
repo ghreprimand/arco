@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { archonHome } from '../../server/src/archonHome.js';
 
 export const MAX_VAULT_BLOB_BYTES = 1024 * 1024 * 1024;
 
@@ -22,7 +23,7 @@ export interface CloudClusterSnapshot {
 
 function root(): string {
   return process.env.ARCHON_CLUSTER_VAULT_DIR?.trim()
-    || path.join(homedir(), '.archon', 'hub', 'cluster-vault');
+    || path.join(archonHome(), 'hub', 'cluster-vault');
 }
 
 function validId(id: string): boolean {

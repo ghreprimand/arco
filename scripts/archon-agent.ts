@@ -41,6 +41,7 @@ import { NonceStore } from './agent/handle.js';
 import { createAgentConnection, systemctlRunner } from './agent/agent.js';
 import { buildInstanceDescriptor, detectPlatform } from './agent/identity.js';
 import { LIFECYCLE_COMMANDS } from '../shared/src/protocol/remoteManagement.js';
+import { archonHome } from '../server/src/archonHome.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_NAME = 'archon-agent.service';
@@ -57,7 +58,7 @@ function unitPath(): string {
   return join(unitDir(), UNIT_NAME);
 }
 function agentDir(): string {
-  return join(homedir(), '.archon', 'agent');
+  return join(archonHome(), 'agent');
 }
 function defaultPubkeyPath(): string {
   return process.env.ARCHON_HUB_PUBKEY || join(agentDir(), 'hub.pub');

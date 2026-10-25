@@ -37,6 +37,7 @@ import {
 import { generateHubKeypair } from './agent/signing.js';
 import { createHub } from './management/hub.js';
 import { parseSshTargets } from './management/sshLifecycle.js';
+import { archonHome } from '../server/src/archonHome.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_NAME = 'archon-management.service';
@@ -54,7 +55,7 @@ function unitPath(): string {
   return join(unitDir(), UNIT_NAME);
 }
 function hubDir(): string {
-  return join(homedir(), '.archon', 'hub');
+  return join(archonHome(), 'hub');
 }
 function defaultKeyPath(): string {
   return process.env.ARCHON_HUB_KEY || join(hubDir(), 'hub.key');

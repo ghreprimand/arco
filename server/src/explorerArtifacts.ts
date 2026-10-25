@@ -17,6 +17,7 @@
 import { readFile, readdir, realpath, stat } from 'fs/promises';
 import { basename, join, resolve } from 'path';
 import { homedir } from 'os';
+import { archonHome } from './archonHome.js';
 
 export interface ArtifactEntry {
   path: string;        // absolute, realpath-resolved, ⊆ $HOME
@@ -30,7 +31,7 @@ export interface ArtifactEntry {
   cwd: string;         // the owning project cwd (reveal-in-tree + attribution)
 }
 
-const KNOWN_CWDS = join(homedir(), '.archon', 'known-cwds.json');
+const KNOWN_CWDS = join(archonHome(), 'known-cwds.json');
 // Defensive caps — artifact trees are shallow + small in practice, but a
 // pathological or symlink-looped tree must not hang the request.
 const MAX_DEPTH = 8;

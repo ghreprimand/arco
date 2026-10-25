@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { BakeoffAttempt, BakeoffAttemptSpec, BakeoffState } from '@archon/shared';
+import { archonHome } from './archonHome.js';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 30_000;
@@ -65,7 +66,7 @@ function cwdHash(cwd: string): string {
 }
 
 export function bakeoffWorktreesRoot(cwd: string): string {
-  return path.join(homedir(), '.archon', 'bakeoffs', cwdHash(cwd), 'worktrees');
+  return path.join(archonHome(), 'bakeoffs', cwdHash(cwd), 'worktrees');
 }
 
 function attemptPath(cwd: string, bakeoffId: string, attemptId: string): string {

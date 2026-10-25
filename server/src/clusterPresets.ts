@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@archon/shared';
 import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode } from '@archon/shared';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const NAME_MAX = 64;
 const MAX_PRESETS = 50;
@@ -24,7 +25,7 @@ const ROLE_MAX = 120;
 const DISPLAY_NAME_MAX = 80;
 
 function presetsPath(): string {
-  return path.join(homedir(), '.archon', 'cluster-presets.json');
+  return path.join(archonHome(), 'cluster-presets.json');
 }
 
 interface PresetsFile {

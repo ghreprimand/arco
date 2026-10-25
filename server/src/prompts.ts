@@ -20,6 +20,7 @@ import { homedir } from 'os';
 import path from 'path';
 
 import { splitArgs } from './configValue.js';
+import { archonHome } from './archonHome.js';
 
 export type PromptScope = 'project' | 'global';
 
@@ -41,7 +42,7 @@ function projectPromptsRoot(cwd: string): string {
   return path.join(cwd, '.archon', 'prompts');
 }
 function globalPromptsRoot(): string {
-  return path.join(homedir(), '.archon', 'prompts');
+  return path.join(archonHome(), 'prompts');
 }
 
 // Parse a leading `/name args…` out of composer text. Returns null when the text

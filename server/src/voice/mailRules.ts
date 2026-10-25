@@ -13,8 +13,9 @@ import { broadcastWorkflow } from '../server/broadcast.js';
 import { emit } from '../notifications.js';
 import { ComputerMailRules, type MailSnapshot } from './mailRuleStore.js';
 import { hasActiveConditionsForCluster } from './conditions.js';
+import { archonHome } from '../archonHome.js';
 
-const file = process.env.ARCHON_COMPUTER_MAIL_RULE_FILE ?? join(homedir(), '.archon', 'computer-mail-rules.json');
+const file = process.env.ARCHON_COMPUTER_MAIL_RULE_FILE ?? join(archonHome(), 'computer-mail-rules.json');
 let store: ComputerMailRules | undefined, loading: Promise<ComputerMailRules> | undefined;
 let warning: string | undefined;
 let stopped = false, ticking = false;

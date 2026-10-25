@@ -32,6 +32,7 @@ import type { ProviderName, RecallEntry, RecallLink } from '@archon/shared';
 import { readMeta, listWorkflowMetas, latestCliSessionFor, type WorkflowMeta } from '../workflowMeta.js';
 import { extractSessionName } from '../workflows/sessionDiscovery.js';
 import { encodeProjectDir } from '../http/fileRead.js';
+import { archonHome } from '../archonHome.js';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 80;
@@ -45,7 +46,7 @@ const FTS_SUMMARY_MAX = 8000;
 // recall-summary HTTP route + summarize.ts so the location is computed in ONE
 // place, cross-platform (os.homedir(), never a hardcoded /home/...).
 export function recallHomeDir(): string {
-  return path.join(os.homedir(), '.archon', 'recall');
+  return path.join(archonHome(), 'recall');
 }
 
 // §F2 — the summary.md path for one workflow. wfid MUST be validated by the
@@ -81,7 +82,7 @@ function readSummaryBodyFrom(recallHome: string, wfid: string): string {
 // crashRecovery.ts's known-cwds.json (the single source of truth for "where
 // have workflows lived").
 function knownCwdsPath(): string {
-  return path.join(os.homedir(), '.archon', 'known-cwds.json');
+  return path.join(archonHome(), 'known-cwds.json');
 }
 
 export interface RecallQuery {

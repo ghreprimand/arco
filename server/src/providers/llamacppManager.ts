@@ -24,8 +24,9 @@ import { homedir } from 'os';
 import { EventEmitter } from 'events';
 import type { LlamacppModelDef } from '@archon/shared';
 import { readCatalog, findModel } from '../llamacppCatalog.js';
+import { archonHome } from '../archonHome.js';
 
-const LOG_PATH = path.join(homedir(), '.archon', 'llamacpp.log');
+const LOG_PATH = path.join(archonHome(), 'llamacpp.log');
 
 function defaultPort(): number {
   const env = process.env.ARCHON_LLAMACPP_PORT;

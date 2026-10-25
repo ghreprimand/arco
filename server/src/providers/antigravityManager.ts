@@ -23,10 +23,11 @@ import {
   configuredAntigravityModelId,
   type AntigravityCapabilities,
 } from './antigravityCapabilities.js';
+import { archonHome } from '../archonHome.js';
 
 const DEFAULT_PORT = 9222;
 const DEFAULT_BINARY = process.env.ANTIGRAVITY_BINARY ?? '/opt/antigravity/antigravity';
-const DEFAULT_USER_DATA = join(homedir(), '.archon', 'antigravity-data');
+const DEFAULT_USER_DATA = join(archonHome(), 'antigravity-data');
 const DEFAULT_WORKSPACE = expandHome(process.env.ANTIGRAVITY_WORKSPACE?.trim() || join(homedir(), 'Projects'));
 const SPAWN_WAIT_MS = 15_000;
 const PROBE_INTERVAL_MS = 500;

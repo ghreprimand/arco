@@ -13,8 +13,9 @@ import path from 'path';
 import { homedir } from 'os';
 import type { LlamacppModelDef } from '@archon/shared';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
-const CATALOG_PATH = path.join(homedir(), '.archon', 'llamacpp.json');
+const CATALOG_PATH = path.join(archonHome(), 'llamacpp.json');
 
 // 64 KB is plenty for a few dozen model entries; the actual GGUF / mmproj
 // blobs live on disk separately. Cap exists so a runaway hand-edit can't

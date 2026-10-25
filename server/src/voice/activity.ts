@@ -9,8 +9,9 @@ import { workflows } from '../server/state.js';
 import { broadcastTransient, broadcastWorkflow } from '../server/broadcast.js';
 import { ComputerActivity, type ActivitySaved } from './activityStore.js';
 import { subscribeActivity, subscribeComputerProjection, computerPolicyChanged } from './activityBus.js';
+import { archonHome } from '../archonHome.js';
 
-const file = process.env.ARCHON_COMPUTER_ACTIVITY_FILE ?? join(homedir(), '.archon','computer-activity.json');
+const file = process.env.ARCHON_COMPUTER_ACTIVITY_FILE ?? join(archonHome(), 'computer-activity.json');
 let store: ComputerActivity | undefined, loading: Promise<ComputerActivity> | undefined;
 let warning: string | undefined, failed = false, stopped = false, revision = 0;
 let lastSaved = '', flushing = false, dirty = false, draining = false, drainAgain = false;

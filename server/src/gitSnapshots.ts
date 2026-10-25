@@ -31,6 +31,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -283,7 +284,7 @@ function cwdHash(cwd: string): string {
 // Per-cwd checkpoint store root: holds the shadow repo (`git/`) and any legacy
 // tar checkpoints from the pre-shadow fallback.
 export function checkpointStoreRoot(cwd: string): string {
-  return path.join(homedir(), '.archon', 'checkpoints', cwdHash(cwd));
+  return path.join(archonHome(), 'checkpoints', cwdHash(cwd));
 }
 
 function shadowGitDir(cwd: string): string {

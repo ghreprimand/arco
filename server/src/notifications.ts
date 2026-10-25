@@ -22,6 +22,7 @@ import type {
 } from '@archon/shared';
 import { WORKBENCH_NOTICE_CATEGORIES } from '@archon/shared';
 import { atomicWriteFile } from './atomicFile.js';
+import { archonHome } from './archonHome.js';
 
 // A primary turn shorter than this isn't worth a "turn finished" notice — the
 // operator was almost certainly watching. Only long-running turns (where they
@@ -30,7 +31,7 @@ const LONG_TURN_MS = 60_000;
 
 // Overridable so the smoke can point persistence at a temp dir instead of the
 // real ~/.archon. Defaults to the per-user archon home.
-let mutesPath = join(homedir(), '.archon', 'notification-mutes.json');
+let mutesPath = join(archonHome(), 'notification-mutes.json');
 export function _setMutesPathForTest(p: string): void { mutesPath = p; }
 
 let broadcast: ((msg: ServerMessage) => void) | null = null;
