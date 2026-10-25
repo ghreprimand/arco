@@ -4,6 +4,7 @@
 // Claude-only; Gemini/Codex/Ollama skip calibration entirely.
 
 import { registerWorkerPid, unregisterWorkerPid } from './workers/pidRegistry.js';
+import { commandArgs } from './windowsCommand.js';
 
 export type CalibrationZone = 'E' | 'A' | 'B' | 'C';
 
@@ -173,7 +174,7 @@ export async function runCalibration(
       // mid-flight kills can show messages > total under some models, which
       // trips the parser's sanity check). Matching the model also makes the
       // overhead/window numbers correct (they're model-specific).
-      child = spawn('claude', ['--resume', sessionId, '--model', model, '--print', '/context'], {
+      child = spawn(...commandArgs('claude', ['--resume', sessionId, '--model', model, '--print', '/context']), {
         cwd,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],

@@ -75,6 +75,7 @@ import type { UserInput } from './bindings/v2/UserInput.js';
 import type { SandboxMode } from './bindings/v2/SandboxMode.js';
 import type { ReasoningEffort } from './bindings/ReasoningEffort.js';
 import type { JsonValue } from './bindings/serde_json/JsonValue.js';
+import { commandArgs } from '../../windowsCommand.js';
 
 // Pinned Codex CLI version this worker was validated against. See
 // docs/CODEX_APPSERVER_PLAN.md §0/§11 — bump the constant + regen the
@@ -548,7 +549,7 @@ export class CodexAppServerWorker extends EventEmitter {
     if (this.config.incognito) spawnArgs.push('-c', 'history.persistence="none"', '-c', 'analytics.enabled=false');
     spawnArgs.push('app-server');
 
-    this.proc = spawn('codex', spawnArgs, {
+    this.proc = spawn(...commandArgs('codex', spawnArgs), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,

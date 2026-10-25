@@ -55,6 +55,7 @@ import { getLogFilePath } from '../server/logger.js';
 import { probeCodeSkew } from './codeSkew.js';
 import { probeShutdownWindow } from './shutdownWindow.js';
 import { arcoHome } from '../arcoHome.js';
+import { commandArgs } from '../windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
 const ARCO_HOME = arcoHome();
@@ -106,7 +107,7 @@ async function onPath(bin: string): Promise<string | null> {
 // to null when the binary is missing or errors. Mirrors capabilities.ts.
 async function probeVersion(bin: string, flags: string[] = ['--version']): Promise<string | null> {
   try {
-    const { stdout, stderr } = await execFileAsync(bin, flags, { timeout: 5000, maxBuffer: 2 * 1024 * 1024 });
+    const { stdout, stderr } = await execFileAsync(...commandArgs(bin, flags), { timeout: 5000, maxBuffer: 2 * 1024 * 1024 });
     const text = `${stdout}\n${stderr}`;
     const m = text.match(/(\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.-]+)?)/);
     return m ? m[1] : 'unknown';

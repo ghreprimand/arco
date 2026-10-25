@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { lunaArgs } from './luna.js';
 import { killProcessTree } from '../workers/processKill.js';
+import { commandArgs } from '../windowsCommand.js';
 // Operator-armed semantic observation, never a worker answer or an action.
 export async function observeInputWithLuna(workers:Array<{id:string;text:string}>,signal:AbortSignal) {
   const cwd=await mkdtemp(join(tmpdir(),'arco-input-observation-'));
@@ -12,7 +13,7 @@ export async function observeInputWithLuna(workers:Array<{id:string;text:string}
     await writeFile(join(cwd,'command.schema.json'),JSON.stringify({type:'object',additionalProperties:false,required:['workers'],properties:{workers:{type:'array',items:{type:'object',additionalProperties:false,required:['id','needs_input'],properties:{id:{type:'string'},needs_input:{type:['boolean','null']}}}}}}));
     signal.throwIfAborted();
     return await new Promise<{workers:Array<{id:string;needs_input:boolean|null}>;usage:unknown}>((resolve,reject)=>{
-      const child=spawn('codex',lunaArgs(cwd),{cwd,detached:true,stdio:['pipe','pipe','pipe'],env:{...process.env,OPENAI_API_KEY:undefined,OTEL_EXPORTER_OTLP_ENDPOINT:undefined}});
+      const child=spawn(...commandArgs('codex', lunaArgs(cwd)),{cwd,detached:true,stdio:['pipe','pipe','pipe'],env:{...process.env,OPENAI_API_KEY:undefined,OTEL_EXPORTER_OTLP_ENDPOINT:undefined}});
       let buffer='',output='',size=0,done=false;
       const finish=(error?:Error,usage?:unknown)=>{if(done)return;done=true;clearTimeout(timer);signal.removeEventListener('abort',abort);if(child.pid&&child.exitCode===null)killProcessTree(child.pid);if(error){reject(error);return;}try{const result=JSON.parse(output);if(!Array.isArray(result.workers)||result.workers.length!==workers.length||new Set(result.workers.map((w:any)=>w.id)).size!==workers.length||result.workers.some((w:any)=>!workers.some((x)=>x.id===w.id)||![true,false,null].includes(w.needs_input)))throw Error();resolve({...result,usage});}catch{reject(Error('Input observation returned invalid data.'));}};
       const abort=()=>finish(Error('Input observation cancelled.'));

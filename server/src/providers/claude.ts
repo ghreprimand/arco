@@ -17,6 +17,7 @@ import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
 import type { Provider, ProviderProcess } from './types.js';
+import { commandArgs } from '../windowsCommand.js';
 
 // Phase C.2 — above this char count we stop trying to pass
 // --append-system-prompt as a single CLI arg (Linux MAX_ARG_STRLEN is
@@ -269,7 +270,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     const useStreamJson = images.length > 0;
     const args = this.buildArgs({ streamJsonInput: useStreamJson });
 
-    this.process = spawn('claude', args, {
+    this.process = spawn(...commandArgs('claude', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
       cwd: this.config.cwd || undefined,

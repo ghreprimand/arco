@@ -10,6 +10,7 @@ import { markThrottled, markAvailable } from '../quota.js';
 import type { SessionInfo, WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
 import { attachmentDirs, withAttachmentRefs } from './attachments.js';
+import { commandArgs } from '../windowsCommand.js';
 
 const GEMINI_TMP_ROOT = join(homedir(), '.gemini', 'tmp');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -120,7 +121,7 @@ class GeminiWorkerProcess extends EventEmitter implements ProviderProcess {
       ? `${this.config.appendSystemPrompt}\n\n---\n\n${promptWithAttachments}`
       : promptWithAttachments;
 
-    this.process = spawn('gemini', args, {
+    this.process = spawn(...commandArgs('gemini', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
       cwd: this.config.cwd || undefined,
@@ -450,7 +451,7 @@ export async function resolveGeminiResumeIndex(sessionId: string, cwd: string): 
       settled = true;
       done(val);
     };
-    const proc = spawn('gemini', ['--list-sessions'], {
+    const proc = spawn(...commandArgs('gemini', ['--list-sessions']), {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],
       env: process.env,

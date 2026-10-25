@@ -23,6 +23,7 @@ import { goalBlock } from '../goalBlock.js';
 import { awaitModelImages, loadImages, splitAttachmentPaths, withAttachmentRefs } from '../attachments.js';
 import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
 import { AcpJsonRpcClient, AcpReplyError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
+import { commandArgs } from '../../windowsCommand.js';
 
 // Hard-kill fallback if `session/cancel` doesn't settle the turn (Codex parity).
 const INTERRUPT_ACK_TIMEOUT_MS = 5000;
@@ -198,7 +199,7 @@ export class CursorAcpWorker extends EventEmitter {
     const model = this.resolveModelId();
     // `--force` skips the CLI's interactive trust prompt for the cwd (spike).
     const args = ['acp', '--model', model, '--force'];
-    this.proc = spawn('cursor-agent', args, {
+    this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
       cwd: this.config.cwd || undefined,

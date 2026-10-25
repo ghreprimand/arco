@@ -35,6 +35,7 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { McpServerDef, McpToolInfo } from '@arco/shared';
+import { commandArgs } from '../windowsCommand.js';
 
 // SECURITY (H20) — env allowlist for spawned MCP children.
 //
@@ -202,7 +203,7 @@ export async function probeServer(def: McpServerDef, opts: ProbeOptions = {}): P
     try {
       // argv array, no shell. env is allowlisted (H20 — no host secrets leak to
       // the child) and never logged.
-      child = spawn(def.command, def.args, {
+      child = spawn(...commandArgs(def.command, def.args), {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: buildSafeEnv(def.env),
       }) as ChildProcessWithoutNullStreams;
@@ -365,7 +366,7 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
 
   let child: ChildProcessWithoutNullStreams;
   try {
-    child = spawn(def.command, def.args, {
+    child = spawn(...commandArgs(def.command, def.args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: buildSafeEnv(def.env), // H20 — allowlisted env, no host secrets leak
     }) as ChildProcessWithoutNullStreams;

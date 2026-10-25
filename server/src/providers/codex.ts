@@ -14,6 +14,7 @@ import { codexContextWindowOverride } from './codexContextWindow.js';
 import { buildCodexMcpOverrides } from '../mcp/mcpConfigWriter.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from './types.js';
+import { commandArgs } from '../windowsCommand.js';
 
 // Slot 4 — Codex throttle detection. Per §6.3, 429s are "silent" — the CLI
 // doesn't surface a Retry-After we can parse reliably. When we detect a
@@ -130,7 +131,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       ? `${prefixSp}\n\n---\n\n${promptWithAttachmentRefs}`
       : promptWithAttachmentRefs;
 
-    this.process = spawn('codex', args, {
+    this.process = spawn(...commandArgs('codex', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, ...(this.config.codexHome ? { CODEX_HOME: this.config.codexHome } : {}) },
       cwd: this.config.cwd || undefined,
@@ -504,7 +505,7 @@ function readCodexAuthEmail(codexHome?: string): string | undefined {
 // Returns true if `codex login status` reports an authenticated session.
 export async function probeCodexLoggedIn(codexHome?: string): Promise<{ loggedIn: boolean; account?: string; raw?: string }> {
   return new Promise((resolve) => {
-    const proc = spawn('codex', ['login', 'status'], {
+    const proc = spawn(...commandArgs('codex', ['login', 'status']), {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ...(codexHome ? { CODEX_HOME: codexHome } : {}) },
     });

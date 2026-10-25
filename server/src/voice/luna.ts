@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { isVoiceCommand, VOICE_ACTIONS, type VoiceContext, type VoiceInterpretResult } from '@arco/shared';
 import { killProcessTree } from '../workers/processKill.js';
+import { commandArgs } from '../windowsCommand.js';
 
 export const VOICE_LUNA_MODEL = 'gpt-6-luna';
 // Codex's Luna catalog starts at low. Never silently escalate effort/retry.
@@ -49,7 +50,7 @@ export async function interpretWithLuna(text: string, context: VoiceContext, sig
   const cwd = await lunaScratch();
   return await new Promise<VoiceInterpretResult>((resolve, reject) => {
     if (signal.aborted) { reject(new Error('Voice session ended.')); return; }
-    const child = spawn('codex', lunaArgs(cwd), { cwd, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
+    const child = spawn(...commandArgs('codex', lunaArgs(cwd)), { cwd, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, OPENAI_API_KEY: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined } });
     let buf = '', output = '', count = 0, settled = false;
     let usage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };

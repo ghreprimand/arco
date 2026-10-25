@@ -18,6 +18,7 @@
 
 import { spawn } from 'node:child_process';
 import type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
+import { commandArgs } from '../../windowsCommand.js';
 
 export type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
@@ -82,7 +83,7 @@ export function scheduleCursorCatalogPrefetch(): void {
 
 async function fetchCursorCatalog(): Promise<CursorCatalogSnapshot> {
   const stdout = await new Promise<string>((resolve, reject) => {
-    const proc = spawn('cursor-agent', ['models'], {
+    const proc = spawn(...commandArgs('cursor-agent', ['models']), {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
     });

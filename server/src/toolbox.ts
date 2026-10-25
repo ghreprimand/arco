@@ -7,6 +7,7 @@ import { JsonRpcClient } from './providers/codex-appserver/jsonRpc.js';
 import type { InitializeResponse } from './providers/codex-appserver/bindings/InitializeResponse.js';
 import type { SkillsListResponse } from './providers/codex-appserver/bindings/v2/SkillsListResponse.js';
 import type { PluginListResponse } from './providers/codex-appserver/bindings/v2/PluginListResponse.js';
+import { commandArgs } from './windowsCommand.js';
 
 // Provider-native skill catalogs. This is intentionally separate from
 // skills.ts: `.arco/skills` are Arco-owned prompt attachments, while this
@@ -138,7 +139,7 @@ async function claudeSkillRoots(cwd: string): Promise<Array<{ root: string; sour
 
 async function probeClaudeInit(cwd: string): Promise<ClaudeInit> {
   return await new Promise<ClaudeInit>((resolveProbe, reject) => {
-    const proc = spawn('claude', ['-p', '--output-format', 'stream-json', '--verbose', '--max-turns', '1', '/help'], {
+    const proc = spawn(...commandArgs('claude', ['-p', '--output-format', 'stream-json', '--verbose', '--max-turns', '1', '/help']), {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -205,7 +206,7 @@ export function mergeClaudeSkillCatalog(init: ClaudeInit, scanned: ToolboxEntry[
 }
 
 async function discoverCodexSkills(cwd: string, codexHome?: string): Promise<ToolboxResponse> {
-  const proc = spawn('codex', ['app-server'], {
+  const proc = spawn(...commandArgs('codex', ['app-server']), {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, ...(codexHome ? { CODEX_HOME: codexHome } : {}) },
     detached: true,

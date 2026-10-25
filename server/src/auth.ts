@@ -15,6 +15,7 @@ import { accountShortLabel, configuredAccounts, ensureCodexAccountHome, resolveP
 import { zaiApiKeyStatus } from './providerSecrets.js';
 import { getZaiModels, ZAI_CODING_BASE_URL } from './zai.js';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
+import { commandArgs } from './windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -118,7 +119,7 @@ let lastClaudeStatus: AuthStatus | null = null;
 async function probeClaudeAuthStatus(): Promise<AuthStatus | null> {
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync('claude', ['auth', 'status', '--json'], {
+    ({ stdout } = await execFileAsync(...commandArgs('claude', ['auth', 'status', '--json']), {
       maxBuffer: 256 * 1024,
       timeout: 10_000,
     }));

@@ -24,6 +24,7 @@ import { killProcessTree } from '../../workers/processKill.js';
 import type { Provider, ProviderProcess } from '../types.js';
 import { goalBlock } from '../goalBlock.js';
 import { attachmentDirs, withAttachmentRefs } from '../attachments.js';
+import { commandArgs } from '../../windowsCommand.js';
 
 const STDERR_CAP = 32 * 1024;
 
@@ -79,7 +80,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     const body = withAttachmentRefs(prompt, this.config.attachments ?? []);
     const fullPrompt = prefix ? `${prefix}\n\n---\n\n${body}` : body;
 
-    this.proc = spawn('cursor-agent', args, {
+    this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
       cwd: this.config.cwd || undefined,

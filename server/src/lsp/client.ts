@@ -34,6 +34,7 @@ import { relative, isAbsolute, resolve } from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { DiagnosticItem, DiagnosticsMessage, DiagnosticSeverity } from '@arco/shared';
 import { resolveServer, languageIdForPath, type ResolvedServer } from './servers.js';
+import { commandArgs } from '../windowsCommand.js';
 
 // ── Pure: message framing (the bug-prone core; unit-tested by the smoke) ──
 
@@ -254,7 +255,7 @@ class LspManager extends EventEmitter {
     const server: ResolvedServer | null = samplePath ? await resolveServer(samplePath) : null;
     if (!server) return null;
 
-    const child = spawn(server.cmd, server.args, {
+    const child = spawn(...commandArgs(server.cmd, server.args), {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

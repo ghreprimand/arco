@@ -35,6 +35,7 @@ import type { Model } from './bindings/v2/Model.js';
 import type { ReasoningEffort } from './bindings/ReasoningEffort.js';
 import type { CodexCatalogModel, CodexCatalogSnapshot, CodexReasoningEffort } from '@arco/shared';
 import { readCodexContextMetadata } from '../codexContextWindow.js';
+import { commandArgs } from '../../windowsCommand.js';
 
 export type { CodexCatalogModel, CodexCatalogSnapshot } from '@arco/shared';
 
@@ -135,7 +136,7 @@ export function scheduleCodexCatalogPrefetch(codexHomes: (string | undefined)[] 
 }
 
 async function fetchCodexCatalog(codexHome?: string): Promise<CodexCatalogSnapshot> {
-  const proc = spawn('codex', ['app-server'], {
+  const proc = spawn(...commandArgs('codex', ['app-server']), {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, ...(codexHome ? { CODEX_HOME: codexHome } : {}) },
     detached: true,
