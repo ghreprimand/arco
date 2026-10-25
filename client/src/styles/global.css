@@ -1,0 +1,186 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Native controls otherwise use the browser font instead of the theme.
+   Zero specificity preserves component typography (including code editors). */
+:where(button, select) {
+  font-family: var(--font-display);
+}
+
+:where(input, textarea, option, optgroup) {
+  font-family: inherit;
+}
+
+/* Themes Phase 7 — Excalifont (OFL 1.1) isn't on Google Fonts, so it's
+   self-hosted from client/public/themes/excalifont/. Declared here rather
+   than in the theme's manifest so the @font-face survives SSR / font-loader
+   code paths that wouldn't pick up a dynamically-injected <link>. Only fetched
+   when a rule references the family — `font-display: swap` keeps the paint
+   non-blocking while the file arrives. */
+@font-face {
+  font-family: 'Excalifont';
+  src: url('/themes/excalifont/Excalifont-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Victor Mono — self-hosted (OdyTTY's font, for the arco-jungle theme).
+   The point of self-hosting is the ITALIC mapping: Google Fonts only serves
+   Victor Mono's signature *cursive* Italic (heavily calligraphic). OdyTTY
+   instead bundles the OBLIQUE faces — a plain mechanical slant of the roman —
+   which read as a normal, less-stylized italic. We map font-style:italic to
+   the Oblique OTFs (the exact files OdyTTY ships) so emphasised text matches
+   the terminal. No Google `Victor Mono` <link> is loaded for this theme/pack,
+   so the cursive face never registers and can't win the style match. */
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-Regular.otf') format('opentype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-Oblique.otf') format('opentype'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-Medium.otf') format('opentype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-MediumOblique.otf') format('opentype'); font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-SemiBold.otf') format('opentype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-SemiBoldOblique.otf') format('opentype'); font-weight: 600; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-Bold.otf') format('opentype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Victor Mono'; src: url('/themes/victor-mono/VictorMono-BoldOblique.otf') format('opentype'); font-weight: 700; font-style: italic; font-display: swap; }
+
+:root {
+  /* Role-based color tokens (matrix values as defaults) */
+  --color-bg: #0c0e10;
+  --color-bg-panel: rgba(8, 14, 10, 0.92);
+  --color-bg-input: rgba(10, 16, 12, 0.95);
+  --color-bg-elevated: rgba(14, 20, 16, 0.97);
+
+  --color-fg: #4af066;
+  --color-fg-muted: rgba(74, 240, 102, 0.4);
+
+  --color-accent-primary: #4af066;
+  --color-accent-primary-dim: #2ecc52;
+  --color-accent-primary-tint: #1a3a22;
+  --color-accent-primary-glow: rgba(74, 240, 102, 0.2);
+
+  --color-accent-secondary: #5ce0d6;
+  --color-accent-secondary-dim: #3dbdb4;
+  --color-accent-secondary-bright: #8ef0e8;
+  --color-accent-secondary-glow: rgba(92, 224, 214, 0.15);
+
+  --color-border-hairline: rgba(74, 240, 102, 0.12);
+  --color-border-bright: rgba(74, 240, 102, 0.3);
+
+  --color-danger: #ff0040;
+  --color-warning: #ffbf00;
+  --color-warning-dim: #c89900;
+  --color-success: #4af066;
+  --color-shadow: rgba(0, 0, 0, 0.8);
+
+  /* Well / sunken background for inputs, disabled rows, inner scroll panes.
+     Collapses the Phase 1 rgba(0, 10, 5, 0.35–0.6) range to one theme-aware
+     token so light themes don't render dark-green patches. */
+  --color-bg-sunken: rgba(0, 10, 5, 0.5);
+
+  /* Accent-primary alpha ramp (one-off tints — replaced wholesale per theme) */
+  --color-accent-primary-a03: rgba(74, 240, 102, 0.03);
+  --color-accent-primary-a04: rgba(74, 240, 102, 0.04);
+  --color-accent-primary-a05: rgba(74, 240, 102, 0.05);
+  --color-accent-primary-a06: rgba(74, 240, 102, 0.06);
+  --color-accent-primary-a08: rgba(74, 240, 102, 0.08);
+  --color-accent-primary-a10: rgba(74, 240, 102, 0.1);
+  --color-accent-primary-a15: rgba(74, 240, 102, 0.15);
+
+  /* Accent-secondary alpha ramp */
+  --color-accent-secondary-a00: rgba(92, 224, 214, 0);
+  --color-accent-secondary-a04: rgba(92, 224, 214, 0.04);
+  --color-accent-secondary-a06: rgba(92, 224, 214, 0.06);
+  --color-accent-secondary-a08: rgba(92, 224, 214, 0.08);
+  --color-accent-secondary-a10: rgba(92, 224, 214, 0.1);
+  --color-accent-secondary-a12: rgba(92, 224, 214, 0.12);
+  --color-accent-secondary-a20: rgba(92, 224, 214, 0.2);
+  --color-accent-secondary-a25: rgba(92, 224, 214, 0.25);
+  --color-accent-secondary-a30: rgba(92, 224, 214, 0.3);
+  --color-accent-secondary-a55: rgba(92, 224, 214, 0.55);
+  --color-accent-secondary-a90: rgba(92, 224, 214, 0.9);
+
+  /* Fonts */
+  --font-display: 'Share Tech Mono', monospace;
+  --font-body: 'JetBrains Mono', monospace;
+  /* Nerd Font first: the terminal renders fastfetch/starship glyphs from the
+     Nerd Font private-use range, which plain JetBrains Mono does not carry.
+     xterm.js renders a single font with no per-glyph fallback, so a missing
+     glyph becomes tofu. 'JetBrainsMono Nerd Font' is metric-compatible with
+     'JetBrains Mono', so cell widths are unchanged. */
+  --font-code: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
+
+  /* Density */
+  --spacing-unit: 4px;
+  --border-width: 1px;
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --panel-padding: 12px;
+
+  /* Sizing */
+  --header-height: 60px;
+  --input-height: 80px;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-accent-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  font-feature-settings: "calt", "liga", "tnum";
+  font-variant-ligatures: contextual;
+  font-optical-sizing: auto;
+}
+
+/* CRISP TEXT — operator toggle (Settings → THEME). Several themes (Matrix,
+   Cicada, Oscilloscope…) lean on text-shadow glow, inherited via body, which
+   softens small text — worse on monitors that already smear it. When enabled,
+   themes/apply.ts sets data-crisp="1" and this neutralizes every text-shadow so
+   glyph edges stay hard. Structural box-shadow glow on borders/LEDs is left
+   alone. Reversible; per-operator.
+
+   Exception: the ARCHON header wordmark (.archon-wordmark) keeps its phosphor
+   glow always — it's the one branded element the operator wants lit regardless.
+   Its glow rides text-shadow (+ a filter drop-shadow on some themes, which this
+   never touches), so exempting it from the kill-switch is enough. */
+:root[data-crisp="1"] body,
+:root[data-crisp="1"] body *:not(.archon-wordmark) {
+  text-shadow: none !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent-primary-tint);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-primary-dim);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent-primary);
+  color: var(--color-bg);
+}

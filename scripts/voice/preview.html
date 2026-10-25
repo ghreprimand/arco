@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arco · microphone test</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui,sans-serif; background:#141722; color:#e4eaf4; }
+  body { max-width:850px; padding:28px 22px; margin:auto; line-height:1.6; }
+  h1 { font-size:26px; margin-bottom:8px; } h2 { font-size:17px; }
+  button,select { font:inherit; padding:9px 14px; background:#252d42; color:inherit; border:1px solid #6279a5; border-radius:5px; }
+  button { cursor:pointer; } button:disabled { opacity:.5; cursor:default; }
+  section { padding:18px; background:#1c2130; border:1px solid #38435c; border-radius:8px; margin:18px 0; }
+  #heard { font-size:24px; min-height:80px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  #status { color:#9de0bc; } #error { color:#ffb2a5; } .muted { color:#a9b6cf; }
+  meter { width:100%; height:25px; } code { color:#b5cfff; }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+</style>
+<h1>Arco microphone test</h1>
+<p>This uses Arco’s local English recognizer and speech detection. It displays what it hears and the command it recognizes. Commands here have no effect on workers. Luna is not used.</p>
+<p>Say <strong>“Computer”</strong> and wait for the computer acknowledgement and green capture indicator. Take your time before speaking or between thoughts: capture stays armed for <strong>two minutes of silence</strong>. To submit, pause and say <strong>“over”</strong> on its own (“execute”, “engage”, “make it so” also work); to discard, say <strong>“cancel”</strong> on its own. Inside a sentence those words are ordinary text. “End capture” / “Cancel capture” still work.</p>
+<p>After capture starts, “computer” is ordinary text. Saying it again keeps the existing capture; it does not restart or erase your words.</p>
+<section>
+  <h2>Voice audition</h2>
+  <label for="voice">Voice</label> <select id="voice">
+    <option value="emma">Kokoro · Emma (British, CPU)</option><option value="isabella">Kokoro · Isabella (British, CPU)</option>
+    <option value="chatterbox">Chatterbox · built-in voice (GPU)</option><option value="chatterbox-tng">Chatterbox · TNG computer clone (GPU)</option><option value="chatterbox-tng-via-qwen">Chatterbox · TNG clone from the Qwen sample (GPU)</option><option value="chatterbox-tng-flat">Chatterbox · TNG clone, flatter delivery (GPU)</option><option value="chatterbox-tng-via-qwen-long">Chatterbox · TNG clone from a long Qwen reference (GPU)</option><option value="chatterbox-turbo-tng">Chatterbox Turbo · TNG clone (GPU)</option><option value="chatterbox-turbo-via-qwen-long">Chatterbox Turbo · TNG clone from a long Qwen reference (GPU)</option>
+    <option value="qwen-british">Qwen3-TTS · designed British female (GPU)</option><option value="qwen-tng">Qwen3-TTS · TNG computer clone (GPU)</option><option value="qwen-tng-long">Qwen3-TTS · TNG clone, long Qwen reference, fast mode (GPU)</option><option value="qwen-tng-xvec">Qwen3-TTS · TNG clone, speaker embedding only, fast mode (GPU)</option>
+  </select>
+  <button id="sample">Listen to sample</button> <button id="sample-fresh">Regenerate</button>
+  <p id="sample-status" class="muted">All voices run locally. GPU engines load their model per sample (first run downloads it), so expect a wait; the timing line shows load vs. generate. The TNG clone needs your own clip at ~/.archon/voice/reference/tng-computer.wav (10–20 s, clean, plus tng-computer.txt with its transcript). Stop the microphone before auditioning.</p>
+  <audio id="sample-player" controls hidden></audio>
+</section>
+<section>
+  <div class="controls"><button id="enable">Enable microphone</button><button id="stop" disabled>Stop · microphone off</button></div>
+  <p><label for="device">Microphone</label> <select id="device"><option value="">System default</option></select></p>
+  <p><label for="sensitivity">Speech sensitivity</label> <select id="sensitivity"><option value="0.006">Normal</option><option value="0.0035" selected>Quiet voice</option><option value="0.0025">Very quiet voice</option></select></p>
+  <p class="muted">Higher sensitivity can pick up softer speech and more room noise. Change this while listening.</p>
+  <meter id="level" min="0" max="0.15" value="0" aria-label="Microphone input level"></meter>
+  <p id="levels" class="muted">Input peak — · room floor — · speech onset — (‰ of full scale). A word whose peak stays under the onset is not heard; lower the sensitivity setting if quiet words never appear.</p>
+  <p id="status" role="status">Microphone off. Click Enable microphone and allow access.</p>
+  <p id="error" role="alert"></p>
+</section>
+<section>
+  <h2>What Arco heard</h2>
+  <div id="heard" aria-live="polite">Your latest phrase will appear here.</div>
+  <p id="result" class="muted">A short pause displays each phrase; only End capture submits the command.</p>
+  <button id="clear">Clear displayed text</button>
+</section>
+<section>
+  <h2 id="capture-state">WAITING FOR “COMPUTER”</h2>
+  <div id="pending" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere">No capture armed.</div>
+  <p class="controls"><button id="end" disabled>End capture</button><button id="cancel" disabled>Cancel capture</button> <span class="muted">Buttons wait for the phrase still being recognized, like the app.</span></p>
+</section>
+<h2>Try these phrases</h2>
+<ol>
+  <li>Say just “Computer”. Wait for the acknowledgement and “CAPTURE ARMED”.</li>
+  <li>Wait 10 seconds. The capture indicator should stay green.</li>
+  <li>“Open the plan.” Pause again as needed.</li>
+  <li>Pause, then “Over.” — capture closes and the test shows which action would run. Try “move it over” first: it must stay literal.</li>
+  <li>“Computer, show member two, end capture” also works in one breath. “Cancel capture” discards an armed capture.</li>
+  <li>“Computer, stop listening.” — this also switches this test’s microphone off.</li>
+</ol>
+<p class="muted">Only the latest recognition is displayed. No audio or transcript is saved. Closing or reloading this page turns the microphone off. Recognition prepares before listening begins.</p>
+<script type="module">
+  const $ = id => document.getElementById(id);
+  const token = '__VOICE_TOKEN__';
+  let sampleUrl=null, sampleBusy=false;
+  $('sample-fresh').onclick=()=>$('sample').onclick(true);
+  $('sample').onclick=async(fresh)=>{
+    if(enabled || sampleBusy)return;
+    sampleBusy=true;$('sample').disabled=true;$('enable').disabled=true;$('sample-status').textContent='Generating local voice sample…';
+    try {
+      const response=await fetch('/sample?voice='+$('voice').value+(fresh===true?'&fresh=1':''),{method:'POST',headers:{'x-voice-preview':token}});
+      if(!response.ok)throw new Error((await response.json()).error || 'Could not generate sample.');
+      if(sampleUrl)URL.revokeObjectURL(sampleUrl);
+      sampleUrl=URL.createObjectURL(await response.blob());
+      $('sample-player').src=sampleUrl;$('sample-player').hidden=false;
+      let timing={};try{timing=JSON.parse(response.headers.get('x-voice-timing')||'{}');}catch{}
+      $('sample-status').textContent=(timing.cached?'Replaying the last generated sample (':'Local sample ready (')+(timing.engine||$('voice').value)+(timing.device?' on '+timing.device:'')+(timing.loadMs?' · load '+timing.loadMs+' ms':'')+(timing.generateMs?' · generate '+timing.generateMs+' ms':'')+(timing.audioSec?' for '+timing.audioSec+' s of audio':'')+'). Compare voices to choose your preference.';
+
+      await $('sample-player').play().catch(()=>{$('sample-status').textContent='Sample ready. Press Play to listen.';});
+    } catch(e){$('sample-status').textContent=e.message;}
+    finally{sampleBusy=false;$('sample').disabled=enabled;$('enable').disabled=enabled;}
+  };
+  fetch('/auditions',{headers:{'x-voice-preview':token}}).then(r=>r.json()).then(status=>{
+    for(const option of $('voice').options){const s=status[option.value];if(s && !s.available){option.textContent+=' — '+s.reason;}}
+  }).catch(()=>{});
+
+  let epoch=0, enabled=false, stream=null, audio=null, capture=null, session=null, abort=null, heartbeat=null, captureTimer=null, frame=null, processing=false, queue=[], readySound=null, flushWaiters=[];
+  let fastWake=false,wakeProcessing=false,wakeQueue=[],earlyWakeId=null,handledUtterance=0,pendingText=null;
+  function showCapture(text, deadline=null) {
+    pendingText=text;
+    capture?.port.postMessage({wakeEnabled:fastWake && text===null});
+    clearTimeout(captureTimer);captureTimer=null;
+    $('pending').textContent=text===null?'No capture armed.':text || 'Waiting for your directive. You can pause for up to two minutes.';
+    $('capture-state').textContent=text===null?'WAITING FOR “COMPUTER”':text?'CAPTURING DIRECTIVE · NOTHING EXECUTED':'CAPTURE ARMED · WAITING FOR DIRECTIVE';
+    $('capture-state').style.color=text===null?'':'#9de0bc';
+    $('end').disabled=$('cancel').disabled=text===null || !enabled;
+    if(text!==null && deadline){
+      const run=epoch;
+      captureTimer=setTimeout(()=>{if(enabled && run===epoch){showCapture(null);$('status').textContent='Capture expired after two minutes of silence. Nothing executed. Say Computer to start again.';}},Math.max(0,deadline-Date.now()));
+    }
+  }
+  function chime() {
+    if(!audio || !readySound)return;
+    const source=audio.createBufferSource(), gain=audio.createGain();source.buffer=readySound;gain.gain.value=.8;
+    source.connect(gain);gain.connect(audio.destination);source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
+  }
+  async function request(path, body, method='POST', signal=abort?.signal) {
+    const response=await fetch(path,{method,headers:{'x-voice-preview':token},body,signal});
+    const value=await response.json();
+    if(!response.ok)throw new Error(value.error || 'Test request failed.');
+    return value;
+  }
+  function stop() {
+    epoch++; enabled=false; abort?.abort(); queue=[]; processing=false; flushWaiters=[];
+    fastWake=false;wakeProcessing=false;wakeQueue=[];earlyWakeId=null;handledUtterance=0;
+    clearInterval(heartbeat); cancelAnimationFrame(frame);
+    capture?.port.close(); capture?.disconnect(); capture=null;
+    stream?.getTracks().forEach(t=>t.stop()); stream=null;
+    void audio?.close(); audio=null;readySound=null;
+    if(session)void fetch('/stop?session='+encodeURIComponent(session),{method:'DELETE',headers:{'x-voice-preview':token},keepalive:true}).catch(()=>{});
+    session=null; $('enable').disabled=false; $('stop').disabled=true; $('device').disabled=false;
+    $('sample').disabled=sampleBusy;
+    $('level').value=0; $('status').textContent='Microphone off.'; showCapture(null);
+    $('levels').textContent='Input peak — · room floor — · speech onset — (‰ of full scale).';
+  }
+  function fail(error) { stop(); $('error').textContent=error.message || 'Microphone test failed.'; }
+  async function drainWake(run) {
+    if(wakeProcessing)return;wakeProcessing=true;
+    try {
+      while(wakeQueue.length && enabled && run===epoch && fastWake){
+        const item=wakeQueue.shift();
+        if(item.utterance<=handledUtterance || pendingText!==null)continue;
+        const result=await request('/wake?session='+session+'&utterance='+item.utterance+'&firstSpeechAt='+(item.firstSpeechAt??.25),item.pcm);
+        if(!enabled || run!==epoch)return;
+        if(result.detected && item.utterance>handledUtterance && pendingText===null){
+          earlyWakeId=item.utterance;chime();showCapture('',Date.now()+120000);
+          $('status').textContent='Capturing now. Speak when ready; finish with End capture.';
+        }
+      }
+    } catch(e){if(enabled && run===epoch){fastWake=false;capture?.port.postMessage({wakeEnabled:false});$('error').textContent='Fast wake unavailable; full recognition is still active.';}}
+    finally{if(run===epoch)wakeProcessing=false;}
+  }
+  async function drain(run) {
+    if(processing)return; processing=true;
+    try {
+      while(queue.length && enabled && run===epoch) {
+        const item=queue.shift();
+        if(item.control){
+          if(pendingText===null){$('status').textContent='No capture to end.';continue;}
+          const result=await request('/control?session='+session+'&text='+encodeURIComponent(item.control));
+          if(!enabled || run!==epoch)return;
+          showCapture(result.pendingText,result.captureExpiresAt);
+          const command=result.command;
+          $('result').textContent=(command ? 'Would execute: '+command.action+(command.target ? ' → '+command.target : '')+(command.value ? ' · '+command.value : '')
+            : result.mode==='execute' ? 'Explicitly submitted. This wording would need Luna interpretation in the full app.'
+            : result.mode==='cancel' ? 'Pending command cancelled.' : result.mode==='empty' ? 'No pending command to execute.' : 'Nothing executed.')+' · button';
+          $('status').textContent='Ready. Say Computer to arm a new capture.';
+          continue;
+        }
+        $('status').textContent='Recognizing locally…';
+        const result=await request('/audio?session='+session,item.pcm);
+        if(!enabled || run!==epoch)return;
+        const early=item.utterance===earlyWakeId;
+        handledUtterance=Math.max(handledUtterance,item.utterance??0);
+        if(early)earlyWakeId=null;
+        if(!result.text && pendingText!==null){$('heard').textContent='(Nothing recognized — capture kept; say it again)';}
+        else $('heard').textContent=result.text || '(No words recognized)';
+        showCapture(result.pendingText,result.captureExpiresAt);
+        if(result.started && !early)chime();
+        const command=result.command;
+        const detail=command ? 'Would execute: '+command.action+(command.target ? ' → '+command.target : '')+(command.value ? ' · '+command.value : '')
+          : result.mode==='pending' ? 'Capture armed. Take your time, then say End capture or Cancel capture.'
+          : result.mode==='execute' ? 'Explicitly submitted. This wording would need Luna interpretation in the full app.'
+          : result.mode==='cancel' ? 'Pending command cancelled.'
+          : result.mode==='empty' ? 'No pending command to execute.'
+          : result.mode==='expired' ? 'Capture expired. Nothing executed. Say Computer to start again.'
+          : result.mode==='overflow' ? 'Command limit reached. Nothing executed; start again with Computer.'
+          : 'No Computer prefix or pending command. This speech cannot execute an action; it would be draft text only during explicit dictation.';
+        $('result').textContent=detail+' · '+result.elapsedMs+' ms recognition';
+        if(command?.action==='disable'){stop();return;}
+        $('status').textContent=result.pendingText!==null?'Capture armed. Up to two minutes between phrases; finish with End capture.':'Ready. Say Computer to arm a new capture.';
+      }
+    } catch(e){if(enabled && run===epoch)fail(e);}
+    finally {if(run===epoch)processing=false;}
+  }
+  $('enable').onclick=async()=>{
+    if(enabled)return;
+    enabled=true; const run=++epoch; abort=new AbortController(); $('error').textContent='';
+    $('sample-player').pause();$('sample').disabled=true;
+    $('enable').disabled=true; $('stop').disabled=false; $('device').disabled=true;
+    $('status').textContent='Requesting microphone…';
+    try {
+      if(!navigator.mediaDevices?.getUserMedia)throw new Error('Open this page through localhost or HTTPS to allow microphone access.');
+      audio=new AudioContext({latencyHint:'interactive'}); const resumed=audio.resume();
+      const deviceId=$('device').value;
+      const granted=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:false,...(deviceId?{deviceId:{exact:deviceId}}:{})},video:false});
+      if(!enabled || run!==epoch){granted.getTracks().forEach(t=>t.stop());return;}
+      stream=granted;
+      stream.getAudioTracks().forEach(t=>t.addEventListener('ended',()=>{if(enabled && run===epoch)fail(new Error('Microphone disconnected.'));}));
+      const devices=await navigator.mediaDevices.enumerateDevices();
+      if(!enabled || run!==epoch)return;
+      $('device').replaceChildren(new Option('System default',''),...devices.filter(d=>d.kind==='audioinput').map(d=>new Option(d.label || 'Microphone',d.deviceId)));
+      $('device').value=deviceId;
+      const lease=await request('/enable');
+      if(!enabled || run!==epoch){void fetch('/stop?session='+lease.id,{method:'DELETE',headers:{'x-voice-preview':token},keepalive:true});return;}
+      session=lease.id;fastWake=lease.fastWake===true; await resumed;
+      const sound=await fetch('/ready-sound',{headers:{'x-voice-preview':token},signal:abort.signal});
+      if(sound.ok){const buffer=await sound.arrayBuffer();if(!enabled || run!==epoch)return;readySound=await audio.decodeAudioData(buffer);}
+      if(readySound){
+        let peak=0;for(let c=0;c<readySound.numberOfChannels;c++)for(const value of readySound.getChannelData(c))peak=Math.max(peak,Math.abs(value));
+        const gain=peak>0?Math.min(4,.65/peak):1;
+        for(let c=0;c<readySound.numberOfChannels;c++){const values=readySound.getChannelData(c);for(let i=0;i<values.length;i++)values[i]*=gain;}
+      }
+      if(!enabled || run!==epoch)return;
+      await audio.audioWorklet.addModule('/voice-capture.js');
+      if(!enabled || run!==epoch)return;
+      capture=new AudioWorkletNode(audio,'archon-voice-capture');
+      capture.port.postMessage({threshold:Number($('sensitivity').value)});
+      capture.port.postMessage({wakeEnabled:fastWake});
+      capture.port.onmessage=({data})=>{
+        if(!enabled || run!==epoch)return;
+        if(!(data instanceof ArrayBuffer)){
+          if(data.type==='level'){
+            const pm=v=>typeof v==='number'?(v*1000).toFixed(1):'—';
+            $('levels').textContent='Input peak '+pm(data.peak)+' · room floor '+pm(data.noise)+' · speech onset '+pm(data.onset)+' (‰ of full scale)'+(data.active?' · speech':'');
+            return;
+          }
+          if(data.type==='flushed'){const control=flushWaiters.shift();if(control){queue.push({control});void drain(run);}return;}
+          if(data.type==='discard'){
+            handledUtterance=Math.max(handledUtterance,data.utterance);
+            if(earlyWakeId===data.utterance){earlyWakeId=null;showCapture(null);}
+            return;
+          }
+          if(data.type==='wake'){
+            if(fastWake && pendingText===null){
+              if(wakeQueue.length>=80){fastWake=false;wakeQueue=[];capture.port.postMessage({wakeEnabled:false});return;}
+              wakeQueue.push(data);void drainWake(run);
+            }
+            return;
+          }
+          if(data.type!=='segment')return;
+        }
+        if(queue.length>=4){fail(new Error('Speech buffer full. Try one phrase at a time.'));return;}
+        queue.push(data instanceof ArrayBuffer?{pcm:data}:data); void drain(run);
+      };
+      const source=audio.createMediaStreamSource(stream), analyser=audio.createAnalyser(); analyser.fftSize=512;
+      source.connect(analyser); source.connect(capture);
+      const mute=audio.createGain(); mute.gain.value=0; capture.connect(mute); mute.connect(audio.destination);
+      const samples=new Float32Array(analyser.fftSize);
+      function meter(){if(!enabled || run!==epoch)return;analyser.getFloatTimeDomainData(samples);$('level').value=Math.sqrt(samples.reduce((sum,v)=>sum+v*v,0)/samples.length);frame=requestAnimationFrame(meter);} meter();
+      heartbeat=setInterval(()=>{void request('/heartbeat?session='+session).then(result=>{if(enabled && run===epoch && result.expired){showCapture(null);$('status').textContent='Capture expired after two minutes of silence. Nothing executed.';}}).catch(e=>{if(enabled && run===epoch)fail(e);});},10000);
+      $('status').textContent='Listening on '+(stream.getAudioTracks()[0]?.label || 'selected microphone')+'. Speak, then pause.';
+    } catch(e){if(enabled && run===epoch)fail(e);}
+  };
+  $('stop').onclick=stop;
+  // Flush the worklet first so a click never submits a directive missing its final phrase.
+  const control=text=>()=>{if(!enabled || !capture || pendingText===null)return;flushWaiters.push(text);$('status').textContent=text==='End capture'?'Finishing the last phrase, then ending capture…':'Cancelling capture…';capture.port.postMessage('flush');};
+  $('end').onclick=control('End capture');$('cancel').onclick=control('Cancel capture');
+
+  $('sensitivity').onchange=()=>capture?.port.postMessage({threshold:Number($('sensitivity').value)});
+  $('clear').onclick=()=>{$('heard').textContent='Your latest phrase will appear here.';$('result').textContent='Pause for about a second after each phrase.';};
+  window.addEventListener('pagehide',stop);
+</script>
+</html>

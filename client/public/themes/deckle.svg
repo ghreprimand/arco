@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 28" preserveAspectRatio="none" width="400" height="28">
+  <!--
+    Solar Paper "deckle" — a torn paper edge tileable along x. The path draws
+    a jagged shoulder across the top with random-ish notches; the rectangle
+    below it fills to the bottom so the SVG can be applied as a bottom-aligned
+    background-image or mask-image strip (the jagged edge faces the viewport
+    edge, the solid bottom meets the panel / body content).
+  -->
+  <path fill="#3d3520" d="
+    M0,28 L0,9
+    L6,7 L12,11 L18,5 L26,10 L32,6 L40,9 L46,4 L54,8
+    L62,6 L70,11 L78,5 L86,9 L94,7 L102,12 L110,4 L118,9
+    L126,5 L134,11 L142,7 L150,4 L158,10 L166,6 L174,9
+    L182,5 L190,11 L198,7 L206,10 L214,4 L222,9 L230,6 L238,11
+    L246,5 L254,10 L262,7 L270,4 L278,11 L286,6 L294,9
+    L302,5 L310,10 L318,7 L326,3 L334,9 L342,5 L350,11
+    L358,6 L366,9 L374,4 L382,10 L390,7 L400,9
+    L400,28 Z
+  "/>
+</svg>

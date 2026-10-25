@@ -1,0 +1,81 @@
+import type { Theme } from '../types';
+
+// Cute — the deliberately playful one. Soft blush bg, strawberry-pink
+// primary, lilac secondary. Archon's set is otherwise uniformly grave; this is
+// the cozy/sweet register it lacked. Light mood: primary must stay legible on
+// the pale bg because ChatMessage paints body text in accent-primary.
+export const cute: Theme = {
+  id: 'cute',
+  name: 'Cute',
+  description: 'Kawaii pastel — strawberry pink and lilac on soft blush',
+  mood: 'light',
+  tokens: {
+    // Glare pass (2026-06-05): deepened the blush bg + toned panels off near-
+    // white. Text #6e2f4d unchanged → contrast improves as the surface dims.
+    'color-bg': '#f4d8e4',
+    'color-bg-panel': '#fbe7ef',
+    'color-bg-input': '#f5dbe7',
+    'color-bg-elevated': '#fdecf3',
+    'color-fg': '#6e2f4d',
+    'color-fg-muted': 'rgba(110, 47, 77, 0.62)',
+    'color-accent-primary': '#c43d72',
+    'color-accent-primary-dim': '#9c2f5b',
+    'color-accent-primary-tint': '#ffe0ec',
+    'color-accent-primary-glow': 'rgba(196, 61, 114, 0.25)',
+    'color-accent-secondary': '#9d6fd0',
+    'color-accent-secondary-dim': '#7a52a8',
+    'color-accent-secondary-bright': '#bd97e8',
+    'color-accent-secondary-glow': 'rgba(157, 111, 208, 0.22)',
+    'color-border-hairline': 'rgba(110, 47, 77, 0.12)',
+    'color-border-bright': 'rgba(196, 61, 114, 0.38)',
+    'color-danger': '#e23a6e',
+    'color-warning': '#e8995a',
+    'color-warning-dim': '#b5723a',
+    'color-success': '#5cba8a',
+    'color-shadow': 'rgba(120, 40, 70, 0.15)',
+    'color-bg-sunken': 'rgba(196, 61, 114, 0.05)',
+    'color-accent-primary-a03': 'rgba(196, 61, 114, 0.03)',
+    'color-accent-primary-a04': 'rgba(196, 61, 114, 0.04)',
+    'color-accent-primary-a05': 'rgba(196, 61, 114, 0.05)',
+    'color-accent-primary-a06': 'rgba(196, 61, 114, 0.06)',
+    'color-accent-primary-a08': 'rgba(196, 61, 114, 0.08)',
+    'color-accent-primary-a10': 'rgba(196, 61, 114, 0.1)',
+    'color-accent-primary-a15': 'rgba(196, 61, 114, 0.15)',
+    'color-accent-secondary-a00': 'rgba(157, 111, 208, 0)',
+    'color-accent-secondary-a04': 'rgba(157, 111, 208, 0.04)',
+    'color-accent-secondary-a06': 'rgba(157, 111, 208, 0.06)',
+    'color-accent-secondary-a08': 'rgba(157, 111, 208, 0.08)',
+    'color-accent-secondary-a10': 'rgba(157, 111, 208, 0.1)',
+    'color-accent-secondary-a12': 'rgba(157, 111, 208, 0.12)',
+    'color-accent-secondary-a20': 'rgba(157, 111, 208, 0.2)',
+    'color-accent-secondary-a25': 'rgba(157, 111, 208, 0.25)',
+    'color-accent-secondary-a30': 'rgba(157, 111, 208, 0.3)',
+    'color-accent-secondary-a55': 'rgba(157, 111, 208, 0.55)',
+    'color-accent-secondary-a90': 'rgba(157, 111, 208, 0.9)',
+  },
+  fonts: {
+    display: "'Quicksand', sans-serif",
+    body: "'Nunito', sans-serif",
+    code: "'JetBrains Mono', monospace",
+    googleFontsUrl:
+      'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
+  },
+  glyphs: {
+    divider: '♡',
+    cursor: '|',
+    disclosureOpen: '▾',
+    disclosureClosed: '▸',
+    diamond: '✿',
+    bullet: '•',
+  },
+  density: {
+    spacingUnit: '4px',
+    borderWidth: '1px',
+    radiusSm: '8px',
+    radiusMd: '14px',
+    panelPadding: '14px',
+  },
+  shaderPreset: 'none',
+  borderRenderer: 'css',
+  animations: { scan: false, pulseHalo: true, flicker: false, cursorBlink: true },
+};

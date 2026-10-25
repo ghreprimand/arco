@@ -1,0 +1,142 @@
+/* Workbench Expansion A3 — theme react-diff-view onto Archon's CSS vars.
+ * react-diff-view ships its own palette via CSS custom properties on
+ * `.diff` (the table); we remap those to the Archon theme tokens so the diff
+ * follows whatever theme the operator has active. Nothing here is
+ * source-specific — same styles apply to checkpoint, working-tree, and PR
+ * diffs. */
+
+.archon-diff-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-family: var(--font-code, monospace);
+  font-size: 11px;
+}
+
+.archon-diff-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border-hairline);
+  flex-shrink: 0;
+}
+
+.archon-diff-filecount {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--color-fg-muted);
+}
+
+.archon-diff-viewtoggle {
+  display: flex;
+  gap: 2px;
+}
+
+.archon-diff-viewtoggle button {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--color-border-hairline);
+  border-radius: 3px;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-family: var(--font-display);
+}
+
+.archon-diff-viewtoggle button.active {
+  background: var(--color-accent-primary-a10);
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+}
+
+.archon-diff-files {
+  overflow: auto;
+  min-height: 0;
+}
+
+.archon-diff-empty {
+  padding: 18px 14px;
+  color: var(--color-fg-muted);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.archon-diff-file {
+  border-bottom: 1px solid var(--color-border-hairline);
+}
+
+.archon-diff-file-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  background: var(--color-bg-secondary);
+  border: none;
+  border-bottom: 1px solid var(--color-border-hairline);
+  color: var(--color-fg-secondary);
+  cursor: pointer;
+  text-align: left;
+  font-size: 10px;
+}
+
+.archon-diff-file-caret {
+  color: var(--color-fg-muted);
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.archon-diff-file-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code, monospace);
+  color: var(--color-accent-primary);
+}
+
+.archon-diff-file-stat {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  font-family: var(--font-code, monospace);
+}
+
+.archon-diff-stat-add { color: var(--color-success, #3fb950); }
+.archon-diff-stat-del { color: var(--color-danger, #f85149); }
+
+/* react-diff-view palette remap. The library reads these custom properties
+ * off the `.diff` element. */
+.archon-diff-table {
+  --diff-background-color: transparent;
+  --diff-text-color: var(--color-fg-secondary);
+  --diff-font-family: var(--font-code, monospace);
+  --diff-selection-background-color: var(--color-accent-primary-a10);
+  --diff-gutter-insert-background-color: color-mix(in srgb, var(--color-success, #3fb950) 18%, transparent);
+  --diff-gutter-delete-background-color: color-mix(in srgb, var(--color-danger, #f85149) 18%, transparent);
+  --diff-code-insert-background-color: color-mix(in srgb, var(--color-success, #3fb950) 12%, transparent);
+  --diff-code-delete-background-color: color-mix(in srgb, var(--color-danger, #f85149) 12%, transparent);
+  --diff-code-insert-edit-background-color: color-mix(in srgb, var(--color-success, #3fb950) 32%, transparent);
+  --diff-code-delete-edit-background-color: color-mix(in srgb, var(--color-danger, #f85149) 32%, transparent);
+  --diff-code-selected-background-color: var(--color-accent-primary-a10);
+  font-size: 11px;
+  line-height: 1.5;
+  width: 100%;
+}
+
+.archon-diff-table .diff-gutter {
+  color: var(--color-fg-muted);
+  opacity: 0.7;
+}
+
+.archon-diff-table .diff-code {
+  color: var(--color-fg-secondary);
+}
+
+.archon-diff-table .diff-hunk-header {
+  background: var(--color-bg-sunken);
+  color: var(--color-fg-muted);
+}

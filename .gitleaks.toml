@@ -1,0 +1,13 @@
+title = "Arco public source and history scan"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Public installed-app registration shipped by Google Gemini CLI; not a user credential. See docs/THIRD_PARTY.md."
+condition = "AND"
+paths = ['''(?:^|/)server/src/providers/gemini-native/auth\.ts$''']
+regexTarget = "secret"
+regexes = ["^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$"]

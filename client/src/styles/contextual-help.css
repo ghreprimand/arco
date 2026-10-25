@@ -1,0 +1,85 @@
+/* Contextual help mode overlay.
+ *
+ * When body.help-mode is set, the entire app's pointer-events are suppressed
+ * and only [data-help] elements are clickable — clicks land on them via the
+ * capture-phase handler in App.tsx, surfacing a popover. Inspired by the
+ * GroundTruth frontend's HelpContext.
+ *
+ * The escape hatch (`.help-system-ui`) re-enables interactivity on the help
+ * system's own widgets so the operator can dismiss the popover, click the
+ * close X, etc., without leaving help mode. */
+
+body.help-mode {
+  /* Top inset for the help banner — banner is fixed, content flows beneath. */
+  padding-top: 30px;
+}
+
+/* Disable pointer events globally; [data-help] re-enables itself below. */
+body.help-mode #root {
+  pointer-events: none;
+}
+
+/* Re-enable on helpable elements + signal the affordance. */
+body.help-mode [data-help] {
+  pointer-events: auto;
+  cursor: help;
+  position: relative;
+  transition: outline 0.12s ease, background-color 0.12s ease;
+}
+
+/* Block native interactivity inside helpable elements. The capture-phase
+ * click handler intercepts the event before the underlying button/input
+ * can react, but explicit pointer-events:none ensures things like select
+ * dropdowns and contenteditable surfaces don't open mid-help-mode. */
+body.help-mode [data-help] select,
+body.help-mode [data-help] input,
+body.help-mode [data-help] textarea,
+body.help-mode [data-help] button,
+body.help-mode [data-help] a {
+  pointer-events: none !important;
+}
+
+/* Hover affordance — uses the active theme's primary accent so it picks up
+ * the operator's chosen look. The dashed pattern + offset distinguishes
+ * help-mode highlight from the normal focus/active states components use. */
+body.help-mode [data-help]:hover {
+  outline: 2px dashed var(--color-accent-primary) !important;
+  outline-offset: 3px;
+  background-color: var(--color-accent-primary-a05) !important;
+  border-radius: 4px;
+}
+
+/* Nested handling — when a child [data-help] is hovered, suppress the
+ * parent's highlight so the most specific target reads cleanly. CSS :has()
+ * is supported everywhere Archon ships (Chromium, Firefox 121+, Safari 15.4+). */
+body.help-mode [data-help]:has([data-help]:hover) {
+  outline: none !important;
+  background-color: transparent !important;
+}
+
+/* The help system's own widgets stay interactive. Marked via class so the
+ * rule is robust against the global pointer-events:none rule above. */
+body.help-mode .help-system-ui,
+body.help-mode .help-system-ui * {
+  pointer-events: auto !important;
+}
+
+@keyframes archon-help-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes archon-help-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--color-accent-primary-a30, rgba(74, 240, 102, 0.3));
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}

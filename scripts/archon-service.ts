@@ -1,0 +1,324 @@
+#!/usr/bin/env -S npx tsx
+// ARCHON_OPS_PLAN.md §B1 — `archon service install|start|stop|status|logs|uninstall`.
+//
+// Production runtime for Archon as a durable, restartable, inspectable service.
+// This is a SEPARATE path from the dev launcher (scripts/archon, which drives
+// `npm run dev` + Vite). Here the COMPILED server (server/dist/index.js) runs
+// under a systemd `--user` unit with ARCHON_SERVE_CLIENT=1 so it serves
+// client/dist itself — no Vite in production.
+//
+// The unit-rendering + arg-parsing logic lives in scripts/service/unit.ts as
+// pure functions (the smoke imports them without a live install). This file is
+// the side-effecting shell: it writes the unit file and shells out to
+// `systemctl --user` / `journalctl --user`.
+//
+// LINUX-FIRST: every `systemctl`/`journalctl` shell-out is Linux-only. On macOS
+// the action subcommands print a manual-run pointer and exit 0 (launchd is a
+// later K-tier add). The pure functions still work everywhere.
+//
+// Subprocess safety: execFile/spawn with argv arrays only — never shell:true,
+// never sudo (a `--user` unit needs neither).
+
+import '../server/src/envAliases.js'; // ARCO_* aliases take precedence over ARCHON_*
+import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import {
+  parseServiceArgs,
+  renderSystemdUnit,
+  SERVICE_COMMANDS,
+  type ServiceArgs,
+} from './service/unit.js';
+
+// Repo root: this file lives at <root>/scripts/archon-service.ts.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// systemd `--user` unit location, respecting XDG_CONFIG_HOME.
+const UNIT_NAME = 'archon.service';
+function unitDir(): string {
+  const xdg = process.env.XDG_CONFIG_HOME && process.env.XDG_CONFIG_HOME.trim()
+    ? process.env.XDG_CONFIG_HOME
+    : join(homedir(), '.config');
+  return join(xdg, 'systemd', 'user');
+}
+function unitPath(): string {
+  return join(unitDir(), UNIT_NAME);
+}
+
+const isMac = process.platform === 'darwin';
+
+// Resolved Archon structured-log file path. Mirrors server/src/server/logger.ts:
+// ARCHON_LOG_DIR override, else ~/.archon/logs/archon.log. The CLI tails this
+// file directly (no server import) so `logs` works without a running server.
+function logFilePath(): string {
+  const dir = process.env.ARCHON_LOG_DIR && process.env.ARCHON_LOG_DIR.trim()
+    ? process.env.ARCHON_LOG_DIR
+    : join(homedir(), '.archon', 'logs');
+  return join(dir, 'archon.log');
+}
+
+function macNotice(): void {
+  const server = join(REPO_ROOT, 'server', 'dist', 'index.js');
+  console.log(
+    [
+      'systemd is not available on macOS — `archon service` actions are Linux-only.',
+      '',
+      'To run production mode manually:',
+      `  cd ${REPO_ROOT}`,
+      '  npm run build',
+      `  ARCHON_SERVE_CLIENT=1 NODE_ENV=production node ${server}`,
+      '',
+      'launchd support is a later K-tier add (see docs/SERVICE_MODE.md).',
+    ].join('\n'),
+  );
+}
+
+// Run `systemctl --user <args>` inheriting stdio so status/logs stream to the
+// terminal. Returns the exit code; never throws on non-zero (callers decide).
+function systemctlInherit(args: string[]): Promise<number> {
+  return new Promise((res) => {
+    const child = spawn('systemctl', ['--user', ...args], { stdio: 'inherit' });
+    child.on('error', (err) => {
+      console.error(`[archon service] failed to spawn systemctl: ${err.message}`);
+      res(127);
+    });
+    child.on('exit', (code) => res(code ?? 1));
+  });
+}
+
+async function daemonReload(): Promise<void> {
+  await systemctlInherit(['daemon-reload']);
+}
+
+async function doInstall(args: ServiceArgs): Promise<number> {
+  if (isMac) {
+    macNotice();
+    return 0;
+  }
+  // Build first so server/dist/index.js + client/dist exist. `npm run build`
+  // does `rm -rf dist && tsc` in server, then bundles the client.
+  console.log('[archon service] building (npm run build)…');
+  const build = await new Promise<number>((res) => {
+    const child = spawn('npm', ['run', 'build'], { cwd: REPO_ROOT, stdio: 'inherit' });
+    child.on('error', (err) => {
+      console.error(`[archon service] build spawn failed: ${err.message}`);
+      res(127);
+    });
+    child.on('exit', (code) => res(code ?? 1));
+  });
+  if (build !== 0) {
+    console.error('[archon service] build failed — not writing unit.');
+    return build;
+  }
+
+  const unit = renderSystemdUnit({
+    repoRoot: REPO_ROOT,
+    ...(process.env.ARCHON_PORT ? { port: process.env.ARCHON_PORT } : {}),
+    ...(process.env.ARCHON_HOST ? { host: process.env.ARCHON_HOST } : {}),
+    // Tier-5 promotion: capture the hub + ntfy env from the install-time shell so
+    // the durable unit links the hub and pushes ntfy without an inline launcher.
+    // (REMOTE_MANAGEMENT.md §9/§J2 — both stay inert when their var is unset.)
+    ...(process.env.ARCHON_HUB_URL ? { hubUrl: process.env.ARCHON_HUB_URL } : {}),
+    ...(process.env.ARCHON_NTFY_URL ? { ntfyUrl: process.env.ARCHON_NTFY_URL } : {}),
+  });
+  await mkdir(unitDir(), { recursive: true });
+  await writeFile(unitPath(), unit, 'utf8');
+  console.log(`[archon service] wrote ${unitPath()}`);
+  if (process.env.ARCHON_HUB_URL) {
+    console.log(`[archon service] hub-linked: ARCHON_HUB_URL=${process.env.ARCHON_HUB_URL}`);
+  }
+  if (process.env.ARCHON_NTFY_URL) {
+    console.log('[archon service] ntfy push enabled (ARCHON_NTFY_URL baked into unit).');
+  }
+
+  await daemonReload();
+  if (args.enable) {
+    await systemctlInherit(['enable', UNIT_NAME]);
+    console.log('[archon service] enabled (will start on next login).');
+  }
+  console.log('[archon service] installed. Start with: archon service start');
+  return 0;
+}
+
+async function doUninstall(): Promise<number> {
+  if (isMac) {
+    macNotice();
+    return 0;
+  }
+  await systemctlInherit(['stop', UNIT_NAME]);
+  await systemctlInherit(['disable', UNIT_NAME]);
+  if (existsSync(unitPath())) {
+    await rm(unitPath(), { force: true });
+    console.log(`[archon service] removed ${unitPath()}`);
+  }
+  await daemonReload();
+  console.log('[archon service] uninstalled.');
+  return 0;
+}
+
+// Best-effort readiness readout for `status`. Probes the live /readyz over
+// loopback and prints one line. Never throws and never affects the caller's
+// exit code: a stopped service → fetch rejects → "unreachable". Port mirrors
+// the server's own default (ARCHON_PORT || 3001).
+async function printReadiness(): Promise<void> {
+  const port = process.env.ARCHON_PORT || '3001';
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/readyz`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    const body = (await r.json()) as {
+      status?: string;
+      components?: Record<string, boolean>;
+      pending?: string[];
+    };
+    if (body.status === 'ready') {
+      const comps = Object.keys(body.components ?? {}).join(', ');
+      console.log(`readiness: ready (${comps})`);
+    } else {
+      const pending = (body.pending ?? []).join(', ') || 'unknown';
+      console.log(`readiness: NOT READY — pending: ${pending}`);
+    }
+  } catch {
+    console.log(`readiness: unreachable (server not responding on :${port})`);
+  }
+}
+
+// `archon service logs` — two sources:
+//   default  → tail the Archon structured log file with `tail -n N -f` (POSIX:
+//              Linux + macOS), so it works regardless of systemd. If the file is
+//              absent, print a clear note and exit 0 (non-fatal — the service may
+//              simply not be running with ARCHON_LOG_FILE=1 yet).
+//   --journal → the systemd journal via `journalctl --user -u archon -f`
+//               (Linux/systemd only; on macOS prints the manual-run notice).
+async function doLogs(args: ServiceArgs): Promise<number> {
+  if (args.journal) {
+    if (isMac) {
+      macNotice();
+      return 0;
+    }
+    const jargs = ['--user', '-u', UNIT_NAME, '-f'];
+    if (args.lines !== undefined) jargs.push('-n', String(args.lines));
+    return new Promise((res) => {
+      const child = spawn('journalctl', jargs, { stdio: 'inherit' });
+      child.on('error', (err) => {
+        console.error(`[archon service] failed to spawn journalctl: ${err.message}`);
+        res(127);
+      });
+      child.on('exit', (code) => res(code ?? 0));
+    });
+  }
+
+  const file = logFilePath();
+  if (!existsSync(file)) {
+    console.log(
+      `[archon service] no log file at ${file} — is the service running with ARCHON_LOG_FILE=1?`,
+    );
+    return 0;
+  }
+  const n = args.lines ?? 200;
+  return new Promise((res) => {
+    const child = spawn('tail', ['-n', String(n), '-f', file], { stdio: 'inherit' });
+    child.on('error', (err) => {
+      console.error(`[archon service] failed to spawn tail: ${err.message}`);
+      res(127);
+    });
+    child.on('exit', (code) => res(code ?? 0));
+  });
+}
+
+async function doSystemctlAction(args: ServiceArgs): Promise<number> {
+  if (isMac) {
+    macNotice();
+    return 0;
+  }
+  if (!existsSync(unitPath())) {
+    console.error(
+      `[archon service] no unit at ${unitPath()} — run \`archon service install\` first.`,
+    );
+    // `status` still probes readiness: the server may be running via `npm run
+    // dev` or a manual `node dist/index.js` even with no unit installed, and the
+    // readiness readout is independent of systemd. Other actions need the unit.
+    if (args.command === 'status') await printReadiness();
+    return 1;
+  }
+  switch (args.command) {
+    case 'start':
+      return systemctlInherit(['start', UNIT_NAME]);
+    case 'stop':
+      return systemctlInherit(['stop', UNIT_NAME]);
+    case 'status': {
+      // status returns non-zero when the unit is stopped — surface that exit
+      // code as-is. The readiness line is ADDITIVE/best-effort: it probes the
+      // live HTTP surface and never alters the systemctl exit code (a stopped
+      // unit → fetch fails → "unreachable", still returns the systemctl code).
+      const code = await systemctlInherit(['status', UNIT_NAME, '--no-pager']);
+      await printReadiness();
+      return code;
+    }
+    default:
+      return 1;
+  }
+}
+
+function usage(): void {
+  console.error(
+    [
+      'Usage: archon service <command> [options]',
+      '',
+      'Commands:',
+      '  install     build + write the systemd --user unit + daemon-reload',
+      '  start       systemctl --user start archon',
+      '  stop        systemctl --user stop archon',
+      '  status      systemctl --user status archon',
+      '  logs        tail ~/.archon/logs/archon.log -f  (--journal → journalctl)',
+      '  uninstall   stop + disable + remove unit + daemon-reload',
+      '',
+      'Options:',
+      '  --enable      (install) also enable the unit so it starts on login',
+      '  --journal     (logs) follow the systemd journal instead of the log file',
+      '  -n, --lines N (logs) tail the last N lines',
+      '',
+      `Recognized commands: ${SERVICE_COMMANDS.join(', ')}`,
+    ].join('\n'),
+  );
+}
+
+async function main(): Promise<void> {
+  const args = parseServiceArgs(process.argv.slice(2));
+  if (args.unknown.length > 0) {
+    console.error(`[archon service] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    usage();
+    process.exit(2);
+  }
+  if (args.command === null) {
+    usage();
+    process.exit(2);
+  }
+
+  let code: number;
+  switch (args.command) {
+    case 'install':
+      code = await doInstall(args);
+      break;
+    case 'uninstall':
+      code = await doUninstall();
+      break;
+    case 'logs':
+      code = await doLogs(args);
+      break;
+    default:
+      code = await doSystemctlAction(args);
+      break;
+  }
+  process.exit(code);
+}
+
+// Only run when invoked as a script (not when something imports a symbol).
+const invokedDirectly = process.argv[1]
+  && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (invokedDirectly) {
+  void main();
+}

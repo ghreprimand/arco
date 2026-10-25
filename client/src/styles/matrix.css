@@ -1,0 +1,1270 @@
+/* ── Scanline overlay (subtle) ── */
+.scanline-overlay {
+  display: none;
+}
+
+/* ── Glow effects ── */
+.glow-text {
+  text-shadow: 0 0 6px var(--color-accent-primary-glow);
+}
+
+.glow-text-bright {
+  text-shadow:
+    0 0 8px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a08);
+}
+
+.glow-text-cyan {
+  color: var(--color-accent-secondary);
+  text-shadow: 0 0 6px var(--color-accent-secondary-glow);
+}
+
+.glow-border {
+  border-color: var(--color-border-bright);
+  box-shadow: 0 0 4px var(--color-accent-primary-glow);
+}
+
+/* ── Animations ── */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  96% { opacity: 0.9; }
+  97% { opacity: 1; }
+}
+
+/* DARKN0DE-inspired breathing LED. Sinusoidal-feeling cycle via 5 stops
+ * (vs. the original 2-stop box-shadow only). Each step modulates both
+ * box-shadow *and* filter: brightness, which compounds to an emissive
+ * peak — dots actually look like they're lit, not just glowing at the
+ * edge. Uses --color-accent-primary-glow / a15 tokens (theme-tracked)
+ * so the halo hue follows the active palette; the hardcoded
+ * rgba(0,255,65,...) fallback that leaked matrix-green into every theme
+ * is gone. Individual dot classes vary only the animation *duration* so
+ * faster pulses read as "more alive / more load" without shipping
+ * multiple near-duplicate keyframes. */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px var(--color-accent-primary-glow);
+    filter: brightness(0.85);
+  }
+  30% {
+    box-shadow:
+      0 0 8px var(--color-accent-primary-glow),
+      0 0 16px var(--color-accent-primary-a15);
+    filter: brightness(1.1);
+  }
+  50% {
+    box-shadow:
+      0 0 12px var(--color-accent-primary-glow),
+      0 0 24px var(--color-accent-primary-a15);
+    filter: brightness(1.35);
+  }
+  70% {
+    box-shadow:
+      0 0 8px var(--color-accent-primary-glow),
+      0 0 16px var(--color-accent-primary-a15);
+    filter: brightness(1.1);
+  }
+}
+
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* NATIVE_COMPACTION_PLAN Phase 3 — compaction-takeover spinner rotation. */
+@keyframes archon-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes typing-dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+/* ── Status indicators ── */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-dot--spawning {
+  background: var(--color-warning);
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+
+.status-dot--running {
+  background: var(--color-accent-primary);
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* Worker actively burning CPU (or with active subprocesses). Faster, brighter
+   pulse so the operator can distinguish "alive and working" from "alive but
+   waiting on an API response" — critical for Gemini, which often goes silent
+   for minutes at a time without surfacing any text events. */
+.status-dot--cpu-active {
+  background: var(--color-accent-secondary);
+  box-shadow: 0 0 6px var(--color-accent-secondary);
+  animation: pulse-glow 0.6s ease-in-out infinite;
+}
+
+.status-dot--completed {
+  background: var(--color-accent-primary);
+}
+
+.status-dot--failed {
+  background: var(--color-danger);
+}
+
+/* ── StatusLight (primitives/StatusLight.tsx) ──────────────────────
+ * Emissive LED, DARKN0DE-style: hard bright core + stacked box-shadow
+ * halos at increasing radii + a filter:drop-shadow pass so the glow
+ * actually bleeds over adjacent pixels (text-shadow alone only smudges
+ * glyph outlines; drop-shadow blurs the rendered raster).
+ *
+ * The dot sets its CSS `color` to the state token, and every halo here
+ * reads currentColor. That keeps the LED one class regardless of state
+ * or theme — no per-theme overrides needed.
+ *
+ * color-mix() is used to derive alpha stops from currentColor because
+ * we can't rgba()-decompose a CSS var at runtime. Chromium, Gecko, and
+ * WebKit have shipped it since mid-2023; the app already requires a
+ * modern baseline (WebGL2, backdrop-filter). */
+.archon-led {
+  box-shadow:
+    0 0 3px currentColor,
+    0 0 8px color-mix(in srgb, currentColor 55%, transparent),
+    0 0 18px color-mix(in srgb, currentColor 28%, transparent);
+  /* No filter: drop-shadow on the base. Filters force every LED into its own
+     GPU compositor layer regardless of state — nominal/idle LEDs were paying
+     for a layer + drop-shadow rasterisation forever. The 3-layer box-shadow
+     already provides a strong halo; the visual diff on a small round LED is
+     subtle. Warning/critical LEDs reapply the filter inside their keyframes
+     for the duration of the animation. */
+}
+
+@keyframes led-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 3px currentColor,
+      0 0 7px color-mix(in srgb, currentColor 42%, transparent),
+      0 0 14px color-mix(in srgb, currentColor 20%, transparent);
+    filter:
+      brightness(0.8)
+      drop-shadow(0 0 3px color-mix(in srgb, currentColor 40%, transparent));
+  }
+  50% {
+    box-shadow:
+      0 0 5px currentColor,
+      0 0 12px color-mix(in srgb, currentColor 70%, transparent),
+      0 0 26px color-mix(in srgb, currentColor 38%, transparent);
+    filter:
+      brightness(1.28)
+      drop-shadow(0 0 8px color-mix(in srgb, currentColor 55%, transparent));
+  }
+}
+
+/* Nominal/idle LEDs are static — a calmly-glowing dot reads as "on" without
+   any animation, and most LEDs in Arco's UI are nominal most of the time.
+   Animating them was forcing constant GPU compositor work (box-shadow +
+   drop-shadow filter interpolation per LED) for no real signal. Warning and
+   critical still breathe — that's the *meaningful* state change. */
+.led-breathe-nominal  { animation: none; }
+.led-breathe-warning  { animation: led-breathe 1.5s ease-in-out infinite; }
+.led-breathe-critical { animation: led-breathe 0.5s ease-in-out infinite; }
+
+/* ── Utility ── */
+.mono {
+  font-family: var(--font-body);
+}
+
+.display-font {
+  font-family: var(--font-display);
+}
+
+/* ── Rendered markdown / code preview ── */
+/* Scoped to .archon-markdown so highlight.js defaults (loaded globally
+   via atom-one-dark.css) stay inside the file viewer only. */
+.archon-markdown {
+  color: var(--color-accent-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.archon-markdown h1,
+.archon-markdown h2,
+.archon-markdown h3,
+.archon-markdown h4,
+.archon-markdown h5,
+.archon-markdown h6 {
+  font-family: var(--font-display);
+  color: var(--color-accent-primary);
+  letter-spacing: 1px;
+  margin: 1.2em 0 0.4em;
+  text-shadow: 0 0 6px var(--color-accent-primary-glow);
+}
+.archon-markdown h1 { font-size: 20px; }
+.archon-markdown h2 { font-size: 17px; }
+.archon-markdown h3 { font-size: 14px; }
+.archon-markdown h4,
+.archon-markdown h5,
+.archon-markdown h6 { font-size: 13px; }
+.archon-markdown p { margin: 0.6em 0; }
+.archon-markdown a {
+  /* --color-link lets a theme override the link hue when its accent-secondary
+     is too low-contrast for links (e.g. Frutiger Aero's mint on light glass —
+     operator report 2026-06-05). Falls back to accent-secondary everywhere
+     that doesn't set it, so no other theme changes. */
+  color: var(--color-link, var(--color-accent-secondary));
+  text-decoration: underline dotted;
+}
+.archon-markdown a:hover { color: var(--color-link-hover, var(--color-accent-secondary-bright)); }
+.archon-markdown ul, .archon-markdown ol { padding-left: 1.4em; margin: 0.4em 0; }
+.archon-markdown li { margin: 0.2em 0; }
+.archon-markdown blockquote {
+  border-left: 2px solid var(--color-accent-secondary-dim);
+  padding-left: 10px;
+  color: var(--color-fg-muted);
+  margin: 0.6em 0;
+}
+.archon-markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-border-hairline);
+  margin: 1em 0;
+}
+.archon-markdown table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 12px;
+}
+.archon-markdown th,
+.archon-markdown td {
+  border: 1px solid var(--color-border-hairline);
+  padding: 4px 10px;
+  text-align: left;
+}
+.archon-markdown th {
+  color: var(--color-accent-primary);
+  background: var(--color-accent-primary-a04);
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+.archon-markdown code {
+  font-family: var(--font-body);
+  font-size: 12px;
+  background: var(--color-accent-primary-a08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--color-accent-secondary);
+}
+.archon-markdown pre {
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: 4px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.archon-markdown pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 12px;
+}
+.archon-markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ─── Holographic scan effect for active worker cards ─────────────── */
+/* A subtle horizontal scan line travels top→bottom across active cards.
+ * Pure CSS (no extra WebGL context — see comment in
+ * ThemedBackgroundShader.tsx for why we don't go per-card on WebGL). */
+/* ─── Tension-reactive global vignette ─────────────────────────────
+ * A fixed fullscreen pseudo-element whose opacity tracks the --tension
+ * CSS var (driven from useTension.ts). At calm (0) it's invisible;
+ * under load it darkens the edges and tints them with the theme's
+ * danger color. pointer-events:none so UI clicks always pass through.
+ * Positioned above the shader canvas (z:1) but below all UI (z:2+).
+ *
+ * Using a radial-gradient mask means we don't need a canvas pass —
+ * cheap, GPU-accelerated, and automatically follows viewport resize. */
+/* Tension vignette is only rendered when there's tension to show. Earlier
+   the rule unconditionally created the pseudo-element and let opacity:0
+   (when --tension is 0) hide it — but a fixed full-screen layer at
+   z:9998 still sits in the compositor tree, costing per-frame compositor
+   work even when invisible. useTension toggles `tension-active` on body
+   when the value crosses out of the dead-zone, so when nothing's wrong
+   the vignette element doesn't exist at all. */
+body.tension-active::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Above everything so edges tint visibly, but alpha-capped to 0.18 at
+   * max tension so it can't obscure text. Pure alpha blending — no
+   * mix-blend-mode (tested: multiply/screen both interact unpredictably
+   * with the shader canvas + per-theme backgrounds). */
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    var(--color-danger) 150%
+  );
+  opacity: calc(var(--tension, 0) * 0.18);
+  transition: opacity 0.4s ease-out;
+}
+
+@keyframes archon-scan {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 0.55; }
+  90%  { opacity: 0.55; }
+  100% { transform: translateY(2400%); opacity: 0; }
+}
+.archon-scan-host {
+  position: relative;
+}
+.archon-scan-host::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-accent-secondary-a90),
+    transparent
+  );
+  pointer-events: none;
+  animation: archon-scan 4.5s linear infinite;
+  mix-blend-mode: screen;
+}
+
+/* Per-theme animation gates. applyTheme() writes `data-anim-*` on <html>; the
+   manifest's `animations.scan` / `animations.pulseHalo` flags are authoritative
+   for whether the class even renders. Cheaper than threading each theme's
+   flag through every component. Matrix + Blueprint / Dark Academia opt in;
+   Braun / Riso / Solar Paper / Blueprint opt out of scan. */
+html[data-anim-scan="0"] .archon-scan-host::after {
+  display: none;
+}
+html[data-anim-pulse-halo="0"] .archon-pulse-halo {
+  animation: none;
+  box-shadow: none;
+}
+
+/* ─── Soft pulse halo for active status dots ───────────────────────── */
+@keyframes archon-pulse-halo {
+  0%   { box-shadow: 0 0 0 0 var(--color-accent-secondary-a55); }
+  70%  { box-shadow: 0 0 0 6px var(--color-accent-secondary-a00); }
+  100% { box-shadow: 0 0 0 0 var(--color-accent-secondary-a00); }
+}
+.archon-pulse-halo {
+  animation: archon-pulse-halo 2s ease-out infinite;
+}
+
+/* ─── Oscilloscope — CRT phosphor text bloom ────────────────────────
+ * text-shadow is an inherited property, so declaring it on body cascades
+ * a soft phosphor halo to every text site in the UI without having to
+ * visit each inline style. Two-layer halo (tight + wide) replicates the
+ * way a saturated CRT beam blooms through the phosphor mask: tight core
+ * is the character proper, wider diffuse layer is the glow around it.
+ * Uses the theme's own glow/a10 tokens so if the palette is ever retuned
+ * the halo tracks the new hue automatically. */
+html[data-theme="oscilloscope"] body {
+  text-shadow:
+    0 0 2px var(--color-accent-primary-glow),
+    0 0 6px var(--color-accent-primary-a10);
+}
+
+/* ─── DSKY — electroluminescent segment bloom ──────────────────────
+ * Same inherited text-shadow mechanism as oscilloscope. Original tuning
+ * (1.5px tight + 5px wide a15) was too aggressive — the bright yellow-
+ * green primary spread past each character and read as blur at body
+ * font sizes. Current tuning keeps a hint of the EL character without
+ * fuzzing small text. */
+html[data-theme="dsky"] body {
+  text-shadow:
+    0 0 1px var(--color-accent-primary-glow),
+    0 0 2.5px var(--color-accent-primary-a08);
+}
+
+/* ─── Arco Jungle — OdyTTY GPU-bloom emulation ──────────────────
+ * Two things make OdyTTY's render of this theme look different from a flat
+ * web port: (1) its body text is the soft mint foreground (#88d8b0), not
+ * the saturated leaf-green primary — but global.css defaults body prose to
+ * --color-accent-primary, so we override to --color-fg here (same trick as
+ * bloodmoon below); (2) its UnrealBloom pass blooms a *whitish* halo — the
+ * bloom desaturates toward white at the bright core, not a green one. So
+ * unlike oscilloscope/dsky (which halo in the primary hue), the wide
+ * diffuse layers here are warm white; the tight core stays green so glyph
+ * edges keep their colour. */
+html[data-theme="arco-jungle"] body {
+  color: var(--color-fg);
+  text-shadow:
+    0 0 1px rgba(230, 250, 242, 0.5),
+    0 0 4px rgba(232, 250, 244, 0.32),
+    0 0 9px rgba(244, 252, 248, 0.18);
+}
+html[data-theme="arco-jungle"] .glow-text-bright,
+html[data-theme="arco-jungle"] h1.glow-text-bright {
+  text-shadow:
+    0 0 1px rgba(244, 252, 248, 0.85),
+    0 0 6px rgba(232, 250, 244, 0.6),
+    0 0 16px rgba(220, 248, 238, 0.32),
+    0 0 34px rgba(210, 245, 232, 0.16);
+}
+
+/* ─── Bloodmoon — body text override ───────────────────────────────
+ * global.css defaults body color to --color-accent-primary, which in
+ * most themes is the bright readable hue. Bloodmoon's primary is a
+ * deliberately deep blood-red (#b0162c) that reads on accent surfaces
+ * but is barely visible as prose on the near-black bg. Force body prose
+ * to --color-fg (bone) so chat text is readable; buttons/borders/
+ * status lights that explicitly use --color-accent-primary still render
+ * as saturated blood. */
+html[data-theme="bloodmoon"] body {
+  color: var(--color-fg);
+}
+
+/* Red Planet's source palette uses bright red as command/label ink, not body
+ * prose. Keep the terminal-like accents while long Archon text uses sand. */
+html[data-theme="red-planet"] body {
+  color: var(--color-fg);
+}
+
+/* ─── Deep bloom for glow-y themes ─────────────────────────────────
+ * Base .glow-text / .glow-text-bright / .glow-border are kept mild so
+ * they don't wreck paper/literary themes (Dark Academia, Riso, etc.
+ * look terrible with heavy halos). For the handful of themes whose
+ * identity *is* phosphor/neon glow — Matrix, Oscilloscope, DSKY,
+ * Midnight Tokyo, Bloodmoon — we stack deeper halos + add a
+ * filter:drop-shadow on container elements. filter:drop-shadow
+ * actually blurs the rendered pixels (bg + borders + children), unlike
+ * text-shadow which only blurs glyph outlines. Layering both gets as
+ * close to DARKN0DE-style UnrealBloom as a DOM UI realistically can
+ * without a frame-capture pipeline.
+ *
+ * Bloodmoon uses secondary (plum) for .glow-text-cyan since its
+ * secondary is desaturated; primary (blood-red) carries the bright
+ * bloom on borders/buttons only. */
+
+/* Matrix uses only the base .glow-text rule (top of file) for body chat
+ * text. The 4-layer phosphor stack we used to scope to matrix here was
+ * forcing every .glow-text element to maintain its own compositor layer
+ * and the visual difference vs. the base 1-layer halo was minor on
+ * non-display text. Deeper halos are reserved for h1 / .glow-text-bright. */
+html[data-theme="matrix"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15),
+    0 0 30px var(--color-accent-primary-a10);
+  /* filter: drop-shadow(...) removed. The text-shadow stack already provides
+     the phosphor halo; the drop-shadow filter was forcing every .glow-text-
+     bright element into its own GPU compositor layer, which on a UI with
+     dozens of these (every header, badge, bright label) was visibly
+     expensive at 4K@2x. Visual diff is subtle — the text-shadows still
+     bleed the halo across the glyphs. */
+}
+html[data-theme="matrix"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+  /* filter: drop-shadow removed for the same reason — every panel border in
+     the app has .glow-border, so this filter was promoting every panel to
+     its own layer. The two-layer box-shadow above carries the rim glow. */
+}
+
+/* Matrix scanline overlay was removed in the 2026-04-28 GPU triage. It
+ * had been migrated from a `::after` + `mix-blend-mode: multiply` layer
+ * onto a tiled body bg-image (cheaper, no per-frame compositor read),
+ * but even the alpha-blended tile read as grey haze against the green
+ * rain rather than as authentic CRT scanlines. Solid black + the rain
+ * shader's own internal scanlines (in matrixRain.frag) carry the CRT
+ * register on their own. Don't reintroduce a body-level scanline tile
+ * for matrix — its register depends on solid black between rain. */
+
+/* Wordmark phosphor — text-shadow stack only.
+ *
+ * Earlier this rule also carried `filter: drop-shadow(...)` and the
+ * matrix-phosphor-flicker animation. Both removed in the GPU triage:
+ * the drop-shadow filter forced the wordmark into its own GPU compositor
+ * layer and rasterized the shadow on every paint; the flicker animation
+ * cost was on top of that. The 5-layer text-shadow alone provides the
+ * deep phosphor halo (LED-equivalent — three of those layers play the
+ * same role as the LED's three-stop box-shadow). No filter, no
+ * animation, near-zero per-frame GPU cost.
+ *
+ * If you want the supply-ripple flicker back at low cost, the keyframes
+ * (matrix-phosphor-flicker) are now opacity-only and cheap — but the
+ * filter must stay off. */
+html[data-theme="matrix"] h1.glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 8px var(--color-accent-primary),
+    0 0 18px var(--color-accent-primary-glow),
+    0 0 38px var(--color-accent-primary-a15),
+    0 0 72px var(--color-accent-primary-a10);
+}
+
+/* Push pass — supply-ripple flicker with deeper dips so the wordmark
+ * visibly dims-then-returns on every cycle. Two clusters per cycle
+ * (~1.5s apart) reads as CRT supply jitter, not a smooth fade.
+ *
+ * Opacity-only animation: the base rule sets a static `filter:
+ * drop-shadow(...)` once. The keyframes used to interpolate that filter
+ * (re-rasterizing the wordmark layer every animation frame to compute
+ * the new shadow). Now they only move opacity — a compositor-only
+ * property that multiplies the cached layer's alpha without any
+ * rasterization. Same flicker register, near-zero per-frame cost. */
+@keyframes matrix-phosphor-flicker {
+  0%, 62%, 100%, 65%, 67%, 87%, 88% { opacity: 1; }
+  63%, 64% { opacity: 0.72; }
+  85%, 86% { opacity: 0.82; }
+  89%, 90% { opacity: 0.88; }
+}
+
+/* ─── CRT scanline overlay — extended to other phosphor-CRT themes.
+ * Originally implemented as a fixed ::after with mix-blend-mode: multiply.
+ * That works visually but every frame the compositor has to read the
+ * destination, multiply, and write back — at 4K@2× this was a measurable
+ * share of idle GPU even on themes with `shaderPreset: 'none'`.
+ *
+ * The dark-themed CRT register has near-black backgrounds, so multiplying
+ * a 18%-alpha black-band tile against the bg is essentially the same as
+ * compositing a slightly-darker tile via plain alpha blend. Switched to
+ * pre-blended pure-alpha bands as a tiled background-image directly on
+ * body — the browser caches the 4px tile once, no per-frame compositor
+ * read-back. Per-theme opacity is folded into the gradient stops since
+ * we lose the separate `opacity` channel.
+ */
+html[data-theme="amber-crt"] body,
+html[data-theme="oscilloscope"] body,
+html[data-theme="sonar"] body,
+html[data-theme="sentinel"] body {
+  background-image: linear-gradient(
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, var(--scanline-alpha, 0.08)) 50%
+  );
+  background-size: 100% var(--scanline-pitch, 4px);
+  background-attachment: fixed;
+}
+html[data-theme="amber-crt"]   { --scanline-alpha: 0.08; --scanline-pitch: 4px; }
+html[data-theme="oscilloscope"] { --scanline-alpha: 0.07; --scanline-pitch: 4px; }
+html[data-theme="sonar"]        { --scanline-alpha: 0.075; --scanline-pitch: 4px; }
+html[data-theme="sentinel"]     { --scanline-alpha: 0.058; --scanline-pitch: 5px; }
+
+/* ─── Deeper wordmark phosphor + flicker, shared across emissive themes.
+ * Keyframe names differ per theme so each can be tuned independently if
+ * The operator wants different flicker tempos later; for now they share one
+ * common cycle shape. */
+html[data-theme="amber-crt"] h1.glow-text-bright,
+html[data-theme="oscilloscope"] h1.glow-text-bright,
+html[data-theme="sonar"] h1.glow-text-bright,
+html[data-theme="sentinel"] h1.glow-text-bright,
+html[data-theme="dsky"] h1.glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 8px var(--color-accent-primary),
+    0 0 18px var(--color-accent-primary-glow),
+    0 0 38px var(--color-accent-primary-a15),
+    0 0 72px var(--color-accent-primary-a10);
+  filter:
+    drop-shadow(0 0 12px var(--color-accent-primary-glow))
+    drop-shadow(0 0 24px var(--color-accent-primary-a15));
+  animation: emissive-phosphor-flicker 6.1s ease-in-out infinite;
+}
+
+/* Opacity-only animation: the static drop-shadow stack on the base rule
+ * provides the halo, the keyframes only modulate alpha so the compositor
+ * doesn't re-rasterize the wordmark layer every animation frame. Same
+ * supply-ripple feel as before. */
+@keyframes emissive-phosphor-flicker {
+  0%, 62%, 100%, 65%, 67%, 87%, 88% { opacity: 1; }
+  63%, 64% { opacity: 0.76; }
+  85%, 86% { opacity: 0.88; }
+  89%, 90% { opacity: 0.92; }
+}
+
+/* ─── Atmospheric emissive wordmark — deeper halos, no flicker. These
+ * themes (Cherenkov, Infrared, Aurora, Nebula, Night City, Cicada,
+ * Midnight Tokyo) aren't CRT-register, so the flicker reads wrong. They
+ * just get a bigger drop-shadow stack so the ARCHON mark glows harder
+ * than the chat chrome. */
+/* Cicada intentionally omitted — its register is "barely perceptible"
+ * and the heavy h1 stack fought that identity. The base
+ * html[data-theme="cicada"] .glow-text-bright rule (mild) still applies. */
+html[data-theme="cherenkov"] h1.glow-text-bright,
+html[data-theme="infrared"] h1.glow-text-bright,
+html[data-theme="aurora"] h1.glow-text-bright,
+html[data-theme="nebula"] h1.glow-text-bright,
+html[data-theme="night-city"] h1.glow-text-bright,
+html[data-theme="midnight-tokyo"] h1.glow-text-bright,
+html[data-theme="bloodmoon"] h1.glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 8px var(--color-accent-primary),
+    0 0 20px var(--color-accent-primary-glow),
+    0 0 44px var(--color-accent-primary-a15),
+    0 0 80px var(--color-accent-primary-a10);
+  filter:
+    drop-shadow(0 0 14px var(--color-accent-primary-glow))
+    drop-shadow(0 0 28px var(--color-accent-primary-a15));
+}
+
+/* ─── Unfinished Works — ported from a terminal-style landing page ──────────────
+ * Static teal-phosphor bloom, no animated shader (shaderPreset: 'none').
+ * All values lifted from the source site stylesheet.
+ *
+ * Background: the site's vertical fade + a center radial teal glow, with the
+ * scanline tile folded into the same fixed background stack so nothing moves.
+ * Text glow uses `currentColor` so every text site blooms in its OWN hue —
+ * green prompts glow green, amber titles amber, teal prose teal — which is
+ * what gives the look its colour variation without per-element rules. */
+html[data-theme="unfinished-works"] body {
+  /* Background glow from the site body rule (alpha 0.12, centred 45%/52%,
+   * edges contained to near-black) + a faint static scanline TILE. The tile
+   * sits in the body background (behind the UI), so it textures the gaps
+   * without filming — and therefore without blurring — the text. The earlier
+   * screen-blend ::after overlay was removed: it lightened bright/white text
+   * into a haze while barely touching the saturated green. Paleness now comes
+   * from the green token itself (see unfinishedWorks.ts), not a film. */
+  background-image:
+    linear-gradient(180deg, rgba(4, 21, 15, 0.9), rgba(0, 0, 0, 0.98)),
+    radial-gradient(
+      ellipse at 45% 52%,
+      rgba(0, 88, 62, 0.12) 0%,
+      rgba(4, 24, 18, 0.54) 36%,
+      rgba(0, 0, 0, 0.99) 100%
+    ),
+    linear-gradient(rgba(160, 245, 210, 0.045) 50%, rgba(0, 0, 0, 0) 50%);
+  background-size: 100% 100%, 100% 100%, 100% 4px;
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-attachment: fixed, fixed, fixed;
+  /* Crisp per-hue phosphor halo — tight enough that neither green nor white
+   * text smears. currentColor keeps each text site glowing in its own hue. */
+  text-shadow:
+    0 0 1px currentColor,
+    0 0 6px color-mix(in srgb, currentColor 26%, transparent);
+}
+
+/* Tight, crisp glow on both registers — the heavy multi-layer + drop-shadow
+ * stack made white headings read blurry, so it's gone. White and green now
+ * share the same restrained bloom. */
+html[data-theme="unfinished-works"] .glow-text {
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 7px color-mix(in srgb, currentColor 24%, transparent);
+}
+html[data-theme="unfinished-works"] h1.glow-text-bright,
+html[data-theme="unfinished-works"] .glow-text-bright {
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 9px color-mix(in srgb, currentColor 28%, transparent);
+}
+
+/* Oscilloscope — mint phosphor bloom */
+html[data-theme="oscilloscope"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 9px var(--color-accent-primary-a15),
+    0 0 22px var(--color-accent-primary-a08);
+}
+html[data-theme="oscilloscope"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 13px var(--color-accent-primary-a15),
+    0 0 28px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 6px var(--color-accent-primary-glow));
+}
+html[data-theme="oscilloscope"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a10);
+}
+
+/* DSKY — EL bloom tuned to avoid body-text blur issue we already
+ * tuned the body text-shadow for. glow-text classes are display-only,
+ * so we can go slightly more aggressive here without hurting prose. */
+html[data-theme="dsky"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 10px var(--color-accent-primary-a15);
+}
+html[data-theme="dsky"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15),
+    0 0 26px var(--color-accent-primary-a08);
+  filter: drop-shadow(0 0 5px var(--color-accent-primary-glow));
+}
+html[data-theme="dsky"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a10);
+}
+
+/* Midnight Tokyo — hot magenta neon */
+html[data-theme="midnight-tokyo"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a15),
+    0 0 26px var(--color-accent-primary-a10);
+}
+html[data-theme="midnight-tokyo"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a15),
+    0 0 34px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 8px var(--color-accent-primary-glow));
+}
+html[data-theme="midnight-tokyo"] .glow-text-cyan {
+  text-shadow:
+    0 0 4px var(--color-accent-secondary-glow),
+    0 0 12px var(--color-accent-secondary-a20);
+}
+html[data-theme="midnight-tokyo"] .glow-border {
+  box-shadow:
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 4px var(--color-accent-secondary-glow));
+}
+
+/* Bloodmoon — restrained. Body text is bone and shouldn't glow;
+ * bloom concentrates on bright-red borders/buttons only. */
+html[data-theme="bloodmoon"] .glow-text {
+  color: var(--color-accent-primary);
+  text-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 10px var(--color-accent-primary-a15);
+}
+html[data-theme="bloodmoon"] .glow-text-bright {
+  color: var(--color-accent-primary);
+  text-shadow:
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a15),
+    0 0 30px var(--color-accent-primary-a08);
+}
+html[data-theme="bloodmoon"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 3px var(--color-accent-primary-a15));
+}
+
+/* ─── Deep phosphor halos for the DARKN0DE-style emissive themes ────
+ * Each block mirrors the Matrix/Oscilloscope/DSKY pattern: 3-4 layered
+ * text-shadows on .glow-text / .glow-text-bright + box-shadow + filter:
+ * drop-shadow on .glow-border. All values key off --color-accent-primary-*
+ * tokens so the hue tracks the theme. Per-theme intensity is tuned:
+ *   - SENTINEL   — operator register, steel-blue bloom, medium-wide.
+ *   - CHERENKOV  — caustic cyan, wider halo (underwater refraction).
+ *   - AURORA     — aurora green, softer & more diffuse (atmospheric).
+ *   - NEBULA     — violet, very wide + soft (no structure, just density).
+ *   - SONAR      — phosphor green, tight like an ASDIC tube.
+ *   - CICADA     — dim, narrow. The whole theme is faint; halos match.
+ *   - INFRARED   — amber heat, broad and hot. Secondary glow omitted.
+ *   - NIGHT CITY — window sodium, tight-core wide-halo (street light look).
+ *   - KINTSUGI   — gold, very restrained (lacquer is supposed to be quiet).
+ *   - TARKOVSKY  — matches bloodmoon (border-only). No glowing text; mood
+ *                  is contemplative, not alive. */
+
+/* Sentinel — steel-blue phosphor */
+html[data-theme="sentinel"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 10px var(--color-accent-primary-a15);
+}
+html[data-theme="sentinel"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15),
+    0 0 28px var(--color-accent-primary-a08);
+  filter: drop-shadow(0 0 6px var(--color-accent-primary-glow));
+}
+html[data-theme="sentinel"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a10);
+}
+
+/* Cherenkov — caustic cyan, wider underwater halo */
+html[data-theme="cherenkov"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15),
+    0 0 28px var(--color-accent-primary-a08);
+}
+html[data-theme="cherenkov"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 7px var(--color-accent-primary-glow),
+    0 0 18px var(--color-accent-primary-a15),
+    0 0 36px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 8px var(--color-accent-primary-glow));
+}
+html[data-theme="cherenkov"] .glow-border {
+  box-shadow:
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 4px var(--color-accent-primary-a15));
+}
+
+/* Aurora — diffuse atmospheric green */
+html[data-theme="aurora"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15);
+}
+html[data-theme="aurora"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 7px var(--color-accent-primary-glow),
+    0 0 18px var(--color-accent-primary-a15),
+    0 0 34px var(--color-accent-primary-a08);
+  filter: drop-shadow(0 0 7px var(--color-accent-primary-glow));
+}
+html[data-theme="aurora"] .glow-border {
+  box-shadow:
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 4px var(--color-accent-primary-a15));
+}
+
+/* Nebula — violet, very wide, soft */
+html[data-theme="nebula"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a15),
+    0 0 32px var(--color-accent-primary-a08);
+}
+html[data-theme="nebula"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 8px var(--color-accent-primary-glow),
+    0 0 20px var(--color-accent-primary-a15),
+    0 0 40px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 9px var(--color-accent-primary-glow));
+}
+html[data-theme="nebula"] .glow-border {
+  box-shadow:
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 18px var(--color-accent-primary-a10);
+}
+
+/* Sonar — tight phosphor-tube green */
+html[data-theme="sonar"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 9px var(--color-accent-primary-a15),
+    0 0 22px var(--color-accent-primary-a08);
+}
+html[data-theme="sonar"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 13px var(--color-accent-primary-a15),
+    0 0 28px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 6px var(--color-accent-primary-glow));
+}
+html[data-theme="sonar"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a10);
+}
+
+/* Cicada — dim + narrow; don't cross the 'barely perceptible' register */
+html[data-theme="cicada"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 8px var(--color-accent-primary-a10);
+}
+html[data-theme="cicada"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 10px var(--color-accent-primary-a15),
+    0 0 20px var(--color-accent-primary-a08);
+  filter: drop-shadow(0 0 4px var(--color-accent-primary-glow));
+}
+html[data-theme="cicada"] .glow-border {
+  box-shadow:
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 9px var(--color-accent-primary-a08);
+}
+
+/* Infrared — amber heat, broad */
+html[data-theme="infrared"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a15);
+}
+html[data-theme="infrared"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 7px var(--color-accent-primary-glow),
+    0 0 18px var(--color-accent-primary-a15),
+    0 0 36px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 8px var(--color-accent-primary-glow));
+}
+html[data-theme="infrared"] .glow-border {
+  box-shadow:
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+}
+
+/* Night City — window sodium, tight core + wide halo (street light) */
+html[data-theme="night-city"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a15),
+    0 0 26px var(--color-accent-primary-a08);
+}
+html[data-theme="night-city"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 6px var(--color-accent-primary-glow),
+    0 0 16px var(--color-accent-primary-a15),
+    0 0 34px var(--color-accent-primary-a10);
+  filter: drop-shadow(0 0 7px var(--color-accent-primary-glow));
+}
+html[data-theme="night-city"] .glow-border {
+  box-shadow:
+    0 0 4px var(--color-accent-primary-glow),
+    0 0 14px var(--color-accent-primary-a10);
+}
+
+/* Kintsugi — gold, very restrained. Lacquer stays quiet. */
+html[data-theme="kintsugi"] .glow-text {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 3px var(--color-accent-primary-glow);
+}
+html[data-theme="kintsugi"] .glow-text-bright {
+  text-shadow:
+    0 0 1px var(--color-accent-primary),
+    0 0 5px var(--color-accent-primary-glow),
+    0 0 12px var(--color-accent-primary-a15);
+  filter: drop-shadow(0 0 4px var(--color-accent-primary-glow));
+}
+html[data-theme="kintsugi"] .glow-border {
+  box-shadow:
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 9px var(--color-accent-primary-a08);
+}
+
+/* Tarkovsky — border-only, matches bloodmoon's contemplative register.
+ * Sepia doesn't glow; the atmospheric mood comes from the shader. */
+html[data-theme="tarkovsky"] .glow-border {
+  box-shadow:
+    0 0 3px var(--color-accent-primary-glow),
+    0 0 10px var(--color-accent-primary-a08);
+  filter: drop-shadow(0 0 2px var(--color-accent-primary-a10));
+}
+
+/* ─── Per-theme paper-grain overlays ────────────────────────────────
+ * Rendered via the <body> background (blend-mode: multiply) so the grain
+ * sits beneath the shader + UI without introducing a fixed-position layer
+ * to fight z-index with. Data URLs inline an SVG feTurbulence pattern — no
+ * extra network request. The shader's alpha (~0.82) partially occludes the
+ * grain, which reads as ink hatching drifting over paper rather than two
+ * unrelated surfaces. */
+html[data-theme="dark-academia"] body {
+  background-color: var(--color-bg);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.07  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  background-repeat: repeat;
+  background-blend-mode: multiply;
+  /* Polish pass round 4 (2026-04-18): `zoom` scaled boxes + layout which
+     the operator didn't want. Switched to `font-size-adjust`, which rescales
+     fonts so their x-height equals (font-size × adjust) — glyphs grow,
+     padding/borders/images don't. Inheritable, so a single declaration
+     on <body> cascades to every ~143 inline-styled text site without
+     touching their px values. Garamond/Crimson x-height is ~0.43em
+     natural; 0.52 lifts perceived size ~20% to match sans-serif
+     legibility. */
+  font-size-adjust: 0.52;
+}
+
+/* Amber CRT no longer needs a font-size-adjust pass — its fonts now
+   match the Matrix theme (Share Tech Mono / JetBrains Mono), which
+   render at normal UI sizes without scaling. */
+
+/* Solar Paper — warm parchment grain via the same body-background mechanism
+   (lighter tint since we're on a light bg; multiply still works because the
+   grain color is near-transparent dark-warm). Deckle top + bottom strips are
+   painted as fixed pseudo-elements on <html>, pointer-events:none so UI clicks
+   pass through. The deckle SVG is tinted via CSS filter so it always matches
+   the theme's bg — no per-theme SVG copies needed. */
+/* Polish pass (2026-04-18): the body paper grain was washing out text on
+   the warm parchment. Removed entirely — the deckle-edge ::before / ::after
+   pseudo-elements below carry the paper-edge read on their own, and the
+   watercolor shader already supplies the printed-paper character. */
+html[data-theme="solar-paper"]::before,
+html[data-theme="solar-paper"]::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background: url('/themes/deckle.svg') repeat-x;
+  background-size: 400px 28px;
+  pointer-events: none;
+  z-index: 0;
+  /* Recolor the near-black SVG fill to the parchment bg so the deckle reads as
+     paper continuation rather than an ink line. drop-shadow adds a faint warm
+     rim below the edge. */
+  filter: invert(93%) sepia(17%) saturate(350%) hue-rotate(355deg) brightness(98%) contrast(95%)
+          drop-shadow(0 1px 0 rgba(61, 53, 32, 0.18));
+}
+html[data-theme="solar-paper"]::before {
+  top: 0;
+  transform: scaleY(-1);
+}
+html[data-theme="solar-paper"]::after {
+  bottom: 0;
+}
+
+/* ─── Holographic — iridescent dichroic text on top-level titles ────
+ * Discipline rule (plan §3 Phase 5 step 4): iridescence on 1–2 elements
+ * per screen max. Scoped to <h1> only, which in Archon today is exactly
+ * WorkflowCreator's splash + SystemHeader's ARCHON mark — so at most two
+ * iridescent reads on screen simultaneously, and scarcity carries it.
+ *
+ * `-webkit-text-fill-color: transparent` (not `color: transparent`) so the
+ * `::selection` rule in global.css can still recolor these during drag-
+ * select — plain `color: transparent` eats selection paint on Chrome
+ * (plan §5 acceptance). The painted conic sits behind selection's own bg.
+ *
+ * Animated via background-position drift on an oversized conic, not @property
+ * --angle (wider browser support). Gated on prefers-reduced-motion per §5
+ * gotcha #13; the static conic still renders iridescently at rest.
+ *
+ * text-shadow from .glow-text-bright is cleared — background-clip:text
+ * plus painted shadow composites as a blurred smudge behind transparent
+ * glyphs (Chrome bug). The conic already carries the glow read. */
+html[data-theme="holographic"] h1 {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    #a8e0ff 0%,
+    #7d5fff 18%,
+    #ff5cf8 36%,
+    #5cffc8 54%,
+    #ffc85c 72%,
+    #5cc8ff 90%,
+    #a8e0ff 100%
+  );
+  background-size: 220% 220%;
+  background-position: 0% 50%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 10px rgba(125, 95, 255, 0.35));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme="holographic"] h1 {
+    animation: holographic-shift 9s linear infinite;
+  }
+  @keyframes holographic-shift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+/* ─── Frutiger Aero — glass surfaces + frost + top specular ────────
+ * Three theme-scoped layers:
+ *   1. Body frost — faint white feTurbulence noise via background-image +
+ *      blend-mode: overlay on the light-sky bg. Adds the gloss-speckle read
+ *      beneath the shader without a fixed-position layer.
+ *   2. Viewport-top specular — html::before paints a white-to-transparent
+ *      vertical gradient across the top band, fixed-positioned behind UI
+ *      (z-index: 0, pointer-events: none). Reads as overhead sun.
+ *   3. Glass-blur on active panels — scoped to `.glow-border` because that's
+ *      the one structural class reliably present on panel containers in this
+ *      codebase (panels are inline-styled otherwise). Glow's box-shadow is
+ *      cleared (Aero doesn't glow — see §5 gotcha #2) and replaced with a
+ *      soft drop-shadow + inset top-highlight that reads as a glass rim.
+ *      Coverage is partial; the cloudscape shader + translucent --color-bg-
+ *      panel + top specular + frost carry the rest of the theme identity. */
+html[data-theme="frutiger-aero"] body {
+  background-color: var(--color-bg);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.12 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  background-repeat: repeat;
+  background-blend-mode: overlay;
+}
+
+/* Polish pass (2026-04-18): top-specular gradient alphas halved
+   (0.4→0.2 top stop, 0.12→0.06 mid stop). Combined with the deeper-sky
+   bg change in frutigerAero.ts, the overhead-sun read stays but no
+   longer blows out text in the top viewport band. */
+html[data-theme="frutiger-aero"]::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 220px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Phase 7 — Panel primitive now stamps `.archon-panel` on every migrated
+   panel site (ChatPanel wrapper, WorkerCard, StatePanel, QualityLog,
+   OrchestratorNode, SettingsPanel). Coverage that was partial in Phase 6
+   (glass only on `.glow-border` surfaces) goes full: every Panel-mediated
+   surface now carries the blur + inner top-highlight. `.glow-border` keeps
+   its own scoped rule below for the box-shadow override so active panels
+   pick up the brighter rim. Closes the Phase 6 deferred fix. */
+html[data-theme="frutiger-aero"] .archon-panel {
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px var(--color-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+html[data-theme="frutiger-aero"] .glow-border {
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px var(--color-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* ── Frosted-glass mode (theme.frosted → data-frosted="1") ──────────────────
+   Generic, theme-agnostic version of the hard-coded frutiger rules above. Any
+   theme that sets `frosted: true` gets a softer backdrop-filter blur on panel
+   surfaces so the (translucent) panel tokens read the backdrop through. Uses a
+   gentler blur than frutiger's 20px since the opt-in themes (e.g. lavender)
+   pair it with already-translucent panel tokens. Ported from Odysseus, 2026-06-05. */
+html[data-frosted="1"] .archon-panel,
+html[data-frosted="1"] .glow-border {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+/* Frosted opt-out — a Panel carrying `.no-frost` is a transparent transcript
+   scaffold (the single-workflow chat column), not a glass content panel. The
+   generic blur above softens the ambient shader behind it, which reads as
+   blurry matrix-rain glyphs. Suppress the blur here so the rain stays crisp,
+   matching the cluster transcript (a plain div, never a Panel). More specific
+   than the rule above (extra `.no-frost` class), so it wins without !important. */
+html[data-frosted="1"] .archon-panel.no-frost {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ─── Arch — the low-power theme (2026-08-06) ───────────────────────────────
+ * The manifest already deletes the big costs (no shader canvas, no frosted
+ * blur, no background image, opaque surfaces, no webfont, every `animations`
+ * flag false). What the manifest CANNOT reach is the per-element glow and
+ * filter work that lives in shared chrome CSS + inline component styles —
+ * that's what this block turns off. Measured target: i5-8265U / UHD 620.
+ *
+ * Deliberately NOT touched: `backdrop-filter` under data-frosted="1". That is
+ * an explicit operator toggle; the theme declines to opt in, but if the
+ * operator turns frost on we honour it rather than silently overriding.
+ */
+
+/* global.css paints body prose in --color-accent-primary. On a palette whose
+ * accent is a real hue (blue) rather than a phosphor, that would tint every
+ * paragraph — Mocha wants #cdd6f4 text. Same override bloodmoon/arco use. */
+html[data-theme="arch"] body {
+  color: var(--color-fg);
+}
+
+/* Flat by design: no text glow anywhere. text-shadow on body cascades to every
+ * text site, so one rule at the root would be enough for inherited halos, but
+ * .glow-text* set it directly — hence the descendant sweep. Unlike the
+ * data-crisp kill-switch this does NOT exempt .archon-wordmark: a phosphor
+ * wordmark on a flat pastel theme reads as a leftover, not a brand. */
+html[data-theme="arch"] body,
+html[data-theme="arch"] body * {
+  text-shadow: none;
+}
+
+/* .glow-border pairs a bright border with a box-shadow halo. Keep the border
+ * (it carries the focus signal), drop the halo. */
+html[data-theme="arch"] .glow-border {
+  box-shadow: none;
+}
+
+/* The 3-layer LED halo collapses to a single tight ring. Same "this dot is
+ * lit" read at a third of the shadow rasterisation. */
+html[data-theme="arch"] .archon-led {
+  box-shadow: 0 0 3px currentColor;
+}
+
+/* Opacity-only replacement for the two infinite keyframes that animate
+ * `filter: brightness()` + multi-layer box-shadow. Those two properties force
+ * layer promotion and a re-rasterise per frame, per element, forever — on an
+ * iGPU that is the most expensive thing left once the shader is gone. Opacity
+ * is compositor-only: it multiplies a cached layer's alpha with no raster
+ * work. The "alive" signal survives; the cost does not. Same technique the
+ * matrix-phosphor-flicker keyframes already use.
+ *
+ * Scope note: an earlier version of this block also carried
+ * `[style*="pulse-glow"]`, to reach the call sites that set the animation as an
+ * inline style (TabBar, MemberCard, MemberPane, CompareGrid, the overlays).
+ * That was removed 2026-08-06: an attribute-SUBSTRING selector on `style` has
+ * to be re-matched whenever any element's inline style attribute changes, and
+ * the composer's auto-resize writes `style.height` on every single keystroke —
+ * so the selector turned typing into repeated style-invalidation work. The
+ * inline-styled dots keep their stock pulse (exactly as they do on every other
+ * theme, so it is not a regression), and only the class-based sites below get
+ * the cheap opacity-only treatment. Do not reintroduce a [style*=…] selector. */
+@keyframes arch-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+html[data-theme="arch"] .status-dot--spawning,
+html[data-theme="arch"] .status-dot--running,
+html[data-theme="arch"] .led-breathe-warning,
+html[data-theme="arch"] .led-breathe-critical {
+  animation: arch-pulse 1.6s ease-in-out infinite !important;
+  filter: none !important;
+}

@@ -1,0 +1,41 @@
+node_modules/
+dist/
+client/dist-*/
+server/dist-*/
+shared/dist-*/
+.env
+.env.*
+!.env.example
+uploads/
+*.log
+.DS_Store
+Thumbs.db
+.vite/
+*.bak
+*.tsbuildinfo
+
+# TypeScript build output accidentally emitted beneath source directories.
+**/src/**/*.js
+**/src/**/*.js.map
+**/src/**/*.d.ts
+!**/src/vite-env.d.ts
+
+# Hand-vendored editor JavaScript source must remain tracked.
+!**/src/vendor/odysseus-editor/**/*.js
+!**/src/vendor/odysseus-editor/**/*.d.ts
+client/vite.config.js
+client/vite.config.js.map
+client/vite.config.d.ts
+
+# Local workbench state and agent session metadata.
+.archon/
+.claude/
+.codex
+
+# Local Python and speech setup artifacts.
+.venv/
+venv/
+__pycache__/
+
+# Ensure the repository instructions are tracked despite global ignore rules.
+!AGENTS.md

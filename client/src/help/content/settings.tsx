@@ -1,0 +1,386 @@
+import { C } from './shared';
+import type { HelpEntry } from './shared';
+
+export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.deepseek': {
+    title: 'Xolotl · DeepSeek profiles', manualSection: 'deepseek',
+    body: <p>Load Exact or Light through the guarded launcher at port 8150.
+      Exact preserves routing; Light uses 0.25 / 0.15 biases and changes expert selection.
+      Both use a 262144-token context. Prepared vision profiles accept screenshots
+      through an on-demand CPU image encoder; text-only profiles reject images. Unload stops the service
+      and releases model memory. Mining and competing loaded models cause a refusal;
+      Arco never stops your miner. See HELP for memory limits, cancellation and recovery.</p>,
+  },
+  'settings.strata-endpoint': {
+    title: 'Strata endpoint', manualSection: 'provider-strata',
+    body: <p>Standalone Strata's OpenAI-compatible base URL, default
+      <C>http://127.0.0.1:8081/v1</C>. A missing /v1 is added automatically.
+      This setting overrides STRATA_URL_BASE. Prepared local profiles can load
+      for the next message; changing the address does not prepare models or
+      increase memory limits. Live image/context capabilities come from the
+      service, and inactive profiles from their checked configuration.</p>,
+  },
+  // -------------------------------------------------------- SETTINGS PANEL
+  'settings.phosphor-effects': {
+    title: 'Phosphor effects', manualSection: 'settings-themes',
+    body: <p>Phosphor only. Off removes ambient rendering, glass/raster, decorative
+      glow and frost without deleting your saved frost preference. Reduced motion
+      instead stops animation while retaining static glow and glass.</p>,
+  },
+  'settings.phosphor-softness': {
+    title: 'Glow softness', manualSection: 'settings-themes',
+    body: <p>Adjust the text halo, not the foreground ink: 0 removes glow, 50 is
+      the sharper default, 100 is the reference look. Crisp text and effects-off
+      override glow and disable this slider. Font, text brightness and background
+      brightness are independent controls.</p>,
+  },
+  'settings.themes': {
+    title: 'Theme picker',
+    body: (
+      <p>
+        Choose a family first: Arco Classic retains all 43 existing selections,
+        including <C>provider-auto</C>; Arco Phosphor offers 68 Phosphor palettes
+        sharing one CRT treatment. Search by name/ID or filter Phosphor categories.
+        Switching updates CSS vars on <C>:root</C>, without rearranging the
+        workbench. Phosphor glow softness defaults to 50%; effects, crisp text,
+        font overrides and background/text brightness are separate controls.
+      </p>
+    ),
+    manualSection: 'settings-themes',
+  },
+  'settings.project-trust': {
+    title: 'Project trust',
+    body: (
+      <>
+        <p>
+          Every repo Arco opens is checked for three project-local surfaces —{' '}
+          <C>CLAUDE.md</C>, <C>.archon/skills</C>, <C>.archon/settings.json</C> —
+          that would otherwise enter the model&apos;s system prompt unread. Until
+          you vouch for a repo they stay suppressed from every turn.
+        </p>
+        <p>
+          Decisions are keyed by directory, nearest ancestor wins, and cover
+          every tab and cluster member pointed at that path. <C>FLIP</C> swaps
+          trusted ↔ blocked; <C>FORGET</C> drops the decision so the next turn in
+          that repo prompts again. The <C>DEFAULT</C> row is the fallback for
+          repos with no decision — <C>ALWAYS</C> effectively disables the gate.
+          Stored in <C>~/.archon/trust.json</C>; effective next turn, no restart.
+        </p>
+      </>
+    ),
+  },
+  'settings.font-pack-override': {
+    title: 'Font pack override',
+    body: (
+      <p>
+        Substitutes display/body/code typography on top of the active theme
+        (29 font packs). Use it when you want one theme's palette with another
+        theme's type.
+      </p>
+    ),
+    manualSection: 'settings-themes',
+  },
+  'settings.frosted-glass': {
+    title: 'Frosted glass',
+    body: (
+      <p>
+        Operator override for the translucent-blur backdrop through panel
+        surfaces. <C>ON</C> / <C>OFF</C> overrides the active theme's own
+        default; <C>reset to theme default</C> clears the override so each
+        theme reverts to its built-in setting. Purely cosmetic.
+      </p>
+    ),
+    manualSection: 'settings-themes',
+  },
+  'settings.theme-brightness': {
+    title: 'Theme brightness',
+    body: (
+      <p>
+        Per-theme brightness offsets. <C>TEXT</C> shifts foreground and accent
+        tokens; <C>BACKGROUND</C> shifts panel surfaces. <C>0</C> means the
+        theme&apos;s stock colors.
+      </p>
+    ),
+    manualSection: 'settings-themes',
+  },
+  'settings.crisp-text': {
+    title: 'Crisp text',
+    body: (
+      <p>
+        Removes the soft phosphor text glow from small UI text on glow-heavy
+        themes. Structural border glow stays intact. Classic retains its wordmark
+        glow; Phosphor makes the wordmark crisp too, retaining static glass/raster.
+      </p>
+    ),
+    manualSection: 'settings-themes',
+  },
+  'settings.operator-name': {
+    title: 'Operator name',
+    body: (
+      <p>
+        Replaces the generic <C>&gt; OPERATOR</C> prefix in chat with your
+        chosen label. Applies to rendered transcripts that get fed back into
+        handoff seeds. Leave blank to keep <C>OPERATOR</C>. Max 32 chars.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
+  'settings.default-working-dir': {
+    title: 'Default working directory',
+    body: (
+      <p>
+        The folder the new-workflow <C>WORKING DIRECTORY</C> picker opens at (and
+        the value its placeholder reflects). Type an absolute path or <C>BROWSE</C>
+        the folder tree and pick a root with <C>✓ USE THIS</C>. Set it per machine
+        — useful when your projects don't live under <C>~/Projects</C> (e.g. a Mac).
+        Leave blank to fall back to <C>~/Projects</C>, then your home folder.
+      </p>
+    ),
+  },
+  'settings.media-unconfined': {
+    title: 'Media access',
+    body: (
+      <p>
+        Governs the Media Studio's file reach. <C>UNCONFINED</C> (default) lets
+        ffmpeg ops read any path and write output anywhere — what makes the studio
+        a general tool for files on an SMB mount or outside a workflow. <C>CONFINED</C>
+        restricts ops to the workflow folder plus Arco's import scratch (so
+        picker-imported files still work). Switch to Confined on a tunnel-exposed
+        Arco. Either way, output is uniquified and never overwrites the source.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
+  'settings.enabled-providers': {
+    manualSection: 'settings-providers',
+    title: 'Enabled providers',
+    body: (
+      <p>
+        Per-provider on/off toggle. Disabled providers are hidden from the
+        workflow creator and Handoff/Spawn dialogs entirely — useful if you
+        don't want, say, Gemini cluttering the picker.
+      </p>
+    ),
+  },
+  'settings.authentication': {
+    manualSection: 'settings-providers',
+    title: 'Authentication',
+    body: (
+      <>
+        <p>
+          Per-provider auth state + login button. Each provider authenticates
+          independently. <C>LIVE</C> chip = authed; <C>LOG IN</C> button
+          starts the auth flow (browser OAuth for Claude/Gemini; ChatGPT
+          OAuth for Codex; gh-cli flow for GitHub).
+        </p>
+        <p>
+          Ollama, llama.cpp, LM Studio and Strata are auth-less; the button reads <C>HELP</C> and
+          opens troubleshooting tips. Strata lists configured profiles; LIVE does not
+          mean their weights are resident in VRAM. After FREE VRAM, models remain
+          available on demand. Antigravity isn't listed — its auth lives
+          inside the desktop app. For Antigravity, unavailable usually means the
+          app is not launched, <C>ANTIGRAVITY_BINARY</C> is wrong, the isolated
+          profile is not signed in, <C>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</C> is
+          needed, or the server was restarted in-app without picking up external
+          env changes.
+        </p>
+      </>
+    ),
+  },
+  'settings.endpoint-discovery': {
+    title: 'Discover endpoints',
+    body: (
+      <>
+        <p>
+          Probes your tailscale peers and <C>localhost</C> for a reachable
+          Ollama (<C>/api/tags</C>) or OpenAI-compatible (<C>/v1/models</C>)
+          endpoint on a small fixed port list (<C>11434</C> + <C>8000–8010</C>),
+          so your workstation's Ollama over Tailscale shows up without typing a
+          base URL. Click a result to fill the endpoint field — you still hit
+          the field to Save. It never auto-switches.
+        </p>
+        <p>
+          Operator-triggered only (no background scanning), private IP ranges
+          only, with a 60s result cache. If <C>tailscale</C> isn't installed it
+          still probes localhost.
+        </p>
+      </>
+    ),
+  },
+  'settings.codex-profiles': {
+    title: 'Codex profiles',
+    body: (
+      <>
+        <p>
+          Multiple Codex identities, each pinned to its own{' '}
+          <C>CODEX_HOME</C> directory so they authenticate independently. Add{' '}
+          <C>Work</C> / <C>Home</C> (or arbitrary) profiles to route different
+          tabs through separate ChatGPT accounts and rate limits.
+        </p>
+        <p>
+          Each row carries an id, label, short label (the 4-char chip shown in
+          the dialogs' ACCOUNT picker), and live-auth status. The profile a tab
+          uses is chosen at New / Spawn / Handoff / Review time via the ACCOUNT
+          field, which only appears when more than one profile is configured.
+        </p>
+      </>
+    ),
+    manualSection: 'provider-codex',
+  },
+  'settings.zai-api-key': {
+    title: 'Z.ai API key',
+    body: (
+      <>
+        <p>
+          API key for the Z.ai GLM provider (Arco&apos;s 8th provider) —
+          1M-context GLM models served on either zai transport: <C>native</C>{' '}
+          (a direct Chat Completions worker) or <C>appserver</C> (the Codex
+          app-server path behind a loopback Responses proxy). Stored as{' '}
+          <C>ZAI_API_KEY</C>; the STATUS line shows where the key
+          resolved from (<C>env</C> / <C>file</C> / <C>command</C> /{' '}
+          <C>env-ref</C>).
+        </p>
+        <p>
+          Supports config-value interpolation — paste a literal key, a{' '}
+          <C>!shell-command</C>, or a <C>${'{ENV_VAR}'}</C> reference.{' '}
+          <C>CLEAR</C> removes a file-stored key; an env-supplied key stays
+          active.
+        </p>
+      </>
+    ),
+    manualSection: 'provider-codex',
+  },
+  'settings.claude-native-compact-default': {
+    title: 'Claude Native compaction default',
+    body: (
+      <p>
+        Starting state for Anthropic server-side compaction on new Claude Native
+        tabs (default <C>OFF</C>). The server-side beta fires mid-turn at a fixed
+        token threshold regardless of window size and can evict the working set
+        on large-window or Read-heavy coding tabs, so leaving it off uses
+        Arco&apos;s between-turn compaction instead. The per-tab CONFIG toggle
+        always wins.
+      </p>
+    ),
+    manualSection: 'config-tab',
+  },
+  'settings.llamacpp-catalog': {
+    title: 'llama.cpp catalog',
+    body: (
+      <>
+        <p>
+          Operator-managed list of GGUF loadouts at <C>~/.archon/llamacpp.json</C>.
+          One row per alias: <C>ggufPath</C>, <C>mmprojPath</C> (vision projector,
+          optional), <C>ctxSize</C>, <C>ngl</C> (GPU layers — 999 = all on GPU),
+          plus capability flags (tools / vision / thinking).
+        </p>
+        <p>
+          Per-row <C>Load now</C> pre-warms the singleton <C>llama-server</C> so
+          the next workflow turn doesn't pay the 20-30s cold-start. <C>Unload</C>{' '}
+          frees VRAM immediately. <C>chatTemplate</C> and <C>extraArgs</C> are
+          preserved across edits even if not exposed in the form.
+        </p>
+      </>
+    ),
+    manualSection: 'provider-llamacpp',
+  },
+  'settings.skills': {
+    title: 'Skills',
+    body: (
+      <p>
+        CRUD UI for project and global <C>SKILL.md</C> files. Arco injects a
+        compact manifest each turn; the agent reads full skill bodies only when
+        needed.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
+  'settings.handoff-prompts': {
+    title: 'Handoff prompts',
+    body: (
+      <p>
+        Edit the seed prompt used by Handoff / Spawn context export. Project
+        overrides live under <C>{'<cwd>/.archon/'}</C>; validation warns if a
+        template drops required handoff sentinels.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
+  'settings.transport-defaults': {
+    title: 'Transport defaults',
+    body: (
+      <>
+        <p>
+          Cascade defaults for per-tab transport toggles. Two independent
+          knobs:
+        </p>
+        <ul>
+          <li>
+            <strong>Claude</strong> — <C>cli</C> per-turn <C>claude</C> spawn
+            (full Claude Code feature surface, MCP / hooks / agents) vs{' '}
+            <C>native</C> long-lived in-process worker via{' '}
+            <C>@anthropic-ai/sdk</C> (operator-armed plan-mode, parallel{' '}
+            <C>Task</C> sub-agents, server-side compaction + auto-handoff).
+          </li>
+          <li>
+            <strong>Codex</strong> — <C>exec</C> per-turn spawn vs{' '}
+            <C>app-server</C> long-lived per-tab process (structured{' '}
+            <C>turn/interrupt</C> cancel and non-destructive{' '}
+            <C>turn/steer</C> mid-turn input).
+          </li>
+        </ul>
+        <p>
+          Per-tab CONFIG settings override these. Reviewers and handoff seeds
+          always run on the default transport regardless. Project-level{' '}
+          <C>{'<cwd>/.archon/settings.json'}</C> overrides this global value
+          for tabs in that cwd.
+        </p>
+      </>
+    ),
+    manualSection: 'config-tab',
+  },
+  'settings.auto-handoff-defaults': {
+    title: 'Auto-handoff defaults',
+    body: (
+      <>
+        <p>
+          Starting auto-handoff state for newly-created tabs. Arco
+          auto-rotates to a fresh session at the <C>AUTO</C> token threshold
+          (and warns at <C>WARN</C>) when the provider has a trusted context-fill
+          signal. Disabling it leans on provider compact or manual Handoff instead.
+        </p>
+        <p>
+          The per-tab <strong>AUTO-HANDOFF</strong> control in the CONFIG tab
+          always wins — this only seeds tabs that have never been touched.
+          Project-level <C>{'<cwd>/.archon/settings.json'}</C> overrides this
+          global value for tabs in that cwd.
+        </p>
+      </>
+    ),
+    manualSection: 'config-tab',
+  },
+  'settings.catalog': {
+    title: 'Model catalog',
+    body: (
+      <p>
+        Free-form markdown file (<C>~/.archon/models.md</C>) for documenting
+        common conventions, preferred models per task type, project notes —
+        whatever you want available across workflows. Click <C>EDIT</C> to
+        modify; saved to disk on commit.
+      </p>
+    ),
+  },
+  'settings.cli-versions': {
+    title: 'Provider versions',
+    manualSection: 'provider-updates',
+    body: (
+      <p>
+        Detected versions of the provider CLIs (Claude / Gemini / Codex) and
+        Ollama and Strata engines, alongside the upstream latest (npm registry / GitHub
+        Releases). Re-probed every 4 hours; the header chips paint warning-color
+        when outdated, and clicking them runs the installer (CLIs) or opens the
+        themed releases modal (Ollama), or upstream release notes (Strata). Strata updates are manual and do not change Arco's build.
+      </p>
+    ),
+  },
+};

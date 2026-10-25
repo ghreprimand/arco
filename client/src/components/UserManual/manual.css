@@ -1,0 +1,16 @@
+/* Help-only geometry; never changes the workbench underneath the dialog. */
+.manual-content { overflow-wrap: anywhere; }
+.manual-panel { max-height: 100%; min-width: 0; }
+.manual-nav input { box-sizing: border-box; }
+@media (max-width: 700px) {
+  .manual-overlay { padding: 10px !important; }
+  .manual-layout { flex-direction: column; }
+  .manual-nav {
+    width: auto !important;
+    max-height: 28%;
+    min-height: 100px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--color-border-hairline);
+  }
+  .manual-content { padding: 16px 18px 40px !important; }
+}
