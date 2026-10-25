@@ -2,23 +2,32 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { delimiter, join } from 'path';
 import { getClaudeAuthStatus, triggerAuthLogin } from './auth.js';
 
 // A fake `claude` on PATH whose `auth status --json` behavior is picked by the
-// FAKE_CLAUDE_MODE env var at call time (execFile inherits process.env).
+// FAKE_CLAUDE_MODE env var at call time (execFile inherits process.env). The
+// fixture is a Node script: on POSIX it runs through its shebang; on Windows it
+// sits behind an npm-style `claude.cmd` shim, which Arco resolves to the
+// script (server/src/windowsCommand.ts), as for a real npm-installed CLI.
 const binDir = mkdtempSync(join(tmpdir(), 'arco-auth-test-'));
-writeFileSync(join(binDir, 'claude'), `#!/bin/sh
-case "$FAKE_CLAUDE_MODE" in
-  in)      echo '{"loggedIn": true, "email": "a@b.c"}' ;;
-  out)     echo '{"loggedIn": false}'; exit 1 ;;
-  garbage) echo 'not json' ;;
-  crash)   exit 2 ;;
-esac
-`);
-chmodSync(join(binDir, 'claude'), 0o755);
+const fixture = `#!/usr/bin/env node
+switch (process.env.FAKE_CLAUDE_MODE) {
+  case 'in': console.log(JSON.stringify({ loggedIn: true, email: 'a@b.c' })); break;
+  case 'out': console.log(JSON.stringify({ loggedIn: false })); process.exitCode = 1; break;
+  case 'garbage': console.log('not json'); break;
+  case 'crash': process.exitCode = 2; break;
+}
+`;
+if (process.platform === 'win32') {
+  writeFileSync(join(binDir, 'claude-fixture.js'), fixture);
+  writeFileSync(join(binDir, 'claude.cmd'), '@"%dp0%\\claude-fixture.js" %*\r\n');
+} else {
+  writeFileSync(join(binDir, 'claude'), fixture);
+  chmodSync(join(binDir, 'claude'), 0o755);
+}
 const origPath = process.env.PATH;
-process.env.PATH = `${binDir}:${origPath}`;
+process.env.PATH = `${binDir}${delimiter}${origPath}`;
 
 test.after(() => {
   process.env.PATH = origPath;

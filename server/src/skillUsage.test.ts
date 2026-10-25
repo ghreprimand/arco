@@ -36,14 +36,15 @@ test('extractReadPath pulls file_path from a Read tool_use input JSON', () => {
 });
 
 test('canonicalSkillKey resolves to absolute', () => {
-  assert.equal(canonicalSkillKey('/a/b/../b/SKILL.md'), '/a/b/SKILL.md');
+  assert.equal(canonicalSkillKey('/a/b/../b/SKILL.md'), path.resolve('/a/b/SKILL.md'));
 });
 
 test('recordSkillRead increments count and stamps lastUsed; no-op for non-skill', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-skillusage-'));
   const file = path.join(dir, 'skill-usage.json');
   try {
-    const skill = '/repo/.arco/skills/deploy/SKILL.md';
+    // Usage is keyed by the resolved path (`D:\\repo\\...` on Windows).
+    const skill = path.resolve('/repo/.arco/skills/deploy/SKILL.md');
 
     await recordSkillRead(skill, 1000, file);
     let usage = await readSkillUsage(file);

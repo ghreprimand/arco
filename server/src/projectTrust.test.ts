@@ -5,6 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 
 import {
   canonicalizePath,
@@ -13,17 +14,21 @@ import {
   type TrustEntry,
 } from './projectTrust.js';
 
+// Paths are built with the platform's own separator and root (`D:\a\b` on Windows).
+const abs = (p: string) => path.resolve(p);
+
 test('canonicalizePath strips trailing separator, resolves absolute', () => {
-  assert.equal(canonicalizePath('/a/b/'), '/a/b');
-  assert.equal(canonicalizePath('/a/b'), '/a/b');
-  assert.equal(canonicalizePath('/'), '/'); // root keeps its single sep
+  assert.equal(canonicalizePath('/a/b/'), abs('/a/b'));
+  assert.equal(canonicalizePath('/a/b'), abs('/a/b'));
+  const root = path.parse(process.cwd()).root;
+  assert.equal(canonicalizePath(root), root); // root keeps its single sep
 });
 
 test('isAncestorOrSelf is segment-aware', () => {
-  assert.equal(isAncestorOrSelf('/a/b', '/a/b'), true, 'self matches');
-  assert.equal(isAncestorOrSelf('/a', '/a/b/c'), true, 'parent matches');
-  assert.equal(isAncestorOrSelf('/a/bc', '/a/bcd'), false, 'no prefix-segment false match');
-  assert.equal(isAncestorOrSelf('/a/b/c', '/a/b'), false, 'child is not ancestor of parent');
+  assert.equal(isAncestorOrSelf(abs('/a/b'), abs('/a/b')), true, 'self matches');
+  assert.equal(isAncestorOrSelf(abs('/a'), abs('/a/b/c')), true, 'parent matches');
+  assert.equal(isAncestorOrSelf(abs('/a/bc'), abs('/a/bcd')), false, 'no prefix-segment false match');
+  assert.equal(isAncestorOrSelf(abs('/a/b/c'), abs('/a/b')), false, 'child is not ancestor of parent');
 });
 
 test('decideTrust falls back to the user-scope default when no entry matches', () => {

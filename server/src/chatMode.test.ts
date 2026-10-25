@@ -187,6 +187,7 @@ test('incognito cwd is a private per-process dir, not the shared temp root', asy
   assert.ok(st.isDirectory());
   // World-writable /tmp let another user plant CLAUDE.md / AGENTS.md /
   // .claude/settings.json that provider CLIs loaded for a "private" chat.
-  assert.equal(st.mode & 0o777, 0o700);
+  // Windows has no POSIX permission bits; the directory is still per-process.
+  if (process.platform !== 'win32') assert.equal(st.mode & 0o777, 0o700);
   assert.deepEqual(await readdir(dir), [], 'Arco writes nothing into it');
 });

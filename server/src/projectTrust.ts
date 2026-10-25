@@ -55,7 +55,9 @@ export interface TrustFile {
 // as the paths they typed. Callers pass real cwds, which are already absolute.
 export function canonicalizePath(p: string): string {
   const resolved = path.resolve(p);
-  if (resolved.length > 1 && resolved.endsWith(path.sep)) return resolved.slice(0, -1);
+  // A filesystem root keeps its separator (`/`, and `C:\` on Windows, where
+  // `C:` alone would mean the drive's current directory).
+  if (resolved !== path.parse(resolved).root && resolved.endsWith(path.sep)) return resolved.slice(0, -1);
   return resolved;
 }
 

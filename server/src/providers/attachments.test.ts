@@ -63,7 +63,10 @@ test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; or
   const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
   try {
     // ':' in the name — ImageMagick must not read it as a format prefix.
-    const src = join(dir, 'shot at 10:00.png');
+    // Windows forbids ':' in file names (it names an NTFS stream), so there
+    // the name keeps only the spaces.
+    const name = process.platform === 'win32' ? 'shot at 10 00.png' : 'shot at 10:00.png';
+    const src = join(dir, name);
     gen(src, ['-size', '3000x1000', 'gradient:red-blue']);
     const before = statSync(src).size;
     const out = await deriveModelImage(src);
@@ -76,7 +79,7 @@ test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; or
     assert.equal(modelImagePath(src), out);
     // Derived copies never derive again; no tmp files left behind.
     assert.equal(await deriveModelImage(out!), null);
-    assert.deepEqual(readdirSync(dir).sort(), ['shot at 10:00.png', 'shot at 10:00.png.model.png']);
+    assert.deepEqual(readdirSync(dir).sort(), [name, `${name}.model.png`]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -19,6 +19,10 @@ import { join } from 'node:path';
 
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-oauth-test-'));
 process.env.HOME = sandbox;
+// os.homedir() reads USERPROFILE on Windows, and an exported ARCO_HOME would
+// win over HOME; point the Arco home at the sandbox directly.
+process.env.USERPROFILE = sandbox;
+process.env.ARCO_HOME = join(sandbox, '.arco');
 
 const { forceRefreshTokens, refreshTokens } = await import('./oauth.js');
 const { loadTokens } = await import('./auth.js');
