@@ -12,6 +12,7 @@ COPY tsconfig.json ./
 COPY shared/ shared/
 COPY server/ server/
 COPY client/ client/
+COPY scripts/build-fs.mjs scripts/build-fs.mjs
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24-bookworm-slim AS runtime

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --conditions development src/index.ts",
-    "build": "rm -rf dist && tsc && mkdir -p dist/defaults && cp -r src/defaults/. dist/defaults/ && mkdir -p dist/voice && cp src/voice/recognizer.py src/voice/capture-ready.wav dist/voice/",
+    "build": "node ../scripts/build-fs.mjs rm dist && tsc && node ../scripts/build-fs.mjs copy src/defaults dist/defaults && node ../scripts/build-fs.mjs copy src/voice/recognizer.py src/voice/capture-ready.wav dist/voice",
     "typecheck": "tsc --noEmit",
     "test:oauth": "node --conditions development --import tsx --test src/providers/claude-native/oauth.test.ts",
     "test:cluster-activity": "node --conditions development --import tsx --test src/management/clusterActivity.test.ts",

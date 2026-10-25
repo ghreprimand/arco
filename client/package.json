@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "rm -rf dist && tsc && vite build",
+    "build": "node ../scripts/build-fs.mjs rm dist && tsc && vite build",
     "preview": "vite preview",
     "dev:phosphor-demo": "vite --config vite.phosphor.config.ts",
     "build:phosphor-demo": "tsc --noEmit && vite build --config vite.phosphor.config.ts",

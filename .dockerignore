@@ -13,6 +13,7 @@
 !scripts/
 !scripts/container/
 !scripts/container/entrypoint.sh
+!scripts/build-fs.mjs
 # In-app documentation opened from the help (DocViewer through /api/docs).
 !docs/
 !docs/*.md
