@@ -10,8 +10,9 @@ import wave
 
 import numpy as np
 
-root = Path(os.environ.get('ARCO_VOICE_HOME') or os.environ.get('ARCHON_VOICE_HOME') or Path.home() / '.archon' / 'voice')
-python = root / 'venv' / 'bin' / 'python'
+home = os.environ.get('ARCO_HOME') or os.environ.get('ARCHON_HOME')
+root = Path(os.environ.get('ARCO_VOICE_HOME') or os.environ.get('ARCHON_VOICE_HOME') or (Path(home) / 'voice' if home else Path.home() / '.archon' / 'voice'))
+python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
 script = Path(__file__).resolve().parents[2] / 'server/src/voice/recognizer.py'
 children = []
 

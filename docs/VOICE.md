@@ -702,6 +702,23 @@ absent. `uv` is required for installation.
 `ARCHON_VOICE_HOME` can select a different asset directory. Installation starts
 no listener, microphone capture or model service.
 
+Setup on Linux, macOS and Windows: `npm run voice:setup` runs
+`scripts/voice/run.mjs`, which starts `scripts/voice/setup.py` through
+`uv run --python 3.12`, so no system Python is required; uv downloads a Python
+3.12 runtime when none is present. The voice home is `ARCO_VOICE_HOME`, then
+`ARCHON_VOICE_HOME`, then `voice` inside the Arco home (`ARCO_HOME`, then
+`ARCHON_HOME`, then `~/.archon`, which is `%USERPROFILE%\.archon` on Windows).
+The venv interpreter is `venv/bin/python`, or `venv\Scripts\python.exe` on
+Windows. Each model archive is downloaded from its upstream release and
+checked against a SHA-256 pinned in `setup.py`; a mismatch stops the install
+before anything is unpacked into the voice home. Parakeet v3 is skipped on
+Windows, where the recognizer keeps Moonshine. Every run prints and rewrites
+`NOTICES.md` in the voice home: each model with its license, upstream source
+and checksum, plus every Python package in the voice environment with the
+license it declares. Arco downloads these components at the operator's request
+and does not redistribute them. Re-running the command skips models already
+present. About 1 GB is downloaded on a first Linux or macOS run.
+
 Open **VOICE OFF** in the header and choose **ENABLE
 HANDS-FREE**. Allow microphone access. The page must use localhost or HTTPS.
 `Ctrl/Cmd+Shift+Space` also toggles the mode. The indicator remains visible in

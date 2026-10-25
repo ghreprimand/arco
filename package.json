@@ -229,7 +229,7 @@
     "smoke:operator-questions": "node --conditions development --import tsx scripts/smoke/operator-questions.ts",
     "test:strata-profiles": "node --conditions development --import tsx --test scripts/smoke/strata-profiles.test.ts",
     "smoke:strata-profiles": "node --conditions development --import tsx scripts/smoke/strata-profiles.ts",
-    "voice:setup": "python3 scripts/voice/setup.py",
+    "voice:setup": "node scripts/voice/run.mjs setup.py",
     "voice:preview": "node --conditions development --import tsx scripts/voice/preview.ts",
     "test:voice": "tsx --tsconfig client/tsconfig.json --conditions development --test client/src/voice/voice.test.ts client/src/voice/computerRequest.test.ts client/src/voice/screen.test.ts server/src/voice/sessions.test.ts server/src/voice/operatorTools.test.ts server/src/voice/turnWatchdog.test.ts server/src/voice/watchStore.test.ts client/src/voice/usage.test.ts server/src/http/voiceRoutes.test.ts server/src/voice/mailRuleStore.test.ts server/src/ws/conditionalClaim.test.ts client/src/voice/mailRules.test.ts server/src/voice/activityStore.test.ts client/src/voice/activity.test.ts server/src/voice/conditionStore.test.ts server/src/voice/conditionContext.test.ts server/src/voice/conditionReply.test.ts",
     "smoke:voice": "node --conditions development --import tsx scripts/smoke/voice.ts",
