@@ -1,11 +1,11 @@
 // File-size budget guardrail for Archon's project-wide size refactor.
 //
 // Why: a handful of monoliths (index.ts, RightPanel.tsx, protocol.ts, ...) drove
-// merge pain and oversized hot-reload blast radius. docs/FILE_SIZE_REFACTOR_PLAN.md
-// breaks them up; this script keeps them broken up. It fails CI when a hand-written
+// merge pain and oversized hot-reload blast radius. The size refactor breaks
+// them up; this script keeps them broken up. It fails CI when a hand-written
 // source file crosses the hard budget, so the monoliths cannot silently regrow.
 //
-// Buckets (see plan §4):
+// Buckets:
 //   - code (.ts/.tsx/.js/.mjs/.css): HARD budget — exit 1 when exceeded.
 //   - docs (.md):                    soft budget — warn only (unless --strict-docs).
 //   - data (.json):                  soft budget — warn only.
@@ -133,7 +133,7 @@ function main(): void {
   if (codeOver.length) {
     console.error(`✗  ${codeOver.length} source file(s) over the ${CODE_BUDGET}-line hard budget:`);
     for (const e of codeOver) console.error(`     ${String(e.lines).padStart(6)}  ${e.path}`);
-    console.error('\nSee docs/FILE_SIZE_REFACTOR_PLAN.md. Split these before they regrow.');
+    console.error('\nSplit these before they regrow.');
     process.exit(1);
   }
 

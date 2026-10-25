@@ -17,6 +17,21 @@ npm run dev
 
 Open <http://localhost:5173>.
 
+**Requirements.** Node.js 24 or newer (`package.json` `engines`), npm, Git, and a C/C++ toolchain with Python 3 for the `better-sqlite3` and `node-pty` native modules when no prebuilt binary matches the platform (Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows). Provider CLIs (`claude`, `codex`, `gemini`, `cursor-agent`, ...) are installed separately from their vendors.
+
+**`NODE_ENV=production` drops dev dependencies.** With `NODE_ENV=production` exported in the shell, `npm ci` and `npm install` skip `devDependencies` (TypeScript, Vite, tsx), so `npm run build` fails with missing type definitions. Install with `env -u NODE_ENV npm ci --include=dev` (POSIX) or `npm ci --include=dev` after clearing the variable (PowerShell: `Remove-Item Env:NODE_ENV`).
+
+**Platform notes.**
+
+| | Linux | macOS | Windows |
+|---|---|---|---|
+| Arco home | `~/.archon` | `~/.archon` | `%USERPROFILE%\.archon` |
+| Terminal shell | `$SHELL`, else `/bin/bash` | `$SHELL`, else `/bin/zsh` | `powershell.exe` |
+| `npm run dev`, `npm start` | yes | yes | yes |
+| `scripts/archon` launcher, `archon service` | yes (bash, systemd `--user`) | launcher yes; service is manual (see [`SERVICE_MODE.md`](SERVICE_MODE.md)) | no; use `npm start` |
+
+`ARCO_HOME` (or `ARCHON_HOME`) relocates the whole Arco home. The internal directory name stays `.archon` for state compatibility with Archon. On Windows, provider CLIs installed through npm are `.cmd` shims; native-run acceptance on Windows is pending.
+
 **npm 12 and the native deps.** npm 12 blocks install scripts unless the root `package.json` `allowScripts` block covers them; it does, so `npm install` suffices on a fresh clone — though on npm 12 prefer `npm ci`, which builds the same natives without renormalizing `package-lock.json` (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md#setup) for why that churn must not be committed). The pins are version-keyed, so a dep bump can un-cover a package — `npm install` warns (`N packages had install scripts blocked…`) and `npm install-scripts ls` shows the state. Approving after an install (`npm install-scripts approve <pkg>`) records the entry but does **not** build; follow it with `npm rebuild better-sqlite3 node-pty`.
 
 The failure mode to recognize: an unbuilt `better-sqlite3` doesn't break the build or the boot — it only kills transcript recall. Check the boot log.
@@ -43,6 +58,14 @@ Builds:
 - `shared/dist/` — TS protocol types
 - `server/dist/` — compiled server, ready for `node dist/index.js`
 - `client/dist/` — Vite-bundled static frontend
+
+To run the build in the foreground on any platform:
+
+```bash
+npm start           # server + built client on http://localhost:3001
+```
+
+`npm start` (`scripts/start.mjs`) sets `ARCHON_SERVE_CLIENT=1` and `NODE_ENV=production` unless they are already set, then runs `server/dist/index.js` from the repository root. It refuses to start until `npm run build` has produced `server/dist` and `client/dist`.
 
 For a durable, restartable production runtime use **service mode**: the compiled server serves `client/dist` itself (gated on `ARCHON_SERVE_CLIENT=1`) under a systemd `--user` unit that restarts on crash.
 
@@ -120,7 +143,7 @@ The internal name remains Archon for state compatibility: variables keep the `AR
 | `ARCHON_PORT` | `3001` | Server HTTP/WS port |
 | `ARCHON_HOST` | `127.0.0.1` | Server bind address. Loopback by default — the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCHON_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only — never leave it on `archon.service` |
-| `ARCHON_HOME` | `~/.archon` | Relocates only the MCP registry (`mcp/registry.json`) and `archon backup`'s source; every other store (clusters, chats, settings, auth, …) is hard-wired to `~/.archon` |
+| `ARCHON_HOME` | `~/.archon` (`%USERPROFILE%\.archon` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and `archon backup`'s source. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.archon/` |
 | `ARCHON_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset → Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 | `NODE_ENV` | unset | The service unit sets `production`; this rejects test-only HTTP routes (e.g. the cluster `_test_insert` smoke hook) and switches identity to `systemd` service mode |
 | `OLLAMA_URL_BASE` | `http://localhost:11434` | Ollama daemon endpoint |
@@ -143,6 +166,7 @@ The internal name remains Archon for state compatibility: variables keep the `AR
 | `ARCHON_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present |
 | `ARCHON_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
 | `ZAI_API_KEY` | unset | Z.ai Coding Plan key. Overrides the stored Settings key and disables that field; the stored key (not the env var) accepts `!cmd` / `${ENV}` interpolation |
+| `ARCHON_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
 | `ARCHON_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata / Z.ai native, and Ollama/Strata Chat web toggles) |
 | `ARCHON_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
 | `ARCHON_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the Camoufox-driven Codex usage probe and the local `WebFetch` stealth fallback |
