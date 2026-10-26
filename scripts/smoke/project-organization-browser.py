@@ -17,8 +17,8 @@ Scenarios:
      relocation says why and changes nothing; Relocate keeps the name, pin and id,
      registers the new folder in place, lists sessions saved under the old
      location without Resume, and never lists the old path again
-  5  Create makes one empty folder in the scan folder and adds it; an existing name
-     or an unsafe name is refused; without a scan folder the form is disabled
+  5  Create makes one empty folder at an explicit path or inside the scan folder;
+     existing targets and unsafe names are refused; an absolute path needs no scan folder
   6  the filesystem root and the home folder cannot be added
   7  an unreadable record file is reported, left untouched, and disables only the
      organization controls
@@ -90,13 +90,13 @@ def card(page, label):
     return page.get_by_role('listitem', name=f'Project {label}', exact=True)
 
 
-async def group_names(page, heading_prefix):
-    """Card labels inside the Home group whose heading starts with heading_prefix."""
-    return await page.evaluate("""(prefix) => {
-      const h = [...document.querySelectorAll('main h3')].find((x) => x.textContent.startsWith(prefix));
-      if (!h) return null;
-      return [...h.closest('section').querySelectorAll('li[aria-label^="Project "]')].map((li) => li.getAttribute('aria-label').slice(8));
-    }""", heading_prefix)
+async def group_names(page, group_key):
+    """Group identity survives Classic's transient heading-text reveal."""
+    return await page.evaluate("""(key) => {
+      const heading = document.getElementById(`home-group-${key}`);
+      if (!heading) return null;
+      return [...heading.closest('section').querySelectorAll('li[aria-label^="Project "]')].map((li) => li.getAttribute('aria-label').slice(8));
+    }""", group_key)
 
 
 async def status_text(page):
@@ -128,8 +128,8 @@ async def scenario_pin_rename_persist(playwright, server):
         app = str(server.projects / 'app')
         assert app in before, f'no record minted for the registered project: {list(before)}'
         await page.get_by_role('button', name='Pin app', exact=True).click()
-        await page.wait_for_function("() => [...document.querySelectorAll('main h3')].some((x) => x.textContent.startsWith('Pinned'))", timeout=10000)
-        assert await group_names(page, 'Pinned') == ['app']
+        await page.wait_for_function("() => !!document.getElementById('home-group-pinned')", timeout=10000)
+        assert await group_names(page, 'pinned') == ['app']
         await manage(page, 'app')
         await page.get_by_label('Display name').fill('Budget tracker')
         await page.get_by_role('button', name='Save name').click()
@@ -142,7 +142,7 @@ async def scenario_pin_rename_persist(playwright, server):
     b, page = await open_home(playwright, server)
     try:
         await card(page, 'Budget tracker').wait_for(timeout=10000)
-        assert await group_names(page, 'Pinned') == ['Budget tracker']
+        assert await group_names(page, 'pinned') == ['Budget tracker']
         assert await card(page, 'Budget tracker').get_by_text('Folder name: app').count() == 1
         after = {r['path']: r['id'] for r in records(server)}
         assert after[app] == before[app], 'the project id changed across a restart'
@@ -152,7 +152,7 @@ async def scenario_pin_rename_persist(playwright, server):
         await page.get_by_role('button', name='Save name').click()
         await card(page, 'app').wait_for(timeout=10000)
         await page.get_by_role('button', name='Unpin app', exact=True).click()
-        await page.wait_for_function("() => ![...document.querySelectorAll('main h3')].some((x) => x.textContent.startsWith('Pinned'))", timeout=10000)
+        await page.wait_for_function("() => !document.getElementById('home-group-pinned')", timeout=10000)
         assert await launched(page) == 0
     finally:
         await b.close()
@@ -169,12 +169,12 @@ async def scenario_archive(playwright, server):
         await page.get_by_role('button', name='Show archived (1)').wait_for(timeout=10000)
         assert await card(page, 'archive-me').count() == 0, 'an archived project is still in the main lists'
         await page.get_by_role('button', name='Show archived (1)').click()
-        assert await group_names(page, 'Archived') == ['archive-me']
+        assert await group_names(page, 'archived') == ['archive-me']
         await manage(page, 'archive-me')
         await page.get_by_role('button', name='Unarchive', exact=True).click()
-        await page.wait_for_function("() => ![...document.querySelectorAll('main h3')].some((x) => x.textContent.startsWith('Archived'))", timeout=10000)
+        await page.wait_for_function("() => !document.getElementById('home-group-archived')", timeout=10000)
         await page.get_by_role('heading', name=re.compile(r'^Your projects')).wait_for()
-        assert 'archive-me' in await group_names(page, 'Your projects')
+        assert 'archive-me' in await group_names(page, 'registered')
         assert folder.is_dir()
     finally:
         await b.close()
@@ -221,8 +221,8 @@ async def scenario_relocate(playwright, server):
         assert (await add_folder(page, old)).startswith('Added')
         await page.get_by_role('button', name='Pin client-site', exact=True).click()
         # Pinning moves the card to the Pinned group, which remounts it; open Manage only afterwards.
-        await page.wait_for_function("() => [...document.querySelectorAll('main h3')].some((x) => x.textContent.startsWith('Pinned'))", timeout=15000)
-        assert await group_names(page, 'Pinned') == ['client-site']
+        await page.wait_for_function("() => !!document.getElementById('home-group-pinned')", timeout=15000)
+        assert await group_names(page, 'pinned') == ['client-site']
         await manage(page, 'client-site')
         await page.get_by_label('Display name').fill('Client site')
         await page.get_by_role('button', name='Save name').click()
@@ -247,7 +247,7 @@ async def scenario_relocate(playwright, server):
         moved = card(page, 'Client site')
         await moved.get_by_text(f'Moved from {old}').wait_for(timeout=10000)
         assert await page.get_by_role('button', name='New session in Client site').is_enabled()
-        assert await group_names(page, 'Pinned') == ['Client site']
+        assert await group_names(page, 'pinned') == ['Client site']
         assert next(r for r in records(server) if r['id'] == project_id)['path'] == str(new), 'relocation changed the project id'
         assert settings_projects(server) == [str(new) if p == str(old) else p for p in order], 'registration not replaced in place'
         listed = await page.evaluate("() => fetch('/api/projects').then((r) => r.json()).then((j) => j.projects.map((p) => p.path))")
@@ -282,7 +282,7 @@ async def scenario_create(playwright, server):
         await page.get_by_role('button', name='Create', exact=True).click()
         await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Created and added')", timeout=10000)
         assert (scan / 'new-idea').is_dir() and not any((scan / 'new-idea').iterdir())
-        assert 'new-idea' in await group_names(page, 'Your projects')
+        assert 'new-idea' in await group_names(page, 'registered')
         for name, expect in (('new-idea', 'already exists'), ('../escape', 'folder name')):
             await page.locator('#home-create').fill(name)
             await page.get_by_role('button', name='Create', exact=True).click()
