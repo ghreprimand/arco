@@ -6,8 +6,22 @@ useDefault = true
 id = "generic-api-key"
 
 [[rules.allowlists]]
-description = "Public installed-app registration shipped by Google Gemini CLI; not a user credential. See docs/THIRD_PARTY.md."
+description = "Public installed-app registration shipped by Google Gemini CLI, used by both Gemini sign-in implementations; not a user credential. See docs/THIRD_PARTY.md."
 condition = "AND"
-paths = ['''(?:^|/)server/src/providers/gemini-native/auth\.ts$''']
+paths = ['''(?:^|/)server/src/providers/gemini-native/auth\.ts$''', '''(?:^|/)scripts/antigravity-oauth\.mjs$''']
 regexTarget = "secret"
 regexes = ["^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$"]
+
+[[rules.allowlists]]
+description = "Fake token in the backup redaction fixture; it exists to prove that secrets are removed."
+condition = "AND"
+paths = ['''(?:^|/)scripts/smoke/backup-snapshot\.ts$''']
+regexTarget = "secret"
+regexes = ["^ghp_SECRET123$"]
+
+[[rules.allowlists]]
+description = "Prose in a comment (the words 'token: mutation/destruction'); an entropy false positive."
+condition = "AND"
+paths = ['''(?:^|/)server/src/mcp/client\.ts$''']
+regexTarget = "secret"
+regexes = ["^mutation/destruction$"]

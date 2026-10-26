@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 const audit = resolve('scripts/public-audit.mjs');
 // Required for new history; the full form is the only one exempt from a
@@ -240,26 +240,35 @@ test('installed hooks reject private staged content and commit messages before c
   writeFileSync(join(cwd, '.git/public-push-hold'), 'Fixture hold');
   assert.match(hook(update(tip)).stderr, /historical-review-unresolved/);
 }));
-test('independent scanner exemption requires both the exact public value and file', { skip: process.env.ARCO_TEST_GITLEAKS !== '1' }, () => {
+test('independent scanner exemptions require both the exact value and file', { skip: process.env.ARCO_TEST_GITLEAKS !== '1' }, () => {
   const config = readFileSync('.gitleaks.toml', 'utf8');
   const value = config.match(/regexes = \["\^(.*?)\$"\]/)?.[1];
   assert.ok(value);
-  const source = 'server/src/providers/gemini-native/auth.ts';
+  const fixtures = [
+    { file: 'server/src/providers/gemini-native/auth.ts', value, line: token => `const CLIENT_SECRET = '${token}';` },
+    { file: 'scripts/antigravity-oauth.mjs', value, line: token => `const CLIENT_SECRET = '${token}';` },
+    { file: 'scripts/smoke/backup-snapshot.ts', value: 'ghp_SECRET123', line: token => `const settings = { githubToken: '${token}' };` },
+    { file: 'server/src/mcp/client.ts', value: 'mutation/destruction', line: token => `// Rationale per token: ${token} verbs (write/delete/remove/drop/` },
+  ];
   const directory = mkdtempSync(join(tmpdir(), 'arco-secret-scan-'));
   const image = 'ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f';
   try {
-    for (const [name, file, token, expected] of [
-      ['known-public', source, value, 0],
-      ['different-value', source, value.slice(0, -1) + 'A', 1],
-      ['different-file', 'other.ts', value, 1],
-    ]) {
-      const root = join(directory, name);
-      mkdirSync(dirname(join(root, file)), { recursive: true });
-      writeFileSync(join(root, '.gitleaks.toml'), config);
-      writeFileSync(join(root, file), `const CLIENT_SECRET = '${token}';\n`);
-      const result = spawnSync('docker', ['run', '--rm', '-v', `${root}:/repo:ro`, image, 'dir', '/repo', '--config', '/repo/.gitleaks.toml', '--redact', '--no-banner'], { encoding: 'utf8' });
-      // Scanner output is captured and redacted; fixture values are never logged.
-      assert.equal(result.status, expected, `Independent scanner scope: ${name}`);
+    for (const fixture of fixtures) {
+      for (const [name, file, token, expected] of [
+        ['known-public', fixture.file, fixture.value, 0],
+        ['different-value', fixture.file, fixture.value.slice(0, -1) + 'A', 1],
+        ['different-file', 'other.ts', fixture.value, 1],
+      ]) {
+        // The prose fixture has no meaningful altered value.
+        if (fixture.file.endsWith('mcp/client.ts') && name === 'different-value') continue;
+        const root = join(directory, `${basename(fixture.file)}-${name}`);
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, '.gitleaks.toml'), config);
+        writeFileSync(join(root, file), `${fixture.line(token)}\n`);
+        const result = spawnSync('docker', ['run', '--rm', '-v', `${root}:/repo:ro`, image, 'dir', '/repo', '--config', '/repo/.gitleaks.toml', '--redact', '--no-banner'], { encoding: 'utf8' });
+        // Scanner output is captured and redacted; fixture values are never logged.
+        assert.equal(result.status, expected, `Independent scanner scope: ${fixture.file} ${name}`);
+      }
     }
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
