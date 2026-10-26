@@ -124,7 +124,11 @@ export const gettingStarted: Section[] = [
         </ol>
         <p>
           You can authenticate additional providers at any time from{' '}
-          <Code>⚙ SETTINGS</Code> in the top bar. Each provider is independent —
+          <Code>⚙ SETTINGS &gt; Providers and models</Code>, under Sign-in, accounts
+          and local endpoints. Appearance, Projects, Agents and clusters, Voice,
+          Files and media, and Advanced are the other task-based categories. Search
+          finds controls across categories; the control-location map is in
+          <Code>docs/SETTINGS.md</Code>. Each provider is independent —
           Claude can be live while Codex is unauthenticated, etc.
         </p>
         <Note kind="warn">
@@ -141,8 +145,12 @@ export const gettingStarted: Section[] = [
     body: (
       <>
         <p>
-          Click the <Code>+</Code> tab in the tab bar (or press{' '}
-          <Kbd>Ctrl/Cmd+K</Kbd>) to open the workflow creator.
+          Start from <Code>HOME</Code>, which is the project landing page. Add an
+          existing folder or create one there, then use its project card's{' '}
+          <Code>New session</Code> action to open the workflow creator with that
+          folder selected. The <Code>HOME</Code> tab is also available when work is
+          open. The <Code>+</Code> tab or <Kbd>Ctrl/Cmd+K</Kbd> opens the creator
+          directly.
         </p>
         <p>Choose <strong>SINGLE WORKFLOW</strong> for the project form below.
           <strong> CHAT</strong> needs no cwd and offers saved or Incognito conversation;
@@ -188,7 +196,7 @@ export const gettingStarted: Section[] = [
           continue an existing conversation inside Arco.
         </p>
         <Note kind="tip">
-          The creator only shows providers that are both <em>enabled in Settings</em> and{' '}
+          The creator only shows providers that are both <em>enabled in Settings &gt; Providers and models</em> and{' '}
           <em>currently authenticated</em>. If a provider you expect is missing, check
           both gates.
         </Note>

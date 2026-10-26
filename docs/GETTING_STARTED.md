@@ -64,7 +64,8 @@ limitations.
 
 If no provider is authenticated, Arco opens the authentication overlay. Choose
 one of its listed providers and follow the login or API-key instructions. The
-same controls are available under **AUTHENTICATION** in Settings. CLI-based
+same controls are available under **Settings > Providers and models > Sign-in,
+accounts and local endpoints**. CLI-based
 providers may show a command to run in a terminal; finish the browser or device
 login flow, then return to Arco. For local providers such as Ollama, set the
 endpoint in Settings and make sure its service is running.
@@ -74,20 +75,28 @@ reachable local model endpoint. A connected indicator means Arco can reach the
 provider; it does not guarantee that a requested model is available or that a
 provider account has quota.
 
-## Start a project chat
+## Add a project and start a chat
 
-1. Open the workflow creator with the **+** tab button or Ctrl/Cmd+K.
-2. Select **SINGLE WORKFLOW**. Keep the mode as an Agent workflow for project
-tools, or choose **CHAT** for a saved conversation without a project folder.
-3. For an Agent workflow, enter the existing project folder in **WORKING
-DIRECTORY**, or use **BROWSE** to select it. Arco uses this folder as the
-workflow's working directory and project state root.
-4. Choose an authenticated provider and an available model. Select **SAFE** or
-**AUTO** permissions according to the trust level of that project. Use **SAFE**
-for an unfamiliar repository.
-5. Select **LAUNCH WORKFLOW**. Wait for the provider to connect, then send a
-small request in the composer. The first response confirms that the project,
-provider, and workflow are connected.
+The **HOME** view is the project landing page. Select **HOME** in the tab bar to
+return to it. Add an existing folder with **Add a project folder**, or create a
+folder with **Create a new project folder**. The project card offers **New
+session** and **New cluster** actions prefilled with that folder. Use **Saved
+sessions** to find and resume prior work, and **Manage...** to pin, rename,
+archive, relocate, or remove a registration. These list actions do not move or
+delete project files. Missing folders offer **Relocate...**.
+
+For a project chat, select **New session** on its card, or use **Start > New
+session** on HOME and choose a folder in the creator. Choose an authenticated
+provider and available model, then select **SAFE** or **AUTO** permissions for
+the project's trust level. Use **SAFE** for an unfamiliar repository. Select
+**LAUNCH WORKFLOW**, wait for the provider to connect, then send a small request
+in the composer.
+
+To register or set a default folder without leaving a workflow, open **Settings
+> Projects**. That category manages registered, scanned, and recent folders,
+the default working folder for new workflows, and project trust. The HOME
+project list is for finding and resuming work; the Settings category controls
+project registration and defaults.
 
 For a plain saved conversation without file or project tools, choose **CHAT** in
 the creator and select **START CHAT**. Saved Chat is the default; Incognito Chat

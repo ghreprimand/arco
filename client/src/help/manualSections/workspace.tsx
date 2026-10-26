@@ -151,6 +151,41 @@ export const workspace: Section[] = [
     ),
   },
   {
+    id: 'home',
+    group: 'The workspace',
+    title: 'Home and projects',
+    body: (
+      <>
+        <p>
+          <Code>HOME</Code> is the project landing page. It lists open work and
+          projects, including saved sessions for each project. Select{' '}
+          <Code>HOME</Code> in the tab bar to return to this view. Search filters
+          projects by name or folder; press <Kbd>/</Kbd> when not typing to focus
+          project search.
+        </p>
+        <p>
+          Add an existing folder or create a project folder from Home. A project
+          card can start a new session or cluster with its folder prefilled, open
+          saved sessions, and manage its display name, pin, archive state, or
+          location. Relocation updates the folder reference; it does not move the
+          folder. Removing a project from the list does not delete its files.
+        </p>
+        <p>
+          Use <Code>Settings &gt; Projects</Code> to manage registered, scanned,
+          and recent folders, choose the default working folder for new workflows,
+          and configure project trust. Home is for resuming work and starting from
+          a project card. The full category and control map is in{' '}
+          <Code>docs/SETTINGS.md</Code>.
+        </p>
+        <Note kind="tip">
+          If a folder is missing, its project card offers <Code>Relocate...</Code>.
+          Saved work stays associated with the project record; choose the folder's
+          new location to resume from it.
+        </Note>
+      </>
+    ),
+  },
+  {
     id: 'chat-panel',
     group: 'The workspace',
     title: 'The chat panel',
