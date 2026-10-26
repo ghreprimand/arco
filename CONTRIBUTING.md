@@ -4,6 +4,8 @@ Dev workflow, code-style notes, and how to extend Arco with a new provider, prim
 
 For the architecture map, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For terminology, see [`docs/GLOSSARY.md`](docs/GLOSSARY.md). For "don't regress X," see [`docs/GOTCHAS.md`](docs/GOTCHAS.md).
 
+Contributions are accepted under the repository's GPL-3.0-only license.
+
 ---
 
 ## Setup
