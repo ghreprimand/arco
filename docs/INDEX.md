@@ -5,6 +5,7 @@
 - [README](../README.md): project overview, provider list, platform status, and quick start.
 - [Getting started](GETTING_STARTED.md): install, connect a provider, start a chat, create a cluster, set up voice, and back up state.
 - [Development status](DEVELOPMENT_STATUS.md): open onboarding, portability, documentation, and release work.
+- [Third-party notices](THIRD_PARTY.md): bundled asset licenses and locally downloaded voice components.
 - [Documentation index](INDEX.md): the full reference list.
 
 ## Using Arco
