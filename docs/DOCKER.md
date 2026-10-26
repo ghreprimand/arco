@@ -5,8 +5,9 @@ container. Docker Desktop supplies the Linux runtime on Windows and macOS.
 
 ## Setup and local files
 
-Copy .env.example to .env. Set ARCO_PROJECTS_DIR to an existing project root.
-On Windows use forward slashes, for example C:/Projects.
+Copy `.env.example` to `.env`. The sample uses `./projects`; create it with
+`mkdir -p projects` on macOS, Linux, or WSL, or `New-Item -ItemType Directory -Force projects` in PowerShell. Alternatively, set `ARCO_PROJECTS_DIR` to an
+existing project root. On Windows use forward slashes, for example `C:/Projects`.
 
     docker compose up -d --build
 
@@ -48,10 +49,38 @@ models installed by `npm run voice:setup` are not part of the image.
 
 ## Persistence and permissions
 
-The arco-data volume is mounted at /data. HOME is /data/home, containing .arco,
-.codex and .claude. Uploads use /data/uploads. Container replacement preserves
-this volume. docker compose down preserves it; adding --volumes deletes it.
-Project files remain in the host bind mount.
+The `arco-data` volume is mounted at `/data`. `HOME` is `/data/home`, containing
+`.arco`, `.codex` and `.claude`. Uploads use `/data/uploads`. Container
+replacement preserves this volume. `docker compose down` preserves it; adding
+`--volumes` deletes it. Project files remain in the host bind mount.
+
+Compose reuses an existing `arco-data` volume when the project name is the same.
+Two checkouts with the same directory-derived project name can therefore share
+state. Use a distinct project name, for example `docker compose -p arco-clean up
+-d --build`, to isolate a fresh run. `docker compose down -v` deletes the named
+volume and its Arco home; use it only when that data should be discarded.
+
+### Back up the container home
+
+The application image does not include the repository's backup script or the
+`tsx` development dependency. Copy the home out of the stopped container, then
+run the backup commands from a host checkout with `ARCO_HOME` set to the copied
+directory. Choose a new local destination for `arco-home` each time.
+
+```bash
+container="$(docker compose ps --all -q arco)"
+docker compose stop arco
+docker cp "$container:/data/home/.arco" ./arco-home
+ARCO_HOME=./arco-home npx tsx scripts/arco-backup.ts snapshot --out ./arco-home.arcobk
+ARCO_HOME=./arco-home npx tsx scripts/arco-backup.ts verify ./arco-home.arcobk
+ARCO_HOME=./arco-home npx tsx scripts/arco-backup.ts restore ./arco-home.arcobk --into ./arco-home-restored
+```
+
+Restore extracts into a new directory and does not merge over the live home.
+With the Arco container stopped, replace `/data/home/.arco` in the named volume
+with the extracted directory's contents. Keep the copied original home until
+Arco starts and the restored settings and saved work have been checked. Do not
+use `docker compose down -v` during this procedure; it deletes the named volume.
 
 The image runs as the node user. On Linux, the selected project directory must
 allow that user's UID to read and write. Do not use privileged mode or mount the
@@ -114,7 +143,11 @@ endpoints explicitly and allow the service to listen on a Docker-reachable
 interface. A container's localhost refers to the container itself.
 For example, configure Ollama as http://host.docker.internal:11434 and LM Studio
 as http://host.docker.internal:1234/v1 when those services run on the Docker host.
-Arco does not change those services' bind addresses automatically.
+Arco does not change those services' bind addresses automatically. Until an
+endpoint is saved, Connections may report `http://localhost:11434` as the
+Ollama service address. In a container, that address points inside the
+container; set the endpoint to `http://host.docker.internal:11434` before
+checking the host service.
 
 Project dependencies execute in Linux. Install them in a derived image or an
 isolated container workspace as appropriate. Keep host Windows node_modules,

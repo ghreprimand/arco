@@ -104,22 +104,27 @@ export const gettingStarted: Section[] = [
     title: 'First launch',
     body: (
       <>
-        <p>On first launch Arco needs at least one provider authenticated.</p>
+        <p>
+          A new installation without a connected provider opens{' '}
+          <strong>Welcome - Connections</strong>. The screen can be skipped, and
+          no model prompt is sent until a model-backed action is started.
+        </p>
         <ol>
           <li>
-            If no provider is logged in, the <strong>AUTH OVERLAY</strong> blocks the UI
-            until you log in or open Settings.
+            Choose a provider in Connections and follow its sign-in or API-key
+            instructions. The provider list can be searched and grouped by type.
           </li>
           <li>
-            Click <Code>LOG IN</Code> next to a provider. For CLI auth (Claude, Gemini,
+            For CLI auth (Claude, Gemini,
             Codex, Cursor, GitHub) Arco shows the headless login command with{' '}
             <Code>RUN IN TERMINAL</Code> / <Code>COPY</Code>; it runs on the Arco
-            machine and prints a link or code you open on whatever device you're using,
-            so login works the same at the desk or remotely.
+            machine and prints a link or code to complete in a browser or device. Then
+            return to Connections.
           </li>
           <li>
-            Once at least one provider is authenticated, the overlay clears and the main
-            workspace appears.
+            Select <Code>Continue to workspace</Code> when ready, or{' '}
+            <Code>Skip for now</Code> to continue without connecting one. In the
+            workspace, <Code>CONNECT A PROVIDER</Code> reopens Connections.
           </li>
         </ol>
         <p>
@@ -158,9 +163,9 @@ export const gettingStarted: Section[] = [
         <p>The project creator asks for:</p>
         <ul>
           <li>
-            <strong>Working directory (cwd)</strong> — the project root the agent will
-            operate against. Drag-and-drop a folder from your file manager, or paste an
-            absolute path.
+            <strong>Project folder</strong> — the root the agent will operate against.
+            Choose <strong>BROWSE FOLDERS +</strong> or paste an absolute path. Starting
+            from a Home project card pre-fills its folder.
           </li>
           <li>
             <strong>Provider</strong> — Claude / Codex / Z.ai / Gemini / Cursor / Ollama /
@@ -196,9 +201,9 @@ export const gettingStarted: Section[] = [
           continue an existing conversation inside Arco.
         </p>
         <Note kind="tip">
-          The creator only shows providers that are both <em>enabled in Settings &gt; Providers and models</em> and{' '}
-          <em>currently authenticated</em>. If a provider you expect is missing, check
-          both gates.
+          The creator starts with Claude selected, which may be unauthenticated. Choose
+          a provider that is enabled and connected in Settings &gt; Providers and models.
+          If the expected provider is unavailable, check its enable and sign-in state.
         </Note>
       </>
     ),

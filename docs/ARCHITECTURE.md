@@ -20,7 +20,7 @@ If you're new to the codebase, read in this order:
 8. [`CLIENT.md`](CLIENT.md) - Zustand store, component tree, render pipeline
 8a. [`TASK_LEDGER.md`](TASK_LEDGER.md) - the durable, cwd-scoped project task ledger (a projection over `events.jsonl`)
 9. [`OPERATIONS.md`](OPERATIONS.md) - running locally, ports, launcher, recovery
-9a. [`BACKUP.md`](BACKUP.md) - `arco backup snapshot`: what state is captured / skipped / redacted, and the archive format
+9a. [`BACKUP.md`](BACKUP.md) - `npx tsx scripts/arco-backup.ts snapshot`: what state is captured / skipped / redacted, and the archive format
 10. [`GOTCHAS.md`](GOTCHAS.md) - non-obvious invariants
 11. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) - dev workflow + how to add a provider/primitive
 
@@ -47,7 +47,7 @@ Beyond the core reading order, each operator-facing subsystem has its own refere
 - [`REMOTE_MANAGEMENT.md`](REMOTE_MANAGEMENT.md) - remote management console and setup guidance
 - [`NOTIFICATIONS.md`](NOTIFICATIONS.md) - operator notifications
 - [`CHECKPOINTS.md`](CHECKPOINTS.md) - workspace checkpoints
-- [`BACKUP.md`](BACKUP.md) - `arco backup snapshot` (what state is captured / skipped / redacted)
+- [`BACKUP.md`](BACKUP.md) - `npx tsx scripts/arco-backup.ts snapshot` (what state is captured / skipped / redacted)
 - [`SERVICE_MODE.md`](SERVICE_MODE.md) - running Arco as a service
 - [`GIT_WORKBENCH.md`](GIT_WORKBENCH.md) - Git workbench surface
 - [`RESUME_INDEX.md`](RESUME_INDEX.md) - resume-index for the session picker

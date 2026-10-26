@@ -1,6 +1,6 @@
 # Backup & restore
 
-`arco backup` captures Arco's valuable on-disk state into a single,
+`npx tsx scripts/arco-backup.ts` captures Arco's valuable on-disk state into a single,
 dependency-free archive plus a **truthful manifest** that states exactly what was
 captured, what was intentionally skipped, and what was redacted. The manifest is
 the contract: every regular file in the archive is described by it, and nothing
@@ -10,9 +10,9 @@ Phase F ships in three steps: **F1 `snapshot`, F2 `verify`, F3 `restore`**,
 all shipped. See [Restore (F3)](#restore-f3).
 
 ```
-arco backup snapshot [--out FILE]
-arco backup verify <FILE>
-arco backup restore <FILE> --into <DIR> [--force-into-live]
+npx tsx scripts/arco-backup.ts snapshot [--out FILE]
+npx tsx scripts/arco-backup.ts verify <FILE>
+npx tsx scripts/arco-backup.ts restore <FILE> --into <DIR> [--force-into-live]
 ```
 
 CLI entry: `scripts/arco-backup.ts`. All decision logic lives in the pure,
@@ -168,7 +168,7 @@ readArchive(gz: Buffer): { manifest: BackupManifest; files: ArchiveFile[] }
 ## Verify (F2)
 
 ```
-arco backup verify <FILE>
+npx tsx scripts/arco-backup.ts verify <FILE>
 ```
 
 `verify` validates an archive against its **own manifest before any restore
@@ -225,7 +225,7 @@ named in each problem string.
 ## Restore (F3)
 
 ```
-arco backup restore <FILE> --into <DIR> [--force-into-live]
+npx tsx scripts/arco-backup.ts restore <FILE> --into <DIR> [--force-into-live]
 ```
 
 `restore` extracts the archive's **regular files** into `DIR`, **after `verify`

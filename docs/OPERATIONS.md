@@ -96,11 +96,14 @@ See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, an
 
 ## Exposure posture
 
-Arco binds **loopback (`127.0.0.1`) by default**  - reachable only from this
-machine. That default matters because the HTTP/WS surface has **no auth** and
-exposes a shell (the integrated PTY terminal), git/GitHub ops (commit/push),
-filesystem read+write under your cwd roots, and provider credentials. Anything
-that can reach the port can use all of it.
+The production server binds **loopback (`127.0.0.1`) by default**, reachable
+only from this machine. `npm run dev` is different: Vite listens on all network
+interfaces, so devices on a reachable network can load the development client.
+API calls from that client remain subject to the browser session check. Use a
+trusted network while developing. The production server's HTTP/WS surface
+exposes a shell (the integrated PTY terminal), git/GitHub operations, filesystem
+read and write under project roots, and provider credentials. Anything that can
+reach its port must be trusted.
 
 The **`/ws` control socket, `/terminal` PTY, `/upload` and the `/api/*` routes**
 are the exception (bar the cluster-peer / plan tool routes agents call by
@@ -145,7 +148,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default  - the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only  - never leave it on `arco.service` |
-| `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and `arco backup`'s source. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
+| `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
 | `ARCO_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset -> Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 | `NODE_ENV` | unset | The service unit sets `production`; this rejects test-only HTTP routes (e.g. the cluster `_test_insert` smoke hook) and switches identity to `systemd` service mode |
 | `OLLAMA_URL_BASE` | `http://localhost:11434` | Ollama daemon endpoint |

@@ -17,19 +17,25 @@ npm ci --include=dev
 npm run dev
 ```
 
-Open <http://localhost:5173>. The Vite client proxies API and WebSocket traffic to the local server. `npm run dev` keeps the server and client running together. If no provider is authenticated, use the authentication overlay or the **AUTHENTICATION** section in Settings to sign in or configure a local endpoint. Follow [Getting started](docs/GETTING_STARTED.md) to open a project and start a chat.
+Open <http://localhost:5173>. The Vite client proxies API and WebSocket traffic to the local server. `npm run dev` keeps the server and client running together; the Vite client listens on all network interfaces, so devices on a reachable network can load the development client. API calls remain subject to the browser session check. Use a trusted network during development. A new installation without a connected provider opens **Welcome - Connections**; sign in there or select **Skip for now**. In the workspace, **CONNECT A PROVIDER** opens Connections later. Follow [Getting started](docs/GETTING_STARTED.md) to open a project and start a chat.
 
 Ensure `NODE_ENV` is not set to `production` during installation, because the native build needs development dependencies. Node.js 24 or newer is required. A C/C++ toolchain and Python 3 may be needed when a native dependency has no prebuilt binary for the platform.
 
 ### Docker
 
-Create a local `.env` from `.env.example` and set `ARCO_PROJECTS_DIR` to a project folder on the host. Then run:
+Create a local `.env` from `.env.example`. Run `mkdir -p projects` for the
+sample `ARCO_PROJECTS_DIR` on macOS, Linux, or WSL; in PowerShell, use
+`New-Item -ItemType Directory -Force projects`. Alternatively, change
+`ARCO_PROJECTS_DIR` to an existing project folder on the host. Then run:
 
 ```bash
+mkdir -p projects
 docker compose up -d --build
 ```
 
-Open <http://localhost:3001>. The Arco home persists in a named volume and the selected project folder is mounted read-write. Provider login runs inside the container so credentials stay in its persistent home. See [DOCKER.md](docs/DOCKER.md) for provider commands, extra mounts, and container limits. Voice microphone capture requires a native run.
+In PowerShell, create the folder with `New-Item -ItemType Directory -Force projects`, then run `docker compose up -d --build`.
+
+Open <http://localhost:3001>. The Arco home persists in a named volume and the selected project folder is mounted read-write. Mounted projects appear in Home under container paths such as `/projects/demo`. Provider login runs inside the container so credentials stay in its persistent home. See [DOCKER.md](docs/DOCKER.md) for provider commands, extra mounts, and container limits. Voice microphone capture requires a native run.
 
 ## Provider overview
 
@@ -60,7 +66,7 @@ See the [documentation index](docs/INDEX.md) for the full reference set and [dev
 
 Arco stores global settings and Arco-managed provider connection data in the Arco home, which defaults to `~/.arco` on Linux and macOS and `%USERPROFILE%\.arco` on Windows. Provider command-line tools may keep their own login data in their provider-managed locations. Project workflows and project settings are stored in each project's `.arco` folder. `ARCO_HOME` relocates the global home.
 
-When a user submits a model request, Arco sends the prompt and selected context to the chosen provider. Provider requests follow that provider's data and billing terms. Other network access occurs for user-selected features such as provider sign-in, catalog lookup, and voice setup downloads. Arco does not upload project folders for telemetry. The server binds to loopback by default; review the [Operations exposure posture](docs/OPERATIONS.md#exposure-posture) before exposing it to a network.
+When a user submits a model request, Arco sends the prompt and selected context to the chosen provider. Provider requests follow that provider's data and billing terms. Other network access occurs for user-selected features such as provider sign-in, catalog lookup, and voice setup downloads. Arco does not upload project folders for telemetry. The production server binds to loopback by default. The `npm run dev` Vite client is an exception and listens on all interfaces; review the [Operations exposure posture](docs/OPERATIONS.md#exposure-posture) before exposing a development instance to a network.
 
 Arco is the public release of a private workbench. The license decision and final release review remain open; redistribution terms will be published after that review.
 
