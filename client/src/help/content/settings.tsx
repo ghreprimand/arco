@@ -164,6 +164,32 @@ export const settingsHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'settings-operator',
   },
+  'settings.navigation': {
+    title: 'Finding a setting',
+    body: (
+      <p>
+        Settings are grouped by task: Appearance, Projects, Providers and
+        models, Agents and clusters, Voice, Files and media, and Advanced.
+        Search looks through every category at once, including each
+        control's help text. Every section shows where it applies and can be
+        opened directly with an address such as #settings/voice/voice-setup.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
+  'settings.scope': {
+    title: 'Where a setting applies',
+    body: (
+      <p>
+        Global settings apply across this Arco server. Project settings apply
+        to one project folder. Workflow settings are in each workflow's
+        CONFIG tab and override the global default for that workflow only.
+        A default for new workflows does not change workflows that already
+        exist.
+      </p>
+    ),
+    manualSection: 'settings-operator',
+  },
   'settings.voice-setup': {
     title: 'Voice setup',
     body: (

@@ -2,6 +2,7 @@ import { HomeView } from './components/Home/HomeView';
 import './components/Connections/connections.css';
 import { parseConnectionStatus } from './components/Connections/model';
 import { useConnectionsDeepLinks } from './components/Connections/Connections';
+import { useSettingsDeepLinks } from './components/settings/SettingsLayout';
 import { useStartupStore } from './stores/startupStore';
 import { anyPrimaryProviderConnected, fetchInstallationHistory, startupGate } from './utils/startupGate';
 import { ProviderOutageBanner } from './components/ProviderOutageBanner';
@@ -75,6 +76,7 @@ export function App() {
 
 function AppBody() {
   useConnectionsDeepLinks();
+  useSettingsDeepLinks();
   useTensionDriver();
   useHelpMode();
   useEffect(() => installThemeScramble(), []);

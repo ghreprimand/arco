@@ -1,4 +1,5 @@
-import { EndpointHelp, useSettingsSectionFocus } from './EndpointHelp';
+import { EndpointHelp } from './EndpointHelp';
+import { SettingsLayout, SettingsSection } from './settings/SettingsLayout';
 import { MediaAccessSettings } from './MediaAccessSettings';
 import { VoiceSetupSettings } from './VoiceSetupSettings';
 import { DeepSeekControls } from './DeepSeekControls';
@@ -58,7 +59,6 @@ interface Props {
 }
 
 export function SettingsPanel({ onClose }: Props) {
-  useSettingsSectionFocus();
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
   const settings = useAppStore((s) => s.settings);
@@ -504,67 +504,20 @@ export function SettingsPanel({ onClose }: Props) {
     }
   };
 
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9200,
-        padding: '20px',
-      }}
-    >
-      <Panel
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Settings"
-        aria-modal="true"
-        style={{
-          width: '100%',
-          maxWidth: catalogOpen ? '780px' : '520px',
-          maxHeight: 'calc(100vh - 80px)',
-          overflowY: 'auto',
-          background: 'var(--color-bg-panel)',
-          border: '1px solid var(--color-border-hairline)',
-          borderRadius: '6px',
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 className="display-font glow-text-bright" style={{ fontSize: '14px', letterSpacing: '4px', margin: 0 }}>
-            SETTINGS
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close settings"
-            className="display-font"
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--color-border-hairline)',
-              borderRadius: '3px',
-              color: 'var(--color-fg-muted)',
-              cursor: 'pointer',
-              fontSize: '10px',
-              letterSpacing: '1px',
-              padding: '4px 10px',
-            }}
-          >
-            CLOSE ✕
-          </button>
-        </div>
+  const phosphorActive = THEME_REGISTRY[activeThemeId]?.family === 'phosphor';
+  const llamacppReady = settings?.enabledProviders?.llamacpp !== false && !!authStatus?.llamacpp?.loggedIn;
 
+  return (
+    <SettingsLayout onClose={onClose} unavailable={{ phosphor: !phosphorActive, 'llamacpp-catalog': !llamacppReady, 'cli-versions': !capabilities }}>
+
+        <SettingsSection id="themes">
         <div data-help="settings.themes">
           <ThemePicker activeThemeId={activeThemeId} onSelect={(id) => { void setThemeId(id); }} />
         </div>
-        {THEME_REGISTRY[activeThemeId]?.family === 'phosphor' && <PhosphorControls />}
+        </SettingsSection>
+        <SettingsSection id="phosphor">{phosphorActive && <PhosphorControls />}</SettingsSection>
 
+        <SettingsSection id="font-pack-override">
         <div data-help="settings.font-pack-override">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             FONT PACK OVERRIDE
@@ -601,7 +554,9 @@ export function SettingsPanel({ onClose }: Props) {
             Substitutes display / body / code fonts on every theme. Useful when you like one theme's palette but prefer another's typography.
           </div>
         </div>
+        </SettingsSection>
 
+        <SettingsSection id="theme-brightness">
         <div data-help="settings.theme-brightness">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             THEME BRIGHTNESS
@@ -640,7 +595,9 @@ export function SettingsPanel({ onClose }: Props) {
             )}
           </div>
         </div>
+        </SettingsSection>
 
+        <SettingsSection id="crisp-text">
         <div data-help="settings.crisp-text">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             CRISP TEXT
@@ -666,7 +623,9 @@ export function SettingsPanel({ onClose }: Props) {
             Removes the phosphor text-glow that softens small text on glow-heavy themes. Border / LED glow keeps its treatment. Classic retains the ARCO wordmark glow; Phosphor makes the wordmark crisp too.
           </div>
         </div>
+        </SettingsSection>
 
+        <SettingsSection id="frosted-glass">
         <div data-help="settings.frosted-glass">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             FROSTED GLASS
@@ -719,7 +678,9 @@ export function SettingsPanel({ onClose }: Props) {
             )}
           </div>
         </div>
+        </SettingsSection>
 
+        <SettingsSection id="operator-name">
         <div data-help="settings.operator-name">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             OPERATOR NAME
@@ -757,13 +718,21 @@ export function SettingsPanel({ onClose }: Props) {
             Replaces the "&gt; OPERATOR" label in chat. Leave blank to keep the default.
           </div>
         </div>
+        </SettingsSection>
 
+        <SettingsSection id="projects">
         <ProjectsSettings />
+        </SettingsSection>
 
+        <SettingsSection id="media-access">
         <MediaAccessSettings />
+        </SettingsSection>
 
+        <SettingsSection id="voice-setup">
         <VoiceSetupSettings />
+        </SettingsSection>
 
+        <SettingsSection id="enabled-providers">
         <div data-help="settings.enabled-providers">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             ENABLED PROVIDERS
@@ -839,6 +808,10 @@ export function SettingsPanel({ onClose }: Props) {
               );
             })}
           </div>
+        </div>
+        </SettingsSection>
+        <SettingsSection id="authentication">
+        <div>
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
             AUTHENTICATION
           </div>
@@ -1179,6 +1152,7 @@ export function SettingsPanel({ onClose }: Props) {
             </div>
           )}
         </div>
+        </SettingsSection>
 
         {/* Phase 6e follow-up — global default transport for new Codex tabs.
             Writes settings.codex.transport via POST /api/settings; the
@@ -1187,25 +1161,33 @@ export function SettingsPanel({ onClose }: Props) {
             this only changes (a) tabs that have never been toggled and
             (b) the starting value for newly-created Codex tabs. Phase 7's
             plan-doc must mirror this for `claude.transport`. */}
+        <SettingsSection id="transport-defaults">
         <CodexTransportDefaultsSection />
+        </SettingsSection>
 
         {/* Global auto-handoff default for new tabs. Writes
             settings.autoHandoffDefaults via POST /api/settings; the server
             seeds config.autoHandoff on workflow create. Per-tab override on
             the CONFIG tab always wins. */}
+        <SettingsSection id="auto-handoff-defaults">
         <AutoHandoffDefaultsSection />
+        </SettingsSection>
 
         {/* Global default for Anthropic server-side compaction on new Native
             tabs. Writes settings.claudeNativeCompactDefault; the server seeds
             config.claudeNativeCompact on workflow create. Per-tab CONFIG
             toggle always wins. Default OFF (NATIVE_COMPACTION_PLAN §1). */}
+        <SettingsSection id="claude-native-compact-default">
         <ClaudeNativeCompactDefaultSection />
+        </SettingsSection>
 
         {/* DD7 — standing project-trust manager. Global (no tab needed), so it's
             the fallback when the gate's one-shot composer prompt was missed —
             including the cluster case, where the prompt lands in one member's
             composer and the parent tab has no CONFIG tab. */}
+        <SettingsSection id="project-trust">
         <ProjectTrustSection activeCwd={activeCwd} />
+        </SettingsSection>
 
         {/* llama.cpp model registry. Visible when the operator has llamacpp
             enabled in settings AND the auth probe sees the binary on disk
@@ -1213,9 +1195,9 @@ export function SettingsPanel({ onClose }: Props) {
             section pulls double-duty as both the registry editor and the
             "manually preload a model" affordance — operators can hide the
             20-30s cold-start by clicking LOAD before they fire a workflow. */}
-        {settings?.enabledProviders?.llamacpp !== false && authStatus?.llamacpp?.loggedIn && (
-          <LlamacppCatalogEditor />
-        )}
+        <SettingsSection id="llamacpp-catalog">
+          {llamacppReady && <LlamacppCatalogEditor />}
+        </SettingsSection>
 
         {/* Phase 1 (operator-features) — Arco-managed skills. Project
             skills live under <cwd>/.arco/skills/ and version with the
@@ -1223,6 +1205,7 @@ export function SettingsPanel({ onClose }: Props) {
             everywhere. Manifest of name+description gets injected into
             every primary turn's system prompt; the agent reads each
             SKILL.md on demand via its Read tool. */}
+        <SettingsSection id="skills">
         <div data-help="settings.skills">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
@@ -1287,6 +1270,7 @@ export function SettingsPanel({ onClose }: Props) {
             </div>
           )}
         </div>
+        </SettingsSection>
 
         {skillEditor && (
           <SkillEditorDialog
@@ -1302,13 +1286,16 @@ export function SettingsPanel({ onClose }: Props) {
             that runExportContext loads from .arco/handoff*.prompt.md;
             project beats global beats default. Variables {{cwd}} / {{wfid}}
             / {{handoffPath}} / {{seedPrefix}} substitute at runtime. */}
+        <SettingsSection id="handoff-prompts">
         <HandoffPromptsEditor cwd={activeCwd} />
+        </SettingsSection>
 
         {/* Slot 12 — model catalog editor. Inline expandable section instead
             of a separate modal; operator-edited models.md drives orchestrator
             first-turn routing injection, so exposing it in-app closes the
             "operator-configurable catalog overrides surfaced in UI" item
             without adding another header button. */}
+        <SettingsSection id="catalog">
         <div data-help="settings.catalog">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
@@ -1407,8 +1394,10 @@ export function SettingsPanel({ onClose }: Props) {
             </div>
           )}
         </div>
+        </SettingsSection>
 
-        {capabilities && (
+        <SettingsSection id="cli-versions">
+          {capabilities && (
           <div>
             <div data-help="settings.cli-versions" className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
               CLI VERSIONS
@@ -1420,13 +1409,10 @@ export function SettingsPanel({ onClose }: Props) {
               <div>Ollama daemon: {ollamaLive?.up && ollamaLive.version ? `v${ollamaLive.version}` : ollamaLive?.up ? 'up (version unknown)' : 'not running'}</div>
             </div>
           </div>
-        )}
+          )}
+        </SettingsSection>
 
-        <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', borderTop: '1px solid var(--color-border-hairline)', paddingTop: '10px' }}>
-          Provider scope is chosen per-workflow in the workflow creator.
-        </div>
-      </Panel>
-    </div>
+    </SettingsLayout>
   );
 }
 

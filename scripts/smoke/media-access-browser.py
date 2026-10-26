@@ -33,6 +33,7 @@ async def check_browser(base, folder):
             page = await context.new_page()
             await page.goto(base)
             await page.locator('[data-help="header.settings"]').click(timeout=30000)
+            await page.get_by_role('navigation', name='Settings categories').get_by_role('button', name='Files and media', exact=True).click()
             section = page.locator('section[data-help="settings.media-unconfined"]')
             await section.wait_for()
             assert await section.locator('[data-media-access-state="confined"]').count() == 1

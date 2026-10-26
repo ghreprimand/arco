@@ -97,6 +97,8 @@ async def check_browser(base, voice_home):
             """)
             await page.goto(base)
             await page.locator('[data-help="header.settings"]').click(timeout=30000)
+            voice_page = page.get_by_role('navigation', name='Settings categories').get_by_role('button', name='Voice', exact=True)
+            await voice_page.click()
             section = page.locator('section[data-help="settings.voice-setup"]')
             await section.wait_for()
             await section.locator('[data-voice-setup-state="ready"]').wait_for()
@@ -138,11 +140,12 @@ async def check_browser(base, voice_home):
             assert await page.evaluate("window.__micTracks.every(t => t.readyState === 'ended')"), 'phrase tracks released'
 
             state['docker'] = True
+            # The address kept #settings/voice, so the reload reopens Settings on Voice.
+            assert page.url.endswith('#settings/voice'), page.url
             await page.reload()
-            await page.locator('[data-help="header.settings"]').click(timeout=30000)
             await section.locator('[data-voice-setup-state="docker"]').wait_for()
             assert 'native run' in await section.inner_text()
-            assert await section.get_by_role('button').count() == 0, 'Docker shows no voice actions'
+            assert await section.locator('button').count() == 0, 'Docker shows no voice actions'
             print('PASS: voice setup status rows from a fixture voice home, notices, install with live log, microphone level meter with track release, test phrase as 16 kHz PCM16, Docker explanation.')
         finally:
             await browser.close()
