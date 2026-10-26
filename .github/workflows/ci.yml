@@ -1,7 +1,7 @@
 name: CI
 
-# Hosted minutes are metered (macOS and Windows runners bill at a multiple of Linux). Push and pull
-# request runs therefore use Ubuntu only; macOS and Windows run on a weekly schedule and on demand.
+# Verify on Linux, macOS and Windows for public-repository pushes and pull requests.
+# Weekly and manual runs remain available; documentation-only changes skip hosted jobs.
 on:
   push:
     branches: [main]
@@ -43,8 +43,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # push / pull_request: Ubuntu. schedule or dispatch "all": all three. Dispatch otherwise: the chosen OS.
-        os: ${{ fromJSON(contains('push pull_request', github.event_name) && '["ubuntu-latest"]' || (github.event_name == 'schedule' || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
+        # Push, pull request, schedule or dispatch "all": all three. Other dispatches: the chosen OS.
+        os: ${{ fromJSON((contains('push pull_request schedule', github.event_name) || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
     steps:
       # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
       - name: Disable line-ending conversion
