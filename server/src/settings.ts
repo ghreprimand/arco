@@ -183,6 +183,22 @@ function sanitizeDefaultWorkingDirectory(raw: unknown): string | undefined {
   return cleaned;
 }
 
+// Registered projects: absolute paths, de-duplicated, bounded. Order is the
+// operator's; the list is replaced whole by a patch (the routes in
+// http/projectRoutes.ts do the add/remove read-modify-write).
+export function sanitizeProjects(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: string[] = [];
+  for (const entry of raw) {
+    const cleaned = sanitizeDefaultWorkingDirectory(entry);
+    if (!cleaned) continue;
+    const normalized = path.resolve(cleaned);
+    if (!out.includes(normalized)) out.push(normalized);
+    if (out.length >= 200) break;
+  }
+  return out;
+}
+
 // Explicit media folders are absolute, normalized, distinct and bounded.
 function sanitizeMediaAllowedRoots(raw: unknown): string[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -593,6 +609,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (ack) result.acknowledgedCliVersions = ack;
   const opName = sanitizeOperatorName(partial.operatorName);
   if (opName) result.operatorName = opName;
+  const projects = sanitizeProjects(partial.projects);
+  if (projects?.length) result.projects = projects;
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
   const fontPack = sanitizeFontPackId(partial.fontPackOverride);
@@ -770,6 +788,13 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     // empty / whitespace clears the field
   } else if (current.operatorName) {
     merged.operatorName = current.operatorName;
+  }
+  if ('projects' in patch) {
+    const projects = sanitizeProjects(patch.projects);
+    if (projects && projects.length > 0) merged.projects = projects;
+    // null / empty list clears the registry
+  } else if (current.projects && current.projects.length > 0) {
+    merged.projects = current.projects;
   }
   if ('defaultWorkingDirectory' in patch) {
     const d = sanitizeDefaultWorkingDirectory(patch.defaultWorkingDirectory);

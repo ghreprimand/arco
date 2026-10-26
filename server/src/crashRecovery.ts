@@ -29,6 +29,8 @@ import { arcoHome } from './arcoHome.js';
 const REGISTRY_PATH = path.join(arcoHome(), 'known-cwds.json');
 const RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+export async function readKnownCwds(): Promise<string[]> { return readRegistry(); }
+
 async function readRegistry(): Promise<string[]> {
   try {
     const raw = await fs.readFile(REGISTRY_PATH, 'utf8');

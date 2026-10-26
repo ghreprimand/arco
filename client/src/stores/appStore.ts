@@ -164,7 +164,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   detailWorker: null,
   jobs: {},
   activeJobId: null,
-  showCreator: true,
+  showCreator: false,
+  creatorRequested: false, showHome: true, creatorPrefill: null,
   attachments: {},
   clusters: {},
   bakeoffsByWorkflow: {},
@@ -616,7 +617,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setDetailWorker: (detailWorker) => set({ detailWorker }),
 
-  createJob: (id, config, resumedVia, parentWorkflowId, backgroundCreated) =>
+  createJob: (id, config, resumedVia, parentWorkflowId, backgroundCreated, restored) =>
     set((s) => {
       // Phase 7b — Task children mint a JobState (so promote can flip it
       // into the top tab strip without a server round-trip) but don't
@@ -624,7 +625,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       // stays in front and the child surfaces only via the inline card +
       // TASKS sub-tab on the parent's view.
       const isParentedChild = typeof parentWorkflowId === 'string' && parentWorkflowId.length > 0;
-      const keepSelection = isParentedChild || backgroundCreated || config.voiceOperator === true;
+      // A restore never replaces a creator the operator explicitly opened.
+      const keepFocus = isParentedChild || config.voiceOperator === true || backgroundCreated || (restored === true && (s.creatorRequested || s.showHome));
       return {
         jobs: {
           ...s.jobs,
@@ -665,8 +667,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
             ...(isParentedChild ? { parentWorkflowId } : {}),
           },
         },
-        activeJobId: keepSelection ? s.activeJobId : id,
-        showCreator: keepSelection ? s.showCreator : false,
+        activeJobId: keepFocus ? s.activeJobId : id,
+        showCreator: keepFocus ? s.showCreator : false,
+        creatorRequested: keepFocus ? s.creatorRequested : false,
+        showHome: keepFocus ? s.showHome : false,
       };
     }),
 
@@ -695,6 +699,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       activeJobId: id,
       activeClusterId: null,    // mutually exclusive — selecting a workflow tab clears any active cluster
       showCreator: false,
+      creatorRequested: false,
+      showHome: false,
       // Switching tabs closes any open worker detail modal.
       detailWorker: s.detailWorker && s.detailWorker.jobId === id ? s.detailWorker : null,
     }));
@@ -768,6 +774,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       activeClusterId: clusterId,
       activeJobId: clusterId ? null : s.activeJobId,    // mutually exclusive
       showCreator: false,
+      creatorRequested: false,
+      showHome: false,
     })),
 
   setClusterFocusedMember: (clusterId, workflowId) =>
@@ -803,7 +811,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   // body and renders WorkflowCreator. Without this, +NEW from inside a
   // cluster left the cluster panes visible — both surfaces highlighted
   // but the body unchanged.
-  showJobCreator: () => set({ showCreator: true, activeClusterId: null }),
+  showJobCreator: () => set({ showCreator: true, activeClusterId: null, creatorRequested: true, showHome: false }),
+  showHomeView: () => set({ showHome: true, showCreator: false, activeClusterId: null, creatorRequested: false, detailWorker: null }),
+  openCreatorWith: (prefill) => set({ creatorPrefill: prefill, showCreator: true, activeClusterId: null, creatorRequested: true, showHome: false }),
+  takeCreatorPrefill: () => { const prefill = get().creatorPrefill; if (prefill) set({ creatorPrefill: null }); return prefill; },
 
   pushNotification: (level, message) =>
     set((s) => ({
@@ -1723,6 +1734,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         },
         activeJobId: childWorkflowId,
         showCreator: false,
+        creatorRequested: false,
+        showHome: false,
       };
     }),
 
@@ -1910,7 +1923,12 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     clusterGridSplit: s.clusterGridSplit,
     clusterCardLayout: s.clusterCardLayout,
     showCreator: s.showCreator || Boolean(s.activeJobId && s.jobs[s.activeJobId]?.config.incognito),
+    showHome: s.showHome,
   }),
+  merge: (persisted, current) => {
+    const saved = (persisted ?? {}) as Partial<AppState>;
+    return { ...current, ...saved, showHome: saved.showHome ?? (!saved.activeJobId && !saved.activeClusterId) };
+  },
   onRehydrateStorage: () => (state) => {
     if (!state) return;
     // Older builds persisted Computer as the active project tab. Keep its

@@ -2,6 +2,19 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.projects': {
+    title: 'Projects',
+    body: (
+      <p>
+        The flat list of project folders offered by the new-workflow creator and
+        the ARCHIVE window. Add any absolute path the server can read; nothing
+        has to live under one parent. <C>KEEP</C> promotes a scanned or recent
+        folder into the registered list; <C>Remove</C> forgets a registered one.
+        In Docker, a folder must be bind-mounted into the container first.
+      </p>
+    ),
+  },
+
   'settings.deepseek': {
     title: 'Xolotl · DeepSeek profiles', manualSection: 'deepseek',
     body: <p>Load Exact or Light through the guarded launcher at port 8150.

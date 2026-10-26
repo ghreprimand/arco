@@ -90,6 +90,8 @@ export interface ArcoSettings {
   // an SMB mount. Fixes the cross-machine case where the box's home isn't where
   // work lives (e.g. a Mac whose code is outside ~/Projects).
   defaultWorkingDirectory?: string;
+  // Explicit project folders; registration never moves or deletes their files.
+  projects?: string[];
   // Optional font-pack override. When set to a valid pack id, applyTheme
   // substitutes the active theme's display/body/code fonts with the pack's.
   // Validated against VALID_FONT_PACK_IDS.

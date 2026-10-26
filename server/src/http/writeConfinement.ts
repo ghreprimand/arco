@@ -23,6 +23,7 @@ import * as clusterStore from '../clusterStore.js';
 import { readSettings } from '../settings.js';
 import { safeDirectory, assertSafePath } from '../fileAccessPolicy.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
+import { projectRoots } from '../projects.js';
 import { arcoHome } from '../arcoHome.js';
 
 const WFID_RE = /^[A-Za-z0-9._-]{1,64}$/;
@@ -56,6 +57,7 @@ export async function knownRoots(): Promise<Set<string>> {
   for (const cwd of await readKnownCwdsRegistry()) out.add(path.resolve(cwd));
   const settings = await readSettings().catch(() => null);
   out.add(path.resolve(settings?.defaultWorkingDirectory || path.join(os.homedir(), 'Projects')));
+  for (const root of await projectRoots()) out.add(root);
   return out;
 }
 

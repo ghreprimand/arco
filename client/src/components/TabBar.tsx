@@ -120,6 +120,8 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
   const showCreator = useAppStore((s) => s.showCreator);
   const setActiveJob = useAppStore((s) => s.setActiveJob);
   const showJobCreator = useAppStore((s) => s.showJobCreator);
+  const showHome = useAppStore((s) => s.showHome);
+  const showHomeView = useAppStore((s) => s.showHomeView);
   const removeJob = useAppStore((s) => s.removeJob);
   const clusters = useAppStore((s) => s.clusters);
   const activeClusterId = useAppStore((s) => s.activeClusterId);
@@ -180,7 +182,37 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
     void setTabOrder(next);
   };
 
-  if (allJobs.length === 0 && clusterList.length === 0 && showCreator) return null;
+  // Home stays reachable even when no tab is open (the bar otherwise hides).
+  const homeButton = (
+      <button
+        type="button"
+        onClick={() => { showHomeView(); document.getElementById('home-title')?.focus(); }}
+        aria-current={showHome ? 'page' : undefined}
+        aria-label="Home: projects, open work and saved sessions"
+        className="display-font"
+        style={{
+          padding: '8px 14px',
+          background: showHome ? 'var(--color-accent-primary-a06)' : 'transparent',
+          border: 'none',
+          borderBottom: showHome ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
+          color: showHome ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+          cursor: 'pointer',
+          fontSize: '13px',
+          letterSpacing: '1px',
+          flexShrink: 0,
+        }}
+      >
+        HOME
+      </button>
+  );
+
+  if (allJobs.length === 0 && clusterList.length === 0 && showCreator) {
+    return (
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-hairline)', background: 'var(--color-bg-panel)', flexShrink: 0 }}>
+        {homeButton}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -201,6 +233,7 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
             overflowX: 'auto',
           }}
         >
+          {homeButton}
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext items={topRowItems.map((it) => it.id)} strategy={horizontalListSortingStrategy}>
               {topRowItems.map((item) => {
@@ -209,7 +242,7 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
                     <SortableWorkflowTab
                       key={item.id}
                       job={item.job}
-                      isActive={item.id === activeJobId && !showCreator && !activeClusterId}
+                      isActive={item.id === activeJobId && !showCreator && !showHome && !activeClusterId}
                       onActivate={() => setActiveJob(item.id)}
                       // §F2 step 3 (DEFERRED — graceful TODO): when the recall
                       // store's `summarizeOnClose` arm is ON, this close handler
@@ -253,10 +286,10 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
             className="display-font"
             style={{
               padding: '8px 14px',
-              background: showCreator ? 'var(--color-accent-primary-a06)' : 'transparent',
+              background: showCreator && !showHome ? 'var(--color-accent-primary-a06)' : 'transparent',
               border: 'none',
-              borderBottom: showCreator ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
-              color: showCreator ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              borderBottom: showCreator && !showHome ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
+              color: showCreator && !showHome ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
               cursor: 'pointer',
               fontSize: '13px',
               letterSpacing: '1px',

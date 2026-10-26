@@ -222,13 +222,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'workflow_created': {
           // A member job just materialized — clear its rehydrate-request guard
           // so a future genuine gap (e.g. re-add) can request again.
-          requestedMemberRehydrate.delete(msg.workflowId);
+          const restored = requestedMemberRehydrate.delete(msg.workflowId);
           store.createJob(
             msg.workflowId,
             msg.config,
             msg.resumedVia,
             msg.parentWorkflowId,
             msg.backgroundCreated,
+            restored,
           );
           if (msg.claudeSessionId) store.setClaudeSessionId(msg.workflowId, msg.claudeSessionId);
           // WORKBENCH_EXPANSION_PLAN.md §B2 — a research run dispatched to a

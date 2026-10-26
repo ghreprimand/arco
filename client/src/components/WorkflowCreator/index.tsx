@@ -14,6 +14,7 @@ import { SavedClustersList } from '../SavedClustersList';
 import { ExistingClustersList } from '../ExistingClustersList';
 import { TemplatePickerRow } from './TemplatePickerRow';
 import { PastChatsList } from './PastChatsList';
+import { ProjectPicker } from './ProjectPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS, zaiModelsUiFrom } from './modelOptions';
 import type { Props, MemberDraft, DirEntry } from './types';
@@ -240,7 +241,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   // creates a single workflow (legacy behaviour, default) or a cluster of
   // N fresh workers (new path). State is component-local; flipping does
   // NOT reset the shared fields (cwd / defaults stay).
-  const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis'>('single');
+  // Home pre-fill (mode/project/session) is read for the initial state here
+  // and cleared once in the effect below; nothing launches by itself.
+  const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis'>(() => useAppStore.getState().creatorPrefill?.mode ?? 'single');
   const [incognito, setIncognito] = useState(false);
   // ARCO_OPS_PLAN.md M2 — Genesis mode collects just a working name + the
   // Spark at creation; the staged conversation + the GENESIS right-panel tab
@@ -304,12 +307,16 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   // I5 — RUN OPTIONS band collapse (default expanded so nothing hides on first
   // paint) + working-directory tree collapse (Browse toggle, default open).
   const [showRunOptions, setShowRunOptions] = useState(true);
-  const [showBrowser, setShowBrowser] = useState(true);
+  // Folder tree stays collapsed: the project list above it is the primary pick.
+  const [showBrowser, setShowBrowser] = useState(false);
   const [additionalDirsRaw, setAdditionalDirsRaw] = useState('');
   const [fallbackModel, setFallbackModel] = useState<ModelName | ''>('');
 
   // Working directory
-  const [workDir, setWorkDir] = useState('');
+  const [workDir, setWorkDir] = useState(() => {
+    const prefill = useAppStore.getState().creatorPrefill;
+    return prefill && prefill.mode !== 'chat' && prefill.mode !== 'genesis' ? prefill.workDir ?? '' : '';
+  });
   const [dirs, setDirs] = useState<DirEntry[]>([]);
   const [parentDir, setParentDir] = useState('');
   const [newDirName, setNewDirName] = useState('');
@@ -418,6 +425,29 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
     }
     if (s.arcoName && !name) setName(s.arcoName);
   };
+
+  // Apply the rest of a Home pre-fill once: the folder listing, chat-capable
+  // provider, and the chosen saved session selected in RESUME.
+  useEffect(() => {
+    const prefill = useAppStore.getState().takeCreatorPrefill();
+    if (!prefill) return;
+    if (prefill.mode === 'chat' && (primaryProvider === 'gemini' || primaryProvider === 'antigravity')) {
+      setPrimaryProvider('claude');
+      setModel(claudeModelsForPicker[0]?.value ?? 'opus');
+    }
+    const dir = prefill.mode === 'single' || prefill.mode === 'cluster' ? prefill.workDir : undefined;
+    if (dir) void fetchDirs(dir);
+    if (dir && prefill.resumeSessionId) {
+      setConversationMode('resume');
+      void fetchSessions(dir).then((list) => {
+        const found = list.find((x) => x.sessionId === prefill.resumeSessionId);
+        if (found) selectSession(found);
+        else setConversationMode('new');
+      });
+    }
+    // Mount-time only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 2026-05-11 — build a fresh MemberDraft from the current DEFAULTS group.
   // Cluster fence: Claude/Codex plus local Ollama/llama.cpp. Gemini and
@@ -984,7 +1014,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
         {/* I5 Band 1 — WHERE & SESSION. Left half: working directory + tree.
             Right half: name + conversation. */}
         <div style={bandStyle}>
-          <div className="display-font glow-text-bright" style={bandHeaderStyle}>{mode === 'genesis' ? 'THE IDEA' : mode === 'chat' ? 'CONVERSATION' : 'WHERE & SESSION'}</div>
+          <div className="display-font glow-text-bright" style={bandHeaderStyle}>{mode === 'genesis' ? 'THE IDEA' : mode === 'chat' ? 'CONVERSATION' : 'PROJECT & SESSION'}</div>
           <div style={bandGrid}>
 
         {/* Working directory — top-left cell (input only; the tree spans both
@@ -994,16 +1024,16 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
         {mode !== 'genesis' && mode !== 'chat' && (
         <div data-help="creator.cwd">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>WORKING DIRECTORY</label>
+            <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>PROJECT FOLDER</label>
             <button onClick={() => setShowBrowser((v) => !v)} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>
-              {showBrowser ? 'BROWSE ▼' : 'BROWSE ▶'}
+              {showBrowser ? 'BROWSE FOLDERS -' : 'BROWSE FOLDERS +'}
             </button>
           </div>
           <input
             type="text"
             value={workDir}
             onChange={(e) => setWorkDir(e.target.value)}
-            placeholder={settings?.defaultWorkingDirectory ? `${settings.defaultWorkingDirectory}/my-project` : 'Path to your project folder — or BROWSE'}
+            placeholder="Pick a project below, or type a folder path"
             style={inputStyle}
           />
         </div>
@@ -1113,7 +1143,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
           </div>
         )}
 
-          {/* Quick-pick directory browser — spans both columns. Non-genesis only. */}
+          {/* Flat project list, then the folder tree; both span both columns. */}
+          {mode !== 'genesis' && mode !== 'chat' && (
+            <ProjectPicker workDir={workDir} autoPick onPick={(p) => { setWorkDir(p); void fetchDirs(p); }} />
+          )}
           {mode !== 'genesis' && mode !== 'chat' && showBrowser && (
           <div style={{ ...spanBoth, maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
             <div style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-display)', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '8px' }}>

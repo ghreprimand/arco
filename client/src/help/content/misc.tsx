@@ -2,6 +2,92 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'home.start': {
+    title: 'Start from Home',
+    body: (
+      <p>
+        Each button opens the existing creator; nothing starts until you
+        review its options and launch. Choose a project below to prefill its
+        folder for a new session or cluster.
+      </p>
+    ),
+  },
+
+  'home.open-work': {
+    title: 'Open work',
+    body: (
+      <p>
+        Shows currently open work that can be resumed from Home. Incognito
+        chats, cluster members and hidden task children are omitted. Open
+        returns to that item.
+      </p>
+    ),
+  },
+
+  'home.projects': {
+    title: 'Projects',
+    body: (
+      <p>
+        Browse pinned, registered, recently used and scanned project folders.
+        Search by name or folder. Archived projects are hidden until you choose
+        Show archived. A project whose folder is missing stays listed so it can
+        be relocated or archived; a folder you added yourself can also be
+        removed from the list. Its saved sessions stay on disk. In Docker, only
+        mounted folders are visible.
+      </p>
+    ),
+  },
+
+  'home.manage-project': {
+    title: 'Manage a project',
+    body: (
+      <p>
+        Rename changes only the name Arco shows; leave it empty to use the
+        folder name. Archive keeps a project out of the main lists without
+        touching its folder or sessions. Remove from list forgets a folder you
+        added; files are not touched. Relocate, for a missing folder, points
+        the project at its new location and keeps its name, pin and the
+        sessions listed under the old location. Nothing here moves or deletes
+        files.
+      </p>
+    ),
+  },
+
+  'home.create-folder': {
+    title: 'Create a project folder',
+    body: (
+      <p>
+        Creates one new, empty folder at an absolute path, or uses a plain
+        name inside the scan folder set in Settings. The parent must exist. An existing
+        folder with that name is never reused; add it instead.
+      </p>
+    ),
+  },
+
+  'home.add-folder': {
+    title: 'Add a project folder',
+    body: (
+      <p>
+        Add an existing absolute folder path that Arco can access. This adds
+        it to the project list; it does not create a folder. In Docker, mount
+        the folder before adding it.
+      </p>
+    ),
+  },
+
+  'creator.projects': {
+    title: 'Projects',
+    body: (
+      <p>
+        Your project folders in one flat list: registered ones, folders found
+        in the optional scan folder (<C>SCANNED</C>), and folders a workflow ran
+        in before (<C>RECENT</C>). Click one to use it. Browse to any other
+        folder below and press <C>+ ADD CURRENT FOLDER</C> to keep it listed;
+        Settings / Projects manages the list.
+      </p>
+    ),
+  },
+
   'auth.connections': {
     title: 'Connections', manualSection: 'settings-providers',
     body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,

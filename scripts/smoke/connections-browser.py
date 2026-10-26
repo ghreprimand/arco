@@ -56,10 +56,11 @@ class FakeModel:
 
 class IsolatedServer:
     def extra_env(self): return {}
+    def extra_settings(self): return {}
     def __init__(self, model_url):
         self.root=Path(tempfile.mkdtemp(prefix='arco-connections-'));self.home=self.root/'home';self.projects=self.root/'projects';self.tmp=self.root/'tmp'
         for directory in (self.home/'.arco',self.projects/'app',self.tmp): directory.mkdir(parents=True)
-        (self.home/'.arco/settings.json').write_text(json.dumps({'ollama':{'baseUrl':model_url},'enabledProviders':{'llamacpp':False},'defaultWorkingDirectory':str(self.projects/'app')}))
+        (self.home/'.arco/settings.json').write_text(json.dumps({'ollama':{'baseUrl':model_url},'enabledProviders':{'llamacpp':False},'defaultWorkingDirectory':str(self.projects/'app'),**self.extra_settings()}))
         (self.home/'.arco/known-cwds.json').write_text(json.dumps([str(self.projects/'app')]))
         self.port=host_isolation.closed_port();self.base=f'http://127.0.0.1:{self.port}'
         self.env=host_isolation.harden({'HOME':str(self.home),'ARCO_HOME':str(self.home/'.arco'),'TMPDIR':str(self.tmp),'ARCO_PORT':str(self.port),'ARCO_HOST':'127.0.0.1','ARCO_SERVE_CLIENT':'1','ARCO_UPLOADS_DIR':str(self.root/'uploads'),**self.extra_env()},self.root)

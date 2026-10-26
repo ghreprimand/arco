@@ -14,7 +14,7 @@ import { Panel } from './primitives/Panel';
 import { LlamacppCatalogEditor } from './LlamacppCatalogEditor';
 import { SkillEditorDialog, type SkillEditorTarget } from './SkillEditorDialog';
 import { HandoffPromptsEditor } from './HandoffPromptsEditor';
-import { WorkingDirectoryDefault } from './WorkingDirectoryDefault';
+import { ProjectsSettings } from './ProjectsSettings';
 import { useProjectTrust } from '../hooks/useProjectTrust';
 import { PhosphorControls } from '../themes/phosphor/PhosphorControls';
 import { themeCategories } from '../themes/phosphor/arco-palette';
@@ -758,7 +758,7 @@ export function SettingsPanel({ onClose }: Props) {
           </div>
         </div>
 
-        <WorkingDirectoryDefault />
+        <ProjectsSettings />
 
         <MediaAccessSettings />
 

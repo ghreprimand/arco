@@ -679,6 +679,9 @@ export interface AppState {
   jobs: Record<string, JobState>;
   activeJobId: string | null;
   showCreator: boolean; // show workflow creator panel
+  creatorRequested: boolean;
+  showHome: boolean;
+  creatorPrefill: CreatorPrefill | null;
 
   // Phase 2.5.1 — transient toasts for server-side rejections that would
   // otherwise vanish into the console. Render in the top-right corner;
@@ -830,9 +833,13 @@ export interface AppState {
     resumedVia?: 'native' | 'bootstrapped',
     parentWorkflowId?: string,
     backgroundCreated?: boolean,
+    restored?: boolean,
   ) => void;
   setActiveJob: (id: string) => void;
   showJobCreator: () => void;
+  showHomeView: () => void;
+  openCreatorWith: (prefill: CreatorPrefill) => void;
+  takeCreatorPrefill: () => CreatorPrefill | null;
   removeJob: (id: string) => void;
   pushNotification: (level: 'error' | 'info', message: string) => void;
   dismissNotification: (id: string) => void;
@@ -1058,3 +1065,9 @@ export interface ClusterMemberLabel {
 }
 
 export type ClusterCardLayout = 'auto' | 'rows' | 'columns' | 'grid';
+
+export interface CreatorPrefill {
+  mode: 'single' | 'chat' | 'cluster' | 'genesis';
+  workDir?: string;
+  resumeSessionId?: string;
+}

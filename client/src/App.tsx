@@ -1,3 +1,4 @@
+import { HomeView } from './components/Home/HomeView';
 import './components/Connections/connections.css';
 import { parseConnectionStatus } from './components/Connections/model';
 import { useConnectionsDeepLinks } from './components/Connections/Connections';
@@ -83,6 +84,7 @@ function AppBody() {
   // J4 — Cmd/Ctrl+? keyboard-shortcut cheat sheet. Transient like the palette.
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
   const { createWorkflow, genesisSeedUpdate, genesisScaffold, genesisCreativeArm, genesisAssistRequest, sendMessage, cancel, compactWorkflow, cancelQueuedMessage, removeWorkflow, listBakeoffs, startBakeoff, promoteBakeoff, cleanupBakeoff, requestReview, cancelReview, requestResearch, cancelResearch, requestRecallSummary, requestHandoff, cancelHandoff, clearHandoffLock, requestSpawnFromHere, updatePrimaryConfig, foldWorkflow, setToolPosture, setProjectTrust, loadEarlierMessages, requestRecalibrate, requestFreshAntigravityCascade, attachPlan, detachPlan, setPreviewPort, clearPreviewPort, previewCapture, taskLedgerCreate, taskLedgerUpdate, taskLedgerDelete, taskLedgerList, taskRunRecover, taskWorktreeCreate, taskWorktreeRemove, armPlanMode, openTerminal, killTerminal, logTerminalCommand, listTerminalSessions, uploadFile, createCluster, deleteCluster, subscribeCluster, broadcastToCluster, operatorPeerSend, renameCluster, removeClusterMember, addClusterMember, createClusterWithFreshWorkers, createClusterFromScratch, addClusterFreshWorkers, setClusterPlan, attachClusterPlan, clearClusterPlan, setClusterMemberRole, setClusterMemberTier, setClusterMemberFocus, toggleClusterIdleNudger, toggleClusterAutoTurn, setClusterTaskBoardAttached, setClusterTaskBoardMode, setClusterEfficiency, setClusterRemote, setClusterGates, reorderClusterMembers, setClusterProgress, dispatchClusterOnce, toggleClusterDispatcher, updateClusterDispatcherSettings, createClusterSwarm, attachCodebaseMemory, detachCodebaseMemory, mcpRegistryList, mcpRegistryCreate, mcpRegistryUpdate, mcpRegistryDelete, mcpWorkflowAllow, mcpProbe, setNotificationMutes, hubLinkSetEnabled, reconnect, reconnectState } = useWebSocket();
+  const showHome = useAppStore((s) => s.showHome);
   const showCreator = useAppStore((s) => s.showCreator);
   const computerOpen = useComputerStore((s) => s.open);
   const activeJobId = useAppStore((s) => s.activeJobId);
@@ -695,9 +697,11 @@ ${scopeBody}
         <VoiceControl sendMessage={sendMessage} cancel={cancel} createWorkflow={createWorkflow} />
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <ErrorBoundary key={activeClusterId ?? activeJob?.id ?? (showGithub ? 'github' : 'creator')}>
+          <ErrorBoundary key={showHome && !showGithub ? 'home' : activeClusterId ?? activeJob?.id ?? (showGithub ? 'github' : 'creator')}>
           {showGithub ? (
             <GitHubPanel />
+          ) : showHome ? (
+            <HomeView />
           ) : activeClusterId ? (
             <ClusterTab
               key={activeClusterId}
