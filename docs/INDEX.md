@@ -13,6 +13,8 @@
 - [Operator actions](OPERATOR_ACTIONS.md): actions, right-panel tabs, clusters, and plans.
 - [Settings guide](SETTINGS.md): categories, controls, and scope.
 
+
+- [Genesis](GENESIS.md): staged ideation, operator-reviewed scaffolding, and Creative mode for exploring alternatives in an existing project.
 - [Chat](CHAT.md): saved Chat and Incognito behavior.
 - [Terminal](TERMINAL.md): terminal sessions, command prefill, and output sharing.
 - [Git workbench](GIT_WORKBENCH.md): diffs, remote comparison, and Git operations.
