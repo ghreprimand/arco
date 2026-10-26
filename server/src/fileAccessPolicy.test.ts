@@ -18,7 +18,7 @@ process.env.USERPROFILE = home;
 process.env.CODEX_HOME = customProvider;
 process.env.ARCO_UPLOADS_DIR = path.join(fixture, 'uploads');
 const { UPSTREAM_STATE_DIRECTORY } = await import('./envAliases.js');
-const { confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
+const { assertSpellingSafe, isProtectedRoot, confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
 const { resolveBoundCwd } = await import('./http/writeConfinement.js');
 const { patchSettings } = await import('./settings.js');
 const { resolveBrowserRead, listBrowserDirectory, resolveWorkflowDocument } = await import('./http/readConfinement.js');
@@ -242,4 +242,33 @@ test('missing authorized media retains the existing recovery codes without runni
   assert.throws(() => resolveMediaOutputDir(access, path.join(project, 'missing-output'), inside), hasCode('output-dir-missing'));
   const { runDemucsStems } = await import('./media/demucs.js');
   await assert.rejects(runDemucsStems(project, 'missing.wav'), hasCode('input-missing'));
+});
+
+// Run Windows lexical checks on every host; no Windows filesystem is needed.
+test('Windows temporary project paths stay usable without opening application state', () => {
+  const base = path.win32.join('Q:', path.win32.sep, 'fixture', 'AppData');
+  assert.doesNotThrow(() => assertSpellingSafe(path.win32.join(base, 'Local', 'Temp', 'project', 'document.txt'), path.win32));
+  for (const segments of [
+    ['Roaming', 'provider', 'session.txt'], ['Local', 'provider', 'session.txt'],
+    ['Local', 'Temp', 'project', '.codex', 'session.txt'],
+    ['Local', 'Temp', 'project', '.env'], ['Local', 'Temp', 'project', '.arco', 'settings.json'],
+    ['Local', 'Temp-other', 'document.txt'],
+    ['Local', 'Temp', 'project', 'AppData', 'provider', 'session.txt'],
+  ]) assert.throws(() => assertSpellingSafe(path.win32.join(base, ...segments), path.win32));
+});
+
+test('Windows local application root excludes only Temp from its protected subtree', () => {
+  const local = path.win32.join('Q:', path.win32.sep, 'fixture', 'AppData', 'Local');
+  const temp = path.win32.join(local, 'Temp', 'project', 'document.txt');
+  assert.equal(isProtectedRoot(local, temp, path.win32.join(local, 'Temp'), path.win32), false);
+  assert.equal(isProtectedRoot(local.toLowerCase(), temp.toUpperCase(), path.win32.join(local, 'Temp'), path.win32), false);
+  for (const name of ['', 'provider', 'Temp-other']) {
+    assert.equal(isProtectedRoot(local, path.win32.join(local, name), path.win32.join(local, 'Temp'), path.win32), true);
+  }
+  // A provider configured in Temp keeps its separate, unconditional denial.
+  assert.equal(isProtectedRoot(path.win32.dirname(temp), temp, undefined, path.win32), true);
+  assert.equal(isProtectedRoot(local, temp, undefined, path.win32), true);
+  const appData = path.win32.dirname(local);
+  assert.equal(isProtectedRoot(appData, temp, path.win32.join(local, 'Temp'), path.win32), false);
+  assert.equal(isProtectedRoot(appData, path.win32.join(appData, 'Roaming', 'session.txt'), path.win32.join(local, 'Temp'), path.win32), true);
 });

@@ -13,9 +13,15 @@ export class FileAccessError extends Error {
   constructor() { super('file access is outside the permitted roots or targets protected state'); }
 }
 
-export function isPathWithin(root: string, target: string): boolean {
-  const rel = path.relative(path.resolve(root), path.resolve(target));
-  return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+export function isPathWithin(root: string, target: string, pathApi = path): boolean {
+  const rel = pathApi.relative(pathApi.resolve(root), pathApi.resolve(target));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(rel));
+}
+
+/** Local application temporary storage is content, not application settings. */
+export function isProtectedRoot(root: string, target: string, temporaryRoot: string | undefined = undefined, pathApi = path): boolean {
+  return isPathWithin(root, target, pathApi)
+    && !(temporaryRoot && pathApi.sep === '\\' && isPathWithin(temporaryRoot, target, pathApi));
 }
 
 const PRIVATE_COMPONENTS = new Set([
@@ -24,21 +30,26 @@ const PRIVATE_COMPONENTS = new Set([
 ]);
 const SYSTEM_ROOTS = ['/proc', '/sys', '/dev', '/etc', '/run', '/var/run', '/var/lib', '/var/log', '/boot', '/private/etc', '/private/var/run', '/System'];
 
-function protectedRoots(): string[] {
-  const roots = [...SYSTEM_ROOTS, path.join(homedir(), '.local', 'share'), path.join(homedir(), '.local', 'state'), path.join(homedir(), 'Library')];
+function protectedRoots(): { root: string; temporaryRoot?: string }[] {
+  const roots: { root: string; temporaryRoot?: string }[] = [...SYSTEM_ROOTS, path.join(homedir(), '.local', 'share'), path.join(homedir(), '.local', 'state'), path.join(homedir(), 'Library')].map((root) => ({ root }));
+  const appData = path.join(homedir(), process.platform === 'win32' ? 'AppData' : 'appdata');
+  roots.push({ root: appData, temporaryRoot: path.join(appData, 'Local', 'Temp') });
   for (const key of ['CODEX_HOME', 'CLAUDE_CONFIG_DIR', 'GEMINI_CLI_HOME', 'CURSOR_CONFIG_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME', 'APPDATA', 'LOCALAPPDATA', 'WINDIR', 'SystemRoot', 'PROGRAMDATA']) {
     const value = process.env[key];
-    if (value && path.isAbsolute(value)) roots.push(value);
+    if (value && path.isAbsolute(value)) roots.push({ root: value, temporaryRoot: key === 'LOCALAPPDATA' ? path.join(value, 'Temp') : undefined });
   }
   // Include aliases of default provider homes, not only their spelling.
-  for (const name of PRIVATE_COMPONENTS) roots.push(path.join(homedir(), name));
+  for (const name of PRIVATE_COMPONENTS) {
+    if (name !== 'appdata') roots.push({ root: path.join(homedir(), name) });
+  }
   return roots;
 }
 
-function assertSpellingSafe(target: string): void {
+export function assertSpellingSafe(target: string, pathApi = path): void {
   if (target.includes('\0') || /^\\\\[?.]\\/.test(target)) throw new FileAccessError();
-  const parts = path.resolve(target).split(path.sep).map((p) => p.toLowerCase());
-  if (parts.some((p) => PRIVATE_COMPONENTS.has(p))) throw new FileAccessError();
+  const parts = pathApi.resolve(target).split(pathApi.sep).map((p) => p.toLowerCase());
+  if (parts.some((p, i) => PRIVATE_COMPONENTS.has(p)
+    && !(p === 'appdata' && pathApi.sep === '\\' && parts[i + 1] === 'local' && parts[i + 2] === 'temp'))) throw new FileAccessError();
   const base = parts.at(-1) || '';
   if ((/^\.env(?:\.|$)/.test(base) && !/^\.env\.(example|sample|template)$/.test(base))
     || /^(auth\.json|\.claude\.json|\.gitconfig|\.(?:bash|zsh|python)_history|\.authinfo|credentials(?:\.[^/]*)?|\.credentials\.json|\.netrc|\.npmrc|\.pypirc|\.git-credentials|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?)$/.test(base)
@@ -69,10 +80,14 @@ export function assertSafePath(target: string): void {
   for (const root of runtimeRoots) {
     if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map((p) => p.toLowerCase()))) throw new FileAccessError();
   }
-  for (const root of protectedRoots()) {
-    if (isPathWithin(root, target)) throw new FileAccessError();
+  for (const { root, temporaryRoot } of protectedRoots()) {
+    // Default AppData and LOCALAPPDATA exempt only local temporary storage.
+    // Explicit provider, runtime and system roots still deny every child.
+    if (isProtectedRoot(root, target, temporaryRoot)) throw new FileAccessError();
     try {
-      if (isPathWithin(realpathSync(root), target)) throw new FileAccessError();
+      const canonicalRoot = realpathSync(root);
+      const canonicalTemp = temporaryRoot ? path.join(canonicalRoot, path.relative(root, temporaryRoot)) : undefined;
+      if (isProtectedRoot(canonicalRoot, target, canonicalTemp)) throw new FileAccessError();
     } catch (err) {
       if (err instanceof FileAccessError) throw err;
     }
