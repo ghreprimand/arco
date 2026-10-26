@@ -71,7 +71,12 @@ async def main():
   for palette in ['default','everforest','amber','phosphor','red-planet','arco-crt']:
    await page.evaluate('(id)=>testStore.getState().setThemeId(id)','phosphor:arco:'+palette)
    await page.wait_for_timeout(100)
-   assert await page.evaluate('JSON.stringify(testStore.getState().jobs)')==baseline
+   now=await page.evaluate('JSON.stringify(testStore.getState().jobs)')
+   if now!=baseline:
+    # Name the changed fields: the Windows runner reported only a bare AssertionError.
+    a,b=json.loads(baseline),json.loads(now)
+    changed=[(j,k,str(a.get(j,{}).get(k))[:200],str(b.get(j,{}).get(k))[:200]) for j in sorted(set(a)|set(b)) for k in sorted(set(a.get(j,{}))|set(b.get(j,{}))) if a.get(j,{}).get(k)!=b.get(j,{}).get(k)]
+    raise AssertionError({'palette':palette,'changed':changed})
    current_buttons=await page.locator('button').all_text_contents()
    assert current_buttons==buttons, {'palette':palette,'before':buttons,'after':current_buttons}
    assert await page.locator('.arco-markdown').all_text_contents()==text
