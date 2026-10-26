@@ -60,6 +60,8 @@ const FORMS = [
   ['npm scripts', re(`(["'\\s])${lower}:`), '$1arco:'],
   ['camelCase identifiers', re(`(?<=[a-z0-9])${title}`), 'Arco'],
   ['identifier prefix', re(`\\b${lower}(?=[A-Z])`), 'arco'],
+  // Letter-spaced banner text; the padding keeps fixed-width boxes aligned.
+  ['letter-spaced upper case', re(upper.split('').join(' ')), 'A R C O    '],
   ['upper case', re(upper), 'ARCO'],
   ['title case', re(title), 'Arco'],
   ['lower case', re(lower), 'arco'],

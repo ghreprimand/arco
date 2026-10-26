@@ -2284,7 +2284,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model
 httpServer.listen(PORT, HOST, () => {
   console.log(`
   ╔══════════════════════════════════════════╗
-  ║         A R C H O N  v0.1.0 (Lite)       ║
+  ║         A R C O      v0.1.0 (Lite)       ║
   ║         Server online :: ${PORT}             ║
   ║         Phase 2 — primary-worker chat    ║
   ╚══════════════════════════════════════════╝
