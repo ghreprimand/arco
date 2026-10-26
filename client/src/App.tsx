@@ -687,7 +687,7 @@ ${scopeBody}
       >
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
-        <ProviderOutageBanner />
+        {authStatus && !providerConnected && <ProviderOutageBanner />}
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}

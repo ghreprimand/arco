@@ -7,6 +7,8 @@ loads the built client (client/dist; run `npm run build` first) in Chromium:
   fresh      empty installation, no provider        -> first-run setup screen
   registered project registered AND used before,
              all tabs closed, no provider           -> workspace + outage banner
+             Retry after a provider connects        -> banner removed
+             reload after the provider disconnects  -> banner restored, no setup
   scanned    project found by the scan folder AND
              used before, all tabs closed           -> workspace + outage banner
 
@@ -26,7 +28,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host_isolation  # noqa: E402
@@ -146,6 +148,22 @@ async def visit(server, expect_setup, label):
                 # Give a late projects response a chance to flip the gate wrongly.
                 await page.wait_for_timeout(1500)
                 assert await page.get_by_text(SETUP_TEXT, exact=True).count() == 0, 'returning operator was shown first-run setup'
+                if label == 'registered':
+                    # Retry must apply a newly connected provider, and a later
+                    # outage must restore the warning without reopening setup.
+                    status = await (await context.request.get(server.base + '/api/auth-status')).json()
+                    status['ollama']['loggedIn'] = True
+
+                    async def provider_status(route):
+                        await route.fulfill(json=status)
+
+                    await context.route('**/api/auth-status', provider_status)
+                    await page.get_by_role('button', name='RETRY', exact=True).click()
+                    await expect(page.get_by_text(BANNER_TEXT, exact=True)).to_have_count(0)
+                    status['ollama']['loggedIn'] = False
+                    await page.reload()
+                    await page.get_by_text(BANNER_TEXT, exact=True).wait_for(timeout=20000)
+                    assert await page.get_by_text(SETUP_TEXT, exact=True).count() == 0
         except Exception:
             Path('.audit').mkdir(exist_ok=True)
             Path(f'.audit/onboarding-states-{label}.json').write_text(json.dumps({
