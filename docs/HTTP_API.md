@@ -807,7 +807,7 @@ The `keep_alive:0` unload trick (open-webui's `/api/unload`) - frees a model's V
 Request body (JSON):
 
 ```json
-{ "model": "qwen3.6-coder", "baseUrl": "http://workstation:11434", "label": "workstation", "workflowId": "<wfid>" }
+{ "model": "qwen3.6-coder", "baseUrl": "http://127.0.0.1:11434", "label": "primary", "workflowId": "<wfid>" }
 ```
 
 - `model` - **required**; missing/empty -> **400** `{ error: "model required" }`.

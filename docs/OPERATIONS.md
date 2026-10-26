@@ -346,14 +346,11 @@ CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Nativ
 
 ### Strata and large MoE operation
 
-See [STRATA.md](STRATA.md) for the complete workstation runbook: Original/SC117
-selection on the next message, serial profile switching, the local registry,
-36 GiB cgroup ceiling versus 24 GiB expert budget, RAM-backed KV, NVMe PLE,
-CPU vision, web tools, provenance, busy refusal, rollback, FREE VRAM and manual
-service commands. It also records what was actually validated and what remains
-unmeasured. Arco application memory limits do not resize the Strata service.
-Restart Strata only between its requests; warn before restarting Arco because
-that interrupts active workers across tabs.
+See [STRATA.md](STRATA.md) for profile selection, memory limits, profile
+switching, CPU/GPU vision, service recovery, rollback, FREE VRAM and verification
+limits. Arco application memory limits do not resize the separately managed
+Strata service. Restart Strata only between its requests; restarting Arco
+interrupts active workers across tabs.
 
 ### Ollama Over Tailscale
 
@@ -791,11 +788,11 @@ The `~/.arco/antigravity-data/` Chromium profile can also grow. Clear it with `r
 Arco is designed for local-dev or single-forwarded-port remote access:
 
 ```bash
-# On the dev box:
+# On the Arco host:
 npm run dev
 
 # On the remote machine, via SSH:
-ssh -L 5173:localhost:5173 dev-box
+ssh -L 5173:localhost:5173 <ssh-target>
 
 # Then open http://localhost:5173 locally
 ```

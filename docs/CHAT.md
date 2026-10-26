@@ -44,7 +44,7 @@ listed. The native-session RESUME picker is a separate project-based surface.
 
 ## Web access
 
-For prepared Original/SC117 switching, CPU vision, memory limits and recovery,
+For prepared Strata profile switching, CPU vision, memory limits and recovery,
 see [STRATA.md](STRATA.md). Same-provider switches preserve Chat history and load
 on the next message; one Strata profile is resident at a time.
 

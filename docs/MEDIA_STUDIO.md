@@ -310,7 +310,7 @@ True AI source separation (vocals / drums / bass / other, or a two-stems karaoke
 
 ### Smoke (N4)
 
-`scripts/smoke/demucs.ts` (`npm run smoke:demucs`, demucs-optional), PURE (validateStemsSpec + exact `buildDemucsArgs` argv) + a REAL-demucs half (full separation -> the 4-stem set as new files flattened with no leftover model subdir; a two-stems split -> `<stem>` + `no_<stem>`; a fresh dir per run; an out-of-cwd input rejected when locked / honored when unconfined; `output-dir-missing`). 7/7 on the dev box (RTX 5090, mp3).
+`scripts/smoke/demucs.ts` (`npm run smoke:demucs`, demucs-optional) has a pure validation/argv suite and an optional real-demucs pass. The suite checks the four-stem and two-stem output layouts, fresh output directories, locked/unconfined path behavior, and missing output directories. Runtime and quality depend on the installed model and hardware.
 
 ## Operator affordances (N-series polish)
 

@@ -25,17 +25,11 @@ for provider internals and the settings reference.
 5. To release model memory, finish or cancel active local turns/reviewers, then
    select **FREE VRAM** in the header. The next request reloads the selected model.
 
-The following public model IDs illustrate profile naming; available choices come from configured Strata profiles:
-
-| Picker label | Exact model ID | Service profile |
-| --- | --- | --- |
-| Qwen3.8 Flash Next · Original · 262K | `qwen3.8-flash-next-iq3_xxs-262k` | `262k` |
-| Qwen3.8 Flash Next · SC117 Abliterated · 262K | `qwen3.8-flash-next-sc117-abliterated-iq3_xxs-262k` | `sc117-262k` |
-
-Both use IQ3_XXS, 262144 configured tokens and CPU vision. A separate original
-`128k` service profile exists for manual comparisons; it is text-only and is not
-registered in Arco's two-model picker. **262K** is the display label for
-262144 tokens; some capability badges use **256k** (262144 ÷ 1024).
+The picker reflects profiles registered by the configured Strata service.
+Model IDs, profile names, context windows and capabilities vary by installation;
+Arco does not ship a model registry or weights. Check the service's live metadata
+or its local profile configuration when a profile is missing or reports
+unexpected capabilities.
 
 One Strata profile is resident at a time. Arco serializes entire Strata turns,
 including tool round trips, even when `ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0`.
@@ -112,18 +106,18 @@ workloads automatically.
 
 The following bounds are independent:
 
-- **262144 tokens** is the configured model window. The CTX meter uses discovered
+- **The context window is profile-specific.** The CTX meter uses discovered
   `meta.n_ctx` and engine prompt usage; image tokens and instructions also use context.
-- **32768 resident KV cells** bounds GPU residency. Older history remains in the
-  host-backed cache; changing this number does not extend native context.
+- **Resident KV cache bounds GPU working-set size.** Older history may remain in
+  host-backed storage depending on the profile; changing residency does not extend context.
 - **Read: 32K; other tool results: 64K** are Arco's shared per-result text caps.
   They are character/string-length bounds in the local tool runtime, despite
   notices referring to bytes. Multibyte text can have a different byte count.
   They are not a 64K-token model limit. Strata skips LM Studio's additional
   6K/200-line compacting pass. If a result is trimmed, ask for a narrower file
   range, query or section; increasing model context alone does not lift that cap.
-- **1024 image tokens** is the prepared encoder cap, not a claim of unlimited
-  image detail or batch support. Vision/OCR can still make recognition mistakes.
+- **Image-token limits are profile-specific.** An encoder cap is not a claim of
+  unlimited image detail or batch support. Vision/OCR can still make recognition mistakes.
 
 After a completed turn the composer shows **tok/s** for decode and **PP** for
 fresh prompt prefill, when engine timings are present. Hover for token counts

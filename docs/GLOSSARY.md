@@ -211,7 +211,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Run** - One attempt to execute a task. Created by the dispatcher (or a worker's `cluster_task_claim`) when a task is assigned; records `runId`, `assignee`, `claimedAt`, `lastHeartbeatAt`, and `outcome` (open / completed / failed / reclaimed). Multiple runs can accumulate over a task's lifetime (e.g., after recovery). The dispatcher's `maxOpenRuns` cap counts only runs whose `outcome` is still open. See `server/src/project/taskLedger.ts`.
 
-**RSS guard** - `RSS_KILL_BYTES = 32 GB` per-process-tree memory cap (raised from 16 GB on 2026-04-28; original 4 GB pre-incident) enforced by `WorkerManager.startActivityPoll`. Per-workflow opt-out via `meta.disableRssGuard`. Override via `ARCO_RSS_KILL_BYTES` env var. Exists because of the 2026-04-16 OOM incident where a runaway `find /` ballooned a worker to 63 GB.
+**RSS guard** - `RSS_KILL_BYTES = 32 GB` per-process-tree memory cap enforced by `WorkerManager.startActivityPoll`. Per-workflow opt-out is available through `meta.disableRssGuard`; `ARCO_RSS_KILL_BYTES` overrides the cap. The guard bounds runaway worker memory use.
 
 **Sandbox** - `WorkerConfig.sandbox` permissions level: `read-only` / `workspace-write` / `danger-full-access`. Codex-native; also load-bearing for Cursor - `read-only` is the exclusive signal that routes a Cursor turn to the stateless `cursor-agent -p` print path instead of the long-lived ACP worker. Reviewers force `read-only`.
 

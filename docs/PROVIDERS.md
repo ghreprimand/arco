@@ -1172,11 +1172,11 @@ API-key fallback: `GEMINI_API_KEY` env var.
 
 **Image downscaling (all providers).** Every image upload gets a background-derived sibling `<path>.model.<ext>` (≤2000px long edge, ≤3.75 MB raw, JPEG q85 fallback; ImageMagick `magick`/`convert`, macOS `sips`) in `providers/attachments.ts`. Models receive that copy: `modelImagePath` (sync — Claude CLI, Native `buildImageBlock`, Codex exec `-i`) or `awaitModelImage` (≤5 s — Codex app-server `localImage`, Cursor ACP, Ollama, llama.cpp, LM Studio, Antigravity staging); `turnEngine` also awaits before spawning so a send right after a paste gets the copy. Media type follows the derived file; text refs keep the original path; the original file is never modified. No image tool ⇒ original, as before.
 
-`OLLAMA_URL_BASE` defaults to `http://localhost:11434`. Override with the env var. The configured `settings.ollama.baseUrl` also resolves DD12 config-value interpolation (`!cmd …` runs a command and uses its stdout, `${ENV}` reads an env var) via `resolveConfigValue` before use, so the workstation endpoint can be derived at resolve time instead of hard-coded. `keep_alive` is per-request (`'10m'` — long enough that consecutive turns never reload, short enough to return VRAM when a tab is idle; see Quirks).
+`OLLAMA_URL_BASE` defaults to `http://localhost:11434`. Override it with the env var. `settings.ollama.baseUrl` supports DD12 config-value interpolation (`!cmd ...` runs a command; `${ENV}` reads an env var) through `resolveConfigValue`, so the endpoint can be derived at resolve time. `keep_alive` is per request (`'10m'`), long enough for consecutive turns and short enough to return VRAM when a tab is idle; see Quirks.
 
 ### Multi-backend routing + resilience (M4)
 
-`server/src/providers/ollamaResilience.ts` is the decision surface; `ollama.ts` owns the fetch/parse. The chat path can fan out across **multiple Ollama daemons** that serve overlapping model sets (the operator's case: a workstation daemon over Tailscale + a local one). Mined from litellm's Router (algorithms only — NOT the package); absorbs Hardening Phase 2 (resilience) + Phase 8 (Tailscale fallback) per the master plan.
+`server/src/providers/ollamaResilience.ts` is the decision surface; `ollama.ts` owns the fetch/parse. The chat path can fan out across **multiple Ollama daemons** that serve overlapping model sets. The optional `modelHostMap` can pin specific models to a configured backend. Backend selection uses Arco's local resilience logic; no external router package is required.
 
 **Config (`settings.ollama`, settings-file-only — no HTTP endpoint in v1):**
 
@@ -1184,10 +1184,10 @@ API-key fallback: `GEMINI_API_KEY` env var.
 "ollama": {
   "baseUrl": "http://localhost:11434",          // legacy single-backend (still works)
   "backends": [                                  // M4 — supersedes baseUrl for chat when non-empty
-    { "baseUrl": "http://workstation:11434", "weight": 3, "label": "workstation", "tailscaleHost": "workstation" },
-    { "baseUrl": "http://localhost:11434",   "weight": 1, "label": "local" }
+    { "baseUrl": "http://127.0.0.1:11434", "weight": 3, "label": "primary" },
+    { "baseUrl": "http://127.0.0.1:11435", "weight": 1, "label": "secondary" }
   ],
-  "modelHostMap": { "qwen3-vl": ["workstation"] } // optional affinity hint (model → backend labels)
+  "modelHostMap": { "qwen3-vl": ["primary"] } // optional affinity hint (model to backend labels)
 }
 ```
 
@@ -1275,7 +1275,7 @@ Turns "why did my model unload / why is VRAM full" into visible operator state (
 `server/src/providers/ollamaVram.ts` adds hardware awareness to the CONFIG tab via two **read-only, fail-soft** probes (both wrap the Cookbook `probeHardware()` + `fit.ts` estimator). All numbers are framed as estimates, never guarantees; macOS / no `nvidia-smi` ⇒ `available:false`, a down daemon ⇒ `daemonUp:false`, an unprobeable model ⇒ `found:false` — never throws.
 
 - **`GET /api/ollama/vram` (`computeVramReport`)** — the LOCAL board's GPU VRAM (`nvidia-smi` via the Cookbook hardware probe) vs what the local Ollama daemon currently has resident (`/api/ps` `size_vram`). Powers the **VRAM BUDGET** readout. Local-only by design. Returns `OllamaVramReport` (`shared/src/protocol/usage.ts`).
-- **`POST /api/ollama/fit` (`computeOllamaFit`)** — a predictive what-if estimate: given the workflow's primary model (+ optional utility/summarizer model), size the largest `num_ctx` the primary can use on this GPU, reserving headroom for a **LOCAL** utility model (a utility pinned to a remote `baseUrl` — the 3070-on-Unraid route — costs **zero local VRAM**, signalled by `utilityRemote:true`). Powers the "set to fit" button + the primary/utility coexistence warning. **Writing** `num_ctx` still goes through the normal `updatePrimaryConfig` path so the prefix-cache invalidation is logged. Returns `OllamaFitReport`, whose `estimateMethod` is `measured-live` when the model is loaded (the fit math reads its actual `/api/ps` VRAM at its actual context, capturing the daemon's real KV-cache quant + flash-attention), else `sliding-window` / `needs-load` / `unknown`.
+- **`POST /api/ollama/fit` (`computeOllamaFit`)** provides a predictive estimate. It sizes the primary model's largest `num_ctx` with room for an optional local utility model. A utility pinned to a remote `baseUrl` uses no local VRAM (`utilityRemote:true`). The report powers the `set to fit` control and primary/utility coexistence warning. Writes still go through `updatePrimaryConfig` so prefix-cache invalidation is logged. `OllamaFitReport.estimateMethod` is `measured-live` when the model is loaded; otherwise it reports `sliding-window`, `needs-load`, or `unknown`.
 
 ### Utility / task model (M7)
 
@@ -1285,7 +1285,7 @@ Turns "why did my model unload / why is VRAM full" into visible operator state (
 
 ```jsonc
 "ollama": {
-  "utility": { "model": "qwen3:3b", "baseUrl": "http://workstation:11434" }  // baseUrl optional (pins a warm host)
+  "utility": { "model": "qwen3:3b", "baseUrl": "http://127.0.0.1:11434" }  // baseUrl optional (pins a warm host)
 }
 ```
 
@@ -1332,7 +1332,7 @@ Items 1 and 2 must be byte-stable across turns within a workflow — Ollama's pr
 
 NDJSON response. Each line carries either `message.content` deltas or, atomically, a `message.tool_calls` array; the final line has `done: true` plus `prompt_eval_count` / `eval_count` / `total_duration`.
 
-- `message.thinking` (native parser) → `thinking` event direct. Models with `RENDERER qwen3.5` / `PARSER qwen3.5` (or `qwen3-vl-thinking`, deepseek3, gpt-oss) emit reasoning here, separate from content. Request `think` comes from `ollamaThinkParam()` (`shared/src/protocol/ollamaThinking.ts`): boolean-only models get `effort !== 'low'`; models whose `/api/show` advertises `thinking.values` (qwen3.8: `[false, low, medium, xhigh]`, gpt-oss: low/medium/high) get the level string. `low` sends `false` when the model allows it (else its lowest level); a stored `high` on a model with no `high` level sends `true` (model default) so pre-level tabs don't escalate; other missing levels step down. The picker (`effortsForModel` → `ollamaEffortsFor`) reads the levels from `authStatus.ollama.installedModelCapabilities[model].thinkingLevels`.
+- `message.thinking` (native parser) maps directly to the `thinking` event. Models with `RENDERER qwen3.5` / `PARSER qwen3.5` (or `qwen3-vl-thinking`, deepseek3, gpt-oss) emit reasoning here, separate from content. Request `think` comes from `ollamaThinkParam()` (`shared/src/protocol/ollamaThinking.ts`): boolean-only models get `effort !== 'low'`; models whose `/api/show` advertises `thinking.values` get the supported level string. `low` sends `false` when the model allows it (else its lowest level); a stored `high` on a model with no `high` level sends `true` (model default) so pre-level tabs don't escalate; other missing levels step down. The picker (`effortsForModel`, then `ollamaEffortsFor`) reads the levels from `authStatus.ollama.installedModelCapabilities[model].thinkingLevels`.
 - `message.content` (plain) → `text`
 - `message.content` inside `<think>...</think>` → `thinking` (handled by `ThinkSplitter` — fallback for legacy non-native-parser models like heretic-tools / qwopus that still embed `<think>` tags in content. Supports paired, orphan-close, and plain text. No-op for native-parser models since their content is already think-stripped.)
 - `message.tool_calls[]` → `tool_use` event per call + executed via the server-side runtime (see Tool runtime below)
@@ -1393,7 +1393,7 @@ None. Ollama is a local daemon — Arco just probes `${OLLAMA_URL_BASE}/api/tags
 
 ### Cookbook pull (Workbench Expansion G4)
 
-The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pull`** endpoint (`server/src/cookbook/install.ts` `pullOllama`), POSTing `{ name, stream: true }` to `` `${getOllamaBase()}/api/pull` `` and parsing the streaming NDJSON (`status` / `total` / `completed`) into progress events. It deliberately uses the HTTP API (**not** an `ollama pull` subprocess) so the pull **honours the operator's configurable / remote Ollama base URL** (the Tailscale workstation daemon) and gets progress natively. On success Ollama auto-discovers the tag via `/api/tags`, so there is **no catalog write** (unlike the llama.cpp GGUF path). See `docs/COOKBOOK.md § G4`.
+The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pull`** endpoint (`server/src/cookbook/install.ts` `pullOllama`), POSTing `{ name, stream: true }` to `` `${getOllamaBase()}/api/pull` `` and parsing the streaming NDJSON (`status` / `total` / `completed`) into progress events. It deliberately uses the HTTP API (**not** an `ollama pull` subprocess) so the pull **honours the operator's configured Ollama base URL**, including remote endpoints and gets progress natively. On success Ollama auto-discovers the tag via `/api/tags`, so there is **no catalog write** (unlike the llama.cpp GGUF path). See `docs/COOKBOOK.md` under `G4`.
 
 ### Capability detection
 
@@ -1414,11 +1414,11 @@ The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pu
 
 ### Endpoint auto-discovery (Workbench Expansion D2)
 
-Instead of hand-typing the Ollama base URL for the workstation daemon reached over Tailscale, the CONFIG tab's **DISCOVER ENDPOINTS** button probes for reachable OpenAI-compatible / Ollama model-list endpoints and surfaces them as one-click suggestions that fill `settings.ollama.baseUrl`. The prober lives in `server/src/providers/endpointDiscovery.ts` (`discoverEndpoints()`); the route is `GET /api/endpoints/discover` (`server/src/http/endpointDiscoveryRoutes.ts`, returns `{ endpoints, tailscaleAvailable, cached }`).
+Instead of hand-typing a base URL for an Ollama daemon on a private network, the CONFIG tab's **DISCOVER ENDPOINTS** button probes for reachable OpenAI-compatible / Ollama model-list endpoints and surfaces them as one-click suggestions that fill `settings.ollama.baseUrl`. The prober lives in `server/src/providers/endpointDiscovery.ts` (`discoverEndpoints()`); the route is `GET /api/endpoints/discover` (`server/src/http/endpointDiscoveryRoutes.ts`, returns `{ endpoints, tailscaleAvailable, cached }`).
 
 What it probes — a **bounded** candidate set, deliberately **not** a port scanner:
 
-- **Hosts:** discovered Tailscale peers + `localhost` only. LAN /24 sweeping is **deferred** (one /24 is 254 hosts × the port list ≈ a scan; the Mac↔workstation case is covered by peers + localhost). Tailscale peers come from `tailscale status --json`, run via `execFile('tailscale', ['status','--json'], …)` — argv array, never a shell. Offline peers (`Online:false`) are dropped.
+- **Hosts:** discovered Tailscale peers and `localhost` only. LAN `/24` scanning is deferred because it would probe 254 hosts at each port. Peers come from `tailscale status --json` via `execFile('tailscale', ['status', '--json'])`, using an argv array rather than a shell. Offline peers (`Online:false`) are dropped.
 - **Ports:** a fixed 12-port list — `11434` (Ollama) + `8000`–`8010` (OpenAI-compatible). There is no other port set.
 - **Private ranges only (the SSRF-equivalent fence):** every candidate host must pass `isPrivateHost()` — loopback, tailnet CGNAT `100.64/10`, and RFC1918 (`10/8`, `172.16/12`, `192.168/16`). A **public IP is never probed** — a peer with a routable IP is rejected before it becomes a target.
 - **Probe:** each `{host,port}` races `GET /api/tags` (Ollama, `{models:[{name}]}`) then `/v1/models` (OpenAI, `{data:[{id}]}`) against a ~700 ms per-probe timeout, with ≤ 8 probes in flight and an ~8 s overall deadline. A 200 with a parseable model list is a hit (recorded with `api`, `modelCount`, sample names); anything else is "not discovered". A closed port fails fast (connection refused) and a stall is bounded by the timeout.
@@ -1450,7 +1450,7 @@ One streaming `POST ${baseUrl}/chat/completions` per turn (SSE `data:` lines, `[
 
 ### Base-URL cascade
 
-`getLmstudioBase()` resolves `settings.lmstudio.baseUrl` → `LMSTUDIO_URL_BASE` env → `http://localhost:1234/v1` default. The configured value also resolves DD12 config-value interpolation (`!cmd …` / `${ENV}` via `resolveConfigValue`) before `normalizeBase` runs. `normalizeBase` tolerates a bare `host:port` by appending `/v1` when the `/vN` suffix is absent (pasting `http://workstation:1234` still works).
+`getLmstudioBase()` resolves `settings.lmstudio.baseUrl`, then `LMSTUDIO_URL_BASE`, then defaults to `http://localhost:1234/v1`. The configured value supports DD12 config-value interpolation (`!cmd ...` and `${ENV}`) through `resolveConfigValue` before `normalizeBase`. A bare `host:port` gets `/v1` appended; for example, `http://localhost:1234` works.
 
 ### Capability detection
 
@@ -1478,12 +1478,11 @@ Existing provider endpoints/defaults are preserved. Strata user services own the
 The operator can unload its model with the header FREE VRAM button; the next
 request reloads it through Strata.
 
-**Discovery/auth.** `GET /models` supplies model IDs, `meta.n_ctx` (actual configured
+**Discovery/auth.** `GET /models` supplies model IDs, `meta.n_ctx` (the configured
 context), and `architecture.input_modalities` (vision only when `image` is
-advertised). The running Qwen3.8 Flash Next IQ3_XXS profile reports
-`qwen3.8-flash-next-iq3_xxs-262k`, 262144 tokens. `GET /api/auth-status` adds
-`strata` with `apiProvider: strata:<base>`, `subscriptionType: local`, installed
-models and capabilities. No login/API key on this loopback installation.
+advertised). `GET /api/auth-status` adds `strata` with `apiProvider: strata:<base>`,
+`subscriptionType: local`, installed models and capabilities. No login/API key is
+required for the standalone service.
 
 **Prepared profiles.** An optional operator registry at
 `~/.arco/strata-profiles.json` (`ARCO_STRATA_PROFILES` overrides the path)
@@ -1509,10 +1508,11 @@ Failures/cancellation restore the old profile (including its unloaded state)
 before releasing the switch guard; notices are persisted in the transcript.
 Unregistered/remote connections retain HTTP-only operation.
 
-On the operator's machine the registry exposes **Original · 262K** and
-**SC117 Abliterated · 262K**, each with CPU vision. One profile is resident at a
-time; alternating tabs reloads their selected weights. Other providers remain
-available. The registry is local operator configuration, outside Git.
+The registry exposes only profiles installed for the configured service.
+Profile names, model IDs, context windows and vision support vary by
+installation. One profile is resident at a time; alternating tabs reloads their
+selected weights. Other providers remain available. The registry is local
+configuration and stays outside Git.
 
 **Transport.** Reuses `OpenAIHttpWorkerProcess` in `lmstudio.ts`: streaming SSE,
 fragmented indexed tool calls, usage, image data URLs, transcript replay and a
@@ -1546,14 +1546,11 @@ omits tools. No project tools, skills, shell or MCP in Chat. No Incognito:
 Strata's independent request logs and encoded-image cache cannot meet the strict
 boundary. Strata is not a cluster member.
 
-**Vision deployment on this machine.** Strata's 262K profile has `--vision` and a
-CPU `vision` section: matching BF16 mmproj, 8 threads, 1024 image-token cap. GPU
-headroom was only about 1.7 GiB (below the existing 2048 MiB desktop reserve), so
-CPU encoding avoids taking additional VRAM. The 24 GiB expert cache,
-`MemoryHigh=32G`, `MemoryMax=36G`, `MemorySwapMax=0` remain. Enabling an encoder
-requires a Strata restart and a fresh capability probe; Arco does not infer
-vision from a model name. Local runtime details and backup are in
-`<local-llm-tools>/docs/usage/strata.md`.
+**Vision depends on the configured profile.** A profile may enable an image
+encoder and set its device, thread count, and token cap. Resource limits and
+encoder settings belong to the Strata service; Arco does not resize them. After
+a profile change, restart Strata and check its live capabilities. Arco does not
+infer vision from a model name.
 
 **Validation.** `npm run test:strata-provider` exercises discovery, SSE chunks,
 reasoning, image payloads, web tool round trips and hallucinated project-tool
@@ -1586,8 +1583,9 @@ text-only configs reject images before loading. Live modality readiness must
 match the prepared profile. The native reasoning
 channel and assistant reasoning for tool rounds are preserved; request effort
 is none/low/medium/high, with an 8192 thinking budget and 16384 total output cap.
-Context is 262144 including input, history, thinking and output. The worker uses
-runtime timings and the final round's prompt count for measured context/rates.
+Context size comes from the configured service model and includes input, history,
+thinking and output. The worker uses runtime timings and the final round's prompt
+count for measured context and rates.
 
 **Discovery/auth.** `settings.deepseek.baseUrl` → `DEEPSEEK_URL_BASE` →
 `http://127.0.0.1:8150/v1`. A matching validated operator registry populates

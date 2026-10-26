@@ -428,8 +428,8 @@ The provider is selected by `WorkflowConfig.primaryProvider`. **Transport** is p
 
 Subprocess supervision in `server/src/workers/`. Invariants are tracked in [GOTCHAS.md](GOTCHAS.md); the machinery shape is:
 
-- `MAX_WORKER_OUTPUT_BYTES = 50MB` per turn (override via `ARCO_MAX_WORKER_OUTPUT_BYTES` env, 1 MB floor) - capped in per-provider accumulators. Raised from 5 MB on 2026-05-09: the 2026-04-16 Gemini 63 GB incident was a memory issue (RSS_KILL handles it directly); 50 MB gives Native (1 M context) and long agentic Codex/exec runs comfortable headroom while still catching "model went berserk."
-- `RSS_KILL_BYTES = 32GB` (override via `ARCO_RSS_KILL_BYTES` env var; raised from 16 GB on 2026-04-28 after a legitimate fan-out workload tripped the cap on a 96 GB box) - tree-RSS auto-kill via `WorkerManager.startActivityPoll`. Per-workflow opt-out via `meta.disableRssGuard`
+- `MAX_WORKER_OUTPUT_BYTES = 50MB` per turn (override through `ARCO_MAX_WORKER_OUTPUT_BYTES`, 1 MB floor), capped in per-provider accumulators. The cap permits ordinary long-running provider output while bounding runaway responses. Keep it aligned with the tree-RSS guard; output size and process memory are separate limits.
+- `RSS_KILL_BYTES = 32GB` (override via `ARCO_RSS_KILL_BYTES` env var) - tree-RSS auto-kill via `WorkerManager.startActivityPoll`. Per-workflow opt-out via `meta.disableRssGuard`
 - `detached: true` on every spawn so the process tree survives WS disconnects; `killProcessTree` takes down descendants on cancel or server exit
 - Linux `/proc`-based activity probe (`processActivity.ts`, polled 1.5s) drives the CPU-pulse UI and silent-exit supervision
 - PID registry persisted to `~/.arco/worker-pids.json` so crash recovery can SIGKILL orphans on next boot
@@ -512,7 +512,7 @@ The **SYNCING overlay** fires when the WS is up but persisted jobs haven't recei
 - `activity`, `primaryBackgroundJobs` - capped activity feed for the right pane
 - `attachments`, `drafts` - store-level so they survive tab-switch remounts
 
-Persistence: debounced localStorage at 1 Hz max. Hard caps on message and worker output sizes prevent OOM regressions (the 2026-04-16 63 GB incident is why these exist). See [CLIENT.md](CLIENT.md) for full store shape.
+Persistence: debounced localStorage at 1 Hz max. Hard caps on message and worker output sizes prevent oversized responses from exhausting browser memory. See [CLIENT.md](CLIENT.md) for full store shape.
 
 ### WebSocket reconnect
 
@@ -769,7 +769,7 @@ Five-phase rollout, SHIPPED 2026-05-10. A cluster is a parent tab kind that host
 
 **Portable snapshots.** A live cluster can be saved locally, exported as a
 verified `.arcocluster` regular-files-only bundle, or encrypted locally and
-uploaded manually to the hub-host management-hub vault. `+NEW -> CLUSTER` restores
+uploaded manually to the management hub vault. `+NEW -> CLUSTER` restores
 from LOCAL, CLOUD, or IMPORT FILE into an operator-selected project cwd. The
 bundle carries Arco config/plan/history, not project files, credentials,
 provider session stores, mailboxes, or task-board contents. Restore always
