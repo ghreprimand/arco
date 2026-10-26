@@ -33,6 +33,9 @@ const TARGET_SELECTOR = [
 interface Task {
   node: Text;
   original: string;
+  // What this scramble last wrote. Anything else in the node means React
+  // changed the text mid-scramble; the task then stops without writing.
+  written: string;
   startedAt: number;
 }
 
@@ -80,7 +83,7 @@ export function installThemeScramble(): () => void {
     // originals so we don't strand half-scrambled text if themes are
     // flipped rapidly.
     for (const t of activeTasks) {
-      if (t.node.isConnected) t.node.data = t.original;
+      if (t.node.isConnected && t.node.data === t.written) t.node.data = t.original;
     }
     activeTasks = [];
 
@@ -97,7 +100,7 @@ export function installThemeScramble(): () => void {
     for (const el of Array.from(targets)) {
       if (isInsideInput(el)) continue;
       for (const node of collectTextNodes(el)) {
-        activeTasks.push({ node, original: node.data, startedAt: now });
+        activeTasks.push({ node, original: node.data, written: node.data, startedAt: now });
       }
     }
 
@@ -112,7 +115,7 @@ export function installThemeScramble(): () => void {
     for (const t of activeTasks) {
       // Lost the node (React unmount) or React re-rendered the parent
       // and replaced our node. Either way, abandon.
-      if (!t.node.isConnected) continue;
+      if (!t.node.isConnected || t.node.data !== t.written) continue;
 
       const elapsed = now - t.startedAt;
       const progress = Math.min(elapsed / DURATION_MS, 1);
@@ -138,6 +141,7 @@ export function installThemeScramble(): () => void {
       // Only write if different; unnecessary writes trigger layout on
       // elements that inherit from this text node.
       if (t.node.data !== out) t.node.data = out;
+      t.written = out;
       next.push(t);
     }
     activeTasks = next;
@@ -154,7 +158,7 @@ export function installThemeScramble(): () => void {
     if (raf) cancelAnimationFrame(raf);
     // Restore any in-flight tasks on cleanup.
     for (const t of activeTasks) {
-      if (t.node.isConnected) t.node.data = t.original;
+      if (t.node.isConnected && t.node.data === t.written) t.node.data = t.original;
     }
     activeTasks = [];
   };
