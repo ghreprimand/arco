@@ -7,6 +7,7 @@ import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, openSync, closeSync, w
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { connect, type SmokeClient } from './lib.js';
+import { UPSTREAM_ENV_PREFIX } from '../../server/src/envAliases.js';
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'arco-interrupt-smoke-'));
@@ -28,8 +29,10 @@ async function main() {
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
+  // A home exported by the caller would win over the fixture home; drop it.
+  const inherited = { ...process.env }; delete inherited.ARCO_HOME; delete inherited[`${UPSTREAM_ENV_PREFIX}HOME`];
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', resolve('scripts/smoke/fixtures/interrupt-preload.mjs'), 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_INTERRUPT_HOME: home, ARCO_INTERRUPT_BIN: bin, ARCO_INTERRUPT_JOURNAL: journal,
+    env: { ...inherited, ARCO_INTERRUPT_HOME: home, ARCO_INTERRUPT_BIN: bin, ARCO_INTERRUPT_JOURNAL: journal,
       PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' },
     stdio: ['ignore', log, log],
   });

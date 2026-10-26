@@ -18,6 +18,7 @@ const SUITES = [
   { name: 'help-docs', script: 'help-docs-browser.py', port: 5179 },
   { name: 'phosphor-production', script: 'phosphor-production-browser.py', port: 5179 },
   { name: 'voice', script: 'voice-browser.py', port: 5193 },
+  { name: 'interrupt-send', script: 'interrupt-send-browser.py', port: 5194 },
 ];
 // Suites known to fail are listed here with the board task that tracks them.
 const KNOWN_FAILING = [];
