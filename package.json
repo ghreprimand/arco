@@ -21,6 +21,7 @@
     "audit:public": "node scripts/public-audit.mjs",
     "setup:hooks": "node scripts/setup-hooks.mjs",
     "test:unit": "node scripts/test-unit.mjs",
+    "test:docs": "tsx --conditions development --test scripts/smoke/docs-links.test.ts",
     "smoke:browser": "node scripts/smoke/run-browser-suites.mjs",
     "start": "node scripts/start.mjs",
     "dev": "concurrently --kill-others -n server,client -c cyan,green \"npm run dev -w server\" \"npm run dev -w client\"",
