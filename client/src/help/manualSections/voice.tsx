@@ -6,6 +6,14 @@ import { Code, Kbd } from '../../components/UserManual/components';
 export const voice: Section[] = [{
   id: 'hands-free-voice', group: 'Power features', title: 'Hands-free voice control',
   body: <>
+    <p><strong>Guided setup.</strong> Open <strong>Settings &gt; VOICE SETUP</strong>
+      to check the voice home, <Code>uv</Code> and Python status, installed packages,
+      model status and sizes, and model notices. <strong>INSTALL</strong> or
+      <strong> REINSTALL / REPAIR</strong> runs voice setup with a live log and
+      cancel control. <strong>TEST MICROPHONE</strong> shows the input level without
+      recording or sending audio. <strong>SAY A PHRASE</strong> checks a short sample
+      with the local recognizer and displays the result. In Docker, the section
+      explains that voice requires the native run and disables these actions.</p>
     <p>Install local CPU speech once with <Code>npm run voice:setup</Code>, then
       open <Code>VOICE OFF</Code> in the header and enable hands-free, or press
       <Kbd>Ctrl/Cmd+Shift+Space</Kbd>. Microphone access needs localhost or

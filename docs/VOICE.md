@@ -31,6 +31,15 @@ recognizes). This section is the current contract; the in-app manual
    microphone can remain off. Use **STOP REQUEST** while processing, or the
    script's **PAUSE** / **CANCEL SCRIPT** controls for a standing automation.
 
+For guided installation and checks, open **Settings > VOICE SETUP**. The
+section shows the voice home, `uv` and Python status, installed package
+versions, model status and sizes, and downloaded component notices. **INSTALL**
+or **REINSTALL / REPAIR** runs setup with a live log and cancel control.
+**TEST MICROPHONE** displays the input level without recording or sending it.
+**SAY A PHRASE** sends a short sample to the local recognizer and displays the
+recognized text. In Docker, the section explains that voice requires the native
+run and does not offer install or microphone actions.
+
 ### Find a topic
 
 | Topic | Current reference |
