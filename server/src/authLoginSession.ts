@@ -6,6 +6,7 @@
 // the command fallback stays available for everything else.
 import { spawn, type ChildProcess } from 'child_process';
 import type { AuthLoginSession, AuthLoginTarget } from '@arco/shared';
+import { killProcessTree } from './workers/processKill.js';
 
 const SESSION_TTL_MS = 15 * 60_000;
 const OUTPUT_CAP = 16 * 1024;
@@ -43,6 +44,12 @@ export function getLoginSession(provider: AuthLoginTarget): AuthLoginSession | n
   return entry ? snapshot(entry) : null;
 }
 
+// Ends the shell and everything it started (workers/processKill.ts).
+function stopChild(entry: Live, label: string): void {
+  const pid = entry.child?.pid;
+  if (pid) killProcessTree(pid, { graceMs: 2000, label });
+}
+
 function finish(entry: Live, status: AuthLoginSession['status'], message?: string): void {
   if (entry.session.status !== 'pending') return;
   entry.session.status = status;
@@ -69,7 +76,9 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
   let child: ChildProcess;
   try {
     // No browser exists where the server runs; the CLIs print the link anyway.
-    child = spawn(command, { shell: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'true', NO_BROWSER: 'true' } });
+    // detached on POSIX makes the shell a process-group leader, so a cancel or
+    // timeout reaches the provider CLI it started, not only the shell.
+    child = spawn(command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'true', NO_BROWSER: 'true' } });
   } catch (err) {
     finish(entry, 'failed', err instanceof Error ? err.message : String(err));
     return snapshot(entry);
@@ -93,7 +102,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
   });
   entry.timer = setTimeout(() => {
     if (entry.session.status !== 'pending') return;
-    entry.child?.kill('SIGTERM');
+    stopChild(entry, 'login timeout');
     finish(entry, 'failed', 'login timed out; start again');
   }, SESSION_TTL_MS);
   return snapshot(entry);
@@ -115,7 +124,7 @@ export function cancelLoginSession(provider: AuthLoginTarget): AuthLoginSession 
   if (!entry) return null;
   if (entry.session.status === 'pending') {
     entry.cancelled = true;
-    entry.child?.kill('SIGTERM');
+    stopChild(entry, 'login cancel');
     finish(entry, 'cancelled');
   }
   return snapshot(entry);
