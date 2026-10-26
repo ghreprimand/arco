@@ -160,8 +160,8 @@ async def no_launch(page):
 async def first_run(playwright,server):
     b,page,state=await browser(playwright,server,ready=False,fresh=True)
     try:
-        await page.get_by_text('NO PROVIDER CONNECTED YET',exact=True).wait_for(timeout=20000)
-        await page.get_by_role('button',name='SKIP FOR NOW',exact=True).click()
+        await page.get_by_text('Welcome to Arco',exact=True).wait_for(timeout=20000)
+        await page.get_by_role('button',name='Skip setup',exact=True).click()
         await page.get_by_text('ONLINE',exact=True).wait_for()
         await page.reload()
         await page.get_by_text('ONLINE',exact=True).wait_for(timeout=20000)

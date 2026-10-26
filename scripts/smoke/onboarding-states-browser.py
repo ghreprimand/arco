@@ -36,7 +36,7 @@ import host_isolation  # noqa: E402
 host_isolation.enter_isolated_network()
 
 REPO = Path(__file__).resolve().parents[2]
-SETUP_TEXT = 'NO PROVIDER CONNECTED YET'
+SETUP_TEXT = 'Welcome to Arco'
 BANNER_TEXT = 'No AI provider is connected.'
 
 

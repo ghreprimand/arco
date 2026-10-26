@@ -55,6 +55,7 @@ test('first run on an unused installation shows provider setup', () => {
   assert.equal(startupGate(base), 'setup');
 });
 test('a returning operator keeps the workspace when every provider drops', () => {
+  assert.equal(startupGate({ ...base, setupCompleted: true }), 'workspace');
   assert.equal(startupGate({ ...base, hasOpenWork: true }), 'workspace');
   assert.equal(startupGate({ ...base, hasHistory: true }), 'workspace');
   // A new browser: no local tabs yet, but the server remembers earlier workflows.

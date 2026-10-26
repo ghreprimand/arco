@@ -92,6 +92,8 @@ export interface ArcoSettings {
   defaultWorkingDirectory?: string;
   // Explicit project folders; registration never moves or deletes their files.
   projects?: string[];
+  // First-run setup was completed, skipped, or bypassed by an existing user.
+  onboardingComplete?: boolean;
   // Optional font-pack override. When set to a valid pack id, applyTheme
   // substitutes the active theme's display/body/code fonts with the pack's.
   // Validated against VALID_FONT_PACK_IDS.

@@ -6,6 +6,8 @@ import { create } from 'zustand';
 import { readSetupDeferred, writeSetupDeferred } from '../utils/startupGate';
 
 interface StartupState {
+  firstRunOpen: boolean;
+  setFirstRunOpen: (open: boolean) => void;
   // The server's initial workspace snapshot has been applied this page load.
   workspaceSynced: boolean;
   setWorkspaceSynced: (synced: boolean) => void;
@@ -23,6 +25,8 @@ interface StartupState {
 }
 
 export const useStartupStore = create<StartupState>()((set) => ({
+  firstRunOpen: false,
+  setFirstRunOpen: (firstRunOpen) => set({ firstRunOpen }),
   workspaceSynced: false,
   setWorkspaceSynced: (workspaceSynced) => set({ workspaceSynced }),
   setupDeferred: readSetupDeferred(),

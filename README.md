@@ -17,7 +17,7 @@ npm ci --include=dev
 npm run dev
 ```
 
-Open <http://localhost:5173>. The Vite client proxies API and WebSocket traffic to the local server. `npm run dev` keeps the server and client running together; the Vite client listens on all network interfaces, so devices on a reachable network can load the development client. API calls remain subject to the browser session check. Use a trusted network during development. A new installation without a connected provider opens **Welcome - Connections**; sign in there or select **Skip for now**. In the workspace, **CONNECT A PROVIDER** opens Connections later. Follow [Getting started](docs/GETTING_STARTED.md) to open a project and start a chat.
+Open <http://localhost:5173>. The Vite client proxies API and WebSocket traffic to the local server. `npm run dev` keeps the server and client running together; the Vite client listens on all network interfaces, so devices on a reachable network can load the development client. API calls remain subject to the browser session check. Use a trusted network during development. A new installation without projects or connected providers opens **Welcome to Arco**: add a folder, connect a provider, then launch the prefilled creator. Every step can be skipped. Settings > Projects > **Run setup again** reopens the flow; **CONNECT A PROVIDER** opens Connections later. Follow [Getting started](docs/GETTING_STARTED.md) to open a project and start a chat.
 
 Ensure `NODE_ENV` is not set to `production` during installation, because the native build needs development dependencies. Node.js 24 or newer is required. A C/C++ toolchain and Python 3 may be needed when a native dependency has no prebuilt binary for the platform.
 

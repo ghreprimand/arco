@@ -610,6 +610,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const opName = sanitizeOperatorName(partial.operatorName);
   if (opName) result.operatorName = opName;
   const projects = sanitizeProjects(partial.projects);
+  if (partial.onboardingComplete === true) result.onboardingComplete = true;
   if (projects?.length) result.projects = projects;
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
@@ -751,6 +752,7 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
       ...(patch.enabledProviders ?? {}),
     },
   };
+  if (patch.onboardingComplete === true || current.onboardingComplete === true) merged.onboardingComplete = true;
   if (patch.workflowDefaults !== undefined) {
     const sanitized = sanitizeWorkflowDefaults(patch.workflowDefaults);
     if (sanitized) merged.workflowDefaults = sanitized;

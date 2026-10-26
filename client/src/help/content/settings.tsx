@@ -2,6 +2,10 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.first-run': {
+    title: 'Run setup again',
+    body: <p>Reopens the welcome, folder, Connections and chat steps. Each step can be skipped. Setup completion is remembered in the Arco home so a provider outage never reopens it automatically.</p>,
+  },
   'settings.projects': {
     title: 'Projects',
     body: (

@@ -42,7 +42,7 @@ Sections: 21.
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |
 | `operator-name` | Appearance | Operator name in chat | Global | Operator label shown in chat |
-| `projects` | Projects | Project folders and default working folder | Global | Registered project folders (add, keep, remove), scanned and recent folders, default working directory for new workflows |
+| `projects` | Projects | Project folders and default working folder | Global | Registered project folders (add, keep, remove), scanned and recent folders, default working directory for new workflows, Run setup again |
 | `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
 | `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Z.ai, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub, Antigravity), Claude Native authentication, Codex accounts and profiles, Z.ai API key, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |

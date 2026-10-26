@@ -19,7 +19,7 @@ import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingT
 import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS, zaiModelsUiFrom } from './modelOptions';
 import type { Props, MemberDraft, DirEntry } from './types';
 
-export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: Props) {
+export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider }: Props) {
   const connected = useAppStore((s) => s.connected);
   const capabilities = useAppStore((s) => s.capabilities);
   const authStatus = useAppStore((s) => s.authStatus);
@@ -111,7 +111,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
   // kick in and a useEffect hydrates when settings lands. (`wd` and
   // providerAccountRef are hoisted above, near the catalog reads.)
   const [name, setName] = useState('');
-  const [primaryProvider, setPrimaryProvider] = useState<ProviderName>(wd?.primaryProvider ?? 'claude');
+  const [primaryProvider, setPrimaryProvider] = useState<ProviderName>(initialProvider ?? wd?.primaryProvider ?? 'claude');
   const [model, setModel] = useState<ModelName>(wd?.primaryModel ?? 'opus');
   const [effort, setEffort] = useState<EffortLevel>(wd?.primaryEffort ?? 'max');
   const [skipPermissions, setSkipPermissions] = useState(wd?.skipPermissions ?? true);
@@ -160,7 +160,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster }: 
     if (appliedDefaultsRef.current) return;
     if (!settings?.workflowDefaults) return;
     const d = settings.workflowDefaults;
-    if (d.primaryProvider) setPrimaryProvider(d.primaryProvider);
+    if (d.primaryProvider && !initialProvider) setPrimaryProvider(d.primaryProvider);
     if (d.primaryModel) setModel(d.primaryModel);
     if (d.primaryEffort) setEffort(d.primaryEffort);
     if (d.providerAccountRef) setProviderAccountRef(d.providerAccountRef);

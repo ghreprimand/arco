@@ -5,6 +5,7 @@ import { VoiceSetupSettings } from './VoiceSetupSettings';
 import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { useStartupStore } from '../stores/startupStore';
 import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
@@ -722,6 +723,13 @@ export function SettingsPanel({ onClose }: Props) {
 
         <SettingsSection id="projects">
         <ProjectsSettings />
+        <div data-help="settings.first-run">
+          <button type="button" onClick={() => {
+            useStartupStore.getState().setFirstRunOpen(true);
+            onClose();
+          }}>Run setup again</button>
+          <p>Reopen the welcome, project-folder, provider and chat steps. Existing work stays saved.</p>
+        </div>
         </SettingsSection>
 
         <SettingsSection id="media-access">

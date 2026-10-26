@@ -2,6 +2,7 @@ import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
 import { tryHandleAuthLoginRoutes } from './authLoginRoutes.js';
 import { IN_APP_LOGIN, startLoginSession } from '../authLoginSession.js';
 import { arcoHome } from '../arcoHome.js';
+import { listProjects } from '../projects.js';
 import { listSavedChats } from '../chatMode.js';
 import { tryHandleDeepSeekRoutes } from './deepseekRoutes.js';
 import { tryHandleVoiceRoutes } from './voiceRoutes.js';
@@ -1183,6 +1184,8 @@ export async function handleHttpRequest(
     const home = arcoHome();
     try {
       const results = await Promise.allSettled([
+        readSettings().then((settings) => settings.onboardingComplete === true),
+        listProjects().then((list) => list.projects.length > 0),
         readFile(join(home, 'known-cwds.json'), 'utf8').then((raw) => {
           const values: unknown = JSON.parse(raw);
           if (!Array.isArray(values)) throw new Error('invalid known folders');

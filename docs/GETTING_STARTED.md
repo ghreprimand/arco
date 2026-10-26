@@ -2,8 +2,12 @@
 
 This guide takes a new Arco installation through provider setup to a project
 chat, then covers a first cluster, optional voice setup, and backups. A new
-installation with no connected provider opens the Welcome - Connections screen.
-The screen can be skipped; the in-workspace banner can open Connections later.
+installation with no projects or connected providers opens **Welcome to Arco**.
+Select **Get started**, add an existing project folder or choose a discovery
+scan folder, connect a provider through Connections, then review and launch the
+prefilled chat creator. Every step has a skip action; **Skip setup** goes to Home.
+Completion is remembered in the Arco home across browsers and provider outages.
+Settings > Projects > **Run setup again** reopens the same flow.
 
 ## Before starting
 
@@ -68,10 +72,10 @@ limitations.
 
 ## Connect a provider
 
-On a new installation without a connected provider, Arco opens **Welcome -
-Connections**. Choose a provider, follow its sign-in or API-key steps, then
-select **Continue to workspace**. **Skip for now** leaves setup available for
-later. In the workspace, **CONNECT A PROVIDER** opens the same Connections view.
+The provider step opens **Welcome - Connections**. Choose a provider, follow
+its sign-in or API-key steps, check the connection, then select **Continue to
+chat**. **Skip for now** advances to the creator without connecting a provider.
+In the workspace, **CONNECT A PROVIDER** opens Connections later.
 Settings retains the controls under **Providers and models > Sign-in, accounts
 and local endpoints**. CLI-based providers may show a command to run in a
 terminal. Search the task-based Settings categories for controls; see

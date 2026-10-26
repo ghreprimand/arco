@@ -21,6 +21,7 @@ export interface ClusterCreatePayload {
 }
 
 export interface Props {
+  initialProvider?: ProviderName;
   onCreate: (config: WorkflowConfig) => void;
   // 2026-05-11 — operator picked CLUSTER mode in the top-of-form toggle and
   // submitted. Optional so the prop stays back-compat for any call sites

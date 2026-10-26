@@ -6,6 +6,8 @@ import { useSettingsDeepLinks } from './components/settings/SettingsLayout';
 import { useStartupStore } from './stores/startupStore';
 import { anyPrimaryProviderConnected, fetchInstallationHistory, startupGate } from './utils/startupGate';
 import { ProviderOutageBanner } from './components/ProviderOutageBanner';
+import { FirstRun } from './components/FirstRun';
+import { completeOnboarding } from './utils/completeOnboarding';
 import { VoiceControl } from './components/VoiceControl';
 import { ComputerPanel } from './components/ComputerPanel';
 import { useComputerStore } from './stores/computerStore';
@@ -160,6 +162,7 @@ function AppBody() {
   const workspaceSynced = useStartupStore((s) => s.workspaceSynced);
   const setupDeferred = useStartupStore((s) => s.setupDeferred);
   const setupOpen = useStartupStore((s) => s.setupOpen);
+  const firstRunOpen = useStartupStore((s) => s.firstRunOpen);
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
   // Forget a cached answer once work exists or a provider connects, so a later
   // outage after closing every tab re-asks the server instead of trusting it.
@@ -181,7 +184,16 @@ function AppBody() {
     });
     return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [needHistory, connected, historyAttempt]);
-  const gate = startupGate({ authKnown: !!authStatus, providerConnected, setupDeferred, hasOpenWork, hasHistory, workspaceSynced });
+  const gate = startupGate({ authKnown: !!authStatus && !!settings, providerConnected, setupDeferred, hasOpenWork, hasHistory, workspaceSynced, setupCompleted: settings?.onboardingComplete });
+  useEffect(() => {
+    if (gate === 'setup') useStartupStore.getState().setFirstRunOpen(true);
+  }, [gate]);
+  useEffect(() => {
+    // Remember established users across later outages and empty browser state.
+    // An active setup owns its completion, so connecting cannot skip its chat step.
+    if (!settings || settings.onboardingComplete || firstRunOpen || gate === 'setup') return;
+    if (providerConnected || hasOpenWork || hasHistory === true) void completeOnboarding().catch(() => {});
+  }, [settings, firstRunOpen, gate, providerConnected, hasOpenWork, hasHistory]);
 
   const claudeLoggedIn = authStatus?.claude?.loggedIn ?? null;
   useEffect(() => {
@@ -647,12 +659,12 @@ ${scopeBody}
 
   // Local runtimes are primary-capable too; a Strata-only installation must
   // not require a cloud login to get past the startup gate.
-  if (gate === 'setup') {
+  if (firstRunOpen || gate === 'setup') {
     // Settings panel sits on top of the overlay so the operator can re-enable
     // a disabled provider from inside the gate.
     return (
       <>
-        <AuthOverlay />
+        <FirstRun onCreate={createWorkflow} />
         {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
         {showManual && <UserManual onClose={() => setShowManual(false)} />}
         <HelpBanner />

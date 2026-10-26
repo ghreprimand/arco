@@ -22,11 +22,12 @@ export interface StartupGateInput {
   hasHistory: boolean | null;
   // The server's workspace snapshot has been applied in this page load.
   workspaceSynced: boolean;
+  setupCompleted?: boolean;
 }
 
 export function startupGate(input: StartupGateInput): StartupGate {
   if (!input.authKnown || input.providerConnected) return 'workspace';
-  if (input.setupDeferred || input.hasOpenWork || input.hasHistory === true) return 'workspace';
+  if (input.setupCompleted || input.setupDeferred || input.hasOpenWork || input.hasHistory === true) return 'workspace';
   if (input.workspaceSynced && input.hasHistory === false) return 'setup';
   // Signals still loading: keep the workspace rather than flash the setup
   // screen at a returning operator.

@@ -21,7 +21,7 @@ export function useConnectionsDeepLinks() {
   },[]);
 }
 
-export function Connections({ mode='gate' }: { mode?:'gate'|'dialog' }) {
+export function Connections({ mode='gate', onContinue, onSkip, canContinue = false }: { mode?:'gate'|'dialog'; onContinue?: () => void; onSkip?: () => void; canContinue?: boolean }) {
   const auth = useAppStore(s=>s.authStatus), settings = useAppStore(s=>s.settings);
   const setAuth = useAppStore(s=>s.setAuthStatus), setSettings = useAppStore(s=>s.setSettings);
   const connected = useAppStore(s=>s.connected);
@@ -82,6 +82,7 @@ export function Connections({ mode='gate' }: { mode?:'gate'|'dialog' }) {
     return()=>clearInterval(timer);
   },[login,status?.loggedIn,refresh,selected]);
   const leave = () => {
+    if (onSkip) { onSkip(); return; }
     const startup=useStartupStore.getState();
     if(mode==='gate'){startup.setSetupDeferred(true);useAppStore.setState({activeJobId:null,activeClusterId:null});}
     startup.setSetupOpen(false);
@@ -129,8 +130,9 @@ export function Connections({ mode='gate' }: { mode?:'gate'|'dialog' }) {
     <div className="connections-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="provider-setup-title" aria-describedby="provider-setup-intro" tabIndex={-1} onKeyDown={trap} data-help="auth.connections">
       <header className="connections-header"><div><h1 id="provider-setup-title">{mode==='gate'?'Welcome - Connections':'Connections'}</h1>
         <p id="provider-setup-intro">Connect an AI tool, choose a project, then start work. Provider sign-in, API credentials, local services and tool accounts are different access paths.</p>
-        {mode==='gate' && <div role="status">NO PROVIDER CONNECTED YET</div>}
+        {mode==='gate' && <div role="status">{canContinue ? 'PROVIDER CONNECTED' : 'NO PROVIDER CONNECTED YET'}</div>}
       </div><button type="button" onClick={leave}>{mode==='gate'?'SKIP FOR NOW':'CLOSE'}</button></header>
+      {onContinue && <p className="connections-scope">Step 2 of 3: connect a provider. Continue after an enabled AI provider reports connected, or skip this step.</p>}
       <p className="connections-scope">Connections apply to the Arco server. Your projects and saved work remain available. Checks do not send a prompt or prove model access.</p>
       <div className="connections-actions"><button type="button" onClick={()=>void refresh()} disabled={checking} aria-busy={checking}>{checking?'Checking...':'Refresh all statuses'}</button>
         <button type="button" onClick={()=>advanced('authentication')}>PROVIDER SETTINGS</button>
@@ -175,7 +177,7 @@ export function Connections({ mode='gate' }: { mode?:'gate'|'dialog' }) {
           <p><a href={`#connections/${provider.id}`}>Link to this connection</a></p>
         </section>}
       </div>
-      <footer><button type="button" onClick={leave}>{mode==='gate'?'Continue to workspace':'Back to workspace'}</button><span>No workflow starts until you launch it in the creator.</span></footer>
+      <footer>{onContinue ? <button type="button" onClick={onContinue} disabled={!canContinue}>Continue to chat</button> : <button type="button" onClick={leave}>{mode==='gate'?'Continue to workspace':'Back to workspace'}</button>}<span>No workflow starts until you launch it in the creator.</span></footer>
     </div>
   </div>;
 }
