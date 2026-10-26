@@ -24,10 +24,10 @@ pure functions directly against a fake home, no live server, no real `~/.arco`.
 The Arco home defaults to `~/.arco` and honors `ARCO_HOME` (used by tests /
 tooling). Output defaults to `<home>/backups/arco-backup-<ISO>.arcobk`.
 
-To migrate compatible data from an earlier private workbench, copy its home
+To migrate data from a compatible earlier installation, copy its home
 folder to `~/.arco` (or the folder `ARCO_HOME` names) and each project state
-folder to `<project>/.arco`, with the other workbench stopped. Arco does not
-read the other workbench's home, project state, or backup archives automatically.
+folder to `<project>/.arco`, with both installations stopped. Arco does not
+read the earlier installation's home, project state, or backup archives automatically.
 
 ---
 

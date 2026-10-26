@@ -2,7 +2,7 @@
 
 ## What Arco is
 
-Arco is the public release of a private workbench: the same workbench, behavior, and voice operator, prepared for public use on Linux, macOS, and Windows. Changes are limited to privacy scrubs, portability, onboarding, and documentation. Any other change is a bug fix only when a failing test demonstrates it.
+Arco is a workbench for building and operating software with provider-backed agents and a voice operator on Linux, macOS, and Windows. Changes are limited to privacy scrubs, portability, onboarding, and documentation. Any other change is a bug fix only when a failing test demonstrates it.
 
 Arco carries one name. Packages are `@arco/*`, state lives in `.arco`, environment variables are `ARCO_*`, and MCP servers, tools, headers and protocol constants use Arco. Arco does not share state with the private upstream; a user migrates by copying the home and per-project state folders. Imports from the upstream run `node scripts/rename-upstream.mjs` after extraction and before the scrub.
 

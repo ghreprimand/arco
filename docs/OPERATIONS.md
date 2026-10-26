@@ -191,6 +191,12 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL` | unset | Set `1` to allow more than one local-provider member per cluster (normally refused) |
 | `ARCO_PEER_SEND_DEDUPE_MS` | `60000` | Dedup window for `peer_send` (same from/to/content hash within window is rejected as `duplicate_send`) |
 
+Additional local-provider and cluster controls:
+
+- `ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0` disables the shared serial local-provider queue.
+- `ARCO_{OLLAMA,LLAMACPP,LMSTUDIO}_MAX_TOOL_TURNS` tune local tool loops; `ARCO_LLAMACPP_THINKING_FLUSH_MS` tunes thinking flushes.
+- `ARCO_CLUSTER_AUTO_TURN_SWEEP_INTERVAL_MS` tunes the operator-armed auto-turn sweep interval.
+
 ### Launcher-affecting
 
 | Var | Default | Purpose |

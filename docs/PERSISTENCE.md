@@ -571,6 +571,10 @@ Proposals are stored only while they are pending operator action (accept / apply
 
 ---
 
+## Project Home registry
+
+`projects.json` in the Arco home stores stable project identities, display names, pins, archive state, and previous paths for Project Home.
+
 ## Operator-global state (`~/.arco/`)
 
 ```
