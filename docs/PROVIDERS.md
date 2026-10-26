@@ -168,7 +168,7 @@ Reviewers and handoff seed turns always run on `cli` regardless of the tab's tra
 
 ### Native transport — append-only prefix (2026-09-01)
 
-`docs/FABLE_51_APPEND_ONLY_PLAN.md`. The in-process worker freezes `system` + `tools` on its first request and delivers every later config change (north-star, output style, cluster plan, CLAUDE.md re-read, posture, plan mode, MCP attach) as an appended `role:'system'` message with text and/or `tool_addition` / `tool_removal` blocks, so Claude Fable 5.1's preserved-thinking check never sees an edited prefix and the prompt cache survives config changes. Thinking blocks persist across turns (they used to be pruned at turn end). Every prefix mutation is a `ctx_action` in `events.jsonl`; `input_transformations` from Anthropic are logged per round. Pure helpers: `server/src/providers/claude-native/appendOnlyPrefix.ts` (`npm run test:append-only -w server`). Invariants: `docs/GOTCHAS.md § Claude Native transport`.
+Append-only prefix delivery is a current Native transport invariant. The in-process worker freezes `system` + `tools` on its first request and delivers every later config change (north-star, output style, cluster plan, CLAUDE.md re-read, posture, plan mode, MCP attach) as an appended `role:'system'` message with text and/or `tool_addition` / `tool_removal` blocks, so Claude Fable 5.1's preserved-thinking check never sees an edited prefix and the prompt cache survives config changes. Thinking blocks persist across turns (they used to be pruned at turn end). Every prefix mutation is a `ctx_action` in `events.jsonl`; `input_transformations` from Anthropic are logged per round. Pure helpers: `server/src/providers/claude-native/appendOnlyPrefix.ts` (`npm run test:append-only -w server`). Invariants: `docs/GOTCHAS.md § Claude Native transport`.
 
 ### CLI transport (default)
 
@@ -255,7 +255,7 @@ API-key fallback: if `ANTHROPIC_API_KEY` is set in the spawned process env, the 
 - **Image attachments** — sent as stream-json `content` blocks (5 MB per image). Non-image attachments are appended as `[attached file: <path>]` references in the prompt text.
 - **Concurrent-writer guard** — the JSONL watcher inspects new entries' `entrypoint` field. If a foreign (`!= 'sdk-cli'`) entrypoint appears, Arco fires `[WARN] Concurrent writer detected on session <uuid>...` and refuses new turns for 60 seconds. Operator must Handoff to recover.
 
-### Ultracode (sticky, CLI-only) — `docs/ULTRACODE_PLAN.md`
+### Ultracode (sticky, CLI-only)
 
 A per-tab sticky mode (`WorkflowConfig.ultracode`, default off) that puts the tab in the same deep multi-agent mode as `ultracode` in the Claude CLI. The harness `WorkflowTool` and the `ultracode` keyword-trigger live **only inside the `claude` binary** (confirmed by disassembly: `WorkflowTool`, `workflowKeywordTriggerEnabled`, `WorkflowsDir`); Native's raw `@anthropic-ai/sdk` has no Workflow executor. So ultracode is a property of the **CLI transport** — Arco routes the turn through the real binary rather than reimplementing the fan-out.
 
@@ -268,7 +268,7 @@ A per-tab sticky mode (`WorkflowConfig.ultracode`, default off) that puts the ta
 
 When a CLI tab is a cluster member (`clusterStore.getClusterIdForWorkflow(workflowId) !== undefined`), every `claude` spawn picks up four extra inputs:
 
-1. **`--mcp-config <abs-path>`.** `mcpConfigWriter.writeFor(cwd, workflowId, clusterId, port)` writes a per-workflow `.arco/<wfid>/mcp-config.json` containing one `mcpServers.arco-cluster` entry. The CLI spawns a per-spawn stdio MCP child from that entry — one child per `claude` invocation, NOT per-cluster (decision rationale: `docs/CLUSTER_MODE_PLAN.md` §13).
+1. **`--mcp-config <abs-path>`.** `mcpConfigWriter.writeFor(cwd, workflowId, clusterId, port)` writes a per-workflow `.arco/<wfid>/mcp-config.json` containing one `mcpServers.arco-cluster` entry. The CLI spawns a per-spawn stdio MCP child from that entry — one child per `claude` invocation, NOT per-cluster by design.
 2. **Plan block** appended to `--append-system-prompt`. The cluster's shared `plan.md` (≤8 KB) rendered as `--- Shared cluster plan ---\n<body>`.
 3. **Role block** appended after the plan. `Your role in this cluster: <role>` when this member's role hint is set in `clusterStore.memberRoles`.
 4. **Peer-mailbox prologue** prepended ahead of plan + role. Drained from the recipient's mailbox at turn start (same path Native uses — `drainPeerMailbox` in `seedWorker.ts`), emitting `peer_message_received` per drained item BEFORE the operator's `user_message_echo` (events.jsonl ordering rule).
@@ -380,7 +380,7 @@ The Native worker is a first-class MCP host for the operator's enabled-and-allow
 
 After a successful `Write`/`Edit`, the tool calls a **fire-and-forget** `ctx.onFileWritten?.(abs)` hook (wrapped in `try/catch` — a diagnostics failure must NEVER break the write; the write path is P0). The worker wires it to the `lspManager` subsystem (`server/src/lsp/`), which lazy-spawns the project's language server (`typescript-language-server` / `pyright` / `gopls` / `rust-analyzer`, whichever is on PATH), opens the changed file, and forwards the server's `publishDiagnostics` to the client as a workflow-scoped `diagnostics {file, items[]}` message (rendered as a count badge + list on the Activity tab). Absent server ⇒ silent no-op (operator installs the LSP server themselves — bring-your-own-upstream, same as the caveman output style). Lifecycle mirrors `llamacppManager` (one server per `(cwd, languageId)`, dedup, idle-reap, shutdown-kill). **Full detail: `docs/LSP.md`.**
 
-**Phase 7c (WebFetch / WebSearch) — server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. See `docs/CLAUDE_NATIVE_PLAN.md § 6.3` for the closed local-implementation spec.
+**Phase 7c (WebFetch / WebSearch) — server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. No local web implementation is used.
 
 #### Tool surface (7b — Arco-integrated)
 
@@ -482,7 +482,7 @@ Per-pack configs live under `claude-native/filterConfigs/`. Conservative ship-da
 
 Modes: `off` (default) → no pack runs. `conservative` → ship-day list above. `aggressive` → reserved for measured-and-promoted packs (npm install / cargo build / docker build / git push were named-deferred in DEVLOG until conservative defaults have a week of operator data).
 
-When the filter actually shrinks output, the worker writes the pre-filter raw bytes to `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps the workspace-relative path on the emitted `tool_filtered` event. Recovery is one `zcat` away — reversibility is non-negotiable per `docs/MASTER_REFACTOR.md` §6.4. The chat-side `FilteredChip` (`ToolCallPill`) renders `[filtered: 12.3 KB → 1.4 KB · cargo-test-drop-passing]` and copies the path to clipboard on click.
+When the filter actually shrinks output, the worker writes the pre-filter raw bytes to `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps the workspace-relative path on the emitted `tool_filtered` event. Recovery is one `zcat` away — reversibility is required. The chat-side `FilteredChip` (`ToolCallPill`) renders `[filtered: 12.3 KB → 1.4 KB · cargo-test-drop-passing]` and copies the path to clipboard on click.
 
 **Adding a new filter pack.** (1) Drop a file under `filterConfigs/` returning a `FilterPack`. (2) Wire its classifier into `filterConfigs/index.ts`'s `classifyBashCommand`. (3) Add a round-trip test to `filterToolResult.test.ts` (golden green input → expected line count drop; golden red input → asserted preserved markers). (4) Ship as `conservative` only after a week of operator data; promote to `aggressive` in a follow-up phase.
 
@@ -496,7 +496,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 #### Review safe-mode — edit-before-approve gate (DEBAG)
 
-Native-only operator-armed gate (`docs/DEBAG_PLAN.md`). Per-tab `WorkflowConfig.reviewSafeMode` (`'off'` default; persists to `meta.json`). When armed, `dispatchTool` consults a STATIC sensitivity allowlist (`gateReview.ts evaluateGate`) BEFORE running each tool — categories `bash`, `git-destructive` (push / `reset --hard` / `clean -fd`), `write-outside-cwd`, `kill-shell`. A sensitive call is not executed: it parks as a `pendingGates` entry (durable in `<cwd>/.arco/workflows/<wfid>/gate-approvals.json` via `gateStore.ts`, rehydrated after a server restart) and emits `gate_required`. The operator resolves through `gate_reply` (approve, or edit-the-tool-input-then-approve) or `gate_revoke`; the server emits `gate_resolved`. "Approve all like this" emits `gate_standing` — a scoped standing approval keyed by the call's non-lossy signature, re-evaluated against later calls so an identical-shape action auto-passes. The allowlist carries NO model judgment (deterministic, operator-readable): the server pauses on a fixed rule, it never *decides* a call is safe to run. Safe-mode off ⇒ the classifier is never consulted (hot path untouched). Client surface: the `GateApprovalNotice` card.
+Native-only operator-armed review safe-mode gate. Per-tab `WorkflowConfig.reviewSafeMode` (`'off'` default; persists to `meta.json`). When armed, `dispatchTool` consults a STATIC sensitivity allowlist (`gateReview.ts evaluateGate`) BEFORE running each tool — categories `bash`, `git-destructive` (push / `reset --hard` / `clean -fd`), `write-outside-cwd`, `kill-shell`. A sensitive call is not executed: it parks as a `pendingGates` entry (durable in `<cwd>/.arco/workflows/<wfid>/gate-approvals.json` via `gateStore.ts`, rehydrated after a server restart) and emits `gate_required`. The operator resolves through `gate_reply` (approve, or edit-the-tool-input-then-approve) or `gate_revoke`; the server emits `gate_resolved`. "Approve all like this" emits `gate_standing` — a scoped standing approval keyed by the call's non-lossy signature, re-evaluated against later calls so an identical-shape action auto-passes. The allowlist carries NO model judgment (deterministic, operator-readable): the server pauses on a fixed rule, it never *decides* a call is safe to run. Safe-mode off ⇒ the classifier is never consulted (hot path untouched). Client surface: the `GateApprovalNotice` card.
 
 #### Session interop
 
@@ -506,11 +506,11 @@ Native sessions are Arco-internal — there's no `~/.claude/projects/<sid>.jsonl
 
 On `ensureStarted`, if the workflow's `events.jsonl` has prior `user_message_echo` + `primary_text` entries, the worker reconstructs `this.messages` from them so a server restart picks up where it left off (replay-only — periodic snapshot deferred per §14 Q7). The reconstructed shape is logged to stderr under `[claude-native:<wfid>]` for forensic comparison; tool_use / tool_result events are not replayed (the next turn sees a clean USER/ASSISTANT history).
 
-**Restore points / forks (Native-first).** A `revert_to_point_request` (HistoryTab "REWIND CONVERSATION" action) makes the server append a `leaf_move` event and set `meta.leafSeq`; a branch-aware replay pre-pass (`filterEventsToBranch` in `resumeSummary.ts`, driven by `replayMessagesWithResumePolicy`) then reconstructs `messages` along the active leaf only (absent `leafSeq` ⇒ byte-identical to the old linear replay). The rewind is reversible — "undo the undo" is just another `leaf_move`. Native-first; rejected on CLI / Codex. `branch_summary` is RESERVED and unemitted — forks ship via `leaf_move`, not `branch_summary`. Doc: `docs/PHASE_9_FORKS_PLAN.md`.
+**Restore points / forks (Native-first).** A `revert_to_point_request` (HistoryTab "REWIND CONVERSATION" action) makes the server append a `leaf_move` event and set `meta.leafSeq`; a branch-aware replay pre-pass (`filterEventsToBranch` in `resumeSummary.ts`, driven by `replayMessagesWithResumePolicy`) then reconstructs `messages` along the active leaf only (absent `leafSeq` ⇒ byte-identical to the old linear replay). The rewind is reversible — "undo the undo" is just another `leaf_move`. Native-first; rejected on CLI / Codex. `branch_summary` is RESERVED and unemitted — forks ship via `leaf_move`, not `branch_summary`. This is the active-branch behavior used when resuming the conversation.
 
 #### Context management
 
-Anthropic's `/v1/models` exposes three context-management capabilities. Arco keeps Anthropic's server-side context edits off by default and uses Arco-managed COMPACT / Handoff as the visible pressure valves. Full reference: `docs/CLAUDE_NATIVE_PLAN.md § 15`. Quick summary:
+Anthropic's `/v1/models` exposes three context-management capabilities. Arco keeps Anthropic's server-side context edits off by default and uses Arco-managed COMPACT / Handoff as the visible pressure valves. Current behavior:
 
 | Layer | Default | Operator control |
 |---|---|---|
@@ -574,7 +574,7 @@ The `[claude-native:<workflowId>]` log prefix is grep-stable for forensic runs; 
 
 ### Sandbox tools (Phase E)
 
-Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp / Antigravity ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected per `docs/CLUSTER_MODE_PLAN.md §2` / `docs/EFFICIENCY_PLAN.md §2` non-goals.
+Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp / Antigravity ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
 
 **Three tools register when the toggle is on:**
 
@@ -843,7 +843,7 @@ Three layers, in priority order:
 
 Cascade + per-tab resolution happens once per primary-turn invocation in `handleUserMessage`; an HMR-driven settings change between turns won't re-toggle the transport mid-loop. **Toggle latency**: flipping the toggle does not affect the in-flight turn or kill an already-running app-server child. The next operator turn picks up the new transport: appserver→exec leaves the existing child idle until tab close (cheap; ~100 MB RSS); exec→appserver spawns a fresh child on the next turn.
 
-The first-time-enable warning (verbatim from `docs/CODEX_APPSERVER_PLAN.md` § 14 q5) is a global flag — `settings.codex.appserverWarningSeen` — set to `true` after dismissal, reset to `false` whenever any tab is flipped back to `exec` so a subsequent re-enable re-shows the warning.
+The first-time-enable warning is a global flag — `settings.codex.appserverWarningSeen` — set to `true` after dismissal, reset to `false` whenever any tab is flipped back to `exec` so a subsequent re-enable re-shows the warning.
 
 #### Live model catalog
 
@@ -861,7 +861,7 @@ Cold-start, fetch failure, or operator typo → `null` from the cache; mappers f
 
 ### Cluster mode (Phase 4)
 
-`docs/CLUSTER_MODE_PLAN.md` Phase 4 lifts the Native fence to accept Codex (`exec` and `app-server`) members alongside Claude. Both transports register the same `arco-cluster` MCP stdio child Claude CLI uses (`server/src/mcp/clusterMcpServer.ts`), but via Codex's `-c key=value` TOML override flag instead of a JSON config file (Codex CLI has no `--mcp-config <path>` flag). The override pair lives in `server/src/mcp/mcpConfigWriter.ts` as `buildCodexMcpOverrides(clusterId, workflowId, port)` — emits two `-c` argv entries:
+Cluster mode also supports Codex (`exec` and `app-server`) members alongside Claude. Both transports register the same `arco-cluster` MCP stdio child Claude CLI uses (`server/src/mcp/clusterMcpServer.ts`), but via Codex's `-c key=value` TOML override flag instead of a JSON config file (Codex CLI has no `--mcp-config <path>` flag). The override pair lives in `server/src/mcp/mcpConfigWriter.ts` as `buildCodexMcpOverrides(clusterId, workflowId, port)` — emits two `-c` argv entries:
 
 ```
 -c mcp_servers.arco-cluster.command="npx"
@@ -959,9 +959,7 @@ Native worker caching parallels other long-lived provider managers but is scoped
 `cursor-agent acp` over JSON-RPC (`acpJsonRpc.ts`), a per-turn wrapper + worker cache (`index.ts`),
 a `cursor-agent models` catalog (`catalog.ts`), and a stateless `cursor-agent -p --mode ask` one-shot
 for read-only primitives (`print.ts`). Cursor is a metered subscription fronting ~150 models across
-every major lab behind one login. **Full provider detail (spike wire-contract, phased build, steer /
-cancel / resume / live model-swap, read-only primitives) lives in `docs/CURSOR_TRANSPORT_PLAN.md`** —
-this section covers auth recovery, usage, compression, the model picker and cluster membership.
+every major lab behind one login. **This section covers auth recovery, usage, compression, the model picker and cluster membership.**
 Chat tabs route Cursor to the `print` transport with transcript replay; Cursor is refused for
 Incognito (its CLI has no ephemeral-session flag). Attachments: the ACP worker sends native `image`
 content blocks when `initialize` advertises `promptCapabilities.image` (cursor-agent 2026.09 does);
@@ -1974,7 +1972,7 @@ Tree-sitter → SQLite knowledge graph (Cypher-ish queries + BM25 + vector). 14 
 
 **Persistence.** `WorkflowConfig.codebaseMemory` + `WorkflowMeta.codebaseMemory` (same shape) carry the operator's intent across server restart. Detach retains `indexPath` so re-attaching is one click.
 
-**Spawn-site wiring (deferred — F9).** The actual `--mcp-config` write-in at CLI spawn time piggybacks on Cluster Phase 3's `mcpConfigWriter`. Phase F's attach toggle records intent only; the worker never invokes the MCP today. Track in `docs/MASTER_REFACTOR.md` §3.3 row F9.
+**Spawn-site wiring (deferred — F9).** The actual `--mcp-config` write-in at CLI spawn time piggybacks on Cluster Phase 3's `mcpConfigWriter`. Phase F's attach toggle records intent only; the worker never invokes the MCP today. This spawn-site wiring remains deferred.
 
 **Hard fences (autonomy four-question test).** (1) Operator-initiated — every action is a click. (2) Deterministic — tree-sitter + BM25 + SQL queries; no LLM in the loop on Arco's side. (3) Visible in `events.jsonl` — `codebase_memory_state` rides `broadcastWorkflow` which seq-stamps + persists. (4) Reversible — detach toggle is one click; the on-disk index is operator-managed.
 
@@ -2010,7 +2008,7 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 
 **Z.ai** (the 8th first-class provider) is not broken out as its own matrix column: its default `native` transport runs a long-lived per-workflow Chat-Completions worker (`server/src/providers/zai-native/`, OpenAI-shaped tool loop, `reasoning_content`, up to 1M ctx on GLM-5.2, native-history replay, operator COMPACT), and its `appserver` fallback rides the Codex app-server column behaviour through a loopback Responses proxy (cancel / steer / compact / clusters / rollout-token plumbing all inherited). It IS a cluster member (`zai` ∈ `ClusterMemberProvider`). See the [Z.ai](#zai) section for specifics.
 
-**Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above + `docs/CURSOR_TRANSPORT_PLAN.md`.
+**Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
 
 ---
 

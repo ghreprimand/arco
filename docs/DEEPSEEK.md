@@ -19,7 +19,7 @@ Upstream references at the installed revision:
 
 - [Xolotl overview](https://github.com/Indras-Mirror/Xolotl/blob/c3324f8998040a9247d22137e9bfb3ff2c5da361/README.md)
 - [Runtime architecture](https://github.com/Indras-Mirror/Xolotl/blob/c3324f8998040a9247d22137e9bfb3ff2c5da361/docs/xolotl/HOW_IT_WORKS.md)
-- [DeepSeek engine](https://github.com/Indras-Mirror/Xolotl/blob/c3324f8998040a9247d22137e9bfb3ff2c5da361/docs/DEEPSEEK_V41.md)
+- Engine-specific details should be checked against the installed Xolotl release documentation.
 
 Keep upstream benchmarks distinct from measurements of the installed quantization, routing, memory budget, and GPU power limit. The pinned checkout
 revision is source provenance; rebuild records establish binary provenance.

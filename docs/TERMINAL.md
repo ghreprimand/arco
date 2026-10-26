@@ -92,7 +92,7 @@ registry during a clean shutdown. It does not automatically terminate a live
 operator shell based on RSS usage. A terminal can run an intentionally started
 dev server, build, or REPL, so killing a live process based on a memory threshold
 could destroy user work. Any future resource guard must default to observation
-without terminating the process. See [`GOTCHAS.md`](GOTCHAS.md#worker-safety).
+without terminating the process. See [`GOTCHAS.md`](GOTCHAS.md) for additional load-bearing behavior.
 
 ## Two channels
 

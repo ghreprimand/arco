@@ -67,8 +67,7 @@ These are different optimizations: moving unchanged data to another tier does
 not change its precision; quantization does. The installed IQ3_XXS weights and
 INT8 KV are precision choices. Abliteration changes model behavior. No claim
 of equivalence to full precision or of universally best quality follows from a
-successful load. See the pinned [Strata architecture](https://github.com/Niko1221/Strata/blob/296b59d2f73c8f04a805df29c2fa97655adace78/docs/HOW_IT_WORKS.md)
-and [memory/format guide](https://github.com/Niko1221/Strata/blob/296b59d2f73c8f04a805df29c2fa97655adace78/docs/MODELS.md).
+successful load. Consult the current Strata repository documentation and the selected model documentation for engine and memory-format details.
 
 ## RAM, VRAM and context limits
 
