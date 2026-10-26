@@ -13,7 +13,7 @@ test('Docker login keeps host and in-container commands distinct', () => {
 test('native login does not depend on Docker', () => {
   const result = authLoginInstructions('claude auth login --claudeai', '', 'native');
   assert.equal(result.hostCommand, undefined);
-  assert.match(result.manual!, /TOOLS → TERMINAL/);
+  assert.match(result.manual!, /TOOLS > TERMINAL/);
 });
 test('account-scoped environment and quoting survive Docker wrapping', () => {
   const command = "env CODEX_HOME='/data/home/.arco/accounts/team profile' codex login --device-auth";

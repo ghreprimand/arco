@@ -8,7 +8,7 @@ test('parses the Codex device-auth link and one-time code through ANSI colours',
 });
 
 test('parses the Claude authorize link and notices the paste prompt', () => {
-  const out = 'Opening browser to sign in…\nIf the browser didn\'t open, visit: https://claude.com/cai/oauth/authorize?code=true&client_id=abc&state=xyz\nPaste code here if prompted > ';
+  const out = 'Opening browser to sign in...\nIf the browser didn\'t open, visit: https://claude.com/cai/oauth/authorize?code=true&client_id=abc&state=xyz\nPaste code here if prompted > ';
   const parsed = parseLoginOutput(out);
   assert.equal(parsed.url, 'https://claude.com/cai/oauth/authorize?code=true&client_id=abc&state=xyz');
   assert.equal(parsed.code, undefined);

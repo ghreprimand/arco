@@ -1,6 +1,6 @@
 // In-app login session routes (server/src/authLoginSession.ts).
-//   GET  /api/auth-login/session?provider=  → the provider's current session or null
-//   POST /api/auth-login/code   { provider, code }  → paste the browser's code (Claude)
+//   GET  /api/auth-login/session?provider=  -> the provider's current session or null
+//   POST /api/auth-login/code   { provider, code }  -> paste the browser's code (Claude)
 //   POST /api/auth-login/cancel { provider }
 // Registered ahead of the prefix-matched POST /api/auth-login handler.
 import { IncomingMessage, ServerResponse } from 'http';

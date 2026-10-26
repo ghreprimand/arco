@@ -80,7 +80,7 @@ export function LoginFlow({ result, onRestart }: Props) {
               <span style={{ fontSize: '12px', fontFamily: 'var(--font-body)' }}>Open the {name} sign-in page and sign in with the account whose subscription you want to use.</span>
               {session.url ? (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <a className="display-font" style={btn} href={session.url} target="_blank" rel="noreferrer noopener">OPEN SIGN-IN PAGE ↗</a>
+                  <a className="display-font" style={btn} href={session.url} target="_blank" rel="noreferrer noopener">OPEN SIGN-IN PAGE</a>
                   <button className="display-font" style={dim} onClick={() => void copy(session.url!, 'Link')}>COPY LINK</button>
                 </div>
               ) : (
@@ -128,7 +128,7 @@ export function LoginFlow({ result, onRestart }: Props) {
         </>
       )}
       {session.status === 'completed' && (
-        <div style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>✓ Signed in to {name}. Connecting...</div>
+        <div style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>Signed in to {name}. Connecting...</div>
       )}
       {(session.status === 'failed' || session.status === 'cancelled') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

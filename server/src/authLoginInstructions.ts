@@ -13,6 +13,6 @@ export function authLoginInstructions(command: string, extra = '', deployment = 
   return {
     started: false,
     command,
-    manual: `Run \`${command}\` in Arco's terminal (TOOLS → TERMINAL), or a shell on the server. Open the printed link on your device.${extra ? ` ${extra}` : ''}`,
+    manual: `Run \`${command}\` in Arco's terminal (TOOLS > TERMINAL), or a shell on the server. Open the printed link on your device.${extra ? ` ${extra}` : ''}`,
   };
 }

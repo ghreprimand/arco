@@ -47,7 +47,7 @@ test('first-run settings remain reachable while server-owned connection details 
   } finally { useAppStore.setState({ settings }); }
 });
 
-// ── Startup gate: provider outages never replace an established workspace ──
+// Startup gate: provider outages never replace an established workspace.
 
 const base = { authKnown: true, providerConnected: false, setupDeferred: false, hasOpenWork: false, hasHistory: false as boolean | null, workspaceSynced: true };
 

@@ -474,7 +474,7 @@ export async function getConnectionStatus(provider: AuthLoginTarget): Promise<Au
 }
 
 // Terminal login commands remain available in Arco (a PTY on the server).
-// Connections can explicitly request a relayed session through the HTTP route. Each command below is the CLI's headless mode — it prints a
+// Connections can explicitly request a relayed session through the HTTP route. Each command below is the CLI's headless mode; it prints a
 // URL / device code (and a paste prompt where the flow needs one) instead of
 // requiring a browser on this machine, so it works identically at the desk,
 // from a laptop over the tailnet, or from a phone. Prior incident: the old
