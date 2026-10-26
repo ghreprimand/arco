@@ -1,10 +1,28 @@
 name: CI
 
+# Hosted minutes are metered (macOS and Windows runners bill at a multiple of Linux). Push and pull
+# request runs therefore use Ubuntu only; macOS and Windows run on a weekly schedule and on demand.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'devlog/**'
+      - '*.md'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'devlog/**'
+      - '*.md'
+  schedule:
+    - cron: '17 4 * * 1'
   workflow_dispatch:
+    inputs:
+      os:
+        description: 'Runner OS for the verify and browser jobs (all = Ubuntu, macOS and Windows)'
+        type: choice
+        default: ubuntu
+        options: [ubuntu, macos, windows, all]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -21,11 +39,12 @@ jobs:
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # push / pull_request: Ubuntu. schedule or dispatch "all": all three. Dispatch otherwise: the chosen OS.
+        os: ${{ fromJSON(contains('push pull_request', github.event_name) && '["ubuntu-latest"]' || (github.event_name == 'schedule' || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
     steps:
       # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
       - name: Disable line-ending conversion
@@ -84,7 +103,8 @@ jobs:
   browser:
     name: browser smokes (ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    if: github.event_name != 'workflow_dispatch' || inputs.os == 'ubuntu' || inputs.os == 'all'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -108,11 +128,13 @@ jobs:
     name: browser smokes (${{ matrix.os }}, best effort)
     runs-on: ${{ matrix.os }}
     continue-on-error: true
-    timeout-minutes: 30
+    timeout-minutes: 20
+    # Never on push or pull request: only the weekly schedule and a dispatch that selects them.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.os != 'ubuntu')
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.os == 'all') && '["macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,7 +157,8 @@ jobs:
   docker:
     name: docker smoke (ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    if: github.event_name != 'workflow_dispatch' || inputs.os == 'ubuntu' || inputs.os == 'all'
     steps:
       - uses: actions/checkout@v4
       - name: Detect Dockerfile

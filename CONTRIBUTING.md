@@ -182,6 +182,8 @@ Keep fixtures synthetic and isolate provider calls.
 
 Hosted CI runs the build, typecheck, unit suite, privacy audit, and configured smoke checks. Type checks and tests are required before landing changes.
 
+Hosted minutes are metered, and macOS and Windows runners bill at a multiple of Linux. A push to `main` or a pull request therefore runs only the Ubuntu jobs (verify with the help-registry check, browser smokes, Docker smoke), and skips changes that touch only `docs/**`, `devlog/**` or root-level `*.md` files. The macOS and Windows verify and browser jobs run on a weekly schedule and on demand through the **CI** workflow's `workflow_dispatch` form, whose `os` input selects `ubuntu`, `macos`, `windows` or `all`. Every job has a timeout, and a newer push to the same ref cancels the older run. Run the Windows and macOS jobs before a release or after a change to paths, shells, file watching or process handling; the local gate (`npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run audit:public -- --tree`) stays the first line of defense.
+
 ```bash
 # Type check across all three workspaces (no emit):
 npm run typecheck
