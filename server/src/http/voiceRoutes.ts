@@ -10,6 +10,7 @@ import { computerWatchControl } from '../voice/watches.js';
 import { workflows } from '../server/state.js';
 import { VOICE_LUNA_EFFORT, VOICE_LUNA_MODEL } from '../voice/luna.js';
 import { requestVoiceTool } from '../voice/operatorTools.js';
+import { cancelVoiceInstall, readVoiceNotices, startVoiceInstall, voiceInstallRunning, voiceSetupStatus, VOICE_TEST_MAX_BYTES } from '../voice/voiceSetup.js';
 
 async function readBytes(req: IncomingMessage, limit: number): Promise<Buffer> {
   const chunks: Buffer[] = []; let bytes = 0;
@@ -22,6 +23,7 @@ async function readBytes(req: IncomingMessage, limit: number): Promise<Buffer> {
 }
 
 let previewBusy = false;
+let setupTestBusy = false;
 
 // Routed after the normal operator cookie/origin gates. No agent/MCP access.
 // Audio stays in memory. Explicit diagnostics/relays are logged below;
@@ -56,6 +58,42 @@ export async function tryHandleVoiceRoutes(req: IncomingMessage, res: ServerResp
   if (req.method === 'GET' && url.pathname === '/api/voice/status') {
     return send(200, { localSpeech: localVoiceAvailable(), fastWake: localWakeAvailable(), interpreter: 'codex', model: VOICE_LUNA_MODEL, effort: VOICE_LUNA_EFFORT,
       defaultVoice: VOICE_EDGE_VOICE, voices: VOICE_OUTPUT_OPTIONS });
+  }
+  // Settings -> VOICE SETUP (P3.5). Status, install through voice:setup,
+  // notices, and one test phrase through a short-lived recognizer. No lease,
+  // no Computer chat, no model call; the phrase text is returned, not logged.
+  if (url.pathname.startsWith('/api/voice/setup')) {
+    try {
+      if (req.method === 'GET' && url.pathname === '/api/voice/setup') return send(200, await voiceSetupStatus());
+      if (req.method === 'POST' && url.pathname === '/api/voice/setup/install') {
+        const started = startVoiceInstall();
+        return started.ok ? send(202, { ok: true }) : send(started.status, { error: started.error });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/voice/setup/cancel') return send(200, { ok: cancelVoiceInstall() });
+      if (req.method === 'GET' && url.pathname === '/api/voice/setup/notices') {
+        const text = await readVoiceNotices();
+        if (text === null) return send(404, { error: 'No notices yet. They are written when voice setup finishes.' });
+        res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' }); res.end(text); return true;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/voice/setup/transcribe') {
+        if (voiceInstallRunning()) return send(409, { error: 'Wait for voice setup to finish.' });
+        if (!localVoiceAvailable()) return send(503, { error: 'Local speech is not installed. Run Install first.' });
+        const pcm = await readBytes(req, VOICE_TEST_MAX_BYTES);
+        if (!pcm.length || pcm.length % 2) return send(400, { error: 'Expected mono 16 kHz PCM16 audio.' });
+        if (setupTestBusy) return send(409, { error: 'A test phrase is already being recognized.' });
+        setupTestBusy = true;
+        const recognizer = new LocalRecognizer();
+        const abort = new AbortController(); res.once('close', () => abort.abort());
+        const started = Date.now();
+        try {
+          const result = await recognizer.recognize(pcm, abort.signal);
+          return send(200, { text: result.text, ms: Date.now() - started, recognizer: voicePaths().model.includes('parakeet') ? 'Parakeet v3' : 'Moonshine tiny' });
+        } finally { recognizer.stop(); setupTestBusy = false; }
+      }
+      return send(404, { error: 'Unknown voice setup operation.' });
+    } catch (e) {
+      return send(400, { error: e instanceof Error ? e.message : 'Voice setup request failed.' });
+    }
   }
   try {
     if (url.pathname === '/api/voice/conditions' && ['GET','POST'].includes(req.method??'')) {

@@ -151,6 +151,22 @@ export const settingsHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'settings-operator',
   },
+  'settings.voice-setup': {
+    title: 'Voice setup',
+    body: (
+      <p>
+        Shows what local speech has installed under the voice home: uv, the
+        voice Python environment, the speech packages and each model. Install
+        runs the same step as npm run voice:setup and shows its log; it
+        downloads about 1 GB from the upstream sources the first time. Test
+        microphone shows a level bar and records nothing. Say a phrase records
+        up to five seconds once and shows what the local recognizer heard.
+        Model notices lists every downloaded component and its license. On
+        Docker, voice needs the native run.
+      </p>
+    ),
+    manualSection: 'hands-free-voice',
+  },
   'settings.enabled-providers': {
     manualSection: 'settings-providers',
     title: 'Enabled providers',

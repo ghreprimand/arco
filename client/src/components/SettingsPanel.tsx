@@ -1,5 +1,6 @@
 import { EndpointHelp, useSettingsSectionFocus } from './EndpointHelp';
 import { MediaAccessSettings } from './MediaAccessSettings';
+import { VoiceSetupSettings } from './VoiceSetupSettings';
 import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -760,6 +761,8 @@ export function SettingsPanel({ onClose }: Props) {
         <WorkingDirectoryDefault />
 
         <MediaAccessSettings />
+
+        <VoiceSetupSettings />
 
         <div data-help="settings.enabled-providers">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>

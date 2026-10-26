@@ -244,6 +244,7 @@
     "smoke:computer-mail-rules": "node --conditions development --import tsx scripts/smoke/computer-mail-rules.ts",
     "smoke:computer-activity": "node --conditions development --import tsx scripts/smoke/computer-activity.ts",
     "test:interrupt-send": "node --conditions development --import tsx --test server/src/ws/messageQueue.test.ts server/src/workers/interruptProcess.test.ts server/src/providers/codex-appserver/interrupt.test.ts",
+    "smoke:voice-setup": "python3 scripts/smoke/voice-setup-browser.py",
     "smoke:interrupt-send": "node --conditions development --import tsx scripts/smoke/interrupt-send.ts"
   },
   "devDependencies": {
