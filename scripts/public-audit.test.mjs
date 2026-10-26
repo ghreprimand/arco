@@ -370,3 +370,28 @@ test('unapproved email, media and runtime files fail with synthetic exceptions s
   writeFileSync(join(cwd, 'server/src/voice/capture-ready.wav'), 'fixture');
   assert.equal(check('--tree').status, 0, 'Shipped UI sound is allowed');
 }));
+
+// Assembled so this test file carries no occurrence of the upstream name.
+const upstreamLetters = ['a', 'r', 'c', 'h', 'o', 'n'];
+test('tree and staged scans reject the upstream name, plain or letter-separated; history scans do not', () => fixture(({ cwd, git, check }) => {
+  const spellings = [upstreamLetters.join(''), upstreamLetters.join(' ').toUpperCase(), upstreamLetters.join('.'), upstreamLetters.join('-')];
+  for (const spelling of spellings) {
+    writeFileSync(join(cwd, 'banner.txt'), `|  ${spelling}  v1 |`);
+    git('add', 'banner.txt');
+    for (const scope of ['--tree', '--staged']) {
+      const result = check(scope);
+      assert.equal(result.status, 1, `${scope} must reject ${spelling.length}-char spelling`);
+      assert.match(result.stderr, /banner\.txt:1: upstream-name/);
+      assert.ok(!result.stderr.toLowerCase().includes(spelling.toLowerCase()));
+    }
+  }
+  // Ordinary words that merely contain the letters in sequence stay allowed.
+  writeFileSync(join(cwd, 'banner.txt'), 'march on, monarchs, patriarchs, ARCO_HOME');
+  git('add', 'banner.txt');
+  assert.equal(check('--tree').status, 0);
+  assert.equal(check('--staged').status, 0);
+  // Committed history keeps the plain name legitimately.
+  writeFileSync(join(cwd, 'banner.txt'), upstreamLetters.join(''));
+  git('add', 'banner.txt'); git('commit', '-m', 'Fixture');
+  assert.equal(check('--history').status, 0);
+}));

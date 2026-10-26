@@ -75,6 +75,13 @@ function inspect(label, buffer) {
     if (!/(?:\.test\.|^scripts\/smoke\/)/.test(label) && /\b(?:10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3})\b/.test(line)) report(label, index + 1, 'private-network-example');
   });
 }
+// The upstream name, written plain or with its letters separated by single
+// spaces, dots or dashes (a banner can spell it out). Checked in the tree and
+// staged scopes only: older commits legitimately carry the plain name.
+// Assembled from parts so this file carries no occurrence of it.
+const upstreamName = ['a', 'r', 'c', 'h', 'o', 'n'];
+const upstreamSpelling = new RegExp(`(?<![A-Za-z])${upstreamName.join('[ ._-]?')}(?![A-Za-z])`, 'i');
+const nameScope = !['--history', '--release-history', '--push'].some(flag => args.has(flag));
 // Exact upstream application assets reviewed as UI content, not captured media.
 const publicMedia = new Set([
   'server/src/voice/capture-ready.wav', // Short microphone-ready UI cue.
@@ -86,6 +93,12 @@ function inspectFile(file, buffer) {
   if (/\.(?:png|jpe?g|gif|webp|avif|bmp|tiff?|wav|mp3|mp4|webm|m4a|mov|ogg|flac)$/i.test(file) && !publicMedia.has(file)) report(file, 1, 'screenshot-or-recording-file');
   if (/(?:^|\/)(?:\.env(?:\..*)?|auth\.json|credentials(?:\.json)?|events\.jsonl|meta\.json|id_(?:rsa|ed25519)|.*\.(?:pem|key|p12|pfx)|.*\.sqlite(?:3)?|.*\.db)$/.test(file) && !file.endsWith('/.env.example') && file !== '.env.example') report(file, 1, 'runtime-or-secret-file');
   if (cachePath.test(file)) report(file, 1, 'generated-cache-file');
+  if (nameScope) {
+    const lines = buffer.toString('utf8').replaceAll('\0', '').split('\n');
+    const at = lines.findIndex(line => upstreamSpelling.test(line));
+    if (at >= 0) report(file, at + 1, 'upstream-name');
+    if (upstreamSpelling.test(file)) report('file-name', 1, 'upstream-name');
+  }
   inspect(file, buffer);
   inspect('file-name', Buffer.from(file));
 }
