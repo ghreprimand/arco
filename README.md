@@ -182,9 +182,12 @@ controls without leaving the interface.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution scope, development
 workflow, validation requirements, and public-repository safety rules. Report
-bugs and propose changes through [Issues](https://github.com/ghreprimand/arco/issues).
-Report vulnerabilities privately through the repository's
-[security advisory page](https://github.com/ghreprimand/arco/security/advisories/new).
+bugs, propose changes, or ask for help through the
+[bug-report](https://github.com/ghreprimand/arco/issues/new?template=bug_report.yml),
+[change-proposal](https://github.com/ghreprimand/arco/issues/new?template=change_proposal.yml),
+or [question](https://github.com/ghreprimand/arco/issues/new?template=question.yml) form.
+Report vulnerabilities privately through the process in
+[SECURITY.md](SECURITY.md#reporting-a-vulnerability).
 
 Arco is licensed under **GPL-3.0-only**. The source may be used, studied, shared,
 and modified under that license; distributed modifications must use the same

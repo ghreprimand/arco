@@ -1,0 +1,77 @@
+name: Question or help
+description: Ask about using, configuring, installing, or contributing to Arco
+title: '[Question]: '
+labels:
+- question
+body:
+- type: markdown
+  attributes:
+    value: |-
+      Check [Getting started](https://github.com/ghreprimand/arco/blob/main/docs/GETTING_STARTED.md), the [documentation index](https://github.com/ghreprimand/arco/blob/main/docs/INDEX.md), and existing issues first. Use the bug-report form for incorrect behavior and the change-proposal form for a proposed change.
+
+      Remove tokens, keys, credentials, usernames, local paths, private hostnames, private URLs, and personal or project data. Use consistent placeholders. Do not attach raw transcripts or unredacted logs.
+
+      Security vulnerabilities belong in the [private reporting process](https://github.com/ghreprimand/arco/blob/main/SECURITY.md), not a public issue.
+- type: textarea
+  id: question
+  attributes:
+    label: Question
+    description: Describe the goal and the specific point that is unclear.
+  validations:
+    required: true
+- type: input
+  id: revision
+  attributes:
+    label: Arco commit
+    description: Commit from git rev-parse HEAD; no checkout path.
+- type: dropdown
+  id: platform
+  attributes:
+    label: Platform
+    options:
+    - Linux
+    - macOS
+    - Windows
+    - Other
+- type: dropdown
+  id: installation
+  attributes:
+    label: Installation
+    options:
+    - Native
+    - Docker
+    - Other
+- type: textarea
+  id: environment
+  attributes:
+    label: Environment details
+    description: Operating system version, browser, Node.js version, and shell when relevant. For Docker,
+      include the Docker/Compose versions. Do not include machine names.
+- type: textarea
+  id: provider
+  attributes:
+    label: Provider and transport
+    description: Provider, model, CLI or service version, and transport if relevant; otherwise enter Not
+      applicable. No account identifiers or credentials.
+- type: textarea
+  id: attempts
+  attributes:
+    label: Steps and documentation already tried
+    description: Include relevant commands and documentation links, with identifying values removed.
+- type: textarea
+  id: logs
+  attributes:
+    label: Sanitized logs or configuration
+    description: Optional short excerpts only. Strip local paths, tokens, credentials, private hosts,
+      and personal data before pasting.
+    render: text
+- type: checkboxes
+  id: checks
+  attributes:
+    label: Submission checks
+    options:
+    - label: Existing documentation and open and closed issues have been checked.
+      required: true
+    - label: The report contains no credentials, tokens, identifying local paths, private hosts or URLs,
+        or personal data.
+      required: true

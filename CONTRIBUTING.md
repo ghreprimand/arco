@@ -6,6 +6,10 @@ For the architecture map, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Fo
 
 Contributions are accepted under the repository's GPL-3.0-only license.
 
+Vulnerabilities are reported privately through the process in
+[SECURITY.md](SECURITY.md#reporting-a-vulnerability); public issues and pull
+requests must not disclose unresolved security vulnerabilities.
+
 ---
 
 ## Setup

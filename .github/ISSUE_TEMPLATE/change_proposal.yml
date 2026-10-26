@@ -1,0 +1,56 @@
+name: Change proposal
+description: Propose a scoped Arco change or documentation improvement
+title: '[Proposal]: '
+labels:
+- enhancement
+body:
+- type: markdown
+  attributes:
+    value: |-
+      Read [CONTRIBUTING.md](https://github.com/ghreprimand/arco/blob/main/CONTRIBUTING.md) before proposing substantial work. Describe the problem and the smallest useful change. Repository scope covers privacy, portability, onboarding, documentation, and demonstrated bug fixes.
+
+      Remove tokens, keys, credentials, usernames, local paths, private hostnames, private URLs, and personal or project data. Use consistent placeholders. Do not attach raw transcripts or unredacted logs.
+
+      Security vulnerabilities belong in the [private reporting process](https://github.com/ghreprimand/arco/blob/main/SECURITY.md), not a public issue.
+- type: textarea
+  id: change
+  attributes:
+    label: Proposed change
+    description: Describe one concrete change and its user-visible result.
+  validations:
+    required: true
+- type: textarea
+  id: motivation
+  attributes:
+    label: Problem and motivation
+    description: Explain who encounters the problem and why current behavior is insufficient.
+  validations:
+    required: true
+- type: textarea
+  id: scope
+  attributes:
+    label: Scope and compatibility
+    description: Identify affected platforms, native or Docker setup, providers, and workbench controls.
+      Describe compatibility constraints and behavior changes.
+  validations:
+    required: true
+- type: textarea
+  id: alternatives
+  attributes:
+    label: Alternatives considered
+    description: Describe existing workarounds or narrower approaches.
+- type: textarea
+  id: validation
+  attributes:
+    label: Validation approach
+    description: Describe how the result could be checked with synthetic data or provider fixtures.
+- type: checkboxes
+  id: checks
+  attributes:
+    label: Submission checks
+    options:
+    - label: Existing documentation and open and closed issues have been checked.
+      required: true
+    - label: The report contains no credentials, tokens, identifying local paths, private hosts or URLs,
+        or personal data.
+      required: true
