@@ -96,9 +96,15 @@ storage layout and [Backup](docs/BACKUP.md) before moving an installation.
 
 Model requests send prompts and selected context to the chosen provider under
 its data and billing terms. User-selected features also access the network for
-sign-in, catalog lookup, downloads, and online speech. Arco does not upload
-project folders for telemetry. The production server binds to loopback by
-default; review [network exposure](docs/OPERATIONS.md#exposure-posture) before
+sign-in, catalog lookup, downloads, and online speech. Arco also checks GitHub
+for a newer release 30 seconds after boot and every six hours. The request
+carries the Arco version in its user agent, and GitHub sees the server's public
+IP address. Turn off **Check for new releases** in Settings > Advanced > CLI
+and runtime versions, or set `ARCO_UPDATE_CHECK=0` in the server environment.
+CHECK NOW requests an additional check; no update is downloaded or installed.
+See [Updating Arco](docs/OPERATIONS.md#updating-arco) for the update procedure.
+Arco does not upload project folders for telemetry. The production server binds
+to loopback by default; review [network exposure](docs/OPERATIONS.md#exposure-posture) before
 making it reachable elsewhere.
 
 ## Highlights

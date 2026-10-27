@@ -79,6 +79,88 @@ See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, an
 
 ---
 
+## Updating Arco
+
+Settings > Advanced > CLI and runtime versions shows the running Arco version,
+the latest known release and its publication date. CHECK NOW refreshes release
+metadata. The release toast's OPEN RELEASE link opens the release notes; DISMISS
+remembers that version across browsers and restarts. A newer version can notify
+again. These controls never download or install an update.
+
+Finish or cancel active turns and save editor drafts before updating. Stopping
+the server disconnects all browser tabs and interrupts in-flight provider work;
+a restart does not continue an interrupted turn automatically. Stored workflows
+remain available to reopen. Back up the Arco home and project state as described
+in [Backup](BACKUP.md), then review the release notes before changing versions.
+
+### Linux background service
+
+From the checkout, update dependencies and rebuild the installed service:
+
+```sh
+git pull --ff-only
+npm ci --include=dev
+npm run arco:service -- install
+npm run arco:service -- stop
+npm run arco:service -- start
+npm run arco:service -- status
+```
+
+`install` builds the server and client, rewrites the user unit and reloads
+systemd; it does not restart the running process. Reapply the installation-time
+configuration, including `ARCO_PORT` when using a non-default port, before
+running it. `stop` and `start` are separate commands; there is no service
+`restart` subcommand. Reload the browser after the new server starts. See
+[Service mode](SERVICE_MODE.md) for unit configuration and manual macOS launchd
+management.
+
+### Foreground native run
+
+Stop the running foreground process with Ctrl+C, then run from the checkout:
+
+```sh
+git pull --ff-only
+npm ci --include=dev
+npm run build
+npm start
+```
+
+Restore the same `ARCO_HOME`, `ARCO_PORT` and other runtime configuration used
+before the update. On macOS, a hand-maintained launchd service must be stopped
+and restarted with its own configured job; the Linux service commands do not
+manage it. `npm run dev` is for development and restarts on source changes; it
+is not required for normal updates.
+
+### Docker
+
+From the checkout, keeping the existing Compose project and persistent volume:
+
+```sh
+git pull --ff-only
+docker compose up -d --build
+```
+
+Compose rebuilds the image and recreates the service. Keep the existing home
+volume and project mounts; do not remove the volume as part of an update. See
+[Docker](DOCKER.md) for configuration and backup details.
+
+### Release-check privacy and opt-out
+
+The server makes one request to GitHub 30 seconds after boot and every six
+hours thereafter. CHECK NOW can request an additional check. The request has
+no token, prompt, project path or workflow content. It sends the Arco version
+in `User-Agent: arco/<version>`; GitHub also sees the server's public IP address
+as it does for any HTTP request. Metadata is cached in memory. Unavailable,
+missing or rate-limited releases are quiet after one debug message and retry
+on the next cycle.
+
+Turn off **Check for new releases** in Settings to prevent scheduled and manual
+checks. Alternatively, set `ARCO_UPDATE_CHECK=0` in the server process's
+environment (or service/container environment); it overrides the setting.
+Changing a shell variable does not change an already-running service. A
+release announcement is recorded in the server log, never in a workflow's
+`events.jsonl`.
+
 ## Ports
 
 | Port | Service | Notes |
@@ -146,6 +228,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | Var | Default | Purpose |
 |---|---|---|
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
+| `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual GitHub release checks; overrides Settings |
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default  - the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only  - never leave it on `arco.service` |
 | `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |

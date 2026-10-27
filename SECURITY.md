@@ -47,3 +47,25 @@ Ordinary defects without security impact belong in the
 [bug-report form](https://github.com/ghreprimand/arco/issues/new?template=bug_report.yml).
 Contribution scope and validation requirements are described in
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Outbound release checks
+
+The server requests the latest Arco release from
+`https://api.github.com/repos/ghreprimand/arco/releases/latest` 30 seconds after
+boot and every six hours, or when CHECK NOW is selected in Settings. It sends
+`Accept: application/vnd.github+json` and `User-Agent: arco/<version>` with no
+authentication token. GitHub sees the requesting server's public IP address;
+no project paths, prompts, credentials or conversation content are sent.
+
+Release metadata is cached in memory. The response can produce a release-note
+link and a notice, but never an automatic download, installation or command.
+Redirects are refused and release links are restricted to this repository on
+GitHub. Requests time out after five seconds. An unavailable, missing or
+rate-limited release is silent after one debug log; a later cycle retries.
+
+Turn off **Check for new releases** in Settings > Advanced > CLI and runtime
+versions, or supply `ARCO_UPDATE_CHECK=0` to the server process. The environment
+setting wins, including for manual checks. DISMISS saves only the dismissed
+release version in global settings; later versions can notify again. Release
+announcements use the server log, not workflow transcripts. See
+[Updating Arco](docs/OPERATIONS.md#updating-arco) for manual update instructions.

@@ -55,10 +55,25 @@ Sections: 21.
 | `voice-setup` | Voice | Voice setup | Global | Local speech status, install log, microphone test, test phrase, model notices |
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex and Claude transport defaults for new workflows |
-| `cli-versions` | Advanced | CLI and runtime versions | Global | Claude, Gemini, Codex CLI and Ollama daemon versions |
+| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, Check for new releases, Updating Arco link; Claude, Gemini, Codex CLI and Ollama daemon versions |
 
 Requests that name a control inside a section open that section and focus the
 control: `endpoint-discovery`, `ollama`, `lmstudio`, `strata-endpoint`,
 `deepseek`, `codex-profiles`, `zai-api-key` and `native-auth` open
 `authentication`; `media-unconfined` opens `media-access`;
 `default-working-dir` opens `projects`.
+
+## Arco release notices
+
+In Advanced > CLI and runtime versions, **Arco** shows the running version and
+the latest known release with its publication date. **CHECK NOW** asks the
+server to refresh the release metadata. **Check for new releases** defaults to
+on; disabling it prevents automatic and manual requests. `ARCO_UPDATE_CHECK=0`
+in the server environment overrides the checkbox. The **Updating Arco** link
+opens the [service, foreground and Docker update procedure](OPERATIONS.md#updating-arco).
+
+The release toast provides **OPEN RELEASE** and **DISMISS**. Dismissal saves
+`updateCheckDismissed` for that version globally and survives reloads; a newer
+version can notify again. The checkbox saves `updateCheck`. The server first
+checks 30 seconds after boot, then every six hours. It never downloads or
+installs updates automatically.

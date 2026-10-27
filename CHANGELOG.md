@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Added
+
+- Optional Arco release notices with persistent dismissal, manual checks, an opt-out, and service, foreground and Docker update instructions.
+
 ## v0.1.0 - 2026-10-27
 
 ### Added
