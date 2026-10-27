@@ -37,10 +37,14 @@ The Gemini Native adapter uses an installed-application OAuth client registratio
 | `sherpa-onnx` 1.13.3 speech runtime | Apache-2.0; bundles ONNX Runtime, MIT | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), [ONNX Runtime](https://github.com/microsoft/onnxruntime) |
 | NumPy 2.2.6 | BSD-3-Clause | [NumPy](https://numpy.org/) |
 | Vosk 0.3.45 speech library | Apache-2.0 | [vosk-api](https://github.com/alphacep/vosk-api) |
-| Moonshine tiny English INT8 model, about 108 MB | MIT, Useful Sensors | [Moonshine](https://github.com/usefulsensors/moonshine) |
-| Kokoro-82M multilingual speech model and voices, about 350 MB | Apache-2.0; bundled eSpeak NG phoneme data is GPL-3.0-or-later | [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), [eSpeak NG](https://github.com/espeak-ng/espeak-ng) |
+| Moonshine tiny English INT8 model, about 108 MB | MIT, Useful Sensors | [Moonshine](https://github.com/usefulsensors/moonshine), [pinned archive](https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/201857349) |
+| Kokoro-82M v1.0 multilingual speech model and voices, about 350 MB | Apache-2.0; bundled eSpeak NG phoneme data is GPL-3.0-or-later | [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), [eSpeak NG](https://github.com/espeak-ng/espeak-ng), [pinned archive](https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/677610079) |
 | Vosk small US English model, about 41 MB | Apache-2.0 | [Vosk model list](https://alphacephei.com/vosk/models) |
-| NVIDIA Parakeet TDT 0.6B v3 INT8 model, about 487 MB | CC BY 4.0 | [Parakeet model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) |
+| NVIDIA Parakeet TDT 0.6B v3 INT8 model, about 487 MB | CC BY 4.0 | [Parakeet model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), [pinned archive](https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/283097583) |
+
+The sherpa-onnx archives use upload-specific GitHub release asset IDs instead of replaceable release filenames. The setup request uses `Accept: application/octet-stream` to retrieve the archive bytes. SHA-256 verification remains mandatory. The Kokoro v1.0 archive uploaded on 2026-10-26 is 349,886,476 bytes; its replacement changed the archive checksum without changing the model version. Download URLs and checksums are included in the installed `NOTICES.md`.
+
+Vosk remains the official versioned `vosk-model-small-en-us-0.15.zip` archive with its existing SHA-256. Its upstream does not provide a revision-addressed download URL; a third-party mirror is not substituted. A changed response still fails verification before extraction.
 
 Parakeet is skipped on Windows; Moonshine remains the general English recognizer. Piper is not installed by the current setup script. No audio is recorded during setup. The capture-ready sound is a project-generated 230 ms, 48 kHz mono PCM16 double-pulse cue, synthesized from two tapered 470 Hz tones without a speech model or third-party recording. Its generation utility is not included in the public tree. The audio file is covered by GPL-3.0-only as project material.
 

@@ -720,10 +720,14 @@ Setup on Linux, macOS and Windows: `npm run voice:setup` runs
 The venv interpreter is `venv/bin/python`, or `venv\Scripts\python.exe` on
 Windows. Each model archive is downloaded from its upstream release and
 checked against a SHA-256 pinned in `setup.py`; a mismatch stops the install
-before anything is unpacked into the voice home. Parakeet v3 is skipped on
+before anything is unpacked into the voice home. Moonshine, Kokoro v1.0 and
+Parakeet use upload-specific GitHub release asset IDs so a replacement under
+the original release filename cannot change the selected download. The
+Kokoro archive remains about 350 MB (349,886,476 bytes); the model version is
+unchanged. Parakeet v3 is skipped on
 Windows, where the recognizer keeps Moonshine. Every run prints and rewrites
 `NOTICES.md` in the voice home: each model with its license, upstream source
-and checksum, plus every Python package in the voice environment with the
+and checksum and exact download URL, plus every Python package in the voice environment with the
 license it declares. Arco downloads these components at the request
 and does not redistribute them. Re-running the command skips models already
 present. About 1 GB is downloaded on a first Linux or macOS run.

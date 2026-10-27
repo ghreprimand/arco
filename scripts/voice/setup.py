@@ -43,11 +43,13 @@ PACKAGES = [
     ('vosk==0.3.45', 'Vosk speech recognition library', 'Apache-2.0', 'https://github.com/alphacep/vosk-api'),
 ]
 
-SHERPA = 'https://github.com/k2-fsa/sherpa-onnx/releases/download'
+# Asset IDs identify uploaded bytes; replacing an asset under a release name
+# creates a new ID. Keep the digest check even for these pinned downloads.
+SHERPA_ASSETS = 'https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets'
 MODELS = [
     {
         'name': 'sherpa-onnx-moonshine-tiny-en-int8', 'marker': 'tokens.txt', 'kind': 'tar',
-        'url': f'{SHERPA}/asr-models/sherpa-onnx-moonshine-tiny-en-int8.tar.bz2',
+        'url': f'{SHERPA_ASSETS}/201857349',
         'sha256': 'd5fe6ec4334fef36255b2a4010412cad4c007e33103fec62fb5d17cad88086f2',
         'title': 'Moonshine tiny English speech recognition (int8, ~108 MB)',
         'license': 'MIT (Useful Sensors)', 'upstream': 'https://github.com/usefulsensors/moonshine',
@@ -55,8 +57,8 @@ MODELS = [
     },
     {
         'name': 'kokoro-multi-lang-v1_0', 'marker': 'model.onnx', 'kind': 'tar',
-        'url': f'{SHERPA}/tts-models/kokoro-multi-lang-v1_0.tar.bz2',
-        'sha256': 'c5f7e2d2caf082bc1d20fb70334a61d99d20b484500aad32e7cf84c128ea3298',
+        'url': f'{SHERPA_ASSETS}/677610079',
+        'sha256': '60703707bc05ccd48d60e1eb723f38b07d6e474795a0b6a588d7220400e0f7a4',
         'title': 'Kokoro-82M v1.0 multi-language speech output voices (~350 MB)',
         'license': 'Apache-2.0 (Kokoro-82M); bundled espeak-ng phoneme data is GPL-3.0-or-later',
         'upstream': 'https://huggingface.co/hexgrad/Kokoro-82M',
@@ -64,6 +66,8 @@ MODELS = [
     },
     {
         'name': 'vosk-model-small-en-us-0.15', 'marker': 'am/final.mdl', 'kind': 'zip',
+        # Vosk publishes a versioned upstream ZIP, without a revision endpoint.
+        # Keep its known digest rather than switching to a third-party mirror.
         'url': 'https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip',
         'sha256': '30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498',
         'title': 'Vosk small US English model for wake and reserved phrases (~41 MB)',
@@ -74,7 +78,7 @@ MODELS = [
         # The ONNX Parakeet decoder can return empty finals on Windows, where
         # the recognizer keeps Moonshine (server/src/voice/localRecognizer.ts).
         'name': 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8', 'marker': 'encoder.int8.onnx', 'kind': 'tar',
-        'url': f'{SHERPA}/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2',
+        'url': f'{SHERPA_ASSETS}/283097583',
         'sha256': '5793d0fd397c5778d2cf2126994d58e9d56b1be7c04d13c7a15bb1b4eafb16bf',
         'title': 'NVIDIA Parakeet TDT 0.6B v3 speech recognition (int8, ~487 MB)',
         'license': 'CC-BY-4.0 (NVIDIA)', 'upstream': 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
@@ -86,7 +90,8 @@ MODELS = [
 
 def download(url: str, target: Path, expected: str) -> None:
     digest = hashlib.sha256()
-    with urllib.request.urlopen(url) as response, open(target, 'wb') as out:
+    request = urllib.request.Request(url, headers={'Accept': 'application/octet-stream'})
+    with urllib.request.urlopen(request) as response, open(target, 'wb') as out:
         while chunk := response.read(1 << 20):
             digest.update(chunk)
             out.write(chunk)
@@ -135,7 +140,7 @@ def write_notices(installed: list[dict]) -> None:
              '| Component | License | Upstream |', '|---|---|---|',
              '| Python 3.12 runtime (installed by uv when missing) | PSF-2.0 | https://www.python.org |']
     lines += [f'| {title} (`{spec}`) | {license} | {upstream} |' for spec, title, license, upstream in PACKAGES]
-    lines += [f'| {m["title"]} (`{m["name"]}`, sha256 `{m["sha256"]}`) | {m["license"]} | {m["upstream"]} |' for m in installed]
+    lines += [f'| {m["title"]} (`{m["name"]}`, sha256 `{m["sha256"]}`) | {m["license"]} | {m["upstream"]}; download: {m["url"]} |' for m in installed]
     lines += ['', 'Python packages in the voice environment (the pinned packages above and their dependencies), with the', 'license each package declares:', '', '| Package | Version | Declared license |', '|---|---|---|']
     lines += [f'| {name} | {version} | {license} |' for name, version, license in venv_packages()]
     text = '\n'.join(lines) + '\n'
