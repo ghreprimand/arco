@@ -19,7 +19,7 @@ This doc covers each one end-to-end: trigger, server flow, events emitted, clien
 
 All four primitives accept a `broadcast` callback - the seedWorker broadcasts to the workflow it's running in, but Spawn's reflection runs against the parent workflow while writing artifacts to the new workflow. The callback abstraction makes that work cleanly.
 
-Two additional surfaces (DOCS and GIT, see) reuse the primary-turn machinery to dispatch structured one-off prompts in-tab or to a freshly spawned new tab via the shared RUN AS picker. They're not full primitives - no ephemeral workers, no artifacts, no verdicts - but they're operator surfaces with their own dialogs.
+Two additional surfaces, DOCS and GIT, reuse the primary-turn machinery to dispatch structured one-off prompts in-tab or to a freshly spawned new tab via the shared RUN AS picker. They're not full primitives - no ephemeral workers, no artifacts, no verdicts - but they're operator surfaces with their own dialogs.
 
 ---
 
@@ -32,7 +32,7 @@ Two additional surfaces (DOCS and GIT, see) reuse the primary-turn machinery to 
 `server/src/ws/turnEngine.ts` `handleUserMessage` is the dispatcher. Behavior depends on `wf.busy`:
 
 - **Idle** - set `wf.busy = true`, broadcast `user_message_echo`, broadcast `primary_turn_started`, call `runPrimaryTurn`.
-- **Busy** - push the message into `wf.queue.steering[]` or `wf.queue.followUp[]` (split - `kind: 'steer' | 'follow-up'` on the `user_message`, default `follow-up`), echo the message with the `kind` tag, broadcast a queue-update, return immediately. Both buckets drain post-turn today; steer is wired for real mid-turn delivery per-provider in later phases.
+- **Busy** - push the message into `wf.queue.steering[]` or `wf.queue.followUp[]` (split - `kind: 'steer' | 'follow-up'` on the `user_message`, default `follow-up`), echo the message with the `kind` tag, broadcast a queue-update, return immediately. Both buckets drain post-turn today; steer is wired for real mid-turn delivery per provider where the provider supports it.
 
 ### Server-side flow
 
@@ -781,7 +781,7 @@ The reviewer sees what context arrived between turns and what the agent emitted 
 
 ### PLAN / DOCS / GIT inside a cluster (pass-through)
 
-PLAN is per-workflow (`planStore.ts` keys on workflowId); each cluster member has its own plan store. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No code changes in; verified pass-through.
+PLAN is per-workflow (`planStore.ts` keys on workflowId); each cluster member has its own plan store. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No Arco code changes are needed; this is a verified pass-through.
 
 ### Cluster management UX from the TabBar
 

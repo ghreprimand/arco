@@ -1553,7 +1553,7 @@ connection). See `docs/TERMINAL.md`.
 
 ## events (declared, with phase-specific emitters)
 
-Three event kinds were added in so future phases could emit them without a second schema bump. `operator_label` lit up in (HISTORY tab); `queue_update` in (queue strip). **Forks ultimately shipped on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
+Three event kinds were declared ahead of their emitters so later features could use them without a second schema bump. `operator_label` is emitted by the HISTORY tab labels; `queue_update` by the queue strip. **Forks ultimately shipped on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
 
 ### `operator_label` <-
 

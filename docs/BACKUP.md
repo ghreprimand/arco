@@ -68,7 +68,7 @@ F3 extraction).
 Classification is keyed on the first path segment under the Arco home
 (`scripts/backup/manifest.ts › classify()`). The rule is **conservative**: any
 path that is not explicitly allowlisted is skipped as `unknown` and recorded,
-better to under-capture than to silently sweep in (or leak) something unexamined.
+better to under-capture than to silently include something unexamined or leak it.
 
 ### Captured categories -> source paths
 
