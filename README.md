@@ -122,20 +122,20 @@ explains the right-panel and cluster tabs and how plans attach to workflows.
 
 ## Platform support and status
 
-Arco is in development. Linux, macOS, and Windows are native targets, and a
-Docker baseline is available. Setup and automated checks do not substitute for
-acceptance on real hardware or a fresh installation.
+Fresh-install acceptance from the README has passed for native Linux and Docker,
+and three-OS hosted CI is green. The operator's daily-driver trial and macOS and
+Windows target-host checks remain open.
 
 | Platform | Acceptance status |
 | --- | --- |
-| Linux native | Development platform; host acceptance remains open. |
+| Linux native | README fresh-install acceptance passed; daily-driver trial remains open. |
 | macOS native | Target-host acceptance remains open. |
 | Windows native | Target-host acceptance remains open. |
-| Docker | Baseline available; fresh-install acceptance remains open. |
-| Voice | Components download on request; target-host acceptance tracked separately. |
+| Docker | README fresh-install acceptance passed. |
+| Voice | Components download on request; macOS and Windows target-host checks remain open. |
 
-[Development status](docs/DEVELOPMENT_STATUS.md) tracks capability limits and
-remaining onboarding, portability, documentation, and release work. Provider
+[Development status](docs/DEVELOPMENT_STATUS.md) summarizes completed checks and
+remaining release work. Provider
 availability depends on account access, installed tools, and reachable local
 services; support for an Agent tab does not imply support for every Chat or
 cluster mode. The [provider reference](docs/PROVIDERS.md) records those boundaries.

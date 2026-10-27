@@ -1,30 +1,21 @@
 # Development status
 
-This page describes remaining work by plan phase. It contains no commit hashes or host-specific acceptance records.
+Fresh-install acceptance from the README has passed for native Linux and Docker. Three-OS hosted CI is green. The operator's daily-driver trial and macOS and Windows target-host checks remain open before the `v0.1.0` tag.
 
 ## Import maintenance
 
-- P1.5: synchronization with upstream changes since the pinned import remains open. Each change must be renamed, scrubbed, verified, and committed separately before advancing the pin.
+Upstream changes continue to be tracked while Arco is evaluated as the primary workbench. Each imported change is renamed, scrubbed, verified, and committed separately. Upstream imports stop when the operator adopts Arco as the main harness.
 
 ## Onboarding
 
-- P3.1: the welcome wizard is not implemented. The manual first-chat path is in [Getting started](GETTING_STARTED.md).
-- P3.2: guided Connections setup, prerequisite checks, and recovery remain open. Existing provider authentication controls are documented in [Providers](PROVIDERS.md).
-- P3.3: stable project identity, pins, archive, and relocation recovery remain open. A workflow can currently use an arbitrary folder path.
-- P3.4: task-organized settings and the control-location map remain open.
-- P3.5: in-app guided voice status, installation, microphone test, and notices remain open. The command-line setup is described in [Voice](VOICE.md).
+The welcome flow, provider Connections setup, Project Home, task-organized settings, guided voice setup, and file/media access controls are implemented. The [Getting started guide](GETTING_STARTED.md), [Providers](PROVIDERS.md), [Settings](SETTINGS.md), [Voice](VOICE.md), and [Security](../SECURITY.md) describe the user paths.
 
 ## Portability
 
-- P2.1: Docker baseline and persistent home/project mounts are available. Fresh-install acceptance remains open.
-- P2.2 and P2.4: native acceptance is not complete across Linux, macOS, and Windows. Mac and Windows checks require their target hosts.
-- P2.3: voice setup and model downloads are available; target-host acceptance remains separate from the setup implementation.
+Docker and native Linux fresh-install acceptance from the README passed. macOS and Windows target-host acceptance remains open and requires the operator's machines. Voice setup and model downloads are available on all three platforms; microphone and speech acceptance on the target hosts remains part of those checks.
 
 ## Documentation and release
 
-- P4.1: reference docs and the new-user walkthrough are being completed. The [documentation index](INDEX.md) lists maintained guides.
-- P4.2: third-party notices for bundled assets and voice setup components remain open.
-- P5.1: hosted CI coverage on Linux, macOS, and Windows remains open.
-- P5.2: fresh-install acceptance from the README, native and Docker, remains open.
-- P5.3: the operator's daily-driver trial remains open.
-- P5.4: final content/history and license review, followed by the operator's release decision, remains open.
+The reference documentation, in-app manual, third-party notices, and public-reader pass are complete. Strata and DeepSeek through Xolotl are optional external-service integrations; Arco does not distribute those services. Contributor recipes are in [Extending Arco](EXTENDING.md), and debugging and hot-reload guidance is in [Diagnostics](DIAGNOSTICS.md).
+
+The remaining release work is the operator's daily-driver trial, macOS and Windows target-host acceptance, final history/content and license audit, and the operator's approval to tag `v0.1.0`. The repository is already public.
