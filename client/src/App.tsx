@@ -7,7 +7,6 @@ import { useStartupStore } from './stores/startupStore';
 import { anyPrimaryProviderConnected, fetchInstallationHistory, startupGate } from './utils/startupGate';
 import { ProviderOutageBanner } from './components/ProviderOutageBanner';
 import { FirstRun } from './components/FirstRun';
-import { completeOnboarding } from './utils/completeOnboarding';
 import { VoiceControl } from './components/VoiceControl';
 import { ComputerPanel } from './components/ComputerPanel';
 import { useComputerStore } from './stores/computerStore';
@@ -188,12 +187,6 @@ function AppBody() {
   useEffect(() => {
     if (gate === 'setup') useStartupStore.getState().setFirstRunOpen(true);
   }, [gate]);
-  useEffect(() => {
-    // Remember established users across later outages and empty browser state.
-    // An active setup owns its completion, so connecting cannot skip its chat step.
-    if (!settings || settings.onboardingComplete || firstRunOpen || gate === 'setup') return;
-    if (providerConnected || hasOpenWork || hasHistory === true) void completeOnboarding().catch(() => {});
-  }, [settings, firstRunOpen, gate, providerConnected, hasOpenWork, hasHistory]);
 
   const claudeLoggedIn = authStatus?.claude?.loggedIn ?? null;
   useEffect(() => {

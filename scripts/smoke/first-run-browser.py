@@ -65,6 +65,8 @@ async def page_for(playwright, server):
     await b.context.add_init_script(h.INSTRUMENT)
     b.page = await b.context.new_page()
     b.errors = []
+    b.writes = []
+    b.page.on('request', lambda request: b.writes.append(urlparse(request.url).path) if request.method not in ('GET', 'HEAD', 'OPTIONS') else None)
     b.page.on('pageerror', lambda error: b.errors.append(str(error)))
     await b.page.goto(server.base)
     # A fresh gate intentionally hides the workspace header and its ONLINE text.
@@ -163,12 +165,15 @@ async def registered_returning(playwright):
         b, page = await page_for(playwright, server)
         await page.locator('#home-title').wait_for()
         await expect(page.get_by_role('heading', name='Welcome to Arco', exact=True)).to_have_count(0)
-        await page.wait_for_function("async () => (await (await fetch('/api/settings')).json()).onboardingComplete === true")
-        await page.request.post(server.base + '/api/settings', data={'projects': []})
+        history = await (await page.request.get(server.base + '/api/installation-history')).json()
+        assert history['used'] is True
+        stored = await (await page.request.get(server.base + '/api/settings')).json()
+        assert 'onboardingComplete' not in stored, 'browsing must not complete setup by writing settings'
         await page.reload()
         await page.locator('#home-title').wait_for()
         await expect(page.get_by_role('heading', name='Welcome to Arco', exact=True)).to_have_count(0)
-        print('PASS: an existing project bypasses setup without earlier workflow history')
+        assert '/api/settings' not in b.writes, b.writes
+        print('PASS: an existing project bypasses setup without earlier workflow history or page-load settings writes')
     finally:
         if b:
             await b.close()
