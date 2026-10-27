@@ -11,7 +11,7 @@ test('CLI interruption waits for exit beyond synthetic cancellation settlement',
     let cancelled = false;
     await interruptProcess(child, () => { cancelled = true; child.kill('SIGTERM'); });
     assert(cancelled);
-    assert.notEqual(child.exitCode, null);
+    assert.ok(child.exitCode !== null || child.signalCode !== null, 'the child has exited, normally or by signal');
   } finally { child.kill('SIGKILL'); }
 });
 

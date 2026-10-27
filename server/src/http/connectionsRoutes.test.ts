@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 const root=mkdtempSync(join(tmpdir(),'arco-connections-'));
 const home=join(root,'home');mkdirSync(join(home,'.arco'),{recursive:true});
 process.env.HOME=home;
+process.env.USERPROFILE=home;
 process.env.ARCO_DEPLOYMENT='docker';
 for(const key of ['ANTHROPIC_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','GOOGLE_API_KEY','ZAI_API_KEY'])delete process.env[key];
 let server:Server, model:Server, base:string;

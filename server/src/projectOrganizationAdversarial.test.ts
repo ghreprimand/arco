@@ -125,11 +125,11 @@ test('relocation keeps the id, writes settings and records consistently, and nev
   const gone = join(work, 'plain-gone');
   const dest = folder(work, 'plain-dest');
   writeFileSync(join(dest, 'keep.txt'), 'synthetic');
-  seed([gone, folder(work, 'bystander')], [{ id: ID_A, path: gone, displayName: 'Plain', archived: true, previousPaths: ['/older/place'] }]);
+  seed([gone, folder(work, 'bystander')], [{ id: ID_A, path: gone, displayName: 'Plain', archived: true, previousPaths: [join(work, 'older-place')] }]);
   const res = await call('POST', '/api/projects/relocate', { id: ID_A, path: dest });
   assert.equal(res.status, 200);
   const moved = find(res.json, dest)!;
-  assert.deepEqual([moved.id, moved.name, moved.archived, moved.previousPaths], [ID_A, 'Plain', true, [gone, '/older/place']]);
+  assert.deepEqual([moved.id, moved.name, moved.archived, moved.previousPaths], [ID_A, 'Plain', true, [gone, join(work, 'older-place')]]);
   assert.deepEqual(registered(), [dest, join(work, 'bystander')], 'the old registration is replaced in place, other entries keep their order');
   assert.equal(readFileSync(join(dest, 'keep.txt'), 'utf8'), 'synthetic');
   assert.equal(find(res.json, gone), undefined, 'the old location is represented by the project, not listed again');
