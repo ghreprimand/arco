@@ -17,7 +17,7 @@ export interface VoiceSession {
   controller: AbortController;
   recognizer: LocalRecognizer;
   speaker: LocalRecognizer;
-  // VOICE_AGENT_PLAN.md — Edge neural voice; null once it has failed this session.
+  // docs/VOICE.md - Edge neural voice; null once it has failed this session.
   edgeSpeaker: LocalRecognizer | null;
   edgeVoice: string;
   waker: LocalRecognizer;

@@ -1,4 +1,4 @@
-// Knowledge store — WORKBENCH_EXPANSION_PLAN.md §B3.
+// Knowledge store - docs/ARCHITECTURE.md
 //
 // A per-cwd, OPERATOR-OWNED knowledge base under <cwd>/.arco/knowledge/:
 //   - index.json   → { articles: [{ id, title, tags, alwaysInclude, ... }] }

@@ -83,7 +83,7 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §C2 — per-role fallback chains for bounded jobs.
+// docs/ARCHITECTURE.md - per-role fallback chains for bounded jobs.
 // Hand-edited; lenient read (drop bogus legs, keep the good ones). A leg needs
 // a valid provider + a non-empty model; effort / account fields are optional
 // and pass through with light shape checks. An empty array survives so the

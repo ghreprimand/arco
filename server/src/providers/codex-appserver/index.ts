@@ -229,7 +229,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
         ...(r.usage ? { usage: r.usage } : {}),
         ...(typeof r.modelContextWindow === 'number' ? { modelContextWindow: r.modelContextWindow } : {}),
         ...(typeof r.lastPromptTokens === 'number' ? { lastPromptTokens: r.lastPromptTokens } : {}),
-        // EFFICIENCY_PLAN.md Phase A — Codex doesn't expose tool_result bytes
+        // docs/PROVIDERS.md - Codex doesn't expose tool_result bytes
         // through the app-server JSON-RPC surface. Sentinel: -1 = unknown.
         thinkingBytes: 0,
         toolResultBytes: -1,
@@ -292,7 +292,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
 // workflow; subsequent turns reuse the cached worker (same `app-server`
 // child, same Codex thread).
 //
-// CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — when an
+// docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - when an
 // existing cached worker's bootstrapped MCP wiring no longer matches the
 // incoming config (operator joined/left a cluster, attached/detached
 // codebase-memory, or changed the codebase-memory index path mid-tab),

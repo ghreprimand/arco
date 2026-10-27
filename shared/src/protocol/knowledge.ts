@@ -1,4 +1,4 @@
-// ── Knowledge base (WORKBENCH_EXPANSION_PLAN.md §B3) ──
+// -- Knowledge base (docs/ARCHITECTURE.md) --
 //
 // A per-cwd, OPERATOR-OWNED knowledge store at <cwd>/.arco/knowledge/. A
 // curated, editable companion to CLAUDE.md (repo layout, gotchas, deploy

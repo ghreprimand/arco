@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F1 — pure capture/skip logic + manifest builder.
+// docs/ARCHITECTURE.md - pure capture/skip logic + manifest builder.
 //
 // This module decides WHAT goes into a backup snapshot and produces the truthful
 // manifest that describes it. It is the contract: every regular file in the

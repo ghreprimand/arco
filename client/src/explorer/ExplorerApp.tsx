@@ -5,7 +5,7 @@ import { ArtifactsLens } from './ArtifactsLens';
 import { RecentsLens } from './RecentsLens';
 import { PlansLens } from './PlansLens';
 
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4) — the standalone chromeless explorer window,
+// ARCHIVE (docs/CLIENT.md) - the standalone chromeless explorer window,
 // mounted by main.tsx on `?app=explorer` INSTEAD of the workspace <App/>. It is
 // a project-artifact tool, not a generic file browser: the landing lens is a
 // home of project cards + recent artifacts across all projects (ARTIFACTS);

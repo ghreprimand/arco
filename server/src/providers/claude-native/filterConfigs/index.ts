@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — filter dispatcher. Resolves a tool call
+// docs/PROVIDERS.md - filter dispatcher. Resolves a tool call
 // (`toolName` + input record) to a `FilterPack` for the active operator
 // mode. Returns `null` for passthrough.
 //

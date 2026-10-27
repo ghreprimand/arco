@@ -1,7 +1,7 @@
 import type { CompareLegConfig } from '@arco/shared';
 import type { ComparePane } from '../../stores/compareStore';
 
-// Compare grid — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare grid - docs/ARCHITECTURE.md
 //
 // Side-by-side answer panes. Clones MemberPane's pane structure (status-dot +
 // label header, flexed body) rather than building a fresh grid. One pane per

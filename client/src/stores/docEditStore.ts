@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ProviderName, ModelName, EffortLevel } from '@arco/shared';
 
-// WORKBENCH_EXPANSION_PLAN.md §A7 — AI-collaborative document editing client
+// docs/ARCHITECTURE.md - AI-collaborative document editing client
 // store. Kept OUT of appStore (mirrors recallStore / terminalStore): doc-edit
 // is a transient, per-open-editor concern, not persisted per-tab session state.
 //

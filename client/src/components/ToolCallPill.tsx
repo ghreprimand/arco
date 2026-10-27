@@ -5,7 +5,7 @@ interface Props {
   tool: string;
   input: unknown;
   filePath?: string;
-  // EFFICIENCY_PLAN.md Phase C — when present, render a filter chip showing
+  // docs/PROVIDERS.md - when present, render a filter chip showing
   // the original→filtered byte counts and the pack name. `rawArtifactPath`
   // (workspace-relative) opens the gzipped raw output for operator recovery.
   filtered?: {

@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5 — operator-armed idle nudger.
+// docs/PROTOCOL_CLUSTER.md - operator-armed idle nudger.
 //
 // The four-question test (plan §2):
 //   1. Operator-initiated — per-cluster toggle, default OFF.
@@ -23,7 +23,7 @@ import type { ServerMessage } from '@arco/shared';
 
 // Idle floor. Production default 10s. Smoke can drop to 1s via the
 // ARCO_CLUSTER_IDLE_FLOOR_SECONDS env var so the test doesn't sit on a
-// 10s wait for every nudge cycle. Documented in CLUSTER_MODE_PLAN.md §13.
+// 10s wait for every nudge cycle. Documented in docs/PROTOCOL_CLUSTER.md
 export const IDLE_FLOOR_SECONDS = (() => {
   const raw = process.env.ARCO_CLUSTER_IDLE_FLOOR_SECONDS;
   if (!raw) return 10;

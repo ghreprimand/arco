@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — git-status filter pack.
+// docs/PROVIDERS.md - git-status filter pack.
 //
 // `git status` (long form) is verbose: branch banner, "(use 'git add' to
 // stage)" hint blocks, color-bracketed sections. The model needs the

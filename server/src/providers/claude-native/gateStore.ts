@@ -1,4 +1,4 @@
-// DEBAG — Durable Edit-Before-Approve Gate (docs/DEBAG_PLAN.md §3, §4).
+// DEBAG - Durable Edit-Before-Approve Gate (docs/PROVIDERS.md).
 //
 // Per-workflow, session-scoped sidecar persisting (a) any UNRESOLVED gate so a
 // systemd restart can re-surface it (rehydrateGatesOnce), and (b) standing

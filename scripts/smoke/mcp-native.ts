@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 (E1-Native) — Claude Native MCP host smoke.
+// docs/ARCHITECTURE.md (E1-Native) - Claude Native MCP host smoke.
 //
 // Covers the two surfaces E1-Native added WITHOUT booting a real Native turn
 // (that needs the Anthropic API — the full turn path is the UI recipe):

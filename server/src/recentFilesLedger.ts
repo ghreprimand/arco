@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — the AGENT WRITES ledger. A global,
+// ARCHIVE (docs/CLIENT.md) - the AGENT WRITES ledger. A global,
 // append-only record of agent-produced files, so the RECENTS lens can answer
 // "what did an agent just write for me, and in which tab?" WITH attribution
 // (the exhaustive changed-within scan is the unattributed catch-all — §4.2).

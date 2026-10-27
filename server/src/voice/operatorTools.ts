@@ -1,4 +1,4 @@
-// VOICE_AGENT_PLAN.md — server-side relay for the arco-voice MCP child.
+// docs/VOICE.md - server-side relay for the arco-voice MCP child.
 // The server never executes a voice tool: it forwards the call to the browser
 // that owns the hands-free session (a subscriber of the Computer chat) and
 // hands the browser's answer back to the MCP child. Pending calls are

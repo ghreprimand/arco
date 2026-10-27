@@ -283,7 +283,7 @@ export async function refreshTokens(current: ClaudeNativeTokens): Promise<Claude
   });
 }
 
-// A1 (REMOTE_CLUSTER_CONTROL_PLAN.md §10.2) — refresh IGNORING the local
+// A1 (docs/REMOTE_MANAGEMENT.md) - refresh IGNORING the local
 // expiry check. The worker calls this when an API request 401s on a token
 // whose expiresAt is still in the future: Anthropic revokes access tokens
 // server-side ahead of local expiry (observed near-daily in prod — repeated
@@ -344,7 +344,7 @@ async function refreshUnlocked(seed: ClaudeNativeTokens): Promise<ClaudeNativeTo
   return next;
 }
 
-// ── A2 (REMOTE_CLUSTER_CONTROL_PLAN.md §10.3) — live auth-problem state ─────
+// -- A2 (docs/REMOTE_MANAGEMENT.md) - live auth-problem state -----
 // The /api/auth-status probe checks the CLAUDE CLI, not these native tokens,
 // so the phone console needs its own signal for "the native transport can't
 // authenticate". Set when a worker hits a fatal auth failure (401 after the

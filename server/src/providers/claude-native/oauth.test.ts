@@ -1,4 +1,4 @@
-// A1 (REMOTE_CLUSTER_CONTROL_PLAN.md §10.2) — forced-refresh contract.
+// A1 (docs/REMOTE_MANAGEMENT.md) - forced-refresh contract.
 //
 // The prod incident this pins: Anthropic revokes access tokens ahead of local
 // expiresAt, ensureLiveTokens' expiry check never fires, the API 401s, and the

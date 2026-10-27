@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2.6 — shared cluster plan editor. Lives as a
+// docs/PROTOCOL_CLUSTER.md - shared cluster plan editor. Lives as a
 // sub-tab inside ClusterRightPanel. The body is injected into every cluster
 // member's per-turn system block by the Native worker; edits propagate on
 // the NEXT turn (in-flight turns aren't torn down).

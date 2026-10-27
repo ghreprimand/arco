@@ -1,4 +1,4 @@
-// R5 (REMOTE_CLUSTER_CONTROL_PLAN.md §5) — the merged cluster activity feed.
+// R5 (docs/REMOTE_MANAGEMENT.md) - the merged cluster activity feed.
 //
 // There is NO server-side activity store: the desktop ClusterActivityTab
 // aggregates client-side from live WS events. For the phone console we

@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §B1 — Compare primitive WS handlers.
+// docs/ARCHITECTURE.md - Compare primitive WS handlers.
 //
 // Extracted from workflowHandlers.ts to keep that file under the 2000-line cap.
 // Owns the request → fan-out, the operator vote, the operator-chosen synthesize

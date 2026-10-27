@@ -31,8 +31,7 @@ import type { Provider, ProviderProcess } from './types.js';
 
 // LM Studio provider (M13 / Excellence LE-7).
 //
-// STANDING VERDICT (load-bearing, see docs/LOCAL_AI_MASTER_PLAN.md §"Two
-// standing verdicts" + LE-7): LM Studio is added as an OpenAI-COMPATIBLE HTTP
+// Provider contract (load-bearing, see docs/PROVIDERS.md): LM Studio is added as an OpenAI-COMPATIBLE HTTP
 // endpoint, NOT via the native `lmstudio.js`/`ws://` SDK. LM Studio's app +
 // engine are closed-source; only the client SDKs are public. It exposes an
 // OpenAI-compatible REST API on http://localhost:1234/v1 (/chat/completions,
@@ -270,7 +269,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
   private buildMessages(userPrompt: string): ChatMessage[] {
     const messages: ChatMessage[] = [];
     const noThink = this.connection.name === 'lmstudio' && this.config.effort === 'low';
-    // GOAL_NORTHSTAR_PLAN.md G2 — fold the operator's north-star at the top of the
+    // docs/GOTCHAS.md - fold the operator's north-star at the top of the
     // system message. Covers operator turns AND primitive seeds. Blank ⇒ unchanged.
     const northStarBlock = goalBlock(this.config.goal);
     const baseSystem = northStarBlock

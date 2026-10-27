@@ -42,7 +42,7 @@ export interface SummarizerConfig {
   effort: EffortLevel;
   providerAccountRef?: string;
   codexHome?: string;
-  // GOAL_NORTHSTAR_PLAN.md — the source tab's north-star, inherited so the
+  // docs/GOTCHAS.md - the source tab's north-star, inherited so the
   // fresh summarizer preserves the session's standing objective in the handoff
   // artifact (the continuation reads it). Absent / blank ⇒ no block.
   goal?: string;
@@ -88,7 +88,7 @@ export interface OriginalPrimaryContext {
   // Workflow that owns the source thread's live app-server (if any). Defaults
   // to ctx.workflowId (Handoff); Spawn passes the parent's id.
   sourceWorkflowId?: string;
-  // GOAL_NORTHSTAR_PLAN.md — the source tab's north-star, inherited into the
+  // docs/GOTCHAS.md - the source tab's north-star, inherited into the
   // reflection turn so the handoff artifact carries the standing objective.
   // Absent / blank ⇒ no block.
   goal?: string;
@@ -243,12 +243,12 @@ function runOriginalWorker(
           primary: original.primary,
           prompt: reflectionPrompt,
           resumeSessionId: original.sessionId,
-          // OUTPUT_STYLE_PLAN.md §6 — handoff seed output becomes the
+          // docs/PROVIDERS.md - handoff seed output becomes the
           // *input* to the next worker; output-side terseness has no
           // benefit and risks lost detail. Forced normal regardless of
           // source-tab outputStyle.
           outputStyle: 'normal',
-          // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star (unlike
+          // docs/GOTCHAS.md - inherit the source tab's north-star (unlike
           // outputStyle) so the reflection is framed by the standing objective.
           goal: original.goal,
           ...(original.primary.provider === 'codex' && original.codexHome
@@ -391,10 +391,10 @@ async function runOriginalWorkerNative(
         // messages[] (seeded above for Spawn; in-memory for Handoff).
         resumeSessionId: undefined,
         claudeTransport: 'native',
-        // OUTPUT_STYLE_PLAN.md §6 — handoff seed output feeds the next
+        // docs/PROVIDERS.md - handoff seed output feeds the next
         // worker; forced normal regardless of source-tab outputStyle.
         outputStyle: 'normal',
-        // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star.
+        // docs/GOTCHAS.md - inherit the source tab's north-star.
         goal: original.goal,
         ...(original.primary.provider === 'codex' && original.codexHome
           ? { providerAccountRef: original.providerAccountRef, codexHome: original.codexHome }
@@ -542,11 +542,11 @@ function runFreshSummarizer(
         // workflowId — would otherwise run the summary INSIDE the operator's live
         // Cursor session. See providers/index.ts (Phase 5 routing).
         sandbox: 'read-only',
-        // OUTPUT_STYLE_PLAN.md §6 — fresh-summarizer output becomes the
+        // docs/PROVIDERS.md - fresh-summarizer output becomes the
         // *input* to the next worker; forced normal regardless of source
         // tab's outputStyle.
         outputStyle: 'normal',
-        // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star so the
+        // docs/GOTCHAS.md - inherit the source tab's north-star so the
         // handoff artifact preserves the standing objective for the continuation.
         goal: args.summarizer.goal,
         ...(args.summarizer.provider === 'codex' && args.summarizer.codexHome

@@ -197,7 +197,7 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
   }, [job.id, job.previewUnread, markPreviewSeen]);
 
   const cwd = job.config.workingDirectory;
-  // ARCO_OPS_PLAN.md §D1 — request the cwd's ledger snapshot when the LEDGER
+  // docs/ARCHITECTURE.md - request the cwd's ledger snapshot when the LEDGER
   // tab is opened. The server also pushes one on rehydrate; this covers a
   // fresh open without a reconnect (e.g. a sibling tab created tasks).
   useEffect(() => {
@@ -213,7 +213,7 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
   // back to plain FileExplorer is one click.
   const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>('files');
   const hasTaskChildren = !!(job.taskChildren && Object.keys(job.taskChildren).length > 0);
-  // ARCO_OPS_PLAN.md M2/M3 — GENESIS tab visibility.
+  // docs/ARCHITECTURE.md - GENESIS tab visibility.
   //  • M2 from-nothing: this is a genesis workflow still in its scratch ideation dir.
   //  • M3 Creative mode: any real-cwd workflow can ARM Creative mode here, and an
   //    already-armed workflow keeps the tab to edit the alternative seed + scaffold.

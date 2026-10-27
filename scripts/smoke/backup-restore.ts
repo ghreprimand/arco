@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F3 — backup restore smoke (no live server, no real ~/.arco).
+// docs/ARCHITECTURE.md - backup restore smoke (no live server, no real ~/.arco).
 //
 // This is the SECURITY acceptance gate the director reviews line by line. It
 // exercises the pure planRestore + the effecting applyRestore against temp dirs

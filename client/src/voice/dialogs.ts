@@ -1,4 +1,4 @@
-// VOICE_AGENT_PLAN.md — Computer's "open this dialog" tool. Incident
+// docs/VOICE.md - Computer's "open this dialog" tool. Incident
 // (2026-10-17): "bring up the nudge dialogue box for this workflow" became
 // an arco_nudge to the focused member because the only nudge-shaped tool
 // SENT the nudge; the operator wanted the picker to choose. A dialog

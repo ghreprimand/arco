@@ -31,7 +31,7 @@ bootstrapCachedTheme();
 // `/terminal` WS alone.
 const query = new URLSearchParams(window.location.search);
 const popoutSessionId = query.get('popoutTerminal');
-// ARCHIVE (docs/ARCHIVE_PLAN.md §3) — the standalone file-explorer window is a
+// ARCHIVE (docs/CLIENT.md) - the standalone file-explorer window is a
 // second `?app=explorer` branch on the same root entry (no router, same shape
 // as the terminal pop-out above). Serves index.html in both dev (Vite) and
 // prod (ARCO_SERVE_CLIENT SPA fallback), so it's collision-free everywhere.

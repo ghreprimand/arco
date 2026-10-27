@@ -22,7 +22,7 @@ interface Props {
   // any in-flight worker for this workflow. Keeps `removeJob` local so the
   // UI stays responsive even if the socket is temporarily closed.
   onRemoveWorkflow: (workflowId: string) => void;
-  // CLUSTER_MODE_PLAN.md Phase 2 — operator clicked "CREATE CLUSTER" in the
+  // docs/PROTOCOL_CLUSTER.md - operator clicked "CREATE CLUSTER" in the
   // right-click menu, or hit × on a cluster tab. Implemented at App.tsx via
   // useWebSocket's createCluster / deleteCluster helpers.
   onCreateCluster: (cwd: string, memberWorkflowIds: string[]) => void;

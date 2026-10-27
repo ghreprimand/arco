@@ -93,7 +93,7 @@ export function buildThinkingParams(
       thinking: {
         type: 'adaptive',
         display: resolveThinkingDisplay(modelId, display),
-        // FABLE_51_APPEND_ONLY_PLAN.md §2 — opt the request into the preserved-
+        // docs/PROVIDERS.md - opt the request into the preserved-
         // thinking check explicitly (the defaults differ by surface) and ask
         // for drop-not-error so an edited prefix degrades instead of killing
         // the turn. Requires BETA_THINKING_BINDING_CONTROLS on the header; the

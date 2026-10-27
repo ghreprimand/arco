@@ -1,4 +1,4 @@
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase B1 — attached-plan smoke.
+// docs/PROVIDERS.md - attached-plan smoke.
 //
 // Confirms an Arco-style attached plan flows through the existing
 // `buildPlanPrefix()` path to Antigravity and that Antigravity can read +

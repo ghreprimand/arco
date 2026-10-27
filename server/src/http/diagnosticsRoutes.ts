@@ -4,7 +4,7 @@ import { buildSupportBundle } from '../diagnostics/supportBundle.js';
 import { buildModelHealthReport } from '../diagnostics/modelHealth.js';
 import type { DiagnosticsReport, ModelHealthReport, SupportBundleResponse } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §A1/§A2/§A3 — Diagnostics routes.
+// docs/ARCHITECTURE.md A3 - Diagnostics routes.
 //
 //   GET /api/diagnostics                 → DiagnosticsReport { groups, generatedAt, arcoVersion, platform }
 //   GET /api/diagnostics/support-bundle  → SupportBundleResponse { json: SupportBundle, text }  (REDACTED)

@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — round-trip golden-input tests for the filter
+// docs/PROVIDERS.md - round-trip golden-input tests for the filter
 // packs. Run with: `npm run test:filters -w server` (which invokes node
 // --test --import tsx).
 //

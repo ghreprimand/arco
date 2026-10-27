@@ -81,7 +81,7 @@ export interface LlamacppManagerStatus {
   loadedAt?: number;
   lastUsedAt?: number;
   error?: string;
-  // Additive metadata (ARCO_OPS_PLAN.md §A3): the argv of the most recent
+  // Additive metadata (docs/ARCHITECTURE.md): the argv of the most recent
   // llama-server spawn, retained purely so the model-health panel can answer
   // "what did the last launch look like?". Set on the existing spawn path in
   // doLoad(); NEVER read by spawn/keepalive/reap logic — read-only forensics.

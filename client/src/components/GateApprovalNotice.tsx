@@ -1,4 +1,4 @@
-// DEBAG — Durable Edit-Before-Approve Gate (docs/DEBAG_PLAN.md).
+// DEBAG - Durable Edit-Before-Approve Gate (docs/PROVIDERS.md).
 //
 // Inline approval card for a parked sensitive tool call. The worker emits a
 // `gate_required` broadcast which handleServerMessage anchors as a synthetic

@@ -122,7 +122,7 @@ function renderChildrenToString(children: React.ReactNode): string {
 interface MarkdownProps {
   value: string;
   // Click handler for internal, relative links. If provided, clicking
-  // `[docs](./docs/thing.md)` calls this with 'docs/thing.md' (normalized
+  // `[docs](./reports/thing.md)` calls this with 'reports/thing.md' (normalized
   // against basePath). Falls back to open-in-new-tab via the GH url if omitted.
   onOpenRelative?: (path: string) => void;
   // Current path inside the repo (for resolving relative links). Empty means

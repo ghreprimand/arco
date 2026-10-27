@@ -1,5 +1,5 @@
 // Smoke for the AI-collaborative document editing primitive —
-// WORKBENCH_EXPANSION_PLAN.md §A7.
+// docs/ARCHITECTURE.md
 //
 // A live edit turn spends REAL provider quota and needs a running server. For a
 // fast, hermetic, CI-safe check we exercise the server-side primitive directly

@@ -42,7 +42,7 @@ export interface ArcoSkillRef {
 // later as another mechanical rename if the surface gets big.
 export interface WorkflowConfig {
   name: string;
-  // CLUSTER_MODE_PLAN.md Phase 2 — tab kind discriminator. Absent or
+  // docs/PROTOCOL_CLUSTER.md - tab kind discriminator. Absent or
   // 'workflow' = the existing single-primary tab shape (every persisted
   // pre-Phase-2 tab back-compats to this). 'cluster' = a parent tab that
   // hosts N member workflows; created via cluster_create, never via
@@ -64,7 +64,7 @@ export interface WorkflowConfig {
   // CHAT_WEB_PROVIDERS. Ignored on kind!=='chat' tabs, which get the full
   // agent toolset anyway.
   chatWebAccess?: boolean;
-  // VOICE_AGENT_PLAN.md — this Chat is the hands-free "Computer" operator. It
+  // docs/VOICE.md - this Chat is the hands-free "Computer" operator. It
   // exposes bounded arco_* tools that run in the owning browser. Codex
   // carries one arco-voice MCP child; Native/local APIs share its relay. Second documented exception to toolless Chat.
   voiceOperator?: boolean;
@@ -72,14 +72,14 @@ export interface WorkflowConfig {
   primaryProvider?: ProviderName;
   primaryModel: ModelName;
   primaryEffort: EffortLevel;
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — transient client-only token. The RESEARCH
+  // docs/ARCHITECTURE.md - transient client-only token. The RESEARCH
   // dialog's "new tab" path mints this and threads it onto the spawned tab's
   // config so the client can recognize the resulting `workflow_created` and
   // fire the deferred `research_request` against the new workflow id. The
   // server treats it as an opaque passthrough (echoed back in workflow_created,
   // never persisted meaningfully). Absent on every ordinary tab.
   researchSpawnToken?: string;
-  // WORKBENCH_EXPANSION_PLAN.md §D4 — transient client-only token, same shape +
+  // docs/ARCHITECTURE.md - transient client-only token, same shape +
   // lifecycle as researchSpawnToken. The template picker mints this and threads
   // it onto the new tab's config so the client can recognize the resulting
   // `workflow_created` and apply the deferred seedPrompt (composer pre-fill) +
@@ -144,7 +144,7 @@ export interface WorkflowConfig {
   // Phase 6e — per-tab Codex transport override. Falls through to the
   // settings cascade (`settings.codex.transport`) when absent; final default
   // is `'exec'`. Only honored on Codex tabs. Persisted to meta.json so it
-  // survives reload + server restart. See docs/CODEX_APPSERVER_PLAN.md § 13.
+  // survives reload + server restart. See docs/PROVIDERS.md
   codexTransport?: 'exec' | 'appserver';
   // Codex context-window policy. Absent / 'max' asks Codex for the selected
   // model's live catalog max; 'standard' leaves Codex at its conservative
@@ -153,9 +153,9 @@ export interface WorkflowConfig {
   codexContextPolicy?: 'max' | 'standard';
   // Phase 7a — per-tab Claude transport override. Falls through to
   // `settings.claude.transport` cascade; final default `'cli'`. Only
-  // honored on Claude tabs. See docs/CLAUDE_NATIVE_PLAN.md § 10/11.
+  // honored on Claude tabs. See docs/PROVIDERS.md
   claudeTransport?: 'cli' | 'native';
-  // ULTRACODE_PLAN.md — sticky per-tab ultracode mode (default off / undefined).
+  // docs/PROVIDERS.md - sticky per-tab ultracode mode (default off / undefined).
   // While on, every Claude turn is forced onto the CLI transport with the
   // Workflow tool + xhigh (the harness WorkflowTool lives only in the `claude`
   // binary). The force happens at turn time in turnEngine WITHOUT overwriting
@@ -168,7 +168,7 @@ export interface WorkflowConfig {
   // default (DEFAULT_WEB_TOOL_MAX_USES, 15). Native-only — CLI Claude uses the
   // `claude` binary's own web tooling and ignores this. Persisted to meta.json.
   webSearchMaxUses?: number;
-  // ZAI_NATIVE_PLAN.md — per-tab Z.ai transport override. Native calls the
+  // docs/PROVIDERS.md - per-tab Z.ai transport override. Native calls the
   // GLM Coding Plan Chat Completions endpoint directly and preserves
   // reasoning_content. Appserver keeps the legacy Codex app-server proxy path
   // as a fallback. New Z.ai workflows default to native.
@@ -181,7 +181,7 @@ export interface WorkflowConfig {
   // Claude Native tabs whose active model exposes the capability in the
   // catalog; ignored otherwise. Coexists with `autoHandoff.enabled` —
   // both can be on (two safety nets) or either off. See
-  // docs/CLAUDE_NATIVE_PLAN.md § 15.
+  // docs/PROVIDERS.md
   claudeNativeCompact?: boolean;
   // Debug override for Claude Native adaptive-thinking models. Default false:
   // adaptive models get interleaved thinking automatically and do not need
@@ -195,7 +195,7 @@ export interface WorkflowConfig {
   // and keep the stuck-detector clock fresh. Budget-thinking models already
   // stream summarized thinking and ignore this. Persisted to meta.json.
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
-  // EFFICIENCY_PLAN.md Phase 6b.2 — tool-call-count threshold that emits a
+  // docs/PROVIDERS.md - tool-call-count threshold that emits a
   // ctx_action {trigger: "auto-threshold"} event when the workflow has
   // dispatched N tool calls without an operator-initiated context reset.
   // Off by default; "conservative" fires at 75 then every 50; "aggressive"
@@ -214,7 +214,7 @@ export interface WorkflowConfig {
   // continuing is autonomous continuation, which the autonomy fence
   // (CLAUDE.md) keeps off by default. Native-only.
   nativeCompactAutoContinue?: boolean;
-  // EFFICIENCY_PLAN.md Phase C — Native-side tool-result filter mode.
+  // docs/PROVIDERS.md - Native-side tool-result filter mode.
   // `off`: no filter; tool stdout/stderr lands verbatim (subject only to
   // the existing 50 MB hard cap).
   // `conservative` (default for new tabs once Phase C ships): the
@@ -223,10 +223,10 @@ export interface WorkflowConfig {
   // `aggressive`: reserved for measured-and-promoted packs. Today
   // resolves to the same list as conservative; promoting a pack into
   // aggressive requires a follow-up phase with operator data per the
-  // EFFICIENCY_PLAN.md §13.3 doc-discipline rule.
+  // docs/PROVIDERS.md doc-discipline rule.
   // Per-tab CONFIG-tab toggle; only honored on Claude Native tabs.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase D — fact-force first-edit gate toggle.
+  // docs/PROVIDERS.md - fact-force first-edit gate toggle.
   // `'on'`: the first `Edit`/`Write`/`MultiEdit` of a turn targeting any
   // not-yet-edited path is intercepted with a synthetic tool_result asking
   // the model to state importers + API surface + the operator instruction
@@ -245,7 +245,7 @@ export interface WorkflowConfig {
   // the Native worker's dispatchTool — CLI / Codex / Gemini have no gate).
   // Absent field ⇒ `'on'` (gate stays on; opting out is explicit).
   efficiencyConfigProtection?: 'on' | 'off';
-  // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tool surface. When
+  // docs/PROVIDERS.md - opt-in sandbox tool surface. When
   // `'on'`, the Native worker registers three additional tools in the
   // Anthropic tools[] array: `ctx_execute` / `ctx_search` / `ctx_fetch`.
   // The worker also appends a system-prompt nudge so the model knows the
@@ -255,14 +255,14 @@ export interface WorkflowConfig {
   // content) lives at <cwd>/.arco/workflows/<wfId>/sandbox.db and is
   // unlinked on tab close (remove_workflow) or operator Clear-DB.
   efficiencySandbox?: 'off' | 'on';
-  // DEBAG_PLAN.md — operator-armed durable HITL review gate. When `'on'`, the
+  // docs/PROVIDERS.md - operator-armed durable HITL review gate. When `'on'`, the
   // Native worker's dispatchTool pauses on a *sensitive* tool call (static
   // allowlist in `gateReview.ts`: Bash, KillShell, write outside cwd, git
   // push/reset --hard/clean) and surfaces an editable proposal the operator
   // approves / edits / rejects. Default `'off'` ⇒ the gate is inert and adds
   // nothing to the hot path. Native-only — CLI / Codex / Gemini ignore the field.
   reviewSafeMode?: 'off' | 'on';
-  // OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Three levels:
+  // docs/PROVIDERS.md - operator-armed terseness picker. Three levels:
   // `normal` (default; no addendum, status quo), `lite` (drop fillers /
   // pleasantries / hedging; keep grammar), `terse` (fragments OK; drop
   // articles; short synonyms — was `caveman`, renamed 2026-05-10).
@@ -277,7 +277,7 @@ export interface WorkflowConfig {
   // values in pre-2026-05-10 meta.json files are auto-aliased to `'terse'`
   // on rehydrate.
   outputStyle?: 'normal' | 'lite' | 'terse';
-  // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Short free-text
+  // docs/GOTCHAS.md - operator-set persistent north-star. Short free-text
   // objective ("what is this whole session ultimately in service of") injected as
   // a high-priority stable system block on every turn until cleared. Durable
   // across restarts and resumes (meta.json). ZERO model authority: pure steering
@@ -287,7 +287,7 @@ export interface WorkflowConfig {
   // clusterPlan (Native, CLI Claude, both Codex, Z.ai native, Ollama/llama.cpp).
   // Unlike outputStyle, Review / Handoff / DOCS / GIT primitive seeds INHERIT it.
   goal?: string;
-  // GOAL_RUN_PLAN.md — operator-armed north-star auto-continue. While armed,
+  // docs/GOTCHAS.md - operator-armed north-star auto-continue. While armed,
   // a deterministic continuation turn is dispatched after each settled turn
   // until the iteration budget runs out or a stop condition trips. Requires a
   // `goal` (there is nothing to continue toward without one). Default absent
@@ -324,14 +324,14 @@ export interface WorkflowConfig {
   // meta.json. Only meaningful when the instance is hub-linked (ARCO_HUB_URL
   // set); inert otherwise.
   remoteEnabled?: boolean;
-  // R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §9.2) — SECOND arming for remote DEBAG
+  // R1 (docs/REMOTE_MANAGEMENT.md) - SECOND arming for remote DEBAG
   // gate resolution, default OFF. `remoteEnabled` alone lets the phone converse
   // with the workflow; approving/rejecting a parked sensitive tool call from
   // the phone additionally requires this flag. Remote conversation never
   // implies remote approval authority. Persists to meta.json; inert unless
   // hub-linked AND reviewSafeMode is arming gates in the first place.
   remoteGatesEnabled?: boolean;
-  // EFFICIENCY_PLAN.md Phase F — operator-attached `DeusData/codebase-memory-
+  // docs/PROVIDERS.md - operator-attached `DeusData/codebase-memory-
   // mcp` for this tab. The binary is operator-installed once per machine
   // (see docs/OPERATIONS.md) and Arco invokes it with `--skip-config` so
   // it doesn't auto-edit other agent configs. Phase F ships UX wiring only;
@@ -347,7 +347,7 @@ export interface WorkflowConfig {
     lastIndexedAt?: number;
     fileCount?: number;
   };
-  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — the staged-ideation seed for a
+  // docs/GENESIS.md - the staged-ideation seed for a
   // from-nothing genesis workflow. THE durable home for the seed while the
   // workflow has no working directory: it rides the client-persisted config and
   // is re-sent on `rehydrate_workflows`, so a server restart mid-ideation
@@ -356,7 +356,7 @@ export interface WorkflowConfig {
   // engine reads it to inject the genesis system block until the seed is
   // scaffolded (the workflow gains a real cwd).
   genesisSeed?: GenesisSeed;
-  // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama generation-param preset blob,
+  // docs/PROVIDERS.md - per-tab Ollama generation-param preset blob,
   // keyed by Ollama option name (num_ctx, keep_alive, num_gpu, temperature,
   // and the pre-wired extensions in providers/ollamaParams.ts). Edited via the
   // CONFIG-tab "advanced params" affordance (Ollama tabs only), persisted to
@@ -516,7 +516,7 @@ export interface WorkerConfig {
   // into the long-lived `codex app-server` worker (mid-turn steer + structured
   // interrupt). Resolved from the project/global cascade in
   // `handleUserMessage` and threaded through to the dispatcher; reviewers
-  // hard-code `'exec'`. See docs/CODEX_APPSERVER_PLAN.md.
+  // hard-code `'exec'`. See docs/PROVIDERS.md.
   codexTransport?: 'exec' | 'appserver';
   // Resolved per-tab Codex context policy. Absent means Arco's MAX default.
   codexContextPolicy?: 'max' | 'standard';
@@ -524,9 +524,9 @@ export interface WorkerConfig {
   // the per-turn `claude -p` CLI spawn. `'native'` opts into the long-lived
   // in-process Anthropic-API worker (mid-turn steer; OAuth subscription auth;
   // CLAUDE.md auto-discovery). Reviewers / handoff seeds always run on
-  // `'cli'`. See docs/CLAUDE_NATIVE_PLAN.md § 10.
+  // `'cli'`. See docs/PROVIDERS.md
   claudeTransport?: 'cli' | 'native';
-  // ULTRACODE_PLAN.md — operator-armed sticky mode. When true on a CLI Claude
+  // docs/PROVIDERS.md - operator-armed sticky mode. When true on a CLI Claude
   // turn: prepend the `ultracode` keyword, ensure the Workflow tool is exposed,
   // force `xhigh`, and switch turn-completion to wait-for-process-exit +
   // coalesce-to-last-result (a background workflow emits MULTIPLE `result`
@@ -555,25 +555,25 @@ export interface WorkerConfig {
   // request. Absent ⇒ 'omitted'. Primitives (reviewers / handoff seeds) leave
   // it unset, like outputStyle's forced 'normal'. Other transports ignore.
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
-  // FABLE_51_APPEND_ONLY_PLAN.md §1.5 — per-turn operator notice (peer-mailbox
+  // docs/PROVIDERS.md - per-turn operator notice (peer-mailbox
   // depth, plan-mode arm nudge). The Native worker appends it to the
   // operator's user message and leaves it there for the life of the
   // conversation; folding it into `system` and dropping it next turn was a
   // prefix edit. Other transports keep receiving it inside appendSystemPrompt.
   // Operator-turn only; unset on auto-continue / drain iterations.
   turnNotice?: string;
-  // EFFICIENCY_PLAN.md Phase 6b.2 — mirror of WorkflowConfig.efficiency-
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.efficiency-
   // AutoCompact threaded into the worker so the dispatch loop can count
   // tool calls and emit ctx_action {trigger: "auto-threshold"} events at
   // the configured threshold without round-tripping back to the workflow
   // store. See WorkflowConfig for semantics.
   efficiencyAutoCompact?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase C — mirror of WorkflowConfig.efficiencyToolFilter
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.efficiencyToolFilter
   // threaded into the worker so dispatchTool can resolve a filter pack per
   // tool call. Other transports ignore the field. See WorkflowConfig for
   // semantics.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase D — mirror of WorkflowConfig.efficiencyFactForce
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.efficiencyFactForce
   // threaded into the worker so dispatchTool can evaluate the first-edit
   // fact-force gate per turn. Other transports ignore. See WorkflowConfig.
   efficiencyFactForce?: 'on' | 'off';
@@ -581,23 +581,23 @@ export interface WorkerConfig {
   // worker so dispatchTool can decide whether to run the config-protection
   // gate. Absent ⇒ gate ON. Other transports ignore. See WorkflowConfig.
   efficiencyConfigProtection?: 'on' | 'off';
-  // EFFICIENCY_PLAN.md Phase E — mirror of WorkflowConfig.efficiencySandbox
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.efficiencySandbox
   // threaded into the worker so buildToolDefs() can register the three
   // `ctx_*` tools and buildSystemBlocks() can append the sandbox nudge.
   // Other transports ignore. See WorkflowConfig.
   efficiencySandbox?: 'off' | 'on';
-  // DEBAG_PLAN.md — mirror of WorkflowConfig.reviewSafeMode threaded into the
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.reviewSafeMode threaded into the
   // worker so dispatchTool can decide whether to run the review gate. Absent ⇒
   // gate OFF. Other transports ignore. See WorkflowConfig.
   reviewSafeMode?: 'off' | 'on';
-  // OUTPUT_STYLE_PLAN.md — mirror of WorkflowConfig.outputStyle threaded into
+  // docs/PROVIDERS.md - mirror of WorkflowConfig.outputStyle threaded into
   // the worker so the system-block builder can append the matching addendum
   // text (`outputStyleAddendum`). Reviewers / Handoff seeds / DOCS / GIT
   // primitives hard-code `'normal'` regardless of source-tab value (plan §6).
   // Spawn-from-here inherits parent's value. Only honored on Claude Native;
   // other transports ignore. Renamed `caveman` → `terse` 2026-05-10.
   outputStyle?: 'normal' | 'lite' | 'terse';
-  // GOAL_NORTHSTAR_PLAN.md — mirror of WorkflowConfig.goal threaded into the
+  // docs/GOTCHAS.md - mirror of WorkflowConfig.goal threaded into the
   // worker so the system-block builder can push the operator's north-star block
   // (`goalBlock`) immediately after FORCED_FIRST_BLOCK, before the cluster plan.
   // Zero model authority — steering context only. Absent / empty ⇒ no block.
@@ -617,7 +617,7 @@ export interface WorkerConfig {
   // resolved by the dispatcher from WorkflowState.pendingPlanModeEntry and
   // cleared after consumption. Other providers / transports ignore it.
   claudeNativePlanModeArmed?: boolean;
-  // CLUSTER_MODE_PLAN.md Phase 1 — when set, the Claude Native worker
+  // docs/PROTOCOL_CLUSTER.md - when set, the Claude Native worker
   // registers the three `peer_*` tools into its tool list and routes
   // matching tool_use blocks to peerTools.executePeerTool. Resolved by
   // handleUserMessage from clusterStore.getClusterIdForWorkflow at turn
@@ -644,7 +644,7 @@ export interface WorkerConfig {
   // block. Hard cap 32768 chars (enforced server-side at write time).
   // Non-Native transports ignore the field.
   clusterPlan?: string;
-  // CLUSTER_MODE_PLAN.md Phase 2.6 — this member's role hint (≤120 chars),
+  // docs/PROTOCOL_CLUSTER.md - this member's role hint (<=120 chars),
   // resolved by handleUserMessage at turn start from clusterStore. When
   // set, the Native worker injects `Your role in this cluster: <role>` as
   // a system block immediately after the cluster-plan block. Empty /
@@ -668,7 +668,7 @@ export interface WorkerConfig {
   // (CLI / Codex), and added to buildLocalClusterSystemPrompt (Ollama /
   // llama.cpp). Empty / undefined ⇒ no block.
   clusterProgressDoctrine?: string;
-  // CLUSTER_MODE_PLAN.md Phase 3 + EFFICIENCY_PLAN.md Phase F9 — absolute
+  // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - absolute
   // path to the per-workflow `mcp-config.json` written by
   // `mcpConfigWriter.writeFor`. Only set on CLI Claude turns when the
   // workflow is a cluster member AND/OR has codebase-memory attached; the
@@ -678,7 +678,7 @@ export interface WorkerConfig {
   // peerTools, and a Native equivalent for codebase-memory is deferred
   // (MASTER_REFACTOR §3.3 row F10).
   clusterMcpConfigPath?: string;
-  // EFFICIENCY_PLAN.md Phase F9 — operator-attached codebase-memory-mcp
+  // docs/PROVIDERS.md - operator-attached codebase-memory-mcp
   // intent + resolved index path. Set on every turn when
   // `wf.config.codebaseMemory.attached === true`. The Codex providers
   // (`exec` per-turn, `app-server` per-process) layer the registration on
@@ -688,7 +688,7 @@ export interface WorkerConfig {
   // Native ignores both — see F10.
   codebaseMemoryAttached?: boolean;
   codebaseMemoryIndexPath?: string;
-  // ARCO_OPS_PLAN.md §E1 — namespaced tool names (`mcp__<key>__<tool>`) for
+  // docs/ARCHITECTURE.md - namespaced tool names (`mcp__<key>__<tool>`) for
   // dangerous-and-UNticked tools of the workflow's operator-enabled registry
   // servers. The CLI Claude provider appends each as `--disallowedTools`,
   // which composes with `--dangerously-skip-permissions` (verified) and
@@ -696,7 +696,7 @@ export interface WorkerConfig {
   // it ignores this field (documented gap). Native ignores it in this pass
   // (E1-Native is pass 2).
   mcpDisallowedTools?: string[];
-  // ARCO_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry MCP servers
+  // docs/ARCHITECTURE.md - operator-enabled-and-allowed registry MCP servers
   // for this workflow turn. The Codex providers (exec / app-server) build
   // `-c mcp_servers.<key>.*` TOML overrides from these (Codex has no
   // --mcp-config). CLI Claude gets the SAME servers via the merged
@@ -704,7 +704,7 @@ export interface WorkerConfig {
   // through McpConfigOptions.registryServers), so it ignores this field.
   // Native ignores it in this pass (E1-Native is pass 2).
   mcpRegistryServers?: ResolvedMcpServer[];
-  // WORKBENCH_EXPANSION_PLAN.md §B2 (Deep Research) — overrides the Claude
+  // docs/ARCHITECTURE.md (Deep Research) - overrides the Claude
   // Native web_search / web_fetch `max_uses` budget for a single spawn so a
   // research run's operator-set `maxRounds` is a MECHANICAL hard ceiling, not
   // just prompt-advisory. Only honored on Claude Native; other transports
@@ -713,7 +713,7 @@ export interface WorkerConfig {
   // provider asymmetry is documented in runResearch.ts and docs/PRIMITIVES.md).
   // Unset ⇒ historical default of 10.
   webSearchMaxUses?: number;
-  // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama generation-param preset blob.
+  // docs/PROVIDERS.md - per-tab Ollama generation-param preset blob.
   // Mirror of WorkflowConfig.ollamaParams, resolved at turn start. The Ollama
   // provider merges it through the typed allowlist boundary
   // (providers/ollamaParams.ts) into the /api/chat `options` envelope
@@ -724,7 +724,7 @@ export interface WorkerConfig {
   // keys on request byte-stability, so a mid-workflow change is an explicit
   // cache-invalidation event (logged, same as an effort switch).
   ollamaParams?: Record<string, unknown>;
-  // LOCAL_AI_MASTER_PLAN.md M5 / Excellence LE-4 — Ollama structured-output
+  // docs/PROVIDERS.md / Excellence LE-4 - Ollama structured-output
   // request. When set, the Ollama provider sends it as the top-level `format`
   // field on /api/chat (sibling of messages/options/tools), constraining
   // decoding at the sampler level to either free-form JSON ("json") or a raw
@@ -738,7 +738,7 @@ export interface WorkerConfig {
   ollamaFormat?: 'json' | Record<string, unknown>;
 }
 
-// ── ARCO_OPS_PLAN.md §H1 — project-local session index ──
+// -- docs/ARCHITECTURE.md - project-local session index --
 //
 // `<cwd>/.arco/session-index.json` is a per-project PROJECTION of that
 // project's resumable sessions — one entry per (provider, sessionId) the

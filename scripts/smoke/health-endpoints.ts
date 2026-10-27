@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B2 — liveness (/healthz) + readiness (/readyz) endpoints.
+// docs/ARCHITECTURE.md - liveness (/healthz) + readiness (/readyz) endpoints.
 //
 // Hits the LIVE server's GET /healthz, GET /health (back-compat alias), and
 // GET /readyz (the director runs this against a running `npm run dev` on :3001

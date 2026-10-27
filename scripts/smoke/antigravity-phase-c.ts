@@ -1,4 +1,4 @@
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase C — tool activity and permission bridge smoke.
+// docs/PROVIDERS.md - tool activity and permission bridge smoke.
 //
 // Verifies that Antigravity trajectory steps are normalized into stable,
 // non-duplicating Arco Activity rows, that the debug trace file is written

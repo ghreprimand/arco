@@ -298,7 +298,7 @@ export function ConfigTab({
         <OllamaCompactionSection />
       )}
 
-      {/* LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama param presets. Ollama
+      {/* docs/PROVIDERS.md - per-tab Ollama param presets. Ollama
           tabs only; merged server-side through the typed allowlist. */}
       {provider === 'ollama' && canEdit && (
         <OllamaParamsSection job={job} onUpdatePrimary={onUpdatePrimary!} />
@@ -311,7 +311,7 @@ export function ConfigTab({
         <OllamaVramSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* LOCAL_AI_MASTER_PLAN.md M12 (Excellence LE-6) — model-lifecycle
+      {/* docs/PROVIDERS.md (Excellence LE-6) - model-lifecycle
           console. Ollama tabs only; aggregates /api/ps across backends with
           idle/expiry countdown + a keep_alive:0 unload button per model. */}
       {provider === 'ollama' && canEdit && (
@@ -360,7 +360,7 @@ export function ConfigTab({
         <ClaudeNativeInterleavedBetaSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode toggle.
+      {/* docs/PROVIDERS.md - Native tool-result filter mode toggle.
           Native-only; the filter pipeline lives inside the Native worker's
           dispatchTool. */}
       {provider === 'claude' && canEdit && (
@@ -374,8 +374,8 @@ export function ConfigTab({
         <ClaudeNativeWebBudgetSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* EFFICIENCY_PLAN.md Phase D §8a — Native fact-force first-edit gate.
-          Native-only; CLI parity deferred (master §3.3 F4). Defaults off;
+      {/* docs/PROVIDERS.md - Native fact-force first-edit gate.
+          Native-only; CLI parity deferred (master section 3.3 F4). Defaults off;
           the operator explicitly opts in per tab. */}
       {provider === 'claude' && canEdit && (
         <ClaudeNativeFactForceSection job={job} onUpdatePrimary={onUpdatePrimary!} />
@@ -388,16 +388,16 @@ export function ConfigTab({
         <ClaudeNativeConfigProtectionSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* EFFICIENCY_PLAN.md Phase E §9 — Native opt-in sandbox tools.
+      {/* docs/PROVIDERS.md - Native opt-in sandbox tools.
           Native-only; CLI parity not planned (the tools register into the
           in-process Anthropic tools[] array which CLI / Codex / Gemini
-          don't surface). Default 'off' — operator opts in per tab. */}
+          don't surface). Default 'off' - operator opts in per tab. */}
       {provider === 'claude' && canEdit && (
         <ClaudeNativeSandboxSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* DEBAG_PLAN.md — operator-armed durable review gate (review safe-mode).
-          Native-only; default 'off' — operator opts in per tab. */}
+      {/* docs/PROVIDERS.md - operator-armed durable review gate (review safe-mode).
+          Native-only; default 'off' - operator opts in per tab. */}
       {provider === 'claude' && canEdit && (
         <ClaudeNativeReviewSafeModeSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
@@ -407,14 +407,14 @@ export function ConfigTab({
           transport. Standing surface for the one-shot composer prompt. */}
       {c.workingDirectory && <ProjectTrustSection cwd={c.workingDirectory} />}
 
-      {/* GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Not
+      {/* docs/GOTCHAS.md - operator-set persistent north-star. Not
           provider-gated: honored on every transport that folds the prompt
           (Native, CLI Claude, both Codex, Z.ai, Ollama/llama.cpp/LM Studio). */}
       {canEdit && (
         <NorthStarSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Honored by
+      {/* docs/PROVIDERS.md - operator-armed terseness picker. Honored by
           Claude Native and Codex app-server providers (including Z.ai).
           Forced normal on Review / Handoff / DOCS / GIT regardless. */}
       {(provider === 'claude' || provider === 'codex' || provider === 'zai') && canEdit && (
@@ -431,9 +431,9 @@ export function ConfigTab({
         </>
       )}
 
-      {/* EFFICIENCY_PLAN.md Phase F — operator-attachable codebase-memory-mcp.
+      {/* docs/PROVIDERS.md - operator-attachable codebase-memory-mcp.
           Provider-agnostic (the binary is operator-installed and Arco
-          drives it via MCP — surface is the same for Claude / Codex / Gemini
+          drives it via MCP - surface is the same for Claude / Codex / Gemini
           once the spawn-site wiring lands post-Cluster-3). */}
       {onAttachCodebaseMemory && onDetachCodebaseMemory && (
         <CodebaseMemorySection
@@ -443,10 +443,10 @@ export function ConfigTab({
         />
       )}
 
-      {/* ARCO_OPS_PLAN.md §E1 — MCP registry per-tab enablement. Wired
+      {/* docs/ARCHITECTURE.md - MCP registry per-tab enablement. Wired
           transports: Claude CLI (--disallowedTools denylist), Claude Native
           (in-process denylist by omission, E1-Native), and Codex (server-level
-          enable only — no per-tool deny flag). Provider-gated, so both Claude
+          enable only - no per-tool deny flag). Provider-gated, so both Claude
           transports show the same section. */}
       {mcp && (provider === 'claude' || provider === 'codex' || provider === 'zai') && (
         <McpRegistrySection job={job} mcp={mcp} />
@@ -1065,8 +1065,8 @@ function CodexTransportSection({
   );
 }
 
-// Phase 6e — first-time-enable warning modal. Copy from
-// docs/CODEX_APPSERVER_PLAN.md § 14 q5 verbatim.
+// First-time-enable warning modal for the Codex app-server transport.
+// Transport behavior is documented in docs/PROVIDERS.md.
 function CodexAppserverWarningModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
     <div
@@ -1215,7 +1215,7 @@ function ClaudeTransportSection({
   const cascadeDefault: 'cli' | 'native' = settings?.claude?.transport === 'native' ? 'native' : 'cli';
   const current: 'cli' | 'native' = job.config.claudeTransport ?? cascadeDefault;
   const warningSeen = settings?.claude?.nativeWarningSeen === true;
-  // ULTRACODE_PLAN.md — sticky ultracode mode. While on it forces CLI at turn
+  // docs/PROVIDERS.md - sticky ultracode mode. While on it forces CLI at turn
   // time without overwriting the stored transport above, so the buttons keep
   // showing the operator's base (restored when ultracode flips off).
   const ultracode = job.config.ultracode === true;
@@ -1299,7 +1299,7 @@ function ClaudeTransportSection({
         {ultracode ? ' Ultracode is forcing CLI this turn — the selection above is your base for when ultracode is off.' : ''}
       </div>
 
-      {/* ULTRACODE_PLAN.md — sticky ultracode toggle. Forces CLI + the Workflow
+      {/* docs/PROVIDERS.md - sticky ultracode toggle. Forces CLI + the Workflow
           tool + xhigh while on (the harness WorkflowTool lives only in the
           `claude` binary). Operator-armed, reversible, takes effect next turn. */}
       <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--color-border-hairline)' }}>
@@ -1605,7 +1605,7 @@ function ClaudeNativeInterleavedBetaSection({
   );
 }
 
-// EFFICIENCY_PLAN.md Phase C — per-tab Native tool-result filter mode.
+// docs/PROVIDERS.md - per-tab Native tool-result filter mode.
 // Filters run on the current turn's tool_result before it enters the
 // Native worker's `messages[]` (cache invariant: prior turns are never
 // rewritten). Default `off` until measured per the §13.3 doc-discipline
@@ -1714,7 +1714,7 @@ function ClaudeNativeWebBudgetSection({
   );
 }
 
-// EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate toggle.
+// docs/PROVIDERS.md - fact-force first-edit gate toggle.
 // Native-only. Defaults to 'off'; the operator explicitly opts in per tab.
 function ClaudeNativeFactForceSection({
   job,
@@ -1816,7 +1816,7 @@ function ClaudeNativeConfigProtectionSection({
   );
 }
 
-// DEBAG_PLAN.md — operator-armed durable review gate (review safe-mode). Per-tab.
+// docs/PROVIDERS.md - operator-armed durable review gate (review safe-mode). Per-tab.
 // The toggle flips WorkflowConfig.reviewSafeMode; when 'on', the Native worker's
 // dispatchTool pauses on a sensitive tool call and surfaces an editable proposal
 // the operator approves / edits / rejects. Native-only; default 'off'.
@@ -1893,7 +1893,7 @@ function ClaudeNativeReviewSafeModeSection({
   );
 }
 
-// EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tools (ctx_execute /
+// docs/PROVIDERS.md - opt-in sandbox tools (ctx_execute /
 // ctx_search / ctx_fetch). Per-tab. The toggle flips
 // WorkflowConfig.efficiencySandbox; the CLEAR DB button hits
 // POST /api/workflows/:wfId/sandbox/clear. The stats line is best-effort
@@ -2010,7 +2010,7 @@ function ClaudeNativeSandboxSection({
   );
 }
 
-// OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Honored by Claude
+// docs/PROVIDERS.md - operator-armed terseness picker. Honored by Claude
 // Native and Codex app-server providers (Codex/Z.ai). Hidden on transports
 // that do not consume it. Three discrete levels:
 // `normal` (default), `lite`, `terse`. Takes effect on the next turn.
@@ -2018,7 +2018,7 @@ function ClaudeNativeSandboxSection({
 // reduction on Opus 4.7 (well below upstream's 65–75% claim) — the
 // new label sets honest expectations. Review / Handoff / DOCS / GIT
 // primitives hard-code `normal` regardless of this picker — see plan §6.
-// GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. A short free-text
+// docs/GOTCHAS.md - operator-set persistent north-star. A short free-text
 // objective pinned into the system prompt every turn, durable across restarts.
 // Zero model authority — pure steering context. Cap mirrors the server's
 // GOAL_MAX_BYTES (goalBlock.ts); the soft-warn threshold nudges before the cap.
@@ -2180,7 +2180,7 @@ function NorthStarSection({
   );
 }
 
-// GOAL_RUN_PLAN.md — arming surface for the north-star auto-continue. Lives
+// docs/GOTCHAS.md - arming surface for the north-star auto-continue. Lives
 // directly under the objective it runs toward; the composer's `/goal run <n>`
 // and the NorthStarBar chip write the same field.
 function GoalRunControl({
@@ -2375,8 +2375,8 @@ function OutputStyleSection({
   );
 }
 
-// Phase 7a — first-time-enable warning modal. Copy verbatim from
-// docs/CLAUDE_NATIVE_PLAN.md § 11.
+// First-time-enable warning modal for Claude Native.
+// Transport behavior is documented in docs/PROVIDERS.md.
 function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
     <div
@@ -2457,7 +2457,7 @@ function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => voi
   );
 }
 
-// LOCAL_AI_MASTER_PLAN.md M12 (Excellence LE-6) — model-lifecycle console.
+// docs/PROVIDERS.md (Excellence LE-6) - model-lifecycle console.
 // Collapsible section, Ollama tabs only. Polls GET /api/ollama-ps WHILE OPEN
 // (closed = no polling, same gating discipline as the header indicator) and
 // renders the currently-loaded models per backend with size + an idle/expiry
@@ -2770,7 +2770,7 @@ function OllamaCompactionSection() {
   );
 }
 
-// LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama generation-param presets.
+// docs/PROVIDERS.md - per-tab Ollama generation-param presets.
 // Collapsible "advanced params" affordance, Ollama tabs only. Surfaces the
 // four first-class fields (num_ctx / keep_alive / num_gpu / temperature — the
 // LM Studio per-load menu, Excellence LE-2); the rest of the allowlist

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F2 — backup verify smoke (no live server, no real ~/.arco).
+// docs/ARCHITECTURE.md - backup verify smoke (no live server, no real ~/.arco).
 //
 // Builds a known-good archive in memory over a small fixture file list (the same
 // pure writeArchive/buildManifest path the snapshot smoke uses), then asserts:

@@ -3,7 +3,7 @@ import type { WorkflowConfig, ProviderName, ModelName, EffortLevel, CompareLegCo
 import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
 
-// Compare primitive dialog — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare primitive dialog - docs/ARCHITECTURE.md
 //
 // The operator types ONE prompt and picks N legs (each a {provider, model,
 // effort} via the shared RUN AS picker — the same picker Review/Handoff/Spawn

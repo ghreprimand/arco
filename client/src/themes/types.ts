@@ -1,5 +1,5 @@
 // Theme manifest shape — drives runtime var/font/density/glyph swaps.
-// See docs/THEMES_IMPLEMENTATION_PLAN.md §2.2 for the design rationale.
+// See docs/CLIENT.md for the design rationale.
 
 export type ShaderPreset =
   | 'matrix-rain'

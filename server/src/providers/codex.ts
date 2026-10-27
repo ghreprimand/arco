@@ -120,7 +120,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     const promptWithAttachmentRefs = attachments.nonImages.length > 0
       ? `${basePrompt}\n\n${attachments.nonImages.map((p) => `[attached file: ${p}]`).join('\n')}`
       : basePrompt;
-    // GOAL_NORTHSTAR_PLAN.md G2 — fold the operator's north-star into the
+    // docs/GOTCHAS.md - fold the operator's north-star into the
     // byte-stable prefix, above appendSystemPrompt, so it rides Codex's
     // prefix cache like the rest of the framing. Covers operator turns AND
     // primitive seeds (both carry config.goal). Absent / blank ⇒ no change.
@@ -299,7 +299,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // tool surface (file read/write, shell within sandbox); workers either
     // get the sandbox-gated set or the full set per the sandbox flag above.
 
-    // CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — Codex
+    // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - Codex
     // cluster members register the arco-cluster MCP stdio child Claude
     // CLI uses, AND codebase-memory-attached workflows register the
     // operator-installed codebase-memory-mcp child the same way. Codex has
@@ -395,7 +395,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       if (data.text.length > this._output.length) {
         this._output = data.text;
       }
-      // EFFICIENCY_PLAN.md Phase A — see claude.ts CLI for sentinel rationale.
+      // docs/PROVIDERS.md - see claude.ts CLI for sentinel rationale.
       this.emit('result', { ...data, text: this._output, thinkingBytes: 0, toolResultBytes: -1, toolResultBytesRaw: -1 });
     });
 

@@ -1,4 +1,4 @@
-// ── Compare primitive (WORKBENCH_EXPANSION_PLAN.md §B1) ──
+// -- Compare primitive (docs/ARCHITECTURE.md) --
 //
 // An operator-initiated, BOUNDED multi-provider answer race. ONE prompt fans
 // out to N independent legs, each {provider, model, effort}. Each leg runs as a

@@ -1,4 +1,4 @@
-// DEBAG (docs/DEBAG_PLAN.md) — edit-then-approve arg parsing for the gate card.
+// DEBAG (docs/PROVIDERS.md) - edit-then-approve arg parsing for the gate card.
 //
 // Pure so it can be unit/smoke-tested without React. Turns the operator's edited
 // textarea content back into tool args: a Bash command edits its command line in

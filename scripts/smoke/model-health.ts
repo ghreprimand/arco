@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §A3 — Local model health endpoint smoke.
+// docs/ARCHITECTURE.md - Local model health endpoint smoke.
 //
 // Hits the LIVE server's GET /api/diagnostics/model-health (the director runs
 // this against a running `npm run dev`). Asserts the report is well-formed:

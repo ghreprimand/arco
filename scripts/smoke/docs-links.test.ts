@@ -1,10 +1,11 @@
 // Documentation link check. Every relative markdown link in the shipped documents must resolve to a
-// tracked file (and to a heading when it carries an anchor); every `docs/NAME.md` mentioned in
+// tracked file (and to a heading when it carries an anchor); every `docs/*.md` mentioned in
 // documents, in-app help or source comments must exist, so nothing points at a document that was
 // excluded from the public tree; every document the in-app help opens through <DocRef> is
 // distributable and shipped in the runtime image.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import ts from 'typescript';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, normalize, resolve } from 'node:path';
@@ -84,11 +85,55 @@ test('no document or in-app help text names a document that is not in the tree',
   assert.deepEqual(missingDocs(scanned), [], 'references to documents that are not shipped');
 });
 
-// Source comments that cite excluded planning documents. Reported on every run but not blocking
-// until the comment scrub lands; remove the todo flag then.
-test('source comments name only documents that are in the tree', { todo: 'comment scrub of excluded planning documents' }, () => {
-  const scanned = files.filter((f) => /\.(tsx?|mjs|py)$/.test(f) && !f.startsWith('client/src/help/') && f !== 'scripts/smoke/docs-links.test.ts');
-  assert.deepEqual(missingDocs(scanned), [], 'references to documents that are not shipped');
+// Parse actual JavaScript/TypeScript comments so synthetic document paths in
+// demo data and test inputs are not mistaken for documentation references.
+function sourceComments(file: string, text: string): { text: string; line: number }[] {
+  if (!/\.(tsx?|m?js)$/.test(file)) return text.split('\n').map((line, i) => ({ text: line, line: i + 1 }));
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const ranges = new Map<number, ts.CommentRange>();
+  const collect = (found: ts.CommentRange[] | undefined) => {
+    for (const range of found ?? []) ranges.set(range.pos, range);
+  };
+  const visit = (node: ts.Node) => {
+    collect(ts.getLeadingCommentRanges(text, node.getFullStart()));
+    collect(ts.getTrailingCommentRanges(text, node.end));
+    for (const child of node.getChildren(source)) visit(child);
+  };
+  visit(source);
+  return [...ranges.values()].map(({ pos, end }) => ({
+    text: text.slice(pos, end), line: source.getLineAndCharacterOfPosition(pos).line + 1,
+  }));
+}
+
+function sourceDocTargets(text: string): string[] {
+  return [...text.matchAll(/\b(?:docs\/([A-Za-z0-9_.-]+\.md)|([A-Z][A-Z0-9_]*(?:PLAN|REFACTOR|AUDIT|EXECUTION)[A-Z0-9_]*\.md))\b/g)]
+    .map((match) => `docs/${match[1] ?? match[2]}`);
+}
+
+test('source reference scanning includes inline, block and JSX comments, not fixture strings', () => {
+  const code = [
+    '// See docs/MISSING.md',
+    'const fixture = "docs/FIXTURE.md"; // See MISSING_PLAN.md',
+    '/* See docs/BLOCK.md */',
+    'const view = <div>{/* See docs/JSX.md */}docs/TEXT.md</div>;',
+    'const template = `docs/TEMPLATE.md`;',
+  ].join('\n');
+  assert.deepEqual(sourceComments('fixture.tsx', code).flatMap((c) => sourceDocTargets(c.text)).sort(),
+    ['docs/BLOCK.md', 'docs/JSX.md', 'docs/MISSING.md', 'docs/MISSING_PLAN.md'].sort());
+});
+
+test('source comments name only documents that are in the tree', () => {
+  const scanned = files.filter((f) => /^(shared|server|client|scripts)\//.test(f)
+    && /\.(tsx?|m?js|py)$/.test(f) && !f.startsWith('client/src/help/'));
+  const missing: string[] = [];
+  for (const file of scanned) {
+    for (const comment of sourceComments(file, read(file))) {
+      for (const target of sourceDocTargets(comment.text)) {
+        if (!tracked.has(target)) missing.push(`${file}:${comment.line} -> ${target}`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], 'references to documents that are not shipped');
 });
 
 test('every document the in-app help opens exists, is distributable and is in the runtime image', () => {

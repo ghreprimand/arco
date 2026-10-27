@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md A1 — retention invariants.
+// docs/ARCHITECTURE.md A1 - retention invariants.
 //
 // Two guards: (1) trimJobMemory caps every hot array regardless of input size
 // (the store's append paths apply the same caps, so this proves the policy);

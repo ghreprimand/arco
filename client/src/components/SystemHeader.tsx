@@ -204,8 +204,8 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
             dataHelp="header.tools"
             title="Tools — Media, GitHub, Terminal"
           />
-          {/* ARCHIVE — opens the standalone chromeless file-explorer window
-              (docs/ARCHIVE_PLAN.md). Server spawns a brave --app= window;
+          {/* ARCHIVE - opens the standalone chromeless file-explorer window
+              (docs/CLIENT.md). Server spawns a brave --app= window;
               falls back to a popup for remote/tunnelled operators. */}
           <button
             onClick={() => { void openArchive(); }}

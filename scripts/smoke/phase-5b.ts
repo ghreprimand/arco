@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5b — auto-turn-on-mailbox detector smoke.
+// docs/PROTOCOL_CLUSTER.md - auto-turn-on-mailbox detector smoke.
 //
 // Covers (protocol-only, no real LLM turns):
 //   1. Toggle ON flips cluster_state.autoTurnOnMailboxEnabled.

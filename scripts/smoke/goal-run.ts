@@ -1,4 +1,4 @@
-// GOAL_RUN_PLAN.md — headless WS smoke for the north-star auto-continue.
+// docs/GOTCHAS.md - headless WS smoke for the north-star auto-continue.
 //
 // Covers the protocol surface without burning real model turns: arm refusal
 // with no north star, arm → goal_run_state + system_notice, re-arm resets the

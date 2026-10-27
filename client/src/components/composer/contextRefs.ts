@@ -1,4 +1,4 @@
-// Context-reference parser for the composer (WORKBENCH_EXPANSION_PLAN.md §D1).
+// Context-reference parser for the composer (docs/ARCHITECTURE.md).
 //
 // The operator types inline `@`-refs in the composer — `@file:src/x.ts`,
 // `@diff`, `@staged`, `@git:3`, `@url:…` — and Arco expands them into the

@@ -337,7 +337,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
   private buildMessages(userPrompt: string, modelDef: LlamacppModelDef): ChatMessage[] {
     const messages: ChatMessage[] = [];
     const noThink = this.config.effort === 'low';
-    // GOAL_NORTHSTAR_PLAN.md G2 — fold the operator's north-star at the top of the
+    // docs/GOTCHAS.md - fold the operator's north-star at the top of the
     // system message. Covers operator turns AND primitive seeds. Blank ⇒ unchanged.
     const northStarBlock = goalBlock(this.config.goal);
     const baseSystem = northStarBlock

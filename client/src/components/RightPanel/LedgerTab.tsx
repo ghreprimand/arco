@@ -1,4 +1,4 @@
-// LEDGER tab — the project task ledger (ARCO_OPS_PLAN.md §D1, Part D).
+// LEDGER tab - the project task ledger (docs/ARCHITECTURE.md).
 //
 // A DISTINCT persistent surface from the Plan tab (plan-scoped review) and the
 // Tasks panel (in-turn subagent children). The ledger is cwd-scoped and durable

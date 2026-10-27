@@ -63,7 +63,7 @@ export async function handleUpdatePrimaryConfig(
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] auto-fold updated → enabled=${msg.autoFold.enabled} foldAt=${msg.autoFold.foldAt}%`);
   }
 
-  // GOAL_RUN_PLAN.md — arm / re-arm / disarm the north-star auto-continue.
+  // docs/GOTCHAS.md - arm / re-arm / disarm the north-star auto-continue.
   // Deliberately NOT mirrored into meta.json (see GoalRunStateMessage): the
   // run is in-memory, so a restart ends it. Evaluated against the goal AFTER
   // the `msg.goal` block above runs, so `/goal <text>` + arm in one message
@@ -129,7 +129,7 @@ export async function handleUpdatePrimaryConfig(
     }
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.transport updated → ${msg.claudeTransport}`);
   }
-  // ULTRACODE_PLAN.md — sticky ultracode toggle. We deliberately do NOT mutate
+  // docs/PROVIDERS.md - sticky ultracode toggle. We deliberately do NOT mutate
   // wf.config.claudeTransport here: turnEngine forces 'cli' at turn time while
   // this is on, so the stored base transport stays intact and restores itself
   // when ultracode flips off. Takes effect on the next turn; reversible.
@@ -175,14 +175,14 @@ export async function handleUpdatePrimaryConfig(
     wf.config.nativeCompactAutoContinue = msg.nativeCompactAutoContinue;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] native.compact.auto-continue updated → ${msg.nativeCompactAutoContinue}`);
   }
-  // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode. Stored
+  // docs/PROVIDERS.md - Native tool-result filter mode. Stored
   // unconditionally so a CLI→Native transport flip picks up the operator's
   // last pinned value; only honored on Native turns at handleUserMessage.
   if (msg.efficiencyToolFilter !== undefined) {
     wf.config.efficiencyToolFilter = msg.efficiencyToolFilter;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.tool-filter updated → ${msg.efficiencyToolFilter}`);
   }
-  // EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate. Stored
+  // docs/PROVIDERS.md - fact-force first-edit gate. Stored
   // unconditionally so a CLI→Native transport flip picks up the operator's
   // last pinned value; only honored on Native turns at handleUserMessage.
   if (msg.efficiencyFactForce !== undefined) {
@@ -196,21 +196,21 @@ export async function handleUpdatePrimaryConfig(
     wf.config.efficiencyConfigProtection = msg.efficiencyConfigProtection;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.config-protection updated → ${msg.efficiencyConfigProtection}`);
   }
-  // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tools. Stored
+  // docs/PROVIDERS.md - opt-in sandbox tools. Stored
   // unconditionally so a CLI→Native flip picks up the last pinned
   // value; honored only on Native turns at handleUserMessage.
   if (msg.efficiencySandbox !== undefined) {
     wf.config.efficiencySandbox = msg.efficiencySandbox;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] efficiency.sandbox updated → ${msg.efficiencySandbox}`);
   }
-  // DEBAG_PLAN.md — operator-armed durable review gate. Stored unconditionally
+  // docs/PROVIDERS.md - operator-armed durable review gate. Stored unconditionally
   // so a transport flip picks up the last pinned value; honored only on Native
   // turns (the gate lives in the Native worker's dispatchTool).
   if (msg.reviewSafeMode !== undefined) {
     wf.config.reviewSafeMode = msg.reviewSafeMode;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review-safe-mode updated → ${msg.reviewSafeMode}`);
   }
-  // OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Stored
+  // docs/PROVIDERS.md - operator-armed terseness picker. Stored
   // unconditionally so a transport/provider flip picks up the last pinned
   // value where supported (Claude Native, Codex app-server, Z.ai). Legacy
   // `'caveman'` (renamed `'terse'` 2026-05-10) is auto-aliased so a stale
@@ -220,7 +220,7 @@ export async function handleUpdatePrimaryConfig(
     wf.config.outputStyle = normalized;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] output-style updated → ${normalized}`);
   }
-  // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Trim + byte-cap;
+  // docs/GOTCHAS.md - operator-set persistent north-star. Trim + byte-cap;
   // empty / whitespace-only ⇒ clear (delete the field so pre-feature meta.json
   // stays byte-clean). We mutate wf.config now (the next turn reads it) but DEFER
   // the goal_set broadcast until AFTER the meta.json write below — persist-then-
@@ -275,7 +275,7 @@ export async function handleUpdatePrimaryConfig(
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] remote-gates updated → ${msg.remoteGatesEnabled}`);
   }
 
-  // LOCAL_AI_MASTER_PLAN.md M3 — Ollama per-tab param preset blob. Stored
+  // docs/PROVIDERS.md - Ollama per-tab param preset blob. Stored
   // unconditionally (cheap; only Ollama turns read it) so a Handoff that swaps
   // to ollama on the same tab still sees the operator's pinned preset. The
   // blob is whole-replace, not a patch: the client sends the full edited

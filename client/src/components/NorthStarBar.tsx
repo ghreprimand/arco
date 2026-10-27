@@ -1,4 +1,4 @@
-// GOAL_NORTHSTAR_PLAN.md G3 — an always-visible, inline-editable strip directly
+// docs/GOTCHAS.md - an always-visible, inline-editable strip directly
 // above the composer for this tab's standing north-star. The operator sets and
 // sees the objective here without opening CONFIG: click the strip (empty or set)
 // to edit in place, Enter to save, Esc to cancel. Empty ⇒ a muted "set a
@@ -130,7 +130,7 @@ export function NorthStarBar({
           {saved ? saved.replace(/\s+/g, ' ') : 'set a north-star…'}
         </button>
       )}
-      {/* GOAL_RUN_PLAN.md — live run chip. Present ONLY while a run is armed,
+      {/* docs/GOTCHAS.md - live run chip. Present ONLY while a run is armed,
           so an unattended loop can never be running without a visible counter
           and a one-click stop sitting right above the composer. */}
       {run?.enabled && !editing && (

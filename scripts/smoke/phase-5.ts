@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5 — headless WS smoke for the polish surfaces.
+// docs/PROTOCOL_CLUSTER.md - headless WS smoke for the polish surfaces.
 //
 // Covers (protocol-only):
 //   1. History rehydrate — disconnect+reconnect → undelivered mailbox files

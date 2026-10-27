@@ -6,7 +6,7 @@
 // Parse a `#rrggbb` or `#rgb` hex literal into a normalized [r, g, b] triple
 // in [0, 1]. Throws on non-hex input (rgba/hsl tokens) — callers should only
 // pass `color-bg` / `color-accent-*` values, which are hex in every theme
-// manifest today. See §4 of docs/THEMES_IMPLEMENTATION_PLAN.md.
+// manifest today. See section 4 of docs/CLIENT.md.
 export function hexToVec3(hex: string): [number, number, number] {
   const raw = hex.trim().replace(/^#/, '');
   let full: string;

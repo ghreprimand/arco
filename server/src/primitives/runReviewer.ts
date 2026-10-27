@@ -8,7 +8,7 @@
 // The Review tab reads the artifact via the existing
 // `GET /api/workflows/artifact` endpoint.
 //
-// Framing follows REFACTOR_PLAN.md §6: Summary / Concerns / Verdict. The
+// Framing follows docs/ARCHITECTURE.md: Summary / Concerns / Verdict. The
 // reviewer is told to surface concerns, not rewrite the work.
 
 import { promises as fs } from 'fs';
@@ -178,7 +178,7 @@ export function runReviewer(
     // input below "## Content to review". Caller is responsible for the
     // turn layout, code fences, and any git-diff block layering.
     content: string;
-    // GOAL_NORTHSTAR_PLAN.md — the source tab's north-star, inherited so the
+    // docs/GOTCHAS.md - the source tab's north-star, inherited so the
     // reviewer judges the work against the session's standing objective. Unlike
     // outputStyle (forced 'normal' below), the north-star is deliberately passed
     // through. Absent / blank ⇒ no block. Zero authority — steering context only.
@@ -281,7 +281,7 @@ export function runReviewer(
         // tools-allowlist + sandbox as the read-only contract.
         skipPermissions: leg.provider === 'ollama',
         sandbox: 'read-only',
-        // LOCAL_AI_MASTER_PLAN.md M5 — on the Ollama leg, constrain the
+        // docs/PROVIDERS.md - on the Ollama leg, constrain the
         // reviewer's FINAL answer to the review schema (sampler-level grammar)
         // so the verdict + findings come back as guaranteed-valid JSON instead
         // of regex-scraped prose — the single biggest reliability win for the
@@ -292,11 +292,11 @@ export function runReviewer(
         // if the model returns non-conforming output, the .then() below falls
         // back to detectVerdict on the raw text.
         ...(leg.provider === 'ollama' ? { ollamaFormat: REVIEW_FORMAT_SCHEMA as Record<string, unknown> } : {}),
-        // OUTPUT_STYLE_PLAN.md §6 — hard exclusion. Reviewer output is read
+        // docs/PROVIDERS.md - hard exclusion. Reviewer output is read
         // carefully by an operator; caveman/lite would regress comprehension.
         // Forced regardless of source-tab `outputStyle`. Not a config knob.
         outputStyle: 'normal',
-        // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star (unlike
+        // docs/GOTCHAS.md - inherit the source tab's north-star (unlike
         // outputStyle) so the reviewer evaluates against the standing objective.
         goal: args.goal,
         ...(leg.provider === 'codex' && leg.codexHome

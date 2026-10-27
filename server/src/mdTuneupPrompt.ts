@@ -14,7 +14,7 @@
 // press), source is the file itself (not session traces), the agent only
 // PROPOSES, the operator reviews the diff and approves, the write is backed up
 // and reversible. That maps onto the documented "operator-reviewed" narrowing
-// (EFFICIENCY_PLAN.md §13.7) and clears the four-question test — same posture as
+// (docs/PROVIDERS.md) and clears the four-question test - same posture as
 // runDocEdit.ts.
 
 // The tune-up worker's entire output is the replacement file content, optionally

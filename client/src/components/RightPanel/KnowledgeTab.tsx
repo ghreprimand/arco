@@ -11,7 +11,7 @@ import type {
 import { EmptyState } from './FilesTab';
 import { KnowledgeWizard } from './KnowledgeWizard';
 
-// WORKBENCH_EXPANSION_PLAN.md §B3 — Knowledge tab.
+// docs/ARCHITECTURE.md - Knowledge tab.
 //
 // List / search / edit the per-cwd, OPERATOR-OWNED knowledge base. Articles
 // flagged "always include" fold into every turn's system prompt as a BOUNDED

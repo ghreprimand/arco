@@ -7,12 +7,12 @@ import { registerComputerSwitch } from './computerControl';
 import { COMPUTER_WORKING } from './computerRequest';
 
 type Selection = { clusterId: string | null; workflowId: string | null };
-// VOICE_AGENT_PLAN.md — voice replaces the mouse and keyboard. When Computer
+// docs/VOICE.md - voice replaces the mouse and keyboard. When Computer
 // has done what was asked it answers with a bare "Done." (the prompt asks for
 // exactly that) and nothing is spoken; the operator reads the result in
 // Arco. Anything else (a question back, an answer, an error) is spoken.
 export const COMPUTER_SILENT = /^\s*(?:done|ok|okay)[.!]?\s*$/i;
-// VOICE_AGENT_PLAN.md — the Computer chat is the voice operator: a projectless
+// docs/VOICE.md - the Computer chat is the voice operator: a projectless
 // Chat with the arco-voice MCP child. A pre-plan "Computer" chat without
 // the flag is not reused (it has no tools); a new one is created beside it.
 const matches = (config: WorkflowConfig, selection = useComputerStore.getState().selection) => config.kind === 'chat'
@@ -187,7 +187,7 @@ export class ComputerConversation {
           useVoiceStore.setState({ status: 'Computer replied. Open COMPUTER to read its response.' });
         }
         // Computer replies are spoken in the ordinary control mode; there is
-        // no separate conversation mode any more (VOICE_AGENT_PLAN.md).
+        // no separate conversation mode any more (docs/VOICE.md).
         this.reply(voiceText(response.content.replace(/^\[ERROR\] (?:\[COMPUTER TIMEOUT\] )?/, '').replace(/```[\s\S]*?```/g, ' Code block omitted. '), 4500), 'arco');
       }
     });

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B3 — structured file logging with size-based rotation.
+// docs/ARCHITECTURE.md - structured file logging with size-based rotation.
 //
 // WHY a console tee, not call-site migration: server/src has 378 console.*
 // call sites. Rather than rewrite them, initFileLogging() monkeypatches

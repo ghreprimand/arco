@@ -1,5 +1,5 @@
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
-// index.ts (FILE_SIZE_REFACTOR_PLAN.md Phase 4). Behavior-preserving, move-only.
+// index.ts (docs/ARCHITECTURE.md). Behavior-preserving, move-only.
 // The four index.ts-local back-edges (handleUserMessage / handleRemoveWorkflow /
 // createBlankNativeWorkflow / assertAllMembersClaudeOrCodex) are injected once at
 // startup via initClusterHandlers to avoid a cycle with the entry point.
@@ -2289,7 +2289,7 @@ export async function handleClusterMemberFocusSet(
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} focus ${stored ? `→ "${stored.slice(0, 40)}${stored.length > 40 ? '…' : ''}"` : 'cleared'}`);
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5 — operator flipped the idle-nudger chip in
+// docs/PROTOCOL_CLUSTER.md - operator flipped the idle-nudger chip in
 // the ClusterRightPanel header. Default OFF; enabling arms the detector,
 // disabling tears it down (idempotent — the detector polls on a single
 // timer and gates per-cluster via `isIdleNudgerEnabled`). Pushes a fresh
@@ -2338,7 +2338,7 @@ export async function handleClusterEfficiencySet(
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} efficiency → ${level}${addendum !== undefined ? ' (addendum updated)' : ''}`);
 }
 
-// R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — operator flipped the cluster-level
+// R3 (docs/REMOTE_MANAGEMENT.md) - operator flipped the cluster-level
 // ◉ REMOTE chip. Persist, rebroadcast cluster_state, and re-push the hub
 // snapshot immediately so the phone console reflects the flip without waiting
 // for the 4s tick (mirrors the per-workflow remoteEnabled semantics).
@@ -2432,7 +2432,7 @@ export async function handleClusterProgressSet(
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} progress-tracking → ${mode}`);
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5b — operator flipped the auto-turn-on-mailbox
+// docs/PROTOCOL_CLUSTER.md - operator flipped the auto-turn-on-mailbox
 // chip in the ClusterRightPanel header. Default OFF; enabling arms the
 // detector (which runs inline off broadcastWorkflow's peer_message_sent
 // branch — no separate poll timer), disabling tears it down (idempotent —
@@ -2455,7 +2455,7 @@ export async function handleClusterAutoTurnToggle(
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} auto-turn-on-mailbox ${enabled ? 'enabled' : 'disabled'}`);
 }
 
-// EFFICIENCY_PLAN.md Phase F9 — recompute the desired MCP wiring for a
+// docs/PROVIDERS.md - recompute the desired MCP wiring for a
 // workflow from in-memory state (cluster membership + codebase-memory
 // intent) and rewrite `.arco/<wfid>/mcp-config.json` accordingly. The
 // writer unlinks the file when neither entry applies, so toggling both

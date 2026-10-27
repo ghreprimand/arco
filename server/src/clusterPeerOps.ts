@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 3 — shared peer-ops module.
+// docs/PROTOCOL_CLUSTER.md - shared peer-ops module.
 //
 // Phase 1 shipped peer_list / peer_send / peer_read as in-process methods on
 // the Native worker (server/src/providers/claude-native/peerTools.ts). Phase 3

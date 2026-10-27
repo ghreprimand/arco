@@ -1,4 +1,4 @@
-// DEBAG sub-phase 1 — sensitivity classifier + inert gate (docs/DEBAG_PLAN.md §9.1).
+// DEBAG sub-phase 1 - sensitivity classifier + inert gate (docs/PROVIDERS.md).
 //
 // Headless / module-level (no live server, no API spend). The gate is fed from
 // the Native worker's dispatchTool, which would need real Anthropic turns to

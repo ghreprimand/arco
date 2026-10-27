@@ -106,7 +106,7 @@ export type ClaudeNativeToolDef =
 
 // Default web-search / web-fetch budget for ordinary turns. Operators can
 // override it per-tab via CONFIG (`WorkflowConfig.webSearchMaxUses`), and the
-// Deep Research primitive (WORKBENCH_EXPANSION_PLAN.md §B2) overrides it
+// Deep Research primitive (docs/ARCHITECTURE.md) overrides it
 // per-spawn via the same field tied to the operator's `maxRounds` — see
 // buildClaudeServerTools below. This is an Arco-set ceiling, not an Anthropic
 // default: each turn rebuilds the server-tool defs with this `max_uses`.

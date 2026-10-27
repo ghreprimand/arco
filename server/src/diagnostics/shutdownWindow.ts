@@ -1,5 +1,5 @@
 // H42 part A — systemd shutdown-window alignment probe
-// (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
+// (docs/GOTCHAS.md).
 //
 // On SIGTERM, index.ts's onSignal() does graceful shutdown work — SIGKILL the
 // detached worker process groups, reap PTY/LSP children, then flush every

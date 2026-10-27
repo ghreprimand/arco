@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2 + CLUSTER_GRID_PLAN.md — cluster tab.
+// docs/PROTOCOL_CLUSTER.md + docs/CLIENT.md - cluster tab.
 //
 // Body layout: compact MemberCard grid (left) + 4px col-resize splitter +
 // single focused MemberPane detail (right) + ClusterRightPanel (Members /
@@ -27,7 +27,7 @@ import { presetForText } from '@arco/shared';
 import type { ClusterDispatcherSettingsPatch, ClusterMemberPrimaryUpdate, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 
-// CLUSTER_GRID_PLAN.md §5 — splitter min widths (px). Detail favored — its
+// docs/CLIENT.md - splitter min widths (px). Detail favored - its
 // chat surface needs reading width; the grid's cards stay legible at 240.
 const MIN_GRID_PX = 240;
 const MIN_DETAIL_PX = 360;
@@ -302,7 +302,7 @@ export function ClusterTab({
     });
   };
 
-  // CLUSTER_GRID_PLAN.md §5 — splitter drag, mirrors WorkflowView.tsx
+  // docs/CLIENT.md - splitter drag, mirrors WorkflowView.tsx
   // pattern (mouse + capture-phase pointerup + pointercancel + blur +
   // visibilitychange cleanup; defensive body-style restore on mount).
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
@@ -652,7 +652,7 @@ export function ClusterTab({
             display: 'flex',
           }}
         >
-        {/* CLUSTER_GRID_PLAN.md §2 — compact MemberCards + splitter + single
+        {/* docs/CLIENT.md - compact MemberCards + splitter + single
             focused MemberPane (detail). The card rail now supports multiple
             orientations: balanced grid, vertical rows, and horizontal cols. */}
         <div
@@ -1001,14 +1001,14 @@ export function ClusterTab({
         </div>
       </div>
 
-      {/* CLUSTER_MODE_PLAN.md Phase 2 — sticky broadcast composer. One
+      {/* docs/PROTOCOL_CLUSTER.md - sticky broadcast composer. One
           submit fans out to every member; idle members start a fresh turn,
           busy members enqueue as follow-up. Reuse the existing per-member
           handleUserMessage path so events.jsonl ordering is identical to a
-          manual prompt. No REVIEW/HANDOFF/SPAWN buttons — those stay
+          manual prompt. No REVIEW/HANDOFF/SPAWN buttons - those stay
           per-member primitives, accessed by clicking through to a member's
           own tab.
-          2026-05-11 — recipient chip row sits above the textarea/button row
+          2026-05-11 - recipient chip row sits above the textarea/button row
           so the operator can narrow the broadcast before submitting.
           Default state: all selected (legacy behaviour preserved). */}
       {(() => {

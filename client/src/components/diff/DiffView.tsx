@@ -6,7 +6,7 @@ import './diff-view.css';
 
 // Workbench Expansion A3 — source-agnostic unified-diff renderer.
 //
-// KEYSTONE CONSTRAINT (see WORKBENCH_EXPANSION_PLAN.md § A3): this component
+// KEYSTONE CONSTRAINT (see docs/ARCHITECTURE.md): this component
 // must NOT know where the diff came from. It takes a unified-diff string (or
 // the parsed FileData[]) and renders it — checkpoint diffs, working-tree
 // diffs, upstream comparisons, and GitHub PR patches all flow through here

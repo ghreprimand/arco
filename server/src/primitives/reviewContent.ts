@@ -755,7 +755,7 @@ export async function buildClusterPlanReviewContent(
   };
 }
 
-// ARCO_OPS_PLAN.md §G2 — build the reviewer content for a preview-capture
+// docs/ARCHITECTURE.md - build the reviewer content for a preview-capture
 // report. No transcript: the reviewer reads the markdown report a Preview
 // verification capture produced (screenshot reference + console/network + a
 // layout/accessibility section) and judges the running UI from it. `reportName`

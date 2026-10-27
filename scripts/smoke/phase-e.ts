@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase E — headless WS / REST smoke.
+// docs/PROVIDERS.md - headless WS / REST smoke.
 //
 // Covers the protocol surfaces Phase E shipped:
 //   1. workflow_created carries the operator-supplied efficiencySandbox='on'.

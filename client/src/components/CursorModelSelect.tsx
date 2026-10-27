@@ -2,7 +2,7 @@
 // replacement for the flat 189-option `<select>`. External contract matches the
 // select it replaces: `value` is a catalog id, `onChange` emits a catalog id.
 //
-// Load-bearing rule (docs/CURSOR_TRANSPORT_PLAN.md §Phase 8): this never builds
+// Load-bearing rule (docs/PROVIDERS.md 8): this never builds
 // an id string by concatenation. It parses the current id into
 // {family, effort, fast, thinking}, lets the operator move those coordinates,
 // then LOOKS UP the exact id the catalog advertises (resolveCursorModelId). So a

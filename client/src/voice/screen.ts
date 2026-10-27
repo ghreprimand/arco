@@ -1,4 +1,4 @@
-// VOICE_AGENT_PLAN.md — the generic mouse and keyboard. The operator (2026-10-17):
+// docs/VOICE.md - the generic mouse and keyboard. The operator (2026-10-17):
 // "there are going to be tons of random little obscure things I want to do
 // that there's no specific tool for. This needs to work like my mouse and
 // keyboard." Named tools cover the common moves; this covers the rest the

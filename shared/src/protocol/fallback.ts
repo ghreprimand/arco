@@ -1,4 +1,4 @@
-// ── Provider fallback chains (WORKBENCH_EXPANSION_PLAN.md §C2) ──
+// -- Provider fallback chains (docs/ARCHITECTURE.md) --
 //
 // For BOUNDED jobs only (reviewers, research legs — NOT a live operator
 // conversation), the server walks an operator-configured per-role provider

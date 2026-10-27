@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — pure-TS deterministic filter pipeline applied
+// docs/PROVIDERS.md - pure-TS deterministic filter pipeline applied
 // to a single tool_result before it enters the Native worker's `messages[]`.
 //
 // **Cache invariant.** Filters operate on the *current* turn's tool_result

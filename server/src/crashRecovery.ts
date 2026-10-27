@@ -3,7 +3,7 @@
 // across the restart and `send()` can resolve cwds for recovered workflows
 // before the first client reconnect. Also exposes event-log scanners for
 // operator-queue + pending-plan-artifact restoration (gap resolutions #2 and
-// #6 in UNIFIED_IMPLEMENTATION_PLAN.md).
+// #6 in docs/ARCHITECTURE.md).
 //
 // "Known cwds" design: option (a) from the Slot-11 prompt — maintain a
 // registry at ~/.arco/known-cwds.json written on workflow create /

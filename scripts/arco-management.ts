@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// ARCO_OPS_PLAN.md §K2 — `arco-management` tailnet-only remote-management hub.
+// docs/ARCHITECTURE.md - `arco-management` tailnet-only remote-management hub.
 //
 // One service (suggested host: hub-host) that aggregates registered Arco
 // instances, derives online/stale/offline from heartbeats, SIGNS lifecycle

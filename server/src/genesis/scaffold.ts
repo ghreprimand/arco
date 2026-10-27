@@ -1,4 +1,4 @@
-// ── Genesis scaffold writer + seed-doc generation (ARCO_OPS_PLAN.md M2) ──
+// -- Genesis scaffold writer + seed-doc generation (docs/ARCHITECTURE.md) --
 //
 // Turns a ready GenesisSeed into a real project folder: deterministic seed docs
 // (README.md / SPEC.md / TODO.md plus local ignored agent notes) written under a

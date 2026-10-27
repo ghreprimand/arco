@@ -1,4 +1,4 @@
-// Knowledge "distill from session" DRAFT — WORKBENCH_EXPANSION_PLAN.md §B3.
+// Knowledge "distill from session" DRAFT - docs/ARCHITECTURE.md
 //
 // Mirrors runDocEdit.ts: spawns a SHORT-LIVED, READ-ONLY worker for ONE bounded
 // turn. Its entire output is a DRAFT article (title + body + tag suggestions)

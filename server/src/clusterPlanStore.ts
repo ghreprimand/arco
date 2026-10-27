@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2.6 — shared cluster plan store.
+// docs/PROTOCOL_CLUSTER.md - shared cluster plan store.
 //
 // One markdown document per cluster, persisted at
 // ~/.arco/clusters/<id>/plan.md. Every cluster member's Native worker
@@ -127,7 +127,7 @@ export function dropCache(clusterId: string): void {
   cache.delete(clusterId);
 }
 
-// CLUSTER_MODE_PLAN.md — peer tool `cluster_plan_tick`.
+// docs/PROTOCOL_CLUSTER.md - peer tool `cluster_plan_tick`.
 //
 // Toggle a single `- [ ]` / `- [x]` checkbox at `lineIndex` (0-based against
 // the rendered plan body). No structural edits — flips just the bracket

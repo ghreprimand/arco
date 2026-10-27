@@ -1,5 +1,5 @@
 // server/src/ws/mcpHandlers.ts — MCP registry WS handlers
-// (ARCO_OPS_PLAN.md §E1, Part E).
+// (docs/ARCHITECTURE.md).
 //
 // The registry is a GLOBAL machine-wide list (~/.arco/mcp/registry.json),
 // so CRUD mutations broadcast a fresh snapshot to every connected client. The

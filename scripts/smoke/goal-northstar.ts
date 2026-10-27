@@ -1,4 +1,4 @@
-// GOAL_NORTHSTAR_PLAN.md — headless smoke for the operator-set persistent
+// docs/GOTCHAS.md - headless smoke for the operator-set persistent
 // north-star.
 //
 // Covers:

@@ -1,4 +1,4 @@
-// ── Deep Research primitive (WORKBENCH_EXPANSION_PLAN.md §B2) ──
+// -- Deep Research primitive (docs/ARCHITECTURE.md) --
 //
 // An operator-initiated, bounded, agent-agnostic research run. The server
 // spawns a short-lived worker (read-only local tools + the provider's native

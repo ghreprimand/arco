@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5b — operator-armed auto-turn-on-mailbox detector.
+// docs/PROTOCOL_CLUSTER.md - operator-armed auto-turn-on-mailbox detector.
 //
 // The four-question test (plan §2) is the gate:
 //   1. Operator-initiated — per-cluster toggle, default OFF (absent in
@@ -339,7 +339,7 @@ export function onPeerMessageSent(opts: {
   broadcastWorkflowFn(recipientWfid, fireMsg);
 
   // Dispatch the synthetic primary turn. The prompt is the operator-
-  // equivalent body documented in CLUSTER_MODE_PLAN.md §5b; the recipient's
+  // equivalent body documented in docs/PROTOCOL_CLUSTER.md; the recipient's
   // worker.ts treats it like any other user_message (pre-turn mailbox drain
   // fires first, then this prompt runs).
   //

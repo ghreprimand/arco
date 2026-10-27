@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { CompareLegConfig } from '@arco/shared';
 
-// Compare vote / synthesize footer — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare vote / synthesize footer - docs/ARCHITECTURE.md
 //
 // Shown once a winner is voted. Displays the (now-revealed) winner and offers
 // the OPTIONAL "synthesize from winner, graft from others" follow-up: the

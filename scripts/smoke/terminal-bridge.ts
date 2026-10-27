@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §K5 — operator→agent output bridge smoke.
+// docs/ARCHITECTURE.md - operator->agent output bridge smoke.
 //
 // NO WS, NO LLM. Pure-core assertions on the formatter + append logic:
 //   1. buildQuotedTerminalBlock wraps a selection in a header + fenced block,

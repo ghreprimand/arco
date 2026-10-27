@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §D3 — cluster task board.
+// docs/ARCHITECTURE.md - cluster task board.
 //
 // A kanban VIEW over the cluster cwd's project task ledger (the same
 // cwd-scoped store the per-workflow LEDGER tab reads from, keyed by cwd in

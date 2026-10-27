@@ -19,7 +19,7 @@ interface Props {
   // A6 — when supplied, opened files get the Edit/Lock toggle (writes resolve
   // against this wfid's cwd, path-escape guarded server-side).
   workflowId?: string;
-  // ARCHIVE (docs/ARCHIVE_PLAN.md §4.3) — reveal + select a file when the
+  // ARCHIVE (docs/CLIENT.md) - reveal + select a file when the
   // operator clicks an ARTIFACTS/RECENTS entry. Best-effort: expands every
   // ancestor dir between cwd and the file, then selects it (opens the viewer).
   // Opt-in; the workspace FILES panel never passes it, so its behavior is

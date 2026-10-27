@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md Part J (J1) — the in-app workbench notification hub.
+// docs/ARCHITECTURE.md (J1) - the in-app workbench notification hub.
 //
 // One place to mint + broadcast WorkbenchNotice events so every source
 // (turn-finished, quota-recovered, …) is a single `emit()` call and the

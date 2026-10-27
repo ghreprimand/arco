@@ -1,4 +1,4 @@
-// GOAL_RUN_PLAN.md — LIVE tick verification. Unlike smoke:goal-run (protocol
+// docs/GOTCHAS.md - LIVE tick verification. Unlike smoke:goal-run (protocol
 // only), this burns real model turns: it arms a 2-iteration run behind a
 // trivial north star, sends one operator turn, and asserts that exactly two
 // auto-continuations follow, that the run then stops on its own, and that a

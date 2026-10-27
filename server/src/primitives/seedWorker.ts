@@ -79,7 +79,7 @@ export interface TurnHandle {
   onSessionDiscovered: (cb: (sessionId: string) => void) => void;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 1 — pre-turn injection helper.
+// docs/PROTOCOL_CLUSTER.md - pre-turn injection helper.
 //
 // Drains the recipient's mailbox, emits one `peer_message_received` event
 // per drained item via the supplied broadcast (each lands in events.jsonl
@@ -217,7 +217,7 @@ export function runPrimaryTurn(
     interactionMode?: WorkerConfig['interactionMode'];
     // Chat-only: arm the provider's web tools for this turn.
     chatWebAccess?: boolean;
-    // Chat-only: the Computer voice operator (VOICE_AGENT_PLAN.md).
+    // Chat-only: the Computer voice operator (docs/VOICE.md).
     voiceOperator?: boolean;
     incognito?: boolean;
     // Phase 5 — mid-turn steer hook. Wired only on the operator-driven
@@ -245,7 +245,7 @@ export function runPrimaryTurn(
     // Reviewers / handoff seeds leave this unset so they fall through to
     // the CLI provider (per the §10 reviewer-on-CLI rule).
     claudeTransport?: 'cli' | 'native';
-    // ULTRACODE_PLAN.md — sticky ultracode mode for this turn. The caller has
+    // docs/PROVIDERS.md - sticky ultracode mode for this turn. The caller has
     // already forced claudeTransport='cli' when this is true. Reviewers /
     // handoff seeds / Task children leave it unset.
     ultracode?: boolean;
@@ -270,16 +270,16 @@ export function runPrimaryTurn(
     // WorkflowState.pendingPlanModeEntry (single-turn). Only honoured by
     // Claude Native; other providers / transports ignore the flag.
     claudeNativePlanModeArmed?: boolean;
-    // FABLE_51_APPEND_ONLY_PLAN.md §1.5 — per-turn notice for Claude Native
+    // docs/PROVIDERS.md - per-turn notice for Claude Native
     // (mailbox depth / plan-mode nudge). Operator turns only.
     turnNotice?: string;
-    // EFFICIENCY_PLAN.md Phase 6b.2 — auto-threshold ctx_action emission.
+    // docs/PROVIDERS.md - auto-threshold ctx_action emission.
     // Resolved from WorkflowConfig.efficiencyAutoCompact in handleUserMessage.
     efficiencyAutoCompact?: 'off' | 'conservative' | 'aggressive';
-    // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode. Resolved
+    // docs/PROVIDERS.md - Native tool-result filter mode. Resolved
     // from WorkflowConfig.efficiencyToolFilter in handleUserMessage.
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-    // EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate mode.
+    // docs/PROVIDERS.md - fact-force first-edit gate mode.
     // Resolved from WorkflowConfig.efficiencyFactForce in handleUserMessage.
     // Only honored on Claude Native; CLI parity deferred (master §3.3 F4).
     efficiencyFactForce?: 'on' | 'off';
@@ -287,21 +287,21 @@ export function runPrimaryTurn(
     // WorkflowConfig.efficiencyConfigProtection in handleUserMessage. Native-
     // only; default ON. The operator opts out per-tab via the CONFIG toggle.
     efficiencyConfigProtection?: 'on' | 'off';
-    // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tools. Resolved from
+    // docs/PROVIDERS.md - opt-in sandbox tools. Resolved from
     // WorkflowConfig.efficiencySandbox in handleUserMessage. Native-only;
     // CLI / Codex ignore the field.
     efficiencySandbox?: 'off' | 'on';
-    // DEBAG_PLAN.md — operator-armed durable review gate. Resolved from
+    // docs/PROVIDERS.md - operator-armed durable review gate. Resolved from
     // WorkflowConfig.reviewSafeMode in handleUserMessage. Native-only; CLI /
     // Codex / Gemini ignore the field.
     reviewSafeMode?: 'off' | 'on';
-    // OUTPUT_STYLE_PLAN.md — output-style addendum level. Resolved from
+    // docs/PROVIDERS.md - output-style addendum level. Resolved from
     // WorkflowConfig.outputStyle in handleUserMessage. Honored by Claude
     // Native and Codex app-server providers (including Z.ai). Reviewers /
     // handoff seeds / DOCS / GIT primitives hard-code 'normal'. Renamed
     // `caveman` → `terse` 2026-05-10.
     outputStyle?: 'normal' | 'lite' | 'terse';
-    // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star, resolved from
+    // docs/GOTCHAS.md - operator-set persistent north-star, resolved from
     // WorkflowConfig.goal in handleUserMessage. Injected as a stable system block
     // by every transport that folds clusterPlan. Unlike outputStyle, the Review /
     // Handoff / DOCS / GIT seeds INHERIT the source tab's value (they pass it in);
@@ -311,7 +311,7 @@ export function runPrimaryTurn(
     // WorkflowState.toolPosture in handleUserMessage; threaded to the Native
     // worker which filters buildToolDefs(). Other transports ignore.
     toolPosture?: import('@arco/shared').ToolPosture;
-    // CLUSTER_MODE_PLAN.md Phase 1 — when set, the Native worker registers
+    // docs/PROTOCOL_CLUSTER.md - when set, the Native worker registers
     // peer_* tools and routes their tool_use blocks via peerTools.
     // Resolved by handleUserMessage from clusterStore.getClusterIdForWorkflow
     // at turn start. Ordinary one-off workers leave this unset; the
@@ -323,7 +323,7 @@ export function runPrimaryTurn(
     executionCwd?: string;
     persistenceCwd?: string;
     clusterTaskBoardAttached?: boolean;
-    // CLUSTER_MODE_PLAN.md Phase 2.6 — shared cluster plan body + this
+    // docs/PROTOCOL_CLUSTER.md - shared cluster plan body + this
     // member's role hint, resolved at turn start alongside clusterId.
     // Threaded into WorkerConfig so the Native worker's buildSystemBlocks
     // can inject them as forced system blocks. Ordinary one-off workers leave
@@ -339,24 +339,24 @@ export function runPrimaryTurn(
     // current), resolved at turn start. Threaded into WorkerConfig for
     // system-prompt injection. The cluster-aware handoff pre-warm resolves it explicitly.
     clusterProgressDoctrine?: string;
-    // CLUSTER_MODE_PLAN.md Phase 3 — absolute path to the per-workflow
+    // docs/PROTOCOL_CLUSTER.md - absolute path to the per-workflow
     // mcp-config.json. Only set on CLI Claude cluster-member turns by
     // handleUserMessage. Threaded through to the CLI provider which
     // appends `--mcp-config <path>` to its claude argv.
     clusterMcpConfigPath?: string;
-    // EFFICIENCY_PLAN.md Phase F9 — operator-attached codebase-memory-mcp
+    // docs/PROVIDERS.md - operator-attached codebase-memory-mcp
     // intent + resolved index path. Threaded into the Codex providers so
     // they can build `-c mcp_servers.codebase-memory.*` TOML overrides.
     codebaseMemoryAttached?: boolean;
     codebaseMemoryIndexPath?: string;
-    // ARCO_OPS_PLAN.md §E1 — registry MCP servers + dangerous-tool denials
+    // docs/ARCHITECTURE.md - registry MCP servers + dangerous-tool denials
     // for this turn, resolved from the global registry + the workflow's
     // allowlist. registryServers feed the Codex `-c` overrides AND the CLI
     // Claude mcp-config merge; mcpDisallowedTools feed CLI Claude's
     // --disallowedTools. Reviewers / handoff seeds leave them unset.
     mcpRegistryServers?: import('@arco/shared').ResolvedMcpServer[];
     mcpDisallowedTools?: string[];
-    // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama param preset blob, resolved
+    // docs/PROVIDERS.md - per-tab Ollama param preset blob, resolved
     // from WorkflowConfig.ollamaParams in handleUserMessage (Ollama tabs only).
     // Threaded to the Ollama provider which merges it through the typed
     // allowlist; every other provider ignores it.
@@ -474,7 +474,7 @@ export function runPrimaryTurn(
     // Cursor (ACP): the worker persists its sessionId via the `init` event
     // (onInit above → primarySessionId). On a later turn we thread that id
     // back so the worker attempts ACP `session/load` before falling back to
-    // a fresh `session/new` — Phase 3 resume. (docs/CURSOR_TRANSPORT_PLAN.md)
+    // a fresh `session/new` - Phase 3 resume. (docs/PROVIDERS.md)
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
   }
   // ollama: no native session — transcript is rebuilt from events.jsonl by
@@ -501,7 +501,7 @@ export function runPrimaryTurn(
     if (sessionDiscoveredCb) sessionDiscoveredCb(sid);
   };
 
-  // EFFICIENCY_PLAN.md Phase A — captured here so the matching
+  // docs/PROVIDERS.md - captured here so the matching
   // primary_turn_token_usage broadcast at end-of-turn can stamp the same
   // timestamp as a stable per-turn identifier for the Activity tab.
   const turnStartedAt = Date.now();
@@ -512,7 +512,7 @@ export function runPrimaryTurn(
     startedAt: turnStartedAt,
   });
 
-  // CLUSTER_MODE_PLAN.md Phase 1 — per-sender-per-turn send budget resets
+  // docs/PROTOCOL_CLUSTER.md - per-sender-per-turn send budget resets
   // on every operator turn for this member, regardless of cluster
   // membership. Cheap no-op when the workflow has never sent.
   clusterBudget.reset(ctx.workflowId);
@@ -648,11 +648,11 @@ export function runPrimaryTurn(
         if (typeof ev.modelContextWindow === 'number' && ev.modelContextWindow > 0) {
           turnModelContextWindow = ev.modelContextWindow;
         }
-        // EFFICIENCY_PLAN.md Phase A — per-turn token telemetry. Skipped
+        // docs/PROVIDERS.md - per-turn token telemetry. Skipped
         // when no usage was reported (defensive: providers should always
         // produce one but a transient API hiccup could leave usage absent).
         if (ev.tokens) {
-          // GOAL_RUN_PLAN.md — fold this turn's spend into an armed goal run.
+          // docs/GOTCHAS.md - fold this turn's spend into an armed goal run.
           // Here rather than in turnEngine because the settled outcome carries
           // no usage; this is the only per-turn, per-provider normalized count.
           addGoalRunTokens(workflows.get(ctx.workflowId)?.config.goalRun, {

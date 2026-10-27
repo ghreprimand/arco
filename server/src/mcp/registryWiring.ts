@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 — bridge the global registry + a workflow's per-tab
+// docs/ARCHITECTURE.md - bridge the global registry + a workflow's per-tab
 // allowlist into the MCP intent the providers consume.
 //
 // Single source of truth for "which registry servers + which dangerous-tool

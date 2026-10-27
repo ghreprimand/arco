@@ -1,4 +1,4 @@
-// H46 — server RSS/heap trend logging (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
+// H46 - server RSS/heap trend logging (docs/GOTCHAS.md).
 //
 // A long-lived Arco prod process accumulates memory across many turns,
 // Native workers, catalogs, and recall indexes. When the operator later sees the

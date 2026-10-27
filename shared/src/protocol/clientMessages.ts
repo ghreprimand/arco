@@ -133,7 +133,7 @@ export interface UserMessage {
   // interrupt cancels a Claude/Codex primary and delivers this instruction next.
   // Unspecified busy messages default to follow-up for older clients.
   kind?: 'steer' | 'follow-up' | 'interrupt';
-  // OUTPUT_STYLE_PLAN.md §6 — set by the in-tab DOCS / GIT composer dialogs
+  // docs/PROVIDERS.md - set by the in-tab DOCS / GIT composer dialogs
   // so the server forces `outputStyle: 'normal'` on this single turn even
   // when the tab's WorkflowConfig pins lite/terse. Hard-coded; not a
   // free-form knob. Other primitive sites (Review, Handoff seed) bypass
@@ -211,7 +211,7 @@ export interface CancelQueuedMessageMessage {
 // Operator closed the tab. Server tears down any in-flight worker, drops the
 // in-memory WorkflowState, and releases observer references. On-disk state
 // under `.arco/workflows/<id>/` is preserved — the Resume picker can
-// re-attach later. See INTERFACE_FIXES_PLAN.md Fix 2.
+// re-attach later. See docs/CLIENT.md Fix 2.
 export interface RemoveWorkflowMessage {
   type: 'remove_workflow';
   workflowId: string;
@@ -282,7 +282,7 @@ export interface UpdatePrimaryConfigMessage {
     foldAt: number;
     tailBudget?: number;
   };
-  // GOAL_RUN_PLAN.md — arm / re-arm / disarm the north-star auto-continue.
+  // docs/GOTCHAS.md - arm / re-arm / disarm the north-star auto-continue.
   // `{ enabled: true, total }` arms for `total` iterations (re-arming resets
   // the counters, which is how the operator extends a run); `{ enabled: false }`
   // stops it immediately. The server refuses to arm without a north star set.
@@ -306,7 +306,7 @@ export interface UpdatePrimaryConfigMessage {
   // keeps the per-turn `claude` CLI spawn. Symmetric with codexTransport
   // above. Persists to meta.json + WorkflowConfig.claudeTransport.
   claudeTransport?: 'cli' | 'native';
-  // ULTRACODE_PLAN.md — sticky ultracode toggle. True forces every Claude turn
+  // docs/PROVIDERS.md - sticky ultracode toggle. True forces every Claude turn
   // onto the CLI transport with the Workflow tool + xhigh; false restores the
   // tab's stored claudeTransport. Persists to meta.json + WorkflowConfig.ultracode.
   // Only meaningful for primaryProvider='claude'.
@@ -341,11 +341,11 @@ export interface UpdatePrimaryConfigMessage {
   // compaction. Persists to meta.json + WorkflowConfig.nativeCompactAutoContinue.
   // Default false (manual resume); Native-only.
   nativeCompactAutoContinue?: boolean;
-  // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode toggle.
+  // docs/PROVIDERS.md - Native tool-result filter mode toggle.
   // Persists to meta.json + WorkflowConfig.efficiencyToolFilter. Only
   // honored on Native transport; CLI/Codex ignore.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase D — fact-force first-edit gate toggle. Persists
+  // docs/PROVIDERS.md - fact-force first-edit gate toggle. Persists
   // to meta.json + WorkflowConfig.efficiencyFactForce. Native-only.
   efficiencyFactForce?: 'on' | 'off';
   // Config-protection write-gate toggle. Persists to meta.json +
@@ -353,23 +353,23 @@ export interface UpdatePrimaryConfigMessage {
   // (the gate is a safety default — the operator flips to 'off' to relax it
   // for one workflow). Takes effect on the next turn.
   efficiencyConfigProtection?: 'on' | 'off';
-  // EFFICIENCY_PLAN.md Phase E — opt-in sandbox tools toggle. Persists to
+  // docs/PROVIDERS.md - opt-in sandbox tools toggle. Persists to
   // meta.json + WorkflowConfig.efficiencySandbox. Native-only; CLI / Codex /
   // Gemini ignore. Takes effect on the next turn (tool surface is rebuilt
   // per turn). Default 'off'; flip via the CONFIG-tab toggle.
   efficiencySandbox?: 'off' | 'on';
-  // DEBAG_PLAN.md — operator-armed durable review-gate toggle. Persists to
+  // docs/PROVIDERS.md - operator-armed durable review-gate toggle. Persists to
   // meta.json + WorkflowConfig.reviewSafeMode. Native-only; CLI / Codex /
   // Gemini ignore. Takes effect on the next turn. Default 'off'.
   reviewSafeMode?: 'off' | 'on';
-  // OUTPUT_STYLE_PLAN.md — per-tab output-style picker. Persists to
+  // docs/PROVIDERS.md - per-tab output-style picker. Persists to
   // meta.json + WorkflowConfig.outputStyle. Only honored on Native
   // transport; CLI/Codex/Gemini ignore. Takes effect on the next turn.
   // Renamed from `caveman` → `terse` 2026-05-10 for operator UX clarity;
   // legacy `caveman` accepted on the wire for back-compat (server
   // aliases to `terse` on rehydrate).
   outputStyle?: 'normal' | 'lite' | 'terse';
-  // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Persists to
+  // docs/GOTCHAS.md - operator-set persistent north-star. Persists to
   // meta.json + WorkflowConfig.goal; injected as a stable system block every
   // turn on every transport that folds clusterPlan. An empty / whitespace-only
   // string CLEARS it (server deletes the field) — symmetric with the picker's
@@ -384,12 +384,12 @@ export interface UpdatePrimaryConfigMessage {
   // it re-pushes the hub snapshot immediately and re-broadcasts hub_link_status
   // (so the header monitored-count updates). See server/src/management/initHubLink.ts.
   remoteEnabled?: boolean;
-  // R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §9.2) — second arming for remote DEBAG
+  // R1 (docs/REMOTE_MANAGEMENT.md) - second arming for remote DEBAG
   // gate resolution (approve/reject from the phone). Default false; persists to
   // meta.json + WorkflowConfig.remoteGatesEnabled. Flipping re-pushes the hub
   // snapshot so the console's gate buttons appear/disappear at once.
   remoteGatesEnabled?: boolean;
-  // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama generation-param preset blob.
+  // docs/PROVIDERS.md - per-tab Ollama generation-param preset blob.
   // Replaces the whole blob (not a patch): the CONFIG-tab affordance sends the
   // full edited record so an operator can clear a field by dropping the key.
   // Persists to meta.json + WorkflowConfig.ollamaParams. Only honored on Ollama
@@ -459,7 +459,7 @@ export interface AskUserQuestionReplyMessage {
   reply: string;
 }
 
-// DEBAG (docs/DEBAG_PLAN.md) — operator resolves a parked review gate. `approve`
+// DEBAG (docs/PROVIDERS.md) - operator resolves a parked review gate. `approve`
 // runs the call (with `finalArgs` if the operator edited the proposal in
 // sub-phase 3, else the original proposal); `reject` refuses it and the model
 // continues. `gateId` is the tool_use id the matching `gate_required` carried.
@@ -493,7 +493,7 @@ export interface CreateLabelRequestMessage {
   targetEventSeq: number;
 }
 
-// PHASE_9_FORKS_PLAN.md — operator clicked REWIND CONVERSATION in HISTORY,
+// docs/PERSISTENCE.md - operator clicked REWIND CONVERSATION in HISTORY,
 // moving the workflow's live head to an earlier transcript point. The server
 // validates (targetSeq in-range, workflow not busy), appends a durable
 // `leaf_move` event, and sets meta.leafSeq. The next turn forks a child of

@@ -3,7 +3,7 @@ import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco
 import { RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 
-// Deep Research one-off composer surface — WORKBENCH_EXPANSION_PLAN.md §B2.
+// Deep Research one-off composer surface - docs/ARCHITECTURE.md
 // Sibling of DOCS / GIT: a topic brief + a hard round cap + the shared RUN AS
 // picker. RUN AS == current primary ⇒ dispatch in-tab; otherwise spawn a fresh
 // tab that issues its own research_request once created (TerminalInput wires

@@ -1,5 +1,5 @@
 // Minimal LSP stdio client + per-(cwd, languageId) lifecycle manager
-// (WORKBENCH_EXPANSION_PLAN.md §C3).
+// (docs/ARCHITECTURE.md).
 //
 // We only need the diagnostics slice of LSP: spawn the server, handshake
 // (initialize → initialized), didOpen the changed file, and forward the

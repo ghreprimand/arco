@@ -1,4 +1,4 @@
-// Deep Research primitive — WORKBENCH_EXPANSION_PLAN.md §B2.
+// Deep Research primitive - docs/ARCHITECTURE.md
 //
 // Mirrors runReviewer.ts: spawns a short-lived, read-only worker whose ONE
 // bounded native agentic turn plans queries → searches the web → reads
@@ -253,7 +253,7 @@ export function runResearch(
         // the read/search tools (same rationale as runReviewer).
         skipPermissions: leg.provider === 'ollama',
         sandbox: 'read-only',
-        // OUTPUT_STYLE_PLAN.md §6 — research reports are read carefully; never
+        // docs/PROVIDERS.md - research reports are read carefully; never
         // caveman/lite. Forced regardless of source-tab outputStyle.
         outputStyle: 'normal',
         // Mechanical web-tool ceiling for Claude Native (other transports ignore;

@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — find filter pack.
+// docs/PROVIDERS.md - find filter pack.
 //
 // `find` and friends produce flat path-per-line output. The hazard is the
 // model running an unscoped `find` against node_modules / .git and

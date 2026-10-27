@@ -1,4 +1,4 @@
-// DEBAG — Durable Edit-Before-Approve Gate: restart survival (docs/DEBAG_PLAN.md §4).
+// DEBAG - Durable Edit-Before-Approve Gate: restart survival (docs/PROVIDERS.md).
 //
 // Two server-side pieces that only matter ACROSS a server restart:
 //

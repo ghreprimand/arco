@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §H1 + §H2 — project-local session index.
+// docs/ARCHITECTURE.md - project-local session index.
 //
 // Maintains <cwd>/.arco/session-index.json: a per-project PROJECTION of that
 // project's resumable sessions (one entry per (provider, sessionId) it ran).

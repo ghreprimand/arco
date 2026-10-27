@@ -155,9 +155,9 @@ export interface ArcoSettings {
   // flag the CONFIG-tab toggle (Phase 6e) sets after the operator dismisses
   // the first-time-enable warning so it doesn't fire again — cleared when a
   // tab is flipped back to `'exec'` so a re-enable re-shows the warning.
-  // See docs/CODEX_APPSERVER_PLAN.md.
+  // See docs/PROVIDERS.md.
   codex?: { transport?: 'exec' | 'appserver'; appserverWarningSeen?: boolean };
-  // ZAI_NATIVE_PLAN.md — default transport for new Z.ai tabs. Native is the
+  // docs/PROVIDERS.md - default transport for new Z.ai tabs. Native is the
   // hardcoded fallback when absent; appserver remains selectable as fallback.
   zai?: { transport?: 'native' | 'appserver' };
   // Global auto-handoff default for newly-created tabs (mirror of the
@@ -246,7 +246,7 @@ export interface ArcoSettings {
   lmstudio?: {
     baseUrl?: string;
   };
-  // WORKBENCH_EXPANSION_PLAN.md §C2 — per-role provider fallback chains for
+  // docs/ARCHITECTURE.md - per-role provider fallback chains for
   // BOUNDED jobs only (reviewer / research). Hand-edited into settings.json;
   // the server READS these and never writes them. For a job, the effective
   // chain is `[primaryLeg, ...the role's configured legs minus one equal to the

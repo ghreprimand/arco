@@ -455,7 +455,7 @@ async function applyAction(
       );
       return { ...base, ok: true, applied: action.type };
     }
-    // ── R1 verbs (REMOTE_CLUSTER_CONTROL_PLAN.md §4.2) ──
+    // -- R1 verbs (docs/REMOTE_MANAGEMENT.md) --
     case 'compact':
     case 'fold': {
       if (wf.busy) return { ...base, ok: false, error: 'busy' };
@@ -617,7 +617,7 @@ function nudgeBody(pendingCount: number): string {
   return `Operator nudge: you have ${pendingCount} pending peer message(s) — read your mailbox with peer_read and act on them.`;
 }
 
-// R4 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.3) — cluster-scoped actions. Every
+// R4 (docs/REMOTE_MANAGEMENT.md) - cluster-scoped actions. Every
 // verb re-validates the cluster's remote switch + membership locally, then
 // delegates to the SAME deterministic handler the desktop uses (fakeWs
 // swallows the handler's ws-only error echoes; pre-validation here returns

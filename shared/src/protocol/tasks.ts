@@ -1,4 +1,4 @@
-// ── Project task ledger (ARCO_OPS_PLAN.md §D1, Part D) ──
+// -- Project task ledger (docs/ARCHITECTURE.md) --
 //
 // A durable, cwd-scoped task list that is a *rebuildable projection over
 // events.jsonl*, NOT a source of truth (Appendix B). Every mutation appends a

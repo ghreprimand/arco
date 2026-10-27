@@ -117,7 +117,7 @@ interface Props {
     contextRef: ReviewContextRef,
     includeGitDiff: boolean,
   ) => void;
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — Deep Research dispatch. `spawnConfig`
+  // docs/ARCHITECTURE.md - Deep Research dispatch. `spawnConfig`
   // present ⇒ new-tab path (App creates the workflow + defers the
   // research_request via the spawn-token registry); absent ⇒ in-tab dispatch
   // against this workflow. App wires this off requestResearch / createWorkflow.
@@ -482,7 +482,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   // §4.1 — posture pill: Native-only (the only transport whose buildToolDefs
   // honors it). Cycles full → coding → review → chat → full on click.
   const postureVisible = !!onSetToolPosture && provider === 'claude' && resolvedClaudeTransport === 'native';
-  // ULTRACODE_PLAN.md — sticky ultracode indicator. Read-only here (the toggle
+  // docs/PROVIDERS.md - sticky ultracode indicator. Read-only here (the toggle
   // lives in CONFIG → TRANSPORT); shown so the operator always sees that every
   // turn fans out a subagent fleet, runs unattended, and spends heavily.
   const ultracodeActive = provider === 'claude' && job.config.ultracode === true;
@@ -649,7 +649,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       return;
     }
 
-    // GOAL_NORTHSTAR_PLAN.md G3 — `/goal` composer shortcut. Dispatches the same
+    // docs/GOTCHAS.md - `/goal` composer shortcut. Dispatches the same
     // updatePrimaryConfig the CONFIG NORTH STAR field uses; it never sends a turn.
     //   /goal <objective>    set the standing north-star
     //   /goal                show the current north-star (no change)
@@ -664,7 +664,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         addMessage(job.id, { id: crypto.randomUUID(), role: 'system', content, isStreaming: false, timestamp: Date.now() });
       const arg = (goalMatch[1] ?? '').trim();
       const current = job.config.goal?.trim();
-      // GOAL_RUN_PLAN.md — `/goal run [n]` arms the north-star auto-continue,
+      // docs/GOTCHAS.md - `/goal run [n]` arms the north-star auto-continue,
       // `/goal run stop` disarms. Parsed before the set/clear branches so a
       // literal objective of "run …" can't be typed by accident; use CONFIG →
       // NORTH STAR for an objective that genuinely starts with "run".
@@ -878,7 +878,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         style={{ display: 'none' }}
       />
 
-      {/* EFFICIENCY_PLAN.md Phase 6b.1 / Phase D §8b — handoff nudge. Pure
+      {/* docs/PROVIDERS.md - handoff nudge. Pure
           UI hint. The worker-authoritative `toolCallsSinceCompact`
           (Native, Phase D) is preferred when defined; the client-side
           `toolCallsSinceHandoff` recount stays as the audit fallback for
@@ -1099,7 +1099,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />
       )}
 
-      {/* ULTRACODE_PLAN.md — always-visible reminder that this tab is in sticky
+      {/* docs/PROVIDERS.md - always-visible reminder that this tab is in sticky
           ultracode: every turn authors a Workflow + fans out a subagent fleet,
           unattended + heavy-spend. Toggle in CONFIG → TRANSPORT. */}
       {ultracodeActive && (
@@ -2110,7 +2110,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           parentConfig={job.config}
           onConfirm={(prompt) => {
             setShowDocsDialog(false);
-            // OUTPUT_STYLE_PLAN.md §6 — DOCS in-tab dispatch tags the
+            // docs/PROVIDERS.md - DOCS in-tab dispatch tags the
             // user_message so the server forces outputStyle: normal for
             // the upcoming turn even if the tab is pinned to lite/terse.
             onSend(prompt, undefined, undefined, 'docs');
@@ -2130,7 +2130,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           parentConfig={job.config}
           onConfirm={(prompt) => {
             setShowGitDialog(false);
-            // OUTPUT_STYLE_PLAN.md §6 — see DOCS branch above. Forces
+            // docs/PROVIDERS.md - see DOCS branch above. Forces
             // outputStyle: normal for the upcoming turn regardless of tab.
             onSend(prompt, undefined, undefined, 'git');
           }}
@@ -2648,7 +2648,7 @@ function compact(n: number): string {
   return Math.round(n / 1000) + 'k';
 }
 
-// EFFICIENCY_PLAN.md Phase 6b.1 — strategic-compact nudge. Renders only
+// docs/PROVIDERS.md - strategic-compact nudge. Renders only
 // after the operator has accumulated enough tool calls without a handoff
 // to make a /handoff worth offering. Defaults: first nudge at 50, then
 // every 25 (50, 75, 100, ...). Pure UI suggestion — clicking opens the

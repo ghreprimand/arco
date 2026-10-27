@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase 6c + Phase D §8a — pre-tool-use guards.
+// docs/PROVIDERS.md - pre-tool-use guards.
 //
 // Two stacked rules today. Dispatch order is deliberate (cheap path check
 // before state check) and documented in `docs/GOTCHAS.md § Efficiency`:
@@ -132,7 +132,7 @@ export interface FactForceAllowed {
 
 export type FactForceResult = FactForceDecision | FactForceAllowed;
 
-// EFFICIENCY_PLAN.md Phase D §8a — first-edit fact-force gate. Returns
+// docs/PROVIDERS.md - first-edit fact-force gate. Returns
 // `blocked` for the very first `Edit`/`Write`/`MultiEdit` of a turn whose
 // resolved path is not yet in `filesEditedThisTurn`. The caller is expected
 // to (a) short-circuit dispatch and return the synthetic tool_result when

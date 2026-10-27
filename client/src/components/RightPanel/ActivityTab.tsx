@@ -50,7 +50,7 @@ export function ActivityTab({ job }: { job: JobState }) {
   const diagFiles = job.diagnosticsByFile ?? {};
   const diagFileNames = Object.keys(diagFiles).filter((f) => (diagFiles[f] ?? []).length > 0);
   const hasDiagnostics = diagFileNames.length > 0;
-  // ULTRACODE_PLAN.md — background-fleet panel. Present only while/after an
+  // docs/PROVIDERS.md - background-fleet panel. Present only while/after an
   // ultracode turn fanned out subagents; the most-load-bearing surface here,
   // since the parent stream goes quiet during a fan-out.
   const fleet = job.ultracodeFleet;
@@ -131,7 +131,7 @@ function loadTokenRowsExpanded(): boolean {
 // pane — expanding is a drill-down, not a takeover.
 const TOKEN_ROWS_MAX_PX = 260;
 
-// EFFICIENCY_PLAN.md Phase A — per-turn token telemetry. Sticky session
+// docs/PROVIDERS.md - per-turn token telemetry. Sticky session
 // header + one row per turn, capped at TURN_TOKEN_USAGE_CAP in the store.
 // Token counts are API ground truth; thinking/tool fields are byte counts
 // (deliberately labeled "B" / "KB" not "tk" to avoid claiming false token-
@@ -337,7 +337,7 @@ function DiagnosticsSection({
 
 // A4 — compact checkpoint marker list. Newest first. Read-only here; the
 // HISTORY tab owns revert + view-diff (it has the selection model + dialogs).
-// ULTRACODE_PLAN.md — live readout of an ultracode background fleet. The count
+// docs/PROVIDERS.md - live readout of an ultracode background fleet. The count
 // strip answers "is it still going?"; the per-agent rows surface what each
 // subagent is doing (its task label + most recent tool) — the activity the
 // parent stream never shows. Running agents sort first so the active wave is

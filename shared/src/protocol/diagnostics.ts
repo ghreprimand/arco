@@ -1,4 +1,4 @@
-// ── LSP diagnostics (WORKBENCH_EXPANSION_PLAN.md §C3) ──
+// -- LSP diagnostics (docs/ARCHITECTURE.md) --
 //
 // After a Write/Edit in a Claude Native turn, the server lazy-spawns the
 // project's language server (typescript-language-server / pyright / gopls /

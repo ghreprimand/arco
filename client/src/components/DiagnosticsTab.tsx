@@ -6,7 +6,7 @@ import type {
   SupportBundleResponse,
 } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §A1 — Diagnostics tab inside the System modal.
+// docs/ARCHITECTURE.md - Diagnostics tab inside the System modal.
 //
 // Fetches GET /api/diagnostics on mount + on Refresh and renders the grouped,
 // compact status rows (green/amber/red/grey), each expandable to its detail +

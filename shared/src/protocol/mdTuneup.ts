@@ -16,7 +16,7 @@
 // (button), source is the file itself (not session traces), the agent only
 // PROPOSES (NO Write tool), the operator reviews the diff and approves, and the
 // write is backed up + reversible. Maps onto the documented "operator-reviewed"
-// narrowing (EFFICIENCY_PLAN.md §13.7); same posture as docEdit.ts.
+// narrowing (docs/PROVIDERS.md); same posture as docEdit.ts.
 
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 

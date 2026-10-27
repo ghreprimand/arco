@@ -1,4 +1,4 @@
-// CURSOR_TRANSPORT_PLAN.md Phase 6 — headless smoke for Cursor cluster
+// docs/PROVIDERS.md - headless smoke for Cursor cluster
 // membership plumbing. No metered LLM turns: the Phase-6 GATE probe
 // (scripts/cursor-sse-mcp-probe.ts) already proved a loopback MCP's tools are
 // callable over ACP live; this asserts the SHIPPED wiring around that —

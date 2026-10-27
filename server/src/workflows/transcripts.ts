@@ -12,7 +12,7 @@ import { readLatestCodexTokenCount, rawUsageToTokenUsage } from '../codexRollout
 // skips synthetic content entirely — Claude injects slash-command stdout,
 // image-attachment placeholders, and other machine-generated "user" turns
 // into the JSONL. None of those help the operator identify the conversation.
-// ULTRACODE_PLAN.md — Arco prepends `ultracode: ` to the prompt to trigger
+// docs/PROVIDERS.md - Arco prepends `ultracode: ` to the prompt to trigger
 // the CLI's WorkflowTool keyword. That prefix lands verbatim in Claude's
 // session JSONL. Left in, it (a) shows as an ugly prefix the operator never
 // typed and (b) breaks the content-signature dedup that reconciles transcript-

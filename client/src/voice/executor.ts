@@ -57,7 +57,7 @@ export class VoiceExecutor {
     return { currentId, clusterId: s.activeClusterId, targets };
   }
 
-  // One compact line prepended to every Computer utterance (VOICE_AGENT_PLAN.md)
+  // One compact line prepended to every Computer utterance (docs/VOICE.md)
   // so the model knows the selection and the open names without a tool call.
   contextLine(): string {
     // 2026-10-17 incident: this line was capped at 480 chars and member role
@@ -332,7 +332,7 @@ export class VoiceExecutor {
         return id && s.jobs[id] ? `${s.jobs[id].config.name || 'Current workflow'} is ${s.jobs[id].busy ? 'active' : 'idle'}.` : 'No workflow selected.';
       }
       case 'recent': {
-        // VOICE_AGENT_PLAN.md — Computer's view of a project. Plain prose,
+        // docs/VOICE.md - Computer's view of a project. Plain prose,
         // newest state first, so a low-effort model can answer "what's going
         // on" without sending the worker a message. Members only: a cluster
         // is summarized by its focused member or must be named.
@@ -412,7 +412,7 @@ export class VoiceExecutor {
     }
   }
 
-  // VOICE_AGENT_PLAN.md — the Computer chat's tools map onto the same bounded
+  // docs/VOICE.md - the Computer chat's tools map onto the same bounded
   // actions as direct voice commands. The model composes message text; the
   // executor still resolves targets, refuses ambiguity and guards state.
   async runTool(call: VoiceToolCallMessage): Promise<string> {

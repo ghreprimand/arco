@@ -121,10 +121,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // is honored by Claude Native, Codex app-server, and Z.ai. Stored under
   // workflowDefaults regardless of the active provider so a transport flip
   // mid-tab picks supported values up automatically. Renamed `caveman` →
-  // `terse` 2026-05-10 (see OUTPUT_STYLE_PLAN.md §11).
+  // `terse` 2026-05-10 (see docs/PROVIDERS.md).
   const [efficiencyToolFilter, setEfficiencyToolFilter] = useState<'off' | 'conservative' | 'aggressive'>(wd?.efficiencyToolFilter ?? 'off');
   const [outputStyle, setOutputStyle] = useState<'normal' | 'lite' | 'terse'>(wd?.outputStyle ?? 'normal');
-  // ULTRACODE_PLAN.md — start a tab already in sticky ultracode. Enabling it
+  // docs/PROVIDERS.md - start a tab already in sticky ultracode. Enabling it
   // auto-sets xhigh (mirrors `/effort ultracode`) and forces CLI at turn time.
   const [ultracode, setUltracode] = useState(false);
 
@@ -245,7 +245,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // and cleared once in the effect below; nothing launches by itself.
   const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis'>(() => useAppStore.getState().creatorPrefill?.mode ?? 'single');
   const [incognito, setIncognito] = useState(false);
-  // ARCO_OPS_PLAN.md M2 — Genesis mode collects just a working name + the
+  // docs/ARCHITECTURE.md - Genesis mode collects just a working name + the
   // Spark at creation; the staged conversation + the GENESIS right-panel tab
   // fill the rest of the seed. No working directory: the workflow is created
   // cwd-less and the server runs it in a scratch ideation dir until scaffold.
@@ -788,7 +788,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       // provider so transport/provider changes still see supported values.
       ...(efficiencyToolFilter !== 'off' && { efficiencyToolFilter }),
       ...(outputStyle !== 'normal' && { outputStyle }),
-      // ULTRACODE_PLAN.md — only claude can host the WorkflowTool; stamp the
+      // docs/PROVIDERS.md - only claude can host the WorkflowTool; stamp the
       // sticky flag so the tab starts in ultracode (turnEngine forces CLI).
       ...(ultracode && primaryProvider === 'claude' && { ultracode: true }),
       ...(hasAdvanced && { advanced }),
@@ -1591,8 +1591,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           </div>
         </div>
 
-        {/* ULTRACODE_PLAN.md — start the tab in sticky ultracode. Its own box
-            (Claude-only — the WorkflowTool lives only in the `claude` binary).
+        {/* docs/PROVIDERS.md - start the tab in sticky ultracode. Its own box
+            (Claude-only - the WorkflowTool lives only in the `claude` binary).
             Enabling pins effort to XHIGH (mirrors `/effort ultracode`); the
             server forces the CLI transport at turn time. */}
         {mode !== 'chat' && primaryProvider === 'claude' && (

@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase E §9a — per-tab sandbox store. SQLite + FTS5
+// docs/PROVIDERS.md - per-tab sandbox store. SQLite + FTS5
 // virtual table holds chunks produced by ctx_execute. Stored at
 // <cwd>/.arco/workflows/<wfid>/sandbox.db so the file lives next to the
 // workflow's events.jsonl + meta.json. Cleared on tab close (the

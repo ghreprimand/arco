@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md §3) — open the standalone explorer window.
+// ARCHIVE (docs/CLIENT.md) - open the standalone explorer window.
 //
 // PRIMARY: `window.open` popup. It opens in the SAME browser instance that
 // already renders the workspace, so it inherits that window's per-monitor DPI /

@@ -1,4 +1,4 @@
-// OUTPUT_STYLE_PLAN.md — operator-armed terseness picker addendum.
+// docs/PROVIDERS.md - operator-armed terseness picker addendum.
 //
 // Returns a small block of provider prompt text that gets appended to the
 // stable per-turn prefix. The text instructs the model how terse to be on
@@ -17,7 +17,7 @@
 // be small enough that input growth doesn't eat the output saving on a
 // short turn. Concrete budgets by level: `lite` ~120 tokens; `terse`
 // ~280 tokens (the extra weight buys persistence + pattern + example +
-// persona, see 2026-05-10 decision in OUTPUT_STYLE_PLAN.md §11). Don't
+// persona, see 2026-05-10 decision in docs/PROVIDERS.md). Don't
 // push `terse` past ~300 tokens — diminishing returns vs. input cost.
 //
 // 2026-05-10 rename: the third level was originally called `caveman`

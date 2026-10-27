@@ -1,5 +1,5 @@
 import { confinedPath } from './fileAccessPolicy.js';
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — the RECENTLY MODIFIED scan. The
+// ARCHIVE (docs/CLIENT.md) - the RECENTLY MODIFIED scan. The
 // exhaustive, UNATTRIBUTED catch-all: an on-demand walk that surfaces files the
 // agent-writes ledger never saw (Bash redirects, generated images, ffmpeg /
 // demucs output — anything created outside a tracked tool event). Together with

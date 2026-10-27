@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §D1 (Part D) — project task ledger smoke.
+// docs/TASK_LEDGER.md - project task ledger smoke.
 //
 // Headless / module-level (no live server, no API spend): the durable contract
 // — JSON snapshot round-trip + rebuild-from-events + the operator-confirmed-

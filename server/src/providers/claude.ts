@@ -168,7 +168,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   private _resumeOnRetry = false;
   // Parser saw stdout close; settlement waits for the process exit code.
   private _stdoutClosed = false;
-  // ULTRACODE_PLAN.md — under ultracode a turn runs a background workflow that
+  // docs/PROVIDERS.md - under ultracode a turn runs a background workflow that
   // emits MULTIPLE `result` events (an early "workflow launched" ack, then the
   // real synthesis when the fleet finishes; the process waits and exits 0 only
   // after the last). We HOLD each result instead of emitting it: when a newer
@@ -204,7 +204,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   private _launch(): void {
-    // ULTRACODE_PLAN.md — prepend the `ultracode` keyword so the CLI's
+    // docs/PROVIDERS.md - prepend the `ultracode` keyword so the CLI's
     // workflow keyword-trigger fires (the documented opt-in; equivalent to
     // typing "ultracode: …" in the interactive client). _prompt stays raw so
     // retries re-prepend idempotently and events.jsonl keeps the operator's
@@ -340,7 +340,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
     this.process.on('exit', (code: number | null) => {
       this._cleanupAppendSpFile();
-      // ULTRACODE_PLAN.md — flush the final held result as the canonical turn
+      // docs/PROVIDERS.md - flush the final held result as the canonical turn
       // result. The background workflow's last `result` before exit is the real
       // synthesis (held, not emitted, in parser.on('result')). Flush on ANY exit
       // when a held result exists — a clean exit is the common case, but if the
@@ -459,7 +459,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       '--verbose',
       '--include-partial-messages',
       '--model', this.config.model,
-      // ULTRACODE_PLAN.md — ultracode decomposes to xhigh effort + the workflow
+      // docs/PROVIDERS.md - ultracode decomposes to xhigh effort + the workflow
       // disposition; force xhigh here so the spawn matches `/effort ultracode`
       // regardless of the tab's displayed effort.
       '--effort', this.config.ultracode ? 'xhigh' : this.config.effort,
@@ -506,7 +506,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // and any meaningful transcript-compaction threshold assumes transcripts
     // can legitimately grow well above that. The CLI's --append-system-prompt-file
     // flag is documented in the --bare help text as a peer of --append-system-prompt.
-    // GOAL_NORTHSTAR_PLAN.md G2 — fold the operator's north-star into
+    // docs/GOTCHAS.md - fold the operator's north-star into
     // --append-system-prompt, at the top so it frames the appended section
     // (mirrors Native's "immediately after the identity block"). Covers operator
     // turns AND primitive seeds (both carry config.goal). Absent / blank ⇒ the
@@ -546,7 +546,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--tools', this.config.chatWebAccess ? 'WebSearch,WebFetch' : '');
       args.push('--strict-mcp-config');
     } else if (this.config.tools && this.config.tools.length > 0) {
-      // ULTRACODE_PLAN.md — the WorkflowTool is a built-in available by default
+      // docs/PROVIDERS.md - the WorkflowTool is a built-in available by default
       // (no --tools flag = all tools). We only need to intervene when a
       // restricted allowlist is set: ensure `Workflow` survives it, else the
       // ultracode keyword fires but the model has no tool to author with.
@@ -564,7 +564,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--add-dir', ...this.config.additionalDirectories);
     }
 
-    // CLUSTER_MODE_PLAN.md Phase 3 — CLI cluster members carry a per-spawn
+    // docs/PROTOCOL_CLUSTER.md - CLI cluster members carry a per-spawn
     // `mcp-config.json` path. The CLI spawns its own MCP stdio child from
     // that config; the child translates `mcp__arco-cluster__peer_*` tool
     // calls into REST against `/api/clusters/:id/peer/...`. Per-turn
@@ -575,7 +575,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--mcp-config', this.config.clusterMcpConfigPath);
     }
 
-    // ARCO_OPS_PLAN.md §E1 — dangerous-and-unticked MCP tools of the
+    // docs/ARCHITECTURE.md - dangerous-and-unticked MCP tools of the
     // workflow's operator-enabled registry servers. VERIFIED: --disallowedTools
     // composes with --dangerously-skip-permissions (the named tool is removed
     // from the model's available set entirely; non-listed tools of the same
@@ -633,7 +633,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       this._gotResult = true;
       this._status = 'completed';
       this._output = data.text;
-      // ULTRACODE_PLAN.md — do NOT finalize the turn on this result. A background
+      // docs/PROVIDERS.md - do NOT finalize the turn on this result. A background
       // workflow emits an early ack then (after the fleet finishes) the real
       // synthesis; only the last result before clean exit is canonical, flushed
       // in the exit handler. Hold this one; if a prior was held it's now
@@ -653,7 +653,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
         this._heldResult = data;
         return;
       }
-      // EFFICIENCY_PLAN.md Phase A — CLI doesn't expose its inner messages[]
+      // docs/PROVIDERS.md - CLI doesn't expose its inner messages[]
       // to us. Emit the documented sentinel values: 0 thinking bytes,
       // -1 tool-result bytes (unknown). The Activity tab renders -1 as "—".
       this.emit('result', { ...data, thinkingBytes: 0, toolResultBytes: -1, toolResultBytesRaw: -1 });

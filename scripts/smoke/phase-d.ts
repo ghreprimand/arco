@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase D — headless WS smoke.
+// docs/PROVIDERS.md - headless WS smoke.
 //
 // Covers the protocol surfaces Phase D shipped:
 //   1. workflow_created reply carries the new-tab `efficiencyFactForce='off'`

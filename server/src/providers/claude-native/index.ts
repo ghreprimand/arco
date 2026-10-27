@@ -40,7 +40,7 @@ export function setClaudeNativeTaskHandler(fn: TaskSpawnHandler): void {
   taskHandlerFn = fn;
 }
 
-// EFFICIENCY_PLAN.md Phase B/D — generic workflow-scoped event broadcaster.
+// docs/PROVIDERS.md - generic workflow-scoped event broadcaster.
 // The Native worker uses this for every event whose lifecycle isn't already
 // covered by a WorkerManager-routed channel: `hook_rewrote_input` (B0),
 // `tool_gate_triggered` (B/D), `ctx_action` (B/D). Wired in server/index.ts
@@ -67,7 +67,7 @@ export function routeClaudeNativeQuestionReply(workflowId: string, questionId: s
   return worker.resolveQuestion(questionId, reply);
 }
 
-// R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.1) — read-only parked-interaction
+// R1 (docs/REMOTE_MANAGEMENT.md) - read-only parked-interaction
 // snapshot for the hub link's workflow summary. Null when no live worker
 // (nothing parked by definition — parks don't survive worker disposal; the
 // gate sidecar's orphans stay resolvable via gate_reply but aren't listed).
@@ -79,7 +79,7 @@ export function getClaudeNativePendingInteractions(workflowId: string): {
   return worker ? worker.getPendingInteractions() : null;
 }
 
-// DEBAG (docs/DEBAG_PLAN.md) — server-side review-gate reply routing. Returns
+// DEBAG (docs/PROVIDERS.md) - server-side review-gate reply routing. Returns
 // false if no worker or no matching parked gate (stale reply) so the caller can
 // log a drop.
 export function routeClaudeNativeGateReply(

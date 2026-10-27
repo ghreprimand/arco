@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2 — one cluster member's chat + composer.
+// docs/PROTOCOL_CLUSTER.md - one cluster member's chat + composer.
 //
 // Wraps the existing ChatPanel + TerminalInput so per-member rendering reuses
 // every transcript invariant (handoff/spawn pill collapse, Claude JSONL
@@ -13,7 +13,7 @@
 // workflow (incorrect for cluster intent but reachable). Cluster-aware
 // primitive behavior (SPAWN-into-this-cluster, HANDOFF preserves
 // membership, REVIEW understands peer rows) is captured in
-// docs/CLUSTER_MODE_PLAN.md §7.5 (master refactor row 6b).
+// docs/PROTOCOL_CLUSTER.md (master refactor row 6b).
 
 import { ChatPanel } from './ChatPanel';
 import { TerminalInput } from './TerminalInput';

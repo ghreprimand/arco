@@ -10,7 +10,7 @@ import type { PrimaryBackgroundTracker } from '../primaryBackgroundTracker.js';
 export interface Session {
   id: string;
   workflowIds: Set<string>;
-  // CLUSTER_MODE_PLAN.md Phase 2 — cluster ids this WS has subscribed to.
+  // docs/PROTOCOL_CLUSTER.md - cluster ids this WS has subscribed to.
   // Populated on `cluster_subscribe`, cleared on `cluster_unsubscribe` and
   // `ws.on('close')`. broadcastCluster fans out to every WS whose set
   // contains the target clusterId. Decoupled from the per-workflow observer
@@ -71,7 +71,7 @@ export interface WorkflowState {
   // per provider (Codex app-server, Ollama/llama.cpp loop hook, Native
   // Claude). Replaces the pre-Phase-4 `pendingInterjections[]` (single
   // array; same on-disk attachments-survive-drain semantics from
-  // INTERFACE_FIXES_PLAN.md Fix 4).
+  // docs/CLIENT.md Fix 4).
   //
   // Each enqueue / drain / cancel broadcasts a `queue_update` (persisted to
   // events.jsonl) so a reconnect's replay reconstructs the visible queue.
@@ -199,7 +199,7 @@ export interface WorkflowState {
 }
 
 // Phase 4 — internal queue entry. Carries attachments (preserved across
-// drain since INTERFACE_FIXES_PLAN.md Fix 4) and clientMessageId (used for
+// drain since docs/CLIENT.md Fix 4) and clientMessageId (used for
 // per-item cancel and queue-strip [×]). The wire `queue_update` snapshot
 // re-projects to QueueEntry (content + clientMessageId + interrupt intent).
 export interface QueueItem {
@@ -208,7 +208,7 @@ export interface QueueItem {
   content: string;
   attachments?: string[];
   clientMessageId?: string;
-  // WORKBENCH_EXPANSION_PLAN.md §D1 — expanded `@`-context-refs for this
+  // docs/ARCHITECTURE.md - expanded `@`-context-refs for this
   // queued message. The echo + the wire snapshot use `content` (the raw
   // `@file:x.ts` text the operator typed); this block is appended to the
   // MODEL prompt only, when the item drains. Undefined when the message had

@@ -123,7 +123,7 @@ const PUBLIC_REPO_SAFETY_SYSTEM_BLOCK = [
 // config-derivation helpers. Extracted from index.ts in Phase 4 Milestone D
 // step 2. Three back-edges index.ts keeps (the PreviewAutoDetect instance and
 // the create-workflow / handoff handlers it dispatches into) are injected once
-// via initTurnEngine. See docs/FILE_SIZE_REFACTOR_PLAN.md.
+// via initTurnEngine. See docs/ARCHITECTURE.md.
 export interface TurnEngineDeps {
   previewAutoDetect: PreviewAutoDetect;
   handleCreateWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<void>;
@@ -623,7 +623,7 @@ export async function drainQueueIfIdle(workflowId: string): Promise<boolean> {
   return true;
 }
 
-// GOAL_RUN_PLAN.md — explicit operator-side disarm (STOP / tab close). Before
+// docs/GOTCHAS.md - explicit operator-side disarm (STOP / tab close). Before
 // this, STOP only ended a run because every provider's kill() emits a
 // synthetic error that tripped `turn_error` on the next settle — an accident
 // of plumbing, and the cancel-race fix (stale loops skip post-settle) removed
@@ -1399,7 +1399,7 @@ export async function persistInitialMeta(
       ? { pinnedSkills: config.pinnedSkills.map((s) => ({ scope: s.scope, slug: s.slug })) }
       : {}),
     ...(opts?.parentWorkflowId ? { parentWorkflowId: opts.parentWorkflowId } : {}),
-    // OUTPUT_STYLE_PLAN.md / EFFICIENCY_PLAN.md Phase C — when the New-tab
+    // docs/PROVIDERS.md / docs/PROVIDERS.md - when the New-tab
     // picker (or Spawn-from-here parent inheritance) provided a non-default
     // value, persist it to disk on the very first meta write so a server
     // restart before the operator's first turn doesn't lose the pick.
@@ -1408,7 +1408,7 @@ export async function persistInitialMeta(
     ...(config.efficiencyToolFilter === 'off' || config.efficiencyToolFilter === 'conservative' || config.efficiencyToolFilter === 'aggressive'
       ? { efficiencyToolFilter: config.efficiencyToolFilter }
       : {}),
-    // EFFICIENCY_PLAN.md Phase D §8a — persist the stamped new-tab default or
+    // docs/PROVIDERS.md - persist the stamped new-tab default or
     // an explicit operator choice on the first meta write.
     ...(config.efficiencyFactForce === 'on' || config.efficiencyFactForce === 'off'
       ? { efficiencyFactForce: config.efficiencyFactForce }
@@ -1447,7 +1447,7 @@ export async function persistInitialMeta(
     // default (handleCreateWorkflow bakes it into config for new tabs). The
     // savedMeta restore in handleCreateWorkflow reads this back.
     ...(config.autoHandoff ? { autoHandoff: { ...config.autoHandoff } } : {}),
-    // EFFICIENCY_PLAN.md Phase E §9 — persist the sandbox toggle on the
+    // docs/PROVIDERS.md - persist the sandbox toggle on the
     // first meta-write when the cascade default supplied a non-undefined
     // value. Default is 'off'; only the explicit on/off pair lands here so
     // a stale cascade doesn't accidentally turn the sandbox on for tabs
@@ -1455,7 +1455,7 @@ export async function persistInitialMeta(
     ...(config.efficiencySandbox === 'on' || config.efficiencySandbox === 'off'
       ? { efficiencySandbox: config.efficiencySandbox }
       : {}),
-    // DEBAG_PLAN.md — persist the review-gate toggle on the first meta-write
+    // docs/PROVIDERS.md - persist the review-gate toggle on the first meta-write
     // when the cascade default supplied an explicit value, so an operator opt-in
     // survives a restart before the first turn. Default 'off'.
     ...(config.reviewSafeMode === 'on' || config.reviewSafeMode === 'off'
@@ -1467,11 +1467,11 @@ export async function persistInitialMeta(
       : (config.outputStyle as string) === 'caveman'
         ? { outputStyle: 'terse' as const }
         : {}),
-    // GOAL_NORTHSTAR_PLAN.md — persist a north-star seeded before the first turn
+    // docs/GOTCHAS.md - persist a north-star seeded before the first turn
     // (e.g. a Spawn-from-here that inherited the parent's) so it survives a
     // restart even if the operator never re-sets it. Blank ⇒ omitted.
     ...(config.goal && config.goal.trim() ? { goal: config.goal } : {}),
-    // ULTRACODE_PLAN.md — persist sticky ultracode on the first meta-write so a
+    // docs/PROVIDERS.md - persist sticky ultracode on the first meta-write so a
     // tab left in ultracode survives a restart (the rehydrate read in
     // workflowHandlers.ts expects saved.ultracode). Without this the flag lives
     // only in-memory and the tab silently drops out of ultracode on restart.
@@ -1591,7 +1591,7 @@ export async function handleUserMessage(
     }
   }
 
-  // WORKBENCH_EXPANSION_PLAN.md §D1 — context-refs expansion. Expand `@`-refs
+  // docs/ARCHITECTURE.md - context-refs expansion. Expand `@`-refs
   // (`@file:`, `@diff`, `@staged`, `@git:N`; `@url:` deferred) ONCE here, before
   // the busy/queue split, so queued AND immediate sends both carry the result.
   // The operator's chat echo stays compact (raw `content`); the expanded block
@@ -1779,7 +1779,7 @@ export async function handleUserMessage(
   // originating tab doesn't accidentally swallow an auto-flushed prompt
   // whose UUID was already rendered client-side.
   let firstIteration = true;
-  // GOAL_RUN_PLAN.md — outcome of the LAST settled turn in this drain loop.
+  // docs/GOTCHAS.md - outcome of the LAST settled turn in this drain loop.
   // An armed goal run stops on an errored turn rather than looping on the same
   // failure; the flag has to outlive the loop body to reach `maybeGoalRun`.
   let lastTurnErrored = false;
@@ -1918,7 +1918,7 @@ export async function handleUserMessage(
       : cascade?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
   // Phase 7a — Claude transport, same precedence as Codex above.
   const tabClaudeTransport = wf.config.claudeTransport;
-  // ULTRACODE_PLAN.md — sticky ultracode mode forces the CLI transport (the
+  // docs/PROVIDERS.md - sticky ultracode mode forces the CLI transport (the
   // harness WorkflowTool lives only in the `claude` binary; Native's raw SDK
   // can't host it). The operator's base transport is remembered separately in
   // wf.config.ultracodeBaseTransport so turning ultracode OFF restores it.
@@ -1960,20 +1960,20 @@ export async function handleUserMessage(
   const claudeNativeThinkingDisplay: 'omitted' | 'summarized' | 'updates' | undefined = claudeTransport === 'native'
     ? wf.config.claudeNativeThinkingDisplay
     : undefined;
-  // EFFICIENCY_PLAN.md Phase 6b.2 — operator opt-in auto-threshold ctx_action
+  // docs/PROVIDERS.md - operator opt-in auto-threshold ctx_action
   // emission. Off by default; honored on Native (CLI/Codex transports don't
   // surface tool-call counts to us in the same way).
   const efficiencyAutoCompact: 'off' | 'conservative' | 'aggressive' = claudeTransport === 'native'
     ? (wf.config.efficiencyAutoCompact ?? 'off')
     : 'off';
-  // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode. Only honored
+  // docs/PROVIDERS.md - Native tool-result filter mode. Only honored
   // on Native (the filter pipeline runs inside `claude-native/dispatchTool`;
   // CLI/Codex don't surface raw tool stdout to us). Default off until measured
   // per the §13.3 / §2.4 doc-discipline rule (no aggressive defaults).
   const efficiencyToolFilter: 'off' | 'conservative' | 'aggressive' = claudeTransport === 'native'
     ? (wf.config.efficiencyToolFilter ?? 'off')
     : 'off';
-  // EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate mode. It is
+  // docs/PROVIDERS.md - fact-force first-edit gate mode. It is
   // opt-in: new tabs and rehydrated tabs without the field stay 'off'. CLI
   // parity is deferred (master §3.3 F4), so hard-zero non-Native transports.
   const efficiencyFactForce: 'on' | 'off' = claudeTransport === 'native'
@@ -1985,20 +1985,20 @@ export async function handleUserMessage(
   const efficiencyConfigProtection: 'on' | 'off' = claudeTransport === 'native'
     ? (wf.config.efficiencyConfigProtection ?? 'on')
     : 'off';
-  // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tool surface. Native-only
+  // docs/PROVIDERS.md - opt-in sandbox tool surface. Native-only
   // (the tools are registered into the in-process Anthropic tools[] array;
   // CLI / Codex / Gemini don't surface a per-turn tools[] we control).
   // Default 'off' so the toggle stays operator-opted-in.
   const efficiencySandbox: 'off' | 'on' = claudeTransport === 'native' && !isolatedMember
     ? (wf.config.efficiencySandbox ?? 'off')
     : 'off';
-  // DEBAG_PLAN.md — operator-armed durable review gate. Native-only (the gate
+  // docs/PROVIDERS.md - operator-armed durable review gate. Native-only (the gate
   // lives in the in-process worker's dispatchTool). Default 'off' so it stays
   // operator-opted-in and inert until armed.
   const reviewSafeMode: 'off' | 'on' = claudeTransport === 'native'
     ? (wf.config.reviewSafeMode ?? 'off')
     : 'off';
-  // OUTPUT_STYLE_PLAN.md — operator-armed terseness picker. Honored by
+  // docs/PROVIDERS.md - operator-armed terseness picker. Honored by
   // Claude Native and by Codex app-server providers (including Z.ai). Other
   // transports ignore it because Arco has no stable per-turn prompt-prefix
   // insertion point there.
@@ -2016,13 +2016,13 @@ export async function handleUserMessage(
     : outputStyleSupported
       ? (wf.config.outputStyle ?? 'normal')
       : 'normal';
-  // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Read straight
+  // docs/GOTCHAS.md - operator-set persistent north-star. Read straight
   // from wf.config, inherited on EVERY path including in-tab DOCS / GIT (the one
   // deliberate divergence from outputStyle's forced 'normal' for those two — a
   // DOCS/GIT prompt benefits from the goal context). Absent / blank ⇒ no block
   // on any transport; honored wherever clusterPlan is folded.
   const goal: string | undefined = isolatedMember ? undefined : wf.config.goal;
-  // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama param preset blob. Resolved
+  // docs/PROVIDERS.md - per-tab Ollama param preset blob. Resolved
   // ONLY for Ollama tabs (the provider's request builder is the sole consumer;
   // every other provider ignores the field). Read straight from wf.config so
   // it is byte-stable across this workflow's turns — the prefix-cache
@@ -2267,12 +2267,12 @@ export async function handleUserMessage(
       // Phase 7a — fold discovered CLAUDE.md files into appendSystemPrompt
       // for Claude tabs (CLI + Native both benefit). Walks up from cwd
       // collecting CLAUDE.md, plus ~/.claude/CLAUDE.md.
-      // ZAI_INTEGRATION_AUDIT.md — also fold for Z.ai/GLM tabs: GLM is a
+      // docs/PROVIDERS.md - also fold for Z.ai/GLM tabs: GLM is a
       // full tool-using coding agent and was previously running blind to
       // project conventions that Claude/Codex tabs already see. `includeProject`
       // is the trust-gate output, so untrusted repos stay suppressed for GLM too.
       let finalAppend = baseWithSkills;
-      // VOICE_AGENT_PLAN.md — the Computer voice operator chat has its own
+      // docs/VOICE.md - the Computer voice operator chat has its own
       // base instructions and real (arco-voice) tools; the generic Chat
       // preamble ("do not use backend tools… continue in an Agent tab") made
       // Luna refuse them (2026-10-17 smoke:voice-luna regression).
@@ -2301,7 +2301,7 @@ export async function handleUserMessage(
         }
       }
 
-      // WORKBENCH_EXPANSION_PLAN.md §B3 — fold the operator-curated knowledge
+      // docs/ARCHITECTURE.md - fold the operator-curated knowledge
       // base into appendSystemPrompt as a BOUNDED block. Provider-agnostic
       // (every primary provider that consumes appendSystemPrompt benefits),
       // and only the always-include articles are injected. buildKnowledgeBlock
@@ -2333,7 +2333,7 @@ export async function handleUserMessage(
       // pending flag the `enter_plan_mode_request` handler set. Only Claude
       // Native honours arming; on any other resolved transport the flag is
       // silently cleared so a stale arm doesn't survive a provider switch.
-      // FABLE_51_APPEND_ONLY_PLAN.md §1.5 — per-turn text for Claude Native
+      // docs/PROVIDERS.md - per-turn text for Claude Native
       // rides WorkerConfig.turnNotice (appended to the user message, kept
       // forever) instead of appendSystemPrompt, which the Native worker now
       // freezes; a firstIteration-gated fold there flipped the system prompt
@@ -2349,7 +2349,7 @@ export async function handleUserMessage(
         wf.pendingPlanModeEntry = false;
       }
 
-      // CLUSTER_MODE_PLAN.md Phase 1 — fold the drained mailbox prologue
+      // docs/PROTOCOL_CLUSTER.md - fold the drained mailbox prologue
       // into the front of appendSystemPrompt so a CLI / Codex worker renders
       // it as system-level context before any operator-supplied
       // appendSystemPrompt content. Only first-iteration (drain ran above only
@@ -2360,7 +2360,7 @@ export async function handleUserMessage(
         else finalAppend = finalAppend ? `${peerMessagesPrologue}\n\n${finalAppend}` : peerMessagesPrologue;
       }
 
-      // CLUSTER_MODE_PLAN.md Phase 1 — resolve the workflow's clusterId
+      // docs/PROTOCOL_CLUSTER.md - resolve the workflow's clusterId
       // (if any) at turn start. Threaded into the worker's WorkerConfig so
       // peer tools register and dispatch only when the membership is live.
       // Per plan §6.2 reversibility: once the cluster is deleted via REST,
@@ -2440,7 +2440,7 @@ export async function handleUserMessage(
         }
       }
 
-      // CLUSTER_MODE_PLAN.md Phase 3 + Phase 4 — non-Native cluster member
+      // docs/PROTOCOL_CLUSTER.md - non-Native cluster member
       // wiring. Native dispatches peer_* in-process via peerTools (clusterId
       // on WorkerConfig is sufficient, and buildSystemBlocks injects plan +
       // role as forced system blocks). CLI Claude / Codex `exec` / Codex
@@ -2548,7 +2548,7 @@ export async function handleUserMessage(
         }
       }
 
-      // ARCO_OPS_PLAN.md M2 — Genesis staged-ideation system block. A
+      // docs/ARCHITECTURE.md - Genesis staged-ideation system block. A
       // from-nothing genesis workflow runs its staged conversation in a hidden
       // scratch dir (~/.arco/genesis/<wfid>) until `genesis_scaffold` creates
       // the real project and rebinds the cwd. While the workflow is still in that
@@ -2588,7 +2588,7 @@ export async function handleUserMessage(
         }
       }
 
-      // GOAL_NORTHSTAR_PLAN.md G2 — the north-star is NOT folded here. Native
+      // docs/GOTCHAS.md - the north-star is NOT folded here. Native
       // injects it as its own cached system block (buildSystemBlocks reads
       // config.goal); every other transport folds goalBlock(config.goal) inside
       // its own provider (mirroring outputStyleAddendum). Doing it per-provider
@@ -2598,7 +2598,7 @@ export async function handleUserMessage(
       // is the one place that covers operator turns AND primitive seeds without
       // double-injecting.
 
-      // ARCO_OPS_PLAN.md §E1 — resolve the operator-enabled-and-allowed
+      // docs/ARCHITECTURE.md - resolve the operator-enabled-and-allowed
       // registry MCP servers for this workflow from the global registry + the
       // workflow's per-tab allowlist (meta.mcpAllow). Produces BOTH the merged
       // server entries (for the mcp-config write / Codex `-c` overrides) AND
@@ -2616,7 +2616,7 @@ export async function handleUserMessage(
         console.error(`[arco] [${workflowId.slice(0, 8)}] mcp registry resolve failed:`, err);
       }
 
-      // EFFICIENCY_PLAN.md Phase F9 — write `.arco/<wfid>/mcp-config.json`
+      // docs/PROVIDERS.md - write `.arco/<wfid>/mcp-config.json`
       // for CLI Claude turns when cluster membership, the operator-attached
       // codebase-memory entry, OR §E1 registry servers apply. All coexist; the
       // writer merges deterministically and unlinks when none apply. Codex
@@ -2802,7 +2802,7 @@ export async function handleUserMessage(
         });
       });
 
-      // ULTRACODE_PLAN.md — surface the background fleet. Under ultracode the
+      // docs/PROVIDERS.md - surface the background fleet. Under ultracode the
       // CLI's WorkflowTool runs subagents whose transcripts never touch the
       // parent stream, so the Activity tab would look dead. Poll those files and
       // emit live `ultracode_fleet_progress` snapshots, scoped strictly to this
@@ -3078,13 +3078,13 @@ export async function handleUserMessage(
   // run included), so this settle is done.
   if (await drainQueueIfIdle(workflowId)) return;
 
-  // GOAL_RUN_PLAN.md — north-star auto-continue. Last of the post-settle armed
+  // docs/GOTCHAS.md - north-star auto-continue. Last of the post-settle armed
   // actions on purpose: fold / handoff / compaction all reshape the context
   // this tick would run against, so they get to act first.
   await maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored);
 }
 
-// GOAL_RUN_PLAN.md — one tick of an armed goal run. Every branch either
+// docs/GOTCHAS.md - one tick of an armed goal run. Every branch either
 // dispatches exactly one visible turn or stops the run with an operator-
 // readable reason; there is no third outcome and no model input to the
 // decision (see `evaluateGoalRun`).

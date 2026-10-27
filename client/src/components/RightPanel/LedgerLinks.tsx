@@ -1,4 +1,4 @@
-// Ledger task links (ARCO_OPS_PLAN.md §D2, Part D).
+// Ledger task links (docs/ARCHITECTURE.md).
 //
 // Renders a task's bidirectional references (plan items / reviews / workflows /
 // urls) as clickable chips, plus an attach-link affordance and per-chip remove.

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §A4 — Security / exposure posture smoke.
+// docs/ARCHITECTURE.md - Security / exposure posture smoke.
 //
 // Two halves:
 //   1. Pure unit-assert of `classifyBindAddress` (imported directly — no server).

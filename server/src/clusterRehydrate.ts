@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5 — history rehydrate.
+// docs/PROTOCOL_CLUSTER.md - history rehydrate.
 //
 // Pending peer messages persist on disk as
 // `~/.arco/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. When a WS

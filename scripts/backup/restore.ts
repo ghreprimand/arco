@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F3 — safe restore: verify-first, manual regular-file
+// docs/ARCHITECTURE.md - safe restore: verify-first, manual regular-file
 // extraction, conservative refusal on anything suspicious.
 //
 // SECURITY MODEL. The F1 archive format (archive.ts) can ONLY represent regular

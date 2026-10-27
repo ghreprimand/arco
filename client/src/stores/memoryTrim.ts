@@ -26,7 +26,7 @@ const SESSION_CHAT_WINDOW = 500;                       // newest Claude JSONL-de
 export const LOADED_HISTORY_PIN = 200;                // explicit load-earlier page kept visible after prepend
 export const MAX_ACTIVITY_ENTRIES = 500;                     // right-pane live feed cap; sized so tool-heavy turns survive without unbounded growth
 export const MAX_TOOL_FILTERED_ENTRIES = 500;                // tool filter annotations keyed by toolUseId
-export const TURN_TOKEN_USAGE_CAP = 200;                     // EFFICIENCY_PLAN.md Phase A — sliding window for the Activity tab "Token usage" section. Older turns live in events.jsonl.
+export const TURN_TOKEN_USAGE_CAP = 200;                     // docs/PROVIDERS.md - sliding window for the Activity tab "Token usage" section. Older turns live in events.jsonl.
 export const PERSIST_DEBOUNCE_MS = 1000;              // 1 Hz max write rate
 
 export interface MessageWindowOptions {

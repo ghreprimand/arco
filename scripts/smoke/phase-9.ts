@@ -1,4 +1,4 @@
-// PHASE_9_FORKS_PLAN.md sub-phase 2 — branch-aware replay end-to-end smoke.
+// docs/PERSISTENCE.md - branch-aware replay end-to-end smoke.
 //
 // Tests the rewind MECHANISM directly (no LLM turn, no WS, no API): builds a
 // real events.jsonl on disk with the same on-disk envelope persistAndStampSeq

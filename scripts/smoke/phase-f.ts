@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase F + F9 — headless WS smoke for the
+// docs/PROVIDERS.md + F9 - headless WS smoke for the
 // codebase-memory-mcp integration. Covers the operator-facing surface
 // (Phase F) plus the spawn-wiring landing (F9):
 //

@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — cargo-test filter pack.
+// docs/PROVIDERS.md - cargo-test filter pack.
 //
 // Green run (exit 0): drop the per-test "test foo ... ok" lines, keep the
 // "running N tests", "test result: ok" summary, and any non-test output

@@ -3,7 +3,7 @@ import { useNotificationStore, unreadCount } from '../stores/notificationStore';
 import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
 import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §J1 — the header notice center: a bell with an unread
+// docs/ARCHITECTURE.md - the header notice center: a bell with an unread
 // badge that opens the durable notice history + per-category mute toggles.
 // Inform-only — nothing here sends a command; the only outbound action is the
 // mute preference (`onSetMutes`, persisted server-side).

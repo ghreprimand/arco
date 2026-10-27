@@ -20,11 +20,11 @@ export interface Props {
   // "Fix" button can dispatch a scoped follow-up turn (kind: 'follow-up').
   // Operator-click-only; no auto-send. Same signature as the composer's onSend.
   onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git') => void;
-  // ARCO_OPS_PLAN.md M2 — Genesis tab: update the seed (debounced) and trigger
+  // docs/ARCHITECTURE.md - Genesis tab: update the seed (debounced) and trigger
   // the operator-confirmed scaffold. Threaded from App.tsx → useWebSocket senders.
   onGenesisSeedUpdate?: (workflowId: string, seed: GenesisSeed) => void;
   onGenesisScaffold?: (workflowId: string, root?: string, github?: GenesisGithubParams) => void;
-  // ARCO_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing workflow.
+  // docs/ARCHITECTURE.md - arm/disarm in-workflow Creative mode on an existing workflow.
   onGenesisCreativeArm?: (workflowId: string, disarm?: boolean) => void;
   onGenesisAssistRequest?: (workflowId: string, requestId: string, field: GenesisAssistField, intent: GenesisAssistIntent, seed: GenesisSeed, instruction?: string) => void;
   onCancelHandoff?: (handoffId: string) => void;
@@ -50,20 +50,20 @@ export interface Props {
   onSetPreviewPort?: (port: number, framework?: string) => void;
   onClearPreviewPort?: () => void;
   onPreviewCapture?: (captures?: PreviewCaptureKind[], viewport?: PreviewViewport) => void;
-  // ARCO_OPS_PLAN.md §G2 — attach a preview-capture report to a Review (fires
+  // docs/ARCHITECTURE.md - attach a preview-capture report to a Review (fires
   // a reviewer over the report artifact, reusing the tab's primary config).
   onReviewCapture?: (reportName: string) => void;
   onFreshAntigravityCascade?: () => void;
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — RESEARCH tab. Cancel an in-flight run,
+  // docs/ARCHITECTURE.md - RESEARCH tab. Cancel an in-flight run,
   // and the artifact viewer's "dig deeper" composer (appends a cited addendum
   // to the same report by re-running a bounded mini-round seeded with it).
   onCancelResearch?: (researchId: string) => void;
   onResearchFollowUp?: (seedArtifactName: string, followUp: string) => void;
-  // EFFICIENCY_PLAN.md Phase F — codebase-memory toggle. Routed App →
+  // docs/PROVIDERS.md - codebase-memory toggle. Routed App ->
   // WorkflowView → RightPanel → ConfigTab → CodebaseMemorySection.
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
-  // ARCO_OPS_PLAN.md §D1 — project task ledger mutations (LEDGER tab).
+  // docs/ARCHITECTURE.md - project task ledger mutations (LEDGER tab).
   // cwd-scoped; the server resolves the cwd from the workflowId.
   onTaskLedgerCreate?: (workflowId: string, title: string, notes?: string) => void;
   onTaskLedgerUpdate?: (
@@ -79,7 +79,7 @@ export interface Props {
   onBakeoffStart?: (workflowId: string, prompt: string, attempts: BakeoffAttemptSpec[], name?: string) => void;
   onBakeoffPromote?: (workflowId: string, bakeoffId: string, attemptId: string) => void;
   onBakeoffCleanup?: (workflowId: string, bakeoffId: string, attemptIds: string[]) => void;
-  // ARCO_OPS_PLAN.md §E1 — MCP registry senders bundle, routed App →
+  // docs/ARCHITECTURE.md - MCP registry senders bundle, routed App ->
   // WorkflowView → RightPanel → ConfigTab → McpRegistrySection.
   mcp?: McpSenders;
 }

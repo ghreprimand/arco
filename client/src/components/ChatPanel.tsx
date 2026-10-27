@@ -357,7 +357,7 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
   // we resolve to whichever path the worker last touched. Last-write-wins so
   // a renamed-then-rewritten file points at the new location. Only basenames
   // are indexed; full paths are looked up by prefix-match too so an agent
-  // writing `docs/audit.md` matches a Write to `<cwd>/docs/audit.md`.
+  // writing `reports/audit.md` matches a Write to `<cwd>/reports/audit.md`.
   const writtenFiles = useMemo(() => {
     const byBasename = new Map<string, string>();
     const byTail = new Map<string, string>();
@@ -367,7 +367,7 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
       const base = fp.split('/').pop() || '';
       if (base) byBasename.set(base, fp);
       // Index "trailing-N-segments" → full path so a chat reference like
-      // `docs/audit.md` resolves even when the recorded path is absolute.
+      // `reports/audit.md` resolves even when the recorded path is absolute.
       const segs = fp.split('/').filter(Boolean);
       for (let i = 1; i <= Math.min(segs.length, 4); i++) {
         byTail.set(segs.slice(-i).join('/'), fp);

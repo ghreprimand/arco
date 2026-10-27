@@ -186,7 +186,7 @@ export function HistoryTab({ job }: Props) {
     setTimeout(() => setLabelSubmitting(false), 250);
   };
 
-  // PHASE_9_FORKS_PLAN.md — REWIND CONVERSATION. Two-click confirm (the action
+  // docs/PERSISTENCE.md - REWIND CONVERSATION. Two-click confirm (the action
   // is reversible — "undo the undo" is just another rewind — so an inline
   // confirm is enough; no modal). The server validates range + busy and forks a
   // child of the selected seq, leaving the abandoned branch intact on disk.
@@ -414,7 +414,7 @@ export function HistoryTab({ job }: Props) {
           >
             SPAWN FROM HERE
           </ActionBtn>
-          {/* PHASE_9_FORKS_PLAN.md — conversation rewind (distinct from the git
+          {/* docs/PERSISTENCE.md - conversation rewind (distinct from the git
               working-tree RESTORE FILES on checkpoint rows). Native-only in v1
               (server gates the claude-CLI / cascade edge); we hide it for
               non-Claude providers so it's never offered where it can't work.

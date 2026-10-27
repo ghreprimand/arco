@@ -1,4 +1,4 @@
-// Observable runtime-state deriver (ARCO_OPS_PLAN.md §C1).
+// Observable runtime-state deriver (docs/ARCHITECTURE.md).
 //
 // Why pure: this module is the single source of truth for the operator-visible
 // connection / workflow states, and the C1 acceptance ("killing the server vs
@@ -104,7 +104,7 @@ export function deriveWorkflowState(input: {
   return 'idle';
 }
 
-// ARCO_OPS_PLAN.md §C2 — targeted retry paths per state.
+// docs/ARCHITECTURE.md - targeted retry paths per state.
 //
 // C1 made each failure observable; C2 maps each observable state to its ONE
 // correct recovery action instead of a generic "retry". The honest mapping

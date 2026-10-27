@@ -4,7 +4,7 @@
 // events.jsonl and Slot 7's build-log.md. Decouples Arco workflow identity
 // from provider CLI session IDs so a workflow can span compactions (new
 // Claude session) and cross-provider resumes (Claude → Codex).
-// See docs/WORKFLOW_CONTINUITY_PLAN.md §4.1.
+// See docs/PERSISTENCE.md
 //
 // Invariants:
 //   - All reads / writes scope to <cwd>/.arco/workflows/<wfid>/ (path-
@@ -105,7 +105,7 @@ export interface WorkflowMeta {
   // primaryModel is still an alias (a pin to a concrete id ignores it); the
   // alias itself stays in primaryModel so auto-tracking is preserved.
   resolvedModelId?: string;
-  // ULTRACODE_PLAN.md — sticky ultracode mode (default off). Survives restart so
+  // docs/PROVIDERS.md - sticky ultracode mode (default off). Survives restart so
   // a tab left in ultracode resumes there. Only meaningful for provider='claude'.
   ultracode?: boolean;
   // Per-tab Claude Native web_search/web_fetch per-turn budget (server-tool
@@ -114,10 +114,10 @@ export interface WorkflowMeta {
   // Chat-only web access. Absent ⇒ the chatWebArmed() default (on for a saved
   // Chat). Only written for kind==='chat' meta.
   chatWebAccess?: boolean;
-  // VOICE_AGENT_PLAN.md — this Chat is the Computer voice operator.
+  // docs/VOICE.md - this Chat is the Computer voice operator.
   voiceOperator?: boolean;
   computerContext?: import('@arco/shared').ComputerContextState;
-  // ZAI_NATIVE_PLAN.md — native direct GLM transport by default; appserver is
+  // docs/PROVIDERS.md - native direct GLM transport by default; appserver is
   // the legacy Codex app-server proxy fallback.
   zaiTransport?: 'native' | 'appserver';
   // Phase 7c-followup — per-tab opt-in to Anthropic's server-managed
@@ -137,15 +137,15 @@ export interface WorkflowMeta {
   // NATIVE_COMPACTION_PLAN Phase 3 — per-tab opt-in to auto-continue after a
   // Native compaction. Default false (manual resume). Persists across restart.
   nativeCompactAutoContinue?: boolean;
-  // EFFICIENCY_PLAN.md Phase 6b.2 — per-tab opt-in for the auto-threshold
+  // docs/PROVIDERS.md - per-tab opt-in for the auto-threshold
   // ctx_action emission. Persists across server restart; honored only on
   // Claude Native turns (CLI/Codex don't surface the tool-call counter).
   efficiencyAutoCompact?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase C — per-tab Native tool-result filter mode.
+  // docs/PROVIDERS.md - per-tab Native tool-result filter mode.
   // `off` (default for now), `conservative`, `aggressive`. Persists across
   // server restart; honored only on Claude Native turns.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  // EFFICIENCY_PLAN.md Phase D §8a — per-tab fact-force first-edit gate.
+  // docs/PROVIDERS.md - per-tab fact-force first-edit gate.
   // `off` by default / `on` by explicit operator opt-in. An absent field on
   // rehydrate also resolves off. Honored only on Claude Native turns.
   efficiencyFactForce?: 'on' | 'off';
@@ -153,23 +153,23 @@ export interface WorkflowMeta {
   // safety gate) / `off` (operator relaxed it for this workflow). Absent
   // on rehydrate ⇒ gate stays ON. Honored only on Claude Native turns.
   efficiencyConfigProtection?: 'on' | 'off';
-  // EFFICIENCY_PLAN.md Phase E §9 — per-tab opt-in sandbox tools.
+  // docs/PROVIDERS.md - per-tab opt-in sandbox tools.
   // `off` (default) / `on`. Persists across server restart; honored
   // only on Claude Native turns. The per-tab sandbox.db lives next to
   // this meta.json and is unlinked when remove_workflow tears the tab
   // down (or the operator clicks Clear DB in the CONFIG tab).
   efficiencySandbox?: 'off' | 'on';
-  // DEBAG_PLAN.md — per-tab operator-armed durable review gate. `off` (default)
+  // docs/PROVIDERS.md - per-tab operator-armed durable review gate. `off` (default)
   // / `on`. Persists across server restart; honored only on Claude Native
   // turns. Absent on rehydrate ⇒ gate OFF (opting in is always explicit).
   reviewSafeMode?: 'off' | 'on';
-  // OUTPUT_STYLE_PLAN.md — per-tab output-style picker.
+  // docs/PROVIDERS.md - per-tab output-style picker.
   // `normal` (default), `lite`, `terse`. Persists across server restart;
   // honored by Claude Native, Codex app-server, and Z.ai turns. Renamed
   // `caveman` → `terse` 2026-05-10; legacy `caveman` values are
   // auto-aliased to `terse` on the rehydrate path in handleCreateWorkflow.
   outputStyle?: 'normal' | 'lite' | 'terse' | 'caveman';
-  // GOAL_NORTHSTAR_PLAN.md — per-tab operator-set persistent north-star (short
+  // docs/GOTCHAS.md - per-tab operator-set persistent north-star (short
   // free-text objective). Persists across server restart; injected as a stable
   // system block every turn on every transport that folds clusterPlan. Absent
   // on rehydrate ⇒ no north-star (byte-identical to pre-feature behavior). Cap
@@ -187,10 +187,10 @@ export interface WorkflowMeta {
   // checkout's DD7 trust decision without writing a new trust entry.
   managedWorktreeSourceCwd?: string;
   // R1 — second arming for remote DEBAG gate resolution (§9.2 of
-  // REMOTE_CLUSTER_CONTROL_PLAN.md). Absent/false ⇒ gates render read-only on
+  // docs/REMOTE_MANAGEMENT.md). Absent/false => gates render read-only on
   // the phone console and routed gate_resolve actions are rejected.
   remoteGatesEnabled?: boolean;
-  // EFFICIENCY_PLAN.md Phase F — operator-attached `codebase-memory-mcp`
+  // docs/PROVIDERS.md - operator-attached `codebase-memory-mcp`
   // per tab. Phase F ships UX wiring only; the actual `--mcp-config`
   // write-in at CLI spawn time is deferred (lands after Cluster 3's
   // `mcpConfigWriter`). Until then `attached` is the operator's intent bit
@@ -243,7 +243,7 @@ export interface WorkflowMeta {
   // children out of the top tab strip until the operator promotes them.
   // Persisted so a server restart restores the parent/child relationship.
   parentWorkflowId?: string;
-  // ARCO_OPS_PLAN.md §E1 — per-tab MCP allowlist. One entry per registry
+  // docs/ARCHITECTURE.md - per-tab MCP allowlist. One entry per registry
   // server the operator has interacted with for THIS tab: `enabled` is the
   // per-tab server toggle; `allowedDangerousTools` is the explicit tick-list
   // of dangerous tools opted back in; `tools` caches the last-probed list so
@@ -251,20 +251,20 @@ export interface WorkflowMeta {
   // a per-spawn probe. Keyed by serverId; the global server def lives in
   // ~/.arco/mcp/registry.json. Absent ⇒ no MCP servers wired for this tab.
   mcpAllow?: McpWorkflowAllow[];
-  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — mirror of the workflow's genesis
+  // docs/GENESIS.md - mirror of the workflow's genesis
   // seed, written once the from-nothing genesis is scaffolded and a cwd exists
   // (before that there is no meta.json — the seed lives only on the client-
   // persisted WorkflowConfig). Lets a scaffolded genesis project resume with its
   // seed intact for an in-workflow Creative-mode follow-up (M3). Absent on
   // ordinary workflows.
   genesisSeed?: GenesisSeed;
-  // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama generation-param preset blob.
+  // docs/PROVIDERS.md - per-tab Ollama generation-param preset blob.
   // Persisted so the operator's num_ctx / keep_alive / num_gpu / temperature
   // (+ pre-wired extensions) survive reload + server restart. Only meaningful
   // for primaryProvider='ollama'. Merged through the typed allowlist boundary
   // at request-build time (num_ctx trusted-only).
   ollamaParams?: Record<string, unknown>;
-  // PHASE_9_FORKS_PLAN.md — mutable head pointer over the immutable events.jsonl
+  // docs/PERSISTENCE.md - mutable head pointer over the immutable events.jsonl
   // log. ABSENT means "head is the physical file tail" → byte-identical to
   // pre-Phase-9 behavior (this is the load-bearing no-regression invariant).
   // When set, branch-aware replay walks the lineage from this seq (following
@@ -381,7 +381,7 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
   getRecallIndex().upsertFromMeta(meta).catch((err) => {
     console.error('[arco] recall index upsert failed:', err);
   });
-  // ARCO_OPS_PLAN.md §H1 — keep the project-local session index current after
+  // docs/ARCHITECTURE.md - keep the project-local session index current after
   // every turn. Same FAILURE-ISOLATED contract as the recall upsert above: the
   // session index is a rebuildable projection, so a hiccup must never break the
   // meta write. Fired-and-logged, never awaited.
@@ -563,7 +563,7 @@ export async function clearProviderCliSessions(
   });
 }
 
-// ARCO_OPS_PLAN.md §E1 — set one server's per-tab allowlist entry. Replaces
+// docs/ARCHITECTURE.md - set one server's per-tab allowlist entry. Replaces
 // the entry for `serverId` (or appends it) with the operator's per-tab enable
 // + dangerous-tool ticks. `tools` (optional) refreshes the cached probe list
 // used to compute `--disallowedTools` deterministically at turn time; pass it

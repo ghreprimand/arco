@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B1 — Production Service Mode: pure helpers.
+// docs/ARCHITECTURE.md - Production Service Mode: pure helpers.
 //
 // This module is deliberately side-effect-free: argv parsing + systemd unit
 // rendering only. No filesystem writes, no `systemctl` spawns, no auto-enable.

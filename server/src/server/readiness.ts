@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B2 — process readiness state.
+// docs/ARCHITECTURE.md - process readiness state.
 //
 // Module-level singleton (same mutable-cell pattern as index.ts's `capabilities`
 // cell) tracking whether the server has finished the boot work that must complete

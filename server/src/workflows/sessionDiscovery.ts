@@ -265,7 +265,7 @@ function readFirstUserText(cwd: string, wfid: string): string | undefined {
 export async function discoverSessions(targetDir: string): Promise<SessionInfo[]> {
   if (!targetDir) return [];
   const resolved = resolve(targetDir);
-  // ARCO_OPS_PLAN.md §H1 — resume-discovery trigger. Refresh the project-local
+  // docs/ARCHITECTURE.md - resume-discovery trigger. Refresh the project-local
   // session index for every workflow under this cwd (covers ones created by a
   // prior server process with no turn this run). Fired-and-logged, never awaited
   // into the picker result — the index is a rebuildable projection.

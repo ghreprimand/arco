@@ -1,4 +1,4 @@
-// GENESIS tab (ARCO_OPS_PLAN.md M2 + M3). The operator's seed editor for Genesis.
+// GENESIS tab (docs/ARCHITECTURE.md). The operator's seed editor for Genesis.
 // Two flows share this tab:
 //
 //   M2 — from-nothing: a genesis workflow living in its scratch ideation dir. Edit

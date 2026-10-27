@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — jest / vitest filter pack.
+// docs/PROVIDERS.md - jest / vitest filter pack.
 //
 // Both runners share enough of an output shape that one pack handles them.
 // Green (exit 0): drop ✓ / PASS lines, keep summary ("Tests:", "Test Suites:",

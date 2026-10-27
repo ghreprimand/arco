@@ -1,4 +1,4 @@
-// Remote Control v2 — R1 smoke (docs/REMOTE_CLUSTER_CONTROL_PLAN.md §5 R1).
+// Remote Control v2 - R1 smoke (docs/REMOTE_MANAGEMENT.md R1).
 //
 // Same shape as workflow-reporting.ts: REAL hub (scripts/management/hub.ts) +
 // REAL connector (server/src/management/hubLink.ts) in-process, Arco seams

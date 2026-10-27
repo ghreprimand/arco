@@ -1,6 +1,6 @@
 import type { JobState } from '../../stores/appStore';
 
-// EFFICIENCY_PLAN.md Phase F — Files-tab "Blast radius" sub-tab. When the
+// docs/PROVIDERS.md - Files-tab "Blast radius" sub-tab. When the
 // operator has attached codebase memory to this tab, this surface renders
 // `detect_changes` output (importers / call sites / affected routes) for
 // the current `git diff` against the index.

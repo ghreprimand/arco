@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { type JobState, type ResearchEntry } from '../../stores/appStore';
 import { EmptyState } from './FilesTab';
 
-// WORKBENCH_EXPANSION_PLAN.md §B2 — RESEARCH tab. Mirrors ReviewTab: a list of
+// docs/ARCHITECTURE.md - RESEARCH tab. Mirrors ReviewTab: a list of
 // research runs, each expandable to its cited report (fetched from the same
 // `GET /api/workflows/artifact` endpoint). The expanded viewer carries a "dig
 // deeper" composer that re-runs a bounded mini-round seeded with the report +
@@ -156,7 +156,7 @@ function ResearchRow({
   );
 }
 
-// "Dig deeper" composer — WORKBENCH_EXPANSION_PLAN.md §B2 step 4. Submits a
+// "Dig deeper" composer - docs/ARCHITECTURE.md step 4. Submits a
 // follow-up question that re-runs a bounded mini-round seeded with this report
 // + its sources, appending a dated addendum to the SAME artifact.
 function DigDeeperComposer({

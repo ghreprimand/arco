@@ -609,7 +609,7 @@ export function supportsClaudeAdaptiveThinking(modelId: string): boolean {
     || modelId.includes('sonnet-5');
 }
 
-// ── Fable 5.1 / append-only prefix capabilities (FABLE_51_APPEND_ONLY_PLAN.md) ──
+// -- Fable 5.1 / append-only prefix capabilities (docs/PROVIDERS.md) --
 // All keyed on the CONCRETE served id (Native resolves aliases before asking).
 // Kept as substring checks like supportsClaudeAdaptiveThinking so a dated
 // variant (`claude-fable-5-1-20260901`) lands on the right branch.

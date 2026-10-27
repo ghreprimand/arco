@@ -5,8 +5,7 @@
 // stubs global fetch and drives the LmstudioProvider worker + probe directly,
 // asserting the OpenAI-compatible HTTP contract. Offline-runnable.
 //
-// STANDING VERDICT under test (docs/LOCAL_AI_MASTER_PLAN.md §"Two standing
-// verdicts" + LE-7): LM Studio is an OpenAI-COMPATIBLE HTTP endpoint, NOT the
+// Provider contract under test (docs/PROVIDERS.md): LM Studio is an OpenAI-COMPATIBLE HTTP endpoint, NOT the
 // native lmstudio.js SDK. So every assertion here is about the OpenAI wire
 // shape: POST /v1/chat/completions with an OpenAI-shaped body, SSE `data:`
 // streaming with a `[DONE]` terminator, OpenAI `tool_calls` round-trip, the

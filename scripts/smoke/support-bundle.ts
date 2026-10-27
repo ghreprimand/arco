@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §A2 — Support bundle endpoint + redaction smoke.
+// docs/ARCHITECTURE.md - Support bundle endpoint + redaction smoke.
 //
 // Two halves:
 //   1. Unit-tests the redaction helpers directly (imported from the server

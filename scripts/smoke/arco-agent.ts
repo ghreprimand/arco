@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §K1 — arco-agent host-side smoke.
+// docs/ARCHITECTURE.md - arco-agent host-side smoke.
 //
 // Tests the security-load-bearing core directly (no hub, no systemctl), then a
 // full register + signed-command round-trip against an in-process fake hub:

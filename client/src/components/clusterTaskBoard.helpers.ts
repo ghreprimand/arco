@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §D3 — pure board-grouping helper.
+// docs/ARCHITECTURE.md - pure board-grouping helper.
 //
 // Split out of ClusterTaskBoardTab.tsx so the headless smoke
 // (scripts/smoke/task-board.ts) can import + assert the bucketing without

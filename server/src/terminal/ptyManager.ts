@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md Part K / §K1 — operator PTY session pool.
+// docs/TERMINAL.md - operator PTY session pool.
 //
 // A "session" is a long-lived node-pty child that outlives any window or WS
 // connection. The floating terminal window is a *view*: opening it attaches a

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §D3 — cluster task board + task peer-tools smoke.
+// docs/ARCHITECTURE.md - cluster task board + task peer-tools smoke.
 //
 // Headless / module-level (no live server, no API spend). Drives the real
 // clusterPeerOps task-ops against a real cluster + a real cwd-scoped task

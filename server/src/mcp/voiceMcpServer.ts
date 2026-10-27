@@ -1,5 +1,5 @@
 import '../envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
-// VOICE_AGENT_PLAN.md — per-spawn stdio MCP child for the "Computer" voice
+// docs/VOICE.md - per-spawn stdio MCP child for the "Computer" voice
 // operator chat. Stateless: (workflowId, port) from argv; every tool call is
 // one loopback POST to /api/voice/tool, which the server relays to the
 // browser that owns the hands-free session. The browser executes it through

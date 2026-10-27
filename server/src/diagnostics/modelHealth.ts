@@ -1,4 +1,4 @@
-// ── Local model health report (ARCO_OPS_PLAN.md §A3) ──
+// -- Local model health report (docs/ARCHITECTURE.md) --
 //
 // The single source behind GET /api/diagnostics/model-health. A richer,
 // structured sibling of the A1 Diagnostics tab, focused on the *model operator*

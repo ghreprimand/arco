@@ -20,7 +20,7 @@ if sys.platform.startswith("linux"):
 root = Path(sys.argv[1])
 speaking = len(sys.argv) > 2 and sys.argv[2] == 'tts'
 waking = len(sys.argv) > 2 and sys.argv[2] == 'wake'
-# VOICE_AGENT_PLAN.md — Microsoft Edge neural voices through the unofficial
+# docs/VOICE.md - Microsoft Edge neural voices through the unofficial
 # edge-tts endpoint: text leaves the machine, audio comes back as MP3. The
 # Node side falls back to local Kokoro when this child fails.
 edge = len(sys.argv) > 2 and sys.argv[2] == 'edge'

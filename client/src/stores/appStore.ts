@@ -121,7 +121,7 @@ async function commitBrightness(
 
 export const useAppStore = create<AppState>()(persist((set, get) => ({
   connected: false,
-  // ARCO_OPS_PLAN.md §C1 — richer connection overlay. Boots in 'connecting'
+  // docs/ARCHITECTURE.md - richer connection overlay. Boots in 'connecting'
   // (WS never opened). Not persisted (absent from partialize) so a reload
   // always re-derives it from a live socket rather than a stale snapshot.
   connectionState: 'connecting',
@@ -182,7 +182,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     return activeJobId ? jobs[activeJobId] : undefined;
   },
 
-  // WORKBENCH_EXPANSION_PLAN.md A1 — live retention snapshot for the dev
+  // docs/ARCHITECTURE.md A1 - live retention snapshot for the dev
   // MemoryHud and the mem-retention smoke. Pure read over current state; no
   // mutation. The store arrays are already capped (see memoryTrim.ts); this
   // surfaces the real footprint so a long session's growth can be measured.
@@ -887,7 +887,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       if (update.efficiencySandbox !== undefined) nextConfig.efficiencySandbox = update.efficiencySandbox;
       if (update.reviewSafeMode !== undefined) nextConfig.reviewSafeMode = update.reviewSafeMode;
       if (update.outputStyle !== undefined) nextConfig.outputStyle = update.outputStyle;
-      // GOAL_NORTHSTAR_PLAN.md — optimistic north-star apply; empty ⇒ clear.
+      // docs/GOTCHAS.md - optimistic north-star apply; empty => clear.
       if (update.goal !== undefined) nextConfig.goal = update.goal.trim() ? update.goal : undefined;
       if (update.pinnedSkills !== undefined) nextConfig.pinnedSkills = update.pinnedSkills.length
         ? update.pinnedSkills.map((s) => ({ ...s }))
@@ -923,7 +923,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       config: { ...j.config, name: name ?? '' },
     }))),
 
-  // ARCO_OPS_PLAN.md M2 — Genesis. Mirror the server's genesis_seed_updated
+  // docs/ARCHITECTURE.md - Genesis. Mirror the server's genesis_seed_updated
   // (seed + advisory readiness + next-field prompt) onto the workflow. The seed
   // also rides config.genesisSeed so it survives reload via the persisted config
   // (the durable home while the workflow is still cwd-less).
@@ -974,7 +974,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       return { genesisAssist: undefined };
     })),
 
-  // ARCO_OPS_PLAN.md M3 — mirror the server's genesis_creative_armed. Stores the
+  // docs/ARCHITECTURE.md - mirror the server's genesis_creative_armed. Stores the
   // (possibly prefilled) seed + readiness + next prompt like setGenesisSeed, plus the
   // armed flag and the codebase assessment. The seed rides config.genesisSeed so the
   // creative arming survives a reload via the persisted config.
@@ -1021,7 +1021,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setStandingGateApprovals: (jobId, approvals) =>
     set((s) => updateJob(s, jobId, () => ({ standingGateApprovals: approvals }))),
 
-  // DEBAG (docs/DEBAG_PLAN.md) — merge resolution state into the synthetic
+  // DEBAG (docs/PROVIDERS.md) - merge resolution state into the synthetic
   // `gate::<gateId>` message's toolUse.input so the inline approval card flips
   // to its resolved state (survives re-render + reflects cross-tab resolution).
   resolveGate: (jobId, gateId, patch) =>
@@ -1148,7 +1148,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setToolPosture: (jobId, posture) =>
     set((s) => updateJob(s, jobId, () => ({ toolPosture: posture }))),
 
-  // GOAL_NORTHSTAR_PLAN.md — sync the north-star from a server goal_set broadcast
+  // docs/GOTCHAS.md - sync the north-star from a server goal_set broadcast
   // (observer sync + reflects the server's capped/cleared value). null ⇒ cleared.
   setWorkflowGoal: (jobId, goal) =>
     set((s) => updateJob(s, jobId, (j) => ({ config: { ...j.config, goal: goal ?? undefined } }))),
@@ -1527,7 +1527,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   clearActivity: (jobId) =>
     set((s) => updateJob(s, jobId, () => ({ activity: [] }))),
 
-  // ULTRACODE_PLAN.md — replace the fleet snapshot in place (latest wins).
+  // docs/PROVIDERS.md - replace the fleet snapshot in place (latest wins).
   setUltracodeFleet: (jobId, snapshot) =>
     set((s) => updateJob(s, jobId, () => ({ ultracodeFleet: snapshot }))),
 
@@ -1915,7 +1915,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     ),
     activeJobId: s.activeJobId && !s.jobs[s.activeJobId]?.config.incognito ? s.activeJobId : null,
     activeClusterId: s.activeClusterId,
-    // CLUSTER_MODE_PLAN.md Phase 2 — persist the cluster mirror so a reload
+    // docs/PROTOCOL_CLUSTER.md - persist the cluster mirror so a reload
     // restores the cluster tab's [N] badge before the WS reconnects + the
     // server pushes a fresh cluster_state. The on-WS-open subscribe will
     // overwrite each entry with authoritative server state shortly after.
@@ -1952,7 +1952,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     // while the client retained the optimistic. Real content already lives
     // in sessionChat (rebuilt from Claude's JSONL on reconnect); the
     // optimistic was always just a render-placeholder. See
-    // docs/QUEUE_FIX_PLAN.md — Change C.
+    // docs/PROTOCOL.md
     const STALE_QUEUED_MS = 30_000;
     const now = Date.now();
     for (const job of Object.values(state.jobs)) {

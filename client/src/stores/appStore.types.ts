@@ -30,7 +30,7 @@ export interface PreviewCaptureRecord {
   completedAt: number;
 }
 
-// ARCO_OPS_PLAN.md §E1 — registry snapshot row (env-stripped — only key
+// docs/ARCHITECTURE.md - registry snapshot row (env-stripped - only key
 // names ride the wire) + the last probe result per server.
 export type McpRegistryRow = Omit<McpServerDef, 'env'> & { envKeys: string[] };
 export interface McpProbeState {
@@ -39,7 +39,7 @@ export interface McpProbeState {
   error?: string;
   at: number;
 }
-// ARCO_OPS_PLAN.md §C1 — connection-state union for the richer header
+// docs/ARCHITECTURE.md - connection-state union for the richer header
 // overlay. The pure deriver lives under ../runtime; this is a type-only import
 // (no values, no cycle — runtimeState imports nothing).
 import type { ConnectionState } from '../runtime/runtimeState';
@@ -51,7 +51,7 @@ export type QuotaSnapshot = QuotaStatusMessage['providers'];
 
 export type ArtifactItem = Omit<PrimaryArtifactMessage, 'type'>;
 
-// WORKBENCH_EXPANSION_PLAN.md A1 — retention snapshot for the dev MemoryHud and
+// docs/ARCHITECTURE.md A1 - retention snapshot for the dev MemoryHud and
 // the mem-retention smoke. Reports the live in-memory footprint so a long
 // session's growth curve can be measured (the store arrays are already capped;
 // this proves the caps hold and surfaces any unbounded growth elsewhere).
@@ -95,7 +95,7 @@ export interface ReviewEntry {
   error?: string;
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §B2 — entry-per-research-run for the right-pane
+// docs/ARCHITECTURE.md - entry-per-research-run for the right-pane
 // RESEARCH tab. Built from `research_started` / `research_progress` /
 // `research_complete` events. `artifactName` is the `research-<ts>.md` report;
 // a dig-deeper follow-up reuses the seed artifact's name (isFollowUp).
@@ -135,7 +135,7 @@ export interface ActivityEntry {
   at: number;
 }
 
-// ULTRACODE_PLAN.md — latest snapshot of an ultracode background fleet, shown
+// docs/PROVIDERS.md - latest snapshot of an ultracode background fleet, shown
 // as a FLEET panel atop the Activity tab. Replaced in place (not appended) on
 // each `ultracode_fleet_progress`; cleared on a new primary turn. Live-only —
 // the server emits it transiently (not persisted to events.jsonl).
@@ -219,13 +219,13 @@ export interface JobState {
   // Ollama/Strata — daemon-measured decode / prefill speed of the last turn.
   // Drives the composer footer's tok/s readout and the [TURN · …] stamp.
   lastGenSpeed?: GenerationSpeed;
-  // EFFICIENCY_PLAN.md Phase A — per-turn telemetry feed for the Activity
+  // docs/PROVIDERS.md - per-turn telemetry feed for the Activity
   // tab's "Token usage" section. Capped at TURN_TOKEN_USAGE_CAP entries
   // (oldest evicted). Not persisted in the client store across reloads —
   // events.jsonl on the server is the durable record; this is just the
   // sliding window for live rendering.
   turnTokenUsage?: PrimaryTurnTokenUsageMessage[];
-  // EFFICIENCY_PLAN.md Phase 6b.1 — running count of primary tool calls
+  // docs/PROVIDERS.md - running count of primary tool calls
   // since the last handoff (or session start, whichever is later).
   // Increments on every primary_tool_use; resets on handoff_complete /
   // ctx_action.compact. Drives the composer's nudge chip — when it crosses
@@ -236,13 +236,13 @@ export interface JobState {
   // counter stays as the audit fallback for non-Native tabs and the first
   // paint before the worker emits.
   toolCallsSinceHandoff?: number;
-  // EFFICIENCY_PLAN.md Phase D §8b — worker-authoritative mirror of the
+  // docs/PROVIDERS.md - worker-authoritative mirror of the
   // Claude Native worker's `toolCallCountSinceCompact`. Updated on every
   // `primary_tool_counter` server push. Native-only; undefined for CLI /
   // Codex / Gemini / Ollama / llama.cpp / Antigravity tabs. The composer
   // chip prefers this value over the local recount when defined.
   toolCallsSinceCompact?: number;
-  // EFFICIENCY_PLAN.md Phase E §9 — best-effort live count of sandbox
+  // docs/PROVIDERS.md - best-effort live count of sandbox
   // chunks stored in this tab's per-workflow SQLite index. Incremented on
   // every `sandbox_chunk_added` server push; reset to 0 on
   // `sandbox_db_cleared`. The CONFIG section and Files-tab sub-section
@@ -250,7 +250,7 @@ export interface JobState {
   // total-bytes line — this mirror just makes the chip update without
   // a refetch. Native-only; undefined for other tabs.
   sandboxChunkCount?: number;
-  // EFFICIENCY_PLAN.md Phase C — per-tool-use tool_filtered annotations.
+  // docs/PROVIDERS.md - per-tool-use tool_filtered annotations.
   // Keyed by toolUseId so the chat-side ToolCallPill can render a chip with
   // the original→filtered byte counts and offer raw-bytes recovery via the
   // gzipped artifact path. Populated by the `tool_filtered` WS handler;
@@ -272,13 +272,13 @@ export interface JobState {
   // Wall-clock timestamp of the current turn's start, for the composer's
   // elapsed-time counter. Cleared on primary_turn_ended.
   turnStartedAt?: number;
-  // ARCO_OPS_PLAN.md §C1 — wall-clock of the last *primary* content signal
+  // docs/ARCHITECTURE.md - wall-clock of the last *primary* content signal
   // (turn start / text / thinking / tool_use / activity / complete). The
   // runtime-state deriver reads `now - lastPrimaryEventAt` to tell a live-but-
   // working `busy` from a `stuck` worker that's stopped emitting. NOT bumped by
   // worker_* deltas — a child task streaming doesn't prove the primary is alive.
   lastPrimaryEventAt?: number;
-  // ARCO_OPS_PLAN.md §C1 — set when this workflow is (re)created with a
+  // docs/ARCHITECTURE.md - set when this workflow is (re)created with a
   // `resumedVia` (rehydrated from disk/replay). Drives the transient
   // `replay-recovered` badge for REPLAY_RECOVERED_WINDOW_MS. Distinct from
   // `resumedVia` (which persists for the RESUMED chip); this is a freshness
@@ -294,7 +294,7 @@ export interface JobState {
   // message so the tab always reflects the current turn, not a historical
   // log — historical activity lives in events.jsonl via review/handoff.
   activity: ActivityEntry[];
-  // ULTRACODE_PLAN.md — latest ultracode fleet snapshot for the FLEET panel
+  // docs/PROVIDERS.md - latest ultracode fleet snapshot for the FLEET panel
   // atop the Activity tab. Undefined unless this turn fanned out a background
   // fleet; cleared on each new primary turn.
   ultracodeFleet?: UltracodeFleetSnapshot | null;
@@ -409,13 +409,13 @@ export interface JobState {
   // Empty on a child workflow's view; the child has no Task children of
   // its own (depth-1 cap).
   taskChildren?: Record<string, TaskChildEntry>;
-  // WORKBENCH_EXPANSION_PLAN.md §C3 — latest LSP diagnostics, keyed by cwd-
+  // docs/ARCHITECTURE.md - latest LSP diagnostics, keyed by cwd-
   // relative file path. Each `diagnostics` WS message REPLACES the entry for
   // its file (an empty items[] clears it — that's how "fix the error, badge
   // drops" works). Transient: not persisted; rebuilt as the agent writes
   // files. Native-only; empty for transports without the write hook.
   diagnosticsByFile?: Record<string, DiagnosticItem[]>;
-  // ARCO_OPS_PLAN.md Part M (Genesis, M2) — staged-ideation seed + the
+  // docs/GENESIS.md - staged-ideation seed + the
   // engine's advisory readiness + next-field prompt for a from-nothing genesis
   // workflow. `genesisSeed` is mirrored from the server's `genesis_seed_updated`
   // (which the GENESIS tab also drives via `genesis_seed_update`). Present only
@@ -437,7 +437,7 @@ export interface JobState {
     options?: GenesisNameOption[];
     error?: string;
   };
-  // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode. `genesisCreativeArmed`
+  // docs/ARCHITECTURE.md - in-workflow Creative mode. `genesisCreativeArmed`
   // tracks the operator-armed toggle on an existing real-cwd workflow (distinct
   // from a from-nothing genesis, whose seed has no `creative` flag). `genesisCodebase`
   // is the point-in-time size/established assessment shown as the late-stage warning.
@@ -504,7 +504,7 @@ export interface HistoryEventEntry {
   checkpointSeq?: number;
   checkpointRef?: string;
   reverted?: boolean;
-  // PHASE_9_FORKS_PLAN.md — `fork` rows are leaf_move (REWIND CONVERSATION)
+  // docs/PERSISTENCE.md - `fork` rows are leaf_move (REWIND CONVERSATION)
   // markers. `branchSource` is the deterministic tag (v1 always 'revert');
   // `rewindTargetSeq` is the seq the head was moved to.
   branchSource?: BranchSource;
@@ -554,7 +554,7 @@ export function mergeTokens(a: TokenUsage, b?: TokenUsage): TokenUsage {
 
 export interface AppState {
   connected: boolean;
-  // ARCO_OPS_PLAN.md §C1 — richer overlay on top of `connected`. Set from
+  // docs/ARCHITECTURE.md - richer overlay on top of `connected`. Set from
   // the WS hook's /healthz probe: distinguishes a browser/network WS drop
   // (`disconnected`, server alive) from a dead server process (`server-down`).
   // `connected` stays the load-bearing boolean other code reads; this is the
@@ -651,11 +651,11 @@ export interface AppState {
   // and the CLI STATUS card. Empty array = dot off.
   cliChanges: CliChangeEntry[];
   artifactQueue: ArtifactItem[];
-  // ARCO_OPS_PLAN.md §D1 — project task ledger, keyed by cwd for the default
+  // docs/ARCHITECTURE.md - project task ledger, keyed by cwd for the default
   // board and by `${cwd}::${boardKey}` for namespaced boards. Mirrors the
   // server's task_ledger_snapshot broadcasts. A missing key = not yet loaded.
   taskLedger: Record<string, LedgerTask[]>;
-  // ARCO_OPS_PLAN.md §E1 — global MCP registry snapshot (machine-wide list;
+  // docs/ARCHITECTURE.md - global MCP registry snapshot (machine-wide list;
   // CRUD broadcasts replace it wholesale). Empty until the first snapshot.
   mcpRegistry: McpRegistryRow[];
   // Last probe result per serverId — drives the diagnostics + visible tool
@@ -698,7 +698,7 @@ export interface AppState {
   // owns comparison/promotion; attempt tabs stay ordinary JobState entries.
   bakeoffsByWorkflow: Record<string, BakeoffState[]>;
 
-  // CLUSTER_MODE_PLAN.md Phase 2 — cluster mirror. Server is authoritative;
+  // docs/PROTOCOL_CLUSTER.md - cluster mirror. Server is authoritative;
   // client mirrors a `cluster_state` payload per cluster. Membership is
   // fixed-at-create in Phase 2 (member_added / member_removed messages
   // exist for forward-compat but never fire today). activeClusterId is
@@ -712,7 +712,7 @@ export interface AppState {
   // when a cluster is activated. Lifted to the store so the TabBar's bottom
   // row can highlight the same member ClusterTab is rendering as focused.
   clusterFocusedMember: Record<string, string>;
-  // CLUSTER_GRID_PLAN.md §4 — fraction of ClusterTab body width given to
+  // docs/CLIENT.md - fraction of ClusterTab body width given to
   // the MemberCard grid (left). Detail MemberPane gets the remainder.
   // Persisted via the existing zustand-persist partialize so the splitter
   // survives reload. Clamped at use-site to [240px / 360px] minimums.
@@ -748,7 +748,7 @@ export interface AppState {
 
   // Connection
   setConnected: (connected: boolean, sessionId?: string) => void;
-  // ARCO_OPS_PLAN.md §C1 — pushed from the WS hook after each socket
+  // docs/ARCHITECTURE.md - pushed from the WS hook after each socket
   // transition / healthz probe. Drives the header's connection badge.
   setConnectionState: (state: ConnectionState) => void;
   // §C1 — stamp the last primary content signal (turn start / text / thinking
@@ -815,7 +815,7 @@ export interface AppState {
   setActiveDocRef: (v: AppState['activeDocRef']) => void;
   setQuotaState: (q: QuotaSnapshot) => void;
   setCliChanges: (c: CliChangeEntry[]) => void;
-  // ARCO_OPS_PLAN.md §D1 — replace the cwd's task list from a snapshot.
+  // docs/ARCHITECTURE.md - replace the cwd's task list from a snapshot.
   setTaskLedger: (cwd: string, tasks: LedgerTask[], boardKey?: string) => void;
   setMcpRegistry: (defs: McpRegistryRow[]) => void;
   setMcpProbeResult: (serverId: string, result: McpProbeState) => void;
@@ -862,7 +862,7 @@ export interface AppState {
   // workspace_snapshot) — mirrored browsers converge on the server's config.
   replaceJobConfig: (jobId: string, config: WorkflowConfig) => void;
   updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
-  // EFFICIENCY_PLAN.md Phase F — mirror of the server's
+  // docs/PROVIDERS.md - mirror of the server's
   // `codebase_memory_state` push onto `job.config.codebaseMemory` so the
   // CONFIG section + Files-tab Blast Radius sub-tab read from one source.
   setCodebaseMemoryState: (jobId: string, state: { attached: boolean; indexPath?: string; lastIndexedAt?: number; fileCount?: number }) => void;
@@ -871,21 +871,21 @@ export interface AppState {
   // displayName fallback; client just drops the override).
   setWorkflowName: (jobId: string, name: string | null) => void;
 
-  // ARCO_OPS_PLAN.md M2 — Genesis seed/readiness mirror + cwd rebind + scaffold result.
+  // docs/ARCHITECTURE.md - Genesis seed/readiness mirror + cwd rebind + scaffold result.
   setGenesisSeed: (jobId: string, payload: { seed: GenesisSeed; readiness: GenesisReadiness; nextPrompt: string }) => void;
   setWorkflowCwd: (jobId: string, cwd: string) => void;
   setGenesisScaffold: (jobId: string, result: NonNullable<JobState['genesisScaffold']>) => void;
   setGenesisAssistStarted: (jobId: string, payload: { requestId: string; field: GenesisAssistField; intent: GenesisAssistIntent }) => void;
   setGenesisAssistProposed: (jobId: string, payload: { requestId: string; field: GenesisAssistField; intent: GenesisAssistIntent; suggestion: string; rationale?: string; options?: GenesisNameOption[]; error?: string }) => void;
   clearGenesisAssist: (jobId: string, requestId?: string) => void;
-  // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
+  // docs/ARCHITECTURE.md - in-workflow Creative mode arm/disarm echo.
   setGenesisCreative: (jobId: string, payload: { armed: boolean; seed: GenesisSeed; readiness: GenesisReadiness; nextPrompt: string; codebase?: GenesisCodebaseInfo }) => void;
 
   // Scoped actions (by jobId)
   addMessage: (jobId: string, msg: ChatMessage) => void;
   removeMessage: (jobId: string, messageId: string) => void;
   updateMessage: (jobId: string, messageId: string, patch: Partial<ChatMessage>) => void;
-  // DEBAG (docs/DEBAG_PLAN.md) — merge resolution state into a gate card's
+  // DEBAG (docs/PROVIDERS.md) - merge resolution state into a gate card's
   // toolUse.input (keyed by gateId → the `gate::<gateId>` message).
   resolveGate: (jobId: string, gateId: string, patch: Record<string, unknown>) => void;
   // DEBAG sub-phase 5 — replace the per-workflow standing-approval list (full
@@ -913,7 +913,7 @@ export interface AppState {
   setPrimaryModel: (jobId: string, resolvedModel: string) => void;
   setToolPosture: (jobId: string, posture: ToolPosture) => void;
   setWorkflowGoal: (jobId: string, goal: string | null) => void;
-  // GOAL_RUN_PLAN.md — mirror of the server's goal_run_state broadcast.
+  // docs/GOTCHAS.md - mirror of the server's goal_run_state broadcast.
   // undefined ⇒ the run is off (armed state is never persisted server-side, so
   // a reconnect after a restart correctly shows no run).
   setGoalRun: (jobId: string, state: WorkflowConfig['goalRun']) => void;
@@ -934,7 +934,7 @@ export interface AppState {
   // out-of-order `ready` (client missed `started`) falls back to the seed
   // values in the patch.
   upsertReview: (jobId: string, reviewId: string, patch: Partial<Omit<ReviewEntry, 'reviewId'>>) => void;
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — insert or patch a research entry (keyed
+  // docs/ARCHITECTURE.md - insert or patch a research entry (keyed
   // by researchId). Called from `research_started` (seed) / `research_progress`
   // (progressNote) / `research_complete` (artifactName, roundsUsed, sourceCount,
   // error). Out-of-order events fall back to the patch's seed values.
@@ -958,7 +958,7 @@ export interface AppState {
   // Clear activity on fresh user message (the NEW turn hasn't started yet
   // but the operator is steering — make the feed empty for the next turn).
   clearActivity: (jobId: string) => void;
-  // ULTRACODE_PLAN.md — replace the live ultracode fleet snapshot (or null it).
+  // docs/PROVIDERS.md - replace the live ultracode fleet snapshot (or null it).
   setUltracodeFleet: (jobId: string, snapshot: UltracodeFleetSnapshot | null) => void;
   // Slot 5 — monotonically advance lastSeq as the client observes server-
   // stamped events. Also called unconditionally with `force=true` to accept

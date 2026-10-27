@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — ls filter pack.
+// docs/PROVIDERS.md - ls filter pack.
 //
 // `ls -la` against a deep tree easily breaks 50 KB. Cap small from the
 // head — directory listings are alphabetic, the head is the useful part.

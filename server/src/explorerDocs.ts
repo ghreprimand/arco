@@ -1,5 +1,5 @@
 import { confinedPath } from './fileAccessPolicy.js';
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — project-DOCUMENT scan. The ARTIFACTS
+// ARCHIVE (docs/CLIENT.md) - project-DOCUMENT scan. The ARTIFACTS
 // lens is a project-artifact tool, and the documents an operator most wants to
 // find live in the PROJECT TREE (e.g. `Codex/Reports/2026-07-10_*.md`, top-level
 // `*.md`, `docs/*.md`) — NOT under `.arco/workflows/*/artifacts/` (those are

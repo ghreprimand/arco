@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2.6 — headless WS smoke.
+// docs/PROTOCOL_CLUSTER.md - headless WS smoke.
 //
 // Covers steps 2–9 of the manual acceptance recipe (set plan, propagate via
 // cluster_state, 32 KB cap, empty/whitespace reject, role set + clear, plan

@@ -3,7 +3,7 @@ import { useVoiceStore } from './store';
 import { useAppStore } from '../stores/appStore';
 import { computerRequestActive } from './computerRequest';
 
-// VOICE_AGENT_PLAN.md — the browser half of the arco-voice relay. The
+// docs/VOICE.md - the browser half of the arco-voice relay. The
 // server forwards a Computer-chat tool call to every observer of that chat;
 // only the owning browser with hands-free enabled or an explicit typed request
 // answers. Everything else ignores the call. Results are one-liners the

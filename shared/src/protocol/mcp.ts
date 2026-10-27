@@ -1,4 +1,4 @@
-// ── MCP registry (ARCO_OPS_PLAN.md §E1, Part E) ──
+// -- MCP registry (docs/ARCHITECTURE.md) --
 //
 // A first-class registry of external MCP servers the operator can register
 // once (globally) and then enable per workflow tab. Replaces the ad-hoc

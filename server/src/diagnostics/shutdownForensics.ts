@@ -1,4 +1,4 @@
-// H42 part B — shutdown forensics line (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
+// H42 part B - shutdown forensics line (docs/GOTCHAS.md).
 //
 // When systemd (or a Ctrl-C) stops the server, every in-flight turn dies mid-
 // flight: the SIGTERM→SIGKILL reap in onSignal kills the detached worker process

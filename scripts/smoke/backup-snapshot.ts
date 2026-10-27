@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F1 — backup snapshot smoke (no live server, no real ~/.arco).
+// docs/ARCHITECTURE.md - backup snapshot smoke (no live server, no real ~/.arco).
 //
 // Builds a temp fake Arco home with a known .arco tree (captured files, a
 // secret tree, a regenerable cache, a cluster mailbox, settings with a secret

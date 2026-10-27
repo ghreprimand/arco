@@ -1,4 +1,4 @@
-// ── Preview-capture WS handler (ARCO_OPS_PLAN.md G1) ──
+// -- Preview-capture WS handler (docs/ARCHITECTURE.md) --
 //
 // One operator-driven message: `preview_capture_request`. Resolve the workflow's
 // bound preview port, drive a system headless browser at it

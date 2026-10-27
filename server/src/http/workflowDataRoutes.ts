@@ -111,7 +111,7 @@ async function handleSessionIndexMutation(
 
 // Workflow-data route group — transcripts, sessions, workflow listing/events,
 // handoff + artifact readers, and the plans REST CRUD. Peeled verbatim from
-// router.ts (see docs/FILE_SIZE_REFACTOR_PLAN.md). Returns true when a route
+// router.ts (see docs/ARCHITECTURE.md). Returns true when a route
 // in this group matched (request answered), false otherwise so the caller
 // falls through to the next route group.
 export async function tryHandleWorkflowDataRoutes(

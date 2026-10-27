@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §D2 (Part D) — ledger ↔ plan/review/workflow link smoke.
+// docs/TASK_LEDGER.md - ledger <-> plan/review/workflow link smoke.
 //
 // Headless / module-level (no live server, no API spend): D2 adds NO protocol —
 // links flow through the existing task_ledger_update path — so the durable

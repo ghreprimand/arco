@@ -3,7 +3,7 @@ import type { JobState } from '../../stores/appStore';
 import type { KnowledgeArticle, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { useKnowledgeDistillStore } from '../../stores/knowledgeDistillStore';
 
-// WORKBENCH_EXPANSION_PLAN.md §B3 — "Add from…" wizard.
+// docs/ARCHITECTURE.md - "Add from..." wizard.
 //
 // Three sources, all converging on the SAME editable draft fields the operator
 // then Saves:

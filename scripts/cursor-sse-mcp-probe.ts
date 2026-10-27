@@ -1,9 +1,9 @@
 /**
- * THROWAWAY Phase-6 GATE probe for the Cursor (ACP) provider — docs/CURSOR_TRANSPORT_PLAN.md
- * §Phase 6 (peer-tools / cluster membership). NOT shipped.
+ * THROWAWAY Phase-6 GATE probe for the Cursor (ACP) provider - docs/PROVIDERS.md
+ * section Phase 6 (peer-tools / cluster membership). NOT shipped.
  *
  * The spike (item 8) established: Cursor ACP advertises `mcpCapabilities:{http:true,sse:true}`
- * and NO stdio — a stdio `mcpServers` entry was accepted but its tool was never called. Before
+ * and NO stdio - a stdio `mcpServers` entry was accepted but its tool was never called. Before
  * we wire the loopback `arco-cluster` peer-tools MCP for real, this micro-probe confirms the
  * OTHER half of that finding: that a loopback HTTP/SSE MCP server's tools DO appear + are
  * callable over ACP. GO/NO-GO for all Cursor cluster membership.
@@ -17,7 +17,7 @@
  * 127.0.0.1 over BOTH transports at once:
  *   - Streamable HTTP  at  http://127.0.0.1:<port>/mcp
  *   - Legacy SSE       at  http://127.0.0.1:<port>/sse  (+ POST /messages)
- * then drives two ACP sessions — one pointed at each — and asks the agent to call the tool.
+ * then drives two ACP sessions - one pointed at each - and asks the agent to call the tool.
  * The tool handler records which transport delivered the call. Verdict → stdout.
  *
  * Wire log → scratchpad (path printed at start).

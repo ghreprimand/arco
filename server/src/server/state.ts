@@ -5,7 +5,7 @@
 // primitives. Hoisting them into a leaf module (no imports back into index.ts)
 // lets those subsystems move into their own files while sharing one instance:
 // ES module bindings are live, so `workflows.set(...)` from any importer
-// mutates the same registry. See docs/FILE_SIZE_REFACTOR_PLAN.md Phase 4.
+// mutates the same registry. See docs/ARCHITECTURE.md
 
 import type { WebSocket } from 'ws';
 import type { Session, WorkflowState, CwdHandoffSlot, PlansWatcher } from '../workflows/types.js';

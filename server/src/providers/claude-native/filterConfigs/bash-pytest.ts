@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — pytest filter pack.
+// docs/PROVIDERS.md - pytest filter pack.
 //
 // Green (exit 0): drop the per-test "tests/foo.py::bar PASSED" lines, keep
 // the session header ("platform …", "rootdir: …", "collected N items") and

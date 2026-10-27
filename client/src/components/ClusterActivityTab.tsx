@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 5 — unified cluster-scoped event feed,
+// docs/PROTOCOL_CLUSTER.md - unified cluster-scoped event feed,
 // extended (2026-05-11) with per-member tool activity so an operator can
 // see READ / BASH / TodoWrite etc. without drilling into each member tab.
 //

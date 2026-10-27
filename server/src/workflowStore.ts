@@ -156,7 +156,7 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
     await fs.access(gitignorePath).catch(async () => {
       await fs.writeFile(
         gitignorePath,
-        // session-index.json (ARCO_OPS_PLAN.md §H1) + title-events.jsonl (§H2)
+        // session-index.json + title-events.jsonl (docs/RESUME_INDEX.md)
         // are rebuildable projections of meta.json/events.jsonl — ephemeral like
         // workflows/, so they're ignored too.
         '# Arco per-workflow state — ephemeral, don\'t commit\nworkflows/\nsession-index.json\ntitle-events.jsonl\n',

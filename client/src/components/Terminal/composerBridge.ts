@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §K5 — operator→agent output bridge (pure core).
+// docs/ARCHITECTURE.md - operator->agent output bridge (pure core).
 //
 // Formats a slice of SELECTED terminal output as a quoted context block and
 // APPENDS it to the operator's existing composer draft. This is the only

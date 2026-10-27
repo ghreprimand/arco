@@ -3,7 +3,7 @@ import { useCompareStore } from '../../stores/compareStore';
 import { CompareDialog } from './CompareDialog';
 import { dispatchCompare } from '../terminalInput/compare';
 
-// Globally-mounted host for the Compare dialog — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Globally-mounted host for the Compare dialog - docs/ARCHITECTURE.md
 //
 // The COMPARE button (TerminalInput) flips compareStore.dialogOpen +
 // dialogWorkflowId; this host resolves that workflow's config (for the RUN AS

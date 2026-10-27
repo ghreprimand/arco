@@ -1,4 +1,4 @@
-// Acceptance smoke for ULTRACODE mode (docs/ULTRACODE_PLAN.md).
+// Acceptance smoke for ULTRACODE mode (docs/PROVIDERS.md).
 //
 // What it guards: an ultracode turn runs the harness WorkflowTool, which fans
 // out a BACKGROUND subagent fleet. A background workflow emits TWO `result`

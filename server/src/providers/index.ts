@@ -129,7 +129,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   if (name === 'cursor' && config.interactionMode === 'chat') {
     return CursorPrintProvider.create(id, config);
   }
-  // ZAI_NATIVE_PLAN.md — Z.ai defaults to direct native Chat Completions.
+  // docs/PROVIDERS.md - Z.ai defaults to direct native Chat Completions.
   // The legacy Codex app-server proxy remains selectable as fallback.
   if (name === 'zai') {
     if (config.zaiTransport === 'appserver') {

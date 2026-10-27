@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 2 + 2.5 — right-click affordance for cluster
+// docs/PROTOCOL_CLUSTER.md + 2.5 - right-click affordance for cluster
 // creation / membership.
 //
 // Three modes, picked at the top of the modal:

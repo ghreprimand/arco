@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 — global MCP server registry.
+// docs/ARCHITECTURE.md - global MCP server registry.
 //
 // Stores operator-registered MCP server defs at `~/.arco/mcp/registry.json`
 // (override base via $ARCO_HOME, else $HOME/.arco — same convention as the

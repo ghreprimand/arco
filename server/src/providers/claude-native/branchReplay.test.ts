@@ -1,4 +1,4 @@
-// PHASE_9_FORKS_PLAN.md sub-phase 1 — branch-aware replay pre-pass.
+// docs/PERSISTENCE.md - branch-aware replay pre-pass.
 //
 // Proves the load-bearing invariants:
 //  - leafSeq ABSENT ⇒ identity ⇒ byte-identical to pre-Phase-9 flat replay.

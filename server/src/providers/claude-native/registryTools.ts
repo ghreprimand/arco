@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 (E1-Native) — registry MCP tools for the in-process
+// docs/ARCHITECTURE.md (E1-Native) - registry MCP tools for the in-process
 // Claude Native host.
 //
 // Two responsibilities, kept OUT of worker.ts so the smoke can test them

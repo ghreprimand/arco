@@ -92,7 +92,7 @@ import {
 } from './workerHelpers.js';
 import { buildFoldDigest } from './foldDigest.js';
 import { CLAUDE_CLI_USER_AGENT } from './wireFingerprint.js';
-// FABLE_51_APPEND_ONLY_PLAN.md — frozen-prefix helpers (pure; unit-tested).
+// docs/PROVIDERS.md - frozen-prefix helpers (pure; unit-tested).
 import {
   BETA_MID_CONVERSATION_TOOL_CHANGES,
   BETA_SYSTEM_CLEAR_AT,
@@ -271,7 +271,7 @@ export interface PlanBroadcast {
 
 interface PendingQuestion {
   id: string;
-  // R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.1) — the question text + options are
+  // R1 (docs/REMOTE_MANAGEMENT.md) - the question text + options are
   // kept on the park so the remote console can render the decision without
   // parsing the [ASK:…] system_notice back out of events.jsonl.
   text: string;
@@ -280,7 +280,7 @@ interface PendingQuestion {
   reject: (err: Error) => void;
 }
 
-// DEBAG (docs/DEBAG_PLAN.md) — a parked review gate awaiting an operator
+// DEBAG (docs/PROVIDERS.md) - a parked review gate awaiting an operator
 // decision. Keyed by the tool_use id. Mirrors PendingQuestion's resolve/reject
 // shape; the resolve carries the decision and (sub-phase 3) the edited args.
 interface PendingGate {
@@ -318,7 +318,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   private projectFacts: import('./workspaceFacts.js').ProjectFacts | null = null;
   private factsProbedForCwd: string | null = null;
   private authFailureCount = 0;
-  // A1 (REMOTE_CLUSTER_CONTROL_PLAN.md §10.2) — one forced token refresh per
+  // A1 (docs/REMOTE_MANAGEMENT.md) - one forced token refresh per
   // turn on a 401. Anthropic revokes access tokens ahead of local expiresAt,
   // so the first 401 tries the refresh chain before surfacing [AUTH:claude];
   // the flag stops a dead chain from looping refresh attempts.
@@ -372,7 +372,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // after every dispatched tool call.
   private toolLoopGuard = new ToolLoopGuard();
   private planMode = false;
-  // FABLE_51_APPEND_ONLY_PLAN.md §1 — frozen request prefix. Captured on the
+  // docs/PROVIDERS.md - frozen request prefix. Captured on the
   // worker's first messages.create and only ever EXTENDED afterwards; every
   // later change to what buildSystemBlocks()/buildToolDefs() would produce is
   // delivered as an appended `role: 'system'` message instead. `undefined`
@@ -408,7 +408,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Phase 7b hooks. Wired by ClaudeNativeProvider after construction.
   private planBroadcast: PlanBroadcast | null = null;
   private taskHandler: TaskSpawnHandler | null = null;
-  // EFFICIENCY_PLAN.md Phase B/D — generic workflow-scoped event sink for
+  // docs/PROVIDERS.md - generic workflow-scoped event sink for
   // hook_rewrote_input / tool_gate_triggered / ctx_action. Wired by
   // ClaudeNativeProvider; no-op when absent (e.g. tests).
   private workflowEventBroadcast: (msg: ServerMessage) => void = () => { /* no-op */ };
@@ -417,7 +417,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // the `cluster_plan_tick` peer tool today; defaults to a no-op for non-
   // cluster workers so the tool falls back to the workflow-scoped sink.
   private clusterEventBroadcast: (msg: ServerMessage) => void = () => { /* no-op */ };
-  // EFFICIENCY_PLAN.md Phase 6b.2 — running count of tool calls since the
+  // docs/PROVIDERS.md - running count of tool calls since the
   // last threshold emission. Increments per dispatched tool; resets when
   // the threshold is crossed (so the next emission fires after the
   // configured interval, not on every tool call past the first threshold).
@@ -426,11 +426,11 @@ export class ClaudeNativeWorker extends EventEmitter {
   // events. Worker rebuild (handoff_complete → disposeProviderResources)
   // is the implicit reset on the handoff path.
   private toolCallCountSinceCompact = 0;
-  // EFFICIENCY_PLAN.md Phase D §8a — paths edited this turn. Reset at the
+  // docs/PROVIDERS.md - paths edited this turn. Reset at the
   // top of `runTurn` so each operator turn re-opens the fact-force gate.
   // `checkFactForceFirstEdit` populates this set during dispatch.
   private filesEditedThisTurn = new Set<string>();
-  // EFFICIENCY_PLAN.md Phase C — per-turn id used as the gzipped raw-tools
+  // docs/PROVIDERS.md - per-turn id used as the gzipped raw-tools
   // artifact filename prefix (`<turnId>-<toolUseId>.txt.gz`). Set at the
   // top of `runTurn`; falls back to 0 for any (defensive) dispatch outside
   // a turn so the filename stays well-formed.
@@ -439,7 +439,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // a second AskUserQuestion call returns an [error] tool result without
   // displacing the existing wait.
   private pendingQuestion: PendingQuestion | null = null;
-  // DEBAG (docs/DEBAG_PLAN.md) — parked review gates by tool_use id. Multiple
+  // DEBAG (docs/PROVIDERS.md) - parked review gates by tool_use id. Multiple
   // can coexist in principle, but sequential tool dispatch means only one is
   // ever parked at a time (the for-loop suspends on the await). The durable
   // record in events.jsonl is the source of truth; this Map is the live handle.
@@ -447,7 +447,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Active Task children. Map entry dropped on dispose; on parent cancel,
   // each child's cancel() runs.
   private tasksByTaskId = new Map<string, TaskSpawnHandle>();
-  // ARCO_OPS_PLAN.md §E1 (E1-Native) — open MCP sessions for this worker's
+  // docs/ARCHITECTURE.md (E1-Native) - open MCP sessions for this worker's
   // operator-allowed registry servers, keyed by `ResolvedMcpServer.key`
   // (`reg-<id8>`). Opened lazily and reconciled at turn start
   // (reconcileMcpSessions): open newly-allowed servers, close newly-removed.
@@ -483,7 +483,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.clusterEventBroadcast = fn;
   }
 
-  // EFFICIENCY_PLAN.md Phase 6b.2 — fire a ctx_action {trigger:
+  // docs/PROVIDERS.md - fire a ctx_action {trigger:
   // "auto-threshold"} whenever the tool-call counter crosses one of the
   // configured thresholds. "conservative" = first at 75 then every 50;
   // "aggressive" = first at 50 then every 25. Counter resets to 0 each
@@ -517,7 +517,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
   }
 
-  // EFFICIENCY_PLAN.md Phase C — gzip a tool's pre-filter raw output to
+  // docs/PROVIDERS.md - gzip a tool's pre-filter raw output to
   // `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz`
   // so the operator can recover what the model didn't see. Returns the
   // workspace-relative path (suitable for the `tool_filtered.rawArtifactPath`
@@ -654,7 +654,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     return stop;
   }
 
-  // R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.1) — read-only snapshot of parked
+  // R1 (docs/REMOTE_MANAGEMENT.md) - read-only snapshot of parked
   // interactions for the hub link's workflow summary. Never exposes resolve
   // handles; args stay a bounded preview. Live-worker view only — a gate
   // orphaned by a server restart lives in the sidecar (gateStore), not here,
@@ -690,7 +690,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     return true;
   }
 
-  // DEBAG (docs/DEBAG_PLAN.md) — server's WS handler routes gate_reply here.
+  // DEBAG (docs/PROVIDERS.md) - server's WS handler routes gate_reply here.
   // Returns false if no matching gate is parked (stale / already-resolved
   // reply), so the caller can log a drop instead of silently succeeding.
   resolveGate(
@@ -1203,7 +1203,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       const cwd = this.config.persistenceCwd ?? this.config.cwd;
       if (cwd) {
         try {
-          // PHASE_9_FORKS_PLAN.md — if the head was rewound, replay walks the
+          // docs/PERSISTENCE.md - if the head was rewound, replay walks the
           // branch from meta.leafSeq instead of the physical tail. Absent ⇒
           // tail ⇒ byte-identical to pre-Phase-9 cold start.
           const meta = await readMeta(cwd, this.workflowId);
@@ -1225,7 +1225,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           this.messages = replay.messages as MessageParam[];
           this.resetPrefixFreeze('replay');
           if (replay.reconstructed) {
-            // PHASE_9_FORKS_PLAN.md sub-phase 4 — the rewound branch's ancestry
+            // docs/PERSISTENCE.md - the rewound branch's ancestry
             // had rotated off the size-capped log, so this is a RECONSTRUCTED
             // (lossy) rewind, not a byte-for-byte replay. Surface it loudly
             // rather than silently degrading (hygiene-B). journalctl is the
@@ -1337,7 +1337,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // Every request that carries the signed server-Fold block needs its beta,
     // or the block reads as an unknown content type (400).
     if (serverFoldLead) parts.push(SERVER_FOLD_BETA);
-    // FABLE_51_APPEND_ONLY_PLAN.md — pairs with the request-body fields the
+    // docs/PROVIDERS.md - pairs with the request-body fields the
     // frozen-prefix path adds. Each beta only when its feature is actually on
     // the wire, so a model/org that lacks one never sees the header.
     const model = this.capModel();
@@ -1354,7 +1354,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     return this.messages.some((m) => isArcoSystemMessage(m) && (m as unknown as { arco?: string }).arco === 'tool_set_change');
   }
 
-  // FABLE_51_APPEND_ONLY_PLAN.md §1.6 — the conversation itself restarted
+  // docs/PROVIDERS.md - the conversation itself restarted
   // (summary seed, replay from disk, handoff seed): nothing bound survives, so
   // the next request may take a fresh snapshot. Never call this for a config
   // change — that is exactly the edit the freeze exists to absorb.
@@ -1369,7 +1369,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.sentThrough = 0;
   }
 
-  // FABLE_51_APPEND_ONLY_PLAN.md §1.1–1.2 — the `system` + `tools` that go on
+  // docs/PROVIDERS.md - the `system` + `tools` that go on
   // the wire for this round, and the `role: 'system'` message (if any) that
   // carries what changed since the freeze. MUTATES worker state: extends the
   // frozen tool array with deferred declarations and updates activeToolKeys.
@@ -1509,12 +1509,12 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
   }
 
-  // CLUSTER_MODE_PLAN.md Phase 1 — peer tools register only when the
+  // docs/PROTOCOL_CLUSTER.md - peer tools register only when the
   // worker is in a cluster. Plan §6.1d: leaking peer tools into a
   // non-cluster workflow breaks the no-orchestrator invariant (operator
   // hasn't opted that workflow into peer messaging). Gate is strictly
   // `clusterId !== undefined`.
-  // ARCO_OPS_PLAN.md §E1 (E1-Native) — reconcile the open MCP sessions
+  // docs/ARCHITECTURE.md (E1-Native) - reconcile the open MCP sessions
   // against `config.mcpRegistryServers` at turn start. Open newly-allowed
   // servers (lazy connect → cache), close servers the operator removed since
   // the last turn (per-tab disable / global disable / dangerous-tick change
@@ -1589,12 +1589,12 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.planMode, // DD11a — hide non-readonly MCP tools while planning
     );
     if (registryDefs.length > 0) extras.push(...registryDefs);
-    // EFFICIENCY_PLAN.md Phase E §9a — sandbox tools are operator-opted-in
+    // docs/PROVIDERS.md - sandbox tools are operator-opted-in
     // per tab. Adding them mid-life takes effect on the next turn (tools[]
     // is rebuilt per messages.create), matching the toggle's CONFIG-tab
     // contract. Flipping back to 'off' un-registers the descriptors.
     if (!isolated && (this.config.efficiencySandbox ?? 'off') === 'on') extras.push(...getSandboxToolDefinitions());
-    // WORKBENCH_EXPANSION_PLAN.md §B2 — Deep Research threads its `maxRounds`
+    // docs/ARCHITECTURE.md - Deep Research threads its `maxRounds`
     // through as `webSearchMaxUses` so the web_search / web_fetch budget is a
     // MECHANICAL hard ceiling, not just a prompt-stated cap. Unset ⇒ default 10.
     const serverTools = this.config.webSearchMaxUses !== undefined
@@ -1643,7 +1643,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return blocks;
     }
 
-    // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star. Pushed
+    // docs/GOTCHAS.md - operator-set persistent north-star. Pushed
     // immediately after the identity block and before the cluster plan: it is
     // the most stable per-session block after FORCED_FIRST_BLOCK, so it belongs
     // in the cached prefix. Zero model authority — the block's own trailer
@@ -1704,7 +1704,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       });
     }
 
-    // EFFICIENCY_PLAN.md Phase E §9b — soft nudge about the sandbox tools.
+    // docs/PROVIDERS.md - soft nudge about the sandbox tools.
     // Lands AFTER plan + role (so they read as a higher-priority framing)
     // and BEFORE the operator's appendSystemPrompt / systemPrompt (so the
     // operator's instructions still win on conflict). Skipped when the
@@ -1762,7 +1762,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         'if your final paragraph describes work you have not done, do that work now instead of ending the turn. ' +
         'If a delegated Task child fails or returns an error or nonsense (e.g. a login error), say so explicitly in your reply and adapt openly — never silently work around a failed delegation. ' +
         // Fable 5.1 rewrites whole files where a targeted edit would do
-        // (FABLE_51_APPEND_ONLY_PLAN.md §3); Anthropic's documented one-liner.
+        // (docs/PROVIDERS.md); Anthropic's documented one-liner.
         'The number of tokens used to edit files is best minimized, all else being equal. Therefore, when it will not affect the end result, try to surgically edit a file rather than rewrite the entire thing.',
     });
     // H54 — workspace facts (detected verify/build/test commands + git branch).
@@ -1777,7 +1777,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (this.config.systemPrompt) {
       blocks.push({ type: 'text', text: this.config.systemPrompt });
     }
-    // OUTPUT_STYLE_PLAN.md — append after project context so the level's
+    // docs/PROVIDERS.md - append after project context so the level's
     // verbatim/auto-clarity rules are read alongside any operator system
     // prompt. `normal` returns null (no block, no extra input tokens).
     const styleText = outputStyleAddendum(this.config.outputStyle);
@@ -2010,7 +2010,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return { type: 'text', text: r.text };
     };
 
-    // Tail only (FABLE_51_APPEND_ONLY_PLAN.md §1.4): everything before
+    // Tail only (docs/PROVIDERS.md): everything before
     // sentThrough was accepted by a successful request as-is.
     for (const msg of this.unsentTail()) {
       if (typeof msg.content === 'string') {
@@ -2161,7 +2161,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // rest of its life — that turned a recoverable 400 into a dead tab.
     this.bindingStripUsed = false;
     this.todos = [];
-    // EFFICIENCY_PLAN.md Phase D §8a — fact-force gate re-arms every turn.
+    // docs/PROVIDERS.md - fact-force gate re-arms every turn.
     // `filesEditedThisTurn` carries cross-tool-call state within one turn
     // only; clearing here is the single load-bearing reset (every
     // operator-initiated turn flows through runTurn). Cancel paths return
@@ -2242,7 +2242,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.turnInputAccepted = true;
     const skippedNotice = describeSkippedImages(skippedImages);
     if (skippedNotice) this.emit('system_notice', skippedNotice);
-    // FABLE_51_APPEND_ONLY_PLAN.md §1.5 — per-turn operator notice (mailbox
+    // docs/PROVIDERS.md - per-turn operator notice (mailbox
     // depth, plan-mode arm). Lives on the user turn, never in `system`, and is
     // never removed: rebuilding it next turn would be a prefix edit.
     if (this.config.turnNotice && this.config.turnNotice.trim().length > 0) {
@@ -2272,7 +2272,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // refusal branch below can name the category/explanation.
     let stopDetails: StopDetails | null = null;
 
-    // EFFICIENCY_PLAN.md Phase A — index where this turn's appended messages
+    // docs/PROVIDERS.md - index where this turn's appended messages
     // start, so the end-of-turn telemetry walk only counts blocks added on
     // this turn (not the entire session).
     const turnMessageStart = this.messages.length - 1;
@@ -2513,7 +2513,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           : ' No output was produced.')
         + ' Rephrase the request and try again.');
     }
-    // EFFICIENCY_PLAN.md Phase A — walk the turn's appended messages and
+    // docs/PROVIDERS.md - walk the turn's appended messages and
     // sum thinking + tool_result bytes. Block content can be string or an
     // array of typed blocks (Anthropic SDK shape); guard both.
     let thinkingBytes = 0;
@@ -2546,7 +2546,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         }
       }
     }
-    // FABLE_51_APPEND_ONLY_PLAN.md §1.3 — on binding-enforcing models the
+    // docs/PROVIDERS.md - on binding-enforcing models the
     // turn's own messages are already bound by its later thinking blocks, so
     // the evidence prune would be a prefix edit; keep everything and let
     // Fold / Compact be the pressure valves. Thinking is kept on every model.
@@ -2696,7 +2696,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         // tab's resolution is visible in journalctl without a code read.
         const dispatchModel = this.requestModel();
         const modelLabel = dispatchModel === this.config.model ? dispatchModel : `${this.config.model}→${dispatchModel}`;
-        // FABLE_51_APPEND_ONLY_PLAN.md — frozen prefix (+ appended delta
+        // docs/PROVIDERS.md - frozen prefix (+ appended delta
         // message when config changed). Must run AFTER the scrubs above so the
         // appended role:'system' message is never itself scrubbed, and BEFORE
         // the beta header is finalised (a first tool change turns the beta on).
@@ -2729,7 +2729,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
         const round = await this.consumeStream(resp as AsyncIterable<unknown>);
         // Everything on the wire for this round was accepted verbatim; later
-        // scrubs must not revisit it (FABLE_51_APPEND_ONLY_PLAN.md §1.4).
+        // scrubs must not revisit it (docs/PROVIDERS.md).
         this.sentThrough = Math.max(this.sentThrough, wireCount);
         return round;
       } catch (err) {
@@ -2799,7 +2799,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           if (ev.message?.usage && 'iterations' in ev.message.usage) usageIterations = (ev.message.usage as Record<string, unknown>).iterations;
           if (ev.message?.model) echoedModel = ev.message.model;
           if (ev.message?.stop_details !== undefined) stopDetails = ev.message.stop_details;
-          // FABLE_51_APPEND_ONLY_PLAN.md §2 — under the binding-controls beta
+          // docs/PROVIDERS.md - under the binding-controls beta
           // every response says what the API dropped from OUR request. Empty
           // on every round = the harness is append-only; a
           // prefix_binding_mismatch is a bug to chase; model_binding_mismatch
@@ -3008,7 +3008,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return { text, isError: true };
     }
 
-    // EFFICIENCY_PLAN.md Phase B0 — fold any PreToolUse hook's
+    // docs/PROVIDERS.md - fold any PreToolUse hook's
     // hookSpecificOutput.updatedInput into the dispatched input. Last-write-
     // wins matches Claude Code's documented behavior. Each rewrite emits a
     // hook_rewrote_input event so transcript review can attribute the
@@ -3030,11 +3030,11 @@ export class ClaudeNativeWorker extends EventEmitter {
       input = rewritten;
     }
 
-    // EFFICIENCY_PLAN.md Phase 6b.2 — tool-call counter for the auto-
+    // docs/PROVIDERS.md - tool-call counter for the auto-
     // threshold opt-in. Counts every dispatched tool call (including
     // gated/blocked ones — the model still spent context on the call).
     this.toolCallCountSinceCompact += 1;
-    // EFFICIENCY_PLAN.md Phase D §8b — broadcast the worker-authoritative
+    // docs/PROVIDERS.md - broadcast the worker-authoritative
     // count so the composer chip can read it instead of recounting from
     // events. `maybeEmitAutoThreshold` below resets the counter on auto-
     // compact firing and emits a 0 follow-up after the action lands.
@@ -3045,7 +3045,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
     this.maybeEmitAutoThreshold();
 
-    // EFFICIENCY_PLAN.md Phase 6c + Phase D §8a — pre-tool-use guards in a
+    // docs/PROVIDERS.md - pre-tool-use guards in a
     // deterministic order. Cheap path-shape check first (config-protection
     // never touches state), then the state-bearing fact-force gate. Both
     // emit `tool_gate_triggered`; only the first blocking decision returns
@@ -3091,7 +3091,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // (the model needs to inspect first). Operator opt-in is per-tab via
     // `efficiencyFactForce: 'on'`. Default 'off' for all tabs: this synthetic
     // failure/retry is an operator opt-in because it adds transcript context
-    // without verifying the facts (see EFFICIENCY_PLAN.md §8a).
+    // without verifying the facts (see docs/PROVIDERS.md).
     if ((this.config.efficiencyFactForce ?? 'off') === 'on') {
       const ff = checkFactForceFirstEdit(block.name, input, ctx.cwd, this.filesEditedThisTurn);
       if (ff.resolvedPath !== null) {
@@ -3117,7 +3117,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     }
 
-    // DEBAG (docs/DEBAG_PLAN.md sub-phase 1) — operator-armed durable review
+    // DEBAG (docs/PROVIDERS.md) - operator-armed durable review
     // gate. `evaluateGate` returns a proposal ONLY when `reviewSafeMode` is
     // armed for this tab AND the call is sensitive (static allowlist in
     // gateReview.ts). Default OFF ⇒ null ⇒ the hot path is untouched. It runs
@@ -3265,7 +3265,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     let isError = false;
     // §E1 (E1-Native) — decoded once; the registry branch below uses it.
     const registryTool = parseRegistryToolName(block.name);
-    // CLUSTER_MODE_PLAN.md Phase 1 — route peer_* tool_use blocks to the
+    // docs/PROTOCOL_CLUSTER.md - route peer_* tool_use blocks to the
     // peerTools dispatcher when the worker is in a cluster. The hard gate
     // here mirrors the registration gate in buildToolDefs(): a non-cluster
     // worker will never have advertised the tool, so a model attempting to
@@ -3319,7 +3319,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         }
       }
     } else if ((this.config.efficiencySandbox ?? 'off') === 'on' && isSandboxTool(block.name)) {
-      // EFFICIENCY_PLAN.md Phase E §9a — sandbox tool dispatch. The
+      // docs/PROVIDERS.md - sandbox tool dispatch. The
       // registration gate in buildToolDefs() mirrors this predicate so a
       // toggle-off tab will never see ctx_* tool_use blocks. The
       // `onChunkStored` callback fires sandbox_chunk_added so the UI's
@@ -3353,7 +3353,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     }
 
-    // EFFICIENCY_PLAN.md Phase C — Native-side tool-result filter. Runs on
+    // docs/PROVIDERS.md - Native-side tool-result filter. Runs on
     // the current turn's tool_result only (cache invariant: `messages[]`
     // is never mutated retroactively). Filter runs BEFORE PostToolUse hook
     // augmentation so operator-curated hook stderr / additionalContext
@@ -3418,7 +3418,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     for (const r of post) {
       const stderr = r.stderr.trim();
       if (stderr) resultText += `\n\n[PostToolUse hook stderr] ${stderr.slice(0, 500)}`;
-      // EFFICIENCY_PLAN.md Phase B0 — additionalContext from PostToolUse
+      // docs/PROVIDERS.md - additionalContext from PostToolUse
       // hooks gets appended to the tool_result the model sees. `decision:
       // "block"` triggers a model retry by surfacing the reason as an
       // is_error tool_result; matches Claude Code semantics.
@@ -3580,7 +3580,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // here having never touched the refresh chain. A1: try one forced refresh
     // per turn before declaring re-auth — prod showed near-daily 401s with
     // zero refresh attempts, most likely silently recoverable
-    // (REMOTE_CLUSTER_CONTROL_PLAN.md §10.1).
+    // (docs/REMOTE_MANAGEMENT.md).
     if (status === 401 || errType === 'authentication_error') {
       // Guard on the attempt budget too: a 'retry' returned on the final
       // attempt is discarded by streamOneRound's loop, which would end the
@@ -3649,7 +3649,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       catch { this.emit('error', 'Worker killed'); return 'fatal'; }
       return 'retry';
     }
-    // FABLE_51_APPEND_ONLY_PLAN.md §2 — preserved-thinking rejection (edited
+    // docs/PROVIDERS.md - preserved-thinking rejection (edited
     // history from a pre-refactor session, or an enforced org without the
     // beta). One-time recovery: drop every thinking block and retry once.
     if (status === 400 && isThinkingBindingError(msg) && !this.bindingStripUsed && attempt < MAX_RETRY_ATTEMPTS - 1) {

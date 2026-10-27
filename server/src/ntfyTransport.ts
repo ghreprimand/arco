@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md Part J (J2) — ntfy external notification transport.
+// docs/ARCHITECTURE.md (J2) - ntfy external notification transport.
 //
 // Mirrors the management/hubLink gating model: INERT unless ARCO_NTFY_URL is
 // set, so an ordinary `npm run dev` is unchanged. When configured, it registers

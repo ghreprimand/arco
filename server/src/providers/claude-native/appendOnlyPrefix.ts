@@ -1,4 +1,4 @@
-// FABLE_51_APPEND_ONLY_PLAN.md — pure helpers for keeping the Native request
+// docs/PROVIDERS.md - pure helpers for keeping the Native request
 // prefix (top-level `system`, `tools`, and every already-sent message) append-
 // only across a worker's lifetime. Claude Fable 5.1 binds each thinking block's
 // signature to that prefix; editing it invalidates every later block (400 on

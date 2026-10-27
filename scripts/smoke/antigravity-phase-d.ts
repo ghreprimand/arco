@@ -1,4 +1,4 @@
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase D — cluster bridge discovery.
+// docs/PROVIDERS.md - cluster bridge discovery.
 //
 // Verifies:
 //   1. Antigravity remains fenced out of ClusterMemberProvider.

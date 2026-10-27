@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §K3 — "Run in terminal" prefill smoke.
+// docs/ARCHITECTURE.md - "Run in terminal" prefill smoke.
 //
 // NO WS, NO LLM. Two assertions:
 //   1. Detector unit test — detectCommand() classifies fenced blocks: shell

@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md A1 — mem-retention smoke.
+// docs/ARCHITECTURE.md A1 - mem-retention smoke.
 //
 // Retention is CLIENT state (the Zustand store + memoryTrim caps), not a server
 // WS surface, so unlike the other smokes this one does not boot a workflow. It

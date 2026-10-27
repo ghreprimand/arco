@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase F — artifacts/generated images.
+// docs/PROVIDERS.md - artifacts/generated images.
 //
 // Structural coverage always runs. If Antigravity desktop is reachable, the
 // smoke also asks for a uniquely named text file in the workflow cwd and

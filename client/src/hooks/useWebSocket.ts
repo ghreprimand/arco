@@ -263,7 +263,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'create_workflow', config }));
   }, []);
 
-  // ARCO_OPS_PLAN.md M2 — Genesis. Update the workflow's working seed (server
+  // docs/ARCHITECTURE.md - Genesis. Update the workflow's working seed (server
   // echoes genesis_seed_updated with readiness + next prompt) and trigger the
   // operator-confirmed scaffold (server creates the project, rebinds the cwd).
   const genesisSeedUpdate = useCallback((workflowId: string, seed: GenesisSeed) => {
@@ -281,7 +281,7 @@ export function useWebSocket() {
     }));
   }, []);
 
-  // ARCO_OPS_PLAN.md M3 — arm/disarm in-workflow Creative mode on an existing
+  // docs/ARCHITECTURE.md - arm/disarm in-workflow Creative mode on an existing
   // workflow (server echoes genesis_creative_armed with the seeded context +
   // codebase assessment).
   const genesisCreativeArm = useCallback((workflowId: string, disarm?: boolean) => {
@@ -477,7 +477,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'cancel_review', workflowId, reviewId }));
   }, []);
 
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — dispatch a Deep Research run against an
+  // docs/ARCHITECTURE.md - dispatch a Deep Research run against an
   // existing workflow (in-tab path, and the dig-deeper follow-up). The new-tab
   // path goes through createWorkflow + a deferred research_request keyed by
   // researchSpawnToken (see terminalInput/research.ts + the workflow_created
@@ -506,7 +506,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'cancel_research', workflowId, researchId }));
   }, []);
 
-  // WORKBENCH_EXPANSION_PLAN.md §G3 — dispatch a Cookbook recommendation. The
+  // docs/ARCHITECTURE.md - dispatch a Cookbook recommendation. The
   // server reuses the B2 bounded research turn (grounded on the G1 profile + the
   // G2 fit-filtered candidates + the task profile), so the lifecycle + artifact
   // arrive via the research_* events / RESEARCH tab. Registered into the
@@ -529,7 +529,7 @@ export function useWebSocket() {
     return () => registerCookbookRecommendSender(null);
   }, [requestCookbookRecommend]);
 
-  // WORKBENCH_EXPANSION_PLAN.md §G4 — dispatch a Cookbook download (operator-
+  // docs/ARCHITECTURE.md - dispatch a Cookbook download (operator-
   // initiated only) + its cancel. The download lifecycle arrives via
   // cookbook_download_progress and is routed into the cookbookStore.
   const requestCookbookDownload = useCallback((args: CookbookDownloadArgs) => {
@@ -561,7 +561,7 @@ export function useWebSocket() {
     };
   }, [requestCookbookDownload, cancelCookbookDownload]);
 
-  // WORKBENCH_EXPANSION_PLAN.md §A7 — dispatch a scoped AI doc-edit. In-tab only
+  // docs/ARCHITECTURE.md - dispatch a scoped AI doc-edit. In-tab only
   // (the proposal must round-trip to THIS editor buffer), so it always targets
   // an existing workflow. The agent returns text only; the proposal arrives via
   // doc_edit_proposed and is routed into the docEditStore.
@@ -665,7 +665,7 @@ export function useWebSocket() {
     return () => registerDistillSender(null);
   }, [requestDistill]);
 
-  // WORKBENCH_EXPANSION_PLAN.md §B1 — Compare primitive dispatch. One prompt
+  // docs/ARCHITECTURE.md - Compare primitive dispatch. One prompt
   // fans out to N read-only legs; the vote/synthesize/cancel are explicit
   // operator follow-ups. Lifecycle arrives via compare_* events → compareStore.
   const requestCompare = useCallback((args: CompareRequestArgs) => {
@@ -704,7 +704,7 @@ export function useWebSocket() {
     };
   }, [requestCompare, voteCompare, synthesizeCompare, cancelCompare]);
 
-  // WORKBENCH_EXPANSION_PLAN.md §F2 — operator-triggered Recall summary. Sent
+  // docs/ARCHITECTURE.md - operator-triggered Recall summary. Sent
   // from the Recall view's per-row Summarize action (and the operator-armed
   // on-close hook). Resolves the summarizer config like the reviewer/research
   // path. Returns true if the message was actually sent (socket open).
@@ -923,7 +923,7 @@ export function useWebSocket() {
     }));
   }, []);
 
-  // ARCO_OPS_PLAN.md §D1 — project task ledger (cwd-scoped, server resolves
+  // docs/ARCHITECTURE.md - project task ledger (cwd-scoped, server resolves
   // the cwd from the workflowId). The server re-snapshots after each mutation.
   const taskLedgerCreate = useCallback(
     (workflowId: string, title: string, notes?: string, links?: TaskLink[], boardKey?: string) => {
@@ -1032,7 +1032,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'terminal_list', workflowId }));
   }, []);
 
-  // CLUSTER_MODE_PLAN.md Phase 2 — cluster surface helpers. Each maps
+  // docs/PROTOCOL_CLUSTER.md - cluster surface helpers. Each maps
   // 1-to-1 to a ClientMessage variant; server replies arrive on the
   // existing onmessage switch.
   const createCluster = useCallback((cwd: string, memberWorkflowIds: string[]) => {
@@ -1280,7 +1280,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'cluster_gates_set', clusterId, enabled }));
   }, []);
 
-  // R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — operator flipped the cluster's
+  // R3 (docs/REMOTE_MANAGEMENT.md) - operator flipped the cluster's
   // ◉ REMOTE chip. One switch shares the whole cluster (all members) with the
   // management hub; server persists + rebroadcasts + re-pushes the hub snapshot.
   const setClusterRemote = useCallback((clusterId: string, enabled: boolean) => {
@@ -1374,7 +1374,7 @@ export function useWebSocket() {
     }));
   }, []);
 
-  // EFFICIENCY_PLAN.md Phase F — operator clicked "Attach codebase memory"
+  // docs/PROVIDERS.md - operator clicked "Attach codebase memory"
   // in CONFIG. `indexPath` is operator-typed (defaults to cwd server-side
   // when blank). Server persists to meta.json and pushes a fresh
   // `codebase_memory_state`.
@@ -1402,7 +1402,7 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'rename_workflow', workflowId, name }));
   }, []);
 
-  // ARCO_OPS_PLAN.md §E1 — MCP registry. The registry is machine-global;
+  // docs/ARCHITECTURE.md - MCP registry. The registry is machine-global;
   // CRUD broadcasts a fresh snapshot to every client. Per-tab enablement +
   // dangerous-tool ticks (mcpWorkflowAllow) and diagnostics (mcpProbe) are
   // workflow-scoped.

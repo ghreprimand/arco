@@ -30,7 +30,7 @@ export interface ProviderEvents {
     // internal calls for billing). Native Claude and Ollama (M6) both fill it;
     // the server turns it into a ground-truth context_usage for the CTX bar.
     lastPromptTokens?: number;
-    // EFFICIENCY_PLAN.md Phase A — per-turn byte counts. Native fills both;
+    // docs/PROVIDERS.md - per-turn byte counts. Native fills both;
     // CLI/Codex set thinkingBytes=0 and toolResultBytes=-1 (unknown) since
     // we spawn the CLI and don't see its inner messages[] array.
     thinkingBytes?: number;

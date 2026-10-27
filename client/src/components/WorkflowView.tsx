@@ -62,12 +62,12 @@ interface Props {
   onPreviewCapture?: (captures?: PreviewCaptureKind[], viewport?: PreviewViewport) => void;
   onReviewCapture?: (reportName: string) => void;
   onArmPlanMode?: () => void;
-  // EFFICIENCY_PLAN.md Phase F — codebase-memory toggle. Routed App →
+  // docs/PROVIDERS.md - codebase-memory toggle. Routed App ->
   // WorkflowView → RightPanel → ConfigTab → CodebaseMemorySection.
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   onTranscriptSend?: (toWorkflowId: string, content: string) => void;
-  // WORKBENCH_EXPANSION_PLAN.md §B2 — Deep Research dispatch + follow-up +
+  // docs/ARCHITECTURE.md - Deep Research dispatch + follow-up +
   // cancel. App wires these off requestResearch / cancelResearch / createWorkflow.
   onResearch?: (
     researcher: { provider: ProviderName; model: ModelName; effort: EffortLevel; providerAccountRef?: string },

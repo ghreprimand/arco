@@ -15,7 +15,7 @@ import type {
   KnowledgeUpdateRequest,
 } from '@arco/shared';
 
-// WORKBENCH_EXPANSION_PLAN.md §B3 — Knowledge base CRUD (per-cwd, REST).
+// docs/ARCHITECTURE.md - Knowledge base CRUD (per-cwd, REST).
 //
 //   GET    /api/knowledge?path=<cwd>[&q=<text>]   → { articles, alwaysIncludeBytes, budget }
 //   GET    /api/knowledge/body?path=<cwd>&id=<id> → { article }

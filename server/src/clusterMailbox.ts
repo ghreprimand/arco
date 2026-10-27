@@ -1,5 +1,5 @@
 import { publishActivity } from './voice/activityBus.js';
-// CLUSTER_MODE_PLAN.md Phase 1 — file-per-message mailbox.
+// docs/PROTOCOL_CLUSTER.md - file-per-message mailbox.
 //
 // Layout: ~/.arco/clusters/<clusterId>/mailbox/<recipientWorkflowId>/<msgId>.json
 // One file per message. The mailbox is the single source of truth — peer

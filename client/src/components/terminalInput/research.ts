@@ -1,4 +1,4 @@
-// Deep Research composer-button helpers — WORKBENCH_EXPANSION_PLAN.md §B2.
+// Deep Research composer-button helpers - docs/ARCHITECTURE.md
 //
 // Extracted from TerminalInput.tsx to keep that file under the 2000-line cap
 // (the RESEARCH button's handler + the new-tab "spawn a fresh tab that issues

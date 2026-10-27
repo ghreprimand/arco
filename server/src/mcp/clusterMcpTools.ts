@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 3 / CURSOR_TRANSPORT_PLAN.md Phase 6 — the shared
+// docs/PROTOCOL_CLUSTER.md / docs/PROVIDERS.md - the shared
 // arco-cluster tool registration, transport-agnostic.
 //
 // Extracted from `clusterMcpServer.ts` (the stdio child) so the SAME tool set

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §L1/§L2/§L3 (Part L) — Local services discovery + kill +
+// docs/LOCAL_SERVICES.md - Local services discovery + kill +
 // health-probe smoke.
 //
 // Hits the LIVE server's GET /api/services + DELETE /api/services/:pid (the

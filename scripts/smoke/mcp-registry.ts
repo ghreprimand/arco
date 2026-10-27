@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 — MCP registry smoke (no live server, no real ~/.arco).
+// docs/ARCHITECTURE.md - MCP registry smoke (no live server, no real ~/.arco).
 //
 // Drives the §E1 modules directly against a temp $ARCO_HOME:
 //   • registry CRUD round-trip + persistence (create / list / upsert / remove);

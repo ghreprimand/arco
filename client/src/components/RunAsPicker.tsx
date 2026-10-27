@@ -227,7 +227,7 @@ function Pill({
 // Same shape SpawnDialog produces — keeps the spawn path uniform.
 import type { WorkflowConfig } from '@arco/shared';
 export function spawnConfigFromRunAs(parentConfig: WorkflowConfig, selection: RunAsSelection, nameSuffix: string): WorkflowConfig {
-  // OUTPUT_STYLE_PLAN.md §6 — DOCS / GIT one-off prompts must run with
+  // docs/PROVIDERS.md - DOCS / GIT one-off prompts must run with
   // outputStyle: 'normal' regardless of source tab. The dialog callers pass
   // nameSuffix='docs' | 'git'; force normal for both. Other RUN AS users
   // (currently none, but future call sites) inherit the parent value.

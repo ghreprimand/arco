@@ -100,7 +100,7 @@ function hasMarkdownFileRef(text: string): boolean {
 // Index of files the agent has touched via Read/Write/Edit tool calls in the
 // current workflow. Built upstream from displayMessages (see ChatPanel).
 // `byBasename` keys on the bare filename (`audit.md`); `byTail` keys on
-// trailing-N-segments (`docs/audit.md`) so partial paths resolve too.
+// trailing-N-segments (`reports/audit.md`) so partial paths resolve too.
 export interface WrittenFilesIndex {
   byBasename: Map<string, string>;
   byTail: Map<string, string>;
@@ -290,7 +290,7 @@ interface Props {
   jobCwd?: string;
   // Built once per workflow in ChatPanel from every Read/Write/Edit tool call.
   // Powers chat-text filename clicks: when an agent writes a Write to
-  // `<cwd>/docs/audit.md` and then says "I wrote `audit.md`", the resolver
+  // `<cwd>/reports/audit.md` and then says "I wrote `audit.md`", the resolver
   // finds the actual path instead of guessing `<cwd>/audit.md`.
   writtenFiles?: WrittenFilesIndex;
   onCancelQueued?: (clientMessageId: string) => void;
@@ -333,7 +333,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
         />
       );
     }
-    // DEBAG (docs/DEBAG_PLAN.md) — a parked review gate renders as an inline
+    // DEBAG (docs/PROVIDERS.md) - a parked review gate renders as an inline
     // approve/edit/reject card driven by the structured proposal in
     // toolUse.input. Falls back to the generic pill if jobId wasn't threaded.
     if (message.toolUse.tool === 'Gate' && jobId) {
@@ -350,7 +350,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
     );
   }
 
-  // CLUSTER_MODE_PLAN.md Phase 2 — peer-message rows. Synthetic ChatMessage
+  // docs/PROTOCOL_CLUSTER.md - peer-message rows. Synthetic ChatMessage
   // entries with role 'peer-sent' / 'peer-received', injected by
   // useWebSocket.onmessage when peer_message_sent / peer_message_received
   // events arrive. Render as a colored block keyed by sender workflowId so
@@ -361,7 +361,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
     return <PeerMessageBlock message={message} onMakeTask={onMakeTask} />;
   }
 
-  // EFFICIENCY_PLAN.md Phase D §8c — ctx_action ledger divider. Synthetic
+  // docs/PROVIDERS.md - ctx_action ledger divider. Synthetic
   // entry pushed by useWebSocket's ctx_action handler. The label encodes
   // `<action> (<trigger>)[ · <detail>]`; renderer formats as a horizontal-
   // rule sandwich so transcript review sees when context was reshaped.
@@ -843,7 +843,7 @@ function RowActionButton({ onClick, title, children }: { onClick: () => void; ti
   );
 }
 
-// EFFICIENCY_PLAN.md Phase C — looks up the per-toolUseId filter annotation
+// docs/PROVIDERS.md - looks up the per-toolUseId filter annotation
 // from the appStore so ToolCallPill can render the chip + raw-bytes recovery
 // affordance. Selector is narrow (single map lookup) so the pill only re-
 // renders when its own entry changes, not when any other tool's filter
@@ -865,7 +865,7 @@ function ToolCallPillWithFilter({
   return <ToolCallPill tool={tool} input={input} filePath={filePath} filtered={filtered} />;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2 — peer-message block. Colored by stable
+// docs/PROTOCOL_CLUSTER.md - peer-message block. Colored by stable
 // hash of the sender's workflowId so the same sender always renders the
 // same color, both across messages and across sender/recipient panes.
 // Direction arrow indicates which side this is (→ outbound, ← inbound).

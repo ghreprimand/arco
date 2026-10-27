@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §K3 — shell-command code-block detector.
+// docs/ARCHITECTURE.md - shell-command code-block detector.
 //
 // A pure, unit-testable function (smoke: scripts/smoke/terminal-prefill.ts)
 // that decides whether a fenced code block in an agent reply is a SHELL

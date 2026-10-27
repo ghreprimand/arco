@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// ARCO_OPS_PLAN.md §K1 — `arco-agent` per-host lifecycle supervisor.
+// docs/ARCHITECTURE.md - `arco-agent` per-host lifecycle supervisor.
 //
 // A tiny always-on supervisor (one per workstation) that the management hub (K2)
 // drives over a tailnet WebSocket to start/stop/restart/tail-logs the LOCAL

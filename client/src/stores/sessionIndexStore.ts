@@ -6,7 +6,7 @@ import type {
   SessionIndexEntryResponse,
 } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §H3 — resume-picker session-index client store.
+// docs/ARCHITECTURE.md - resume-picker session-index client store.
 //
 // Kept OUT of appStore (mirrors recallStore / terminalStore): the session index
 // is a per-cwd projection fetched on demand when the resume picker opens, not

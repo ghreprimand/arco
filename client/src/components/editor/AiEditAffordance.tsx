@@ -7,7 +7,7 @@ import { useDocEditStore } from '../../stores/docEditStore';
 import { DOC_EDIT_CONTEXT_LIMIT } from '@arco/shared';
 import type { ProviderName, ModelName } from '@arco/shared';
 
-// WORKBENCH_EXPANSION_PLAN.md §A7 — AI-collaborative document editing affordance.
+// docs/ARCHITECTURE.md - AI-collaborative document editing affordance.
 //
 // Mounted by FileViewerModal when the A6 editor is in Edit mode AND there is a
 // non-empty selection (or the operator hits SELECT ALL for a whole-doc edit).

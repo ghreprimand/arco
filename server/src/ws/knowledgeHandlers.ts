@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §B3 — knowledge "distill from session" WS handler.
+// docs/ARCHITECTURE.md - knowledge "distill from session" WS handler.
 //
 // Split out of workflowHandlers.ts to keep that file under the 2000-line cap.
 // Replays the current transcript, then spawns a bounded, READ-ONLY worker that

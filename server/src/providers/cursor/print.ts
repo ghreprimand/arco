@@ -15,7 +15,7 @@
 // prompt in headless mode. The dispatcher (providers/index.ts) routes here only
 // when `config.sandbox === 'read-only'`, which primary turns never set.
 //
-// docs/CURSOR_TRANSPORT_PLAN.md Phase 5.
+// docs/PROVIDERS.md
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';

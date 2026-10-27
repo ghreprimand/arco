@@ -1,4 +1,4 @@
-// Git worktrees per ledger task — ARCO_OPS_PLAN.md §K5 (absorbed E4).
+// Git worktrees per ledger task - docs/ARCHITECTURE.md (absorbed E4).
 //
 // An OPTIONAL isolated `git worktree` pinned to a task, so parallel work on one
 // repo doesn't collide. The worktree lives under a MANAGED path outside the

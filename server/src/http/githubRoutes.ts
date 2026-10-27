@@ -5,7 +5,7 @@ import { PORT } from '../server/constants.js';
 import { commitCountCache } from '../server/state.js';
 
 // GitHub route group — peeled verbatim from router.ts (see
-// docs/FILE_SIZE_REFACTOR_PLAN.md). Self-contained: defines its own
+// docs/ARCHITECTURE.md). Self-contained: defines its own
 // sendGh / readBody helpers, takes no HttpDeps. Returns true when the
 // GitHub prefix matched (request answered), false otherwise so the caller
 // falls through to the next route group.

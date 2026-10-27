@@ -41,7 +41,7 @@ export async function tryHandleVoiceRoutes(req: IncomingMessage, res: ServerResp
     if (!res.destroyed && !res.writableEnded) { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); }
     return true;
   };
-  // VOICE_AGENT_PLAN.md — relay for the arco-voice MCP child (loopback
+  // docs/VOICE.md - relay for the arco-voice MCP child (loopback
   // only; exempt from the cookie gate like the cluster peer routes). The
   // Computer chat must exist and carry the voiceOperator flag; the browser
   // that owns the hands-free session answers.
@@ -205,7 +205,7 @@ export async function tryHandleVoiceRoutes(req: IncomingMessage, res: ServerResp
       const body = JSON.parse((await readBytes(req, 4000)).toString());
       if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 500) return send(400, { error: 'Speech output is limited to 500 characters per chunk.' });
       selectSessionOutputVoice(session, body.voice);
-      // Edge neural voice first (VOICE_AGENT_PLAN.md); one failure demotes it
+      // Edge neural voice first (docs/VOICE.md); one failure demotes it
       // for the rest of the session and Kokoro takes over without a gap.
       const edgeSpeaker = session.edgeSpeaker;
       if (edgeSpeaker) {

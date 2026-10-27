@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §J2 — ntfy external transport smoke.
+// docs/ARCHITECTURE.md - ntfy external transport smoke.
 //
 // Pure (no dev server, no network, no real ~/.arco): exercises the transport
 // seam + the ntfy request builder end to end with a temp mutes file and an

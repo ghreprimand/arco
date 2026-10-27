@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
 
-// EFFICIENCY_PLAN.md Phase F — operator-attachable `codebase-memory-mcp` per
+// docs/PROVIDERS.md - operator-attachable `codebase-memory-mcp` per
 // tab. Pure UX wiring: the toggle and Re-index button drive WS / HTTP calls;
 // the actual `--mcp-config` write-in at CLI spawn time is deferred until
 // Cluster Phase 3's `mcpConfigWriter` lands. The binary is operator-

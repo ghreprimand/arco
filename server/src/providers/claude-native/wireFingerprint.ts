@@ -4,7 +4,7 @@
 //
 // The pin is DELIBERATE, not tracked from `claude --version`: a routine
 // `claude update` must not silently change what Anthropic's edge sees
-// (CLAUDE_NATIVE_PLAN.md §12 risk #3). Bump only on an observed Anthropic-side
+// (docs/PROVIDERS.md risk #3). Bump only on an observed Anthropic-side
 // rejection, and re-validate a Native turn afterwards.
 //
 // History:

@@ -38,7 +38,7 @@ export class LocalRecognizer {
   private stopped = false;
   private ready: Promise<void> | null = null;
   // `voice` is a Kokoro speaker (emma / isabella) or an Edge neural voice id
-  // such as en-GB-SoniaNeural (VOICE_AGENT_PLAN.md); Edge ids contain dashes.
+  // such as en-GB-SoniaNeural (docs/VOICE.md); Edge ids contain dashes.
   constructor(private speaking = false, private voice: string = 'emma', private waking = false) {}
   get edge(): boolean { return this.speaking && this.voice.includes('-'); }
 

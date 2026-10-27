@@ -35,7 +35,7 @@ type ReplayEvent = {
   text?: string;
   error?: string;
   seq?: number;
-  // PHASE_9_FORKS_PLAN.md — lineage link stamped by persistAndStampSeq on the
+  // docs/PERSISTENCE.md - lineage link stamped by persistAndStampSeq on the
   // on-disk envelope (workflowStore.ts). The branch-filter pre-pass walks this
   // to reconstruct the kept branch; the existing flat-seq loop ignores it.
   parentEventSeq?: number;
@@ -70,7 +70,7 @@ type ReplayEvent = {
 type ReplayOptions = {
   exactReplayBytes?: number;
   recentTailBytes?: number;
-  // PHASE_9_FORKS_PLAN.md — when the workflow's head has been rewound, replay
+  // docs/PERSISTENCE.md - when the workflow's head has been rewound, replay
   // walks the lineage from this seq instead of flat seq order. Branch-aware
   // replay needs the FULL event list to resolve the parent walk across any
   // tail/older boundary, so when set we bypass the byte-range summary path and
@@ -85,7 +85,7 @@ export type ResumeReplayResult = {
   summaryThroughSeq?: number;
   summaryBytes?: number;
   tailEvents?: number;
-  // PHASE_9_FORKS_PLAN.md sub-phase 4 — true when a branch-aware (leafSeq)
+  // docs/PERSISTENCE.md - true when a branch-aware (leafSeq)
   // replay walked into ancestry that had rotated off the size-capped log, so
   // the branch was reconstructed from what survived rather than replayed in
   // full. The caller surfaces this (hygiene-B: no silent lossy degradation).
@@ -236,7 +236,7 @@ function summarySeedMessages(summary: string): ClaudeResumeMessage[] {
   ];
 }
 
-// PHASE_9_FORKS_PLAN.md §5 — branch-aware replay pre-pass. The replay loop below
+// docs/PERSISTENCE.md - branch-aware replay pre-pass. The replay loop below
 // walks FLAT seq order; this filters the event list to just the ancestry of
 // `leafSeq` first, so a rewound head replays only its own branch and the
 // abandoned span is excluded. MUST run before any byte-range summarization
@@ -539,7 +539,7 @@ export async function replayMessagesWithResumePolicy(
   const exactReplayBytes = opts.exactReplayBytes ?? RESUME_EXACT_REPLAY_BYTES;
   const recentTailBytes = opts.recentTailBytes ?? RESUME_RECENT_TAIL_BYTES;
 
-  // PHASE_9_FORKS_PLAN.md §5 — branch-aware replay. `meta.leafSeq` being set
+  // docs/PERSISTENCE.md - branch-aware replay. `meta.leafSeq` being set
   // signals "branch mode": the head was rewound at least once, so flat replay
   // would pull in abandoned spans. The lineage walk needs the FULL event list
   // to follow parentEventSeq / leaf_move redirects across any tail boundary, so

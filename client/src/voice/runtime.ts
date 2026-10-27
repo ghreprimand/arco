@@ -496,7 +496,7 @@ export class VoiceRuntime {
       if (this.current(epoch)) this.feedback(message);
       return;
     }
-    // VOICE_AGENT_PLAN.md (the operator, 2026-10-17): "there should be no exact
+    // docs/VOICE.md (the operator, 2026-10-17): "there should be no exact
     // matching going on with anything" — every directive goes to Computer,
     // which reads the roster and decides what to do. The only instant words
     // are the microphone controls; closings are handled by the buffer.

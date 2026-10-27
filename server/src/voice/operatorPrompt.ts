@@ -1,4 +1,4 @@
-// VOICE_AGENT_PLAN.md — base instructions for the "Computer" voice operator
+// docs/VOICE.md - base instructions for the "Computer" voice operator
 // chat. The operator's voice replaces the mouse and keyboard: do the thing,
 // say nothing; ask only when unsure; answer only when asked.
 //

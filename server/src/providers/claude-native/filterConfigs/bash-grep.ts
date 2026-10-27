@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase C — grep / rg filter pack.
+// docs/PROVIDERS.md - grep / rg filter pack.
 //
 // Same shape as find: line-per-match. Cap from the head; on a failed
 // match (exit 1 from grep === no matches found, which is normal — we

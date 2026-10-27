@@ -33,7 +33,7 @@ export function isClaudeServerToolDef(tool: unknown): boolean {
 // Drops Anthropic server-tool evidence (web_search / web_fetch / code-exec
 // results + their server_tool_use calls + citations) from the turn's messages
 // once the final answer has absorbed the findings. Thinking blocks are KEPT
-// (FABLE_51_APPEND_ONLY_PLAN.md §1.3): earlier builds deleted them here too,
+// (docs/PROVIDERS.md): earlier builds deleted them here too,
 // which meant no reasoning ever crossed a turn boundary and, on Fable 5.1,
 // would invalidate the turn's later blocks. `keepThinking:false` is the legacy
 // shape, retained only for tests that pin the old byte counts.

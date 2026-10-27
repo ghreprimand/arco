@@ -1,4 +1,4 @@
-// ── Genesis stage ladder + lightweight readiness (ARCO_OPS_PLAN.md M1) ──
+// -- Genesis stage ladder + lightweight readiness (docs/ARCHITECTURE.md) --
 //
 // The reusable, model-free core of Genesis: a compressed 4-rung ladder
 // (Spark → Concept → Case → Build-direction) with one primary narrative field per

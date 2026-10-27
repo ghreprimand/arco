@@ -94,7 +94,7 @@ export function parseOllamaThrottle(_text: string): { resetsAt?: number } | null
 // messages give us byte-stable prefixes across turns — system + prior
 // user/assistant pairs stay identical, only the new user turn grows. The
 // cache then re-prefills only the delta. The earlier "no cache benefit"
-// rationale predates that feature; see docs/OLLAMA_LOCAL_CODING_PLAN.md.
+// rationale predates that feature; see docs/PROVIDERS.md.
 //
 // Tool-loop (§5.4 / §8.1 Path A): the HTTP API is stateless — when the model
 // emits `tool_calls`, the *caller* is responsible for executing them and
@@ -742,7 +742,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
   private buildMessages(userPrompt: string): OllamaChatMessage[] {
     const messages: OllamaChatMessage[] = [];
     const noThink = this.config.effort === 'low';
-    // GOAL_NORTHSTAR_PLAN.md G2 — fold the operator's north-star at the top of the
+    // docs/GOTCHAS.md - fold the operator's north-star at the top of the
     // system message. Covers operator turns AND primitive seeds. Blank ⇒ unchanged.
     const northStarBlock = goalBlock(this.config.goal);
     const baseSystem = northStarBlock

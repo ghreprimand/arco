@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §K4 — Tailscale-SSH last-resort lifecycle smoke.
+// docs/ARCHITECTURE.md - Tailscale-SSH last-resort lifecycle smoke.
 //
 // Pure (no real ssh, no VPS): exercises the renderer + the hub's SSH fallback
 // with an injected fake sshExec. Asserts:

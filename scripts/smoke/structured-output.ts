@@ -1,4 +1,4 @@
-// LOCAL_AI_MASTER_PLAN.md M5 / Excellence LE-4 — structured-output seam smoke.
+// docs/PROVIDERS.md / Excellence LE-4 - structured-output seam smoke.
 //
 // Tests the PURE schema seam directly (no WS, no LLM, no server boot):
 //   server/src/primitives/reviewSchema.ts

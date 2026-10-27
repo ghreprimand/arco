@@ -1,4 +1,4 @@
-// CURSOR_TRANSPORT_PLAN.md Phase 6 — in-process loopback HTTP MCP server for
+// docs/PROVIDERS.md - in-process loopback HTTP MCP server for
 // Cursor cluster members.
 //
 // Cursor ACP advertises `mcpCapabilities:{http:true,sse:true}` and NO stdio, so

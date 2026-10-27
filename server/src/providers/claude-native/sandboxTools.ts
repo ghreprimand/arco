@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase E §9a — three tools registered into the
+// docs/PROVIDERS.md - three tools registered into the
 // Anthropic tools[] array when WorkflowConfig.efficiencySandbox === 'on'.
 //
 // Wire shape mirrors peerTools.ts: bare names (no MCP namespace prefix —

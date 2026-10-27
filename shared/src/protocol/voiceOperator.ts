@@ -1,4 +1,4 @@
-// VOICE_AGENT_PLAN.md — the "Computer" voice operator. A projectless Chat
+// docs/VOICE.md - the "Computer" voice operator. A projectless Chat
 // tab with `voiceOperator: true` exposes only bounded operator tools.
 // Codex carries one MCP child (`arco-voice`); Native/local APIs use the
 // same definitions and relay. Tools execute in the browser that owns the

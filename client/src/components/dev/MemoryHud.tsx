@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md A1 — dev-only memory HUD.
+// docs/ARCHITECTURE.md A1 - dev-only memory HUD.
 //
 // The store arrays are already capped (memoryTrim.ts) and the component
 // observer/interval/listener teardown audits came back clean, so a residual

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { WorkbenchNotice, WorkbenchNoticeCategory } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §J1 — client notification store. Kept OUT of appStore
+// docs/ARCHITECTURE.md - client notification store. Kept OUT of appStore
 // (mirrors recallStore / terminalStore): notices are a global, cross-workflow
 // projection, not per-tab session state. Holds the scrollable `notices` history
 // for the header notice center, the server-authoritative muted-category set,

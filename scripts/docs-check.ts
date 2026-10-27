@@ -6,7 +6,7 @@
 // matching HELP_CONTENT entry, or that an entry's manualSection link resolves to
 // a real manual section id. Without a checker, the help system silently rots as
 // features land. This script makes the per-phase "ship your data-help + manual
-// section" obligation (WORKBENCH_EXPANSION_PLAN.md Part J) enforceable instead of
+// section" obligation (docs/ARCHITECTURE.md) enforceable instead of
 // aspirational. Pure static validation — no LLM, no doc generation (Part J fence).
 //
 // What it checks:

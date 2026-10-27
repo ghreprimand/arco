@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md) — the /api/explorer/* HTTP surface backing the
+// ARCHIVE (docs/CLIENT.md) - the /api/explorer/* HTTP surface backing the
 // standalone chromeless file-explorer window. Read-only (v1): window launch,
 // the artifacts join, the agent-writes ledger read, and the changed-within
 // scan. All new listing/scan endpoints are $HOME-jailed with a post-resolution

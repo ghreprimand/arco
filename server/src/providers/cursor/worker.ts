@@ -11,7 +11,7 @@
 // vs Codex is that ACP is bidirectional: the agent sends fs / permission /
 // terminal REQUESTS back mid-turn, answered in `handleAgentRequest`.
 //
-// Wire contract pinned by the Phase-0 spike — docs/CURSOR_TRANSPORT_PLAN.md §0.1.
+// Wire contract pinned by the Phase-0 spike - docs/PROVIDERS.md
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';

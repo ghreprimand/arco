@@ -232,7 +232,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             restored,
           );
           if (msg.claudeSessionId) store.setClaudeSessionId(msg.workflowId, msg.claudeSessionId);
-          // WORKBENCH_EXPANSION_PLAN.md §B2 — a research run dispatched to a
+          // docs/ARCHITECTURE.md - a research run dispatched to a
           // fresh tab carries a one-shot spawn token on its config. When the
           // tab materializes here, fire the deferred research_request against
           // its real workflow id.
@@ -248,7 +248,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               }));
             }
           }
-          // WORKBENCH_EXPANSION_PLAN.md §D4 — a tab minted from a template
+          // docs/ARCHITECTURE.md - a tab minted from a template
           // carries a one-shot spawn token. When the tab materializes, apply
           // the deferred seedPrompt (composer pre-fill — NOT auto-sent) + plan
           // (create + attach via REST) against its real workflow id. Pre-fill
@@ -473,7 +473,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // the later sessionChat entry to double-render once the 5s dedup
           // proximity window blows. Queued entries stay queued:true until
           // the corresponding session_entry arrives (handled below).
-          // See docs/QUEUE_FIX_PLAN.md — Change A.
+          // See docs/PROTOCOL.md
           //
           // Phase 4 follow-up — render-layer split on mid-turn steer. When
           // `kind: 'steer'` arrives while an assistant block is still
@@ -700,7 +700,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'primary_turn_token_usage':
-          // EFFICIENCY_PLAN.md Phase A — append the per-turn telemetry frame
+          // docs/PROVIDERS.md - append the per-turn telemetry frame
           // to the job's sliding window. The Activity tab reads it for the
           // "Token usage" section. Capped server-side via the store reducer.
           store.appendTurnTokenUsage(msg.workflowId, {
@@ -711,7 +711,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'tool_filtered':
-          // EFFICIENCY_PLAN.md Phase C — store the per-tool filter annotation
+          // docs/PROVIDERS.md - store the per-tool filter annotation
           // keyed by toolUseId so ToolCallPill can render the chip with raw-
           // bytes recovery. No-op when the original/filtered byte counts
           // match; the chip is still mounted (operators sometimes want to
@@ -731,14 +731,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'primary_tool_counter':
-          // EFFICIENCY_PLAN.md Phase D §8b — worker-authoritative tool-call
+          // docs/PROVIDERS.md - worker-authoritative tool-call
           // counter. Mirrored onto JobState so the composer chip can read
           // it instead of recounting events. Resets land as count=0.
           store.setToolCallsSinceCompact(msg.workflowId, msg.toolCallsSinceCompact);
           break;
 
         case 'sandbox_chunk_added':
-          // EFFICIENCY_PLAN.md Phase E §9 — best-effort live counter for
+          // docs/PROVIDERS.md - best-effort live counter for
           // the Files-tab sub-section. The server is the source of truth
           // via /api/workflows/:wfId/sandbox/stats; this just makes the
           // chip update without a refetch on every chunk insert.
@@ -813,12 +813,12 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             'CTX',
             `${msg.action} (${msg.trigger})${msg.detail ? ` · ${msg.detail}` : ''}`,
           );
-          // EFFICIENCY_PLAN.md Phase D §8c — context-management ledger.
+          // docs/PROVIDERS.md - context-management ledger.
           // Render as a horizontal-rule divider in the chat so transcript
           // review sees when context was reshaped. The synthetic message
           // uses role='ctx-divider' (early-return in ChatMessage.tsx) so
           // it bypasses every other rendering branch including markdown.
-          // FABLE_51_APPEND_ONLY_PLAN.md — `turn_notice` fires on every
+          // docs/PROVIDERS.md - `turn_notice` fires on every
           // cluster turn with mail waiting / every armed plan-mode turn; the
           // Activity row above is its surface, a divider per turn is noise.
           if (msg.action === 'turn_notice') break;
@@ -1037,7 +1037,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'primary_tool_use':
           // §C1 — tool activity is a primary signal; refresh the stuck clock.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
-          // EFFICIENCY_PLAN.md Phase 6b.1 — count only settled tool calls.
+          // docs/PROVIDERS.md - count only settled tool calls.
           // The 'completed'/'failed' filter avoids double-counting Codex's
           // 'started'/'in_progress' deltas (which fire multiple times per
           // call). When status is absent (Native + most paths) the row
@@ -1106,7 +1106,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'ultracode_fleet_progress':
-          // ULTRACODE_PLAN.md — live background-fleet snapshot for the FLEET
+          // docs/PROVIDERS.md - live background-fleet snapshot for the FLEET
           // panel atop the Activity tab. Refresh the stuck-clock too: the fleet
           // churning IS turn progress even when the parent stream is quiet.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
@@ -1714,7 +1714,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'handoff_complete':
-          // EFFICIENCY_PLAN.md Phase 6b.1 — handoff is the natural
+          // docs/PROVIDERS.md - handoff is the natural
           // checkpoint where context resets. Reset the chip counter so
           // the operator doesn't immediately see the nudge again. Phase D
           // §8b also resets the worker-authoritative mirror; the worker
@@ -1798,7 +1798,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'gate_required':
-          // DEBAG (docs/DEBAG_PLAN.md) — a parked sensitive tool call. Render
+          // DEBAG (docs/PROVIDERS.md) - a parked sensitive tool call. Render
           // an inline approval card by anchoring a synthetic message keyed
           // `gate::<gateId>`; the structured proposal rides toolUse.input so the
           // card reads it directly. addMessage dedupes by id, so a rehydrate
@@ -1851,7 +1851,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           receiveComputerActivityChanged(msg.workflowId);
           break;
         case 'voice_tool_call':
-          // VOICE_AGENT_PLAN.md — only the window owning the hands-free
+          // docs/VOICE.md - only the window owning the hands-free
           // session answers; see voice/toolBridge.ts.
           void dispatchVoiceToolCall(msg, (result) => store.wsSendRaw?.(result));
           break;
@@ -1945,7 +1945,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           }
           break;
 
-        // CLUSTER_MODE_PLAN.md Phase 2 — peer messages from the Phase 1
+        // docs/PROTOCOL_CLUSTER.md - peer messages from the Phase 1
         // substrate become synthetic chat-row injections. Each member's
         // transcript renders the colored block via ChatMessage's
         // peer-sent / peer-received branch. The events still live in
@@ -2005,7 +2005,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           });
           break;
 
-        // CLUSTER_MODE_PLAN.md Phase 2 — server pushes cluster_state on
+        // docs/PROTOCOL_CLUSTER.md - server pushes cluster_state on
         // subscribe + on member busy/mailbox-depth changes. cluster_created
         // wraps the same payload + auto-subscribes the creating WS so the
         // new cluster tab opens with state already available.
@@ -2056,7 +2056,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // exhaustive switch survives.
           break;
         case 'cluster_member_nudged': {
-          // CLUSTER_MODE_PLAN.md Phase 5 — operator-facing toast. The
+          // docs/PROTOCOL_CLUSTER.md - operator-facing toast. The
           // event also rides through broadcastWorkflow → events.jsonl;
           // the toast is the live surface. NEVER addressed at the model.
           const display = msg.workflowId.slice(0, 8);
@@ -2067,7 +2067,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
         }
         case 'cluster_auto_turn_fired': {
-          // CLUSTER_MODE_PLAN.md Phase 5b — auto-turn audit event. Toast-
+          // docs/PROTOCOL_CLUSTER.md - auto-turn audit event. Toast-
           // only, mirroring cluster_member_nudged: the dispatch happens
           // server-side, the event is for operator visibility. Both fires
           // and skips surface so the operator can see the guards working
@@ -2107,7 +2107,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'codebase_memory_state':
-          // EFFICIENCY_PLAN.md Phase F — mirror onto job.config.codebaseMemory.
+          // docs/PROVIDERS.md - mirror onto job.config.codebaseMemory.
           store.setCodebaseMemoryState(msg.workflowId, {
             attached: msg.attached,
             indexPath: msg.indexPath,
@@ -2185,7 +2185,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // graph; this result is kept for future audit/toast surfaces.
           break;
         case 'task_ledger_snapshot':
-          // ARCO_OPS_PLAN.md §D1 — full cwd-scoped task list. Replace-in-
+          // docs/ARCHITECTURE.md - full cwd-scoped task list. Replace-in-
           // place keyed by cwd; the server re-snapshots after every mutation
           // so the client never has to fold deltas.
           store.setTaskLedger(msg.cwd, msg.tasks, msg.boardKey);
@@ -2197,7 +2197,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // rebuildFromEvents. No-op on the wire.
           break;
         case 'mcp_registry_snapshot':
-          // ARCO_OPS_PLAN.md §E1 — global registry (machine-wide). Replace
+          // docs/ARCHITECTURE.md - global registry (machine-wide). Replace
           // wholesale; CRUD broadcasts re-snapshot every client.
           store.setMcpRegistry(msg.defs);
           break;
@@ -2217,7 +2217,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // dialog in the MCP config section (proceed re-sends with override).
           store.setMcpMalwareWarning({ pending: msg.pending, packages: msg.packages });
           break;
-        // ARCO_OPS_PLAN.md M2 — Genesis.
+        // docs/ARCHITECTURE.md - Genesis.
         case 'genesis_seed_updated':
           store.setGenesisSeed(msg.workflowId, { seed: msg.seed, readiness: msg.readiness, nextPrompt: msg.nextPrompt });
           break;
@@ -2259,7 +2259,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 : `Genesis scaffold created ${msg.cwd}${msg.repoUrl ? ` · ${msg.repoUrl}` : ''}`,
           );
           break;
-        // ARCO_OPS_PLAN.md M3 — in-workflow Creative mode arm/disarm echo.
+        // docs/ARCHITECTURE.md - in-workflow Creative mode arm/disarm echo.
         case 'genesis_creative_armed':
           store.setGenesisCreative(msg.workflowId, {
             armed: msg.armed,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ProviderName } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 
-// ARCO_OPS_PLAN.md §E1 — MCP registry management surface in the CONFIG tab.
+// docs/ARCHITECTURE.md - MCP registry management surface in the CONFIG tab.
 //
 // Two layers, both operator-driven:
 //   - REGISTER (global): CRUD over machine-wide MCP server defs. Add a server

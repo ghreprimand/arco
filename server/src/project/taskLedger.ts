@@ -1,4 +1,4 @@
-// Project task ledger — ARCO_OPS_PLAN.md §D1, Part D.
+// Project task ledger - docs/ARCHITECTURE.md.
 //
 // A durable, cwd-scoped task list at <cwd>/.arco/project/tasks.json. The JSON
 // is a *rebuildable projection over events.jsonl*, NOT the source of truth

@@ -1,4 +1,4 @@
-// H44 — PID-reuse guard (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
+// H44 - PID-reuse guard (docs/GOTCHAS.md).
 //
 // The durable pid registries (pidRegistry.ts, ptyPidRegistry.ts) persist the
 // pids of detached/long-lived children so a relaunched server can SIGKILL any

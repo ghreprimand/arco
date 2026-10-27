@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 1 — per-sender-per-turn send budget.
+// docs/PROTOCOL_CLUSTER.md - per-sender-per-turn send budget.
 //
 // Counts outbound peer.send calls from each member during the current
 // operator turn. Reset on `primary_turn_started` for that member (called

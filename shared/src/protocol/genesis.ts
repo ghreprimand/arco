@@ -1,4 +1,4 @@
-// ── Genesis: staged project-ideation seed model (ARCO_OPS_PLAN.md Part M, M1) ──
+// -- Genesis: staged project-ideation seed model (docs/ARCHITECTURE.md) --
 //
 // Genesis adapts the *process* (not the agent loop) from the Seedbank project: a
 // staged, collaborative "vague idea → defined, scaffolded project" flow that rides

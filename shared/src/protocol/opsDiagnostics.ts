@@ -1,4 +1,4 @@
-// ── Operations diagnostics (ARCO_OPS_PLAN.md §A1) ──
+// -- Operations diagnostics (docs/ARCHITECTURE.md) --
 //
 // The shared response contract for GET /api/diagnostics. The server builds a
 // DiagnosticsReport from a pure check registry (server/src/diagnostics/checks.ts);
@@ -62,7 +62,7 @@ export interface DiagnosticsReport {
   platform: string;
 }
 
-// ── Support bundle (ARCO_OPS_PLAN.md §A2 + Appendix D) ──
+// -- Support bundle (docs/ARCHITECTURE.md + Appendix D) --
 //
 // A paste-ready, REDACTED snapshot of this machine's diagnostics + versions,
 // suitable for an issue or another agent. Built server-side by
@@ -106,7 +106,7 @@ export interface SupportBundleResponse {
   text: string;
 }
 
-// ── Local model health panel (ARCO_OPS_PLAN.md §A3) ──
+// -- Local model health panel (docs/ARCHITECTURE.md) --
 //
 // A model-operator-focused readout: "what can I run now / what's running / what
 // failed last time / is my config stale?". Distinct from the A1 Diagnostics tab

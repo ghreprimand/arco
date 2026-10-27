@@ -1,4 +1,4 @@
-// Compare primitive — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare primitive - docs/ARCHITECTURE.md
 //
 // Mirrors runReviewer.ts / runResearch.ts: a BOUNDED, read-only, operator-
 // initiated job. The difference is the fan-out — ONE prompt races against N
@@ -134,7 +134,7 @@ export function runCompare(
         // SAFE mode doesn't emit denial strings for a prompt that needs none.
         skipPermissions: leg.provider === 'ollama',
         sandbox: 'read-only',
-        // OUTPUT_STYLE_PLAN.md §6 — compared answers are read carefully by the
+        // docs/PROVIDERS.md - compared answers are read carefully by the
         // operator; never caveman/lite. Forced regardless of source-tab style.
         outputStyle: 'normal',
         ...(leg.provider === 'codex' && args.codexHomes?.[legIndex]

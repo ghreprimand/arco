@@ -1,4 +1,4 @@
-// DD3 — per-realpath file-mutation queue (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 3).
+// DD3 - per-realpath file-mutation queue (docs/GOTCHAS.md).
 //
 // THE BUG THIS FIXES: in a cluster, N Native members share ONE cwd. Two members
 // (or two Task children of one member) can issue an Edit/Write to the SAME file

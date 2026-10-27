@@ -1,7 +1,7 @@
 import { pendingOperatorQuestions } from '../providers/codex-appserver/operatorQuestions.js';
 import { computerContextState, isComputer } from '../voice/computerContext.js';
 // server/src/ws/handoffHandlers.ts — handoff / spawn / rehydrate WS handler
-// region extracted from index.ts (FILE_SIZE_REFACTOR_PLAN.md Phase 4).
+// region extracted from index.ts (docs/ARCHITECTURE.md).
 // Behavior-preserving, move-only. The four index.ts-local back-edges (the
 // PreviewAutoDetect instance, handleCreateWorkflow which lives in the workflow
 // handler module, plus handlePlanAttach + assertAllMembersClaudeOrCodex which
@@ -376,7 +376,7 @@ export async function handleHandoffRequest(
     },
     {
       mode: effectiveMode,
-      // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star into the
+      // docs/GOTCHAS.md - inherit the source tab's north-star into the
       // handoff seed (both modes) so the reflection/summary carries the standing
       // objective. Preserve the undefined semantics when no context is passed.
       summarizer: translatedSummarizer && wf.config.goal
@@ -814,7 +814,7 @@ export async function handleSpawnFromHere(
   const newWorkflowId = crypto.randomUUID();
   const handoffCascade = await readSettings(newCwd).catch(() => null);
   applyAutoHandoffDefault(msg.newConfig, handoffCascade?.autoHandoffDefaults);
-  // GOAL_NORTHSTAR_PLAN.md — a Spawn-from-here tab durably inherits the parent's
+  // docs/GOTCHAS.md - a Spawn-from-here tab durably inherits the parent's
   // north-star (not just the one-shot seed) unless the operator picked a
   // different one at spawn time. Persisted with the new tab's meta below, so
   // every post-seed turn keeps the standing objective. Reversible: clear it on
@@ -1045,7 +1045,7 @@ export async function handleSpawnFromHere(
     },
     {
       mode: effectiveMode,
-      // GOAL_NORTHSTAR_PLAN.md — Spawn-from-here inherits the PARENT tab's
+      // docs/GOTCHAS.md - Spawn-from-here inherits the PARENT tab's
       // north-star into the seed so the new tab starts under the same objective.
       summarizer: translatedSummarizer && parent.config.goal
         ? { ...translatedSummarizer, goal: parent.config.goal }
@@ -1434,7 +1434,7 @@ export async function handleRehydrateWorkflows(
     await rehydrateOneWorkflow(ws, workflowId, wf, clientLastSeq, { tail: entry.tail === true }).catch((err) => {
       console.error(`[arco] rehydrate failed for ${workflowId.slice(0, 8)}:`, err);
     });
-    // DEBAG (docs/DEBAG_PLAN.md §4) — re-surface any review gate that was
+    // DEBAG (docs/PROVIDERS.md) - re-surface any review gate that was
     // pending across a server restart, independent of the event-replay cursor.
     const gateCwd = wf.config.workingDirectory;
     if (gateCwd) {
@@ -1804,7 +1804,7 @@ export async function rehydrateOneWorkflow(
     }
   }
 
-  // ARCO_OPS_PLAN.md §D1 — push the cwd's task-ledger snapshot so a
+  // docs/ARCHITECTURE.md - push the cwd's task-ledger snapshot so a
   // reconnecting client mirrors the persisted ledger without an explicit list
   // request (consistent with the plan/preview wire echoes above). cwd-scoped;
   // fired per rehydrated workflow.

@@ -1,4 +1,4 @@
-// server/src/ws/taskWorktreeHandlers.ts — git worktrees per task (ARCO_OPS_PLAN.md §K5).
+// server/src/ws/taskWorktreeHandlers.ts - git worktrees per task (docs/ARCHITECTURE.md).
 //
 // Spin / tear down an isolated `git worktree` for a ledger task, then record the
 // result on the task by funnelling an update through the SAME event-sourced

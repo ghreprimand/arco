@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 1 — Native peer tools.
+// docs/PROTOCOL_CLUSTER.md - Native peer tools.
 //
 // Three tools registered into the worker's tool list ONLY when
 // worker.config.clusterId is set (plan §6.1d acceptance: leaking peer
@@ -6,7 +6,7 @@
 // invariant). Tool names use underscores, not the plan's `peer.*`
 // dotted form — Anthropic's tool name regex is
 // `^[a-zA-Z0-9_-]{1,64}$`, periods get rejected at API call time.
-// Decision logged in CLUSTER_MODE_PLAN.md §13.
+// Decision logged in docs/PROTOCOL_CLUSTER.md
 //
 // Phase 3 — handler bodies moved to server/src/clusterPeerOps.ts so the
 // REST surface used by the CLI MCP child fires identical events. This

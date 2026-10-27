@@ -193,7 +193,7 @@ export interface PrimaryCompleteMessage {
   genSpeed?: GenerationSpeed;
 }
 
-// EFFICIENCY_PLAN.md Phase B0 — hook stdout-parser parity.
+// docs/PROVIDERS.md - hook stdout-parser parity.
 // Native worker emits this when a PreToolUse hook returned
 // `hookSpecificOutput.updatedInput` and the tool input was actually
 // rewritten before dispatch. Persisted to events.jsonl so transcript
@@ -212,7 +212,7 @@ export interface HookRewroteInputMessage {
   rewrittenInput: string;
 }
 
-// EFFICIENCY_PLAN.md Phase B/D — pre-tool-use guard fired on a tool call.
+// docs/PROVIDERS.md - pre-tool-use guard fired on a tool call.
 // `gate` identifies the rule (e.g. "config-protection",
 // "fact-force-first-edit"). `decision`: "allowed" = guard inspected and
 // permitted; "blocked" = synthetic tool_result returned to the model
@@ -238,7 +238,7 @@ export interface ToolPostureSetMessage {
   posture: 'full' | 'coding' | 'chat' | 'review';
 }
 
-// GOAL_NORTHSTAR_PLAN.md — ack/visibility for a north-star set/edit/clear.
+// docs/GOTCHAS.md - ack/visibility for a north-star set/edit/clear.
 // Broadcast (persisted to events.jsonl) so the objective is reviewable in the
 // transcript (four-question test) and every observer's CONFIG field stays in
 // sync. `goal` is null when cleared; `byteLen` is the UTF-8 byte length of the
@@ -251,7 +251,7 @@ export interface GoalSetMessage {
   byteLen: number;
 }
 
-// GOAL_RUN_PLAN.md — current state of the north-star auto-continue. Broadcast
+// docs/GOTCHAS.md - current state of the north-star auto-continue. Broadcast
 // (persisted) on arm, on every tick, and on stop, so the transcript carries the
 // full arc of a run and the chip rehydrates from replay. Counters are NOT
 // mirrored to meta.json: a server restart ends any armed run, which is the safe
@@ -397,7 +397,7 @@ export interface PrimaryRefusalMessage {
   hadPartialOutput: boolean;
 }
 
-// EFFICIENCY_PLAN.md Phase D §8b — worker-authoritative tool-call counter
+// docs/PROVIDERS.md - worker-authoritative tool-call counter
 // since the last context-reshape (auto-threshold `compact` emission OR
 // worker rebuild after handoff). Emitted from Claude Native's `dispatchTool`
 // after every increment AND after every reset. Drives the composer chip's
@@ -411,7 +411,7 @@ export interface PrimaryToolCounterMessage {
   toolCallsSinceCompact: number;
 }
 
-// EFFICIENCY_PLAN.md Phase E §9 — best-effort UI freshness event fired
+// docs/PROVIDERS.md - best-effort UI freshness event fired
 // when a ctx_execute call stored a new chunk in the per-tab SQLite index.
 // Not load-bearing for correctness (the Files-tab sandbox sub-section
 // can also pull `/api/workflows/:wfId/sandbox/stats` on demand); this is
@@ -424,7 +424,7 @@ export interface SandboxChunkAddedMessage {
   language: string;
 }
 
-// EFFICIENCY_PLAN.md Phase E §9 — fired after the operator clicks
+// docs/PROVIDERS.md - fired after the operator clicks
 // "Clear DB" in the CONFIG tab (POST /api/workflows/:wfId/sandbox/clear)
 // and the SQLite chunks table is truncated. Clients drop their local
 // `sandboxChunkCount` mirror to zero on receipt.
@@ -433,7 +433,7 @@ export interface SandboxDbClearedMessage {
   workflowId: string;
 }
 
-// EFFICIENCY_PLAN.md Phase B/D — context-management action ledger.
+// docs/PROVIDERS.md - context-management action ledger.
 // Emitted from every code path that mutates messages[] in a way the
 // operator should be able to see during transcript review. `trigger`:
 // "operator" = direct click; "auto-threshold" = Phase 6b.2 auto-compact
@@ -448,7 +448,7 @@ export interface CtxActionMessage {
         | 'sandbox_redirect' | 'first_edit_gate'
         | 'prune_orphan_tool_use' | 'scrub_empty_text_blocks'
         | 'strip_trailing_thinking'
-        // FABLE_51_APPEND_ONLY_PLAN.md — frozen-prefix deltas + API-side drops.
+        // docs/PROVIDERS.md - frozen-prefix deltas + API-side drops.
         | 'system_delta' | 'tool_set_change' | 'turn_notice'
         | 'thinking_dropped_by_api' | 'strip_thinking_binding_mismatch';
   // "api" = Anthropic reported a transformation it applied to the request
@@ -547,7 +547,7 @@ export interface ContextFoldedMessage {
   compactionUsage?: { input: number; output: number; cacheRead: number; cacheCreate: number };
 }
 
-// EFFICIENCY_PLAN.md Phase C — Native tool-result filter fired on a tool
+// docs/PROVIDERS.md - Native tool-result filter fired on a tool
 // call. Emitted from `ClaudeNativeWorker.dispatchTool` after the raw output
 // is captured and BEFORE it lands in `messages[]`. Cache invariant: the
 // filter only ever runs against the current turn's tool_result; prior
@@ -558,7 +558,7 @@ export interface ContextFoldedMessage {
 // `.arco/workflows/<wfId>/artifacts/raw-tools/<turn-id>-<toolUseId>.txt.gz`).
 // The chat chip's "expand" affordance fetches this artifact so the
 // operator can recover what the model didn't see — reversibility is
-// non-negotiable per `docs/MASTER_REFACTOR.md` §6.4.
+// non-negotiable per `docs/ARCHITECTURE.md`
 //
 // `filterName` is a short stable id (e.g. "cargo-test-drop-passing");
 // the chip renders it verbatim. When a pack passes through unchanged
@@ -596,14 +596,14 @@ export interface ToolEvictedMessage {
   rawArtifactPath?: string;
 }
 
-// EFFICIENCY_PLAN.md Phase A — per-turn token telemetry. Emitted alongside
+// docs/PROVIDERS.md - per-turn token telemetry. Emitted alongside
 // every primary_complete. The reason this exists separate from
 // primary_complete despite duplicating `tokens`: filtering events.jsonl for
 // session-total / per-turn breakdown is meaningfully cleaner with a single
 // dedicated kind, and Phase C will add `toolResultBytesRaw` (pre-filter)
 // vs `toolResultBytes` (post-filter) which has no place on primary_complete.
-// Token fields use Anthropic API ground truth (see EFFICIENCY_PLAN.md §14
-// 2026-05-09 tokenizer-choice decision); byte fields are raw byte sums of
+// Token fields use Anthropic API ground truth (see docs/PROVIDERS.md);
+// byte fields are raw byte sums of
 // the relevant content blocks this turn, intentionally labeled "bytes" not
 // "tokens" to avoid claiming false token-precision.
 export interface PrimaryTurnTokenUsageMessage {
@@ -787,7 +787,7 @@ export interface WorkerCompleteMessage {
   // Native/API primary turns — last round's prompt size. See
   // PrimaryCompleteMessage.lastPromptTokens for full rationale.
   lastPromptTokens?: number;
-  // EFFICIENCY_PLAN.md Phase A — per-turn byte sums for thinking and
+  // docs/PROVIDERS.md - per-turn byte sums for thinking and
   // tool_result blocks. Native fills both with real values; CLI/Codex set
   // thinkingBytes=0 and toolResultBytes=-1 (unknown) since they spawn the
   // CLI without visibility into its inner messages[]. seedWorker re-emits
@@ -1063,7 +1063,7 @@ export interface CodexTokenSnapshotMessage {
   modelContextWindow?: number;
 }
 
-// DEBAG — Durable Edit-Before-Approve Gate (docs/DEBAG_PLAN.md). When the
+// DEBAG - Durable Edit-Before-Approve Gate (docs/PROVIDERS.md). When the
 // operator arms `reviewSafeMode` and the model proposes a sensitive tool call
 // (static allowlist in `gateReview.ts`), the worker emits this BEFORE parking
 // the turn (sub-phase 1 is inert — it emits then proceeds; parking + operator
@@ -1181,7 +1181,7 @@ export interface ContextUsageMessage {
   claudeSessionId?: string;
 }
 
-// ULTRACODE_PLAN.md — live progress of an ultracode background fleet. The CLI's
+// docs/PROVIDERS.md - live progress of an ultracode background fleet. The CLI's
 // WorkflowTool runs subagents in the background, writing per-agent transcripts
 // to `<sessionId>/subagents/workflows/wf_*/{journal,agent-*}.jsonl` that never
 // touch the parent stream — so the Activity tab would otherwise look dead while
@@ -1309,7 +1309,7 @@ export interface BranchSummaryMessage {
   createdAt: number;
 }
 
-// PHASE_9_FORKS_PLAN.md — deterministic classifier tag for a transcript point,
+// docs/PERSISTENCE.md - deterministic classifier tag for a transcript point,
 // driving the HISTORY branch-tree dots. A FIXED type→tag map, NO model judgment
 // (fence: pure accounting, not a quality verdict). `source` on a `leaf_move`
 // records WHY the head was moved (v1 only emits `revert`); the same classifier
@@ -1336,7 +1336,7 @@ export function classifyBranchSource(eventType: string | undefined): BranchSourc
   }
 }
 
-// PHASE_9_FORKS_PLAN.md — durable head move over the immutable log. Persisted to
+// docs/PERSISTENCE.md - durable head move over the immutable log. Persisted to
 // events.jsonl AND sets meta.leafSeq via atomic writeMeta. The branch-aware
 // replay pre-pass treats this as a REDIRECT node: walking ancestry from the leaf
 // jumps to `targetSeq` here, pruning the abandoned span (no write-path change).
@@ -1366,7 +1366,7 @@ export interface ZaiNativeHistoryMessage {
   tool_call_id?: string;
 }
 
-// ZAI_NATIVE_PLAN.md — provider-protocol history checkpoint. Hidden from chat
+// docs/PROVIDERS.md - provider-protocol history checkpoint. Hidden from chat
 // rendering, load-bearing for native replay: exact assistant reasoning_content,
 // tool calls, and tool results survive server restart.
 export interface ZaiNativeHistoryMessageEvent {

@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B1 — Production Service Mode smoke.
+// docs/ARCHITECTURE.md - Production Service Mode smoke.
 //
 // Tests the PURE functions only — CLI arg-parsing + systemd unit-file
 // generation. NO live install: no systemctl/journalctl calls, no unit written

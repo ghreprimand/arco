@@ -13,7 +13,7 @@ import { CodexOperatorQuestions } from './operatorQuestions.js';
 //
 // The exec-mode worker (`codex.ts`) is unchanged and remains the default.
 // `codex.transport: 'appserver'` in settings opts a tab into this path.
-// See `docs/CODEX_APPSERVER_PLAN.md` for the full design.
+// See `docs/PROVIDERS.md` for the full design.
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
@@ -78,7 +78,7 @@ import type { JsonValue } from './bindings/serde_json/JsonValue.js';
 import { commandArgs } from '../../windowsCommand.js';
 
 // Pinned Codex CLI version this worker was validated against. See
-// docs/CODEX_APPSERVER_PLAN.md §0/§11 — bump the constant + regen the
+// docs/PROVIDERS.md - bump the constant + regen the
 // vendored bindings as a paired change.
 const PINNED_CODEX_CLI_VERSION = '0.128.0';
 
@@ -279,7 +279,7 @@ function buildTurnInput(
     : prompt;
   const styleText = outputStyleAddendum(outputStyle);
   const providerText = provider === 'zai' ? ZAI_TOOL_CADENCE_ADDENDUM : null;
-  // GOAL_NORTHSTAR_PLAN.md G2 — north-star at the TOP of the byte-stable prefix
+  // docs/GOTCHAS.md - north-star at the TOP of the byte-stable prefix
   // (broad framing first). Covers operator turns AND primitive seeds. Blank ⇒ omitted.
   const northStarBlock = goalBlock(goal);
   const prefix = [northStarBlock, appendSystemPrompt, providerText, styleText].filter((s): s is string => typeof s === 'string' && s.trim().length > 0).join('\n\n');
@@ -459,7 +459,7 @@ export class CodexAppServerWorker extends EventEmitter {
   private stderrBuf = '';
   // Captured for `init` event — the Codex CLI userAgent string.
   private userAgent: string | null = null;
-  // CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — signature
+  // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - signature
   // hash of the MCP wiring baked into the long-lived child at
   // ensureStarted(). Components: clusterId, codebaseMemoryAttached,
   // codebaseMemoryIndexPath. Compared against the incoming config on every
@@ -507,7 +507,7 @@ export class CodexAppServerWorker extends EventEmitter {
       throw new Error('codex app-server worker is mid-bootstrap');
     }
 
-    // CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — when the
+    // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - when the
     // workflow is a cluster member AND/OR has codebase-memory attached,
     // register the corresponding MCP stdio children via `-c` TOML overrides
     // before the `app-server` subcommand. The children are owned by the
@@ -519,7 +519,7 @@ export class CodexAppServerWorker extends EventEmitter {
     const spawnArgs: string[] = this.config.interactionMode === 'chat'
       ? ['-c', 'mcp_servers={}']
       : [];
-    // VOICE_AGENT_PLAN.md — the Computer voice operator is a Chat (still no
+    // docs/VOICE.md - the Computer voice operator is a Chat (still no
     // project tools, no operator config.toml servers) plus exactly one MCP
     // child whose tools the browser executes. Layered after the reset above.
     if (this.config.interactionMode === 'chat' && this.config.voiceOperator === true) {

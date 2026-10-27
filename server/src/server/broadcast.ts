@@ -3,7 +3,7 @@
 // cluster (broadcastWorkflow -> notifyClusterStateForWorkflow -> plans watcher
 // -> broadcastWorkflow), so they live together. Pulled out of index.ts in
 // Phase 4 Milestone B; imports only leaf modules + ./state.js, never index.ts.
-// See docs/FILE_SIZE_REFACTOR_PLAN.md.
+// See docs/ARCHITECTURE.md.
 
 import { WebSocket } from 'ws';
 import { observeConditionMessage } from '../voice/conditionFacts.js';
@@ -88,7 +88,7 @@ function recordIncognitoEvent(workflowId: string, message: ServerMessage): void 
   events.push({ ...message });
 }
 
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — feed the agent-writes ledger from the
+// ARCHIVE (docs/CLIENT.md) - feed the agent-writes ledger from the
 // persisting broadcast chokepoints. Both send() (workflow-scoped operator
 // turns: Native Write/Edit/NotebookEdit ride here) and broadcastWorkflow()
 // (Review artifacts, media results) call this after stamping. Pure match →
@@ -367,7 +367,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
   const wf = workflows.get(workflowId);
   if (!wf) return;
   if (!wf.config.incognito && !wf.config.voiceOperator) observeConditionMessage(workflowId, clusterStore.getClusterIdForWorkflow(workflowId), message);
-  // CLUSTER_MODE_PLAN.md Phase 5b — stamp chainDepth on outbound
+  // docs/PROTOCOL_CLUSTER.md - stamp chainDepth on outbound
   // peer_message_sent BEFORE persistAndStampSeq runs. The marker is set by
   // clusterAutoTurn.markAutoTurnDepth (via onPeerMessageSent's fire path)
   // and cleared on primary_turn_ended. peerOps doesn't know about
@@ -392,7 +392,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
       if (obs.readyState === WebSocket.OPEN) obs.send(payload);
     }
   }
-  // CLUSTER_MODE_PLAN.md Phase 2 — push cluster_state to subscribers when a
+  // docs/PROTOCOL_CLUSTER.md - push cluster_state to subscribers when a
   // workflow-scoped event has changed something the cluster tab cares about
   // (member busy state, mailbox depth). Per-message gate keeps the fan-out
   // tight: a `primary_text` chunk every few hundred ms would otherwise
@@ -400,7 +400,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
   if (CLUSTER_STATE_TRIGGERS.has(message.type)) {
     void notifyClusterStateForWorkflow(workflowId);
   }
-  // CLUSTER_MODE_PLAN.md Phase 5 — feed the idle-nudger detector's
+  // docs/PROTOCOL_CLUSTER.md - feed the idle-nudger detector's
   // busy/idle baseline. The detector itself runs on a separate polling
   // timer; this just stamps the idleSince / resets the per-turn counter.
   if (message.type === 'primary_turn_started') {
@@ -412,7 +412,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
     if (!wf.config.incognito) {
       notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
     }
-    // CLUSTER_MODE_PLAN.md Phase 5b — clear the in-flight auto-turn depth
+    // docs/PROTOCOL_CLUSTER.md - clear the in-flight auto-turn depth
     // marker once the recipient's turn ends. The next operator turn starts
     // at depth 0; the next auto-turn dispatch re-sets the marker.
     clusterAutoTurn.clearAutoTurnDepth(workflowId);
@@ -439,7 +439,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
       });
     }
   }
-  // CLUSTER_MODE_PLAN.md Phase 5b — invoke the auto-turn detector on every
+  // docs/PROTOCOL_CLUSTER.md - invoke the auto-turn detector on every
   // peer_message_sent that lands. The detector reads the cluster toggle
   // and the three guards (cooldown / rate cap / depth cap) inline; OFF
   // clusters short-circuit at the first lookup.
@@ -457,7 +457,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
   }
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2 — workflow-scoped events that may have
+// docs/PROTOCOL_CLUSTER.md - workflow-scoped events that may have
 // changed cluster_state. busy flips on turn_started/ended; mailbox depth
 // flips on peer_message_sent/received (sent → recipient depth +1; received →
 // recipient depth 0 since drain consumed the file).
@@ -468,7 +468,7 @@ export const CLUSTER_STATE_TRIGGERS = new Set<ServerMessage['type']>([
   'peer_message_received',
 ]);
 
-// CLUSTER_MODE_PLAN.md Phase 2 — fan out to every WS whose Session.clusterIds
+// docs/PROTOCOL_CLUSTER.md - fan out to every WS whose Session.clusterIds
 // contains the target id. Cluster events do NOT persist to events.jsonl;
 // the durable record lives in each member's events.jsonl (peer_message_*),
 // the on-disk cluster meta (members), and the mailbox files (depth). The

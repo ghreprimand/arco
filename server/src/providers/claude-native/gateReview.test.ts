@@ -1,4 +1,4 @@
-// DEBAG sub-phase 1 — sensitivity classifier (docs/DEBAG_PLAN.md §3).
+// DEBAG sub-phase 1 - sensitivity classifier (docs/PROVIDERS.md).
 //
 // Proves the static allowlist is deterministic and operator-readable:
 //  - Bash always gates; a git push/reset --hard/clean -fd inside it gates with

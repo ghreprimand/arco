@@ -64,7 +64,7 @@ async function main() {
       assert.deepEqual(r.body.usage, { inputTokens: 200, cachedInputTokens: 100, outputTokens: 20 });
     });
     await step('Computer voice-operator tool calls relay to the subscribed window and nowhere else', async () => {
-      // VOICE_AGENT_PLAN.md — the arco-voice MCP child POSTs to /api/voice/tool
+      // docs/VOICE.md - the arco-voice MCP child POSTs to /api/voice/tool
       // (loopback, cookie-exempt); the server forwards voice_tool_call to the
       // chat's observers and returns the window's voice_tool_result.
       const refused = await post('/api/voice/tool', { workflowId, tool: 'arco_status', args: {} });
@@ -93,7 +93,7 @@ async function main() {
       assert.match(String(recognized.text), /yellow lamps/i); assert.equal(typeof recognized.phrases, 'string');
       const speech = await fetch(base + `/api/voice/speak?session=${session}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Hands free is ready.' }) });
       assert.equal(speech.status, 200);
-      // Edge neural voice (MP3) when reachable, Kokoro WAV otherwise (VOICE_AGENT_PLAN.md).
+      // Edge neural voice (MP3) when reachable, Kokoro WAV otherwise (docs/VOICE.md).
       const engine = speech.headers.get('x-voice-engine'); const audio = Buffer.from(await speech.arrayBuffer());
       assert(['edge', 'kokoro'].includes(String(engine)), `engine ${engine}`);
       if (engine === 'kokoro') assert.equal(audio.toString('ascii', 0, 4), 'RIFF'); else assert.equal(speech.headers.get('content-type'), 'audio/mpeg');

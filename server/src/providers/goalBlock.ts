@@ -1,4 +1,4 @@
-// GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star block.
+// docs/GOTCHAS.md - operator-set persistent north-star block.
 //
 // Returns a small block of provider prompt text pinned into the stable
 // per-turn prefix on every turn: a durable operator-set objective ("what is

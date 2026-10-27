@@ -1,4 +1,4 @@
-// Smoke for the Compare primitive — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Smoke for the Compare primitive - docs/ARCHITECTURE.md
 //
 // A live race spends REAL provider quota and needs a running server. For a
 // fast, hermetic, CI-safe check we exercise the server-side primitive directly

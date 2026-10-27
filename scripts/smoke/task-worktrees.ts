@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §K5 — git worktrees per ledger task smoke.
+// docs/ARCHITECTURE.md - git worktrees per ledger task smoke.
 //
 // Tests the MECHANISM directly (no WS, no server, no LLM): drives
 // project/taskWorktree.ts against a temp git repo and asserts the load-bearing

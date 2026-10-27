@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §B3 — structured file logger smoke.
+// docs/ARCHITECTURE.md - structured file logger smoke.
 //
 // Tests the PURE logger only — createFileLogger's JSONL format + size-based
 // rotation + keep-bound — and the new `logs --journal` arg-parse. NO live

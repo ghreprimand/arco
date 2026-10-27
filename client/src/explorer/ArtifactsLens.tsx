@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { mergeItems, rollupProjects, type ArtifactEntry, type DocEntry, type ProjectItem, type ProjectSummary } from './types';
 
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — the project-artifact home. NOT a generic
+// ARCHIVE (docs/CLIENT.md) - the project-artifact home. NOT a generic
 // file browser: it answers "what docs + artifacts have I got across my projects,
 // and where do I read them?" It merges TWO server read-models:
 //

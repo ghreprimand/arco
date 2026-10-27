@@ -96,7 +96,7 @@ export interface NativeToolContext {
   // to true on the child's context; the child's tool registry refuses to
   // spawn another Task. Defaults to false (parent / standalone tab).
   taskDisabled?: boolean;
-  // WORKBENCH_EXPANSION_PLAN.md §C3 — post-write diagnostics hook. Called with
+  // docs/ARCHITECTURE.md - post-write diagnostics hook. Called with
   // the absolute path AFTER a successful Write/Edit. FIRE-AND-FORGET: the tools
   // never await it and the call is wrapped so a hook error can't fail the
   // write (the write path is load-bearing P0). The worker wires this to the

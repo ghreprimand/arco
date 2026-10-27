@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 4 — headless WS+REST smoke for Codex transports.
+// docs/PROTOCOL_CLUSTER.md - headless WS+REST smoke for Codex transports.
 //
 // Phase 3 wired CLI Claude into clusters via the arco-cluster MCP stdio
 // child. Phase 4 lifts the fence further so the same substrate accepts

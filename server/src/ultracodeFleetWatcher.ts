@@ -1,4 +1,4 @@
-// ULTRACODE_PLAN.md — live visibility into an ultracode background fleet.
+// docs/PROVIDERS.md - live visibility into an ultracode background fleet.
 //
 // The CLI's WorkflowTool fans out subagents in the BACKGROUND: their work is
 // written to `<sessionId>/subagents/workflows/wf_*/{journal,agent-*}.jsonl`,

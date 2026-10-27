@@ -1,10 +1,10 @@
-// CLUSTER_GRID_PLAN.md §3 — compact ~120px card per cluster member.
+// docs/CLIENT.md - compact ~120px card per cluster member.
 //
 // Read-only-with-click; no composer, no primitive bar (those live in the
 // detail MemberPane). Rendered inside ClusterTab's grid; click anywhere
 // → setClusterFocusedMember. Status dot derives from job.busy. The
 // focused card gets a same-thickness accent outline so swapping focus
-// never shifts neighbouring cards' layout (CLUSTER_MODE_PLAN.md §13
+// never shifts neighbouring cards' layout (docs/PROTOCOL_CLUSTER.md
 // invariant from slice 6a).
 
 import { useEffect, useRef, type HTMLAttributes } from 'react';

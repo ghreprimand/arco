@@ -5,7 +5,7 @@ import type { PrimaryPhase } from './providers.js';
 
 export interface ChatMessage {
   id: string;
-  // CLUSTER_MODE_PLAN.md Phase 2 — peer-sent / peer-received are synthetic
+  // docs/PROTOCOL_CLUSTER.md - peer-sent / peer-received are synthetic
   // role variants the cluster code injects when the WS dispatcher sees a
   // peer_message_sent / peer_message_received event. They render as colored
   // blocks in ChatPanel (color hashed from senderWorkflowId) and never

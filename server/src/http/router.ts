@@ -146,7 +146,7 @@ import { checkHttpAuth, checkMintRequest, describePeer, mintToken, sessionCookie
 // (../server/state.js, ../server/broadcast.js) or as `deps` — the handful of
 // index.ts-local closures the routes still reach (mutable `capabilities`, the
 // http server handle, the dev-wrapper killer, and the plan/cluster handlers).
-// See docs/FILE_SIZE_REFACTOR_PLAN.md.
+// See docs/ARCHITECTURE.md.
 
 export interface HttpDeps {
   getCapabilities: () => Capabilities;
@@ -219,7 +219,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Liveness (ARCO_OPS_PLAN.md §B2). `/healthz` is the canonical route; `/health`
+  // Liveness (docs/ARCHITECTURE.md). `/healthz` is the canonical route; `/health`
   // is kept as a back-compat alias returning the same body. Always 200 — this
   // branch only runs when the server is up. NOT gated on ARCO_SERVE_CLIENT, and
   // routed ahead of everything so a supervisor probe can never be shadowed.
@@ -234,7 +234,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Readiness (ARCO_OPS_PLAN.md §B2). 200 only once capabilities + stores are
+  // Readiness (docs/ARCHITECTURE.md). 200 only once capabilities + stores are
   // up; 503 with the pending components during the boot window. Lets a load
   // balancer / k8s gate traffic until boot completes.
   if (req.method === 'GET' && req.url === '/readyz') {

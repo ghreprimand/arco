@@ -176,7 +176,7 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
         checkpointRef: msg.ref,
       };
     }
-    // PHASE_9_FORKS_PLAN.md — REWIND CONVERSATION marker. The head was moved to
+    // docs/PERSISTENCE.md - REWIND CONVERSATION marker. The head was moved to
     // an earlier point; the next turn forks a child of `targetSeq`. Rendered as
     // its own `fork` row so the timeline shows where branches diverged.
     case 'leaf_move':

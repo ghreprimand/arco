@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §B3 — knowledge base smoke.
+// docs/ARCHITECTURE.md - knowledge base smoke.
 //
 // Tests the MECHANISM directly (no WS, no LLM, no server boot), against a
 // throwaway temp cwd so no real .arco/knowledge/ is touched:

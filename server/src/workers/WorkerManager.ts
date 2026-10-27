@@ -182,30 +182,30 @@ export class WorkerManager {
       // only when the resolved primary is Claude Native.
       claudeNativePlanModeArmed?: WorkerConfig['claudeNativePlanModeArmed'];
       turnNotice?: WorkerConfig['turnNotice'];
-      // EFFICIENCY_PLAN.md Phase 6b.2 — auto-threshold ctx_action emission.
+      // docs/PROVIDERS.md - auto-threshold ctx_action emission.
       efficiencyAutoCompact?: WorkerConfig['efficiencyAutoCompact'];
-      // EFFICIENCY_PLAN.md Phase C — Native tool-result filter mode.
+      // docs/PROVIDERS.md - Native tool-result filter mode.
       efficiencyToolFilter?: WorkerConfig['efficiencyToolFilter'];
-      // EFFICIENCY_PLAN.md Phase D §8a — fact-force first-edit gate mode.
+      // docs/PROVIDERS.md - fact-force first-edit gate mode.
       efficiencyFactForce?: WorkerConfig['efficiencyFactForce'];
       // Config-protection write-gate mode (default ON; operator opt-out).
       efficiencyConfigProtection?: WorkerConfig['efficiencyConfigProtection'];
-      // EFFICIENCY_PLAN.md Phase E §9 — opt-in sandbox tools.
+      // docs/PROVIDERS.md - opt-in sandbox tools.
       efficiencySandbox?: WorkerConfig['efficiencySandbox'];
-      // DEBAG_PLAN.md — operator-armed durable review gate.
+      // docs/PROVIDERS.md - operator-armed durable review gate.
       reviewSafeMode?: WorkerConfig['reviewSafeMode'];
-      // OUTPUT_STYLE_PLAN.md — provider-supported output-style addendum level.
+      // docs/PROVIDERS.md - provider-supported output-style addendum level.
       outputStyle?: WorkerConfig['outputStyle'];
-      // GOAL_NORTHSTAR_PLAN.md — operator-set persistent north-star block text.
+      // docs/GOTCHAS.md - operator-set persistent north-star block text.
       goal?: WorkerConfig['goal'];
       // §4.1 — session-local posture filter for the Native tool union.
       toolPosture?: WorkerConfig['toolPosture'];
-      // CLUSTER_MODE_PLAN.md Phase 1 — when set, the Native worker
+      // docs/PROTOCOL_CLUSTER.md - when set, the Native worker
       // registers peer_* tools. Other transports ignore for now.
       clusterId?: WorkerConfig['clusterId'];
       clusterAccessMode?: WorkerConfig['clusterAccessMode'];
       clusterTaskBoardAttached?: WorkerConfig['clusterTaskBoardAttached'];
-      // CLUSTER_MODE_PLAN.md Phase 2.6 — shared cluster plan body + this
+      // docs/PROTOCOL_CLUSTER.md - shared cluster plan body + this
       // member's role hint, resolved per turn. Threaded into WorkerConfig
       // so the Native worker can inject them as forced system blocks.
       // Other transports ignore.
@@ -213,31 +213,31 @@ export class WorkerManager {
       clusterRole?: WorkerConfig['clusterRole'];
       clusterEfficiencyDoctrine?: WorkerConfig['clusterEfficiencyDoctrine'];
       clusterProgressDoctrine?: WorkerConfig['clusterProgressDoctrine'];
-      // Phase 3 + EFFICIENCY_PLAN.md Phase F9 — absolute path to the
+      // Phase 3 + docs/PROVIDERS.md - absolute path to the
       // per-workflow mcp-config.json for CLI Claude when cluster and/or
       // codebase-memory applies. Native ignores it.
       clusterMcpConfigPath?: WorkerConfig['clusterMcpConfigPath'];
-      // EFFICIENCY_PLAN.md Phase F9 — codebase-memory-mcp intent + index
+      // docs/PROVIDERS.md - codebase-memory-mcp intent + index
       // path threaded into Codex providers for `-c mcp_servers.*` overrides.
       codebaseMemoryAttached?: WorkerConfig['codebaseMemoryAttached'];
       codebaseMemoryIndexPath?: WorkerConfig['codebaseMemoryIndexPath'];
-      // ARCO_OPS_PLAN.md §E1 — dangerous-and-unticked MCP registry tool
+      // docs/ARCHITECTURE.md - dangerous-and-unticked MCP registry tool
       // names for CLI Claude's --disallowedTools. Other transports ignore.
       mcpDisallowedTools?: WorkerConfig['mcpDisallowedTools'];
-      // ARCO_OPS_PLAN.md §E1 — operator-enabled registry servers. Codex
+      // docs/ARCHITECTURE.md - operator-enabled registry servers. Codex
       // builds `-c` overrides from these; CLI Claude gets them via the
       // mcp-config merge (so it ignores this field).
       mcpRegistryServers?: WorkerConfig['mcpRegistryServers'];
-      // WORKBENCH_EXPANSION_PLAN.md §B2 — Deep Research web-tool budget. Threads
+      // docs/ARCHITECTURE.md - Deep Research web-tool budget. Threads
       // the run's `maxRounds` into the Claude Native web_search/web_fetch
       // `max_uses` so the round cap is a mechanical ceiling. Other transports
       // ignore it. Unset ⇒ default 10.
       webSearchMaxUses?: WorkerConfig['webSearchMaxUses'];
-      // LOCAL_AI_MASTER_PLAN.md M3 — per-tab Ollama param preset blob. Merged
+      // docs/PROVIDERS.md - per-tab Ollama param preset blob. Merged
       // through the typed allowlist by the Ollama provider; other providers
       // ignore it.
       ollamaParams?: WorkerConfig['ollamaParams'];
-      // LOCAL_AI_MASTER_PLAN.md M5 — Ollama top-level `format` (structured
+      // docs/PROVIDERS.md - Ollama top-level `format` (structured
       // output). Set by structured primitives (Review verdict) so the Ollama
       // model is grammar-constrained to a JSON schema. Other providers ignore
       // it. Mutually exclusive with tools on the wire — see ollama.ts.

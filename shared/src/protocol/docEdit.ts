@@ -1,4 +1,4 @@
-// ── AI-collaborative document editing (WORKBENCH_EXPANSION_PLAN.md §A7) ──
+// -- AI-collaborative document editing (docs/ARCHITECTURE.md) --
 //
 // A scoped, reviewable edit assist layered on the A6 editor. The operator
 // selects a region (or Select-All for whole-doc), picks an agent via the

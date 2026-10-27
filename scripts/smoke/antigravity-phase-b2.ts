@@ -1,4 +1,4 @@
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase B2 — attachment smoke.
+// docs/PROVIDERS.md - attachment smoke.
 //
 // Verifies operator attachments reach Antigravity through stable
 // per-workflow staged paths, that images and non-images are split, and

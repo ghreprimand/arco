@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// ARCO_OPS_PLAN.md §F1/§F2/§F3 — `arco backup snapshot` + `verify` + `restore`.
+// docs/ARCHITECTURE.md F3 - `arco backup snapshot` + `verify` + `restore`.
 //
 // Produces a single-file, dependency-free archive of Arco's VALUABLE state
 // under ~/.arco plus a truthful manifest stating exactly what it captured and

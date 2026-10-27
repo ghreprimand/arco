@@ -2,7 +2,7 @@ import { useCompareStore, sendCompareVote, sendCompareSynthesize, sendCompareCan
 import { CompareGrid } from './CompareGrid';
 import { CompareVote } from './CompareVote';
 
-// Compare overlay — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare overlay - docs/ARCHITECTURE.md
 //
 // Globally mounted (App.tsx), driven entirely off compareStore.active. Renders
 // the side-by-side grid while the race runs/streams; once the race is done it

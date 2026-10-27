@@ -17,7 +17,7 @@
 // `thorough` is the default and a no-op (no doctrine, budget 15, full notice)
 // so existing clusters and pre-feature meta.json are byte-identical to before.
 //
-// Four-question test (CLAUDE.md / CLUSTER_MODE_PLAN.md §2): operator-set level,
+// Four-question test (CLAUDE.md / docs/PROTOCOL_CLUSTER.md): operator-set level,
 // deterministic presets the operator can read here, logged via cluster_state +
 // the efficiency-set event, reversible by flipping back to thorough. These are
 // STATIC operator-selected strings — explicitly not LLM-mutated instructions.

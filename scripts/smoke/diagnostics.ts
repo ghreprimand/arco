@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §A1 — Diagnostics endpoint smoke.
+// docs/ARCHITECTURE.md - Diagnostics endpoint smoke.
 //
 // Hits the LIVE server's GET /api/diagnostics (the director runs this against a
 // running `npm run dev`). Asserts the report is well-formed: 200, all six

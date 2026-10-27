@@ -22,7 +22,7 @@ import type { HttpDeps } from './router.js';
 import type { LedgerTaskStatus, TaskLink } from '@arco/shared';
 
 // Cluster / sandbox / codebase-memory route group — peeled verbatim from
-// router.ts (see docs/FILE_SIZE_REFACTOR_PLAN.md). Returns true when a route
+// router.ts (see docs/ARCHITECTURE.md). Returns true when a route
 // in this group matched (request answered), false otherwise so the caller
 // falls through to the next route group.
 export async function tryHandleClusterRoutes(
@@ -60,7 +60,7 @@ export async function tryHandleClusterRoutes(
     return true;
   }
 
-  // CLUSTER_MODE_PLAN.md Phase 1 — REST shim for cluster lifecycle. No
+  // docs/PROTOCOL_CLUSTER.md - REST shim for cluster lifecycle. No
   // WS surface, no UI yet — operator wires Native tabs to a cluster via
   // curl, then drives turns through the existing chat composer per tab.
   // Phase 2 replaces this with proper WS messages.
@@ -81,7 +81,7 @@ export async function tryHandleClusterRoutes(
         res.end(JSON.stringify({ error: 'cwd and memberWorkflowIds (≥2) are required' }));
         return true;
       }
-      // CLUSTER_MODE_PLAN.md Phase 2 — Native-transport fence. Phase 1
+      // docs/PROTOCOL_CLUSTER.md - Native-transport fence. Phase 1
       // substrate ships peer tools only in the Native worker; CLI / Codex
       // parity lands in Phase 3+. Reject early so the operator gets a clear
       // error instead of a cluster that quietly never works for non-Native
@@ -110,7 +110,7 @@ export async function tryHandleClusterRoutes(
     return true;
   }
 
-  // CLUSTER_MODE_PLAN.md Phase 3 — peer-ops REST surface consumed by the
+  // docs/PROTOCOL_CLUSTER.md - peer-ops REST surface consumed by the
   // CLI MCP stdio child (`server/src/mcp/clusterMcpServer.ts`). One endpoint
   // per peer tool; each delegates to `clusterPeerOps` so Native + CLI
   // members fire identical WS events. Caller identity is the `workflowId`
@@ -686,7 +686,7 @@ export async function tryHandleClusterRoutes(
     }
   }
 
-  // EFFICIENCY_PLAN.md Phase E §9c — per-tab sandbox endpoints. Three ops
+  // docs/PROVIDERS.md - per-tab sandbox endpoints. Three ops
   // live here:
   //   POST /api/workflows/:wfId/sandbox/clear       — truncate chunks table
   //   GET  /api/workflows/:wfId/sandbox/stats       — { chunkCount, totalBytes, dbPath, recent[] }
@@ -809,7 +809,7 @@ export async function tryHandleClusterRoutes(
     return true;
   }
 
-  // EFFICIENCY_PLAN.md Phase F — operator clicked "Re-index now" in the
+  // docs/PROVIDERS.md - operator clicked "Re-index now" in the
   // CONFIG-tab CodebaseMemorySection. One-shot spawn of the operator-
   // installed `codebase-memory-mcp` binary with `--skip-config` so it
   // doesn't auto-edit other agent configs. Returns 503 (not 500) when the

@@ -1,5 +1,5 @@
 import { publishActivity } from './voice/activityBus.js';
-// CLUSTER_MODE_PLAN.md Phase 1 — substrate cluster store.
+// docs/PROTOCOL_CLUSTER.md - substrate cluster store.
 //
 // One ClusterState per cluster, persisted to ~/.arco/clusters/<id>/meta.json.
 // Member workflows learn their clusterId via getClusterIdForWorkflow(); the
@@ -86,7 +86,7 @@ export interface ClusterState {
   // depth) all pass. Mirrors the idleNudgerEnabled persistence shape so
   // pre-5b meta.json files load cleanly (field absent ≡ OFF).
   autoTurnOnMailboxEnabled?: boolean;
-  // DIRECTOR_WORKERS_WORKFLOW_PLAN.md Stage G — operator-armed task
+  // docs/TASK_LEDGER.md Stage G - operator-armed task
   // dispatcher daemon. Default OFF when absent. Settings persist when the
   // operator disables the daemon so re-arming keeps their interval/caps.
   dispatcher?: Partial<ClusterDispatcherState>;
@@ -113,7 +113,7 @@ export interface ClusterState {
   // via clusterProgress.ts. Persisted only when non-default so pre-feature
   // meta.json stays clean.
   progressTracking?: ClusterProgressMode;
-  // R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — cluster-level remote opt-in.
+  // R3 (docs/REMOTE_MANAGEMENT.md) - cluster-level remote opt-in.
   // Absent ≡ OFF. When true, the hub link reports this cluster AND all its
   // members (members' individual remoteEnabled flags are ignored while
   // clustered — the one switch covers them, both directions).
@@ -747,7 +747,7 @@ export function isIdleNudgerEnabled(clusterId: string): boolean {
   return cache.get(clusterId)?.idleNudgerEnabled === true;
 }
 
-// R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — cluster-level remote opt-in. ONE
+// R3 (docs/REMOTE_MANAGEMENT.md) - cluster-level remote opt-in. ONE
 // switch covers the whole cluster: while clustered, member workflows'
 // individual `remoteEnabled` flags are ignored (a member flag flipped before
 // joining must not leak the cluster). Default OFF like every remote surface.

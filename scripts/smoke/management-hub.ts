@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §K2 — arco-management hub smoke.
+// docs/ARCHITECTURE.md - arco-management hub smoke.
 //
 // Wires a REAL K1 agent (scripts/agent/agent.ts) to a REAL hub
 // (scripts/management/hub.ts) in-process — no VPS, no systemctl (the agent runs

@@ -1,5 +1,5 @@
 import '../envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
-// CLUSTER_MODE_PLAN.md Phase 3 — per-spawn stdio MCP server.
+// docs/PROTOCOL_CLUSTER.md - per-spawn stdio MCP server.
 //
 // Spawned as a child process by Claude CLI via `mcp-config.json` (written by
 // `mcpConfigWriter.ts`) and by Codex via `-c mcp_servers.*` overrides. One
@@ -11,11 +11,11 @@ import '../envAliases.js'; // env fallback resolves before any module reads ARCO
 // Why per-spawn instead of per-cluster: stdio MCP is point-to-point. Claude
 // CLI expects to own the child's lifecycle via `command` + `args` in
 // mcp-config.json. N CLI members of one cluster cannot share one stdio
-// child. Decision rationale: docs/CLUSTER_MODE_PLAN.md §13 (2026-05-10).
+// child. Decision rationale: docs/PROTOCOL_CLUSTER.md (2026-05-10).
 //
 // The tool set itself lives in `clusterMcpTools.ts` (registerClusterTools) so
 // the SAME tools back both this stdio child AND the in-process loopback HTTP
-// server Cursor members use (CURSOR_TRANSPORT_PLAN.md Phase 6 — Cursor ACP
+// server Cursor members use (docs/PROVIDERS.md - Cursor ACP
 // honors MCP only over http/sse, not stdio). Tool names exposed: peer_list,
 // peer_send, peer_read, cluster_plan_read, cluster_plan_tick, cluster_plan_write,
 // cluster_task_list/show/create/claim/update/heartbeat/link/unlink/comment/block/complete.

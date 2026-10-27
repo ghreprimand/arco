@@ -249,7 +249,7 @@ export function ClusterFilesTabBody({
   );
 }
 
-// EFFICIENCY_PLAN.md Phase E §9 — Files-tab sub-section listing the most
+// docs/PROVIDERS.md - Files-tab sub-section listing the most
 // recent sandbox chunks. Pulls /api/workflows/:wfId/sandbox/stats which
 // includes a `recent[]` preview (id + language + bytes + preview). The
 // chunk count chip on the section also lives in JobState.sandboxChunkCount,

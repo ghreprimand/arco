@@ -1,5 +1,5 @@
 // server/src/ws/taskLedgerHandlers.ts — Project task ledger WS handlers
-// (ARCO_OPS_PLAN.md §D1, Part D).
+// (docs/ARCHITECTURE.md).
 //
 // The ledger is cwd-scoped. Mutations arrive tagged with a workflowId; we
 // resolve the cwd from that workflow, mutate via the load()/save() boundary in

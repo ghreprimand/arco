@@ -1176,7 +1176,7 @@ export function transcriptHtml(
 </body></html>`;
 }
 
-// R2 (REMOTE_CLUSTER_CONTROL_PLAN.md §5) — the interactive conversation screen:
+// R2 (docs/REMOTE_MANAGEMENT.md) - the interactive conversation screen:
 // full transcript + composer + incremental poll. This is the "keep the
 // conversation going from the phone" surface; the Home cards stay the triage
 // view. Poll-based by design (VPS + battery cheap; no streaming over the hub).

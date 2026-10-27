@@ -1,4 +1,4 @@
-// ── Support bundle builder (ARCO_OPS_PLAN.md §A2 + Appendix D) ──
+// -- Support bundle builder (docs/ARCHITECTURE.md + Appendix D) --
 //
 // Produces a paste-ready, REDACTED snapshot of this machine: the A1 diagnostics
 // report + Arco version + git rev + platform/runtime + best-effort service

@@ -1,4 +1,4 @@
-// Compare composer-button helpers — WORKBENCH_EXPANSION_PLAN.md §B1.
+// Compare composer-button helpers - docs/ARCHITECTURE.md
 //
 // Extracted from TerminalInput.tsx to keep that file under the 2000-line cap:
 // the COMPARE button's dispatch logic (open the dialog, fire the request

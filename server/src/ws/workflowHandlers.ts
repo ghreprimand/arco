@@ -1,7 +1,7 @@
 import { publishWorkerActivity } from './turnEngine.js';
 import { clearPrivateWatches } from '../voice/watches.js';
 // server/src/ws/workflowHandlers.ts — workflow-lifecycle WS handler region
-// extracted from index.ts (FILE_SIZE_REFACTOR_PLAN.md Phase 4). Behavior-
+// extracted from index.ts (docs/ARCHITECTURE.md). Behavior-
 // preserving, move-only. The two index.ts-local back-edges (the
 // PreviewAutoDetect instance and handleRehydrateWorkflows, which lives in the
 // handoff handler module) are injected once at startup via initWorkflowHandlers
@@ -204,7 +204,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         : saved.outputStyle === 'caveman'
           ? { outputStyle: 'terse' as const }
           : {}),
-      // GOAL_NORTHSTAR_PLAN.md — restore the operator's north-star across restart
+      // docs/GOTCHAS.md - restore the operator's north-star across restart
       // (into the client-bound config too, so a fresh client sees it).
       ...(typeof saved.goal === 'string' && saved.goal.trim() ? { goal: saved.goal } : {}),
       ...(saved.pinnedSkills?.length
@@ -218,7 +218,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
 
   const primary = derivePrimaryConfig(config);
   const manager = new WorkerManager();
-  // EFFICIENCY_PLAN.md Phase D §8a — fact-force defaults OFF for new tabs.
+  // docs/PROVIDERS.md - fact-force defaults OFF for new tabs.
   // Stamp the choice so the workflow_created echo, CONFIG UI, and first
   // meta.json write agree. Explicit client values still win.
   if (config.efficiencyFactForce === undefined && !config.resumeSessionId && !config.resumeWorkflowId) {
@@ -339,7 +339,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     }
   }
 
-  // ARCO_OPS_PLAN.md M2 — from-nothing Genesis. A workflow created with a
+  // docs/ARCHITECTURE.md - from-nothing Genesis. A workflow created with a
   // genesis seed and no working directory runs the staged conversation in a
   // hidden scratch dir until `genesis_scaffold` creates the real project and
   // rebinds the cwd. Assign the scratch cwd here so the rest of creation (store
@@ -499,7 +499,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.nativeCompactAutoContinue = savedMeta.nativeCompactAutoContinue;
       }
-      // EFFICIENCY_PLAN.md Phase 6b.2 / Phase C — restore the operator's
+      // docs/PROVIDERS.md - restore the operator's
       // per-tab efficiency toggles. Stored unconditionally on the wf.config
       // so a CLI ↔ Native transport flip on the same tab picks up the last
       // pinned value.
@@ -511,7 +511,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.efficiencyToolFilter = savedMeta.efficiencyToolFilter;
       }
-      // EFFICIENCY_PLAN.md Phase D §8a — restore an explicit saved choice.
+      // docs/PROVIDERS.md - restore an explicit saved choice.
       // Absent stays 'off', matching the new-tab default and avoiding a
       // surprise synthetic edit/retry gate on older workflows.
       if (savedMeta?.efficiencyFactForce === 'on' || savedMeta?.efficiencyFactForce === 'off') {
@@ -525,27 +525,27 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.efficiencyConfigProtection = savedMeta.efficiencyConfigProtection;
       }
-      // EFFICIENCY_PLAN.md Phase E §9 — restore sandbox toggle. Default
+      // docs/PROVIDERS.md - restore sandbox toggle. Default
       // 'off' for all tabs (existing AND new); the operator opts in via
       // the CONFIG-tab toggle.
       if (savedMeta?.efficiencySandbox === 'on' || savedMeta?.efficiencySandbox === 'off') {
         const wf = workflows.get(workflowId);
         if (wf) wf.config.efficiencySandbox = savedMeta.efficiencySandbox;
       }
-      // DEBAG_PLAN.md — restore the per-tab review-gate toggle across restart.
+      // docs/PROVIDERS.md - restore the per-tab review-gate toggle across restart.
       // Absent ⇒ leave 'off' (opt-in is explicit).
       if (savedMeta?.reviewSafeMode === 'on' || savedMeta?.reviewSafeMode === 'off') {
         const wf = workflows.get(workflowId);
         if (wf) wf.config.reviewSafeMode = savedMeta.reviewSafeMode;
       }
-      // LOCAL_AI_MASTER_PLAN.md M3 — restore the per-tab Ollama param preset
+      // docs/PROVIDERS.md - restore the per-tab Ollama param preset
       // blob across server restart. Pinned on wf.config so the next Ollama
       // turn merges it through the allowlist; only meaningful for Ollama tabs.
       if (savedMeta?.ollamaParams && typeof savedMeta.ollamaParams === 'object') {
         const wf = workflows.get(workflowId);
         if (wf) wf.config.ollamaParams = savedMeta.ollamaParams;
       }
-      // OUTPUT_STYLE_PLAN.md — restore the operator's per-tab output-style
+      // docs/PROVIDERS.md - restore the operator's per-tab output-style
       // pick across server restart. Pinned on wf.config so a transport flip
       // on the same tab keeps the value. Legacy `'caveman'` (renamed to
       // `'terse'` 2026-05-10) is auto-aliased so existing meta.json files
@@ -557,7 +557,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.outputStyle = 'terse';
       }
-      // GOAL_NORTHSTAR_PLAN.md — restore the per-tab north-star across restart.
+      // docs/GOTCHAS.md - restore the per-tab north-star across restart.
       // Pinned on wf.config so the next turn's system-block builder injects it.
       // Absent / blank ⇒ leave unset (no block).
       if (typeof savedMeta?.goal === 'string' && savedMeta.goal.trim()) {
@@ -568,7 +568,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.pinnedSkills = savedMeta.pinnedSkills.map((s) => ({ ...s }));
       }
-      // EFFICIENCY_PLAN.md Phase F — restore the codebase-memory attach
+      // docs/PROVIDERS.md - restore the codebase-memory attach
       // intent + last-indexed snapshot. Spawn-site wiring is deferred; this
       // just makes the CONFIG toggle survive a server restart.
       if (savedMeta?.codebaseMemory && typeof savedMeta.codebaseMemory === 'object') {
@@ -1023,7 +1023,7 @@ export function handleRemoveWorkflow(workflowId: string): void {
     wf.bgTracker = undefined;
   }
   deps.previewAutoDetect.cancel(workflowId);
-  // EFFICIENCY_PLAN.md Phase E §9c — tear down the per-tab sandbox DB on
+  // docs/PROVIDERS.md - tear down the per-tab sandbox DB on
   // tab close. We unconditionally call destroySandbox because the file
   // is per-tab (sandbox.db sits inside the workflow's directory); the
   // helper is a no-op when there's no file and ignores ENOENT.
@@ -1223,7 +1223,7 @@ export async function handleCreateLabelRequest(
   console.log(`[arco] [${msg.workflowId.slice(0, 8)}] label pinned at seq ${msg.targetEventSeq}: ${text.slice(0, 60)}`);
 }
 
-// PHASE_9_FORKS_PLAN.md — REWIND CONVERSATION. Move the workflow's live head to
+// docs/PERSISTENCE.md - REWIND CONVERSATION. Move the workflow's live head to
 // an earlier transcript point. Deliberately NOT `revert_to_checkpoint` (that is
 // the git working-tree restore). This is a conversation rewind only (v1 —
 // file restore stays the separate RESTORE FILES action).
@@ -1258,7 +1258,7 @@ export async function handleRevertToPointRequest(
     send(ws, { type: 'error', message: 'Workflow has no working directory configured.' });
     return;
   }
-  // PHASE_9_FORKS_PLAN.md sub-phase 5 — Native-first. Only the Claude Native
+  // docs/PERSISTENCE.md - Native-first. Only the Claude Native
   // transport rebuilds its in-process messages[] from meta.leafSeq. On CLI /
   // Codex (session-id / rollout resume) setting leafSeq has NO effect, so a
   // rewind would silently no-op. Gate it rather than lie. The effective
@@ -1396,7 +1396,7 @@ export async function handleRevertToCheckpoint(
   );
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2 — WS handlers.
+// docs/PROTOCOL_CLUSTER.md - WS handlers.
 //
 // Subscribe is the only client→server message that pushes back a full
 // snapshot synchronously. Subsequent updates flow through the cluster_state
@@ -1454,7 +1454,7 @@ export async function handleRenameWorkflow(ws: WebSocket, workflowId: string, na
   console.log(`[arco] [${workflowId.slice(0, 8)}] renamed → ${broadcastName ?? '(default)'}`);
 }
 
-// EFFICIENCY_PLAN.md Phase F + F9 — operator toggled "Attach codebase
+// docs/PROVIDERS.md + F9 - operator toggled "Attach codebase
 // memory" in the CONFIG tab. Persists intent + indexPath on wf.config +
 // meta.json, eagerly rewrites `.arco/<wfid>/mcp-config.json` (so the
 // next CLI Claude spawn picks up the entry without the operator having
@@ -1762,7 +1762,7 @@ export async function handleReviewRequest(
       contextRef: msg.contextRef,
       contextLabel: builtLabel,
       content: builtContent,
-      // GOAL_NORTHSTAR_PLAN.md — inherit the source tab's north-star so the
+      // docs/GOTCHAS.md - inherit the source tab's north-star so the
       // reviewer judges against the standing objective (diverges from
       // outputStyle, which reviewers force to 'normal').
       goal: wf.config.goal,
@@ -1779,7 +1779,7 @@ export async function handleReviewRequest(
   });
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §B2 — the Deep Research primitive's WS handler.
+// docs/ARCHITECTURE.md - the Deep Research primitive's WS handler.
 // Resolves the researcher config exactly like the reviewer path, clamps the
 // round cap to [1, ceiling], and spawns runResearch in the background. For a
 // dig-deeper follow-up (`seedArtifactName` + `followUp`) it reads the existing
@@ -1908,7 +1908,7 @@ export function handleCancelResearch(ws: WebSocket, workflowId: string, research
   });
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §G3 — Cookbook agent-driven recommendation.
+// docs/ARCHITECTURE.md - Cookbook agent-driven recommendation.
 //
 // REUSES the B2 Deep-Research bounded turn (runResearch) end-to-end — does NOT
 // fork it. We resolve the RUN AS researcher exactly like handleResearchRequest,
@@ -1976,7 +1976,7 @@ export async function handleCookbookRecommendRequest(
   });
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §G4 — Cookbook download + run + auto-register.
+// docs/ARCHITECTURE.md - Cookbook download + run + auto-register.
 //
 // OPERATOR-INITIATED ONLY: this handler runs solely on an explicit
 // cookbook_download_request (a DOWNLOAD click, or a confirmed G3 recommendation).
@@ -2116,7 +2116,7 @@ export function handleCancelCookbookDownload(
   });
 }
 
-// WORKBENCH_EXPANSION_PLAN.md §A7 — AI-collaborative document editing. Mirrors
+// docs/ARCHITECTURE.md - AI-collaborative document editing. Mirrors
 // handleResearchRequest's account resolution, then spawns runDocEdit (a
 // short-lived, READ-ONLY, NO-Write worker whose entire output is the proposed
 // replacement for the operator's selection). Validates the request shape

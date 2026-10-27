@@ -154,7 +154,7 @@ export async function summarizeWorkflow(opts: SummarizeOptions): Promise<Summari
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(summaryPath, body.endsWith('\n') ? body : body + '\n', 'utf8');
       index.setSummary(wfid, `${wfid}/${SUMMARY_FILE}`, body);
-      // ARCO_OPS_PLAN.md §H1 — Recall-summary trigger: surface the summary's
+      // docs/ARCHITECTURE.md - Recall-summary trigger: surface the summary's
       // first line as the session index's "where this left off" subtitle.
       // Fired-and-logged (projection; must not fail the summary write).
       recordSessionSummary(entry.cwd, wfid, body).catch((err) => {
@@ -220,7 +220,7 @@ async function tryLlmSummary(
     {
       cwd: recallHomeDir(),
       skipPermissions: false,
-      // OUTPUT_STYLE_PLAN.md §6 — forced normal regardless of any source-tab
+      // docs/PROVIDERS.md - forced normal regardless of any source-tab
       // outputStyle (this is an archive artifact, terseness loses detail).
       outputStyle: 'normal',
       ...(summarizer.provider === 'codex' && summarizer.codexHome

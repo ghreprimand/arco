@@ -2,7 +2,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { discoverServices } from '../services/discover.js';
 import type { ServicesResponse } from '@arco/shared';
 
-// ARCO_OPS_PLAN.md §L1/§L2 (Part L — Local Services) — Services routes.
+// docs/LOCAL_SERVICES.md - Services routes.
 //
 //   GET    /api/services       → ServicesResponse { services, generatedAt, detail? }   (L1, read-only)
 //   DELETE /api/services/:pid  → { ok, pid, signal } | error                            (L2, the ONE mutation)

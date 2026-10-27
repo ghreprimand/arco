@@ -1,4 +1,4 @@
-// Smoke for the Deep Research primitive — WORKBENCH_EXPANSION_PLAN.md §B2.
+// Smoke for the Deep Research primitive - docs/ARCHITECTURE.md
 //
 // A live research turn spends REAL Anthropic + web quota and needs a running
 // server (see web-search-tool-loop.ts for that style). For a fast, hermetic,

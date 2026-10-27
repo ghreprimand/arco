@@ -1,4 +1,4 @@
-// ── Local service discovery engine (ARCO_OPS_PLAN.md §L1, Part L) ──
+// -- Local service discovery engine (docs/ARCHITECTURE.md) --
 //
 // Enumerates local listening TCP sockets and resolves each to its process /
 // cwd / framework, behind GET /api/services. READ-ONLY: this module only reads

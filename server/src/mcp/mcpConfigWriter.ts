@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 3 + EFFICIENCY_PLAN.md Phase F9 — per-workflow
+// docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - per-workflow
 // `mcp-config.json` writer.
 //
 // One file per workflow at `.arco/<wfid>/mcp-config.json` under the
@@ -63,7 +63,7 @@ export function resolveArcoMcpServerEntry(): { command: string; args: string[] }
   return { command: 'node', args: [resolve(HERE, 'arcoMcpServer.js')] };
 }
 
-// VOICE_AGENT_PLAN.md — the arco-voice child for a `voiceOperator` Chat.
+// docs/VOICE.md - the arco-voice child for a `voiceOperator` Chat.
 export function resolveVoiceMcpServerEntry(): { command: string; args: string[] } {
   const isDev = process.env.NODE_ENV !== 'production';
   if (isDev) return { command: 'npx', args: ['tsx', resolve(HERE, 'voiceMcpServer.ts')] };
@@ -88,7 +88,7 @@ function configPath(workflowCwd: string, workflowId: string): string {
   return join(workflowCwd, '.arco', workflowId, 'mcp-config.json');
 }
 
-// EFFICIENCY_PLAN.md Phase F9 — codebase-memory MCP entry. The binary is
+// docs/PROVIDERS.md - codebase-memory MCP entry. The binary is
 // operator-installed per `docs/OPERATIONS.md`; we invoke it as
 // `codebase-memory-mcp serve --path <indexPath> --skip-config`. The
 // `--skip-config` flag is LOAD-BEARING: without it the binary auto-edits
@@ -100,7 +100,7 @@ function buildCodebaseMemoryEntry(indexPath: string): { command: string; args: s
   };
 }
 
-// ARCO_OPS_PLAN.md §E1 — a registry-sourced MCP server resolved for a
+// docs/ARCHITECTURE.md - a registry-sourced MCP server resolved for a
 // workflow. Defined in shared (`ResolvedMcpServer`) because it rides on the
 // shared WorkerConfig across the provider seam; re-exported here under the
 // writer-local name the call sites already reference.
@@ -117,11 +117,11 @@ export interface McpConfigOptions {
   accessMode?: ClusterMemberAccessMode;
   // Arco HTTP port for the cluster MCP child to call back into.
   port: number;
-  // EFFICIENCY_PLAN.md Phase F9 — when set, includes the codebase-memory
+  // docs/PROVIDERS.md - when set, includes the codebase-memory
   // MCP entry pointing at the indexed tree. Caller resolves
   // `wf.config.codebaseMemory.indexPath || wf.config.workingDirectory`.
   codebaseMemoryIndexPath?: string;
-  // ARCO_OPS_PLAN.md §E1 — operator-enabled-and-allowed registry servers
+  // docs/ARCHITECTURE.md - operator-enabled-and-allowed registry servers
   // for this workflow. Merged into `mcpServers` alongside the cluster /
   // codebase-memory entries. Empty / absent ⇒ no registry servers. These are
   // the ONLY model-exposed MCP servers besides the two built-in ones — no
@@ -213,7 +213,7 @@ export function configPathFor(workflowCwd: string, workflowId: string): string {
   return configPath(workflowCwd, workflowId);
 }
 
-// CLUSTER_MODE_PLAN.md Phase 4 + EFFICIENCY_PLAN.md Phase F9 — build the
+// docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - build the
 // Codex CLI `-c` argv overrides that register per-spawn MCP stdio children
 // without touching `~/.codex/config.toml`.
 //

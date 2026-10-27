@@ -1,4 +1,4 @@
-// ULTRACODE_PLAN.md — regression guard for the fleet-snapshot parser. Builds a
+// docs/PROVIDERS.md - regression guard for the fleet-snapshot parser. Builds a
 // fixture `subagents/workflows/` dir (journal.jsonl + agent-*.jsonl) matching
 // what the CLI's WorkflowTool writes, then asserts buildFleetSnapshot derives
 // the right counts / labels / lastTool, honors the baseline filter, and uses

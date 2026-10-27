@@ -1,5 +1,5 @@
 /**
- * THROWAWAY spike probe for the Cursor (ACP) provider — docs/CURSOR_TRANSPORT_PLAN.md §2.
+ * THROWAWAY spike probe for the Cursor (ACP) provider - docs/PROVIDERS.md
  * NOT shipped. Drives `cursor-agent acp` directly to learn the real wire contract before
  * any Arco code. Walks the 10-item spike checklist and dumps raw traffic for analysis.
  *
@@ -8,7 +8,7 @@
  * ⚠️ METERED COST: this makes real Cursor turns against your subscription pool. It runs on
  * `--model auto` (draws the separate Auto+Composer pool, not the $20 frontier pool) with tiny
  * prompts to keep burn minimal. Item 5b (which pool) must be confirmed by YOU watching
- * cursor.com/dashboard while it runs — the CLI exposes no usage command.
+ * cursor.com/dashboard while it runs - the CLI exposes no usage command.
  *
  * Raw wire log → scratchpad (path printed at start). Findings summary → stdout at the end.
  */

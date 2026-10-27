@@ -1,4 +1,4 @@
-// Per-language LSP server registry (WORKBENCH_EXPANSION_PLAN.md §C3).
+// Per-language LSP server registry (docs/ARCHITECTURE.md).
 //
 // Maps a file extension → an LSP languageId → candidate server command(s).
 // Detection is a cross-platform PATH lookup (no `which` shell-out): we walk

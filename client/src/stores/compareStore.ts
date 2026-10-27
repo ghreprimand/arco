@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CompareLegConfig } from '@arco/shared';
 
-// WORKBENCH_EXPANSION_PLAN.md §B1 — Compare primitive client store.
+// docs/ARCHITECTURE.md - Compare primitive client store.
 //
 // Kept OUT of appStore (mirrors docEditStore / cookbookStore): a compare race
 // is a transient, global overlay — one at a time, not per-tab session state,

@@ -31,7 +31,7 @@ export function resolveSessionJsonlPath(cwd: string, sessionId: string): string 
   return join(homedir(), '.claude', 'projects', encoded, `${sessionId}.jsonl`);
 }
 
-// ULTRACODE_PLAN.md — the directory the CLI's WorkflowTool writes background
+// docs/PROVIDERS.md - the directory the CLI's WorkflowTool writes background
 // subagent runs into: `<projects>/<encoded-cwd>/<sessionId>/subagents/workflows/`,
 // holding one `wf_*` dir per Workflow() call (each with a `journal.jsonl` +
 // `agent-*.jsonl` transcripts). Same cwd-encoding as resolveSessionJsonlPath.

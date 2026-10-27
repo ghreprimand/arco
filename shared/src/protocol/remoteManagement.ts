@@ -112,7 +112,7 @@ export interface InstanceRollup {
   cpuLoad?: number; // 1-min load average when cheap
   memPressure?: number; // 0..1 used-fraction when cheap
   diskFreeMb?: number;
-  // A2 (REMOTE_CLUSTER_CONTROL_PLAN.md §10.3) — providers whose auth is
+  // A2 (docs/REMOTE_MANAGEMENT.md) - providers whose auth is
   // currently broken on this instance (native-transport signal, distinct from
   // the CLI probe). The console renders an AUTH REQUIRED banner per alert.
   authAlerts?: { provider: string; state: 'expired'; since: number; detail?: string }[];
@@ -168,7 +168,7 @@ export interface WorkflowSummary {
   lastMessageText?: string;
   lastTurnDurationMs?: number; // duration of the last completed turn, when known
 
-  // ── R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.1) — all OPTIONAL so an old hub
+  // -- R1 (docs/REMOTE_MANAGEMENT.md) - all OPTIONAL so an old hub
   // renders a new service's snapshot unchanged (additive-protocol rule §1.2).
   effort?: string; // reasoning effort when the provider carries one
   // Context pressure — lets the operator judge WHEN to compact/handoff from
@@ -207,7 +207,7 @@ export interface WorkflowSummary {
 }
 
 // v1 action surface (operator decision §13.5): reply / stop / continue.
-// R1 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.2) widens the fixed enum: compact /
+// R1 (docs/REMOTE_MANAGEMENT.md) widens the fixed enum: compact /
 // fold / answer_question / gate_resolve / cancel_queued. Every verb is
 // re-validated by the owning instance against live state; the hub only routes.
 export type WorkflowActionType =
@@ -303,7 +303,7 @@ export interface WorkflowActionResultMessage {
   result: WorkflowActionResult;
 }
 
-// ── R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.3) — cluster reporting + reads ─────
+// -- R3 (docs/REMOTE_MANAGEMENT.md) - cluster reporting + reads -----
 // A cluster is reported ONLY when its own cluster-level remoteEnabled is on
 // (§3 — one switch covers all members; member-level flags are ignored while
 // clustered). Member workflows ride the normal WorkflowSummary list with a
@@ -380,7 +380,7 @@ export interface ClusterReadResponseMessage {
   activity?: ClusterActivityRow[]; // R5 — merged, chronological, capped
 }
 
-// ── R4 (REMOTE_CLUSTER_CONTROL_PLAN.md §4.3) — cluster actions ───────────────
+// -- R4 (docs/REMOTE_MANAGEMENT.md) - cluster actions ---------------
 // Fixed verb enum, each mapping onto an existing deterministic handler on the
 // owning instance; the service re-validates the cluster's remote switch +
 // membership before applying. NO structural ops (create/delete/membership) —

@@ -1,4 +1,4 @@
-// EFFICIENCY_PLAN.md Phase E §9a — sandbox subprocess executor.
+// docs/PROVIDERS.md - sandbox subprocess executor.
 //
 // Runs operator-opted-in `ctx_execute(language, code)` calls. Same shape
 // as context-mode's PolyglotExecutor but WITHOUT the self-heal mutation

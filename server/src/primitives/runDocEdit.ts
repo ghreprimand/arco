@@ -1,4 +1,4 @@
-// AI-collaborative document editing — WORKBENCH_EXPANSION_PLAN.md §A7.
+// AI-collaborative document editing - docs/ARCHITECTURE.md
 //
 // Mirrors runReviewer.ts / runResearch.ts: spawns a SHORT-LIVED, READ-ONLY
 // worker for ONE bounded turn. CRITICALLY DIFFERENT from those two: this worker

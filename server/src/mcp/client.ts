@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §E1 — minimal MCP stdio client.
+// docs/ARCHITECTURE.md - minimal MCP stdio client.
 //
 // Speaks newline-delimited JSON-RPC 2.0 over a spawned stdio child (the same
 // framing clusterMcpServer.ts uses on the server side). Dependency-free on

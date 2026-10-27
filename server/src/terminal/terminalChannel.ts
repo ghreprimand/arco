@@ -1,4 +1,4 @@
-// WORKBENCH_EXPANSION_PLAN.md §K1 — the `/terminal` WS channel.
+// docs/ARCHITECTURE.md - the `/terminal` WS channel.
 //
 // A dedicated WS path, separate from `/ws`. It carries the RAW PTY byte stream
 // and is deliberately NOT the seq'd / persisted `/ws` protocol — nothing here

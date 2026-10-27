@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { fileKind, type FileKind, type ChangedEntry, type RecentRecord } from './types';
 
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — the RECENTS lens, two sub-tabs:
+// ARCHIVE (docs/CLIENT.md) - the RECENTS lens, two sub-tabs:
 //
 //   AGENT WRITES     — the attributed ledger (which tab wrote what). Complete
 //                      for Native writes / Review / media; best-effort for

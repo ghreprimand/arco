@@ -1,4 +1,4 @@
-// FABLE_51_APPEND_ONLY_PLAN.md §5 — pins the pure frozen-prefix helpers.
+// docs/PROVIDERS.md - pins the pure frozen-prefix helpers.
 // `npm run test:append-only -w server`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

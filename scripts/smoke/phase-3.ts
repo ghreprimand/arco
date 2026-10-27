@@ -1,4 +1,4 @@
-// CLUSTER_MODE_PLAN.md Phase 3 — headless WS+REST smoke.
+// docs/PROTOCOL_CLUSTER.md - headless WS+REST smoke.
 //
 // Covers the protocol-only steps of Phase 3's acceptance recipe:
 //   1. create a CLI Claude workflow

@@ -5,7 +5,7 @@ import { readCursorAccessToken } from './providers/cursor/authToken.js';
 // session JWT that `cursor-agent` already stores and auto-refreshes. No browser
 // scrape (unlike codexUsage.ts) — this is the strictly-cleaner path: same API the
 // dashboard itself calls, own account, own token, read-only. See
-// docs/CURSOR_TRANSPORT_PLAN.md §0.2 for the reverse-engineered contract.
+// docs/PROVIDERS.md for the reverse-engineered contract.
 
 const DASHBOARD_URL = 'https://cursor.com/dashboard';
 const API_BASE = 'https://cursor.com/api';

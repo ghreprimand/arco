@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.2, Phase 3) — regression guard for the
+// ARCHIVE (docs/CLIENT.md) - regression guard for the
 // agent-writes ledger. `matchFileEvent` is the per-provider event-shape parser;
 // it drifts as providers change, so it is pinned here (same rationale as
 // hooks.test.ts). Also covers the append/read/compaction round-trip.

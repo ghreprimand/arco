@@ -1,5 +1,5 @@
 import { useVoicePanelRequest } from '../../voice/panels';
-// CLUSTER_MODE_PLAN.md Phase 2 — replaces the per-member RightPanel for
+// docs/PROTOCOL_CLUSTER.md - replaces the per-member RightPanel for
 // cluster tabs. Later phases added shared-cwd mirrors and a member-scoped
 // CONFIG view so operators do not have to leave the cluster tab for routine
 // per-worker settings.

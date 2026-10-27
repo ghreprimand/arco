@@ -1,4 +1,4 @@
-// Cursor (ACP) transport entry — docs/CURSOR_TRANSPORT_PLAN.md Phase 1.
+// Cursor (ACP) transport entry - docs/PROVIDERS.md
 //
 // The long-lived `CursorAcpWorker` is cached per workflowId (the `cursor-agent
 // acp` child + its ACP session stay warm across turns). Each operator turn

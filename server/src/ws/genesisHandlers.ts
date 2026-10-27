@@ -1,4 +1,4 @@
-// ── Genesis WS handlers (ARCO_OPS_PLAN.md M2) ──
+// -- Genesis WS handlers (docs/ARCHITECTURE.md) --
 //
 // Two operator-driven messages for a from-nothing genesis workflow:
 //   genesis_seed_update  → store the seed (config + meta mirror), echo readiness.

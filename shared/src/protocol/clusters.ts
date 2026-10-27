@@ -2,7 +2,7 @@
 
 // Providers that can participate in cluster peer-mode. Claude/Codex wire peer
 // tools through Native/stdio-MCP. Cursor wires them through an in-process
-// loopback HTTP MCP server (CURSOR_TRANSPORT_PLAN.md Phase 6 — Cursor ACP honors
+// loopback HTTP MCP server (docs/PROVIDERS.md - Cursor ACP honors
 // MCP over http/sse only, not stdio). Local providers (ollama/llamacpp) use
 // Arco's in-process tool runtime and are serialized per provider to avoid
 // local model fights.
@@ -25,7 +25,7 @@ export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessM
   return typeof v === 'string' && (CLUSTER_MEMBER_ACCESS_MODES as readonly string[]).includes(v);
 }
 
-// CLUSTER_MODE_PLAN.md Phase 1 — peer messaging events.
+// docs/PROTOCOL_CLUSTER.md - peer messaging events.
 //
 // Three kinds, all workflow-scoped (each member's events.jsonl carries
 // only the events that apply to it):
@@ -55,7 +55,7 @@ export interface PeerMessageSentMessage {
   from: string;             // sender workflowId (== workflowId above)
   to: string;               // recipient workflowId
   contentPreview: string;   // up to 200 chars; full content lives in the recipient's record
-  // Auto-turn-on-mailbox chain depth (CLUSTER_MODE_PLAN.md Phase 5b). 0 (or
+  // Auto-turn-on-mailbox chain depth (docs/PROTOCOL_CLUSTER.md). 0 (or
   // absent) for operator-initiated sends. When the auto-turn detector fires a
   // turn on a recipient, peer_send originating during that turn carries
   // `chainDepth = senderTurnDepth + 1`. The detector refuses to auto-turn on
@@ -88,7 +88,7 @@ export interface PeerSendRejectedMessage {
   cap?: number;             // budget_exhausted: per-turn cap
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2 — UI cluster tab.
+// docs/PROTOCOL_CLUSTER.md - UI cluster tab.
 //
 // Phase 1 shipped the substrate (mailbox + peer tools + REST shim); Phase 2
 // adds the WS surface that lets a UI tab subscribe to a cluster and broadcast
@@ -105,7 +105,7 @@ export interface ClusterMember {
   workflowId: string;
   displayName: string;       // Operator-editable via rename_workflow (F5, 2026-05-11); falls back to wfid 8-char prefix when unset.
   status: 'idle' | 'busy';   // mirrors per-workflow `wf.busy`
-  // CLUSTER_MODE_PLAN.md Phase 2.6 — optional free-form role hint
+  // docs/PROTOCOL_CLUSTER.md - optional free-form role hint
   // (≤120 chars). When set, the Native worker injects an
   // `Your role in this cluster: <role>` system block on every turn.
   // Empty / whitespace clears (no block). Director-vs-worker is emergent;
@@ -246,17 +246,17 @@ export interface ClusterStatePayload {
   // plan at a time, matching workflow plan semantics. Absent ≡ no plan
   // attached. The body is capped to 32768 chars for cluster prompt injection.
   plan?: { id: string; title: string; body: string; updatedAt: number };
-  // CLUSTER_MODE_PLAN.md Phase 5 — operator-armed idle-nudger toggle.
+  // docs/PROTOCOL_CLUSTER.md - operator-armed idle-nudger toggle.
   // Default OFF (absent or false). When true, the server detector emits
   // cluster_member_nudged on the idle+pending predicate. See §10.
   idleNudgerEnabled?: boolean;
-  // CLUSTER_MODE_PLAN.md Phase 5b — operator-armed auto-turn-on-mailbox.
+  // docs/PROTOCOL_CLUSTER.md - operator-armed auto-turn-on-mailbox.
   // Default OFF (absent or false). When true, a peer_message_sent to a
   // currently-idle recipient fires a single primary turn on the recipient
   // with the synthetic prompt "(auto-pickup) ..." — rate-capped + chain-
   // depth-capped server-side. See clusterAutoTurn.ts.
   autoTurnOnMailboxEnabled?: boolean;
-  // DIRECTOR_WORKERS_WORKFLOW_PLAN.md Stage G — operator-armed task
+  // docs/TASK_LEDGER.md Stage G - operator-armed task
   // dispatcher daemon. Default OFF when absent. The daemon repeatedly runs
   // the same deterministic ready-task sweep as `cluster_dispatch_once`, with
   // server-side caps. All fields are state echoes from cluster meta.
@@ -276,7 +276,7 @@ export interface ClusterStatePayload {
   // echoed when non-default so pre-feature snapshots stay clean. State echo from
   // cluster meta.
   progressTracking?: ClusterProgressMode;
-  // R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — cluster-level remote opt-in.
+  // R3 (docs/REMOTE_MANAGEMENT.md) - cluster-level remote opt-in.
   // Absent ≡ OFF. Drives the ◉ REMOTE header chip; while on, the hub link
   // reports the cluster + all members to the phone console.
   remoteEnabled?: boolean;
@@ -627,7 +627,7 @@ export interface ClusterMemberReplaceMessage {
   transferActiveTasks?: boolean;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2.6 — operator authored / edited the cluster's
+// docs/PROTOCOL_CLUSTER.md - operator authored / edited the cluster's
 // shared plan (markdown body). Server caps body length at 32768 chars; the
 // client should warn at 28672 (soft) and refuse to send at >32768 (hard).
 // Bumped from 8 KB / 7 KB on 2026-05-11 (§13). Empty / whitespace `body`
@@ -645,7 +645,7 @@ export interface ClusterPlanAttachMessage {
   planId: string;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2.6 — operator cleared the cluster's shared
+// docs/PROTOCOL_CLUSTER.md - operator cleared the cluster's shared
 // plan. Server detaches the cluster from its active per-cwd plan; the plan
 // file remains available to future workers and clusters in the same cwd.
 export interface ClusterPlanClearMessage {
@@ -653,7 +653,7 @@ export interface ClusterPlanClearMessage {
   clusterId: string;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2.6 — operator edited a member's role hint.
+// docs/PROTOCOL_CLUSTER.md - operator edited a member's role hint.
 // Free-form text, ≤120 chars. Empty / whitespace clears the field. The
 // next turn's system block reflects the new value; in-flight turns are
 // untouched.
@@ -707,7 +707,7 @@ export interface WorkflowRenamedMessage {
   name: string | null;
 }
 
-// EFFICIENCY_PLAN.md Phase F — operator toggled "Attach codebase memory"
+// docs/PROVIDERS.md - operator toggled "Attach codebase memory"
 // in the CONFIG tab. Server flips `WorkflowConfig.codebaseMemory.attached`
 // + persists to meta.json + broadcasts `codebase_memory_state`. The actual
 // `--mcp-config` write-in at CLI spawn time is deferred to a follow-up
@@ -844,7 +844,7 @@ export interface ClusterMemberReplacedMessage {
   transferredTaskCount: number;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 2.6 — server push when the shared cluster
+// docs/PROTOCOL_CLUSTER.md - server push when the shared cluster
 // plan body changes (set or cleared). `body` carries the new full text
 // (empty string ≡ plan cleared). `updatedAt` is wall-clock ms.
 // `bodyLength` is logged into events.jsonl (the lightweight audit shape —
@@ -858,7 +858,7 @@ export interface ClusterPlanChangedMessage {
   bodyLength: number;      // duplicates body.length for the events.jsonl audit row
 }
 
-// EFFICIENCY_PLAN.md Phase F — server push reflecting the current
+// docs/PROVIDERS.md - server push reflecting the current
 // codebase-memory attach state for a workflow. Fired on attach / detach /
 // reindex. `attached === false` ⇒ indexPath / lastIndexedAt / fileCount
 // may still be present (operator's last-typed values) so re-attaching
@@ -951,7 +951,7 @@ export interface ClusterSwarmCreatedMessage {
   at: number;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5 — operator-armed per-cluster idle-nudger
+// docs/PROTOCOL_CLUSTER.md - operator-armed per-cluster idle-nudger
 // toggle. Default OFF. When ON, the server-side detector emits
 // cluster_member_nudged to alert the operator (NOT the worker) when a member
 // has been idle for ≥ IDLE_FLOOR_SECONDS AND has ≥1 pending message in its
@@ -991,7 +991,7 @@ export interface ClusterMemberReorderMessage {
   memberIds: string[];
 }
 
-// R3 (REMOTE_CLUSTER_CONTROL_PLAN.md §3) — operator flipped the cluster-level
+// R3 (docs/REMOTE_MANAGEMENT.md) - operator flipped the cluster-level
 // ◉ REMOTE chip. ONE switch covers the whole cluster: while on, the hub link
 // reports the cluster and every member to the management console (members'
 // individual remoteEnabled flags are ignored while clustered). Persists to the
@@ -1026,7 +1026,7 @@ export interface ClusterProgressSetMessage {
   mode: ClusterProgressMode;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5 — server-side detector found a member that
+// docs/PROTOCOL_CLUSTER.md - server-side detector found a member that
 // matches the nudge predicate (idle ≥ floor AND pending ≥ 1) and is below
 // the NUDGES_PER_TURN cap. `reason` is always 'idle_with_pending' today;
 // kept open for future predicate classes. Operator-only — the worker never
@@ -1040,7 +1040,7 @@ export interface ClusterMemberNudgedMessage {
   pendingCount: number;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5b — operator-armed auto-turn-on-mailbox toggle.
+// docs/PROTOCOL_CLUSTER.md - operator-armed auto-turn-on-mailbox toggle.
 // Default OFF. When ON, a peer_message_sent to a currently-idle recipient
 // fires a single primary turn on the recipient with a synthetic
 // "(auto-pickup) ..." prompt. Three guards prevent runaway loops: 20s per-
@@ -1054,7 +1054,7 @@ export interface ClusterAutoTurnToggleMessage {
   enabled: boolean;
 }
 
-// CLUSTER_MODE_PLAN.md Phase 5b — server-side detector fired (or refused to
+// docs/PROTOCOL_CLUSTER.md - server-side detector fired (or refused to
 // fire) an auto-turn on a recipient after a peer_message_sent delivery. Rides
 // through broadcastWorkflow so events.jsonl carries the audit trail. The
 // client surfaces a toast (same pattern as cluster_member_nudged). `reason`

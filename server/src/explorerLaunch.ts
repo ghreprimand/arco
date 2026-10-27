@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md §3) — launch the standalone chromeless file
+// ARCHIVE (docs/CLIENT.md) - launch the standalone chromeless file
 // explorer window. A web page can't spawn its own `--app=` chrome window, so
 // the header ARCHIVE button POSTs here and the server spawns a Chromium-family
 // browser in `--app=` mode (same detach pattern as the `claude auth login`

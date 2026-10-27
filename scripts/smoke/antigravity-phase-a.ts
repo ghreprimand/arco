@@ -1,4 +1,4 @@
-// ANTIGRAVITY_RPC_INTEGRATION_PLAN.md Phase A — provider-contract smoke.
+// docs/PROVIDERS.md - provider-contract smoke.
 //
 // Does NOT need the Arco dev server. Imports the RPC layer directly and
 // drives three turns through the running Antigravity desktop app:

@@ -1,5 +1,5 @@
 // Server-side expansion for the composer's `@`-context-refs
-// (WORKBENCH_EXPANSION_PLAN.md §D1). The client parses `@file:`, `@diff`,
+// (docs/ARCHITECTURE.md). The client parses `@file:`, `@diff`,
 // `@staged`, `@git:N`, `@url:` into chips; at send time the server expands
 // each ref into the turn's context.
 //

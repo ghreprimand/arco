@@ -1,4 +1,4 @@
-// H43 — code-skew banner (BORROWED_IMPROVEMENTS_EXECUTION.md Phase 2).
+// H43 - code-skew banner (docs/GOTCHAS.md).
 //
 // Prod runs the COMPILED build (`node server/dist/index.js`); editing source or
 // pulling new commits does NOT touch the running process until the operator

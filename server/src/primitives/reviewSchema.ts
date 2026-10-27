@@ -1,4 +1,4 @@
-// LOCAL_AI_MASTER_PLAN.md M5 / Excellence LE-4 — structured-output schema for
+// docs/PROVIDERS.md / Excellence LE-4 - structured-output schema for
 // the Review primitive's verdict, used ONLY on the Ollama path.
 //
 // WHY a schema (and why Ollama-only): small local models are unreliable at

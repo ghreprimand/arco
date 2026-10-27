@@ -147,14 +147,14 @@ export interface HookFireResult {
   stdout: string;
   stderr: string;
   timedOut: boolean;
-  // EFFICIENCY_PLAN.md Phase B0 — hook command that produced this result.
+  // docs/PROVIDERS.md - hook command that produced this result.
   // Used by the worker to label `hook_rewrote_input` events so transcript
   // review can attribute a rewrite back to its origin (e.g. rtk vs. a
   // bespoke project hook).
   command?: string;
 }
 
-// EFFICIENCY_PLAN.md Phase B0 — Claude Code's documented hook stdout shape.
+// docs/PROVIDERS.md - Claude Code's documented hook stdout shape.
 // Tolerant: non-JSON stdout returns {}, malformed JSON also returns {}.
 // Never throws. The fields we care about today:
 //   - hookSpecificOutput.updatedInput: PreToolUse rewrite of the tool input

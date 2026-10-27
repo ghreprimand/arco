@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §F2 — pure archive verifier (verify-BEFORE-restore gate).
+// docs/ARCHITECTURE.md - pure archive verifier (verify-BEFORE-restore gate).
 //
 // `verifyArchive(gz)` is the F3 safety gate: it validates a backup archive
 // against its OWN manifest before any restore touches the filesystem. The

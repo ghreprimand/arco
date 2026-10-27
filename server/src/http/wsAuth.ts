@@ -105,7 +105,7 @@ export function sessionCookieHeader(token: string): string {
 // The agent tool surface — reachable without the cookie. Keep this list to
 // endpoints an MCP child or bridge script calls by design.
 const AGENT_TOOL_ROUTE = /^\/api\/clusters\/[^/]+\/peer\/[^/]+$/;
-// `/api/voice/tool` is the arco-voice MCP child's relay (VOICE_AGENT_PLAN.md);
+// `/api/voice/tool` is the arco-voice MCP child's relay (docs/VOICE.md);
 // the route itself additionally refuses non-loopback peers.
 const AGENT_TOOL_PATHS = new Set(['/api/plans', '/api/plans/attach', '/api/plans/refs', '/api/plans/refs/body', '/api/voice/tool']);
 

@@ -510,7 +510,7 @@ const httpDeps: HttpDeps = {
   assertAllMembersClaudeOrCodex,
 };
 
-// FILE_SIZE_REFACTOR_PLAN.md Phase 4 — inject the four index.ts-local
+// docs/ARCHITECTURE.md - inject the four index.ts-local
 // back-edges into the extracted cluster handler module exactly once, before
 // the server accepts connections. These four are hoisted function
 // declarations, so they're available here at module-eval time.
@@ -549,7 +549,7 @@ wss.on('close', () => clearInterval(heartbeatInterval));
 // the workflow registry through every callsite. Installs once at startup.
 clusterStore.setWorkflowNameResolver((wfid) => workflows.get(wfid)?.config.name);
 
-// ARCO_OPS_PLAN.md §J1 — inject the global all-clients sender into the
+// docs/ARCHITECTURE.md - inject the global all-clients sender into the
 // notification hub + load persisted mutes. Fire-and-forget (the read is best-
 // effort; emits before it resolves just see an empty mute set).
 void initNotifications((msg) => {
@@ -636,7 +636,7 @@ setDeepSeekActivityCheck((includeDeepSeek) => [...workflows.values()].some((wf) 
   (wf.busy && ['ollama', 'llamacpp', 'lmstudio', 'strata', ...(includeDeepSeek ? ['deepseek'] : [])].includes(wf.primary.provider)) ||
   Object.values(wf.manager.snapshotWorkers()).some((w) => ['ollama', 'llamacpp', 'lmstudio', 'strata', ...(includeDeepSeek ? ['deepseek'] : [])].includes(w.provider ?? '') && (w.status === 'running' || w.status === 'spawning'))));
 setOperatorQuestionPublisher((workflowId, question) => broadcastWorkflow(workflowId, { type: 'operator_question', workflowId, question }));
-// VOICE_AGENT_PLAN.md — voice tool calls go to the Computer chat's observers;
+// docs/VOICE.md - voice tool calls go to the Computer chat's observers;
 // the browser with the hands-free session answers (others ignore the call).
 // Sent straight to the sockets, NOT through broadcastWorkflow: a persisted
 // voice_tool_call would be replayed on reconnect and could re-run an action.
@@ -992,7 +992,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       }
       case 'gate_reply': {
-        // DEBAG (docs/DEBAG_PLAN.md) — operator approved/rejected a parked
+        // DEBAG (docs/PROVIDERS.md) - operator approved/rejected a parked
         // review gate. First try the live in-process park; if none (the gate
         // survived a server restart, so its Promise is gone), fall back to the
         // durable sidecar and feed the approved action as the next-turn input.
@@ -1009,7 +1009,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       }
       case 'gate_revoke': {
-        // DEBAG (docs/DEBAG_PLAN.md §5) — operator revoked a standing approval.
+        // DEBAG (docs/PROVIDERS.md) - operator revoked a standing approval.
         handleGateRevoke(msg.workflowId, msg.signature).catch((err) =>
           console.error(`[arco] [${msg.workflowId.slice(0, 8)}] gate_revoke failed:`, err));
         break;
@@ -1775,7 +1775,7 @@ async function handlePlanDetach(workflowId: string): Promise<void> {
 // events.jsonl write + observer broadcast still happen when no socket
 // originated the message.
 
-// CLUSTER_MODE_PLAN.md Phase 4 + local-provider followup. Claude and Codex
+// docs/PROTOCOL_CLUSTER.md + local-provider followup. Claude and Codex
 // wire peer tools through Native/MCP. Ollama and llama.cpp use Arco's
 // server-side local tool runtime, so they can now participate without stdio
 // MCP. Gemini / Antigravity stay rejected because Arco cannot inject peer
@@ -2025,7 +2025,7 @@ setClaudeNativeTodosBroadcast((workflowId, todos) => {
   broadcastTransient(workflowId, { type: 'todos_updated', workflowId, todos });
 });
 
-// EFFICIENCY_PLAN.md Phase B/D — Native worker emits workflow-scoped events
+// docs/PROVIDERS.md - Native worker emits workflow-scoped events
 // for hook rewrites, pre-tool-use guards, and ctx-management actions
 // through this broadcaster. Routed through broadcastWorkflow so they land
 // in events.jsonl with proper seq/parent threading.
@@ -2252,7 +2252,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model
       // Without this the child silently ran 'normal' regardless of the parent's
       // OUTPUT STYLE pick. Inherit the parent's setting.
       outputStyle: parent.config.outputStyle,
-      // GOAL_NORTHSTAR_PLAN.md — a Task child works in service of the parent's
+      // docs/GOTCHAS.md - a Task child works in service of the parent's
       // objective, so it inherits the parent's north-star (like the Review /
       // Handoff / DOCS / GIT seeds do, and unlike outputStyle's forced normal
       // in those seeds). derivePrimaryConfig drops it, so thread it explicitly.
@@ -2297,7 +2297,7 @@ httpServer.listen(PORT, HOST, () => {
   scheduleGeminiNativeCatalogPrefetch();
   scheduleCursorCatalogPrefetch();
   readSettings().catch((err) => console.error('[arco] initial readSettings failed:', err));
-  // CLUSTER_MODE_PLAN.md Phase 5 — configure the idle-nudger detector with
+  // docs/PROTOCOL_CLUSTER.md - configure the idle-nudger detector with
   // the broadcast surfaces + a resolver that snapshots live cluster
   // membership + per-member busy state at each tick. The detector runs on
   // its own polling timer (interval derived from IDLE_FLOOR_SECONDS) and
@@ -2317,7 +2317,7 @@ httpServer.listen(PORT, HOST, () => {
   });
   clusterIdleNudger.start();
 
-  // CLUSTER_MODE_PLAN.md Phase 5b — configure the auto-turn detector. The
+  // docs/PROTOCOL_CLUSTER.md - configure the auto-turn detector. The
   // detector itself has no timer (it runs inline off broadcastWorkflow's
   // peer_message_sent branch), so configure() just wires the three
   // callbacks the detector needs: broadcast (for cluster_auto_turn_fired
@@ -2409,7 +2409,7 @@ httpServer.listen(PORT, HOST, () => {
     }).then(()=>resolve(false),()=>resolve(false));
   }));
 
-  // DIRECTOR_WORKERS_WORKFLOW_PLAN.md Stage G — operator-armed task
+  // docs/TASK_LEDGER.md Stage G - operator-armed task
   // dispatcher daemon. Default OFF per cluster; the timer is always present
   // but each tick gates through clusterStore.taskDispatcherSettingsFor().
   // Dispatch uses the same synthetic user-message path as DISPATCH ONCE and

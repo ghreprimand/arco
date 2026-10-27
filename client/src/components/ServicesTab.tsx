@@ -3,7 +3,7 @@ import type { LocalService, ServicesResponse, PinnedService, ArcoSettings } from
 import { useAppStore } from '../stores/appStore';
 import { EmptyState } from './RightPanel/FilesTab';
 
-// ── Services tab (ARCO_OPS_PLAN.md §L2, Part L — Local Services) ──
+// -- Services tab (docs/LOCAL_SERVICES.md) --
 //
 // A MACHINE-WIDE (not workflow-scoped) browser of the local listening web/dev
 // services discovered by L1's GET /api/services. Because it is project-agnostic

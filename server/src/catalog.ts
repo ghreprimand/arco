@@ -1,5 +1,5 @@
 // Model catalog + calibration log, both stored under ~/.arco/.
-// See docs/WORKER_MANAGEMENT_PLAN.md — Phase B.
+// See docs/ARCHITECTURE.md
 //
 // - models.md is operator-edited; we bootstrap it from the shipped template
 //   on first run, then never overwrite. Operator edits survive upgrades.

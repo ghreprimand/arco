@@ -1,4 +1,4 @@
-// ARCO_OPS_PLAN.md §C2 — targeted retry paths acceptance.
+// docs/ARCHITECTURE.md - targeted retry paths acceptance.
 //
 // Pure-deriver smoke (no live server, no provider spend, deterministic — same
 // shape as runtime-states.ts). Imports the §C1 derivers + the §C2

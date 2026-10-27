@@ -125,7 +125,7 @@ export async function tryHandleFileWriteRoutes(
     }
     const cwd = bound.cwd;
     const result = await writeFileWithinCwd(cwd, parsed.path ?? '', parsed.content ?? '');
-    // ARCHIVE (docs/ARCHIVE_PLAN.md §4.2) — record the manual operator write in
+    // ARCHIVE (docs/CLIENT.md) - record the manual operator write in
     // the agent-writes ledger so it surfaces in RECENTS. `result.relPath` is
     // cwd-relative and already path-escape-verified; resolve to absolute.
     if (result.ok && result.relPath) {

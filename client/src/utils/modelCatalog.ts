@@ -6,8 +6,8 @@ import { useAppStore } from '../stores/appStore';
 // One provider → model-list resolver for every dialog picker (RUN AS, Review,
 // Handoff, Spawn, cluster FRESH-spawn, tab context menu). Before 2026-09 each
 // dialog carried its own `modelsFor` / `defaultModelFor` copy and they drifted:
-// Review + Handoff never grew the cursor branch Phase 2 of
-// docs/CURSOR_TRANSPORT_PLAN.md added to their provider arrays, so picking
+// Review + Handoff never grew the Cursor provider branch described in
+// docs/PROVIDERS.md in their provider arrays, so picking
 // CURSOR there rendered an empty MODEL row. Rule per provider: live catalog
 // first, static fallback second — the same order the composer popover uses.
 

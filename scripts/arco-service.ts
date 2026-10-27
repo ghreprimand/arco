@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// ARCO_OPS_PLAN.md §B1 — `arco service install|start|stop|status|logs|uninstall`.
+// docs/ARCHITECTURE.md - `arco service install|start|stop|status|logs|uninstall`.
 //
 // Production runtime for Arco as a durable, restartable, inspectable service.
 // This is a SEPARATE path from the dev launcher (scripts/arco, which drives

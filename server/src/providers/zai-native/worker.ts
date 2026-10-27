@@ -709,7 +709,7 @@ async function readTextSummaryStream(body: ReadableStream<Uint8Array>, onFirstBy
 // stays warm across rounds. Deliberately NOT terse — the prior one-liner ended
 // with "keep answers concise", which capped GLM's usefulness as a coding agent;
 // this gives it the explore->plan->edit->verify doctrine the Claude/Codex tabs
-// already carry. See docs/ZAI_INTEGRATION_AUDIT.md.
+// already carry. See docs/PROVIDERS.md.
 function zaiPrimarySystemPrompt(config: WorkerConfig): string {
   const cwd = config.cwd ?? process.cwd();
   return [
@@ -737,7 +737,7 @@ function buildSystemPrompt(config: WorkerConfig): string {
   }
   const blocks = [
     zaiPrimarySystemPrompt(config),
-    // GOAL_NORTHSTAR_PLAN.md G2 — north-star immediately after the identity block,
+    // docs/GOTCHAS.md - north-star immediately after the identity block,
     // above the cluster plan (broad-to-narrow). Covers operator turns AND primitive
     // seeds (both carry config.goal). Blank ⇒ '' ⇒ filtered out.
     goalBlock(config.goal) ?? '',

@@ -1,4 +1,4 @@
-// ── Diagnostics check registry (ARCO_OPS_PLAN.md §A1) ──
+// -- Diagnostics check registry (docs/ARCHITECTURE.md) --
 //
 // The single source of probe logic behind GET /api/diagnostics. Every check is
 // a deterministic, READ-ONLY probe of one moving part on this machine, returning
@@ -249,7 +249,7 @@ async function checkRecoveryRegistry(): Promise<DiagnosticCheck> {
   }
 }
 
-// Process readiness (ARCO_OPS_PLAN.md §B2). Read-only snapshot of the /readyz
+// Process readiness (docs/ARCHITECTURE.md). Read-only snapshot of the /readyz
 // gate. not-ready maps to `warn`, NOT `error`: not-ready is a transient boot
 // state (the window before capabilities probe + store recovery finish), not a
 // fault. By the time the operator can run this through the diagnostics endpoint
@@ -265,7 +265,7 @@ async function checkReadiness(): Promise<DiagnosticCheck> {
   return mk(id, 'core', label, 'warn', `still booting — pending: ${snap.pending.join(', ')}`, 'transient during boot; /readyz returns 503 until capabilities + stores are ready');
 }
 
-// Structured file-logging status (ARCO_OPS_PLAN.md §B3). Read-only: when file
+// Structured file-logging status (docs/ARCHITECTURE.md). Read-only: when file
 // logging is active (getLogFilePath() non-null — set by ARCO_LOG_FILE=1 in the
 // systemd unit) report ok with the path + current size; when off (dev /
 // ARCO_LOG_FILE unset) report `skipped` — there is nothing to inspect and it's
@@ -564,7 +564,7 @@ async function checkProjectStorage(): Promise<DiagnosticCheck> {
   return mk(id, 'storage', label, 'skipped', 'per-cwd <cwd>/.arco (events.jsonl, meta.json, plans) — scoped to each workflow, not a global path');
 }
 
-// ── SECURITY / EXPOSURE POSTURE (ARCO_OPS_PLAN.md §A4) ──────────────────────
+// -- SECURITY / EXPOSURE POSTURE (docs/ARCHITECTURE.md) ----------------------
 //
 // Read-only exposure readout. The unifying rationale: Arco's HTTP/WS surface
 // has NO AUTH and exposes a shell (PTY terminal), git/GitHub ops, filesystem

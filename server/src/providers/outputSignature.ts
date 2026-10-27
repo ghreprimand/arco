@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 
-// Watchdog instrumentation (docs/CLUSTER_MODE_PLAN.md — worker-watchdog, not yet
+// Watchdog instrumentation (docs/PROTOCOL_CLUSTER.md - worker-watchdog, not yet
 // shipped). A stable signature of a tool's output, used to detect
 // error-persistence loops: the same failing command recurring with an UNCHANGED
 // result is "stuck"; a result that changes between attempts is progress.

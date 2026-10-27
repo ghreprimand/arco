@@ -1,4 +1,4 @@
-// GOAL_RUN_PLAN.md — operator-armed north-star auto-continue.
+// docs/GOTCHAS.md - operator-armed north-star auto-continue.
 //
 // While armed, a deterministic continuation turn is dispatched after each
 // settled turn, so a tab keeps working toward its north star without the

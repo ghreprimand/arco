@@ -1,4 +1,4 @@
-// ARCHIVE (docs/ARCHIVE_PLAN.md §4.1) — the ARTIFACTS join. Answers "what have
+// ARCHIVE (docs/CLIENT.md) - the ARTIFACTS join. Answers "what have
 // agents produced for me to review?" by aggregating workflow artifacts across
 // projects into a flat, attributed list — NEVER raw-browsing the opaque
 // `.arco/workflows/<uuid>/` tree (the overwhelming majority of those dirs are
