@@ -318,3 +318,54 @@ degraded subsystem surfaces `warn`/`skipped`, not `error` (the only legitimate
 The `safeProbe` wrapper guarantees a thrown probe degrades to an `error`
 result, so a new check can't take down the endpoint, but a clean `warn`/
 `skipped`/`error` return is always better than a throw.
+
+## Hot-reload caveats
+
+### `tsx watch` kills active workers
+
+Editing any file under `server/` or `shared/` triggers `tsx watch` to restart the server. **This kills any in-flight worker subprocesses** because they were spawned as children of the now-dead server.
+
+If an agent is mid-turn and you save a server file, the agent dies and the chat shows a partial reply. Workarounds:
+- Wait until idle to save server changes.
+- Or pause the watch by editing only client files until the agent finishes.
+- The launcher's `restart` command is the controlled way to bounce the server when you do want to recycle.
+
+Client files (under `client/src/`) hot-reload via Vite without affecting workers.
+
+### The live service does not see source edits
+
+If Arco runs as the `arco.service` systemd user unit (service mode), it serves the compiled `server/dist` + `client/dist` and watches nothing. Edits reach it only via `npm run build` + `systemctl --user restart arco.service`. The restart kills in-flight workers in every tab and deploys whatever else is in the working tree. See `docs/SERVICE_MODE.md`.
+
+### Vite HMR keeps WS connection
+
+Vite's HMR doesn't reset the WebSocket; the same connection persists across client-side hot reloads. If you change `useWebSocket.ts` itself, the new code runs against the same socket. Sometimes a manual page reload is cleaner than HMR for WS-handler changes.
+
+---
+
+## Debugging
+
+### See what's on the wire
+
+Browser devtools -> Network -> WS frames. The single `/ws` connection carries all the chatter; filter by message type with the search box.
+
+### See what's persisted
+
+```bash
+tail -f <cwd>/.arco/workflows/<wfid>/events.jsonl | jq .
+```
+
+You'll see every server-to-client message as it's broadcast.
+
+### Composer stuck
+
+The diagnostic chip (`b·w·s`) next to CANCEL tells you which flag is keeping the composer in queue mode. See [`docs/OPERATIONS.md`](OPERATIONS.md) "Recovering stuck states."
+
+### Worker output truncated
+
+50 MB cap per worker per turn (`ARCO_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal: there's a truncation notice at the end if it hit the cap.
+
+### Antigravity tool rows missing or mis-labelled
+
+Antigravity is RPC-only now (the CDP port is liveness only), so DOM-scrape tooling such as `scripts/antigravity-chat-dump.mjs` is historical. Set `ANTIGRAVITY_RPC_TRACE_STEPS=1` (compact per-step JSONL) or `ANTIGRAVITY_RPC_TRACE_RAW=1` (redacted raw step objects) and read `<cwd>/.arco/workflows/<wfid>/debug/antigravity-rpc-steps*.jsonl`; see `docs/PROVIDERS.md` under `Antigravity`.
+
+---

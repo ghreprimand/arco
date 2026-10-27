@@ -7,6 +7,7 @@
 [Documentation index](docs/INDEX.md) |
 [Settings guide](docs/SETTINGS.md) |
 [Contributing](CONTRIBUTING.md) |
+[Extending Arco](docs/EXTENDING.md) |
 [Issues](https://github.com/ghreprimand/arco/issues)
 
 Arco brings project-aware agent conversations, saved chat, terminals, files, Git,

@@ -75,3 +75,4 @@
 ## Project
 
 - [Contributing](../CONTRIBUTING.md): setup, checks, and contribution requirements.
+- [Extending Arco](EXTENDING.md): provider, primitive, skill, theme, shader, and right-panel tab recipes.
