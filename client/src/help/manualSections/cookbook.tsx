@@ -1,7 +1,7 @@
 import type { Section } from '../../components/UserManual/manualTypes';
 import { Code, Note } from '../../components/UserManual/components';
 
-// Workbench Expansion G2 — Cookbook manual section. Linked from every
+// Cookbook manual section. Linked from every
 // cookbook.* HELP_CONTENT entry (docs:check enforces the link resolves).
 
 export const cookbook: Section[] = [
@@ -55,7 +55,7 @@ export const cookbook: Section[] = [
           when you click <strong>DOWNLOAD</strong> on a row (see below).
         </Note>
 
-        <h4>Download + auto-register (G4)</h4>
+        <h4>Download + auto-register</h4>
         <p>
           Expand a row and click <strong>DOWNLOAD</strong> to fetch the model.
           Every download is an <strong>explicit operator click</strong> — nothing
@@ -93,7 +93,7 @@ export const cookbook: Section[] = [
           escape it.
         </Note>
 
-        <h4>Recommend a model (G3)</h4>
+        <h4>Recommend a model</h4>
         <p>
           The <strong>RECOMMEND</strong> button in the Cookbook header asks a
           top-tier agent (Claude / Codex, picked via <strong>RUN AS</strong>) to

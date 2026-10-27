@@ -162,7 +162,7 @@ PID registration are suppressed. Native and eligible local HTTP providers
 retain conversation state in process only; retention by a remote API service
 remains governed by that service, not Arco's disk policy.
 
-Two transports ship side-by-side, selected per-tab via `claude.transport` (`'cli'` default; `'native'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`claudeTransport`). Per-tab override lives on `WorkflowConfig.claudeTransport` and is editable from the CONFIG tab without a server restart (Phase 7a).
+Two transports ship side-by-side, selected per-tab via `claude.transport` (`'cli'` default; `'native'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`claudeTransport`). Per-tab override lives on `WorkflowConfig.claudeTransport` and is editable from the CONFIG tab without a server restart.
 
 Reviewers and handoff seed turns always run on `cli` regardless of the tab's transport — Native is per-workflow long-lived and Arco-internal-only, so any path that needs a `~/.claude/projects/<sid>.jsonl` rollout (handoff destinations, reviewer recovery) goes through the CLI provider. After `handoff_complete`, the dispatcher disposes the cached Native worker so the next operator turn rebuilds the messages array from the post-handoff transcript.
 
@@ -214,7 +214,7 @@ Same base + `--no-session-persistence` (don't write a session JSONL) + optional 
 
 For text-only prompts, the prompt is the last positional argument. For attachments (images), the prompt is sent as a `stream-json` envelope on stdin so binary content rides cleanly.
 
-**GOTCHA — ARG_MAX overflow** (Phase C.2): when an inline `--append-system-prompt` value would push the argv past Linux's `MAX_ARG_STRLEN` (~128 KB/arg), `execve` kills the spawn with `E2BIG`. Arco's mitigation: above that threshold it writes the appendSystemPrompt to a tmpfile (`append-sp-{id}-{pid}.txt`) and passes it via the **separate** `--append-system-prompt-file` flag (a documented peer of `--append-system-prompt` in the CLI's bare help) — not the same flag with a path. If the tmpfile write fails it falls back to the inline `--append-system-prompt` argv (which may then E2BIG, but the operator sees a real spawn error rather than a silently-dropped prompt). Tmpfiles are cleaned up on settle and on server exit.
+**GOTCHA — ARG_MAX overflow** (large-prompt handling): when an inline `--append-system-prompt` value would push the argv past Linux's `MAX_ARG_STRLEN` (~128 KB/arg), `execve` kills the spawn with `E2BIG`. Arco's mitigation: above that threshold it writes the appendSystemPrompt to a tmpfile (`append-sp-{id}-{pid}.txt`) and passes it via the **separate** `--append-system-prompt-file` flag (a documented peer of `--append-system-prompt` in the CLI's bare help) — not the same flag with a path. If the tmpfile write fails it falls back to the inline `--append-system-prompt` argv (which may then E2BIG, but the operator sees a real spawn error rather than a silently-dropped prompt). Tmpfiles are cleaned up on settle and on server exit.
 
 ### Event parsing
 
@@ -235,7 +235,7 @@ UUID-based. Every Claude session is identified by a UUID stored in the file `~/.
 
 - **First turn** — Arco pre-mints a UUID and passes `--session-id <uuid>`. Claude creates the JSONL with that name. Arco stores the UUID in `meta.cliSessions[]` immediately.
 - **Resume** — `--resume <uuid>` continues the session. Arco's `wf.primarySessionId` carries the active UUID.
-- **Terminal interop** — `claude --resume <uuid>` from any terminal continues the same session, and Arco picks up the new entries via the JSONL watcher (Phase 1 context robustness).
+- **Terminal interop** — `claude --resume <uuid>` from any terminal continues the same session, and Arco picks up the new entries via the JSONL watcher (context robustness).
 
 ### Auth
 
@@ -264,7 +264,7 @@ A per-tab sticky mode (`WorkflowConfig.ultracode`, default off) that puts the ta
 - **Round-trip to Native is safe by construction.** Native replay skips all tool_use/tool_result events and rebuilds from clean USER/ASSISTANT text pairs, so flipping back to Native after an ultracode turn never tries to reconstruct the `Workflow` blocks — it sees only the final synthesis (which is a clean text turn).
 - **Transparency / safety.** Ultracode runs unattended with full access (it needs AUTO — headless `-p` can't answer permission prompts) and spends heavily (a fleet per turn). The full Workflow script is captured in the `Workflow` tool_use (surfaced in the Activity tab); per-subagent detail lives in the harness workflow journal. The DEBAG review gate is Native-only and does **not** cover CLI ultracode turns. UI: CONFIG → TRANSPORT toggle, a `⚡ ULTRACODE` creation-form box, and an always-visible composer pill. Acceptance smoke: `npm run smoke:ultracode` (manual; spends real quota).
 
-### Cluster mode (Phase 3)
+### Cluster mode
 
 When a CLI tab is a cluster member (`clusterStore.getClusterIdForWorkflow(workflowId) !== undefined`), every `claude` spawn picks up four extra inputs:
 
@@ -304,13 +304,13 @@ In production builds (`NODE_ENV=production`), `command` is `node` and `args[0]` 
 
 **`mcp-config.json` cleanup.** When a workflow leaves a cluster (`handleClusterDelete` / `handleClusterMemberRemove`), the server best-effort `rm`s the file via `mcpConfigWriter.cleanupFor`. The next CLI spawn on a member with no clusterId would otherwise still see the stale config and try to launch an MCP child for a cluster that no longer exists — the child would 404 on every tool call (the REST surface checks the cluster exists before dispatching to `clusterPeerOps`), but the operator-visible churn is wasted work.
 
-### Registry MCP (ARCO_OPS_PLAN.md §E1)
+### Registry MCP
 
 Beyond the built-in `arco-cluster` + `codebase-memory` entries, CLI Claude also gets the operator-curated **MCP registry** servers a tab has enabled. They are merged into the same `.arco/<wfid>/mcp-config.json` (via `McpConfigOptions.registryServers`, namespaced `reg-<id8>` so they can't collide with the built-ins). The **dangerous-tool denylist is ENFORCED here**: dangerous-and-unticked tools of enabled servers are appended as `--disallowedTools "mcp__<key>__<tool>,…"`. **Verified** (Claude CLI 2.1.160): `--disallowedTools` composes with `--dangerously-skip-permissions` — the named tool is removed from the model's available set entirely, while non-listed tools of the same server still work. The operator's per-tab `disabledTools` (DD11b) ride the same `--disallowedTools` flag — a disabled tool the operator never probed (so it's not in the cached tool list) is still added by name so it can't slip through. Full model + storage + protocol detail: `docs/MCP_REGISTRY.md`.
 
-### Native transport (Phase 7a)
+### Native transport
 
-`server/src/providers/claude-native/` — long-lived per-workflow worker that talks directly to Anthropic's Messages API via `@anthropic-ai/sdk@^0.91.1` (Pi-pinned). The agent loop runs in Arco's process so the Phase 5 mid-turn steer hook fires between tool-result append and the next API round-trip.
+`server/src/providers/claude-native/` — long-lived per-workflow worker that talks directly to Anthropic's Messages API via `@anthropic-ai/sdk@^0.91.1` (Pi-pinned). The agent loop runs in Arco's process so the mid-turn steer hook fires between tool-result append and the next API round-trip.
 
 **File layout (post-P0 carve-out).** `worker.ts` holds the `ClaudeNativeWorker` class and the turn/stream/error loop. To keep it under the 2000-line cap, the *stateless* leaf helpers live in siblings and are re-exported from `worker.ts` so existing `from './worker.js'` import paths still resolve:
 - `modelParams.ts` — token ceilings (`adaptiveMaxTokensForModel`, `chooseMaxTokens`), thinking/effort params (`buildThinkingParams`, `shouldSendInterleavedThinkingBeta`), context-window lookup (`lookupCtx`).
@@ -358,7 +358,7 @@ and an append-only prefix regardless of display mode. See `FABLE_51_APPEND_ONLY_
 
 Read / Write / Edit / Bash / Grep / Glob / KillShell / TodoWrite. Path validation reuses `resolveWithinCwd`. Per-tool output cap 64 KB; Read gets 256 KB (looser than Ollama's 32 KB — Claude windows are larger). Edit refuses if the target file wasn't Read in this turn (Claude Code parity). Bash registers each spawned shell against the worker's per-turn shell map so KillShell + cancel can target it; `run_in_background:true` returns a `shellId` immediately.
 
-**Edit apply (H50).** When the exact `old_string` match fails, `Edit` (`editApply.ts`) falls through an ordered set of fuzzy strategies — `escape-drift` → `trailing-ws` → `indent` — each of which must resolve to exactly one location unless `replace_all`; an ambiguous fuzzy match is refused with a `closestLinesHint` rather than guessed. **Bash output (DD2)** is bounded-tail: the model sees the last ~64 KB of combined chronological stdout+stderr through one accumulator, while the COMPLETE output spills to a per-run tempfile so a noisy command can't evict context. **File mutations (DD3)** are serialized through a module-level per-realpath queue (`file-mutation-queue.ts`, keyed by `realpath()` so symlink aliases share one queue) — this closes the silent edit-loss window when two Native workers on one cwd (e.g. cluster members) write the same file; a write that actually had to wait emits `file_mutation_queued`.
+**Edit apply.** When the exact `old_string` match fails, `Edit` (`editApply.ts`) falls through an ordered set of fuzzy strategies — `escape-drift` → `trailing-ws` → `indent` — each of which must resolve to exactly one location unless `replace_all`; an ambiguous fuzzy match is refused with a `closestLinesHint` rather than guessed. **Bash output** is bounded-tail: the model sees the last ~64 KB of combined chronological stdout+stderr through one accumulator, while the COMPLETE output spills to a per-run tempfile so a noisy command can't evict context. **File mutations** are serialized through a module-level per-realpath queue (`file-mutation-queue.ts`, keyed by `realpath` so symlink aliases share one queue) — this closes the silent edit-loss window when two Native workers on one cwd (e.g. cluster members) write the same file; a write that actually had to wait emits `file_mutation_queued`.
 
 Native also advertises Anthropic server-side `web_search_20260209` and `web_fetch_20260309` tools as `web_search` / `web_fetch`, plus `code_execution_20260120` so Anthropic's 2026 server-tool dynamic filtering path is available. These are not Arco-local tools: Anthropic executes them server-side and returns `server_tool_use` plus `web_search_tool_result` / `web_fetch_tool_result` content blocks. The Native worker surfaces the invocation in activity, but never routes it through `executeNativeTool()`. After the final answer, retained Native history is pruned of completed server-tool evidence, citation metadata, and hidden thinking; the model has already integrated the useful findings, and the next-turn prompt should not retain hundreds of KB of raw server-search evidence.
 
@@ -370,17 +370,17 @@ Native also advertises Anthropic server-side `web_search_20260209` and `web_fetc
 
 A per-tab posture pill scopes the *exposed* toolset without changing what any tool does. Four postures (`toolPosture.ts`, the single source of truth): `full` (default — no filtering; the tool array stays byte-identical for the prefix cache), `coding`, `chat`, `review`. Each non-`full` posture keeps a curated CORE set and scrubs the rest; dynamic opt-in tools (`mcp__*` / `peer_*` / `ctx_*`) are NEVER stripped by a posture — the operator added them explicitly. Set via `set_tool_posture` (client→server), acked with `tool_posture_set`. **Session-local**: the server sets `WorkflowState.toolPosture` (never `meta.json`) and logs the change to `events.jsonl` for transcript review, so it does not survive a server restart. Takes effect on the next turn; flipping posture re-breaks the prefix cache once, then re-warms. Native-only.
 
-#### Registry MCP tools (ARCO_OPS_PLAN.md §E1-Native)
+#### Registry MCP tools
 
 The Native worker is a first-class MCP host for the operator's enabled-and-allowed registry servers (`docs/MCP_REGISTRY.md`). It opens a long-lived `McpSession` (`server/src/mcp/client.ts connectServer`) per allowed server, keyed by `reg-<id8>`, reconciled at the top of every `runTurn` (`reconcileMcpSessions` — open newly-allowed, close newly-removed; sessions persist across turns). Each session's tools are appended to `buildToolDefs()` as `mcp__<key>__<tool>` defs via `registryTools.ts registryToolDefs`, which is the **authoritative denylist gate**: a dangerous-and-unticked tool is **omitted entirely** (the model never sees it — no runtime reject). `dispatchTool` routes `mcp__reg-…` calls to the matching session's `callTool`; a missing/closed/errored session returns a clean `[error] …` and never throws into the turn loop. **MCP sessions are force-closed on `dispose()`** (tab close + after `handoff_complete`) — a leaked stdio child would otherwise outlive the worker (load-bearing; `docs/GOTCHAS.md`). `cancel()` deliberately does not touch sessions (they survive an operator CANCEL by design). A server's `inputSchema` with a top-level `oneOf`/`allOf`/`anyOf` (Anthropic 400s on those) is defensively flattened before the def is emitted.
 
-**Env allowlist (H20).** Each spawned MCP child's environment is built by `buildSafeEnv` (`server/src/mcp/client.ts`) — only a small allowlisted base (plus the `LC_*` / `XDG_*` families) and the server's declared `def.env` survive; the Arco host's full environment (Claude OAuth token, GitHub PAT, provider API keys) is NEVER inherited. **Per-server tool disable-list (DD11b).** A tab's per-server `disabledTools` (bare tool names) is honored at def-build time — `registryToolDefs` omits a disabled tool entirely, so the Native model never sees it (the in-process parity of the CLI `--disallowedTools` path).
+**Env allowlist.** Each spawned MCP child's environment is built by `buildSafeEnv` (`server/src/mcp/client.ts`) — only a small allowlisted base (plus the `LC_*` / `XDG_*` families) and the server's declared `def.env` survive; the Arco host's full environment (Claude OAuth token, GitHub PAT, provider API keys) is NEVER inherited. **Per-server tool disable-list (DD11b).** A tab's per-server `disabledTools` (bare tool names) is honored at def-build time — `registryToolDefs` omits a disabled tool entirely, so the Native model never sees it (the in-process parity of the CLI `--disallowedTools` path).
 
 #### Post-write LSP diagnostics (§C3)
 
 After a successful `Write`/`Edit`, the tool calls a **fire-and-forget** `ctx.onFileWritten?.(abs)` hook (wrapped in `try/catch` — a diagnostics failure must NEVER break the write; the write path is P0). The worker wires it to the `lspManager` subsystem (`server/src/lsp/`), which lazy-spawns the project's language server (`typescript-language-server` / `pyright` / `gopls` / `rust-analyzer`, whichever is on PATH), opens the changed file, and forwards the server's `publishDiagnostics` to the client as a workflow-scoped `diagnostics {file, items[]}` message (rendered as a count badge + list on the Activity tab). Absent server ⇒ silent no-op (operator installs the LSP server themselves — bring-your-own-upstream, same as the caveman output style). Lifecycle mirrors `llamacppManager` (one server per `(cwd, languageId)`, dedup, idle-reap, shutdown-kill). **Full detail: `docs/LSP.md`.**
 
-**Phase 7c (WebFetch / WebSearch) — server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. No local web implementation is used.
+** (WebFetch / WebSearch) — server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. No local web implementation is used.
 
 #### Tool surface (7b — Arco-integrated)
 
@@ -389,7 +389,7 @@ After a successful `Write`/`Edit`, the tool calls a **fire-and-forget** `ctx.onF
 | `EnterPlanMode` | Records the plan body to a real plan file under `.arco/plans/` (title = first non-empty line, fallback "Native plan"), attaches it to the workflow (the PLAN tab renders it via the existing plan-attach pipeline), broadcasts `plan_set { workflowId, plan, source: 'native-tool', planId }`, and sets `worker.planMode = true`. While plan mode is active, `Write` and `Edit` short-circuit with `[error] write tools disabled until ExitPlanMode`. The plan body is dry-run through the same `parsePlan` invariants (`docs/GOTCHAS.md § Plan-review parsing invariants`) and any advisories return as part of the tool result so the model can correct on the next turn — never rejected. A second `EnterPlanMode` while already in plan mode replaces the body. |
 | `ExitPlanMode` | Clears `worker.planMode`. Broadcasts `plan_exited { workflowId, summary? }`. The plan stays attached to the workflow. |
 | `AskUserQuestion` | Emits a `system_notice` with `[ASK:claude-native:<questionId>] <question>` (and `[ASK_OPTIONS:opt1 \| opt2]` line when `options` is set). The `AskUserQuestionNotice` component detects the sentinel and renders an inline reply form (text input or option chips). The operator's reply rides the `ask_user_question_reply` WS message; the worker resolves the awaiting Promise and the agent loop continues. **One open question per worker** — a second call while one is pending returns `[error] another question is awaiting response`. **No timeout** — the question stays open until answered or the turn is cancelled. Cancel rejects the awaiting Promise cleanly. |
-| `Task` | Mints a child workflow (its own visible tab cloned from the parent's config), seeds with `prompt`, runs one primary turn, and returns the child's final assistant text as the tool result. Transport, output style, and thinking-visibility inherited (Native parent → Native child). The child config **unconditionally** pins `claudeTransport: 'native'` — the Task tool only exists on Native, and the old `=== 'native'` gate missed tabs riding the settings cascade, dropping their children onto the per-turn CLI where they failed closed with `Not logged in` (an operator project incident). H30 also fixed a prior drop where the child ignored the parent's output-style pick. The tool description carries the **self-report doctrine (H30)** — the child is instructed to END with a concise, verifiable report (what it changed, what it ran to verify, what's left uncertain) so the parent can trust the result without re-deriving it. **Depth-1 only** — the child carries `claudeNativeTaskDisabled` so its tool registry drops `Task`; a recursive call returns `[error] Task is depth-capped at 1`. Cancel of the parent cascades into `childManager.killAll()` and rejects the awaiting Promise with an AbortError-style result. SubagentStop hook fires from the worker on settle (success or error). |
+| `Task` | Mints a child workflow (its own visible tab cloned from the parent's config), seeds with `prompt`, runs one primary turn, and returns the child's final assistant text as the tool result. Transport, output style, and thinking-visibility inherited (Native parent → Native child). The child config **unconditionally** pins `claudeTransport: 'native'` — the Task tool only exists on Native, and the old `=== 'native'` gate missed tabs riding the settings cascade, dropping their children onto the per-turn CLI where they failed closed with `Not logged in` (an operator project incident). H30 also fixed a prior drop where the child ignored the parent's output-style pick. The tool description carries the **self-report doctrine** — the child is instructed to END with a concise, verifiable report (what it changed, what it ran to verify, what's left uncertain) so the parent can trust the result without re-deriving it. **Depth-1 only** — the child carries `claudeNativeTaskDisabled` so its tool registry drops `Task`; a recursive call returns `[error] Task is depth-capped at 1`. Cancel of the parent cascades into `childManager.killAll` and rejects the awaiting Promise with an AbortError-style result. SubagentStop hook fires from the worker on settle (success or error). |
 | `TaskOutput` | Reads the in-flight or final accumulated text of a Task-spawned child. Result is prefixed with `[in-flight]` or `[settled]` so the model can decide whether to keep waiting. Output is tail-capped at 64 KB. **Only the spawning parent can read its children** — the `tasksByTaskId` map is per-worker; cross-tab `TaskOutput` requests return `[error] no such task`. The map entry is dropped on parent dispose. |
 
 Plan-mode write gating applies to `Write`, `Edit`, and — via **DD11a** — registry MCP tools: while `planMode` is on, `registryToolDefs(..., planMode: true)` OMITS every non-read-only MCP tool from the toolset entirely, so the model can't mutate state through an MCP server during a plan turn (closing the gap where a model could route a write around the local write-tool short-circuit). **`Bash` is not gated** — detecting write-intent in arbitrary shell commands generically isn't worth the false-positive cost; operators relying on plan mode as a hard write barrier should rely on the surrounding sandbox / CI contract instead.
@@ -422,13 +422,13 @@ copies them across the boundary on mailbox drain. Because a previously
 informed session cannot be made blind retroactively, entering ISOLATED always
 creates a fresh or replacement workflow and rejects history/task transfer.
 
-CLI Claude and both Codex transports get the same peer surface via a stdio MCP child (`server/src/mcp/clusterMcpServer.ts`); Cursor gets it via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`, ACP honors http/sse only) — see [Cluster mode](#cluster-mode-phase-3) below and the [Cursor](#cursor) section. Wire-name parity: Native sees bare `peer_list`/`peer_send`/`peer_read`/etc.; CLI Claude sees the MCP-namespaced `mcp__arco-cluster__peer_list` shape. Function signatures match so the model treats them identically.
+CLI Claude and both Codex transports get the same peer surface via a stdio MCP child (`server/src/mcp/clusterMcpServer.ts`); Cursor gets it via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`, ACP honors http/sse only) — see [Cluster mode](#cluster-mode) below and the [Cursor](#cursor) section. Wire-name parity: Native sees bare `peer_list`/`peer_send`/`peer_read`/etc.; CLI Claude sees the MCP-namespaced `mcp__arco-cluster__peer_list` shape. Function signatures match so the model treats them identically.
 
 #### Hooks
 
 `.claude/settings.json` discovery walks up from `cfg.cwd` collecting project hooks; user hooks at `~/.claude/settings.json` are read last. Project precedence per Claude Code's documented behavior. Cached on the worker; refreshed on `ensureStarted` (re-edits picked up by closing/reopening the tab).
 
-**Project-trust gate (DD7).** Project-local agent surfaces that the worker would otherwise honor — the repo's `CLAUDE.md` (`claudeMdDiscovery.ts`), its `.claude/skills`, and its `.claude/settings.json` hooks — are suppressed until the operator vouches for the repo. `projectTrust.ts` resolves an effective trust for the cwd from a USER/GLOBAL-scope `~/.arco/trust.json` (deepest recorded ancestor wins) in a two-pass bootstrap, so a cloned repo can't self-grant trust by shipping its own trust file. Decision values are `always` / `never` (`ask` until the operator chooses); the gate logs its decision plus the suppressed-resource summary, and a recorded decision is one reversible line in `trust.json`. This closes the cloned-repo prompt-injection vector.
+**Project-trust gate.** Project-local agent surfaces that the worker would otherwise honor — the repo's `CLAUDE.md` (`claudeMdDiscovery.ts`), its `.claude/skills`, and its `.claude/settings.json` hooks — are suppressed until the operator vouches for the repo. `projectTrust.ts` resolves an effective trust for the cwd from a USER/GLOBAL-scope `~/.arco/trust.json` (deepest recorded ancestor wins) in a two-pass bootstrap, so a cloned repo can't self-grant trust by shipping its own trust file. Decision values are `always` / `never` (`ask` until the operator chooses); the gate logs its decision plus the suppressed-resource summary, and a recorded decision is one reversible line in `trust.json`. This closes the cloned-repo prompt-injection vector.
 
 | Event | Behavior |
 |---|---|
@@ -442,7 +442,7 @@ CLI Claude and both Codex transports get the same peer surface via a stdio MCP c
 
 Default hook timeout 30s; per-hook `timeout` field overrides. Timed-out hooks get SIGTERM then SIGKILL after 2s grace; treated as non-zero exit. `CLAUDE_PROJECT_DIR=cfg.cwd` is set on the subprocess env; the per-event JSON payload is written to stdin. Inherited env minus any `ARCO_*` debug flags. Hook subprocesses register against the per-turn shell map so cancel + KillShell tear them down.
 
-**Hook stdout parsing (EFFICIENCY_PLAN.md Phase B0).** Native parses the documented Claude Code shape from each hook's stdout via `parseHookOutput` (`server/src/providers/claude-native/hooks.ts`). Tolerant: non-JSON stdout returns `{}`, malformed JSON returns `{}`, non-object top-level returns `{}` — never throws. Recognized fields:
+**Hook stdout parsing.** Native parses the documented Claude Code shape from each hook's stdout via `parseHookOutput` (`server/src/providers/claude-native/hooks.ts`). Tolerant: non-JSON stdout returns `{}`, malformed JSON returns `{}`, non-object top-level returns `{}` — never throws. Recognized fields:
 
 - `hookSpecificOutput.updatedInput` (PreToolUse) — merged into the tool input via `{ ...input, ...updatedInput }` (last-write-wins across multiple hooks). Each rewrite emits a `hook_rewrote_input` event so transcript review can attribute the mutation back to its origin.
 - `hookSpecificOutput.additionalContext` (PostToolUse) — appended to the tool_result the model sees on the next turn.
@@ -452,13 +452,13 @@ Default hook timeout 30s; per-hook `timeout` field overrides. Timed-out hooks ge
 
 The parser is the load-bearing piece for using rtk (`rtk-ai/rtk`) on Native: drop rtk into `~/.claude/settings.json` once and Native + CLI both apply its tool_input rewrites. Without B0's parser, Native fired the hook but discarded the rewrite.
 
-**Pre-tool-use guards (EFFICIENCY_PLAN.md Phase 6c).** `pretoolGuards.ts` runs after the PreToolUse hook fold and before `executeNativeTool`. Today: `checkConfigProtection` blocks `Edit`/`Write`/`MultiEdit` against lint/format/type-check config (`.eslintrc*`, `.prettierrc*`, `tsconfig.json`, `tsconfig.*.json`, `.editorconfig`, `.ruff.toml`, etc.) by basename match on the resolved absolute path. Returns a synthetic `[blocked by config-protection]` tool_result that nudges the model to fix the code instead of weakening the gate. Emits `tool_gate_triggered` with `gate: "config-protection"`. Default ON; per-tab CONFIG-tab toggle deferred.
+**Pre-tool-use guards.** `pretoolGuards.ts` runs after the PreToolUse hook fold and before `executeNativeTool`. Today: `checkConfigProtection` blocks `Edit`/`Write`/`MultiEdit` against lint/format/type-check config (`.eslintrc*`, `.prettierrc*`, `tsconfig.json`, `tsconfig.*.json`, `.editorconfig`, `.ruff.toml`, etc.) by basename match on the resolved absolute path. Returns a synthetic `[blocked by config-protection]` tool_result that nudges the model to fix the code instead of weakening the gate. Emits `tool_gate_triggered` with `gate: "config-protection"`. Default ON; per-tab CONFIG-tab toggle deferred.
 
 Three more deterministic floors run in the same dispatcher pre-flight (all static rules, no model judgment): **H17 hardline-command floor** (`detectHardlineCommand` / `checkHardlineCommand`) refuses a Bash command that would restart or kill the Arco service (`systemctl … arco…`) or `rm -rf` the repo / cwd / `$HOME` / `/` / `*` — returns `[blocked by hardline-command-floor]`. It's a coarse always-on floor, not a sandbox: nothing the model does from a turn needs to restart Arco or wipe the repo. **H47 sensitive-path write floor** (`gateSensitiveWrite`, `tools.ts`) gates a `Write` / `Edit` whose resolved path is a `.env*` file or sits under a `.git` / `.ssh` segment behind an explicit operator allow via the AskUserQuestion machinery — fail-closed (refused outright when no approval channel is wired). **H62 partial-read→full-write warning** (`checkPartialReadFullWrite`) flags a full-file `Write` to a file only partially `Read` this turn, so the model doesn't clobber the untouched tail.
 
-**In-turn tool-loop guardrail (EFFICIENCY_PLAN.md / H9).** `toolLoopGuard.ts` watches for the same `(tool, args)` repeating within one operator turn — the in-turn sibling of §3.1's cross-turn stuck-worker breaker. Default posture is warnings-only: a `tool_loop_warning` event + `system_notice`. The hard-stop (abort the loop) is opt-in via `ARCO_TOOL_LOOP_GUARD=stop`.
+**In-turn tool-loop guardrail.** `toolLoopGuard.ts` watches for the same `(tool, args)` repeating within one operator turn — the in-turn sibling of §3.1's cross-turn stuck-worker breaker. Default posture is warnings-only: a `tool_loop_warning` event + `system_notice`. The hard-stop (abort the loop) is opt-in via `ARCO_TOOL_LOOP_GUARD=stop`.
 
-**Tool-result filtering (EFFICIENCY_PLAN.md Phase C).** `filterToolResult.ts` is a pure-TS staged pipeline applied to a single tool_result before it enters `messages[]`. Plugged into `dispatchTool` between `executeNativeTool` and the PostToolUse hook fold so operator-curated hook stderr / `additionalContext` stays unfiltered. Stages, all optional per pack:
+**Tool-result filtering.** `filterToolResult.ts` is a pure-TS staged pipeline applied to a single tool_result before it enters `messages[]`. Plugged into `dispatchTool` between `executeNativeTool` and the PostToolUse hook fold so operator-curated hook stderr / `additionalContext` stays unfiltered. Stages, all optional per pack:
 
 1. `strip_ansi` — removes CSI / OSC / single-byte ESC sequences.
 2. `replace[]` — `{ pattern: RegExp, replacement: string }[]` substitutions.
@@ -486,13 +486,13 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Adding a new filter pack.** (1) Drop a file under `filterConfigs/` returning a `FilterPack`. (2) Wire its classifier into `filterConfigs/index.ts`'s `classifyBashCommand`. (3) Add a round-trip test to `filterToolResult.test.ts` (golden green input → expected line count drop; golden red input → asserted preserved markers). (4) Ship as `conservative` only after a week of operator data; promote to `aggressive` in a follow-up phase.
 
-**Auto-threshold ctx_action emission (EFFICIENCY_PLAN.md Phase 6b.2).** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`, Phase 6b.1) and the eventual chat divider (Phase 8c). No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
+**Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
 
-**Output style (OUTPUT_STYLE_PLAN.md).** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels — `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server and Z.ai fold the same addendum into their stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences → full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input — measure via Phase A's `primary_turn_token_usage` event.
+**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels — `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server and Z.ai fold the same addendum into their stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences → full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input — measure via the `primary_turn_token_usage` event.
 
 **Adding a new level (e.g., a hypothetical `ultra`):** must pass operator sign-off + a plan-doc update first. The level's text MUST preserve code blocks / error strings / file paths verbatim and MUST NOT compress security warnings, irreversible operations, or order-sensitive multi-step sequences. The auto-clarity escape hatch in each level enforces this.
 
-**Primitives exclusion (OUTPUT_STYLE_PLAN.md §6).** Review / Handoff seed / DOCS / GIT spawn paths force `outputStyle: 'normal'` regardless of the source tab's pick. Hard-coded at four sites: `runReviewer.ts` (reviewer WorkerConfig), `exportContext.ts` (CLI handoff path, Native handoff path, fresh-summarizer path), and `handleUserMessage` (overrides outputStyle when `UserMessage.primitive === 'docs' | 'git'`, set by the in-tab DOCS / GIT composer dialogs). DOCS / GIT new-tab spawn forces normal client-side via `spawnConfigFromRunAs`. Spawn-from-here DOES inherit — operator flips in the child tab if needed.
+**Output-style scope for primitives.** Review / Handoff seed / DOCS / GIT spawn paths force `outputStyle: 'normal'` regardless of the source tab's pick. Hard-coded at four sites: `runReviewer.ts` (reviewer WorkerConfig), `exportContext.ts` (CLI handoff path, Native handoff path, fresh-summarizer path), and `handleUserMessage` (overrides outputStyle when `UserMessage.primitive === 'docs' | 'git'`, set by the in-tab DOCS / GIT composer dialogs). DOCS / GIT new-tab spawn forces normal client-side via `spawnConfigFromRunAs`. Spawn-from-here DOES inherit — operator flips in the child tab if needed.
 
 #### Review safe-mode — edit-before-approve gate (DEBAG)
 
@@ -529,8 +529,8 @@ Distinct from the Anthropic server-side edits above — these are Arco-owned, de
 - **Fold + auto-fold (§2.1).** A deterministic in-place transcript trim (`foldDigest.ts`) — keeps recent turns verbatim and digests the older middle, no LLM call. Manual via the composer FOLD button (`fold_workflow` WS message); armed per-tab via the CONFIG `autoFold` toggle — an `autoFold { enabled, foldAt }` field on the per-tab config-update message (default OFF; `foldAt` is the budget-meter pct that triggers the in-place Fold, below `autoHandoff.warnAt`; persists to `meta.json` + `WorkflowConfig.autoFold`). Emits `context_folded`. Cheaper than Handoff or compact — same worker, no summarizer round-trip, no fresh spawn.
 - **Tool-result eviction (§2.2).** `toolResultEviction.ts` is the aggregate largest-first spill that fires only when a batch of tool results' summed cost exceeds the turn budget; the raw output is gzipped to a workspace-relative `rawArtifactPath` (same convention as `tool_filtered`, fully reversible) and a `tool_evicted` event (`{ toolUseId, toolName, originalBytes, filteredBytes, rawArtifactPath }`) records what was spilled.
 - **Retained-history server-tool prune (`retainedContext.ts`).** After a settled turn, `pruneServerToolEvidenceAfterTurn` drops that turn's `server_tool_use` / `*_tool_result` / citation blocks (the final answer already absorbed the findings) — thinking is always kept, and the whole prune is skipped on binding-enforcing models (`enforcesPreservedThinking()`: `fable-5-1` / `mythos-5-1` / `opus-5-5`). Two pairing invariants make it safe, and breaking either one wedges the tab permanently with a 400 that every later request replays: it never edits the **latest assistant message**, and it keeps any `server_tool_use` whose result lives *in* that protected message (the `pause_turn` shape, where call and result straddle two assistant messages). `stripDanglingServerToolResults` runs at the top of each turn as the mirror of `pruneOrphanToolUse` — one detector per direction. Both incidents and the exact 400 wordings: `docs/GOTCHAS.md § Claude Native transport`.
-- **Workspace facts (H54).** `workspaceFacts.ts` auto-detects the project's ecosystem / package manager / verify commands / git branch once at session start and folds a short `--- Workspace facts ---` block into the system prompt (omitted entirely when nothing is detected ⇒ zero input-token cost), so the model and any verify-loop agree on the single "did I break it?" command.
-- **Aggregate `@`-ref budget gate (H8).** Beyond the per-ref 64 KB cap, `contextRefs.ts` tracks the aggregate of all `@`-file expansions in one message: soft-warn past ~25% of the model's window, hard-refuse any ref that would push the aggregate past ~50% (with a clear "drop a ref or send fewer files" reason) so a big paste can't silently crowd out the operator's instruction.
+- **Workspace facts.** `workspaceFacts.ts` auto-detects the project's ecosystem / package manager / verify commands / git branch once at session start and folds a short `--- Workspace facts ---` block into the system prompt (omitted entirely when nothing is detected ⇒ zero input-token cost), so the model and any verify-loop agree on the single "did I break it?" command.
+- **Aggregate `@`-ref budget gate.** Beyond the per-ref 64 KB cap, `contextRefs.ts` tracks the aggregate of all `@`-file expansions in one message: soft-warn past ~25% of the model's window, hard-refuse any ref that would push the aggregate past ~50% (with a clear "drop a ref or send fewer files" reason) so a big paste can't silently crowd out the operator's instruction.
 
 #### Live model catalog
 
@@ -557,7 +557,7 @@ After the swap the beta rides every request that carries the block (`hasLeadingS
 Anthropic returns structured `{type:'error', error:{type, message}}` envelopes. Native maps:
 
 - 401 / `authentication_error` → `[AUTH:claude]` system_notice + fail (refresh already attempted in `ensureLiveTokens`).
-- 429 / `rate_limit_error`, 529 / `overloaded_error`, 500 / `api_error` → retry × 3. **Header-aware backoff (H10):** `resolveRateLimitWait` (`rateLimit.ts`) reads the response's `retry-after` (delta-seconds or HTTP-date) first, then falls back to the soonest `anthropic-ratelimit-*-reset` RFC-3339 timestamp; the fixed 15s/30s/60s ladder is the fallback only when no usable header is present. The SDK's own retries are disabled (`maxRetries: 0`) so this header-aware ladder is the only backoff. The CLI transport's `parseClaudeReset` text-regex sniffer is gone — Native sees the parsed JSON plus the rate-limit headers.
+- 429 / `rate_limit_error`, 529 / `overloaded_error`, 500 / `api_error` → retry × 3. **Header-aware backoff:** `resolveRateLimitWait` (`rateLimit.ts`) reads the response's `retry-after` (delta-seconds or HTTP-date) first, then falls back to the soonest `anthropic-ratelimit-*-reset` RFC-3339 timestamp; the fixed 15s/30s/60s ladder is the fallback only when no usable header is present. The SDK's own retries are disabled (`maxRetries: 0`) so this header-aware ladder is the only backoff. The CLI transport's `parseClaudeReset` text-regex sniffer is gone — Native sees the parsed JSON plus the rate-limit headers.
 - 413 / `request_too_large` → fail with a Handoff-recommendation system_notice. Don't retry.
 - 400 / `invalid_request_error`, 403 / `permission_error`, 400 / `billing_error`, 404 / `not_found_error` → fail; don't retry.
 
@@ -572,7 +572,7 @@ The `^0.91.1` pin is intentionally stale. When bumping:
 
 The `[claude-native:<workflowId>]` log prefix is grep-stable for forensic runs; bootstrap, replay, and dispose all log under it.
 
-### Sandbox tools (Phase E)
+### Per-tab sandbox tools
 
 Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp / Antigravity ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
 
@@ -638,7 +638,7 @@ Default `unicode61` tokenizer (no stopwords — 'added' / 'fix' / 'the' all reta
 | `POST /api/workflows/:wfId/sandbox/clear` | — | Truncates the chunks table; emits `sandbox_db_cleared`. |
 | `POST /api/workflows/:wfId/sandbox/_test_insert` | `{ language, content }` | Dev-only escape hatch for the smoke harness. Gated on `NODE_ENV !== 'production'`. |
 
-**Trust model.** Per-tab. The sandbox is intentionally per-workflow, not per-cluster — if a cluster wants a shared knowledge graph the operator should attach codebase-memory-mcp (Phase F) instead. The model knows it's calling `ctx_execute` vs `Read` — no silent redirection. The operator can read every stored chunk's full content via the Files-tab SANDBOX sub-section.
+**Trust model.** Per-tab. The sandbox is intentionally per-workflow, not per-cluster — if a cluster wants a shared knowledge graph the operator should attach codebase-memory-mcp () instead. The model knows it's calling `ctx_execute` vs `Read` — no silent redirection. The operator can read every stored chunk's full content via the Files-tab SANDBOX sub-section.
 
 **Smoke.** `npm run smoke:phase-e` — 9/9 steps cover the toggle's persistence + meta.json round-trip, `_test_insert` landing a chunk + firing `sandbox_chunk_added` + creating sandbox.db on disk, `/sandbox/stats` reflecting chunkCount=1, clear endpoint emptying + firing `sandbox_db_cleared`, and `remove_workflow` unlinking the DB file.
 
@@ -646,7 +646,7 @@ Default `unicode61` tokenizer (no stopwords — 'added' / 'fix' / 'the' all reta
 
 ## Codex
 
-Two transports ship side-by-side, selected per-tab via `codex.transport` (`'exec'` default; `'appserver'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`codexTransport`). Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart (Phase 6e).
+Two transports ship side-by-side, selected per-tab via `codex.transport` (`'exec'` default; `'appserver'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`codexTransport`). Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart.
 
 Reviewers and handoff seed turns always run on `exec` regardless of the tab's transport — the per-workflow appserver child is too heavy for one-shot reviewer paths and there's no reviewer feature that benefits from mid-turn steer.
 
@@ -755,9 +755,9 @@ conditions; summed turn billing usage and delayed rollout files are not a
 substitute. Transport lifecycle, model/effort and the single approved Computer
 voice MCP configuration are unchanged.
 
-`server/src/providers/codex-appserver/` — Phase 6a + 6b adds the long-lived transport alongside the default `exec` worker; Phase 6e ships the CONFIG-tab toggle. Unlocks non-destructive mid-turn steer (`turn/steer`) and structured cancel (`turn/interrupt`).
+`server/src/providers/codex-appserver/` — + 6b adds the long-lived transport alongside the default `exec` worker; Arco ships the CONFIG-tab toggle. Unlocks non-destructive mid-turn steer (`turn/steer`) and structured cancel (`turn/interrupt`).
 
-Bindings pinned against **codex-cli 0.128.0** (the installed CLI is newer — 0.156.x as of 2026-09; new fields are validated against it before use). Vendored TS bindings under `server/src/providers/codex-appserver/bindings/` are regenerated via `codex app-server generate-ts --out … --experimental` — see Phase 6 plan doc §11.
+Bindings pinned against **codex-cli 0.128.0** (the installed CLI is newer — 0.156.x as of 2026-09; new fields are validated against it before use). Vendored TS bindings under `server/src/providers/codex-appserver/bindings/` are regenerated via `codex app-server generate-ts --out … --experimental` — see plan doc §11.
 
 #### Lifecycle
 
@@ -785,9 +785,9 @@ NDJSON over the child's stdio (one JSON message per line). No `jsonrpc: "2.0"` e
 
 Implemented in `jsonRpc.ts`. Message names locked in vendored bindings — methods like `thread/start`, `turn/start`, `turn/steer`, `turn/interrupt`; notifications like `item/agentMessage/delta`, `item/reasoning/textDelta`, `turn/completed`, `thread/tokenUsage/updated`, `error`.
 
-#### Mid-turn steer (Phase 6b)
+#### Mid-turn steer
 
-The Phase 5 `WorkerConfig.drainSteer` callback fires on every `item/completed` notification while a turn is in flight (any item type — `commandExecution`, `fileChange`, `mcpToolCall`, etc.). When the bucket is non-empty, the worker sends `turn/steer` with `expectedTurnId: currentTurnId` and a single text-folded `UserInput`. Codex's protocol enforces the precondition — if the turn ended in the round-trip window the steer fails loudly rather than landing in the next turn.
+The `WorkerConfig.drainSteer` callback fires on every `item/completed` notification while a turn is in flight (any item type — `commandExecution`, `fileChange`, `mcpToolCall`, etc.). When the bucket is non-empty, the worker sends `turn/steer` with `expectedTurnId: currentTurnId` and a single text-folded `UserInput`. Codex's protocol enforces the precondition — if the turn ended in the round-trip window the steer fails loudly rather than landing in the next turn.
 
 The drain is destructive (server-side `splice(0)`); the worker re-enqueues on three failure shapes via the new `WorkerConfig.requeueSteer` hook:
 
@@ -797,7 +797,7 @@ The drain is destructive (server-side `splice(0)`); the worker re-enqueues on th
 
 Re-broadcasts `queue_update` after the re-enqueue (the original drain emitted a snapshot showing the bucket empty). The originator's optimistic chat row stays cleared from the prior `queued_messages_drained`; the queue strip is the source of truth for "items waiting" until the next drain succeeds.
 
-Steer attachments fold to `[attached file: <path>]` text references (parity with Ollama / llama.cpp Phase 5 — mid-turn image re-encoding deferred until a real ask).
+Steer attachments fold to `[attached file: <path>]` text references (parity with Ollama / llama.cpp — mid-turn image re-encoding deferred until a real ask).
 
 #### Cancel
 
@@ -815,7 +815,7 @@ Isolation invariant (load-bearing): because the `Turn` binding has no `turnKind`
 
 `item/started` and `item/completed` notifications carry a `ThreadItem` (the discriminated union in `bindings/v2/ThreadItem.ts`). `emitToolUseFromItem(item, status)` is the **sync** mapper from item → Arco `tool_use` event (`commandExecution → Bash`, `fileChange → apply_patch`, `webSearch`, `mcpToolCall`, `plan → update_plan`, `imageGeneration → image_generation`-started). It must stay sync/void: the `item/completed` case calls it and then fires `tryDrainSteer()` in the same tick — making the mapper async would reorder the drain hook (a load-bearing invariant).
 
-**`imageGeneration` (Workbench Expansion §H4).** When Codex runs an `image_generation_call`, the app-server surfaces an `imageGeneration` item (`{ status, revisedPrompt, result, savedPath? }` — `result` is base64 image bytes; `savedPath`, when present, is an absolute path the app-server already wrote). Handling:
+**`imageGeneration`.** When Codex runs an `image_generation_call`, the app-server surfaces an `imageGeneration` item (`{ status, revisedPrompt, result, savedPath? }` — `result` is base64 image bytes; `savedPath`, when present, is an absolute path the app-server already wrote). Handling:
 
 - `emitToolUseFromItem` surfaces only a **`started`** `image_generation` tool_use (Activity-tab visibility).
 - On `item/completed`, the handler kicks off `handleImageGeneration(item)` **fire-and-forget** (`void` — never awaited) *before* `tryDrainSteer()`, so the persist's async fs work runs out-of-band and **the drain hook fires synchronously, unchanged**. The persist is purely additive — it touches no lifecycle / cancel / steer / drain code.
@@ -831,7 +831,7 @@ Protocol-level. `error.codexErrorInfo` drives `markThrottled('codex', …)` on `
 
 Three layers, in priority order:
 
-1. **Per-tab override** — `WorkflowConfig.codexTransport` (`'exec'` or `'appserver'`). Edited from the CONFIG tab's TRANSPORT row on Codex tabs (Phase 6e). Persisted to `meta.json` (`codexTransport`) so it survives reload + server restart. Source of truth for the active tab.
+1. **Per-tab override** — `WorkflowConfig.codexTransport` (`'exec'` or `'appserver'`). Edited from the CONFIG tab's TRANSPORT row on Codex tabs. Persisted to `meta.json` (`codexTransport`) so it survives reload + server restart. Source of truth for the active tab.
 2. **Cascade default** — `codex.transport` in `~/.arco/settings.json` or `<cwd>/.arco/settings.json`:
 
    ```json
@@ -859,7 +859,7 @@ Two consumers:
 
 Cold-start, fetch failure, or operator typo → `null` from the cache; mappers fall through to a safe pass-through (mapping in `baseMapEffort` / `baseMapEffortToReasoning`). The probe script at `server/scripts/probe-codex-catalog.ts` is the operator-facing "is the catalog reachable" check — `cd server && npx tsx scripts/probe-codex-catalog.ts`.
 
-### Cluster mode (Phase 4)
+### Cluster mode
 
 Cluster mode also supports Codex (`exec` and `app-server`) members alongside Claude. Both transports register the same `arco-cluster` MCP stdio child Claude CLI uses (`server/src/mcp/clusterMcpServer.ts`), but via Codex's `-c key=value` TOML override flag instead of a JSON config file (Codex CLI has no `--mcp-config <path>` flag). The override pair lives in `server/src/mcp/mcpConfigWriter.ts` as `buildCodexMcpOverrides(clusterId, workflowId, port)` — emits two `-c` argv entries:
 
@@ -870,13 +870,13 @@ Cluster mode also supports Codex (`exec` and `app-server`) members alongside Cla
 
 Operator's `~/.codex/config.toml` is left untouched — `-c` overrides only set the specific dotted keys, every other operator-configured `[mcp_servers.*]` entry flows through unchanged. No TOML merge logic, no temp config file, no operator state mutation.
 
-### Registry MCP (ARCO_OPS_PLAN.md §E1)
+### Registry MCP
 
 Both Codex transports also register the operator-curated **MCP registry** servers a tab has enabled, via the same `-c mcp_servers.<key>.*` override form (`buildCodexMcpOverrides` extends to `McpConfigOptions.registryServers`; `env` rides through as a TOML inline table). **Known gap — Codex has NO per-tool allow/deny flag** ("No equivalent to Claude's `--tools` allow-list"), so enabling a server on a Codex tab exposes **all** of that server's tools. The dangerous-tool denylist is therefore **not enforceable on Codex** — Arco surfaces this honestly in the MCP CONFIG section (gap banner + per-tool "(not gated on Codex)" labels) rather than faking enforcement. Server-level enable/disable IS honored. Full detail: `docs/MCP_REGISTRY.md`.
 
 #### `exec` lifecycle
 
-Per-turn — symmetric with Claude CLI. `codex.ts buildArgs()` appends the two `-c` overrides whenever `WorkerConfig.clusterId` is set; codex spawns the MCP child for the duration of the `codex exec` invocation, both die together. The plan body + role hint + drained mailbox prologue ride through `WorkerConfig.appendSystemPrompt`, which `codex.ts` already folds into the prompt prefix at `${appendSystemPrompt}\n\n---\n\n${prompt}` shape (Phase B prefix-cache pattern from EFFICIENCY_PLAN). No new code path for that.
+Per-turn — symmetric with Claude CLI. `codex.ts buildArgs()` appends the two `-c` overrides whenever `WorkerConfig.clusterId` is set; codex spawns the MCP child for the duration of the `codex exec` invocation, both die together. The plan body + role hint + drained mailbox prologue ride through `WorkerConfig.appendSystemPrompt`, which `codex.ts` already folds into the prompt prefix at `${appendSystemPrompt}\n\n---\n\n${prompt}` shape (existing prefix-cache pattern). No new code path for that.
 
 #### `app-server` lifecycle
 
@@ -941,7 +941,7 @@ Two transports:
 - **Native** (`zaiTransport: 'native'`, default) — `server/src/providers/zai-native/` keeps one long-lived worker per workflow and calls Z.ai Coding Plan Chat Completions directly at `https://api.z.ai/api/coding/paas/v4/chat/completions`. It owns native `messages[]` history, including exact assistant `reasoning_content`, assistant `tool_calls`, and `tool` results across tool rounds. The default Z.ai model is `glm-5.2` (1M ctx). `reasoning_effort` (Arco effort → `low`/`medium`/`high`/`max`) is sent **only** on `glm-5.2` — older GLMs (4.7 / 5-turbo / 4.5*) treat thinking as binary (`thinking:{type}`) so the param is omitted rather than sent as inert noise. Output is capped at `MAX_OUTPUT_TOKENS = 32768` per round, with a `finish_reason:'length'` truncation surfaced as a `system_notice` rather than dropped. That history is persisted through hidden `zai_native_history` workflow events so restart replay can preserve GLM reasoning continuity instead of rebuilding from lossy chat text.
 - **Appserver fallback** (`zaiTransport: 'appserver'`) — the previous Codex app-server route remains available. Codex 0.140 rejects `wire_api = "chat"` and only accepts Responses providers, while Z.ai Coding Plan exposes OpenAI Chat Completions. Arco starts a loopback Responses proxy (`server/src/providers/zaiResponsesProxy.ts`) and points Codex's custom provider at that local URL. The proxy reads the server-side Z.ai key, translates Codex Responses requests/tools into Z.ai Chat Completions, and translates Chat streaming deltas back into Responses SSE events. This path keeps Codex app-server sessions, cancel/steer, compact, MCP, clusters, and rollout/token plumbing; the proxy is the only layer that sees `ZAI_API_KEY`.
 
-The stored Z.ai key supports config-value interpolation (DD12): `!cmd args…` runs a command and uses its stdout, `${ENV}` reads an environment variable, anything else is a literal. Resolved at use time by `server/src/providerSecrets.ts` (`resolveConfigValue`, `server/src/configValue.ts`), so the operator can pull the key from a secret manager instead of pasting a raw secret into settings.
+The stored Z.ai key supports config-value interpolation: `!cmd args…` runs a command and uses its stdout, `${ENV}` reads an environment variable, anything else is a literal. Resolved at use time by `server/src/providerSecrets.ts` (`resolveConfigValue`, `server/src/configValue.ts`), so the operator can pull the key from a secret manager instead of pasting a raw secret into settings.
 
 Native Z.ai exposes a compact schema by default: `Read`, `Grep`, `Glob`, `Bash`, `Write`, `WebSearch`, `WebFetch`, and an exact-replacement `Edit` (WebFetch is keyless + SSRF-guarded; WebSearch routes through the operator's local SearXNG, shared with the Ollama / llama.cpp / Claude-native runtime). Cluster peer/plan tools are added only when the workflow is a cluster member. Full MCP registry projection is intentionally deferred; use the appserver fallback for MCP-heavy Z.ai turns until the native MCP schema/approval path is implemented.
 
@@ -979,7 +979,7 @@ with the current credentials and attempts the normal `session/load` resume. Any 
 mentions signing in falls through as normal assistant text. `POST /api/auth-login?provider=cursor`
 opens a terminal running `cursor-agent login`.
 
-### Usage (Phase 7)
+### Usage
 
 Cursor's ACP `result` carries **no per-turn tokens**, so Cursor never emits `primary_turn_token_usage`
 and never appears in the per-project Usage aggregation. Instead `server/src/cursorUsage.ts` polls the
@@ -1022,7 +1022,7 @@ back to the charged-$/hard-cap line. The other candidate endpoints don't exist f
 (`get-hard-limit` returns only `noUsageBasedAllowed`; the legacy `/api/usage` `maxRequestUsage` is `null`
 on usage-based plans) — `/api/usage-summary` is the one that carries the real allocation denominator.
 
-### Model catalog & family × effort picker (Phase 8)
+### Model catalog & family × effort picker
 
 `cursor-agent models` returns ~189 ids that are really **family × effort × flag** permutations dumped
 flat (`gpt-5.3-codex-high-fast`, `claude-opus-4-8-thinking-xhigh`, …). Rather than a 189-option wall,
@@ -1056,13 +1056,13 @@ selectable variant.
   Cursor and hides the chip for `auto` / bare-default ids — never the stored `primaryEffort`, which would
   be a lie.
 
-### Cluster mode (Phase 6)
+### Cluster mode
 
 Cursor is a `ClusterMemberProvider` — a Cursor member can hold any role at any model. Its peer tools
 ride a mechanism unique among the providers: an **in-process loopback StreamableHTTP MCP server**, not
 the stdio child Claude-CLI/Codex members spawn. Cursor ACP advertises `mcpCapabilities:{http:true,
 sse:true}` and **no stdio** (spike-8; a stdio `mcpServers` entry was accepted but never called), so a
-network transport is mandatory. A Phase-6 SSE micro-probe (`scripts/cursor-sse-mcp-probe.ts`, throwaway)
+network transport is mandatory. An SSE micro-probe (`scripts/cursor-sse-mcp-probe.ts`, throwaway)
 confirmed a loopback MCP's tools appear + are callable over ACP on both streamable-HTTP and legacy SSE;
 streamable-HTTP is the chosen transport.
 
@@ -1127,7 +1127,7 @@ No `--effort`, no `--fallback-model`, no `--append-system-prompt`. Gemini's reas
 
 ### Stdin
 
-The full prompt (including any appendSystemPrompt or transcript) is sent on stdin. **GOTCHA — Phase B cost absorbed:** Gemini has no `--append-system-prompt` flag, so the entire prepended transcript pays full decode cost on every spawn. Phase G is planned to address this with a session-cache approach.
+The full prompt (including any appendSystemPrompt or transcript) is sent on stdin. **GOTCHA — prompt-prefix cost:** Gemini has no `--append-system-prompt` flag, so the entire prepended transcript pays full decode cost on every spawn. A future session-cache approach is planned to reduce this cost.
 
 ### Event parsing
 
@@ -1150,7 +1150,7 @@ No reasoning blocks (Gemini doesn't expose them in `--output-format stream-json`
 When `WorkerConfig.resumeSessionId` is set, the spawn path:
 1. Resolves UUID → index via `resolveGeminiResumeIndex` (async, off the back of the sync `spawn()` interface).
 2. Appends `-r <index>` to argv.
-3. **Skips the `appendSystemPrompt` transcript prepend** — Gemini's CLI loads the prior conversation natively from the on-disk session, so re-prepending would double-feed history (and double-pay tokens). The Phase B cost note still applies to fresh-session spawns.
+3. **Skips the `appendSystemPrompt` transcript prepend** — Gemini's CLI loads the prior conversation natively from the on-disk session, so re-prepending would double-feed history (and double-pay tokens). The prompt-prefix cost note still applies to fresh-session spawns.
 
 The CLI emits `init.session_id` for both fresh and resumed sessions, so `wf.primarySessionId` is captured by the existing `onInit` callback and subsequent turns in the same workflow auto-resume the same UUID without operator action.
 
@@ -1164,7 +1164,7 @@ API-key fallback: `GEMINI_API_KEY` env var.
 
 ### Capability detection
 
-`gemini --version`. Model alias mapping (Phase 8 Gemini parity):
+`gemini --version`. Model alias mapping (Gemini parity):
 - `haiku` → `gemini-3.1-flash-lite-preview`
 - `sonnet` → `gemini-3-flash-preview`
 - `opus` (and `opus[1m]`) → `gemini-3.1-pro-preview`
@@ -1194,7 +1194,7 @@ API-key fallback: `GEMINI_API_KEY` env var.
 
 `OLLAMA_URL_BASE` defaults to `http://localhost:11434`. Override it with the env var. `settings.ollama.baseUrl` supports DD12 config-value interpolation (`!cmd ...` runs a command; `${ENV}` reads an env var) through `resolveConfigValue`, so the endpoint can be derived at resolve time. `keep_alive` is per request (`'10m'`), long enough for consecutive turns and short enough to return VRAM when a tab is idle; see Quirks.
 
-### Multi-backend routing + resilience (M4)
+### Multi-backend routing + resilience
 
 `server/src/providers/ollamaResilience.ts` is the decision surface; `ollama.ts` owns the fetch/parse. The chat path can fan out across **multiple Ollama daemons** that serve overlapping model sets. The optional `modelHostMap` can pin specific models to a configured backend. Backend selection uses Arco's local resilience logic; no external router package is required.
 
@@ -1203,7 +1203,7 @@ API-key fallback: `GEMINI_API_KEY` env var.
 ```jsonc
 "ollama": {
   "baseUrl": "http://localhost:11434",          // legacy single-backend (still works)
-  "backends": [                                  // M4 — supersedes baseUrl for chat when non-empty
+  "backends": [                                  // multi-backend routing — supersedes baseUrl for chat when non-empty
     { "baseUrl": "http://127.0.0.1:11434", "weight": 3, "label": "primary" },
     { "baseUrl": "http://127.0.0.1:11435", "weight": 1, "label": "secondary" }
   ],
@@ -1211,31 +1211,31 @@ API-key fallback: `GEMINI_API_KEY` env var.
 }
 ```
 
-Each backend: `{ baseUrl, weight?, enable?, label?, tailscaleHost? }`. **Back-compat (degenerate one-backend case):** when `backends` is empty/unset the provider synthesizes a single backend from the `baseUrl`→`OLLAMA_URL_BASE`→localhost cascade — an operator who never configures `backends` sees IDENTICAL behavior to pre-M4.
+Each backend: `{ baseUrl, weight?, enable?, label?, tailscaleHost? }`. **Back-compat (degenerate one-backend case):** when `backends` is empty/unset the provider synthesizes a single backend from the `baseUrl`→`OLLAMA_URL_BASE`→localhost cascade — an operator who never configures `backends` sees IDENTICAL behavior to the previous single-backend setup.
 
 **Selection** (`selectBackend`): weighted-shuffle (cumulative-weight roll, RNG injectable for tests) over the *healthy* backends that serve the requested model. Per-backend model knowledge comes from a one-shot `/api/tags` fan-out per turn ∪ the `modelHostMap` hint (the hint only narrows). Unknown serves-model (probe failed / not fetched) is treated optimistically. The chosen host + reason land in `events.jsonl` via `system_notice`.
 
-**Per-backend num_ctx (M3 handoff):** the trusted num_ctx ceiling is probed on the *chosen* backend's `/api/show` — a model can be loaded with a different window per host. The result event's `modelContextWindow` reflects the host that produced the answer.
+**Per-backend num_ctx (backend-specific probe):** the trusted num_ctx ceiling is probed on the *chosen* backend's `/api/show` — a model can be loaded with a different window per host. The result event's `modelContextWindow` reflects the host that produced the answer.
 
 **Cooldown** (`reportFailure`): reactive, SHORT TTL — 12s remote / 6s local (a restarting local daemon recovers fast; rate-limit `Retry-After` honored up to 60s). Lazy recovery, no background prober. **Load-bearing: never cool the only/last healthy backend** (the `cooldown_skip_last` guard — see GOTCHAS).
 
-**Retry/failover** (`backoffMs`): on a retryable error, re-select. **Instant zero backoff when a healthy peer exists**; jittered exponential (`0.5·2^n` cap 8s + ≤0.75s jitter) only when forced onto the last/only host. Retryability table (`classifyOllamaError`): conn errors (refused/timeout/reset/DNS) + 5xx/429 = retryable+cool; 4xx incl. 400 context-overflow = neither (400 is the transcript's fault — M9 ctx-fallback owns it, not a cooldown). A mid-stream drop *after bytes were emitted* does NOT fail over (would double-emit) — it surfaces as terminal.
+**Retry/failover** (`backoffMs`): on a retryable error, re-select. **Instant zero backoff when a healthy peer exists**; jittered exponential (`0.5·2^n` cap 8s + ≤0.75s jitter) only when forced onto the last/only host. Retryability table (`classifyOllamaError`): conn errors (refused/timeout/reset/DNS) + 5xx/429 = retryable+cool; 4xx incl. 400 context-overflow = neither (400 is the transcript's fault — context-window fallback owns it, not a cooldown). A mid-stream drop *after bytes were emitted* does NOT fail over (would double-emit) — it surfaces as terminal.
 
 **Connect timeout** (`OLLAMA_CONNECT_TIMEOUT_MS`, default 3s, env `ARCO_OLLAMA_CONNECT_TIMEOUT_MS`): a second AbortController aborts if response *headers* don't arrive in time, then is cleared once streaming starts (decode stays unbounded). A dead host fails in ~3s instead of hanging. The timeout abort carries `CONNECT_TIMEOUT_MARKER` so it's classified retryable, distinct from operator abort.
 
-**Tailscale fallback (Phase 8, BEST-EFFORT):** on a DNS failure (`ENOTFOUND`), `resolveViaTailscale` shells out (`execFile`, argv-only, no shell) to `tailscale status --json` to resolve the host to its tailnet IP and retries once against the IP. **Cross-platform:** tries `tailscale` on PATH + `/usr/bin/tailscale` (Linux) + the macOS app-bundle path; tight 2.5s timeout; **fails soft** — a missing/erroring Tailscale never breaks normal operation. Loopback hosts are never tailscale-resolved.
+**Tailscale fallback (BEST-EFFORT):** on a DNS failure (`ENOTFOUND`), `resolveViaTailscale` shells out (`execFile`, argv-only, no shell) to `tailscale status --json` to resolve the host to its tailnet IP and retries once against the IP. **Cross-platform:** tries `tailscale` on PATH + `/usr/bin/tailscale` (Linux) + the macOS app-bundle path; tight 2.5s timeout; **fails soft** — a missing/erroring Tailscale never breaks normal operation. Loopback hosts are never tailscale-resolved.
 
-### Per-model param presets (M3)
+### Per-model param presets
 
-`server/src/providers/ollamaParams.ts` is the typed cast/allowlist boundary every request's params flow through (ported from open-webui `apply_model_params_to_body_ollama`). A persisted `ollamaParams` blob lives on `WorkflowConfig` / `WorkerConfig` / `WorkflowMeta` and rides `UpdatePrimaryConfigMessage`, so an operator's per-tab params survive restarts and live-edit from CONFIG without a respawn. Absorbs Hardening Phase 1 (`num_ctx`).
+`server/src/providers/ollamaParams.ts` is the typed cast/allowlist boundary every request's params flow through (ported from open-webui `apply_model_params_to_body_ollama`). A persisted `ollamaParams` blob lives on `WorkflowConfig` / `WorkerConfig` / `WorkflowMeta` and rides `UpdatePrimaryConfigMessage`, so an operator's per-tab params survive restarts and live-edit from CONFIG without a respawn. Absorbs Hardening (`num_ctx`).
 
 - **`OLLAMA_PARAM_SPEC`** — the allowlist table. Each key carries a `placement` (`'options'` vs request `'root'`) and a fail-closed `coerce`. Allowed keys: `num_ctx, keep_alive, num_gpu, temperature, top_p, top_k, min_p, num_predict, repeat_penalty, repeat_last_n, seed, num_batch, num_thread, num_keep` (plus `stop`). Anything unmapped is **dropped** (prevents Ollama "invalid option" warnings); a value that fails to coerce is dropped, not guessed. `keep_alive` lifts to the request root; sampler/`num_ctx` keys go under `options`.
-- **Trusted-only `num_ctx` (`clampNumCtx`).** The operator may type any `num_ctx` in the UI, but it is **clamped to the model's probed `/api/show` Modelfile ceiling** — guessing high risks daemon OOM, guessing low truncates. If no trusted probe exists, `num_ctx` is **omitted entirely** and the daemon's 2048 default applies (the conservative arm of the trusted-only rule). M4 re-probes this ceiling on the *chosen* backend per turn.
+- **Trusted-only `num_ctx` (`clampNumCtx`).** The operator may type any `num_ctx` in the UI, but it is **clamped to the model's probed `/api/show` Modelfile ceiling** — guessing high risks daemon OOM, guessing low truncates. If no trusted probe exists, `num_ctx` is **omitted entirely** and the daemon's 2048 default applies (the conservative arm of the trusted-only rule). multi-backend routing re-probes this ceiling on the *chosen* backend per turn.
 - **CONFIG-tab ADVANCED PARAMS.** Collapsed-by-default section exposing the `OLLAMA_PRESET_UI_KEYS` menu (`num_ctx`, `keep_alive`, `num_gpu`, `temperature`); the rest live in the raw JSON blob for power users. Each turn emits a `system_notice` of the effective keys so the applied preset is visible in `events.jsonl`.
 
 The applied `options` envelope is the **single insertion point** and is prefix-cache-load-bearing — see GOTCHAS.
 
-### Structured output via `format` (M5)
+### Structured output via `format`
 
 `server/src/primitives/reviewSchema.ts` routes the Review primitive's structured verdict through Ollama's sampler-constrained `format` field instead of regex-scraping free text — the single biggest reliability win for small models inside primitives. `OllamaChatRequest` gains a top-level `format` field (a JSON schema), **mutually exclusive with `tools` on the wire** (`format` is only sent when no tools are advertised — `format` suppresses `tool_calls`).
 
@@ -1243,52 +1243,52 @@ The applied `options` envelope is the **single insertion point** and is prefix-c
 - **Two-phase reviewer (open-webui pattern).** The reviewer tool-loop runs free (native tools), then ONE schema-constrained synthesis turn produces the guaranteed-valid JSON; the verdict badge / on-disk artifact / findings are reconstructed straight from it (`StructuredReview`), no re-scrape.
 - **Ollama-gated.** No other provider exposes a sampler-level `format`; the free-text fallback is preserved for them. `parsePlan` is deliberately left as deterministic human-text parsing (the plan body is operator prose, not model output).
 
-### Token accounting (M6)
+### Token accounting
 
-`server/src/providers/ollamaTokens.ts` tracks per-workflow input-token fill so the CTX bar lights up for Ollama and M8/M9 have a fill signal to gate on.
+`server/src/providers/ollamaTokens.ts` tracks per-workflow input-token fill so the CTX bar lights up for Ollama and gives context compaction and context-window fallback a fill signal to gate on.
 
 - **Ground truth** is Ollama's `prompt_eval_count` on the `done:true` line (the actual prompt count the daemon saw) → carried on the result event as `lastPromptTokens`.
 - **`estimatePromptTokens`** is the forward-looking pre-turn estimate. It **counts tool-call arguments** (a tool-only assistant turn has `content:null` with the whole payload in `tool_calls[].function.arguments` — naïve counting undershoots ~20-30% and the compaction gate goes blind), plus tool results and the advertised tool schemas (sent every turn).
-- Reuses the existing `ContextUsageMessage` → CTX bar; the denominator is the per-backend probed `num_ctx` (`OLLAMA_DEFAULT_WINDOW` = 2048 fallback). M8 reads `context_usage.percentOfWindow` (post-turn) + `estimatePromptTokens()` (forward-looking) to decide whether to compact.
+- Reuses the existing `ContextUsageMessage` → CTX bar; the denominator is the per-backend probed `num_ctx` (`OLLAMA_DEFAULT_WINDOW` = 2048 fallback). Context compaction reads `context_usage.percentOfWindow` (post-turn) + `estimatePromptTokens()` (forward-looking) to decide whether to compact.
 
-### Auto-compaction (M8)
+### Auto-compaction
 
 `server/src/providers/ollamaRecovery.ts` ports `llamacppRecovery.ts`'s auto-compaction to Ollama, adapted to the stateless-per-turn worker shape. Persists an `ollama_compacted` event (before/after byte + token counts) to `events.jsonl` so replay re-seeds correctly and transcript review shows where history was cut.
 
 - **Gates.** Hard compact at **0.85** fill (`ARCO_OLLAMA_COMPACT_THRESHOLD`), early **0.75** warn-only `system_notice` (`ARCO_OLLAMA_COMPACT_WARN`) suggesting Handoff before the lossy local summary fires, max **1** auto-compaction per operator turn. Because the Ollama worker is stateless per turn, `maybeCompact` fires at the **front edge** of `run()` (before the tool-loop). (llama.cpp no longer compacts; it only warns.)
-- **Transform.** Keep the leading system block + current turn + last-10 messages verbatim (`ARCO_OLLAMA_COMPACT_KEEP_LAST`); summarize the older half on the M7 utility seam (`runUtilitySummaryJob`); deterministic structural digest (`deterministicDigest`) when the summary call returns `null` — **fails open, never closed**.
+- **Transform.** Keep the leading system block + current turn + last-10 messages verbatim (`ARCO_OLLAMA_COMPACT_KEEP_LAST`); summarize the older half on the utility-model summarization seam (`runUtilitySummaryJob`); deterministic structural digest (`deterministicDigest`) when the summary call returns `null` — **fails open, never closed**.
 - **Tool-message invariants (load-bearing — see GOTCHAS).** `sanitizeToolMessages` repairs/drops the orphaned `role:'tool'` / dangling `tool_calls` a front-cut creates (Ollama pairs positionally — no `tool_call_id`). `truncateToolCallArgs` shrinks an oversized single tool turn to a `{_truncated_for_context: N}` placeholder, preserving name/type so pairing survives.
-- Scoped **out** of M5 one-shots; defers to M9 on unknown-window or at-keep-tail-floor.
+- Scoped **out** of utility JSON formatting one-shots; defers to context-window fallback on unknown-window or at-keep-tail-floor.
 
-### Context-window fallback (M9)
+### Context-window fallback
 
-`server/src/providers/ollamaCtxFallback.ts` `planCtxEscalation` — on a detected overflow, re-dispatch to a larger window instead of failing. Builds on the M4 multi-backend substrate. Emits a `context_window_fallback` `system_notice` (from→to). **Escalate, don't re-compact** — M8 owns the transcript; this is the escape hatch when even compaction isn't enough or a bigger window exists.
+`server/src/providers/ollamaCtxFallback.ts` `planCtxEscalation` — on a detected overflow, re-dispatch to a larger window instead of failing. Builds on multi-backend routing. Emits a `context_window_fallback` `system_notice` (from→to). **Escalate, don't re-compact** — context compaction owns the transcript; this is the escape hatch when even compaction isn't enough or a bigger window exists.
 
 - **Order:** (1) `numctx_bump` — same backend/model, request the **full probed ceiling**, only when it's `>` the failing window; (2) `peer_backend` — a different backend whose probed window for the same model is known-larger.
-- Reuses M4's `contextOverflow` classification (400 stays non-retryable + HOT — it's not the host's fault). Bounded re-dispatch (max 2 hops, `MAX_CTX_ESCALATIONS`, no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
+- Reuses multi-backend routing's `contextOverflow` classification (400 stays non-retryable + HOT — it's not the host's fault). Bounded re-dispatch (max 2 hops, `MAX_CTX_ESCALATIONS`, no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
 
-### Relevant-tool subsetting (M10)
+### Relevant-tool subsetting
 
 `server/src/providers/ollamaToolSubset.ts` (pure) caps the advertised tool catalog so large schema payloads don't degrade small-model tool selection (Hardening §7 — heuristic, no embeddings).
 
 - **`OLLAMA_CORE_TOOLS`** = `Read/Grep/Glob/Bash` (+ cluster peer/plan tools when the workflow is a member) — never trimmed. The remainder is ranked by term-overlap relevance against the **stable system-block signal** (not the volatile last message — see prefix-cache invariant in GOTCHAS), capped at **9** (`ARCO_OLLAMA_TOOL_CAP`, floored at the core size).
 - Computed **once per turn** from a stable signal → byte-identical `tools[]` across turns = prefix-cache-safe. Passthrough below the cap; disable entirely with `ARCO_OLLAMA_TOOL_SUBSET=0`. The chosen subset is logged to `events.jsonl`.
 
-### Capability-gated tool handling (M11)
+### Capability-gated tool handling
 
-`server/src/providers/ollamaFencedTools.ts` makes non-tool-capable models agentic via a fenced JSON-object protocol, superseding Hardening Phase 6's fenced fallback (LE-5).
+`server/src/providers/ollamaFencedTools.ts` makes non-tool-capable models agentic via a fenced JSON-object protocol, superseding Hardening Arco's fenced fallback.
 
-- **`resolveToolMode`** gates on the model's probed `tools` capability (`/api/show`): `'native'` (advertise `tools[]`, parse native `tool_calls` — pre-M11 behavior for capable models), `'fenced'` (inject the protocol, parse fenced blocks), `'none'` (no tools — no cwd / one-shot / structured `format`). Override: `ARCO_OLLAMA_TOOL_MODE = auto|native|fenced`.
-- **Protocol.** A ` ```tool ` / ` ~~~tool ` fenced block holding a JSON object, folded **into the system block** (prefix-cache-stable + counted by the M6 estimator for free — the fenced-prompt text rides every request where native schemas would). `buildFencedToolPrompt` is a **pure** function of the (already-subsetted, already-stable) tool list.
-- Robust parser (fence → brace-slice → key-drift → bare-JSON fallback, with `argError` feedback). Parsed calls reuse the native `dispatchToolCalls` path; results are reframed as labeled `role:'user'` messages. LE-5 action-vs-context partition: context-reader tools stay prompt-injected rather than exposed as callable tools.
+- **`resolveToolMode`** gates on the model's probed `tools` capability (`/api/show`): `'native'` (advertise `tools[]`, parse native `tool_calls` — behavior before native tool-call support for capable models), `'fenced'` (inject the protocol, parse fenced blocks), `'none'` (no tools — no cwd / one-shot / structured `format`). Override: `ARCO_OLLAMA_TOOL_MODE = auto|native|fenced`.
+- **Protocol.** A ` ```tool ` / ` ~~~tool ` fenced block holding a JSON object, folded **into the system block** (prefix-cache-stable + counted by the context-fill estimator for free — the fenced-prompt text rides every request where native schemas would). `buildFencedToolPrompt` is a **pure** function of the (already-subsetted, already-stable) tool list.
+- Robust parser (fence → brace-slice → key-drift → bare-JSON fallback, with `argError` feedback). Parsed calls reuse the native `dispatchToolCalls` path; results are reframed as labeled `role:'user'` messages. The action-vs-context split: context-reader tools stay prompt-injected rather than exposed as callable tools.
 
-### Model-lifecycle console (M12)
+### Model-lifecycle console
 
-Turns "why did my model unload / why is VRAM full" into visible operator state (LE-6). Two endpoints + a CONFIG-tab section.
+Turns "why did my model unload / why is VRAM full" into visible operator state. Two endpoints + a CONFIG-tab section.
 
-- **`GET /api/ollama-ps`** — on-demand poll that fans `/api/ps` across the M4 backends, fail-soft per backend (a down host shows `reachable:false` + an error, never crashes the aggregation), with the M4 connect-timeout and a `cooling` flag mirroring the resilience cooldown Map. Each loaded-model row carries `secondsUntilExpiry` (computed server-side from the RFC3339 `expiresAt`; `null` = forever-loaded) + `sizeVram` / `size`. See `OllamaPsAggregate` / `OllamaPsBackend` / `OllamaPsModel` in `shared/src/protocol/usage.ts`.
+- **`GET /api/ollama-ps`** — on-demand poll that fans `/api/ps` across the configured backends, fail-soft per backend (a down host shows `reachable:false` + an error, never crashes the aggregation), with the router connect-timeout and a `cooling` flag mirroring the resilience cooldown Map. Each loaded-model row carries `secondsUntilExpiry` (computed server-side from the RFC3339 `expiresAt`; `null` = forever-loaded) + `sizeVram` / `size`. See `OllamaPsAggregate` / `OllamaPsBackend` / `OllamaPsModel` in `shared/src/protocol/usage.ts`.
 - **`POST /api/ollama-unload`** — the `keep_alive:0` trick (open-webui's `/api/unload`) targeting the model's **specific** backend (the console knows it from the aggregation row). Reversible (next turn reloads from disk); logged to the tab's `events.jsonl` when a `workflowId` is supplied.
-- **CONFIG-tab MODEL LIFECYCLE** — collapsible per-backend loaded-models list with VRAM, a live eviction countdown, and an UNLOAD button. Polls **only while open**. Reuses M3's `ollamaParams.keep_alive` read-only with a deep-link (no fork).
+- **CONFIG-tab MODEL LIFECYCLE** — collapsible per-backend loaded-models list with VRAM, a live eviction countdown, and an UNLOAD button. Polls **only while open**. Reuses `ollamaParams.keep_alive` from the parameter editor read-only with a deep-link (no fork).
 
 ### VRAM budget + auto context-sizer (`ollamaVram.ts`)
 
@@ -1297,9 +1297,9 @@ Turns "why did my model unload / why is VRAM full" into visible operator state (
 - **`GET /api/ollama/vram` (`computeVramReport`)** — the LOCAL board's GPU VRAM (`nvidia-smi` via the Cookbook hardware probe) vs what the local Ollama daemon currently has resident (`/api/ps` `size_vram`). Powers the **VRAM BUDGET** readout. Local-only by design. Returns `OllamaVramReport` (`shared/src/protocol/usage.ts`).
 - **`POST /api/ollama/fit` (`computeOllamaFit`)** provides a predictive estimate. It sizes the primary model's largest `num_ctx` with room for an optional local utility model. A utility pinned to a remote `baseUrl` uses no local VRAM (`utilityRemote:true`). The report powers the `set to fit` control and primary/utility coexistence warning. Writes still go through `updatePrimaryConfig` so prefix-cache invalidation is logged. `OllamaFitReport.estimateMethod` is `measured-live` when the model is loaded; otherwise it reports `sliding-window`, `needs-load`, or `unknown`.
 
-### Utility / task model (M7)
+### Utility / task model
 
-`server/src/providers/ollamaUtility.ts` is a **separate, non-streaming, JSON-only, capped** call shape for discrete BACKGROUND jobs — distinct from the interactive `streamOneTurn`. A configurable cheap/small model (e.g. a 3B) runs the M8 compaction summary (its most important consumer) and, when their operator-armed triggers ship, model-titles + recall summaries — keeping the expensive primary free.
+`server/src/providers/ollamaUtility.ts` is a **separate, non-streaming, JSON-only, capped** call shape for discrete BACKGROUND jobs — distinct from the interactive `streamOneTurn`. A configurable cheap/small model (e.g. a 3B) runs the context compaction summary (its most important consumer) and, when their operator-armed triggers ship, model-titles + recall summaries — keeping the expensive primary free.
 
 **Config (`settings.ollama.utility`, settings-file-only):**
 
@@ -1311,11 +1311,11 @@ Turns "why did my model unload / why is VRAM full" into visible operator state (
 
 **OFF by default.** When `utility` (or `utility.model`) is unset, `runUtilityJob` returns `{ ok:false, reason:'unconfigured' }` and every caller falls back to its existing behavior (no utility model ⇒ no change). `baseUrl` optionally pins the small model to a dedicated host; unset ⇒ it weighted-shuffles across the configured `backends` like a normal turn (reusing `ollamaResilience`'s selection/cooldown/failover).
 
-**`runUtilityJob({ job, system?, prompt?|messages?, format?, maxTokens?, windowMessages?, maxInputBytes?, onNotice? })`** — one round-trip, **`stream:false`**, **`think:false`** (a thinking-capable model left to its default would burn the whole `num_predict` budget on `message.thinking`), a hard **`num_predict`** OUTPUT cap (default 512, ceiling 4096), a **windowed INPUT** (last-N messages + a total-byte cap, oldest dropped first; a leading system message is exempt), and an optional JSON-schema **`format`** (M5 reuse — the result is parsed and handed back as `json`). **Two-stage timeout:** a cheap **liveness probe** (`/api/version` under the short connect timeout) fast-fails a dead/hung host before committing to the generous **180 s total round-trip budget** — that budget must cover a COLD model load PLUS the full non-streaming generation (with `stream:false` Ollama sends nothing until the whole answer is ready, so the interactive 3 s connect timeout can't apply). **Fail-soft**: never throws; a down/erroring backend ⇒ `{ ok:false, reason:'error' }`. **Visible**: every invocation emits a `system_notice` (job name, model, backend, in/out token counts) → `events.jsonl`.
+**`runUtilityJob({ job, system?, prompt?|messages?, format?, maxTokens?, windowMessages?, maxInputBytes?, onNotice? })`** — one round-trip, **`stream:false`**, **`think:false`** (a thinking-capable model left to its default would burn the whole `num_predict` budget on `message.thinking`), a hard **`num_predict`** OUTPUT cap (default 512, ceiling 4096), a **windowed INPUT** (last-N messages + a total-byte cap, oldest dropped first; a leading system message is exempt), and an optional JSON-schema **`format`** (JSON-format reuse — the result is parsed and handed back as `json`). **Two-stage timeout:** a cheap **liveness probe** (`/api/version` under the short connect timeout) fast-fails a dead/hung host before committing to the generous **180 s total round-trip budget** — that budget must cover a COLD model load PLUS the full non-streaming generation (with `stream:false` Ollama sends nothing until the whole answer is ready, so the interactive 3 s connect timeout can't apply). **Fail-soft**: never throws; a down/erroring backend ⇒ `{ ok:false, reason:'error' }`. **Visible**: every invocation emits a `system_notice` (job name, model, backend, in/out token counts) → `events.jsonl`.
 
 **Why this is NOT a `distill` (CLAUDE.md fence):** operator-configured + opt-in (OFF by default), bounded by deterministic rules (cap + window + single shot), per-call-logged, reversible (unset the model ⇒ gone). It runs for discrete, NAMED jobs — never an automatic per-turn pass.
 
-**M8 host seam:** `runUtilitySummaryJob({ messages, maxTokens?, framing?, onNotice? }) → Promise<string | null>`. M8 hands the **pre-sliced older-half messages** + a cap; this returns the summary text, or `null` when the utility model is unconfigured/failed. **M8 owns the deterministic fallback** (a structural digest) for the `null` case — this seam never invents one, so the "never fails closed" guarantee lives in M8.
+**utility-model summary seam:** `runUtilitySummaryJob({ messages, maxTokens?, framing?, onNotice? }) → Promise<string | null>`. Context compaction passes the **pre-sliced older-half messages** + a cap; this returns the summary text, or `null` when the utility model is unconfigured/failed. **Context compaction supplies the deterministic fallback** (a structural digest) for the `null` case — this seam never invents one, so the "never fails closed" guarantee lives in context compaction.
 
 **Pause switch (2026-09-29):** `settings.ollama.utility.enabled: false` (Settings → OLLAMA COMPACTION UTILITY MODEL → ENABLED) makes `resolveUtilityConfig` return null — every job behaves as unconfigured (compaction → deterministic digest, titles skip, the fit calculator reserves nothing) while model/host/titles stay saved. Absent ⇒ enabled. The Settings save path carries `enabled`/`titles` through its whole-object replace (it used to drop them).
 
@@ -1411,9 +1411,9 @@ the model to that obsolete state.
 
 None. Ollama is a local daemon — Arco just probes `${OLLAMA_URL_BASE}/api/tags` to confirm it's reachable and to list installed models.
 
-### Cookbook pull (Workbench Expansion G4)
+### Cookbook pull
 
-The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pull`** endpoint (`server/src/cookbook/install.ts` `pullOllama`), POSTing `{ name, stream: true }` to `` `${getOllamaBase()}/api/pull` `` and parsing the streaming NDJSON (`status` / `total` / `completed`) into progress events. It deliberately uses the HTTP API (**not** an `ollama pull` subprocess) so the pull **honours the operator's configured Ollama base URL**, including remote endpoints and gets progress natively. On success Ollama auto-discovers the tag via `/api/tags`, so there is **no catalog write** (unlike the llama.cpp GGUF path). See `docs/COOKBOOK.md` under `G4`.
+The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pull`** endpoint (`server/src/cookbook/install.ts` `pullOllama`), POSTing `{ name, stream: true }` to `` `${getOllamaBase()}/api/pull` `` and parsing the streaming NDJSON (`status` / `total` / `completed`) into progress events. It deliberately uses the HTTP API (**not** an `ollama pull` subprocess) so the pull **honours the operator's configured Ollama base URL**, including remote endpoints and gets progress natively. On success Ollama auto-discovers the tag via `/api/tags`, so there is **no catalog write** (unlike the llama.cpp GGUF path). See `docs/COOKBOOK.md`.
 
 ### Capability detection
 
@@ -1424,7 +1424,7 @@ The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pu
 - **Tool-loop cap.** `MAX_TOOL_TURNS = 50` by default (`ARCO_OLLAMA_MAX_TOOL_TURNS`, max 200). A workflow that needs more is suspect; split the task or open an issue.
 - **False-final recovery.** Local thinking models sometimes answer with preparation text ("let me check...", "step 1...") and no tool calls. `OllamaWorkerProcess.run()` detects short preparatory-only replies and injects up to two private continuation prompts so the model actually calls tools or gives a real answer.
 - **Cluster completion guard.** In cluster member turns, non-director Ollama workers get one bounded continuation if they try to finish without `peer_send`. The coaching prompt tells them to send a concise PASS/FAIL or DONE/BLOCKED report to the assigning peer before ending. This is a deterministic backstop for local models that understand the task but forget the peer-report tool.
-- **Mid-turn steer (Phase 5).** Operator messages typed while an Ollama tool-loop is running are queued to the steering bucket and delivered at the next iteration boundary — `OllamaWorkerProcess.run()` calls `WorkerConfig.drainSteer()` after `messages.push(...toolResults)` and before the next `streamOneTurn`, appending each drained item as a `role:'user'` message. Drains the *whole* steering bucket per hook fire (not one-at-a-time); follow-up bucket is untouched and still drains as the merged post-turn turn. Steers landing while the worker is mid-API-call deliver on the *next* iteration — Arco does not abort in-flight calls. Persistence shape is unchanged: the `user_message_echo` with `kind: 'steer'` was emitted at enqueue time in `handleUserMessage`, so transcript replay shows the steer at its enqueue position. The drain-time broadcasts are `queue_update` (clears the queue strip) + `queued_messages_drained` (clears the originator's QUEUED pill).
+- **Mid-turn steer.** Operator messages typed while an Ollama tool-loop is running are queued to the steering bucket and delivered at the next iteration boundary — `OllamaWorkerProcess.run` calls `WorkerConfig.drainSteer` after `messages.push(...toolResults)` and before the next `streamOneTurn`, appending each drained item as a `role:'user'` message. Drains the *whole* steering bucket per hook fire (not one-at-a-time); follow-up bucket is untouched and still drains as the merged post-turn turn. Steers landing while the worker is mid-API-call deliver on the *next* iteration — Arco does not abort in-flight calls. Persistence shape is unchanged: the `user_message_echo` with `kind: 'steer'` was emitted at enqueue time in `handleUserMessage`, so transcript replay shows the steer at its enqueue position. The drain-time broadcasts are `queue_update` (clears the queue strip) + `queued_messages_drained` (clears the originator's QUEUED pill).
 - **Single-slot daemon.** `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1` are required for prefix-cache reliability; concurrent workflows hitting the same daemon will serialize.
 - **Polite eviction.** `keep_alive` defaults to `'10m'` per request — long enough that consecutive turns never reload, short enough that walking away from a workflow returns VRAM to other GPU consumers (Resolve, games). Override via daemon-level `OLLAMA_KEEP_ALIVE` env if you want forever-loaded; per-request value still wins.
 - **Cache invariance.** Anything that mutates the system prompt, transcript bytes, or `options` between turns flushes the prefix cache. Don't inject timestamps / random ids into system prompts.
@@ -1432,7 +1432,7 @@ The Cookbook's **DOWNLOAD** action pulls an Ollama model via the **HTTP `/api/pu
 - **Max output cap.** Same `MAX_WORKER_OUTPUT_BYTES` ceiling (50 MB default). Output beyond cap aborts the stream with a truncation notice.
 - **No retry / throttle.** Local daemon doesn't rate-limit; no quota tracking or system_notice retry path.
 
-### Endpoint auto-discovery (Workbench Expansion D2)
+### Endpoint auto-discovery
 
 Instead of hand-typing a base URL for an Ollama daemon on a private network, the CONFIG tab's **DISCOVER ENDPOINTS** button probes for reachable OpenAI-compatible / Ollama model-list endpoints and surfaces them as one-click suggestions that fill `settings.ollama.baseUrl`. The prober lives in `server/src/providers/endpointDiscovery.ts` (`discoverEndpoints()`); the route is `GET /api/endpoints/discover` (`server/src/http/endpointDiscoveryRoutes.ts`, returns `{ endpoints, tailscaleAvailable, cached }`).
 
@@ -1450,9 +1450,9 @@ Fences (four-question test — operator-initiated, deterministic fixed rules, vi
 - **60s result cache + per-host dead-host cooldown.** Repeat calls inside 60 s return the cached result (`cached:true`); a host where no port answered enters a 60 s cooldown so it isn't re-probed every click.
 - **`tailscale`-absent is graceful.** ENOENT / any CLI error ⇒ `tailscaleAvailable:false`, peers skipped, `localhost` still probed. Never crashes; cross-platform safe.
 
-### RAG injection discipline (M14)
+### RAG injection discipline
 
-`server/src/providers/ragInjection.ts` holds **pure, retriever-agnostic** injection primitives ported from open-webui's RAG layer (LE-9). It is **discipline-only**: a survey at ship time confirmed Arco has **no scored retrieval-injection path today** — recall is backward-looking FTS5 archive search (never injected), `buildKnowledgeBlock` is an unranked pinned-facts dump, and codebase-memory is an external MCP tool. So nothing currently feeds these primitives a ranked candidate list.
+`server/src/providers/ragInjection.ts` holds **pure, retriever-agnostic** injection primitives ported from open-webui's RAG layer. It is **discipline-only**: a survey at ship time confirmed Arco has **no scored retrieval-injection path today** — recall is backward-looking FTS5 archive search (never injected), `buildKnowledgeBlock` is an unranked pinned-facts dump, and codebase-memory is an external MCP tool. So nothing currently feeds these primitives a ranked candidate list.
 
 When a retriever lands, it calls `fuseRRF` (`Σ 1/(k+rank)`, `RRF_DEFAULT_K`=60 — for hybrid BM25+vector) → `selectTopK` (`RAG_DEFAULT_TOP_K`=3 + relevance floor + dedup) → `tagSources`/`formatSources` (`<source id=N from=…>`) + `ragSystemTemplate` (the `RAG_CITATION_TEMPLATE` — cite `[N]`, don't invent) → `buildRagBlock` (8 KB `RAG_DEFAULT_BLOCK_BUDGET` cap + an omitted-count notice, never silent truncation). The wiring site is the `turnEngine.ts` knowledge-injection point (≈ the `buildKnowledgeBlock` fold). **Don't mistake `buildKnowledgeBlock` for a ranked retriever** — it isn't, and these primitives aren't wired to it yet.
 
@@ -1460,7 +1460,7 @@ When a retriever lands, it calls `fuseRRF` (`Σ 1/(k+rank)`, `RRF_DEFAULT_K`=60 
 
 ## LM Studio
 
-`server/src/providers/lmstudio.ts`. Pure HTTP, no subprocess — a standalone module that talks LM Studio's **OpenAI-compatible** REST API (M13 / LE-7).
+`server/src/providers/lmstudio.ts`. Pure HTTP, no subprocess — a standalone module that talks LM Studio's **OpenAI-compatible** REST API .
 
 **Standing verdict: OpenAI-compat endpoint, NOT the SDK.** LM Studio is a *runtime* (an Ollama competitor), not a frontend; its app/engine are closed-source and only the client SDKs are public. It exposes an OpenAI-compatible API on `http://localhost:1234/v1` (`/chat/completions`, `/models`, `/embeddings`). Adding it as a configurable OpenAI-compat endpoint reuses Arco's existing HTTP plumbing for near-zero cost — adopting the native `lmstudio.js` `ws://` SDK would add a dependency tracking LM Studio's app version for features Arco already owns (its own tool-loop). It is **not** modeled on llama.cpp's lifecycle-coupled worker either; it's its own module.
 
@@ -1647,9 +1647,9 @@ Supported in Chat (tools omitted) but rejected for Incognito: the shared daemon 
 
 Why this provider exists alongside Ollama: vision-capable architectures often land in `llama.cpp` weeks before Ollama wires up the multimodal projector path. Qwen3.6 was the motivating case (Ollama issue 14730: `unknown model architecture: 'qwen35moe'` on the multimodal path). The text-only ergonomic edge of Ollama is unchanged; llama.cpp is the escape hatch when you need a feature Ollama hasn't shipped yet.
 
-**Cookbook fit engine.** The Workbench Expansion **Cookbook** (Part G) sizes GGUF models against *detected* hardware — `server/src/cookbook/fit.ts` estimates VRAM (weights + KV-cache + overhead), the max context that fits, throughput, and a fit verdict/score for a given `{params, quant, arch}` on the box's probed GPU(s)/VRAM. G4 wires the chosen model's catalog entry (alias / ggufPath / recommended context) into this registry. On Apple Silicon (DD15) the engine derives the Metal GPU's bandwidth from the probed GPU-core count against published unified-memory figures and sizes against a unified-memory VRAM budget, so a Metal GPU now scores a real verdict instead of an automatic `NO`. See `docs/COOKBOOK.md`.
+**Cookbook fit engine.** The **Cookbook** sizes GGUF models against *detected* hardware — `server/src/cookbook/fit.ts` estimates VRAM (weights + KV-cache + overhead), the max context that fits, throughput, and a fit verdict/score for a given `{params, quant, arch}` on the box's probed GPU(s)/VRAM. The download action wires the chosen model's catalog entry (alias / ggufPath / recommended context) into this registry. On Apple Silicon the engine derives the Metal GPU's bandwidth from the probed GPU-core count against published unified-memory figures and sizes against a unified-memory VRAM budget, so a Metal GPU now scores a real verdict instead of an automatic `NO`. See `docs/COOKBOOK.md`.
 
-> **Operator health readout.** The System modal's **Models** tab (A3 — `docs/DIAGNOSTICS.md` § Local model health panel) surfaces, for llama.cpp: the `llama-server` binary path, registered loadouts, the lifecycle-manager snapshot (state / alias / port / pid), the **last launch args** (an additive `lastLaunchArgs` field on `LlamacppManagerStatus`, retained on the existing spawn path — read-only forensics, never read back by spawn/keepalive/reap) and a **last-stderr tail** of `~/.arco/llamacpp.log`. For the Cookbook it surfaces the detected hardware profile, downloaded GGUFs under `~/.arco/models`, and **fit-score mismatch warnings** — registered loadouts scored against the detected hardware with the same pure `scoreFit()` used here (verdict `NO`/`TIGHT`). When a `llama-server` launch fails, `llamacppServeDiagnose.ts` (DD13) classifies the failure against an ordered registry of known causes (binary-missing, port-in-use, OOM, ctx-too-large, …) and returns a structured diagnosis — cause + human message + one-click fixes that lower `ctxSize` / `ngl` or add a `--port` / `extraArgs` escape hatch — surfaced in the same panel under `model-health.llamacpp-*` keys. It is read-only and **never spawns a model or changes lifecycle**.
+> **Operator health readout.** The System modal's **Models** tab (A3 — `docs/DIAGNOSTICS.md` § Local model health panel) surfaces, for llama.cpp: the `llama-server` binary path, registered loadouts, the lifecycle-manager snapshot (state / alias / port / pid), the **last launch args** (an additive `lastLaunchArgs` field on `LlamacppManagerStatus`, retained on the existing spawn path — read-only forensics, never read back by spawn/keepalive/reap) and a **last-stderr tail** of `~/.arco/llamacpp.log`. For the Cookbook it surfaces the detected hardware profile, downloaded GGUFs under `~/.arco/models`, and **fit-score mismatch warnings** — registered loadouts scored against the detected hardware with the same pure `scoreFit` used here (verdict `NO`/`TIGHT`). When a `llama-server` launch fails, `llamacppServeDiagnose.ts` classifies the failure against an ordered registry of known causes (binary-missing, port-in-use, OOM, ctx-too-large, …) and returns a structured diagnosis — cause + human message + one-click fixes that lower `ctxSize` / `ngl` or add a `--port` / `extraArgs` escape hatch — surfaced in the same panel under `model-health.llamacpp-*` keys. It is read-only and **never spawns a model or changes lifecycle**.
 
 Two non-obvious differences from Ollama:
 
@@ -1740,9 +1740,9 @@ OpenAI fragment-assembly: tool calls arrive across multiple SSE events, partial 
 
 Operator-declared in the catalog; no `--show`-equivalent on llama-server. Setting `capabilities.vision: true` without an `mmprojPath` is allowed (the validator doesn't reject it) but the provider drops images and emits a system_notice — guard at the UI layer where useful.
 
-### Cookbook auto-registration (Workbench Expansion G4)
+### Cookbook auto-registration
 
-The catalog is no longer edited only by hand. The Cookbook's **DOWNLOAD** action (`server/src/cookbook/install.ts`) registers into `~/.arco/llamacpp.json` automatically after a successful Hugging Face GGUF download: it streams the GGUF into `~/.arco/models/` (path-confined — sanitized basename + resolved-inside-dir check), then builds a `LlamacppModelDef` (`buildCatalogEntry` — alias derived + sanitized + made **unique** vs the existing catalog, **absolute** `ggufPath`, `ctxSize` from the fit engine, `ngl: 999`) and persists it via the existing **atomic** `writeCatalog` (`.tmp.<pid>` + rename, 64 KB cap) — never a hand-rolled write. The model is selectable in CONFIG immediately. A disk pre-flight (`fs.statfs`) refuses an oversized pull before any byte downloads, and a cancel/error deletes the partial `.part` file and writes **no** catalog entry. See `docs/COOKBOOK.md § G4` and `docs/GOTCHAS.md § Cookbook download/disk guards`.
+The catalog is no longer edited only by hand. The Cookbook's **DOWNLOAD** action (`server/src/cookbook/install.ts`) registers into `~/.arco/llamacpp.json` automatically after a successful Hugging Face GGUF download: it streams the GGUF into `~/.arco/models/` (path-confined — sanitized basename + resolved-inside-dir check), then builds a `LlamacppModelDef` (`buildCatalogEntry` — alias derived + sanitized + made **unique** vs the existing catalog, **absolute** `ggufPath`, `ctxSize` from the fit engine, `ngl: 999`) and persists it via the existing **atomic** `writeCatalog` (`.tmp.<pid>` + rename, 64 KB cap) — never a hand-rolled write. The model is selectable in CONFIG immediately. A disk pre-flight (`fs.statfs`) refuses an oversized pull before any byte downloads, and a cancel/error deletes the partial `.part` file and writes **no** catalog entry. See `docs/COOKBOOK.md` and `docs/GOTCHAS.md § Cookbook download/disk guards`.
 
 ### Quirks
 
@@ -1753,7 +1753,7 @@ The catalog is no longer edited only by hand. The Cookbook's **DOWNLOAD** action
 - **CPU fallback.** If Vulkan / CUDA isn't available at runtime, `llama-server` falls back to CPU silently. Inference will be unusably slow; check `~/.arco/llamacpp.log` if a model loads but each turn takes minutes.
 - **Vision projector compatibility.** mmproj files are model-specific. The Qwen3.6 mmproj won't work with Qwen3-VL or any other model. Pull the projector from the same HuggingFace repo as the GGUF.
 - **No retry / throttle.** Same as Ollama — local backend, no quota tracking.
-- **Mid-turn steer (Phase 5).** Same hook shape as the Ollama path. `LlamacppWorkerProcess.run()` calls `WorkerConfig.drainSteer()` after `messages.push(...toolResults); toolTurn++;` and *before* the recovery checks (tool-loop coach termination, tool-cap auto-continue). Drains the whole steering bucket each fire; follow-up bucket is left alone. Recovery arms above the hook (reasoning runaway / stall / wall_clock / empty completion) `continue` from their own arms and never reach the hook within their iteration — by design; they are conversation-repair flows that own their own injected user message. Tool-cap auto-continue sits below the hook and runs on the same iteration if both fire, so the steer + recap both reach the next call. The drain is destructive (splice), so a same-iteration re-call returns `[]` — no double-deliver under any retry path.
+- **Mid-turn steer.** Same hook shape as the Ollama path. `LlamacppWorkerProcess.run` calls `WorkerConfig.drainSteer` after `messages.push(...toolResults); toolTurn++;` and *before* the recovery checks (tool-loop coach termination, tool-cap auto-continue). Drains the whole steering bucket each fire; follow-up bucket is left alone. Recovery arms above the hook (reasoning runaway / stall / wall_clock / empty completion) `continue` from their own arms and never reach the hook within their iteration — by design; they are conversation-repair flows that own their own injected user message. Tool-cap auto-continue sits below the hook and runs on the same iteration if both fire, so the steer + recap both reach the next call. The drain is destructive (splice), so a same-iteration re-call returns `[]` — no double-deliver under any retry path.
 
 ### Auto-recovery
 
@@ -1811,10 +1811,10 @@ Arco uses Antigravity's local language-server RPC endpoint for every Antigravity
 - **Handoff semantics** — Handoff may still write a markdown handoff artifact and pre-warm a new Antigravity cascade with that text. Label this as a fresh cascade seeded with handoff text; Arco does not compact or inspect Antigravity's internal cascade.
 - **Cwd prepend** — turns prepend `[Project directory: <cwd>]\n\n` to the prompt so Antigravity knows where to operate.
 - **Attached plans** — Antigravity receives the same one-line `buildPlanPrefix()` header every other provider sees: `[Active project plan: "<title>" — file: .arco/plans/<id>.md. …]`. The plan body is **not** injected. Antigravity must read `.arco/plans/<id>.md` on demand via its normal file tools and tick checkboxes (`- [ ]` → `- [x]`) through normal file edits. Verified by `smoke:antigravity-phase-b1`.
-- **Attachments (B2)** — operator uploads are split into images (`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`) and non-images. Both are **staged into `<cwd>/.arco/workflows/<workflowId>/attachments/<safeName>`** before the turn fires so the path Antigravity is told about survives a server restart and the transient `server/uploads/<id>` directory turnover. Collision-safe: same-size re-uploads reuse the existing staged file; different content gets `-1`, `-2`, … appended. The prompt gets a clearly-labelled `Attached files:` / `Attached images:` block listing the staged absolute paths — no base64 inlining, no file-body inlining. Antigravity reads/opens those paths via its normal file tools. **Path-only mode is explicit**: one `system_notice` per turn with attachments — `[ANTIGRAVITY] attachments delivered as local file paths, not native Antigravity message parts: N image(s)…; M file(s)…` — so the operator never has to guess whether image bytes went up the wire. Native `SendUserCascadeMessage.items[]` image/file shapes remain unproven; `nativeImageAttachments` stays `unknown` in capabilities. The framing + notice are the only call sites to swap when a native item shape is discovered.
-- **Artifacts / generated files (Phase F)** — after each Antigravity turn, Arco conservatively ingests newly-created artifact-shaped files without mutating the originals. If the operator prompt looks file-creation-shaped (`save`, `create`, `write`, `generate`, `artifact`, filename/image terms), the provider snapshots the workflow cwd before the turn and scans it again shortly after the planner response. Only new files with extensions `.md`, `.txt`, `.json`, `.png`, `.jpg`, `.jpeg`, `.webp`, or `.gif` are candidates. The cwd scan excludes `.arco`, `.git`, `node_modules`, build outputs (`dist`, `build`, `out`, `coverage`, `.next`, `.vite`, `.turbo`, `target`), common caches, and Antigravity internal `.system_generated` logs. Text artifacts copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/`; images copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/images/`; destination names are collision-safe. Metadata appends to `<cwd>/.arco/workflows/<workflowId>/artifacts/antigravity-artifacts.jsonl` with `sourcePath`, `copiedPath`, `artifactName`, `kind`, `detectedFrom`, `workflowId`, optional `cascadeId`, `copiedAt`, and `size`. Text copies are appended to the assistant reply as `[artifact:<name>]` markers using the existing artifact fetch endpoint. Image copies are listed by absolute copied path in the assistant reply/system notice and open through the existing file viewer. If `~/.gemini/antigravity/brain/<cascadeId>/` exists, Arco also scans that exact directory for recent allowed files; no broader brain-root sweep is performed.
-- **Generated-image step shape** — current Antigravity trajectory tracing has not proven a distinct generated-image/file-output step. `antigravityRpc.ts` contains guarded inspection for likely fields (`generatedImage`, `imageGeneration`, `fileOutput`, `artifact`) if they appear in a future trace, but Phase F support relies on filesystem detection today. Do not claim native generated-image support until a live trace proves the shape.
-- **Tool activity (Phase C)** — the RPC poller maps observed trajectory steps into merged Arco Activity rows. Each step type is normalized to a stable display name:
+- **Attachments** — operator uploads are split into images (`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`) and non-images. Both are **staged into `<cwd>/.arco/workflows/<workflowId>/attachments/<safeName>`** before the turn fires so the path Antigravity is told about survives a server restart and the transient `server/uploads/<id>` directory turnover. Collision-safe: same-size re-uploads reuse the existing staged file; different content gets `-1`, `-2`, … appended. The prompt gets a clearly-labelled `Attached files:` / `Attached images:` block listing the staged absolute paths — no base64 inlining, no file-body inlining. Antigravity reads/opens those paths via its normal file tools. **Path-only mode is explicit**: one `system_notice` per turn with attachments — `[ANTIGRAVITY] attachments delivered as local file paths, not native Antigravity message parts: N image(s)…; M file(s)…` — so the operator never has to guess whether image bytes went up the wire. Native `SendUserCascadeMessage.items[]` image/file shapes remain unproven; `nativeImageAttachments` stays `unknown` in capabilities. The framing + notice are the only call sites to swap when a native item shape is discovered.
+- **Artifacts / generated files ()** — after each Antigravity turn, Arco conservatively ingests newly-created artifact-shaped files without mutating the originals. If the operator prompt looks file-creation-shaped (`save`, `create`, `write`, `generate`, `artifact`, filename/image terms), the provider snapshots the workflow cwd before the turn and scans it again shortly after the planner response. Only new files with extensions `.md`, `.txt`, `.json`, `.png`, `.jpg`, `.jpeg`, `.webp`, or `.gif` are candidates. The cwd scan excludes `.arco`, `.git`, `node_modules`, build outputs (`dist`, `build`, `out`, `coverage`, `.next`, `.vite`, `.turbo`, `target`), common caches, and Antigravity internal `.system_generated` logs. Text artifacts copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/`; images copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/images/`; destination names are collision-safe. Metadata appends to `<cwd>/.arco/workflows/<workflowId>/artifacts/antigravity-artifacts.jsonl` with `sourcePath`, `copiedPath`, `artifactName`, `kind`, `detectedFrom`, `workflowId`, optional `cascadeId`, `copiedAt`, and `size`. Text copies are appended to the assistant reply as `[artifact:<name>]` markers using the existing artifact fetch endpoint. Image copies are listed by absolute copied path in the assistant reply/system notice and open through the existing file viewer. If `~/.gemini/antigravity/brain/<cascadeId>/` exists, Arco also scans that exact directory for recent allowed files; no broader brain-root sweep is performed.
+- **Generated-image step shape** — current Antigravity trajectory tracing has not proven a distinct generated-image/file-output step. `antigravityRpc.ts` contains guarded inspection for likely fields (`generatedImage`, `imageGeneration`, `fileOutput`, `artifact`) if they appear in a future trace, but  support relies on filesystem detection today. Do not claim native generated-image support until a live trace proves the shape.
+- **Tool activity** — the RPC poller maps observed trajectory steps into merged Arco Activity rows. Each step type is normalized to a stable display name:
   - `search_web` / `web_search` → `WebSearch` with `{ query }` input
   - `run_command` / `bash` → `Bash` with `{ command, cwd }` input; includes exit code in output when available
   - `read_file` / `view_file` → `ReadFile` with `{ path }` input
@@ -1846,7 +1846,7 @@ Arco uses Antigravity's local language-server RPC endpoint for every Antigravity
 
 Debug-port reachability is checked at boot for operator visibility. First explicit use can lazy-spawn the app and then the RPC layer discovers the language-server Connect endpoint.
 
-Phase A surfaces a structured `AntigravityCapabilities` object alongside the diagnostics so the CONFIG/auth UI shows what the provider currently drives:
+Provider discovery surfaces a structured `AntigravityCapabilities` object alongside the diagnostics so the CONFIG/auth UI shows what the provider currently drives:
 
 | Capability | Value | What it means |
 |---|---|---|
@@ -1854,12 +1854,12 @@ Phase A surfaces a structured `AntigravityCapabilities` object alongside the dia
 | `webSearch` | `observed` | Trajectory steps map into a `search_web`-shaped Activity row; rich citation surfacing is not yet wired up. |
 | `shellTools` | `observed` | Start/in-progress/completed shell rows merge into Activity by stable `toolUseId`. |
 | `pathAttachments` | `true` | Operator attachments are appended to the prompt as `[attached file: <path>]`. |
-| `nativeImageAttachments` | `unknown` | `SendUserCascadeMessage.items[]` image schema is unprobed; Phase B covers this. |
-| `clusterTools` | `false` | `peer_*` / `cluster_plan_*` are not bridged into Antigravity yet (Phase D). |
+| `nativeImageAttachments` | `unknown` | `SendUserCascadeMessage.items[]` image schema is unprobed; Image-attachment support remains unprobed. |
+| `clusterTools` | `false` | `peer_*` / `cluster_plan_*` are not bridged into Antigravity yet (not yet bridged). |
 | `artifacts` | `partial` | Newly-created `.md`/`.txt`/`.json` and common image files are copied into Arco artifacts from the workflow cwd, and from `~/.gemini/antigravity/brain/<cascadeId>/` when that exact cascade directory exists. Generated-image RPC step shape remains unproven. |
 | `contextAccounting` | `opaque` | Antigravity owns context/cache/compaction; Arco does not invent CTX percentages. |
 
-Phase F smoke: `npm run smoke:antigravity-phase-f`. Structural coverage always verifies text/image copy rules and metadata. If desktop is reachable, it also asks Antigravity to create a uniquely named text file in the cwd; set `ANTIGRAVITY_PHASE_F_REQUIRE_LIVE=1` to make an unavailable desktop exit 2, or `ANTIGRAVITY_PHASE_F_STRUCTURAL_ONLY=1` to skip the live turn.
+ smoke: `npm run smoke:antigravity-phase-f`. Structural coverage always verifies text/image copy rules and metadata. If desktop is reachable, it also asks Antigravity to create a uniquely named text file in the cwd; set `ANTIGRAVITY_PHASE_F_REQUIRE_LIVE=1` to make an unavailable desktop exit 2, or `ANTIGRAVITY_PHASE_F_STRUCTURAL_ONLY=1` to skip the live turn.
 
 ### Context/cache/compaction
 
@@ -1875,7 +1875,7 @@ Antigravity is still **not** a cluster member provider. `ClusterMemberProvider` 
 `isClusterMemberProvider('antigravity')` is false and
 `npm run smoke:antigravity-phase-d` checks that fence.
 
-Phase D live discovery is read-only only. It calls MCP-related read surfaces such as
+Live discovery is read-only only. It calls MCP-related read surfaces such as
 `GetMcpServerStates`, `ListMcpResources`, `ListMcpPrompts`, and `GetMcpPrompt`, then reports shape
 summaries. Registration/config-shaped candidates such as `RegisterTool`, `RegisterLocalTool`,
 `RegisterDynamicTool`, `RegisterMcpServer`, and `SetMcpServerConfig` are static-scanned/reported as
@@ -1915,7 +1915,7 @@ Restart rules:
 - **In-app restart** — the server respawns from its own `process.env`, so any env set when the server was launched survives. Changing env from outside the running server does **not** propagate until the next launcher-driven start.
 - **Manual `npm run dev`** — inherits whatever the shell has. Export the flags explicitly (or use the launcher) if you want anything other than the isolated profile and default model.
 
-Phase 0 removed `ANTIGRAVITY_TRANSPORT`. RPC is the only transport; do not set this variable.
+ removed `ANTIGRAVITY_TRANSPORT`. RPC is the only transport; do not set this variable.
 
 ### Troubleshooting
 
@@ -1937,7 +1937,7 @@ Phase 0 removed `ANTIGRAVITY_TRANSPORT`. RPC is the only transport; do not set t
 
 `npm run smoke:antigravity-phase-b2` runs a real `AntigravityProvider` turn with two attachments (a text file with a unique marker and a 5×5 PNG fixture). Asserts both files were staged under `<cwd>/.arco/workflows/<wfid>/attachments/`, the text marker comes back in the assistant reply, exactly one `[ANTIGRAVITY]` `system_notice` flags path-only delivery and mentions the image, and tool rows reference the staged paths. Exits 2 if the desktop app is unreachable.
 
-`npm run smoke:antigravity-phase-c` verifies Phase C tool-activity normalization. Enables `ANTIGRAVITY_RPC_TRACE_STEPS=1` and drives three turns: (1) web-search query — asserts at least one `WebSearch` row and no duplicate id:status pairs; (2) shell command `echo phase-c-smoke-ok` — asserts in_progress and completed rows merge under a stable id; (3) file read+write over a temp file — asserts file-shaped rows carry the expected path in input. After all turns, asserts the JSONL trace file exists, contains parseable entries with required fields, and contains no CSRF tokens or auth headers. Stall/timeout rows are not smoke-tested (hard to induce deterministically); they are covered by code review. Exits 2 if the desktop app is unreachable.
+`npm run smoke:antigravity-phase-c` verifies tool-activity normalization. Enables `ANTIGRAVITY_RPC_TRACE_STEPS=1` and drives three turns: (1) web-search query — asserts at least one `WebSearch` row and no duplicate id:status pairs; (2) shell command `echo phase-c-smoke-ok` — asserts in_progress and completed rows merge under a stable id; (3) file read+write over a temp file — asserts file-shaped rows carry the expected path in input. After all turns, asserts the JSONL trace file exists, contains parseable entries with required fields, and contains no CSRF tokens or auth headers. Stall/timeout rows are not smoke-tested (hard to induce deterministically); they are covered by code review. Exits 2 if the desktop app is unreachable.
 
 `npm run smoke:antigravity-phase-e` is structural and does not require a live desktop. It verifies opaque Antigravity session metadata, Claude-only context/auto-handoff gates, the percent-free CTX footer, and persisted fresh-cascade clearing.
 
@@ -1954,13 +1954,13 @@ The Antigravity RPC details above describe the current integration. Acceptance t
 
 ## External MCP integrations
 
-External MCP servers that Arco surfaces as operator-attachable per-tab options. Unlike the in-process per-cluster MCP server (Cluster Phase 3+ scope), these are operator-installed binaries running on the same machine. Arco's job is the UX (toggle, status, re-index button) + persistence of intent + spawn-time wiring to inject the server entry into the worker's `--mcp-config`.
+External MCP servers that Arco surfaces as operator-attachable per-tab options. Unlike the in-process per-cluster MCP server (Cluster + scope), these are operator-installed binaries running on the same machine. Arco's job is the UX (toggle, status, re-index button) + persistence of intent + spawn-time wiring to inject the server entry into the worker's `--mcp-config`.
 
 Each entry below follows the same shape: install path → operator surface → fences → persistence shape.
 
 ### `codebase-memory-mcp` (`DeusData/codebase-memory-mcp`)
 
-Tree-sitter → SQLite knowledge graph (Cypher-ish queries + BM25 + vector). 14 MCP tools including `search_graph`, `detect_changes` (git-diff blast radius), and `manage_adr`. **Deterministic, no LLM in the server itself** — the binary's value is structural code understanding, not curated memory. The only LLM-write surface in the entire package is `manage_adr`, and it is operator-prompted only (the model writes an ADR when the operator types "make an ADR for this") — passing the `EFFICIENCY_PLAN.md` §2 no-LLM-curated-memory test.
+Tree-sitter → SQLite knowledge graph (Cypher-ish queries + BM25 + vector). 14 MCP tools including `search_graph`, `detect_changes` (git-diff blast radius), and `manage_adr`. **Deterministic, no LLM in the server itself** — the binary's value is structural code understanding, not curated memory. The only LLM-write surface in the entire package is `manage_adr`, and it is operator-prompted only (the model writes an ADR when the operator types "make an ADR for this") — passing the no-LLM-curated-memory test.
 
 **Install path.** Single static binary. Operator-installed once per machine; see `docs/OPERATIONS.md`. **Hard invariant**: Arco ALWAYS invokes the binary with `--skip-config` because the binary's default install/run behavior auto-edits agent config files (`~/.claude/settings.json` and similar). The flag is wired into the one-shot reindex spawn at `server/src/index.ts` and must persist into the deferred F9 spawn-site wiring.
 
@@ -1972,7 +1972,7 @@ Tree-sitter → SQLite knowledge graph (Cypher-ish queries + BM25 + vector). 14 
 
 **Persistence.** `WorkflowConfig.codebaseMemory` + `WorkflowMeta.codebaseMemory` (same shape) carry the operator's intent across server restart. Detach retains `indexPath` so re-attaching is one click.
 
-**Spawn-site wiring (deferred — F9).** The actual `--mcp-config` write-in at CLI spawn time piggybacks on Cluster Phase 3's `mcpConfigWriter`. Phase F's attach toggle records intent only; the worker never invokes the MCP today. This spawn-site wiring remains deferred.
+**Spawn-site wiring (deferred — F9).** The actual `--mcp-config` write-in at CLI spawn time piggybacks on Cluster Arco's `mcpConfigWriter`. 's attach toggle records intent only; the worker never invokes the MCP today. This spawn-site wiring remains deferred.
 
 **Hard fences (autonomy four-question test).** (1) Operator-initiated — every action is a click. (2) Deterministic — tree-sitter + BM25 + SQL queries; no LLM in the loop on Arco's side. (3) Visible in `events.jsonl` — `codebase_memory_state` rides `broadcastWorkflow` which seq-stamps + persists. (4) Reversible — detach toggle is one click; the on-disk index is operator-managed.
 
@@ -2012,7 +2012,7 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 
 ---
 
-## Error-classifier taxonomy (Workbench Expansion C1)
+## Error-classifier taxonomy
 
 `server/src/providers/errorClassifier.ts` maps a provider error to a
 `FailoverReason` and a `FailoverAction`. It complements `quota.ts`: quota
@@ -2053,7 +2053,7 @@ Smoke: `npm run smoke:error-classify` (pure unit — no WS, no server boot).
 
 ---
 
-## Provider fallback chains (Workbench Expansion C2)
+## Provider fallback chains
 
 `server/src/providers/fallbackChain.ts` runs a **bounded job** (a reviewer or a
 research leg — never a live operator conversation) across an ordered list of

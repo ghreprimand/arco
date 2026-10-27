@@ -215,7 +215,7 @@ renderer and adds operator-driven PR creation. Three parts:
 ### 1. PR file diffs via the A3 renderer
 
 `PullView.tsx`'s `FilesView` no longer hand-rolls a plain `<pre>` with per-line
-coloring, it renders through the shared `DiffView` (A3) via the new
+coloring, it renders through the shared `DiffView` via the new
 `GhFilesDiff` component (`client/src/components/GitHubPanel/GhFilesDiff.tsx`),
 with UNIFIED / SPLIT toggle, word-level highlighting, and collapse-per-file for
 free.

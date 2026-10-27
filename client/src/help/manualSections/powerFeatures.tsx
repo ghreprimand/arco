@@ -83,7 +83,7 @@ export const powerFeatures: Section[] = [
         <p><strong>Single-turn arming.</strong> The flag is consumed by the next turn dispatch and cleared. A reload, tab swap, or cancelled send all clear it without firing. The placeholder text shifts to <Code>Type your task — plan mode armed for next turn</Code> when armed; no banner.</p>
         <p><strong>Visibility gating.</strong> The checkbox renders only when <Code>job.config.primaryProvider === 'claude'</Code> AND the resolved transport is <Code>'native'</Code>. On every other provider/transport the row renders nothing — no reserved space.</p>
         <p><strong>What's gated and what isn't.</strong> Plan mode short-circuits <Code>Write</Code> and <Code>Edit</Code> only. <Code>Bash</Code> is intentionally <em>not</em> gated — detecting "write intent" in arbitrary shell commands generically (<Code>sed -i</Code>, redirection, <Code>rm</Code> pipelines, in-place git) would be a regex arms race with high false-positive cost. Operators relying on plan mode as a hard write barrier should use the surrounding sandbox or CI contract; the per-tool gate is for the common footgun of the model patching files before sketching a plan, not a universal write firewall.</p>
-        <p><strong>Plan-parser advisories</strong> surface from <Code>EnterPlanMode</Code> as part of the tool result (warnings only, never reject — the model corrects on the next turn). The plan body is dry-run through the same <Code>parsePlan</Code> invariants the Plan tab uses for per-phase review.</p>
+        <p><strong>Plan-parser advisories</strong> surface from <Code>EnterPlanMode</Code> as part of the tool result (warnings only, never reject — the model corrects on the next turn). The plan body is dry-run through the same <Code>parsePlan</Code> invariants the Plan tab uses for per-section review.</p>
       </>
     ),
   },
@@ -429,7 +429,7 @@ export const powerFeatures: Section[] = [
             tool result.
           </li>
           <li>
-            <strong>In-turn tool-loop guardrail (H9).</strong> Within a single
+            <strong>In-turn tool-loop guardrail.</strong> Within a single
             turn, the model's tool loop is watched for an identical{' '}
             <Code>(tool, args)</Code> call (and especially identical{' '}
             <Code>(tool, args, output)</Code>) repeated past a threshold. Default

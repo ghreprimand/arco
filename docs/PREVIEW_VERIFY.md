@@ -65,7 +65,7 @@ to dimensions + mobile emulation by `VIEWPORT_PRESETS`:
 
 The function always resolves; failures land in `{ ok:false, error }`.
 
-### Viewport presets (G2)
+### Viewport presets
 
 `VIEWPORT_PRESETS` (`captureViaCdp.ts`), conventional logical-CSS-px viewports,
 DPR carried separately:
@@ -76,7 +76,7 @@ DPR carried separately:
 | `tablet` | 834 × 1112 | yes (touch) | 2 |
 | `mobile` | 390 × 844 | yes (touch) | 3 |
 
-### Layout & accessibility notes (G2)
+### Layout & accessibility notes
 
 `LAYOUT_PROBE` is a single self-contained, fully-defensive, **read-only** IIFE run
 via `Runtime.evaluate` after the page settles (returns a plain object via
@@ -154,7 +154,7 @@ Store: `JobState.previewCapturing` + `previewCaptures: PreviewCaptureRecord[]`
 in `useWebSocket.ts`, threaded `App -> WorkflowView -> RightPanel -> PreviewTab` as
 `onPreviewCapture`; `onReviewCapture` rides the same chain for ATTACH TO REVIEW.
 
-## Attach to Review (G2)
+## Attach to Review
 
 `ATTACH TO REVIEW` calls `requestReview(workflowId, reviewer, { kind:
 'preview-capture', reportName })` with the tab's **primary** provider/model/effort

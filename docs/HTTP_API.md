@@ -405,7 +405,7 @@ Workbench Expansion F1. The **machine-global, cross-cwd Recall index** - every w
 - `project` - optional; filters to one project (a cwd basename).
 - `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `antigravity` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) predates `zai` and `cursor`, so filtering by either currently returns everything.
 - Always answers **200** with `{ entries: RecallEntry[] }`, sorted `lastActiveAt` desc. An index read error degrades to `{ entries: [] }` (never a 500) so the client renders an empty Recall view, not an error.
-- `RecallEntry` (`shared/src/protocol/recall.ts`): `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef|null, tags[] }`. `summaryRef` populated once a summary exists (F2); `tags`/`pinned`/links set via the F4 mutation routes below.
+- `RecallEntry` (`shared/src/protocol/recall.ts`): `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef|null, tags[] }`. `summaryRef` populated once a summary exists; `tags`/`pinned`/links set via the F4 mutation routes below.
 
 The title is resolved via the F1 fallback chain (never blank): Claude `ai-title` -> first operator message (trimmed) -> `<provider> · <project> · <date>`. See `docs/RECALL.md`.
 
@@ -584,7 +584,7 @@ Request body (JSON):
 
 ---
 
-## Project trust (DD7)
+## Project trust
 
 ### `GET /api/project-trust[?cwd=<absolute>]` · `POST /api/project-trust`
 
@@ -658,9 +658,9 @@ The PLANS lens - the plans library. Every plan in every project in `~/.arco/know
 
 ---
 
-## Local model lifecycle (M12)
+## Local model lifecycle
 
-Operator-facing console for Ollama VRAM ( M12 / Excellence LE-6). Backs the CONFIG-tab MODEL LIFECYCLE section, which polls only while open. Routes: `server/src/http/router.ts`; engine: `server/src/providers/ollama.ts` (`aggregateOllamaPs` / `unloadOllamaModel`).
+Operator-facing console for Ollama VRAM. Backs the CONFIG-tab MODEL LIFECYCLE section, which polls only while open. Routes: `server/src/http/router.ts`; engine: `server/src/providers/ollama.ts` (`aggregateOllamaPs` / `unloadOllamaModel`).
 
 ### `GET /api/ollama-live`
 
@@ -685,7 +685,7 @@ Polled by the client every 15s, but **only** while `enabledProviders.ollama !== 
 
 ### `GET /api/ollama-ps`
 
-On-demand poll that fans `/api/ps` across the M4 backends (`settings.ollama.backends[]`, or the degenerate single backend) and aggregates the loaded-model rows. Fail-soft per backend - a down/unreachable host shows `reachable:false` + an `error` rather than failing the whole aggregation (the M4 connect-timeout applies). No request body.
+On-demand poll that fans `/api/ps` across the configured backends (`settings.ollama.backends[]`, or the degenerate single backend) and aggregates the loaded-model rows. Fail-soft per backend - a down/unreachable host shows `reachable:false` + an `error` rather than failing the whole aggregation (the router connect-timeout applies). No request body.
 
 Response - `OllamaPsAggregate` (`shared/src/protocol/usage.ts`):
 
@@ -696,7 +696,7 @@ Response - `OllamaPsAggregate` (`shared/src/protocol/usage.ts`):
       baseUrl: string,
       label: string,
       reachable: boolean,
-      cooling: boolean,                  // true when the M4 router has this backend in a cooldown right now
+      cooling: boolean,                  // true when the router has this backend in a cooldown right now
       loadedModels: [
         {
           name: string,
@@ -717,7 +717,7 @@ On an unexpected throw -> **500** `{ error }`.
 
 ### `GET /api/ollama/vram`
 
-Hardware-synergy VRAM budget readout: the **local** board's GPU VRAM (nvidia-smi via the Cookbook hardware probe, `server/src/cookbook/hardware.ts`) vs what the **local** Ollama daemon (`getOllamaBase`) currently has resident (`/api/ps` `size_vram`). Local-only by design - VRAM is per-board, so `used` reflects the single local daemon, not the M4 fleet. Read-only, fail-soft: no CUDA GPU (macOS / no nvidia-smi) ⇒ `available:false` + a `note`; a down daemon ⇒ `daemonUp:false`. No request body. Powers the CONFIG-tab **VRAM BUDGET** section.
+Hardware-synergy VRAM budget readout: the **local** board's GPU VRAM (nvidia-smi via the Cookbook hardware probe, `server/src/cookbook/hardware.ts`) vs what the **local** Ollama daemon (`getOllamaBase`) currently has resident (`/api/ps` `size_vram`). Local-only by design - VRAM is per-board, so `used` reflects the single local daemon, not the configured Ollama fleet. Read-only, fail-soft: no CUDA GPU (macOS / no nvidia-smi) ⇒ `available:false` + a `note`; a down daemon ⇒ `daemonUp:false`. No request body. Powers the CONFIG-tab **VRAM BUDGET** section.
 
 Response - `OllamaVramReport` (`shared/src/protocol/usage.ts`):
 
@@ -813,7 +813,7 @@ Request body (JSON):
 - `model` - **required**; missing/empty -> **400** `{ error: "model required" }`.
 - `baseUrl` - optional; the specific backend to unload from. Omitted ⇒ the primary backend.
 - `label` - optional display label for the log line (falls back to `baseUrl` or `"primary"`).
-- `workflowId` - optional; when supplied, the unload (success **or** failure) is logged to that tab's `events.jsonl` via `broadcastWorkflow` so transcript review sees it - the same visibility channel M3-M11 use.
+- `workflowId` - optional; when supplied, the unload (success **or** failure) is logged to that tab's `events.jsonl` via `broadcastWorkflow` so transcript review sees it - the same visibility channel used by other Ollama settings routes.
 
 Responses: **200** `{ unloaded: true }`; **502** `{ error }` when the unload POST to the daemon failed; **400** (no model); **500** on an unexpected throw.
 
@@ -836,11 +836,11 @@ Request body (JSON):
 - `cwd` - explicit workflow cwd; when omitted, resolved from `workflowId` via `workflowCwds`. **Optional since N2:** a general-tool op on a scratch / absolute path carries none (the path must then be absolute). A *relative* path with no cwd is `code: 'bad-path'`.
 - `path` - relative-to-cwd or absolute. **Resolved + gated by the N2 access fence** (`resolveMediaInput`): allowed inside the cwd, always allowed inside Arco's `media-scratch`, and - only when `mediaUnconfined !== false` (Settings -> Media, default open) - allowed at an arbitrary absolute path. Otherwise rejected (`code: 'bad-path'`, nothing run). See `docs/MEDIA_STUDIO.md` + `docs/GOTCHAS.md access fence`.
 - `output` *(N2, optional)* - `{ dir?, basename? }`. `dir` (absolute or cwd-relative) chooses where the new file lands, gated by the **same fence** as `path` and required to exist (`code: 'output-dir-missing'`); absent ⇒ alongside the input. `basename` chooses the filename - its **stem** is kept but the op's target extension is **forced** (a convert->mp3 named `take.wav` saves as `take.mp3`); absent ⇒ the derived non-clobbering name. The output is always uniquified; the source is never overwritten.
-- `spec` - **audio (H6):** `{op:'clip',inSec,outSec}`, `{op:'extract',inSec,outSec}`, `{op:'convert',format,bitrate?}`, `{op:'normalize'}`, `{op:'fade',inMs?,outMs?}`, `{op:'channels',mode:'mono'|'stereo'}`, `{op:'resample',hz}`. `format` ∈ wav/mp3/ogg/flac/m4a/aac; `bitrate` ∈ 96k-320k; `hz` ∈ the bounded sample-rate set. **Video (H7):** `{op:'vclip',inSec,outSec,reencode?}` (stream-copy by default, re-encode when `reencode`), `{op:'vconvert',format,resolution?,vcodec?}`, `{op:'extract-audio',format,inSec?,outSec?}`. `vconvert.format` ∈ mp4/webm/mov/mkv (container + default codecs); `vcodec` ∈ libx264/libx265/libvpx-vp9; `resolution` is a bounded preset (`source`/`480p`/`720p`/`1080p`, each -> a **fixed** `scale` filter the server controls) or a validated `{w,h}` integer pair (each ≤ 7680, composed into `scale=w:h`) - **never** raw operator text into `-vf`/`-c:v`; `extract-audio.format` ∈ the audio whitelist. **Advanced (N3):** `{op:'framegrab',atSec,format}` (png/jpeg still), `{op:'gif',inSec,outSec,fps?,width?,format?}` (gif/webp; gif builds a palette), `{op:'geometry',xform}` (`xform` = crop `{w,h,x,y}` / rotate `{degrees:90|180|270}` / flip `{axis:'h'|'v'}` / resize `{resolution}`), `{op:'speed',factor,video}` (0.25-4×, pitch-preserved; `video` adds `setpts`), `{op:'gain',db}` (−60...+30), `{op:'spectrogram',width?,height?}` (-> png), `{op:'join',extraInputs[],video}` (concat; **each extra path gated by the same fence** as `path`, resolved before any reaches argv), `{op:'swap',action}` (`{kind:'mute'}` or `{kind:'replace',audioPath}` - `audioPath` gated like an input). Pixels/fps/factor/db are validated against shared bounds (≤7680 / 1-50 / 0.25-4 / ±). `video` on `speed`/`join` is a **panel-set boolean** picking the audio-vs-video filtergraph, never free text. Numerics validated finite/≥0/ordered (in < out). Bad spec -> `code: 'bad-spec'`.
+- `spec` - **audio:** `{op:'clip',inSec,outSec}`, `{op:'extract',inSec,outSec}`, `{op:'convert',format,bitrate?}`, `{op:'normalize'}`, `{op:'fade',inMs?,outMs?}`, `{op:'channels',mode:'mono'|'stereo'}`, `{op:'resample',hz}`. `format` ∈ wav/mp3/ogg/flac/m4a/aac; `bitrate` ∈ 96k-320k; `hz` ∈ the bounded sample-rate set. **Video:** `{op:'vclip',inSec,outSec,reencode?}` (stream-copy by default, re-encode when `reencode`), `{op:'vconvert',format,resolution?,vcodec?}`, `{op:'extract-audio',format,inSec?,outSec?}`. `vconvert.format` ∈ mp4/webm/mov/mkv (container + default codecs); `vcodec` ∈ libx264/libx265/libvpx-vp9; `resolution` is a bounded preset (`source`/`480p`/`720p`/`1080p`, each -> a **fixed** `scale` filter the server controls) or a validated `{w,h}` integer pair (each ≤ 7680, composed into `scale=w:h`) - **never** raw operator text into `-vf`/`-c:v`; `extract-audio.format` ∈ the audio whitelist. **Advanced:** `{op:'framegrab',atSec,format}` (png/jpeg still), `{op:'gif',inSec,outSec,fps?,width?,format?}` (gif/webp; gif builds a palette), `{op:'geometry',xform}` (`xform` = crop `{w,h,x,y}` / rotate `{degrees:90|180|270}` / flip `{axis:'h'|'v'}` / resize `{resolution}`), `{op:'speed',factor,video}` (0.25-4×, pitch-preserved; `video` adds `setpts`), `{op:'gain',db}` (−60...+30), `{op:'spectrogram',width?,height?}` (-> png), `{op:'join',extraInputs[],video}` (concat; **each extra path gated by the same fence** as `path`, resolved before any reaches argv), `{op:'swap',action}` (`{kind:'mute'}` or `{kind:'replace',audioPath}` - `audioPath` gated like an input). Pixels/fps/factor/db are validated against shared bounds (≤7680 / 1-50 / 0.25-4 / ±). `video` on `speed`/`join` is a **panel-set boolean** picking the audio-vs-video filtergraph, never free text. Numerics validated finite/≥0/ordered (in < out). Bad spec -> `code: 'bad-spec'`.
 - **Cancel:** if the request socket closes (operator hit Cancel / nav away), the server aborts -> SIGKILLs the ffmpeg child + unlinks the partial output (`code: 'cancelled'`).
 - **Response:** always `200` with `MediaOpResult` for an operator-visible condition - `{ ok: true, outputPath, relPath? }` on success (`relPath` only when the output is **inside the cwd**; a scratch / arbitrary-path output returns just the absolute `outputPath`), or `{ ok: false, error, code }` where `code` ∈ `ffmpeg-missing | bad-spec | bad-path | input-missing | ffmpeg-failed | cancelled | no-cwd | output-dir-missing`. A missing ffmpeg returns `code: 'ffmpeg-missing'` with a pointer to `docs/OPERATIONS.md` - never a 500. Only a truly unexpected server bug is a 500. A success/failure (not a cancel) broadcasts `media_op_result` -> persisted to `events.jsonl`.
 
-### `POST /api/media/scratch?name=<basename>` (N2)
+### `POST /api/media/scratch?name=<basename>`
 
 Stage an **imported** (picker / drag-dropped browser) media file on disk so ffmpeg can act on it (it reads files, not object URLs). The raw file bytes are the **request body**; `?name=` is the desired basename (sanitized - traversal / separators / leading-dash / NUL rejected with `code: 'bad-name'`). The bytes stream into a fresh `~/.arco/media-scratch/<uuid>/` dir (the write can't escape regardless of `?name=`), bounded by a per-upload cap (4 GiB -> `code: 'too-large'`) and reaped on a 24h TTL + a 16 GiB total cap. **Always allowed** (no cwd, no fence - the operator put the file here themselves). Response: `{ ok: true, path, basename, bytes }` - feed `path` straight back as a `MediaOpRequest.path` (the op resolver always permits scratch paths). On error, `{ ok: false, code, error }` with `code` ∈ `bad-name | too-large | write-failed`.
 
@@ -848,11 +848,11 @@ Stage an **imported** (picker / drag-dropped browser) media file on disk so ffmp
 
 Read-only byte server (deferred from H1/H5). Streams an on-disk media file so an on-disk audio file can render a waveform / seek. **Since N2** `path` is gated by the **same tiered access fence** as the op route (`resolveMediaInput`: cwd | scratch | unconfined; out-of-fence -> `403`), so a scratch-staged or (when unconfined) arbitrary-path file can be previewed; `cwd` is optional (an absolute path needs none). Sets `Content-Type` by extension and supports **HTTP Range** (`206` partial content with `Content-Range`/`Accept-Ranges`; an unsatisfiable range -> `416`) for `<audio>`/`<video>` seeking + wavesurfer's chunked fetch. Missing `path` -> `400`; missing file / non-file -> `404`.
 
-### `POST /api/media/inspect` (N3)
+### `POST /api/media/inspect`
 
 Read-only **ffprobe** metadata. Writes no file, so it is its own endpoint rather than a `MediaOpSpec` (the op union is render ops that produce a file). Request body: `{ cwd?, workflowId?, path }` - `path` is gated by the **same tiered access fence** as `/op` (`resolveMediaInput`: cwd | scratch | unconfined). Runs `ffprobe -print_format json -show_format -show_streams` and projects to a curated `MediaInspectResult`: `{ ok: true, format?: { name?, duration?, size?, bitrate? }, streams?: [{ index, type, codec?, width?, height?, fps?, sampleRate?, channels?, bitrate? }] }`. Always `200`; on an operator-visible condition `{ ok: false, error, code }` with `code` ∈ `ffprobe-missing | bad-path | input-missing | probe-failed`. Numbers ffprobe reports as strings are coerced; `fps` is parsed from `avg_frame_rate`. No broadcast (read-only, no audit event).
 
-### `POST /api/media/stems` (N4)
+### `POST /api/media/stems`
 
 **Demucs** stem separation - a separate long-running, GPU-accelerated runner (`server/src/media/demucs.ts`), not a `MediaOpSpec` (it emits multiple files). Request body: `{ cwd?, workflowId?, path, model?, twoStems?, format?, output?: { dir? } }`. `path` is gated by the **same N2 fence** as `/op`; `model` ∈ `STEM_MODELS` (default `htdemucs`), `twoStems` ∈ vocals/drums/bass/other (present ⇒ a `<stem>` + `no_<stem>` split; absent ⇒ the full set), `format` ∈ mp3/wav/flac (default **mp3** - wav/flac need `torchcodec` on some boxes; see `docs/OPERATIONS.md`). `output.dir` is the destination **parent** (gated + must exist); a **fresh uniquified `<track>.stems[-N]/`** dir is created inside it (never clobbers a prior run or the source). Args are built from whitelisted enums + resolved abs paths only (`-o <dir> -n <model> --filename {stem}.{ext} [--mp3|--flac] [--two-stems <name>] <track>`, track last). **Cancel:** socket close -> SIGKILL the demucs child + `fs.rm` the whole fresh dir (no partials, `code: 'cancelled'`). **Response:** always `200` with `MediaStemsResult` - `{ ok: true, model, dir, relDir?, stems: [{ name, path, relPath? }] }` (stems flattened out of demucs's forced `<model>/` subdir; `relPath`/`relDir` only for in-cwd output), or `{ ok: false, error, code }` with `code` ∈ `demucs-missing | bad-spec | bad-path | input-missing | output-dir-missing | demucs-failed | cancelled`. A missing demucs is `code: 'demucs-missing'` with an install pointer, never a 500. Success/failure (not cancel) broadcasts `media_stems_result` -> `events.jsonl`.
 
@@ -1343,7 +1343,7 @@ interface SkillSummary {
 }
 ```
 
-`cwd` is optional (omit it to list global only). Skills with malformed frontmatter (no `name:`) are silently skipped, matching the toolbox scanner. `useCount` / `lastUsed`  are attached from the `skill-usage.json` sidecar in `listSkills` only - they are never folded into the model-facing manifest. `operatorOnly` (DD8) marks a skill the model is never told exists: it is omitted from the manifest entirely but still listed here and pickable by the operator (who inlines its full body into a turn via the `+SKILL` composer picker).
+`cwd` is optional (omit it to list global only). Skills with malformed frontmatter (no `name:`) are silently skipped, matching the toolbox scanner. `useCount` / `lastUsed` are attached from the `skill-usage.json` sidecar in `listSkills` only - they are never folded into the model-facing manifest. `operatorOnly` marks a skill the model is never told exists: it is omitted from the manifest entirely but still listed here and pickable by the operator (who inlines its full body into a turn via the `+SKILL` composer picker).
 
 ### `GET /api/skills/body?cwd=<absolute path>&scope=<project|global>&slug=<slug>`
 
@@ -1463,13 +1463,13 @@ Returns `ArcoSettings` (operator preferences):
 }
 ```
 
-Phase 2 - optional `?cwd=<path>` layers `<cwd>/.arco/settings.json` on top of the global cascade (defaults -> `~/.arco/settings.json` -> project). Deep-merge for nested objects; arrays replace. See `docs/OPERATIONS.md cascade` for full semantics. The server broadcasts `settings_updated` over WS on file changes - clients should re-fetch with their active cwd to pick up project-scoped edits live.
+optional `?cwd=<path>` layers `<cwd>/.arco/settings.json` on top of the global cascade (defaults -> `~/.arco/settings.json` -> project). Deep-merge for nested objects; arrays replace. See `docs/OPERATIONS.md cascade` for full semantics. The server broadcasts `settings_updated` over WS on file changes - clients should re-fetch with their active cwd to pick up project-scoped edits live.
 
 ### `POST /api/settings`
 
 Body is a partial `ArcoSettings`. Server merges and atomically writes `~/.arco/settings.json` (the **global** layer only; project-level settings are hand-edited). Returns the new full settings. `themeId` and `fontPackOverride` are validated against `VALID_THEME_IDS` / `VALID_FONT_PACK_IDS` respectively; unknown values 400. Pass `fontPackOverride: null` to clear an override and revert to theme defaults.
 
-**Ollama multi-backend (M4) is settings-file-only - no dedicated endpoint.** `settings.ollama.backends[]` and `settings.ollama.modelHostMap` are sanitized by `sanitizeOllamaConfig` on read (drop disabled/malformed/duplicate backends; cap 16 backends, 64 map entries) and pass through this POST like any other settings field. The decision: operators edit `~/.arco/settings.json` (or a project `.arco/settings.json`) directly, the same way the legacy single `baseUrl` and `fallbackChains` work - a runtime backend-editor UI/endpoint is deferred (the smaller correct scope for v1; the cooldown state is in-memory and auto-expires, so there's nothing operator-facing to mutate beyond the static list). The existing **DISCOVER ENDPOINTS** flow still fills a single `baseUrl`; multi-backend lists are hand-authored.
+**Ollama multi-backend is settings-file-only - no dedicated endpoint.** `settings.ollama.backends[]` and `settings.ollama.modelHostMap` are sanitized by `sanitizeOllamaConfig` on read (drop disabled/malformed/duplicate backends; cap 16 backends, 64 map entries) and pass through this POST like any other settings field. The decision: operators edit `~/.arco/settings.json` (or a project `.arco/settings.json`) directly, the same way the legacy single `baseUrl` and `fallbackChains` work - a runtime backend-editor UI/endpoint is deferred (the smaller correct scope for v1; the cooldown state is in-memory and auto-expires, so there's nothing operator-facing to mutate beyond the static list). The existing **DISCOVER ENDPOINTS** flow still fills a single `baseUrl`; multi-backend lists are hand-authored.
 
 ### `GET /api/catalog` / `POST /api/catalog`
 
@@ -1493,7 +1493,7 @@ Returns the per-provider auth snapshot:
   llamacpp: AuthStatus,
   deepseek: AuthStatus,             // prepared Exact/Light availability; live residency from /api/deepseek
   strata: AuthStatus,               // standalone Strata; context + image modalities from /models
-  lmstudio: AuthStatus,             // M13 - local runtime; loggedIn = LM Studio server reachable
+  lmstudio: AuthStatus,             // local runtime; loggedIn = LM Studio server reachable
   cursor: AuthStatus,               // Cursor (ACP) - loggedIn = ~/.config/cursor/auth.json carries a session token
   antigravity: AuthStatus,
   github: AuthStatus,
@@ -1548,7 +1548,7 @@ Z.ai (GLM Coding Plan) API-key config - the key the `zai` provider (Codex app-se
 
 ---
 
-## Claude Native auth (Phase 7a)
+## Claude Native auth
 
 OAuth bootstrap for the in-process Claude Native transport. Tokens persist to `~/.arco/auth.json`; refresh races serialized via `proper-lockfile`. Local callback server binds port `53692`; when binding fails (the operator's remote-only setup, or the port is otherwise held), the bootstrap falls back to manual paste - see `docs/GOTCHAS.md Native transport` for the EADDRINUSE rule.
 
@@ -1701,7 +1701,7 @@ Live Cursor model roster, enumerated by a short-lived `cursor-agent models` spaw
 **Response** - `CursorCatalogSnapshot` (`shared/src/protocol/models.ts`):
 `{ fetchedAt, models: Array<{ id, displayName, isDefault }>, fresh }`.
 
-Cursor bakes reasoning effort into the model id (`-low`/`-high`/`-xhigh`/`-max`), so there is no separate effort field - the Phase-8 picker derives family × effort from these ids. `isDefault` marks the `auto` row.
+Cursor bakes reasoning effort into the model id (`-low`/`-high`/`-xhigh`/`-max`), so there is no separate effort field - the model picker derives family × effort from these ids. `isDefault` marks the `auto` row.
 
 ---
 
@@ -1861,7 +1861,7 @@ Clears the G1 hardware cache and re-probes (`rescanHardware`); returns the fresh
 
 ---
 
-## Sandbox (Phase E)
+## Per-tab sandbox
 
 Per-tab SQLite FTS5 index for `ctx_execute` / `ctx_search` / `ctx_fetch` tools (Claude Native only). Enabled when `WorkflowConfig.efficiencySandbox === 'on'`. Backed by `server/src/sandboxStore.ts`.
 
@@ -1990,7 +1990,7 @@ Manually marks a provider throttled (until `resets`, default now + 30 min) or, w
 
 If `gh auth status` reports unauthenticated, every route returns 401 with `{ error: "GitHub CLI not authenticated" }`. Run `gh auth login` (or use the in-UI flow at `POST /api/auth-login?provider=github`).
 
-### `POST /api/github/repos/:owner/:repo/pulls` - create a pull request (I4)
+### `POST /api/github/repos/:owner/:repo/pulls` - create a pull request
 
 Operator-initiated PR creation (the "New PR" form in the GitHub panel's PR tab).
 Title / body / base / head ride the **JSON body** through the REST helper - they
@@ -2016,7 +2016,7 @@ Responses:
 This route does **not** broadcast to `events.jsonl` - consistent with the other
 GitHub write endpoints (merge / comment), which are direct HTTP ops.
 
-### `GET /api/github/repos/:owner/:repo/commits/:sha` - single-commit files (I4)
+### `GET /api/github/repos/:owner/:repo/commits/:sha` - single-commit files
 
 Returns the commit's changed files as `GhPullFile[]` (`{ filename, status,
 additions, deletions, patch?, previous_filename?, blob_url? }`), with the unified

@@ -18,7 +18,7 @@ export const actions: Section[] = [
           rows={[
             [<strong key="n">New project</strong>, 'Opens a tab. Pick cwd, provider, model, effort, tool allowlist. Start chatting.'],
             [<strong key="r">Resume</strong>, <>Lists existing native CLI sessions for this cwd. Pick one to continue inside Arco.</>],
-            [<strong key="rv">Review</strong>, <>Spawns an ephemeral reviewer (any provider/model) over a turn slice or plan content (whole / per-phase / picker). Output is a read-only artifact in the right pane.</>],
+            [<strong key="rv">Review</strong>, <>Spawns an ephemeral reviewer (any provider/model) over a turn slice or plan content (whole / per-section / picker). Output is a read-only artifact in the right pane.</>],
             [<strong key="h">Handoff</strong>, <>Rotates the current tab's session. Current agent writes a handoff document; new session starts with that document as its seed.</>],
             [<strong key="s">Spawn</strong>, <>Forks the conversation to a new tab. Configurable model/effort for the new tab. Original tab continues in parallel.</>],
             [<strong key="l">Live config swap</strong>, <>Edit MODEL and EFFORT (and Codex sandbox, Claude tools) in CONFIG. Takes effect on the next turn. Provider swaps require a Handoff.</>],
@@ -100,11 +100,11 @@ export const actions: Section[] = [
           <strong>Plan-scoped review</strong> is a separate dispatch path for plan
           content (instead of workflow transcript). When a plan is attached, the Plan
           tab pairs <Code>REVIEW</Code> with <Code>VERIFY</Code> at both whole-plan
-          and per-phase granularity: <Code>REVIEW PLAN</Code> /{' '}
+          and per-section granularity: <Code>REVIEW PLAN</Code> /{' '}
           <Code>VERIFY WORK</Code> at the top, <Code>▷ REVIEW PHASE PLAN</Code> /{' '}
           <Code>▷ VERIFY PHASE WORK</Code> under each <Code>### Phase</Code> heading,
           plus <Code>CUSTOM REVIEW</Code> (tree-with-checkboxes for operator-picked
-          items across phases). REVIEW defaults to <strong>CRITIQUE</strong> mode
+          items across plan sections). REVIEW defaults to <strong>CRITIQUE</strong> mode
           (evaluate the plan itself — gaps, ordering, missing considerations; all
           items shown with check state preserved); VERIFY defaults to{' '}
           <strong>VERIFY</strong> mode with <Code>INCLUDE GIT DIFF</Code> pre-ticked
@@ -292,7 +292,7 @@ export const actions: Section[] = [
         <Note kind="warn">
           The prompt explicitly says <strong>do not modify any file under{' '}
           <Code>.arco/plans/</Code></strong>. Plan files have load-bearing
-          checkbox / H3 phase structure that the Plan tab parses for per-phase review
+          checkbox / H3 phase structure that the Plan tab parses for per-section review
           and the spawn-from-task surface. Agents (especially Qwen) have rewritten
           plans as prose and broken those features. Don't loosen this — it's why the
           button exists.

@@ -10,7 +10,7 @@ For the higher-level lifecycle (when these messages fire), see [`ARCHITECTURE.md
 
 - **Direction**: `->` = client to server. `<-` = server to client.
 - **Persistence**: most workflow-scoped server-to-client messages are persisted to `events.jsonl` so they replay on reconnect. "Transient" means broadcast without persistence. Client-to-server messages are not persisted as such, but their server-side echoes (e.g. `user_message_echo`) usually are.
-- Every workflow-scoped server message is stamped with `{seq, ts, parentEventSeq?,...message}` before persistence. The `seq` and `parentEventSeq` fields appear on the wire too. `parentEventSeq` (Phase 0) is the seq of the preceding event in the same workflow's `events.jsonl`; absent on the first event and on pre-Phase-0 (`schemaVersion: 1`) workflows. Readers should treat absent as "previous event in seq order".
+- Every workflow-scoped server message is stamped with `{seq, ts, parentEventSeq?,...message}` before persistence. The `seq` and `parentEventSeq` fields appear on the wire too. `parentEventSeq` is the seq of the preceding event in the same workflow's `events.jsonl`; absent on the first event and on older (`schemaVersion: 1`) workflows. Readers should treat absent as "previous event in seq order".
 - All messages are JSON. Tagged unions discriminated by `type`.
 
 ---
@@ -205,7 +205,7 @@ Server confirms the new workflow. Carries the canonical `workflowId` (server-min
   config: WorkflowConfig,
   resumedVia?: 'native' | 'bootstrapped',
   backgroundCreated?: boolean,      // worktree bake-off attempts - batch-created tabs; the source tab keeps focus
-  parentWorkflowId?: string,        // Phase 7b - set when minted by a Task tool call. Client creates the JobState but suppresses tab creation + active-tab switch while parented + unpromoted.
+  parentWorkflowId?: string, // set when minted by a Task tool call. Client creates the JobState but suppresses tab creation + active-tab switch while parented + unpromoted.
   priorClaudeSessionId?: string,    // legacy hint kept parallel to priorSessionId so older client builds hydrate Claude sessions unchanged
   priorSessionId?: string,          // native CLI session UUID (Claude or Codex) to fetch transcript for
   priorProvider?: 'claude' | 'codex',
@@ -234,31 +234,31 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   model?: ModelName,
   effort?: EffortLevel,
   providerAccountRef?: string,                        // provider-account profile id (wired for Codex; reserved on Claude)
-  autoHandoff?: { enabled, warnAt, autoAt, mode?, summarizer? },  // Phase 3 / WP5 - per-tab auto-handoff thresholds + mode + fresh-summarizer
-  codexTransport?: 'exec' | 'appserver',             // Phase 6e - per-tab Codex transport override
+  autoHandoff?: { enabled, warnAt, autoAt, mode?, summarizer? }, // per-tab auto-handoff thresholds + mode + fresh-summarizer
+  codexTransport?: 'exec' | 'appserver', // per-tab Codex transport override
   codexContextPolicy?: 'max' | 'standard',           // per-tab window policy; absent means MAX
-  claudeTransport?: 'cli' | 'native',                // Phase 7a - per-tab Claude transport override
+  claudeTransport?: 'cli' | 'native', // per-tab Claude transport override
   ultracode?: boolean,                               // - sticky ultracode; forces CLI + Workflow tool + xhigh (Claude only). Does NOT mutate stored claudeTransport
   webSearchMaxUses?: number,                         // per-tab Native web_search/web_fetch per-turn budget (clamped 1..50); default 15
   chatWebAccess?: boolean,                           // Chat-only web toggle (Claude/Codex/Ollama); chatWebArmed in server/src/chatMode.ts decides
   zaiTransport?: 'native' | 'appserver',             // Z.ai Native - per-tab Z.ai transport override
-  claudeNativeCompact?: boolean,                     // Phase 7c-followup - Anthropic server-managed compaction
+  claudeNativeCompact?: boolean, // followup - Anthropic server-managed compaction
   claudeNativeForceInterleavedThinkingBeta?: boolean, // Native A/B debug - force interleaved-thinking beta next turn
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates', // Native adaptive-thinking display - 'summarized' streams thinking into Activity (default 'omitted', Claude Code parity); 'updates' (beta progress notes) only where supportsThinkingDisplayUpdates, else resolves to 'omitted'
-  nativeCompactAutoContinue?: boolean,               //  Phase 3 - auto-continue after a Native compaction (default false)
+  nativeCompactAutoContinue?: boolean, // auto-continue after a Native compaction (default false)
   autoFold?: { enabled, foldAt, tailBudget? },       // per-tab auto-fold (Native) - off by default; foldAt is the budget-meter pct
   goalRun?: { enabled, total?, tokenBudget? },        // - arm/re-arm (resets counters) / disarm the north-star auto-continue; refused without a north star. Acked by goal_run_state
-  efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',  //  Phase C
-  efficiencyFactForce?: 'on' | 'off',                //  Phase D
+  efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',  //  tool-result filtering
+  efficiencyFactForce?: 'on' | 'off',                //  first-edit guard
   efficiencyConfigProtection?: 'on' | 'off',         // config-protection write-gate (Native, default 'on')
-  efficiencySandbox?: 'off' | 'on',                  //  Phase E - opt-in ctx_* tools
+  efficiencySandbox?: 'off' | 'on',                  //  opt-in ctx_* tools
   reviewSafeMode?: 'off' | 'on',                     // DEBAG durable review gate (Native, default 'off')
   outputStyle?: 'normal' | 'lite' | 'terse',         // - Claude Native, Codex app-server, Z.ai
   goal?: string,                                     // - persistent per-tab north-star; empty/whitespace CLEARS. Cap 2048 bytes. Injected as a system block every turn on transports that fold the cluster plan; inherited by primitives (unlike outputStyle's forced 'normal')
   pinnedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>, // replace the durable tab pin set; empty CLEARS. Full bodies are re-resolved + injected every turn
   remoteEnabled?: boolean,                            // REMOTE_MANAGEMENT - per-workflow hub opt-in
   remoteGatesEnabled?: boolean,                      // REMOTE_CLUSTER_CONTROL - second arming: resolve DEBAG gates from the hub console (default false)
-  ollamaParams?: Record<string, unknown>,            //  M3 - per-tab Ollama generation-param blob (whole-blob replace)
+  ollamaParams?: Record<string, unknown>,            //  per-tab Ollama generation-parameter blob (whole-blob replace)
 }
 ```
 
@@ -430,7 +430,7 @@ End of one streaming turn. Carries cost and token usage.
 
 ### `primary_turn_token_usage` <-
 
- Phase A - per-turn telemetry, broadcast right after `primary_complete`. Drives the Activity tab "Token usage" section. Token fields are Anthropic API ground truth; byte fields are raw byte sums of the relevant content blocks (byte counts remain distinct from token estimates for thinking and tool sizes).
+ Per-turn token telemetry, broadcast right after `primary_complete`. Drives the Activity tab "Token usage" section. Token fields are Anthropic API ground truth; byte fields are raw byte sums of the relevant content blocks (byte counts remain distinct from token estimates for thinking and tool sizes).
 
 ```ts
 {
@@ -447,8 +447,8 @@ End of one streaming turn. Carries cost and token usage.
   lastPromptTokens?: number,       // last API round-trip's prompt size (Native/API providers)
   reasoningOutput?: number,        // Codex only
   thinkingBytes: number,           // Native: real value; CLI/Codex: 0 (we don't see inner messages[])
-  toolResultBytes: number,         // Native: real value (post-filter once Phase C lands); CLI/Codex: -1 (unknown)
-  toolResultBytesRaw: number,      // pre-filter equivalent; equals toolResultBytes until Phase C
+  toolResultBytes: number,         // Native: real value (post-filter); CLI/Codex: -1 (unknown)
+  toolResultBytesRaw: number,      // pre-filter equivalent; equals toolResultBytes until filtering is enabled
   serverToolResultBytes?: number,  // Native - bytes of server-tool (web_search/web_fetch) results in this turn
   genSpeed?: GenerationSpeed,      // Ollama / Strata (see primary_complete)
 }
@@ -474,7 +474,7 @@ Skipped for turns where the provider didn't surface usage (defensive - every tra
 
 ### `tool_gate_triggered` <-
 
- Phase B/D - pre-tool-use guard inspected a tool call. `gate` identifies the rule (today: `"config-protection"`; Phase D adds `"fact-force-first-edit"`). `decision`: `"allowed"` = inspected and permitted, `"blocked"` = synthetic tool_result returned without dispatch, `"mutated"` = input modified before dispatch.
+ Pre-tool-use guard inspected a tool call. `gate` identifies the rule (today: `"config-protection"`; the first-edit rule adds `"fact-force-first-edit"`). `decision`: `"allowed"` = inspected and permitted, `"blocked"` = synthetic tool_result returned without dispatch, `"mutated"` = input modified before dispatch.
 
 ```ts
 {
@@ -490,7 +490,7 @@ Skipped for turns where the provider didn't surface usage (defensive - every tra
 
 ### `ctx_action` <-
 
- Phase B/D - context-management action ledger. Emitted from every code path that mutates `messages[]` in a way the operator should be able to see. `trigger: "operator"` for direct clicks; `"auto-threshold"` for Phase 6b.2's tool-call-count threshold; `"model"` is reserved (model-called context tools); `"recovery"` is a deterministic defensive repair of in-memory state before an API call (e.g. dropping a trailing orphan tool_use left by a cancel-mid-tool turn).
+ Context-management action ledger. Emitted from every code path that mutates `messages[]` in a way the operator should be able to see. `trigger: "operator"` for direct clicks; `"auto-threshold"` for Arco's tool-call-count threshold; `"model"` is reserved (model-called context tools); `"recovery"` is a deterministic defensive repair of in-memory state before an API call (e.g. dropping a trailing orphan tool_use left by a cancel-mid-tool turn).
 
 ```ts
 {
@@ -507,7 +507,7 @@ Skipped for turns where the provider didn't surface usage (defensive - every tra
 
 ### `model_resolved` <-
 
-Opus-5 plan Phase 2 - alias-capability resolution. Emitted by the Claude Native worker when the model id Anthropic echoes on `message_start` differs from the id Arco requested - i.e. the tab runs a family alias (`opus`, `opus[1m]`) that the server resolved to a concrete model. Fires once per worker per distinct resolution, so `opus -> claude-opus-5` is an explicit, durable release signal in `events.jsonl` instead of being inferred from behavior drift. Alongside the event, the worker persists `served` to `meta.json` (`resolvedModelId`) so a restarted alias tab resolves catalog capabilities (ctx-management / compact gating, thinking params, max_tokens, ctx window) from the concrete id on turn 1. The request `model:` field always stays the alias - auto-tracking is preserved. Client renders a `MODEL` line in Native activity; the chat header upgrade still rides the existing `primary_model` path.
+Opus-5 plan alias-capability resolution. Emitted by the Claude Native worker when the model id Anthropic echoes on `message_start` differs from the id Arco requested - i.e. the tab runs a family alias (`opus`, `opus[1m]`) that the server resolved to a concrete model. Fires once per worker per distinct resolution, so `opus -> claude-opus-5` is an explicit, durable release signal in `events.jsonl` instead of being inferred from behavior drift. Alongside the event, the worker persists `served` to `meta.json` (`resolvedModelId`) so a restarted alias tab resolves catalog capabilities (ctx-management / compact gating, thinking params, max_tokens, ctx window) from the concrete id on turn 1. The request `model:` field always stays the alias - auto-tracking is preserved. Client renders a `MODEL` line in Native activity; the chat header upgrade still rides the existing `primary_model` path.
 
 ```ts
 {
@@ -520,7 +520,7 @@ Opus-5 plan Phase 2 - alias-capability resolution. Emitted by the Claude Native 
 
 ### `primary_refusal` <-
 
-Opus-5 plan Phase 3 - a Native turn ended with `stop_reason: 'refusal'` (HTTP 200; Anthropic's safety classifiers declined the request). Not an API error, so `errorClassifier` never sees it - before this event the turn just ended blank. `category` / `explanation` come from the response's `stop_details` and are both nullable (`stop_details` can be `null` even on a refusal). `hadPartialOutput` distinguishes a mid-stream decline (billed partial output kept in history) from a pre-output decline (empty content; the per-request scrub pass patches it before the next `messages.create`). Paired with an operator-facing `system_notice` in chat; the event is the Activity/transcript-review trace. Deliberately **no** text-based refusal detection - `stop_reason` is structured ground truth (AGENTS.md-goals).
+Opus-5 plan a Native turn ended with `stop_reason: 'refusal'` (HTTP 200; Anthropic's safety classifiers declined the request). Not an API error, so `errorClassifier` never sees it - before this event the turn just ended blank. `category` / `explanation` come from the response's `stop_details` and are both nullable (`stop_details` can be `null` even on a refusal). `hadPartialOutput` distinguishes a mid-stream decline (billed partial output kept in history) from a pre-output decline (empty content; the per-request scrub pass patches it before the next `messages.create`). Paired with an operator-facing `system_notice` in chat; the event is the Activity/transcript-review trace. Deliberately **no** text-based refusal detection - `stop_reason` is structured ground truth (AGENTS.md-goals).
 
 ```ts
 {
@@ -534,7 +534,7 @@ Opus-5 plan Phase 3 - a Native turn ended with `stop_reason: 'refusal'` (HTTP 20
 
 ### `tool_filtered` <-
 
- Phase C - Native tool-result filter fired on a tool call. Emitted from `ClaudeNativeWorker.dispatchTool` after the raw output is captured and before it lands in `messages[]`. Cache invariant: filters operate only on the current turn's tool_result; prior turns are never rewritten.
+ Native tool-result filter fired on a tool call. Emitted from `ClaudeNativeWorker.dispatchTool` after the raw output is captured and before it lands in `messages[]`. Cache invariant: filters operate only on the current turn's tool_result; prior turns are never rewritten.
 
 When `originalBytes !== filteredBytes`, the worker gzips the pre-filter raw output to `<cwd>/.arco/workflows/<wfId>/artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps `rawArtifactPath` (workspace-relative) on the event. The chat-side `FilteredChip` (`ToolCallPill`) renders the byte-shrink summary and offers the path for `zcat` recovery - reversibility is non-negotiable. When a pack runs but doesn't change byte counts (passthrough) the event still fires so transcript review can confirm "filter ran, no change."
 
@@ -574,7 +574,7 @@ reversible.
 
 ### `primary_tool_counter` <-
 
- Phase D - worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Drives the composer chip's `toolCallsSinceCompact` field; when set, the chip prefers this over the client-side `toolCallsSinceHandoff` recount (which stays as audit fallback for non-Native tabs and first-paint). Native-only.
+ Worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Drives the composer chip's `toolCallsSinceCompact` field; when set, the chip prefers this over the client-side `toolCallsSinceHandoff` recount (which stays as audit fallback for non-Native tabs and first-paint). Native-only.
 
 ```ts
 {
@@ -586,7 +586,7 @@ reversible.
 
 ### `sandbox_chunk_added` <-
 
- Phase E - best-effort UI freshness event fired when a `ctx_execute` call stored a new chunk in the per-tab SQLite index. Not load-bearing for correctness (the Files-tab sandbox sub-section can pull `/api/workflows/:wfId/sandbox/stats` on demand); this is the cheap push so the operator sees new chunks appear live.
+ Best-effort UI freshness event fired when a `ctx_execute` call stored a new chunk in the per-tab SQLite index. Not load-bearing for correctness (the Files-tab sandbox sub-section can pull `/api/workflows/:wfId/sandbox/stats` on demand); this is the cheap push so the operator sees new chunks appear live.
 
 ```ts
 {
@@ -600,7 +600,7 @@ reversible.
 
 ### `sandbox_db_cleared` <-
 
- Phase E - fired after the operator clicks "Clear DB" in the CONFIG tab (`POST /api/workflows/:wfId/sandbox/clear`) and the SQLite chunks table is truncated. Clients drop their local `sandboxChunkCount` mirror to zero on receipt.
+ Fired after the operator clicks "Clear DB" in the CONFIG tab (`POST /api/workflows/:wfId/sandbox/clear`) and the SQLite chunks table is truncated. Clients drop their local `sandboxChunkCount` mirror to zero on receipt.
 
 ```ts
 { type: 'sandbox_db_cleared', workflowId: string }
@@ -754,9 +754,9 @@ portable doc, no resume re-feed). See `docs/PROVIDERS.md` /
 
 ### `native_compacting` <-
 
- Phase 3 - pre-compaction marker. Emitted from
+ pre-compaction marker. Emitted from
 `compactInPlace` BEFORE the (slow) summary round starts, once for BOTH the
-manual COMPACT button and the Phase 2 between-turn auto path. Carries the
+manual COMPACT button and the between-turn auto path. Carries the
 `workflowId` and advisory `foldedTurns` (turns about to be folded). The client
 flips a per-workflow `compacting` takeover (a prominent "Compacting
 conversation..." overlay in `ChatPanel`, distinct from the small `ctx_action`
@@ -778,7 +778,7 @@ this event (same semantics as `handoff_artifact_ready`) and re-seed `summary`
 via `compactSummarySeed`, so the compaction survives a server restart / reload.
 The client renders no chat bubble for it (the `ctx_action` divider +
 `system_notice` carry the in-transcript feedback); it advances `lastSeq`, clears
-the Phase 3 `compacting` takeover, and opens the post-compaction "Continue"
+the `compacting` takeover, and opens the post-compaction "Continue"
 affordance (`compactedResume`).
 
 ```ts
@@ -801,7 +801,7 @@ Any failure - beta/parameter rejected, no summary, 429/5xx - falls back to the
 deterministic Fold in the same request; the `system_notice` says which ran and
 the compaction call's token spend. Rejected on Chat tabs.
 
-### `context_folded` <- - Fold marker. Carries the deterministic digest of the folded prefix
+### `context_folded` <- Fold marker. Carries the deterministic digest of the folded prefix
 (task / files / cmds / searches / errors / recent-asks / open-todos) plus the
 verbatim recent tail. **PERSISTED and load-bearing on replay:** like
 `native_compacted`, replay resets at this marker and re-seeds `summary` +
@@ -937,9 +937,9 @@ Same shape as their `primary_*` counterparts but scoped to a `workerId`. Used by
   modelContextWindow?: number,      // Codex/Native ground-truth window when known
   lastPromptTokens?: number,        // Native/API primary turns - last round's prompt size (see primary_complete)
   genSpeed?: GenerationSpeed,       // Ollama / Strata (see primary_complete)
-  thinkingBytes?: number,           //  Phase A - Native real; CLI/Codex 0
-  toolResultBytes?: number,         //  Phase A/C - Native post-filter; CLI/Codex -1 (unknown)
-  toolResultBytesRaw?: number,      // pre-filter byte count; equals toolResultBytes until Phase C
+  thinkingBytes?: number,           //  Native real; CLI/Codex 0
+  toolResultBytes?: number,         //  Native post-filter; CLI/Codex -1 (unknown)
+  toolResultBytesRaw?: number,      // pre-filter byte count; equals toolResultBytes until filtering is enabled
   serverToolResultBytes?: number,   // Native - server-tool result bytes (see primary_turn_token_usage)
 }
 ```
@@ -1269,7 +1269,7 @@ CLI help-surface changes (new flags, removed flags). Surfaces as a red-dot indic
 
 ### `settings_updated` <-
 
-Phase 2 - fired on every settings cascade change (the global file or any project file the server is watching). Body-less by design: the cascade is cwd-scoped but the broadcast is global, so each client re-fetches via `GET /api/settings?cwd=<active-cwd>` and re-applies locally.
+fired on every settings cascade change (the global file or any project file the server is watching). Body-less by design: the cascade is cwd-scoped but the broadcast is global, so each client re-fetches via `GET /api/settings?cwd=<active-cwd>` and re-applies locally.
 
 ```ts
 {
@@ -1310,7 +1310,7 @@ In-chat alert. Persisted so replay sees the warning.
 
 Used for: rate-limit warnings, calibration progress, context-fill warnings, auto-handoff status, concurrent-writer guard, and provider out-of-band notices.
 
-### Project-trust gate (DD7)
+### Project-trust gate
 
 The untrusted-repo gate. On a turn whose cwd has project-local resources
 (`AGENTS.md` / project skills / `.arco/settings.json`) **and** no recorded
@@ -1446,7 +1446,7 @@ Per-workflow recent-bind list, most-recent-first, capped at 5. Drives the "RECEN
 
 ---
 
-## Integrated terminal (Workbench Expansion /)
+## Integrated terminal ()
 
 The terminal has **two distinct channels**. The control plane below rides the
 seq'd, persisted `/ws` protocol (so lifecycle + command lines land in
@@ -1551,13 +1551,13 @@ connection). See `docs/TERMINAL.md`.
 
 ---
 
-## Phase 0 events (declared, with phase-specific emitters)
+## events (declared, with phase-specific emitters)
 
-Three event kinds were added in Phase 0 so future phases could emit them without a second schema bump. `operator_label` lit up in Phase 8 (HISTORY tab); `queue_update` in Phase 4 (queue strip). **Forks ultimately shipped  on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
+Three event kinds were added in so future phases could emit them without a second schema bump. `operator_label` lit up in (HISTORY tab); `queue_update` in (queue strip). **Forks ultimately shipped on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
 
 ### `operator_label` <-
 
-Operator-attached note targeting a prior event by its `seq`. Phase 8's HISTORY tab dispatches this via `create_label_request` when the operator clicks "LABEL THIS" on a row; the server validates and broadcasts the resulting `operator_label`.
+Operator-attached note targeting a prior event by its `seq`. Arco's HISTORY tab dispatches this via `create_label_request` when the operator clicks "LABEL THIS" on a row; the server validates and broadcasts the resulting `operator_label`.
 
 ```ts
 // Client -> server
@@ -1584,7 +1584,7 @@ Persisted.
 
 ### `queue_update` <-
 
-Snapshot of the visible message queue. Phase 4 emits on every queue mutation (enqueue, drain, cancel-one, cancel-all) so replay reconstructs the composer's queue strip on reconnect - the latest `queue_update` in events.jsonl is the authoritative state.
+Snapshot of the visible message queue. Arco emits on every queue mutation (enqueue, drain, cancel-one, cancel-all) so replay reconstructs the composer's queue strip on reconnect - the latest `queue_update` in events.jsonl is the authoritative state.
 
 ```ts
 {
@@ -1603,7 +1603,7 @@ Persisted.
 
 ### `branch_summary` <-
 
-**Declared-but-unemitted.** Originally reserved for Phase 9 forks; forks shipped
+**Declared-but-unemitted.** Originally reserved for forks; forks shipped
 on `leaf_move` instead, so no server code emits this. The kind stays in the union
 + in `classifyBranchSource` (maps to `'fork'`) so events.jsonl readers tolerate
 it if a future phase revives it.
@@ -1656,7 +1656,7 @@ HISTORY branch-tree dot from the same source of truth.
 
 ---
 
-## Phase 7 messages (Claude Native + Task children)
+## messages (Claude Native + Task children)
 
 ### `enter_plan_mode_request` ->
 
@@ -1778,7 +1778,7 @@ Settle / error / cancelled signal for a Task child. v1 fires `started` + final-p
 
 Persisted on the parent. Re-broadcast on rehydrate **regardless of `clientLastSeq`** so a refresh-after-settle doesn't pin the TaskCard at `0s · RUNNING` forever; client `recordTaskStarted` / `recordTaskStatus` actions are idempotent.
 
-### `queued_messages_drained` <- (Phase 4)
+### `queued_messages_drained` <-
 
 Server pulled queued mid-turn messages off the interjection queue and merged them into the next turn's prompt. The client flips `queued: false` on the matching optimistic chat entries (clearing the composer-adjacent QUEUED indicator) and rebases their timestamps to `drainedAt` so the sessionChat dedup window catches Claude's JSONL echo. Without this, non-Claude providers (no `session_entry` path) would leave the QUEUED pill stuck forever.
 
@@ -1793,7 +1793,7 @@ Server pulled queued mid-turn messages off the interjection queue and merged the
 
 Transient.
 
-### `codex_token_snapshot` <- (Phase 6)
+### `codex_token_snapshot` <-
 
 Per-turn Codex token-usage replacement, captured by reading the rollout file after the turn settles. Exists separately from `primary_complete` because `codex exec --json`'s `turn.completed.usage` reports `input_tokens` aggregated across all internal LLM calls within one operator turn (an agentic GPT-5.5 turn can make 5+ internal calls each with its own input). The aggregated number is right for billing but wrong for "context window fill" - what the model actually had per call lives in the rollout's `event_msg::token_count.info.last_token_usage`.
 
@@ -1933,7 +1933,7 @@ Operator revokes a standing approval by its signature.
 
 ---
 
-## Shadow-git checkpoints (Workbench Expansion /)
+## Shadow-git checkpoints ()
 
 Auto-snapshots of the working tree taken **before** every file-mutating operator turn, stored in a hidden git ref (`refs/arco/<wfid>/<seq>`) - in the project repo, or for non-git workspaces in a shadow bare repo under `~/.arco/checkpoints/<cwd-hash>/git` (size-capped; see `CHECKPOINTS.md`). Pure operator infrastructure - the model never sees them. Shapes: [`shared/src/protocol/checkpoints.ts`](../shared/src/protocol/checkpoints.ts). (The diff / working-changes / upstream-comparison / worktree-list shapes in that file are HTTP, not WS - see `HTTP_API.md`.)
 
@@ -2036,7 +2036,7 @@ edits it.
 
 ---
 
-## Media ops (Workbench Expansion /)
+## Media ops ()
 
 Guarded FFmpeg / stem-separation operations. The op itself rides HTTP (`mediaOpsRoutes.ts`); only the result broadcast crosses the WS. Shapes: [`shared/src/protocol/media.ts`](../shared/src/protocol/media.ts).
 
@@ -2321,7 +2321,7 @@ Ask the workflow's current primary agent to propose one Genesis field. Bounded a
 
 ### `genesis_creative_arm` ->
 
-Arm (or `disarm`) M3 in-workflow Creative mode on an existing real-cwd workflow. Echoed as `genesis_creative_armed`.
+Arm (or `disarm`) in-workflow Creative mode on an existing real-cwd workflow. Echoed as `genesis_creative_armed`.
 
 ```ts
 { type: 'genesis_creative_arm', workflowId: string, disarm?: boolean }
@@ -2401,7 +2401,7 @@ A cwd-less genesis workflow's working directory was bound after scaffold. The cl
 
 ## Project task ledger (Arco Ops Part D /)
 
-A durable, cwd-scoped task-kernel snapshot that is a rebuildable projection over `events.jsonl` (distinct from the Plan tab and the Phase-7b Tasks panel). Every mutation appends a `task_ledger_event` and re-snapshots `<cwd>/.arco/project/tasks.json` as `{ version, tasks, comments?, runs? }` while preserving legacy `{ tasks }` reads. Shapes: [`shared/src/protocol/tasks.ts`](../shared/src/protocol/tasks.ts).
+A durable, cwd-scoped task-kernel snapshot that is a rebuildable projection over `events.jsonl` (distinct from the Plan tab and the Native Task subagent panel). Every mutation appends a `task_ledger_event` and re-snapshots `<cwd>/.arco/project/tasks.json` as `{ version, tasks, comments?, runs? }` while preserving legacy `{ tasks }` reads. Shapes: [`shared/src/protocol/tasks.ts`](../shared/src/protocol/tasks.ts).
 
 Every message in this family carries an optional `boardKey?: TaskBoardKey`. Absent = the normal project board (`<cwd>/.arco/project/tasks.json`); a key (sanitized to `[A-Za-z0-9_.:-]`, ≤160 chars) selects a private board at `<cwd>/.arco/project/boards/<key>/tasks.json` - how `taskBoardMode:'cluster'` keeps cluster work off the project board without a fake cwd. Clients key snapshots by `cwd` + `boardKey`.
 
@@ -2641,7 +2641,7 @@ Full per-message shapes, sequence diagrams, and eligibility rules: [`PROTOCOL_CL
 
 ---
 
-## Workbench notifications (J1)
+## Workbench notifications
 
 Global (non-workflow-scoped) - broadcast to every connected client. Inform-only:
 the server applies mute suppression before broadcasting, and the only inbound
@@ -2760,13 +2760,13 @@ Every server-to-client message that's tagged with a `workflowId` and persisted g
 - `shutdown` / `error` (no workflowId)
 - `capabilities_updated` / `capabilities_changed` (global)
 - `settings_updated` (global; cascade HMR)
-- `queued_messages_drained` (Phase 4 - drain confirmation)
-- `codex_token_snapshot` (Phase 6 - derived from on-disk rollout)
-- `todos_updated` (Phase 7a - Native TodoWrite snapshot, in-memory authoritative)
-- `ultracode_fleet_progress` ( - live per-turn fleet telemetry; a snapshot replaces the prior in place)
-- `sandbox_chunk_added` / `sandbox_db_cleared` ( Phase E - derived from per-tab SQLite index)
+- `queued_messages_drained` (drain confirmation)
+- `codex_token_snapshot` (derived from on-disk rollout)
+- `todos_updated` (Native TodoWrite snapshot, in-memory authoritative)
+- `ultracode_fleet_progress` (live per-turn fleet telemetry; a snapshot replaces the prior in place)
+- `sandbox_chunk_added` / `sandbox_db_cleared` (derived from per-tab SQLite index)
 - All cluster-scoped messages (`cluster_state`, `cluster_created`, `cluster_deleted`, `cluster_member_added`, `cluster_member_removed`, `cluster_broadcast_dispatched`, `cluster_plan_changed`, `cluster_member_nudged`, `cluster_dispatch_result`, `cluster_swarm_created`, and all `cluster_orchestration_*` broadcasts) - durable record lives in member `events.jsonl` + cluster meta + `orchestration-proposals.json` on disk; `dispatch_fired` / `dispatch_skipped` ops do land in `task_ledger_event` (persisted)
-- `codebase_memory_state` ( Phase F - state derived from `WorkflowConfig.codebaseMemory` in meta.json)
+- `codebase_memory_state` (state derived from `WorkflowConfig.codebaseMemory` in meta.json)
 - `workflow_session_metadata` (derived state)
 - `diagnostics` (live LSP state - replaces, not accumulates)
 - `task_ledger_snapshot` (live convenience mirror; the durable record is `task_ledger_event` + the on-disk `tasks.json` projection)
@@ -2819,11 +2819,11 @@ export type ClientMessage =
   | PlanAttachMessage | PlanDetachMessage
   | SetPreviewPortMessage | ClearPreviewPortMessage
   | OperatorQuestionReplyMessage         // Codex app-server structured question answers
-  | AskUserQuestionReplyMessage          // Phase 7b - operator answer to Native AskUserQuestion
+  | AskUserQuestionReplyMessage // operator answer to Native AskUserQuestion
   | GateReplyMessage | GateRevokeRequestMessage  // DEBAG durable review gate
-  | EnterPlanModeRequestMessage          // Phase 7b - single-turn plan-mode arming (Native only)
-  | CreateLabelRequestMessage            // Phase 8 - HISTORY tab "LABEL THIS"
-  | RevertToPointRequestMessage          // Phase 9 forks - HISTORY "REWIND CONVERSATION" (Native)
+  | EnterPlanModeRequestMessage // single-turn plan-mode arming (Native only)
+  | CreateLabelRequestMessage // HISTORY tab "LABEL THIS"
+  | RevertToPointRequestMessage // forks - HISTORY "REWIND CONVERSATION" (Native)
   // Cluster mode
   | ClusterSubscribeMessage | ClusterMemberRehydrateMessage | ClusterUnsubscribeMessage
   | ClusterCreateMessage | ClusterDeleteMessage
@@ -2845,20 +2845,20 @@ export type ClientMessage =
   | ClusterAutoTurnToggleMessage
   // Director/workers task dispatch + orchestration assist ( Stages F-K)
   | ClusterDispatchOnceMessage | ClusterDispatchToggleMessage | ClusterDispatchSettingsUpdateMessage
-  | ClusterTaskBoardAttachSetMessage | ClusterTaskBoardModeSetMessage  // Phase 12 board overhaul
+  | ClusterTaskBoardAttachSetMessage | ClusterTaskBoardModeSetMessage // board overhaul
   | ClusterProgressSetMessage                                         // per-cluster progress-tracking mode (plan/board/both)
   | ClusterSwarmCreateMessage
   | ClusterOrchestrationAssistRequestMessage
   | ClusterOrchestrationProposalListMessage | ClusterOrchestrationProposalAcceptMessage
   | ClusterOrchestrationProposalApplyMessage | ClusterOrchestrationProposalRejectMessage
-  // Workflow rename + codebase memory ( Phase F)
+  // Workflow rename + codebase memory
   | RenameWorkflowMessage
   | AttachCodebaseMemoryMessage | DetachCodebaseMemoryMessage
   // Dev/smoke-only test hooks, gated on ARCO_TEST=1
   | DebugNativePlanSetMessage
   | DebugNativeAutoCompactProbeMessage
   | DebugClusterAutoTurnInjectMessage
-  // Workbench Expansion / Arco Ops families
+  //  Arco Ops families
   | RevertToCheckpointMessage                                       // shadow-git revert
   | LiveChangesSubscribeMessage | LiveChangesUnsubscribeMessage     // live working-changes feed
   | TerminalOpenMessage | TerminalKillMessage
@@ -2875,9 +2875,9 @@ export type ClientMessage =
   | SetNotificationMutesMessage                                     // workbench notifications
   | HubLinkSetEnabledMessage;                                       // remote-management kill switch
 
-// Phase 0 - wire envelope for events read off events.jsonl. Adds the
+// wire envelope for events read off events.jsonl. Adds the
 // persistence-stamped fields (`seq`, optional `parentEventSeq`) on top of
-// any ServerMessage. Phase 8 / Phase 9 read parentEventSeq off this shape.
+// any ServerMessage. / read parentEventSeq off this shape.
 export type WorkflowEvent<M extends ServerMessage = ServerMessage> = M & {
   seq: number;
   parentEventSeq?: number;
@@ -2886,10 +2886,10 @@ export type WorkflowEvent<M extends ServerMessage = ServerMessage> = M & {
 export type ServerMessage =
   | ConnectedMessage | WorkflowCreatedMessage
   | PrimaryTextMessage | PrimaryCompleteMessage
-  | PrimaryTurnTokenUsageMessage                                       //  Phase A
-  | HookRewroteInputMessage | ToolGateTriggeredMessage | CtxActionMessage  //  Phase B/D
+  | PrimaryTurnTokenUsageMessage                                      // token-usage telemetry
+  | HookRewroteInputMessage | ToolGateTriggeredMessage | CtxActionMessage // tool guards and context actions
   | GateRequiredMessage | GateResolvedMessage | GateStandingMessage    // DEBAG durable review gate
-  | ToolLoopWarningMessage | WorkerStuckMessage                        // H9 loop guard + stuck-worker breaker
+  | ToolLoopWarningMessage | WorkerStuckMessage                        // loop guard + stuck-worker breaker
   | ToolPostureSetMessage                                              // tool-posture ack
   | GoalSetMessage | GoalRunStateMessage                               // north-star ack + goal-run loop state
   | PinnedSkillsSetMessage                                             // durable pinned-skill set ack
@@ -2898,9 +2898,9 @@ export type ServerMessage =
   | ModelResolvedMessage | PrimaryRefusalMessage
   | NativeCompactingMessage | NativeCompactedMessage                   // Claude-native in-place compaction
   | ContextFoldedMessage                                               // deterministic Fold marker
-  | PrimaryToolCounterMessage                                          //  Phase D
-  | SandboxChunkAddedMessage | SandboxDbClearedMessage                 //  Phase E
-  | ToolFilteredMessage | ToolEvictedMessage                           //  Phase C + eviction
+  | PrimaryToolCounterMessage                                          // worker tool-call counter
+  | SandboxChunkAddedMessage | SandboxDbClearedMessage                 // per-tab sandbox status
+  | ToolFilteredMessage | ToolEvictedMessage                           // tool-result filtering + eviction
   | PeerMessageSentMessage | PeerMessageReceivedMessage | PeerSendRejectedMessage  // peer msgs (workflow-scoped)
   | PrimaryModelMessage | PrimaryThinkingMessage | PrimaryToolUseMessage
   | PrimaryTurnStartedMessage | PrimaryTurnEndedMessage
@@ -2939,21 +2939,21 @@ export type ServerMessage =
   | QueuedMessageCancelledMessage | QueuedMessagesDrainedMessage
   | PrimaryActivityMessage | SessionHistoryStatusMessage
   | PlanAttachedMessage | PlanDetachedMessage
-  | CodexTokenSnapshotMessage                                       // Phase 6
+  | CodexTokenSnapshotMessage //
   | PreviewSetMessage | PreviewClearedMessage | PreviewHistoryMessage
-  | OperatorLabelMessage | QueueUpdateMessage | BranchSummaryMessage // Phase 0 (branch_summary declared-but-unemitted)
-  | LeafMoveMessage                                                  // Phase 9 forks - durable head move
-  | TodosUpdatedMessage | PlanSetMessage | PlanExitedMessage         // Phase 7a/7b - Native
+  | OperatorLabelMessage | QueueUpdateMessage | BranchSummaryMessage // (branch_summary declared-but-unemitted)
+  | LeafMoveMessage // forks - durable head move
+  | TodosUpdatedMessage | PlanSetMessage | PlanExitedMessage // Native
   | PlanCandidateReadyMessage                                        // Cluster-member plan choice-point
-  | TaskStartedMessage | TaskStatusMessage                           // Phase 7b - Task children
+  | TaskStartedMessage | TaskStatusMessage // Task children
   | ZaiNativeHistoryMessageEvent                                     // Z.ai Native provider-history checkpoint
-  // Cluster-scoped ( Phase 2+)
+  // Cluster-scoped (+)
   | ClusterStateMessage | ClusterNotFoundMessage | ClusterCreatedMessage | ClusterDeletedMessage
   | ClusterMemberAddedMessage | ClusterMemberRemovedMessage | ClusterMemberReplacedMessage
   | ClusterBroadcastDispatchedMessage
   | ClusterPlanChangedMessage
-  | ClusterMemberNudgedMessage                                       // Phase 5
-  | ClusterAutoTurnFiredMessage                                      // Phase 5b
+  | ClusterMemberNudgedMessage //
+  | ClusterAutoTurnFiredMessage //
   | ClusterSnapshotListResultMessage | ClusterSnapshotSavedMessage
   | ClusterSnapshotConflictMessage | ClusterSnapshotErrorMessage      // cluster snapshots
   | ClusterDispatchResultMessage                                     // Stage F one-shot dispatch reply
@@ -2965,8 +2965,8 @@ export type ServerMessage =
   | ClusterOrchestrationProposalAppliedMessage
   | ClusterOrchestrationProposalRejectedMessage
   | WorkflowRenamedMessage                                           // F5 - operator-set workflow name
-  | CodebaseMemoryStateMessage                                       //  Phase F
-  // Workbench Expansion / Arco Ops families
+  | CodebaseMemoryStateMessage                                       // codebase-memory state
+  //  Arco Ops families
   | TerminalOpenedMessage | TerminalKilledMessage | TerminalCommandLoggedMessage | TerminalSessionsMessage
   | TaskLedgerSnapshotMessage | TaskLedgerEventMessage              // task ledger (Part D)
   | McpRegistrySnapshotMessage | McpProbeResultMessage | McpAllowSnapshotMessage | McpMalwareWarningMessage  // MCP registry (Part E) + H21 OSV pre-check

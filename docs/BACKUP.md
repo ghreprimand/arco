@@ -6,8 +6,8 @@ captured, what was intentionally skipped, and what was redacted. The manifest is
 the contract: every regular file in the archive is described by it, and nothing
 is silently included or dropped.
 
-Phase F ships in three steps: **F1 `snapshot`, F2 `verify`, F3 `restore`**,
-all shipped. See [Restore (F3)](#restore-f3).
+Backup and restore use three operations: **`snapshot`, `verify`, and `restore`**,
+all shipped. See [Restore](#restore).
 
 ```
 npx tsx scripts/arco-backup.ts snapshot [--out FILE]
@@ -52,7 +52,7 @@ smoke round-trips it in memory.
 MAGIC        = ASCII "ARCOBK01" (8 bytes). Wrong magic -> reject.
 manifestLen  = uint32 big-endian byte length of the manifest JSON.
 manifest     = UTF-8 JSON (BackupManifest), the human-readable contract.
-each entry   = relPathLen (u32 BE) · relPath (UTF-8) · byteLen (u32 BE) · bytes
+each entry = relPathLen (u32 BE) · relPath · byteLen (u32 BE) · bytes
 ```
 
 The **entire** buffer (header + entries) is gzipped, so a truncated or non-gzip
@@ -165,7 +165,7 @@ readArchive(gz: Buffer): { manifest: BackupManifest; files: ArchiveFile[] }
 
 ---
 
-## Verify (F2)
+## Verify
 
 ```
 npx tsx scripts/arco-backup.ts verify <FILE>
@@ -222,7 +222,7 @@ named in each problem string.
 
 ---
 
-## Restore (F3)
+## Restore
 
 ```
 npx tsx scripts/arco-backup.ts restore <FILE> --into <DIR> [--force-into-live]

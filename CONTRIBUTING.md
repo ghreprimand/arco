@@ -227,7 +227,7 @@ What it reports without failing:
 
 Dynamic keys (`data-help={`rightpanel.tab.${id}`}`) and forwarded-prop helpers (`helpKey="..."`, `const helpKey = ... ? 'a' : 'b'`, `{ 'data-help': key }`) are recognized so they don't produce false errors. See the header comment in `scripts/docs-check.ts` for the exact heuristics, and `docs/CLIENT.md` under `Help system`.
 
-**Per-phase obligation:** every feature phase ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) as part of its DONE checklist, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and the unit suite before landing a documentation change.
+**Feature documentation obligation:** every feature phase ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) as part of its DONE checklist, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and the unit suite before landing a documentation change.
 
 ---
 

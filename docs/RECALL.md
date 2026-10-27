@@ -8,7 +8,7 @@ below where implemented.
 
 Recall is **operator-driven retrospective recall over your own conversations**, "find the conversation from
 two weeks ago about X, with its context." It is a backward-looking archive of what already happened, distinct
-from the forward-looking, hand-curated Knowledge base (B3) and from in-session search (A5, transcript + cwd
+from the forward-looking, hand-curated Knowledge base and from in-session search (A5, transcript + cwd
 files). Recall is cross-session and cross-project.
 
 ### Fence-clearance (projection, not profile)
@@ -44,8 +44,8 @@ interface is the contract; see the Part E storage rationale).
 - `query()` lists all entries, optionally filtered by `project` / `provider`, sorted by `lastActiveAt` desc.
   (Rich full-text search is F3.)
 - **F3-ready schema:** the `entries` table holds no FTS-specific columns, so F3 can add a `CREATE VIRTUAL
-  TABLE ... USING fts5(...)` alongside it **without migrating `entries`**. The `summaryRef` (F2) and `tags`
-  (F4) columns exist now so those phases don't migrate the table either. FTS5 / full-text search is **NOT**
+ TABLE... USING fts5(...)` alongside it **without migrating `entries`**. The `summaryRef` and `tags`
+ columns exist now so later schema changes do not migrate the table either. FTS5 / full-text search is **NOT**
   built in F1.
 
 ### Machine-global storage
@@ -378,7 +378,7 @@ new LLM call**, the summary is the source:
 1. The view fetches the existing `summary.md` body and pre-fills a draft (title
    from the recall title, body from the summary).
 2. The operator edits the draft and clicks **Save to KB**, which POSTs to the
-   **existing** `POST /api/knowledge?path=<cwd>` create flow (B3). Nothing is
+   **existing** `POST /api/knowledge?path=<cwd>` create flow. Nothing is
    written to the KB store before that operator Save.
 3. On a successful Save the view creates the recall<->kb link
    (`addLink(wfid, { type: 'kb', id })`), the operator's Save is the
@@ -403,7 +403,7 @@ dedupe; `backlinks(type,id,cwd)` returns the linking entry cwd-scoped; and the
 idempotent F4 migration runs cleanly on an **old-shape DB built without the new
 columns** (with `load()` safe to call twice).
 
-### Files (F4)
+### Files
 
 - `server/src/recall/index.ts`, `migrateF4()`, `setTags`/`setPinned`/`addLink`/`removeLink`/`backlinks`, widened `save()` ON CONFLICT, `query({ pinned })`.
 - `shared/src/protocol/recall.ts`, `RecallLink`, `pinned`/`links` on `RecallEntry` + `RecallSearchHit`, the F4 request/response types.

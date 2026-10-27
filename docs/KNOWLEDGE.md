@@ -1,4 +1,4 @@
-# Arco, knowledge base (B3)
+# Arco, knowledge base
 
 A per-project, user-owned knowledge store under `<cwd>/.arco/knowledge/` that turns can read. It holds curated, editable project notes such as repository layout, gotchas, deployment steps, and conventions. Articles flagged **always include** are added to the next turn's system prompt within a fixed size limit.
 

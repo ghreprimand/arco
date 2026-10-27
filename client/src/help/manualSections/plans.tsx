@@ -27,13 +27,13 @@ export const plans: Section[] = [
   {
     id: 'plan-review',
     group: 'Plans & artifacts',
-    title: 'Plan-scoped review (REVIEW vs VERIFY, whole / phase / custom)',
+    title: 'Plan-scoped review (REVIEW vs VERIFY, whole plan / section / custom)',
     body: (
       <>
         <p>
           When a plan is attached, the Plan tab dispatches reviewers with the{' '}
           <em>plan body itself</em> as the subject (instead of workflow transcript).
-          REVIEW and VERIFY are paired buttons at both whole-plan and per-phase
+          REVIEW and VERIFY are paired buttons at both whole-plan and per-section
           granularity — REVIEW critiques the plan structure, VERIFY audits the
           claimed-done work against the actual changes.
         </p>
@@ -49,15 +49,15 @@ export const plans: Section[] = [
           </li>
           <li>
             <Code>▷ REVIEW PHASE PLAN</Code> pill (under each <Code>### Phase</Code>{' '}
-            heading) — that one phase, CRITIQUE default.
+            heading) — that one section, CRITIQUE default.
           </li>
           <li>
             <Code>▷ VERIFY PHASE WORK</Code> pill (next pill under the heading) —
-            that one phase, VERIFY default with git diff pre-ticked.
+            that one section, VERIFY default with git diff pre-ticked.
           </li>
           <li>
             <Code>CUSTOM REVIEW</Code> — tree-with-checkboxes modal where you can
-            pick items across phases (per-phase tri-state, SELECT ALL / ALL CHECKED /
+            pick items across plan sections (per-section tri-state, SELECT ALL / ALL CHECKED /
             CLEAR shortcuts).
           </li>
         </ul>
@@ -72,14 +72,14 @@ export const plans: Section[] = [
             <strong>VERIFY</strong> — reviewer cross-checks claimed-completed work
             against the actual code. Items shown filtered to <Code>[x]</Code> only
             (for whole/phase scopes). Reviewer is told to use tools to verify, not
-            take checkboxes at face value. Phases with no checked items but a
-            completion-claim preamble (e.g. "Phase 3 Completed: we did X, Y, Z")
+            take checkboxes at face value. Plan sections with no checked items but a
+ completion-claim preamble (e.g. "Completed: we did X, Y, Z")
             still render — the prose is the claim.
           </li>
           <li>
             <strong>CRITIQUE</strong> — reviewer evaluates the plan itself (gaps,
             ordering, missing considerations). All items shown with check state
-            preserved. Always proceeds even on empty phases.
+            preserved. Always proceeds even on plans without sections.
           </li>
         </ul>
         <p>
@@ -136,7 +136,7 @@ export const plans: Section[] = [
           Codex, CLI Claude, and Cursor cluster members there's a real tool —{' '}
           <Code>plan_create</Code> (MCP server <Code>arco</Code>) takes a
           title and body, creates the plan, and attaches it in one call; it
-          also <em>rejects</em> a body with no phases or checkboxes and says
+          also <em>rejects</em> a body with no sections or checkboxes and says
           why, so a malformed plan is caught as it's written. Elsewhere the
           note hands over the equivalent{' '}
           <Code>POST /api/plans</Code> with <Code>attach: true</Code> (the same
@@ -150,11 +150,11 @@ export const plans: Section[] = [
         </p>
         <p>
           <strong>Structure is load-bearing.</strong> A plan body isn't free-form
-          markdown. Phases come from <Code>### Heading</Code> lines, and a task
+          markdown. Plan sections come from <Code>### Heading</Code> lines, and a task
           counts only if it's a <em>top-level</em> <Code>- [ ] task</Code>{' '}
           checkbox (indent subtasks beneath it). A plan written without
           checkboxes reads fine to a human but parses to <em>zero</em> tasks —
-          per-phase Review and the review item picker will have nothing to
+          per-section Review and the review item picker will have nothing to
           offer. If a generated plan looks right but Review comes up empty, this
           is why.
         </p>
@@ -237,7 +237,7 @@ export const plans: Section[] = [
           board, <Code>cluster_task_show</Code> resolves every <Code>ref:</Code>{' '}
           the task's title, notes, or comments link into{' '}
           <Code>referenceDocs</Code> (paths, titles, missing flags), plus the refs
-          on the plan item the task came from — its sub-bullets and its phase's
+          on the plan item the task came from — its sub-bullets and its section's
           intro — matched by the task title. Dispatched
           tasks are told to read them first, and the task drawer shows them as
           chips. A plan-scoped <strong>Review</strong> inlines the refs the

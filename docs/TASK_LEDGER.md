@@ -11,8 +11,8 @@ conflate them:
 
 | Surface | Scope | Lifetime | What it is |
 |---|---|---|---|
-| **PLAN tab** | per-cwd | durable | A long-form markdown brief + plan-scoped review (whole / per-phase). |
-| **TASKS panel** (Phase 7b) | one turn | transcript-bound | The Native worker's `Task` subagent children for the current turn. Depth-1. |
+| **PLAN tab** | per-cwd | durable | A long-form markdown brief + plan-scoped review (whole / per-section). |
+| **TASKS panel** | one turn | transcript-bound | The Native worker's `Task` subagent children for the current turn. Depth-1. |
 | **LEDGER tab** (this doc) | per-cwd | durable, cross-session | A versioned task-kernel snapshot of operator-managed tasks `{title, status, links, notes, priority, parents, review flags, assignee?}`. |
 
 The ledger is the only one that persists a free-standing task list across
@@ -428,7 +428,7 @@ git lifecycle lives in **`server/src/project/taskWorktree.ts`**; the WS glue in
   those tasks by default because `autoWorktree` is OFF in cluster dispatcher
   settings. When the operator enables `autoWorktree`, dispatch creates the
   managed worktree, persists the task pointer, and includes the path/branch in
-  the synthetic worker prompt. Phase 1 keeps the provider cwd unchanged. Smoke:
+ the synthetic worker prompt. Arco keeps the provider cwd unchanged. Smoke:
   `npm run smoke:task-dispatch-worktree`.
 
 ## JSON -> SQLite migration trigger

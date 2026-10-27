@@ -2,17 +2,17 @@
 
 WebSocket messages for cluster mode (parent cluster tab + member workflows + the peer-tool mailbox substrate). Split out of [`PROTOCOL.md`](PROTOCOL.md) (J2, doc-size). See [`GOTCHAS.md mode`](GOTCHAS.md) for cluster invariants. Conventions are defined in [`PROTOCOL.md`](PROTOCOL.md#conventions). Source of truth: [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts) (one of the per-domain files under `shared/src/protocol/`; the legacy flat `protocol.ts` is now a barrel shim).
 
-**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` arco-cluster MCP child on CLI; Codex and Z.ai (GLM via the Codex app-server loopback proxy) wire them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` - Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership; see  Phase 6); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp - `zai` and `cursor` are remote API providers and are uncapped.
+**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` arco-cluster MCP child on CLI; Codex and Z.ai (GLM via the Codex app-server loopback proxy) wire them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` - Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership; see); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp - `zai` and `cursor` are remote API providers and are uncapped.
 
 **Per-member access mode.** `ClusterMember.accessMode?: 'standard' | 'blind' | 'isolated'` (absent ≡ `standard`; persisted sparse in cluster meta `memberAccessModes`, not in `WorkflowConfig`). `blind` keeps the project cwd but withholds every cluster surface except `peer_send` / `peer_read` (other peer tools return `[error] access_denied`); `isolated` additionally runs the member in a private scratch cwd and is Claude-Native-only. Accepted on `cluster_create_from_scratch` members, `cluster_add_fresh_workers`, and `cluster_member_replace`.
 
 ---
 
-## Cluster mode messages ( Phase 2)
+## Cluster mode messages
 
-Cluster mode groups N tabs sharing one cwd so members can hand notes between operator turns via a peer-tool substrate. The Phase 1 substrate (`peer_message_sent`, `peer_message_received`, `peer_send_rejected`) ships three workflow-scoped peer events that persist on each member's `events.jsonl`. Phase 2 adds a cluster-scoped subscribe / push / broadcast surface so a cluster tab in the UI can render its own state without polling. Cluster-scoped messages (everything keyed on `clusterId` instead of `workflowId`) do NOT persist to `events.jsonl` - the durable record lives in each member's events.jsonl (peer_message_*), the on-disk cluster meta (members), and the mailbox files (depth). `cluster_state` is a derived snapshot the client mirrors verbatim.
+Cluster mode groups tabs sharing one cwd so members can hand notes between operator turns through peer tools. Three workflow-scoped events (`peer_message_sent`, `peer_message_received`, `peer_send_rejected`) persist on each member's `events.jsonl`. Arco adds a cluster-scoped subscribe / push / broadcast surface so a cluster tab in the UI can render its own state without polling. Cluster-scoped messages (everything keyed on `clusterId` instead of `workflowId`) do NOT persist to `events.jsonl` - the durable record lives in each member's events.jsonl (peer_message_*), the on-disk cluster meta (members), and the mailbox files (depth). `cluster_state` is a derived snapshot the client mirrors verbatim.
 
-### Peer messaging (Phase 1, workflow-scoped)
+### Peer messaging (workflow-scoped)
 
 Three workflow-scoped event kinds - emitted on each member's own `broadcastWorkflow` channel so events.jsonl carries the per-member view.
 
@@ -28,7 +28,7 @@ Emitted on the sender's workflow when `peer_send` succeeds. Carries a content pr
   from: string,                        // sender workflowId (== workflowId above)
   to: string,                          // recipient workflowId
   contentPreview: string,              // up to 200 chars
-  chainDepth?: number,                 // Phase 5b - auto-turn chain depth; stamped server-side at broadcast (operator-initiated sends ride at depth 0). The auto-turn detector refuses to fire when chainDepth ≥ AUTO_TURN_MAX_CHAIN_DEPTH.
+  chainDepth?: number, // auto-turn chain depth; stamped server-side at broadcast (operator-initiated sends ride at depth 0). The auto-turn detector refuses to fire when chainDepth ≥ AUTO_TURN_MAX_CHAIN_DEPTH.
 }
 ```
 
@@ -44,7 +44,7 @@ Emitted on the recipient's workflow at injection time (pre-turn drain or mid-tur
   workflowId: string,                  // recipient's workflow
   msgId: string,
   from: string,                        // sender workflowId
-  fromName: string,                    // sender display name (8-char prefix in Phase 1)
+  fromName: string, // sender display name (8-char workflowId prefix by default)
   content: string,                     // full body - durable record; the mailbox file is removed on drain
   ts?: number,                         // 2026-05-12 - original send time (ms epoch). When set, the client uses this as the chat-row timestamp so peer rows sort at the moment they were sent, not when the recipient drained them.
 }
@@ -112,7 +112,7 @@ WS analogue of `DELETE /api/clusters/:id`. Server tears down the cluster and bro
 
 ### `cluster_broadcast` ->
 
-Operator submitted the broadcast composer. Server resolves members; idle members get the message via `handleUserMessage` (immediate fresh turn), busy members get it enqueued as `'follow-up'`. Each fan-out is a normal user message - `peer_message_received` drains still fire BEFORE `user_message_echo` per the Phase 1 ordering invariant. Reply: `cluster_broadcast_dispatched`.
+The operator submitted the broadcast composer. Server resolves members; idle members get the message via `handleUserMessage` (immediate fresh turn), busy members get it enqueued as `'follow-up'`. Each fan-out is a normal user message - `peer_message_received` drains still fire BEFORE `user_message_echo` per the ordering invariant. Reply: `cluster_broadcast_dispatched`.
 
 ```ts
 {
@@ -147,25 +147,25 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
       workflowId: string,
       displayName: string,             // operator-editable via rename_workflow; falls back to 8-char wfid prefix
       status: 'idle' | 'busy',
-      role?: string,                   // Phase 2.6 - optional free-form role hint (≤120 chars). Absent / empty = no role block injected into the worker's system prompt.
+  role?: string, // optional free-form role hint (≤120 chars). Absent / empty = no role block injected into the worker's system prompt.
       tier?: 'light' | 'standard' | 'heavy',  // 2026-05-11 - builder-tier capability hint; pure metadata (no server-side routing)
       focus?: string,                  // 2026-05-11 - sub-specialty string (≤160 chars); surfaced in peer_list to disambiguate same-role peers
       accessMode?: 'standard' | 'blind' | 'isolated',  // absent ≡ standard; see the access-mode note at the top
     }>,
     mailboxDepth: Record<string, number>,
     createdAt: string,
-    taskBoardMode: 'none' | 'project' | 'cluster',  // Phase 12 - board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'project' (default-attach).
+  taskBoardMode: 'none' | 'project' | 'cluster', // board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'project' (default-attach).
     taskBoardKey?: string,           // set for `cluster` mode only - `cluster:<clusterId>`, the namespace key for the private board
     taskBoardAttached: boolean,      // back-compat derived flag for older clients: true for project|cluster, false for none
     name?: string,                   // slice 6a - operator-set display name; client falls back to `<basename(cwd)> · <short-id>` when absent
-    plan?: {                         // Phase 2.6 - shared cluster plan, canonical body under <cwd>/.arco/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
+  plan?: { // shared cluster plan, canonical body under <cwd>/.arco/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
       id: string,
       title: string,
       body: string,
       updatedAt: number,             // ms epoch
     },
-    idleNudgerEnabled?: boolean,     // Phase 5 - operator-armed idle nudger toggle. Default OFF (absent ≡ false). See cluster_member_nudged.
-    autoTurnOnMailboxEnabled?: boolean, // Phase 5b - operator-armed AUTO-PICKUP toggle. Default OFF (absent ≡ false). When true, a peer_message_sent to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt "(auto-pickup) New peer message arrived while you were idle - process your mailbox." Guarded by 20s per-recipient cooldown, 10/min per-cluster rate cap, and a chain-depth cap of 3. See cluster_auto_turn_fired.
+  idleNudgerEnabled?: boolean, // operator-armed idle nudger toggle. Default OFF (absent ≡ false). See cluster_member_nudged.
+  autoTurnOnMailboxEnabled?: boolean, // operator-armed AUTO-PICKUP toggle. Default OFF (absent ≡ false). When true, a peer_message_sent to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt "(auto-pickup) New peer message arrived while you were idle - process your mailbox." Guarded by 20s per-recipient cooldown, 10/min per-cluster rate cap, and a chain-depth cap of 3. See cluster_auto_turn_fired.
     efficiencyLevel?: 'thorough' | 'balanced' | 'lean', // 2026-06-15 - per-cluster efficiency level. Emitted only when non-default (absent ≡ 'thorough'). See cluster_efficiency_set.
     efficiencyAddendum?: string,    // 2026-06-15 - optional free-text appended to the canned restraint doctrine; emitted only when non-empty.
     progressTracking?: 'plan' | 'board' | 'both', // 2026-06-29 - per-cluster progress-tracking mode. Emitted only when non-default (absent ≡ 'both'). See cluster_progress_set.
@@ -198,7 +198,7 @@ Wraps a fresh `cluster_state` and tells the requesting WS to flip its active tab
 
 ### `cluster_deleted` <-
 
-Broadcast to every subscribed WS when the cluster is torn down (operator clicked × on the tab -> confirmed -> `cluster_delete`, or curl-side `DELETE /api/clusters/:id`). Member workflows keep working as plain workflows on their next turn (peer tools removed from the worker tool list per Phase 1's `worker.config.clusterId` gate).
+Broadcast to every subscribed WS when the cluster is torn down (operator clicked × on the tab -> confirmed -> `cluster_delete`, or curl-side `DELETE /api/clusters/:id`). Member workflows keep working as plain workflows on their next turn; peer tools are hidden when the worker has no cluster id.
 
 ```ts
 { type: 'cluster_deleted', clusterId: string }
@@ -224,7 +224,7 @@ Slice 6a - operator clicked × on a member tab in the bottom row. Server detache
 
 ### `cluster_member_add` ->
 
-Phase 2.5 B2 - operator picked "ADD TO EXISTING" in the `TabContextMenu`. Server validates: cluster exists, target workflow exists + a supported cluster provider (`assertAllMembersClaudeOrCodex` -> `isClusterMemberProvider`), cwd matches the cluster, workflow is not already in a cluster. On success, emits `cluster_member_added` + a fresh `cluster_state` to all subscribers.
+The operator picked "ADD TO EXISTING" in the `TabContextMenu`. Server validates: cluster exists, target workflow exists + a supported cluster provider (`assertAllMembersClaudeOrCodex` -> `isClusterMemberProvider`), cwd matches the cluster, workflow is not already in a cluster. On success, emits `cluster_member_added` + a fresh `cluster_state` to all subscribers.
 
 ```ts
 { type: 'cluster_member_add', clusterId: string, workflowId: string }
@@ -232,7 +232,7 @@ Phase 2.5 B2 - operator picked "ADD TO EXISTING" in the `TabContextMenu`. Server
 
 ### `cluster_create_with_fresh_workers` ->
 
-Phase 2.5 B3 - operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validates the source via `assertAllMembersClaudeOrCodex`; creates `additionalCount` new workflows (clamped to 1-4) each inheriting the source's cwd + primary config; calls `clusterStore.createCluster` with `[sourceWorkflowId,...newWorkflowIds]`; optionally `renameCluster` if `name` is non-empty. Each fresh workflow fires `workflow_created`; the cluster fires `cluster_created` on the originating socket only.
+The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validates the source via `assertAllMembersClaudeOrCodex`; creates `additionalCount` new workflows (clamped to 1-4) each inheriting the source's cwd + primary config; calls `clusterStore.createCluster` with `[sourceWorkflowId,...newWorkflowIds]`; optionally `renameCluster` if `name` is non-empty. Each fresh workflow fires `workflow_created`; the cluster fires `cluster_created` on the originating socket only.
 
 ```ts
 {
@@ -323,7 +323,7 @@ Cluster presets (operator-saved snapshots) are persisted at `~/.arco/cluster-pre
 
 ### `cluster_add_fresh_workers` ->
 
-Phase 2.5.1 - operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Server: reads the target cluster, picks the template from `members[0]` (cwd + primary config), validates the template via `assertAllMembersClaudeOrCodex`, creates `count` new workflows (clamped to 1-4), adds each via `clusterStore.addMember`. Naming picks the next available `#k` suffix not already in use across cluster members so successive adds don't collide. Broadcasts `cluster_member_added` per add, then a final `cluster_state`.
+operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Server: reads the target cluster, picks the template from `members[0]` (cwd + primary config), validates the template via `assertAllMembersClaudeOrCodex`, creates `count` new workflows (clamped to 1-4), adds each via `clusterStore.addMember`. Naming picks the next available `#k` suffix not already in use across cluster members so successive adds don't collide. Broadcasts `cluster_member_added` per add, then a final `cluster_state`.
 
 ```ts
 {
@@ -343,7 +343,7 @@ Phase 2.5.1 - operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Member
 
 ### `cluster_plan_set` ->
 
-Phase 2.6 - operator saved the shared cluster plan from `ClusterPlanTab`, hit `PROMOTE TO CLUSTER` from a per-workflow PLAN tab, or clicked `ATTACH TO CLUSTER` on a worker's `PlanCandidateBanner` (member tabs only - see [`PRIMITIVES.md`](PRIMITIVES.md)). Server caps body length at 32768 chars (rejects with `body_too_large:<n>` otherwise) and rejects empty / whitespace bodies with `empty_body` (operator must use `cluster_plan_clear` to wipe). Writes through `clusterPlanBridge.setClusterPlanBody`: updates the cluster's attached per-cwd plan (`<cwd>/.arco/plans/<planId>.md`), or creates one (title from the body's first `# ` heading) and stamps its id into cluster meta. Emits `cluster_plan_changed` (audit shape: timestamp + body length, the full body lives on disk + on the cluster_state push) followed by a fresh `cluster_state`.
+operator saved the shared cluster plan from `ClusterPlanTab`, hit `PROMOTE TO CLUSTER` from a per-workflow PLAN tab, or clicked `ATTACH TO CLUSTER` on a worker's `PlanCandidateBanner` (member tabs only - see [`PRIMITIVES.md`](PRIMITIVES.md)). Server caps body length at 32768 chars (rejects with `body_too_large:<n>` otherwise) and rejects empty / whitespace bodies with `empty_body` (operator must use `cluster_plan_clear` to wipe). Writes through `clusterPlanBridge.setClusterPlanBody`: updates the cluster's attached per-cwd plan (`<cwd>/.arco/plans/<planId>.md`), or creates one (title from the body's first `# ` heading) and stamps its id into cluster meta. Emits `cluster_plan_changed` (audit shape: timestamp + body length, the full body lives on disk + on the cluster_state push) followed by a fresh `cluster_state`.
 
 ```ts
 { type: 'cluster_plan_set', clusterId: string, body: string }
@@ -361,7 +361,7 @@ Attach an existing per-cwd plan to the cluster **without copying the body** (the
 
 ### `cluster_plan_clear` ->
 
-Phase 2.6 - operator hit `CLEAR PLAN` in `ClusterPlanTab`. `clusterPlanBridge.clearClusterPlan` drops the plan id from cluster meta (the per-cwd plan file stays, available to other workers/clusters) and deletes any legacy `~/.arco/clusters/<id>/plan.md`; subsequent member turns see no plan block. Emits a `cluster_plan_changed` with `body=''` + `bodyLength=0`, followed by a fresh `cluster_state` (the `plan` field is absent on the new payload).
+operator hit `CLEAR PLAN` in `ClusterPlanTab`. `clusterPlanBridge.clearClusterPlan` drops the plan id from cluster meta (the per-cwd plan file stays, available to other workers/clusters) and deletes any legacy `~/.arco/clusters/<id>/plan.md`; subsequent member turns see no plan block. Emits a `cluster_plan_changed` with `body=''` + `bodyLength=0`, followed by a fresh `cluster_state` (the `plan` field is absent on the new payload).
 
 > One plan substrate (`server/src/clusterPlanBridge.ts`): the body is canonical under `<cwd>/.arco/plans/<planId>.md` and cluster meta stores only `planId`, for set, attach, tick, write, and review alike. Pre-unification clusters wrote `~/.arco/clusters/<id>/plan.md`; reads lazily migrate that legacy body into the per-cwd store.
 
@@ -371,7 +371,7 @@ Phase 2.6 - operator hit `CLEAR PLAN` in `ClusterPlanTab`. `clusterPlanBridge.cl
 
 ### `cluster_member_role_set` ->
 
-Phase 2.6 - operator picked a role for a member via the `SET` popover in `ClusterRightPanel`'s Members sub-tab (six canonical presets from [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts) - DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER - plus a `Custom...` branch that falls back to the inline editor) or hit `CLEAR`. A preset is just a known string the UI drops into the editor; the wire shape is free-form text. Server clamps to 120 chars (`MEMBER_ROLE_MAX`) - values longer are silently truncated. Empty / whitespace clears the field entirely (the member's `role` becomes absent from `cluster_state.members`). Persisted into `ClusterMeta.memberRoles` (sparse map). Pushes a fresh `cluster_state`; no dedicated event - role changes are state-shaped (the `role` field on each `ClusterMember` is the wire surface). Codex app-server members carry role + cluster identity + (for a Director role) the full Director operating contract in thread `developerInstructions`, so a role change recycles the app-server child on the next turn while resuming the same Codex thread.
+The operator picked a role for a member via the `SET` popover in `ClusterRightPanel`'s Members sub-tab (six canonical presets from [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts) - DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER - plus a `Custom...` branch that falls back to the inline editor) or hit `CLEAR`. A preset is just a known string the UI drops into the editor; the wire shape is free-form text. Server clamps to 120 chars (`MEMBER_ROLE_MAX`) - values longer are silently truncated. Empty / whitespace clears the field entirely (the member's `role` becomes absent from `cluster_state.members`). Persisted into `ClusterMeta.memberRoles` (sparse map). Pushes a fresh `cluster_state`; no dedicated event - role changes are state-shaped (the `role` field on each `ClusterMember` is the wire surface). Codex app-server members carry role + cluster identity + (for a Director role) the full Director operating contract in thread `developerInstructions`, so a role change recycles the app-server child on the next turn while resuming the same Codex thread.
 
 ```ts
 { type: 'cluster_member_role_set', clusterId: string, workflowId: string, role: string }
@@ -405,7 +405,7 @@ Phase 2.6 - operator picked a role for a member via the `SET` popover in `Cluste
 
 ### `cluster_idle_nudger_toggle` ->
 
- Phase 5 - operator-armed per-cluster idle-nudger toggle. Default OFF. When ON, the server-side detector emits `cluster_member_nudged` to alert the operator (NOT the worker) when a member has been idle for ≥`IDLE_FLOOR_SECONDS` AND has ≥1 pending message in its mailbox. Passes the four-question test (plan): operator-armed, deterministic predicate, events.jsonl-visible, reversible toggle.
+ operator-armed per-cluster idle-nudger toggle. Default OFF. When ON, the server-side detector emits `cluster_member_nudged` to alert the operator (NOT the worker) when a member has been idle for ≥`IDLE_FLOOR_SECONDS` AND has ≥1 pending message in its mailbox. The toggle is operator-armed, uses a deterministic predicate, is visible in `events.jsonl`, and can be reversed.
 
 ```ts
 { type: 'cluster_idle_nudger_toggle', clusterId: string, enabled: boolean }
@@ -446,7 +446,7 @@ Cluster-level remote-management and gate switches. `cluster_remote_set` (◉ REM
 
 ### `cluster_member_nudged` <-
 
- Phase 5 - server-side detector found a member that matches the nudge predicate (idle ≥ floor AND pending ≥ 1) and is below the `NUDGES_PER_TURN` cap. `reason` is always `'idle_with_pending'` today; kept open for future predicate classes. Operator-only - the worker never sees this event. `NotificationToasts` surfaces a toast.
+ server-side detector found a member that matches the nudge predicate (idle ≥ floor AND pending ≥ 1) and is below the `NUDGES_PER_TURN` cap. `reason` is always `'idle_with_pending'` today; kept open for future predicate classes. Operator-only - the worker never sees this event. `NotificationToasts` surfaces a toast.
 
 ```ts
 {
@@ -461,7 +461,7 @@ Cluster-level remote-management and gate switches. `cluster_remote_set` (◉ REM
 
 ### `cluster_plan_changed` <-
 
-Phase 2.6 - server-side audit row for plan body edits (set or cleared). `body` carries the new full text (empty string = cleared). `bodyLength` duplicates `body.length` for events.jsonl scans that don't want to parse the body. `updatedAt` is wall-clock ms. Fires alongside a `cluster_state` push that carries the same body inline on `state.plan`.
+server-side audit row for plan body edits (set or cleared). `body` carries the new full text (empty string = cleared). `bodyLength` duplicates `body.length` for events.jsonl scans that don't want to parse the body. `updatedAt` is wall-clock ms. Fires alongside a `cluster_state` push that carries the same body inline on `state.plan`.
 
 ```ts
 {
@@ -475,7 +475,7 @@ Phase 2.6 - server-side audit row for plan body edits (set or cleared). `body` c
 
 ### `cluster_member_added` / `cluster_member_removed` <-
 
-Server-pushed membership change. Slice 6a wires `cluster_member_remove` -> emits `cluster_member_removed`. Phase 2.5 wires SPAWN-into-cluster and `cluster_member_add` (both emit `cluster_member_added`); Phase 2.5.1 adds `cluster_add_fresh_workers` (also emits `cluster_member_added`, one per fresh worker).
+Server-pushed membership change. Slice 6a wires `cluster_member_remove` -> emits `cluster_member_removed`. Arco wires SPAWN-into-cluster and `cluster_member_add` (both emit `cluster_member_added`); Arco adds `cluster_add_fresh_workers` (also emits `cluster_member_added`, one per fresh worker).
 
 ```ts
 { type: 'cluster_member_added', clusterId: string, member: ClusterMember }
@@ -608,7 +608,7 @@ it does not arm the daemon by itself.
 clamping. Production UX should keep the daemon visibly armed in the BOARD header
 and should never silently enable it when tasks are created.
 
-### Cluster task board (Phase 12)
+### Cluster task board
 
 Two operator-driven board-control messages. New clusters default-attach a project board (`clusterStore.createCluster` stamps `taskBoardMode: 'project'`, `taskBoardAttached: true`), so most clusters never need these - they exist to switch a cluster's board between the shared project ledger, a private cluster board, and off. Both handlers re-sync every member's MCP config (the BOARD peer-tools register/unregister with mode), drop the cluster from the dispatcher when the board goes to `none`, then push a fresh `cluster_state` (plus a `task_ledger_snapshot` seeded from the active board whenever the board is enabled).
 
@@ -628,7 +628,7 @@ Sets the board mode explicitly. `project` uses the cwd's normal task ledger; `cl
 { type: 'cluster_task_board_mode_set', clusterId: string, mode: 'none' | 'project' | 'cluster' }
 ```
 
-Board *content* mutations don't ride these messages: they flow over the cwd-scoped `task_ledger_*` WS messages (stamped with the cluster's `boardKey` when in `cluster` mode) (documented in [`PROTOCOL.md`](PROTOCOL.md)) and the `cluster_task_*` peer tools ([Peer tool inventory](#peer-tool-inventory-not-ws-messages) below). The Phase-12.5 plan->task (`PlanBodyRenderer.onPromoteTask`) and peer->task (`MailboxModal.onMakeTask`, transcript `PeerMessageBlock`) bridges are client-only and dispatch `task_ledger_create` with the board's key; they add no new WS message.
+Board *content* mutations don't ride these messages: they flow over the cwd-scoped `task_ledger_*` WS messages (stamped with the cluster's `boardKey` when in `cluster` mode) (documented in [`PROTOCOL.md`](PROTOCOL.md)) and the `cluster_task_*` peer tools ([Peer tool inventory](#peer-tool-inventory-not-ws-messages) below). The plan-to-task (`PlanBodyRenderer.onPromoteTask`) and peer-to-task (`MailboxModal.onMakeTask`, transcript `PeerMessageBlock`) bridges are client-only and dispatch `task_ledger_create` with the board's key; they add no new WS message.
 
 ### `cluster_swarm_create` ->
 
@@ -727,7 +727,7 @@ Server -> client:
 
 ### `cluster_auto_turn_toggle` ->
 
-Phase 5b - operator armed / disarmed the per-cluster AUTO-PICKUP surface. Default OFF. When ON, a `peer_message_sent` to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt `"(auto-pickup) New peer message arrived while you were idle - process your mailbox."` Detector lives in `server/src/clusterAutoTurn.ts`.
+operator armed / disarmed the per-cluster AUTO-PICKUP surface. Default OFF. When ON, a `peer_message_sent` to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt `"(auto-pickup) New peer message arrived while you were idle - process your mailbox."` Detector lives in `server/src/clusterAutoTurn.ts`.
 
 ```ts
 { type: 'cluster_auto_turn_toggle', clusterId: string, enabled: boolean }
@@ -759,9 +759,9 @@ Server-side detector emitted on every fire-path (`fired: true`) AND on every gua
 }
 ```
 
-### `peer_message_sent.chainDepth` (Phase 5b)
+### `peer_message_sent.chainDepth`
 
-`peer_message_sent` is documented in [Peer messaging](#peer-messaging-phase-1-workflow-scoped) above; Phase 5b adds one optional field, `chainDepth?: number`, **stamped server-side at broadcast time** - clients never send it. Mechanics:
+`peer_message_sent` is documented in [Peer messaging](#peer-messaging-workflow-scoped) above; Arco adds one optional field, `chainDepth?: number`, **stamped server-side at broadcast time** - clients never send it. Mechanics:
 
 - Operator-initiated peer-sends ride at depth 0 (no auto-turn marker for the sender).
 - When the detector fires an auto-turn for recipient R it calls `markAutoTurnDepth(R, parentDepth + 1)`; while R's turn runs, every outbound `peer_message_sent.chainDepth` is stamped from `currentAutoTurnDepth(senderWfid)`. `primary_turn_ended` clears the marker.
@@ -771,7 +771,7 @@ See `server/src/clusterAutoTurn.ts` for the marker lifecycle and `GOTCHAS.md mod
 
 ### `__debug_cluster_auto_turn_inject` -> (dev/smoke-only)
 
-Phase 5b test hook: directly invokes the auto-turn detector's `onPeerMessageSent` with a caller-specified `chainDepth`, so `scripts/smoke/phase-5b.ts` can exercise the depth / rate caps without real LLM turns generating naturally-chained peer-sends. Gated server-side on `process.env.ARCO_TEST === '1'`.
+ test hook: directly invokes the auto-turn detector's `onPeerMessageSent` with a caller-specified `chainDepth`, so `scripts/smoke/phase-5b.ts` can exercise the depth / rate caps without real LLM turns generating naturally-chained peer-sends. Gated server-side on `process.env.ARCO_TEST === '1'`.
 
 ```ts
 {
@@ -819,7 +819,7 @@ Sent rows additionally carry `targetWorkflowId: msg.to` (full recipient wfid). T
 
 ### `attach_codebase_memory` ->
 
- Phase F - operator toggled "Attach codebase memory" in the CONFIG tab. Server flips `WorkflowConfig.codebaseMemory.attached` + persists to meta.json + broadcasts `codebase_memory_state`. The actual `--mcp-config` write-in at CLI spawn time is deferred to a follow-up after Cluster Phase 3 ships `mcpConfigWriter`. `indexPath` defaults to the workflow's `workingDirectory` when absent.
+ Operator toggled "Attach codebase memory" in the CONFIG tab. Server flips `WorkflowConfig.codebaseMemory.attached` + persists to meta.json + broadcasts `codebase_memory_state`. The actual `--mcp-config` write-in at CLI spawn time is deferred to a follow-up after Cluster Arco ships `mcpConfigWriter`. `indexPath` defaults to the workflow's `workingDirectory` when absent.
 
 ```ts
 { type: 'attach_codebase_memory', workflowId: string, indexPath?: string }
@@ -827,7 +827,7 @@ Sent rows additionally carry `targetWorkflowId: msg.to` (full recipient wfid). T
 
 ### `detach_codebase_memory` ->
 
- Phase F - operator unchecked the toggle. Server drops `attached` (keeps any operator-typed `indexPath` so re-attaching is one click).
+ Operator unchecked the toggle. Server drops `attached` (keeps any operator-typed `indexPath` so re-attaching is one click).
 
 ```ts
 { type: 'detach_codebase_memory', workflowId: string }
@@ -835,7 +835,7 @@ Sent rows additionally carry `targetWorkflowId: msg.to` (full recipient wfid). T
 
 ### `codebase_memory_state` <-
 
- Phase F - server push reflecting the current codebase-memory attach state for a workflow. Fired on attach / detach / re-index. `attached === false` ⇒ `indexPath` / `lastIndexedAt` / `fileCount` may still be present (operator's last-typed values) so re-attaching reuses them; the CONFIG section just renders them dim.
+ Server push reflecting the current codebase-memory attach state for a workflow. Fired on attach / detach / re-index. `attached === false` ⇒ `indexPath` / `lastIndexedAt` / `fileCount` may still be present (operator's last-typed values) so re-attaching reuses them; the CONFIG section just renders them dim.
 
 ```ts
 {

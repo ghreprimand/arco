@@ -63,7 +63,7 @@ the successful `fs.writeFile` in **both** `Write` and `Edit`
 - the worker's wiring additionally `void`s the returned promise and attaches a
   `.catch()` so an async rejection can't become an unhandled rejection.
 
-The write path is load-bearing (P0). A diagnostics failure must **never** break
+The write path is load-bearing. A diagnostics failure must **never** break
 a Write/Edit. The hook does not change write semantics, plan-mode checks, the
 read-set check, or the tool's return string.
 

@@ -82,7 +82,7 @@ skipped and counted, an over-total-cap snapshot is skipped entirely, and unchang
 object level across snapshots. Both repo and shadow paths also run simultaneous same-cwd captures to pin
 the unique-scratch-file rule.
 
-## Revert (A4), `revertToCheckpoint` + the `revert_to_checkpoint` handler
+## Revert, `revertToCheckpoint` + the `revert_to_checkpoint` handler
 
 A4 surfaces checkpoint markers on the HISTORY timeline (and a compact list in ACTIVITY) and adds one-click
 revert. Flow (`server/src/ws/workflowHandlers.ts handleRevertToCheckpoint`):
@@ -136,9 +136,9 @@ safety-snapshot note before sending. execFile argv only; wfid/seq validated like
 ## Downstream
 
 A3 (diff viewer) reads `git diff <refA> <refB>` between shadow refs for per-turn diffs. "View diff vs now"
-(A4) is the same renderer with `from=<checkpoint ref>`, `to=WORKTREE`.
+ is the same renderer with `from=<checkpoint ref>`, `to=WORKTREE`.
 
-## Smoke (A4)
+## Smoke
 
 `scripts/smoke/checkpoint-revert.ts` (`npm run smoke:checkpoint-revert`): in a temp git repo, checkpoint A,
 mutate + add B, safety-snapshot, revert to #1; asserts A restored, **B gone**, safety ref exists, user

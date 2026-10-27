@@ -1,12 +1,12 @@
 # Genesis: staged project ideation
 
 Genesis turns a vague idea into a defined, scaffoldable project through a short staged
-conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucination field prompts, readiness checks, and (in M2) a scaffold writer. It does not add a separate agent loop. Genesis uses Arco's existing primary agent, assembling its system blocks plus a next-field prompt. **No new loop, no second model, no separate orchestration layer, no new database.** It follows the operator-reviewed scaffolding and scope rules in `CLAUDE.md`: operator-initiated, deterministic, visible in `events.jsonl`, and reversible.
+conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucination field prompts, readiness checks, and a scaffold writer. It does not add a separate agent loop. Genesis uses Arco's existing primary agent, assembling its system blocks plus a next-field prompt. **No new loop, no second model, no separate orchestration layer, no new database.** It follows the operator-reviewed scaffolding and scope rules in `CLAUDE.md`: operator-initiated, deterministic, visible in `events.jsonl`, and reversible.
 
 ## The seed
 
 A `GenesisSeed` (`shared/src/protocol/genesis.ts`) is the whole state - folded into a
-workflow's metadata in M2, never a separate store. It compresses the source ideation model into
+workflow's metadata, never a separate store. It compresses the source ideation model into
 a **4-rung narrative ladder**, one primary field per rung:
 
 | Stage | Field | What it captures |
@@ -16,10 +16,10 @@ a **4-rung narrative ladder**, one primary field per rung:
 | **The Case** | `theCase` | Why building *this* concept is worth it; who it's for; where scope ends. Argues for the Concept. |
 | **Build-direction** | `buildDirection` | Stack direction, scope boundaries, first concrete steps. Serves the Concept + the Case. |
 
-`stack` / `scope` / `github` are late structured refinements the M2 form collects for
+`stack` / `scope` / `github` are late structured refinements the form collects for
 scaffolding - they do **not** gate the ladder.
 
-## The engine (M1)
+## The engine
 
 Two server modules, both pure (no I/O, no model) and covered by `npm run smoke:genesis-engine`:
 
@@ -42,11 +42,10 @@ Two server modules, both pure (no I/O, no model) and covered by `npm run smoke:g
     context** (filled fields first, empties marked so the grounding rule can treat them as
     unknown), and the **anchoring contract** for the field being prompted (each downstream field
     cites its upstream source-of-truth). `base`, when given, is the workflow's existing system
-    prompt and is appended last so the genesis framing takes precedence - M2/M3 pass it for the
-    Creative-mode project fold. Returns one string ready to be a forced first system block
+    prompt and is appended last so the genesis framing takes precedence. Returns one string ready to be a forced first system block
     (Native) or an `appendSystemPrompt` fold (CLI/Codex).
   - `nextFieldPrompt(seed)` - the operator-facing question for the next field (a ready-to-
-    scaffold message when nothing is left). Surfaced as a composer suggestion in M2 - never
+    scaffold message when nothing is left). Surfaced as a composer suggestion; never
     auto-sent.
 
 ### Anchoring & anti-hallucination
@@ -57,7 +56,7 @@ field is anchored to its upstream source-of-truth, so the model can't silently r
 project when filling a later field. Both rules are baked into **every** assembled block
 regardless of stage.
 
-## The from-nothing flow (M2)
+## The from-nothing flow
 
 A Genesis workflow starts with **no project folder**. But the turn engine requires a cwd, so
 the workflow is created in a **hidden scratch ideation dir** (`~/.arco/genesis/<wfid>`,
@@ -117,9 +116,9 @@ are generated deterministically from the seed - no model call. Covered by
 readiness + next prompt) / `genesis_assist_started` / `genesis_assist_proposed` /
 `workflow_cwd_bound` / `genesis_scaffolded`.
 
-## In-workflow Creative mode (M3)
+## In-workflow Creative mode
 
-Creative mode runs the **same M1 process inside an existing project** to explore an alternative
+Creative mode runs the **same process inside an existing project** to explore an alternative
 direction - without the from-nothing scratch dir, and without ever editing the project. The
 distinguishing state is **`GenesisSeed.creative === true`** (durable on `config.genesisSeed`,
 mirrored to `meta.json`); the turn engine injects the genesis block on that flag instead of the
@@ -157,6 +156,6 @@ inputs). Covered by `npm run smoke:genesis-scaffold` (codebase assessment, conte
 sibling-dir write leaves the project untouched) and `npm run smoke:genesis-engine` (projectContext
 folds in only when `creative`).
 
-**WS messages** (M3): client->server `genesis_creative_arm` (`{ workflowId, disarm? }`);
+**WS messages**: client->server `genesis_creative_arm` (`{ workflowId, disarm? }`);
 server->client `genesis_creative_armed` (`{ armed, seed, readiness, nextPrompt, codebase? }`). The
 `genesis_scaffolded` message gains optional `creative` + `suggestSpawn` flags.

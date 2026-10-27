@@ -32,7 +32,7 @@ Two additional surfaces (DOCS and GIT, see) reuse the primary-turn machinery to 
 `server/src/ws/turnEngine.ts` `handleUserMessage` is the dispatcher. Behavior depends on `wf.busy`:
 
 - **Idle** - set `wf.busy = true`, broadcast `user_message_echo`, broadcast `primary_turn_started`, call `runPrimaryTurn`.
-- **Busy** - push the message into `wf.queue.steering[]` or `wf.queue.followUp[]` (Phase 4 split - `kind: 'steer' | 'follow-up'` on the `user_message`, default `follow-up`), echo the message with the `kind` tag, broadcast a queue-update, return immediately. Both buckets drain post-turn today; steer is wired for real mid-turn delivery per-provider in later phases.
+- **Busy** - push the message into `wf.queue.steering[]` or `wf.queue.followUp[]` (split - `kind: 'steer' | 'follow-up'` on the `user_message`, default `follow-up`), echo the message with the `kind` tag, broadcast a queue-update, return immediately. Both buckets drain post-turn today; steer is wired for real mid-turn delivery per-provider in later phases.
 
 ### Server-side flow
 
@@ -171,7 +171,7 @@ review_artifact_ready       (persisted; carries verdict + artifact name)
 
 The Review tab renders one row per review with the reviewer config, verdict badge, and a `↳ SEND TO AGENT` button that pre-fills the composer with the review body.
 
-### Inline review findings (D5)
+### Inline review findings
 
 The reviewer framing (`runReviewer.ts_FRAMING`) asks the model to append an optional fenced **findings block** after the Summary/Concerns/Verdict prose - a ` ```findings ` (or ` ```json `) fence wrapping a JSON array of `{ file, line, severity, note }`, where `severity ∈ {info, warning, error}`. The artifact storage shape is unchanged; findings are parsed from the existing body on read.
 
@@ -220,9 +220,9 @@ A separate dispatch path inside the Review primitive: instead of slicing workflo
 |---|---|---|---|---|
 | Whole plan, structure | `REVIEW PLAN` button at top of Plan tab | `plan-whole` | `critique` | - |
 | Whole plan, claims | `VERIFY WORK` button next to REVIEW PLAN | `plan-whole` | `verify` | yes |
-| Per-phase, structure | `▷ REVIEW PHASE PLAN` pill under each `### Phase` heading | `plan-phase` (carries `heading`) | `critique` | - |
-| Per-phase, claims | `▷ VERIFY PHASE WORK` pill under each `### Phase` heading | `plan-phase` (carries `heading`) | `verify` | yes |
-| Custom items | `CUSTOM REVIEW` button -> `PlanReviewPicker` modal (tree with tri-state per-phase checkboxes) | `plan-items` (carries `itemIds: string[]`) | `verify` | - |
+| Per-section, structure | `▷ REVIEW PHASE PLAN` pill under each `### Phase` heading | `plan-section` (carries `heading`) | `critique` | - |
+| Per-section, claims | `▷ VERIFY PHASE WORK` pill under each `### Phase` heading | `plan-section` (carries `heading`) | `verify` | yes |
+| Custom items | `CUSTOM REVIEW` button -> `PlanReviewPicker` modal (tree with tri-state per-section checkboxes) | `plan-items` (carries `itemIds: string[]`) | `verify` | - |
 
 The REVIEW / VERIFY split is presentational - both buttons in each pair dispatch the same `plan-*` ref kind, only `mode` (and the dialog's INCLUDE GIT DIFF default via `initialIncludeGitDiff`) differ. Operators can flip mode and toggle git diff inside the dialog; the buttons just preset the common intent. The MODE row is always visible for `plan-*` refs.
 
@@ -240,8 +240,8 @@ type PlanReviewMode = 'verify' | 'critique';
 
 **VERIFY vs CRITIQUE modes:**
 
-- **VERIFY** - reviewer cross-checks claimed-completed work against actual code. Items shown are filtered to `[x]` only; the framing addendum tells the reviewer "these are the worker's claimed-completed work - verify each claim against the actual code in the tree using your tools - do not take the checkboxes at face value." Partial-completion signals (a `[x]` parent with `[ ]` subtasks) are flagged as worth attention. If a phase has no `[x]` items AND no preamble prose, the path returns a reject ("No completed work found ... switch to CRITIQUE mode to review pending work, or check off some items first").
-- **CRITIQUE** - reviewer evaluates the plan itself (gaps, ordering, missing considerations), not just whether checked items shipped correctly. All items shown with check state preserved. Always proceeds even on empty phases.
+- **VERIFY** - reviewer cross-checks claimed-completed work against actual code. Items shown are filtered to `[x]` only; the framing addendum tells the reviewer "these are the worker's claimed-completed work - verify each claim against the actual code in the tree using your tools - do not take the checkboxes at face value." Partial-completion signals (a `[x]` parent with `[ ]` subtasks) are flagged as worth attention. If a plan section has no `[x]` items AND no preamble prose, the path returns a reject ("No completed work found ... switch to CRITIQUE mode to review pending work, or check off some items first").
+- **CRITIQUE** - reviewer evaluates the plan itself (gaps, ordering, missing considerations), not just whether checked items shipped correctly. All items shown with check state preserved. Always proceeds even when no plan sections are present.
 
 **For `plan-items` the operator's selection is authoritative.** Mode affects framing only; items render regardless of check state. The picker emits stable item IDs in the form `${phaseIdx}/${taskIdx}` (zero-based, slash-delimited). These are stable across check-state toggles but break on reorder/delete. If the operator edits the plan between selection and submission, unresolvable IDs trigger a reject naming the missing items so the operator can re-pick.
 
@@ -249,9 +249,9 @@ type PlanReviewMode = 'verify' | 'critique';
 
 **Plan parser invariants** (`reviewContent.ts` `parsePlan`). Three load-bearing rules - see also `docs/GOTCHAS.md-review parsing invariants`:
 
-1. **H2 closes phases.** An `##` header inside a phase ends it; intervening prose is discarded. Without this, headers like `## Open Questions` between phases leak into the previous phase's preamble and corrupt review bodies.
+1. **H2 closes the current plan sections.** An `##` header inside a plan section ends that section; intervening prose is discarded. Without this, headers like `## Open Questions` between plan sections leak into the preceding section's preamble and corrupt review bodies.
 2. **Numbered-bullet fallback.** Parser recognizes `- **N.M** Task` (naked numbered bullet, no checkbox) as an unchecked task. Foot-gun mitigation - agents (especially Qwen) sometimes strip checkboxes when "updating" a plan. Indented variant `  - **1**` is a subtask; non-numbered indented bullets like `  - Some text` are continuation prose, not separate tasks.
-3. **Preamble shown in VERIFY when no [x] tasks.** A phase with zero checked items but containing prose (e.g., "Phase 3 Completed: we did X, Y, Z") renders the prose. Completion-claims-as-prose is a valid claim and the reviewer needs to see it. Decision rule: render phase if `taskCount > 0 OR preambleLength > 0`.
+3. **Preamble shown in VERIFY when no [x] tasks.** A plan section with zero checked items but containing prose (e.g., " Completed: we did X, Y, Z") renders the prose. Completion-claims-as-prose is a valid claim and the reviewer needs to see it. Decision rule: render the section if `taskCount > 0 OR preambleLength > 0`.
 
 **Server dispatch.** `handleReviewRequest` in `server/src/ws/workflowHandlers.ts` branches on `contextRef.kind`: `plan-*` kinds call `buildPlanReviewContent(cwd, ref, includeGitDiff)` and skip the transcript-walk path entirely. Everything downstream (worker spawn, artifact write, verdict regex, event emit) is shared with transcript reviews.
 
@@ -266,11 +266,11 @@ type ReviewContextRef =
   | { kind: 'cluster-plan-phase'; clusterId: string; heading: string; mode: PlanReviewMode };
 ```
 
-Wired through `buildClusterPlanReviewContent` in `server/src/primitives/reviewContent.ts`. It reads the body via `clusterPlanStore.readPlan(clusterId)` (not `readPlan(cwd, planId)`), then runs the same `parsePlan` / mode-filter / git-diff machinery as `buildPlanReviewContent`. Same parser invariants (H2 closes phase, numbered-bullet fallback, preamble-in-VERIFY).
+Wired through `buildClusterPlanReviewContent` in `server/src/primitives/reviewContent.ts`. It reads the body via `clusterPlanStore.readPlan(clusterId)` (not `readPlan(cwd, planId)`), then runs the same `parsePlan` / mode-filter / git-diff machinery as `buildPlanReviewContent`. Same parser invariants (H2 closes the current plan section, numbered-bullet fallback, preamble-in-VERIFY).
 
 **Worker selection.** The cluster plan tab's `REVIEW PLAN` / `VERIFY WORK` / `CUSTOM REVIEW` buttons pop a `ClusterMemberPicker` first - the reviewer has to run on some workflow, and that worker also lends its transcript + git-diff context when VERIFY mode includes diff. The picked member's `workflowId` rides on the outbound `review_request`; `contextRef.clusterId` names the plan body to review. The two are independent - operator can review the cluster plan as critiqued by Member A while Member B is the one that did the implementation, etc.
 
-**Trigger surfaces.** Header pill bar in `ClusterPlanTab.tsx` (VIEW mode): `REVIEW PLAN` -> `cluster-plan-whole` + `critique`; `VERIFY WORK` -> `cluster-plan-whole` + `verify` + auto git-diff; per-H3 `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` -> `cluster-plan-phase` with `heading`; `CUSTOM REVIEW` reuses the existing `PlanReviewPicker` against the picked member's promoted plan (no per-item slicer for the cluster body itself today - operator picks a member first, then their plan slice).
+**Trigger surfaces.** Header pill bar in `ClusterPlanTab.tsx` (VIEW mode): `REVIEW PLAN` -> `cluster-plan-whole` + `critique`; `VERIFY WORK` -> `cluster-plan-whole` + `verify` + auto git-diff; per-section `▷ REVIEW PLAN` / `▷ VERIFY WORK` -> `cluster-plan-phase` with `heading`; `CUSTOM REVIEW` reuses the existing `PlanReviewPicker` against the picked member's promoted plan (no per-item slicer for the cluster body itself today - operator picks a member first, then their plan slice).
 
 **No `cluster-plan-items` variant.** The cluster body doesn't carry stable per-item IDs the way per-cwd plans do (no `.md` round-trip; the parse-and-reflect cycle happens on every read). CUSTOM REVIEW is the workaround: pick a member, review their plan slice - which on a cluster-member tab is typically the cluster plan (PROMOTE TO CLUSTER detaches the worker plan; see "Worker plan vs cluster plan" below).
 
@@ -318,7 +318,7 @@ The task explicitly tells the reviewer **NOT to forward findings**: _"Produce yo
 
 ### Cluster PLAN tab - target picker bypass
 
-Pre-2026-05-11, every PLAN-tab review button (REVIEW PLAN, VERIFY WORK, per-phase REVIEW / VERIFY) opened a `ClusterMemberPicker` first ("STEP 1 - Whose work to review?"). For cluster-plan-scoped refs that picker was confusing - the plan body is shared, the picker was a routing-anchor decision and operators kept hesitating. `ClusterPlanTab.dispatchPlanReview` now goes straight to `RUN REVIEW` for plan-scoped buttons, using the cluster's first member as the routing anchor; the operator can re-route via the dialog's STEP 2 pill row. `CUSTOM REVIEW` still opens the target picker (it's transcript-scoped, so whose transcript matters). The picker copy is clearer too: "STEP 1 of 2 - Whose work to review?" / "Whose plan critique?" / "Whose phase work to verify?".
+Pre-2026-05-11, every PLAN-tab review button (REVIEW PLAN, VERIFY WORK, per-section REVIEW / VERIFY) opened a `ClusterMemberPicker` first ("STEP 1 - Whose work to review?"). For cluster-plan-scoped refs that picker was confusing - the plan body is shared, the picker was a routing-anchor decision and operators kept hesitating. `ClusterPlanTab.dispatchPlanReview` now goes straight to `RUN REVIEW` for plan-scoped buttons, using the cluster's first member as the routing anchor; the operator can re-route via the dialog's STEP 2 pill row. `CUSTOM REVIEW` still opens the target picker (it's transcript-scoped, so whose transcript matters). The picker copy is clearer too: "STEP 1 of 2 - Whose work to review?" / "Whose plan critique?" / "Whose phase work to verify?".
 
 ### Review body inlines in chat (2026-05-11)
 
@@ -329,7 +329,7 @@ The `review_artifact_ready` WS handler in `client/src/ws/handleServerMessage.ts`
 
 The cluster REVIEWS tab's `ClusterReviewRow` (`ClusterRightPanel/ClusterReviewsList.tsx`) also fetches the artifact body on row expand for the same reason.
 
-### History-anchored review (Phase 8)
+### History-anchored review
 
 The `since-event` ContextRef variant slices `events.jsonl` by seq instead of by turn count, then runs the same reviewer machinery. Wired from the HISTORY tab's "REVIEW FROM HERE" button.
 
@@ -383,9 +383,9 @@ sequenceDiagram
 | `fresh-summarizer` | Ephemeral summarizer worker reading a rendered transcript | Lower - no git/project intro | Any provider |
 | `fresh-agent` | Stub | - | `runExportContext` returns "not implemented yet" |
 
-**Summarizer resolution (WP2).** When the request carries no `summarizer`, both Handoff and Spawn fall back to the operator's pinned `settings.handoffSummarizer` (model/effort fill from the tab's - or, for Spawn, the new tab's - primary) before defaulting to the primary itself. Why: a handoff fires exactly when the current worker is low on context, so letting that degraded worker summarize itself is the failure mode to dodge. Auto-handoff never sends `summarizer`, so it always takes this chain.
+**Summarizer resolution.** When the request carries no `summarizer`, both Handoff and Spawn fall back to the operator's pinned `settings.handoffSummarizer` (model and effort come from the tab's primary, or, for Spawn, from the new tab's primary) before defaulting to the primary itself. Why: a handoff fires exactly when the current worker is low on context, so letting that degraded worker summarize itself is the failure mode to dodge. Auto-handoff never sends `summarizer`, so it always takes this chain.
 
-**Original-worker on a non-resumable provider (WP6).** Only Claude / Codex / Z.ai have a live session to resume. For Ollama / llama.cpp / LM Studio / Gemini / Antigravity, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ autoHandoff.autoAt` (default 90) the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
+**Original-worker on a non-resumable provider.** Only Claude / Codex / Z.ai have a live session to resume. For Ollama / llama.cpp / LM Studio / Gemini / Antigravity, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ autoHandoff.autoAt` (default 90) the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
 
 **Per-cwd serialization.** Handoffs in the same cwd are chained (`cwdHandoffChain`): a second request waits (`[HANDOFF QUEUED]` notice) so two reflections don't read repo state mid-write; a duplicate on the same workflow is ignored. The chain is mirrored to clients as `handoff_lock_snapshot` (-> `appStore.handoffLocksByCwd`) and a wedged slot can be cleared by the operator via `handoff_lock_clear` (`handleHandoffLockClear`).
 
@@ -419,7 +419,7 @@ client -> server: handoff_request {
      - Run `git status` / `git log` / `git diff` to capture the WIP state
      - Read `AGENTS.md`, the attached project plan, `DEVLOG.md`, and any linked planning notes
      - Use `Write` to put the handoff at `<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`
-     - Optionally prepend a DEVLOG.md entry, mark PLAN.md phases shipped
+     - Optionally prepend a DEVLOG.md entry, mark PLAN.md sections shipped
      - End with `[HANDOFF_COMPLETE]` so the server knows it's done
 
      Then call `runPrimaryTurn` with the reflection prompt **resuming the primary's session** (so the primary has full context). After settle, validate the file exists.
@@ -483,7 +483,7 @@ The handoff endpoint is separate from the artifact endpoint (`/api/workflows/han
 - `--resume <sessionId>` reflects on the session **as it stands** - the primary sees its own work. That's the whole point: the reflection has full context, not a rendered summary.
 - **North-star inherited.** The handoff folds `wf.config.goal` into both the `summarizer` (fresh) and `original` (original-worker) contexts, so the reflection preserves the standing objective for the continuation. Unlike `outputStyle` (forced `'normal'` on primitives), the north-star is inherited.
 
-### Customizable prompts (Phase 3, operator-features)
+### Customizable prompts (operator-features)
 
 Both the `original-worker` reflection prompt and the `fresh-summarizer` framing are operator-editable via the SettingsPanel HANDOFF PROMPTS section. Override files (project beats global):
 
@@ -545,7 +545,7 @@ client -> server: spawn_from_here_request {
   newDirection?,
   summarizer?: { provider, model, effort },
   includePlan?,             // copy parent's attached plan onto the spawn
-  cutoffEventSeq?,          // Phase 8 - truncate parent transcript at this seq
+ cutoffEventSeq?, // truncate parent transcript at this seq
 }
 ```
 
@@ -595,15 +595,15 @@ Three operator-facing surfaces dispatch `spawn_from_here_request` with a prefill
 | Surface | UI | Direction prefilled with |
 |---|---|---|
 | Per-task | `▷ SPAWN` next to each unchecked checkbox row | `planTaskSpawnDirection(taskBlock)` - task line + sub-items, framed "complete this ONE task; do not start unrelated tasks" |
-| Per-phase | `▷ SPAWN PHASE` pill under each `### Phase` heading | `planPhaseSpawnDirection(phaseBlock)` - full phase block (heading + every line up to the next H1/H2/H3), framed "walk every `[ ]` task in this phase" |
+| Per-section | `▷ SPAWN PHASE` pill under each `### Phase` heading | `planPhaseSpawnDirection(phaseBlock)` - full phase block (heading + every line up to the next H1/H2/H3), framed "walk every `[ ]` task in this section" |
 | HISTORY-anchored | `SPAWN FROM HERE` button after selecting a row in the HISTORY tab | (no plan-specific direction; carries `cutoffEventSeq` instead - see 8 cutoff below) |
 
-The phase-block extractor (`extractPhaseBlock` in `PlanBodyRenderer.tsx`, shared by the per-workflow and cluster PLAN tabs) walks from the H3 line forward, stopping at the next H1/H2/H3 - so phases stay self-contained and the spawned worker doesn't pull in adjacent phases or footer prose.
+The plan-section extractor (`extractPhaseBlock` in `PlanBodyRenderer.tsx`, shared by the per-workflow and cluster PLAN tabs) walks from the H3 line forward, stopping at the next H1/H2/H3 - so each plan section stays self-contained and the spawned worker doesn't pull in adjacent sections or footer prose.
 
 ### Coupling worth knowing
 
-- For `original-worker` mode, the parent must have a resumable handle: a live `primarySessionId` (CLI Claude / Codex / Z.ai) or `claudeTransport='native'` (the child's worker is seeded from parent's `events.jsonl`). Non-resumable parents get the same WP6 translation as Handoff (parent's own model re-reads the transcript; overflow -> configured summarizer); a resumable parent with no session yet falls back to `fresh-summarizer`.
-- **Phase 8 cutoff (HISTORY tab "SPAWN FROM HERE"):** when `cutoffEventSeq` is set, `runExportContext` filters the transcript to events with `seq <= cutoffEventSeq` before rendering, and `seedClaudeNativeWorkerFromForeignEvents` stops walking parent's `events.jsonl` past the same seq. The fresh-summarizer mode and Native original-worker both honor the cutoff cleanly. CLI original-worker silently ignores it - `claude --resume` carries the parent's full session and there's no clean way to retroactively trim its view; operators who want a hard cutoff on a CLI parent should choose fresh-summarizer.
+- For `original-worker` mode, the parent must have a resumable handle: a live `primarySessionId` (CLI Claude / Codex / Z.ai) or `claudeTransport='native'` (the child's worker is seeded from parent's `events.jsonl`). Non-resumable parents get the same translation as Handoff (parent's own model re-reads the transcript; overflow -> configured summarizer); a resumable parent with no session yet falls back to `fresh-summarizer`.
+- ** cutoff (HISTORY tab "SPAWN FROM HERE"):** when `cutoffEventSeq` is set, `runExportContext` filters the transcript to events with `seq <= cutoffEventSeq` before rendering, and `seedClaudeNativeWorkerFromForeignEvents` stops walking parent's `events.jsonl` past the same seq. The fresh-summarizer mode and Native original-worker both honor the cutoff cleanly. CLI original-worker silently ignores it - `claude --resume` carries the parent's full session and there's no clean way to retroactively trim its view; operators who want a hard cutoff on a CLI parent should choose fresh-summarizer.
 - The new tab auto-activates on `spawn_from_here_complete`. If the operator clicks back to the parent mid-spawn, the auto-activate still fires and pulls focus to the new tab once it completes.
 - The summarizer config resolves request -> `settings.handoffSummarizer` -> the new workflow's `primaryProvider/Model/Effort` (not the parent's). So absent a pinned summarizer, a Spawn into a Codex tab uses Codex. (The `SpawnFromHereRequestMessage` comment says "defaults to parent's primary config" - stale; the handler uses `newPrimary`.)
 - **North-star durably inherited.** When the operator doesn't set one at spawn time, `parent.config.goal` is copied into `msg.newConfig.goal`, so every post-seed turn of the new tab - not just the seed - carries the standing objective, persisted with the new tab's meta. Reversible: clear it on the new tab.
@@ -661,7 +661,7 @@ Sends the agent a structured prompt to update repo markdown docs (README / DEVLO
 The base prompt:
 
 1. **Process** - check `git log --oneline -20`, `git status`, `git diff main...HEAD` if on a branch; identify which markdown docs reference changed code; update only those docs in place.
-2. **Constraints** - *do not modify any file under `.arco/plans/`* (load-bearing reason: plan files have checkbox / H3 phase structure that the Plan tab parses for per-phase review and spawn-from-task; agents have stripped that structure when "updating" docs). Don't add new doc files unless something genuinely requires one. Don't restate what the code already says clearly. If you spot stale sections, flag them or fix them.
+2. **Constraints** - *do not modify any file under `.arco/plans/`* (load-bearing reason: plan files have checkbox / H3 section structure that the Plan tab parses for per-section review and spawn-from-task; agents have stripped that structure when "updating" docs). Don't add new doc files unless something genuinely requires one. Don't restate what the code already says clearly. If you spot stale sections, flag them or fix them.
 3. **Wrap-up** - summarize which files were updated and what changed in each so the operator can review.
 
 Optional operator note appended verbatim to the base prompt (e.g. "focus on the auth changes - leave README alone").
@@ -697,20 +697,20 @@ The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'
 
 **North-star is the opposite carveout.** Where `outputStyle` is forced to `'normal'`, the north-star is *inherited*: the in-tab path reads `wf.config.goal` on every turn (including DOCS/GIT), and the new-tab path preserves it because `spawnConfigFromRunAs` copies the parent config wholesale - it overrides `outputStyle` but not `goal`. Review / Handoff / Spawn / Task-children inherit it too (see each primitive's coupling note).
 
-### Composer prompt commands - `+SKILL` (DD8) and `/prompt` (DD10)
+### Composer prompt commands - `+SKILL` and `/prompt`
 
 Two operator-only composer surfaces that inject deterministic prompt context (no ephemeral worker, no artifact, no verdict). Like DOCS / GIT they're prompt builders, not full primitives.
 
-- **`+SKILL` apply-once / pin (DD8).** A skill whose frontmatter carries `operator-only: true` is withheld from the model's skill manifest entirely - `buildSkillsManifest` (`server/src/skills.ts`) filters `!operatorOnly`, so the model is never told it exists. **APPLY ONCE** rides `pickedSkills: Array<{ scope, slug }>` on the outbound `user_message`; `buildPickedSkillsBlock` inlines each full body into that turn prompt (wrapped in `<arco-skill>`, no Read round-trip). **PIN TO TAB** replaces `WorkflowConfig.pinnedSkills` through `update_primary_config`; the refs persist in meta while `resolvePinnedSkills` re-reads the bodies and `buildPinnedSkillsBlock` inserts them as standing system instructions every primary turn. Pin/unpin is acknowledged by the persisted `pinned_skills_set` audit event. Both blocks report byte size; pinning is count/aggregate-byte bounded.
-- **`/prompt <name> [args]` (DD10).** Parameterized prompt templates resolved from `<cwd>/.arco/prompts/<name>.md` (project - gated behind the DD7 project-trust check via `includeProject`) and `~/.arco/prompts/<name>.md` (global - ungated); project wins on a name clash. Substitution (`substituteArgs` in `server/src/prompts.ts`) is bash-positional: `$1`..`$N` / `${1}`..`${N}` map to shell-tokenized args (unbound positional ⇒ empty), `$@` / `$*` expand to all args space-joined, `$$` is a literal `$`. A name that resolves to no template falls through and sends the original text as a normal turn. Entry points: `parsePromptInvocation` / `expandPromptCommand` / `substituteArgs`.
+- **`+SKILL` apply-once / pin.** A skill whose frontmatter carries `operator-only: true` is withheld from the model's skill manifest entirely - `buildSkillsManifest` (`server/src/skills.ts`) filters `!operatorOnly`, so the model is never told it exists. **APPLY ONCE** rides `pickedSkills: Array<{ scope, slug }>` on the outbound `user_message`; `buildPickedSkillsBlock` inlines each full body into that turn prompt (wrapped in `<arco-skill>`, no Read round-trip). **PIN TO TAB** replaces `WorkflowConfig.pinnedSkills` through `update_primary_config`; the refs persist in meta while `resolvePinnedSkills` re-reads the bodies and `buildPinnedSkillsBlock` inserts them as standing system instructions every primary turn. Pin/unpin is acknowledged by the persisted `pinned_skills_set` audit event. Both blocks report byte size; pinning is count/aggregate-byte bounded.
+- **`/prompt <name> [args]`.** Parameterized prompt templates resolved from `<cwd>/.arco/prompts/<name>.md` (project - gated behind the DD7 project-trust check via `includeProject`) and `~/.arco/prompts/<name>.md` (global - ungated); project wins on a name clash. Substitution (`substituteArgs` in `server/src/prompts.ts`) is bash-positional: `$1`..`$N` / `${1}`..`${N}` map to shell-tokenized args (unbound positional ⇒ empty), `$@` / `$*` expand to all args space-joined, `$$` is a literal `$`. A name that resolves to no template falls through and sends the original text as a normal turn. Entry points: `parsePromptInvocation` / `expandPromptCommand` / `substituteArgs`.
 
-The skill editor (`client/src/components/SkillEditorDialog.tsx`) also exposes an **AUDIT** button labelled "AUDIT - DIAGNOSTIC ONLY (does not block save)" (H35): `POST /api/skills/audit` (`server/src/http/router.ts`) -> `auditSkillContent` (`server/src/skillAudit.ts`), an invisible-unicode + known-threat scan that surfaces findings but never blocks the save.
+The skill editor (`client/src/components/SkillEditorDialog.tsx`) also exposes an **AUDIT** button labelled "AUDIT - DIAGNOSTIC ONLY (does not block save)": `POST /api/skills/audit` (`server/src/http/router.ts`) -> `auditSkillContent` (`server/src/skillAudit.ts`), an invisible-unicode + known-threat scan that surfaces findings but never blocks the save.
 
 ---
 
-## 6. HISTORY-tab actions (Phase 8)
+## 6. HISTORY-tab actions
 
-The right-pane HISTORY tab is read-only timeline view, but it dispatches four operator actions that fan out into the existing primitives. The first three mint no new server-side surface - they reuse Review / Spawn / the events.jsonl persistence layer; the fourth (REWIND CONVERSATION, Phase 10) appends a `leaf_move` event.
+The right-pane HISTORY tab is read-only timeline view, but it dispatches four operator actions that fan out into the existing primitives. The first three mint no new server-side surface - they reuse Review / Spawn / the events.jsonl persistence layer; the fourth (REWIND CONVERSATION) appends a `leaf_move` event.
 
 ### LABEL THIS (`create_label_request` -> `operator_label`)
 
@@ -724,11 +724,11 @@ Wired through `ReviewDialog` with `prefilledSinceEventRef: { kind: 'since-event'
 
 Wired through `SpawnDialog` with the row's `seq` set as `cutoffEventSeq` on the `spawn_from_here_request`. The Spawn primitive  honors the cutoff in `runExportContext` by filtering the parent's transcript to events with `seq <= cutoffEventSeq` before rendering, and by passing the same seq into `seedClaudeNativeWorkerFromForeignEvents` so the Native pre-warm replay stops at the cutoff. CLI original-worker silently ignores the cutoff - `claude --resume` carries the parent's full session and there's no clean way to retroactively trim its view; the dialog tells the operator to choose fresh-summarizer if a hard cutoff matters.
 
-### REWIND CONVERSATION (Phase 10 - Native-only fork)
+### REWIND CONVERSATION (Native-only fork)
 
 The HISTORY tab's `REWIND CONVERSATION` button (two-click confirm -> `CONFIRM REWIND ↩`, no modal) moves the live conversation head back to a prior event. The client sends `revert_to_point_request { workflowId, targetSeq }` (the selected row's seq). `handleRevertToPointRequest` (`server/src/ws/workflowHandlers.ts`): refuses while the turn is busy ("Cannot rewind while a turn is in progress - cancel it first"); enforces a **Native-first gate** - rejects CLI / Codex with "REWIND CONVERSATION is Claude Native only in v1 (CLI / Codex resume is summarizer-backed)" because only the Native transport rebuilds its in-process `messages[]` from `meta.leafSeq` (on session-id / rollout resume, setting `leafSeq` would silently no-op); validates `targetSeq ≤ head`; then appends a durable `leaf_move { targetSeq, source }` event and writes `meta.leafSeq` (atomic `writeMeta`, so the rewind survives a restart). It drops any live Native worker so the next turn rebuilds from the rewound branch.
 
-Branch-aware replay (`server/src/providers/claude-native/resumeSummary.ts`) walks ancestry from the physical tail honoring the `leaf_move` redirect chain; **`leafSeq` absent ⇒ identity ⇒ byte-identical to pre-Phase-9 flat replay** (`branchReplay.test.ts` pins this). The kept branch can be returned to - "undo the undo" is just another rewind (a second `leaf_move`), so it is reversible; a self-referential `leaf_move` terminates via the cycle guard. When older ancestry has rotated off `events.jsonl`, the rebuild is RECONSTRUCTED (lossy) and warns. The HISTORY tab renders fork markers and a `REWINDS` filter preset (category `fork`); this is distinct from the git working-tree RESTORE FILES action on checkpoint rows. `branch_summary` is RESERVED/unemitted - forks ship via `leaf_move`, not `branch_summary`. See [CHECKPOINTS.md](CHECKPOINTS.md) for checkpoint and rewind behavior.
+Branch-aware replay (`server/src/providers/claude-native/resumeSummary.ts`) walks ancestry from the physical tail honoring the `leaf_move` redirect chain; **`leafSeq` absent ⇒ identity ⇒ unchanged flat replay when the branch head is absent** (`branchReplay.test.ts` pins this). The kept branch can be returned to - "undo the undo" is just another rewind (a second `leaf_move`), so it is reversible; a self-referential `leaf_move` terminates via the cycle guard. When older ancestry has rotated off `events.jsonl`, the rebuild is RECONSTRUCTED (lossy) and warns. The HISTORY tab renders fork markers and a `REWINDS` filter preset (category `fork`); this is distinct from the git working-tree RESTORE FILES action on checkpoint rows. `branch_summary` is RESERVED/unemitted - forks ship via `leaf_move`, not `branch_summary`. See [CHECKPOINTS.md](CHECKPOINTS.md) for checkpoint and rewind behavior.
 
 ---
 
@@ -781,7 +781,7 @@ The reviewer sees what context arrived between turns and what the agent emitted 
 
 ### PLAN / DOCS / GIT inside a cluster (pass-through)
 
-PLAN is per-workflow (`planStore.ts` keys on workflowId); each cluster member has its own plan store. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No code changes in Phase 2.5; verified pass-through.
+PLAN is per-workflow (`planStore.ts` keys on workflowId); each cluster member has its own plan store. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No code changes in; verified pass-through.
 
 ### Cluster management UX from the TabBar
 
@@ -791,9 +791,9 @@ Right-clicking a cluster-capable tab opens `TabContextMenu` with three modes:
 - **ADD TO EXISTING** - only enabled when same-cwd clusters exist AND the anchor isn't already a member. Radio-pick which cluster; dispatches `cluster_member_add { clusterId, workflowId }`.
 - **CREATE WITH FRESH** - pick N (1-4) and an optional name; dispatches `cluster_create_with_fresh_workers { sourceWorkflowId, additionalCount, name? }`. Server creates N new workflows (cwd + primary inherited from source) via `createBlankNativeWorkflow`, then calls `clusterStore.createCluster`.
 
-The membership fence (`assertAllMembersClaudeOrCodex` in `server/src/index.ts`, name kept from Phase 4) is enforced server-side in every mode; despite the name it now admits every `CLUSTER_MEMBER_PROVIDERS` entry - `claude` (cli + native), `codex` (exec + appserver), `zai`, `ollama`, `llamacpp`, `cursor` (fresh-only membership) - and rejects others with `member_not_supported`. The `isolated` access mode additionally requires Claude Native (`isolated_requires_claude_native`). ClusterRightPanel's new `REVIEWS` sub-tab aggregates `job.reviews[]` across all members for the operator working from inside the cluster tab.
+The membership fence (`assertAllMembersClaudeOrCodex` in `server/src/index.ts`, name kept from) is enforced server-side in every mode; despite the name it now admits every `CLUSTER_MEMBER_PROVIDERS` entry - `claude` (cli + native), `codex` (exec + appserver), `zai`, `ollama`, `llamacpp`, `cursor` (fresh-only membership) - and rejects others with `member_not_supported`. The `isolated` access mode additionally requires Claude Native (`isolated_requires_claude_native`). ClusterRightPanel's new `REVIEWS` sub-tab aggregates `job.reviews[]` across all members for the operator working from inside the cluster tab.
 
-### Cluster-attached plan + role hints (Phase 2.6)
+### Cluster-attached plan + role hints
 
 Two operator-armed surfaces overlay onto every member's per-turn system context (forced system blocks on Native; string-form folds elsewhere - see **Cross-provider** below).
 
@@ -813,13 +813,13 @@ The body is injected as a forced system block immediately after the worker's `FO
 
 **Wire shape.** Three client->server WS messages (`cluster_plan_set` / `cluster_plan_clear` / `cluster_member_role_set`) + one server->client audit event (`cluster_plan_changed`). Plan body rides inline on `cluster_state.plan`; per-member role rides inline on `cluster_state.members[i].role`. See `docs/PROTOCOL_CLUSTER.md`.
 
-**Cross-provider.** Native uses `buildSystemBlocks` for the system-block injection; CLI Claude and Codex fold the same plan body + role text into `appendSystemPrompt` / `-c experimental_instructions_file` at spawn time per Phases 3 + 4 (`-`). The string-form fold is capped (16 KB CLI; 48 KB for the Codex app-server JSON-RPC fold): over budget, only the plan shrinks, to a deterministic outline (`clusterPlanOutline.ts`, preserving labelled standing/rules/gates/contract/authority/cadence sections) with the full body reachable via the `cluster_plan_read` peer tool (`clusterStringFold.ts`). Codex app-server also receives cluster identity, code-mode tool names and the Director contract through `developerInstructions` on thread start/resume.
+**Cross-provider.** Native uses `buildSystemBlocks` for the system-block injection; CLI Claude and Codex fold the same plan body + role text into `appendSystemPrompt` / `-c experimental_instructions_file` at spawn time for cluster members. The string-form fold is capped (16 KB CLI; 48 KB for the Codex app-server JSON-RPC fold): over budget, only the plan shrinks, to a deterministic outline (`clusterPlanOutline.ts`, preserving labelled standing/rules/gates/contract/authority/cadence sections) with the full body reachable via the `cluster_plan_read` peer tool (`clusterStringFold.ts`). Codex app-server also receives cluster identity, code-mode tool names and the Director contract through `developerInstructions` on thread start/resume.
 
 ---
 
 ## 8. Pre-tool-use guards (NOT a primitive - transport-level)
 
-Cross-reference. Pre-tool-use guards (`server/src/providers/claude-native/pretoolGuards.ts`) sit inside the Claude Native worker's `dispatchTool` and intercept individual tool calls before they execute. They're transport-level (Native-only at first ship; CLI parity remains deferred) - no ephemeral worker is spawned, no chat artifact is produced, no operator click drives one call. The model emits a tool_use block, the guard returns a synthetic tool_result, the model adapts and re-issues, the turn continues. Today's rules: `checkConfigProtection` (Phase 6c - blocks edits to lint/format/type-check config files) and `checkFactForceFirstEdit` (Phase D - first edit of a turn per path emits a synthetic prompt asking the model to state importers + API surface + operator instruction before re-issuing). Both emit `tool_gate_triggered` events with distinct `gate` values so transcript review can distinguish them. Per-tab toggles in CONFIG: `efficiencyFactForce: 'on' | 'off'` (default off; explicit opt-in). Related guard behavior is described in [GOTCHAS.md](GOTCHAS.md)
+Cross-reference. Pre-tool-use guards (`server/src/providers/claude-native/pretoolGuards.ts`) sit inside the Claude Native worker's `dispatchTool` and intercept individual tool calls before they execute. They're transport-level (Native-only at first ship; CLI parity remains deferred) - no ephemeral worker is spawned, no chat artifact is produced, no operator click drives one call. The model emits a tool_use block, the guard returns a synthetic tool_result, the model adapts and re-issues, the turn continues. Today's rules: `checkConfigProtection` (blocks edits to lint/format/type-check config files) and `checkFactForceFirstEdit` (first edit of a turn per path emits a synthetic prompt asking the model to state importers + API surface + operator instruction before re-issuing). Both emit `tool_gate_triggered` events with distinct `gate` values so transcript review can distinguish them. Per-tab toggles in CONFIG: `efficiencyFactForce: 'on' | 'off'` (default off; explicit opt-in). Related guard behavior is described in [GOTCHAS.md](GOTCHAS.md)
 
 ---
 
@@ -1123,7 +1123,7 @@ are stored in `OrchestrationAssistModelRef` but are never applied by the server 
 
 ---
 
-## 16. Review safe-mode gate (durable HITL approval - DEBAG, Phase 11)
+## 16. Review safe-mode gate (durable HITL approval - DEBAG)
 
 A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a primitive - no ephemeral worker, no artifact; like it is transport-level). The operator arms it with the **REVIEW SAFE-MODE** toggle in CONFIG (`WorkflowConfig.reviewSafeMode: 'off' | 'on'`, default `off`, Native-only - CLI / Codex / Gemini ignore it). When armed, the Native worker consults a deterministic classifier before running each tool and **parks** sensitive calls for operator approval instead of running them.
 

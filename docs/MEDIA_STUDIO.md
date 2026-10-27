@@ -11,12 +11,12 @@ The shared shell. Operator-facing behavior lives in the in-app manual (`media-st
 - **Launchers:** `client/src/components/media/launchers.ts`, `openMediaStudio(mode?)` (empty), `openMediaFile(path)` (contextual), `classifyMediaExt(filename)`.
 - **Entry points:** header **⌗ MEDIA** button, command-palette `Open Media studio[...]`, and FileExplorer right-click on a media file.
 
-**Functional now:** the image viewer (zoom/pan/fit/1:1 + dimensions; on-disk via the guarded `GET /api/file-content`, imported via browser object URL); the audio editor + FFmpeg ops (H5/H6) and the video editor + FFmpeg ops (H7) for both imported AND on-disk files (on-disk via the guarded `GET /api/media/raw` Range-able serve route).
+**Functional now:** the image viewer (zoom/pan/fit/1:1 + dimensions; on-disk via the guarded `GET /api/file-content`, imported via browser object URL); the audio editor + FFmpeg ops (H5/H6) and the video editor + FFmpeg ops for both imported AND on-disk files (on-disk via the guarded `GET /api/media/raw` Range-able serve route).
 
 **Honestly deferred (not faked):**
 - **EXIF metadata**, needs an image-metadata dependency; deferred to H2.
 - **FFmpeg ops on an imported (object-URL) file**, ffmpeg can't read a browser blob, so audio/video ops are enabled only for an on-disk (contextual) open; an imported file plays but disables the ops with an inline note. No blob upload yet.
-- **Editing** (layers/brush, H2), out of scope for the shipped phases.
+- **Editing** (layers/brush, H2), not part of the shipped editor.
 
 ## H5, audio editor (shipped)
 
@@ -54,7 +54,7 @@ The real edits: trim/clip to the region, convert format, normalize, mono/stereo,
 ### Client
 
 - **Types:** `shared/src/protocol/media.ts`, the `MediaOpSpec` discriminated union, the `AUDIO_FORMATS` whitelist (codec/ext), bounded `AUDIO_BITRATES`/`AUDIO_SAMPLE_RATES`, the request/result shapes, and `MediaOpResultMessage`.
-- **On-disk audio now plays:** `MediaModalHost` points the `AudioEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) audio open; imported audio still uses its object URL. The video on-disk note is kept (H7).
+- **On-disk audio now plays:** `MediaModalHost` points the `AudioEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) audio open; imported audio still uses its object URL. The video on-disk note is kept.
 - **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx`, CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch -> server kills the child), and on success the output path + **REVEAL IN FILES** (a `arco:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
 
 **Honest constraint (load-bearing):** FFmpeg needs an **on-disk** source, it can't read a browser object URL. So ops are enabled only for an on-disk (contextual) open; an **imported** file disables the ops with an inline note ("Open this file from the Files panel to run FFmpeg ops"). The blob is **not** uploaded in this phase.
@@ -128,7 +128,7 @@ they are documented here rather than in the contextual-help registry.
 
 **The ai-* exclusion (H3 deferred).** The 5 AI modules (`ai-inpaint`, `ai-rembg`,
 `ai-models`, `ai-tool-runner`, `ai-tools-misc`) are **not vendored**, local image
-AI (background-remove / smart-select / inpaint) is deferred (H3). Their imports in
+AI (background-remove / smart-select / inpaint) is deferred. Their imports in
 `galleryEditor.js` are replaced by local no-op stubs, so the **Bg Remove** /
 **Inpaint** / AI-tool buttons degrade to no-ops (the Wand "Bg Remove" hits a
 graceful early-return + toast, no crash, no fetch). `wire-inpaint-controls.js` is
@@ -204,7 +204,7 @@ in CONFIG -> TRANSPORT (or set the Codex transport default).
    `artifact.open-in-editor`) that opens the H2 raster editor on the saved path
    (`openImageForEdit` -> `mediaStudio.edit`), where the operator edits and re-saves
    through the guarded `/api/image/write` path. Round-trips the studio: generate
-   (Codex) -> edit (H2) -> save.
+   (Codex) -> edit -> save.
 
 ### LIVE-SHAPE CAVEAT (read before trusting this end-to-end)
 
@@ -227,7 +227,7 @@ The studio becomes a **general media tool**, not one fenced to a workflow folder
 1. **An imported (object-URL) file could play but not be operated on**, ffmpeg reads files, not blobs. Now an imported file is **staged to Arco scratch** (`POST /api/media/scratch`) and the op runs against the on-disk copy.
 2. **A file outside the workflow cwd couldn't be reached at all**, both the op route and `/raw` confined every path to the cwd. Now a tiered access fence permits arbitrary paths when the operator opts in.
 
-Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes in `HTTP_API.md § Media ops`; the load-bearing invariants are in `GOTCHAS.md § Media access fence (N2)`.
+Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes in `HTTP_API.md § Media ops`; the load-bearing invariants are in `GOTCHAS.md § Media access fence`.
 
 ### The access fence (the security core)
 
@@ -280,13 +280,13 @@ Eight new **render ops** fold into the existing typed-spec -> argv path (`buildA
 - **`inspect` writes no file** and so is its own endpoint (`POST /api/media/inspect` -> `inspectMedia`), not a `MediaOpSpec`. It resolves + gates the path the same way, runs `ffprobe -print_format json -show_format -show_streams`, and projects the result to a curated `MediaInspectResult` (the panel renders it inline). `buildArgs` therefore stays *total over render ops*.
 - **Output naming/uniquification is unchanged**, the new media-producing ops just teach `targetOutputExt` their real extension (framegrab -> the still ext, gif -> the anim ext, spectrogram -> `.png`); everything else keeps the source container. The never-overwrite-source invariant holds across all of them.
 
-### Client (N3)
+### Client
 
 - **`MediaAdvancedOps.tsx`**, one shared component (audio + video) for the single-input ops (framegrab / gif / geometry / speed / gain / spectrogram), `swap`-MUTE, and the inline **INSPECT** readout. It runs everything through the panel's existing `runOp(spec)` (so source-staging + SAVE TO... + status are reused); INSPECT alone goes through `postMediaInspect` (no file). Numeric inputs clamp to the shared bounds before building the spec.
 - **`postMediaOp.ts`** gains `resolveServerPath` (shared on-disk/import-staging) + `postMediaInspect`.
 - **Deferred:** `join` / `swap`-replace have no operator surface yet (they need a second-file picker + extra-input scratch staging). Their **server core + smoke are shipped**, only the UI wiring remains.
 
-### Smoke (N3)
+### Smoke
 
 `scripts/smoke/media-advanced-ops.ts` (`npm run smoke:media-advanced-ops`, ffmpeg-optional), a PURE half (validateSpec accepts good / rejects out-of-range + bad enums + malformed multi-input; `buildArgs` emits the **exact** argv per op; `targetOutputExt` per op) and a REAL-ffmpeg half (each op produces a correct output on a generated fixture; `inspect` returns curated facts and writes no file; a join whose extra input is out-of-cwd is rejected when locked, accepted when unconfined). 20/20.
 
@@ -304,11 +304,11 @@ True AI source separation (vocals / drums / bass / other, or a two-stems karaoke
 - **Format caveat (`torchcodec`).** mp3 (lameenc) is the default and always works. wav/flac route through torchaudio's `save_with_torchcodec` on some builds, if `torchcodec` is absent the runner detects the failure and returns a clear hint (use mp3, or add torchcodec with the system package manager). See `docs/OPERATIONS.md § Demucs`.
 - **Audited.** Success/failure broadcasts `media_stems_result` -> `events.jsonl` (sibling of `media_op_result`; stems aren't a `MediaOpKind`).
 
-### Client (N4)
+### Client
 
 `MediaStemsControls.tsx` in the **audio panel**, model / target (ALL or a two-stems isolate) / format selects + a **SEPARATE ->** button with its own long-job status (running + CANCEL, done = the stem list + REVEAL, error = the structured code/hint). `postMediaStems` (in `postMediaOp.ts`) resolves the source the same way (import -> scratch) and POSTs the run.
 
-### Smoke (N4)
+### Smoke
 
 `scripts/smoke/demucs.ts` (`npm run smoke:demucs`, demucs-optional) has a pure validation/argv suite and an optional real-demucs pass. The suite checks the four-stem and two-stem output layouts, fresh output directories, locked/unconfined path behavior, and missing output directories. Runtime and quality depend on the installed model and hardware.
 
@@ -316,7 +316,7 @@ True AI source separation (vocals / drums / bass / other, or a two-stems karaoke
 
 UI niceties added while testing N1-N4. All client-only; no protocol surface.
 
-- **Movable in-modal HelpCard (N1).** `client/src/components/help/HelpCard.tsx`, the `? HELP` button on a tool modal opens a draggable, filterable card listing just that tool's help snippets. **Load-bearing:** it is **portalled to `document.body`** at **z-index 9550** (above the media modal `9400` + cookbook `9500`, below tooltips `9600` / drag+notifications `9999`). The original `z-index:2000`-in-the-app-tree rendered it *behind* the modal, darkened by the backdrop, don't revert either the portal or the z-index.
+- **Movable in-modal HelpCard.** `client/src/components/help/HelpCard.tsx`, the `? HELP` button on a tool modal opens a draggable, filterable card listing just that tool's help snippets. **Load-bearing:** it is **portalled to `document.body`** at **z-index 9550** (above the media modal `9400` + cookbook `9500`, below tooltips `9600` / drag+notifications `9999`). The original `z-index:2000`-in-the-app-tree rendered it *behind* the modal, darkened by the backdrop, don't revert either the portal or the z-index.
 - **UNLOAD.** `MediaModalHost.clearSource()` drops the current source back to the Import affordance without leaving the modal or switching mode (revoke the object URL, clear path + image payload, reset viewer/region). `switchMode` shares it.
 - **Folder picker for save (`DirectoryPicker.tsx`).** `useDirectoryPicker()` is a promise-driven modal over `/api/list-dirs` + `/api/mkdir` (navigate, ^ up, new folder, optional filename) -> `{ dir, basename }`. Replaces the typed SAVE TO... fields. **An imported source with no destination pops it on op-run** (a real Save-As, no silent scratch); on-disk keeps "next to source". Owned by each ops panel and shared with `MediaSaveControls` + `MediaStemsControls` + each panel's `runOp`.
 - **Clickable output -> load (`loadOutputPath`).** The `✓ <path>` result line is a button: it loads the output back in as the new source (classify by ext -> switch mode + point `activePath` at the absolute output). **Load-bearing serve change:** `MediaModalHost`'s `serveUrl()` builds `/api/media/raw?path=...` for an **absolute** path with **cwd optional** (the route gates it cwd | scratch | unconfined), so a result in scratch / a chosen dir streams; an absolute image path uses the raw route while a **relative** cwd path still uses `/api/file-content` (the artifacts-dir fallback path). Don't re-require `fileContext` on the serve URLs.

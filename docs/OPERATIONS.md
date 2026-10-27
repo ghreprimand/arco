@@ -269,7 +269,7 @@ arco service logs
 
 Full CLI, the rendered systemd unit, the `ARCO_SERVE_CLIENT` static-serve gate, and the macOS caveat (manual run; launchd later) are in [`SERVICE_MODE.md`](SERVICE_MODE.md).
 
-The service runs compiled `dist/`, so source edits are invisible to it until `npm run build` + `systemctl --user restart arco.service`. **That restart kills every in-flight worker in every open tab** (same as a dev `tsx watch` restart), and a rebuild ships all uncommitted working-tree changes along with yours  - diff before deploying. After committing or pulling without rebuilding, the live service keeps running the old compiled `dist`. The Diagnostics tab's `core.code-skew` check (H43) WARNs when the running build is behind on-disk HEAD and points at `npm run build && systemctl --user restart arco.service`. The `core.systemd-shutdown-window` check (H42) WARNs if the unit's stop timeout is too short for graceful shutdown + flush. See [`DIAGNOSTICS.md`](DIAGNOSTICS.md).
+The service runs compiled `dist/`, so source edits are invisible to it until `npm run build` + `systemctl --user restart arco.service`. **That restart kills every in-flight worker in every open tab** (same as a dev `tsx watch` restart), and a rebuild ships all uncommitted working-tree changes along with yours - diff before deploying. After committing or pulling without rebuilding, the live service keeps running the old compiled `dist`. The Diagnostics tab's `core.code-skew` check WARNs when the running build is behind on-disk HEAD and points at `npm run build && systemctl --user restart arco.service`. The `core.systemd-shutdown-window` check WARNs if the unit's stop timeout is too short for graceful shutdown + flush. See [`DIAGNOSTICS.md`](DIAGNOSTICS.md).
 
 Run `npm run deploy:preflight` immediately before restarting. It reads the live
 open workspace: standalone workflow snapshots use `busy`, while cluster
@@ -338,7 +338,7 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Provider | Login command / endpoint | Status check |
 |---|---|---|
 | Claude (CLI transport) | `claude auth login` | `claude auth status --json` |
-| Claude (Native transport, Phase 7a) | `POST /api/auth/claude-native/login` (browser OAuth, callback at `localhost:53692`; falls back to manual paste if the port can't bind) | `GET /api/auth/claude-native` |
+| Claude (Native transport) | `POST /api/auth/claude-native/login` (browser OAuth, callback at `localhost:53692`; falls back to manual paste if the port can't bind) | `GET /api/auth/claude-native` |
 | Codex | `codex login` | `codex login status` |
 | Codex usage probe | `POST /api/codex-usage-login` (terminal-launched flow) | `GET /api/codex-usage` |
 | Gemini | `gemini auth login` (interactive  - opens a terminal) | `~/.gemini/oauth_creds.json` exists |
@@ -380,14 +380,14 @@ API-key fallbacks (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) work
 
 ### FFmpeg (required for Media studio audio/video ops)
 
-The Media studio's audio ops (H6: clip / convert / normalize / mono / stereo / fade / resample / extract) and the upcoming video ops (H7) shell out to **`ffmpeg`** and **`ffprobe`**  - system binaries on `PATH`, **not** npm deps. The waveform viewer + region select (H5) work without ffmpeg (browser-side decode); only the server-side ops + on-disk playback (the `/api/media/raw` serve route works without ffmpeg, but the ops don't) need it.
+The Media studio's audio ops (H6: clip / convert / normalize / mono / stereo / fade / resample / extract) and the upcoming video ops shell out to **`ffmpeg`** and **`ffprobe`** - system binaries on `PATH`, **not** npm deps. The waveform viewer + region select work without ffmpeg (browser-side decode); only the server-side ops + on-disk playback (the `/api/media/raw` serve route works without ffmpeg, but the ops don't) need it.
 
 - **Detection:** `server/src/media/ffmpeg.ts::ffmpegAvailable()` caches a `ffmpeg -version` probe. If ffmpeg is absent, `POST /api/media/op` returns `200 { ok: false, code: 'ffmpeg-missing', error }` (with this pointer)  - never a crash. The op buttons surface the error inline.
 - **Install (generic):** any recent ffmpeg (8.x verified)  - `apt install ffmpeg` / `brew install ffmpeg` / your distro's package. Confirm with `ffmpeg -version` and `ffprobe -version`.
 - **Install (a source-built distribution):** follow `the distribution packaging guide` (manifest-tracked, 5 categories). **Never `curl | sh`.**
 - **After install:** a running Arco server caches "ffmpeg missing"; **restart the server** to re-probe.
 
-#### Media access fence + scratch (N2)
+#### Media access fence + scratch
 
 The studio is a **general** media tool: it can open a picker-imported file, a file on an SMB mount, or anything outside a workflow folder, and write output to a chosen destination.
 
@@ -419,7 +419,7 @@ The audio panel's **STEMS** control shells out to **`demucs`** (Python + torch) 
 
 To watch live: `scripts/arco logs` or `tail -f $XDG_CACHE_HOME/arco/arco.log` (dev); `arco service logs` (service mode).
 
-**Memory trend (H46).** When file logging is enabled (service mode sets `ARCO_LOG_FILE=1`), the server logs a periodic `[arco][mem:...] rss=... heapUsed=... heapTotal=... external=... rssdelta=... rssPeak=...` line every 5 minutes, plus a boot baseline and a shutdown final sample. Grep `\[arco\]\[mem` to tell whether RSS crept up over hours or spiked in a single turn before an RSS-guard kill. Inert in dev (no file log path).
+**Memory trend.** When file logging is enabled (service mode sets `ARCO_LOG_FILE=1`), the server logs a periodic `[arco][mem:...] rss=... heapUsed=... heapTotal=... external=... rssdelta=... rssPeak=...` line every 5 minutes, plus a boot baseline and a shutdown final sample. Grep `\[arco\]\[mem` to tell whether RSS crept up over hours or spiked in a single turn before an RSS-guard kill. Inert in dev (no file log path).
 
 ---
 
@@ -469,7 +469,7 @@ Settings are read in three layers, lowest precedence first:
 2. **Global**  - `~/.arco/settings.json`. Hand-edited or written by `POST /api/settings` (the operator-facing patch path used by SystemHeader / SettingsPanel).
 3. **Project**  - `<cwd>/.arco/settings.json`. Hand-edited only; lets a repo pin theme, default model, transport, etc., independent of the operator's machine-wide global.
 
-A fourth conceptual layer exists in the protocol for transient runtime overrides ("in-memory"), but Phase 2 has no consumer for it  - `patchSettings` writes through to global, so the effective value matches what's on disk.
+A fourth conceptual layer exists in the protocol for transient runtime overrides ("in-memory"), but Arco has no consumer for it - `patchSettings` writes through to global, so the effective value matches what's on disk.
 
 ### Merge semantics
 
@@ -534,18 +534,18 @@ The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-e
 | `textBrightness` / `bgBrightness` / `crispText` | Independent brightness and text-legibility controls | Yes |
 | `operatorName` | Replace `> OPERATOR` chat label | Yes |
 | `acknowledgedCliVersions` | Dismiss CONFIG-tab dot | Yes |
-| `claude.transport` (`'cli' \| 'native'`) | Per-tab Claude transport (Phase 7a)  - overridden by `WorkflowConfig.claudeTransport`. Reviewers and handoff seeds always run on `cli` regardless. | Yes |
-| `codex.transport` (`'exec' \| 'appserver'`) | Per-tab Codex transport (Phase 6e)  - overridden by `WorkflowConfig.codexTransport`. Reviewers and handoff seeds always run on `exec`. | Yes |
+| `claude.transport` (`'cli' \| 'native'`) | Per-tab Claude transport - overridden by `WorkflowConfig.claudeTransport`. Reviewers and handoff seeds always run on `cli` regardless. | Yes |
+| `codex.transport` (`'exec' \| 'appserver'`) | Per-tab Codex transport - overridden by `WorkflowConfig.codexTransport`. Reviewers and handoff seeds always run on `exec`. | Yes |
 | `zai.transport` (`'native' \| 'appserver'`) | Per-tab Z.ai transport default (`native` when absent)  - overridden by `WorkflowConfig.zaiTransport` | Yes |
 | `claudeNativeCompactDefault` | Seeds new Native tabs' SERVER-SIDE COMPACTION toggle (absent => off) | Yes |
 | `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff thresholds/mode; pin a fresh-summarizer provider/model for handoffs | Yes |
 | `defaultProjectTrust` (`ask`/`always`/`never`) | DD7 default for unseen repos; read from global scope only | Yes |
 | `mediaUnconfined` | Media studio path fence (see External dependencies) | Yes |
-| `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.arco/handoff*.prompt.md` are the normal surface) | Yes (Phase 3) |
-| `queueMode` (`'visible' \| 'hidden'`) | Queue UX mode | Yes (Phase 4) |
-| `skillsExtraPaths` (`string[]`) | Extra skill scan dirs beyond `<cwd>/.arco/skills/` and `~/.arco/skills/` | Yes (Phase 1) |
+| `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.arco/handoff*.prompt.md` are the normal surface) | Yes |
+| `queueMode` (`'visible' \| 'hidden'`) | Queue UX mode | Yes |
+| `skillsExtraPaths` (`string[]`) | Extra skill scan dirs beyond `<cwd>/.arco/skills/` and `~/.arco/skills/` | Yes |
 
-Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, warnAt, autoAt }` (trusted context-signal providers only; enabled by default for new tabs), `claudeNativeCompact` (Phase 7c  - server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (Phase 6e  - one-shot warning gate when an operator first flips Codex transport to `appserver`).
+Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, warnAt, autoAt }` (trusted context-signal providers only; enabled by default for new tabs), `claudeNativeCompact` (server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (one-shot warning gate when an operator first flips Codex transport to `appserver`).
 
 ---
 
@@ -620,7 +620,7 @@ The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the
 
 ---
 
-## Observable runtime states (C1)
+## Observable runtime states
 
 Arco distinguishes six observable states so a failure tells you *which* failure it is. They split across two indicators: a global **connection** badge in the header, and a per-tab **runtime** pill above the composer.
 
@@ -645,7 +645,7 @@ The split is driven by the B2 `/healthz` endpoint: a closed socket plus a failed
 
 `busy`/`idle` reuse the existing composer chrome, so only the two new states (`stuck`, `replay-recovered`) get a dedicated pill.
 
-### Targeted recovery actions (C2)
+### Targeted recovery actions
 
 C1 made each failure observable; C2 maps each observable state to its **one correct recovery action** instead of one generic retry. The deriver (`recoveryActionFor` in `client/src/runtime/runtimeState.ts`) is pure, so the mapping is asserted headlessly by `npm run smoke:retry-paths`.
 
@@ -661,7 +661,7 @@ A bound **preview** target whose port has gone unreachable gets its own targeted
 
 ---
 
-## Robustness audit (C3)
+## Robustness audit
 
 C1 made each failure observable; C2 mapped each to its one correct retry; C3 is the audit that **proves** every enumerated failure case ends in a correct observable state with a working retry. `npm run smoke:robustness-audit` encodes each modelable case as a named timeline of input frames over the pure sectionC1/sectionC2 derivers (`client/src/runtime/runtimeState.ts`): at the failure point it asserts the expected connection state, workflow state, and recovery action; then applies the prescribed retry and asserts the timeline returns to health (`online` + `idle`/`busy`, no lingering action). It is pure / clock-injected / headless  - no live server, no provider spend, no real sockets  - exactly like `smoke:runtime-states` and `smoke:retry-paths`.
 

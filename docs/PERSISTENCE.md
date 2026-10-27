@@ -37,7 +37,7 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 ```
 <cwd>/.arco/
 ├──.gitignore                       # "workflows/" + projections - drops on first init
-├── settings.json                    # per-project settings overrides (Phase 2)
+├── settings.json                    # per-project settings overrides
 ├── session-index.json               # resume-picker projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
 ├── title-events.jsonl               # session-index title history (same module; rebuildable)
 ├── <workflowId>/                    # per-workflow CLI/Codex MCP config (mcp/mcpConfigWriter.ts) - cluster peer tools / codebase-memory / registry servers
@@ -50,16 +50,16 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 │       ├── gate-approvals.json      # DEBAG gate sidecar (gateStore.ts) - only when reviewSafeMode='on'
 │       ├── artifacts/               # review and worker outputs
 │       │   ├── review-<ts>.md
-│       │   ├── raw-tools/            # Phase C / - gzipped pre-filter & pre-eviction raw output
+│       │   ├── raw-tools/            # gzipped pre-filter & pre-eviction raw output
 │       │   │   └── <turnId>-<toolUseId>.txt.gz
 │       │   └──...
 │       ├── handoffs/                # session rotation documents
 │       │   ├── handoff-<ts>.md
 │       │   └──...
-│       ├── sandbox.db               # Phase E - per-tab SQLite + FTS5
+│       ├── sandbox.db               # per-tab SQLite + FTS5
 │       ├── sandbox.db-wal           # WAL sidecar (live)
 │       ├── sandbox.db-shm           # WAL sidecar (live)
-│       └── sandbox-tmp/             # Phase E - per-call exec workdirs
+│       └── sandbox-tmp/             # per-call exec workdirs
 │           └── run-XXXX/            # script + stdout buffer; cleaned on finalize
 ├── plans/                           # per-cwd plan briefs (see Plan store)
 │   ├── index.json
@@ -106,13 +106,13 @@ Each line is a JSON object: `{seq, ts, parentEventSeq?,...message}` where `messa
 
 `seq` is a per-workflow monotonic counter. `ts` is `Date.now` at the moment of stamping (slightly after the underlying message was created). The wire-message itself may also carry a `timestamp` field - that's the message's logical timestamp; `ts` is the persistence timestamp.
 
-`parentEventSeq` (Phase 0) links each event back to its predecessor in the workflow's events.jsonl. For linear workflows this equals `seq - 1`, so it's redundant; the field exists so Phase 9 forks can express a non-linear parent (the new branch's first event points back to the fork point, not the immediately previous seq) without a second schema bump. Absent on the very first event in a workflow and on every event in pre-Phase-0 (`schemaVersion: 1`) workflows. Readers treat absent as "previous event in seq order" - both wire (`WorkflowEvent`) and disk readers should handle the absent case.
+`parentEventSeq` links each event back to its predecessor in the workflow's events.jsonl. For linear workflows this equals `seq - 1`, so it's redundant; the field exists so forks can express a non-linear parent (the new branch's first event points back to the fork point, not the immediately previous seq) without a second schema bump. Absent on the very first event in a workflow and on every event in older (`schemaVersion: 1`) workflows. Readers treat absent as "previous event in seq order" - both wire (`WorkflowEvent`) and disk readers should handle the absent case.
 
-The new persisted event kinds Phase 0 introduces (no emitters in Phase 0 itself):
+Persisted event kinds introduced with the schema bump (no emitters at the time they were added):
 
-- `operator_label` - operator-attached note targeting a prior event by its seq. Surfaces in HISTORY (Phase 8).
-- `queue_update` - snapshot of the visible message queue (`steering[]`, `followUp[]`). Phase 4 emits on every queue mutation so replay reconstructs the queue strip.
-- `branch_summary` - declared Phase 0 but still reserved/unemitted; forks/rewind instead shipped via `leaf_move` (below).
+- `operator_label` - operator-attached note targeting a prior event by its seq. Surfaces in HISTORY.
+- `queue_update` - snapshot of the visible message queue (`steering[]`, `followUp[]`). Arco emits on every queue mutation so replay reconstructs the queue strip.
+- `branch_summary` - declared but still reserved/unemitted; forks/rewind instead shipped via `leaf_move` (below).
 - `leaf_move` (Native-first) - durable head move over the immutable log, emitted by HISTORY's REWIND CONVERSATION action. Persisted to events.jsonl **and** sets `meta.leafSeq` via atomic `writeMeta`. The branch-aware replay pre-pass treats it as a REDIRECT node - walking ancestry from the leaf jumps to its `targetSeq`, pruning the abandoned span - while the abandoned branch stays byte-identical on disk. Carries `source` (`BranchSource`; v1 only emits `'revert'`) and optional `reconstructed: true` (set when the pre-`targetSeq` events had rotated off the size-capped log, so the branch was summary-reconstructed rather than byte-replayed - hygiene-B: surface lossy rewinds, never silent).
 
 ### Write path
@@ -164,7 +164,7 @@ the read flushes the existing pending append buffer and never rewrites history.
 
 Used by `handleRehydrateWorkflows` to fill the gap between client `lastSeq` and server head.
 
-**Branch-aware pre-pass (Phase 10, Native).** When `meta.leafSeq` is set, the Claude Native resume path (`resumeSummary.ts`) does *not* replay flat seq order: `walkBranchSeqs` / `filterEventsToBranch` walk the lineage from `leafSeq`, treating each `leaf_move` they land on as a redirect to that event's `targetSeq`, and filter the event stream to just the live branch's seqs. `leafSeq` ABSENT ⇒ identity (events returned unchanged) ⇒ byte-identical to pre-Phase-10 behavior - the load-bearing no-regression invariant. This feeds the Native worker's `messages[]` cold-rebuild only; CLI/Codex (session-id / rollout resume) ignore `leafSeq`, which is why REWIND CONVERSATION is gated Native-only in v1.
+**Branch-aware pre-pass (Native).** When `meta.leafSeq` is set, the Claude Native resume path (`resumeSummary.ts`) does *not* replay flat seq order: `walkBranchSeqs` / `filterEventsToBranch` walk the lineage from `leafSeq`, treating each `leaf_move` they land on as a redirect to that event's `targetSeq`, and filter the event stream to just the live branch's seqs. `leafSeq` ABSENT ⇒ identity (events returned unchanged) ⇒ byte-identical to flat replay behavior - the load-bearing no-regression invariant. This feeds the Native worker's `messages[]` cold-rebuild only; CLI/Codex (session-id / rollout resume) ignore `leafSeq`, which is why REWIND CONVERSATION is gated Native-only in v1.
 
 ### First-seq detection (snapshot-only fallback)
 
@@ -196,12 +196,12 @@ Called when deciding between replay and snapshot-only. If `clientLastSeq + 1 < f
 
 See [`PROTOCOL.md`](PROTOCOL.md) for the full breakdown. Briefly:
 
-- **Persisted** (workflowId-scoped): `user_message_echo`, all `primary_*` (incl. `primary_turn_token_usage` from  Phase A), all `worker_*` (except `worker_activity`), `review_*`, `handoff_*`, `spawn_from_here_*` (most), `system_notice`, `queued_message_cancelled`, `plan_attached/detached`, `conversation_changed`, `workflow_created`. **Phase 0** added `operator_label`, `queue_update`, `branch_summary` (reserved). **Phase 7b** added `task_started`, `task_status`, `plan_set`, `plan_exited` (persisted on the parent workflow). ** Phase B** added `hook_rewrote_input`, `tool_gate_triggered`, `ctx_action` (all routed via the Native worker's `workflowEventBroadcast` callback -> `broadcastWorkflow` so they get standard seq + parentEventSeq stamping). ** Phase C** adds `tool_filtered` (same broadcast path); when `originalBytes !== filteredBytes` the worker also writes a gzipped raw-output artifact to `artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps `rawArtifactPath` (workspace-relative) on the event, so the operator can recover what the model didn't see. **/ context-management (Native)** added `context_folded` (deterministic in-place Fold marker - **load-bearing on replay**: like `native_compacted`, replay resets at it and re-seeds `summary`+`keptTail` via `compactSummarySeed`) and `tool_evicted` (aggregate per-turn spill; like `tool_filtered` it gzips the raw output to `artifacts/raw-tools/<turnId>-<toolUseId>.txt.gz` and stamps `rawArtifactPath`, so both filtered and evicted raw output stay recoverable). **DEBAG** added `gate_required` / `gate_resolved` / `gate_standing` (all via the standard persisting broadcast path; events.jsonl is the gate audit source of truth - see gate-approvals.json above). **Phase 10 forks** added `leaf_move` (load-bearing redirect node for branch-aware replay). **Tool posture (Native)** added `tool_posture_set` (broadcast via `broadcastWorkflow` so the posture pill replays after reconnect; the posture itself is session-local - recorded in events.jsonl, deliberately NOT written to `meta.json` - see `server/src/ws/postureHandlers.ts`). **Cluster mode** added `peer_message_sent` (on sender's workflow), `peer_message_received` (on recipient's workflow - fires on `peer_read`, not pre-turn), `peer_send_rejected` (on sender's workflow), `cluster_auto_turn_fired` (on recipient's workflow, rate-limited audit). **Native compact** added `native_compacted { summary, foldedTurns? }` - the operator in-place compaction marker; it is **load-bearing on replay** (Claude and Z.ai native replay reset at it like `handoff_artifact_ready` and re-seed the summary), so it must persist. **Z.ai Native** added hidden `zai_native_history` snapshots - these are provider-history state, not UI chat; replay uses them to preserve exact GLM `reasoning_content`, assistant `tool_calls`, and tool results across service restarts; after native compact, a fresh snapshot records the exact compacted GLM seed. **Director/workers task kernel** added `task_ledger_event` (every task mutation, including `dispatch_fired`, `dispatch_skipped`, `run_started`, `run_completed`, `run_failed`, `run_reclaimed`, `run_terminated`, and `comment` ops) - the durable audit that lets `rebuildFromEvents` reconstruct both `tasks.json` and the comment/run projection without the snapshot file. **North-star** added `goal_set { goal, byteLen }` (emitted persist-then-announce by `update_primary_config` - the meta.json write lands first, so "`goal_set` observed ⇒ value already durable"; `goal` null on clear).
-- **Transient** (broadcast but not persisted): `connected`, `quota_status`, `context_usage`, `session_entry` (the JSONL is the source of truth elsewhere), `session_history_status`, `worker_activity`, `primary_activity`, `workflow_state_snapshot`, `shutdown`, `error`, `capabilities_*`, `spawn_from_here_complete`, `queued_messages_drained` (Phase 4 - drain confirmation), `codex_token_snapshot` (Phase 6 - derived from the on-disk rollout), `todos_updated` (Phase 7a - Native worker holds canonical state), `context_budget` ( token-budget meter - derived each turn from the persisted `lastPromptTokens`, never persisted itself), `ultracode_fleet_progress` ( - live per-turn snapshot of the background subagent fleet; like `context_usage` a snapshot replaces the prior in place, never landed in events.jsonl).
+- **Persisted** (workflowId-scoped): `user_message_echo`, `primary_*`, `worker_*` (except `worker_activity`), `review_*`, `handoff_*`, `spawn_from_here_*` (most), `system_notice`, `queued_message_cancelled`, `plan_attached/detached`, `conversation_changed`, and `workflow_created`. Other persisted events support specific durable features: `operator_label` and `queue_update` support HISTORY and queue replay; `branch_summary` remains reserved; `task_started`, `task_status`, `plan_set`, and `plan_exited` are written to the parent workflow; `hook_rewrote_input`, `tool_gate_triggered`, and `ctx_action` record Native tool changes; `tool_filtered` records filtered output and stores recoverable raw output when filtering changes the bytes; `context_folded` and `tool_evicted` reset Native replay state and retain raw tool output; `gate_required`, `gate_resolved`, and `gate_standing` form the approval audit; `leaf_move` records conversation rewinds; `tool_posture_set` records the session-local tool posture; `peer_message_sent`, `peer_message_received`, `peer_send_rejected`, and `cluster_auto_turn_fired` record cluster messaging; `native_compacted` is a replay marker for Native compaction; `zai_native_history` preserves GLM provider history across restarts; `task_ledger_event` rebuilds task state and comments; and `goal_set` records the North Star value after it is durable. Raw filtered and evicted outputs are compressed under `artifacts/raw-tools/` and referenced by their events.
+- **Transient** (broadcast but not persisted): `connected`, `quota_status`, `context_usage`, `session_entry` (the JSONL is the source of truth elsewhere), `session_history_status`, `worker_activity`, `primary_activity`, `workflow_state_snapshot`, `shutdown`, `error`, `capabilities_*`, `spawn_from_here_complete`, `queued_messages_drained` (drain confirmation), `codex_token_snapshot` (derived from the on-disk rollout), `todos_updated` (Native worker holds canonical state), `context_budget` (token-budget meter - derived each turn from the persisted `lastPromptTokens`, never persisted itself), `ultracode_fleet_progress` (- live per-turn snapshot of the background subagent fleet; like `context_usage` a snapshot replaces the prior in place, never landed in events.jsonl).
 
 The transient set is derived state; if the client disconnects and reconnects, the snapshot reconstructs them.
 
-### Task children (Phase 7b - special replay rule)
+### Task children (special replay rule)
 
 Task lifecycle events are persisted on the parent workflow but the **client-side `taskChildren` map is rebuilt from those events**, not loaded from disk. To make refresh-after-settle work, the server re-broadcasts `task_started` and `task_status` events on rehydrate **regardless of `clientLastSeq`** - without that, a workflow whose only Task fan-out happened pre-refresh would come up showing `0s · RUNNING` forever (the lifecycle events sit below the seq cutoff). The client's `recordTaskStarted` / `recordTaskStatus` actions are idempotent so re-broadcast is safe; the same `taskChildren` map is also added to the Zustand store's `partialize` allow-list so settled state survives reload without depending on the replay path.
 
@@ -214,7 +214,7 @@ Per-workflow identity file. Atomic writes via `atomicFile.ts`. The type is `Work
 ```ts
 interface WorkflowMeta {
   workflowId: string;
-  schemaVersion?: number;                // 2 = Phase 0 onwards; absent / 1 = pre-Phase-0 (events.jsonl has no parentEventSeq)
+  schemaVersion?: number; // 2 = current schema; absent / 1 = older events.jsonl files without parentEventSeq
   name: string;
   cwd: string;
   kind?: 'workflow' | 'chat';            // 'chat' ⇒ projectless Chat tab (cwd = ~/.arco/chats/<wfid>)
@@ -241,7 +241,7 @@ interface WorkflowMeta {
   chatWebAccess?: boolean;               // chat-only; absent ⇒ chatWebArmed default (on for saved chats)
   autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number };  // per-tab auto-fold (Native)
   reviewSafeMode?: 'off' | 'on';         // DEBAG per-tab durable review gate; absent on rehydrate ⇒ OFF
-  leafSeq?: number;                       // Phase 10 fork head pointer; absent ⇒ head is physical tail
+  leafSeq?: number; // fork head pointer; absent ⇒ head is physical tail
   calibration?: { ratio, overhead, lastGroundTruth };
   planId?: string;
   planLastSeenUpdatedAt?: number;
@@ -318,11 +318,11 @@ Why each part:
 ### Field-by-field
 
 - **`workflowId`** - UUID matching `^[a-zA-Z0-9-]{1,64}$`. Stable across server restarts.
-- **`schemaVersion`** - current value `2` (Phase 0). Absent or `1` on pre-Phase-0 metas. Migration is **lazy-on-read**: a v1 meta loads as-is and is rewritten as v2 the next time `writeMeta` runs against it (any meta-mutating handler - `touchLastActive`, `appendCliSession`, etc.). No events.jsonl rewrite - replay infers `parentEventSeq` from seq order on v1 events.
+- **`schemaVersion`** - current value `2`. Absent or `1` on older metas. Migration is **lazy-on-read**: a v1 meta loads as-is and is rewritten as v2 the next time `writeMeta` runs against it (any meta-mutating handler - `touchLastActive`, `appendCliSession`, etc.). No events.jsonl rewrite - replay infers `parentEventSeq` from seq order on v1 events.
 - **`name`** - operator-provided display name. Editable.
 - **`cwd`** - absolute path to the working directory. Used for everything path-scoped.
 - **`createdAt` / `lastActiveAt`** - epoch ms. `lastActiveAt` updates on every primary turn (via `touchLastActive`).
-- **`primaryProvider/Model/Effort`** - current primary config. Phase 8 renamed these from `orchestrator*`; `readMeta` has a back-compat shim that maps the old keys -> new keys, so pre-Phase-8 meta files still load.
+- **`primaryProvider/Model/Effort`** - current primary config. renamed these from `orchestrator*`; `readMeta` has a back-compat shim that maps the old keys -> new keys, so older meta files still load.
 - **`cliSessions[]`** - ledger of CLI sessions bound to this workflow. Newest last. Entries are added on session mint; for Codex, the placeholder UUID is reconciled in place once the real thread_id arrives (`reconcileLatestCliSession`). Computer fresh-context boundaries retire Codex entries after archiving the active session; this prevents restart from resuming an archived thread.
 - **`history[]`** - archived sessions from Handoff or Computer fresh starts (`archivedReason: 'computer-fresh-context'`). Handoff sessions can appear in both `cliSessions[]` and `history[]` (live, then later rotated). Carries timestamps and a turnCount snapshot; Handoff entries also carry their artifact link.
 - **`computerContext`** - Computer-only reset policy and boundary state: `resetAtPercent` (undefined selects 50% subscription / 75% local; null means OFF), `keepContext` (default false), `resets`, optional `pendingFresh`, `pendingFreshReason`, `lastResetAt`, `lastResetSeq`, `lastResetReason` and `previousSessionId`. `voice/computerContext.ts` serializes controls/reset checks and uses `updateMeta` for atomic archive + active-ledger retirement before broadcasting `computer_context_updated`. Saved transcript/rollout remain intact; no old messages or summary reach the next model thread. Incognito state stays memory-only; losing its ephemeral Codex connection clears it visibly with reason `recovery`. Ordinary manual/threshold resets wait for a settled turn/queue; the stall watchdog only stops work and cancels queued requests, never executes a command on a timer.
@@ -332,17 +332,17 @@ Why each part:
 - **`autoHandoff`** - `{ enabled: bool, warnAt: 0-100, autoAt: 0-100 }`. Persisted from the CONFIG tab. Read by `maybeAutoHandoff` after each primary turn.
 - **`autoFold`** - `{ enabled, foldAt, tailBudget? }`. Per-tab arming of the deterministic in-place Fold auto-trigger (Claude Native). Persisted so arming survives restart; default OFF.
 - **`reviewSafeMode`** - `'off' | 'on'` (DEBAG). Arms the durable edit-before-approve gate. Default OFF; **absent on rehydrate ⇒ OFF** (opting in is always explicit). Native-only. Drives whether `gate-approvals.json` is written.
-- **`leafSeq`** - Phase 10 fork head. Absent ⇒ head is the physical file tail (byte-identical, no-regression invariant). When set, the Native branch-aware replay walks lineage following `leaf_move` redirects so a rewound head replays only its own branch.
+- **`leafSeq`** - fork head. Absent ⇒ head is the physical file tail (byte-identical, no-regression invariant). When set, the Native branch-aware replay walks lineage following `leaf_move` redirects so a rewound head replays only its own branch.
 - **`calibration`** - `{ ratio, overhead, lastGroundTruth }`. The persisted ground-truth context-fill ratio for the current CLI session. Seeded into `WorkflowState.calibration` on rehydrate so a server restart doesn't drop back to the default heuristic. `zonesCalibrated` (in-memory) is **not** persisted - restart re-enters zones fresh so calibration refreshes against current session state.
 - **`planId` / `planLastSeenUpdatedAt`** - attached plan and the plan's `updatedAt` at last injection. If the plan body is edited between turns, the next turn detects the difference and injects a refresh notice so the agent picks up the change.
 - **`disableRssGuard`** - opt-out for the 32 GB tree-RSS kill. Set only for workflows running legitimate high-memory workloads (kernel compiles, big LTO links). Honored only for primary turns; reviewers and handoff reflections always run under the global cap.
 - **`preview`** - `{ port, framework?, manual }`. Currently bound dev-server port for the Preview tab. `manual: true` means the operator typed the port and hit BIND; `manual: false` means `previewAutoDetect` resolved it. The auto-detector never overwrites a `manual: true` entry. On rehydrate the server broadcasts `preview_set` with `freshlyBound: false` so the UI restores the iframe without auto-flipping the active tab.
 - **`previewHistory`** - most-recent-first list of bound dev-server ports for this workflow (capped at 5). Append on every successful `set_preview_port`; consecutive same-port events dedupe to a timestamp refresh. Replayed via `preview_history` on rehydrate alongside `preview_set` so reconnect doesn't lose the chain.
-- **`claudeTransport`** - `'cli' | 'native' | undefined` (Phase 7a). Per-tab override of the global `claude.transport` setting. Persisted so tab reload picks up the choice without consulting cascade. **Meta-reconcile is gated on `claudeTransport !== 'native'`** - Native sessions write no CLI rollout, so the dispatcher must not pin a phantom CLI session UUID on `wf.primarySessionId` (it would auto-degrade an original-worker Spawn into a `claude --resume <phantom>` against a missing rollout, killing the handoff silently). **Session storage note:** the Claude Native transport writes to the same `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl` path that the CLI transport uses - it's Claude Code's own session file, written by the SDK's built-in JSONL logger. Arco reads this file via the session watcher (`chokidar`) to drive `session_entry` events regardless of transport.
-- **`codexTransport`** - `'exec' | 'appserver' | undefined` (Phase 6e). Per-tab override of the global `codex.transport` setting; same persistence semantics.
-- **`claudeNativeCompact`** / **`autoHandoff`** - Phase 7c per-tab toggles for Native server-side compaction and Arco-managed handoff. See PROVIDERS.md Native management.
-- **`efficiencyAutoCompact`** - `'off' | 'conservative' | 'aggressive' | undefined` ( Phase 6b.2). Per-tab opt-in to the auto-threshold `ctx_action {trigger: 'auto-threshold'}` emission. Honored only on Claude Native turns.
-- **`efficiencyToolFilter`** - `'off' | 'conservative' | 'aggressive' | undefined` ( Phase C). Per-tab Native tool-result filter mode. Honored only on Claude Native turns.
+- **`claudeTransport`** - `'cli' | 'native' | undefined`. Per-tab override of the global `claude.transport` setting. Persisted so tab reload picks up the choice without consulting cascade. **Meta-reconcile is gated on `claudeTransport !== 'native'`** - Native sessions write no CLI rollout, so the dispatcher must not pin a phantom CLI session UUID on `wf.primarySessionId` (it would auto-degrade an original-worker Spawn into a `claude --resume <phantom>` against a missing rollout, killing the handoff silently). **Session storage note:** the Claude Native transport writes to the same `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl` path that the CLI transport uses - it's Claude Code's own session file, written by the SDK's built-in JSONL logger. Arco reads this file via the session watcher (`chokidar`) to drive `session_entry` events regardless of transport.
+- **`codexTransport`** - `'exec' | 'appserver' | undefined`. Per-tab override of the global `codex.transport` setting; same persistence semantics.
+- **`claudeNativeCompact`** / **`autoHandoff`** - per-tab toggles for Native server-side compaction and Arco-managed handoff. See PROVIDERS.md Native management.
+- **`efficiencyAutoCompact`** - `'off' | 'conservative' | 'aggressive' | undefined`. Per-tab opt-in to the auto-threshold `ctx_action {trigger: 'auto-threshold'}` emission. Honored only on Claude Native turns.
+- **`efficiencyToolFilter`** - `'off' | 'conservative' | 'aggressive' | undefined` .  Per-tab Native tool-result filter mode. Honored only on Claude Native turns.
 - **`outputStyle`** - `'normal' | 'lite' | 'terse' | undefined`. Per-tab output-style picker. Persists across server restart; honored by Claude Native, Codex app-server, and Z.ai turns. Review / Handoff seed / DOCS / GIT primitives hard-code `'normal'` regardless of the persisted value. Legacy `'caveman'` values in pre-2026-05-10 meta.json files are auto-aliased to `'terse'` on read. See PROVIDERS.md Native style.
 - **`goal`** - `string | undefined`. Per-tab operator-set persistent **north-star**: a short free-text objective injected as a stable system block every turn on every transport that folds `clusterPlan` (Native, CLI Claude, both Codex, Z.ai native, Cursor (ACP + print), Ollama/llama.cpp/LM Studio). Zero model authority - pure steering context, never a controller; there is no model tool that mutates it. Persists across server restart; absent/blank on rehydrate ⇒ no block (byte-identical to pre-feature behavior). Capped at `GOAL_MAX_BYTES = 2048` (trimmed on write by `capGoal`). Set/edit/clear via `update_primary_config`, which emits a `goal_set { goal, byteLen }` event to `events.jsonl`. **Unlike `outputStyle`**, Review / Handoff / DOCS / GIT / Spawn / Task-child seeds INHERIT it. See [TASK_LEDGER.md](TASK_LEDGER.md).
 - **`ultracode`** - `boolean | undefined`. Sticky ultracode mode; default OFF. Survives restart so a tab left in ultracode resumes there. Claude-only.
@@ -351,7 +351,7 @@ Why each part:
 - **`kind` / `lastUserPreview` / `chatWebAccess`** - Chat-mode fields. `kind:'chat'` routes the meta to `~/.arco/chats/`, skips the project session-index upsert, and is what `GET /api/chats` filters on; `lastUserPreview` is capped + flattened on write so Past Chats never reads JSONL; `chatWebAccess` is written only for chat metas.
 - **`codexContextPolicy`** - `'max' | 'standard' | undefined`. Absent ⇒ MAX, resolved at spawn from the account's `$CODEX_HOME/models_cache.json`. Part of the app-server bootstrap signature, so a change recycles the child and resumes the same thread.
 - **`resolvedModelId`** - the concrete id the API served behind an alias (`opus` -> `claude-opus-5-5`), written fire-and-forget by the Native worker so turn 1 after a restart gates capabilities correctly. The alias stays in `primaryModel` so auto-tracking is preserved.
-- **`parentWorkflowId`** (Phase 7b) - set when this workflow was minted by a Native `Task` tool call. Both `meta.json` and the broadcast `workflow_created` carry it; the client uses it to suppress tab creation + active-tab switch while the workflow is parented + unpromoted (TabBar filters parented children where `!promoted`).
+- **`parentWorkflowId`** - set when this workflow was minted by a Native `Task` tool call. Both `meta.json` and the broadcast `workflow_created` carry it; the client uses it to suppress tab creation + active-tab switch while the workflow is parented + unpromoted (TabBar filters parented children where `!promoted`).
 
 ### Read / write helpers
 
@@ -368,7 +368,7 @@ Why each part:
 
 ---
 
-## sandbox.db (Phase E)
+## sandbox.db
 
 `<cwd>/.arco/workflows/<wfid>/sandbox.db` - per-tab SQLite database opened by `server/src/providers/claude-native/sandboxStore.ts` (via `better-sqlite3`). Holds chunks produced by `ctx_execute` for later retrieval via `ctx_search` (BM25 over FTS5) / `ctx_fetch` (by chunkId). Only created when the operator flips `efficiencySandbox = 'on'` on a Claude Native tab; tabs that never opt in have no file on disk.
 
@@ -635,7 +635,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 │   ├── <provider>.txt               # raw --version/--help capture
 │   ├── <provider>.meta.json
 │   └── <diff file>                  # written when a change is detected; served by GET /api/cli-snapshot?name=
-├── clusters/                        #  Phase 1
+├── clusters/
 │   └── <clusterId>/
 │       ├── meta.json                # ClusterState (members[], cwd, createdAt ISO, taskBoardMode, efficiencyLevel, dispatcher, memberRoles/Tiers/Focuses, progressTracking, ...)
 │       ├── plan.md                  # shared cluster plan body
@@ -663,7 +663,7 @@ attempt checkout are excluded from candidate diffs and promotion.
 
 Per-cluster directory tree, created by `POST /api/clusters` or the WS create path (`server/src/clusterStore.ts`). `meta.json` is written under `proper-lockfile` (cross-process writer serialization) **and** through `atomicFile.ts` (crash-safe body) - complementary, neither substitutes for the other. The cluster plan body lives at `plan.md` alongside `meta.json` (`server/src/clusterPlanStore.ts`), with a `plan.meta.json` sidecar holding `{ updatedAt }`.
 
-Phase 12's board surface introduces **no new persistence**: `taskBoardMode` (`'project'` for new clusters - the default-attach - `'none'`, or a cluster-private board keyed by `taskBoardKey`) in cluster `meta.json` selects the board, and the board reads/writes the existing per-cwd project task ledger (`<cwd>/.arco/project/tasks.json` + the `task_ledger_event` stream covered above). Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** - default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
+Arco's board surface introduces **no new persistence**: `taskBoardMode` (`'project'` for new clusters - the default-attach - `'none'`, or a cluster-private board keyed by `taskBoardKey`) in cluster `meta.json` selects the board, and the board reads/writes the existing per-cwd project task ledger (`<cwd>/.arco/project/tasks.json` + the `task_ledger_event` stream covered above). Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** - default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
 
 **Mailbox** - one file per pending peer message under `mailbox/<recipientWfId>/<msgId>.json`. `peer_send` writes the file **atomically** (`atomicFile.ts`; a concurrent drain reading a half-written message would parse-fail and be unlinked as "stale", silently losing it); the recipient's `peer_read` tool call drains (`clusterMailbox.drain` reads + unlinks all files). Drain is destructive: the file is removed after reading. The durable record of each delivered peer message lives in the recipient's `events.jsonl` as a `peer_message_received` event - mailbox files are ephemeral by design. Operator can cancel an individual pending message via `DELETE /api/clusters/:id/mailbox/:wfid/:msgId` (`clusterMailbox.discard` - unlinks the file without emitting any event). Message id format: `<epochMs>-<8-char-uuid>` - ms prefix gives lexicographic chronological order without `stat`.
 
@@ -734,11 +734,11 @@ Small global JSON stores, each written through `atomicFile.ts` (`notification-mu
 
 `server/src/skillUsage.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs SKILL.md path>: { count, lastUsed } } }`. Incremented deterministically on a `Read` tool_use whose `file_path` resolves to a `.arco/skills/<slug>/SKILL.md` (project or global) - there is no `skill_view` tool, so the Read of the manifest path *is* the use signal. Purely diagnostic (counts render in the Skills UI; nothing is auto-archived - archiving is an operator decision). Fail-safe: a malformed/absent file reads as empty and write errors are swallowed (telemetry must never break a turn). Atomic write (`durability: 'advisory'` - telemetry); the read-modify-write is serialized through `withFileLock` so concurrent tabs don't clobber.
 
-### trust.json (DD7)
+### trust.json
 
 `server/src/projectTrust.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs cwd>: { decision: 'always' | 'never', at } } }`. Gates the three project-local injection surfaces (AGENTS.md, project skills, project `.arco/settings.json`) behind an explicit operator trust decision; nearest-ancestor wins (a `never` on a subdir overrides an `always` on its parent). The fallback default lives in global `settings.json` under `defaultProjectTrust` (`'ask' | 'always' | 'never'`, default `'ask'`) - resolved from USER/GLOBAL scope ONLY before any project-local file is read, so a cloned repo cannot self-grant trust via a checked-in `.arco/settings.json`. A recorded decision is one line the operator can flip or delete by hand.
 
-### prompts/ (DD10)
+### prompts/
 
 Operator-authored `<name>.md` markdown templates expanded by the `/prompt <name> args...` composer command (`server/src/prompts.ts`); bash-positional args (`$1`..`$9` / `${N}`) interpolate into the body. Two scopes: `~/.arco/prompts/` (global - the operator's own, ungated) and `<cwd>/.arco/prompts/` (project - only expanded when the repo is DD7-trusted, since a cloned repo could ship a hostile template). Project wins over global on a name clash. Optional `--- description: ... ---` frontmatter; everything after is the template.
 
@@ -790,7 +790,7 @@ A plain JSON array. Appended (under `withFileLock`) on workflow create / rehydra
 
 ### worker-pids.json
 
-`server/src/workers/pidRegistry.ts`. Live worker PIDs for orphan reaping, each paired with its process start time (H44), written atomically via `atomicWriteFileSync` (sync because shutdown reaping runs after the event loop has stopped):
+`server/src/workers/pidRegistry.ts`. Live worker PIDs for orphan reaping, each paired with its process start time, written atomically via `atomicWriteFileSync` (sync because shutdown reaping runs after the event loop has stopped):
 
 ```json
 { "procs": [{ "pid": 12345, "startTime": "..." }, { "pid": 23456, "startTime": null }] }
@@ -851,7 +851,7 @@ The Zustand store (`client/src/stores/appStore.ts`) persists a slim subset of st
 
 Since the server-authoritative workspace (`~/.arco/workspace.json`), this slice is a **cache**: on every connect the client reconciles `jobs` / `clusters` to the server's open set (dropping tabs closed elsewhere, materializing tabs opened elsewhere). `arco.workspaceAdopted` (separate key) records that this browser's local tabs were merged into the server set once.
 
-- **`jobs`** - per-workflow entries: `id`, `currentSessionId`, `config`, the last 200 `messages`, cost/token totals, `resolvedPrimaryModel`, the last 40 `reviews` / `research` / `handoffs`, `lastSeq`, `taskChildren` / `parentWorkflowId` / `promoted` (Phase 7b), and the last 500 `historyEvents` (Phase 8). `workers` is persisted as `{}` - the server re-pushes live state on reconnect.
+- **`jobs`** - per-workflow entries: `id`, `currentSessionId`, `config`, the last 200 `messages`, cost/token totals, `resolvedPrimaryModel`, the last 40 `reviews` / `research` / `handoffs`, `lastSeq`, `taskChildren` / `parentWorkflowId` / `promoted`, and the last 500 `historyEvents`. `workers` is persisted as `{}` - the server re-pushes live state on reconnect.
 - **`activeJobId`** - the focused tab (nulled when it is incognito).
 - **`clusters`** / **`activeClusterId`** / **`clusterGridSplit`** / **`clusterCardLayout`** - cluster mirror + layout; the server's `cluster_state` overwrites the mirror after subscribe.
 - **`showCreator`**.
@@ -867,7 +867,7 @@ notifications and remote reporting, and keeps Claude framing off argv/temp
 files. llama.cpp is unavailable because its shared daemon log is not separable
 per request. External API retention is outside Arco's storage boundary.
 
-**`taskChildren`** - Settled Task-child records (Phase 7b) are included in the partialize allow-list so the TASKS sub-tab and TaskCard renders correctly after a page reload without waiting for the replay path to re-deliver lifecycle events. The server also re-broadcasts `task_started` / `task_status` on rehydrate regardless of `clientLastSeq` as a belt-and-suspenders; the idempotent client-side actions make the two paths safe to combine.
+**`taskChildren`** - Settled Task-child records are included in the partialize allow-list so the TASKS sub-tab and TaskCard renders correctly after a page reload without waiting for the replay path to re-deliver lifecycle events. The server also re-broadcasts `task_started` / `task_status` on rehydrate regardless of `clientLastSeq` as a belt-and-suspenders; the idempotent client-side actions make the two paths safe to combine.
 
 **HISTORY tab filter strip** - Per-workflow filter selection is stored under `arco.historyFilter.byWorkflow.<workflowId>` in `localStorage` (separate from the main Zustand key) by `client/src/components/HistoryTab.tsx`. No server-side persistence; resets to default on first load for any given workflow.
 

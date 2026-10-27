@@ -50,7 +50,7 @@ orphaned `running` attempts to `interrupted`.
 }
 ```
 
-`ReviewContextRef` discriminates the slice. Five transcript-scope variants, three plan-scope variants, two cluster-plan-scope variants, the Phase 8 history-anchored variant, and the preview-capture variant:
+`ReviewContextRef` discriminates the slice. Five transcript-scope variants, three plan-scope variants, two cluster-plan-scope variants, the history-anchored variant, and the preview-capture variant:
 
 ```ts
 type ReviewContextRef =
@@ -75,7 +75,7 @@ type ReviewContextRef =
   // `PRIMITIVES.md-plan-scoped review`.
   | { kind: 'cluster-plan-whole'; clusterId: string; mode: PlanReviewMode }
   | { kind: 'cluster-plan-phase'; clusterId: string; heading: string; mode: PlanReviewMode }
-  // Phase 8 - events.jsonl slice from `anchorEventSeq` onward. Wired from
+  // events.jsonl slice from `anchorEventSeq` onward. Wired from
   // the HISTORY tab's "REVIEW FROM HERE" button. Reviewer framing names
   // the operator label when the anchor is an `operator_label` event.
   | { kind: 'since-event'; anchorEventSeq: number }
@@ -301,7 +301,7 @@ Kills every still-running leg worker (and the synth worker); each leg's terminal
 }
 ```
 
-Workbench Expansion **C2 - provider fallback chains.** Emitted once per chain
+**Provider fallback chains.** Emitted once per chain
 advance during a **bounded** job (reviewer / research leg) when its current
 provider returned a classified failover error (`fallback` / `rotate` /
 `backoff_then_rotate`) and an operator-configured next leg exists. Workflow-
@@ -568,14 +568,14 @@ Fires after handoff. Announces the new CLI session ID and prepares the client to
   newDirection?: string,            // optional new direction prompt
   summarizer?: { provider: ProviderName, model: ModelName, effort: EffortLevel },
   includePlan?: boolean,            // copy parent's attached plan onto the spawn
-  // Phase 8 - truncate the parent's transcript to events with seq <= this
+  // truncate the parent's transcript to events with seq <= this
   // value before generating the handoff. Wired from the HISTORY tab's
   // "SPAWN FROM HERE" button. Honored by fresh-summarizer mode and by
   // Native original-worker (replayMessagesFromEvents stops at the cutoff);
   // CLI original-worker silently ignores - `claude --resume` carries the
   // full prior session and there's no clean way to truncate its view.
   cutoffEventSeq?: number,
-  // Phase 2.5b - when set, server adds the spawned workflow to this cluster
+  // b - when set, server adds the spawned workflow to this cluster
   // after creation. Validated up front (`unknown_cluster:<id8>`, and
   // `member_not_supported` unless newConfig.primaryProvider is claude or
   // codex - narrower than the cluster fence) so a rejected join never

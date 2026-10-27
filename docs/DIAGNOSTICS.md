@@ -10,7 +10,7 @@ the **System** modal, opened from the header. Three tabs: **Actions**
 | Layer | File |
 |---|---|
 | Pure check registry (probe logic) | `server/src/diagnostics/checks.ts` |
-| Support-bundle builder + redaction | `server/src/diagnostics/supportBundle.ts` (A2) |
+| Support-bundle builder + redaction | `server/src/diagnostics/supportBundle.ts` |
 | HTTP route | `server/src/http/diagnosticsRoutes.ts` (`GET /api/diagnostics` + `.../support-bundle` + `.../model-health`) |
 | Shared response types | `shared/src/protocol/opsDiagnostics.ts` |
 | Client tab | `client/src/components/DiagnosticsTab.tsx` |
@@ -103,7 +103,7 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `storage.arco-home` | `~/.arco` size (recursive byte sum). |
 | `storage.project-arco` | **`skipped`**, per-cwd `<cwd>/.arco` is workflow-scoped, not a global path. |
 
-### Security & Exposure (A4)
+### Security & Exposure
 
 A read-only exposure-posture readout: when is Arco reachable beyond this
 machine, and what does that imply? Informational only, **not** a multi-user
@@ -153,7 +153,7 @@ the Core group has at least one `ok`; the TS-LSP-absent check degrades to
 `warn`/`skipped` (not `error`); and no probe surfaced a `probe threw:` error.
 Override the base with `ARCO_SMOKE_HTTP_BASE`.
 
-## Support bundle (A2)
+## Support bundle
 
 The **⧉ COPY SUPPORT BUNDLE** button beside `↻ REFRESH` copies a paste-ready,
 **redacted** text snapshot of this machine, the A1 diagnostics report plus
@@ -213,7 +213,7 @@ private paths. Three layers stack:
 strings carrying fake tokens; the live half asserts no local home-directory path and no
 secret pattern survives (the scrub is a fixed point over the returned text).
 
-## Local model health panel (A3)
+## Local model health panel
 
 A model-operator-focused readout answering **"what can I run now / what's running
 / what failed last time / is my config stale?"**. A richer, *structured* sibling

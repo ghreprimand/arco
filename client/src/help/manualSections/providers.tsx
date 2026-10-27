@@ -377,7 +377,7 @@ export const providers: Section[] = [
           a compact version with two bars: the included-plan gauge (Cursor's blended{' '}
           <Code>totalPercentUsed</Code>) and the separate <em>Other Models</em> quota
           (<Code>apiPercentUsed</Code>) — both are Cursor's own numbers, never reconstructed
-          from local token totals. All Cursor phases now ship — see{' '}
+          from local token totals. All Cursor transports now ship — see{' '}
           <Code>docs/PROVIDERS.md</Code>.
         </Note>
       </>
@@ -404,7 +404,7 @@ export const providers: Section[] = [
             you don't accidentally start a fresh session).
           </li>
           <li>
-            <strong>Phase B cost.</strong> Gemini has no <Code>--append-system-prompt</Code>{' '}
+            <strong>Prefix-cache cost.</strong> Gemini has no <Code>--append-system-prompt</Code>{' '}
             flag, so the entire prepended transcript pays full decode cost on every
             spawn for fresh sessions. Native resume sidesteps this — the CLI loads
             prior conversation from disk and Arco skips the prepend.
@@ -574,7 +574,7 @@ export const providers: Section[] = [
           logs.
         </p>
         <p>
-          <strong>Serve-failure diagnosis (DD13).</strong> When a{' '}
+          <strong>Serve-failure diagnosis.</strong> When a{' '}
           <Code>llama-server</Code> start fails, Arco runs a deterministic regex pass
           over the stderr tail (no model call) to name the cause — port-in-use, missing
           GGUF, context too large, out-of-memory, missing binary, or unsupported
