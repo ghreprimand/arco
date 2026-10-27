@@ -176,7 +176,7 @@ FREE VRAM. No engine is spawned beneath an Arco worker. See [DEEPSEEK.md](DEEPSE
                              ▼
                 Per-turn subprocess CLIs (CLI Claude, Codex exec, Gemini)
                 Long-lived subprocess (Codex app-server)
- In-process @anthropic-ai/sdk (Claude Native)
+                In-process @anthropic-ai/sdk (Claude Native)
                 HTTP (Ollama, llama.cpp via singleton llamacppManager, LM Studio via OpenAI-compat /v1)
                 Language-server RPC (Antigravity desktop app; debug port:9222 is liveness-only)
 ```

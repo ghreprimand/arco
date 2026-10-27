@@ -73,7 +73,7 @@ export const plans: Section[] = [
             against the actual code. Items shown filtered to <Code>[x]</Code> only
             (for whole/phase scopes). Reviewer is told to use tools to verify, not
             take checkboxes at face value. Plan sections with no checked items but a
- completion-claim preamble (e.g. "Completed: we did X, Y, Z")
+            completion-claim preamble (e.g. "Completed: we did X, Y, Z")
             still render — the prose is the claim.
           </li>
           <li>

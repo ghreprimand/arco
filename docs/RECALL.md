@@ -44,8 +44,8 @@ interface is the contract; see the Part E storage rationale).
 - `query()` lists all entries, optionally filtered by `project` / `provider`, sorted by `lastActiveAt` desc.
   (Rich full-text search is F3.)
 - **F3-ready schema:** the `entries` table holds no FTS-specific columns, so F3 can add a `CREATE VIRTUAL
- TABLE... USING fts5(...)` alongside it **without migrating `entries`**. The `summaryRef` and `tags`
- columns exist now so later schema changes do not migrate the table either. FTS5 / full-text search is **NOT**
+  TABLE... USING fts5(...)` alongside it **without migrating `entries`**. The `summaryRef` and `tags`
+  columns exist now so later schema changes do not migrate the table either. FTS5 / full-text search is **NOT**
   built in F1.
 
 ### Machine-global storage

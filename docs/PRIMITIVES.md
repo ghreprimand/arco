@@ -545,7 +545,7 @@ client -> server: spawn_from_here_request {
   newDirection?,
   summarizer?: { provider, model, effort },
   includePlan?,             // copy parent's attached plan onto the spawn
- cutoffEventSeq?, // truncate parent transcript at this seq
+  cutoffEventSeq?, // truncate parent transcript at this seq
 }
 ```
 

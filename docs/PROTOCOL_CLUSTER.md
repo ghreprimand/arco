@@ -147,25 +147,25 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
       workflowId: string,
       displayName: string,             // operator-editable via rename_workflow; falls back to 8-char wfid prefix
       status: 'idle' | 'busy',
-  role?: string, // optional free-form role hint (≤120 chars). Absent / empty = no role block injected into the worker's system prompt.
+      role?: string,                   // optional free-form role hint (≤120 chars). Absent / empty = no role block injected into the worker's system prompt.
       tier?: 'light' | 'standard' | 'heavy',  // 2026-05-11 - builder-tier capability hint; pure metadata (no server-side routing)
       focus?: string,                  // 2026-05-11 - sub-specialty string (≤160 chars); surfaced in peer_list to disambiguate same-role peers
       accessMode?: 'standard' | 'blind' | 'isolated',  // absent ≡ standard; see the access-mode note at the top
     }>,
     mailboxDepth: Record<string, number>,
     createdAt: string,
-  taskBoardMode: 'none' | 'project' | 'cluster', // board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'project' (default-attach).
+    taskBoardMode: 'none' | 'project' | 'cluster',  // board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'project' (default-attach).
     taskBoardKey?: string,           // set for `cluster` mode only - `cluster:<clusterId>`, the namespace key for the private board
     taskBoardAttached: boolean,      // back-compat derived flag for older clients: true for project|cluster, false for none
     name?: string,                   // slice 6a - operator-set display name; client falls back to `<basename(cwd)> · <short-id>` when absent
-  plan?: { // shared cluster plan, canonical body under <cwd>/.arco/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
+    plan?: {                         // shared cluster plan, canonical body under <cwd>/.arco/plans/<id>.md. Absent = no plan attached. Body capped at 32768 chars for prompt injection.
       id: string,
       title: string,
       body: string,
       updatedAt: number,             // ms epoch
     },
-  idleNudgerEnabled?: boolean, // operator-armed idle nudger toggle. Default OFF (absent ≡ false). See cluster_member_nudged.
-  autoTurnOnMailboxEnabled?: boolean, // operator-armed AUTO-PICKUP toggle. Default OFF (absent ≡ false). When true, a peer_message_sent to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt "(auto-pickup) New peer message arrived while you were idle - process your mailbox." Guarded by 20s per-recipient cooldown, 10/min per-cluster rate cap, and a chain-depth cap of 3. See cluster_auto_turn_fired.
+    idleNudgerEnabled?: boolean,     // operator-armed idle nudger toggle. Default OFF (absent ≡ false). See cluster_member_nudged.
+    autoTurnOnMailboxEnabled?: boolean, // operator-armed AUTO-PICKUP toggle. Default OFF (absent ≡ false). When true, a peer_message_sent to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt "(auto-pickup) New peer message arrived while you were idle - process your mailbox." Guarded by 20s per-recipient cooldown, 10/min per-cluster rate cap, and a chain-depth cap of 3. See cluster_auto_turn_fired.
     efficiencyLevel?: 'thorough' | 'balanced' | 'lean', // 2026-06-15 - per-cluster efficiency level. Emitted only when non-default (absent ≡ 'thorough'). See cluster_efficiency_set.
     efficiencyAddendum?: string,    // 2026-06-15 - optional free-text appended to the canned restraint doctrine; emitted only when non-empty.
     progressTracking?: 'plan' | 'board' | 'both', // 2026-06-29 - per-cluster progress-tracking mode. Emitted only when non-default (absent ≡ 'both'). See cluster_progress_set.

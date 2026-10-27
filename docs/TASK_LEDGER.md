@@ -428,7 +428,7 @@ git lifecycle lives in **`server/src/project/taskWorktree.ts`**; the WS glue in
   those tasks by default because `autoWorktree` is OFF in cluster dispatcher
   settings. When the operator enables `autoWorktree`, dispatch creates the
   managed worktree, persists the task pointer, and includes the path/branch in
- the synthetic worker prompt. Arco keeps the provider cwd unchanged. Smoke:
+  the synthetic worker prompt. Arco keeps the provider cwd unchanged. Smoke:
   `npm run smoke:task-dispatch-worktree`.
 
 ## JSON -> SQLite migration trigger
