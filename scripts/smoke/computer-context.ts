@@ -23,7 +23,7 @@ async function main() {
   const log = openSync(join(dir, 'server.log'), 'w');
   let durablePrivate = false;
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {

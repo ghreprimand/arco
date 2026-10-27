@@ -22,7 +22,7 @@ async function main() {
   const voiceHome = process.env.ARCO_VOICE_HOME || join(homedir(), '.arco', 'voice');
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_VOICE_HOME: voiceHome }, stdio: ['ignore', log, log],
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_VOICE_HOME: voiceHome }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   let session = '';

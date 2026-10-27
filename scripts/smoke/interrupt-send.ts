@@ -33,7 +33,7 @@ async function main() {
   const inherited = { ...process.env }; delete inherited.ARCO_HOME; delete inherited[`${UPSTREAM_ENV_PREFIX}HOME`];
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', resolve('scripts/smoke/fixtures/interrupt-preload.mjs'), 'server/src/index.ts'], {
     env: { ...inherited, ARCO_INTERRUPT_HOME: home, ARCO_INTERRUPT_BIN: bin, ARCO_INTERRUPT_JOURNAL: journal,
-      PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' },
+      PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' },
     stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;

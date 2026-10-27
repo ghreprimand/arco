@@ -139,6 +139,11 @@ async def visit(server, expect_setup, label):
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         await page.goto(server.base)
+        # Release checks stay offline, including an explicit CHECK NOW request.
+        release_status = await page.evaluate("async () => (await fetch('/api/update-check')).json()")
+        assert release_status['enabled'] is False and release_status['checkedAt'] is None
+        forced = await page.evaluate("async () => (await fetch('/api/update-check', {method: 'POST'})).json()")
+        assert forced == release_status
         try:
             if expect_setup:
                 await page.get_by_text(SETUP_TEXT, exact=True).wait_for(timeout=20000)

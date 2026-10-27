@@ -17,7 +17,7 @@ async function main() {
   const port = (reserve.address() as {port:number}).port; await new Promise<void>((r)=>reserve.close(()=>r()));
   const logPath = join(root,'server.log'), log = openSync(logPath,'w');
   const server = spawn(process.execPath,['--conditions','development','--import','tsx','--import',resolve('scripts/smoke/fixtures/computer-local-preload.mjs'),'server/src/index.ts'],{
-    env:{...process.env,HOME:home,ARCO_PORT:String(port),ARCO_WS_AUTH:'off',ARCO_SERVE_CLIENT:'0',ARCO_COMPUTER_FIXTURE_HOME:home,ARCO_COMPUTER_FIXTURE_REQUESTS:requests},stdio:['ignore',log,log],
+    env:{...process.env,HOME:home,ARCO_PORT:String(port),ARCO_UPDATE_CHECK:'0',ARCO_WS_AUTH:'off',ARCO_SERVE_CLIENT:'0',ARCO_COMPUTER_FIXTURE_HOME:home,ARCO_COMPUTER_FIXTURE_REQUESTS:requests},stdio:['ignore',log,log],
   });
   let c: SmokeClient | undefined;
   const rows = () => readFileSync(requests,'utf8').trim().split('\n').filter(Boolean).map((s)=>JSON.parse(s));

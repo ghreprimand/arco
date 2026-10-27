@@ -38,7 +38,7 @@ try {
     XDG_CACHE_HOME: join(home, '.cache'), CODEX_HOME: join(home, '.codex'),
     CLAUDE_CONFIG_DIR: join(home, '.claude'),
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: gitConfig,
-    CI: '1', LANG: 'C.UTF-8', TSX_TSCONFIG_PATH: join(root, 'client/tsconfig.json'),
+    ARCO_UPDATE_CHECK: '0', CI: '1', LANG: 'C.UTF-8', TSX_TSCONFIG_PATH: join(root, 'client/tsconfig.json'),
   };
   if (windows) {
     // os.homedir() reads USERPROFILE on Windows, and Node, Git and child

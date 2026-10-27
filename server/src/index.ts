@@ -1,4 +1,5 @@
 import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
+import { updateChecker } from './server/updateCheck.js';
 import { configureComputerActivity, interruptComputerActivity } from './voice/activity.js';
 import { configureMailRules } from './voice/mailRules.js';
 import { configureConditions } from './voice/conditions.js';
@@ -2282,6 +2283,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model
 });
 
 httpServer.listen(PORT, HOST, () => {
+  updateChecker.start();
   console.log(`
   ╔══════════════════════════════════════════╗
   ║         A R C O      v0.1.0 (Lite)       ║

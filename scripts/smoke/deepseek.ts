@@ -71,7 +71,7 @@ globalThis.fetch=(url,init)=>{const u=new URL(String(url));
  return realFetch(url,init);};\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_PORT: String(port), ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
+    env: { ...process.env, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

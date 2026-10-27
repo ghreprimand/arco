@@ -64,6 +64,7 @@ def harden(env, root):
     hardened['PATH'] = os.pathsep.join([str(stubs), os.path.dirname(shutil.which('node')), '/usr/bin', '/bin'])
     home = hardened.get('HOME', str(Path(root) / 'home'))
     hardened.update({
+        'ARCO_UPDATE_CHECK': '0',
         'DEEPSEEK_URL_BASE': dead + '/v1', 'OLLAMA_URL_BASE': dead, 'LMSTUDIO_URL_BASE': dead + '/v1', 'STRATA_URL_BASE': dead + '/v1',
         'ARCO_LLAMACPP_BIN': str(stubs / 'llama-server'), 'ARCO_LLAMACPP_HOST': '127.0.0.1',
         'ARCO_LLAMACPP_PORT': str(closed_port()),

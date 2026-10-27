@@ -1387,7 +1387,26 @@ export interface ZaiNativeHistoryMessageEvent {
 // value so HISTORY can render the branch graph. Absent on the very first event
 // in a workflow and on pre-Phase-0 (schemaVersion 1) workflows — replay treats
 // "absent" as "previous event in seq order".
+export interface UpdateCheckStatus {
+  current: string;
+  latest: string | null;
+  url: string | null;
+  publishedAt: string | null;
+  checkedAt: string | null;
+  updateAvailable: boolean;
+  enabled: boolean;
+}
+
+export interface AppUpdateAvailableMessage {
+  type: 'app_update_available';
+  current: string;
+  latest: string;
+  url: string;
+  publishedAt: string;
+}
+
 export type ServerMessage =
+  | AppUpdateAvailableMessage
   | ComputerActivityChangedMessage
   | ComputerContextUpdatedMessage
   | ConnectedMessage

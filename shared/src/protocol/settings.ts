@@ -70,6 +70,9 @@ export interface ProviderAccountsConfig {
 }
 
 export interface ArcoSettings {
+  // Global release notifications; the environment opt-out takes precedence.
+  updateCheck?: boolean;
+  updateCheckDismissed?: string;
   enabledProviders: Record<ProviderName, boolean>;
   workflowDefaults?: WorkflowDefaults;
   providerAccounts?: ProviderAccountsConfig;

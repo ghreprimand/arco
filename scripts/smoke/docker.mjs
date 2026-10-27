@@ -51,7 +51,7 @@ async function waitReady() {
 async function boot(fixture = false) {
   const extra = fixture ? ['--mount', `type=bind,src=${fixtureBin},dst=/fixtures,readonly`, '-e', 'PATH=/fixtures:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'] : [];
   // Same host alias Compose adds through extra_hosts.
-  docker('run', '-d', '--name', name, '-p', '127.0.0.1::3001', '--add-host', 'host.docker.internal:host-gateway', '--mount', `type=bind,src=${project},dst=/projects`, '--mount', `type=volume,src=${volume},dst=/data`, ...extra, image);
+  docker('run', '-d', '-e', 'ARCO_UPDATE_CHECK=0', '--name', name, '-p', '127.0.0.1::3001', '--add-host', 'host.docker.internal:host-gateway', '--mount', `type=bind,src=${project},dst=/projects`, '--mount', `type=volume,src=${volume},dst=/data`, ...extra, image);
   const port = docker('port', name, '3001/tcp').trim().split(':').at(-1);
   base = `http://127.0.0.1:${port}`;
   await waitReady();

@@ -1,4 +1,5 @@
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
+import { updateChecker } from '../server/updateCheck.js';
 import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
 import { tryHandleAuthLoginRoutes } from './authLoginRoutes.js';
 import { IN_APP_LOGIN, startLoginSession } from '../authLoginSession.js';
@@ -1072,6 +1073,13 @@ export async function handleHttpRequest(
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: message }));
     }
+    return;
+  }
+
+  if (req.url === '/api/update-check' && (req.method === 'GET' || req.method === 'POST')) {
+    const status = await (req.method === 'POST' ? updateChecker.check() : updateChecker.status());
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(status));
     return;
   }
 
