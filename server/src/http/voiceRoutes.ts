@@ -14,9 +14,14 @@ import { cancelVoiceInstall, readVoiceNotices, startVoiceInstall, voiceInstallRu
 
 async function readBytes(req: IncomingMessage, limit: number): Promise<Buffer> {
   const chunks: Buffer[] = []; let bytes = 0;
-  for await (const chunk of req) {
+  // Breaking the default request iterator destroys its socket. Keep it open
+  // long enough for the caller's bounded-error response, discarding the rest.
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
     bytes += chunk.length;
-    if (bytes > limit) throw new Error('Voice request exceeds its limit.');
+    if (bytes > limit) {
+      req.resume();
+      throw new Error('Voice request exceeds its limit.');
+    }
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks);

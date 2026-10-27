@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cancelVoiceInstall, startVoiceInstall, voiceInstallRunning, voiceSetupStatus, VOICE_SETUP_MODELS, VOICE_SETUP_PACKAGES } from './voiceSetup.js';
+import { cancelVoiceInstall, startVoiceInstall, voiceInstallRunning, voiceSetupStatus, VOICE_SETUP_MODELS, VOICE_SETUP_PACKAGES, VOICE_TEST_MAX_BYTES } from './voiceSetup.js';
 import { LocalRecognizer } from './localRecognizer.js';
 import { tryHandleVoiceRoutes } from '../http/voiceRoutes.js';
 
@@ -99,7 +99,12 @@ test('the test phrase route needs local speech, bounds the audio and returns the
   const stopped: LocalRecognizer[] = [];
   t.mock.method(LocalRecognizer.prototype, 'stop', function (this: LocalRecognizer) { stopped.push(this); });
   t.mock.method(LocalRecognizer.prototype, 'recognize', async () => ({ text: 'testing one two three', phrases: '' }));
-  const server = createServer((req, res) => { void tryHandleVoiceRoutes(req, res); });
+  const unfinishedUploads: Array<{ destroyed: boolean; complete: boolean }> = [];
+  const server = createServer((req, res) => {
+    void tryHandleVoiceRoutes(req, res).then(() => {
+      if (req.headers['transfer-encoding'] === 'chunked') unfinishedUploads.push({ destroyed: req.destroyed, complete: req.complete });
+    });
+  });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   const post = (body: Buffer) => fetch(base + '/api/voice/setup/transcribe', { method: 'POST', body: new Blob([new Uint8Array(body)]) });
@@ -110,6 +115,22 @@ test('the test phrase route needs local speech, bounds the audio and returns the
     touch(join(root, 'NOTICES.md'), '# Voice components\n');
     assert.equal((await post(Buffer.alloc(3201))).status, 400);
     assert.equal((await post(Buffer.alloc(16000 * 2 * 11))).status, 400);
+    // Do not end the upload until the error response arrives. This pins the
+    // rejection while a body is still in flight, independently of packet timing.
+    const oversized = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const upload = request(base + '/api/voice/setup/transcribe', { method: 'POST' }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('error', reject);
+        res.on('end', () => { upload.end(); resolve({ status: res.statusCode!, body }); });
+      });
+      upload.on('error', reject);
+      upload.setTimeout(3000, () => upload.destroy(new Error('Oversized upload response timed out.')));
+      upload.write(Buffer.alloc(VOICE_TEST_MAX_BYTES + 2));
+    });
+    assert.equal(oversized.status, 400);
+    assert.match(JSON.parse(oversized.body).error, /exceeds its limit/);
+    assert.deepEqual(unfinishedUploads, [{ destroyed: false, complete: false }], 'reject without aborting the request socket before its JSON response');
     const ok = await post(Buffer.alloc(3200));
     assert.equal(ok.status, 200);
     const body = await ok.json() as { text: string; recognizer: string };
