@@ -4,20 +4,25 @@
 
 Running, stopping, restarting, and recovering Arco. Where logs go, what env vars matter, and how to unstick the system when something goes sideways.
 
-For architecture see [`ARCHITECTURE.md`](ARCHITECTURE.md). For the persistence layout see [`PERSISTENCE.md`](PERSISTENCE.md). For the dev-side workflow see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+For the normal native install and run modes, see [`../README.md`](../README.md) and [`GETTING_STARTED.md`](GETTING_STARTED.md). For architecture see [`ARCHITECTURE.md`](ARCHITECTURE.md). For the persistence layout see [`PERSISTENCE.md`](PERSISTENCE.md). For the dev-side workflow see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ---
 
 ## Running locally
 
+For the normal native install and run modes, follow [`../README.md`](../README.md) or [`GETTING_STARTED.md`](GETTING_STARTED.md). On Linux, the recommended persistent run is the systemd user service below; on macOS, use the hand-maintained launchd procedure in [`SERVICE_MODE.md`](SERVICE_MODE.md).
+
 ```bash
 git clone <repository-url>
 cd arco
-npm install
-npm run dev
+npm ci --include=dev
+npm run build
+npm start
 ```
 
-Open <http://localhost:5173>.
+This foreground run serves the built client at <http://localhost:3001> and
+stops with Ctrl+C. Use `npm run dev` only for development; its watchers restart
+the server when `server/` or `shared/` changes and end in-flight agent turns.
 
 **Requirements.** Node.js 24 or newer (`package.json` `engines`), npm, Git, and a C/C++ toolchain with Python 3 for the `better-sqlite3` and `node-pty` native modules when no prebuilt binary matches the platform (Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows). Provider CLIs (`claude`, `codex`, `gemini`, `cursor-agent`, ...) are installed separately from their vendors.
 
@@ -30,7 +35,7 @@ Open <http://localhost:5173>.
 | Arco home | `~/.arco` | `~/.arco` | `%USERPROFILE%\.arco` |
 | Terminal shell | `$SHELL`, else `/bin/bash` | `$SHELL`, else `/bin/zsh` | `powershell.exe` |
 | `npm run dev`, `npm start` | yes | yes | yes |
-| `scripts/arco` launcher, `arco service` | yes (bash, systemd `--user`) | launcher yes; service is manual (see [`SERVICE_MODE.md`](SERVICE_MODE.md)) | no; use `npm start` |
+| `scripts/arco` launcher, `npm run arco:service -- <command>` | yes (bash, systemd `--user`) | launcher yes; use the hand-maintained launchd procedure (see [`SERVICE_MODE.md`](SERVICE_MODE.md)) | no; use `npm start` |
 
 `ARCO_HOME` relocates the whole Arco home, including global settings and provider data. Per-project state uses `.arco`. To migrate existing data, copy the previous home and per-project state folders into the corresponding Arco locations; Arco does not read other state roots automatically. On Windows, provider CLIs, `npx` and language servers installed through npm are `.cmd` shims, which Node cannot start without a shell; Arco finds them through `PATH` and `PATHEXT` and starts the JavaScript entry each shim wraps with its own Node (`server/src/windowsCommand.ts`). Native-run acceptance on Windows is pending.
 
@@ -72,7 +77,8 @@ npm start           # server + built client on http://localhost:3001
 For a durable, restartable production runtime use **service mode**: the compiled server serves `client/dist` itself (gated on `ARCO_SERVE_CLIENT=1`) under a systemd `--user` unit that restarts on crash.
 
 ```bash
-arco service install && arco service start   # build + write+enable unit + start
+npm run arco:service -- install --enable
+npm run arco:service -- start
 ```
 
 See [`SERVICE_MODE.md`](SERVICE_MODE.md) for the full CLI, the rendered unit, and the `ARCO_SERVE_CLIENT` gate. A reverse proxy fronting `node server/dist/index.js` (with the proxy serving the client bundle) remains a valid alternative  - also covered there.
@@ -345,16 +351,15 @@ Installs **Arco** (start + open browser) and **Quit Arco** (stop) as desktop ent
 `scripts/arco` runs the **dev** stack. For a durable runtime that survives a terminal close and restarts on crash, use **service mode**  - the compiled server serves `client/dist` itself under a systemd `--user` unit:
 
 ```bash
-arco service install && arco service start
-arco service status
-arco service logs
+npm run arco:service -- install --enable
+npm run arco:service -- start
+npm run arco:service -- status
+npm run arco:service -- logs
 ```
 
-Full CLI, the rendered systemd unit, the `ARCO_SERVE_CLIENT` static-serve gate, and the macOS caveat (manual run; launchd later) are in [`SERVICE_MODE.md`](SERVICE_MODE.md).
+Full CLI, the rendered systemd unit, the `ARCO_SERVE_CLIENT` static-serve gate, and the macOS launchd procedure are in [`SERVICE_MODE.md`](SERVICE_MODE.md).
 
-The service runs compiled `dist/`, so source edits are invisible to it until `npm run build` + `systemctl --user restart arco.service`. **That restart kills every in-flight worker in every open tab** (same as a dev `tsx watch` restart), and a rebuild ships all uncommitted working-tree changes along with yours - diff before deploying. After committing or pulling without rebuilding, the live service keeps running the old compiled `dist`. The Diagnostics tab's `core.code-skew` check WARNs when the running build is behind on-disk HEAD and points at `npm run build && systemctl --user restart arco.service`. The `core.systemd-shutdown-window` check WARNs if the unit's stop timeout is too short for graceful shutdown + flush. See [`DIAGNOSTICS.md`](DIAGNOSTICS.md).
-
-Run `npm run deploy:preflight` immediately before restarting. It reads the live
+Before a backend service update, run `npm run deploy:preflight`. It reads the live
 open workspace: standalone workflow snapshots use `busy`, while cluster
 members use `status: 'busy' | 'idle'`. It exits 2 with active primary turns,
 1 on an incomplete/unknown response, and 0 when those primaries are idle.
@@ -373,12 +378,12 @@ old chunks, and replace `client/dist/index.html` last. Browser refresh picks up
 the new client without interrupting server workers. Backend changes still require
 rebuild/restart coordination. See the documentation index for maintained guides.
 
-`install` bakes `ARCO_HUB_URL` / `ARCO_NTFY_URL` into the unit **only if they are set in the shell at install time** (remote-management is operator-supplied config, not baked into the repo). A clean checkout that just runs `arco service install` produces a working but hub-*unlinked* unit. For a remote-management deployment, configure the hub endpoints explicitly:
+`install` bakes `ARCO_HUB_URL` / `ARCO_NTFY_URL` into the unit **only if they are set in the shell at install time** (remote-management is operator-supplied config, not baked into the repo). A clean checkout that runs `npm run arco:service -- install` produces a working but hub-unlinked unit. For a remote-management deployment, configure the hub endpoints explicitly:
 
 ```bash
 ARCO_HUB_URL=ws://<hub-tailnet-ip>:3500 \
 ARCO_NTFY_URL=http://<hub-tailnet-ip>:3501/arco-<topic> \
-npm run arco:service install -- --enable
+npm run arco:service -- install --enable
 ```
 
 All *code* fixes (IPv6 hard-block, the usage-fetch guard, the global crash net) travel with the repo and need no env.
@@ -389,7 +394,7 @@ Arco uses the platform network stack and follows the configured proxy and DNS be
 
 ### Recovering from `start-limit-hit`
 
-If `arco service status` shows `failed (Result: start-limit-hit)`, systemd has stopped retrying. Clear the counter and start again:
+If `npm run arco:service -- status` shows `failed (Result: start-limit-hit)`, systemd has stopped retrying. Clear the counter and start again:
 
 ```bash
 systemctl --user reset-failed arco && systemctl --user start arco
@@ -498,9 +503,9 @@ The audio panel's **STEMS** control shells out to **`demucs`** (Python + torch) 
 | Restart script | `$TMPDIR/arco-respawn-<pid>.sh` | Generated each restart |
 | Restart output | `$TMPDIR/arco-respawn.log` | Stdout/stderr of the respawned `npm run dev` |
 | Antigravity RPC diagnostics | Server log + future RPC smoke output | Confirms desktop liveness, profile mode, and RPC model resolution |
-| Service mode (systemd) | journald + `~/.arco/logs/` | The unit sets `ARCO_LOG_FILE=1` (rotating file log) and journald captures stdout/stderr. View via `arco service logs`. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
+| Service mode (systemd) | journald + `~/.arco/logs/` | The unit sets `ARCO_LOG_FILE=1` (rotating file log) and journald captures stdout/stderr. View via `npm run arco:service -- logs`. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 
-To watch live: `scripts/arco logs` or `tail -f $XDG_CACHE_HOME/arco/arco.log` (dev); `arco service logs` (service mode).
+To watch live: `scripts/arco logs` or `tail -f $XDG_CACHE_HOME/arco/arco.log` (dev); `npm run arco:service -- logs` (service mode).
 
 **Memory trend.** When file logging is enabled (service mode sets `ARCO_LOG_FILE=1`), the server logs a periodic `[arco][mem:...] rss=... heapUsed=... heapTotal=... external=... rssdelta=... rssPeak=...` line every 5 minutes, plus a boot baseline and a shutdown final sample. Grep `\[arco\]\[mem` to tell whether RSS crept up over hours or spiked in a single turn before an RSS-guard kill. Inert in dev (no file log path).
 
@@ -713,9 +718,9 @@ Arco distinguishes six observable states so a failure tells you *which* failure 
 |---|---|---|---|
 | `online` | ONLINE / SYNCING... | WebSocket open, talking to Arco. | Nothing. |
 | `disconnected` | OFFLINE / RECONNECTING... | The WebSocket dropped but the **server process is still alive** (the `/healthz` probe succeeded)  - a browser sleep, network blip, or proxy hiccup. | Wait for the automatic reconnect, or click **RECONNECT**. |
-| `server-down` | SERVER DOWN | The WebSocket is closed **and** `/healthz` is unreachable  - the **Arco server process itself is gone or unresponsive**. RECONNECT/RESTART can't help until it's back. | Check `arco service status` and `arco service logs`; relaunch the service if it's stopped. (The header RESTART asks the running server to restart, so it only works once the process is back.) |
+| `server-down` | SERVER DOWN | The WebSocket is closed **and** `/healthz` is unreachable  - the **Arco server process itself is gone or unresponsive**. RECONNECT/RESTART can't help until it's back. | Check `npm run arco:service -- status` and `npm run arco:service -- logs`; start the service if it is stopped. (The header RESTART asks the running server to restart, so it only works once the process is back.) |
 
-The split is driven by the B2 `/healthz` endpoint: a closed socket plus a failed probe is the only thing that promotes OFFLINE to SERVER DOWN. See the B-tier `arco service ...` commands above.
+The split is driven by the B2 `/healthz` endpoint: a closed socket plus a failed probe is the only thing that promotes OFFLINE to SERVER DOWN. See the `npm run arco:service -- ...` commands above.
 
 **Per-workflow runtime (pill above the composer  - what your tab's agent is doing):**
 
@@ -767,7 +772,7 @@ C1 made each failure observable; C2 mapped each to its one correct retry; C3 is 
 These verify the *internal correctness* the harness deliberately does not fake. The harness still asserts the observable end-state each would produce when the mechanic works.
 
 - **Case 5  - Codex resume correctness.** Start a Codex app-server tab, send a turn, then kill the `codex app-server` child (`pkill -f 'codex app-server'`  - leaves the Arco server up). Observe: the tab shows `replay-recovered` briefly, then `idle`, with the prior conversation intact. Send a follow-up that references earlier context to confirm the session resumed (not a fresh session). Continuity is also covered headlessly by `smoke:cluster-4` / `smoke:compare`.
-- **Case 6  - Native replay does not block the UI.** Open a Claude Native tab with a large `events.jsonl` (long session), restart the Arco server (`arco service restart`), and reload the client. Observe: the tab rehydrates showing `replay-recovered` while the header stays `ONLINE` (no `SERVER DOWN`/`OFFLINE` flash), and the UI stays interactive (you can scroll / switch tabs) throughout the replay  - the in-process pre-warm replay must not jank the render loop.
+- **Case 6  - Native replay does not block the UI.** Open a Claude Native tab with a large `events.jsonl` (long session), stop and start the Arco server (`npm run arco:service -- stop` followed by `npm run arco:service -- start`), and reload the client. Observe: the tab rehydrates showing `replay-recovered` while the header stays `ONLINE` (no `SERVER DOWN`/`OFFLINE` flash), and the UI stays interactive (you can scroll / switch tabs) throughout the replay  - the in-process pre-warm replay must not jank the render loop.
 - **Case 7  - Terminal orphan reaping.** Open a terminal session in a tab, note its child pid, then hard-kill the Arco server (not a clean shutdown) so the child is orphaned. Relaunch the server; the boot sweep (`reapOrphanTerminals`) SIGKILLs anything in the pid registry. Verify the orphaned pid is gone (`ps -p <pid>`). The registry round-trip is asserted headlessly by `smoke:terminal`.
 
 ---

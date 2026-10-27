@@ -22,24 +22,43 @@ chat request until a user sends a message or starts a model-backed feature.
 ### Native run
 
 On the repository hosting page, copy the Clone URL, clone the repository into
-a directory named `arco`, and open a terminal in that directory. Then run:
+a directory named `arco`, and open a terminal in that directory. Install and
+build the production files:
 
 ```bash
 npm ci --include=dev
-npm run dev
+npm run build
 ```
 
-Open <http://localhost:5173>. The Vite client proxies API and WebSocket traffic
-to the local server. `npm run dev` keeps the server and client running together,
-and the Vite client listens on all network interfaces. Other devices on a
-reachable network can load the development client; API calls remain subject to
-the browser session check. Use a trusted network for development. `npm start`
-serves the built client from the server, which binds to `127.0.0.1` by default.
+**Background service on Linux:** run `npm run arco:service -- install --enable`,
+then `npm run arco:service -- start`, and open <http://localhost:3001>. It runs
+independently of the browser tab, starts on login, and restarts after a crash.
+Manage it with `npm run arco:service -- status`, `npm run arco:service -- logs`,
+and `npm run arco:service -- stop`.
 
-On Windows, `npm run dev` is available, but native acceptance is still pending
-verification on real Windows hardware. The Bash launcher and systemd service
-commands documented in Operations are for Linux. The macOS service procedure is
-separate from the development command.
+**Background service on macOS:** use the hand-maintained [launchd procedure](SERVICE_MODE.md#hand-maintained-launchd-service-macos-specific).
+The `arco service` CLI does not install launchd. Windows has no service mode.
+
+**Foreground on any platform:** run `npm start` and open
+<http://localhost:3001>. It serves the built client on loopback and stops with
+Ctrl+C, interrupting in-flight agent work. This is suitable for a first look
+and the documented Windows run path.
+
+**Development only:** run `npm run dev` and open <http://localhost:5173>. Vite
+proxies API and WebSocket traffic to the local server and listens on all network
+interfaces, so use a trusted network. Changes under `server/` or `shared/`
+restart the server and end in-flight agent turns; see
+[Hot-reload caveats](DIAGNOSTICS.md#hot-reload-caveats).
+
+To run the Linux service beside another server using port 3001, install it with
+`ARCO_PORT=3002 npm run arco:service -- install --enable`; the chosen port is
+stored in the generated unit. In PowerShell, set `$env:ARCO_PORT=3002` before
+running that install command. To update a Linux service, run `git pull`,
+`npm ci --include=dev`, and `npm run arco:service -- install`, then stop and
+start the service with `npm run arco:service -- stop` and
+`npm run arco:service -- start`. Install rebuilds and rewrites the unit; the
+stop/start interrupts in-flight work. See [Service mode](SERVICE_MODE.md) for
+the macOS procedure and further operating details.
 
 ### Docker
 

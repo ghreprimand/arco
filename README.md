@@ -37,11 +37,26 @@ git clone https://github.com/ghreprimand/arco.git
 cd arco
 npm ci --include=dev
 npm run build
-npm start
 ```
 
-Open <http://localhost:3001>. This serves the built client and API from one
-loopback port. Keep the terminal running while using Arco; stop it with Ctrl+C.
+**Background service (Linux):** run `npm run arco:service -- install --enable`,
+then `npm run arco:service -- start`, and open <http://localhost:3001>. It keeps
+running when the browser closes, starts at login, and restarts after a crash.
+Use `npm run arco:service -- status`, `npm run arco:service -- logs`, and
+`npm run arco:service -- stop` to manage it. To use port 3002 beside another
+server on 3001, install with `ARCO_PORT=3002 npm run arco:service -- install --enable`.
+
+**Background service (macOS):** follow the hand-maintained [launchd procedure](docs/SERVICE_MODE.md#hand-maintained-launchd-service-macos-specific).
+Windows has no service mode. **Foreground:** run `npm start` on any platform
+for a first look; it serves the built client at <http://localhost:3001> and
+stops with Ctrl+C, interrupting in-flight agent work. **Development:**
+`npm run dev` is for development only; its server and client watchers restart on
+`server/` or `shared/` changes, ending in-flight agent turns. See
+[hot-reload caveats](docs/DIAGNOSTICS.md#hot-reload-caveats).
+
+For updates, see [Updating Arco](docs/OPERATIONS.md#updating-arco), including
+the Linux service and macOS launchd procedures.
+
 Provider command-line tools, accounts, and local model endpoints are configured
 separately through Connections. A new installation without projects or connected providers
 opens **Welcome to Arco**: add a folder, connect a provider, then launch the
@@ -52,7 +67,8 @@ Settings > Projects > **Run setup again** reopens the flow;
 See [Getting started](docs/GETTING_STARTED.md) for the complete first-session
 walkthrough and [Operations](docs/OPERATIONS.md) for platform prerequisites,
 ports, troubleshooting, and the optional Linux desktop launcher.
-[Service mode](docs/SERVICE_MODE.md) describes background operation.
+The [service guide](docs/SERVICE_MODE.md) covers background operation and its
+macOS launchd procedure.
 
 ### Docker
 

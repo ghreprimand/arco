@@ -9,6 +9,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Optional Arco release notices with persistent dismissal, manual checks, an opt-out, and service, foreground and Docker update instructions.
 
+### Changed
+
+- README and Getting started now present the background service as the normal way to run Arco.
+
 ## v0.1.0 - 2026-10-27
 
 ### Added

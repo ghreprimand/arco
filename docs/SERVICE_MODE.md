@@ -1,10 +1,10 @@
 # Arco — production service mode
 
-Arco normally runs as a dev product (`tsx watch` + Vite via `npm run dev` or the `scripts/arco` launcher). **Service mode** is the boring, restartable, inspectable production runtime: the **compiled** server (`server/dist/index.js`) serves the built client (`client/dist`) itself, supervised by a systemd `--user` unit that restarts it on crash and survives a terminal close.
+On Linux, service mode is the standard native run: the **compiled** server (`server/dist/index.js`) serves the built client (`client/dist`) itself, supervised by a systemd `--user` unit that restarts it on crash and runs independently of the browser and terminal. On macOS, use the hand-maintained launchd procedure below. Windows has no service mode; use the foreground run described in [Getting started](GETTING_STARTED.md). For a first look on any platform, use `npm start`; `npm run dev` is for development only.
 
 This is a **separate path** from the dev launcher, `scripts/arco` (start/stop/restart/status/logs against `npm run dev`) is unchanged and still owns local dev.
 
-For the broader run/stop/recover story see [`OPERATIONS.md`](OPERATIONS.md). For HTTP endpoints see [`HTTP_API.md`](HTTP_API.md).
+For install and first-run steps see [`../README.md`](../README.md) and [`GETTING_STARTED.md`](GETTING_STARTED.md). For the broader run/stop/recover story see [`OPERATIONS.md`](OPERATIONS.md). For HTTP endpoints see [`HTTP_API.md`](HTTP_API.md).
 
 ---
 
@@ -12,7 +12,7 @@ For the broader run/stop/recover story see [`OPERATIONS.md`](OPERATIONS.md). For
 
 | Piece | Path |
 |---|---|
-| CLI entry | `scripts/arco-service.ts` (`arco service <command>`) |
+| CLI entry | `scripts/arco-service.ts` (`npm run arco:service -- <command>`) |
 | Pure unit-render + arg-parse | `scripts/service/unit.ts` (`parseServiceArgs`, `renderSystemdUnit`) |
 | Static-serve fallback | `server/src/http/router.ts` (gated on `ARCO_SERVE_CLIENT=1`) |
 | Liveness / readiness endpoints | `server/src/http/router.ts` (`/healthz`, `/health` alias, `/readyz`) |
@@ -22,21 +22,22 @@ For the broader run/stop/recover story see [`OPERATIONS.md`](OPERATIONS.md). For
 
 ---
 
-## The `arco service` CLI
+## The service CLI
 
 ```bash
-arco service install [--enable]   # build + write the unit + daemon-reload (+ enable on login)
-arco service start                # systemctl --user start arco
-arco service stop                 # systemctl --user stop arco
-arco service status               # systemctl --user status arco
-arco service logs [-n N]          # tail -f ~/.arco/logs/arco.log [last N lines]
-arco service logs --journal [-n N] # journalctl --user -u arco -f  (Linux/systemd)
-arco service uninstall            # stop + disable + remove unit + daemon-reload
+npm run arco:service -- install [--enable]   # build + write the unit + daemon-reload (+ enable on login)
+npm run arco:service -- start                # systemctl --user start arco
+npm run arco:service -- stop                 # systemctl --user stop arco
+npm run arco:service -- status               # systemctl --user status arco
+npm run arco:service -- logs [-n N]          # tail -f ~/.arco/logs/arco.log [last N lines]
+npm run arco:service -- logs --journal [-n N] # journalctl --user -u arco -f
+npm run arco:service -- uninstall            # stop + disable + remove unit + daemon-reload
 ```
 
-Invoke via `npx tsx scripts/arco-service.ts <command>` (or wire your own `arco service` shim that calls it).
+The service actions are Linux-only and are invoked through the root `arco:service` package script. The CLI has no `restart` action.
 
-- `install` runs `npm run build` first (so `server/dist/index.js` + `client/dist` exist), writes the unit, and `systemctl --user daemon-reload`s. Pass `--enable` to also `systemctl --user enable` so Arco comes back on next login. It does **not** auto-start — run `arco service start`.
+- `install` runs `npm run build` first (so `server/dist/index.js` + `client/dist` exist), writes the unit, and `systemctl --user daemon-reload`s. Pass `--enable` to also `systemctl --user enable` so Arco starts on next login. It does **not** auto-start; run `npm run arco:service -- start`.
+- `ARCO_PORT` and `ARCO_HOST`, when set in the install-time shell, are written into the generated unit. For example, `ARCO_PORT=3002 npm run arco:service -- install --enable` configures the service to use port 3002.
 - All actions shell out with `execFile`/`spawn` argv arrays — never `shell:true`, never `sudo`. A `--user` unit needs neither.
 - The unit-rendering + arg-parsing logic is in pure, importable functions (`scripts/service/unit.ts`) so the smoke can assert on them without touching `systemctl`.
 
@@ -90,7 +91,7 @@ Load-bearing details:
 
 ### Restart-on-crash
 
-`Restart=on-failure` restarts the process when it exits non-zero (crash), not on a clean stop. The unit also sets explicit crash-loop bounds — **`StartLimitIntervalSec=60` + `StartLimitBurst=5`** in `[Unit]` — so a process that dies immediately on boot is respawned at most 5 times in 60s before systemd gives up (the unit enters `failed`) instead of hammering the provider APIs forever. `arco service status` shows the current state and restart count.
+`Restart=on-failure` restarts the process when it exits non-zero (crash), not on a clean stop. The unit also sets explicit crash-loop bounds — **`StartLimitIntervalSec=60` + `StartLimitBurst=5`** in `[Unit]` — so a process that dies immediately on boot is respawned at most 5 times in 60s before systemd gives up (the unit enters `failed`) instead of hammering the provider APIs forever. `npm run arco:service -- status` shows the current state and restart count.
 
 ### Logs
 
@@ -110,8 +111,8 @@ The file lives at `<ARCO_LOG_DIR>/arco.log`; each line is `{"ts":"<ISO>","level"
 Tailing:
 
 ```bash
-arco service logs [-n N]            # tail -n N -f ~/.arco/logs/arco.log  (POSIX; works on macOS)
-arco service logs --journal [-n N]  # journalctl --user -u arco -f  (Linux/systemd)
+npm run arco:service -- logs [-n N]            # tail -n N -f ~/.arco/logs/arco.log
+npm run arco:service -- logs --journal [-n N]  # journalctl --user -u arco -f (Linux/systemd)
 ```
 
 The default file tail is cross-platform (`tail -f`), unlike `journalctl`. If the log file doesn't exist yet, `logs` prints a note (`no log file at <path> — is the service running with ARCO_LOG_FILE=1?`) and exits 0. `--journal` follows the systemd journal instead (on macOS it prints the manual-run notice). The dev launcher's separate flat-file log at `$XDG_CACHE_HOME/arco/arco.log` is unrelated.
@@ -154,7 +155,7 @@ So the load-bearing rules — **do not regress these or the service crash-loops 
 - **The server dev script passes `--conditions development`** (`tsx watch --conditions development src/index.ts`) so `npm run dev` keeps resolving the live `.ts` source. The `test:*` scripts pass it too (`node --conditions development --import tsx …`). Vite 6 selects the `development` condition automatically in serve mode; `vite build` gets `dist`.
 - **`install` runs `npm run build` first**, which builds `shared/dist` before the server boots. A service started against a stale/absent `shared/dist` will fail to import.
 
-This is verified by booting `node server/dist/index.js` in `scripts/smoke/service-cli.ts`'s sibling check and by `npm run build` + a manual boot; if you change shared's packaging, re-run `ARCO_SERVE_CLIENT=1 node server/dist/index.js` and confirm it serves `/` before trusting `arco service`.
+This is verified by booting `node server/dist/index.js` in `scripts/smoke/service-cli.ts`'s sibling check and by `npm run build` + a manual boot; if you change shared's packaging, re-run `ARCO_SERVE_CLIENT=1 node server/dist/index.js` and confirm it serves `/` before relying on service mode.
 
 ---
 
@@ -167,7 +168,7 @@ Service mode is supervised, so it ships the two probes a supervisor (systemd, a 
 
 **Readiness is exactly two components: `capabilities` + `stores`.** That mirrors the spec — the provider-capabilities probe (a pre-`listen()` top-level await, so always done by the time the server is listening) plus workflow-store recovery from disk (the post-`listen()` async). Best-effort boot prefetches (settings cascade, model catalogs, recall backfill) are **deliberately excluded**: they degrade gracefully and must not hold readiness false. For the same reason, store recovery marks `stores` ready in a **`.finally`**, not just `.then` — a recovery *error* is failure-isolated and must still flip the gate, or `/readyz` would never return 200 and systemd/k8s would kill a process that is in fact serving.
 
-`arco service status` probes the live `/readyz` and prints a `readiness:` line under the systemd status (e.g. `readiness: ready (capabilities, stores)`, `readiness: NOT READY — pending: stores`, or `readiness: unreachable (...)` when nothing is serving on the port). The readiness line is additive and best-effort — it never changes the systemd exit code (a stopped unit still exits non-zero). It also prints when **no unit is installed** (the server may be running via `npm run dev` or a manual `node dist/index.js`), since readiness is independent of systemd. Readiness also surfaces in the A1 diagnostics report as the `core.readiness` check (ok when ready, warn while still booting).
+`npm run arco:service -- status` probes the live `/readyz` and prints a `readiness:` line under the systemd status (e.g. `readiness: ready (capabilities, stores)`, `readiness: NOT READY - pending: stores`, or `readiness: unreachable (...)` when nothing is serving on the port). The readiness line is additive and best-effort; it never changes the systemd exit code (a stopped unit still exits non-zero). It also prints when **no unit is installed** (the server may be running via `npm run dev` or a manual `node dist/index.js`), since readiness is independent of systemd. Readiness also surfaces in the diagnostics report as the `core.readiness` check (ok when ready, warn while still booting).
 
 ---
 
@@ -189,11 +190,11 @@ npm run build
 ARCO_SERVE_CLIENT=1 NODE_ENV=production node server/dist/index.js
 ```
 
-launchd support is a later K-tier add. The unit-rendering + arg-parsing pure functions still work on macOS, so the smoke runs cross-platform.
+The `arco:service` CLI does not install or manage launchd agents. The hand-maintained procedure below is the documented macOS background-service option. The unit-rendering + arg-parsing pure functions still work on macOS, so the smoke runs cross-platform.
 
 ### Hand-maintained launchd service (macOS-specific)
 
-> **macOS only.** This section describes a launchd agent that is not generated by the `arco service` CLI and is not checked into git. Its plist is maintained separately from the Arco repository. On Linux use the systemd unit above instead.
+> **macOS only.** This section describes a launchd agent that is not generated by the `arco:service` CLI and is not checked into git. Its plist is maintained separately from the Arco repository. On Linux use the systemd unit above instead.
 
 On a Mac you can run Arco as a production background service via a launchd agent:
 
@@ -224,5 +225,6 @@ curl -s localhost:3001/healthz                        # confirm: {"status":"live
 ## Cross-references
 
 - Run/stop/recover + exposure posture: [`OPERATIONS.md`](OPERATIONS.md)
+- Install and first-run instructions: [`../README.md`](../README.md), [`GETTING_STARTED.md`](GETTING_STARTED.md)
 - HTTP endpoints: [`HTTP_API.md`](HTTP_API.md)
 - The dev launcher (`scripts/arco`): [`OPERATIONS.md` § The launcher script](OPERATIONS.md)
