@@ -1,4 +1,5 @@
 import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
+import { APP_VERSION } from './appVersion.js';
 import { updateChecker } from './server/updateCheck.js';
 import { configureComputerActivity, interruptComputerActivity } from './voice/activity.js';
 import { configureMailRules } from './voice/mailRules.js';
@@ -2286,7 +2287,7 @@ httpServer.listen(PORT, HOST, () => {
   updateChecker.start();
   console.log(`
   ╔══════════════════════════════════════════╗
-  ║         A R C O      v0.1.0 (Lite)       ║
+  ║         A R C O      v${APP_VERSION} (Lite)       ║
   ║         Server online :: ${PORT}             ║
   ║         Phase 2 — primary-worker chat    ║
   ╚══════════════════════════════════════════╝
