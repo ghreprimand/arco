@@ -1,3 +1,4 @@
+import { AppVersionSection } from './settings/AppVersionSection';
 import { EndpointHelp } from './EndpointHelp';
 import { SettingsLayout, SettingsSection } from './settings/SettingsLayout';
 import { MediaAccessSettings } from './MediaAccessSettings';
@@ -509,7 +510,7 @@ export function SettingsPanel({ onClose }: Props) {
   const llamacppReady = settings?.enabledProviders?.llamacpp !== false && !!authStatus?.llamacpp?.loggedIn;
 
   return (
-    <SettingsLayout onClose={onClose} unavailable={{ phosphor: !phosphorActive, 'llamacpp-catalog': !llamacppReady, 'cli-versions': !capabilities }}>
+    <SettingsLayout onClose={onClose} unavailable={{ phosphor: !phosphorActive, 'llamacpp-catalog': !llamacppReady }}>
 
         <SettingsSection id="themes">
         <div data-help="settings.themes">
@@ -1405,6 +1406,7 @@ export function SettingsPanel({ onClose }: Props) {
         </SettingsSection>
 
         <SettingsSection id="cli-versions">
+          <AppVersionSection />
           {capabilities && (
           <div>
             <div data-help="settings.cli-versions" className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>

@@ -50,7 +50,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'voice-setup', page: 'voice', label: 'Voice setup', scope: 'Global', help: ['settings.voice-setup'], keywords: 'microphone speech recognizer install uv python models notices' },
   { id: 'media-access', page: 'files', label: 'Media folder access', scope: 'Global', help: ['settings.media-unconfined'], aliases: ['media-unconfined'], keywords: 'media studio folders outside confined revoke' },
   { id: 'transport-defaults', page: 'advanced', label: 'Transport defaults', scope: 'Global, for new workflows', help: ['settings.transport-defaults'], keywords: 'codex exec app-server claude cli native' },
-  { id: 'cli-versions', page: 'advanced', label: 'CLI and runtime versions', scope: 'Global', help: ['settings.cli-versions'], keywords: 'version diagnostics' },
+  { id: 'cli-versions', page: 'advanced', label: 'CLI and runtime versions', scope: 'Global', help: ['settings.cli-versions', 'settings.app-updates'], keywords: 'version diagnostics' },
 ];
 
 // A request may name a section id, a help key (with or without `settings.`)

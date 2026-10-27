@@ -1,3 +1,4 @@
+import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { receiveComputerActivityChanged } from '../voice/activity';
 import { useComputerStore } from '../stores/computerStore';
 import { useVoiceStore } from '../voice/store';
@@ -201,6 +202,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
 
         case 'workflow_config_synced':
           store.replaceJobConfig(msg.workflowId, msg.config);
+          break;
+
+        case 'app_update_available':
+          useAppUpdateStore.getState().receive(msg);
           break;
 
         case 'settings_updated':

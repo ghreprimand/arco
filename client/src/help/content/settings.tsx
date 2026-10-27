@@ -429,6 +429,19 @@ export const settingsHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
+  'settings.app-updates': {
+    title: 'Arco releases',
+    manualSection: 'provider-updates',
+    body: (
+      <p>Shows the running Arco version and the latest known numbered release.
+        CHECK NOW asks the server to refresh GitHub release information. Check for new releases
+        controls the automatic check, which starts 30 seconds after boot and repeats every six hours.
+        ARCO_UPDATE_CHECK=0 overrides this preference. OPEN RELEASE opens the release notes;
+        DISMISS remembers that version across reloads. A newer version can notify again.
+        Updating Arco opens the service, foreground and Docker update instructions.
+        Nothing is downloaded or installed automatically.</p>
+    ),
+  },
   'settings.cli-versions': {
     title: 'Provider versions',
     manualSection: 'provider-updates',

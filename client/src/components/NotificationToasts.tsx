@@ -1,3 +1,4 @@
+import { AppUpdateNotice } from './AppUpdateNotice';
 // Phase 2.5.1 — top-right toast strip for transient notifications.
 // Fed by `useAppStore.notifications` (pushed from useWebSocket's `error`
 // handler). Each toast auto-dismisses 6s after its `createdAt`; operator
@@ -22,7 +23,6 @@ export function NotificationToasts() {
     return () => { for (const t of timers) clearTimeout(t); };
   }, [notifications, dismiss]);
 
-  if (notifications.length === 0) return null;
 
   return (
     <div
@@ -38,6 +38,7 @@ export function NotificationToasts() {
         pointerEvents: 'none',
       }}
     >
+      <AppUpdateNotice />
       {notifications.map((n) => (
         <div
           key={n.id}
