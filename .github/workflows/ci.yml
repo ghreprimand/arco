@@ -94,9 +94,11 @@ jobs:
         env:
           ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history
-      # Link check: enable `npm run test:docs` here once the documentation set lands it.
       - name: Help registry check
         run: npm run docs:check
+      - name: Documentation link check
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run test:docs
 
   # The browser and docker jobs do not wait for the verify matrix: a macOS or Windows failure must
   # not hide the Linux browser and container results.

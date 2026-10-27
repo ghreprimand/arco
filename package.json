@@ -51,7 +51,7 @@
     "test:atomic-file": "node --conditions development --import tsx --test server/src/atomicFile.test.ts",
     "test:turn-lifecycle": "node --conditions development --import tsx --test server/src/ws/busyClaim.test.ts server/src/workflowStore.test.ts",
     "size:check": "tsx scripts/size-check.ts",
-    "docs:check": "tsx scripts/docs-check.ts",
+    "docs:check": "tsx scripts/docs-check.ts && npm run test:docs",
     "smoke:genesis-engine": "tsx scripts/smoke/genesis-engine.ts",
     "smoke:chat-mode": "tsx scripts/smoke/chat-mode.ts",
     "smoke:workspace-mirror": "tsx scripts/smoke/workspace-mirror.ts",
