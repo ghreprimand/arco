@@ -101,7 +101,12 @@ in [Backup](BACKUP.md), then review the release notes before changing versions.
 
 ### Linux background service
 
-From the checkout, update dependencies and rebuild the installed service:
+From the checkout, update dependencies and rebuild the installed service. The
+install action rewrites the unit from the current environment, so every
+install-time variable (`ARCO_PORT`, `ARCO_HOST`, `ARCO_HUB_URL`, `ARCO_NTFY_URL`)
+must be set again before each install. For a service on port 3002, replace the
+bare install line below with `ARCO_PORT=3002 npm run arco:service -- install`;
+reapply any other install-time variables used.
 
 ```sh
 git pull --ff-only
@@ -113,12 +118,10 @@ npm run arco:service -- status
 ```
 
 `install` builds the server and client, rewrites the user unit and reloads
-systemd; it does not restart the running process. Reapply the installation-time
-configuration, including `ARCO_PORT` when using a non-default port, before
-running it. `stop` and `start` are separate commands; there is no service
-`restart` subcommand. Reload the browser after the new server starts. See
-[Service mode](SERVICE_MODE.md) for unit configuration and manual macOS launchd
-management.
+systemd; it does not restart the running process. `stop` and `start` are separate
+commands; there is no service `restart` subcommand. Reload the browser after the
+new server starts. See [Service mode](SERVICE_MODE.md) for unit configuration
+and manual macOS launchd management.
 
 ### Foreground native run
 

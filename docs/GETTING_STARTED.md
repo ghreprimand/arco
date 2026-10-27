@@ -52,13 +52,16 @@ restart the server and end in-flight agent turns; see
 
 To run the Linux service beside another server using port 3001, install it with
 `ARCO_PORT=3002 npm run arco:service -- install --enable`; the chosen port is
-stored in the generated unit. In PowerShell, set `$env:ARCO_PORT=3002` before
-running that install command. To update a Linux service, run `git pull`,
-`npm ci --include=dev`, and `npm run arco:service -- install`, then stop and
-start the service with `npm run arco:service -- stop` and
-`npm run arco:service -- start`. Install rebuilds and rewrites the unit; the
-stop/start interrupts in-flight work. See [Service mode](SERVICE_MODE.md) for
-the macOS procedure and further operating details.
+stored in the generated unit. To update a Linux service, run `git pull`,
+`npm ci --include=dev`, and install with the same install-time environment as
+before, then stop and start the service with `npm run arco:service -- stop` and
+`npm run arco:service -- start`. The install action rewrites the unit from the
+current environment, so every install-time variable (`ARCO_PORT`, `ARCO_HOST`,
+`ARCO_HUB_URL`, `ARCO_NTFY_URL`) must be set again. For a service on port 3002,
+use `ARCO_PORT=3002 npm run arco:service -- install`; apply the same pattern to
+any other install-time variables used. Stopping interrupts in-flight work. See
+[Service mode](SERVICE_MODE.md) for the macOS procedure and further operating
+details.
 
 ### Docker
 
