@@ -16,6 +16,8 @@ COPY scripts/build-fs.mjs scripts/build-fs.mjs
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24-bookworm-slim AS runtime
+ARG ARCO_BUILD_COMMIT
+ENV ARCO_BUILD_COMMIT=${ARCO_BUILD_COMMIT}
 ARG CODEX_VERSION=0.163.0
 ARG CLAUDE_CODE_VERSION=2.1.302
 RUN apt-get update && apt-get install -y --no-install-recommends \

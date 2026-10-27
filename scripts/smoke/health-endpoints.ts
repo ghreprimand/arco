@@ -14,6 +14,7 @@
 //
 // Run: npm run smoke:health-endpoints  (needs the dev server on :3001)
 
+import { APP_BUILD } from '../../server/src/appVersion.js';
 import { step, assert, assertEq, summary } from './lib.js';
 
 const HTTP_BASE = process.env.ARCO_SMOKE_HTTP_BASE || 'http://localhost:3001';
@@ -52,7 +53,7 @@ async function main() {
     assertEq(body.status, 'live', "body.status === 'live'");
     assert(typeof body.pid === 'number' && Number.isInteger(body.pid), `pid is an integer (got ${body.pid})`);
     assert(typeof body.uptimeSec === 'number', `uptimeSec is a number (got ${body.uptimeSec})`);
-    assert(typeof body.version === 'string' && body.version.length > 0, 'version is a non-empty string');
+    assertEq(body.version, APP_BUILD.version, 'version matches the installed package');
   });
 
   await step('GET /health (alias) → 200, same "live" shape as /healthz', async () => {
@@ -61,6 +62,12 @@ async function main() {
     assertEq(body.status, 'live', "alias body.status === 'live'");
     assert(typeof body.pid === 'number' && Number.isInteger(body.pid), 'alias pid is an integer');
     assert(typeof body.uptimeSec === 'number', 'alias uptimeSec is a number');
+  });
+
+  await step('GET /api/app/version returns the running package version', async () => {
+    const { status, body } = await getJson<{ version: string; commit?: string }>('/api/app/version');
+    assertEq(status, 200, 'status 200');
+    assertEq(body.version, APP_BUILD.version, 'version matches the installed package');
   });
 
   await step('GET /readyz → 200, ready with both components true + no pending', async () => {

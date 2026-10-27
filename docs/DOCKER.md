@@ -11,6 +11,8 @@ existing project root. On Windows use forward slashes, for example `C:/Projects`
 
     docker compose up -d --build
 
+For a build identified by its source revision, run `docker compose build --build-arg ARCO_BUILD_COMMIT=$(git rev-parse HEAD)` before `docker compose up -d`. The image preserves this build argument as `ARCO_BUILD_COMMIT`; `/healthz` and `/api/app/version` include it as `commit`. Builds without the argument and native runs omit `commit`.
+
 Open http://localhost:3001. ARCO_PORT changes the host port. The port is published
 on host loopback. This protects network reachability, not separate users on the
 host; Arco does not provide multi-user isolation. Remote authentication remains

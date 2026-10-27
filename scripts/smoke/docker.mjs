@@ -83,7 +83,7 @@ async function disconnect() {
   socket.close(); await closed;
 }
 try {
-  if (process.env.ARCO_SMOKE_SKIP_BUILD !== '1') execFileSync('docker', ['build', '-t', image, '.'], { stdio: 'inherit' });
+  if (process.env.ARCO_SMOKE_SKIP_BUILD !== '1') execFileSync('docker', ['build', '--build-arg', 'ARCO_BUILD_COMMIT=fixture-build', '-t', image, '.'], { stdio: 'inherit' });
   await boot();
   assert.equal(docker('exec', name, 'id', '-u').trim(), '1000');
   assert.ok(docker('exec', name, 'codex', '--version').includes('codex'));
@@ -92,6 +92,12 @@ try {
   assert.equal((await fetch(`${base}/api/settings`)).status, 401);
   assert.equal((await fetch(`${base}/api/session`, { method: 'POST', headers: { Origin: 'https://example.com' } })).status, 403);
   const headers = { Cookie: await cookie(), Origin: base, 'Content-Type': 'application/json' };
+  const build = await (await fetch(`${base}/api/app/version`, { headers })).json();
+  assert.equal(build.version, JSON.parse(readFileSync('package.json', 'utf8')).version);
+  assert.equal(build.commit, 'fixture-build');
+  const health = await (await fetch(`${base}/healthz`)).json();
+  assert.equal(health.version, build.version);
+  assert.equal(health.commit, build.commit);
   const settings = await (await fetch(`${base}/api/settings`, { headers })).json();
   assert.equal(settings.defaultWorkingDirectory, '/projects');
   const auth = await (await fetch(`${base}/api/auth-status`, { headers })).json();

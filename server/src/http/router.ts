@@ -1,3 +1,4 @@
+import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
 import { tryHandleAuthLoginRoutes } from './authLoginRoutes.js';
 import { IN_APP_LOGIN, startLoginSession } from '../authLoginSession.js';
@@ -223,16 +224,7 @@ export async function handleHttpRequest(
   // is kept as a back-compat alias returning the same body. Always 200 — this
   // branch only runs when the server is up. NOT gated on ARCO_SERVE_CLIENT, and
   // routed ahead of everything so a supervisor probe can never be shadowed.
-  if (req.method === 'GET' && (req.url === '/healthz' || req.url === '/health')) {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'live',
-      version: '0.1.0',
-      pid: process.pid,
-      uptimeSec: readinessSnapshot().uptimeSec,
-    }));
-    return;
-  }
+  if (tryHandleAppVersionRoutes(req, res)) return;
 
   // Readiness (docs/ARCHITECTURE.md). 200 only once capabilities + stores are
   // up; 503 with the pending components during the boot window. Lets a load
