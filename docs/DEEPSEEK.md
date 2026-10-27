@@ -1,9 +1,10 @@
 # DeepSeek V4.1 Flash via Xolotl
 
-Arco can connect to a separately installed Xolotl runtime serving DeepSeek V4.1
-Flash. It does not download model weights or import them into Ollama. Xolotl uses
-a separate provider registry and guarded service lifecycle; existing provider
-defaults remain unchanged.
+DeepSeek through Xolotl is an optional external-service integration. Arco can
+connect to a separately installed Xolotl runtime serving DeepSeek V4.1 Flash.
+Arco does not distribute Xolotl or model weights and does not download or
+import model weights into Ollama. Xolotl uses a separate provider registry and
+guarded service lifecycle; existing provider defaults remain unchanged.
 
 ## Xolotl and DeepSeek are different things
 

@@ -103,7 +103,8 @@ making it reachable elsewhere.
 ## Highlights
 
 - **Project Home:** open arbitrary folders, pin or archive projects, recover moved folders, and resume saved work. [Getting started](docs/GETTING_STARTED.md)
-- **Provider choice:** Claude, Codex, Z.ai, Gemini, Cursor, Antigravity, Ollama, LM Studio, llama.cpp, Strata, and DeepSeek through Xolotl. [Providers](docs/PROVIDERS.md)
+- **Provider choice:** Claude, Codex, Z.ai, Gemini, Cursor, Antigravity, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
+- **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
 - **Operator actions:** Review, Compare, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
 - **Clusters and plans:** shared task boards, peer messages, plans, and optional operator-armed dispatch coordinate parallel work. [Task ledger](docs/TASK_LEDGER.md)

@@ -28,8 +28,8 @@
 ## Providers
 
 - [Providers](PROVIDERS.md): provider setup, authentication, models, and transport behavior.
-- [Strata](STRATA.md): local Strata integration and profile management.
-- [DeepSeek](DEEPSEEK.md): local DeepSeek through Xolotl.
+- Optional external service: [Strata](STRATA.md), for local profile management. The service is installed separately and is not distributed by Arco.
+- Optional external service: [DeepSeek through Xolotl](DEEPSEEK.md). Xolotl is installed separately and is not distributed by Arco.
 - [Codex code-mode cluster note](CODEX_GPT56_CLUSTER_INCOMPAT.md): find Arco cluster tools inside a Codex `exec` cell.
 
 ## Voice and Computer

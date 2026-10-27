@@ -1,9 +1,9 @@
 # Strata and large MoE models
 
-Reference for the Arco integration with a separately installed Strata HTTP
-service. Arco does not bundle Strata or model weights. The provider registry
-and runtime profiles are configurable per installation; model availability,
-resource needs, and performance depend on the selected engine and host.
+Strata is an optional external-service integration. It requires a separately
+installed Strata HTTP service; Arco does not distribute the service or model
+weights. Profiles are configurable per installation; model availability, resource
+needs, and performance depend on the selected engine and host.
 
 Installed engine versions appear in Providers when the information is available.
 Discovery reads metadata without starting a model. Capability probes can report
