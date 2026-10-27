@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Disable line-ending conversion
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check tag matches package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node --input-type=module -e 'import { readFileSync } from "node:fs"; const version = JSON.parse(readFileSync("package.json", "utf8")).version; if (process.env.TAG !== `v${version}`) throw new Error("Tag does not match the package version.");'
+      - name: Install
+        run: npm ci --include=dev
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        timeout-minutes: 20
+        run: npm run test:unit
+      - name: Load private audit patterns
+        env:
+          ARCO_PRIVATE_PATTERNS: ${{ secrets.ARCO_PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$ARCO_PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$ARCO_PRIVATE_PATTERNS" > "$RUNNER_TEMP/arco-private-patterns"
+            echo "ARCO_PRIVATE_PATTERNS_FILE=$RUNNER_TEMP/arco-private-patterns" >> "$GITHUB_ENV"
+          else
+            echo "No ARCO_PRIVATE_PATTERNS secret; using built-in rules only."
+          fi
+      - name: Public-safety audit (tree)
+        run: npm run audit:public -- --tree
+      - name: Public-safety audit (history, identity and trailers)
+        env:
+          ARCO_PRIVATE_PATTERNS_FILE: ''
+        run: node scripts/public-audit.mjs --history
+      - name: Help registry check
+        run: npm run docs:check
+      - name: Documentation link check
+        run: npm run test:docs
+      - name: Publish release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/release/notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$TAG" --verify-tag --title "Arco $TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

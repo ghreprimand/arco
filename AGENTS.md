@@ -39,6 +39,8 @@ Install the hooks with `npm run setup:hooks`. It sets the checkout identity, con
 
 The Director reads the full staged diff before each commit. Blocking findings are data loss, privacy or security defects, build or test failures, and regressions to Arco capability. Wording, structure, extra test ideas, style, and future-proofing become board tasks. Each change gets one correction round; a second round means split or rescope the work.
 
+User-visible changes add a `CHANGELOG.md` bullet under Unreleased in the same commit.
+
 ## Development log
 
 `DEVLOG.md` is a newest-first index of monthly archives. Each `devlog/YYYY-MM.md` archive lists entries newest first. Every change commit adds an entry in the same commit; several entries are appropriate when a commit changes several behaviors. A commit that only fixes an earlier devlog entry is allowed only to correct its facts.

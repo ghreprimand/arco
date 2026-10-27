@@ -325,3 +325,60 @@ For contributors and agents, read [`AGENTS.md`](AGENTS.md) before starting. It c
 - [Operations](docs/OPERATIONS.md): running, stopping, recovery
 - [Gotchas](docs/GOTCHAS.md): invariants and "don't regress"
 - [Glossary](docs/GLOSSARY.md): terminology
+
+## Releases
+
+A user-visible change adds a concise bullet under `## Unreleased` in
+[CHANGELOG.md](CHANGELOG.md) in the same commit. Use Added, Changed, Fixed, or
+Removed, describe the effect on a user, and leave implementation evidence in the
+development log. Keep the root, shared, server, and client package versions in
+sync; the unit suite checks them.
+
+The Director cuts a release after the operator confirms the version. Before 1.0,
+a minor version identifies a feature or behavior change; a patch identifies a fix
+or documentation update. Start with a clean `main` equal to `origin/main` after
+fetching and completing the local gate:
+
+```sh
+git fetch origin
+npm run build
+npm run typecheck
+npm run test:unit
+npm run docs:check
+npm run audit:public
+node scripts/release.mjs patch --dry-run
+node scripts/release.mjs patch
+```
+
+The inaugural release is the one exception to the bump and empty-Unreleased rules:
+when there are no local version tags, `node scripts/release.mjs 0.1.0` uses the
+already seeded `v0.1.0` notes and retains the package version. It requires an
+empty Unreleased section and no other release sections. Any pending changes must
+be reviewed before that tag is cut.
+
+Use `minor`, `major`, or an explicit newer `X.Y.Z` instead of `patch` when
+appropriate. Unreleased must contain a change bullet. The dry run prints the
+exact planned edits and tag message without changing files. The real invocation
+rolls the changelog, updates all four manifests and their lockfile entries, and
+opens the release devlog stub in the configured Git editor (`GIT_EDITOR` or
+`core.editor`). Complete the entry with the checks actually run and remove its
+`RELEASE_ENTRY_REQUIRED` marker. An unchanged stub or failed editor prevents the
+commit; the edits remain available for review and recovery.
+
+The script commits `Release vX.Y.Z` with the project identity and creates the
+annotated `vX.Y.Z` tag from the changelog section. It never pushes. The Director
+reviews the release diff and tag, then explicitly pushes both:
+
+```sh
+git show --stat HEAD
+git show HEAD
+git tag -n99 vX.Y.Z
+git push origin main vX.Y.Z
+```
+
+Replace `vX.Y.Z` with the reviewed tag. The tag workflow checks its package
+version, runs the Ubuntu verification gate, and publishes the changelog section
+as a GitHub Release using the built-in token. Automatic source archives are the
+only assets. Failed publishing is recovered through the workflow; the release
+script does not overwrite an existing local tag. The release notes can be
+inspected independently with `node scripts/release/notes.mjs vX.Y.Z`.
