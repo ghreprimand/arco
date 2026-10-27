@@ -9,7 +9,8 @@
 // The same list is the containment authority for the explorer scans, mkdir and
 // no-workflow writes. The earlier $HOME jail broke the Docker layout, where
 // HOME is the data volume and projects are bind-mounted elsewhere.
-import { mkdir, readFile, readdir, realpath, stat } from 'fs/promises';
+import { mkdir, readFile, readdir, stat } from 'fs/promises';
+import { realpathSync } from 'node:fs';
 import { homedir } from 'os';
 import path from 'path';
 import { readKnownCwds } from './crashRecovery.js';
@@ -112,7 +113,9 @@ export async function projectDisplayName(folder: string): Promise<string> {
   } catch { /* no package.json */ }
   try {
     const realRoot = safeDirectory(folder);
-    const configPath = await realpath(path.join(folder, '.git', 'config'));
+    // Match safeDirectory's resolver: native realpath expands Windows short
+    // names differently and can make an in-root config look like an escape.
+    const configPath = realpathSync(path.join(folder, '.git', 'config'));
     if (!isPathWithin(path.join(realRoot, '.git'), configPath) || !(await stat(configPath)).isFile()) return fallback;
     const config = await readFile(configPath, 'utf8');
     const url = /^\s*url\s*=\s*(\S+)/m.exec(config)?.[1];

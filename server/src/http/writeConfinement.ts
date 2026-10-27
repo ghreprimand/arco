@@ -15,7 +15,7 @@
 //      deepest existing ancestor) and require it under realpath(cwd). A dangling
 //      symlink at the target is refused — writeFile would follow it anywhere.
 
-import { promises as fs } from 'fs';
+import { promises as fs, realpathSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { workflowCwds, workflows } from '../server/state.js';
@@ -129,7 +129,9 @@ export async function confineRealPath(cwd: string, p: string): Promise<string> {
     }
     let real: string;
     try {
-      real = await fs.realpath(probe);
+      // Use the same resolver as safeDirectory for both sides of the fence.
+      // Native async realpath can expand Windows 8.3 names differently.
+      real = realpathSync(probe);
     } catch {
       // Exists per lstat but won't resolve → dangling symlink. A write would
       // follow it to wherever it points; refuse.

@@ -266,7 +266,8 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
   assert.equal((await main.post('/api/files/write', { cwd: main.project, path: 'linkout/w.txt', content: 'x' })).status, 400);
   assert.equal((await main.post('/api/files/write', { cwd: main.outside, path: 'w.txt', content: 'x' })).status, 400);
   assert.equal(existsSync(path.join(main.outside, 'w.txt')), false, 'nothing was written outside the project');
-  assert.equal((await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', content: 'fine\n' })).status, 200);
+  const write = await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', content: 'fine\n' });
+  assert.equal(write.status, 200, await write.text());
   assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), 'fine\n');
   assert.equal((await main.post('/api/mkdir', { parent: main.outside, name: 'nd' })).status, 200);
 });
