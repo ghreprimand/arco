@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Fixed
+
+- Keep the Settings close button accessible at larger interface sizes while settings content scrolls.
+
 - Default Computer to a connected agent, offer Connections when none is available, and explain its workbench-only scope.
 
 - Finish welcome setup with a folder and provider summary, then choose Go to Home or Start a chat in the normal creator.

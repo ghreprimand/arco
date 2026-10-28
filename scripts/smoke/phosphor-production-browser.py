@@ -88,6 +88,23 @@ async def main():
   await page.screenshot(path=str(ART/'settings-open.png'))
   assert not errors, errors
   assert await page.locator('[data-help="settings.themes"]').count()==1, await page.locator('body').inner_text()
+  # At the smallest supported desktop viewport, scale changes must leave the
+  # Settings header and CLOSE reachable while the body remains scrollable.
+  await page.set_viewport_size({'width':1280,'height':720})
+  scale_control = page.get_by_role('group', name='Interface text size')
+  for percent in ['150%', '90%', '100%', '110%', '120%', '130%']:
+   await scale_control.get_by_role('button', name=percent, exact=True).click()
+   await page.wait_for_function('(value) => Number(document.documentElement.style.zoom) === value', arg=int(percent[:-1]) / 100)
+   content = page.locator('.settings-content')
+   assert await content.evaluate('e => e.scrollHeight > e.clientHeight')
+   await content.evaluate('e => e.scrollTop = e.scrollHeight')
+   close = page.get_by_role('button', name='Close settings', exact=True)
+   bounds = await close.bounding_box()
+   assert bounds and bounds['x'] >= 0 and bounds['y'] >= 0 and bounds['x'] + bounds['width'] <= 1280 and bounds['y'] + bounds['height'] <= 720, (percent, bounds)
+   await close.click(timeout=5000)
+   await page.evaluate('testStore.getState().setShowSettings(true)')
+  await scale_control.get_by_role('button',name=f'{round(float(initial_scale)*100)}%',exact=True).click()
+  await page.set_viewport_size({'width':1536,'height':1080})
   await page.evaluate("""async () => {
     const {useTerminalStore:s}=await import('/src/stores/terminalStore.ts');
     s.setState({windows:[{windowId:'scale-fixture',workflowId:'style-fixture',sessionId:'fixture-session'}]});
