@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
@@ -185,25 +185,52 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
 
 function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const accounts = useAppStore((s) => s.settings?.providerAccounts?.codex);
+  const [account, setAccount] = useState('');
+  const [source, setSource] = useState<'appserver' | 'camoufox'>('appserver');
+  const [selectedUsage, setSelectedUsage] = useState<{key: string; data: CodexUsageInfo} | null>(null);
+  const params = new URLSearchParams();
+  if (account) params.set('account', account);
+  if (source === 'camoufox') params.set('source', source);
+  const query = params.toString();
+  const currentQuery = useRef(query);
+  currentQuery.current = query;
+  useEffect(() => {
+    setSelectedUsage(null);
+    if (!query) return;
+    let current = true;
+    fetch(`/api/codex-usage?${query}`).then(r => { if (!r.ok) throw new Error('Usage request failed'); return r.json() as Promise<CodexUsageInfo>; }).then(data => { if (current) setSelectedUsage({key: query, data}); }).catch(() => { if (current) setSelectedUsage({key: query, data: {available:false, fetchedAt:Date.now(), source:'unavailable', analyticsUrl:CODEX_ANALYTICS_URL, error:'Could not reach the Arco usage endpoint. Try again.'}}); });
+    return () => { current = false; };
+  }, [query]);
+  const displayed = query ? (selectedUsage?.key === query ? selectedUsage.data : null) : usage;
   const [loginState, setLoginState] = useState<'idle' | 'starting' | 'started' | 'error'>('idle');
+  const [loginError, setLoginError] = useState('');
   const [retryState, setRetryState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const startLogin = async () => {
     setLoginState('starting');
+    setLoginError('');
     try {
       const res = await fetch('/api/codex-usage-login', { method: 'POST' });
-      const data = (await res.json()) as { started?: boolean };
+      const data = (await res.json()) as { started?: boolean; error?: string };
       setLoginState(data.started ? 'started' : 'error');
+      if (!data.started) setLoginError(data.error ?? 'Could not open the browser login.');
       if (data.started) {
         window.setTimeout(() => setLoginState('idle'), 5000);
       }
     } catch {
       setLoginState('error');
+      setLoginError('Could not open the browser login.');
     }
   };
   const refreshUsage = async () => {
     setRetryState('loading');
     try {
-      await fetch('/api/codex-usage?force=1');
+      const res = await fetch(`/api/codex-usage?force=1${query ? `&${query}` : ''}`);
+      const data = await res.json() as CodexUsageInfo;
+      if (!res.ok) throw new Error('Usage request failed');
+      if (currentQuery.current !== query) { setRetryState('idle'); return; }
+      setSelectedUsage({key: query, data});
+      if (!query) useAppStore.getState().setCodexUsage(data);
       setRetryState('done');
       window.setTimeout(() => setRetryState('idle'), 2000);
     } catch {
@@ -217,7 +244,7 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
     >
       <StatusDot letter="X" state="live" title="Codex — LIVE (hover for usage, click for analytics)" href={CODEX_ANALYTICS_URL} />
       {open && (
@@ -225,7 +252,7 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
           role="tooltip"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+            top: '100%',
             right: 0,
             minWidth: '340px',
             padding: '10px 14px',
@@ -238,19 +265,24 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', lineHeight: 1.45 }}>
-            {usage?.available && usage.rows?.length ? (
+            <label>Account <select value={account} onChange={e => setAccount(e.target.value)}><option value="">Default Codex account</option>{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+            <label>Source <select value={source} onChange={e => setSource(e.target.value as 'appserver' | 'camoufox')}><option value="appserver">Codex app-server</option><option value="camoufox">Legacy browser profile</option></select></label>
+            {source === 'camoufox' && <span>Browser profile is separate from Codex account selection. <a href="https://github.com/ghreprimand/arco/blob/main/docs/OPERATIONS.md#codex-usage" target="_blank" rel="noopener noreferrer">Setup and login guidance</a></span>}
+            {displayed && <span>{displayed.accountLabel ?? (source === 'camoufox' ? 'Browser profile' : 'Codex account')} · {displayed.source} · {displayed.stale ? 'stale · ' : ''}checked {new Date(displayed.fetchedAt).toLocaleString()}</span>}
+            {source === 'camoufox' && loginError && <span style={{color:'var(--color-warning)'}}>{loginError}</span>}
+            {displayed?.error && <span style={{color:'var(--color-warning)'}}>{displayed.error}</span>}
+            {displayed?.available && displayed.rows?.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {usage.rows.slice(0, 2).map((row) => <CodexUsageRow key={row.label} row={row} />)}
+                {displayed.rows.map((row, index) => <CodexUsageRow key={`${row.label}-${index}`} row={row} />)}
               </div>
             ) : (
               <>
                 <span style={{ color: 'var(--color-fg-muted)' }}>
-                  {usage?.error ?? 'Codex analytics scrape has not returned data yet.'}
-                  {' '}ChatGPT blocks iframe embedding, so Arco reads the page with a dedicated local Camoufox profile when configured.
+                  {displayed?.error ? '' : 'Codex quota has not returned data yet.'}
                 </span>
               </>
             )}
-            {!(usage?.available && usage.rows?.length) && (
+            {(
               <>
                 <button
                   type="button"
@@ -274,14 +306,14 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
                   }}
                 >
                   {retryState === 'loading'
-                    ? 'SCRAPING…'
+                    ? 'CHECKING…'
                     : retryState === 'done'
-                      ? 'SCRAPE REQUESTED'
+                      ? 'CHECKED'
                       : retryState === 'error'
-                        ? 'SCRAPE FAILED'
-                        : 'RETRY SCRAPE'}
+                        ? 'CHECK FAILED'
+                        : 'CHECK NOW'}
                 </button>
-                <button
+                {source === 'camoufox' && <button
                   type="button"
                   onClick={startLogin}
                   disabled={loginState === 'starting'}
@@ -303,7 +335,7 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
                     : loginState === 'started'
                       ? 'LOGIN WINDOW OPEN (CLICK TO REOPEN)'
                       : 'LOGIN CAMOUFOX PROFILE'}
-                </button>
+                </button>}
                 <a
                   href={CODEX_ANALYTICS_URL}
                   target="_blank"
@@ -333,19 +365,19 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
 }
 
 function CodexUsageRow({ row }: { row: { label: string; value: string } }) {
-  const label = row.label.toLowerCase().startsWith('5 hour') ? 'Session' : 'Weekly';
+  const label = row.label;
   const parsed = parseCodexUsageValue(row.value);
-  return <UsageRow label={label} util={parsed.usedPercent} resetsAt={null} resetText={parsed.resetText} />;
+  return parsed.usedPercent === null ? <span>{label}: {row.value}</span> : <UsageRow label={label} util={parsed.usedPercent} resetsAt={null} resetText={parsed.resetText} />;
 }
 
-function parseCodexUsageValue(value: string): { usedPercent: number; resetText?: string } {
-  const remaining = value.match(/\b(\d{1,3})%\s*remaining\b/i);
-  const used = value.match(/\b(\d{1,3})%\s*used\b/i);
-  const generic = value.match(/\b(\d{1,3})%\b/);
-  const raw = remaining ? 100 - Number(remaining[1]) : used ? Number(used[1]) : generic ? Number(generic[1]) : 0;
+function parseCodexUsageValue(value: string): { usedPercent: number | null; resetText?: string } {
+  const remaining = value.match(/\b(\d{1,3}(?:\.\d+)?)%\s*remaining\b/i);
+  const used = value.match(/\b(\d{1,3}(?:\.\d+)?)%\s*used\b/i);
+  const generic = value.match(/\b(\d{1,3}(?:\.\d+)?)%\b/);
+  const raw = remaining ? 100 - Number(remaining[1]) : used ? Number(used[1]) : generic ? Number(generic[1]) : null;
   const reset = value.match(/Resets?\s+(.+)$/i)?.[1]?.trim();
   return {
-    usedPercent: Math.max(0, Math.min(100, Number.isFinite(raw) ? raw : 0)),
+    usedPercent: raw !== null && Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : null,
     ...(reset ? { resetText: `resets ${reset}` } : {}),
   };
 }

@@ -269,7 +269,10 @@ export interface LlamacppLiveStatus {
 export interface CodexUsageInfo {
   available: boolean;
   fetchedAt: number;
-  source: 'camoufox' | 'disabled' | 'unavailable' | 'error';
+  source: 'appserver' | 'camoufox' | 'disabled' | 'unavailable' | 'error';
+  accountRef?: string;
+  accountLabel?: string;
+  stale?: boolean;
   profileDir?: string;
   analyticsUrl: string;
   summary?: string;

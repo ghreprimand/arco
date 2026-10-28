@@ -5,7 +5,7 @@ import asyncio
 import os
 import re
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from playwright.async_api import async_playwright
 
 URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
@@ -19,7 +19,7 @@ async def main():
         context = await browser.new_context(viewport={'width': 1440, 'height': 1000})
         initial_scale = os.environ.get('ARCO_TEST_UI_SCALE', '1.1')
         await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{initial_scale}')")
-        errors, writes, messages = [], [], []
+        errors, writes, messages, quota_queries = [], [], [], []
         async def api(route):
             path = urlparse(route.request.url).path
             # POST /api/session mints the WebSocket session cookie (client/src/utils/wsSession.ts);
@@ -33,6 +33,12 @@ async def main():
             elif path.endswith('/catalog'): data = {'models': []}
             elif path == '/api/list-dirs': data = {'dirs': [], 'path': '/demo', 'parent': '/'}
             elif path == '/api/usage': data = {'available': False}
+            elif path == '/api/codex-usage':
+                query = parse_qs(urlparse(route.request.url).query); quota_queries.append(query)
+                source = query.get('source', ['appserver'])[0]
+                account = query.get('account', ['default'])[0]
+                data = {'available': True, 'fetchedAt': 1800000000000, 'source': source, 'accountLabel': account, 'stale': account == 'work', 'error': 'fixture stale' if account == 'work' else None, 'rows': [{'label': 'codex primary', 'value': '25% used'}, {'label': 'other secondary', 'value': '50% used'}], 'analyticsUrl': 'https://chatgpt.com/settings/usage'}
+                if source == 'camoufox': data = {'available': False, 'fetchedAt': 1800000000000, 'source': 'unavailable', 'error': 'Camoufox fixture missing', 'analyticsUrl': 'https://chatgpt.com/settings/usage'}
             await route.fulfill(json=data)
         await context.route('**/api/**', api)
         await context.route('**/healthz', lambda r: r.fulfill(json={'status': 'live'}))
@@ -61,6 +67,7 @@ async def main():
             await page.screenshot(path=str(ART/'scale-context.png'))
             await page.keyboard.press('Escape')
             await page.evaluate("testStore.getState().setHelpMode(true)")
+        await page.wait_for_function('() => testStore.getState().authStatus && testStore.getState().settings')
         # Each enabled signed-in provider gets its dot; disabling it removes its
         # trigger and the entire group disappears when none remain enabled.
         await page.evaluate("""() => {
@@ -69,6 +76,20 @@ async def main():
         }""")
         bar = page.locator('[data-help="header.live-status"]')
         await bar.wait_for()
+        await page.evaluate("testStore.setState(st=>({settings:{...st.settings,providerAccounts:{codex:[{id:'work',label:'Work'}]}}}))")
+        await page.evaluate('testStore.getState().setHelpMode(false)')
+        await page.get_by_label('X usage page').hover()
+        popup = page.get_by_role('tooltip').filter(has_text='Source')
+        await popup.get_by_label('Account').hover()
+        await popup.get_by_label('Account').select_option('work')
+        await popup.get_by_text('fixture stale').wait_for()
+        assert await popup.get_by_text('other secondary').count() == 1
+        assert not any(q.get('source') == ['camoufox'] for q in quota_queries)
+        await popup.get_by_label('Source').select_option('camoufox')
+        await page.wait_for_function("() => document.querySelector('[role=tooltip]')?.textContent.includes('Browser profile is separate')")
+        await popup.get_by_text('Camoufox fixture missing').wait_for()
+        assert any(q.get('source') == ['camoufox'] for q in quota_queries)
+        await page.evaluate('testStore.getState().setHelpMode(true)')
         for name, letter in [('claude','C'),('gemini','G'),('codex','X'),('cursor','R'),('ollama','O')]:
             await page.wait_for_function("letter => [...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
             await page.evaluate("name => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,[name]:false}}}))", name)

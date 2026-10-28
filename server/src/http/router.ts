@@ -1928,8 +1928,10 @@ export async function handleHttpRequest(
   }
 
   if (req.url?.startsWith('/api/codex-usage') && req.method === 'GET') {
-    const force = new URL(req.url, `http://localhost:${PORT}`).searchParams.get('force') === '1';
-    const usage = await getCodexUsage(force);
+    const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+    const force = params.get('force') === '1';
+    const account = params.get('account') || undefined;
+    const usage = await getCodexUsage(force, account, params.get('source') === 'camoufox' ? 'camoufox' : 'appserver');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(usage));
     return;

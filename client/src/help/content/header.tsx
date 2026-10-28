@@ -468,8 +468,7 @@ export const headerHelp: Record<string, HelpEntry> = {
         </p>
         <p>
           Hover a dot for the full detail it used to show as a boxed pill:
-          Claude's 5-hour + weekly burn (polled every 3 minutes), Codex's usage
-          scrape, Cursor's included-plan gauge plus its separate Other Models
+          Claude's 5-hour + weekly burn (polled every 3 minutes), Codex subscription quota from its app-server, Cursor's included-plan gauge plus its separate Other Models
           quota bar, or Ollama's loaded-model list with unload times. Hidden when no
           enabled provider is signed in. Providers disabled in Settings show no dot or popover.
         </p>

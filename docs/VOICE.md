@@ -400,8 +400,8 @@ reviewable even if the microphone is off or a reload interrupts playback.
 
 `arco_usage` reads Codex/Claude/Cursor
 usage snapshots, their freshness/errors, and separate throttling state. Codex
-uses the existing cached `/api/codex-usage` endpoint without forcing scraping
-or opening login. Percentages are derived only from explicit used/remaining
+uses `/api/codex-usage` for the default Codex account without selecting the
+legacy browser source or opening login. Percentages are derived only from explicit used/remaining
 rows, never token counts or throttling. Profile paths/raw account text are not
 returned. Computer may operate settings, themes, model/provider controls,
 workflows, clusters, task boards, files, Git and dialogs through the UI; the

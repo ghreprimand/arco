@@ -1,9 +1,11 @@
-import { spawn } from 'child_process';
-import { mkdir } from 'fs/promises';
+import { spawn, execFile } from 'child_process';
+import { mkdir, stat } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import type { CodexUsageInfo } from '@arco/shared';
 import { arcoHome } from './arcoHome.js';
+import { configuredAccounts, resolveProviderAccount } from './providerAccounts.js';
+import { readCodexQuota, CodexQuotaError } from './codexUsageRpc.js';
 
 // 2026-10: OpenAI moved live plan limits off the Codex analytics page (which
 // now redirects to a daily-snapshot usage-history tab) onto settings/usage.
@@ -14,12 +16,71 @@ const PROFILE_DIR = process.env.ARCO_CODEX_USAGE_PROFILE
 const CACHE_MS = 3 * 60 * 1000;
 const SCRAPE_TIMEOUT_MS = 45_000;
 
+const quotaCache = new Map<string, { usage: CodexUsageInfo; identity: string; authStamp: string | null }>();
+
+async function authFileStamp(home?: string): Promise<string | null> {
+  try {
+    const file = await stat(join(home ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'auth.json'));
+    return [file.dev, file.ino, file.size, file.mtimeMs, file.ctimeMs].join(':');
+  } catch { return null; }
+}
+const quotaRequests = new Map<string, Promise<CodexUsageInfo>>();
 let cached: CodexUsageInfo | null = null;
 
-export async function getCodexUsage(force = false): Promise<CodexUsageInfo> {
+export async function getCodexUsage(force = false, accountRef?: string, source: 'appserver' | 'camoufox' = 'appserver'): Promise<CodexUsageInfo> {
+  if (source === 'camoufox') return getBrowserUsage(force);
+  const accounts = await configuredAccounts('codex');
+  if (accountRef && !accounts.some(account => account.id === accountRef)) {
+    return { available: false, fetchedAt: Date.now(), source: 'error', analyticsUrl: ANALYTICS_URL, error: 'Selected Codex account was removed. Choose an available account in Connections.' };
+  }
+  const resolved = await resolveProviderAccount('codex', accountRef);
+  const key = JSON.stringify([resolved?.profile.id ?? '', resolved?.codexHome ?? process.env.CODEX_HOME ?? '__ambient__']);
+  const previous = quotaCache.get(key);
+  const inFlight = quotaRequests.get(key);
+  if (inFlight) return inFlight;
+  const request = (async () => {
+    try {
+      const { usage, identity } = await readCodexQuota(resolved?.codexHome);
+      const result = { ...usage, ...(resolved ? { accountRef: resolved.profile.id, accountLabel: resolved.profile.label } : { accountLabel: 'Default CLI account' }) };
+      quotaCache.set(key, { usage: result, identity, authStamp: await authFileStamp(resolved?.codexHome) });
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Codex quota check failed.';
+      const stamp = await authFileStamp(resolved?.codexHome);
+      if (previous && stamp && stamp === previous.authStamp && err instanceof CodexQuotaError && err.identity && err.identity === previous.identity) {
+        return { ...previous.usage, stale: true, error };
+      }
+      return { available: false, fetchedAt: Date.now(), source: 'unavailable' as const, analyticsUrl: ANALYTICS_URL, ...(resolved ? { accountRef: resolved.profile.id, accountLabel: resolved.profile.label } : { accountLabel: 'Default CLI account' }), error };
+    }
+  })().finally(() => quotaRequests.delete(key));
+  quotaRequests.set(key, request);
+  return request;
+}
+
+async function browserPrerequisite(): Promise<string | null> {
+  return new Promise(resolve => {
+    const probe = [
+      'import sys',
+      'import camoufox.sync_api',
+      'from camoufox.pkgman import INSTALL_DIR, LAUNCH_FILE, OS_NAME',
+      'roots = [INSTALL_DIR, *INSTALL_DIR.glob("browsers/*/*")]',
+      'def executable(root):',
+      '    base = root / "Camoufox.app" / "Contents" / "Resources" if OS_NAME == "mac" else root',
+      '    return (base / LAUNCH_FILE[OS_NAME]).is_file()',
+      'sys.exit(0 if any(executable(root) for root in roots) else 2)',
+    ].join('\n');
+    execFile(CAMOUFOX_PYTHON, ['-c', probe], { timeout: 5000, windowsHide: true }, err => {
+      resolve(err ? 'Camoufox Python or its browser is unavailable. Follow the Codex usage setup guidance and configure ARCO_CAMOUFOX_PYTHON.' : null);
+    });
+  });
+}
+
+async function getBrowserUsage(force = false): Promise<CodexUsageInfo> {
   if (!force && cached && Date.now() - cached.fetchedAt < CACHE_MS) return cached;
 
   try {
+    const prerequisite = await browserPrerequisite();
+    if (prerequisite) throw new Error(prerequisite);
     await mkdir(PROFILE_DIR, { recursive: true });
     const stdout = await runScrape();
     const parsed = JSON.parse(stdout) as {
@@ -77,7 +138,12 @@ function runScrape(): Promise<string> {
       env: { ...process.env },
     });
     const killGroup = () => {
-      try { if (proc.pid) process.kill(-proc.pid, 'SIGKILL'); } catch { /* already gone */ }
+      try {
+        if (process.platform === 'win32') {
+          if (proc.pid) execFile('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { windowsHide: true }, () => {});
+          proc.kill('SIGKILL');
+        } else if (proc.pid) process.kill(-proc.pid, 'SIGKILL');
+      } catch { /* already gone */ }
     };
     let stdout = '';
     let stderr = '';
@@ -99,12 +165,15 @@ function runScrape(): Promise<string> {
 
 export async function launchCodexUsageLogin(): Promise<{ started: boolean; profileDir: string; analyticsUrl: string; error?: string }> {
   try {
+    const prerequisite = await browserPrerequisite();
+    if (prerequisite) throw new Error(prerequisite);
     await mkdir(PROFILE_DIR, { recursive: true });
     const proc = spawn(CAMOUFOX_PYTHON, ['-c', loginScript(), PROFILE_DIR, ANALYTICS_URL], {
       detached: true,
       stdio: 'ignore',
       env: { ...process.env },
     });
+    await new Promise<void>((resolve, reject) => { proc.once('spawn', resolve); proc.once('error', reject); });
     proc.unref();
     return { started: true, profileDir: PROFILE_DIR, analyticsUrl: ANALYTICS_URL };
   } catch (err) {

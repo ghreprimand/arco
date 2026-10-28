@@ -1711,32 +1711,15 @@ Probes Claude's 5-hour and weekly usage from the OAuth API at `https://api.anthr
 
 Drives the Claude usage bars exposed via the `CLAUDE [LIVE]` pill's hover popover in `UsageBar`.
 
-### `GET /api/codex-usage[?force=1]`
+### `GET /api/codex-usage[?force=1&account=<id>&source=camoufox]`
 
-Codex has no usage API, so this **scrapes** the ChatGPT usage settings page (`https://chatgpt.com/settings/usage?tab=overview`; moved from the Codex analytics page 2026-10) with a headless Camoufox (`$ARCO_CAMOUFOX_PYTHON`, default `/opt/camoufox/bin/python`) against a persistent browser profile (`$ARCO_CODEX_USAGE_PROFILE`, default `~/.arco/camoufox-chatgpt-profile`). 45 s scrape timeout, 3-minute cache; `?force=1` bypasses. Always 200. Backed by `server/src/codexUsage.ts`.
+Reads ChatGPT subscription quota with the installed Codex app-server's documented `account/rateLimits/read`. A short-lived process uses the selected Codex profile; no model turn is started. The default is the first configured account, or the default CLI account when no profiles exist. `account` selects a configured profile. The response includes source, account label, fetched time, all reported quota windows, and errors. A previous snapshot may be marked stale only after the same account and unchanged credential file are confirmed. Missing CLI, unsupported versions, signed-out and API-key-only accounts report unavailable rather than zero. This is subscription quota, not token activity or API billing.
 
-**Response** - `CodexUsageInfo`:
-```ts
-{
-  available: boolean,
-  fetchedAt: number,
-  source: 'camoufox' | 'disabled' | 'unavailable' | 'error',
-  profileDir?: string,
-  analyticsUrl: string,
-  summary?: string,
-  rows?: Array<{ label: string, value: string }>,   // scraped usage cards
-  rawText?: string,
-  error?: string,
-}
-```
-
-`available: false` when Camoufox is missing, the profile isn't signed in to ChatGPT, or the page drifted.
+`source=camoufox` explicitly selects the legacy independent browser profile. It uses a three-minute cache and `force=1` bypasses that cache. It is never an automatic fallback. See [Codex usage](OPERATIONS.md#codex-usage) for prerequisites and login. The response is `CodexUsageInfo` in `shared/src/protocol/usage.ts`; the endpoint returns HTTP 200 with `available: false` and an error on a failed check.
 
 ### `POST /api/codex-usage-login`
 
-Launches a **headed** Camoufox window on the same profile so the operator can sign in to ChatGPT once; later `GET /api/codex-usage` scrapes reuse the session. Detached, one-shot.
-
-**Response:** `200 { started: true, profileDir, analyticsUrl }`; `500 { started: false, profileDir, analyticsUrl, error }` if the spawn failed.
+Checks the configured Python and browser prerequisites, then launches a headed Camoufox login window for the independent browser profile. It does not select or modify a Codex CLI account. Returns `started: false` on a prerequisite or spawn failure. The browser profile is preserved.
 
 ### `GET /api/cursor-usage[?force=1]`
 

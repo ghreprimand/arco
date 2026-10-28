@@ -27,6 +27,10 @@ The lockfile contains 534 third-party package records. Its declared metadata inc
 
 The Gemini Native adapter uses an installed-application OAuth client registration from the official [Gemini CLI OAuth module](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/code_assist/oauth2.ts). Its client ID and `client_secret` field are public-client application constants, not operator credentials or user access tokens. The referenced source is in a repository licensed under [Apache-2.0](https://github.com/google-gemini/gemini-cli/blob/main/LICENSE); the Gemini CLI itself is not vendored. The registration belongs to that application and does not imply that Arco has its own verified OAuth client.
 
+## Optional Codex usage browser
+
+The optional legacy Codex usage source uses separately installed [Camoufox](https://github.com/daijro/camoufox) and its Python dependencies and browser. Arco does not bundle or redistribute them. Installation and upstream license information are linked from [Codex usage](OPERATIONS.md#codex-usage).
+
 ## Voice setup downloads
 
 `npm run voice:setup` downloads speech components into the configured voice home. The setup script writes a per-install `NOTICES.md` containing package metadata and each model's pinned name, SHA-256, license, and source URL. Python 3.12 is installed through `uv` when needed.

@@ -8,6 +8,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Keep generated files in Workspace Outputs after previews close, with producer attribution, existing viewers/editors, and reviewed copy/move destinations.
 
 - Manage multiple named project roots, browse root groups on Home, search and choose one-off session folders, and add several folders during non-destructive setup.
+- Read Codex subscription quota through the app-server with account selection, freshness and an optional legacy browser source.
 
 - Home now leads with open work, a clear Start a chat action, project cards with saved-session resume, folded Add project controls, and compact connection/version status.
 

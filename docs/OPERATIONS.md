@@ -265,7 +265,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
 | `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata native, and Ollama/Strata Chat web toggles) |
 | `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
-| `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the Camoufox-driven Codex usage probe and the local `WebFetch` stealth fallback |
+| `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the explicitly selected Camoufox Codex usage fallback and the local `WebFetch` stealth fallback |
 | `ANTIGRAVITY_BINARY` | `/opt/antigravity/antigravity` | Antigravity desktop app path |
 | `ANTIGRAVITY_USE_DEFAULT_PROFILE` | unset | Set `1` to omit `--user-data-dir` and reuse the signed-in Antigravity profile |
 | `ANTIGRAVITY_USER_DATA_DIR` | `~/.arco/antigravity-data` | Custom Antigravity profile path; `default` or `none` omits `--user-data-dir` |
@@ -420,6 +420,20 @@ On every stop the server logs one **shutdown forensics** line (H42, `server/src/
 **GOTCHA**: The dev restart path is SIGKILL (50 ms after the HTTP response flushes, then `process.exit` 200 ms later), not graceful SIGTERM. The respawn script sleeps 1s before `exec npm run dev` so the parent is fully gone before the new tree binds. Earlier attempts with seconds-long grace + port polling raced concurrently/tsx teardown vs. rebind. SIGKILL is immediate; ports release on socket-close which kernel does in the same syscall. Service mode deliberately does not run that script; systemd owns the restart.
 
 ---
+
+## Codex usage
+
+The Codex status dot reads ChatGPT subscription quota through the installed Codex CLI app-server. Its account selector uses the configured Codex profiles; the default is the first profile or the default CLI account. Update the CLI or connect a ChatGPT account in Connections when the read is unavailable. API-key accounts do not expose subscription quota. The usage page link opens the official dashboard. The displayed timestamp is the time the snapshot was fetched; a failed refresh can show an explicitly stale snapshot only when the account and credential file remain unchanged.
+
+The legacy browser source is optional and must be selected in the usage popover. It uses a separate ChatGPT browser login, not the selected CLI account. Install Python and the optional [Camoufox package and browser](https://camoufox.com/python/installation/) as the user running Arco. On Linux and macOS, a dedicated environment can be prepared with:
+
+```sh
+python3 -m venv .venv-camoufox
+.venv-camoufox/bin/python -m pip install camoufox
+.venv-camoufox/bin/python -m camoufox fetch
+```
+
+Set `ARCO_CAMOUFOX_PYTHON` to the absolute path of that environment's Python in the server environment and restart Arco. Windows uses the environment's `Scripts/python.exe`; these commands and the headed login require a graphical session on the server host. The popover's LOGIN CAMOUFOX PROFILE action opens the independent profile for manual ChatGPT sign-in. Then select the browser source and CHECK NOW. Arco checks for the Python package and a browser executable before launching; a missing or incompatible browser requires the upstream installation steps. It never deletes the browser profile. The install sequence was checked on Linux; macOS and Windows remain unverified.
 
 ## Auth
 
