@@ -1,15 +1,18 @@
-// Runs the Playwright browser smokes one at a time. Each suite gets its own Vite dev server on the
-// port its script expects; every API and WebSocket call is fulfilled inside the script, so no
-// Arco server, provider or credential is involved. Chromium comes from ARCO_TEST_CHROME
-// (or Playwright's own install via `python3 -m playwright install chromium`).
+// Runs Playwright browser smokes sequentially. UI suites use Vite with fixture APIs.
+// Isolated-server suites use the built client and start temporary Arco servers with
+// synthetic projects, denying CLI stubs and fixture providers (Linux only).
+// Chromium comes from ARCO_TEST_CHROME or Playwright's installed browser.
 // Usage: node scripts/smoke/run-browser-suites.mjs [suite-name ...]   (default: every listed suite)
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SUITES = [
+  { name: 'first-run', script: 'first-run-browser.py', isolatedServer: true },
+  { name: 'connections', script: 'connections-browser.py', isolatedServer: true },
   { name: 'update-notice', script: 'update-notice-browser.py', port: 5198 },
   { name: 'phosphor-demo', script: 'phosphor-demo-browser.py', port: 5178 },
   { name: 'computer-panel', script: 'computer-panel-browser.py', port: 5193 },
@@ -38,6 +41,23 @@ const portFree = (port) => new Promise((done) => {
 });
 const results = [];
 for (const suite of selected) {
+  if (suite.isolatedServer) {
+    if (process.platform !== 'linux') {
+      console.log(`browser suite ${suite.name}: skipped (isolated-server harness requires Linux)`);
+      results.push({ ...suite, status: 'skip' });
+      continue;
+    }
+    let status = 'fail';
+    if (!existsSync(join(root, 'client/dist/index.html'))) console.error(`${suite.name}: built client missing; run npm run build first`);
+    else {
+      const run = spawnSync('python3', [join(root, 'scripts/smoke', suite.script)], { cwd: root, env: process.env, stdio: 'inherit', timeout: 240_000 });
+      if (run.error) console.error(`${suite.name}: ${run.error.message}`);
+      status = run.status === 0 ? 'pass' : 'fail';
+    }
+    results.push({ ...suite, status });
+    console.log(`browser suite ${suite.name}: ${status}`);
+    continue;
+  }
   const port = suite.port === 5179 ? Number(process.env.ARCO_BROWSER_ALT_PORT || suite.port) : suite.port;
   const env = { ...process.env, ARCO_CLIENT_PORT: String(port) };
   if (env.ARCO_TEST_CHROME) env.CHROMIUM_PATH = env.ARCO_TEST_CHROME;
@@ -65,5 +85,5 @@ for (const suite of selected) {
   results.push({ ...suite, status });
   console.log(`browser suite ${suite.name}: ${status}`);
 }
-console.log(`\n${results.filter((r) => r.status === 'pass').length}/${results.length} browser suites passed`);
-process.exitCode = results.every((r) => r.status === 'pass') ? 0 : 1;
+console.log(`\n${results.filter((r) => r.status === 'pass').length}/${results.filter((r) => r.status !== 'skip').length} browser suites passed; ${results.filter((r) => r.status === 'skip').length} skipped`);
+process.exitCode = results.every((r) => r.status !== 'fail') ? 0 : 1;
