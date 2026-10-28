@@ -15,6 +15,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- New homes default to Codex app-server, Claude native, and +30 text brightness.
+
 - Hide provider status dots and usage details when their providers are disabled in Settings.
 - Use Electric Blue and Victor Mono as the default appearance, while preserving saved theme choices.
 

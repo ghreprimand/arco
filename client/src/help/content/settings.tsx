@@ -115,7 +115,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <p>
         Per-theme brightness offsets. <C>TEXT</C> shifts foreground and accent
         tokens; <C>BACKGROUND</C> shifts panel surfaces. <C>0</C> means the
-        theme&apos;s stock colors.
+        theme&apos;s stock colors. The default text shift is <C>+30</C>.
       </p>
     ),
     manualSection: 'settings-themes',
@@ -371,7 +371,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Cascade defaults for per-tab transport toggles. Two independent
-          knobs:
+          knobs (Codex defaults to app-server; Claude defaults to native):
         </p>
         <ul>
           <li>

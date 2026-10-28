@@ -38,7 +38,7 @@ Sections: 21.
 | `themes` | Appearance | Theme | Global | Theme family and palette picker, search and categories; default Electric Blue |
 | `phosphor` | Appearance | Phosphor effects and softness | Global | Phosphor glow, effects and softness (shown with a Phosphor theme) |
 | `font-pack-override` | Appearance | Font pack override | Global | Font pack selector; default Victor Mono |
-| `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness |
+| `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness (default +30) |
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |
 | `operator-name` | Appearance | Operator name in chat | Global | Operator label shown in chat |
@@ -54,7 +54,7 @@ Sections: 21.
 | `handoff-prompts` | Agents and clusters | Handoff prompts | Global or project (the active tab's folder) | Handoff prompt overrides per mode |
 | `voice-setup` | Voice | Voice setup | Global | Local speech status, install log, microphone test, test phrase, model notices |
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |
-| `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex and Claude transport defaults for new workflows |
+| `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
 | `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, Check for new releases, Updating Arco link; Claude, Gemini, Codex CLI and Ollama daemon versions |
 
 Requests that name a control inside a section open that section and focus the

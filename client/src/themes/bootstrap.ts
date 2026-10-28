@@ -142,7 +142,7 @@ function writeCachedNum(key: string, v: number | undefined | null): void {
 
 export const readCachedBgBrightness = (): number | null => readCachedNum(LS_BG_BRIGHTNESS_KEY);
 export const writeCachedBgBrightness = (v: number | undefined | null): void => writeCachedNum(LS_BG_BRIGHTNESS_KEY, v);
-export const readCachedTextBrightness = (): number | null => readCachedNum(LS_TEXT_BRIGHTNESS_KEY);
+export const readCachedTextBrightness = (): number => readCachedNum(LS_TEXT_BRIGHTNESS_KEY) ?? 30;
 export const writeCachedTextBrightness = (v: number | undefined | null): void => writeCachedNum(LS_TEXT_BRIGHTNESS_KEY, v);
 
 export function readCachedCrispText(): boolean {

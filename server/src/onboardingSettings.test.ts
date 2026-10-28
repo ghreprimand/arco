@@ -31,3 +31,18 @@ test('default font survives settings round trips and saved choices remain intact
   await patchSettings({ projects: [] });
   assert.equal((await readSettings()).fontPackOverride, null);
 });
+
+
+test('transport and text brightness defaults preserve explicit choices', async () => {
+  const { readSettings, patchSettings } = await import('./settings.js');
+  const fresh = await readSettings();
+  assert.equal(fresh.codex?.transport, 'appserver');
+  assert.equal(fresh.claude?.transport, 'native');
+  assert.equal(fresh.textBrightness, 30);
+  await patchSettings({ codex: { transport: 'exec' }, claude: { transport: 'cli' }, textBrightness: 0 });
+  await patchSettings({ projects: [] });
+  const saved = await readSettings();
+  assert.equal(saved.codex?.transport, 'exec');
+  assert.equal(saved.claude?.transport, 'cli');
+  assert.equal(saved.textBrightness, 0);
+});

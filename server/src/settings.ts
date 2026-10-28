@@ -35,6 +35,9 @@ const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 
 function defaults(): ArcoSettings {
   return {
     fontPackOverride: 'victor-mono-uniform',
+    textBrightness: 30,
+    codex: { transport: 'appserver' },
+    claude: { transport: 'native' },
     enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, zai: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
@@ -325,7 +328,7 @@ function sanitizeClaudeConfig(raw: unknown): { transport?: 'cli' | 'native'; nat
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-// Phase 6 — Codex transport selector. 'exec' is the default per-turn worker;
+// Codex transport selector. 'exec' is the per-turn worker;
 // 'appserver' opts into the long-lived `codex app-server` worker. Same
 // pass-through shape as `claude.transport` (Phase 7); cascade-readable so
 // `<cwd>/.arco/settings.json` can pin per-project.
@@ -628,7 +631,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const bgBrightness = sanitizeBrightness(partial.bgBrightness);
   if (bgBrightness !== undefined) result.bgBrightness = bgBrightness;
   const textBrightness = sanitizeBrightness(partial.textBrightness);
-  if (textBrightness !== undefined) result.textBrightness = textBrightness;
+  result.textBrightness = textBrightness ?? base.textBrightness;
   if (typeof partial.crispText === 'boolean') result.crispText = partial.crispText;
   if (typeof partial.phosphorEffects === 'boolean') result.phosphorEffects = partial.phosphorEffects;
   if (typeof partial.phosphorSoftness === 'number' && Number.isFinite(partial.phosphorSoftness)) result.phosphorSoftness = Math.min(100, Math.max(0, partial.phosphorSoftness));
@@ -643,9 +646,9 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const mediaAllowedRoots = sanitizeMediaAllowedRoots(partial.mediaAllowedRoots);
   if (mediaAllowedRoots) result.mediaAllowedRoots = mediaAllowedRoots;
   const claude = sanitizeClaudeConfig(partial.claude);
-  if (claude) result.claude = claude;
+  result.claude = { ...base.claude, ...claude };
   const codex = sanitizeCodexConfig(partial.codex);
-  if (codex) result.codex = codex;
+  result.codex = { ...base.codex, ...codex };
   const zai = sanitizeZaiConfig(partial.zai);
   if (zai) result.zai = zai;
   const autoHandoffDefaults = sanitizeAutoHandoffDefaults(partial.autoHandoffDefaults);

@@ -94,12 +94,12 @@ export function SettingsPanel({ onClose }: Props) {
   // Brightness slider drafts (signed −30…+30 L-points, 0 = stock). Same smooth-
   // drag-then-commit shape as the frosted opacity slider.
   const [bgBrightnessDraft, setBgBrightnessDraft] = useState(settings?.bgBrightness ?? 0);
-  const [textBrightnessDraft, setTextBrightnessDraft] = useState(settings?.textBrightness ?? 0);
+  const [textBrightnessDraft, setTextBrightnessDraft] = useState(settings?.textBrightness ?? 30);
   useEffect(() => {
     setBgBrightnessDraft(settings?.bgBrightness ?? 0);
   }, [settings?.bgBrightness]);
   useEffect(() => {
-    setTextBrightnessDraft(settings?.textBrightness ?? 0);
+    setTextBrightnessDraft(settings?.textBrightness ?? 30);
   }, [settings?.textBrightness]);
   const activeFontPackId = settings?.fontPackOverride ?? '';
   const capabilities = useAppStore((s) => s.capabilities);
@@ -588,7 +588,7 @@ export function SettingsPanel({ onClose }: Props) {
             </label>
           ))}
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
-            Two independent shifts on every theme — drag right to brighten, left to darken; centre (0) is the theme's own colors. TEXT moves the foreground / ink, BACKGROUND moves the panel surfaces.
+            Two independent shifts on every theme — drag right to brighten, left to darken; centre (0) is the theme's own colors. The default text shift is +30. TEXT moves the foreground / ink, BACKGROUND moves the panel surfaces.
             {(bgBrightnessDraft !== 0 || textBrightnessDraft !== 0) && (
               <> <button type="button" onClick={() => { setTextBrightnessDraft(0); setBgBrightnessDraft(0); void setTextBrightness(0); void setBgBrightness(0); }}
                 style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>
@@ -1433,8 +1433,8 @@ export function SettingsPanel({ onClose }: Props) {
 function CodexTransportDefaultsSection() {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
-  const codexCurrent: 'exec' | 'appserver' = settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
-  const claudeCurrent: 'cli' | 'native' = settings?.claude?.transport === 'native' ? 'native' : 'cli';
+  const codexCurrent: 'exec' | 'appserver' = settings?.codex?.transport ?? 'appserver';
+  const claudeCurrent: 'cli' | 'native' = settings?.claude?.transport ?? 'native';
   const [saving, setSaving] = useState<'codex' | 'claude' | null>(null);
 
   const applyCodex = async (next: 'exec' | 'appserver') => {
@@ -1534,7 +1534,7 @@ function CodexTransportDefaultsSection() {
         starOn: 'appserver',
         onPick: applyCodex,
         busyKey: 'codex',
-        helper: 'New Codex tabs start in this transport. Existing tabs keep their per-tab setting.',
+        helper: 'Default: app-server. New Codex tabs use this transport; existing tabs keep their setting.',
       })}
       {renderRow({
         label: 'Claude transport for new tabs',
@@ -1543,7 +1543,7 @@ function CodexTransportDefaultsSection() {
         starOn: 'native',
         onPick: applyClaude,
         busyKey: 'claude',
-        helper: 'New Claude tabs start in this transport. Existing tabs keep their per-tab setting.',
+        helper: 'Default: native. New Claude tabs use this transport; existing tabs keep their setting.',
       })}
     </div>
   );
