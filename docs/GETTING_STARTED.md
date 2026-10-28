@@ -2,9 +2,9 @@
 
 This guide takes a new Arco installation through provider setup to a project
 chat, then covers a first cluster, optional voice setup, and backups. A new
-installation with no projects or connected providers opens **Welcome to Arco**.
+Arco home with no completed setup, confirmed provider, saved work or added projects opens **Welcome to Arco**, even when provider CLIs are already signed in on the machine.
 Select **Get started**, add an existing project folder or choose a discovery
-scan folder, connect a provider through Connections, then review and launch the
+scan folder from detected common roots or a typed path, connect a provider through Connections (an existing CLI login is prefilled), then review and launch the
 prefilled chat creator. Every step has a skip action; **Skip setup** goes to Home.
 Completion is remembered in the Arco home across browsers and provider outages.
 Settings > Projects > **Run setup again** reopens the same flow.

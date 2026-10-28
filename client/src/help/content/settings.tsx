@@ -14,7 +14,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         the ARCHIVE window. Add any absolute path the server can read; nothing
         has to live under one parent. <C>KEEP</C> promotes a scanned or recent
         folder into the registered list; <C>Remove</C> forgets a registered one.
-        In Docker, a folder must be bind-mounted into the container first.
+        No scan folder is assumed. Setup offers existing common code roots or a typed path; the chosen folder is saved in Settings. Discovery does not register projects or count as saved work. Home collapses more than 12 scanned folders; search includes them. In Docker, a folder must be bind-mounted into the container first.
       </p>
     ),
   },

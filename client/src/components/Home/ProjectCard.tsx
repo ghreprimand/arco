@@ -1,3 +1,4 @@
+import { addFolder as keepFolder } from './projectApi';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SessionInfo } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
@@ -129,6 +130,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           <button type="button" style={action} disabled={missing} aria-expanded={expanded} aria-controls={listId} onClick={toggle} aria-label={`${expanded ? 'Hide' : 'Show'} saved sessions for ${label}`}>
             {expanded ? 'Hide saved' : 'Saved sessions'}
           </button>
+          {organization && !project.id && <button type="button" style={action} disabled={busy || missing} onClick={() => void change(keepFolder(project.path), `Kept ${label}.`)}>Keep project</button>}
           {canOrganize && (
             <button type="button" style={action} disabled={busy} aria-pressed={!!project.pinned}
               onClick={() => void change(organize(project.id!, { pinned: !project.pinned }), `${project.pinned ? 'Unpinned' : 'Pinned'} ${label}.`)}

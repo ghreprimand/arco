@@ -26,6 +26,7 @@ export function HomeView() {
   const [projects, setProjects] = useState<HomeProject[] | null>(null);
   const [organization, setOrganization] = useState(false);
   const [scanFolder, setScanFolder] = useState<string | null>(null);
+  const [showScanned, setShowScanned] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [listStatus, setListStatus] = useState('');
   const [newName, setNewName] = useState('');
@@ -166,6 +167,7 @@ export function HomeView() {
           </div>
         )}
 
+        {projects && !scanFolder && <p style={muted}>Choose a scan folder in Settings &gt; Projects to discover folders.</p>}
         {projects && projects.length === 0 && (
           <div style={{ ...box, padding: '10px 14px' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: '13px' }}>No projects yet</h3>
@@ -178,9 +180,9 @@ export function HomeView() {
 
         {groups.map((group) => (
           <section key={group.key} aria-labelledby={`home-group-${group.key}`}>
-            <h3 id={`home-group-${group.key}`} style={{ margin: '0 0 2px', fontSize: '13px' }}>{group.title} ({group.projects.length})</h3>
+            <h3 id={`home-group-${group.key}`} style={{ margin: '0 0 2px', fontSize: '13px' }}>{group.key === 'scanned' ? `Found in ${scanFolder}` : group.title} ({group.projects.length}){group.key === 'scanned' && group.projects.length > 12 && !query.trim() && <button type="button" style={action} aria-expanded={showScanned} onClick={() => setShowScanned(!showScanned)}>{showScanned ? 'Hide' : 'Show'}</button>}</h3>
             <p style={{ ...muted, margin: '0 0 6px' }}>{group.description}</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <ul hidden={group.key === 'scanned' && group.projects.length > 12 && !query.trim() && !showScanned} style={{ listStyle: 'none', margin: 0, padding: 0, display: group.key === 'scanned' && group.projects.length > 12 && !query.trim() && !showScanned ? 'none' : 'flex', flexDirection: 'column', gap: 6 }}>
               {group.projects.map((project) => (
                 <ProjectCard
                   key={`${project.id ?? ''}|${project.path}`}

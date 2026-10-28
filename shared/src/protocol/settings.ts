@@ -97,6 +97,7 @@ export interface ArcoSettings {
   projects?: string[];
   // First-run setup was completed, skipped, or bypassed by an existing user.
   onboardingComplete?: boolean;
+  providerConfirmed?: boolean;
   // Optional font-pack override. When set to a valid pack id, applyTheme
   // substitutes the active theme's display/body/code fonts with the pack's.
   // Validated against VALID_FONT_PACK_IDS.

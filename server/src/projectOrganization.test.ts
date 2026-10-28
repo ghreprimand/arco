@@ -45,17 +45,23 @@ const list = async () => (await call('GET', '/api/projects')).json;
 const find = (l: List, p: string) => l.projects.find((x) => x.path === p);
 const settingsProjects = () => JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).projects as string[] | undefined;
 
-test('every listed folder gets a stable id; the existing list stays compatible', async () => {
+test('scanned folders stay transient until explicitly kept, then retain stable identity', async () => {
+  const { patchSettings } = await import('./settings.js');
+  await patchSettings({ defaultWorkingDirectory: scan });
+  const discovered = await list();
+  assert.equal(find(discovered, join(scan, 'alpha'))?.id, undefined);
+  assert.equal(existsSync(join(home, '.arco', 'projects.json')), false);
+  await call('POST', '/api/projects', { path: join(scan, 'alpha') });
   const first = await list();
   assert.equal(first.organization, true);
   assert.equal(first.scanFolder, scan);
   const alpha = find(first, join(scan, 'alpha'));
-  assert.ok(alpha?.id && alpha.source === 'scanned' && alpha.exists && alpha.name === 'alpha' && alpha.derivedName === 'alpha');
+  assert.ok(alpha?.id && alpha.source === 'registered' && alpha.exists && alpha.name === 'alpha' && alpha.derivedName === 'alpha');
   const second = await list();
   assert.deepEqual(second.projects.map((p) => [p.path, p.id]), first.projects.map((p) => [p.path, p.id]));
   const store = JSON.parse(readFileSync(join(home, '.arco', 'projects.json'), 'utf8'));
   assert.equal(store.version, 1);
-  assert.equal(store.records.length, first.projects.length);
+  assert.equal(store.records.length, 1);
 });
 
 test('rename, pin and archive change only metadata and can be undone', async () => {

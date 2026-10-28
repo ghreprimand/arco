@@ -174,7 +174,7 @@ function sanitizeOperatorName(raw: unknown): string | undefined {
 }
 
 // The working-directory selector's browser root. Must be a non-empty absolute
-// path; anything else clears it (selector then falls back to ~/Projects → $HOME).
+// path; anything else clears the scan folder setting.
 // Deliberately NOT confined to $HOME — list-dirs browses anywhere already.
 function sanitizeDefaultWorkingDirectory(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
@@ -612,6 +612,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const projects = sanitizeProjects(partial.projects);
   result.updateCheck = partial.updateCheck !== false;
   if (typeof partial.updateCheckDismissed === 'string' && /^v[0-9A-Za-z.+-]{1,100}$/.test(partial.updateCheckDismissed)) result.updateCheckDismissed = partial.updateCheckDismissed;
+  if (partial.providerConfirmed === true) result.providerConfirmed = true;
   if (partial.onboardingComplete === true) result.onboardingComplete = true;
   if (projects?.length) result.projects = projects;
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
@@ -756,6 +757,7 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   };
   merged.updateCheck = typeof patch.updateCheck === 'boolean' ? patch.updateCheck : current.updateCheck !== false;
   merged.updateCheckDismissed = typeof patch.updateCheckDismissed === 'string' && /^v[0-9A-Za-z.+-]{1,100}$/.test(patch.updateCheckDismissed) ? patch.updateCheckDismissed : current.updateCheckDismissed;
+  if (patch.providerConfirmed === true || current.providerConfirmed === true) merged.providerConfirmed = true;
   if (patch.onboardingComplete === true || current.onboardingComplete === true) merged.onboardingComplete = true;
   if (patch.workflowDefaults !== undefined) {
     const sanitized = sanitizeWorkflowDefaults(patch.workflowDefaults);
@@ -1112,4 +1114,14 @@ export function releaseProjectSettingsWatcher(cwd: string): void {
   if (state.debounce) clearTimeout(state.debounce);
   try { state.watcher.close(); } catch { /* already closed */ }
   projectWatchers.delete(cwd);
+}
+
+
+// Keep registration read-modify-write inside the settings lock so simultaneous
+// folder creation cannot replace another request's registration.
+export function updateRegisteredProjects(update: (projects: string[]) => string[]): Promise<ArcoSettings> {
+  return withFileLock(GLOBAL_SETTINGS_PATH, async () => {
+    const current = await readSettings();
+    return patchSettingsUnlocked({ projects: update(current.projects ?? []) });
+  });
 }

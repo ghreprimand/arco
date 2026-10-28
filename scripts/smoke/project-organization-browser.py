@@ -277,6 +277,8 @@ async def scenario_create(playwright, server):
         await b.close()
     scan.mkdir()
     b, page = await open_home(playwright, server)
+    await page.evaluate("""async root => { const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({defaultWorkingDirectory:root})}); if (!res.ok) throw new Error('scan setting refused'); }""", str(scan))
+    await page.get_by_role('button', name='Reload list').click()
     try:
         await page.locator('#home-create').fill('new-idea')
         await page.get_by_role('button', name='Create', exact=True).click()

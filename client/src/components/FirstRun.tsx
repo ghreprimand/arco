@@ -13,6 +13,7 @@ import { WorkflowCreator } from './WorkflowCreator';
 export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => void }) {
   const [step, setStep] = useState<'welcome' | 'folder' | 'provider' | 'chat'>('welcome');
   const [path, setPath] = useState(''), [project, setProject] = useState('');
+  const [scanCandidates, setScanCandidates] = useState<string[]>([]);
   const [projects, setProjects] = useState<HomeProject[]>([]);
   const [note, setNote] = useState(''), [busy, setBusy] = useState(false);
   const title = useRef<HTMLHeadingElement>(null);
@@ -29,7 +30,9 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
     let alive = true;
     void fetch('/api/projects', { cache: 'no-store' }).then(async r => {
       if (!r.ok) throw new Error();
-      const list = parseProjects(await r.json());
+      const body = await r.json();
+      if (alive && Array.isArray(body.scanCandidates)) setScanCandidates(body.scanCandidates.filter((p: unknown): p is string => typeof p === 'string'));
+      const list = parseProjects(body);
       if (!list) throw new Error();
       if (alive) setProjects(list.filter(p => p.exists && !p.archived));
     }).catch(() => { if (alive) setNote('Project discovery is unavailable. Enter a folder path or skip this step.'); });
@@ -79,7 +82,8 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
           <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required />
           <button type="submit" disabled={busy || !path.trim()}>Add folder and continue</button>
         </form>
-        <p>Existing folders from Home discovery:</p>
+        <p>Choose a folder to scan, or enter a project path directly.</p>
+        {scanCandidates.map(root => <button type="button" key={root} onClick={() => setScanRoot(root)}>{root}</button>)}
         <form onSubmit={async e => {
           e.preventDefault(); if (busy) return;
           setBusy(true); setNote('');

@@ -68,7 +68,7 @@ test('the gate waits for workspace and history signals instead of flashing setup
   assert.equal(startupGate({ ...base, workspaceSynced: false }), 'pending');
   assert.equal(startupGate({ ...base, hasHistory: null }), 'pending');
   assert.equal(startupGate({ ...base, authKnown: false }), 'workspace');
-  assert.equal(startupGate({ ...base, providerConnected: true }), 'workspace');
+  assert.equal(startupGate({ ...base, providerConnected: true }), 'setup');
 });
 test('installation history decides only from a well-formed 2xx answer', () => {
   assert.equal(parseInstallationHistory(true, { used: true }), true);

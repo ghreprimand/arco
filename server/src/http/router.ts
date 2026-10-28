@@ -1184,8 +1184,7 @@ export async function handleHttpRequest(
     const home = arcoHome();
     try {
       const results = await Promise.allSettled([
-        readSettings().then((settings) => settings.onboardingComplete === true),
-        listProjects().then((list) => list.projects.length > 0),
+        readSettings().then((settings) => settings.onboardingComplete === true || settings.providerConfirmed === true || (settings.projects?.length ?? 0) > 0),
         readFile(join(home, 'known-cwds.json'), 'utf8').then((raw) => {
           const values: unknown = JSON.parse(raw);
           if (!Array.isArray(values)) throw new Error('invalid known folders');

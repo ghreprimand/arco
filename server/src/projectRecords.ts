@@ -4,7 +4,7 @@
 // and the recent-cwd registry (projects.ts); that stays the authority for
 // containment. This sidecar only adds metadata keyed by a random id:
 //   ~/.arco/projects.json  { version: 1, records: ProjectRecord[] }
-// A path seen for the first time gets a record. Relocating a project changes
+// A registered or recently used path gets a record; discovery alone does not. Relocating a project changes
 // its path and keeps its id, display name, pin/archive state and the previous
 // path (so saved work recorded under it stays associated). Workflow files and
 // provider sessions are never rewritten; nothing here touches project folders.
@@ -114,7 +114,7 @@ async function writeRecords(records: ProjectRecord[], file: string): Promise<voi
   await atomicWriteFile(file, JSON.stringify({ version: 1, records }, null, 2) + '\n');
 }
 
-export interface ListedPath { path: string; exists: boolean }
+export interface ListedPath { path: string; exists: boolean; discovered?: boolean }
 
 // Pure: finish pending relocations; only a fresh in-lock snapshot may drop
 // an absent target. Hide missing folders a project has
@@ -135,8 +135,9 @@ export function reconcile(records: ProjectRecord[], listed: ListedPath[], mint =
   const movedFrom = new Set(next.flatMap((r) => r.previousPaths ?? []));
   const visible = listed.filter((p) => p.exists || !movedFrom.has(p.path)).map((p) => p.path);
   const byPath = new Set(next.map((r) => r.path));
+  const discovered = new Set(listed.filter(p => p.discovered).map(p => p.path));
   for (const p of visible) {
-    if (byPath.has(p) || !mint) continue;
+    if (byPath.has(p) || !mint || discovered.has(p)) continue;
     if (next.length >= MAX_RECORDS) break;
     byPath.add(p); next.push({ id: mintId(), path: p }); changed = true;
   }

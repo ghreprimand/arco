@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
@@ -46,5 +46,6 @@ test('only an explicit supported check reaches the selected fixture runtime',asy
   const res=await fetch(base+'/api/connections/check?provider=ollama',{method:'POST'});
   const body=await res.json();assert.equal(res.status,200);assert.equal(body.provider,'ollama');assert.equal(body.status.loggedIn,true);
   assert.ok(body.status.installedModels.includes('synthetic-model'));
+  assert.equal(JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).providerConfirmed, true);
   assert.ok(requested.length>0 && requested.every(p=>p==='/api/tags' || p==='/api/show'),'only model metadata is queried; no inference');
 });

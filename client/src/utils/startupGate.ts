@@ -11,7 +11,7 @@ export type StartupGate = 'workspace' | 'setup' | 'pending';
 export interface StartupGateInput {
   // /api/auth-status has answered at least once.
   authKnown: boolean;
-  // An enabled primary-capable provider reports loggedIn.
+  // Machine-wide login status prefills setup, but never establishes home history.
   providerConnected: boolean;
   // The operator chose "continue without a provider" in this browser tab.
   setupDeferred: boolean;
@@ -26,7 +26,7 @@ export interface StartupGateInput {
 }
 
 export function startupGate(input: StartupGateInput): StartupGate {
-  if (!input.authKnown || input.providerConnected) return 'workspace';
+  if (!input.authKnown) return 'workspace';
   if (input.setupCompleted || input.setupDeferred || input.hasOpenWork || input.hasHistory === true) return 'workspace';
   if (input.workspaceSynced && input.hasHistory === false) return 'setup';
   // Signals still loading: keep the workspace rather than flash the setup

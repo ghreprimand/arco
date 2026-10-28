@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show first-run setup for an unused Arco home even when provider CLIs are signed in. Offer explicit scan-folder choices, keep discoveries out of saved project records, and collapse long scanned lists on Home.
+
 ### Added
 
 - Optional Arco release notices with persistent dismissal, manual checks, an opt-out, and service, foreground and Docker update instructions.

@@ -180,8 +180,65 @@ async def registered_returning(playwright):
         server.close()
 
 
+async def scan_discovery(playwright):
+    server = Fresh()
+    b = None
+    try:
+        root = server.home / 'Projects'
+        for i in range(14):
+            (root / f'sample-{i:02}').mkdir(parents=True)
+        b, page = await page_for(playwright, server)
+        listing = await (await page.request.get(server.base + '/api/projects')).json()
+        assert listing['scanFolder'] is None and listing['projects'] == []
+        assert str(root) in listing['scanCandidates']
+        await page.get_by_role('button', name='Get started', exact=True).click()
+        await page.get_by_role('button', name=str(root), exact=True).click()
+        await page.get_by_role('button', name='Scan folder', exact=True).click()
+        await page.get_by_text('Choose a discovered folder below.', exact=True).wait_for()
+        assert not (server.home / '.arco/projects.json').exists()
+        assert (await (await page.request.get(server.base + '/api/installation-history')).json())['used'] is False
+        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()
+        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        await page.locator('#home-title').wait_for()
+        group = page.locator('section[aria-labelledby="home-group-scanned"]')
+        await expect(group.get_by_role('heading')).to_contain_text('(14)')
+        await expect(group.get_by_role('button', name='New session in sample-00', exact=True)).to_be_hidden()
+        await group.get_by_role('button', name='Show', exact=True).click()
+        await expect(group.get_by_role('button', name='New session in sample-00', exact=True)).to_be_visible()
+        await group.get_by_role('button', name='Hide', exact=True).click()
+        await page.get_by_label('Search projects (press /)', exact=True).fill('sample-13')
+        await expect(group.get_by_role('button', name='New session in sample-13', exact=True)).to_be_visible()
+        print('PASS: explicit discovery root; no history or records from scans; collapsed scan section remains searchable')
+    finally:
+        if b:
+            await b.close()
+        server.close()
+
+
+async def signed_in_first_run(playwright):
+    server = Fresh()
+    b = None
+    try:
+        b, page = await page_for(playwright, server)
+        await b.context.route('**/api/auth-status', lambda route: route.fulfill(json={p: {'loggedIn': True} for p in ['claude', 'codex', 'gemini', 'cursor']}))
+        await page.reload()
+        await page.get_by_role('heading', name='Welcome to Arco', exact=True).wait_for()
+        await page.get_by_role('button', name='Get started', exact=True).click()
+        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        await page.get_by_text('PROVIDER CONNECTED - already signed in; continue to use this provider.', exact=True).wait_for()
+        assert not (server.home / '.arco/projects.json').exists()
+        print('PASS: signed-in machine CLI still shows first-run welcome; discovery writes no records')
+    finally:
+        if b:
+            await b.close()
+        server.close()
+
+
 async def main():
     async with async_playwright() as playwright:
+        await scan_discovery(playwright)
+        await signed_in_first_run(playwright)
         await setup_chat(playwright)
         await skip_and_reopen(playwright)
         await registered_returning(playwright)

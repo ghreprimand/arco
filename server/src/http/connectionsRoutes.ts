@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { AuthLoginTarget } from '@arco/shared';
 import { getConnectionStatus } from '../auth.js';
-import { readSettings } from '../settings.js';
+import { readSettings, patchSettings } from '../settings.js';
 import { readConnectionCatalog } from '../connectionCatalog.js';
 
 export async function tryHandleConnectionsRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -17,7 +17,9 @@ export async function tryHandleConnectionsRoutes(req: IncomingMessage, res: Serv
       if(!item)return reply(400,{error:'unknown connection'});
       const settings=await readSettings();
       if((provider!=='github' && settings.enabledProviders[provider as Exclude<AuthLoginTarget,'github'>]===false) || (catalog.deployment==='docker' && item.kind==='desktop'))return reply(409,{error:'Enable this provider or choose a supported connection before checking.'});
-      return reply(200,{provider:item.id,status:await getConnectionStatus(item.id)});
+      const status = await getConnectionStatus(item.id);
+      if (item.id !== 'github' && status.loggedIn) await patchSettings({ providerConfirmed: true });
+      return reply(200,{provider:item.id,status});
     } catch {return reply(503,{error:'Connection check failed. Review prerequisites and retry.'});}
   }
   if(req.method!=='GET')return reply(405,{error:'method not allowed'});

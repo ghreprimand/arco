@@ -160,3 +160,19 @@ test('a relocation marks the record before registering and refuses a folder that
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+
+test('discovery does not persist folders, while keeping a folder gives it a stable record', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'arco-discovery-'));
+  const file = join(root, 'projects.json');
+  const folder = join(root, 'app');
+  try {
+    const discovered = await recordsFor([{ path: folder, exists: true, discovered: true }], file);
+    assert.deepEqual(discovered.visible, [folder]);
+    assert.deepEqual(discovered.records, []);
+    assert.deepEqual(readdirSync(root), []);
+    const kept = await recordsFor([{ path: folder, exists: true }], file);
+    assert.equal(kept.records.length, 1);
+    assert.equal((await recordsFor([{ path: folder, exists: true, discovered: true }], file)).records[0].id, kept.records[0].id);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

@@ -3,7 +3,7 @@
 // tree. Three sources feed one flat list, in precedence order:
 //   registered -- settings.projects, added explicitly (settings or the creator)
 //   scanned    -- children of the optional scan folder
-//                (settings.defaultWorkingDirectory, else ~/Projects when present)
+//                (settings.defaultWorkingDirectory; no implicit scan root)
 //   recent     -- the crash-recovery registry: every cwd a workflow ran in
 //
 // The same list is the containment authority for the explorer scans, mkdir and
@@ -15,7 +15,7 @@ import { homedir } from 'os';
 import path from 'path';
 import { readKnownCwds } from './crashRecovery.js';
 import { chatRootDir } from './chatMode.js';
-import { patchSettings, readSettings, sanitizeProjects } from './settings.js';
+import { readSettings, updateRegisteredProjects, sanitizeProjects } from './settings.js';
 import { assertSafePath, confinedPath, isPathWithin, safeDirectory } from './fileAccessPolicy.js';
 import {
   applyOrganize, parseOrganizePatch, recordsFor, relocateStored, withRecords, type ProjectRecord,
@@ -40,6 +40,7 @@ export interface ProjectEntry {
 }
 
 export interface ProjectList {
+  scanCandidates?: string[];
   projects: ProjectEntry[];
   scanFolder: string | null;
   // False while ~/.arco/projects.json is unreadable: no ids, no organizing.
@@ -79,8 +80,7 @@ async function resolveScanFolder(configured: string | undefined): Promise<string
   if (configured) {
     try { return safeDirectory(path.resolve(configured)); } catch { return null; }
   }
-  const fallback = path.join(homedir(), 'Projects');
-  return (await isDirectory(fallback)) ? fallback : null;
+  return null;
 }
 
 // Children of the scan folder. A scan folder that is itself a Git repository
@@ -164,10 +164,15 @@ export async function listProjects(): Promise<ProjectList> {
   // the record store cannot be read or written; organization is then off.
   const { records, visible, organization } = await recordsFor(async () => {
     merged = await listFolders();
-    return merged.projects.map((p) => ({ path: p.path, exists: p.exists }));
+    const opened = new Set(await readKnownCwds());
+    return merged.projects.map((p) => ({ path: p.path, exists: p.exists, discovered: p.source === 'scanned' && !opened.has(p.path) }));
   });
   const shown = new Set(visible);
-  return { ...merged!, projects: withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records), organization };
+  const scanCandidates = (await Promise.all(['Projects', 'src', 'code', 'dev', 'Developer', 'repos'].map(async (name) => {
+    const candidate = path.join(homedir(), name);
+    try { return safeDirectory(candidate); } catch { return null; }
+  }))).filter((p): p is string => p !== null);
+  return { ...merged!, scanCandidates, projects: withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records), organization };
 }
 
 // Pure: overlay record metadata on the merged list.
@@ -213,18 +218,14 @@ export async function addProject(raw: unknown): Promise<ProjectMutation> {
   const checked = await checkNewRoot(raw);
   if ('error' in checked) return { ok: false, error: checked.error };
   const cleaned = checked.path;
-  const current = (await readSettings().catch(() => null))?.projects ?? [];
-  if (!current.includes(cleaned)) await patchSettings({ projects: [...current, cleaned] });
+  await updateRegisteredProjects(current => current.includes(cleaned) ? current : [...current, cleaned]);
   return { ok: true, list: await listProjects() };
 }
 
 export async function removeProject(raw: unknown): Promise<ProjectMutation> {
   const [cleaned] = sanitizeProjects([raw]) ?? [];
   if (!cleaned) return { ok: false, error: 'path must be absolute' };
-  const current = (await readSettings().catch(() => null))?.projects ?? [];
-  const next = current.filter((p) => p !== cleaned);
-  // An empty list clears the setting (see patchSettings).
-  if (next.length !== current.length) await patchSettings({ projects: next });
+  await updateRegisteredProjects(current => current.filter(p => p !== cleaned));
   return { ok: true, list: await listProjects() };
 }
 
@@ -259,9 +260,7 @@ export async function relocateProject(body: Record<string, unknown>): Promise<Pr
   if ('error' in checked) return { ok: false, error: checked.error };
   const target = checked.path;
   const out = await relocateStored(id, target, async (from) => !(await isDirectory(from)), async (from) => {
-    const current = (await readSettings().catch(() => null))?.projects ?? [];
-    const replaced = current.includes(from) ? current.map((p) => (p === from ? target : p)) : [...current, target];
-    await patchSettings({ projects: [...new Set(replaced)] });
+    await updateRegisteredProjects(current => [...new Set(current.includes(from) ? current.map(p => p === from ? target : p) : [...current, target])]);
   });
   if ('storeError' in out) return { ok: false, error: STORE_ERROR, status: 503 };
   if (!out.ok) return { ok: false, error: out.error, status: out.status };

@@ -163,12 +163,12 @@ function AppBody() {
   const setupOpen = useStartupStore((s) => s.setupOpen);
   const firstRunOpen = useStartupStore((s) => s.firstRunOpen);
   const [hasHistory, setHasHistory] = useState<boolean | null>(null);
-  // Forget a cached answer once work exists or a provider connects, so a later
+  // Forget a cached answer once work exists, so a later
   // outage after closing every tab re-asks the server instead of trusting it.
   useEffect(() => {
-    if (providerConnected || hasOpenWork) setHasHistory(null);
-  }, [providerConnected, hasOpenWork]);
-  const needHistory = !!authStatus && !providerConnected && !hasOpenWork && hasHistory === null;
+    if (hasOpenWork) setHasHistory(null);
+  }, [hasOpenWork]);
+  const needHistory = !!authStatus && !hasOpenWork && hasHistory === null;
   const [historyAttempt, setHistoryAttempt] = useState(0);
   useEffect(() => {
     if (!needHistory) return;
