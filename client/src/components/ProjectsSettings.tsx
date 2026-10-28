@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ProjectRootsSettings } from './ProjectRootsSettings';
 import { WorkingDirectoryDefault } from './WorkingDirectoryDefault';
 import type { ProjectEntry } from './WorkflowCreator/ProjectPicker';
 
@@ -53,8 +54,9 @@ export function ProjectsSettings() {
 
   return (
     <div data-help="settings.projects">
+      <ProjectRootsSettings />
       <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
-        PROJECTS
+        INDIVIDUAL PROJECTS
       </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
         <input
@@ -81,11 +83,11 @@ export function ProjectsSettings() {
         {registered.length === 0 && (
           <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No registered projects. Add a path above, or KEEP one of the folders below.</div>
         )}
-        {others.map((p) => row(p, false))}
+        <details><summary>Discovered and recent folders ({others.length})</summary>{others.map((p) => row(p, false))}</details>
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
         Projects can live anywhere the server can read. Registered folders stay listed; SCANNED folders come from the
-        scan folder below and RECENT ones from earlier workflows.
+        named roots above and RECENT ones from earlier workflows.
       </div>
       <WorkingDirectoryDefault />
     </div>

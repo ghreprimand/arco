@@ -4,8 +4,8 @@ import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import type { CreatorPrefill } from '../../stores/appStore.types';
 import {
-  groupProjects, openWork, organizationAvailable, parseProjects, projectLabels, scanFolderOf, searchProjects, workForProject,
-  type HomeProject, type OpenWorkItem,
+  groupProjects, openWork, organizationAvailable, parseProjects, projectLabels, scanFolderOf, rootsOf, searchProjects, workForProject,
+  type HomeProject, type HomeRoot, type OpenWorkItem,
 } from '../../utils/homeModel';
 import { ProjectCard } from './ProjectCard';
 import { AddProject } from './AddProject';
@@ -34,6 +34,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const noteActivity = useCallback((path: string, at: number) => setActivity(old => old[path] === at ? old : { ...old, [path]: at }), []);
   const [projects, setProjects] = useState<HomeProject[] | null>(null);
   const [organization, setOrganization] = useState(false);
+  const [roots, setRoots] = useState<HomeRoot[] | undefined>();
   const [scanFolder, setScanFolder] = useState<string | null>(null);
   const [showScanned, setShowScanned] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -47,7 +48,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const applyList = useCallback((body: unknown): boolean => {
     const parsed = parseProjects(body);
     if (!parsed) return false;
-    setProjects(parsed); setOrganization(organizationAvailable(body)); setScanFolder(scanFolderOf(body));
+    setProjects(parsed); setOrganization(organizationAvailable(body)); setScanFolder(scanFolderOf(body)); setRoots(rootsOf(body));
     const home = (body as { homeFolder?: unknown }).homeFolder;
     setBrowserRoot(scanFolderOf(body) ?? (typeof home === 'string' ? home : ''));
     return true;
@@ -78,8 +79,9 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
   const work = useMemo(() => openWork(jobs, clusters), [jobs, clusters]);
   const shown = useMemo(() => searchProjects(projects ?? [], query), [projects, query]);
-  const groups = useMemo(() => groupProjects([...shown].sort((a, b) => (activity[b.path] ?? 0) - (activity[a.path] ?? 0)), showArchived), [shown, showArchived, activity]);
+  const groups = useMemo(() => groupProjects([...shown].sort((a, b) => (activity[b.path] ?? 0) - (activity[a.path] ?? 0)), showArchived, roots), [shown, showArchived, activity, roots]);
   const labels = useMemo(() => projectLabels(projects ?? []), [projects]);
+  const keptCount = (projects ?? []).filter(p => p.source !== 'scanned').length;
   const archivedCount = (projects ?? []).filter((p) => p.archived).length;
   const start = (prefill: CreatorPrefill) => openCreatorWith(prefill);
   const openItem = (item: OpenWorkItem) => (item.kind === 'cluster' ? setActiveCluster(item.id) : setActiveJob(item.id));
@@ -130,7 +132,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
       </section>
 
       <section aria-labelledby="home-projects" data-help="home.projects">
-        <div className="home-project-tools"><h2 id="home-projects">Projects{projects && projects.length > 0 ? <span className="home-count">{projects.length}</span> : null}</h2>
+        <div className="home-project-tools"><h2 id="home-projects">Projects{projects && keptCount > 0 ? <span className="home-count">{keptCount}</span> : null}</h2>
           {projects?.length !== 0 && <button type="button" className="home-primary" data-add-project onClick={() => setAddOpen(true)}>Add project</button>}
         </div>
         {projects?.length !== 0 && <div className="home-search"><label htmlFor="home-search">Search projects (press /)</label>
@@ -142,26 +144,34 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         {!addOpen && <div role="status" aria-live="polite" className="home-feedback">{projects === null && !loadError ? 'Loading projects...' : query && projects ? `${shown.length} of ${projects.length} projects match.` : listStatus}</div>}
         {loadError && <p role="alert" className="home-feedback">{loadError}</p>}
         {projects && !organization && <p role="alert" className="home-feedback">Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Projects are still listed; nothing was changed.</p>}
-        {projects && projects.length === 0 && <div className="home-empty"><div className="home-empty-symbol" aria-hidden="true">[ + ]</div>
-          <h3>No projects yet</h3><p>Add a folder to keep its sessions close at hand. Projects can live anywhere the server can read, or start a chat without one. In Docker, only mounted folders are visible.</p>
-          <button type="button" className="home-primary" data-add-project onClick={() => setAddOpen(true)}>Add project</button><p className="home-fine-print" style={{ marginTop: 12 }}>Browse, type a path, or create a folder.</p>
+        {projects && keptCount === 0 && <div className="home-empty"><div className="home-empty-symbol" aria-hidden="true">[ + ]</div>
+          <h3>No saved projects yet</h3><p>Add a folder to keep its sessions close at hand. Projects can live anywhere the server can read, or start a chat without one. In Docker, only mounted folders are visible.</p>
+          <button type="button" className="home-primary" data-add-project onClick={() => setAddOpen(true)}>{projects.length ? 'Add another project' : 'Add project'}</button><p className="home-fine-print" style={{ marginTop: 12 }}>Browse, type a path, or create a folder.</p>
         </div>}
         {projects && projects.length > 0 && shown.length === 0 && <p className="home-feedback">No project matches "{query}".</p>}
         {groups.map(group => {
           const collapsed = group.key === 'scanned' && !query.trim() && !showScanned;
           return <section key={group.key} className="home-project-group" aria-labelledby={`home-group-${group.key}`}>
-            <h3 id={`home-group-${group.key}`}>{group.key === 'scanned' ? `Found in ${scanFolder}` : group.title} ({group.projects.length}){group.key === 'scanned' && !query.trim() && <button type="button" aria-expanded={showScanned} onClick={() => setShowScanned(!showScanned)}>{showScanned ? 'Hide' : 'Show'}</button>}</h3>
-            <p className="home-group-description">{group.key === 'registered' ? 'Recent conversations, ready to continue.' : group.description}</p>
+            <h3 id={`home-group-${group.key}`}>{group.key === 'scanned' ? `Found in ${scanFolder}` : group.title} ({group.savedCount ?? group.projects.length}){group.key === 'scanned' && !query.trim() && <button type="button" aria-expanded={showScanned} onClick={() => setShowScanned(!showScanned)}>{showScanned ? 'Hide' : 'Show'}</button>}</h3>
+            {group.path && <p className="home-fine-print" style={{ overflowWrap: 'anywhere' }}>{group.path}</p>}
+            <p className="home-group-description">{group.exists === false ? 'Root not reachable. Reconnect the drive or edit this root in Settings > Projects.' : group.description}</p>
+            {group.path && group.savedCount === 0 && <p className="home-fine-print">No saved projects in this root. Choose a discovered folder below or browse another folder to start a session.</p>}
+            {!!group.pinnedCount && <p className="home-fine-print">Pinned projects from this root appear in the shortcuts above.</p>}
             <ul hidden={collapsed} className="home-project-grid" style={collapsed ? { display: 'none' } : undefined}>
               {(!collapsed ? group.projects : []).map((project, index) => <ProjectCard key={`${project.id ?? ''}|${project.path}`} project={project} label={labels.get(project.path) ?? project.name}
-                work={workForProject(project, projects ?? [], work)} organization={organization} preview={group.key !== 'scanned' && group.key !== 'archived' && project.exists && index < 12}
+                work={workForProject(project, projects ?? [], work)} organization={organization} preview={project.source !== 'scanned' && group.key !== 'archived' && project.exists && index < 12}
                 onActivity={noteActivity} onResume={session => resume(project, session)} onOpen={openItem} onStart={start} onList={body => { if (!applyList(body)) void load(); }} announce={setListStatus} />)}
             </ul>
+            {!!group.discovered?.length && <details open={query.trim() ? true : undefined} className="home-discovered"><summary>Discovered folders ({group.discovered.length})</summary>
+              <p className="home-fine-print">Discovered folders are suggestions, not saved projects. Choose one to open the creator; keep it there only if wanted.</p>
+              <ul>{group.discovered.map(project => <li key={project.path}><button type="button" disabled={!project.exists} onClick={() => start({ mode: 'single', workDir: project.path })}>{project.name}</button><small title={project.path}>{project.path}</small></li>)}</ul>
+            </details>}
+            {group.path && <button type="button" onClick={() => start({ mode: 'single' })}>Choose a project folder</button>}
           </section>;
         })}
         {projects && !scanFolder && projects.length > 0 && <p className="home-fine-print">Optional folder discovery is available in Settings &gt; Projects. Folders are added only when chosen.</p>}
       </section>
     </div>
-    {addOpen && <AddProject initialPath={browserRoot} scanFolder={scanFolder} onList={body => { if (!applyList(body)) void load(); }} onClose={() => setAddOpen(false)} announce={setListStatus} />}
+    {addOpen && <AddProject roots={roots} initialPath={browserRoot} scanFolder={scanFolder} onList={body => { if (!applyList(body)) void load(); }} onClose={() => setAddOpen(false)} announce={setListStatus} />}
   </main>;
 }

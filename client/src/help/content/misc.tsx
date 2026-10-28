@@ -26,8 +26,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Browse pinned, registered, recently used and scanned project folders.
-        Cards preview their latest saved sessions. Resume restores one through the normal workflow path without sending a prompt; an already open session offers Open. Search by name or folder. Discovered folders stay collapsed until Show or a search. Archived projects are hidden until you choose
+        Browse pinned shortcuts, named root groups, and Other projects for individual folders outside roots. A root contains projects; a project is one working folder.
+        Cards preview their latest saved sessions. Resume restores one through the normal workflow path without sending a prompt; an already open session offers Open. Search by name or folder. Additional discovered folders stay in a compact expandable list until opened or searched. Discovery does not count as saved work. Archived projects are hidden until you choose
         Show archived. A project whose folder is missing stays listed so it can
         be relocated or archived; a folder you added yourself can also be
         removed from the list. Its saved sessions stay on disk. In Docker, only
@@ -56,7 +56,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Under Add project, expand Create a new project folder to create one empty folder at an absolute path, or use a plain
-        name inside the scan folder set in Settings. The parent must exist. An existing
+        name inside the displayed default browsing location. The parent must exist. An existing
         folder with that name is never reused; add it instead.
       </p>
     ),
@@ -77,11 +77,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Your project folders in one flat list: registered ones, folders found
-        in the optional scan folder (<C>SCANNED</C>), and folders a workflow ran
-        in before (<C>RECENT</C>). Click one to use it. Browse to any other
-        folder below and press <C>+ ADD CURRENT FOLDER</C> to keep it listed;
-        Settings / Projects manages the list.
+        Filter All projects, Pinned and recent, or a named root, then search by name or path. Choosing a group never selects a folder. Browse this root opens navigation without changing the session folder. Browse another folder offers editable paths, Up, root shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without saving it; Keep current folder explicitly registers it. Settings / Projects manages roots and individual projects.
       </p>
     ),
   },
@@ -428,8 +424,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Working directory',
     body: (
       <p>
-        The project root the agent operates against. Type a path, click a
-        folder in the picker below, or use the <C>↑ UP</C> button to navigate.
+        The working folder the agent operates against. Type an absolute path, choose a project, or browse any readable folder. Root selection filters choices; directory navigation does not change the working folder until confirmed. Loading never selects the first discovered child.
         All persistence (<C>events.jsonl</C>, <C>meta.json</C>, artifacts)
         lives under <C>&lt;cwd&gt;/.arco/</C>.
       </p>

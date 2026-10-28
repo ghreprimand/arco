@@ -389,7 +389,7 @@ export async function handleHttpRequest(
     // Resolve the listing BEFORE writing headers — listAt() can throw and the
     // fallback must be free to write its own headers (writing first then
     // awaiting would double-writeHead → ERR_HTTP_HEADERS_SENT and crash).
-    let payload: Awaited<ReturnType<typeof listAt>>;
+    let payload: Awaited<ReturnType<typeof listAt>> & { unavailable?: boolean };
     try {
       payload = await listAt(requested);
     } catch {
@@ -398,7 +398,7 @@ export async function handleHttpRequest(
       // has somewhere to stand WITH a working ↑ UP — never a dead-end empty list
       // (the old behavior, which is what made "can't browse" happen off-box).
       try {
-        payload = await listAt(homedir());
+        payload = { ...await listAt(homedir()), unavailable: true };
       } catch {
         payload = { parent: '', dirs: [] };
       }

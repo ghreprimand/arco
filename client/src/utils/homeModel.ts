@@ -19,10 +19,16 @@ export interface HomeProject {
   pinned?: boolean;
   archived?: boolean;
   previousPaths?: string[];
+  rootPath?: string;
 }
 
 export interface HomeGroup {
-  key: HomeProject['source'] | 'pinned' | 'archived';
+  key: string;
+  path?: string;
+  exists?: boolean;
+  discovered?: HomeProject[];
+  savedCount?: number;
+  pinnedCount?: number;
   title: string;
   description: string;
   projects: HomeProject[];
@@ -71,6 +77,7 @@ export function parseProjects(body: unknown): HomeProject[] | null {
     if (!source) continue;
     seen.add(p.path);
     const project: HomeProject = { path: p.path, name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : p.path.replace(/\\/g, '/').split('/').pop() || p.path, source, exists: p.exists === true };
+    if (typeof p.rootPath === 'string' && absolutePath(p.rootPath)) project.rootPath = p.rootPath;
     if (typeof p.id === 'string' && ID.test(p.id)) project.id = p.id;
     if (typeof p.derivedName === 'string' && p.derivedName.trim()) project.derivedName = p.derivedName.trim();
     if (typeof p.displayName === 'string' && p.displayName.trim()) project.displayName = p.displayName.trim();
@@ -95,6 +102,14 @@ export function scanFolderOf(body: unknown): string | null {
   return typeof folder === 'string' && absolutePath(folder) ? folder : null;
 }
 
+export interface HomeRoot { name: string; path: string; exists: boolean; }
+export function rootsOf(body: unknown): HomeRoot[] | undefined {
+  const roots = (body as { roots?: unknown } | null)?.roots;
+  if (!Array.isArray(roots)) return undefined;
+  return roots.filter((root): root is HomeRoot => !!root && typeof root.name === 'string' && typeof root.path === 'string' && absolutePath(root.path))
+    .map(root => ({ ...root, exists: root.exists === true }));
+}
+
 // Card titles: a name shared by several listed projects gets its parent
 // folder appended, so two "app" checkouts can be told apart.
 export function projectLabels(projects: HomeProject[]): Map<string, string> {
@@ -115,7 +130,22 @@ export function searchProjects(projects: HomeProject[], query: string): HomeProj
 }
 
 // Pinned first, then by source; archived projects only when asked for.
-export function groupProjects(projects: HomeProject[], showArchived = false): HomeGroup[] {
+export function groupProjects(projects: HomeProject[], showArchived = false, roots?: HomeRoot[]): HomeGroup[] {
+  if (roots) {
+    const live = projects.filter(p => !p.archived);
+    const pinned = live.filter(p => p.pinned);
+    const groups: HomeGroup[] = pinned.length ? [{ key: 'pinned', title: 'Pinned', description: 'Shortcuts from every root.', projects: pinned }] : [];
+    for (const root of roots) {
+      const inside = live.filter(p => p.rootPath === root.path);
+      groups.push({ key: `root-${roots.indexOf(root)}`, title: root.name, path: root.path, exists: root.exists,
+        description: 'Saved and recent projects in this root.', savedCount: inside.filter(p => p.source !== 'scanned').length, pinnedCount: inside.filter(p => p.pinned).length, projects: inside.filter(p => p.source !== 'scanned' && !p.pinned), discovered: inside.filter(p => p.source === 'scanned') });
+    }
+    const other = live.filter(p => !p.rootPath && !p.pinned);
+    if (other.length) groups.push({ key: 'registered', title: 'Other projects', description: 'Individual folders outside configured roots.', projects: other });
+    const archived = projects.filter(p => p.archived);
+    if (showArchived && archived.length) groups.push({ key: 'archived', title: 'Archived', description: 'Folders and saved sessions are unchanged.', projects: archived });
+    return groups;
+  }
   const groupOf = (p: HomeProject): HomeGroup['key'] => (p.archived ? 'archived' : p.pinned ? 'pinned' : p.source);
   return GROUPS
     .filter((g) => g.key !== 'archived' || showArchived)

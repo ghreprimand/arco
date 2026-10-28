@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Manage multiple named project roots, browse root groups on Home, search and choose one-off session folders, and add several folders during non-destructive setup.
+
 - Home now leads with open work, a clear Start a chat action, project cards with saved-session resume, folded Add project controls, and compact connection/version status.
 
 ### Fixed

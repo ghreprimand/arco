@@ -750,8 +750,8 @@ export function SettingsPanel({ onClose }: Props) {
           <button type="button" onClick={() => {
             useStartupStore.getState().setFirstRunOpen(true);
             onClose();
-          }}>Run setup again</button>
-          <p>Reopen the welcome, project-folder, provider and chat steps. Existing work stays saved.</p>
+          }} className="display-font" style={{ padding: '6px 12px', border: '1px solid var(--color-border-hairline)', borderRadius: 4, background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', cursor: 'pointer' }}>Run setup again</button>
+          <p>Review roots, individual folders and provider connections, then return to Home or the normal creator. Existing choices and saved work stay intact unless explicitly changed.</p>
         </div>
         </SettingsSection>
 

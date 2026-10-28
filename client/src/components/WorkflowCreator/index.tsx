@@ -15,9 +15,10 @@ import { ExistingClustersList } from '../ExistingClustersList';
 import { TemplatePickerRow } from './TemplatePickerRow';
 import { PastChatsList } from './PastChatsList';
 import { ProjectPicker } from './ProjectPicker';
+import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
-import type { Props, MemberDraft, DirEntry } from './types';
+import type { Props, MemberDraft } from './types';
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
@@ -316,12 +317,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const prefill = useAppStore.getState().creatorPrefill;
     return prefill && prefill.mode !== 'chat' && prefill.mode !== 'genesis' ? prefill.workDir ?? '' : '';
   });
-  const [dirs, setDirs] = useState<DirEntry[]>([]);
-  const [parentDir, setParentDir] = useState('');
-  const [newDirName, setNewDirName] = useState('');
-  const [newDirError, setNewDirError] = useState('');
-  const [creatingDir, setCreatingDir] = useState(false);
-
+  const [browserPath, setBrowserPath] = useState('');
   // Resume picker. Phase 3 Lite: unified across providers — every Arco tab
   // IS a native CLI session, so the picker lists whatever Claude + Codex
   // have on disk for this cwd (plus any Gemini sessions once that's wired).
@@ -332,11 +328,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [conversationMode, setConversationMode] = useState<'new' | 'resume'>('new');
 
-  // Load initial directories
-  useEffect(() => {
-    fetchDirs('');
-  }, []);
-
   // Load sessions when workDir changes
   useEffect(() => {
     if (workDir) {
@@ -344,41 +335,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       if (!name) setName(workDir.split('/').pop() || '');
     }
   }, [workDir]);
-
-  async function fetchDirs(path: string) {
-    try {
-      const res = await fetch(`/api/list-dirs?path=${encodeURIComponent(path)}`);
-      const data = await res.json();
-      setDirs(data.dirs);
-      setParentDir(data.parent);
-    } catch { /* ignore */ }
-  }
-
-  async function createDir() {
-    const trimmed = newDirName.trim();
-    if (!trimmed || !parentDir || creatingDir) return;
-    setCreatingDir(true);
-    setNewDirError('');
-    try {
-      const res = await fetch('/api/mkdir', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent: parentDir, name: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setNewDirError(data.error || 'Failed to create directory');
-        return;
-      }
-      setNewDirName('');
-      await fetchDirs(parentDir);
-      setWorkDir(data.path);
-    } catch (err) {
-      setNewDirError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCreatingDir(false);
-    }
-  }
 
   async function fetchSessions(path: string): Promise<SessionInfo[]> {
     setSessionsLoading(true);
@@ -435,7 +391,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       setModel(claudeModelsForPicker[0]?.value ?? 'opus');
     }
     const dir = prefill.mode === 'single' || prefill.mode === 'cluster' ? prefill.workDir : undefined;
-    if (dir) void fetchDirs(dir);
+    if (dir) setBrowserPath(dir);
     if (dir && prefill.resumeSessionId) {
       setConversationMode('resume');
       void fetchSessions(dir).then((list) => {
@@ -1025,7 +981,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>PROJECT FOLDER</label>
             <button onClick={() => setShowBrowser((v) => !v)} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>
-              {showBrowser ? 'BROWSE FOLDERS -' : 'BROWSE FOLDERS +'}
+              {showBrowser ? 'Close folder browser' : 'Browse another folder'}
             </button>
           </div>
           <input
@@ -1144,88 +1100,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
           {/* Flat project list, then the folder tree; both span both columns. */}
           {mode !== 'genesis' && mode !== 'chat' && (
-            <ProjectPicker workDir={workDir} autoPick onPick={(p) => { setWorkDir(p); void fetchDirs(p); }} />
+            <ProjectPicker workDir={workDir} onPick={setWorkDir} onBrowseRoot={path => { setBrowserPath(path); setShowBrowser(true); }} />
           )}
-          {mode !== 'genesis' && mode !== 'chat' && showBrowser && (
-          <div style={{ ...spanBoth, maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
-            <div style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-display)', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parentDir}</span>
-              {parentDir && (
-                <button
-                  onClick={() => fetchDirs(parentDir.split('/').slice(0, -1).join('/') || '/')}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', fontFamily: 'var(--font-display)' }}
-                >
-                  ↑ UP
-                </button>
-              )}
-            </div>
-            {parentDir && (
-              <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={newDirName}
-                  onChange={(e) => { setNewDirName(e.target.value); if (newDirError) setNewDirError(''); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); createDir(); } }}
-                  placeholder="new-folder-name"
-                  style={{
-                    flex: 1,
-                    padding: '3px 8px',
-                    background: 'var(--color-bg-sunken)',
-                    border: '1px solid var(--color-border-hairline)',
-                    borderRadius: '3px',
-                    color: 'var(--color-accent-primary)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '11px',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={createDir}
-                  disabled={!newDirName.trim() || creatingDir}
-                  style={{
-                    padding: '3px 10px',
-                    background: 'transparent',
-                    border: `1px solid ${newDirName.trim() && !creatingDir ? 'var(--color-accent-secondary-dim)' : 'var(--color-border-hairline)'}`,
-                    borderRadius: '3px',
-                    color: newDirName.trim() && !creatingDir ? 'var(--color-accent-secondary)' : 'var(--color-fg-muted)',
-                    cursor: newDirName.trim() && !creatingDir ? 'pointer' : 'not-allowed',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '10px',
-                    letterSpacing: '1px',
-                  }}
-                >
-                  {creatingDir ? '...' : '+ NEW'}
-                </button>
-              </div>
-            )}
-            {newDirError && (
-              <div style={{ padding: '3px 8px', color: 'var(--color-warning)', fontSize: '10px', fontFamily: 'var(--font-display)', borderBottom: '1px solid var(--color-border-hairline)' }}>
-                {newDirError}
-              </div>
-            )}
-            {dirs.map((d) => (
-              <button
-                key={d.path}
-                onClick={() => { setWorkDir(d.path); fetchDirs(d.path); }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '4px 12px',
-                  background: workDir === d.path ? 'var(--color-accent-primary-a08)' : 'transparent',
-                  border: 'none',
-                  borderBottom: '1px solid var(--color-accent-primary-a05)',
-                  color: workDir === d.path ? 'var(--color-accent-primary)' : 'var(--color-accent-primary-dim)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '12px',
-                  textAlign: 'left',
-                }}
-              >
-                {d.name}/
-              </button>
-            ))}
-          </div>
-          )}
+          {mode !== 'genesis' && mode !== 'chat' && showBrowser && <div style={spanBoth}>
+            <DirectoryBrowser inline withFilename={false} initialPath={browserPath || workDir || settings?.defaultWorkingDirectory || ''} roots={settings?.projectRoots} title="Browse another folder" confirmLabel="Use for this session" onDone={result => { if (result) { setWorkDir(result.dir); setBrowserPath(result.dir); setShowBrowser(false); } }} />
+            <p style={hintStyle}>Browsing and selecting a folder do not save it as a project. Use Keep current folder to save it.</p>
+          </div>}
 
         {/* Conversation mode — spans both columns. Unified resume picker:
             native providers resume by provider session id; Arco-managed

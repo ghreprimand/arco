@@ -3,17 +3,22 @@
 This guide takes a new Arco installation through provider setup to a project
 chat, then covers a first cluster, optional voice setup, and backups. A new
 Arco home with no completed setup, confirmed provider, saved work or added projects opens **Welcome to Arco**, even when provider CLIs are already signed in on the machine.
-Select **Get started**, type an absolute project-folder path or use the folder
-browser to navigate anywhere the server can read. Common-root shortcuts, UP, and
-new-folder creation help select a folder without scanning or registering its
-neighbors. Choosing the folder adds it as a project. Optional scanning is configured
-separately in Settings > Projects. Connect a provider through Connections (an
-existing CLI login is prefilled). The final **Setup complete** screen summarizes
-the folder and provider. Choose **Go to Home**, or **Start a chat** to open the
-normal creator with that folder and provider prefilled. Either choice remembers
-setup completion. Earlier steps can be skipped; **Skip setup** goes to Home.
-Completion is remembered in the Arco home across browsers and provider outages.
-Settings > Projects > **Run setup again** reopens the same flow.
+Select **Get started** to add several folder choices. A **Project root** is a named
+folder containing projects, such as Work or Personal. An **Individual project** is
+one working folder and may live anywhere. Choose the folder type, enter an
+absolute path or browse with root shortcuts, UP and new-folder controls. **Add
+folder** adds the choice to the visible summary without advancing. Use **Add
+another** for more choices, then **Continue**. A discovery root lists its immediate
+children as suggestions; it never registers or trusts those children automatically.
+
+Connect a provider through Connections; an existing CLI login is prefilled. The
+final **Setup complete** screen summarizes the folder choices and provider. Choose
+**Go to Home**, or **Start a chat** to open the normal creator. A selected individual
+folder can prefill that creator; a root never silently chooses its first child.
+Either choice remembers setup completion without launching a turn. Earlier steps
+can be skipped. Settings > Projects > **Run setup again** shows existing choices
+and preserves chats, settings, roots and registered folders unless explicitly
+edited. Removing a choice never deletes its files or saved sessions.
 
 ## Home: a place to start and return
 
@@ -22,17 +27,39 @@ running turn. **Start a chat** opens the normal creator without a project.
 **New session** works in a project folder; **More ways to start** keeps the
 cluster and Genesis creators available.
 
-Pinned and recently used project cards show saved sessions. **Resume** on a saved
-session restores it in one click without submitting a prompt. Sessions already
-open offer **Open**. Search includes project names and paths; discovered folders
-stay collapsed until expanded or searched. Pin, Manage, archive, and missing-folder
-recovery stay on each card.
+**Pinned** keeps shortcuts from every root. Each named root has a separate group
+with its path, saved or recent project cards, and an expandable **Discovered
+folders** list. **Other projects** contains individual folders outside the roots.
+Discovery-only groups retain guidance: discovered folders are suggestions, not
+saved projects. Missing roots stay visible so a drive can be reconnected or its
+path edited. Search includes names and paths across groups. Archived cards remain
+available through **Show archived**.
 
-**Add project** opens a folder browser and path entry. Expand **Create a new project
-folder** for an absolute new path or a name under the optional scan folder. These
-controls never register neighboring folders or change the scan setting. A compact
-status area links to Connections and the installed Arco version/update controls.
-Disabled providers are excluded from its connection count.
+Saved-session **Resume** restores the existing session without sending a prompt;
+an already open session offers **Open**. Project names, pins, archive and
+missing-folder relocation remain on each card. **Add project** opens the shared
+folder browser or an absolute-path field. Creating a folder shows its destination
+parent and never reuses an existing folder. These controls do not register neighbors.
+A compact status area links to Connections and Arco version/update controls.
+
+## Multiple roots and one-off session folders
+
+Settings > Projects separates **Project roots**, **Individual projects**, and the
+**Default browsing location**. Add or edit a root name and absolute path; browse
+when needed. Removing a root stops discovery and grouping only. Its registered
+projects and saved sessions remain available under Other projects. An existing
+single discovery folder migrates to one named root; explicitly removing the last
+root keeps discovery disabled. The browsing location is independent and never adds
+a discovery root or registers folders.
+
+In the normal creator, **Project group** filters All projects, Pinned and recent,
+or one named root. Search project choices by name or path. Selecting a group never
+sets the working folder or replaces a typed path. **Browse this root** starts
+navigation there; **Browse another folder** can reach folders outside all roots.
+The browser offers an editable path, UP, root shortcuts and new-folder creation
+at the displayed parent. **Use for this session** selects a one-off folder without
+saving it. **Keep current folder** explicitly registers it. Nothing selects the
+first discovered folder automatically. In Docker, the folders must be mounted.
 
 ## Before starting
 

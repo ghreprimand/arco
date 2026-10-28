@@ -47,7 +47,7 @@ const settingsProjects = () => JSON.parse(readFileSync(join(home, '.arco', 'sett
 
 test('scanned folders stay transient until explicitly kept, then retain stable identity', async () => {
   const { patchSettings } = await import('./settings.js');
-  await patchSettings({ defaultWorkingDirectory: scan });
+  await patchSettings({ defaultWorkingDirectory: scan, projectRoots: [{ name: 'Projects', path: scan }] });
   const discovered = await list();
   assert.equal(find(discovered, join(scan, 'alpha'))?.id, undefined);
   assert.equal(existsSync(join(home, '.arco', 'projects.json')), false);

@@ -6,12 +6,18 @@ import { completeOnboarding } from '../utils/completeOnboarding';
 import { DirectoryBrowser } from './media/DirectoryPicker';
 import { anyPrimaryProviderConnected, PROVIDER_LABELS } from '../utils/startupGate';
 import { Connections } from './Connections/Connections';
-import { addFolder } from './Home/projectApi';
+import { parseProjects, rootsOf, type HomeProject, type HomeRoot } from '../utils/homeModel';
+import { addFolder, removeFromList } from './Home/projectApi';
 
 // Sequence the existing folder registration, Connections and creator surfaces.
 export function FirstRun() {
   const [step, setStep] = useState<'welcome' | 'folder' | 'provider' | 'complete'>('welcome');
   const [path, setPath] = useState(''), [project, setProject] = useState('');
+  const [roots, setRoots] = useState<HomeRoot[]>([]);
+  const [projects, setProjects] = useState<HomeProject[]>([]);
+  const [kind, setKind] = useState<'project' | 'root'>('project');
+  const [rootName, setRootName] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const [scanCandidates, setScanCandidates] = useState<string[]>([]);
   const [browserKey, setBrowserKey] = useState(0);
   const [browserRoot, setBrowserRoot] = useState<string | null>(null);
@@ -32,6 +38,7 @@ export function FirstRun() {
       const body = await r.json();
       if (alive) {
         const roots = Array.isArray(body.scanCandidates) ? body.scanCandidates.filter((p: unknown): p is string => typeof p === 'string').slice(0, 6) : [];
+        setRoots(rootsOf(body) ?? []); setProjects((parseProjects(body) ?? []).filter(p => p.source === 'registered')); setLoaded(true);
         setScanCandidates(roots);
         setBrowserRoot(roots[0] ?? body.homeFolder ?? '');
       }
@@ -39,13 +46,48 @@ export function FirstRun() {
     return () => { alive = false; };
   }, []);
   const browse = (folder: string) => { setBrowserRoot(folder); setBrowserKey(key => key + 1); };
-  const chooseFolder = async (folder: string) => {
-    if (!folder.trim() || busy) return;
-    setBusy(true); setNote('');
-    const reply = await addFolder(folder.trim()); setBusy(false);
-    if (!reply.ok) { setNote(reply.error); return; }
-    setProject(folder.trim()); setStep('provider');
+  const saveRoots = async (next: Array<{ name: string; path: string }>) => {
+    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectRoots: next }) });
+    if (!res.ok) throw new Error('Roots were not saved. Check the absolute folder path.');
+    useAppStore.getState().setSettings(await res.json());
+    const reply = await fetch('/api/projects');
+    if (!reply.ok) throw new Error('Roots could not be refreshed. Retry.');
+    setRoots(rootsOf(await reply.json()) ?? []);
   };
+  const chooseFolder = async (folder: string) => {
+    if (!folder.trim() || busy || !loaded) return;
+    setBusy(true); setNote('');
+    try {
+      if (kind === 'root') await saveRoots([...roots, { name: rootName, path: folder.trim() }]);
+      else {
+        const reply = await addFolder(folder.trim());
+        if (!reply.ok) throw new Error(reply.error);
+        setProjects((parseProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
+        setProject(folder.trim());
+      }
+      setPath(''); setRootName(''); setNote('Added. Add another folder or continue when ready.');
+    } catch (error) { setNote(error instanceof Error ? error.message : 'Folder was not added.'); }
+    finally { setBusy(false); }
+  };
+  const removeChoice = async (folder: string, root: boolean) => {
+    setBusy(true); setNote('');
+    try {
+      if (root) await saveRoots(roots.filter(r => r.path !== folder));
+      else {
+        const reply = await removeFromList(folder);
+        if (!reply.ok) throw new Error(reply.error);
+        setProjects((parseProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
+        if (project === folder) setProject('');
+      }
+    } catch (err) { setNote(err instanceof Error ? err.message : 'Choice was not removed.'); }
+    finally { setBusy(false); }
+  };
+  const summary = <div aria-label="Setup folder choices"><h2>Folder choices</h2>
+    <ul>{roots.map(root => <li key={`root-${root.path}`}><strong>{root.name}</strong> / Root: {root.path}{!root.exists ? ' (not reachable)' : ''}{step === 'folder' && <button type="button" disabled={busy} aria-label={`Remove setup root ${root.name}`} onClick={() => void removeChoice(root.path, true)}>Remove</button>}</li>)}
+      {projects.map(folder => <li key={`project-${folder.path}`}>Project: {folder.name} / {folder.path}{step === 'folder' && <button type="button" disabled={busy} aria-label={`Remove setup project ${folder.name}`} onClick={() => void removeChoice(folder.path, false)}>Remove</button>}</li>)}
+    </ul>{!roots.length && !projects.length && <p>No folders added yet.</p>}
+    {step === 'folder' && <p>Only explicit Remove actions change existing choices. Removing a choice never deletes files or saved work.</p>}
+  </div>;
   const finish = async (openChat = false) => {
     if (busy) return;
     setBusy(true); setNote('');
@@ -71,25 +113,30 @@ export function FirstRun() {
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     }}>
       <header className="connections-header"><div>
-        <h1 id="first-run-title" ref={title} tabIndex={-1}>{step === 'welcome' ? 'Welcome to Arco' : step === 'folder' ? 'Add a project folder' : 'Setup complete'}</h1>
-        <p>{step === 'welcome' ? 'Arco is a workbench for AI coding tools, projects, and a voice operator. Add a folder, connect a provider, then start a conversation in the existing workspace.' : step === 'folder' ? 'Step 1 of 3: choose an existing folder on the Arco server. In Docker, mount the folder first.' : 'Your setup is ready. Go to Home or open a chat when you are ready.'}</p>
+        <h1 id="first-run-title" ref={title} tabIndex={-1}>{step === 'welcome' ? 'Welcome to Arco' : step === 'folder' ? 'Add project folders' : 'Setup complete'}</h1>
+        <p>{step === 'welcome' ? 'Arco is a workbench for AI coding tools, projects, and a voice operator. Add a folder, connect a provider, then start a conversation in the existing workspace.' : step === 'folder' ? 'Step 1 of 3: add roots or individual folders on the Arco server. A root contains projects; a project is one working folder. In Docker, mount folders first.' : 'Your setup is ready. Go to Home or open a chat when you are ready.'}</p>
       </div>{step !== 'complete' && <button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button>}</header>
       {step === 'welcome' && <div className="connections-actions"><button type="button" onClick={() => setStep('folder')}>Get started</button><button type="button" disabled={busy} onClick={() => void finish()}>Skip setup</button></div>}
-      {step === 'folder' && <section className="connection-detail">
+      {step === 'folder' && <section className="connection-detail project-folders-ui">
+        {summary}
+        <label>Folder type <select aria-label="Folder type" value={kind} onChange={e => setKind(e.target.value as 'project' | 'root')}><option value="project">Individual project</option><option value="root">Project root</option></select></label>
+        {kind === 'root' && <label>Root name<input aria-label="Setup root name" value={rootName} onChange={e => setRootName(e.target.value)} placeholder="Work or Personal" maxLength={60} /></label>}
         <form className="first-run-path" onSubmit={e => { e.preventDefault(); void chooseFolder(path); }}>
           <label htmlFor="first-run-folder">Project folder path</label>
           <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required placeholder="Absolute folder path" />
-          <button type="submit" disabled={busy || !path.trim()}>Add folder and continue</button>
-          <button type="button" disabled={busy || !path.trim()} onClick={() => browse(path.trim())}>Browse path</button>
+          <button type="submit" disabled={busy || !loaded || !path.trim()}>Add folder</button>
+          <button type="button" disabled={busy || !loaded || !path.trim()} onClick={() => browse(path.trim())}>Browse path</button>
         </form>
         <div className="first-run-shortcuts" aria-label="Folder shortcuts">
           {scanCandidates.map(root => <button type="button" key={root} title={root} onClick={() => browse(root)}>{root.split(/[\\/]/).filter(Boolean).at(-1)}</button>)}
         </div>
-        {browserRoot !== null && <DirectoryBrowser key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Adding...' : 'Use this folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
-        <p>Browse any folder the server can read, or enter its absolute path. Configure optional folder scanning in Settings &gt; Projects.</p>
+        {browserRoot !== null && <DirectoryBrowser roots={roots} key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Adding...' : 'Add this folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
+        <p>Browse any folder the server can read, or enter its absolute path. Adding never launches work. Discovery never adds child folders as projects.</p>
+        <div className="connections-actions"><button type="button" onClick={() => { setPath(''); setRootName(''); document.getElementById('first-run-folder')?.focus(); }}>Add another</button><button type="button" disabled={busy} onClick={() => { setStep('provider'); setNote(''); }}>Continue</button></div>
       </section>}
-      {step === 'complete' && <section className="connection-detail">
-        <p>Project folder added: {project || 'none yet'}</p>
+      {step === 'complete' && <section className="connection-detail project-folders-ui">
+        {summary}
+        <label>Chat folder (optional)<select aria-label="Chat folder" value={project} onChange={e => setProject(e.target.value)}><option value="">No folder - start a chat</option>{projects.map(folder => <option key={folder.path} value={folder.path}>{folder.name}</option>)}</select></label>
         <p>Provider: {provider ? `${PROVIDER_LABELS[provider]} connected` : 'none yet, connect later in Connections'}</p>
         <div className="connections-actions" style={{ margin: 0 }}>
           <button type="button" disabled={busy} style={{ borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} onClick={() => void finish()}>Go to Home</button>

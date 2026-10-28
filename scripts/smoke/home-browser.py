@@ -79,8 +79,8 @@ class HomeBrowser(h.Browser):
         if await page.get_by_role('button', name=re.compile('^CHAT')).count() == 0:
             await page.get_by_role('button', name='+ NEW').click()
         await page.get_by_role('button', name=re.compile('^CHAT')).first.click()
-        await page.locator('select').first.select_option('ollama')
-        await page.locator('select').nth(1).select_option(h.MODEL)
+        await page.locator('[data-help="creator.provider"] select').select_option('ollama')
+        await page.locator('[data-help="creator.model"] select').select_option(h.MODEL)
         if incognito: await page.get_by_text('INCOGNITO CHAT', exact=True).click()
         await page.get_by_role('button', name='START CHAT').click()
         await page.get_by_placeholder('Message Arco').wait_for(timeout=20000)
@@ -169,10 +169,10 @@ async def seed_workspace(playwright, server):
     try:
         await home_button(page).click()
         await page.get_by_role('button', name='New session in app').click()
-        await page.locator('select').first.locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
-        await page.locator('select').first.select_option('ollama')
+        await page.locator('[data-help="creator.provider"] select').locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
+        await page.locator('[data-help="creator.provider"] select').select_option('ollama')
         await page.wait_for_timeout(600)
-        await page.locator('select').nth(1).select_option(h.MODEL)
+        await page.locator('[data-help="creator.model"] select').select_option(h.MODEL)
         await page.get_by_placeholder(re.compile('^e.g. Code Review')).fill(WORKFLOW_NAME)
         await page.get_by_role('button', name='LAUNCH WORKFLOW').click()
         await page.get_by_role('button', name='+ NEW').wait_for(timeout=30000)
@@ -180,10 +180,10 @@ async def seed_workspace(playwright, server):
         # A cluster in the same project.
         await page.get_by_role('button', name='+ NEW').click()
         await page.get_by_role('button', name=re.compile('^CLUSTER')).first.click()
-        await page.locator('select').first.locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
-        await page.locator('select').first.select_option('ollama')
+        await page.locator('[data-help="creator.provider"] select').locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
+        await page.locator('[data-help="creator.provider"] select').select_option('ollama')
         await page.wait_for_timeout(600)
-        await page.locator('select').nth(1).select_option(h.MODEL)
+        await page.locator('[data-help="creator.model"] select').select_option(h.MODEL)
         await page.get_by_role('button', name=re.compile('ADD MEMBER')).click()
         await page.get_by_role('button', name=re.compile('^app')).click()
         await page.get_by_role('button', name='CREATE CLUSTER').click()
@@ -191,10 +191,10 @@ async def seed_workspace(playwright, server):
         # A normal chat with a known name.
         await page.get_by_role('button', name='+ NEW').click()
         await page.get_by_role('button', name=re.compile('^CHAT')).first.click()
-        await page.locator('select').first.locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
-        await page.locator('select').first.select_option('ollama')
+        await page.locator('[data-help="creator.provider"] select').locator('option[value="ollama"]').wait_for(state='attached', timeout=20000)
+        await page.locator('[data-help="creator.provider"] select').select_option('ollama')
         await page.wait_for_timeout(600)
-        await page.locator('select').nth(1).select_option(h.MODEL)
+        await page.locator('[data-help="creator.model"] select').select_option(h.MODEL)
         await page.get_by_placeholder('New chat').fill(OPEN_CHAT_NAME)
         await page.get_by_role('button', name='START CHAT').click()
         await page.get_by_placeholder('Message Arco').wait_for(timeout=30000)
@@ -623,7 +623,7 @@ async def scenario_missing_and_add(playwright, server, scratch):
         await b.close()
     # Documented states for an empty registry and an unreachable list (client fixtures).
     for label, fulfil, expect in (
-        ('empty', {'status': 200, 'json': {'projects': [], 'scanFolder': ''}}, 'No projects yet'),
+        ('empty', {'status': 200, 'json': {'projects': [], 'scanFolder': ''}}, 'No saved projects yet'),
         ('failing', {'status': 500, 'json': {'error': 'boom'}}, 'The project list could not be loaded'),
     ):
         b = h.Browser(playwright, server)

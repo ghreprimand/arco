@@ -92,13 +92,10 @@ export interface ArcoSettings {
   // role label "> OPERATOR" is replaced by "> <name>" (uppercased).
   // Sanitized server-side: trimmed, single-line, max 32 chars.
   operatorName?: string;
-  // The browser root for the working-directory selector (WorkflowCreator) and
-  // the value the Settings folder-picker writes. An absolute path; when unset
-  // the selector falls back to ~/Projects, then $HOME. NOT confined to $HOME —
-  // `/api/list-dirs` already browses anywhere and a project can live on /mnt or
-  // an SMB mount. Fixes the cross-machine case where the box's home isn't where
-  // work lives (e.g. a Mac whose code is outside ~/Projects).
+  // Starting location for directory browsing; does not add discovery roots.
   defaultWorkingDirectory?: string;
+  // Named discovery folders. Absent migrates the legacy single root; [] disables discovery.
+  projectRoots?: Array<{ name: string; path: string }>;
   // Explicit project folders; registration never moves or deletes their files.
   projects?: string[];
   // First-run setup was completed, skipped, or bypassed by an existing user.

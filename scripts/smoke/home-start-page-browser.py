@@ -15,11 +15,18 @@ def project(name, folder, index, **extra):
     return {'id': f'00000000-0000-4000-8000-{index:012}', 'name': name, 'path': folder, 'source': 'registered', 'exists': True, **extra}
 
 
-async def check(browser, scale, populated):
+async def check(browser, scale, scenario):
+    populated = scenario == 'populated'
+    discovery = scenario == 'discovery'
     context = await browser.new_context(viewport={'width': 1280, 'height': 720})
     await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{scale}');")
     state = {'projects': [project('Harbor', '/projects/harbor', 1, pinned=True), project('Field notes', '/work/field-notes', 2), project('Moved project', '/work/old-location', 3, exists=False), project('Archived toolkit', '/work/toolkit', 4, archived=True)] if populated else [], 'messages': []}
     state['projects'] += [{'name': 'discovered', 'path': '/projects/discovered/sample', 'source': 'scanned', 'exists': True}] if populated else []
+    roots = [{'name': 'Work', 'path': '/projects', 'exists': True}, {'name': 'Personal', 'path': '/work', 'exists': True}, {'name': 'Offline drive', 'path': '/offline', 'exists': False}] if populated or discovery else []
+    if populated or discovery:
+        state['projects'] = [p for p in state['projects'] if p['source'] != 'scanned'] + [{'name': f'discovered-{i:03}', 'path': f'/projects/discovered-{i:03}', 'source': 'scanned', 'exists': True} for i in range(151)]
+        for p in state['projects']:
+            p['rootPath'] = '/projects' if p['path'].startswith('/projects/') else '/work'
     errors, writes = [], []
 
     async def api(route):
@@ -29,7 +36,7 @@ async def check(browser, scale, populated):
             writes.append(path)
         data = {'files': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'sessions': [], 'chats': [], 'tasks': []}
         if path == '/api/settings':
-            data = {'themeId': 'phosphor:arco:electric', 'fontPackId': 'victor-mono', 'textBrightness': 30, 'uiScale': scale, 'onboardingComplete': True, 'enabledProviders': {'claude': True, 'codex': False}}
+            data = {'themeId': 'phosphor:arco:electric', 'fontPackId': 'victor-mono', 'textBrightness': 30, 'uiScale': scale, 'projectRoots': roots, 'onboardingComplete': True, 'enabledProviders': {'claude': True, 'codex': False}}
         elif path == '/api/auth-status':
             data = {provider: {'loggedIn': provider in ['claude', 'codex'] if populated else False} for provider in IDS}
         elif path == '/api/installation-history':
@@ -38,7 +45,7 @@ async def check(browser, scale, populated):
             if request.method == 'POST':
                 folder = request.post_data_json['path']
                 state['projects'].append(project(folder.split('/')[-1], folder, 20))
-            data = {'projects': state['projects'], 'organization': True, 'scanFolder': '/projects/discovered' if populated else None, 'homeFolder': '/projects'}
+            data = {'roots': roots, 'projects': state['projects'], 'organization': True, 'scanFolder': '/projects/discovered' if populated else None, 'homeFolder': '/projects'}
         elif path == '/api/list-dirs':
             folder = parse_qs(urlparse(request.url).query).get('path', ['/projects'])[0] or '/projects'
             data = {'parent': folder, 'dirs': [{'name': 'harbor', 'path': '/projects/harbor'}] if folder == '/projects' else []}
@@ -78,19 +85,28 @@ async def check(browser, scale, populated):
         await expect(page.get_by_text('Private fixture conversation', exact=True)).to_have_count(0)
         assert not await page.get_by_role('listitem', name='Project discovered', exact=True).count()
     else:
-        await expect(page.get_by_role('heading', name='No projects yet', exact=True)).to_be_visible()
+        await expect(page.get_by_role('heading', name='No saved projects yet', exact=True)).to_be_visible()
         await expect(page.get_by_text('No provider connected', exact=False)).to_be_visible()
+    if discovery:
+        group = page.locator('section[aria-labelledby="home-group-root-0"]')
+        await expect(group.locator('summary')).to_have_text('Discovered folders (151)')
+        await expect(group.get_by_role('button', name='discovered-150', exact=True)).to_be_hidden()
+        assert await page.locator('.home-project-card').count() == 0
+        await expect(page.get_by_role('heading', name='Projects', exact=True)).to_be_visible()
     assert await page.locator('#home-add').count() == 0
     await expect(page.get_by_role('button', name='Arco v0.1.0', exact=True)).to_be_visible()
     assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
     await page.wait_for_timeout(1500)
     await page.locator('.home-page').evaluate('(el) => el.scrollTop = 0')
-    await page.screenshot(animations='disabled', path=str(ART / f'{"populated" if populated else "empty"}-{round(scale * 100)}.png'))
+    await page.screenshot(animations='disabled', path=str(ART / f'{scenario}-{round(scale * 100)}.png'))
+    if discovery:
+        await page.locator('section[aria-labelledby="home-group-root-0"]').scroll_into_view_if_needed()
+        await page.screenshot(animations='disabled', path=str(ART / f'discovery-roots-{round(scale * 100)}.png'))
     if populated:
         await page.locator('.home-project-card').first.evaluate("el => el.scrollIntoView({block:'start'})")
         await page.wait_for_timeout(500)
         await page.screenshot(animations='disabled', path=str(ART / f'populated-projects-{round(scale * 100)}.png'))
-        await page.locator('section[aria-labelledby="home-group-registered"] .home-project-card').first.evaluate("el => el.scrollIntoView({block:'start'})")
+        await page.locator('section[aria-labelledby="home-group-root-1"] .home-project-card').first.evaluate("el => el.scrollIntoView({block:'start'})")
         await page.screenshot(animations='disabled', path=str(ART / f'recent-projects-{round(scale * 100)}.png'))
     # A cached update is visible only while release notices remain enabled.
     await page.evaluate("""async () => {
@@ -116,7 +132,7 @@ async def check(browser, scale, populated):
     assert not any(message.get('type') in ('create_workflow', 'send_prompt', 'create_cluster') for message in state['messages'])
     assert not errors, errors
     await context.close()
-    print(f'PASS: {"populated" if populated else "empty"} Home at {round(scale * 100)}%, 1280x720; bounded cards/dialog, status, explicit folder registration, keyboard focus, no implicit work')
+    print(f'PASS: {scenario} Home at {round(scale * 100)}%, 1280x720; bounded cards/dialog, status, explicit folder registration, keyboard focus, no implicit work')
 
 
 async def main():
@@ -124,8 +140,8 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         for scale in [1.1, 1.5]:
-            for populated in [False, True]:
-                await check(browser, scale, populated)
+            for scenario in ['empty', 'discovery', 'populated']:
+                await check(browser, scale, scenario)
         await browser.close()
 
 

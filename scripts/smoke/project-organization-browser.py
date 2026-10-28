@@ -176,7 +176,7 @@ async def scenario_archive(playwright, server):
         await manage(page, 'archive-me')
         await page.get_by_role('button', name='Unarchive', exact=True).click()
         await page.wait_for_function("() => !document.getElementById('home-group-archived')", timeout=10000)
-        await page.get_by_role('heading', name=re.compile(r'^Your projects')).wait_for()
+        await page.get_by_role('heading', name=re.compile(r'^Other projects')).wait_for()
         assert 'archive-me' in await group_names(page, 'registered')
         assert folder.is_dir()
     finally:

@@ -18,3 +18,17 @@
 @media(max-width:650px){.home-content{padding:20px 16px 32px;gap:20px}.home-header h1{font-size:22px}.home-start-copy{flex-basis:100%;order:3}.home-start{gap:8px;padding:12px}.home-add-backdrop{padding:8px}.home-add-dialog{padding:16px}.home-project-grid,.home-work-grid{grid-template-columns:1fr}}
 
 .home-project-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}.home-card-header{display:flex;flex-direction:column;gap:12px}.home-card-actions{display:flex;gap:6px;flex-wrap:wrap}.home-project-card button[aria-pressed],.home-project-card button[aria-controls^="home-manage"]{border-color:transparent!important;background:transparent!important;color:var(--color-fg-muted)!important}
+
+.home-discovered { margin: 12px 0; border: 1px solid var(--color-border-hairline); border-radius: 5px; padding: 8px 12px; }
+.home-discovered summary { cursor: pointer; font-size: 12px; }
+.home-discovered ul { padding: 0; margin: 8px 0; list-style: none; max-height: 240px; overflow: auto; }
+.home-discovered li { display: flex; gap: 12px; align-items: center; padding: 4px 0; }
+.home-discovered small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg-muted); }
+
+.project-folders-ui { font-family: var(--font-body); font-size: 12px; line-height: 1.5; }
+.project-folders-ui input, .project-folders-ui select { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 6px 8px; border: 1px solid var(--color-border-hairline); border-radius: 4px; background: var(--color-bg-sunken); color: var(--color-fg); font: inherit; }
+.project-folders-ui label { display: flex; flex-direction: column; gap: 4px; }
+.project-folders-ui button { padding: 5px 10px; border: 1px solid var(--color-border-hairline); border-radius: 4px; background: var(--color-bg-sunken); color: var(--color-accent-primary); font: inherit; cursor: pointer; }
+.project-folders-ui button:disabled { opacity: .5; cursor: default; }
+.project-folders-ui :is(button,input,select):focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 2px; }
+.project-folders-ui :is(p,li) { overflow-wrap: anywhere; }

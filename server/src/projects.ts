@@ -2,8 +2,7 @@
 // Projects live anywhere the server can read; nothing requires one parent
 // tree. Three sources feed one flat list, in precedence order:
 //   registered -- settings.projects, added explicitly (settings or the creator)
-//   scanned    -- children of the optional scan folder
-//                (settings.defaultWorkingDirectory; no implicit scan root)
+//   scanned    -- immediate children of explicit named settings.projectRoots
 //   recent     -- the crash-recovery registry: every cwd a workflow ran in
 //
 // The same list is the containment authority for the explorer scans, mkdir and
@@ -37,9 +36,13 @@ export interface ProjectEntry {
   pinned?: boolean;
   archived?: boolean;
   previousPaths?: string[];
+  rootPath?: string;
 }
 
+export interface ProjectRoot { name: string; path: string; exists: boolean; }
+
 export interface ProjectList {
+  roots?: ProjectRoot[];
   scanCandidates?: string[];
   homeFolder?: string;
   projects: ProjectEntry[];
@@ -62,8 +65,9 @@ export function mergeProjects(inputs: ProjectInputs, exists: (p: string) => bool
   const add = (list: string[], source: ProjectSource) => {
     for (const raw of list) {
       const resolved = path.resolve(raw);
-      if (seen.has(resolved)) continue;
-      seen.add(resolved);
+      const key = canonicalProjectPath(resolved);
+      if (seen.has(key)) continue;
+      seen.add(key);
       projects.push({ path: resolved, name: nameOf(resolved), source, exists: exists(resolved) });
     }
   };
@@ -71,6 +75,18 @@ export function mergeProjects(inputs: ProjectInputs, exists: (p: string) => bool
   add(inputs.scanned, 'scanned');
   add(inputs.recent, 'recent');
   return { projects, scanFolder: inputs.scanFolder };
+}
+
+// Compare aliases without rewriting the path used by existing sessions/records.
+export function canonicalProjectPath(folder: string): string {
+  let resolved = path.resolve(folder);
+  try { resolved = realpathSync(resolved); } catch { /* missing folders keep identity */ }
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+export function projectRootFor(folder: string, roots: ProjectRoot[]): ProjectRoot | undefined {
+  const target = canonicalProjectPath(folder);
+  return roots.filter(root => isPathWithin(canonicalProjectPath(root.path), target))
+    .sort((a, b) => canonicalProjectPath(b.path).length - canonicalProjectPath(a.path).length || a.path.localeCompare(b.path))[0];
 }
 
 async function isDirectory(p: string): Promise<boolean> {
@@ -138,14 +154,20 @@ export function isChatStorage(p: string, root = chatRootDir()): boolean {
 // record store.
 async function listFolders(): Promise<ProjectList> {
   const settings = await readSettings().catch(() => null);
+  const roots: ProjectRoot[] = await Promise.all((settings?.projectRoots ?? []).map(async root => ({
+    ...root, exists: !!(await resolveScanFolder(root.path)),
+  })));
+  // Compatibility only: browsing/create defaults remain independent of roots.
   const scanFolder = await resolveScanFolder(settings?.defaultWorkingDirectory);
   const safe = (p: string) => {
     try { assertSafePath(p); } catch { return false; }
     try { safeDirectory(p); return true; } catch (err) { return (err as NodeJS.ErrnoException).code === 'ENOENT'; }
   };
   const registered = (settings?.projects ?? []).filter(safe);
-  const [scanned, allRecent] = await Promise.all([scanFolderProjects(scanFolder), readKnownCwds()]);
+  const [scans, allRecent] = await Promise.all([Promise.all(roots.map(root => scanFolderProjects(root.exists ? root.path : null))), readKnownCwds()]);
   const recent = allRecent.filter((p) => safe(p) && !isChatStorage(p));
+  const recentPaths = new Set(recent.map(canonicalProjectPath));
+  const scanned = scans.flat().filter(p => !recentPaths.has(canonicalProjectPath(p)));
   const existence = new Map<string, boolean>();
   const names = new Map<string, string>();
   for (const p of [...registered, ...scanned, ...recent]) {
@@ -155,7 +177,8 @@ async function listFolders(): Promise<ProjectList> {
     existence.set(resolved, exists);
     names.set(resolved, exists ? await projectDisplayName(resolved) : path.basename(resolved) || resolved);
   }
-  return mergeProjects({ registered, scanFolder, scanned, recent }, (p) => existence.get(p) ?? false, (p) => names.get(p) ?? path.basename(p));
+  const list = mergeProjects({ registered, scanFolder, scanned, recent }, (p) => existence.get(p) ?? false, (p) => names.get(p) ?? path.basename(p));
+  return { ...list, roots, projects: list.projects.map(project => ({ ...project, rootPath: projectRootFor(project.path, roots)?.path })) };
 }
 
 export async function listProjects(): Promise<ProjectList> {
@@ -300,13 +323,13 @@ export async function createProject(body: Record<string, unknown>): Promise<Proj
 }
 
 // Every folder a no-workflow caller may treat as a project root: the flat
-// list plus the scan folder itself (so a new project can be created in it).
+// list plus explicitly configured discovery roots. Browsing is independent.
 // Deliberately excludes $HOME; write confinement must not widen to the whole
 // home directory just because projects may live outside it.
 export async function projectRoots(): Promise<string[]> {
   const list = await listFolders();
   const roots = list.projects.filter((p) => p.exists).map((p) => p.path);
-  if (list.scanFolder && (await isDirectory(list.scanFolder))) roots.push(list.scanFolder);
+  roots.push(...(list.roots ?? []).filter(root => root.exists).map(root => root.path));
   return [...new Set(roots)];
 }
 

@@ -153,3 +153,16 @@ test('Windows drive and share projects parse and match open work with native sep
   assert.equal(pathWithin(share + '\\nested', share), true);
   assert.equal(pathWithin(share + '-other', share), false);
 });
+
+test('named roots separate saved cards from discovery, keep missing roots and one-offs identifiable', () => {
+  const roots = [{ name: 'Work', path: '/work', exists: true }, { name: 'Personal', path: '/personal', exists: true }, { name: 'Offline', path: '/offline', exists: false }];
+  const list = [{ ...project('/work/app'), rootPath: '/work', pinned: true }, { ...project('/personal/notes', 'recent'), rootPath: '/personal' }, project('/other/site'), ...Array.from({ length: 151 }, (_, i) => ({ ...project(`/work/folder-${i}`, 'scanned'), rootPath: '/work' }))];
+  const groups = groupProjects(list, false, roots);
+  assert.deepEqual(groups.map(g => g.title), ['Pinned', 'Work', 'Personal', 'Offline', 'Other projects']);
+  assert.equal(groups[1].projects.length, 0);
+  assert.equal(groups[1].discovered?.length, 151);
+  assert.equal(groups[3].exists, false);
+  assert.equal(groups.flatMap(g => g.projects).length, 3, 'discoveries never inflate saved cards');
+  const search = groupProjects(searchProjects(list, 'folder-150'), false, roots);
+  assert.equal(search[0].title, 'Work'); assert.equal(search[0].discovered?.length, 1);
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 // A reusable click-through folder picker — the "Save As" surface for the media
@@ -27,12 +27,16 @@ export interface PickOptions {
   // Embed the same browser in setup instead of opening a second dialog.
   inline?: boolean;
   confirmLabel?: string;
+  roots?: Array<{ name: string; path: string }>;
 }
 
 interface DirEntry { name: string; path: string; }
 
-export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', roots = [], onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
   const request = useRef(0);
+  const pathEdits = useRef(0);
+  const pathId = useId();
+  const [pathDraft, setPathDraft] = useState(initialPath || '');
   const [cwd, setCwd] = useState(initialPath || '');
   const [dirs, setDirs] = useState<DirEntry[]>([]);
   const [name, setName] = useState(defaultName || '');
@@ -42,15 +46,19 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
 
   const load = useCallback(async (path: string) => {
     const attempt = ++request.current;
+    const editsAtStart = pathEdits.current;
+    setPathDraft(path);
     setLoading(true);
     setErr('');
     try {
       const res = await fetch(`/api/list-dirs?path=${encodeURIComponent(path)}`);
-      const data = await res.json() as { parent?: string; dirs?: DirEntry[] };
+      const data = await res.json() as { parent?: string; dirs?: DirEntry[]; unavailable?: boolean };
       if (attempt !== request.current) return;
       if (!res.ok) throw new Error('Folder listing is unavailable.');
       setCwd(data.parent || path);
+      if (pathEdits.current === editsAtStart) setPathDraft(data.parent || path);
       setDirs(Array.isArray(data.dirs) ? data.dirs : []);
+      if (data.unavailable) setErr('The requested folder is not reachable. Showing the home folder; navigate to an available folder before choosing.');
     } catch (e) {
       if (attempt === request.current) setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -109,10 +117,11 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         {/* Path bar */}
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={goUp} className="display-font" title="Up one folder" style={btn} disabled={loading}>↑ UP</button>
-          <span style={{ fontSize: '11px', fontFamily: 'var(--font-code, monospace)', color: 'var(--color-fg-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'rtl', textAlign: 'left', flex: 1 }} title={cwd}>
-            {cwd || '…'}
-          </span>
+          <label htmlFor={pathId} style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}>Browse folder path</label>
+          <input id={pathId} value={pathDraft} onChange={e => { pathEdits.current++; setPathDraft(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void load(pathDraft); } }} style={{ ...input, flex: 1, minWidth: 0 }} />
+          <button type="button" style={btn} onClick={() => void load(pathDraft)} disabled={loading}>Go</button>
         </div>
+        {roots.length > 0 && <div aria-label="Root shortcuts" style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 64, overflowY: 'auto' }}>{roots.map(root => <button type="button" key={root.path} style={btn} title={root.path} onClick={() => void load(root.path)}>{root.name}</button>)}</div>}
 
         {/* Folder list */}
         <div role={inline ? 'region' : undefined} aria-label={inline ? 'Project folders' : undefined} style={{ flex: 1, minHeight: inline ? 0 : '160px', overflowY: 'auto' }}>
@@ -134,6 +143,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
           )}
         </div>
 
+        <small style={{ padding: '4px 14px', overflowWrap: 'anywhere' }}>Create folder inside: {cwd || 'choose a parent first'}</small>
         {/* New folder */}
         <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', gap: '8px' }}>
           <input
@@ -141,7 +151,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
             value={newFolder}
             onChange={(e) => setNewFolder(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void makeFolder(); }}
-            placeholder="new folder name…"
+            placeholder="New folder name"
             spellCheck={false}
             style={{ ...input, flex: 1 }}
           />
@@ -164,7 +174,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         {err && <div style={{ padding: '0 14px 8px', fontSize: '10px', color: 'var(--color-danger)' }}>{err}</div>}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           {!inline && <button onClick={() => onDone(null)} className="display-font" style={btn}>CANCEL</button>}
-          <button onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!cwd || loading}>{confirmLabel}</button>
+          <button onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!cwd || loading || !!err || pathDraft !== cwd}>{confirmLabel}</button>
         </div>
       </div>
     </div>;

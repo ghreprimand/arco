@@ -4,17 +4,13 @@ import type { HelpEntry } from './shared';
 export const settingsHelp: Record<string, HelpEntry> = {
   'settings.first-run': {
     title: 'Run setup again',
-    body: <p>Reopens the welcome, folder, Connections and completion steps. Earlier steps can be skipped. Setup complete summarizes the chosen folder and provider, then offers Go to Home or Start a chat in the normal creator. Either choice saves completion. Setup completion is remembered in the Arco home so a provider outage never reopens it automatically.</p>,
+    body: <p>Reopens welcome, multi-folder setup, Connections and completion. Existing roots and individual projects appear in the summary and remain unless explicitly removed. Add several choices with Add another, then Continue. The final screen summarizes folders and provider, with Go to Home and Start a chat in the normal creator. Either saves completion without launching work. Existing chats and settings remain intact.</p>,
   },
   'settings.projects': {
     title: 'Projects',
     body: (
       <p>
-        The flat list of project folders offered by the new-workflow creator and
-        the ARCHIVE window. Add any absolute path the server can read; nothing
-        has to live under one parent. <C>KEEP</C> promotes a scanned or recent
-        folder into the registered list; <C>Remove</C> forgets a registered one.
-        No scan folder is assumed. Setup offers a typed absolute project path or a scrolling folder browser with common-root shortcuts, UP, and new-folder creation. Choosing a folder adds that project; optional scanning is configured separately in Settings &gt; Projects. Discovery does not register projects or count as saved work. Home collapses more than 12 scanned folders; search includes them. In Docker, a folder must be bind-mounted into the container first.
+        A root is a named folder containing projects; a project is one working folder and may live anywhere. Project roots supports Add, Browse, Edit and Remove with availability status. Removing a root stops its discovery and grouping; it never deletes folders, sessions or registered projects. Individual projects stay separate. Legacy single-root settings migrate once; explicitly removing all roots keeps discovery off. Home groups roots separately, keeps pinned shortcuts and Other projects, and does not count discovered folders as saved projects. In Docker, folders must be mounted first.
       </p>
     ),
   },
@@ -148,16 +144,8 @@ export const settingsHelp: Record<string, HelpEntry> = {
     manualSection: 'settings-operator',
   },
   'settings.default-working-dir': {
-    title: 'Default working directory',
-    body: (
-      <p>
-        The folder the new-workflow <C>WORKING DIRECTORY</C> picker opens at (and
-        the value its placeholder reflects). Type an absolute path or <C>BROWSE</C>
-        the folder tree and pick a root with <C>✓ USE THIS</C>. Set it per machine
-        — useful when your projects don't live under <C>~/Projects</C> (e.g. a Mac).
-        Leave blank to fall back to <C>~/Projects</C>, then your home folder.
-      </p>
-    ),
+    title: 'Default browsing location',
+    body: <p>The starting location for folder navigation. Type an absolute path or Browse location, then Save browsing location. This does not add discovery roots or register projects. Named roots are managed separately. Leave blank to use the server default, then the home folder if unavailable.</p>,
   },
   'settings.media-unconfined': {
     title: 'Media access',

@@ -14,7 +14,7 @@
 // real read.
 
 import { promises as fs } from 'fs';
-import { mkdirSync, watch as fsWatch, type FSWatcher } from 'fs';
+import { mkdirSync, realpathSync, watch as fsWatch, type FSWatcher } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import type { ArcoSettings, ProviderName, ModelName, WorkflowDefaults, EffortLevel, ProviderAccountsConfig, ProviderAccountProfile, FallbackChainsConfig, FallbackLegConfig, PinnedService, OllamaBackendConfig, OllamaUtilityConfig, OllamaCompactionConfig } from '@arco/shared';
@@ -179,7 +179,7 @@ function sanitizeOperatorName(raw: unknown): string | undefined {
 }
 
 // The working-directory selector's browser root. Must be a non-empty absolute
-// path; anything else clears the scan folder setting.
+// path; anything else clears the browsing default.
 // Deliberately NOT confined to $HOME — list-dirs browses anywhere already.
 function sanitizeDefaultWorkingDirectory(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
@@ -202,6 +202,31 @@ export function sanitizeProjects(raw: unknown): string[] | undefined {
     if (out.length >= 200) break;
   }
   return out;
+}
+
+// Named discovery roots use the same absolute-path policy as projects. Existing
+// aliases collapse to their real path; missing mounts retain their normalized path.
+export function sanitizeProjectRoots(raw: unknown): NonNullable<ArcoSettings['projectRoots']> | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const roots: NonNullable<ArcoSettings['projectRoots']> = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const clean = sanitizeDefaultWorkingDirectory(item.path);
+    if (!clean) continue;
+    let folder = path.resolve(clean);
+    try { folder = realpathSync(folder); } catch { /* retain missing mounts */ }
+    let homeFolder = path.resolve(homedir());
+    try { homeFolder = realpathSync(homeFolder); } catch { /* retain missing home */ }
+    if (folder === path.parse(folder).root || folder === homeFolder) continue;
+    const key = process.platform === 'win32' ? folder.toLowerCase() : folder;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const name = typeof item.name === 'string' ? item.name.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 60) : '';
+    roots.push({ name: name || path.basename(folder) || folder, path: folder });
+    if (roots.length >= 32) break;
+  }
+  return roots;
 }
 
 // Explicit media folders are absolute, normalized, distinct and bounded.
@@ -615,6 +640,9 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (projects?.length) result.projects = projects;
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
+  const roots = sanitizeProjectRoots(partial.projectRoots);
+  if (roots !== undefined) result.projectRoots = roots;
+  else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }]);
   const fontPack = sanitizeFontPackId(partial.fontPackOverride);
   if (partial.fontPackOverride === null) result.fontPackOverride = null;
   else if (fontPack !== undefined) result.fontPackOverride = fontPack;
@@ -802,6 +830,14 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   } else if (current.projects && current.projects.length > 0) {
     merged.projects = current.projects;
   }
+  // Snapshot the migrated legacy roots before changing the browsing default.
+  // Explicit [] survives every later patch and never resurrects the legacy root.
+  if ('projectRoots' in patch) {
+    if (!Array.isArray(patch.projectRoots) || patch.projectRoots.some(root => !root || !sanitizeProjectRoots([root])?.length)) {
+      throw new Error('project roots require absolute folder paths below the filesystem and home roots');
+    }
+  }
+  merged.projectRoots = 'projectRoots' in patch ? sanitizeProjectRoots(patch.projectRoots) ?? [] : current.projectRoots ?? [];
   if ('defaultWorkingDirectory' in patch) {
     const d = sanitizeDefaultWorkingDirectory(patch.defaultWorkingDirectory);
     if (d) merged.defaultWorkingDirectory = d;
