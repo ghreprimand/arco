@@ -21,6 +21,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Clarify that interface text size changes take effect immediately and persist across startup.
+
 - Connections labels local runtime addresses as configured and reports whether they are reachable.
 
 - New homes default to Codex app-server, Claude native, and +30 text brightness.
