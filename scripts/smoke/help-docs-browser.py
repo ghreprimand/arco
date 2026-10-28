@@ -47,6 +47,21 @@ async def main():
           s.setState(st=>({connected:true,connectionState:'connected',showCreator:false,activeJobId:'help-chat',jobs:{...st.jobs,'help-chat':{...st.jobs['help-chat'],snapshotReceived:true,busy:false}}}));
           s.getState().setHelpMode(true);
         }''')
+        # Each enabled signed-in provider gets its dot; disabling it removes its
+        # trigger and the entire group disappears when none remain enabled.
+        await page.evaluate("""() => {
+          const names=['claude','gemini','codex','zai','cursor','ollama'];
+          testStore.setState(st=>({authStatus:{...st.authStatus,...Object.fromEntries(names.map(n=>[n,{loggedIn:true}]))},settings:{...st.settings,enabledProviders:Object.fromEntries(names.map(n=>[n,true]))}}));
+        }""")
+        bar = page.locator('[data-help="header.live-status"]')
+        await bar.wait_for()
+        for name, letter in [('claude','C'),('gemini','G'),('codex','X'),('zai','Z'),('cursor','R'),('ollama','O')]:
+            await page.wait_for_function("letter => [...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
+            await page.evaluate("name => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,[name]:false}}}))", name)
+            if name != 'ollama':
+                await page.wait_for_function("letter => ![...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
+        await bar.wait_for(state='detached')
+        await page.evaluate("() => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{claude:true}}}))")
         await page.locator('[data-help="chat.input"]').click()
         await page.get_by_role('button', name='READ MORE IN MANUAL →').click()
         await page.locator('#manual-chat-mode').wait_for()

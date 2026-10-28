@@ -471,7 +471,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           Claude's 5-hour + weekly burn (polled every 3 minutes), Codex's usage
           scrape, Cursor's included-plan gauge plus its separate Other Models
           quota bar, or Ollama's loaded-model list with unload times. Hidden when no
-          provider is authed.
+          enabled provider is signed in. Providers disabled in Settings show no dot or popover.
         </p>
       </>
     ),

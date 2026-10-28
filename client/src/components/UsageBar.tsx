@@ -21,7 +21,8 @@ export function UsageBar({ usage }: Props) {
   const cursorUsage = useAppStore((s) => s.cursorUsage);
   const zaiUsage = useAppStore((s) => s.zaiUsage);
   const ollamaLive = useAppStore((s) => s.ollamaLive);
-  const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
+  const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
+  const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
   const claudeAuthed = authStatus?.claude.loggedIn ?? false;
   const geminiAuthed = authStatus?.gemini.loggedIn ?? false;
   const codexAuthed = authStatus?.codex.loggedIn ?? false;
@@ -34,13 +35,13 @@ export function UsageBar({ usage }: Props) {
 
   return (
     <div data-help="header.live-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      {claudeAuthed && <ClaudeStatus usage={usage} />}
-      {geminiAuthed && (
+      {isProviderEnabled('claude') && claudeAuthed && <ClaudeStatus usage={usage} />}
+      {isProviderEnabled('gemini') && geminiAuthed && (
         <GeminiStatus tooltip="Gemini — LIVE. The CLI exposes no usage/quota endpoint for personal accounts, so live status only." />
       )}
-      {codexAuthed && <CodexStatus usage={codexUsage} />}
-      {zaiAuthed && <ZaiStatus usage={zaiUsage} />}
-      {cursorAuthed && <CursorStatus usage={cursorUsage} />}
+      {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
+      {isProviderEnabled('zai') && zaiAuthed && <ZaiStatus usage={zaiUsage} />}
+      {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
       {ollamaShown && <OllamaStatus daemonUp={ollamaDaemonUp} live={ollamaLive} />}
     </div>
   );

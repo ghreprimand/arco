@@ -1,3 +1,4 @@
+import { hasEnabledUsageProvider } from './usageVisibility';
 import { useStartupStore } from '../stores/startupStore';
 import { VoiceButton } from './VoiceControl';
 import { headerActionStyle as actionBtn } from './headerActionStyle';
@@ -71,6 +72,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
   const focusMode = useAppStore((s) => s.focusMode);
   const setFocusMode = useAppStore((s) => s.setFocusMode);
   const authStatus = useAppStore((s) => s.authStatus);
+  const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
   // WORKBENCH_EXPANSION §K1 — independent terminal launcher. Opens/attaches a
   // session in the ACTIVE workflow's root. Disabled when no workflow is active
   // (cluster view / fresh boot) since a terminal needs a bound cwd.
@@ -80,9 +82,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
 
   const [systemModalOpen, setSystemModalOpen] = useState(false);
 
-  const showUsage = Boolean(
-    authStatus?.claude.loggedIn || authStatus?.gemini.loggedIn || authStatus?.codex.loggedIn || authStatus?.zai.loggedIn,
-  );
+  const showUsage = hasEnabledUsageProvider(authStatus, (provider) => enabledProviders?.[provider] !== false);
 
   // I1-followup — the five feature actions fold into two labeled dropdowns
   // (KNOWLEDGE / TOOLS), mirroring the prior visual grouping. Settings + Manual

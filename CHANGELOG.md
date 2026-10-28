@@ -13,6 +13,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Hide provider status dots and usage details when their providers are disabled in Settings.
+
 - README and Getting started now present the background service as the normal way to run Arco.
 
 ## v0.1.0 - 2026-10-27
