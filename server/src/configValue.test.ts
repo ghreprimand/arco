@@ -17,9 +17,9 @@ test('describeConfigValue classifies without resolving', () => {
   assert.equal(describeConfigValue('   ').kind, 'empty');
   assert.equal(describeConfigValue('sk-literal-123').kind, 'literal');
   assert.equal(describeConfigValue('!op read op://v/k').kind, 'command');
-  const env = describeConfigValue('${ZAI_KEY}');
+  const env = describeConfigValue('${MODEL_SERVICE_KEY}');
   assert.equal(env.kind, 'env');
-  assert.deepEqual(env.envVars, ['ZAI_KEY']);
+  assert.deepEqual(env.envVars, ['MODEL_SERVICE_KEY']);
 });
 
 test('describeConfigValue reports configured for indirect forms (no leak)', () => {

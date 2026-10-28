@@ -9,7 +9,7 @@ import { checkModelDrift, driftFlag } from './primitiveDrift.js';
 test('driftFlag labels per primitive and names the selection', () => {
   assert.match(driftFlag('review', 'claude', 'claude-opus-4-8', 'gone'), /\[REVIEW — MODEL DRIFT\]/);
   assert.match(driftFlag('handoff', 'codex', 'gpt-5', 'gone'), /\[HANDOFF — MODEL DRIFT\]/);
-  assert.match(driftFlag('spawn', 'zai', 'glm-4', 'gone'), /\[SPAWN — MODEL DRIFT\]/);
+  assert.match(driftFlag('spawn', 'ollama', 'fixture-model', 'gone'), /\[SPAWN — MODEL DRIFT\]/);
   assert.match(driftFlag('review', 'claude', 'claude-opus-4-8', 'gone'), /selected claude:claude-opus-4-8/);
 });
 

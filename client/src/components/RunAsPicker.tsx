@@ -34,7 +34,7 @@ export function RunAsPicker({ current, selection, onChange, hint }: Props) {
   const { claude: claudeNativeCatalog, codex: codexCatalog, ollamaModels, llamacppModels, lmstudioModels, strataModels, deepseekModels = [] } = catalogs;
   const codexAccounts = settings?.providerAccounts?.codex ?? [];
 
-  const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
     if (p === 'antigravity') return true;
     if (p === 'ollama') return !!authStatus?.ollama?.loggedIn && ollamaModels.length > 0;

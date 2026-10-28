@@ -5,7 +5,7 @@
 // `./appStore` or `./memoryTrim` (avoid an import cycle).
 import type {
   ChatMessage, WorkerState, WorkflowConfig, ModelName, EffortLevel, Capabilities, UsageInfo,
-  CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, TokenUsage, GenerationSpeed, AuthStatusByProvider,
+  CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, TokenUsage, GenerationSpeed, AuthStatusByProvider,
   ProviderName, PrimaryArtifactMessage, ArcoSettings, QuotaStatusMessage,
   CliChangeEntry, PrimaryBackgroundJob, PreviewHistoryEntry, ClaudeCatalogSnapshot,
   CodexCatalogSnapshot, GeminiCatalogSnapshot, CursorCatalogSnapshot, PrimaryTurnTokenUsageMessage, ClusterStatePayload,
@@ -565,7 +565,6 @@ export interface AppState {
   usage: UsageInfo | null;
   codexUsage: CodexUsageInfo | null;
   cursorUsage: CursorUsageInfo | null;
-  zaiUsage: ZaiUsageInfo | null;
   shutdown: boolean;
   shutdownReason: string | null;
   authStatus: AuthStatusByProvider | null;
@@ -760,7 +759,6 @@ export interface AppState {
   setUsage: (u: UsageInfo) => void;
   setCodexUsage: (u: CodexUsageInfo) => void;
   setCursorUsage: (u: CursorUsageInfo) => void;
-  setZaiUsage: (u: ZaiUsageInfo) => void;
   setShutdown: (v: boolean, reason?: string | null) => void;
   setAuthStatus: (s: AuthStatusByProvider) => void;
   setOllamaLive: (s: OllamaLiveStatus | null) => void;
@@ -861,7 +859,7 @@ export interface AppState {
   // Wholesale config replace from the server (workflow_config_synced /
   // workspace_snapshot) — mirrored browsers converge on the server's config.
   replaceJobConfig: (jobId: string, config: WorkflowConfig) => void;
-  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
+  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
   // docs/PROVIDERS.md - mirror of the server's
   // `codebase_memory_state` push onto `job.config.codebaseMemory` so the
   // CONFIG section + Files-tab Blast Radius sub-tab read from one source.

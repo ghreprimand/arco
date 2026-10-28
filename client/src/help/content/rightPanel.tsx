@@ -311,7 +311,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           Reviewers and handoff seeds always run on the default transport.
         </p>
         <p>
-          Claude Native, Codex app-server, and Z.ai tabs also expose an <C>OUTPUT STYLE</C> picker:{' '}
+          Claude Native, Codex app-server tabs also expose an <C>OUTPUT STYLE</C> picker:{' '}
           <C>normal</C> (default), <C>lite</C> (drop fillers, hedging, pleasantries),
           and <C>terse</C> (also drop articles, fragments OK — was{' '}
           <C>caveman</C> before 2026-05-10; renamed for honest expectations
@@ -454,7 +454,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Output style',
     body: (
       <p>
-        Terseness picker for Claude Native, Codex app-server, and Z.ai:{' '}
+        Terseness picker for Claude Native, Codex app-server:{' '}
         <C>normal</C> (default),{' '}
         <C>lite</C> (drop fillers, hedging, pleasantries), or <C>terse</C>{' '}
         (also drop articles; fragments OK). Cuts output tokens, not input. Code

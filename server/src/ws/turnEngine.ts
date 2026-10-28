@@ -11,7 +11,7 @@ SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
 } from '@arco/shared';
-import { type WorkflowSessionMetadata, zaiModelContextWindow } from '@arco/shared';
+import { type WorkflowSessionMetadata} from '@arco/shared';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
@@ -454,9 +454,7 @@ export async function refreshCodexTokenSnapshot(
   if (!wf.primarySessionId) return null;
   const snapshot = await latestCodexTokenSnapshot(wf.primarySessionId, codexHome).catch(() => null);
   if (!snapshot) return null;
-  const modelContextWindow = wf.primary.provider === 'zai'
-    ? zaiModelContextWindow(wf.primary.model)
-    : snapshot.modelContextWindow;
+  const modelContextWindow = snapshot.modelContextWindow;
   broadcastTransient(workflowId, {
     type: 'codex_token_snapshot',
     workflowId,
@@ -1439,9 +1437,6 @@ export async function persistInitialMeta(
     ...(config.claudeTransport === 'cli' || config.claudeTransport === 'native'
       ? { claudeTransport: config.claudeTransport }
       : {}),
-    ...(config.zaiTransport === 'native' || config.zaiTransport === 'appserver'
-      ? { zaiTransport: config.zaiTransport }
-      : {}),
     // Persist the seeded auto-handoff default on the first meta-write so a
     // server restart before the operator's first turn keeps the global
     // default (handleCreateWorkflow bakes it into config for new tabs). The
@@ -1929,11 +1924,6 @@ export async function handleUserMessage(
       : tabClaudeTransport === 'native' || tabClaudeTransport === 'cli'
         ? tabClaudeTransport
         : cascade?.claude?.transport === 'native' ? 'native' : 'cli';
-  const tabZaiTransport = wf.config.zaiTransport;
-  const zaiTransport: 'native' | 'appserver' =
-    tabZaiTransport === 'native' || tabZaiTransport === 'appserver'
-      ? tabZaiTransport
-      : cascade?.zai?.transport === 'appserver' ? 'appserver' : 'native';
   const providerAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
     : null;
@@ -1999,18 +1989,9 @@ export async function handleUserMessage(
     ? (wf.config.reviewSafeMode ?? 'off')
     : 'off';
   // docs/PROVIDERS.md - operator-armed terseness picker. Honored by
-  // Claude Native and by Codex app-server providers (including Z.ai). Other
-  // transports ignore it because Arco has no stable per-turn prompt-prefix
-  // insertion point there.
-  // Default `normal` (no addendum, status quo). Plan §6 hard exclusion:
-  // in-tab DOCS / GIT one-off composer dispatches force normal even when
-  // the tab is pinned to lite / terse, since the prompt's output is
-  // either documentation prose or a commit/PR body that humans read.
-  // Renamed `caveman` → `terse` 2026-05-10.
   const outputStyleSupported =
     (wf.primary.provider === 'claude' && claudeTransport === 'native') ||
-    (wf.primary.provider === 'codex' && codexTransport === 'appserver') ||
-    wf.primary.provider === 'zai';
+    (wf.primary.provider === 'codex' && codexTransport === 'appserver');
   const outputStyle: 'normal' | 'lite' | 'terse' = primitive === 'docs' || primitive === 'git'
     ? 'normal'
     : outputStyleSupported
@@ -2267,10 +2248,6 @@ export async function handleUserMessage(
       // Phase 7a — fold discovered CLAUDE.md files into appendSystemPrompt
       // for Claude tabs (CLI + Native both benefit). Walks up from cwd
       // collecting CLAUDE.md, plus ~/.claude/CLAUDE.md.
-      // docs/PROVIDERS.md - also fold for Z.ai/GLM tabs: GLM is a
-      // full tool-using coding agent and was previously running blind to
-      // project conventions that Claude/Codex tabs already see. `includeProject`
-      // is the trust-gate output, so untrusted repos stay suppressed for GLM too.
       let finalAppend = baseWithSkills;
       // docs/VOICE.md - the Computer voice operator chat has its own
       // base instructions and real (arco-voice) tools; the generic Chat
@@ -2288,7 +2265,7 @@ export async function handleUserMessage(
           finalAppend = finalAppend ? `${chatPrompt}\n\n${finalAppend}` : chatPrompt;
         }
       }
-      if (projectContextEnabled && (wf.primary.provider === 'claude' || wf.primary.provider === 'zai') && cwd) {
+      if (projectContextEnabled && (wf.primary.provider === 'claude') && cwd) {
         try {
           const claudeMd = await discoverClaudeMdFiles(cwd, { includeProject });
           if (claudeMd) {
@@ -2470,9 +2447,7 @@ export async function handleUserMessage(
       const needsStringFormCluster =
         turnClusterId !== undefined &&
         ((wf.primary.provider === 'claude' && claudeTransport === 'cli') ||
-          wf.primary.provider === 'codex' ||
-          wf.primary.provider === 'zai' ||
-          wf.primary.provider === 'cursor');
+          wf.primary.provider === 'codex' || wf.primary.provider === 'cursor');
       if (needsStringFormCluster) {
         // Small load-bearing blocks first — composeClusterAppend reserves
         // their bytes (plus whatever already folded into finalAppend, i.e.
@@ -2503,8 +2478,6 @@ export async function handleUserMessage(
         // `multi_agent_version` — the exact fields that gate the harness);
         // fail-open on unknown because the addendum is phrased
         // conditionally and reads as inapplicable to plain
-        // function-calling models. Codex only — Z.ai rides the app-server
-        // through a Responses proxy with non-Codex models.
         if (wf.primary.provider === 'codex'
           && codexModelUsesCodeMode(wf.primary.model, providerAccount?.codexHome) !== false) {
           tailBlocks.push(codexCodeModeClusterAddendum());
@@ -2728,7 +2701,6 @@ export async function handleUserMessage(
           codexHome: providerAccount?.codexHome,
           claudeTransport,
           ultracode,
-          zaiTransport,
           claudeNativeCompact,
           claudeNativeForceInterleavedThinkingBeta,
           claudeNativeThinkingDisplay,
@@ -2949,22 +2921,7 @@ export async function handleUserMessage(
           wf.lastContextPercent = est.percentOfWindow;
           broadcastTransient(workflowId, { type: 'context_usage', workflowId, ...est });
         }
-      } else if (wf.primary.provider === 'zai' && zaiTransport === 'native' && typeof outcome.lastPromptTokens === 'number') {
-        // Z.ai Native's usage.input_tokens is summed across all tool-loop API
-        // calls for telemetry, but CTX fill is the prompt size of the final API
-        // call. The worker carries that as lastPromptTokens; publish it as a
-        // ground-truth context_usage so the footer does not render the summed
-        // turn total or any stale app-server rollout state.
-        const est = promptContextEstimate(outcome.lastPromptTokens, zaiModelContextWindow(wf.primary.model), Date.now());
-        if (est) {
-          wf.lastContextPercent = est.percentOfWindow;
-          broadcastTransient(workflowId, {
-            type: 'context_usage',
-            workflowId,
-            ...est,
-          });
-        }
-      }
+      } else
 
       if (incognito && wf.config.voiceOperator && wf.primary.provider === 'codex'
         && typeof outcome.lastPromptTokens === 'number' && outcome.modelContextWindow) {
@@ -2975,12 +2932,12 @@ export async function handleUserMessage(
         }
       }
 
-      // Codex / Z.ai app-server equivalent — provider turn usage can be the SUM across all
+      // Codex app-server equivalent — provider turn usage can be the SUM across all
       // internal LLM calls within this operator turn. That's right for billing
       // but wrong for context-window-fill display; the live context is the LAST
       // call's prompt. Await this best-effort rollout read before threshold
       // checks so auto-handoff never fires from the previous turn's percentage.
-      if ((wf.primary.provider === 'codex' || (wf.primary.provider === 'zai' && zaiTransport === 'appserver')) && wf.primarySessionId) {
+      if ((wf.primary.provider === 'codex') && wf.primarySessionId) {
         await refreshCodexTokenSnapshot(workflowId, wf, providerAccount?.codexHome);
       }
 

@@ -116,12 +116,10 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
                 color: worker.provider === 'ollama' ? 'var(--color-warning)'
                   : worker.provider === 'llamacpp' ? 'var(--color-danger, #f04a4a)'
                   : worker.provider === 'codex' ? 'var(--color-accent-primary)'
-                  : worker.provider === 'zai' ? 'var(--color-accent-secondary-bright)'
                   : 'var(--color-accent-secondary)',
                 border: `1px solid ${worker.provider === 'ollama' ? 'var(--color-warning)'
                   : worker.provider === 'llamacpp' ? 'var(--color-danger, #f04a4a)'
                   : worker.provider === 'codex' ? 'var(--color-accent-primary)'
-                  : worker.provider === 'zai' ? 'var(--color-accent-secondary-bright)'
                   : 'var(--color-accent-secondary-dim)'}`,
                 borderRadius: '2px',
                 padding: '0 4px',
@@ -129,7 +127,6 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
             >
               {worker.provider === 'gemini' ? 'GEMINI'
                 : worker.provider === 'codex' ? 'CODEX · OPENAI'
-                : worker.provider === 'zai' ? 'Z.AI · GLM'
                 : worker.provider === 'llamacpp' ? 'LLAMA.CPP · LOCAL'
                 : 'OLLAMA · LOCAL'}
             </span>

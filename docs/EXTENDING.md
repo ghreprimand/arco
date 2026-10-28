@@ -4,9 +4,9 @@ Six recipes document how to add providers, primitives, skills, themes, shaders, 
 
 ## Adding a new provider
 
-Ten providers ship today: Claude (with `cli` + `native` transports), Codex (with `exec` + `appserver` transports), Gemini CLI (a native worker is not available), Z.ai GLM (`zai-native/` in-process worker on direct Chat Completions by default; optional `appserver` transport routes through the Codex app-server via a loopback Responses proxy; configure `ZAI_API_KEY`; default model `glm-5.2`, 1M context; other GLMs 128K-200K), Ollama, llama.cpp, LM Studio (OpenAI-compat `/v1`), Strata (standalone `/v1`, shared HTTP worker), Antigravity, Cursor (`cursor-agent` via the Agent Client Protocol; long-lived `acp` worker by default + a stateless `print` one-shot `cursor-agent -p --mode ask` for read-only primitives; reasoning effort is part of the model id, with a catalog of about 150 models). To add a new one (let's call it `foo`):
+Supported providers include: Claude (with `cli` + `native` transports), Codex (with `exec` + `appserver` transports), Gemini CLI (a native worker is not available), Ollama, llama.cpp, LM Studio (OpenAI-compat `/v1`), Strata (standalone `/v1`, shared HTTP worker), Antigravity, Cursor (`cursor-agent` via the Agent Client Protocol; long-lived `acp` worker by default + a stateless `print` one-shot `cursor-agent -p --mode ask` for read-only primitives; reasoning effort is part of the model id, with a catalog of about 150 models). To add a new one (let's call it `foo`):
 
-> **Several providers use a subdirectory layout** rather than a single file (claude-native/, codex-appserver/, zai-native/, cursor/, and the gemini-native/ stub):
+> **Several providers use a subdirectory layout** rather than a single file (claude-native/, codex-appserver/, cursor/, and the gemini-native/ stub):
 > - `server/src/providers/claude-native/`: in-process Anthropic SDK worker. Read `docs/PROVIDERS.md` under `Claude Native` and `docs/GOTCHAS.md` under `Claude Native transport` before touching it; the forced-first-system-block, replay-on-restart pair-flush, and depth-1 Task cap are load-bearing.
 > - `server/src/providers/codex-appserver/`: long-lived per-tab `codex app-server` process. Read `docs/PROVIDERS.md` under `Codex app-server transport` and `docs/GOTCHAS.md` under `Codex app-server transport invariants`.
 > - `server/src/providers/cursor/`: long-lived `cursor-agent acp` ACP worker + stateless `print.ts` one-shot. Read `docs/PROVIDERS.md` under `Cursor`; ACP is bidirectional JSON-RPC (the agent sends fs/permission requests mid-turn that must be answered), and cluster membership rides an in-process loopback HTTP MCP (`mcp/clusterMcpLoopback.ts`), not stdio.
@@ -18,7 +18,7 @@ Ten providers ship today: Claude (with `cli` + `native` transports), Codex (with
 In `shared/src/protocol/providers.ts` (the `ProviderName` union lives in the split protocol directory, re-exported via the `shared/src/protocol.ts` barrel):
 
 ```ts
-export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'zai' | 'antigravity' | 'llamacpp' | 'lmstudio' | 'cursor' | 'foo';
+export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'antigravity' | 'llamacpp' | 'lmstudio' | 'cursor' | 'foo';
 ```
 
 Add to `PRIMARY_PROVIDERS` if foo can be a primary.

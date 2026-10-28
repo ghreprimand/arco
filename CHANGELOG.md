@@ -30,6 +30,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - README and Getting started now present the background service as the normal way to run Arco.
 
+### Removed
+
+- Z.ai provider, transports, usage indicators, API-key controls and setup entries. Existing unrelated settings and saved files are preserved.
+
 ## v0.1.0 - 2026-10-27
 
 ### Added

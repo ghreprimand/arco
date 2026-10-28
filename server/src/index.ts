@@ -65,7 +65,6 @@ setClaudeNativeTodosBroadcast,
 setClaudeNativeWorkflowEventBroadcast,
 debugSeedNativeCompactProbe,
 } from './providers/claude-native/index.js';
-import { setZaiNativeWorkflowEventBroadcast } from './providers/zai-native/index.js';
 import type { PlanBroadcast,TaskSpawnHandle } from './providers/claude-native/worker.js';
 import { scheduleGeminiNativeCatalogPrefetch } from './providers/gemini-native/catalog.js';
 import { scheduleCursorCatalogPrefetch } from './providers/cursor/catalog.js';
@@ -2032,9 +2031,6 @@ setClaudeNativeTodosBroadcast((workflowId, todos) => {
 // through this broadcaster. Routed through broadcastWorkflow so they land
 // in events.jsonl with proper seq/parent threading.
 setClaudeNativeWorkflowEventBroadcast((workflowId, msg) => {
-  broadcastWorkflow(workflowId, msg);
-});
-setZaiNativeWorkflowEventBroadcast((workflowId, msg) => {
   broadcastWorkflow(workflowId, msg);
 });
 

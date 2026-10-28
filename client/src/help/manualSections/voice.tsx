@@ -249,7 +249,7 @@ export const voice: Section[] = [{
       one-shot completion watches; and bounded conditional mailbox rules.</p>
     <p><strong>Quota.</strong> “What percentage of my Codex quota have I used?”
       reads Arco’s actual quota snapshot, including its age, used/remaining
-      windows and reset information. Claude, Cursor and Z.ai usage are also
+      windows and reset information. Claude, Cursor usage are also
       available when connected. Missing data is reported as unavailable;
       token totals and throttle status are separate from quota percentage.</p>
     <p><strong>Completion watches.</strong> “Let me know when Builder 1 in

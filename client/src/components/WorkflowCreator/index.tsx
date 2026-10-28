@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
@@ -16,7 +16,7 @@ import { TemplatePickerRow } from './TemplatePickerRow';
 import { PastChatsList } from './PastChatsList';
 import { ProjectPicker } from './ProjectPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
-import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS, zaiModelsUiFrom } from './modelOptions';
+import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft, DirEntry } from './types';
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
@@ -86,14 +86,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     (authStatus?.ollama?.installedModels ?? []).map((m) => ({ value: m as ModelName, label: m.toUpperCase(), subline: 'LOCAL · OLLAMA' }));
   const llamacppModelsForPicker: { value: ModelName; label: string; subline?: string }[] =
     (authStatus?.llamacpp?.installedModels ?? []).map((m) => ({ value: m as ModelName, label: m.toUpperCase(), subline: 'LOCAL · LLAMA.CPP' }));
-  const zaiModelsForPicker = zaiModelsUiFrom(authStatus?.zai?.installedModels);
-  const zaiDefaultModel = zaiModelsForPicker[0]?.value ?? DEFAULT_ZAI_MODEL;
   // LM Studio (M13) is a primary provider, not a cluster member, so its model
   // list is read inline in the MODEL picker below (from authStatus.lmstudio) —
   // no dedicated picker const needed here the way the cluster providers have.
   const clusterModelsForProvider = (provider: ClusterMemberProvider): { value: ModelName; label: string; subline?: string }[] => {
     if (provider === 'codex') return codexModelsForPicker;
-    if (provider === 'zai') return zaiModelsForPicker;
+
     if (provider === 'ollama') return ollamaModelsForPicker;
     if (provider === 'llamacpp') return llamacppModelsForPicker;
     return claudeModelsForPicker;
@@ -102,7 +100,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const first = clusterModelsForProvider(provider)[0]?.value;
     if (first) return first;
     if (provider === 'codex') return DEFAULT_CODEX_MODEL;
-    if (provider === 'zai') return zaiDefaultModel;
+
     if (provider === 'ollama' || provider === 'llamacpp') return '' as ModelName;
     return 'opus';
   };
@@ -119,7 +117,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [fastMode, setFastMode] = useState(wd?.fastMode ?? false);
   // Efficiency/style defaults surfaced on the New-tab so the operator can
   // pick a default once. Tool filtering is Claude Native-only; output style
-  // is honored by Claude Native, Codex app-server, and Z.ai. Stored under
+  // is honored by Claude Native, Codex app-server. Stored under
   // workflowDefaults regardless of the active provider so a transport flip
   // mid-tab picks supported values up automatically. Renamed `caveman` →
   // `terse` 2026-05-10 (see docs/PROVIDERS.md).
@@ -180,7 +178,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (primaryProvider === 'cursor' || primaryProvider === 'antigravity') return null;
     if (primaryProvider === 'gemini') return GEMINI_MODELS_UI as { value: ModelName; label: string }[];
     if (primaryProvider === 'codex') return codexModelsForPicker;
-    if (primaryProvider === 'zai') return zaiModelsForPicker;
+
     if (primaryProvider === 'ollama') return ollamaModelsForPicker;
     if (primaryProvider === 'llamacpp') return llamacppModelsForPicker;
     if (primaryProvider === 'strata' || primaryProvider === 'deepseek') {
@@ -420,7 +418,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       setPrimaryProvider(s.provider);
       if (s.provider === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
       if (s.provider === 'codex') setModel(DEFAULT_CODEX_MODEL);
-      if (s.provider === 'zai') setModel(zaiDefaultModel);
+
       if (s.provider === 'gemini') setModel('gemini-3.1-pro-preview');
       setEffort(clampEffortForProvider(effort, s.provider));
     }
@@ -456,7 +454,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // into them today. Effort re-clamps to whatever the provider/model honors.
   const draftFromDefaults = (): MemberDraft => {
     const provider: ClusterMemberProvider =
-      primaryProvider === 'codex' || primaryProvider === 'zai' || primaryProvider === 'ollama' || primaryProvider === 'llamacpp'
+      primaryProvider === 'codex' || primaryProvider === 'ollama' || primaryProvider === 'llamacpp'
         ? primaryProvider
         : 'claude';
     const fallbackModel: ModelName = defaultClusterModelForProvider(provider);
@@ -879,9 +877,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const subtitleText = mode === 'cluster' ? 'NEW CLUSTER' : mode === 'genesis' ? 'NEW PROJECT · GENESIS' : mode === 'chat' ? 'NEW CONVERSATION' : 'NEW WORKFLOW';
   const cwdBasename = workDir.replace(/\/+$/, '').split('/').pop() ?? '';
   const headingText = cwdBasename.length > 28 ? `${cwdBasename.slice(0, 27)}…` : cwdBasename;
-  const outputStyleProvider = primaryProvider === 'claude' || primaryProvider === 'codex' || primaryProvider === 'zai';
+  const outputStyleProvider = primaryProvider === 'claude' || primaryProvider === 'codex';
   // Collapsed tuning summary so the config stays visible but quiet.
-  // Claude has fast/filter/style; Codex app-server and Z.ai honor style only.
+  // Claude has fast/filter/style; Codex app-server honor style only.
   const runOptionsSummary = primaryProvider === 'claude'
     ? `Fast ${fastMode ? 'on' : 'off'} · ${efficiencyToolFilter} · ${outputStyle}`
     : `Output ${outputStyle}`;
@@ -1333,7 +1331,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* Primary agent provider — Gemini gated as EXPERIMENTAL, Codex newly
             framework'd. Filter disabled providers out entirely so the operator
             never sees them. */}
-        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('gemini') && authStatus.gemini.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('zai') && authStatus.zai.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn) || isProviderEnabled('antigravity') || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
+        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('gemini') && authStatus.gemini.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn) || isProviderEnabled('antigravity') || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
           <div data-help="creator.provider">
             <label className="display-font" style={labelStyle}>PRIMARY AGENT</label>
             <select
@@ -1348,7 +1346,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 if (p === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
                 if (p === 'gemini') setModel('gemini-3.1-pro-preview');
                 if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
-                if (p === 'zai') setModel(zaiDefaultModel);
+
                 if (p === 'cursor') setModel('auto');
                 if (p === 'antigravity') setModel('antigravity-desktop');
                 // Default to the first installed local model so single-model
@@ -1364,15 +1362,15 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               }}
               style={{ ...inputStyle, cursor: 'pointer' }}
             >
-              {(['claude', 'gemini', 'codex', 'zai', 'cursor', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
+              {(['claude', 'gemini', 'codex', 'cursor', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
                 .filter((p) => mode !== 'chat' || (p !== 'gemini' && p !== 'antigravity'))
                 .filter((p) => !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
                 .filter(isProviderEnabled).map((p) => {
                 // Antigravity authenticates inside its own desktop app; treat it
                 // as always-available so long as it's enabled in settings.
                 const authed = p === 'antigravity' ? true : authStatus[p]?.loggedIn;
-                const label = p === 'claude' ? 'CLAUDE' : p === 'gemini' ? 'GEMINI' : p === 'codex' ? 'CODEX' : p === 'zai' ? 'Z.AI' : p === 'cursor' ? 'CURSOR' : p === 'antigravity' ? 'ANTIGRAV' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
-                const sub = p === 'claude' ? 'default' : p === 'gemini' ? 'experimental' : p === 'codex' ? 'GPT' : p === 'zai' ? 'GLM Coding' : p === 'cursor' ? '~153 models' : p === 'antigravity' ? 'desktop app' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
+                const label = p === 'claude' ? 'CLAUDE' : p === 'gemini' ? 'GEMINI' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'antigravity' ? 'ANTIGRAV' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
+                const sub = p === 'claude' ? 'default' : p === 'gemini' ? 'experimental' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'antigravity' ? 'desktop app' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
                 return (
                   <option key={p} value={p} disabled={!authed}>
                     {label} — {sub}{authed ? '' : ' (not authenticated)'}
@@ -1625,7 +1623,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         )}
 
         {/* I5 Band 3 — AGENT TUNING. Claude shows its Native-only fast/filter
-            controls plus output style; Codex app-server and Z.ai show output
+            controls plus output style; Codex app-server show output
             style only. */}
         {outputStyleProvider && (
         <div style={bandStyle}>
@@ -1700,7 +1698,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 ))}
               </div>
               <div style={hintStyle}>
-                Cuts output tokens. <code>lite</code> drops fillers/hedging; <code>terse</code> also drops articles, fragments OK. Claude Native, Codex app-server, and Z.ai honor this on normal turns. Review/Handoff/DOCS/GIT always run as <code>normal</code>.
+                Cuts output tokens. <code>lite</code> drops fillers/hedging; <code>terse</code> also drops articles, fragments OK. Claude Native, Codex app-server honor this on normal turns. Review/Handoff/DOCS/GIT always run as <code>normal</code>.
               </div>
             </div>
             </div>
@@ -1782,7 +1780,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             onUpdateMember={updateMember}
             claudeModelsForPicker={claudeModelsForPicker}
             codexModelsForPicker={codexModelsForPicker}
-            zaiModelsForPicker={zaiModelsForPicker}
             ollamaModelsForPicker={ollamaModelsForPicker}
             llamacppModelsForPicker={llamacppModelsForPicker}
             cursorModelsForPicker={cursorModelsForPicker}

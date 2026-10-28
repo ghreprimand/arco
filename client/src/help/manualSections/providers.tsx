@@ -19,7 +19,6 @@ export const providers: Section[] = [
           rows={[
             ['Claude', <>cli subprocess or native <Code>@anthropic-ai/sdk</Code></>, 'UUID', 'rich', 'yes', '5'],
             ['Codex', <>exec subprocess or long-lived <Code>app-server</Code></>, 'thread_id', 'yes', 'yes', 'model-dependent; Astra up to ultra'],
-            ['Z.ai (GLM)', <>native Chat Completions or Codex <Code>app-server</Code></>, 'replay (native) / thread_id (app-server)', 'yes', 'partial', '4 (glm-5.2)'],
             ['Cursor', <>ACP (<Code>cursor-agent acp</Code>, JSON-RPC over stdio)</>, 'session/load', 'yes (fs + permission callbacks)', 'model-dependent', 'baked into model id'],
             ['Gemini', 'subprocess', 'index→UUID', 'yes (--yolo)', 'no', 'none'],
             ['Ollama', 'HTTP', 'none (transcript replay)', 'yes (server-side allowlist)', 'model-dependent', 'none'],
@@ -246,45 +245,6 @@ export const providers: Section[] = [
             context percentage.
           </li>
         </ul>
-      </>
-    ),
-  },
-  {
-    id: 'provider-zai',
-    group: 'Providers',
-    title: 'Z.ai (GLM)',
-    body: (
-      <>
-        <p>
-          Z.ai's GLM coding models, a first-class provider as of 2026-06. Two
-          transports. <Code>native</Code> (the default) is an in-process worker that
-          calls Z.ai's coding Chat Completions endpoint
-          (<Code>api.z.ai/api/coding/paas/v4/chat/completions</Code>) directly with
-          Arco's own server-side tool loop. <Code>app-server</Code> routes through the
-          Codex <Code>app-server</Code> child via a loopback Responses-to-Chat-Completions
-          proxy (<Code>zaiResponsesProxy.ts</Code>), reusing Codex's transport plumbing.
-        </p>
-        <p><strong>Auth:</strong> the <Code>ZAI_API_KEY</Code> env var or a stored
-          secret (<Code>readZaiApiKey</Code>). Supports DD12 config-value
-          interpolation, so the stored key can be a <Code>!cmd</Code> shell-out or a{' '}
-          <Code>${'{ENV}'}</Code> reference rather than a literal.</p>
-        <p><strong>Transport toggle.</strong> Per-tab <Code>zaiTransport</Code> in
-          CONFIG (<Code>native</Code> / <Code>appserver</Code>), with a TRANSPORT
-          DEFAULTS cascade. Reviewers and handoff seeds use the default transport
-          regardless of the tab setting.</p>
-        <p><strong>Models.</strong> <Code>DEFAULT_ZAI_MODEL</Code> is{' '}
-          <Code>glm-5.2</Code>. <Code>glm-5.2</Code> / <Code>glm-5.2[1m]</Code> report a
-          1M context window; <Code>glm-4.5*</Code> are 128K; everything else falls back
-          to 200K (Z.ai's <Code>/models</Code> surface returns ids only, so these are
-          docs-backed defaults shared between worker config and the CTX estimate).</p>
-        <p><strong>Context-fill signal.</strong> Auto-handoff thresholds read the
-          latest rollout token snapshot on the app-server path, or the last
-          prompt-token count on native, so a short follow-up turn doesn't fire from a
-          stale percentage.</p>
-        <Note kind="tip">
-          The per-tab OUTPUT STYLE picker applies to Z.ai on both transports
-          alongside Claude Native and Codex app-server.
-        </Note>
       </>
     ),
   },

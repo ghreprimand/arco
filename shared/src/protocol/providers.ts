@@ -9,7 +9,7 @@ export type ModelName = 'haiku' | 'sonnet' | 'opus' | (string & {});
 // Claude/Gemini/local model lists it, so nothing else can select it.
 // Strata exposes none explicitly; other providers keep their own picker sets.
 export type EffortLevel = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
-export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'zai' | 'antigravity' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
+export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'antigravity' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
 
 // Lite: only 'passthrough' remains — primary-worker output mirrored to chat.
 // The old 'planning'/'synthesis' phases are gone with the orchestrator.
@@ -27,7 +27,7 @@ export type PrimaryPhase = 'passthrough';
 // pointed at a configurable remote endpoint instead of a locally-spawned
 // llama-server. It reuses the same transcript-rebuild + skills/cluster
 // scaffolding as llama.cpp in turnEngine.
-export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex', 'zai', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 
 export type AuthLoginTarget = ProviderName | 'github';
 

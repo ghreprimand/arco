@@ -53,7 +53,6 @@ export interface WorkflowDefaults {
   // flip on the same tab picks them up automatically.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   outputStyle?: 'normal' | 'lite' | 'terse';
-  zaiTransport?: 'native' | 'appserver';
 }
 
 export interface ProviderAccountBrowser {
@@ -170,9 +169,6 @@ export interface ArcoSettings {
   // tab is flipped back to `'exec'` so a re-enable re-shows the warning.
   // See docs/PROVIDERS.md.
   codex?: { transport?: 'exec' | 'appserver'; appserverWarningSeen?: boolean };
-  // docs/PROVIDERS.md - default transport for new Z.ai tabs. Native is the
-  // hardcoded fallback when absent; appserver remains selectable as fallback.
-  zai?: { transport?: 'native' | 'appserver' };
   // Global auto-handoff default for newly-created tabs (mirror of the
   // TRANSPORT DEFAULTS pattern). Per-tab `config.autoHandoff` always wins;
   // this only seeds tabs that have never been touched. Absent / partial ⇒

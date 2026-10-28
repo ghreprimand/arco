@@ -182,7 +182,7 @@ function runOriginalWorker(
   }
   // Original-worker requires a resumable session (Claude UUID or app-server
   // thread_id). Ollama has no resume; Gemini's resume isn't wired in Lite.
-  if (original.primary.provider !== 'claude' && original.primary.provider !== 'codex' && original.primary.provider !== 'zai') {
+  if (original.primary.provider !== 'claude' && original.primary.provider !== 'codex') {
     const err = `original-worker mode needs a resumable CLI session; provider=${original.primary.provider} isn't supported. Try fresh-summarizer mode.`;
     ctx.broadcast({
       type: 'handoff_artifact_ready',

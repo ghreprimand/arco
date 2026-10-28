@@ -74,7 +74,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
   // Phase 4 — cluster-join supports Claude (Native + CLI) and Codex
   // (exec + appserver). Other providers grey out the checkbox; auto-
   // uncheck so a stale `true` doesn't submit and silently fail.
-  const canJoinCluster = provider === 'claude' || provider === 'codex' || provider === 'zai';
+  const canJoinCluster = provider === 'claude' || provider === 'codex';
   useEffect(() => {
     if (!canJoinCluster && joinCluster) setJoinCluster(false);
   }, [canJoinCluster, joinCluster]);
@@ -96,7 +96,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
   // enabled (auth happens inside its desktop app, not via Arco). Local
   // providers require auth (the WS connection to the daemon, or a
   // configured catalog for llama.cpp).
-  const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
     if (p === 'antigravity') return true;
     return Boolean(authStatus?.[p]?.loggedIn);

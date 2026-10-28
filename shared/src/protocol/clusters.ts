@@ -6,9 +6,9 @@
 // MCP over http/sse only, not stdio). Local providers (ollama/llamacpp) use
 // Arco's in-process tool runtime and are serialized per provider to avoid
 // local model fights.
-export type ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor';
+export type ClusterMemberProvider = 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor';
 
-export const CLUSTER_MEMBER_PROVIDERS = ['claude', 'codex', 'zai', 'ollama', 'llamacpp', 'cursor'] as const satisfies readonly ClusterMemberProvider[];
+export const CLUSTER_MEMBER_PROVIDERS = ['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as const satisfies readonly ClusterMemberProvider[];
 
 export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider {
   return typeof v === 'string' && (CLUSTER_MEMBER_PROVIDERS as readonly string[]).includes(v);

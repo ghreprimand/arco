@@ -5,7 +5,6 @@ import { useStartupStore } from '../../stores/startupStore';
 import { LoginFlow } from '../LoginFlow';
 import { LoginCommand } from '../LoginCommand';
 import { EndpointEditor } from './EndpointEditor';
-import { ZaiApiKeySection } from './ZaiApiKeySection';
 import { connectionState, credentialSource, KINDS, parseConnectionCatalog, parseConnectionStatus, safeEndpoint } from './model';
 
 export function useConnectionsDeepLinks() {
@@ -13,7 +12,7 @@ export function useConnectionsDeepLinks() {
     const open = () => {
       const match = /^#connections(?:\/([a-z]+))?$/.exec(window.location.hash);
       if (!match) return;
-      const ids = ['claude','codex','gemini','cursor','zai','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github'];
+      const ids = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github'];
       if (match[1] && !ids.includes(match[1])) return;
       useStartupStore.getState().openConnections(match[1] as AuthLoginTarget | undefined);
     };
@@ -52,7 +51,6 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
   },[loadCatalog]);
   useEffect(()=>{if(connected)void loadCatalog();},[connected,loadCatalog]);
   useEffect(()=>{version.current++;setLogin(null);setStarting(false);setNote('');},[selected]);
-  useEffect(()=>{void loadCatalog();},[auth?.zai?.loggedIn,loadCatalog]);
   const refresh = useCallback(async (target?:AuthLoginTarget) => {
     if(checkingRef.current)return;
     checkingRef.current=true;setChecking(true);setNote('Checking provider status...');
@@ -162,11 +160,11 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
           {provider.login && !status?.accountStatuses?.length && <button type="button" disabled={!enabled || unavailable || starting} onClick={()=>void startLogin()}>{starting?'Starting sign-in...':status?.loggedIn?'Sign in again':`Sign in to ${provider.label}`}</button>}
           {status?.accountStatuses?.length ? <p>Sign in to a specific configured profile in Accounts and profiles. Its credentials stay separate from the default account.</p>:null}
           {login && <div className="connection-login">{login.session ? <LoginFlow result={login} onRestart={()=>void startLogin()} />:login.command ? <LoginCommand command={login.command} hostCommand={login.hostCommand}/>:null}</div>}
-          {provider.id==='zai' && <ZaiApiKeySection/>}
+
           {provider.endpointSetting && <EndpointEditor key={provider.id} provider={provider} docker={catalog.deployment==='docker'} onSaved={()=>setNote('Address saved. Use Test connection to check the service.')}/>}
           {provider.kind==='local' && <p>{(status?.installedModels?.length ?? 0)} models reported by the current status check. Model availability and a successful turn require separate acceptance.</p>}
           {status?.apiProvider && provider.kind==='local' && <p>Configured address: {safeEndpoint(status.apiProvider.slice(status.apiProvider.indexOf(':')+1)) || 'See advanced runtime settings'} {status.loggedIn && (status.installedModels?.length ?? 0) > 0 ? `(reachable, ${status.installedModels!.length} models)` : '(not reachable)'}</p>}
-          {provider.environmentKey && provider.id!=='zai' && <details><summary>API credentials instead of sign-in</summary><p>Configure {provider.environmentKey} in the Arco server environment and restart the runtime. Keep the value out of project files. Environment credentials can take precedence over sign-in; consult the provider guide and check the reported source.</p><button type="button" onClick={()=>advanced('authentication')}>Advanced credential settings</button></details>}
+          {provider.environmentKey && <details><summary>API credentials instead of sign-in</summary><p>Configure {provider.environmentKey} in the Arco server environment and restart the runtime. Keep the value out of project files. Environment credentials can take precedence over sign-in; consult the provider guide and check the reported source.</p><button type="button" onClick={()=>advanced('authentication')}>Advanced credential settings</button></details>}
           <h3>3. Check and recover</h3><button type="button" onClick={()=>void refresh(selected)} disabled={checking || !enabled || unavailable}>{checking?'Checking...':provider.kind==='local'?'Test connection':'Check connection'}</button>
           <p>{provider.recovery}</p>
           <button type="button" onClick={()=>advanced(provider.settingsSection)}>{provider.id==='codex'?'Accounts and profiles':provider.kind==='local'?'Advanced runtime settings':'Advanced provider settings'}</button>

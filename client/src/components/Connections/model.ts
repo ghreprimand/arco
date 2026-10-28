@@ -2,16 +2,15 @@ import type { AuthStatus, AuthStatusByProvider, ConnectionCatalog, ConnectionDef
 
 export const KINDS = [
   { id:'plan', label:'Provider sign-in', description:'Use a provider-owned tool and an eligible account. A subscription is not an API key.' },
-  { id:'api', label:'API keys', description:'Use credentials authorized for the configured endpoint. Billing depends on the provider and endpoint; a key is not a universal subscription login.' },
   { id:'local', label:'Local models', description:'Connect a separately installed runtime. No models are installed by this screen.' },
   { id:'desktop', label:'Desktop integrations', description:'Integrations that need a compatible application on the Arco server.' },
   { id:'tool', label:'Tool accounts', description:'Accounts for features such as GitHub. These do not provide AI models.' },
 ] as const;
-const IDS = ['claude','codex','gemini','cursor','zai','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github'];
+const IDS = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github'];
 export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as ConnectionCatalog;
-  if (b.version !== 1 || !['docker','host'].includes(b.deployment) || typeof b.checkedOn !== 'string' || !Array.isArray(b.providers) || !Array.isArray(b.environmentKeys) || !b.environmentKeys.every(k=>typeof k==='string') || !b.zaiKey || typeof b.zaiKey.configured !== 'boolean') return null;
+  if (b.version !== 1 || !['docker','host'].includes(b.deployment) || typeof b.checkedOn !== 'string' || !Array.isArray(b.providers) || !Array.isArray(b.environmentKeys) || !b.environmentKeys.every(k=>typeof k==='string')) return null;
   const ids = new Set<string>();
   for (const p of b.providers) {
     if (!p || !IDS.includes(p.id) || ids.has(p.id) || !KINDS.some(k=>k.id===p.kind) || !['label','access','prerequisite','recovery','settingsSection'].every(k=>typeof p[k as keyof ConnectionDefinition]==='string')) return null;
@@ -53,7 +52,7 @@ export function safeEndpoint(raw: string | undefined): string {
   } catch { return ''; }
 }
 export function credentialSource(p: ConnectionDefinition, status: AuthStatus | undefined, catalog: ConnectionCatalog): string {
-  if (p.id === 'zai') return catalog.zaiKey.configured ? `Key source: ${catalog.zaiKey.source}. Presence does not verify access.` : 'No key configured.';
+
   if (status?.accountStatuses?.length) return 'Configured account profiles; individual status is listed below.';
   if (p.kind === 'local') return 'Service availability; no account identity is reported.';
   if (p.kind === 'desktop') return 'Desktop detection only; account access is not verified.';

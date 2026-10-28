@@ -1,11 +1,11 @@
 // `compact_workflow` handler — operator-triggered native compaction. One WS
 // message, provider-routed:
-//   - Codex/Z.ai (app-server): fires `thread/compact/start` against the live
+//   - Codex (app-server): fires `thread/compact/start` against the live
 //     thread; the provider summarizes earlier history server-side. The next
 //     turn continues against the compacted thread (CTX bar drops).
 //   - Cursor (ACP): sends the advertised `/compress` command as an unprefixed
 //     prompt against the live session. Cursor owns + persists the summary.
-//   - Claude/Z.ai (native transport): the worker runs ONE summarization round,
+//   - Claude (native transport): the worker runs ONE summarization round,
 //     REPLACES retained native history with the summary, and persists a
 //     `native_compacted` marker so replay re-seeds it on restart.
 // Both are the in-Arco equivalent of the provider's CLI `/compact`, far
@@ -33,7 +33,6 @@ import { workflows, workflowCwds } from '../server/state.js';
 import { compactCodexAppServerThread } from '../providers/codex-appserver/index.js';
 import { compactClaudeNativeWorker, foldClaudeNativeWorker, serverFoldClaudeNativeWorker } from '../providers/claude-native/index.js';
 import { isChatWorkflow } from '../chatMode.js';
-import { compactZaiNativeWorker } from '../providers/zai-native/index.js';
 import { compactCursorAcpThread } from '../providers/cursor/index.js';
 import { armOllamaForceCompact } from '../providers/ollamaForceCompact.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
@@ -49,8 +48,8 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     return;
   }
   const provider = wf.primary.provider;
-  if (provider !== 'codex' && provider !== 'zai' && provider !== 'claude' && provider !== 'ollama' && provider !== 'cursor') {
-    send(ws, { type: 'error', message: 'Native compact is available on Codex/Z.ai, Cursor, Claude Native, and Ollama — use Handoff on other providers.' });
+  if (provider !== 'codex' && provider !== 'claude' && provider !== 'ollama' && provider !== 'cursor') {
+    send(ws, { type: 'error', message: 'Native compact is available on Codex, Cursor, Claude Native, and Ollama — use Handoff on other providers.' });
     return;
   }
   if (wf.busy) {
@@ -118,7 +117,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   if (busyToken === false) return;
   if (!wf.config.incognito && !wf.config.voiceOperator) publishActivity({kind:'worker_compaction_started',workflowId,clusterId:clusterStore.getClusterIdForWorkflow(workflowId)});
   broadcastTransient(workflowId, { type: 'primary_turn_started', workflowId, startedAt });
-  const tag = provider === 'codex' ? '[codex]' : provider === 'zai' ? '[zai]' : provider === 'cursor' ? '[cursor]' : '[claude]';
+  const tag = provider === 'codex' ? '[codex]' : provider === 'cursor' ? '[cursor]' : '[claude]';
   broadcastWorkflow(workflowId, {
     type: 'system_notice',
     workflowId,
@@ -133,15 +132,13 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     trigger: 'operator',
     detail: provider === 'codex'
       ? 'Codex app-server thread/compact/start'
-      : provider === 'zai'
-        ? 'Z.ai compact (native in-place or appserver thread/compact/start, resolved by transport)'
-        : provider === 'cursor'
+      : provider === 'cursor'
           ? 'Cursor ACP native /compress'
         : 'Claude Native in-place compact',
   });
 
   let result: { ok: boolean; error?: string; foldedTurns?: number };
-  let compactedVia: 'codex-appserver' | 'zai-appserver' | 'zai-native' | 'cursor-acp' | 'claude-native' = 'claude-native';
+  let compactedVia: 'codex-appserver' | 'cursor-acp' | 'claude-native' = 'claude-native';
   try {
     if (provider === 'codex') {
       const cascade = await readSettings(cwd).catch(() => null);
@@ -177,60 +174,6 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
             ? (wf.config.codebaseMemory.indexPath || cwd)
             : undefined,
         }, wf.primarySessionId);
-      }
-    } else if (provider === 'zai') {
-      const cascade = await readSettings(cwd).catch(() => null);
-      const zaiTransport = wf.config.zaiTransport === 'appserver' || wf.config.zaiTransport === 'native'
-        ? wf.config.zaiTransport
-        : cascade?.zai?.transport === 'appserver' ? 'appserver' : 'native';
-      if (zaiTransport === 'appserver') {
-        compactedVia = 'zai-appserver';
-        if (!wf.primarySessionId) {
-          result = { ok: false, error: 'no saved Z.ai app-server thread for this workflow — run a turn first' };
-        } else {
-          const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-          result = await compactCodexAppServerThread(workflowId, {
-            model: wf.primary.model,
-            effort: wf.primary.effort,
-            provider,
-            tools: wf.primary.tools,
-            cwd,
-            workflowId,
-            skipPermissions: wf.primary.skipPermissions,
-            additionalDirectories: wf.primary.additionalDirectories,
-            fallbackModel: wf.primary.fallbackModel,
-            codexTransport: 'appserver',
-            resumeSessionId: wf.primarySessionId,
-            clusterId: turnClusterId,
-            codebaseMemoryAttached: wf.config.codebaseMemory?.attached === true,
-            codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
-              ? (wf.config.codebaseMemory.indexPath || cwd)
-              : undefined,
-          }, wf.primarySessionId);
-        }
-      } else {
-        compactedVia = 'zai-native';
-        const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-        result = await compactZaiNativeWorker(workflowId, {
-          provider: 'zai',
-          model: wf.primary.model,
-          effort: wf.primary.effort,
-          tools: wf.primary.tools,
-          cwd,
-          workflowId,
-          skipPermissions: wf.primary.skipPermissions,
-          additionalDirectories: wf.primary.additionalDirectories,
-          fallbackModel: wf.primary.fallbackModel,
-          zaiTransport: 'native',
-          outputStyle: wf.config.outputStyle === 'normal' || wf.config.outputStyle === 'lite' || wf.config.outputStyle === 'terse'
-            ? wf.config.outputStyle
-            : undefined,
-          clusterId: turnClusterId,
-          codebaseMemoryAttached: wf.config.codebaseMemory?.attached === true,
-          codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
-            ? (wf.config.codebaseMemory.indexPath || cwd)
-            : undefined,
-        });
       }
     } else if (provider === 'cursor') {
       compactedVia = 'cursor-acp';
@@ -301,23 +244,11 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
       workflowId,
       content: provider === 'cursor'
         ? `${tag} Conversation compressed — Cursor summarized older context in place. The same ACP session continues with a smaller retained history.`
-        : provider === 'codex' || provider === 'zai'
-        ? compactedVia === 'zai-native'
-          ? `${tag} Conversation compacted — native history replaced with a summary. Next turn continues from the reduced context.`
-          : `${tag} Thread compacted — earlier history summarized server-side. Next turn continues against the reduced context.`
+        : provider === 'codex'
+        ? `${tag} Thread compacted — earlier history summarized server-side. Next turn continues against the reduced context.`
         : `${tag} Conversation compacted${foldedNote} — history replaced with a summary. Next turn continues from it.`,
     });
-    if ((compactedVia === 'codex-appserver' || compactedVia === 'zai-appserver') && wf.primarySessionId) {
-      // Refresh the CTX bar: the compacted thread's next-prompt dropped, but the
-      // client's lastTurnTokens still shows the pre-compact turn. Tail the
-      // rollout for the latest per-call usage (same path turnEngine uses
-      // post-turn). Best-effort; the next real turn corrects it regardless.
-      const account = compactedVia === 'codex-appserver'
-        ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
-        : null;
-      const snapshot = await refreshCodexTokenSnapshot(workflowId, wf, account?.codexHome, { updateAutoHandoffSignal: false });
-      resetCodexContextAfterCompact(workflowId, wf, snapshot?.modelContextWindow);
-    }
+
     // Claude Native: the CTX bar is driven by the NEXT turn's lastPromptTokens
     // (the server emits context_usage post-turn from the SDK count). The compact
     // shrinks messages[] in place, so the drop shows on the operator's next turn

@@ -464,7 +464,7 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>
           A compact dot per authed/enabled provider — green ● = live, hollow ○ =
           ready/idle, red ● = down. <C>C</C> Claude, <C>G</C> Gemini, <C>X</C>{' '}
-          Codex, <C>Z</C> Z.ai, <C>R</C> Cursor, <C>O</C> Ollama.
+          Codex, <C>Z</C> <C>R</C> Cursor, <C>O</C> Ollama.
         </p>
         <p>
           Hover a dot for the full detail it used to show as a boxed pill:

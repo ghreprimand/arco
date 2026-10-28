@@ -223,7 +223,7 @@ export const actions: Section[] = [
           <li><strong>Auto-handoff thresholds</strong> (Claude) — warning + ceiling.</li>
           <li><strong>Auto-fold</strong> (Claude Native) — deterministic in-place transcript trim once the context crosses a token threshold. Off by default.</li>
           <li><strong>Review safe-mode</strong> (Claude Native) — arm the edit-before-approve gate on sensitive tool calls. Default off. See the dedicated section below.</li>
-          <li><strong>Output style</strong> — <Code>normal</Code> / <Code>lite</Code> / <Code>terse</Code> system-prompt addendum to cut output tokens (Native + Codex app-server + Z.ai).</li>
+          <li><strong>Output style</strong> — <Code>normal</Code> / <Code>lite</Code> / <Code>terse</Code> system-prompt addendum to cut output tokens (Native + Codex app-server).</li>
           <li><strong>RSS guard</strong> opt-out — for workflows that legitimately need huge memory.</li>
         </ul>
         <p>

@@ -62,7 +62,7 @@ export function TokenBadge({
   const fraction = Math.min(1, ctx / effectiveThreshold);
   const barColor = contextFillColor(fraction);
 
-  const ctxFormula = provider === 'codex' || provider === 'zai' ? 'input' : 'input+cacheCreate';
+  const ctxFormula = provider === 'codex' ? 'input' : 'input+cacheCreate';
   const hoverSource = cumulativeTokens ?? turnTokens;
   const hoverTitle = tokenHoverTitle(hoverSource, cumulativeTokens
     ? `cumulative (all turns + workers):`

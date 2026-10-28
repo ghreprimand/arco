@@ -11,7 +11,7 @@ import type {
   ServerMessage,
   WorkflowConfig,
 } from '@arco/shared';
-import { zaiModelContextWindow } from '@arco/shared';
+import {} from '@arco/shared';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterStore from '../clusterStore.js';
@@ -298,7 +298,7 @@ export async function handleHandoffRequest(
       }
     : undefined;
 
-  // WP6 — uniform original/fresh choice across providers. Only Claude/Codex/Z.ai
+  // WP6 — uniform original/fresh choice across providers. Only Claude/Codex
   // have a live session to resume; everything else (Ollama/llama.cpp/LM Studio/
   // Gemini/Antigravity) has no rollout to --resume into. Rather than blocking
   // ORIGINAL for those, we *translate* it: "original worker" on a local model
@@ -307,7 +307,7 @@ export async function handleHandoffRequest(
   // configured fresh summarizer. This keeps the operator's mental model
   // ("original = the worker that did the work writes the summary") intact even
   // where there's no session to revive.
-  const resumable = wf.primary.provider === 'claude' || wf.primary.provider === 'codex' || wf.primary.provider === 'zai';
+  const resumable = wf.primary.provider === 'claude' || wf.primary.provider === 'codex';
   let effectiveMode = msg.mode;
   let translatedSummarizer = effectiveSummarizer;
   if (effectiveMode === 'original-worker' && !resumable) {
@@ -359,8 +359,8 @@ export async function handleHandoffRequest(
   // above (resumable providers that haven't taken a turn yet, or a provider with
   // no original-worker reflection path). Quietly degrade to fresh-summarizer
   // rather than erroring out on exportContext's error path. exportContext only
-  // implements original-worker for Claude (cli + native), Codex, and Z.ai.
-  const originalWorkerEligible = wf.primary.provider === 'claude' || wf.primary.provider === 'codex' || wf.primary.provider === 'zai';
+  // implements original-worker for Claude (cli + native), Codex.
+  const originalWorkerEligible = wf.primary.provider === 'claude' || wf.primary.provider === 'codex';
   if (effectiveMode === 'original-worker' && (!originalPrimary || !originalWorkerEligible)) {
     const why = !originalWorkerEligible ? `provider ${wf.primary.provider} has no original-worker path` : 'no resumable session';
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff: ${why}, falling back to fresh-summarizer`);
@@ -571,9 +571,7 @@ export async function handleHandoffRequest(
   let prewarmAppend = previewNudge;
   const prewarmNeedsStringCluster = !!prewarmClusterId && (
     wf.primary.provider === 'codex' ||
-    (wf.primary.provider === 'claude' && claudeTransport === 'cli') ||
-    wf.primary.provider === 'zai' ||
-    wf.primary.provider === 'cursor'
+    (wf.primary.provider === 'claude' && claudeTransport === 'cli') || wf.primary.provider === 'cursor'
   );
   if (prewarmNeedsStringCluster) {
     const tailBlocks: string[] = [];
@@ -959,7 +957,7 @@ export async function handleSpawnFromHere(
   // transcript via the fresh-summarizer mechanism, pinned to the parent's
   // primary rather than the configured fresh summarizer. Overflow falls back
   // to the configured summarizer (same lastContextPercent heuristic as Handoff).
-  const parentResumable = parent.primary.provider === 'claude' || parent.primary.provider === 'codex' || parent.primary.provider === 'zai';
+  const parentResumable = parent.primary.provider === 'claude' || parent.primary.provider === 'codex';
   let effectiveMode = msg.mode;
   let translatedSummarizer = summarizer;
   if (effectiveMode === 'original-worker' && !parentResumable) {
@@ -1261,7 +1259,7 @@ function enforceIncognitoOnRehydrate(config: WorkflowConfig): string | null {
   config.remoteGatesEnabled = false;
   // Computer uses a verified ephemeral app-server thread; ordinary Chat stays exec.
   if (provider === 'codex') config.codexTransport = config.voiceOperator ? 'appserver' : 'exec';
-  if (provider === 'zai') config.zaiTransport = 'native';
+
   return null;
 }
 
@@ -1400,9 +1398,7 @@ export async function handleRehydrateWorkflows(
           if (meta.previewHistory && wf.previewHistory.length === 0) {
             wf.previewHistory = [...meta.previewHistory];
           }
-          if (meta.zaiTransport === 'native' || meta.zaiTransport === 'appserver') {
-            wf.config.zaiTransport = meta.zaiTransport;
-          }
+
           // F5 — prefer meta.name on rehydrate so a server-only restart
           // (or a client whose localStorage predates the rename) doesn't
           // overwrite the operator's choice with a stale config.name.
@@ -1711,26 +1707,15 @@ export async function rehydrateOneWorkflow(
   }
 
   const lastSeq = cwd ? await getWorkflowHeadSeq(cwd, workflowId) : 0;
-  const zaiTransport: 'native' | 'appserver' = wf.config.zaiTransport === 'appserver' ? 'appserver' : 'native';
   let latestNativeLastPromptTokens: number | undefined;
-  if (cwd && wf.primary.provider === 'zai' && zaiTransport === 'native') {
-    const allEvents = await scanEventsOfTypes(cwd, workflowId, ['primary_complete']).catch(() => []);
-    for (const ev of allEvents) {
-      const evt = ev as { type?: string; lastPromptTokens?: number };
-      if (evt.type === 'primary_complete' && typeof evt.lastPromptTokens === 'number' && evt.lastPromptTokens > 0) {
-        latestNativeLastPromptTokens = evt.lastPromptTokens;
-      }
-    }
-  }
+
   const snapshotAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
     : null;
-  const codexSnapshot = (wf.primary.provider === 'codex' || (wf.primary.provider === 'zai' && zaiTransport === 'appserver')) && wf.primarySessionId
+  const codexSnapshot = (wf.primary.provider === 'codex') && wf.primarySessionId
     ? await latestCodexTokenSnapshot(wf.primarySessionId, snapshotAccount?.codexHome).catch(() => null)
     : null;
-  const codexSnapshotWindow = wf.primary.provider === 'zai'
-    ? zaiModelContextWindow(wf.primary.model)
-    : codexSnapshot?.modelContextWindow;
+  const codexSnapshotWindow = codexSnapshot?.modelContextWindow;
   const computerState = isComputer(wf) ? await computerContextState(workflowId, wf) : undefined;
   const msg: ServerMessage = {
     type: 'workflow_state_snapshot',
@@ -1781,12 +1766,7 @@ export async function rehydrateOneWorkflow(
         ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est, claudeSessionId: wf.primarySessionId }));
       }
     }).catch(() => { /* best-effort */ });
-  } else if (wf.primary.provider === 'zai' && zaiTransport === 'native' && latestNativeLastPromptTokens) {
-    const est = promptContextEstimate(latestNativeLastPromptTokens, zaiModelContextWindow(wf.primary.model));
-    if (est && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est }));
-    }
-  }
+  } else
 
   // Re-emit plan_attached so the rehydrated client knows the active plan
   // even if its events.jsonl-replay context was rotated/truncated. meta.json

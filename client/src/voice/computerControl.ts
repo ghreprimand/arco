@@ -15,7 +15,7 @@ export function computerCatalogs(): ModelCatalogs {
   const s = useAppStore.getState();
   return { claude: s.claudeNativeCatalog, codex: s.codexCatalog, cursor: s.cursorCatalog,
     ollamaModels: s.authStatus?.ollama?.installedModels ?? [], strataModels: s.authStatus?.strata?.installedModels ?? [],
-    lmstudioModels: [], llamacppModels: [], zaiModels: [] };
+    lmstudioModels: [], llamacppModels: [],};
 }
 export function syncComputerDefault(): void {
   const computer = useComputerStore.getState();

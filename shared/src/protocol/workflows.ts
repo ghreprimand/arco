@@ -168,11 +168,6 @@ export interface WorkflowConfig {
   // default (DEFAULT_WEB_TOOL_MAX_USES, 15). Native-only — CLI Claude uses the
   // `claude` binary's own web tooling and ignores this. Persisted to meta.json.
   webSearchMaxUses?: number;
-  // docs/PROVIDERS.md - per-tab Z.ai transport override. Native calls the
-  // GLM Coding Plan Chat Completions endpoint directly and preserves
-  // reasoning_content. Appserver keeps the legacy Codex app-server proxy path
-  // as a fallback. New Z.ai workflows default to native.
-  zaiTransport?: 'native' | 'appserver';
   // Phase 7c-followup — Claude Native worker support for Anthropic's
   // server-managed `compact_20260112` context management. Unless explicitly
   // false, the worker appends `compact-2026-01-12` to the request's anthropic-beta
@@ -284,8 +279,6 @@ export interface WorkflowConfig {
   // context, never a controller — no loop, no completion judge, no spawn. Absent
   // / empty ⇒ no block, byte-identical to pre-feature behavior. Cap
   // GOAL_MAX_BYTES = 2048 (goalBlock.ts). Honored by every transport that folds
-  // clusterPlan (Native, CLI Claude, both Codex, Z.ai native, Ollama/llama.cpp).
-  // Unlike outputStyle, Review / Handoff / DOCS / GIT primitive seeds INHERIT it.
   goal?: string;
   // docs/GOTCHAS.md - operator-armed north-star auto-continue. While armed,
   // a deterministic continuation turn is dispatched after each settled turn
@@ -533,8 +526,6 @@ export interface WorkerConfig {
   // events; the last before exit is the real synthesis). Only honored on
   // provider='claude' + claudeTransport='cli'; other transports ignore it.
   ultracode?: boolean;
-  // Mirror of WorkflowConfig.zaiTransport. Only honored on provider='zai'.
-  zaiTransport?: 'native' | 'appserver';
   // Phase 7b — Task-spawned child workers carry this so their tool registry
   // drops the `Task` tool (depth-1 cap; non-goals doc forbids autonomous
   // orchestration trees). The parent never sets it. In-process callback path

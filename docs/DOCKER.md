@@ -129,7 +129,7 @@ Host credentials are never imported automatically.
 | Claude Code | CLI bundled | Claude subscription login and live session acceptance |
 | Claude Native | API adapter retained | Browser sign-in through the published callback port; container acceptance pending |
 | Ollama / LM Studio | HTTP adapters retained | Reachable model endpoint in provider settings |
-| Z.ai / Strata | HTTP adapters retained | Provider configuration and container acceptance |
+| Strata | HTTP adapters retained | Provider configuration and container acceptance |
 | Gemini / Cursor | CLIs unbundled; disabled on new volumes | Custom image with the CLI; explicit enable and acceptance |
 | llama.cpp | Executable unbundled; disabled on new volumes | Custom runtime/model setup and acceptance |
 | Antigravity | Desktop app unbundled; disabled on new volumes | Separate desktop integration; unsupported in the stock image |

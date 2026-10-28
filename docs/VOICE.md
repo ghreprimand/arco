@@ -398,7 +398,7 @@ reviewable even if the microphone is off or a reload interrupts playback.
 
 ### Quota and interface access
 
-`arco_usage` reads Codex/Claude/Cursor/Z.ai
+`arco_usage` reads Codex/Claude/Cursor
 usage snapshots, their freshness/errors, and separate throttling state. Codex
 uses the existing cached `/api/codex-usage` endpoint without forcing scraping
 or opening login. Percentages are derived only from explicit used/remaining

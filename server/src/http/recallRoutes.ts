@@ -32,11 +32,9 @@ const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 // of an error.
 
 // Record<ProviderName, true> so adding a provider to the union fails the
-// build here — Z.ai and Cursor were missing, and filtering by either silently
-// returned every provider's workflows.
 const PROVIDER_FLAGS: Record<ProviderName, true> = {
   claude: true, codex: true, gemini: true, ollama: true, llamacpp: true,
-  antigravity: true, lmstudio: true, strata: true, deepseek: true, zai: true, cursor: true,
+  antigravity: true, lmstudio: true, strata: true, deepseek: true, cursor: true,
 };
 const PROVIDERS = new Set<ProviderName>(Object.keys(PROVIDER_FLAGS) as ProviderName[]);
 

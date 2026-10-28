@@ -31,7 +31,6 @@ const PROVIDERS = new Set<ProviderName>([
   'claude',
   'codex',
   'gemini',
-  'zai',
   'ollama',
   'llamacpp',
   'lmstudio', 'strata', 'deepseek',

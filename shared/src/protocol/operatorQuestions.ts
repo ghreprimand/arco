@@ -9,7 +9,7 @@ export interface OperatorQuestion {
 }
 export interface OperatorQuestionState {
   requestId: string;
-  provider: 'codex' | 'zai';
+  provider: 'codex';
   threadId: string;
   turnId: string;
   itemId: string;

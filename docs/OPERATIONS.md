@@ -262,9 +262,8 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell |
 | `ARCO_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present |
 | `ARCO_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
-| `ZAI_API_KEY` | unset | Z.ai Coding Plan key. Overrides the stored Settings key and disables that field; the stored key (not the env var) accepts `!cmd` / `${ENV}` interpolation |
 | `ARCO_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
-| `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata / Z.ai native, and Ollama/Strata Chat web toggles) |
+| `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata native, and Ollama/Strata Chat web toggles) |
 | `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
 | `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the Camoufox-driven Codex usage probe and the local `WebFetch` stealth fallback |
 | `ANTIGRAVITY_BINARY` | `/opt/antigravity/antigravity` | Antigravity desktop app path |
@@ -437,7 +436,6 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
 | Antigravity | (operator manages in desktop app) | Desktop debug-port liveness + RPC endpoint discovery |
 | Cursor (ACP) | `cursor-agent login` (interactive  - launches a terminal for the browser OAuth flow) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll (no `cursor-agent auth status` command exists) |
-| Z.ai (GLM) | (API key  - Settings -> AUTH -> Z.AI, or `ZAI_API_KEY`) | Key configured against the `api.z.ai` Coding Plan endpoint |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login  - Arco spawns/manages `llama-server`) | `llama-server` reachable |
@@ -627,7 +625,6 @@ The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-e
 | `acknowledgedCliVersions` | Dismiss CONFIG-tab dot | Yes |
 | `claude.transport` (`'cli' \| 'native'`) | Per-tab Claude transport - overridden by `WorkflowConfig.claudeTransport`. Reviewers and handoff seeds always run on `cli` regardless. | Yes |
 | `codex.transport` (`'exec' \| 'appserver'`) | Per-tab Codex transport - overridden by `WorkflowConfig.codexTransport`. Reviewers and handoff seeds always run on `exec`. | Yes |
-| `zai.transport` (`'native' \| 'appserver'`) | Per-tab Z.ai transport default (`native` when absent)  - overridden by `WorkflowConfig.zaiTransport` | Yes |
 | `claudeNativeCompactDefault` | Seeds new Native tabs' SERVER-SIDE COMPACTION toggle (absent => off) | Yes |
 | `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff thresholds/mode; pin a fresh-summarizer provider/model for handoffs | Yes |
 | `defaultProjectTrust` (`ask`/`always`/`never`) | DD7 default for unseen repos; read from global scope only | Yes |

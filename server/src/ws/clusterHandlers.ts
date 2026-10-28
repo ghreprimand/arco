@@ -7,7 +7,6 @@ import { isClusterOpen, workspaceAdoptFormerMembers, workspaceCloseCluster, work
 import {
   CLAUDE_MODELS,
   CODEX_MODELS,
-  ZAI_MODELS,
   isClusterMemberProvider,
   isClusterMemberAccessMode,
   isClusterEfficiencyLevel,
@@ -1414,8 +1413,6 @@ export async function isKnownCatalogModel(provider: ClusterMemberProvider, model
       if (snap.models.length > 0) {
         return snap.models.some((m) => m.id === modelId);
       }
-    } else if (provider === 'zai') {
-      return (ZAI_MODELS as readonly string[]).includes(modelId);
     } else if (provider === 'llamacpp') {
       const catalog = await readLlamacppCatalog();
       if (catalog.models.length > 0) {
@@ -1452,7 +1449,6 @@ export function inferClusterProviderFromModel(modelId: string): ClusterMemberPro
   if (id === 'auto' || id.startsWith('grok-') || id.startsWith('grok/')) return 'cursor';
   if ((CLAUDE_MODELS as readonly string[]).includes(id) || id.startsWith('claude-')) return 'claude';
   if ((CODEX_MODELS as readonly string[]).includes(id) || id.startsWith('gpt-')) return 'codex';
-  if ((ZAI_MODELS as readonly string[]).includes(id) || id.startsWith('glm-')) return 'zai';
   return undefined;
 }
 
@@ -1465,10 +1461,6 @@ export function resolveClusterOverrideProvider(
     ? inferClusterProviderFromModel(requestedModel)
     : undefined;
   // Cursor proxies the claude-*/gpt-*/glm-* model families, so a model whose id
-  // infers to 'claude'/'codex'/'zai' is a legitimate Cursor pick — never a
-  // mismatch. Trust an explicit Cursor requestedProvider over the inferred
-  // native provider. (The reverse — requesting 'claude' with a grok id — still
-  // trips the mismatch, which is correct: only Cursor serves grok.)
   if (requestedProvider && requestedProvider !== 'cursor' && modelProvider && requestedProvider !== modelProvider) {
     return { provider: requestedProvider, error: `provider_model_mismatch:${requestedProvider}:${requestedModel}` };
   }

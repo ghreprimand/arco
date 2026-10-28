@@ -273,7 +273,7 @@ function effortBadgeTitle(e: WorkerState['effort'], p: WorkerState['provider']):
   if (p === 'codex' && (e === 'xhigh' || e === 'max')) {
     return `effort=${e} (clamped to the highest effort this Codex model supports)`;
   }
-  if (p === 'zai') return `effort=${e} (Z.ai GLM reasoning effort)`;
+
   if (p === 'ollama' || p === 'llamacpp') return `effort=${e} (local thinking toggle)`;
   return `effort=${e}`;
 }
@@ -282,7 +282,6 @@ function providerBadgeChar(p: WorkerState['provider']): string {
   switch (p) {
     case 'gemini': return 'G';
     case 'codex': return 'C';
-    case 'zai': return 'Z';
     case 'cursor': return 'R';
     case 'ollama': return 'O';
     case 'llamacpp': return 'L';
@@ -294,7 +293,6 @@ function providerBadgeTitle(p: WorkerState['provider']): string {
   switch (p) {
     case 'gemini': return 'Gemini';
     case 'codex': return 'Codex (OpenAI)';
-    case 'zai': return 'Z.ai (GLM Coding)';
     case 'cursor': return 'Cursor (ACP · ~153 models)';
     case 'ollama': return 'Ollama (local)';
     case 'llamacpp': return 'llama.cpp (local)';
@@ -306,7 +304,6 @@ function providerBadgeColor(p: WorkerState['provider']): string {
   switch (p) {
     case 'gemini': return 'var(--color-accent-secondary)';
     case 'codex': return 'var(--color-accent-primary)';
-    case 'zai': return 'var(--color-accent-secondary-bright)';
     case 'cursor': return '#6cc6d6';
     case 'ollama': return 'var(--color-warning)';
     // llama.cpp shares the local-tier signal but uses the danger hue so a

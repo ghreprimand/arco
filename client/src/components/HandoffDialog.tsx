@@ -65,7 +65,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
     effort !== currentConfig.primaryEffort ||
     accountChanged;
 
-  const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     // Antigravity isn't a toggleable provider; offer it unconditionally like the
     // Spawn / RUN AS / Review pickers (reachability is surfaced in CONFIG).
     if (p === 'antigravity') return true;

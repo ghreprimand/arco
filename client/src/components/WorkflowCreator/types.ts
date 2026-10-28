@@ -66,7 +66,6 @@ export interface ClusterMembersSectionProps {
   onUpdateMember: (key: string, patch: Partial<MemberDraft>) => void;
   claudeModelsForPicker: { value: ModelName; label: string; subline?: string }[];
   codexModelsForPicker: { value: ModelName; label: string; subline?: string }[];
-  zaiModelsForPicker: { value: ModelName; label: string; subline?: string }[];
   ollamaModelsForPicker: { value: ModelName; label: string; subline?: string }[];
   llamacppModelsForPicker: { value: ModelName; label: string; subline?: string }[];
   cursorModelsForPicker: { value: ModelName; label: string; subline?: string }[];

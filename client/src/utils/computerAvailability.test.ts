@@ -4,7 +4,7 @@ import type { AuthStatusByProvider } from '@arco/shared';
 import { defaultComputerSelection } from './computerAvailability';
 import type { ModelCatalogs } from './modelCatalog';
 
-const catalogs: ModelCatalogs = { claude: null, codex: null, cursor: null, ollamaModels: ['fixture-local'], strataModels: ['fixture-strata'], llamacppModels: [], lmstudioModels: [], zaiModels: [] };
+const catalogs: ModelCatalogs = { claude: null, codex: null, cursor: null, ollamaModels: ['fixture-local'], strataModels: ['fixture-strata'], llamacppModels: [], lmstudioModels: [],};
 const auth = Object.fromEntries(['codex', 'claude', 'ollama', 'strata'].map(provider => [provider, { loggedIn: true }])) as Partial<AuthStatusByProvider>;
 test('Computer defaults follow connected enabled providers in subscription then local order', () => {
   assert.equal(defaultComputerSelection(auth, {}, catalogs)?.provider, 'codex');

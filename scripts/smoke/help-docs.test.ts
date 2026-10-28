@@ -54,7 +54,7 @@ test('recent controls have focused help and reachable manual destinations', () =
 });
 
 test('privacy and model/theme documentation stays aligned with current contracts', () => {
-  const names: Record<string, string> = { claude: 'Claude', codex: 'Codex', zai: 'Z.ai', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'DeepSeek' };
+  const names: Record<string, string> = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'DeepSeek' };
   for (const provider of CHAT_PROVIDERS) {
     assert.ok(names[provider], `provider missing from documentation check: ${provider}`);
     assert.ok(section('chat-mode').includes(names[provider]));

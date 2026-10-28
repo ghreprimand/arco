@@ -1,4 +1,4 @@
-import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_MODEL_INFO, CODEX_PICKER_MODELS, ZAI_MODEL_LABELS, ZAI_MODELS, presetForText } from '@arco/shared';
+import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_MODEL_INFO, CODEX_PICKER_MODELS, presetForText } from '@arco/shared';
 import type { ModelName, EffortLevel } from '@arco/shared';
 import type { MemberDraft } from './types';
 
@@ -49,22 +49,6 @@ export const GEMINI_MODELS_UI: { value: ModelName; label: string }[] = [
 export const CODEX_MODELS_UI_FALLBACK: { value: ModelName; label: string }[] = [
   ...CODEX_PICKER_MODELS.map((value) => ({ value, label: CODEX_MODEL_INFO[value]?.label ?? value.toUpperCase() })),
 ];
-export const ZAI_MODELS_UI: { value: ModelName; label: string; subline?: string }[] = [
-  ...ZAI_MODELS.map((value) => ({
-    value,
-    label: ZAI_MODEL_LABELS[value] ?? value.toUpperCase(),
-    subline: value.startsWith('glm-5') ? 'CODING PLAN · HIGHER QUOTA USE' : 'CODING PLAN',
-  })),
-];
-
-export function zaiModelsUiFrom(modelIds: string[] | undefined): { value: ModelName; label: string; subline?: string }[] {
-  const ids = modelIds?.length ? modelIds : [...ZAI_MODELS];
-  return ids.map((id) => ({
-    value: id as ModelName,
-    label: ZAI_MODEL_LABELS[id] ?? id.toUpperCase(),
-    subline: id.startsWith('glm-5') ? 'CODING PLAN · HIGHER QUOTA USE' : 'CODING PLAN',
-  }));
-}
 // Kept for the ADVANCED OPTIONS fallback selector, which is Claude-only.
 export const MODELS = CLAUDE_MODELS;
 

@@ -87,7 +87,7 @@ async function snapshot(ids:string[]):Promise<ConditionWorkerFacts[]>{
       const question=!!native?.question||!!native?.gates.length||pendingOperatorQuestions(id).some((q)=>q.status==='pending');
       const settings=await readSettings(workflowCwds.get(id)??wf.config.workingDirectory).catch(()=>null);
       const provider=wf.primary.provider;
-      const can_compact=provider==='ollama'||provider==='zai'||provider==='cursor'||(provider==='claude'&&(wf.config.claudeTransport??settings?.claude?.transport??'cli')==='native')||(provider==='codex'&&(wf.config.codexTransport??settings?.codex?.transport??'exec')==='appserver');
+      const can_compact=provider==='ollama' || provider==='cursor' || (provider==='claude'&&(wf.config.claudeTransport??settings?.claude?.transport??'cli')==='native') || (provider==='codex'&&(wf.config.codexTransport??settings?.codex?.transport??'exec')==='appserver');
       result.push({id,clusterId,name:voiceText(wf.config.name??id,100),busy:false,queued:0,pending_mail:pendingIds.length,pendingIds,has_work:false,needs_input:question?true:f.input,
         turns_finished:f.finished,turns_failed:f.failed,turns_interrupted:f.interrupted,mail_received:f.mail,
         context_percent:f.percent,context_tokens:f.tokens,context_window:f.window,compacting:f.compacting,compactions_finished:f.compactions,can_compact});

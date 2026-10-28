@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL} from '@arco/shared';
 import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
@@ -44,7 +44,7 @@ export function AddWorkerSection({
   const templateJob = jobs[cluster.members[0]?.workflowId ?? ''];
   const templateProvider: ClusterMemberProvider = (() => {
     const p = templateJob?.config.primaryProvider ?? 'claude';
-    return p === 'codex' || p === 'zai' || p === 'ollama' || p === 'llamacpp' || p === 'cursor' ? p : 'claude';
+    return p === 'codex' || p === 'ollama' || p === 'llamacpp' || p === 'cursor' ? p : 'claude';
   })();
   const templateModel = templateJob?.config.primaryModel ?? '';
   const templateEffort = templateJob?.config.primaryEffort ?? 'medium';
@@ -97,8 +97,6 @@ export function AddWorkerSection({
         ? (claudeNativeCatalog?.models?.[0]?.id ?? 'opus')
         : next === 'codex'
           ? (codexCatalog?.models?.find((m) => !m.hidden)?.id ?? DEFAULT_CODEX_MODEL)
-          : next === 'zai'
-            ? (authStatus?.zai?.installedModels?.[0] ?? DEFAULT_ZAI_MODEL)
           : next === 'ollama'
             ? (authStatus?.ollama?.installedModels?.[0] ?? '')
           : next === 'cursor'
@@ -143,7 +141,7 @@ export function AddWorkerSection({
       // member that can't peer_send/peer_read until its worker respawns — a mute
       // member, which we don't ship. Fresh Cursor members (spawned already
       // inside the cluster) get the MCP at bootstrap and work immediately.
-      if (provider !== 'claude' && provider !== 'codex' && provider !== 'zai' && provider !== 'ollama' && provider !== 'llamacpp') return false;
+      if (provider !== 'claude' && provider !== 'codex' && provider !== 'ollama' && provider !== 'llamacpp') return false;
       if (memberIds.has(j.id)) return false;
       if (allClusterMembers.has(j.id)) return false;
       // Both Claude transports + both Codex transports accepted; local
@@ -256,7 +254,7 @@ export function AddWorkerSection({
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1px' }}>PROVIDER</span>
-            {(['claude', 'codex', 'zai', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
+            {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
               <button
                 key={p}
                 disabled={accessMode === 'isolated' && p !== 'claude'}

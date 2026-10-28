@@ -164,7 +164,6 @@ export class WorkerManager {
       // so they always run on the CLI provider.
       claudeTransport?: WorkerConfig['claudeTransport'];
       ultracode?: WorkerConfig['ultracode'];
-      zaiTransport?: WorkerConfig['zaiTransport'];
       // Phase 7b — set on a Task-spawned child so its Claude Native worker
       // refuses to spawn another Task. Parents leave this unset.
       claudeNativeTaskDisabled?: WorkerConfig['claudeNativeTaskDisabled'];
@@ -276,7 +275,6 @@ export class WorkerManager {
       codexContextPolicy: options?.codexContextPolicy,
       claudeTransport: options?.claudeTransport,
       ultracode: options?.ultracode,
-      zaiTransport: options?.zaiTransport,
       claudeNativeTaskDisabled: options?.claudeNativeTaskDisabled,
       claudeNativeCompact: options?.claudeNativeCompact,
       claudeNativeForceInterleavedThinkingBeta: options?.claudeNativeForceInterleavedThinkingBeta,

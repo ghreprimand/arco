@@ -1,4 +1,4 @@
-// Budgeting for the string-form cluster fold (CLI Claude / Codex / Z.ai /
+// Budgeting for the string-form cluster fold (CLI Claude / Codex /
 // Cursor members reach the model via an appendSystemPrompt-style prefix, not
 // forced system blocks — see turnEngine's needsStringFormCluster).
 //

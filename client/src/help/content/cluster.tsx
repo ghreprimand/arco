@@ -371,7 +371,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <p>
         Pull an already-running standalone tab into this cluster — only same-cwd
         tabs whose provider can carry the peer tools are eligible: Claude (both
-        transports), Codex (both transports), Z.ai, Ollama, and llama.cpp (the
+        transports), Codex (both transports), Ollama, and llama.cpp (the
         count in the label is how many qualify). The tab keeps its session and history;
         it just gains the peer tools and cluster plan/role context. Disabled when
         nothing qualifies.
@@ -394,7 +394,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'FRESH spawn — provider',
     body: (
       <p>
-        Pick the provider for the freshly spawned workers. CLAUDE, CODEX, ZAI,
+        Pick the provider for the freshly spawned workers. CLAUDE, CODEX,
         OLLAMA, LLAMA, or CURSOR — the six providers that pass the cluster fence.
         Defaults to the anchor / template's provider; flipping it forces MODEL
         to reset since the anchor's model name doesn't make sense on the new

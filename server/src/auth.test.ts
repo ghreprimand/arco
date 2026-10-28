@@ -84,7 +84,7 @@ test('CLI logins return a headless terminal command and never spawn', async () =
 });
 
 test('auth-less providers get a hint, not a command', async () => {
-  for (const provider of ['zai', 'ollama', 'lmstudio'] as const) {
+  for (const provider of [ 'ollama', 'lmstudio'] as const) {
     const r = await triggerAuthLogin(provider);
     assert.equal(r.command, undefined, provider);
     assert.ok(r.manual, provider);

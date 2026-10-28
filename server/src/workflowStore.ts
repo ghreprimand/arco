@@ -512,11 +512,6 @@ export async function replayTailEvents(
 
 // Stream events.jsonl and return only events whose `type` is in `types`,
 // JSON-parsing just the lines that textually mention one of them. For the
-// per-rehydrate scans (task lifecycle, Z.ai prompt tokens) that used to
-// replayEvents(…, 0) the whole log — a full parse of a 100 MB log per tab per
-// reconnect was most of the 2026-10-14 OOM's heap.
-// A synchronous visitor projects events without retaining the matching history;
-// callers needing only the latest reply keep bounded memory even on long logs.
 export async function scanEventsOfTypes(
   cwd: string,
   wfid: string,

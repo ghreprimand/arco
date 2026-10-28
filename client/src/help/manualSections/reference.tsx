@@ -75,7 +75,6 @@ export const reference: Section[] = [
             [<Code key="ak">ANTHROPIC_API_KEY</Code>, '(unset)', 'API-key fallback for Claude (subscription preferred).'],
             [<Code key="ok">OPENAI_API_KEY</Code>, '(unset)', 'API-key fallback for Codex.'],
             [<Code key="gk">GEMINI_API_KEY</Code>, '(unset)', 'API-key fallback for Gemini.'],
-            [<Code key="zk">ZAI_API_KEY</Code>, '(unset)', 'API key for the Z.ai GLM provider (native direct Chat Completions by default; Codex app-server proxy transport optional). Can also live in the secrets file or come from config-value interpolation.'],
           ]}
         />
       </>

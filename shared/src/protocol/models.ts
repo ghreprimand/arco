@@ -200,41 +200,6 @@ export const CODEX_MODEL_INFO: Record<string, CodexModelInfo> = {
 export const CODEX_PICKER_MODELS = CODEX_MODELS.filter((id) => CODEX_MODEL_INFO[id]?.picker);
 export const DEFAULT_CODEX_MODEL = CODEX_MODELS.find((id) => CODEX_MODEL_INFO[id]?.defaultForCodex) ?? 'gpt-5.5';
 
-// Z.ai GLM Coding Plan models. Default transport is the in-process `zai-native`
-// worker calling the Coding-Plan Chat Completions endpoint directly; the Codex
-// app-server Responses->Chat proxy is a selectable fallback (zaiTransport:'appserver').
-export const ZAI_MODELS = [
-  'glm-4.7',
-  'glm-5.2',
-  'glm-5-turbo',
-  'glm-4.5-air',
-] as const;
-
-export const ZAI_MODEL_LABELS: Record<string, string> = {
-  'glm-4.7': 'GLM 4.7',
-  'glm-5.2': 'GLM 5.2',
-  'glm-5-turbo': 'GLM 5 TURBO',
-  'glm-4.5-air': 'GLM 4.5 AIR',
-};
-
-// Default new Z.ai tabs to the current flagship. GLM-5.2 is the model z.ai's own
-// harness (ZCode) and coding benchmarks target, and the ONLY GLM where
-// `reasoning_effort` is honored — older GLMs (4.7/4.5) ignore it and treat
-// thinking as binary. It burns Coding-Plan quota faster than the prior glm-4.7
-// default, but the quality gap was the bigger complaint. Existing tabs keep their
-// persisted model (meta.json); only newly created tabs pick this up.
-export const DEFAULT_ZAI_MODEL: ModelName = 'glm-5.2';
-
-export function zaiModelContextWindow(model: string | undefined): number {
-  const normalized = (model ?? '').toLowerCase();
-  // Z.ai's /models endpoint currently returns ids only, not context metadata.
-  // Keep this docs-backed fallback shared so worker config and UI estimates
-  // do not drift when Codex has not emitted model_context_window yet.
-  if (normalized === 'glm-5.2' || normalized === 'glm-5.2[1m]') return 1_000_000;
-  if (normalized.startsWith('glm-4.5')) return 128_000;
-  return 200_000;
-}
-
 // Live catalog shape — populated from Anthropic's /v1/models endpoint
 // (server cache; refreshed hourly). Drives the Claude picker, per-model
 // effort gating, and the context-window subline. When no auth /
@@ -817,7 +782,6 @@ export interface AuthStatusByProvider {
   gemini: AuthStatus;
   ollama: AuthStatus;
   codex: AuthStatus;
-  zai: AuthStatus;
   github: AuthStatus;
   // Antigravity auths inside its own desktop app; Arco doesn't manage a
   // login flow for it. This field exists so ProviderName-keyed indexing

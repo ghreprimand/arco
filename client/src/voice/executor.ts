@@ -427,7 +427,7 @@ export class VoiceExecutor {
         const job=s.jobs[t.id];if(!job||job.config.incognito||job.config.voiceOperator)throw Error('Choose a normal worker.');
         if(this.busy(job)||job.compacting)throw Error('Worker is busy or compacting; wait for idle.');
         const p=job.config.primaryProvider;
-        if(!['codex','zai','claude','ollama','cursor'].includes(p??''))throw Error('This provider does not support native compaction; use Handoff.');
+
         if(p==='codex'&&(job.config.codexTransport??s.settings?.codex?.transport??'exec')!=='appserver')throw Error('Codex compaction needs app-server transport.');
         if(p==='claude'&&(job.config.claudeTransport??s.settings?.claude?.transport??'cli')!=='native')throw Error('Claude compaction needs Native transport.');
         if(p==='ollama')s.wsSendRaw({type:'compact_workflow',workflowId:t.id});

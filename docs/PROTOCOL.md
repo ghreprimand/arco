@@ -163,7 +163,7 @@ for a projectless conversation (`cluster` exists too, but cluster tabs are
 minted by `cluster_create`, never here). A Chat create intentionally sends an empty
 `workingDirectory`; the server assigns `~/.arco/chats/<workflowId>`, persists
 `kind` in `meta.json`, and echoes the resolved config in `workflow_created`.
-Chat provider admission is server-enforced (Claude/Codex/Z.ai/Cursor/Ollama/
+Chat provider admission is server-enforced (Claude/Codex/Cursor/Ollama/
 llama.cpp/LM Studio only), not merely a client picker filter.
 `WorkflowConfig.chatWebAccess` (Chat only; Claude/Codex/Ollama) arms web
 search + fetch and nothing else - default on for saved chats, off for
@@ -176,7 +176,7 @@ does not register the workflow in `workflowCwds`, and therefore never seq-stamps
 or appends its broadcasts. Its compact transcript lives in `WorkflowState`
 memory. Claude CLI runs with `--no-session-persistence`; Codex is forced to
 `exec --ephemeral` (Computer uses a verified pathless ephemeral app-server
-thread); Z.ai is forced to Native. Cursor is rejected because its
+thread).  Cursor is rejected because its
 CLI has no non-persistence flag; llama.cpp is rejected because its shared
 Arco-managed daemon writes `~/.arco/llamacpp.log`. Incognito configs are
 excluded from client localStorage and cannot use `resumeWorkflowId` or
@@ -241,7 +241,6 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   ultracode?: boolean,                               // - sticky ultracode; forces CLI + Workflow tool + xhigh (Claude only). Does NOT mutate stored claudeTransport
   webSearchMaxUses?: number,                         // per-tab Native web_search/web_fetch per-turn budget (clamped 1..50); default 15
   chatWebAccess?: boolean,                           // Chat-only web toggle (Claude/Codex/Ollama); chatWebArmed in server/src/chatMode.ts decides
-  zaiTransport?: 'native' | 'appserver',             // Z.ai Native - per-tab Z.ai transport override
   claudeNativeCompact?: boolean, // followup - Anthropic server-managed compaction
   claudeNativeForceInterleavedThinkingBeta?: boolean, // Native A/B debug - force interleaved-thinking beta next turn
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates', // Native adaptive-thinking display - 'summarized' streams thinking into Activity (default 'omitted', Claude Code parity); 'updates' (beta progress notes) only where supportsThinkingDisplayUpdates, else resolves to 'omitted'
@@ -253,7 +252,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   efficiencyConfigProtection?: 'on' | 'off',         // config-protection write-gate (Native, default 'on')
   efficiencySandbox?: 'off' | 'on',                  //  opt-in ctx_* tools
   reviewSafeMode?: 'off' | 'on',                     // DEBAG durable review gate (Native, default 'off')
-  outputStyle?: 'normal' | 'lite' | 'terse',         // - Claude Native, Codex app-server, Z.ai
+  outputStyle?: 'normal' | 'lite' | 'terse',         // - Claude Native, Codex app-server
   goal?: string,                                     // - persistent per-tab north-star; empty/whitespace CLEARS. Cap 2048 bytes. Injected as a system block every turn on transports that fold the cluster plan; inherited by primitives (unlike outputStyle's forced 'normal')
   pinnedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>, // replace the durable tab pin set; empty CLEARS. Full bodies are re-resolved + injected every turn
   remoteEnabled?: boolean,                            // REMOTE_MANAGEMENT - per-workflow hub opt-in
@@ -262,7 +261,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
 }
 ```
 
-Takes effect on the next primary turn. Persisted to `meta.json` (except `goalRun`, whose counters are memory-only - a restart ends any run). On an incognito chat only `model` / `effort` / `chatWebAccess` (`INCOGNITO_SAFE_CONFIG_FIELDS`) are accepted, held in memory; every other field is refused. Transport / efficiency fields are provider-specific knobs. `outputStyle` is honored by Claude Native, Codex app-server, and Z.ai; other transports silently ignore it on turn dispatch. `outputStyle: 'caveman'` is accepted on the wire for back-compat with pre-2026-05-10 clients and aliased to `'terse'` server-side.
+Takes effect on the next primary turn. Persisted to `meta.json` (except `goalRun`, whose counters are memory-only - a restart ends any run). On an incognito chat only `model` / `effort` / `chatWebAccess` (`INCOGNITO_SAFE_CONFIG_FIELDS`) are accepted, held in memory; every other field is refused. Transport / efficiency fields are provider-specific knobs. `outputStyle` is honored by Claude Native, Codex app-server; other transports silently ignore it on turn dispatch. `outputStyle: 'caveman'` is accepted on the wire for back-compat with pre-2026-05-10 clients and aliased to `'terse'` server-side.
 
 ### `goal_set` <- - ack/visibility broadcast for a north-star set / edit / clear (the durable side of `update_primary_config { goal }`). **Persist-then-announce**: the server writes `meta.json` before emitting, so "`goal_set` observed ⇒ value already durable" holds. Persisted to `events.jsonl` (reviewable in the transcript per the four-question test). `goal` is `null` on clear; `byteLen` is the UTF-8 byte length of the stored text (0 on clear).
 
@@ -730,10 +729,6 @@ Handler (`server/src/ws/compactHandlers.ts`) gates on provider + `!wf.busy`
   REPLACES its in-memory history with the summary, and emits a persisted
   `native_compacted { summary }` <- marker. CLI-transport Claude is rejected
   (no in-process history to replace - use Handoff).
-- **Z.ai Native:** the worker runs one no-tools Z.ai summarization request,
-  replaces native `messages[]` with a summary seed plus recent clean tail,
-  emits `native_compacted`, and persists a post-compact `zai_native_history`
-  snapshot. **Z.ai appserver fallback** uses the Codex app-server compact path.
 - **Cursor (ACP):** sends the advertised `/compress` command as the entire
   single-block `session/prompt`, deliberately bypassing the normal north-star +
   cluster prefix so Cursor's slash dispatcher recognizes it. Cursor persists
@@ -747,7 +742,7 @@ While it runs the tab is locked via a **transient** (not persisted)
 deliberately kept out of `events.jsonl` so replay parsers (initHubLink,
 reviewContent) only ever see real start->text->complete turns. The durable
 audit is a persisted `ctx_action { action: 'compact', trigger: 'operator' }`
-(plus the `native_compacted` marker on the Claude/Z.ai Native paths, which is **load-bearing
+(plus the `native_compacted` marker on the Claude Native paths, which is **load-bearing
 on replay** - see below). Far cheaper than a Handoff (no fresh worker, no
 portable doc, no resume re-feed). See `docs/PROVIDERS.md` /
 ` Native` and `docs/GOTCHAS.md`.
@@ -1808,29 +1803,6 @@ Per-turn Codex token-usage replacement, captured by reading the rollout file aft
 
 Client overrides `JobState.lastTurnTokens` so the CTX bar reflects per-call reality. `JobState.totalTokens` (cumulative billing) stays untouched. Transient (rebuilt from the on-disk rollout on demand).
 
-### `zai_native_history` <- (Z.ai Native)
-
-Hidden provider-history checkpoint emitted by the Z.ai Native worker. It is
-persisted to `events.jsonl` but intentionally ignored by the client UI. On
-server restart, the native worker replays the latest snapshot to recover Z.ai
-Chat Completions `messages[]` history with exact assistant
-`reasoning_content`, assistant `tool_calls`, and matching `tool` messages.
-
-```ts
-{
-  type: 'zai_native_history',
-  workflowId: string,
-  messages: ZaiNativeHistoryMessage[],   // { role, content, reasoning_content?, tool_calls?, tool_call_id? }
-  reset?: 'handoff' | 'compact',         // snapshot re-seeds history after a handoff / native compact
-}
-```
-
-Persisted. Do not render as chat, and do not rewrite the embedded
-`reasoning_content`; GLM preserved-thinking continuity depends on the byte
-shape of the retained assistant history.
-
----
-
 ## Approval gate
 
 Native-only edit-before-approve gate. The operator arms the per-tab
@@ -2673,7 +2645,7 @@ and re-broadcast as `notification_mutes`.
 ## Codex operator questions
 
 `operator_question { workflowId, question }` persists a structured question state:
-`{ requestId, provider: 'codex'|'zai', threadId, turnId, itemId, mode:
+`{ requestId, provider: 'codex', threadId, turnId, itemId, mode:
 'blocking'|'async', questions: [{ id, header, question, options?: [{ label,
 description }], allowOther, secret }], status: 'pending'|'answered'|'cancelled',
 createdAt, answers?, reason? }`. One request may contain 1-3 questions. Secret
@@ -2791,7 +2763,7 @@ export type ClientMessage =
   | CreateWorkflowMessage
   | UserMessage
   | CancelMessage
-  | CompactWorkflowMessage               // operator native compaction (Codex/Z.ai/Cursor/Claude Native/Ollama)
+  | CompactWorkflowMessage               // operator native compaction (Codex/Cursor/Claude Native/Ollama)
   | FoldWorkflowMessage                  // deterministic in-place Fold (Native)
   | SetToolPostureMessage                // per-tab tool posture (Native)
   | SetProjectTrustMessage               // DD7 project-trust answer
@@ -2946,7 +2918,6 @@ export type ServerMessage =
   | TodosUpdatedMessage | PlanSetMessage | PlanExitedMessage // Native
   | PlanCandidateReadyMessage                                        // Cluster-member plan choice-point
   | TaskStartedMessage | TaskStatusMessage // Task children
-  | ZaiNativeHistoryMessageEvent                                     // Z.ai Native provider-history checkpoint
   // Cluster-scoped (+)
   | ClusterStateMessage | ClusterNotFoundMessage | ClusterCreatedMessage | ClusterDeletedMessage
   | ClusterMemberAddedMessage | ClusterMemberRemovedMessage | ClusterMemberReplacedMessage

@@ -190,7 +190,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
       setProviderAccountRef(codexAccounts[0]?.id);
     }
   }, [provider, providerAccountRef, codexAccounts, primary.provider, primary.providerAccountRef]);
-  const availableProviders = (['claude', 'codex', 'zai', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
     // Antigravity auths inside its own desktop app (the Google account signed
     // into the isolated Arco profile), not through Arco's auth service.

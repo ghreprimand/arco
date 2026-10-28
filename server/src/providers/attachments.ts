@@ -1,11 +1,4 @@
 // Shared operator-attachment helpers for providers that don't carry their own
-// copy (Cursor, Z.ai native, Gemini CLI). Before this existed those three
-// ignored `WorkerConfig.attachments` outright: a pasted screenshot uploaded,
-// rendered as a thumbnail in the operator's bubble, and never reached the
-// model — no notice, no path reference.
-//
-// Claude / Codex / Ollama / llama.cpp / LM Studio / Antigravity still keep
-// their own classifiers; the extension set and 5 MB cap here mirror theirs.
 
 import { execFile } from 'child_process';
 import { existsSync, readFileSync, statSync } from 'fs';

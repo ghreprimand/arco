@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { connectionCatalog } from '../../../../server/src/connectionCatalog.js';
 import { connectionState,credentialSource,parseConnectionCatalog,parseConnectionStatus,safeEndpoint } from './model.js';
-const catalog=connectionCatalog({}, {configured:false,source:'none'});
+const catalog=connectionCatalog({});
 const codex=catalog.providers.find(p=>p.id==='codex')!,desktop=catalog.providers.find(p=>p.id==='antigravity')!;
 test('a failed or stale check never turns into an instruction to sign in again',()=>{
   assert.equal(connectionState(codex,{loggedIn:true,probeFailed:true},true,false),'Status unknown');

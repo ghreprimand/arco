@@ -34,7 +34,7 @@ A missed `better-sqlite3` build is the quiet one: `npm run build` passes, the se
 Requirements:
 
 - Node.js **22+** (developed on 24.x LTS; 22.x is in maintenance until 2027-04-30). Crossing a Node major changes the native ABI, so `better-sqlite3` and `node-pty` need `npm rebuild` afterwards. `RECALL DISABLED` or `ERR_DLOPEN_FAILED` at boot signals that rebuild is needed.
-- One or more configured providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), a Z.ai key (`ZAI_API_KEY`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
+- One or more configured providers: Claude (`claude auth login`), Codex (`codex login`), Gemini (`gemini auth login`), Cursor (`cursor-agent login`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
 - Linux, macOS or Windows (see the cross-platform notes in [`docs/GOTCHAS.md`](docs/GOTCHAS.md))
 
 `npm run dev` starts both the server (port 3001, `tsx watch`) and the client (port 5173, Vite) under `concurrently --kill-others`. If one dies, both die.
@@ -61,7 +61,7 @@ Arco/
 │   │                                #   runCompare, runResearch, runDocEdit, runMdTuneup
 │   ├── providers/                   # claude, claude-native/, codex, codex-appserver/,
 │   │                                #   gemini, gemini-native/ (auth+catalog stub only),
-│   │                                #   zai-native/, ollama, ollamaTools, llamacpp,
+│   │                                #   ollama, ollamaTools, llamacpp,
 │   │                                #   llamacppManager, llamacppRecovery, lmstudio,
 │   │                                #   antigravity, cursor/ (acp worker + print.ts one-shot);
 │   │                                #   shared: codexCodeMode, goalBlock, outputStyle

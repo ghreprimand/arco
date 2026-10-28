@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import { access, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import { ZAI_MODELS } from '@arco/shared';
+import {} from '@arco/shared';
 import type { ProviderName, AuthLoginTarget, AuthLoginResult } from '@arco/shared';
 import { getOllamaBase, probeOllama } from './providers/ollama.js';
 import { probeCodexLoggedIn } from './providers/codex.js';
@@ -13,8 +13,6 @@ import { getDeepSeekBase, probeDeepSeek } from './providers/deepseek.js';
 import { getStrataBase, probeStrata } from './providers/strata.js';
 import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
 import { accountShortLabel, configuredAccounts, ensureCodexAccountHome, resolveProviderAccount } from './providerAccounts.js';
-import { zaiApiKeyStatus } from './providerSecrets.js';
-import { getZaiModels, ZAI_CODING_BASE_URL } from './zai.js';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
 import { commandArgs } from './windowsCommand.js';
 
@@ -85,7 +83,6 @@ export interface AuthStatusByProvider {
   gemini: AuthStatus;
   ollama: AuthStatus;
   codex: AuthStatus;
-  zai: AuthStatus;
   github: AuthStatus;
   // Antigravity: loggedIn == desktop debug-port reachable for now, since auth
   // happens inside the Antigravity desktop profile, not through Arco.
@@ -279,25 +276,6 @@ async function getCodexAuthStatus(): Promise<AuthStatus> {
   }
 }
 
-async function getZaiAuthStatus(): Promise<AuthStatus> {
-  const keyStatus = await zaiApiKeyStatus();
-  if (!keyStatus.configured) {
-    return {
-      loggedIn: false,
-      apiProvider: `zai:${ZAI_CODING_BASE_URL}`,
-      error: 'Z.ai API key is not configured',
-      installedModels: [...ZAI_MODELS],
-    };
-  }
-  const installedModels = await getZaiModels();
-  return {
-    loggedIn: true,
-    apiProvider: `zai:${ZAI_CODING_BASE_URL}`,
-    subscriptionType: keyStatus.source === 'env' ? 'GLM Coding Plan (env key)' : 'GLM Coding Plan',
-    installedModels,
-  };
-}
-
 async function getOllamaAuthStatus(): Promise<AuthStatus> {
   const probe = await probeOllama();
   const apiProvider = `ollama:${await getOllamaBase()}`;
@@ -444,12 +422,11 @@ async function getCursorAuthStatus(): Promise<AuthStatus> {
 }
 
 export async function getAuthStatus(): Promise<AuthStatusByProvider> {
-  const [claude, gemini, ollama, codex, zai, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
+  const [claude, gemini, ollama, codex, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
     getClaudeAuthStatus(),
     getGeminiAuthStatus(),
     getOllamaAuthStatus(),
     getCodexAuthStatus(),
-    getZaiAuthStatus(),
     getGithubAuthStatus(),
     getAntigravityAuthStatus(),
     getLlamacppAuthStatus(),
@@ -458,15 +435,14 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
     getDeepSeekAuthStatus(),
     getCursorAuthStatus(),
   ]);
-  return { claude, gemini, ollama, codex, zai, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor };
+  return { claude, gemini, ollama, codex, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor };
 }
 
 // Explicit Connections check: probe only the operator-selected integration.
 // This reuses provider-owned detection and never starts an inference turn.
 export async function getConnectionStatus(provider: AuthLoginTarget): Promise<AuthStatus> {
   const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
-    claude:getClaudeAuthStatus, codex:getCodexAuthStatus, gemini:getGeminiAuthStatus,
-    zai:getZaiAuthStatus, github:getGithubAuthStatus, cursor:getCursorAuthStatus,
+    claude:getClaudeAuthStatus, codex:getCodexAuthStatus, gemini:getGeminiAuthStatus, github:getGithubAuthStatus, cursor:getCursorAuthStatus,
     ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
     llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus, antigravity:getAntigravityAuthStatus,
   };
@@ -516,12 +492,7 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
     const label = account?.profile.label ? ` Sign in with the ${account.profile.label} ChatGPT account.` : '';
     return authLoginInstructions(command, `Open the link and enter the one-time code.${label}`);
   }
-  if (provider === 'zai') {
-    return {
-      started: false,
-      manual: 'Z.ai Coding Plan uses an API key. Add it in Settings → AUTH → Z.AI. Arco hard-codes the Coding Plan endpoint https://api.z.ai/api/coding/paas/v4 so it does not accidentally use the general paid API endpoint.',
-    };
-  }
+
   if (provider === 'cursor') {
     // The JWT lands at ~/.config/cursor/auth.json, which getCursorAuthStatus /
     // cursorUsage read fresh on each poll. The CLI polls for completion, so no

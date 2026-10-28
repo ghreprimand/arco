@@ -1,4 +1,4 @@
-import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, zaiModelContextWindow, ollamaEffortsFor } from '@arco/shared';
+import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, ollamaEffortsFor } from '@arco/shared';
 import type { TokenUsage, ProviderName, ModelName, EffortLevel, ClaudeCatalogSnapshot, CodexCatalogSnapshot, OllamaThinkingInfo } from '@arco/shared';
 
 // Ollama per-model graded-thinking levels, fed from the auth snapshot
@@ -45,7 +45,7 @@ export function formatTokenCount(n: number): string {
 // Total tokens processed for a turn/job. Caches count toward the billable
 // pie chart but are much cheaper per-token, so we still surface them.
 export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
-  if (provider === 'codex' || provider === 'zai') {
+  if (provider === 'codex') {
     return t.total ?? ((t.input ?? 0) + (t.output ?? 0));
   }
   return t.input + t.output + (t.cacheRead ?? 0) + (t.cacheCreate ?? 0);
@@ -76,7 +76,7 @@ export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
 //     shape — they don't populate cacheRead/cacheCreate today, so the
 //     result is just `input` regardless.
 export function contextTokens(t: TokenUsage, provider?: ProviderName): number {
-  if (provider === 'codex' || provider === 'zai') {
+  if (provider === 'codex') {
     return t.input ?? 0;
   }
   return (t.input ?? 0) + (t.cacheCreate ?? 0);
@@ -110,12 +110,12 @@ export function codexPublishedMaxOutput(model: ModelName | string): number {
 }
 
 export function providerOperationalWindow(provider: ProviderName | undefined, model: ModelName | string): number {
-  if (provider === 'zai') return zaiModelContextWindow(model);
+
   return codexModelWindow(model);
 }
 
 export function providerPublishedContextWindow(provider: ProviderName | undefined, model: ModelName | string): number {
-  if (provider === 'zai') return zaiModelContextWindow(model);
+
   return codexPublishedContextWindow(model);
 }
 
@@ -150,7 +150,7 @@ export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 export function effortsForProvider(provider: ProviderName | undefined): EffortLevel[] {
   if (provider === 'claude') return ['low', 'medium', 'high', 'xhigh', 'max'];
   if (provider === 'codex') return ['low', 'medium', 'high'];
-  if (provider === 'zai') return ['low', 'medium', 'high', 'xhigh'];
+
   // Ollama: `low` injects `/no_think` into the system prompt so Qwen-family
   // models skip reasoning (fast-mode for trivial asks); `high` (or any
   // non-low value) leaves native Thinking Preservation on. Two values keep
@@ -275,7 +275,7 @@ export function contextPercentColor(percent: number): string {
 export function tokenHoverTitle(t: TokenUsage, labelPrefix?: string, provider?: ProviderName): string {
   const total = totalTokens(t, provider);
   const ctx = contextTokens(t, provider);
-  const ctxFormula = provider === 'codex' || provider === 'zai' ? 'input (cacheRead is a subset)' : 'input+cacheCreate';
+  const ctxFormula = provider === 'codex' ? 'input (cacheRead is a subset)' : 'input+cacheCreate';
   const lines: string[] = [];
   if (labelPrefix) lines.push(labelPrefix);
   lines.push(`${total.toLocaleString()} total · ${ctx.toLocaleString()} ctx (${ctxFormula})`);

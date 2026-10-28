@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS, CODEX_PICKER_MODELS, DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL } from '@arco/shared';
+import { CLAUDE_MODEL_LABELS, CLAUDE_MODELS, CODEX_PICKER_MODELS, DEFAULT_CODEX_MODEL} from '@arco/shared';
 import type { ClaudeCatalogSnapshot, CodexCatalogSnapshot, CursorCatalogSnapshot, ModelName, ProviderName } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
@@ -22,7 +22,6 @@ export interface ModelCatalogs {
   deepseekModels?: string[];
   deepseekLabels?: Record<string, string>;
   strataLabels?: Record<string, string>;
-  zaiModels: string[];
 }
 
 const STATIC_CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
@@ -50,7 +49,7 @@ export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): Mod
     if (c.cursor?.models?.length) return c.cursor.models.map((m) => m.id as ModelName);
     return CURSOR_COLD_MODELS;
   }
-  if (provider === 'zai') return c.zaiModels as ModelName[];
+
   if (provider === 'gemini') return STATIC_GEMINI_MODELS;
   if (provider === 'antigravity') return [ANTIGRAVITY_STUB_MODEL];
   if (provider === 'ollama') return c.ollamaModels as ModelName[];
@@ -77,7 +76,7 @@ export function defaultModelForProvider(provider: ProviderName, c: ModelCatalogs
     const def = c.cursor?.models?.find((m) => m.isDefault) ?? c.cursor?.models?.[0];
     return (def?.id ?? 'auto') as ModelName;
   }
-  if (provider === 'zai') return (c.zaiModels[0] ?? DEFAULT_ZAI_MODEL) as ModelName;
+
   if (provider === 'gemini') return 'gemini-3.1-pro-preview';
   if (provider === 'antigravity') return ANTIGRAVITY_STUB_MODEL;
   if (provider === 'ollama') return (c.ollamaModels[0] ?? '') as ModelName;
@@ -123,6 +122,5 @@ export function useModelCatalogs(overrides?: Partial<ModelCatalogs>): ModelCatal
     strataModels: authStatus?.strata?.installedModels ?? [],
     strataLabels: authStatus?.strata?.installedModelLabels,
     lmstudioModels: authStatus?.lmstudio?.installedModels ?? [],
-    zaiModels: authStatus?.zai?.installedModels ?? [DEFAULT_ZAI_MODEL],
   }), [authStatus, claude, codex, cursor, oClaude, oCodex, oCursor]);
 }

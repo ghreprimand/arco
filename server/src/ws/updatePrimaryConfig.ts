@@ -30,7 +30,7 @@ export async function handleUpdatePrimaryConfig(
     send(ws, { type: 'error', message: `Unknown workflow ${msg.workflowId.slice(0, 8)}` });
     return;
   }
-  if (msg.model === undefined && msg.effort === undefined && msg.providerAccountRef === undefined && msg.autoHandoff === undefined && msg.autoFold === undefined && msg.codexTransport === undefined && msg.codexContextPolicy === undefined && msg.claudeTransport === undefined && msg.ultracode === undefined && msg.webSearchMaxUses === undefined && msg.chatWebAccess === undefined && msg.zaiTransport === undefined && msg.claudeNativeCompact === undefined && msg.claudeNativeForceInterleavedThinkingBeta === undefined && msg.claudeNativeThinkingDisplay === undefined && msg.nativeCompactAutoContinue === undefined && msg.efficiencyToolFilter === undefined && msg.efficiencyFactForce === undefined && msg.efficiencyConfigProtection === undefined && msg.efficiencySandbox === undefined && msg.reviewSafeMode === undefined && msg.outputStyle === undefined && msg.goal === undefined && msg.goalRun === undefined && msg.pinnedSkills === undefined && msg.remoteEnabled === undefined && msg.remoteGatesEnabled === undefined && msg.ollamaParams === undefined) return;
+
 
   if (msg.model !== undefined) wf.primary.model = msg.model;
   if (msg.effort !== undefined) wf.primary.effort = msg.effort;
@@ -145,11 +145,7 @@ export async function handleUpdatePrimaryConfig(
     wf.config.webSearchMaxUses = clamped;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] web search budget → ${clamped}/turn`);
   }
-  if (msg.zaiTransport !== undefined) {
-    wf.config.zaiTransport = msg.zaiTransport;
-    disposeProviderResources(msg.workflowId);
-    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] zai.transport updated → ${msg.zaiTransport}`);
-  }
+
   // Phase 7c-followup — Claude Native server-side compaction. Honored on
   // Native tabs only, but stored unconditionally so a transport flip
   // back to Native picks up the operator's last pinned value.
@@ -212,9 +208,6 @@ export async function handleUpdatePrimaryConfig(
   }
   // docs/PROVIDERS.md - operator-armed terseness picker. Stored
   // unconditionally so a transport/provider flip picks up the last pinned
-  // value where supported (Claude Native, Codex app-server, Z.ai). Legacy
-  // `'caveman'` (renamed `'terse'` 2026-05-10) is auto-aliased so a stale
-  // client build can still talk to a fresh server.
   if (msg.outputStyle !== undefined) {
     const normalized = (msg.outputStyle as string) === 'caveman' ? 'terse' : msg.outputStyle;
     wf.config.outputStyle = normalized;
@@ -313,7 +306,7 @@ export async function handleUpdatePrimaryConfig(
         if (msg.ultracode !== undefined) meta.ultracode = msg.ultracode;
         if (msg.webSearchMaxUses !== undefined) meta.webSearchMaxUses = wf.config.webSearchMaxUses;
         if (msg.chatWebAccess !== undefined) meta.chatWebAccess = msg.chatWebAccess;
-        if (msg.zaiTransport !== undefined) meta.zaiTransport = msg.zaiTransport;
+
         if (msg.claudeNativeCompact !== undefined) {
           meta.claudeNativeCompact = msg.claudeNativeCompact;
           if (msg.claudeNativeCompact === true) {

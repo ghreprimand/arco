@@ -20,7 +20,7 @@ export function ConfigTab({
   mcp,
 }: {
   job: JobState;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; zaiTransport?: 'native' | 'appserver'; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onFreshAntigravityCascade?: () => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
@@ -90,9 +90,7 @@ export function ConfigTab({
     if (provider === 'cursor' && cursorCatalog?.models?.length) {
       return cursorCatalog.models.map((m) => m.id as ModelName);
     }
-    if (provider === 'zai') {
-      return (authStatus?.zai?.installedModels ?? []) as ModelName[];
-    }
+
     // Ollama models are discovered at runtime from the local daemon (no static
     // catalog). Empty list (daemon down / no models) falls through to static text.
     if (provider === 'ollama') {
@@ -286,8 +284,8 @@ export function ConfigTab({
 
       {/* Phase 3 — auto-handoff config. WP1: generalized beyond Claude to the
           providers that now keep wf.lastContextPercent fresh per turn
-      (Codex/Z.ai via app-server usage, Ollama via prompt_eval_count). */}
-      {(provider === 'claude' || provider === 'codex' || provider === 'zai' || provider === 'ollama') && canEdit && (
+      (Codex via app-server usage, Ollama via prompt_eval_count). */}
+      {(provider === 'claude' || provider === 'codex' || provider === 'ollama') && canEdit && (
         <AutoHandoffSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
@@ -331,9 +329,7 @@ export function ConfigTab({
         <ClaudeTransportSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {provider === 'zai' && canEdit && (
-        <ZaiTransportSection job={job} onUpdatePrimary={onUpdatePrimary!} />
-      )}
+
 
       {/* Phase 7c-followup — Anthropic server-side compaction toggle.
           Native-only AND model-capability-gated (catalog `compact_20260112`). */}
@@ -409,15 +405,15 @@ export function ConfigTab({
 
       {/* docs/GOTCHAS.md - operator-set persistent north-star. Not
           provider-gated: honored on every transport that folds the prompt
-          (Native, CLI Claude, both Codex, Z.ai, Ollama/llama.cpp/LM Studio). */}
+          (Native, CLI Claude, both Codex, Ollama/llama.cpp/LM Studio). */}
       {canEdit && (
         <NorthStarSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
       {/* docs/PROVIDERS.md - operator-armed terseness picker. Honored by
-          Claude Native and Codex app-server providers (including Z.ai).
+          Claude Native and Codex app-server providers.
           Forced normal on Review / Handoff / DOCS / GIT regardless. */}
-      {(provider === 'claude' || provider === 'codex' || provider === 'zai') && canEdit && (
+      {(provider === 'claude' || provider === 'codex') && canEdit && (
         <OutputStyleSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
@@ -448,7 +444,7 @@ export function ConfigTab({
           (in-process denylist by omission, E1-Native), and Codex (server-level
           enable only - no per-tool deny flag). Provider-gated, so both Claude
           transports show the same section. */}
-      {mcp && (provider === 'claude' || provider === 'codex' || provider === 'zai') && (
+      {mcp && (provider === 'claude' || provider === 'codex') && (
         <McpRegistrySection job={job} mcp={mcp} />
       )}
     </div>
@@ -608,7 +604,7 @@ function AutoHandoffSection({
   // to "the same model re-reads its transcript" (auto-falling back to a fresh
   // summarizer when the transcript overflows). No provider gating on the mode.
   const provider: ProviderName = job.config.primaryProvider ?? 'claude';
-  const providerResumable = provider === 'claude' || provider === 'codex' || provider === 'zai';
+  const providerResumable = provider === 'claude' || provider === 'codex';
   const resolvedMode: 'original-worker' | 'fresh-summarizer' = ah.mode ?? gd?.mode ?? 'original-worker';
 
   const setAh = (patch: Partial<typeof ah>) => {
@@ -1346,60 +1342,6 @@ function ClaudeTransportSection({
   );
 }
 
-function ZaiTransportSection({
-  job,
-  onUpdatePrimary,
-}: {
-  job: JobState;
-  onUpdatePrimary: (update: { zaiTransport?: 'native' | 'appserver' }) => void;
-}) {
-  const settings = useAppStore((s) => s.settings);
-  const current: 'native' | 'appserver' =
-    job.config.zaiTransport ?? (settings?.zai?.transport === 'appserver' ? 'appserver' : 'native');
-  return (
-    <div style={{ marginTop: '18px' }} data-help="rightpanel.config.transport">
-      <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)', marginBottom: '8px' }}>
-        TRANSPORT
-      </div>
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-        {(['native', 'appserver'] as const).map((t) => {
-          const active = current === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              className="display-font"
-              onClick={() => onUpdatePrimary({ zaiTransport: t })}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                fontSize: '10px',
-                letterSpacing: '1.5px',
-                border: '1px solid ' + (active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-                background: active ? 'var(--color-accent-primary-a10, transparent)' : 'transparent',
-                color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              {t.toUpperCase()}{t === 'appserver' ? ' *' : ''}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-        {current === 'native'
-          ? 'NATIVE: direct Z.ai Coding Plan Chat Completions with preserved reasoning_content and Arco-local tools.'
-          : 'APPSERVER: legacy Codex app-server proxy path. Use as fallback if native GLM behavior regresses.'}
-      </div>
-      <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginTop: '6px', fontStyle: 'italic' }}>
-        Takes effect on the next operator turn.
-      </div>
-    </div>
-  );
-}
-
 // Phase 7c-followup — Anthropic server-managed compaction toggle.
 // Reads `wf.config.claudeNativeCompact` (server-mirrored to meta.json
 // via update_primary_config); sends the toggle through the same WS
@@ -2011,7 +1953,7 @@ function ClaudeNativeSandboxSection({
 }
 
 // docs/PROVIDERS.md - operator-armed terseness picker. Honored by Claude
-// Native and Codex app-server providers (Codex/Z.ai). Hidden on transports
+// Native and Codex app-server providers (Codex). Hidden on transports
 // that do not consume it. Three discrete levels:
 // `normal` (default), `lite`, `terse`. Takes effect on the next turn.
 // Renamed `caveman` → `terse` 2026-05-10 after measuring ~10–25%
@@ -2333,7 +2275,7 @@ function OutputStyleSection({
     const transport: 'exec' | 'appserver' = job.config.codexTransport ?? cascadeDefault;
     if (transport !== 'appserver') return null;
   }
-  if (provider !== 'claude' && provider !== 'codex' && provider !== 'zai') return null;
+  if (provider !== 'claude' && provider !== 'codex') return null;
 
   const mode: 'normal' | 'lite' | 'terse' = job.config.outputStyle ?? 'normal';
 
@@ -2367,7 +2309,7 @@ function OutputStyleSection({
         Appends a small stable prompt addendum telling the model how terse to be.
         <code style={{ fontFamily: 'var(--font-code)' }}>lite</code> drops fillers/hedging;
         <code style={{ fontFamily: 'var(--font-code)' }}>terse</code> also drops articles, fragments OK.
-        Measures ~10–25% output reduction on Opus 4.7; Codex/Z.ai effect is model-dependent.
+        Measures ~10–25% output reduction on Opus 4.7; Codex effect is model-dependent.
         Code blocks, error strings, file paths preserved verbatim.
         Review / Handoff / DOCS / GIT always run as <code style={{ fontFamily: 'var(--font-code)' }}>normal</code>.
       </div>

@@ -7,7 +7,6 @@ import { OllamaProvider } from './ollama.js';
 import { CodexProvider } from './codex.js';
 import { CodexAppServerProvider, disposeCodexAppServerWorker } from './codex-appserver/index.js';
 import { ClaudeNativeProvider, disposeClaudeNativeWorker } from './claude-native/index.js';
-import { ZaiNativeProvider, disposeZaiNativeWorker } from './zai-native/index.js';
 import { AntigravityProvider } from './antigravity.js';
 import { LlamacppProvider } from './llamacpp.js';
 import { isLocalModelProvider, localModelsUnloading, localModelBusyMessage } from './localModelControl.js';
@@ -24,7 +23,6 @@ const PROVIDERS: Record<ProviderName, Provider> = {
   gemini: GeminiProvider,
   ollama: OllamaProvider,
   codex: CodexProvider,
-  zai: CodexAppServerProvider,
   antigravity: AntigravityProvider,
   llamacpp: LlamacppProvider,
   lmstudio: LmstudioProvider,
@@ -129,14 +127,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   if (name === 'cursor' && config.interactionMode === 'chat') {
     return CursorPrintProvider.create(id, config);
   }
-  // docs/PROVIDERS.md - Z.ai defaults to direct native Chat Completions.
-  // The legacy Codex app-server proxy remains selectable as fallback.
-  if (name === 'zai') {
-    if (config.zaiTransport === 'appserver') {
-      return CodexAppServerProvider.create(id, { ...config, codexTransport: 'appserver' });
-    }
-    return ZaiNativeProvider.create(id, config);
-  }
+
   // Phase 6 — Codex `app-server` transport. Opt-in per tab via the
   // `codex.transport` setting (cascade); reviewer paths never set
   // `codexTransport: 'appserver'` so they always fall through to exec.
@@ -178,10 +169,9 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
 export function disposeProviderResources(workflowId: string): void {
   disposeCodexAppServerWorker(workflowId);
   disposeClaudeNativeWorker(workflowId);
-  disposeZaiNativeWorker(workflowId);
   disposeCursorWorker(workflowId);
 }
 
 export function isKnownProvider(name: string): name is ProviderName {
-  return name === 'claude' || name === 'gemini' || name === 'ollama' || name === 'codex' || name === 'zai' || name === 'antigravity' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
+  return name === 'claude' || name === 'gemini' || name === 'ollama' || name === 'codex' || name === 'antigravity' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
 }

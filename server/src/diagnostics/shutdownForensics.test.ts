@@ -38,11 +38,11 @@ test('formatShutdownForensics: full line shape', () => {
 test('formatShutdownForensics: provider breakdown is sorted', () => {
   const line = formatShutdownForensics({
     ...base,
-    inflightTurns: 3,
-    busyByProvider: { zai: 1, codex: 1, 'claude-native': 1 },
+    inflightTurns: 2,
+    busyByProvider: { codex: 1, 'claude-native': 1 },
   });
-  // Alphabetical: claude-native, codex, zai — stable regardless of Map order.
-  assert.match(line, /inflight-turns=3\(claude-native:1,codex:1,zai:1\)/);
+  // Alphabetical: claude-native, codex — stable regardless of Map order.
+  assert.match(line, /inflight-turns=2\(claude-native:1,codex:1\)/);
 });
 
 test('formatShutdownForensics: idle shutdown omits the breakdown parens', () => {

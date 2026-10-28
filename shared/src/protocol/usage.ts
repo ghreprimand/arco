@@ -347,24 +347,3 @@ export interface CursorUsageInfo {
   needsLogin?: boolean;
   error?: string;
 }
-
-export interface ZaiUsageWindow {
-  type: string;
-  label: string;
-  percentageUsed: number;
-  remainingPercentage: number;
-  resetAt: string | null;
-  unit?: number;
-  number?: number;
-}
-
-// GLM Coding Plan quota snapshot. Sourced from Z.ai's monitor endpoint with
-// the same API key used for the Coding Plan chat endpoint.
-export interface ZaiUsageInfo {
-  available: boolean;
-  fetchedAt: number;
-  source: 'monitor' | 'disabled' | 'unavailable' | 'error';
-  level?: string;
-  windows: ZaiUsageWindow[];
-  error?: string;
-}

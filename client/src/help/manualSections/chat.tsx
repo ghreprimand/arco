@@ -10,7 +10,7 @@ export const chat: Section[] = [
         It has the transcript and a lightweight composer, without the project tree,
         right-hand workbench, skills, or Review/Handoff/Spawn actions.
         Use an Agent tab for file access, commands or project work.</p>
-      <p>Chat supports <strong>Claude, Codex, Z.ai, Cursor, Ollama, llama.cpp,
+      <p>Chat supports <strong>Claude, Codex, Cursor, Ollama, llama.cpp,
         LM Studio, Strata and DeepSeek</strong>. Gemini and Antigravity are Agent-only. The creator also
         respects enabled providers, authentication and available models.</p>
       <p>The header carries the live controls: <strong>model</strong> and
@@ -58,12 +58,12 @@ export const chat: Section[] = [
         launching. The header reads <strong>INCOGNITO · NOT SAVED</strong>. Arco
         keeps the conversation in memory only: no transcript, metadata, operational
         log, notification, worker-registry entry or browser-persisted chat/draft.</p>
-      <p>Supported: <strong>Claude, Codex, Z.ai, Ollama and LM Studio</strong>.
+      <p>Supported: <strong>Claude, Codex, Ollama and LM Studio</strong>.
         Cursor is excluded because its CLI cannot disable session persistence;
         llama.cpp is excluded because its shared daemon writes a persistent log.
         Strata and DeepSeek are excluded because its service logs and image cache persist.
         Gemini and Antigravity are unavailable in all Chat tabs.</p>
-      <p>Codex uses ephemeral exec; Z.ai uses Native; Claude CLI disables session
+      <p>Codex uses ephemeral exec; Claude CLI disables session
         persistence. These overrides are privacy constraints, not changes to your
         saved transport defaults. Remote provider retention is governed by that
         provider; Incognito is not a promise of provider-side deletion or anonymity.</p>

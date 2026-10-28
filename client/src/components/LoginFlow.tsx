@@ -9,7 +9,7 @@ import { LoginCommand } from './LoginCommand';
 // terminal command stays behind a toggle for anyone who prefers it.
 const POLL_MS = 1500;
 
-const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub', gemini: 'Gemini', cursor: 'Cursor', zai: 'Z.ai', ollama: 'Ollama' };
+const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub', gemini: 'Gemini', cursor: 'Cursor', ollama: 'Ollama' };
 
 interface Props {
   result: AuthLoginResult;

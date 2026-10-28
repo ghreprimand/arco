@@ -390,7 +390,7 @@ Proposes a compacted version of an instruction file (`AGENTS.md` / `CLAUDE.local
   type: 'md_tuneup_request',
   workflowId: string,
   editor: { provider: ProviderName, model: ModelName, effort: EffortLevel, providerAccountRef?: string },  // RUN AS picker output; read-only worker
-  target: string,                 // 'auto' (server picks by provider: codex/zai->AGENTS.md, gemini->GEMINI.md, else AGENTS.md) or a repo-relative path from the candidates; guarded by resolveWithinCwd
+  target: string,                 // 'auto' (server picks by provider: codex->AGENTS.md, gemini->GEMINI.md, else AGENTS.md) or a repo-relative path from the candidates; guarded by resolveWithinCwd
 }
 ```
 

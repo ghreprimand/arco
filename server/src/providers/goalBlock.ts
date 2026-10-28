@@ -15,7 +15,7 @@
 //
 // Injected by every transport that already folds `clusterPlan`: Claude Native
 // (buildSystemBlocks, immediately after FORCED_FIRST_BLOCK and before the
-// cluster plan), CLI Claude / both Codex / Z.ai native (appendSystemPrompt
+// cluster plan), CLI Claude / both Codex native (appendSystemPrompt
 // fold), Ollama/llama.cpp (buildLocalClusterSystemPrompt). Operator-only to
 // write, model read-only — there is NO model tool that mutates it.
 

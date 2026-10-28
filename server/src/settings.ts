@@ -29,7 +29,7 @@ const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASE
 const PROJECT_SETTINGS_DIRNAME = '.arco';
 const PROJECT_SETTINGS_BASENAME = 'settings.json';
 
-const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex', 'zai', 'antigravity', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex', 'antigravity', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
 function defaults(): ArcoSettings {
@@ -39,7 +39,7 @@ function defaults(): ArcoSettings {
     codex: { transport: 'appserver' },
     claude: { transport: 'native' },
     uiScale: DEFAULT_UI_SCALE,
-    enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, zai: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
+    enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
 
@@ -58,7 +58,9 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
   if (typeof provider === 'string' && (ALL_PROVIDERS as string[]).includes(provider)) {
     out.primaryProvider = provider as ProviderName;
   }
-  if (typeof model === 'string' && model.length > 0) {
+  // A removed provider's model must not become another provider's default.
+  const unsupportedProvider = typeof provider === 'string' && !(ALL_PROVIDERS as string[]).includes(provider);
+  if (!unsupportedProvider && typeof model === 'string' && model.length > 0) {
     out.primaryModel = model as WorkflowDefaults['primaryModel'];
   }
   if (typeof effort === 'string' && (EFFORT_LEVELS as string[]).includes(effort)) {
@@ -82,9 +84,7 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
   } else if (r.outputStyle === 'caveman') {
     out.outputStyle = 'terse';
   }
-  if (r.zaiTransport === 'native' || r.zaiTransport === 'appserver') {
-    out.zaiTransport = r.zaiTransport;
-  }
+
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -342,14 +342,6 @@ function sanitizeCodexConfig(raw: unknown): { transport?: 'exec' | 'appserver'; 
   // truthy-but-non-boolean reads as undefined (next appserver enable shows
   // the warning).
   if (typeof r.appserverWarningSeen === 'boolean') out.appserverWarningSeen = r.appserverWarningSeen;
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function sanitizeZaiConfig(raw: unknown): { transport?: 'native' | 'appserver' } | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Record<string, unknown>;
-  const out: { transport?: 'native' | 'appserver' } = {};
-  if (r.transport === 'native' || r.transport === 'appserver') out.transport = r.transport;
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
@@ -651,8 +643,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   result.claude = { ...base.claude, ...claude };
   const codex = sanitizeCodexConfig(partial.codex);
   result.codex = { ...base.codex, ...codex };
-  const zai = sanitizeZaiConfig(partial.zai);
-  if (zai) result.zai = zai;
+
   const autoHandoffDefaults = sanitizeAutoHandoffDefaults(partial.autoHandoffDefaults);
   if (autoHandoffDefaults) result.autoHandoffDefaults = autoHandoffDefaults;
   const claudeNativeCompactDefault = sanitizeClaudeNativeCompactDefault(partial.claudeNativeCompactDefault);

@@ -13,8 +13,8 @@ limited tool set inside a project Agent, not a Chat tab.
 
 | Mode | Providers | Local persistence | Reopen |
 |---|---|---|---|
-| Saved Chat | Claude, Codex, Z.ai, Cursor, Ollama, llama.cpp, LM Studio, Strata | Arco event/meta files and provider session storage where supported | + NEW → CHAT → PAST CHATS |
-| Incognito Chat | Claude, Codex, Z.ai, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
+| Saved Chat | Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata | Arco event/meta files and provider session storage where supported | + NEW -> CHAT -> PAST CHATS |
+| Incognito Chat | Claude, Codex, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
 
 Gemini and Antigravity are Agent-only: the creator filters them and the server
 rejects a crafted request. Provider enabled/auth/model availability gates also
@@ -97,9 +97,8 @@ every transport (`server/src/providers/attachments.ts` for the newer ones):
 | LM Studio | OpenAI `image_url` parts (the backend rejects/ignores them on a non-vision model) |
 | Cursor (Chat → `print`) | path reference + `--add-dir <upload dir>`; `--mode ask`'s read tool opens the image (verified with a live turn) |
 | Cursor (Agent → ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image` (cursor-agent 2026.09 does); path reference otherwise |
-| Z.ai | path reference + a `system_notice` — every catalog GLM is text-only, so the image is not seen |
 
-Before 2026-09-25 Cursor and Z.ai (and Gemini on Agent tabs) dropped attachments
+Before 2026-09-25 Cursor (and Gemini on Agent tabs) dropped attachments
 outright. Most chats have no file tools, so a model that only receives a path
 reference cannot open it — Cursor's ask mode is the exception.
 
@@ -140,7 +139,7 @@ implements an identical security sandbox.
 Incognito additionally suppresses Arco transcript/meta/index writes, operational
 logs, notifications, hub reporting, worker PID registration and browser-persisted
 chat/drafts. Claude CLI uses `--no-session-persistence` with its private framing on
-stdin; Codex is forced to `exec --ephemeral`, and Z.ai to Native, without
+stdin; Codex is forced to `exec --ephemeral` to Native, without
 overwriting global transport preferences. The only config edits an incognito
 chat accepts are `INCOGNITO_SAFE_CONFIG_FIELDS` (model / effort / chatWebAccess) —
 they choose what the next turn spawns and persist nothing. Never attach a real

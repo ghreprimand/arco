@@ -31,7 +31,7 @@ import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@arco/sha
 //   - STUB: Open summary (F2 — summaryRef is null → "no summary yet"); Reference
 //     in current tab (D1 context-refs — DEFERRED, disabled with a TODO tooltip).
 
-const PROVIDERS: ProviderName[] = ['claude', 'codex', 'zai', 'gemini', 'ollama', 'llamacpp', 'antigravity'];
+const PROVIDERS: ProviderName[] = ['claude', 'codex', 'gemini', 'ollama', 'llamacpp', 'antigravity'];
 
 interface Props {
   onClose: () => void;

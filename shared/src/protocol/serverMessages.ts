@@ -1354,27 +1354,10 @@ export interface LeafMoveMessage {
   reconstructed?: boolean;
 }
 
-export interface ZaiNativeHistoryMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
-  reasoning_content?: string;
-  tool_calls?: Array<{
-    id: string;
-    type: 'function';
-    function: { name: string; arguments: string };
-  }>;
-  tool_call_id?: string;
-}
 
 // docs/PROVIDERS.md - provider-protocol history checkpoint. Hidden from chat
 // rendering, load-bearing for native replay: exact assistant reasoning_content,
 // tool calls, and tool results survive server restart.
-export interface ZaiNativeHistoryMessageEvent {
-  type: 'zai_native_history';
-  workflowId: string;
-  messages: ZaiNativeHistoryMessage[];
-  reset?: 'handoff' | 'compact';
-}
 
 // Every workflow-scoped ServerMessage broadcast is also appended to
 // events.jsonl with a monotonic `seq` the server stamps onto the wire payload
@@ -1536,7 +1519,6 @@ export type ServerMessage =
   | TaskStartedMessage
   | TaskStatusMessage
   | BranchSummaryMessage
-  | ZaiNativeHistoryMessageEvent
   | ClusterStateMessage
   | ClusterNotFoundMessage
   | ClusterCreatedMessage

@@ -291,29 +291,6 @@ export const settingsHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'provider-codex',
   },
-  'settings.zai-api-key': {
-    title: 'Z.ai API key',
-    body: (
-      <>
-        <p>
-          API key for the Z.ai GLM provider (Arco&apos;s 8th provider) —
-          1M-context GLM models served on either zai transport: <C>native</C>{' '}
-          (a direct Chat Completions worker) or <C>appserver</C> (the Codex
-          app-server path behind a loopback Responses proxy). Stored as{' '}
-          <C>ZAI_API_KEY</C>; the STATUS line shows where the key
-          resolved from (<C>env</C> / <C>file</C> / <C>command</C> /{' '}
-          <C>env-ref</C>).
-        </p>
-        <p>
-          Supports config-value interpolation — paste a literal key, a{' '}
-          <C>!shell-command</C>, or a <C>${'{ENV_VAR}'}</C> reference.{' '}
-          <C>CLEAR</C> removes a file-stored key; an env-supplied key stays
-          active.
-        </p>
-      </>
-    ),
-    manualSection: 'provider-codex',
-  },
   'settings.claude-native-compact-default': {
     title: 'Claude Native compaction default',
     body: (

@@ -144,7 +144,7 @@ export const clusters: Section[] = [
           <li>
             Providers without a peer-tool path remain ineligible. The cluster
             member fence is{' '}
-            <strong>Claude / Codex / Z.ai / Ollama / llama.cpp / Cursor</strong>;
+            <strong>Claude / Codex / Ollama / llama.cpp / Cursor</strong>;
             Gemini, LM Studio, and Antigravity are not cluster members. Cursor
             is fresh-spawn membership only, wired via a loopback StreamableHTTP
             MCP server for peer tools.
@@ -953,7 +953,7 @@ export const clusters: Section[] = [
           title and <Code>updatedAt</Code>. It exists because the plan copy
           injected into a member&apos;s context each turn is no longer
           guaranteed to be the whole plan on string-form transports (CLI
-          Claude / Codex / Z.ai / Cursor): a plan bigger than the 16&nbsp;KB
+          Claude / Codex / Cursor): a plan bigger than the 16&nbsp;KB
           fold budget is delivered as a deterministic <em>outline</em> —
           headings and checkbox lines verbatim, prose dropped — so the role
           hint, mailbox notice, and other load-bearing blocks are never

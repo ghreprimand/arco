@@ -117,9 +117,6 @@ export interface WorkflowMeta {
   // docs/VOICE.md - this Chat is the Computer voice operator.
   voiceOperator?: boolean;
   computerContext?: import('@arco/shared').ComputerContextState;
-  // docs/PROVIDERS.md - native direct GLM transport by default; appserver is
-  // the legacy Codex app-server proxy fallback.
-  zaiTransport?: 'native' | 'appserver';
   // Phase 7c-followup — per-tab opt-in to Anthropic's server-managed
   // compaction (`compact_20260112`). Only meaningful when the tab is on
   // Native transport AND the active model exposes the capability.
@@ -165,7 +162,7 @@ export interface WorkflowMeta {
   reviewSafeMode?: 'off' | 'on';
   // docs/PROVIDERS.md - per-tab output-style picker.
   // `normal` (default), `lite`, `terse`. Persists across server restart;
-  // honored by Claude Native, Codex app-server, and Z.ai turns. Renamed
+  // honored by Claude Native, Codex app-server turns. Renamed
   // `caveman` → `terse` 2026-05-10; legacy `caveman` values are
   // auto-aliased to `terse` on the rehydrate path in handleCreateWorkflow.
   outputStyle?: 'normal' | 'lite' | 'terse' | 'caveman';
@@ -301,7 +298,6 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     ...(meta.claudeTransport ? { claudeTransport: meta.claudeTransport } : {}),
     ...(meta.codexTransport ? { codexTransport: meta.codexTransport } : {}),
     ...(meta.codexContextPolicy ? { codexContextPolicy: meta.codexContextPolicy } : {}),
-    ...(meta.zaiTransport ? { zaiTransport: meta.zaiTransport } : {}),
     ...(meta.ultracode === true ? { ultracode: true } : {}),
     // — behavior / steering —
     ...(meta.goal && meta.goal.trim() ? { goal: meta.goal } : {}),

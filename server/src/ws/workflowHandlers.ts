@@ -11,7 +11,7 @@ import type {
   PreviewHistoryEntry,
   WorkflowConfig,
 } from '@arco/shared';
-import { zaiModelContextWindow, classifyBranchSource } from '@arco/shared';
+import { classifyBranchSource } from '@arco/shared';
 import { disposeClaudeNativeWorker } from '../providers/claude-native/index.js';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
@@ -192,7 +192,6 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       ...(saved.computerContext ? { computerContext: saved.computerContext } : {}),
       ...(saved.ultracode === true ? { ultracode: true } : {}),
       ...(typeof saved.webSearchMaxUses === 'number' ? { webSearchMaxUses: saved.webSearchMaxUses } : {}),
-      ...(saved.zaiTransport ? { zaiTransport: saved.zaiTransport } : {}),
       ...(typeof restoredClaudeNativeCompact === 'boolean' ? { claudeNativeCompact: restoredClaudeNativeCompact } : {}),
       ...(saved.efficiencyToolFilter ? { efficiencyToolFilter: saved.efficiencyToolFilter } : {}),
       ...(saved.efficiencyFactForce ? { efficiencyFactForce: saved.efficiencyFactForce } : {}),
@@ -240,9 +239,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
   // §1). A persisted or UI-supplied explicit value still wins; otherwise the
   // global settings default seeds it, otherwise hardcoded false.
   applyClaudeNativeCompactDefault(config, seedCascade?.claudeNativeCompactDefault);
-  if (config.primaryProvider === 'zai' && config.zaiTransport === undefined && !config.resumeSessionId && !config.resumeWorkflowId) {
-    config.zaiTransport = seedCascade?.zai?.transport === 'appserver' ? 'appserver' : 'native';
-  }
+
 
   if (!config.resumeSessionId && !config.resumeWorkflowId) {
     // WP5 — seed the mode from the global default. Leave summarizer unseeded
@@ -324,9 +321,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       config.remoteGatesEnabled = false;
       // Computer uses thread/start ephemeral:true; ordinary private Chat stays exec.
       if (primary.provider === 'codex') config.codexTransport = config.voiceOperator ? 'appserver' : 'exec';
-      // Z.ai appserver is the same Codex app-server substrate and likewise
-      // cannot promise an ephemeral thread. Native keeps history in memory.
-      if (primary.provider === 'zai') config.zaiTransport = 'native';
+
     } else {
       try {
         config.workingDirectory = chatStorageDir(workflowId);
@@ -469,10 +464,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.claudeTransport = savedMeta.claudeTransport;
       }
-      if (savedMeta?.zaiTransport === 'native' || savedMeta?.zaiTransport === 'appserver') {
-        const wf = workflows.get(workflowId);
-        if (wf) wf.config.zaiTransport = savedMeta.zaiTransport;
-      }
+
       // Phase 7c-followup — restore Claude Native server-side compaction toggle.
       if (typeof savedMeta?.claudeNativeCompact === 'boolean') {
         const wf = workflows.get(workflowId);
@@ -640,7 +632,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     hints.priorClaudeSessionId = resumeSessionId;
     hints.priorSessionId = resumeSessionId;
     hints.priorProvider = 'claude';
-  } else if (resumeSessionId && (primary.provider === 'codex' || primary.provider === 'zai')) {
+  } else if (resumeSessionId && (primary.provider === 'codex')) {
     hints.resumedVia = 'native';
     hints.hydrationSource = 'transcript';
     hints.priorSessionId = resumeSessionId;
@@ -732,15 +724,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       if (est && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est }));
       }
-    } else if (prov === 'zai' && mod && typeof resumeLatestLastPromptTokens === 'number' && resumeLatestLastPromptTokens > 0) {
-      // Z.ai Native has the same no-rollout shape as Claude Native. Rehydrate
-      // the CTX footer from the persisted final-round prompt size instead of
-      // leaving the client on stale aggregate token totals from older turns.
-      const est = promptContextEstimate(resumeLatestLastPromptTokens, zaiModelContextWindow(mod));
-      if (est && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est }));
-      }
-    }
+    } else
 
     // Re-emit plan_attached so a fresh client (no prior events.jsonl context)
     // sees the active plan immediately rather than waiting for the next attach.
@@ -2194,7 +2178,7 @@ export async function handleDocEditRequest(
 // FENCE: same posture as handleDocEditRequest — the agent never writes the
 // file; it proposes, the operator approves, the write is backed up + reversible.
 function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' | 'GEMINI.md' {
-  if (provider === 'codex' || provider === 'zai') return 'AGENTS.md';
+  if (provider === 'codex') return 'AGENTS.md';
   if (provider === 'gemini') return 'GEMINI.md';
   // Claude + local providers (ollama/llamacpp/lmstudio/antigravity) → CLAUDE.md.
   return 'CLAUDE.md';

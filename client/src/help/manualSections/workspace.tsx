@@ -49,10 +49,10 @@ export const workspace: Section[] = [
           <li>
             <strong>Live-status dots</strong> — when at least one provider is
             authed, a compact dot per provider (<Code>C</Code> Claude,{' '}
-            <Code>G</Code> Gemini, <Code>X</Code> Codex, <Code>Z</Code> Z.ai,{' '}
+            <Code>G</Code> Gemini, <Code>X</Code> Codex,{' '}
             <Code>R</Code> Cursor, <Code>O</Code> Ollama): green ● live, hollow ○
             idle, red ● down. Hover a dot for its usage detail — Claude&apos;s
-            5-hour and weekly burn (polled every 3 minutes), Codex and Z.ai usage,
+            5-hour and weekly burn (polled every 3 minutes), Codex usage,
             Cursor&apos;s included-plan and Other Models bars, or Ollama&apos;s
             loaded models.
           </li>
@@ -322,7 +322,7 @@ export const workspace: Section[] = [
           <li>
             A <Code>COMPACT</Code> button — summarizes the conversation in place
             and continues with a smaller prompt; same idea as Claude Code's{' '}
-            <Code>/compact</Code>. (Claude Native, Codex app-server, Z.ai, and
+            <Code>/compact</Code>. (Claude Native, Codex app-server, and
             Ollama, each via their native compaction path.)
           </li>
           <li>

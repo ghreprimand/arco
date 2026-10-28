@@ -31,7 +31,6 @@ savePreset as saveClusterPreset,
 } from '../clusterPresets.js';
 import { getCodexUsage,launchCodexUsageLogin } from '../codexUsage.js';
 import { getCursorUsage } from '../cursorUsage.js';
-import { getZaiUsage } from '../zai.js';
 import {
 deleteTemplate,
 listTemplates,
@@ -65,7 +64,6 @@ import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
 import { resolveProviderAccount, ensureCodexAccountHome } from '../providerAccounts.js';
 import { getCatalog as getGeminiNativeCatalog } from '../providers/gemini-native/catalog.js';
 import { getCursorCatalog } from '../providers/cursor/catalog.js';
-import { clearZaiApiKey, saveZaiApiKey, zaiApiKeyStatus } from '../providerSecrets.js';
 import { probeLlamacppLive } from '../providers/llamacpp.js';
 import { llamacppManager } from '../providers/llamacppManager.js';
 import { probeOllamaLive, aggregateOllamaPs, unloadOllamaModel } from '../providers/ollama.js';
@@ -1702,7 +1700,6 @@ export async function handleHttpRequest(
         : raw === 'github' ? 'github'
         : raw === 'ollama' ? 'ollama'
         : raw === 'codex' ? 'codex'
-        : raw === 'zai' ? 'zai'
         : raw === 'cursor' ? 'cursor'
         : 'claude';
       const account = url.searchParams.get('account') || undefined;
@@ -1722,52 +1719,11 @@ export async function handleHttpRequest(
     return;
   }
 
-  if (req.url === '/api/zai-key' && req.method === 'GET') {
-    try {
-      const status = await zaiApiKeyStatus();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(status));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: message }));
-    }
-    return;
-  }
 
-  if (req.url === '/api/zai-key' && req.method === 'POST') {
-    try {
-      let body = '';
-      for await (const chunk of req) body += chunk;
-      const parsed = JSON.parse(body || '{}') as { apiKey?: string };
-      if (typeof parsed.apiKey !== 'string') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'expected { apiKey: string }' }));
-        return;
-      }
-      const status = await saveZaiApiKey(parsed.apiKey);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(status));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: message }));
-    }
-    return;
-  }
 
-  if (req.url === '/api/zai-key' && req.method === 'DELETE') {
-    try {
-      const status = await clearZaiApiKey();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(status));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: message }));
-    }
-    return;
-  }
+
+
+
 
   if (await tryHandleGithubRoutes(req, res)) return;
 
@@ -1992,13 +1948,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  if (req.url?.startsWith('/api/zai-usage') && req.method === 'GET') {
-    const force = new URL(req.url, `http://localhost:${PORT}`).searchParams.get('force') === '1';
-    const usage = await getZaiUsage(force);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(usage));
-    return;
-  }
+
 
   if (req.url?.startsWith('/api/file-content') && req.method === 'GET') {
     try {

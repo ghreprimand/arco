@@ -153,10 +153,6 @@ export interface CancelMessage {
 }
 
 // Operator-triggered in-place compaction. Provider-routed: Claude Native and
-// Z.ai Native run one Arco-owned summarization round and replace retained
-// native history with a summary seed; Codex app-server and Z.ai appserver
-// fallback fire `thread/compact/start` against the live Codex thread. Far
-// cheaper than a handoff: same tab, no portable doc, no fresh worker.
 export interface CompactWorkflowMessage {
   type: 'compact_workflow';
   workflowId: string;
@@ -318,9 +314,6 @@ export interface UpdatePrimaryConfigMessage {
   // Chat-only web-access toggle (WorkflowConfig.chatWebAccess). Persists to
   // meta.json for saved chats; incognito chats hold it in memory only.
   chatWebAccess?: boolean;
-  // Z.ai transport selector. 'native' calls Z.ai Chat Completions directly;
-  // 'appserver' keeps the legacy Codex app-server proxy path.
-  zaiTransport?: 'native' | 'appserver';
   // Phase 7c-followup — Claude Native server-side compaction toggle.
   // Persists to meta.json + WorkflowConfig.claudeNativeCompact. Missing
   // means default-on for Native tabs; explicit false disables it. The server

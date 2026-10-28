@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
-import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo, ZaiUsageInfo, ZaiUsageWindow } from '@arco/shared';
+import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
 
 interface Props {
   usage: UsageInfo | null;
@@ -19,14 +19,12 @@ export function UsageBar({ usage }: Props) {
   const authStatus = useAppStore((s) => s.authStatus);
   const codexUsage = useAppStore((s) => s.codexUsage);
   const cursorUsage = useAppStore((s) => s.cursorUsage);
-  const zaiUsage = useAppStore((s) => s.zaiUsage);
   const ollamaLive = useAppStore((s) => s.ollamaLive);
   const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
   const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
   const claudeAuthed = authStatus?.claude.loggedIn ?? false;
   const geminiAuthed = authStatus?.gemini.loggedIn ?? false;
   const codexAuthed = authStatus?.codex.loggedIn ?? false;
-  const zaiAuthed = authStatus?.zai.loggedIn ?? false;
   const cursorAuthed = authStatus?.cursor?.loggedIn ?? false;
   // Ollama dot appears whenever the provider is enabled — even if the daemon is
   // down — so the operator sees a clear red DOWN dot rather than it vanishing.
@@ -40,7 +38,6 @@ export function UsageBar({ usage }: Props) {
         <GeminiStatus tooltip="Gemini — LIVE. The CLI exposes no usage/quota endpoint for personal accounts, so live status only." />
       )}
       {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
-      {isProviderEnabled('zai') && zaiAuthed && <ZaiStatus usage={zaiUsage} />}
       {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
       {ollamaShown && <OllamaStatus daemonUp={ollamaDaemonUp} live={ollamaLive} />}
     </div>
@@ -97,13 +94,12 @@ function GeminiStatus({ tooltip }: { tooltip: string }) {
 
 const CODEX_ANALYTICS_URL = 'https://chatgpt.com/settings/usage?tab=overview';
 const CLAUDE_USAGE_URL = 'https://claude.ai/new#settings/usage';
-const ZAI_USAGE_URL = 'https://z.ai/manage-apikey/coding-plan/personal/usage';
 const CURSOR_USAGE_URL = 'https://cursor.com/dashboard?tab=usage';
 
 // Cursor dot — LIVE when logged in. The ACP stream carries no per-turn token
 // counts, so the hover card shows the POLLED month-to-date snapshot (same
 // `cursorUsage` the Usage-tab card reads), not a live-per-turn meter. Click →
-// dashboard. Mirrors CodexStatus / ZaiStatus.
+// dashboard. Mirrors CodexStatus.
 function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
   const [open, setOpen] = useState(false);
   const cents = usage?.chargedCents ?? 0;
@@ -352,66 +348,6 @@ function parseCodexUsageValue(value: string): { usedPercent: number; resetText?:
     usedPercent: Math.max(0, Math.min(100, Number.isFinite(raw) ? raw : 0)),
     ...(reset ? { resetText: `resets ${reset}` } : {}),
   };
-}
-
-function ZaiStatus({ usage }: { usage: ZaiUsageInfo | null }) {
-  const [open, setOpen] = useState(false);
-  const primary = usage?.windows?.[0];
-  const title = primary
-    ? `Z.ai — LIVE · ${primary.percentageUsed.toFixed(0)}% ${primary.label.toLowerCase()} used (hover for usage, click for dashboard)`
-    : 'Z.ai — LIVE (hover for usage)';
-  return (
-    <div
-      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
-      <StatusDot letter="Z" state="live" title={title} href={ZAI_USAGE_URL} />
-      {open && (
-        <div
-          role="tooltip"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
-            minWidth: '340px',
-            padding: '10px 14px',
-            background: 'var(--color-bg-panel)',
-            border: '1px solid var(--color-border-hairline)',
-            borderRadius: '4px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-            fontFamily: 'var(--font-content)',
-            zIndex: 30,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', lineHeight: 1.45 }}>
-            {usage?.available && usage.windows.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {usage.windows.slice(0, 2).map((window) => <ZaiUsageCard key={`${window.type}:${window.unit}:${window.number}`} window={window} />)}
-              </div>
-            ) : (
-              <span style={{ color: 'var(--color-fg-muted)' }}>
-                {usage?.error ?? 'Z.ai usage has not loaded yet.'}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ZaiUsageCard({ window }: { window: ZaiUsageWindow }) {
-  const label = window.type === 'session' || window.label.toLowerCase().startsWith('5 hour') ? 'Session' : 'Weekly';
-  return (
-    <UsageRow
-      label={label}
-      util={window.percentageUsed}
-      resetsAt={window.resetAt}
-    />
-  );
 }
 
 // Claude's dot opens session + weekly utilization bars with reset times on

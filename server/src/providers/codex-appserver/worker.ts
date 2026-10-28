@@ -37,13 +37,12 @@ import { getCachedCodexModelCapabilities } from './catalog.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../../workers/limits.js';
 import { buildCodexMcpOverrides, buildVoiceMcpOverrides } from '../../mcp/mcpConfigWriter.js';
 import { VOICE_OPERATOR_PROMPT } from '../../voice/operatorPrompt.js';
-import { getZaiResponsesProxyBaseUrl } from '../zaiResponsesProxy.js';
 import { codexContextWindowOverride } from '../codexContextWindow.js';
 import { outputStyleAddendum } from '../outputStyle.js';
 import { goalBlock } from '../goalBlock.js';
 import { awaitModelImage } from '../attachments.js';
 import { codexClusterDeveloperInstructions } from '../codexCodeMode.js';
-import { zaiModelContextWindow, type ProviderName, type SteerItem, type WorkerConfig } from '@arco/shared';
+import { type ProviderName, type SteerItem, type WorkerConfig } from '@arco/shared';
 import type { InitializeResponse } from './bindings/InitializeResponse.js';
 import type { ThreadStartParams } from './bindings/v2/ThreadStartParams.js';
 import type { ThreadStartResponse } from './bindings/v2/ThreadStartResponse.js';
@@ -109,12 +108,6 @@ type CompactOutcome = 'completed' | 'transport-ended' | 'timeout' | 'request-fai
 // transient capacity miss to a provider-wide 30-minute quota state made the
 // header lie and stopped operator-armed Goal Runs unnecessarily.
 const CODEX_COOLDOWN_MS = 30 * 60 * 1000;
-const ZAI_APP_SERVER_COOLDOWN_MS = 2 * 60 * 1000;
-
-const ZAI_TOOL_CADENCE_ADDENDUM = [
-  '## Z.ai tool cadence',
-  'Z.ai may rate-limit rapid model/tool/model loops even when subscription quota remains. Batch related reads, searches, and shell commands before returning to the model. Prefer fewer, broader tool rounds over many small exploratory calls. Do not send peer/cluster updates unless they materially change coordination.',
-].join('\n');
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
@@ -142,7 +135,7 @@ export function computeMcpSignature(
 // Interaction mode + effective web_search are baked in at thread start/resume
 // (spawn-time `mcp_servers={}` and the thread `config.web_search`); turn/start
 // can't change them. Without this in the signature, turning a Chat tab's WEB
-// chip off left web search live on the running Codex / Z.ai app-server child.
+// chip off left web search live on the running Codex app-server child.
 export function bootstrapSurfaceKey(config: WorkerConfig): string {
   return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}`;
 }
@@ -210,8 +203,8 @@ function mapSandbox(config: WorkerConfig): SandboxMode {
     ?? (config.skipPermissions ? 'danger-full-access' : 'workspace-write');
 }
 
-function appServerProvider(config: WorkerConfig): 'codex' | 'zai' {
-  return config.provider === 'zai' ? 'zai' : 'codex';
+function appServerProvider(config: WorkerConfig): 'codex' {
+  return 'codex';
 }
 
 function appServerNoticeTag(config: WorkerConfig): string {
@@ -226,27 +219,10 @@ function webSearchMode(config: WorkerConfig): 'live' | 'disabled' {
 }
 
 export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<Record<string, JsonValue>> {
-  if (config.provider !== 'zai') {
-    const contextWindow = codexContextWindowOverride(config);
-    return {
-      web_search: webSearchMode(config),
-      ...(contextWindow ? { model_context_window: contextWindow } : {}),
-    };
-  }
-  const baseUrl = await getZaiResponsesProxyBaseUrl();
-  const contextWindow = zaiModelContextWindow(config.model);
+  const contextWindow = codexContextWindowOverride(config);
   return {
     web_search: webSearchMode(config),
-    model_context_window: contextWindow,
-    model_auto_compact_token_limit: Math.floor(contextWindow * 0.9),
-    model_provider: 'zai',
-    model_providers: {
-      zai: {
-        name: 'Z.ai Coding Plan via Arco Responses Proxy',
-        base_url: baseUrl,
-        wire_api: 'responses',
-      },
-    },
+    ...(contextWindow ? { model_context_window: contextWindow } : {}),
   };
 }
 
@@ -267,7 +243,7 @@ export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<
 // shape that Codex's prefix cache already exploits.
 function buildTurnInput(
   prompt: string,
-  provider: Extract<ProviderName, 'codex' | 'zai'>,
+  provider: Extract<ProviderName, 'codex'>,
   appendSystemPrompt: string | undefined,
   outputStyle: WorkerConfig['outputStyle'] | undefined,
   goal: string | undefined,
@@ -278,7 +254,7 @@ function buildTurnInput(
     ? `${prompt}\n\n${attachmentNonImages.map((p) => `[attached file: ${p}]`).join('\n')}`
     : prompt;
   const styleText = outputStyleAddendum(outputStyle);
-  const providerText = provider === 'zai' ? ZAI_TOOL_CADENCE_ADDENDUM : null;
+  const providerText = null;
   // docs/GOTCHAS.md - north-star at the TOP of the byte-stable prefix
   // (broad framing first). Covers operator turns AND primitive seeds. Blank ⇒ omitted.
   const northStarBlock = goalBlock(goal);
@@ -340,7 +316,7 @@ export interface ToolUseEvent {
   name: string;
   input: string;
   status: 'started' | 'completed' | 'failed';
-  provider: Extract<ProviderName, 'codex' | 'zai'>;
+  provider: Extract<ProviderName, 'codex'>;
   itemType: string;
   itemId: string;
   output?: string;
@@ -628,7 +604,7 @@ export class CodexAppServerWorker extends EventEmitter {
           history: null,
           path: null,
           model: this.config.model,
-          modelProvider: this.config.provider === 'zai' ? 'zai' : null,
+          modelProvider: null,
           serviceTier: null,
           cwd: this.config.cwd ?? null,
           approvalPolicy: 'never',
@@ -647,7 +623,7 @@ export class CodexAppServerWorker extends EventEmitter {
       } else {
         const params: ThreadStartParams = {
           model: this.config.model,
-          modelProvider: this.config.provider === 'zai' ? 'zai' : null,
+          modelProvider: null,
           serviceTier: null,
           cwd: this.config.cwd ?? null,
           approvalPolicy: 'never',
@@ -1505,9 +1481,7 @@ export class CodexAppServerWorker extends EventEmitter {
     const usageSnapshot = this.lastTokenUsage?.turnId === p.turn.id ? this.lastTokenUsage : null;
     const usage = usageSnapshot?.tokenUsage.last;
     const total = usageSnapshot?.tokenUsage.total;
-    const modelContextWindow = this.config.provider === 'zai'
-      ? zaiModelContextWindow(this.config.model)
-      : this.resolvedContextWindow;
+    const modelContextWindow = this.resolvedContextWindow;
     const result: TurnSettleData = {
       text: this.current.fullText,
       costUsd: 0,
@@ -1574,7 +1548,7 @@ export class CodexAppServerWorker extends EventEmitter {
   private applyCodexErrorInfo(info: CodexErrorInfo, fallbackMsg: string): void {
     if (isCodexQuotaInfo(info, fallbackMsg)) {
       const provider = appServerProvider(this.config);
-      const cooldown = provider === 'zai' ? ZAI_APP_SERVER_COOLDOWN_MS : CODEX_COOLDOWN_MS;
+      const cooldown = CODEX_COOLDOWN_MS;
       markThrottled(provider, fallbackMsg.slice(0, 500), Date.now() + cooldown);
       return;
     }

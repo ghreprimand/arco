@@ -50,7 +50,7 @@ import { useTabSingleton } from './hooks/useTabSingleton';
 import { useTensionDriver } from './hooks/useTension';
 import { installThemeScramble } from './utils/themeScramble';
 import { useAppStore } from './stores/appStore';
-import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, ZaiUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
+import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
 import { RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
 
 const HISTORY_RETRY_MS = 15_000;
@@ -97,7 +97,6 @@ function AppBody() {
   const setUsage = useAppStore((s) => s.setUsage);
   const setCodexUsage = useAppStore((s) => s.setCodexUsage);
   const setCursorUsage = useAppStore((s) => s.setCursorUsage);
-  const setZaiUsage = useAppStore((s) => s.setZaiUsage);
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
   const setOllamaLive = useAppStore((s) => s.setOllamaLive);
@@ -224,8 +223,6 @@ function AppBody() {
   const ollamaDaemonUp = authStatus?.ollama?.loggedIn ?? false;
   const codexEnabled = settings?.enabledProviders?.codex !== false;
   const codexLoggedIn = authStatus?.codex?.loggedIn ?? false;
-  const zaiEnabled = settings?.enabledProviders?.zai !== false;
-  const zaiLoggedIn = authStatus?.zai?.loggedIn ?? false;
   const cursorEnabled = settings?.enabledProviders?.cursor !== false;
   const cursorLoggedIn = authStatus?.cursor?.loggedIn ?? false;
   useEffect(() => {
@@ -394,28 +391,6 @@ function AppBody() {
     const id = setInterval(load, USAGE_POLL_MS);
     return () => clearInterval(id);
   }, [codexEnabled, codexLoggedIn, setCodexUsage]);
-
-  useEffect(() => {
-    if (!zaiEnabled || !zaiLoggedIn) {
-      setZaiUsage({
-        available: false,
-        fetchedAt: Date.now(),
-        source: 'disabled',
-        windows: [],
-        error: zaiEnabled ? 'Z.ai is not authenticated.' : 'Z.ai provider is disabled.',
-      });
-      return;
-    }
-    const load = () => {
-      fetch('/api/zai-usage')
-        .then((r) => r.json() as Promise<ZaiUsageInfo>)
-        .then(setZaiUsage)
-        .catch(() => { /* leave previous value */ });
-    };
-    load();
-    const id = setInterval(load, USAGE_POLL_MS);
-    return () => clearInterval(id);
-  }, [zaiEnabled, zaiLoggedIn, setZaiUsage]);
 
   // Cursor usage is POLLED from the authed dashboard API (ACP carries no
   // per-turn tokens), so — unlike the other providers — it never flows through

@@ -12,7 +12,7 @@ Arco/
     protocol.ts                  # shim that re-exports the protocol/ directory
   server/src/
     index.ts                     # HTTP + WS server, workflow state machine
-    providers/                   # claude / claude-native/ / codex / codex-appserver/ / zai-native/ /
+    providers/                   # claude / claude-native/ / codex / codex-appserver/ /
                                  #   cursor/ / gemini (+ gemini-native/ stub) / ollama / llamacpp
                                  #   (+ Manager) / lmstudio / antigravity, plus goalBlock,
                                  #   outputStyle, codexCodeMode, ragInjection, fallbackChain,

@@ -1,3 +1,4 @@
+import { PRIMARY_PROVIDERS } from '@arco/shared';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { receiveComputerActivityChanged } from '../voice/activity';
 import { useComputerStore } from '../stores/computerStore';
@@ -164,8 +165,6 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
       }
 
       switch (msg.type) {
-        case 'zai_native_history':
-          break;
         case 'hub_link_status': {
           useHubLinkStore.getState().setStatus({ connected: msg.connected, hubUrl: msg.hubUrl, monitoredCount: msg.monitoredCount, connectedSince: msg.connectedSince });
           break;
@@ -1096,12 +1095,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'primary_thinking':
+          // Old unsupported-provider reasoning remains hidden during replay.
+          if (store.jobs[msg.workflowId] && !PRIMARY_PROVIDERS.includes(store.jobs[msg.workflowId].config.primaryProvider ?? 'claude')) break;
           // §C1 — thinking deltas are primary signal; refresh the stuck clock.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
-          // Z.ai Native's reasoning_content is hidden provider state. Older
-          // builds briefly persisted it as primary_thinking; ignore those on
-          // replay so Activity does not expose/flood hidden GLM reasoning.
-          if (store.jobs[msg.workflowId]?.config.primaryProvider === 'zai') break;
+
           store.appendActivity(msg.workflowId, {
             id: crypto.randomUUID(),
             kind: 'thinking',

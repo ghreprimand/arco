@@ -13,7 +13,7 @@ export function codexQuota(snapshot: CodexUsageInfo | null) {
     }) };
 }
 export async function readVoiceUsage(provider = 'all') {
-  if (!['all', 'codex', 'claude', 'cursor', 'zai'].includes(provider)) throw Error('Unknown quota provider.');
+
   let s = useAppStore.getState();
   // Existing cached endpoint only. Never force a scrape or open a login window.
   if ((provider === 'codex' || provider === 'all') && (!s.codexUsage || Date.now() - s.codexUsage.fetchedAt > 60_000)) {
@@ -25,8 +25,7 @@ export async function readVoiceUsage(provider = 'all') {
   s = useAppStore.getState();
   const data = { codex: codexQuota(s.codexUsage), claude: s.usage ?? { available: false, error: 'No Claude quota snapshot.' },
     cursor: s.cursorUsage ? { available: s.cursorUsage.available, fetchedAt: s.cursorUsage.fetchedAt, included: s.cursorUsage.included,
-      summary: s.cursorUsage.summary, error: s.cursorUsage.error } : { available: false },
-    zai: s.zaiUsage ?? { available: false } };
+      summary: s.cursorUsage.summary, error: s.cursorUsage.error } : { available: false },};
   return JSON.stringify({ quota: provider === 'all' ? data : { [provider]: data[provider as keyof typeof data] },
     throttling: s.quotaState, note: 'Quota windows are subscription utilization. Throttling is separate. Never infer percentages from tokens or missing data.' });
 }

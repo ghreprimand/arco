@@ -125,14 +125,6 @@ export const PROVIDER_THEMES: Record<ProviderName, Theme> = {
     secondary: '#9a9aa8', secondaryRgb: [154, 154, 168], secondaryDim: '#70707e', secondaryBright: '#c2c2d0',
     danger: '#ef4444', warning: '#e0b341', warningDim: '#94762c', success: '#19c37d',
   }),
-  zai: buildProviderTheme({
-    id: 'provider-zai', name: 'Z.ai', description: 'Z.ai GLM — graphite and electric cyan',
-    bg: '#17191b', panel: 'rgba(34, 37, 40, 0.95)', input: 'rgba(22, 24, 26, 0.97)', elevated: 'rgba(44, 48, 52, 0.96)',
-    fg: '#e9edf0', fgRgb: [233, 237, 240], fgMuted: 0.54,
-    primary: '#35c7d8', primaryRgb: [53, 199, 216], primaryDim: '#248996', primaryTint: '#0e3035',
-    secondary: '#9aa7b1', secondaryRgb: [154, 167, 177], secondaryDim: '#71808a', secondaryBright: '#c0cbd3',
-    danger: '#ef5350', warning: '#dfb64a', warningDim: '#927833', success: '#54c38c',
-  }),
   gemini: buildProviderTheme({
     id: 'provider-gemini', name: 'Gemini', description: 'Google — signal blue and violet',
     bg: '#1b1c1f', panel: 'rgba(38, 39, 43, 0.95)', input: 'rgba(27, 28, 31, 0.97)', elevated: 'rgba(48, 50, 55, 0.96)',

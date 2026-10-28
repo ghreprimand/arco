@@ -15,13 +15,13 @@ import { registerPrivateLogToken, shouldSuppressOperationalLog, withoutOperation
 test('chat support excludes Gemini and Antigravity', () => {
   assert.equal(CHAT_PROVIDERS.has('gemini'), false);
   assert.equal(CHAT_PROVIDERS.has('antigravity'), false);
-  for (const provider of ['claude', 'codex', 'zai', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata'] as const) {
+  for (const provider of ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata'] as const) {
     assert.equal(CHAT_PROVIDERS.has(provider), true, provider);
   }
   assert.equal(INCOGNITO_CHAT_PROVIDERS.has('strata'), false);
   assert.equal(INCOGNITO_CHAT_PROVIDERS.has('cursor'), false);
   assert.equal(INCOGNITO_CHAT_PROVIDERS.has('llamacpp'), false);
-  for (const provider of ['claude', 'codex', 'zai', 'ollama', 'lmstudio'] as const) {
+  for (const provider of ['claude', 'codex', 'ollama', 'lmstudio'] as const) {
     assert.equal(INCOGNITO_CHAT_PROVIDERS.has(provider), true, `incognito ${provider}`);
   }
 });
@@ -33,7 +33,7 @@ test('chat web access defaults on for saved chats, off for incognito and tool-le
   assert.equal(chatWebArmed(saved, 'ollama'), true);
   assert.equal(chatWebArmed(saved, 'strata'), true);
   // No web tool we can arm on these transports — never claim otherwise.
-  for (const provider of ['zai', 'cursor', 'llamacpp', 'lmstudio'] as const) {
+  for (const provider of [ 'cursor', 'llamacpp', 'lmstudio'] as const) {
     assert.equal(chatWebArmed(saved, provider), false, provider);
     assert.equal(CHAT_WEB_PROVIDERS.has(provider), false, provider);
   }

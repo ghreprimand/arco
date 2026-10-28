@@ -1,7 +1,7 @@
 // DD12 — config-value interpolation. Lets an operator store a secret / base URL
 // indirectly instead of pasting a literal:
 //   • `!cmd args…`  — run a command at resolve time, use its stdout (e.g.
-//                     `!op read op://vault/zai/key` for a 1Password-backed key).
+//                     `!op read op://vault/key` for a 1Password-backed key).
 //   • `${ENV_VAR}`  — expand a process env var (with `$$`→`$`, `$!`→`!` escapes
 //                     so a literal `$` or leading `!` can still be written).
 //   • anything else — a literal value, returned verbatim.

@@ -99,7 +99,7 @@ class Browser:
 
 h=SimpleNamespace(IsolatedServer=IsolatedServer,FakeModel=FakeModel,Browser=Browser,INSTRUMENT=INSTRUMENT,REPO=REPO,async_playwright=async_playwright)
 
-IDS=['claude','codex','gemini','cursor','zai','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github']
+IDS=['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github']
 
 class Server(h.IsolatedServer):
     def extra_env(self):
@@ -175,7 +175,7 @@ async def categories(playwright,server):
     b,page,state=await browser(playwright,server)
     try:
         dialog=await open_connections(page)
-        for label in ['Provider sign-in','API keys','Local models','Desktop integrations','Tool accounts']:
+        for label in ['Provider sign-in','Local models','Desktop integrations','Tool accounts']:
             assert await dialog.get_by_role('navigation').get_by_role('heading',name=label,exact=True).count()==1
         codex=await choose(dialog,'Codex')
         await codex.get_by_text('OpenAI API key reported active; API usage is billed separately.',exact=True).wait_for()

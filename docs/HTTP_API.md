@@ -403,7 +403,7 @@ Workbench Expansion A5. Content search over a workflow cwd via ripgrep. Backed b
 Workbench Expansion F1. The **machine-global, cross-cwd Recall index** - every workflow ever run, each with a non-blank title. Route: `server/src/http/recallRoutes.ts`; backed by the SQLite store `server/src/recall/index.ts` (`getRecallIndex.query`). Read-only deterministic projection of `meta.json` + `events.jsonl` - **no LLM**.
 
 - `project` - optional; filters to one project (a cwd basename).
-- `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `antigravity` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) predates `zai` and `cursor`, so filtering by either currently returns everything.
+- `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `antigravity` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) includes `cursor`; filtering by it currently returns everything.
 - Always answers **200** with `{ entries: RecallEntry[] }`, sorted `lastActiveAt` desc. An index read error degrades to `{ entries: [] }` (never a 500) so the client renders an empty Recall view, not an error.
 - `RecallEntry` (`shared/src/protocol/recall.ts`): `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef|null, tags[] }`. `summaryRef` populated once a summary exists; `tags`/`pinned`/links set via the F4 mutation routes below.
 
@@ -896,7 +896,7 @@ It does not read or restore snapshots.
 
 ### `POST /api/clusters`
 
-Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `zai` / `ollama` / `llamacpp` / `cursor` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider (e.g. `gemini`) with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
+Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `ollama` / `llamacpp` / `cursor` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider (e.g. `gemini`) with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
 
 **Body:**
 ```ts
@@ -1487,7 +1487,6 @@ Returns the per-provider auth snapshot:
 {
   claude: AuthStatus,
   codex: AuthStatus,
-  zai: AuthStatus,                  // Z.ai GLM Coding Plan - loggedIn = an API key is configured (see /api/zai-key)
   gemini: AuthStatus,
   ollama: AuthStatus,
   llamacpp: AuthStatus,
@@ -1518,35 +1517,23 @@ interface AuthStatus {
 
 `lmstudio` has no login - `getLmstudioAuthStatus` probes `${baseUrl}/v1/models` (base from the `settings.lmstudio.baseUrl` -> `LMSTUDIO_URL_BASE` -> `localhost:1234/v1` cascade) and reports `loggedIn` = reachable, `installedModels` from the probe. `settings.lmstudio.baseUrl` is patched through `POST /api/settings` like any other settings field (no dedicated endpoint, same as the Ollama `backends[]` note above).
 
-`zai` has no OAuth - `getZaiAuthStatus` reports `loggedIn` = a Z.ai API key is configured (env `ZAI_API_KEY` or the stored secret; see `POST /api/zai-key`), `subscriptionType` `'GLM Coding Plan'` (`... (env key)` when sourced from the environment), `apiProvider` `zai:<coding-base-url>` (the hard-coded Coding Plan endpoint), and `installedModels` the GLM model list.
 
 Polled every 2 minutes by the client.
 
 ### `POST /api/auth-login?provider=<name>`
 
-Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `gemini` / `github` / `ollama` / `codex` / `zai` / `cursor`, defaulting any other value (including `antigravity` / `lmstudio`) to `claude`. Provider-specific behavior (`triggerAuthLogin`):
+Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `gemini` / `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `antigravity` / `lmstudio`) to `claude`. Provider-specific behavior (`triggerAuthLogin`):
 
 - **Claude** - spawns `claude auth login --claudeai` detached; returns immediately (`started: true`) and the operator completes browser OAuth.
 - **Codex** - opens a terminal with `codex login`. An optional `account` query selects a Codex account profile.
 - **Gemini** - opens a terminal that runs `gemini` (which drives the Google OAuth flow). Terminal selection via `findTerminal`: `TERMINAL` env var -> `konsole` -> `gnome-terminal` -> `kgx` -> `kitty` -> `alacritty`.
 - **Cursor** - opens a terminal with `cursor-agent login`. An expired long-lived ACP process is retired when its exact sign-in response is observed; the operator resends after completing OAuth and Arco starts a fresh process.
 - **GitHub** - opens a terminal with `gh auth login`.
-- **Z.ai** - no login flow; returns `started: false` + a `manual` hint pointing the operator at Settings -> AUTH -> Z.AI to paste an API key (the key path is `POST /api/zai-key`, not a terminal).
 - **Ollama** - no auth; returns `started: false` + a `manual` hint ("run `ollama serve` ..."). (Reachability is reported by `/api/auth-status`, not here.)
 
 When a terminal can't be found, or the systemd service has no desktop display env, the flow returns `started: false` with a `manual` string telling the operator the exact command to run by hand.
 
 **Response:** always `200` with `{ started: boolean, manual?: string }` - `started: true` = the OAuth flow launched (spawned / a terminal opened); `started: false` carries the `manual` fallback. (A truly unexpected throw is a `500 { error }`.)
-
-### `GET` / `POST` / `DELETE /api/zai-key`
-
-Z.ai (GLM Coding Plan) API-key config - the key the `zai` provider (Codex app-server path) and the `/api/zai-usage` probe authenticate with. The key is stored in `~/.arco/provider-secrets.json` (`0600`, atomic write) and is **never** returned to the client or logged - only a `{ configured, source }` status. Backed by `server/src/providerSecrets.ts`.
-
-- **`GET`** - `zaiApiKeyStatus`: `{ configured: boolean, source }` where `source` ∈ `env | file | command | env-ref | none`. `env` = `ZAI_API_KEY` in the process environment (overrides the file; the UI disables the input). DD12 adds the indirect FILE-stored forms `command` (a `!cmd` ref, e.g. `!op read ...`) and `env-ref` (`${ENV}`) - introspected **without** resolving (never spawns the command or reads the env value just to render a badge); `file` is a literal stored key; `none` = unconfigured.
-- **`POST`** - body `{ apiKey: string }`. Validated server-side (non-empty, no newlines, ≤ 4096 chars -> else `400`), written, and the fresh status returned. The raw value may itself be a DD12 `!cmd` / `${ENV}` ref (resolved on demand at use, never persisted in resolved form).
-- **`DELETE`** - clears the stored key; returns the post-clear status (which may still be `configured` if `ZAI_API_KEY` is set in the environment).
-
----
 
 ## Claude Native auth
 
@@ -1750,31 +1737,6 @@ Codex has no usage API, so this **scrapes** the ChatGPT usage settings page (`ht
 Launches a **headed** Camoufox window on the same profile so the operator can sign in to ChatGPT once; later `GET /api/codex-usage` scrapes reuse the session. Detached, one-shot.
 
 **Response:** `200 { started: true, profileDir, analyticsUrl }`; `500 { started: false, profileDir, analyticsUrl, error }` if the spawn failed.
-
-### `GET /api/zai-usage[?force=1]`
-
-Z.ai GLM Coding Plan quota snapshot. Probes Z.ai's monitor endpoint with the configured `/api/zai-key` (same key as the Coding Plan chat endpoint). Cached like the other usage probes; `?force=1` bypasses. Always **200** with `ZaiUsageInfo` (`shared/src/protocol/usage.ts`):
-
-```ts
-{
-  available: boolean,
-  fetchedAt: number,
-  source: 'monitor' | 'disabled' | 'unavailable' | 'error',
-  level?: string,                   // plan level when reported
-  windows: Array<{                  // per-quota-window usage bars
-    type: string,
-    label: string,
-    percentageUsed: number,
-    remainingPercentage: number,
-    resetAt: string | null,
-    unit?: number,
-    number?: number,
-  }>,
-  error?: string,
-}
-```
-
-`available: false` (with `source` carrying why) when no key is configured or the monitor endpoint is unreachable - never a 500 for those operator-visible conditions.
 
 ### `GET /api/cursor-usage[?force=1]`
 

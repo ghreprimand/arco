@@ -2,7 +2,7 @@
 
 WebSocket messages for cluster mode (parent cluster tab + member workflows + the peer-tool mailbox substrate). Split out of [`PROTOCOL.md`](PROTOCOL.md) (J2, doc-size). See [`GOTCHAS.md mode`](GOTCHAS.md) for cluster invariants. Conventions are defined in [`PROTOCOL.md`](PROTOCOL.md#conventions). Source of truth: [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts) (one of the per-domain files under `shared/src/protocol/`; the legacy flat `protocol.ts` is now a barrel shim).
 
-**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` arco-cluster MCP child on CLI; Codex and Z.ai (GLM via the Codex app-server loopback proxy) wire them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` - Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp - `zai` and `cursor` are remote API providers and are uncapped.
+**Member-provider fence (current).** Cluster membership is no longer Native-Claude-only. The supported set is `ClusterMemberProvider = 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor'` (`isClusterMemberProvider`). Claude wires peer tools in-process on Native and via a per-spawn `--mcp-config` arco-cluster MCP child on CLI; Codex wires them through their app-server MCP override; Cursor wires them through an in-process loopback StreamableHTTP MCP server (`clusterMcpLoopback.ts`) whose URL rides `session/new`/`session/load`'s `mcpServers` - Cursor ACP honors MCP over http/sse only, not stdio (fresh-only membership); the two local providers (ollama / llamacpp) use Arco's in-process tool runtime and are serialized per provider to avoid local-model fights. The server validation helper is still named `assertAllMembersClaudeOrCodex` for legacy reasons but actually checks `isClusterMemberProvider`. **Max-one-local cap:** `cluster_create_from_scratch` rejects more than one ollama/llamacpp member (`multiple_local_members`) unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. The cap counts only ollama/llamacpp - `cursor` are remote API providers and are uncapped.
 
 **Per-member access mode.** `ClusterMember.accessMode?: 'standard' | 'blind' | 'isolated'` (absent ≡ `standard`; persisted sparse in cluster meta `memberAccessModes`, not in `WorkflowConfig`). `blind` keeps the project cwd but withholds every cluster surface except `peer_send` / `peer_read` (other peer tools return `[error] access_denied`); `isolated` additionally runs the member in a private scratch cwd and is Claude-Native-only. Accepted on `cluster_create_from_scratch` members, `cluster_add_fresh_workers`, and `cluster_member_replace`.
 
@@ -242,7 +242,7 @@ The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validat
   name?: string,                   // ≤64 chars; empty/absent = derived default
   // 2026-05-11 - operator override for the fresh workers' primary config.
   // Defaults clone the anchor when undefined. Provider fenced to
-  // ClusterMemberProvider (claude/codex/zai/ollama/llamacpp/cursor). When provider
+  // ClusterMemberProvider (claude/codex/ollama/llamacpp/cursor). When provider
   // differs from the anchor's provider, model is required (the anchor's model
   // name doesn't make sense on the new provider; UI enforces, server rejects
   // with `unknown_model` if it slips).
@@ -292,7 +292,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
 
 ### `cluster_create_from_scratch` ->
 
-2026-05-11 - operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow - every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. **This is the one create path that accepts local providers**: provider is the full `ClusterMemberProvider` set (`claude / codex / zai / ollama / llamacpp / cursor`), and the server enforces the **max-one-local cap** - more than one ollama/llamacpp member is rejected with `multiple_local_members` unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. Per-member validation also covers `unknown_provider` / `missing_model` / `provider_model_mismatch` / `unknown_model` / `invalid_tier`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
+2026-05-11 - operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow - every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. **This is the one create path that accepts local providers**: provider is the full `ClusterMemberProvider` set (`claude / codex /  ollama / llamacpp / cursor`), and the server enforces the **max-one-local cap** - more than one ollama/llamacpp member is rejected with `multiple_local_members` unless `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`. Per-member validation also covers `unknown_provider` / `missing_model` / `provider_model_mismatch` / `unknown_model` / `invalid_tier`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
 
 ```ts
 {
@@ -302,7 +302,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
   efficiencyLevel?: 'thorough' | 'balanced' | 'lean',  // 2026-06-15 - cluster-wide, operator-picked at create. Omitted ≡ 'thorough'.
   efficiencyAddendum?: string,                          // optional free-text appended to the canned doctrine; clamped to CLUSTER_EFFICIENCY_ADDENDUM_MAX
   members: Array<{
-    provider: ClusterMemberProvider,   // 'claude' | 'codex' | 'zai' | 'ollama' | 'llamacpp' | 'cursor' (max 1 local; zai + cursor uncapped)
+    provider: ClusterMemberProvider,   // 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor' (max 1 local; cursor uncapped)
     model: string,
     effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | string,
     providerAccountRef?: string,
@@ -850,7 +850,7 @@ Sent rows additionally carry `targetWorkflowId: msg.to` (full recipient wfid). T
 
 ### Peer tool inventory (not WS messages)
 
-Model-facing tools registered on every cluster member (Native: in-process `server/src/providers/claude-native/peerTools.ts`; CLI Claude / Codex / Z.ai / Cursor: the arco-cluster MCP server, which calls the REST mirror `/api/clusters/:id/peer/<op>` in `server/src/http/clusterRoutes.ts` - `GET list`, `POST` for the rest, body carries the caller's `workflowId`). Tool results are strings; errors are `[error] <code>: <message>`. `blind` / `isolated` members get only `peer_send` / `peer_read`.
+Model-facing tools registered on every cluster member (Native: in-process `server/src/providers/claude-native/peerTools.ts`; CLI Claude / Codex / Cursor: the arco-cluster MCP server, which calls the REST mirror `/api/clusters/:id/peer/<op>` in `server/src/http/clusterRoutes.ts` - `GET list`, `POST` for the rest, body carries the caller's `workflowId`). Tool results are strings; errors are `[error] <code>: <message>`. `blind` / `isolated` members get only `peer_send` / `peer_read`.
 
 | Tool | REST op | Notes |
 |---|---|---|

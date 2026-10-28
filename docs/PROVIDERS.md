@@ -2,9 +2,9 @@
 
 **Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
-Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Z.ai**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, **Antigravity**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Three providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child); **Z.ai** has `native` (default direct Chat Completions worker) and `appserver` (fallback through Codex app-server's Z.ai proxy). **Cursor** also has two — `acp` (long-lived) and `print` (stateless one-shot) — but the choice is routed automatically (`sandbox: 'read-only'` → `print`), not toggled.
+Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, **Antigravity**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two  -  `acp` (long-lived) and `print` (stateless one-shot)  -  but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
 
-Chat tabs support Claude, Codex, Z.ai, Cursor, Ollama, llama.cpp, and LM Studio; Gemini and Antigravity are Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
+Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Gemini and Antigravity are Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
 
 For the abstract interface, see `server/src/providers/types.ts`. For when these are invoked in the broader lifecycle, see [`PRIMITIVES.md`](PRIMITIVES.md). For protocol-level message shapes, see [`PROTOCOL.md`](PROTOCOL.md).
 
@@ -18,7 +18,6 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 | Claude | `native` | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools). |
 | Codex | `exec` (default) | model/catalog-driven; Astra / Sol: low through ultra, Luna: through max | UUID-based (`codex exec resume`) | Default model GPT-6 Astra (Sol and Luna also in the cold-catalog fallback; the live `model/list` catalog is authoritative). MAX context by default. Per-turn `codex exec` spawn. Full two-way interop with terminal `codex`. Supported effort values pass through; older models are not widened to Astra-only levels. Reviewer runs `-s read-only`. Transcript hydration on Resume for unclaimed rollouts. |
 | Codex | `app-server` | model/catalog-driven (same as `exec`) | UUID-based (rollouts in `~/.codex/sessions/`) | Long-lived `codex app-server` per tab. Structured `turn/interrupt` cancel + non-destructive `turn/steer` mid-turn input + `localImage` attachments + crash-recovery circuit breaker + output-style picker + native compact with context-signal reset. Reviewers / handoff seeds always run on `exec`. |
-| Z.ai | `native` (default) + `app-server` | low / medium / high / xhigh (sent only on GLM-5.2) | `native` rebuilds history from `events.jsonl`; `app-server` UUID-based (Codex app-server thread) | GLM Coding Plan models (default `glm-5.2`, 1M ctx) with Z.ai API-key auth + Coding Plan usage indicators. `native` is an in-process worker calling `api.z.ai` Chat Completions directly with its own tool loop + compaction + output-style picker; `app-server` routes through Arco's local Responses-to-Z.ai proxy and shares the Codex app-server steer/cancel/compact/MCP/cluster path. |
 | Gemini | `cli` | (no effort flag) | UUID-stored / index-resolved (`--list-sessions` -> `-r <index>`) | Per-turn `gemini` spawn; two-way interop with terminal `gemini`. Arco stores the stable UUID and re-resolves the index on each spawn. Chat hydration of unclaimed sessions deferred - agent has full context, chat starts empty. (An in-process `gemini-native` transport is an unfinished stub, not shipped.) |
 | Cursor | `acp` (default) + `print` | baked into the model id (`-low` / `-high` / `-xhigh` / `-max`) | `session/load` (loadSession capability) | Long-lived `cursor-agent acp` ACP worker; ~153 models incl. Grok. Steer / cancel / session resume / live model-swap via `session/set_model`. No per-turn token signal (the Usage tab is dashboard-polled). Cluster member via an in-process loopback HTTP MCP server. Read-only reviewer / primitives run a stateless `cursor-agent -p --mode ask` one-shot. |
 | Ollama | (single) | per model - graded thinking: `low` = thinking off (`think:false` + `/no_think`) plus the model's own levels from `/api/show` `thinking.values` (e.g. supported levels from `/api/show`); boolean-only models keep low / high | None | No native session concept; each turn is a fresh context. Tool use + large context + image attachments + web tools (SearXNG search, fetch with Camoufox stealth fallback). Mid-turn steer supported. Override base URL with `OLLAMA_URL_BASE` (default `http://localhost:11434`). |
@@ -30,7 +29,7 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 All configured providers can act as reviewers or primary agents. Local reviewers (Ollama, llama.cpp, LM Studio, Strata) get a prompt addendum reminding them to use their read-only tools to verify diff claims against the live tree. Cross-family reviewer pairings are the most useful.
 
-Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Gemini/Codex; an API key for Z.ai; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`; Antigravity uses the desktop app's own auth. The auth overlay blocks app use only when no primary-capable provider is authed.
+Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Gemini/Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`; Antigravity uses the desktop app's own auth. The auth overlay blocks app use only when no primary-capable provider is authed.
 
 ## The provider abstraction
 
@@ -119,7 +118,7 @@ explicitly instead of inheriting a provider default:
 - **Strata** — the shared OpenAI HTTP worker advertises and dispatches only
   `WebSearch` / `WebFetch` when Chat web access is armed. Standalone logs/image
   caches mean it is unavailable in strict Incognito.
-- **Z.ai Native, llama.cpp, LM Studio** — tool schemas omitted; no web option.
+- **llama.cpp, LM Studio**  -  tool schemas omitted; no web option.
 - **Cursor** — routed to the stateless `-p --mode ask` transport
   (`--stream-partial-output` in chat) with deterministic transcript replay.
 
@@ -150,8 +149,7 @@ Unicode before MCP serialization; a truncated emoji previously wedged this path.
 `WorkerConfig.incognito:true` strengthens that boundary into Arco-side
 non-persistence. Claude CLI receives no session id and therefore emits
 `--no-session-persistence`; Codex is forced off app-server onto one-shot
-`exec --ephemeral` (Computer alone uses a verified ephemeral app-server thread); Z.ai is forced off the Codex app-server proxy onto its
-in-memory Native worker. Stateless turns receive a deterministic transcript
+`exec --ephemeral` (Computer alone uses a verified ephemeral app-server thread).  Stateless turns receive a deterministic transcript
 from `WorkflowState.incognitoEvents`. Cursor is excluded from incognito because
 its CLI exposes resumable chats but no ephemeral-session flag. llama.cpp is
 also excluded because the shared Arco-managed `llama-server` writes an
@@ -488,7 +486,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
 
-**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels — `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server and Z.ai fold the same addendum into their stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences → full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input — measure via the `primary_turn_token_usage` event.
+**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels  -  `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server fold the same addendum into their stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input  -  measure via the `primary_turn_token_usage` event.
 
 **Adding a new level (e.g., a hypothetical `ultra`):** must pass operator sign-off + a plan-doc update first. The level's text MUST preserve code blocks / error strings / file paths verbatim and MUST NOT compress security warnings, irreversible operations, or order-sensitive multi-step sequences. The auto-clarity escape hatch in each level enforces this.
 
@@ -932,27 +930,6 @@ Validation: `test:operator-questions`, `test:operator-questions-ui`, and
 inference). Browser acceptance: `scripts/smoke/operator-questions-browser.py`
 against isolated Vite with all API/WebSocket traffic stubbed.
 
-## Z.ai
-
-`server/src/providers/zai-native/` (default) + the Codex app-server path. Auth is an API key (`ZAI_API_KEY` or Settings → AUTH → Z.AI), no login flow. Context window comes from `zaiModelContextWindow()` (`shared/src/protocol/models.ts`: 1M for `glm-5.2`, 128K for `glm-4.5*`, 200K otherwise) because Z.ai's `/models` returns ids only. Efforts `low` / `medium` / `high` / `xhigh`. Cluster member; supported in Chat and Incognito (Incognito forces `native`). Attachments: text path reference unless noted — every catalog GLM is text-only, so an image also raises a `system_notice` saying it wasn't seen.
-
-Two transports:
-
-- **Native** (`zaiTransport: 'native'`, default) — `server/src/providers/zai-native/` keeps one long-lived worker per workflow and calls Z.ai Coding Plan Chat Completions directly at `https://api.z.ai/api/coding/paas/v4/chat/completions`. It owns native `messages[]` history, including exact assistant `reasoning_content`, assistant `tool_calls`, and `tool` results across tool rounds. The default Z.ai model is `glm-5.2` (1M ctx). `reasoning_effort` (Arco effort → `low`/`medium`/`high`/`max`) is sent **only** on `glm-5.2` — older GLMs (4.7 / 5-turbo / 4.5*) treat thinking as binary (`thinking:{type}`) so the param is omitted rather than sent as inert noise. Output is capped at `MAX_OUTPUT_TOKENS = 32768` per round, with a `finish_reason:'length'` truncation surfaced as a `system_notice` rather than dropped. That history is persisted through hidden `zai_native_history` workflow events so restart replay can preserve GLM reasoning continuity instead of rebuilding from lossy chat text.
-- **Appserver fallback** (`zaiTransport: 'appserver'`) — the previous Codex app-server route remains available. Codex 0.140 rejects `wire_api = "chat"` and only accepts Responses providers, while Z.ai Coding Plan exposes OpenAI Chat Completions. Arco starts a loopback Responses proxy (`server/src/providers/zaiResponsesProxy.ts`) and points Codex's custom provider at that local URL. The proxy reads the server-side Z.ai key, translates Codex Responses requests/tools into Z.ai Chat Completions, and translates Chat streaming deltas back into Responses SSE events. This path keeps Codex app-server sessions, cancel/steer, compact, MCP, clusters, and rollout/token plumbing; the proxy is the only layer that sees `ZAI_API_KEY`.
-
-The stored Z.ai key supports config-value interpolation: `!cmd args…` runs a command and uses its stdout, `${ENV}` reads an environment variable, anything else is a literal. Resolved at use time by `server/src/providerSecrets.ts` (`resolveConfigValue`, `server/src/configValue.ts`), so the operator can pull the key from a secret manager instead of pasting a raw secret into settings.
-
-Native Z.ai exposes a compact schema by default: `Read`, `Grep`, `Glob`, `Bash`, `Write`, `WebSearch`, `WebFetch`, and an exact-replacement `Edit` (WebFetch is keyless + SSRF-guarded; WebSearch routes through the operator's local SearXNG, shared with the Ollama / llama.cpp / Claude-native runtime). Cluster peer/plan tools are added only when the workflow is a cluster member. Full MCP registry projection is intentionally deferred; use the appserver fallback for MCP-heavy Z.ai turns until the native MCP schema/approval path is implemented.
-
-Z.ai Coding Plan can return short-window 429s (`1302` concurrency, `1303` frequency, `1305` rate-limit) even when plan quota remains. The limiter lives in `zai-native/rateLimit.ts` and is shared by the native path and appserver fallback; it is reactive only: up to two upstream streams may be in flight (`ARCO_ZAI_MAX_IN_FLIGHT`, default 2), retryable 429s are retried once (`ARCO_ZAI_429_RETRIES`, default 1; `ARCO_ZAI_429_BACKOFF_MS`, default 5s; `ARCO_ZAI_MAX_429_BACKOFF_MS`, default 10s), and any spacing/backoff is applied only after real 429 feedback. Quota/package/fair-use style Z.ai codes still escape instead of being hidden by retries.
-
-Native Z.ai operator COMPACT mirrors Claude Native's Arco-owned path: `compactZaiNativeWorker()` cold-acquires the per-workflow worker if needed, replays hidden `zai_native_history`, projects a clean transcript, keeps the recent clean user/assistant tail, sends one no-tools summarization request to Z.ai, then replaces native `messages[]` with a summary seed plus tail. It emits `native_compacting` / `native_compacted` for UI parity and persists a post-compact `zai_native_history` snapshot so replay can keep the exact native seed. Appserver fallback still uses Codex's `thread/compact/start`.
-
-Native worker caching parallels other long-lived provider managers but is scoped per-workflow rather than per-host. Appserver fallback cache lives in `server/src/providers/codex-appserver/index.ts:workersByWorkflow`.
-
----
-
 ## Cursor
 
 `server/src/providers/cursor/` — a long-lived per-workflow ACP worker (`worker.ts`) driving
@@ -1080,7 +1057,7 @@ streamable-HTTP is the chosen transport.
   injects `{type:'http', name:'arco-cluster', url, headers:[]}` into both `session/new` and
   `session/load` `mcpServers`, refreshes ctx each `beginTurn`, and `closeClusterLoopbackMcp` on dispose.
 - **Plan/role/doctrine.** Folded into `appendSystemPrompt` via `turnEngine.ts` `needsStringFormCluster`
-  (which already listed `'cursor'`), same as Claude-CLI / Codex / Z.ai — string-form, not a forced
+  (which already listed `'cursor'`), same as Claude-CLI / Codex  -  string-form, not a forced
   block. Cursor is not a local provider, so it does NOT go through `buildLocalClusterSystemPrompt`.
 - **Model→provider inference** (`clusterHandlers.ts`). Bare `auto` + `grok-*` → `cursor`. Because Cursor
   **proxies** the claude-\*/gpt-\*/glm-\* families, those prefixes can't distinguish Cursor by id, so
@@ -1870,7 +1847,7 @@ Server-side reference: `ANTIGRAVITY_CAPABILITIES` in `server/src/providers/antig
 ### Cluster status
 
 Antigravity is still **not** a cluster member provider. `ClusterMemberProvider` is
-`claude | codex | zai | ollama | llamacpp | cursor` (Cursor joined this window as the
+`claude | codex | ollama | llamacpp | cursor` (Cursor joined this window as the
 6th cluster member, via an in-process loopback HTTP MCP);
 `isClusterMemberProvider('antigravity')` is false and
 `npm run smoke:antigravity-phase-d` checks that fence.
@@ -2006,7 +1983,6 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 | Single-consumer | no | no | no | no | no | no | one model at a time per Arco (manager-owned) | no | no Arco mutex; Antigravity app/backend may still serialize work |
 | Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | side tabs, second opinion | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) | multi-modal review, web research |
 
-**Z.ai** (the 8th first-class provider) is not broken out as its own matrix column: its default `native` transport runs a long-lived per-workflow Chat-Completions worker (`server/src/providers/zai-native/`, OpenAI-shaped tool loop, `reasoning_content`, up to 1M ctx on GLM-5.2, native-history replay, operator COMPACT), and its `appserver` fallback rides the Codex app-server column behaviour through a loopback Responses proxy (cancel / steer / compact / clusters / rollout-token plumbing all inherited). It IS a cluster member (`zai` ∈ `ClusterMemberProvider`). See the [Z.ai](#zai) section for specifics.
 
 **Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
 

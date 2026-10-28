@@ -74,7 +74,7 @@ export function TabContextMenu({
   );
 
   const isClusterProvider = (provider: string): provider is ClusterMemberProvider =>
-    provider === 'claude' || provider === 'codex' || provider === 'zai' || provider === 'ollama' || provider === 'llamacpp';
+    provider === 'claude' || provider === 'codex' || provider === 'ollama' || provider === 'llamacpp';
 
   // Candidate same-cwd tabs whose providers can receive cluster peer tools.
   const existingCandidates = useMemo(() => {

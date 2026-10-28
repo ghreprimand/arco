@@ -11,7 +11,7 @@ const home=join(root,'home');mkdirSync(join(home,'.arco'),{recursive:true});
 process.env.HOME=home;
 process.env.USERPROFILE=home;
 process.env.ARCO_DEPLOYMENT='docker';
-for(const key of ['ANTHROPIC_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','GOOGLE_API_KEY','ZAI_API_KEY'])delete process.env[key];
+for(const key of ['ANTHROPIC_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','GOOGLE_API_KEY'])delete process.env[key];
 let server:Server, model:Server, base:string;
 const requested:string[]=[];
 const settings=join(home,'.arco','settings.json');
@@ -28,12 +28,11 @@ after(async()=>{
   await Promise.all([new Promise<void>(resolve=>server.close(()=>resolve())),new Promise<void>(resolve=>model.close(()=>resolve()))]);
   rmSync(root,{recursive:true,force:true});
 });
-test('catalog reads metadata without probing an endpoint or resolving a command credential',async()=>{
-  writeFileSync(join(home,'.arco','provider-secrets.json'),JSON.stringify({zaiApiKey:'!false'}));
+test('catalog reads metadata without probing an endpoint or reading retired secrets',async()=>{
+  writeFileSync(join(home,'.arco','provider-secrets.json'),JSON.stringify({ zaiApiKey: '!false' }));
   const res=await fetch(base+'/api/connections');const body=await res.json();
   assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
-  assert.deepEqual(body.zaiKey,{configured:true,source:'command'});
-  assert.equal(body.providers.length,12);assert.deepEqual(requested,[]);
+  assert.equal(body.providers.length,11);assert.deepEqual(requested,[]);
   assert.ok(!JSON.stringify(body).includes('!false'));
 });
 test('only an explicit supported check reaches the selected fixture runtime',async()=>{

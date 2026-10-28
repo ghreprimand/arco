@@ -185,7 +185,7 @@ gemini -r <index>`}</Pre>
         <Note kind="warn">
           Auto-handoff only runs when Arco has a trusted context-fill signal for the
           active provider. Claude uses session or Native counts; Codex app-server and
-          Z.ai use the latest rollout token snapshot; Ollama uses the daemon prompt
+          Codex uses the latest rollout token snapshot; Ollama uses the daemon prompt
           count. Antigravity owns its cascade context/cache/compaction, so Arco offers
           only a manual fresh-cascade reset, not percentage-triggered handoff.
         </Note>

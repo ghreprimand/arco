@@ -5,7 +5,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'creator.chat-mode': {
     title: 'Chat — no project', manualSection: 'chat-mode',
     body: <p>A conversation without project tools or the Agent workbench. Supports
-      Claude, Codex, Z.ai, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. Choose a model
+      Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. Choose a model
       here; use an Agent tab for project files, commands and project actions. Saved Chat supports image/file attachments.</p>,
   },
   'creator.incognito': {

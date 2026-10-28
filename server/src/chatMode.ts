@@ -6,7 +6,7 @@ import { readMeta, workflowConfigFromMeta } from './workflowMeta.js';
 import { arcoHome } from './arcoHome.js';
 
 export const CHAT_PROVIDERS = new Set<ProviderName>([
-  'claude', 'codex', 'zai', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
+  'claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
 ]);
 
 // Cursor's CLI has no ephemeral-session switch. llama.cpp is served by a
@@ -15,7 +15,7 @@ export const CHAT_PROVIDERS = new Set<ProviderName>([
 // contract. Strata also has standalone request logs and an image cache.
 // Reject these rather than show a misleading privacy label.
 export const INCOGNITO_CHAT_PROVIDERS = new Set<ProviderName>([
-  'claude', 'codex', 'zai', 'ollama', 'lmstudio',
+  'claude', 'codex', 'ollama', 'lmstudio',
 ]);
 
 // Providers whose Chat transport can honor the web-access toggle. Claude and

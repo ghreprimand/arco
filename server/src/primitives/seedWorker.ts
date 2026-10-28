@@ -249,7 +249,6 @@ export function runPrimaryTurn(
     // already forced claudeTransport='cli' when this is true. Reviewers /
     // handoff seeds / Task children leave it unset.
     ultracode?: boolean;
-    zaiTransport?: 'native' | 'appserver';
     // Phase 7b — Task-spawned children carry this so the Claude Native
     // worker drops `Task` from its tool registry (depth-1 cap). Operator-
     // driven turns and reviewers / handoff seeds leave this unset.
@@ -297,9 +296,6 @@ export function runPrimaryTurn(
     reviewSafeMode?: 'off' | 'on';
     // docs/PROVIDERS.md - output-style addendum level. Resolved from
     // WorkflowConfig.outputStyle in handleUserMessage. Honored by Claude
-    // Native and Codex app-server providers (including Z.ai). Reviewers /
-    // handoff seeds / DOCS / GIT primitives hard-code 'normal'. Renamed
-    // `caveman` → `terse` 2026-05-10.
     outputStyle?: 'normal' | 'lite' | 'terse';
     // docs/GOTCHAS.md - operator-set persistent north-star, resolved from
     // WorkflowConfig.goal in handleUserMessage. Injected as a stable system block
@@ -366,7 +362,7 @@ export function runPrimaryTurn(
     webSearchMaxUses?: number;
   },
 ): TurnHandle {
-  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, zaiTransport, claudeNativeTaskDisabled, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, claudeNativePlanModeArmed, turnNotice, efficiencyAutoCompact, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
+  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, claudeNativeTaskDisabled, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, claudeNativePlanModeArmed, turnNotice, efficiencyAutoCompact, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
 
   const workerId = `primary-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -405,11 +401,6 @@ export function runPrimaryTurn(
     chatWebAccess,
     voiceOperator,
     incognito,
-    // Every chat worker is read-only, not just codex/cursor: a Z.ai chat on the
-    // `appserver` transport runs on the Codex app-server substrate, whose
-    // mapSandbox falls back to workspace-write — a projectless chat got a
-    // writable shell + apply_patch. Providers without a sandbox ignore it
-    // (cursor routes read-only to its print one-shot, as before).
     ...(interactionMode === 'chat' ? { sandbox: 'read-only' as const } : {}),
     disableRssGuard,
     drainSteer,
@@ -420,7 +411,6 @@ export function runPrimaryTurn(
     codexHome,
     claudeTransport,
     ultracode,
-    zaiTransport,
     claudeNativeTaskDisabled,
     claudeNativeCompact,
     claudeNativeForceInterleavedThinkingBeta,
@@ -454,7 +444,7 @@ export function runPrimaryTurn(
   if (primary.provider === 'claude' && !incognito) {
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
     else if (claudeNewSessionId) spawnOptions.sessionId = claudeNewSessionId;
-  } else if ((primary.provider === 'codex' || primary.provider === 'zai') && !incognito) {
+  } else if ((primary.provider === 'codex') && !incognito) {
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
   } else if (primary.provider === 'antigravity') {
     // Resume an in-progress Antigravity cascade by id; absence of
@@ -664,7 +654,6 @@ export function runPrimaryTurn(
           const transport: 'native' | 'cli' | 'exec' | 'appserver' | undefined =
             primary.provider === 'claude' ? (claudeTransport ?? 'cli')
             : primary.provider === 'codex' ? (codexTransport ?? 'exec')
-            : primary.provider === 'zai' ? (zaiTransport ?? 'native')
             : undefined;
           ctx.broadcast({
             type: 'primary_turn_token_usage',

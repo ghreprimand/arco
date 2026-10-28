@@ -195,7 +195,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Default response style for new Claude Native, Codex app-server, and
-        Z.ai tabs: <C>normal</C>, <C>lite</C>, or <C>terse</C>. Applies to
+        Codex app-server tabs: <C>normal</C>, <C>lite</C>, or <C>terse</C>. Applies to
         primary turns; Review / Handoff / DOCS / GIT stay normal.
       </p>
     ),
@@ -601,7 +601,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Pick which AI back-end runs this tab. Ten providers (Claude / Codex /
-        Gemini / Z.ai / Cursor / Ollama / llama.cpp / LM Studio / Strata / Antigravity); the picker hides ones disabled
+        Gemini / Cursor / Ollama / llama.cpp / LM Studio / Strata / Antigravity); the picker hides ones disabled
         in Settings or without auth. Local providers (Ollama, llama.cpp) require
         installed models — empty catalogs hide the option. In cluster creation,
         only providers with peer-tool wiring are eligible. Chat excludes Gemini
@@ -675,7 +675,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         document; a fresh session starts with that doc as its seed. For
         Antigravity, this means a fresh cascade seeded with handoff text, not
         compaction of Antigravity's internal context. <C>Original-worker</C>{' '}
-        (the primary self-reflects) only applies to Claude, Codex, and Z.ai; other
+        (the primary self-reflects) only applies to Claude, Codex; other
         providers — Antigravity, Gemini, Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
         <C>fresh-summarizer</C>.
       </p>
@@ -816,7 +816,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           <li>
             <strong>ORIGINAL WORKER</strong> — the current primary
             self-reflects via <C>--resume &lt;sessionId&gt;</C> and writes the
-            handoff itself. Highest fidelity. Default for Claude/Codex/Z.ai.
+            handoff itself. Highest fidelity. Default for Claude/Codex.
           </li>
           <li>
             <strong>FRESH SUMMARIZER</strong> — an ephemeral worker reads the

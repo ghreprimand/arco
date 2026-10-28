@@ -1,6 +1,6 @@
 import type { AuthLoginTarget } from './providers.js';
 
-export type ConnectionKind = 'plan' | 'api' | 'local' | 'desktop' | 'tool';
+export type ConnectionKind = 'plan' | 'local' | 'desktop' | 'tool';
 export interface ConnectionDefinition {
   id: AuthLoginTarget;
   label: string;
@@ -21,5 +21,4 @@ export interface ConnectionCatalog {
   providers: ConnectionDefinition[];
   // Presence and source only. Never include a credential value or reference.
   environmentKeys: string[];
-  zaiKey: { configured: boolean; source: 'env' | 'file' | 'command' | 'env-ref' | 'none' };
 }

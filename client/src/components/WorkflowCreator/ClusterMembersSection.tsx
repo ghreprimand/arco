@@ -1,4 +1,4 @@
-import { DEFAULT_CODEX_MODEL, DEFAULT_ZAI_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText } from '@arco/shared';
 import type { ModelName, MemberTier, ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { deriveDisplayNames } from './modelOptions';
@@ -23,7 +23,6 @@ export function ClusterMembersSection({
   onUpdateMember,
   claudeModelsForPicker,
   codexModelsForPicker,
-  zaiModelsForPicker,
   ollamaModelsForPicker,
   llamacppModelsForPicker,
   cursorModelsForPicker,
@@ -38,7 +37,7 @@ export function ClusterMembersSection({
   const cursorCatalog = useAppStore((s) => s.cursorCatalog);
   const modelsFor = (provider: ClusterMemberProvider): { value: ModelName; label: string; subline?: string }[] => {
     if (provider === 'codex') return codexModelsForPicker;
-    if (provider === 'zai') return zaiModelsForPicker;
+
     if (provider === 'ollama') return ollamaModelsForPicker;
     if (provider === 'llamacpp') return llamacppModelsForPicker;
     if (provider === 'cursor') return cursorModelsForPicker;
@@ -81,7 +80,7 @@ export function ClusterMembersSection({
         className="display-font"
         style={{ fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', lineHeight: 1.4 }}
       >
-        Clusters support Claude, Codex, Z.ai, and local peer-tool members.
+        Clusters support Claude, Codex, and local peer-tool members.
       </div>
 
       {/* Derived names threaded into each row so the collapsed summary
@@ -238,13 +237,13 @@ export function ClusterMembersSection({
                 <div>
                   <label className="display-font" style={labelStyle}>PROVIDER</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: '6px' }}>
-                    {(['claude', 'codex', 'zai', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
+                    {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
                       <button
                         key={p}
                         onClick={() => {
                           if (p === m.provider) return;
                           const nextModel: ModelName = modelsFor(p)[0]?.value
-                            ?? (p === 'codex' ? DEFAULT_CODEX_MODEL : p === 'zai' ? DEFAULT_ZAI_MODEL : p === 'claude' ? 'opus' : p === 'cursor' ? 'auto' as ModelName : '' as ModelName);
+                            ?? (p === 'codex' ? DEFAULT_CODEX_MODEL : p === 'claude' ? 'opus' : p === 'cursor' ? 'auto' as ModelName : '' as ModelName);
                           onUpdateMember(m.key, {
                             provider: p,
                             model: nextModel,
@@ -253,7 +252,7 @@ export function ClusterMembersSection({
                         }}
                         style={{ ...selectStyle(m.provider === p), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                       >
-                        {p === 'llamacpp' ? 'LLAMA' : p === 'zai' ? 'Z.AI' : p.toUpperCase()}
+                        {p === 'llamacpp' ? 'LLAMA' : p.toUpperCase()}
                       </button>
                     ))}
                   </div>
@@ -446,8 +445,8 @@ export function ClusterMembersSection({
                   </div>
                 )}
 
-                {/* OUTPUT STYLE (Claude Native, Codex app-server, Z.ai) */}
-                {(m.provider === 'claude' || m.provider === 'codex' || m.provider === 'zai') && (
+                {/* OUTPUT STYLE (Claude Native, Codex app-server) */}
+                {(m.provider === 'claude' || m.provider === 'codex') && (
                   <div>
                     <label className="display-font" style={labelStyle}>OUTPUT STYLE</label>
                     <div style={{ display: 'flex', gap: '6px' }}>

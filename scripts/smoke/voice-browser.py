@@ -41,7 +41,7 @@ async def main():
     return
    data = {'files':[],'entries':[],'dirs':[],'workflows':[],'projects':[],'clusters':[],'skills':[],'plans':[],'items':[],'tasks':[],'sessions':[],'messages':[],'chats':[]}
    if path == '/api/settings': data = {'themeId':'arch','enabledProviders':{'codex':True}}
-   elif path == '/api/auth-status': data = {n:{'loggedIn':n=='codex','installed':True,'cliInstalled':True} for n in ['claude','codex','zai','cursor','gemini','ollama','llamacpp','lmstudio','strata','antigravity','deepseek','github']}
+   elif path == '/api/auth-status': data = {n:{'loggedIn':n=='codex','installed':True,'cliInstalled':True} for n in ['claude','codex','cursor','gemini','ollama','llamacpp','lmstudio','strata','antigravity','deepseek','github']}
    elif path == '/api/capabilities': data = {'efforts':['low','medium','high'],'models':['gpt-6-luna'],'cliVersion':'fixture','codexVersion':'0.162.1'}
    elif path.endswith('/catalog'): data = {'models':[]}
    elif path.endswith('/usage'): data = {'available':False}

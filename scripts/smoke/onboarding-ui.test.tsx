@@ -110,13 +110,11 @@ test('only enabled primary providers count as connected; local runtimes do', () 
 test('disconnected status names the endpoint a local runtime tried', () => {
   const status = {
     ollama: { loggedIn: false, apiProvider: 'ollama:http://localhost:11434', error: 'connect ECONNREFUSED' },
-    zai: { loggedIn: false, error: 'Z.ai API key is not configured' },
     codex: { loggedIn: false, error: 'Not logged in' },
   } as unknown as AuthStatusByProvider;
-  const lines = disconnectedProviderLines(status, (p) => p === 'ollama' || p === 'zai' || p === 'codex');
-  assert.deepEqual(lines.map((l) => l.provider).sort(), ['codex', 'ollama', 'zai']);
+  const lines = disconnectedProviderLines(status, (p) => p === 'ollama' || p === 'codex');
+  assert.deepEqual(lines.map((l) => l.provider).sort(), ['codex', 'ollama']);
   assert.match(lines.find((l) => l.provider === 'ollama')!.detail, /not reachable at http:\/\/localhost:11434 \(connect ECONNREFUSED\)/);
-  assert.equal(lines.find((l) => l.provider === 'zai')!.detail, 'no API key configured');
   assert.equal(lines.find((l) => l.provider === 'codex')!.detail, 'not signed in');
 });
 test('first-run setup is a labelled dialog that can be deferred and explains Docker endpoints', () => {

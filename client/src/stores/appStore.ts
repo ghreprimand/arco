@@ -130,7 +130,6 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   usage: null,
   codexUsage: null,
   cursorUsage: null,
-  zaiUsage: null,
   shutdown: false,
   shutdownReason: null,
   authStatus: null,
@@ -234,7 +233,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     if (s.claude.loggedIn) out.push('claude');
     if (s.gemini.loggedIn) out.push('gemini');
     if (s.codex.loggedIn) out.push('codex');
-    if (s.zai.loggedIn) out.push('zai');
+
     if (s.ollama.loggedIn) out.push('ollama');
     if (s.llamacpp.loggedIn) out.push('llamacpp');
     return out;
@@ -282,8 +281,6 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setCodexUsage: (codexUsage) => set({ codexUsage }),
   setCursorUsage: (cursorUsage) => set({ cursorUsage }),
-
-  setZaiUsage: (zaiUsage) => set({ zaiUsage }),
 
   setShutdown: (shutdown, reason) => set({ shutdown, shutdownReason: reason ?? null }),
 
@@ -878,7 +875,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       if (update.ultracode !== undefined) nextConfig.ultracode = update.ultracode;
       if (update.webSearchMaxUses !== undefined) nextConfig.webSearchMaxUses = update.webSearchMaxUses;
       if (update.chatWebAccess !== undefined) nextConfig.chatWebAccess = update.chatWebAccess;
-      if (update.zaiTransport !== undefined) nextConfig.zaiTransport = update.zaiTransport;
+
       if (update.claudeNativeCompact !== undefined) nextConfig.claudeNativeCompact = update.claudeNativeCompact;
       if (update.claudeNativeForceInterleavedThinkingBeta !== undefined) nextConfig.claudeNativeForceInterleavedThinkingBeta = update.claudeNativeForceInterleavedThinkingBeta;
       if (update.claudeNativeThinkingDisplay !== undefined) nextConfig.claudeNativeThinkingDisplay = update.claudeNativeThinkingDisplay;

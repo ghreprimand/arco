@@ -23,7 +23,7 @@ import { mintResearchSpawnToken, registerPendingResearch } from './terminalInput
 import { openCompareDialog } from './terminalInput/compare';
 import { PrimaryStatus } from './PrimaryStatus';
 import { QueuedMessagesIndicator } from './QueuedMessagesIndicator';
-import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO, DEFAULT_ZAI_MODEL, ZAI_MODEL_LABELS } from '@arco/shared';
+import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO} from '@arco/shared';
 import type { ToolboxEntry, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, ArcoSkillRef } from '@arco/shared';
 import {
   cacheHitPercent,
@@ -469,7 +469,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const compactVisible =
     !!onCompact
     && (
-      ((provider === 'codex' && resolvedCodexTransport === 'appserver') || provider === 'zai')
+      ((provider === 'codex' && resolvedCodexTransport === 'appserver'))
       || provider === 'cursor'
       || (provider === 'claude' && resolvedClaudeTransport === 'native')
       // WP3 — Ollama has no transport requirement. The worker is stateless per
@@ -1412,10 +1412,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             className="display-font"
             title={isBusy
               ? 'Compact runs between turns — wait for the current turn to finish.'
-              : provider === 'codex' || provider === 'zai'
-                ? provider === 'zai'
-                  ? 'Native /compact: Z.ai summarizes earlier native history in place and continues with a smaller prompt. App-server fallback uses Codex thread compact. Far cheaper than a Handoff.'
-                  : 'Native /compact: Codex summarizes earlier thread history server-side so the next turn starts with a smaller prompt. App-server compact path; far cheaper than a Handoff.'
+              : provider === 'codex'
+                ? 'Native /compact: Codex summarizes earlier thread history server-side so the next turn starts with a smaller prompt. App-server compact path; far cheaper than a Handoff.'
                 : provider === 'cursor'
                   ? 'Native /compress: Cursor summarizes older conversation context inside the live ACP session. Arco sends the slash command without cluster or north-star prompt prefixes.'
                 : provider === 'ollama'
@@ -2326,12 +2324,6 @@ function ChipPopover({
           : undefined,
       }));
     }
-  } else if (provider === 'zai') {
-    entries = (authStatus?.zai?.installedModels ?? [DEFAULT_ZAI_MODEL]).map((v) => ({
-      value: v as ModelName,
-      label: ZAI_MODEL_LABELS[v] ?? String(v).toUpperCase(),
-      subline: v.startsWith('glm-5') ? 'CODING PLAN · HIGHER QUOTA USE' : 'CODING PLAN',
-    }));
   } else if (provider === 'cursor') {
     // Cursor: inline family × effort × flags picker (effort is baked into the
     // id). CursorModelSelect reads the catalog from the store itself, so no
@@ -2467,11 +2459,7 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
     const canRecalibrate =
       typeof onRecalibrate === 'function' &&
       job.config.primaryProvider !== 'gemini' &&
-      job.config.primaryProvider !== 'codex' &&
-      job.config.primaryProvider !== 'zai' &&
-      job.config.primaryProvider !== 'ollama' &&
-      job.config.primaryProvider !== 'antigravity' &&
-      job.busy !== true;
+      job.config.primaryProvider !== 'codex' && job.config.primaryProvider !== 'ollama' && job.config.primaryProvider !== 'antigravity' && job.busy !== true;
     const isGroundTruth = cu.method === 'ground-truth';
     const headline = isGroundTruth
       ? 'Context fill (provider ground-truth)'
@@ -2559,13 +2547,11 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
       </span>
     );
   }
-  if (last && (provider === 'codex' || provider === 'zai')) {
+  if (last && (provider === 'codex')) {
     const ctx = contextTokens(last, provider);
     // Prefer the provider-reported context window (set when Codex emits
     // model_context_window via primary_complete.modelContextWindow). Falls
     // back to provider-specific static metadata when the stream hasn't
-    // reported one yet (first-turn race, older Codex CLI versions, or Z.ai's
-    // sparse model metadata).
     const observedWindow = job.modelContextWindow;
     const catalogModel = provider === 'codex'
       ? codexCatalog?.models.find((model) => model.id === job.config.primaryModel)
@@ -2584,8 +2570,8 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
     const totalReported = last.total;
     const cachePct = cacheHitPercent(last);
     const publishedWindow = providerPublishedContextWindow(provider, job.config.primaryModel);
-    const maxOutput = provider === 'zai' ? null : codexPublishedMaxOutput(job.config.primaryModel);
-    const providerLabel = provider === 'zai' ? 'Z.ai' : 'Codex';
+    const maxOutput = codexPublishedMaxOutput(job.config.primaryModel);
+    const providerLabel = 'Codex';
     const hover = [
       `${providerLabel} context fill — last turn's input_tokens (already the full prompt)`,
       `~${ctx.toLocaleString()} / ${window.toLocaleString()} tokens (${percent}%) · window: ${windowSource}`,
@@ -2632,7 +2618,7 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
   return (
     <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
       <span
-        title={`Last turn ctx (${provider === 'codex' || provider === 'zai' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}`}
+        title={`Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}`}
         style={{ opacity: 0.7, whiteSpace: 'nowrap' }}
       >
         ↓ {ctx > 0 ? compact(ctx) : '—'} CTX · ↑ {outCumulative > 0 ? compact(outCumulative) : '—'} OUT

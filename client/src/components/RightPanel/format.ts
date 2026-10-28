@@ -1,16 +1,15 @@
-import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_PICKER_MODELS, ZAI_MODELS } from '@arco/shared';
+import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CODEX_PICKER_MODELS} from '@arco/shared';
 import type { ProviderName, ModelName, PlanSummary, PlanAttachmentSpan } from '@arco/shared';
 import type { ActivityEntry } from '../../stores/appStore';
 
 const CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODEL_VALUES] as ModelName[];
 const CODEX_MODELS: ModelName[] = [...CODEX_PICKER_MODELS];
-const ZAI_MODEL_VALUES: ModelName[] = [...ZAI_MODELS] as ModelName[];
 const GEMINI_MODELS: ModelName[] = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'];
 
 export function modelsFor(provider: ProviderName): ModelName[] {
   if (provider === 'claude') return CLAUDE_MODELS;
   if (provider === 'codex') return CODEX_MODELS;
-  if (provider === 'zai') return ZAI_MODEL_VALUES;
+
   if (provider === 'gemini') return GEMINI_MODELS;
   return [];
 }

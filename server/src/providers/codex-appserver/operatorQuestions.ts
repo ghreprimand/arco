@@ -75,7 +75,7 @@ export async function replyToOperatorQuestion(workflowId: string, requestId: str
 export class CodexOperatorQuestions {
   private ids = new Set<string>();
   private asyncItems = new Set<string>();
-  constructor(private workflowId: string, private provider: 'codex' | 'zai', private publish: Pending['publish'] = (state) => publisher?.(workflowId, state)) {}
+  constructor(private workflowId: string, private provider: 'codex', private publish: Pending['publish'] = (state) => publisher?.(workflowId, state)) {}
 
   acceptRpc(req: JsonRpcServerRequest, respond: (result: unknown) => boolean | void): void {
     const p = req.params;

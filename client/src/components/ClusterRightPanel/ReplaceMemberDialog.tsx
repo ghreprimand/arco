@@ -3,7 +3,6 @@ import type { CSSProperties } from 'react';
 import {
   CLAUDE_MODELS,
   DEFAULT_CODEX_MODEL,
-  DEFAULT_ZAI_MODEL,
   type ClusterMemberAccessMode,
   type ClusterMemberProvider,
   type ClusterStatePayload,
@@ -87,9 +86,7 @@ export function ReplaceMemberDialog({
       ? (claudeCatalog?.models?.[0]?.id ?? CLAUDE_MODELS[0])
       : next === 'codex'
         ? (codexCatalog?.models?.find((m) => !m.hidden)?.id ?? DEFAULT_CODEX_MODEL)
-        : next === 'zai'
-          ? (authStatus?.zai?.installedModels?.[0] ?? DEFAULT_ZAI_MODEL)
-          : next === 'ollama'
+        : next === 'ollama'
             ? (authStatus?.ollama?.installedModels?.[0] ?? '')
             : next === 'llamacpp'
               ? (authStatus?.llamacpp?.installedModels?.[0] ?? '')
@@ -150,7 +147,7 @@ export function ReplaceMemberDialog({
           onChange={(e) => pickProvider(e.target.value as ClusterMemberProvider)}
           style={menuStyle}
         >
-          {(['claude', 'codex', 'zai', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
+          {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
             <option key={p} value={p} disabled={accessMode === 'isolated' && p !== 'claude'}>{p.toUpperCase()}</option>
           ))}
         </select>

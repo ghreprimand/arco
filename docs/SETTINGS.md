@@ -46,7 +46,7 @@ Sections: 22.
 | `projects` | Projects | Project folders and default working folder | Global | Registered project folders (add, keep, remove), optional explicit scan folder (no default root; discovered children are not saved projects), scanned and recent folders, default working directory for new workflows, Run setup again |
 | `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
-| `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Z.ai, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub, Antigravity), Claude Native authentication, Codex accounts and profiles, Z.ai API key, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
+| `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub, Antigravity), Claude Native authentication, Codex accounts and profiles, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
 | `llamacpp-catalog` | Providers and models | llama.cpp model registry | Global | llama.cpp registry editor and preload (shown when llama.cpp is enabled and installed) |
 | `catalog` | Providers and models | Model catalog | Global | Model catalog editor |
 | `auto-handoff-defaults` | Agents and clusters | Auto-handoff defaults | Global, for new workflows | Auto-handoff warn and handoff thresholds, summarizer |
@@ -60,7 +60,7 @@ Sections: 22.
 
 Requests that name a control inside a section open that section and focus the
 control: `endpoint-discovery`, `ollama`, `lmstudio`, `strata-endpoint`,
-`deepseek`, `codex-profiles`, `zai-api-key` and `native-auth` open
+`deepseek`, `codex-profiles`, `native-auth` open
 `authentication`; `media-unconfined` opens `media-access`;
 `default-working-dir` opens `projects`.
 

@@ -10,7 +10,7 @@
 // The worker now sets maxRetries:0 (our ladder is the single retry path) and
 // this module reads the server's own timing hints.
 //
-// Anthropic does NOT emit Nous/Z.ai's `x-ratelimit-*` suite. The headers that
+// Anthropic does NOT emit Nous's `x-ratelimit-*` suite. The headers that
 // matter here are:
 //   • `retry-after`                       — seconds, or an HTTP-date
 //   • `anthropic-ratelimit-*-reset`       — RFC-3339 timestamp the bucket refills
@@ -20,7 +20,6 @@
 
 // Upper bound on a header-driven wait. A misconfigured/hostile server can't
 // park a turn for an unbounded time; past this we cap and let the operator
-// decide (Handoff / cancel). Matches the spirit of the Z.ai MAX_*_BACKOFF cap.
 export const MAX_RATE_LIMIT_WAIT_MS = 5 * 60_000;
 
 // Header bags arrive in three shapes across SDK versions: a web `Headers`

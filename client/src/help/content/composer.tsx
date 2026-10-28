@@ -140,7 +140,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>/compress</C> in the composer routes through this same safe path.
         </p>
         <p>
-          Shown only on Codex-app-server, Z.ai, Cursor, Claude-native, and Ollama
+          Shown only on Codex-app-server, Cursor, Claude-native, and Ollama
           tabs. Runs between turns — disabled while a turn is in flight.
         </p>
       </>

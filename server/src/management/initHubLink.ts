@@ -154,9 +154,6 @@ function readLastMessage(
 // R1 — context pressure for the phone's WHEN-to-compact/handoff judgment.
 // 2026-07-18 fix: PRIMARY source is the stashed context_usage numbers — the
 // exact data the desktop CTX chip renders — so phone === desktop (the old
-// per-provider percent re-derivation showed a Z.ai member at 100% when the
-// desktop said 11%). The budget/percent chain remains only as a fallback for
-// workflows with no context_usage broadcast yet this boot.
 function contextOf(wf: WorkflowState): {
   contextPct: number;
   contextZone: 'green' | 'amber' | 'red';
@@ -231,13 +228,13 @@ function snapshotWorkflows(): WorkflowSummary[] {
     // gate_reply orphan path, it's just not listed until re-parked).
     const pending = wf.primary.provider === 'claude' ? getClaudeNativePendingInteractions(wfid) : null;
     const gatesResolvable = areGatesRemoteResolvable(wfid, wf);
-    // Compact needs codex/zai/ollama, or Claude ON the native transport. The
+    // Compact needs codex/ollama, or Claude ON the native transport. The
     // cascade default is async, so approximate with config + a live Native
     // worker as the transport signal (a cascade-native tab shows the button
     // only after its first turn); the handler re-validates regardless.
     const claudeNativeLikely = wf.config.claudeTransport === 'native' || pending !== null;
     const p = wf.primary.provider;
-    const canCompact = p === 'codex' || p === 'zai' || p === 'cursor' || p === 'ollama' || (p === 'claude' && claudeNativeLikely);
+    const canCompact = p === 'codex' || p === 'cursor' || p === 'ollama' || (p === 'claude' && claudeNativeLikely);
     const canFold = p === 'claude' && claudeNativeLikely;
     out.push({
       workflowId: wfid,
@@ -462,7 +459,7 @@ async function applyAction(
       const p = wf.primary.provider;
       const okProvider = action.type === 'fold'
         ? p === 'claude'
-        : p === 'codex' || p === 'zai' || p === 'claude' || p === 'ollama';
+        : p === 'codex' || p === 'claude' || p === 'ollama';
       if (!okProvider) return { ...base, ok: false, error: 'unsupported' };
       // The handlers do the deep validation (transport cascade, busy re-check)
       // and surface their own error/system_notice on the workflow's broadcast

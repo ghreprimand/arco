@@ -15,7 +15,7 @@ export function parseAuthNotice(content: string): { provider: ProviderName; body
   const m = content.match(AUTH_NOTICE_RE);
   if (!m) return null;
   const raw = m[1];
-  if (raw !== 'claude' && raw !== 'gemini' && raw !== 'codex' && raw !== 'zai' && raw !== 'ollama' && raw !== 'github' && raw !== 'antigravity' && raw !== 'cursor') {
+  if (raw !== 'claude' && raw !== 'gemini' && raw !== 'codex' && raw !== 'ollama' && raw !== 'github' && raw !== 'antigravity' && raw !== 'cursor') {
     return null;
   }
   return { provider: raw as ProviderName, body: m[2] };
@@ -49,7 +49,6 @@ export function AuthReloginNotice({ provider, body }: Props) {
     ? (claudeNative ? 'CLAUDE NATIVE' : 'CLAUDE')
     : provider === 'gemini' ? 'GEMINI'
     : provider === 'codex' ? 'CODEX'
-    : provider === 'zai' ? 'Z.AI'
     : provider.toUpperCase();
 
   const startLoginNative = async () => {

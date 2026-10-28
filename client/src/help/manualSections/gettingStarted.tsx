@@ -12,7 +12,7 @@ export const gettingStarted: Section[] = [
           Arco is a <strong>multi-provider coding workbench</strong>. Agent tabs
           pair a primary agent with a project directory. <strong>Chat</strong> tabs
           offer general conversation without a project; clusters group project
-          agents. Providers include Claude, Codex, Z.ai, Cursor, Gemini, Ollama,
+          agents. Providers include Claude, Codex, Cursor, Gemini, Ollama,
           llama.cpp, LM Studio and Antigravity, with mode-specific capabilities.
         </p>
         <p>
@@ -168,7 +168,7 @@ export const gettingStarted: Section[] = [
             from a Home project card pre-fills its folder.
           </li>
           <li>
-            <strong>Provider</strong> — Claude / Codex / Z.ai / Gemini / Cursor / Ollama /
+            <strong>Provider</strong> — Claude / Codex / Gemini / Cursor / Ollama /
             llama.cpp / LM Studio / Strata / Antigravity. Disabled providers (or providers
             without auth) are greyed out.
           </li>
@@ -179,14 +179,13 @@ export const gettingStarted: Section[] = [
           <li>
             <strong>Effort</strong> — reasoning budget. Claude supports up to 5 levels
             (low/medium/high/xhigh/max). Codex is model/catalog-driven: GPT-6 Astra
-            and Sol offer low/medium/high/xhigh/max/ultra, Luna stops at max; older models can expose fewer. Z.ai has 4
-            (honored only on glm-5.2); Strata offers none/low/medium/high (none disables
+            and Sol offer low/medium/high/xhigh/max/ultra, Luna stops at max; older models can expose fewer. Strata offers none/low/medium/high (none disables
             thinking, high maps to Qwen xhigh). Other local models expose low/high as a thinking
             toggle, and Gemini has none.
           </li>
           <li>
             <strong>Tuning</strong> — a collapsible band shown for Claude, Codex
-            app-server, and Z.ai. Claude tabs add <strong>FAST MODE</strong> and a{' '}
+            app-server. Claude tabs add <strong>FAST MODE</strong> and a{' '}
             <strong>TOOL-RESULT FILTER</strong> (off / conservative / aggressive —
             trims noisy Bash/test output before it enters context, Native-only)
             beside an <strong>OUTPUT STYLE</strong> picker (normal / lite / terse);
@@ -247,7 +246,7 @@ export const gettingStarted: Section[] = [
             <strong>DEFAULT FOR NEW MEMBERS</strong> — provider, model,
             effort, permissions, fast mode, tool-result filter, output style.
             Fast mode and tool-result filtering apply to Claude; output style
-            applies to Claude Native, Codex app-server, and Z.ai.
+            applies to Claude Native, Codex app-server.
             New member rows are seeded from these values. Changing a default
             after rows exist does not retro-update them.
           </li>
@@ -257,7 +256,7 @@ export const gettingStarted: Section[] = [
             <Code>↓ EDIT</Code> to expand and override per-row:
             <ul>
               <li>Display name (optional)</li>
-              <li>Provider — Claude / Codex / Z.ai / Ollama / llama.cpp / Cursor (cluster fence; Gemini, LM Studio and Antigravity are not cluster members)</li>
+              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; Gemini, LM Studio and Antigravity are not cluster members)</li>
               <li>Model + effort (per-provider pickers)</li>
               <li>Role — free-form ≤120 chars (e.g. "director", "tester")</li>
               <li>Tier — light / standard / heavy / unset</li>
