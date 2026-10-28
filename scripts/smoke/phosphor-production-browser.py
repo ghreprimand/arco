@@ -87,6 +87,19 @@ async def main():
   assert not errors, errors
   assert await page.locator('[data-help="settings.themes"]').count()==1, await page.locator('body').inner_text()
   assert await page.get_by_text('THIS VIEW HIT A RENDER ERROR',exact=True).count()==0, await page.locator('body').inner_text()
+  font = page.get_by_label('Font pack override')
+  await font.select_option('victor-mono-uniform')
+  await page.wait_for_function("() => testStore.getState().settings.fontPackOverride === 'victor-mono-uniform'")
+  async with page.expect_response(lambda response: '/api/settings' in response.url and response.request.method == 'POST'):
+   await font.select_option('')
+  await page.wait_for_function("() => testStore.getState().settings.fontPackOverride === null")
+  assert await font.input_value() == ''
+  await page.wait_for_function("() => localStorage.getItem('arco_font_pack_override') === ''")
+  assert settings['fontPackOverride'] is None
+  assert await page.evaluate("async () => (await import('/src/themes/bootstrap.ts')).readCachedFontPackOverride()") is None
+  theme_font = await page.evaluate("document.documentElement.style.getPropertyValue('--font-body')")
+  await page.evaluate("async () => (await import('/src/themes/bootstrap.ts')).bootstrapCachedTheme()")
+  assert await page.evaluate("document.documentElement.style.getPropertyValue('--font-body')") == theme_font
   await page.get_by_role('button',name='THEME · ARCO PHOSPHOR',exact=False).click()
   assert await page.get_by_label('Theme family').input_value()=='phosphor'
   await page.get_by_label('Palette category').select_option('Terminal')

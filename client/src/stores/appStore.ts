@@ -387,7 +387,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     const provider = get().getActiveJob()?.config.primaryProvider;
     applyThemeForSelection(prev?.themeId, id ?? null, provider, prev?.frostedOverride, prev?.frostedOpacity, brightnessOf(prev));
     writeCachedFontPackOverride(id ?? null);
-    set({ settings: prev ? { ...prev, fontPackOverride: id ?? undefined } : prev });
+    set({ settings: prev ? { ...prev, fontPackOverride: id ?? null } : prev });
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',

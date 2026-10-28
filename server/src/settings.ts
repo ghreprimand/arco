@@ -34,6 +34,7 @@ const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 
 
 function defaults(): ArcoSettings {
   return {
+    fontPackOverride: 'victor-mono-uniform',
     enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, zai: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
@@ -598,7 +599,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
       if (typeof v === 'boolean') enabled[key] = v;
     }
   }
-  const result: ArcoSettings = { enabledProviders: enabled };
+  const result: ArcoSettings = { enabledProviders: enabled, fontPackOverride: base.fontPackOverride };
   const wd = sanitizeWorkflowDefaults(partial.workflowDefaults);
   if (wd) result.workflowDefaults = wd;
   const providerAccounts = sanitizeProviderAccounts(partial.providerAccounts);
@@ -618,7 +619,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
   const fontPack = sanitizeFontPackId(partial.fontPackOverride);
-  if (fontPack !== undefined) result.fontPackOverride = fontPack;
+  if (partial.fontPackOverride === null) result.fontPackOverride = null;
+  else if (fontPack !== undefined) result.fontPackOverride = fontPack;
   const frosted = sanitizeFrostedOverride(partial.frostedOverride);
   if (frosted !== undefined) result.frostedOverride = frosted;
   const frostedOpacity = sanitizeFrostedOpacity(partial.frostedOpacity);
@@ -813,7 +815,8 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   }
   if ('fontPackOverride' in patch) {
     if (patch.fontPackOverride === null || patch.fontPackOverride === undefined) {
-      // explicit clear — leave unset so client falls back to theme defaults
+      // Persist an explicit theme-default choice separately from a missing setting.
+      merged.fontPackOverride = null;
     } else if (typeof patch.fontPackOverride !== 'string'
         || !(VALID_FONT_PACK_IDS as readonly string[]).includes(patch.fontPackOverride)) {
       throw new Error(`invalid fontPackOverride: ${String(patch.fontPackOverride)}`);

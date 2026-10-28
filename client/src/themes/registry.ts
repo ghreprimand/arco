@@ -1,4 +1,5 @@
 import type { Theme } from './types';
+import { normalizeLegacyThemeId } from '@arco/shared';
 import { matrix } from './definitions/matrix';
 import { braun } from './definitions/braun';
 import { amberCrt } from './definitions/amberCrt';
@@ -52,7 +53,7 @@ import { arch } from './definitions/arch';
 // Provider auto-tint sentinel — picker-visible; resolves to a per-provider
 // palette at apply time. See themes/providerThemes.ts.
 import { providerAuto } from './providerThemes';
-import { phosphorTheme } from './phosphor/paletteAdapter';
+import { PHOSPHOR_PREFIX, phosphorTheme } from './phosphor/paletteAdapter';
 import { arcoThemes } from './phosphor/arco-palette';
 
 export const CLASSIC_THEME_REGISTRY: Record<string, Theme> = {
@@ -101,7 +102,7 @@ export const CLASSIC_THEME_REGISTRY: Record<string, Theme> = {
   'provider-auto': providerAuto,
 };
 
-export const DEFAULT_THEME_ID = 'matrix';
+export const DEFAULT_THEME_ID = `${PHOSPHOR_PREFIX}electric`;
 export const PHOSPHOR_THEME_REGISTRY: Record<string, Theme> = Object.fromEntries(arcoThemes.map(p => {
   const theme = phosphorTheme(p.id);
   return [theme.id, theme];
@@ -109,6 +110,7 @@ export const PHOSPHOR_THEME_REGISTRY: Record<string, Theme> = Object.fromEntries
 export const THEME_REGISTRY: Record<string, Theme> = { ...CLASSIC_THEME_REGISTRY, ...PHOSPHOR_THEME_REGISTRY };
 
 export function getTheme(id: string | undefined | null): Theme {
-  if (id && THEME_REGISTRY[id]) return THEME_REGISTRY[id];
+  const normalized = id && normalizeLegacyThemeId(id);
+  if (normalized && THEME_REGISTRY[normalized]) return THEME_REGISTRY[normalized];
   return THEME_REGISTRY[DEFAULT_THEME_ID];
 }

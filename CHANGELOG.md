@@ -14,6 +14,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Changed
 
 - Hide provider status dots and usage details when their providers are disabled in Settings.
+- Use Electric Blue and Victor Mono as the default appearance, while preserving saved theme choices.
 
 - README and Getting started now present the background service as the normal way to run Arco.
 

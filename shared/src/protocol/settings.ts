@@ -101,7 +101,7 @@ export interface ArcoSettings {
   // Optional font-pack override. When set to a valid pack id, applyTheme
   // substitutes the active theme's display/body/code fonts with the pack's.
   // Validated against VALID_FONT_PACK_IDS.
-  fontPackOverride?: string;
+  fontPackOverride?: string | null;
   // Operator override for the active theme's frosted-glass backdrop-filter.
   // 'on'/'off' force it; absent = follow the theme's own `frosted` default.
   // Applied via the data-frosted attribute (see client themes/apply.ts).

@@ -19,3 +19,15 @@ test('setup completion survives unrelated settings patches and cannot be reset b
   assert.equal((await readSettings()).onboardingComplete, true);
   assert.equal(JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).onboardingComplete, true);
 });
+
+test('default font survives settings round trips and saved choices remain intact', async () => {
+  const { readSettings, patchSettings } = await import('./settings.js');
+  assert.equal((await readSettings()).fontPackOverride, 'victor-mono-uniform');
+  await patchSettings({ themeId: 'matrix', fontPackOverride: 'space-mono-uniform' });
+  assert.equal((await readSettings()).themeId, 'matrix');
+  assert.equal((await readSettings()).fontPackOverride, 'space-mono-uniform');
+  await patchSettings({ fontPackOverride: null });
+  assert.equal((await readSettings()).fontPackOverride, null);
+  await patchSettings({ projects: [] });
+  assert.equal((await readSettings()).fontPackOverride, null);
+});

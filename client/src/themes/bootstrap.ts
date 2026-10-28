@@ -1,4 +1,4 @@
-import { THEME_REGISTRY, DEFAULT_THEME_ID } from './registry';
+import { getTheme } from './registry';
 import { applyTheme, applyCrispText } from './apply';
 import { applyPhosphorPreferences, readPhosphorPreferences } from './phosphor/preferences';
 
@@ -48,22 +48,20 @@ export function writeCachedThemeId(id: string | undefined | null): void {
   }
 }
 
-export function readCachedFontPackOverride(): string | null {
+export function readCachedFontPackOverride(): string | null | undefined {
   try {
-    return typeof localStorage !== 'undefined' ? localStorage.getItem(LS_FONT_PACK_KEY) : null;
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_FONT_PACK_KEY) : null;
+    return cached === null ? undefined : cached === '' ? null : cached;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
 export function writeCachedFontPackOverride(id: string | undefined | null): void {
   try {
     if (typeof localStorage === 'undefined') return;
-    if (!id) {
-      localStorage.removeItem(LS_FONT_PACK_KEY);
-      return;
-    }
-    localStorage.setItem(LS_FONT_PACK_KEY, id);
+    if (id === undefined) localStorage.removeItem(LS_FONT_PACK_KEY);
+    else localStorage.setItem(LS_FONT_PACK_KEY, id ?? '');
   } catch {
     // Same fallback as the theme cache — silent.
   }
@@ -168,7 +166,8 @@ export function writeCachedCrispText(v: boolean | undefined | null): void {
 export function bootstrapCachedTheme(): void {
   applyPhosphorPreferences(readPhosphorPreferences());
   const cached = readCachedThemeId();
-  const theme = (cached && THEME_REGISTRY[cached]) || THEME_REGISTRY[DEFAULT_THEME_ID];
-  applyTheme(theme, readCachedFontPackOverride(), readCachedFrostedOverride(), readCachedFrostedOpacity(), { bg: readCachedBgBrightness(), text: readCachedTextBrightness() });
+  const theme = getTheme(cached);
+  const cachedFont = readCachedFontPackOverride();
+  applyTheme(theme, cachedFont === undefined ? 'victor-mono-uniform' : cachedFont, readCachedFrostedOverride(), readCachedFrostedOpacity(), { bg: readCachedBgBrightness(), text: readCachedTextBrightness() });
   applyCrispText(readCachedCrispText());
 }

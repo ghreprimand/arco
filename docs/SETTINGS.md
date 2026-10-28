@@ -35,9 +35,9 @@ Sections: 21.
 
 | Section id | Category | Section | Scope | Controls |
 | --- | --- | --- | --- | --- |
-| `themes` | Appearance | Theme | Global | Theme family and palette picker, search and categories |
+| `themes` | Appearance | Theme | Global | Theme family and palette picker, search and categories; default Electric Blue |
 | `phosphor` | Appearance | Phosphor effects and softness | Global | Phosphor glow, effects and softness (shown with a Phosphor theme) |
-| `font-pack-override` | Appearance | Font pack override | Global | Font pack selector |
+| `font-pack-override` | Appearance | Font pack override | Global | Font pack selector; default Victor Mono |
 | `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness |
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |
