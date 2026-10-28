@@ -63,10 +63,13 @@ def card(page, label):
 
 
 async def add_folder(page, path):
+    await page.get_by_role('button', name='Add project', exact=True).click()
     await page.locator('#home-add').fill(str(path))
     await page.get_by_role('button', name='Add', exact=True).click()
     await page.wait_for_function("document.querySelector('#home-add-status').innerText !== ''", timeout=10000)
-    return await page.locator('#home-add-status').inner_text()
+    result = await page.locator('#home-add-status').inner_text()
+    await page.get_by_role('button', name='Close Add project', exact=True).click()
+    return result
 
 
 async def launched(page):
@@ -128,8 +131,10 @@ async def scenario_in_flight_during_move(playwright, server):
         await route.continue_()
 
     try:
-        assert (await add_folder(page, old)).startswith('Added')
+        # Cards request previews as soon as they mount. Hold that first request,
+        # before adding the project, so relocation still races an old-path reply.
         await page.route('**/api/sessions?path=*', hold_old)
+        assert (await add_folder(page, old)).startswith('Added')
         await page.get_by_role('button', name='Show saved sessions for stale-inflight').click()
         for _ in range(50):
             if held['seen']:
