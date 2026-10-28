@@ -24,7 +24,7 @@ import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 import host_isolation
 
 host_isolation.enter_isolated_network()
@@ -167,7 +167,8 @@ async def first_run(playwright,server):
         await page.reload()
         await page.get_by_text('ONLINE',exact=True).wait_for(timeout=20000)
         assert await page.get_by_text('NO PROVIDER CONNECTED YET',exact=True).count()==0
-        assert await page.get_by_role('region',name='Provider connection status').count()==1
+        assert await page.get_by_label('Workbench status',exact=True).count()==1
+        await expect(page.get_by_text('No provider connected',exact=False)).to_be_visible()
         await no_launch(page)
         assert not state['checks'] and not state['logins'],'browsing/skip never starts provider actions'
     finally: await b.close()

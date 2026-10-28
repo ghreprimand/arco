@@ -1,3 +1,4 @@
+import { PRIMARY_PROVIDERS, type SessionInfo, type WorkflowConfig } from '@arco/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
@@ -7,15 +8,19 @@ import {
   type HomeProject, type OpenWorkItem,
 } from '../../utils/homeModel';
 import { ProjectCard } from './ProjectCard';
-import { addFolder, createFolder } from './projectApi';
-import { KIND_LABEL, action, box, field, muted, primary, when } from './homeStyles';
+import { AddProject } from './AddProject';
+import { HomeStatus } from './HomeStatus';
+import { defaultModelForProvider, useModelCatalogs } from '../../utils/modelCatalog';
+import { clampEffortForModel } from '../../utils/format';
+import { KIND_LABEL, when } from './homeStyles';
 
 // Project-centered Home: open work, projects (search, groups, per-project open
 // and saved work) and explicit Start actions. Everything here only navigates
-// or opens the existing creator pre-filled; nothing starts a provider, model
-// or agent. Incognito tabs never appear (see utils/homeModel.ts).
+// opens the existing creator, or explicitly resumes a saved session. Rendering
+// sends no prompt. Incognito tabs never appear (see utils/homeModel.ts).
 
-export function HomeView() {
+export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => void } = {}) {
+  const catalogs = useModelCatalogs();
   const jobs = useAppStore((s) => s.jobs);
   const clusters = useAppStore((s) => s.clusters);
   const setActiveJob = useAppStore((s) => s.setActiveJob);
@@ -23,20 +28,18 @@ export function HomeView() {
   const openCreatorWith = useAppStore((s) => s.openCreatorWith);
   const setShowSettings = useAppStore((s) => s.setShowSettings);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [browserRoot, setBrowserRoot] = useState('');
+  const [activity, setActivity] = useState<Record<string, number>>({});
+  const noteActivity = useCallback((path: string, at: number) => setActivity(old => old[path] === at ? old : { ...old, [path]: at }), []);
   const [projects, setProjects] = useState<HomeProject[] | null>(null);
   const [organization, setOrganization] = useState(false);
   const [scanFolder, setScanFolder] = useState<string | null>(null);
   const [showScanned, setShowScanned] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [listStatus, setListStatus] = useState('');
-  const [newName, setNewName] = useState('');
-  const [createStatus, setCreateStatus] = useState('');
-  const [creating, setCreating] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
-  const [addPath, setAddPath] = useState('');
-  const [addStatus, setAddStatus] = useState('');
-  const [adding, setAdding] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -45,6 +48,8 @@ export function HomeView() {
     const parsed = parseProjects(body);
     if (!parsed) return false;
     setProjects(parsed); setOrganization(organizationAvailable(body)); setScanFolder(scanFolderOf(body));
+    const home = (body as { homeFolder?: unknown }).homeFolder;
+    setBrowserRoot(scanFolderOf(body) ?? (typeof home === 'string' ? home : ''));
     return true;
   }, []);
   const load = useCallback(async () => {
@@ -73,158 +78,90 @@ export function HomeView() {
 
   const work = useMemo(() => openWork(jobs, clusters), [jobs, clusters]);
   const shown = useMemo(() => searchProjects(projects ?? [], query), [projects, query]);
-  const groups = useMemo(() => groupProjects(shown, showArchived), [shown, showArchived]);
+  const groups = useMemo(() => groupProjects([...shown].sort((a, b) => (activity[b.path] ?? 0) - (activity[a.path] ?? 0)), showArchived), [shown, showArchived, activity]);
   const labels = useMemo(() => projectLabels(projects ?? []), [projects]);
   const archivedCount = (projects ?? []).filter((p) => p.archived).length;
   const start = (prefill: CreatorPrefill) => openCreatorWith(prefill);
   const openItem = (item: OpenWorkItem) => (item.kind === 'cluster' ? setActiveCluster(item.id) : setActiveJob(item.id));
 
-  async function addProject(e: React.FormEvent) {
-    e.preventDefault();
-    const path = addPath.trim();
-    if (!path || adding) return;
-    setAdding(true); setAddStatus('');
-    // Same guarded registration as Settings -> PROJECTS (absolute, existing, inside allowed roots).
-    const reply = await addFolder(path);
-    setAdding(false);
-    if (!reply.ok) { setAddStatus(`Not added: ${reply.error}.`); return; }
-    if (!applyList(reply.body)) void load();
-    setAddPath(''); setAddStatus(`Added ${path}.`);
-  }
+  const projectName = (item: OpenWorkItem) => {
+    const project = projects?.find(project => workForProject(project, projects, [item]).length > 0);
+    return project ? labels.get(project.path) ?? project.name : item.cwd.split(/[\\/]/).filter(Boolean).at(-1) || item.cwd;
+  };
 
-  async function createProject(e: React.FormEvent) {
-    e.preventDefault();
-    const name = newName.trim();
-    if (!name || creating) return;
-    setCreating(true); setCreateStatus('');
-    const reply = await createFolder(name);
-    setCreating(false);
-    if (!reply.ok) { setCreateStatus(`Not created: ${reply.error}.`); return; }
-    if (!applyList(reply.body)) void load();
-    setNewName(''); setCreateStatus(`Created and added ${name}.`);
-  }
+  const resume = (project: HomeProject, session: SessionInfo) => {
+    if (!onResume) { start({ mode: 'single', workDir: project.path, resumeSessionId: session.sessionId }); return; }
+    if (!useAppStore.getState().connected) { setListStatus('Reconnect to resume a saved session.'); return; }
+    if (!PRIMARY_PROVIDERS.includes(session.provider) || (session.arcoInternal && !session.arcoWorkflowId)) { setListStatus('This saved session cannot be resumed with the available provider.'); return; }
+    const model = defaultModelForProvider(session.provider, catalogs);
+    onResume({
+      name: session.arcoName || session.name || project.name, workingDirectory: project.path,
+      primaryProvider: session.provider, primaryModel: model,
+      primaryEffort: clampEffortForModel('low', session.provider, model, catalogs.claude, catalogs.codex),
+      skipPermissions: false, providerAccountRef: session.providerAccountRef,
+      ...(session.arcoInternal ? { resumeWorkflowId: session.arcoWorkflowId } : { resumeSessionId: session.sessionId }),
+    });
+  };
 
-  return (
-    <main aria-labelledby="home-title" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 18, fontFamily: 'var(--font-body)', color: 'var(--color-fg)' }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <h1 id="home-title" ref={heading} tabIndex={-1} className="display-font" style={{ margin: 0, fontSize: '18px', letterSpacing: '2px', color: 'var(--color-accent-primary)' }}>HOME</h1>
-        <span style={muted}>Pick up open work, find a project, or start something new. Nothing starts until you launch it.</span>
+  return <main aria-labelledby="home-title" className="home-page">
+    <div className="home-content">
+      <header className="home-header">
+        <div><span className="home-eyebrow">YOUR WORKSPACE</span><h1 id="home-title" ref={heading} tabIndex={-1}>HOME</h1>
+          <p>{work.length ? 'Pick up where you left off.' : 'A place for projects, conversations, and your next idea.'}</p></div>
+        <HomeStatus />
       </header>
 
-      <section aria-labelledby="home-start" data-help="home.start" style={{ ...box, padding: '10px 14px' }}>
-        <h2 id="home-start" style={{ margin: '0 0 8px', fontSize: '14px' }}>Start</h2>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" style={primary} onClick={() => start({ mode: 'single' })}>New session</button>
-          <button type="button" style={action} onClick={() => start({ mode: 'chat' })}>New chat (no project)</button>
-          <button type="button" style={action} onClick={() => start({ mode: 'cluster' })}>New cluster</button>
-          <button type="button" style={action} onClick={() => start({ mode: 'genesis' })}>New idea (Genesis)</button>
-        </div>
-        <p style={{ ...muted, margin: '8px 0 0' }}>Each opens the creator with every option available; choose a project below to pre-fill its folder.</p>
+      {work.length > 0 && <section aria-labelledby="home-open" data-help="home.open-work">
+        <div className="home-section-heading"><h2 id="home-open">Open work <span className="home-count">({work.length})</span></h2><span className="home-fine-print">Work keeps running while you are here.</span></div>
+        <ul className="home-work-grid">{work.map(item => <li key={`${item.kind}:${item.id}`}>
+          <div className="home-work-details"><strong>{item.name}</strong><small>{KIND_LABEL[item.kind]}{item.cwd ? ` / ${projectName(item)}` : ' / No project'}{item.lastActivity ? ` / ${when(item.lastActivity)}` : ''}</small></div>
+          <button type="button" className="home-primary" onClick={() => openItem(item)} aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} ${item.name}`}>Resume</button>
+        </li>)}</ul>
+      </section>}
+
+      <section aria-label="Start" data-help="home.start" className="home-start">
+        <button type="button" className="home-primary" onClick={() => start({ mode: 'chat' })}>Start a chat</button>
+        <span className="home-start-copy">Ask a question or think through an idea. No project needed.</span>
+        <button type="button" onClick={() => start({ mode: 'single' })}>New session</button>
+        <details className="home-more"><summary>More ways to start</summary><div>
+          <button type="button" onClick={() => start({ mode: 'cluster' })}>New cluster</button>
+          <button type="button" onClick={() => start({ mode: 'genesis' })}>New idea (Genesis)</button>
+        </div></details>
       </section>
 
-      <section aria-labelledby="home-open" data-help="home.open-work" style={{ ...box, padding: '10px 14px' }}>
-        <h2 id="home-open" style={{ margin: '0 0 8px', fontSize: '14px' }}>Open work ({work.length})</h2>
-        {work.length === 0 ? (
-          <p style={{ ...muted, margin: 0 }}>No open tabs. Saved sessions are listed under each project.</p>
-        ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {work.map((item) => (
-              <li key={`${item.kind}:${item.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button type="button" style={action} onClick={() => openItem(item)} aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} ${item.name}`}>Open</button>
-                <span>{item.name}</span>
-                <span style={muted}>{KIND_LABEL[item.kind]}{item.cwd ? `  /  ${item.cwd}` : ''}{item.lastActivity ? `  /  ${when(item.lastActivity)}` : ''}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="home-projects" data-help="home.projects" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h2 id="home-projects" style={{ margin: 0, fontSize: '14px' }}>Projects{projects ? ` (${projects.length})` : ''}</h2>
-          <label htmlFor="home-search" style={muted}>Search projects (press /)</label>
-          <input
-            id="home-search" ref={search} type="search" value={query} onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); } }}
-            placeholder="Name or folder"
-            style={{ flex: '1 1 220px', minWidth: 0, padding: '6px 10px', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-hairline)', borderRadius: 3, color: 'var(--color-fg)', fontSize: '12px' }}
-          />
-          <button type="button" style={action} onClick={() => void load()}>Reload list</button>
-          {archivedCount > 0 && (
-            <button type="button" style={action} aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>
-              {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
-            </button>
-          )}
-          <button type="button" style={action} onClick={() => { useStartupStore.getState().setSettingsSection('projects'); setShowSettings(true); }}>Manage projects in Settings</button>
+      <section aria-labelledby="home-projects" data-help="home.projects">
+        <div className="home-project-tools"><h2 id="home-projects">Projects{projects && projects.length > 0 ? <span className="home-count">{projects.length}</span> : null}</h2>
+          {projects?.length !== 0 && <button type="button" className="home-primary" data-add-project onClick={() => setAddOpen(true)}>Add project</button>}
         </div>
-        <div role="status" aria-live="polite" style={muted}>
-          {projects === null && !loadError ? 'Loading projects...' : query && projects ? `${shown.length} of ${projects.length} projects match.` : listStatus}
-        </div>
-        {loadError && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{loadError}</div>}
-        {projects && !organization && (
-          <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '12px' }}>
-            Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Projects are still listed; nothing was changed.
-          </div>
-        )}
-
-        {projects && !scanFolder && <p style={muted}>Choose a scan folder in Settings &gt; Projects to discover folders.</p>}
-        {projects && projects.length === 0 && (
-          <div style={{ ...box, padding: '10px 14px' }}>
-            <h3 style={{ margin: '0 0 6px', fontSize: '13px' }}>No projects yet</h3>
-            <p style={{ ...muted, margin: 0 }}>Add a folder Arco can see below, or set a scan folder in Settings. When Arco runs in Docker, only mounted folders are visible.</p>
-          </div>
-        )}
-        {projects && projects.length > 0 && shown.length === 0 && (
-          <p style={{ ...muted, margin: 0 }}>No project matches "{query}".</p>
-        )}
-
-        {groups.map((group) => (
-          <section key={group.key} aria-labelledby={`home-group-${group.key}`}>
-            <h3 id={`home-group-${group.key}`} style={{ margin: '0 0 2px', fontSize: '13px' }}>{group.key === 'scanned' ? `Found in ${scanFolder}` : group.title} ({group.projects.length}){group.key === 'scanned' && group.projects.length > 12 && !query.trim() && <button type="button" style={action} aria-expanded={showScanned} onClick={() => setShowScanned(!showScanned)}>{showScanned ? 'Hide' : 'Show'}</button>}</h3>
-            <p style={{ ...muted, margin: '0 0 6px' }}>{group.description}</p>
-            <ul hidden={group.key === 'scanned' && group.projects.length > 12 && !query.trim() && !showScanned} style={{ listStyle: 'none', margin: 0, padding: 0, display: group.key === 'scanned' && group.projects.length > 12 && !query.trim() && !showScanned ? 'none' : 'flex', flexDirection: 'column', gap: 6 }}>
-              {group.projects.map((project) => (
-                <ProjectCard
-                  key={`${project.id ?? ''}|${project.path}`}
-                  project={project}
-                  label={labels.get(project.path) ?? project.name}
-                  work={workForProject(project, projects ?? [], work)}
-                  organization={organization}
-                  onOpen={openItem}
-                  onStart={start}
-                  onList={(body) => { if (!applyList(body)) void load(); }}
-                  announce={setListStatus}
-                />
-              ))}
+        {projects?.length !== 0 && <div className="home-search"><label htmlFor="home-search">Search projects (press /)</label>
+          <input id="home-search" ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setQuery(''); }} placeholder="Name or folder" />
+          <button type="button" onClick={() => void load()}>Reload list</button>
+          {archivedCount > 0 && <button type="button" aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}</button>}
+          <button type="button" onClick={() => { useStartupStore.getState().setSettingsSection('projects'); setShowSettings(true); }}>Manage projects in Settings</button>
+        </div>}
+        {!addOpen && <div role="status" aria-live="polite" className="home-feedback">{projects === null && !loadError ? 'Loading projects...' : query && projects ? `${shown.length} of ${projects.length} projects match.` : listStatus}</div>}
+        {loadError && <p role="alert" className="home-feedback">{loadError}</p>}
+        {projects && !organization && <p role="alert" className="home-feedback">Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Projects are still listed; nothing was changed.</p>}
+        {projects && projects.length === 0 && <div className="home-empty"><div className="home-empty-symbol" aria-hidden="true">[ + ]</div>
+          <h3>No projects yet</h3><p>Add a folder to keep its sessions close at hand. Projects can live anywhere the server can read, or start a chat without one. In Docker, only mounted folders are visible.</p>
+          <button type="button" className="home-primary" data-add-project onClick={() => setAddOpen(true)}>Add project</button><p className="home-fine-print" style={{ marginTop: 12 }}>Browse, type a path, or create a folder.</p>
+        </div>}
+        {projects && projects.length > 0 && shown.length === 0 && <p className="home-feedback">No project matches "{query}".</p>}
+        {groups.map(group => {
+          const collapsed = group.key === 'scanned' && !query.trim() && !showScanned;
+          return <section key={group.key} className="home-project-group" aria-labelledby={`home-group-${group.key}`}>
+            <h3 id={`home-group-${group.key}`}>{group.key === 'scanned' ? `Found in ${scanFolder}` : group.title} ({group.projects.length}){group.key === 'scanned' && !query.trim() && <button type="button" aria-expanded={showScanned} onClick={() => setShowScanned(!showScanned)}>{showScanned ? 'Hide' : 'Show'}</button>}</h3>
+            <p className="home-group-description">{group.key === 'registered' ? 'Recent conversations, ready to continue.' : group.description}</p>
+            <ul hidden={collapsed} className="home-project-grid" style={collapsed ? { display: 'none' } : undefined}>
+              {(!collapsed ? group.projects : []).map((project, index) => <ProjectCard key={`${project.id ?? ''}|${project.path}`} project={project} label={labels.get(project.path) ?? project.name}
+                work={workForProject(project, projects ?? [], work)} organization={organization} preview={group.key !== 'scanned' && group.key !== 'archived' && project.exists && index < 12}
+                onActivity={noteActivity} onResume={session => resume(project, session)} onOpen={openItem} onStart={start} onList={body => { if (!applyList(body)) void load(); }} announce={setListStatus} />)}
             </ul>
-          </section>
-        ))}
-
-        <form onSubmit={(e) => void addProject(e)} data-help="home.add-folder" style={{ ...box, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <label htmlFor="home-add" style={{ fontSize: '12px' }}>Add a project folder</label>
-          <input
-            id="home-add" value={addPath} onChange={(e) => setAddPath(e.target.value)} placeholder="Absolute path, e.g. /projects/example-app"
-            aria-describedby="home-add-status"
-            style={{ flex: '1 1 260px', minWidth: 0, padding: '6px 10px', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-hairline)', borderRadius: 3, color: 'var(--color-fg)', fontSize: '12px', fontFamily: 'var(--font-code)' }}
-          />
-          <button type="submit" style={action} disabled={adding || !addPath.trim()}>{adding ? 'Adding...' : 'Add'}</button>
-          <span id="home-add-status" role="status" aria-live="polite" style={muted}>{addStatus}</span>
-        </form>
-
-        <form onSubmit={(e) => void createProject(e)} data-help="home.create-folder" style={{ ...box, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <label htmlFor="home-create" style={{ fontSize: '12px' }}>Create a new project folder</label>
-          <input
-            id="home-create" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Absolute new folder path, or name in the scan folder" maxLength={1024}
-            aria-describedby="home-create-help home-create-status"
-            style={{ ...field, fontFamily: 'var(--font-code)' }}
-          />
-          <button type="submit" style={action} disabled={creating || !newName.trim()}>{creating ? 'Creating...' : 'Create'}</button>
-          <span id="home-create-help" style={muted}>
-            {scanFolder ? `Enter an absolute new folder path, or a name to create inside ${scanFolder}.` : 'Enter an absolute path to a new folder inside an existing parent.'}
-          </span>
-          <span id="home-create-status" role="status" aria-live="polite" style={muted}>{createStatus}</span>
-        </form>
+          </section>;
+        })}
+        {projects && !scanFolder && projects.length > 0 && <p className="home-fine-print">Optional folder discovery is available in Settings &gt; Projects. Folders are added only when chosen.</p>}
       </section>
-    </main>
-  );
+    </div>
+    {addOpen && <AddProject initialPath={browserRoot} scanFolder={scanFolder} onList={body => { if (!applyList(body)) void load(); }} onClose={() => setAddOpen(false)} announce={setListStatus} />}
+  </main>;
 }

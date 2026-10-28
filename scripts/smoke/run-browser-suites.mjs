@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SUITES = [
+  { name: 'home-start-page', script: 'home-start-page-browser.py', port: 5196 },
   { name: 'first-run', script: 'first-run-browser.py', isolatedServer: true },
   { name: 'connections', script: 'connections-browser.py', isolatedServer: true },
   { name: 'update-notice', script: 'update-notice-browser.py', port: 5198 },

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Home now leads with open work, a clear Start a chat action, project cards with saved-session resume, folded Add project controls, and compact connection/version status.
+
 ### Fixed
 
 - Keep the Settings close button accessible at larger interface sizes while settings content scrolls.

@@ -241,9 +241,9 @@ async def scenario_restore_race(playwright, server):
     try:
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
-        assert 'Open work (0)' in await main_text(page), 'restored work arrived before the hold released'
+        assert await page.locator('.home-work-grid li').count() == 0, 'restored work arrived before the hold released'
         hold.release()
-        await page.wait_for_function("!document.querySelector('main').innerText.includes('Open work (0)')", timeout=30000)  # the restore landed
+        await page.locator('.home-work-grid li').first.wait_for(timeout=30000)  # the restore landed
         await page.wait_for_timeout(3000)
         assert await page.get_by_role('heading', name='HOME', exact=True).count() == 1, \
             f'the late restore replaced Home | errors={b.errors[-3:]} | text={(await page.evaluate("document.body.innerText"))[:300]!r}'
@@ -279,11 +279,11 @@ async def scenario_reload_and_outage(playwright, server, outage_server):
     b.raw = True
     page = await b.open()
     try:
-        await page.get_by_text('No AI provider is connected.', exact=True).wait_for(timeout=20000)
+        await page.get_by_text('No provider connected', exact=False).wait_for(timeout=20000)
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
         await page.wait_for_timeout(1500)
-        assert await page.get_by_text('No AI provider is connected.', exact=True).count() == 1, 'the outage banner disappeared'
+        assert await page.get_by_text('No provider connected', exact=False).count() == 1, 'the outage banner disappeared'
         assert 'app' in await main_text(page), 'Home does not list the returning project during an outage'
         assert await page.get_by_text('NO PROVIDER CONNECTED YET', exact=True).count() == 0
     finally:
@@ -305,7 +305,7 @@ async def scenario_keyboard(playwright, server):
         await page.wait_for_function("document.activeElement?.id === 'home-title'", timeout=5000)
         focus = await page.evaluate('document.activeElement && document.activeElement.id')
         assert focus == 'home-title', f'Home did not move focus to its heading: {focus!r}'
-        await page.get_by_role('heading', name=re.compile(r'^Projects \(')).wait_for(timeout=10000)  # the list has loaded
+        await page.get_by_role('heading', name=re.compile(r'^Projects')).wait_for(timeout=10000)  # the list has loaded
         await page.keyboard.press('/')
         assert await page.evaluate('document.activeElement && document.activeElement.id') == 'home-search', '"/" did not focus search'
         await page.keyboard.type('zzz-no-such-project')
@@ -317,8 +317,8 @@ async def scenario_keyboard(playwright, server):
         assert 'No project matches' not in await main_text(page)
         await page.keyboard.press('Escape')
         # Every action is a native button with a name; project actions carry the project's name.
-        buttons = await page.evaluate("""() => [...document.querySelectorAll('main button')].map((b) => ({
-          tag: b.tagName, name: (b.getAttribute('aria-label') || b.innerText || '').trim(), inCard: !!b.closest('h4, li > div') && !!b.closest('li')}))""")
+        buttons = await page.evaluate("""() => [...document.querySelectorAll('main button')].filter(b=>b.getClientRects().length).map((b) => ({
+          tag: b.tagName, name: (b.getAttribute('aria-label') || b.textContent || '').trim(), inCard: !!b.closest('h4, li > div') && !!b.closest('li')}))""")
         assert buttons and all(x['name'] for x in buttons), f'a Home button has no accessible name: {buttons}'
         assert await page.evaluate("[...document.querySelectorAll('main [onclick], main div[role=button]')].length") == 0, 'Home has a non-native clickable'
         mismatched = await page.evaluate("""() => [...document.querySelectorAll('main li')].filter((li) => li.querySelector(':scope > div h4'))
@@ -347,7 +347,7 @@ async def scenario_privacy(playwright, server):
         # The seeded server already holds a workflow, a cluster and a normal chat: these are
         # restored into this browser; only the Incognito chat made here must be absent.
         count = int(re.search(r'Open work \((\d+)\)', text).group(1))
-        names_listed = await page.locator('#home-open ~ ul li span:first-of-type').all_inner_texts()
+        names_listed = await page.locator('.home-work-details strong').all_inner_texts()
         assert len(names_listed) == count, f'Open work count {count} does not match the rows listed {names_listed}'
         assert OPEN_CHAT_NAME in names_listed and WORKFLOW_NAME in names_listed, f'normal open work is missing: {names_listed}'
         for forbidden in (INCOGNITO_NAME, 'Incognito', 'INCOGNITO'):
@@ -369,7 +369,8 @@ async def scenario_privacy(playwright, server):
         await page.get_by_role('button', name='New session in app').click()
         await page.get_by_role('button', name='LAUNCH WORKFLOW').wait_for(timeout=10000)
         local = await page.evaluate("JSON.stringify(Object.entries(localStorage))")
-        assert 'creatorPrefill' not in local and 'resumeSessionId' not in local
+        persisted_ui = json.loads(next(value for key, value in json.loads(local) if '"showHome"' in value))['state']
+        assert 'creatorPrefill' not in persisted_ui and 'resumeSessionId' not in persisted_ui
     finally:
         await b.close()
 
@@ -383,7 +384,7 @@ async def scenario_project_list_is_projects(playwright, server):
         incog_ids = json.loads(await page.evaluate("sessionStorage.getItem('__incogIds') || '[]'"))
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
-        await page.get_by_role('heading', name=re.compile(r'^Projects \(')).wait_for(timeout=10000)
+        await page.get_by_role('heading', name=re.compile(r'^Projects')).wait_for(timeout=10000)
         await page.wait_for_timeout(500)
         paths = await page.evaluate("[...document.querySelectorAll('main h4 + div')].map((d) => d.textContent)")
         assert paths, 'no projects listed'
@@ -404,21 +405,50 @@ async def scenario_saved_sessions(playwright, server):
         list_ = page.get_by_role('list', name='Saved sessions in app')
         await list_.get_by_role('button', name=re.compile(f'^Resume {CODEX_TITLE}')).wait_for(timeout=10000)
         before = await sent(page, 'create_workflow')
-        # Resume a Codex session: the creator opens in RESUME with it selected and the provider set.
+        # Resume is an explicit request using the normal workflow-creation path.
         await page.get_by_role('button', name=re.compile(f'^Resume {CODEX_TITLE}')).click()
-        await page.get_by_role('button', name=re.compile('^RESUME')).wait_for(timeout=15000)
-        row = page.locator(f'button[title^="{CODEX_SESSION}"]')
-        await row.wait_for(timeout=15000)
-        assert await row.evaluate("(el) => getComputedStyle(el).backgroundColor") != 'rgba(0, 0, 0, 0)', 'the resumed session is not selected'
-        other = page.locator(f'button[title^="{CLAUDE_SESSION}"]')
-        if await other.count():
-            assert await other.evaluate("(el) => getComputedStyle(el).backgroundColor") == 'rgba(0, 0, 0, 0)', 'another session is selected too'
-        provider = await page.locator('select').first.input_value()
-        assert provider == 'codex', f'the resumed session did not set its provider: {provider!r}'
-        assert await creator_folder(page) and (await creator_folder(page)).endswith('/app')
-        await page.wait_for_timeout(1500)
-        assert await sent(page, 'create_workflow') == before, 'resuming from Home launched something before LAUNCH'
-        assert await page.get_by_role('button', name=re.compile('^LAUNCH')).count() == 1
+        await page.wait_for_function("window.__sent.some(s=>{try{const m=JSON.parse(s);return m.type==='create_workflow' && m.config.resumeSessionId==='" + CODEX_SESSION + "'}catch{return false}})")
+        assert await sent(page, 'create_workflow') == before + 1
+        frames = await page.evaluate('window.__sent.map(s=>{try{return JSON.parse(s)}catch{return {}}})')
+        resumed = next(m for m in reversed(frames) if m.get('type') == 'create_workflow')
+        assert resumed['config']['primaryProvider'] == 'codex'
+        assert resumed['config']['workingDirectory'] == str(server.projects / 'app')
+        assert resumed['config']['skipPermissions'] is False
+        await page.wait_for_function("!document.querySelector('#home-title')", timeout=15000)
+
+    finally:
+        await b.close()
+
+
+async def scenario_internal_resume(playwright, server, model):
+    """An Arco-managed saved session restores its original identity without a prompt."""
+    app = server.projects / 'app'
+    source = next(path for path in (app / '.arco/workflows').glob('*/meta.json') if json.loads(path.read_text()).get('name') == WORKFLOW_NAME)
+    original = json.loads(source.read_text())
+    workflow_id = 'abcdefab-1234-4567-890a-abcdefabcdef'
+    folder = source.parent.parent / workflow_id
+    folder.mkdir(exist_ok=True)
+    metadata = {**original, 'workflowId': workflow_id, 'name': 'Saved fixture continuation', 'createdAt': int(time.time() * 1000), 'lastActiveAt': int(time.time() * 1000)}
+    (folder / 'meta.json').write_text(json.dumps(metadata))
+    events = source.parent / 'events.jsonl'
+    if events.exists():
+        (folder / 'events.jsonl').write_text(events.read_text().replace(original['workflowId'], workflow_id))
+    b = h.Browser(playwright, server)
+    page = await b.open()
+    try:
+        await home_button(page).click()
+        response = await page.request.get(server.base + '/api/sessions?path=' + str(app))
+        row = next(session for session in (await response.json())['sessions'] if session.get('arcoWorkflowId') == workflow_id)
+        assert row.get('arcoInternal') is True
+        title = row.get('name') or row.get('arcoName') or row['sessionId'][:8]
+        before = model.chats
+        await page.get_by_role('button', name=f'Resume {title}', exact=True).click()
+        await page.wait_for_function("!document.querySelector('#home-title')", timeout=15000)
+        frames = await page.evaluate('window.__sent.map(s=>{try{return JSON.parse(s)}catch{return {}}})')
+        request = next(frame for frame in frames if frame.get('type') == 'create_workflow' and frame.get('config', {}).get('resumeWorkflowId') == workflow_id)
+        assert not request['config'].get('resumeSessionId')
+        assert request['config']['primaryProvider'] == original['primaryProvider']
+        assert model.chats == before, 'restoring a saved session sent a model prompt'
     finally:
         await b.close()
 
@@ -452,8 +482,12 @@ async def scenario_saved_errors(playwright, server):
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
         card = page.locator('li', has=page.get_by_role('heading', name='app', exact=True))
-        for label, fixture in cases:
+        for index, (label, fixture) in enumerate(cases):
             mode['bad'] = fixture
+            if index:
+                await page.reload()
+                await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=30000)
+                await page.get_by_role('heading', name='app', exact=True).wait_for(timeout=15000)
             mode['calls'] = 0
             await page.get_by_role('button', name='Show saved sessions for app').click()
             try:
@@ -477,12 +511,10 @@ async def scenario_saved_errors(playwright, server):
                 await card.get_by_role('button', name='Retry').click()
             await card.get_by_role('list', name='Saved sessions in app').wait_for(timeout=10000)
             assert await card.get_by_role('alert').count() == 0, f'{label}: the error stayed after recovery'
-            # A fresh page for the next case (Home survives a reload), so the card loads from scratch.
-            await page.reload()
-            await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=30000)
-            await page.get_by_role('heading', name='app', exact=True).wait_for(timeout=15000)
         # A genuinely empty answer is the only thing that says "No saved sessions".
         mode['bad'] = dict(status=200, json={'sessions': []})
+        await page.reload()
+        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=30000)
         await page.get_by_role('button', name='Show saved sessions for app').click()
         await card.get_by_text('No saved sessions in this folder').wait_for(timeout=10000)
         assert await card.get_by_role('alert').count() == 0
@@ -535,7 +567,7 @@ async def scenario_open_marking(playwright, server):
         list_ = page.get_by_role('list', name='Saved sessions in app')
         await list_.get_by_role('button', name=f'Open {CLAUDE_TITLE}').wait_for(timeout=10000)
         assert await list_.get_by_role('button', name=re.compile(f'^Resume {CLAUDE_TITLE}')).count() == 0
-        assert await list_.get_by_role('button', name=re.compile(f'^Resume {CODEX_TITLE}')).count() == 1
+        assert await list_.get_by_role('button', name=re.compile(f'^(Resume|Open) {CODEX_TITLE}')).count() == 1
         await list_.get_by_role('button', name=f'Open {CLAUDE_TITLE}').click()
         await page.wait_for_timeout(500)
         assert await page.get_by_role('heading', name='HOME', exact=True).count() == 0, 'Open did not leave Home'
@@ -555,13 +587,16 @@ async def scenario_missing_and_add(playwright, server, scratch):
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
         # Add through Home's own form.
+        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
         await page.locator('#home-add').fill(str(gone))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.get_by_text(f'Added {gone}.').wait_for(timeout=10000)
+        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
         await page.locator('#home-add').fill(str(beta))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.get_by_text(f'Added {beta}.').wait_for(timeout=10000)
         gone.rmdir()
+        await page.get_by_role('button', name='Close Add project', exact=True).click()
         await page.get_by_role('button', name='Reload list').click()
         card = page.locator('li', has=page.get_by_role('heading', name='gone', exact=True))
         await card.get_by_text('Folder not found').wait_for(timeout=10000)
@@ -569,18 +604,20 @@ async def scenario_missing_and_add(playwright, server, scratch):
             assert await page.get_by_role('button', name=name).is_disabled(), f'{name} is enabled for a missing folder'
         assert await page.get_by_role('button', name='New session in beta').is_enabled()
         # A bad path says why and adds nothing.
-        before = (await page.get_by_role('heading', name=re.compile(r'^Projects \(')).inner_text())
+        before = (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text())
+        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
         await page.locator('#home-add').fill('relative/not-absolute')
         await page.get_by_role('button', name='Add', exact=True).click()
         status = page.locator('#home-add-status')
         await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
         message = await status.inner_text()
         assert len(message) > len('Not added: ') + 3, f'the refusal gives no reason: {message!r}'
-        assert (await page.get_by_role('heading', name=re.compile(r'^Projects \(')).inner_text()) == before
+        assert (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text()) == before
+        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
         await page.locator('#home-add').fill(str(scratch / 'never-created'))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
-        assert (await page.get_by_role('heading', name=re.compile(r'^Projects \(')).inner_text()) == before
+        assert (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text()) == before
         assert (await status.inner_text()).startswith('Not added: ')
     finally:
         await b.close()
@@ -605,7 +642,7 @@ async def scenario_missing_and_add(playwright, server, scratch):
             await page.get_by_text(re.compile(expect)).first.wait_for(timeout=10000)
             if label == 'empty':
                 assert 'mounted' in await main_text(page), 'the empty state lost its mount hint'
-                assert await page.locator('#home-add').count() == 1
+                assert await page.get_by_role('button', name='Add project', exact=True).count() == 1
             else:
                 assert await page.get_by_role('alert').filter(has_text=expect).count() == 1
                 assert await page.get_by_role('button', name='Reload list').is_enabled()
@@ -623,13 +660,14 @@ async def scenario_start_buttons(playwright, server):
     try:
         expectations = (
             ('New session', 'SINGLE WORKFLOW'),
-            ('New chat (no project)', 'CHAT'),
+            ('Start a chat', 'CHAT'),
             ('New cluster', 'CLUSTER'),
             ('New idea (Genesis)', 'GENESIS'),
         )
         for label, mode in expectations:
             await home_button(page).click()
             await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+            if label in ('New cluster', 'New idea (Genesis)'): await page.get_by_text('More ways to start', exact=True).click()
             await page.get_by_role('button', name=label, exact=True).first.click()
             await page.get_by_role('button', name=re.compile('^SINGLE WORKFLOW')).wait_for(timeout=10000)
             await page.wait_for_timeout(300)
@@ -677,7 +715,8 @@ async def main():
                 ('restore race: Home survives a late workspace restore', lambda: scenario_restore_race(playwright, server)),
                 ('reload keeps Home; provider outage still renders Home', lambda: scenario_reload_and_outage(playwright, server, outage)),
                 ('keyboard-only use; every action is a named native button', lambda: scenario_keyboard(playwright, server)),
-                ('saved sessions: Resume opens RESUME with the session and provider, launches nothing', lambda: scenario_saved_sessions(playwright, server)),
+                ('saved sessions: Resume restores the session and provider in one click', lambda: scenario_saved_sessions(playwright, server)),
+                ('Arco-managed saved sessions resume with their original identity and no prompt', lambda: scenario_internal_resume(playwright, server, model)),
                 ('saved-session failures (403, 500, malformed, dropped) show an error with Retry, not an empty folder', lambda: scenario_saved_errors(playwright, server)),
                 ('a session open in a tab offers Open and opens it', lambda: scenario_open_marking(playwright, server)),
                 ('Start buttons and project pre-fill choose the creator mode and folder', lambda: scenario_start_buttons(playwright, server)),

@@ -6,9 +6,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Start from Home',
     body: (
       <p>
-        Each button opens the existing creator; nothing starts until you
-        review its options and launch. Choose a project below to prefill its
-        folder for a new session or cluster.
+        Start a chat opens the normal creator without a project. New session starts from a project folder; More ways to start offers New cluster and New idea (Genesis). These actions open the creator without sending a prompt. Open work appears first and keeps running while Home is open.
       </p>
     ),
   },
@@ -19,7 +17,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Shows currently open work that can be resumed from Home. Incognito
         chats, cluster members and hidden task children are omitted. Open
-        returns to that item.
+        returns to that item in one click. Visiting Home does not stop a running turn.
       </p>
     ),
   },
@@ -29,7 +27,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Browse pinned, registered, recently used and scanned project folders.
-        Search by name or folder. Archived projects are hidden until you choose
+        Cards preview their latest saved sessions. Resume restores one through the normal workflow path without sending a prompt; an already open session offers Open. Search by name or folder. Discovered folders stay collapsed until Show or a search. Archived projects are hidden until you choose
         Show archived. A project whose folder is missing stays listed so it can
         be relocated or archived; a folder you added yourself can also be
         removed from the list. Its saved sessions stay on disk. In Docker, only
@@ -57,7 +55,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Create a project folder',
     body: (
       <p>
-        Creates one new, empty folder at an absolute path, or uses a plain
+        Under Add project, expand Create a new project folder to create one empty folder at an absolute path, or use a plain
         name inside the scan folder set in Settings. The parent must exist. An existing
         folder with that name is never reused; add it instead.
       </p>
@@ -68,7 +66,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Add a project folder',
     body: (
       <p>
-        Add an existing absolute folder path that Arco can access. This adds
+        Choose Add project to browse any readable folder, type an absolute path, or create a folder. Adding an existing path adds
         it to the project list; it does not create a folder. In Docker, mount
         the folder before adding it.
       </p>

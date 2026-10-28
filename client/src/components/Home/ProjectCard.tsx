@@ -22,7 +22,8 @@ async function loadSessions(path: string, signal: AbortSignal): Promise<{ sessio
 
 type Earlier = { path: string; rows: SavedSessionRow[] } | { path: string; error: string };
 
-export function ProjectCard({ project, label, work, organization, onOpen, onStart, onList, announce }: {
+export function ProjectCard({ project, label, work, organization, onOpen, onStart, onList, announce, preview = false, onResume, onActivity }: {
+  preview?: boolean; onResume?: (session: SessionInfo) => void; onActivity?: (path: string, at: number) => void;
   project: HomeProject;
   label: string;
   work: OpenWorkItem[];
@@ -66,13 +67,15 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
     if (request.signal.aborted) return;
     if ('error' in current) { setSaved(null); setSavedError(current.error); } else {
       raw.current = current.sessions;
-      setSaved(savedSessionRows(raw.current, useAppStore.getState().jobs));
+      const rows = savedSessionRows(raw.current, useAppStore.getState().jobs);
+      setSaved(rows); onActivity?.(project.path, rows[0]?.startedAt ?? 0);
     }
     setEarlier(previous.map((r, i) => {
       const path = project.previousPaths![i];
       return 'error' in r ? { path, error: r.error } : { path, rows: savedSessionRows(r.sessions, useAppStore.getState().jobs) };
     }));
-  }, [project.path, project.previousPaths]);
+  }, [project.path, project.previousPaths, onActivity]);
+  useEffect(() => { if (preview) void loadSaved(); }, [preview, loadSaved]);
   // Keep the Open/Resume marking current when tabs open or close.
   useEffect(() => { if (saved) setSaved(savedSessionRows(raw.current, jobs)); }, [jobs]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -93,11 +96,11 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
   }
 
   const savedRow = (row: SavedSessionRow, resumable: boolean) => (
-    <li key={row.sessionId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <li key={row.sessionId} className="home-session-row">
       {row.openWorkflowId ? (
         <button type="button" style={action} onClick={() => setActiveJob(row.openWorkflowId!)} aria-label={`Open ${row.title}`}>Open</button>
       ) : resumable ? (
-        <button type="button" style={action} onClick={() => onStart({ mode: 'single', workDir: project.path, resumeSessionId: row.sessionId })} aria-label={`Resume ${row.title} in the creator`}>Resume...</button>
+        <button type="button" style={action} onClick={() => { const session = raw.current.find(s => s.sessionId === row.sessionId); if (session && onResume) onResume(session); else onStart({ mode: 'single', workDir: project.path, resumeSessionId: row.sessionId }); }} aria-label={`Resume ${row.title}`}>Resume</button>
       ) : null}
       <span>{row.title}</span>
       <span style={muted}>{row.provider}{row.account ? `  /  ${row.account}` : ''}{row.startedAt ? `  /  ${when(row.startedAt)}` : ''}</span>
@@ -105,9 +108,9 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
   );
 
   return (
-    <li style={{ ...box, padding: '8px 12px', opacity: missing ? 0.85 : 1 }} aria-label={`Project ${label}`}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+    <li className="home-project-card" style={{ ...box, padding: '16px', opacity: missing ? 0.85 : 1 }} aria-label={`Project ${label}`}>
+      <div className="home-card-header">
+        <div className="home-card-summary" style={{ minWidth: 0 }}>
           <h4 style={{ margin: 0, fontSize: '13px' }}>
             {label}
             {project.pinned && <span style={{ ...muted, marginLeft: 8 }}>Pinned</span>}
@@ -124,7 +127,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
               : `${work.length} open ${work.length === 1 ? 'tab' : 'tabs'}`}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="home-card-actions">
           <button type="button" style={primary} disabled={missing} onClick={() => onStart({ mode: 'single', workDir: project.path })} aria-label={`New session in ${label}`}>New session</button>
           <button type="button" style={action} disabled={missing} onClick={() => onStart({ mode: 'cluster', workDir: project.path })} aria-label={`New cluster in ${label}`}>New cluster</button>
           <button type="button" style={action} disabled={missing} aria-expanded={expanded} aria-controls={listId} onClick={toggle} aria-label={`${expanded ? 'Hide' : 'Show'} saved sessions for ${label}`}>
@@ -191,7 +194,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
         </div>
       )}
 
-      {work.length > 0 && (
+      {work.length > 0 && (!preview || expanded) && (
         <ul aria-label={`Open tabs in ${label}`} style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           {work.map((item) => (
             <li key={`${item.kind}:${item.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -201,7 +204,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           ))}
         </ul>
       )}
-      {expanded && (
+      {(expanded || preview) && (
         <div id={listId} style={{ marginTop: 6 }}>
           <div role="status" aria-live="polite" style={muted}>
             {saved === null && !savedError ? 'Loading saved sessions...' : saved && saved.length === 0 ? 'No saved sessions in this folder.' : ''}
@@ -209,10 +212,10 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           {savedError && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{savedError} <button type="button" style={action} onClick={() => void loadSaved()}>Retry</button></div>}
           {saved && saved.length > 0 && (
             <ul aria-label={`Saved sessions in ${label}`} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {saved.map((row) => savedRow(row, true))}
+              {(expanded ? saved : saved.slice(0, 3)).map((row) => savedRow(row, !missing))}
             </ul>
           )}
-          {earlier.map((group) => (
+          {expanded && earlier.map((group) => (
             <div key={group.path} style={{ marginTop: 6 }}>
               <div style={muted}>Saved under the previous location {group.path}. They stay listed here; resuming them from the new folder is not available.</div>
               {'error' in group

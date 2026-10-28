@@ -1,3 +1,4 @@
+import './components/Home/home.css';
 import { HomeView } from './components/Home/HomeView';
 import './components/Connections/connections.css';
 import { parseConnectionStatus } from './components/Connections/model';
@@ -667,7 +668,7 @@ ${scopeBody}
       >
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
-        {authStatus && !providerConnected && <ProviderOutageBanner />}
+        {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}
@@ -683,7 +684,7 @@ ${scopeBody}
           {showGithub ? (
             <GitHubPanel />
           ) : showHome ? (
-            <HomeView />
+            <HomeView onResume={createWorkflow} />
           ) : activeClusterId ? (
             <ClusterTab
               key={activeClusterId}

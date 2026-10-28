@@ -15,6 +15,25 @@ setup completion. Earlier steps can be skipped; **Skip setup** goes to Home.
 Completion is remembered in the Arco home across browsers and provider outages.
 Settings > Projects > **Run setup again** reopens the same flow.
 
+## Home: a place to start and return
+
+Home shows open work first; **Resume** returns to a tab without stopping its
+running turn. **Start a chat** opens the normal creator without a project.
+**New session** works in a project folder; **More ways to start** keeps the
+cluster and Genesis creators available.
+
+Pinned and recently used project cards show saved sessions. **Resume** on a saved
+session restores it in one click without submitting a prompt. Sessions already
+open offer **Open**. Search includes project names and paths; discovered folders
+stay collapsed until expanded or searched. Pin, Manage, archive, and missing-folder
+recovery stay on each card.
+
+**Add project** opens a folder browser and path entry. Expand **Create a new project
+folder** for an absolute new path or a name under the optional scan folder. These
+controls never register neighboring folders or change the scan setting. A compact
+status area links to Connections and the installed Arco version/update controls.
+Disabled providers are excluded from its connection count.
+
 ## Before starting
 
 Arco requires Node.js 24 or newer and `NODE_ENV` must not be set to `production` while installing, because the native build needs development dependencies. It also requires npm, Git, and a C/C++ toolchain with Python 3
