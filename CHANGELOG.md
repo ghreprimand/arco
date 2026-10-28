@@ -15,6 +15,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Connections labels local runtime addresses as configured and reports whether they are reachable.
+
 - New homes default to Codex app-server, Claude native, and +30 text brightness.
 
 - Hide provider status dots and usage details when their providers are disabled in Settings.

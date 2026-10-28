@@ -205,9 +205,14 @@ async def checks_and_endpoints(playwright,server):
         await local.get_by_role('button',name='Save endpoint',exact=True).click()
         await local.get_by_text('Endpoint saved.',exact=False).wait_for()
         assert not state['checks'],'saving does not implicitly test the endpoint'
+        state['status']['ollama']={'loggedIn':False,'apiProvider':'ollama:http://host.docker.internal:11434','installedModels':[]}
+        await local.get_by_role('button',name='Test connection',exact=True).click()
+        await local.get_by_text('Configured address: http://host.docker.internal:11434 (not reachable)',exact=True).wait_for()
+        state['checks'].clear()
         state['status']['ollama']={'loggedIn':True,'apiProvider':'ollama:http://host.docker.internal:11434','installedModels':['fixture-a','fixture-b']}
         await local.get_by_role('button',name='Test connection',exact=True).click()
         await local.get_by_text('2 models reported',exact=False).wait_for()
+        await local.get_by_text('Configured address: http://host.docker.internal:11434 (reachable, 2 models)',exact=True).wait_for()
         assert state['checks']==['ollama'],'only the selected service is checked'
         state['fail_check']=True
         await local.get_by_role('button',name='Test connection',exact=True).click()
