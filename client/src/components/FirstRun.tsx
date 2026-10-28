@@ -3,7 +3,7 @@ import { PRIMARY_PROVIDERS, type WorkflowConfig } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { completeOnboarding } from '../utils/completeOnboarding';
-import { parseProjects, type HomeProject } from '../utils/homeModel';
+import { DirectoryBrowser } from './media/DirectoryPicker';
 import { anyPrimaryProviderConnected } from '../utils/startupGate';
 import { Connections } from './Connections/Connections';
 import { addFolder } from './Home/projectApi';
@@ -14,13 +14,13 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
   const [step, setStep] = useState<'welcome' | 'folder' | 'provider' | 'chat'>('welcome');
   const [path, setPath] = useState(''), [project, setProject] = useState('');
   const [scanCandidates, setScanCandidates] = useState<string[]>([]);
-  const [projects, setProjects] = useState<HomeProject[]>([]);
+  const [browserKey, setBrowserKey] = useState(0);
+  const [browserRoot, setBrowserRoot] = useState<string | null>(null);
   const [note, setNote] = useState(''), [busy, setBusy] = useState(false);
   const title = useRef<HTMLHeadingElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const auth = useAppStore(s => s.authStatus), settings = useAppStore(s => s.settings);
   const selectedProvider = useStartupStore(s => s.setupProvider);
-  const [scanRoot, setScanRoot] = useState(settings?.defaultWorkingDirectory ?? '');
   const enabled = (p: typeof PRIMARY_PROVIDERS[number]) => settings?.enabledProviders[p] !== false;
   const providerConnected = anyPrimaryProviderConnected(auth, enabled);
   const provider = PRIMARY_PROVIDERS.find(p => p === selectedProvider && enabled(p) && auth?.[p]?.loggedIn)
@@ -31,13 +31,22 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
     void fetch('/api/projects', { cache: 'no-store' }).then(async r => {
       if (!r.ok) throw new Error();
       const body = await r.json();
-      if (alive && Array.isArray(body.scanCandidates)) setScanCandidates(body.scanCandidates.filter((p: unknown): p is string => typeof p === 'string'));
-      const list = parseProjects(body);
-      if (!list) throw new Error();
-      if (alive) setProjects(list.filter(p => p.exists && !p.archived));
-    }).catch(() => { if (alive) setNote('Project discovery is unavailable. Enter a folder path or skip this step.'); });
+      if (alive) {
+        const roots = Array.isArray(body.scanCandidates) ? body.scanCandidates.filter((p: unknown): p is string => typeof p === 'string').slice(0, 6) : [];
+        setScanCandidates(roots);
+        setBrowserRoot(roots[0] ?? body.homeFolder ?? '');
+      }
+    }).catch(() => { if (alive) { setBrowserRoot(''); setNote('Folder shortcuts are unavailable. Enter a folder path or browse below.'); } });
     return () => { alive = false; };
   }, []);
+  const browse = (folder: string) => { setBrowserRoot(folder); setBrowserKey(key => key + 1); };
+  const chooseFolder = async (folder: string) => {
+    if (!folder.trim() || busy) return;
+    setBusy(true); setNote('');
+    const reply = await addFolder(folder.trim()); setBusy(false);
+    if (!reply.ok) { setNote(reply.error); return; }
+    setProject(folder.trim()); setStep('provider');
+  };
   const finish = async (config?: WorkflowConfig) => {
     if (busy) return;
     setBusy(true); setNote('');
@@ -57,7 +66,7 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
   };
   if (step === 'provider') return <Connections mode="gate" onSkip={startChat} onContinue={startChat} canContinue={providerConnected} />;
   return <div className="connections-backdrop">
-    <div className="connections-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" onKeyDown={e => {
+    <div className="connections-dialog first-run-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" onKeyDown={e => {
       if (e.key === 'Escape') { e.stopPropagation(); void finish(); }
       if (e.key !== 'Tab') return;
       const list = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]') ?? [])].filter(el => el.getClientRects().length > 0);
@@ -71,40 +80,17 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
       </div><button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button></header>
       {step === 'welcome' && <div className="connections-actions"><button type="button" onClick={() => setStep('folder')}>Get started</button><button type="button" disabled={busy} onClick={() => void finish()}>Skip setup</button></div>}
       {step === 'folder' && <section className="connection-detail">
-        <form onSubmit={async e => {
-          e.preventDefault(); if (!path.trim() || busy) return;
-          setBusy(true); setNote('');
-          const reply = await addFolder(path.trim()); setBusy(false);
-          if (!reply.ok) { setNote(reply.error); return; }
-          setProject(path.trim()); setStep('provider');
-        }}>
+        <form className="first-run-path" onSubmit={e => { e.preventDefault(); void chooseFolder(path); }}>
           <label htmlFor="first-run-folder">Project folder path</label>
-          <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required />
+          <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required placeholder="Absolute folder path" />
           <button type="submit" disabled={busy || !path.trim()}>Add folder and continue</button>
+          <button type="button" disabled={busy || !path.trim()} onClick={() => browse(path.trim())}>Browse path</button>
         </form>
-        <p>Choose a folder to scan, or enter a project path directly.</p>
-        {scanCandidates.map(root => <button type="button" key={root} onClick={() => setScanRoot(root)}>{root}</button>)}
-        <form onSubmit={async e => {
-          e.preventDefault(); if (busy) return;
-          setBusy(true); setNote('');
-          try {
-            const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ defaultWorkingDirectory: scanRoot.trim() }) });
-            if (!res.ok) throw new Error('The scan folder could not be saved.');
-            useAppStore.getState().setSettings(await res.json());
-            const listed = await fetch('/api/projects', { cache: 'no-store' });
-            const list = listed.ok ? parseProjects(await listed.json()) : null;
-            if (!list) throw new Error('Project discovery is unavailable. Enter a project path directly.');
-            setProjects(list.filter(p => p.exists && !p.archived));
-            setNote(list.length ? 'Choose a discovered folder below.' : 'No project folders found. Enter a path directly or choose another scan folder.');
-          } catch (error) { setNote(error instanceof Error ? error.message : 'Discovery failed. Retry.'); }
-          finally { setBusy(false); }
-        }}>
-          <label htmlFor="first-run-scan">Folder to scan</label>
-          <input id="first-run-scan" value={scanRoot} onChange={e => setScanRoot(e.target.value)} />
-          <button type="submit" disabled={busy}>Scan folder</button>
-        </form>
-        {projects.map(p => <button type="button" key={p.path} onClick={() => setPath(p.path)}>{p.name}: {p.path}</button>)}
-        <p>Folder discovery uses the Projects scan folder in Settings. Any readable absolute folder can be added directly.</p>
+        <div className="first-run-shortcuts" aria-label="Folder shortcuts">
+          {scanCandidates.map(root => <button type="button" key={root} title={root} onClick={() => browse(root)}>{root.split(/[\\/]/).filter(Boolean).at(-1)}</button>)}
+        </div>
+        {browserRoot !== null && <DirectoryBrowser key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Adding...' : 'Use this folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
+        <p>Browse any folder the server can read, or enter its absolute path. Configure optional folder scanning in Settings &gt; Projects.</p>
       </section>}
       {step === 'chat' && <div style={{ overflow: 'auto', minHeight: 240 }}>
         {!providerConnected && <p className="connections-scope">A provider is still needed to send messages. Skip to Home and connect one later, or return to Connections.</p>}

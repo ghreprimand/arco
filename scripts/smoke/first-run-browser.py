@@ -84,10 +84,7 @@ async def setup_chat(playwright):
         await page.get_by_label('Project folder path', exact=True).fill(str(server.projects / 'missing'))
         await page.get_by_role('button', name='Add folder and continue', exact=True).click()
         await expect(page.get_by_role('status')).to_contain_text('project directory')
-        await page.get_by_label('Folder to scan', exact=True).fill(str(server.projects))
-        await page.get_by_role('button', name='Scan folder', exact=True).click()
-        await page.get_by_role('button', name=f'app: {server.projects / "app"}', exact=True).click()
-        await expect(page.get_by_label('Project folder path', exact=True)).to_have_value(str(server.projects / 'app'))
+        await page.get_by_label('Project folder path', exact=True).fill(str(server.projects / 'app'))
         await page.get_by_role('button', name='Add folder and continue', exact=True).click()
         dialog = page.get_by_role('dialog', name='Welcome - Connections', exact=True)
         await dialog.get_by_role('navigation', name='Connections').get_by_role('button', name=re.compile('^Ollama')).click()
@@ -180,36 +177,54 @@ async def registered_returning(playwright):
         server.close()
 
 
-async def scan_discovery(playwright):
+async def folder_browser(playwright):
     server = Fresh()
     b = None
     try:
         root = server.home / 'Projects'
-        for i in range(14):
-            (root / f'sample-{i:02}').mkdir(parents=True)
+        for i in range(150):
+            (root / f'sample-{i:03}').mkdir(parents=True)
+        (server.home / 'src').mkdir()
         b, page = await page_for(playwright, server)
-        listing = await (await page.request.get(server.base + '/api/projects')).json()
-        assert listing['scanFolder'] is None and listing['projects'] == []
-        assert str(root) in listing['scanCandidates']
+        await page.set_viewport_size({'width': 760, 'height': 520})
         await page.get_by_role('button', name='Get started', exact=True).click()
-        await page.get_by_role('button', name=str(root), exact=True).click()
-        await page.get_by_role('button', name='Scan folder', exact=True).click()
-        await page.get_by_text('Choose a discovered folder below.', exact=True).wait_for()
+        await expect(page.get_by_role('button', name='Scan folder', exact=True)).to_have_count(0)
+        shortcuts = page.get_by_label('Folder shortcuts', exact=True)
+        assert await shortcuts.get_by_role('button').count() <= 6
+        await shortcuts.get_by_role('button', name='src', exact=True).click()
+        await expect(page.locator('.first-run-browser').get_by_title(str(server.home / 'src'), exact=True)).to_be_visible()
+        await shortcuts.get_by_role('button', name='Projects', exact=True).click()
+        region = page.get_by_role('region', name='Project folders', exact=True)
+        await expect(region.get_by_role('button')).to_have_count(150)
+        assert await region.evaluate('(el) => el.scrollHeight > el.clientHeight && el.clientHeight > 0')
+        assert await page.locator('.connections-dialog').evaluate('(el) => el.getBoundingClientRect().bottom <= innerHeight && el.getBoundingClientRect().top >= 0')
+        await region.get_by_role('button', name='sample-149/', exact=True).click()
+        await page.get_by_role('button', name='↑ UP', exact=True).click()
+        await expect(region.get_by_role('button')).to_have_count(150)
+        await page.get_by_label('New folder name', exact=True).fill('new-project')
+        await page.get_by_role('button', name='+ FOLDER', exact=True).click()
+        await region.get_by_role('button', name='new-project/', exact=True).click()
         assert not (server.home / '.arco/projects.json').exists()
         assert (await (await page.request.get(server.base + '/api/installation-history')).json())['used'] is False
-        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        assert '/api/settings' not in b.writes
+        await page.get_by_role('button', name='Use this folder', exact=True).click()
+        await page.get_by_role('heading', name='Welcome - Connections', exact=True).wait_for()
+        settings = json.loads((server.home / '.arco/settings.json').read_text())
+        assert settings.get('projects') == [str(root / 'new-project')]
+        assert not settings.get('defaultWorkingDirectory')
+        assert len(json.loads((server.home / '.arco/projects.json').read_text())['records']) == 1
         await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()
         await page.get_by_role('button', name='Skip this step', exact=True).click()
         await page.locator('#home-title').wait_for()
+        # Scanning remains an explicit Settings operation, independent of setup.
+        await page.evaluate("""async root => { const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({defaultWorkingDirectory:root})}); if (!res.ok) throw new Error('scan setting refused'); }""", str(root))
+        await page.get_by_role('button', name='Reload list', exact=True).click()
         group = page.locator('section[aria-labelledby="home-group-scanned"]')
-        await expect(group.get_by_role('heading')).to_contain_text('(14)')
-        await expect(group.get_by_role('button', name='New session in sample-00', exact=True)).to_be_hidden()
-        await group.get_by_role('button', name='Show', exact=True).click()
-        await expect(group.get_by_role('button', name='New session in sample-00', exact=True)).to_be_visible()
-        await group.get_by_role('button', name='Hide', exact=True).click()
-        await page.get_by_label('Search projects (press /)', exact=True).fill('sample-13')
-        await expect(group.get_by_role('button', name='New session in sample-13', exact=True)).to_be_visible()
-        print('PASS: explicit discovery root; no history or records from scans; collapsed scan section remains searchable')
+        await expect(group.get_by_role('heading')).to_contain_text('(150)')
+        await expect(group.get_by_role('button', name='New session in sample-000', exact=True)).to_be_hidden()
+        await page.get_by_label('Search projects (press /)', exact=True).fill('sample-149')
+        await expect(group.get_by_role('button', name='New session in sample-149', exact=True)).to_be_visible()
+        print('PASS: bounded folder browser, root shortcuts, UP, new folder and explicit registration; setup never configures scanning')
     finally:
         if b:
             await b.close()
@@ -237,7 +252,7 @@ async def signed_in_first_run(playwright):
 
 async def main():
     async with async_playwright() as playwright:
-        await scan_discovery(playwright)
+        await folder_browser(playwright)
         await signed_in_first_run(playwright)
         await setup_chat(playwright)
         await skip_and_reopen(playwright)

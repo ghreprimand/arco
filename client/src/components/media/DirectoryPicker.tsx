@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 // A reusable click-through folder picker — the "Save As" surface for the media
@@ -24,11 +24,15 @@ export interface PickOptions {
   // Show a filename input (a Save-As). Omit for a pure folder choice.
   withFilename?: boolean;
   title?: string;
+  // Embed the same browser in setup instead of opening a second dialog.
+  inline?: boolean;
+  confirmLabel?: string;
 }
 
 interface DirEntry { name: string; path: string; }
 
-function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, title = 'Save output to…', onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+  const request = useRef(0);
   const [cwd, setCwd] = useState(initialPath || '');
   const [dirs, setDirs] = useState<DirEntry[]>([]);
   const [name, setName] = useState(defaultName || '');
@@ -37,17 +41,20 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
   const [err, setErr] = useState('');
 
   const load = useCallback(async (path: string) => {
+    const attempt = ++request.current;
     setLoading(true);
     setErr('');
     try {
       const res = await fetch(`/api/list-dirs?path=${encodeURIComponent(path)}`);
       const data = await res.json() as { parent?: string; dirs?: DirEntry[] };
+      if (attempt !== request.current) return;
+      if (!res.ok) throw new Error('Folder listing is unavailable.');
       setCwd(data.parent || path);
       setDirs(Array.isArray(data.dirs) ? data.dirs : []);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      if (attempt === request.current) setErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (attempt === request.current) setLoading(false);
     }
   }, []);
 
@@ -55,14 +62,17 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
 
   // Escape cancels (capture so it doesn't also close the host modal under us).
   useEffect(() => {
+    if (inline) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onDone(null); } };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [onDone]);
+  }, [onDone, inline]);
 
   const goUp = () => {
-    const parent = cwd.replace(/\/+$/, '').split('/').slice(0, -1).join('/') || '/';
-    void load(parent);
+    const separator = cwd.includes('\\') ? '\\' : '/';
+    const parent = cwd.replace(/[\\/]+$/, '').split(/[\\/]/).slice(0, -1).join(separator) || separator;
+    const target = /^[A-Za-z]:$/.test(parent) ? parent + separator : parent;
+    void load(target);
   };
 
   const makeFolder = async () => {
@@ -81,20 +91,19 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
 
   const confirm = () => onDone({ dir: cwd, basename: name.trim() });
 
-  return createPortal(
-    <div
+  const content = <div
       onClick={() => onDone(null)}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9700, padding: '40px' }}
+      style={inline ? {} : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9700, padding: '40px' }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glow-border"
-        style={{ width: '100%', maxWidth: '560px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
+        className={inline ? 'first-run-browser' : 'glow-border'}
+        style={{ width: '100%', maxWidth: inline ? undefined : '560px', height: inline ? '340px' : undefined, maxHeight: inline ? undefined : '80vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
       >
         {/* Header */}
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <span className="display-font glow-text-cyan" style={{ fontSize: '12px', letterSpacing: '1.5px' }}>{title.toUpperCase()}</span>
-          <button onClick={() => onDone(null)} className="display-font" title="Cancel (Esc)" style={{ ...btn, width: '26px' }}>×</button>
+          {!inline && <button onClick={() => onDone(null)} className="display-font" title="Cancel (Esc)" style={{ ...btn, width: '26px' }}>×</button>}
         </div>
 
         {/* Path bar */}
@@ -106,20 +115,20 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
         </div>
 
         {/* Folder list */}
-        <div style={{ flex: 1, minHeight: '160px', overflowY: 'auto' }}>
+        <div role={inline ? 'region' : undefined} aria-label={inline ? 'Project folders' : undefined} style={{ flex: 1, minHeight: inline ? 0 : '160px', overflowY: 'auto' }}>
           {loading ? (
             <div style={{ padding: '16px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>loading…</div>
           ) : dirs.length === 0 ? (
-            <div style={{ padding: '16px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>no sub-folders here — “SAVE HERE” drops the file in this folder</div>
+            <div style={{ padding: '16px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>{inline ? 'No subfolders here. Choose this folder or go up.' : 'no sub-folders here — “SAVE HERE” drops the file in this folder'}</div>
           ) : (
             dirs.map((d) => (
               <button
                 key={d.path}
                 onClick={() => void load(d.path)}
                 className="display-font"
-                style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '12px', letterSpacing: '0.5px', padding: '8px 14px' }}
+                style={{ display: 'block', width: '100%', margin: 0, borderRadius: 0, textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '12px', letterSpacing: '0.5px', padding: '8px 14px' }}
               >
-                📁 {d.name}
+                {inline ? `${d.name}/` : `📁 ${d.name}`}
               </button>
             ))
           )}
@@ -128,6 +137,7 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
         {/* New folder */}
         <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', gap: '8px' }}>
           <input
+            aria-label={inline ? 'New folder name' : undefined}
             value={newFolder}
             onChange={(e) => setNewFolder(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void makeFolder(); }}
@@ -153,13 +163,12 @@ function DirectoryPickerModal({ initialPath, defaultName, withFilename = true, t
         )}
         {err && <div style={{ padding: '0 14px 8px', fontSize: '10px', color: 'var(--color-danger)' }}>{err}</div>}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button onClick={() => onDone(null)} className="display-font" style={btn}>CANCEL</button>
-          <button onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!cwd}>SAVE HERE ↵</button>
+          {!inline && <button onClick={() => onDone(null)} className="display-font" style={btn}>CANCEL</button>}
+          <button onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!cwd || loading}>{confirmLabel}</button>
         </div>
       </div>
-    </div>,
-    document.body,
-  );
+    </div>;
+  return inline ? content : createPortal(content, document.body);
 }
 
 // Promise-driven picker. `pick(opts)` resolves with the chosen { dir, basename }
@@ -171,7 +180,7 @@ export function useDirectoryPicker() {
     [],
   );
   const pickerElement = req
-    ? <DirectoryPickerModal {...req.opts} onDone={(r) => { req.resolve(r); setReq(null); }} />
+    ? <DirectoryBrowser {...req.opts} onDone={(r) => { req.resolve(r); setReq(null); }} />
     : null;
   return { pick, pickerElement };
 }

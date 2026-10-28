@@ -41,6 +41,7 @@ export interface ProjectEntry {
 
 export interface ProjectList {
   scanCandidates?: string[];
+  homeFolder?: string;
   projects: ProjectEntry[];
   scanFolder: string | null;
   // False while ~/.arco/projects.json is unreadable: no ids, no organizing.
@@ -172,7 +173,7 @@ export async function listProjects(): Promise<ProjectList> {
     const candidate = path.join(homedir(), name);
     try { return safeDirectory(candidate); } catch { return null; }
   }))).filter((p): p is string => p !== null);
-  return { ...merged!, scanCandidates, projects: withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records), organization };
+  return { ...merged!, scanCandidates, homeFolder: homedir(), projects: withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records), organization };
 }
 
 // Pure: overlay record metadata on the merged list.
