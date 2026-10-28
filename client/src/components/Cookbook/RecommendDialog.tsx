@@ -84,7 +84,7 @@ export function RecommendDialog({ query, sim, onClose }: Props) {
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(560px, 94vw)',
+          width: 'min(560px, calc(94vw / var(--ui-scale, 1)))',
           fontFamily: 'var(--font-body)',
         }}
       >

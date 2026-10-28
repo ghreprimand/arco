@@ -126,7 +126,7 @@ export function DocViewer() {
         style={{
           width: '100%',
           maxWidth: '960px',
-          height: 'calc(100vh - 60px)',
+          height: 'calc(calc(100vh / var(--ui-scale, 1)) - 60px)',
           background: 'var(--color-bg-panel)',
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',

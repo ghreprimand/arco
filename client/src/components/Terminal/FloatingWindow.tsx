@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 // WORKBENCH_EXPANSION §K1 — reusable floating window shell.
@@ -28,7 +29,7 @@ const MIN_H = 200;
 
 export function FloatingWindow({ title, onClose, headerActions, children, initial }: Props) {
   const [pos, setPos] = useState(() => ({
-    x: initial?.x ?? Math.max(40, window.innerWidth - 760),
+    x: initial?.x ?? Math.max(40, window.innerWidth / interfaceScale() - 760),
     y: initial?.y ?? 90,
     width: initial?.width ?? 700,
     height: initial?.height ?? 420,
@@ -47,8 +48,9 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
     function onMove(e: MouseEvent) {
       const d = dragRef.current;
       if (!d.mode) return;
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
+      const point = layoutPoint(e);
+      const dx = point.x - d.startX;
+      const dy = point.y - d.startY;
       if (d.mode === 'move') {
         setPos((p) => ({ ...p, x: d.orig.x + dx, y: Math.max(0, d.orig.y + dy) }));
       } else {
@@ -79,7 +81,8 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
 
   const startDrag = (mode: 'move' | 'resize') => (e: React.MouseEvent) => {
     e.preventDefault();
-    dragRef.current = { mode, startX: e.clientX, startY: e.clientY, orig: pos };
+    const point = layoutPoint(e);
+    dragRef.current = { mode, startX: point.x, startY: point.y, orig: pos };
     document.body.style.userSelect = 'none';
     document.body.style.cursor = mode === 'move' ? 'grabbing' : 'nwse-resize';
     setZ(nextZ());

@@ -74,7 +74,7 @@ export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurge
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 'min(520px, 92vw)', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
+          width: 'min(520px, calc(92vw / var(--ui-scale, 1)))', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
           borderRadius: '6px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px',
         }}
       >

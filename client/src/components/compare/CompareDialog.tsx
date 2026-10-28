@@ -65,8 +65,8 @@ export function CompareDialog({ parentConfig, onConfirm, onCancel }: Props) {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-panel)', border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px', padding: '18px 22px', width: 'min(620px, 94vw)',
-          maxHeight: '88vh', overflowY: 'auto', fontFamily: 'var(--font-body)',
+          borderRadius: '6px', padding: '18px 22px', width: 'min(620px, calc(94vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(88vh / var(--ui-scale, 1))', overflowY: 'auto', fontFamily: 'var(--font-body)',
         }}
       >
         <div className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '6px' }}>

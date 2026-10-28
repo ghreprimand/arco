@@ -401,7 +401,7 @@ function LiveFileSource({ wfid, cwd, row, refreshKey }: { wfid: string; cwd: str
         )}
         {payload.type === 'image' && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '14px' }}>
-            <img src={payload.dataUrl} alt={row.path} style={{ maxWidth: '100%', maxHeight: '70vh' }} />
+            <img src={payload.dataUrl} alt={row.path} style={{ maxWidth: '100%', maxHeight: 'calc(70vh / var(--ui-scale, 1))' }} />
           </div>
         )}
         {payload.type === 'binary' && <InfoLine text={`Binary file (${formatSize(payload.size)}) - no preview available.`} />}

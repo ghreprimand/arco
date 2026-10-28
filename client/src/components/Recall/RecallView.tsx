@@ -220,14 +220,14 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '8vh',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 'calc(8vh / var(--ui-scale, 1))',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         data-help="recall.view"
         style={{
-          width: 'min(820px, 92vw)', maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+          width: 'min(820px, calc(92vw / var(--ui-scale, 1)))', maxHeight: 'calc(82vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
           background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-bright)',
           borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
           fontFamily: 'var(--font-body)',
@@ -326,7 +326,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             data-help="recall.summary-viewer"
             style={{
               borderTop: '1px solid var(--color-border-bright)', background: 'var(--color-bg)',
-              maxHeight: '40vh', display: 'flex', flexDirection: 'column',
+              maxHeight: 'calc(40vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--color-border-hairline)' }}>
@@ -350,7 +350,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             data-help="recall.distill-kb"
             style={{
               borderTop: '1px solid var(--color-border-bright)', background: 'var(--color-bg)',
-              maxHeight: '46vh', display: 'flex', flexDirection: 'column',
+              maxHeight: 'calc(46vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--color-border-hairline)' }}>

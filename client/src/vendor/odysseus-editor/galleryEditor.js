@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint, layoutRect } from '../../utils/pointer';
 /**
  * Gallery Editor — canvas-based image editor with layers, brush, eraser, text, crop, inpaint mask.
  */
@@ -1218,8 +1219,7 @@ const _cloneStrokeTo = _strokePipeline.cloneStrokeTo;
 function _updateBrushCursor(e) {
   if (!state.mainCanvas) return;
   const rect = state.mainCanvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const { x: clientX, y: clientY } = layoutPoint(e.touches ? e.touches[0] : e);
 
   if (!state.cursorEl) {
     state.cursorEl = document.createElement('div');
@@ -1326,8 +1326,8 @@ function _showCropApply() {
 
   // Position the panel just outside the bottom-right corner of the
   // crop rectangle (where the user finished dragging), in area coords.
-  const canvasRect = state.mainCanvas.getBoundingClientRect();
-  const areaRect = area.getBoundingClientRect();
+  const canvasRect = layoutRect(state.mainCanvas.getBoundingClientRect());
+  const areaRect = layoutRect(area.getBoundingClientRect());
   const scaleX = canvasRect.width / state.mainCanvas.width;
   const scaleY = canvasRect.height / state.mainCanvas.height;
   const localX = (canvasRect.left - areaRect.left) + (state.cropRect.x + state.cropRect.w) * scaleX;
@@ -1339,7 +1339,7 @@ function _showCropApply() {
   // the panel doesn't sit on the dark padding around the canvas — it
   // stays anchored over the actual image.
   requestAnimationFrame(() => {
-    const bRect = pop.getBoundingClientRect();
+    const bRect = layoutRect(pop.getBoundingClientRect());
     const canvasLeft = canvasRect.left - areaRect.left;
     const canvasTop = canvasRect.top - areaRect.top;
     const canvasRight = canvasLeft + canvasRect.width;
@@ -1726,9 +1726,9 @@ function _showLayerThumb(rowEl, layer) {
   state.layerThumbEl.innerHTML = '';
   state.layerThumbEl.appendChild(c);
   // Position to the LEFT of the row so it doesn't cover other layers.
-  const r = rowEl.getBoundingClientRect();
+  const r = layoutRect(rowEl.getBoundingClientRect());
   state.layerThumbEl.style.top = Math.max(8, r.top - 4) + 'px';
-  state.layerThumbEl.style.right = (window.innerWidth - r.left + 8) + 'px';
+  state.layerThumbEl.style.right = (window.innerWidth / interfaceScale() - r.left + 8) + 'px';
   state.layerThumbEl.style.left = '';
   state.layerThumbEl.style.display = 'block';
 }
@@ -2299,20 +2299,21 @@ function _positionInpaintPanel(anchorBtn) {
   if (!ref) {
     // Fallback to the old toolbar-button anchor if the layers panel
     // isn't on screen yet.
-    const r = anchorBtn?.getBoundingClientRect?.();
-    if (!r) return;
+    const rawRect = anchorBtn?.getBoundingClientRect?.();
+    if (!rawRect) return;
+    const r = layoutRect(rawRect);
     requestAnimationFrame(() => {
       const panelW = panel.offsetWidth || 320;
       const panelH = panel.offsetHeight || 520;
-      const left = Math.min(window.innerWidth - panelW - 12, Math.max(12, r.right + 10));
-      const top = Math.min(window.innerHeight - panelH - 12, Math.max(12, r.top));
+      const left = Math.min(window.innerWidth / interfaceScale() - panelW - 12, Math.max(12, r.right + 10));
+      const top = Math.min(window.innerHeight / interfaceScale() - panelH - 12, Math.max(12, r.top));
       panel.style.left = `${left}px`;
       panel.style.top = `${top}px`;
     });
     return;
   }
   requestAnimationFrame(() => {
-    const refRect = ref.getBoundingClientRect();
+    const refRect = layoutRect(ref.getBoundingClientRect());
     const panelW = panel.offsetWidth || 320;
     const panelH = panel.offsetHeight || 520;
     // Sit immediately to the left of the right panel, top-aligned with
@@ -2321,8 +2322,8 @@ function _positionInpaintPanel(anchorBtn) {
     let left = refRect.left - panelW - 10;
     let top = refRect.top;
     // Clamp into the viewport so the popover never leaves the screen.
-    left = Math.max(12, Math.min(window.innerWidth - panelW - 12, left));
-    top = Math.max(12, Math.min(window.innerHeight - panelH - 12, top));
+    left = Math.max(12, Math.min(window.innerWidth / interfaceScale() - panelW - 12, left));
+    top = Math.max(12, Math.min(window.innerHeight / interfaceScale() - panelH - 12, top));
     panel.style.left = `${left}px`;
     panel.style.top = `${top}px`;
   });
@@ -2347,16 +2348,16 @@ function _wireInpaintPopoverWindow() {
     e.preventDefault();
     e.stopPropagation();
     panel.classList.add('ge-inpaint-popover');
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const r0 = panel.getBoundingClientRect();
+    const start = layoutPoint(e);
+    const r0 = layoutRect(panel.getBoundingClientRect());
     head.setPointerCapture(e.pointerId);
     head.style.cursor = 'grabbing';
     const onMove = (ev) => {
       const w = panel.offsetWidth || r0.width;
       const h = panel.offsetHeight || r0.height;
-      const nx = Math.max(8, Math.min(window.innerWidth - w - 8, r0.left + ev.clientX - startX));
-      const ny = Math.max(8, Math.min(window.innerHeight - h - 8, r0.top + ev.clientY - startY));
+      const point = layoutPoint(ev);
+      const nx = Math.max(8, Math.min(window.innerWidth / interfaceScale() - w - 8, r0.left + point.x - start.x));
+      const ny = Math.max(8, Math.min(window.innerHeight / interfaceScale() - h - 8, r0.top + point.y - start.y));
       panel.dataset.userMoved = '1';
       panel.style.left = `${nx}px`;
       panel.style.top = `${ny}px`;
@@ -3512,7 +3513,7 @@ function _mountEditorLoading(label, dims) {
   if (dims && dims.w > 0 && dims.h > 0 && area) {
     placeholder = document.createElement('div');
     placeholder.className = 'ge-canvas-placeholder';
-    const areaRect = area.getBoundingClientRect();
+    const areaRect = layoutRect(area.getBoundingClientRect());
     const maxW = Math.max(0, areaRect.width - 32);
     const maxH = Math.max(0, areaRect.height - 32);
     const ratio = dims.w / dims.h;

@@ -1,3 +1,4 @@
+import { interfaceScale, layoutRect } from '../../../utils/pointer';
 /**
  * Topbar wiring — undo/redo/history, Save dropdown, zoom buttons,
  * Save/Export/Download/Project, Edge popup, and the cross-dropdown
@@ -96,9 +97,9 @@ export function wireTopbar(deps) {
         saveTopbar?.classList.toggle('ge-topbar-menu-open', !!open);
       };
       const positionSaveMenu = () => {
-        const r = saveBtn.getBoundingClientRect();
+        const r = layoutRect(saveBtn.getBoundingClientRect());
         saveMenu.style.top = `${r.bottom + 2}px`;
-        saveMenu.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+        saveMenu.style.right = `${Math.max(8, window.innerWidth / interfaceScale() - r.right)}px`;
         saveMenu.style.left = 'auto';
       };
       saveBtn.addEventListener('click', (e) => {

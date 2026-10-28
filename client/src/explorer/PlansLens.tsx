@@ -214,7 +214,7 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
       {editing ? (
         <>
           <input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} style={searchStyle} />
-          <textarea value={draftBody} onChange={(e) => setDraftBody(e.target.value)} rows={24} style={{ ...searchStyle, fontSize: '13px', resize: 'vertical', minHeight: '45vh' }} />
+          <textarea value={draftBody} onChange={(e) => setDraftBody(e.target.value)} rows={24} style={{ ...searchStyle, fontSize: '13px', resize: 'vertical', minHeight: 'calc(45vh / var(--ui-scale, 1))' }} />
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="display-font" style={btn} disabled={saving || !draftTitle.trim()} onClick={async () => {
               setSaving(true);

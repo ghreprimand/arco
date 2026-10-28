@@ -1,3 +1,4 @@
+import { layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalHelpButton } from '../help/ModalHelpButton';
@@ -303,13 +304,15 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
   };
   const onMouseDown = (e: React.MouseEvent) => {
     if (mode !== 'image' || !hasImage) return;
-    dragState.current = { startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y };
+    const point = layoutPoint(e);
+    dragState.current = { startX: point.x, startY: point.y, baseX: pan.x, baseY: pan.y };
   };
   const onMouseMove = (e: React.MouseEvent) => {
     if (!dragState.current) return;
+    const point = layoutPoint(e);
     setPan({
-      x: dragState.current.baseX + (e.clientX - dragState.current.startX),
-      y: dragState.current.baseY + (e.clientY - dragState.current.startY),
+      x: dragState.current.baseX + (point.x - dragState.current.startX),
+      y: dragState.current.baseY + (point.y - dragState.current.startY),
     });
   };
   const endDrag = () => { dragState.current = null; };

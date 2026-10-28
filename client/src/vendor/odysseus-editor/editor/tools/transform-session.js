@@ -1,3 +1,4 @@
+import { interfaceScale, layoutRect } from '../../../../utils/pointer';
 /**
  * Transform-tool session lifecycle + floating popup wiring.
  *
@@ -239,7 +240,7 @@ export function createTransformSession({
         pop.style.setProperty('right', 'auto', 'important');
         pop.style.setProperty('bottom', 'auto', 'important');
         pop.style.setProperty('width', 'auto', 'important');
-        pop.style.setProperty('max-width', 'calc(100vw - 16px)', 'important');
+        pop.style.setProperty('max-width', 'calc(calc(100vw / var(--ui-scale, 1)) - 16px)', 'important');
       } else {
         pop.style.left = x + 'px';
         pop.style.top = y + 'px';
@@ -249,17 +250,17 @@ export function createTransformSession({
 
     const beginDrag = (clientX, clientY) => {
       dragging = true;
-      const rect = pop.getBoundingClientRect();
+      const rect = layoutRect(pop.getBoundingClientRect());
       if (isMobile) {
         originLeft = rect.left;
         originTop = rect.top;
       } else {
-        const parentRect = state.container.getBoundingClientRect();
+        const parentRect = layoutRect(state.container.getBoundingClientRect());
         originLeft = rect.left - parentRect.left;
         originTop = rect.top - parentRect.top;
       }
-      startX = clientX;
-      startY = clientY;
+      startX = clientX / interfaceScale();
+      startY = clientY / interfaceScale();
       setPos(originLeft, originTop);
       pop.classList.add('ge-transform-popup-dragging');
       document.body.style.userSelect = 'none';
@@ -267,14 +268,14 @@ export function createTransformSession({
 
     const moveDrag = (clientX, clientY) => {
       if (!dragging) return;
-      const dx = clientX - startX;
-      const dy = clientY - startY;
+      const dx = clientX / interfaceScale() - startX;
+      const dy = clientY / interfaceScale() - startY;
       let nx = originLeft + dx;
       let ny = originTop + dy;
       if (isMobile) {
-        const rect = pop.getBoundingClientRect();
-        nx = Math.max(0, Math.min(window.innerWidth - rect.width, nx));
-        ny = Math.max(0, Math.min(window.innerHeight - rect.height, ny));
+        const rect = layoutRect(pop.getBoundingClientRect());
+        nx = Math.max(0, Math.min(window.innerWidth / interfaceScale() - rect.width, nx));
+        ny = Math.max(0, Math.min(window.innerHeight / interfaceScale() - rect.height, ny));
       }
       setPos(nx, ny);
     };

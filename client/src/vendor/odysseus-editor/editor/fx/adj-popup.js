@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint, layoutRect } from '../../../../utils/pointer';
 /**
  * FX / adjustment-popup machinery — the per-layer Brightness/Contrast,
  * Hue/Saturation, Levels, and Color-Balance editor.
@@ -169,7 +170,8 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
     }, true);
 
     const isMobile = window.matchMedia('(max-width: 820px)').matches;
-    const r = isMobile ? null : anchorEl?.getBoundingClientRect?.();
+    const rawRect = isMobile ? null : anchorEl?.getBoundingClientRect?.();
+    const r = rawRect ? layoutRect(rawRect) : null;
     if (isMobile) {
       menu.style.left = '';
       menu.style.top = '';
@@ -180,13 +182,13 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
       const menuH = menu.offsetHeight || 200;
       const rightX = r.right + 4;
       const leftX  = r.left - menuW - 4;
-      const fitsRight = rightX + menuW <= window.innerWidth - 8;
+      const fitsRight = rightX + menuW <= window.innerWidth / interfaceScale() - 8;
       let left = fitsRight ? rightX : Math.max(8, leftX);
-      left = Math.min(window.innerWidth - menuW - 8, Math.max(8, left));
+      left = Math.min(window.innerWidth / interfaceScale() - menuW - 8, Math.max(8, left));
       menu.style.left = left + 'px';
       let top = r.top;
-      if (top + menuH > window.innerHeight - 8) top = r.bottom - menuH;
-      top = Math.min(window.innerHeight - menuH - 8, Math.max(8, top));
+      if (top + menuH > window.innerHeight / interfaceScale() - 8) top = r.bottom - menuH;
+      top = Math.min(window.innerHeight / interfaceScale() - menuH - 8, Math.max(8, top));
       menu.style.top = top + 'px';
     }
     menu.querySelectorAll('.ge-fx-menu-item').forEach(btn => {
@@ -216,7 +218,7 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
   function minimiseAdjPopup(pop) {
     if (!pop) return;
     const type = pop._type;
-    const r = pop.getBoundingClientRect();
+    const r = layoutRect(pop.getBoundingClientRect());
     pop._stashLeft = r.left;
     pop._stashTop  = r.top;
     pop.style.display = 'none';
@@ -312,17 +314,18 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
     document.body.appendChild(pop);
     state.adjPopupEl = pop;
 
-    const r = anchorEl?.getBoundingClientRect?.();
+    const rawRect = anchorEl?.getBoundingClientRect?.();
+    const r = rawRect ? layoutRect(rawRect) : null;
     const pw = type === 'color-balance' ? 340 : 320;
     // Prefer right of anchor; fall back to left if no room.
     let left;
     if (r) {
       const rightX = r.right + 8;
       const leftX  = r.left - pw - 8;
-      const fitsRight = rightX + pw <= window.innerWidth - 8;
+      const fitsRight = rightX + pw <= window.innerWidth / interfaceScale() - 8;
       left = fitsRight ? rightX : Math.max(8, leftX);
     } else {
-      left = (window.innerWidth - pw) / 2;
+      left = (window.innerWidth / interfaceScale() - pw) / 2;
     }
     const top = r ? Math.max(8, r.top - 20) : 60;
     pop.style.left = left + 'px';
@@ -345,7 +348,7 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
           pop.style.setProperty('right', 'auto', 'important');
           pop.style.setProperty('bottom', 'auto', 'important');
           pop.style.setProperty('width', 'auto', 'important');
-          pop.style.setProperty('max-width', 'calc(100vw - 16px)', 'important');
+          pop.style.setProperty('max-width', 'calc(calc(100vw / var(--ui-scale, 1)) - 16px)', 'important');
         } else {
           pop.style.left = x + 'px';
           pop.style.top = y + 'px';
@@ -355,13 +358,14 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
       head.addEventListener('pointerdown', (e) => {
         if (e.target.closest('button')) return;
         e.preventDefault();
-        const startX = e.clientX, startY = e.clientY;
-        const r0 = pop.getBoundingClientRect();
+        const start = layoutPoint(e);
+        const r0 = layoutRect(pop.getBoundingClientRect());
         head.setPointerCapture(e.pointerId);
         head.style.cursor = 'grabbing';
         const onMove = (ev) => {
-          const nx = Math.max(0, Math.min(window.innerWidth - 60, r0.left + (ev.clientX - startX)));
-          const ny = Math.max(0, Math.min(window.innerHeight - 30, r0.top  + (ev.clientY - startY)));
+          const point = layoutPoint(ev);
+          const nx = Math.max(0, Math.min(window.innerWidth / interfaceScale() - 60, r0.left + point.x - start.x));
+          const ny = Math.max(0, Math.min(window.innerHeight / interfaceScale() - 30, r0.top + point.y - start.y));
           setPos(nx, ny);
         };
         const onUp = () => {
@@ -596,7 +600,7 @@ export function createAdjPopupSystem({ composite, saveState, renderLayerPanel })
     if (!wrap || !canvas) return;
     const handles = bodyEl.querySelectorAll('.ge-adj-hist-handle');
     const placeHandles = () => {
-      const w = canvas.getBoundingClientRect().width;
+      const w = canvas.getBoundingClientRect().width / interfaceScale();
       const p = layer._stagedAdj.params;
       const xB = (p.inBlack  / 255) * w;
       const xW = (p.inWhite  / 255) * w;

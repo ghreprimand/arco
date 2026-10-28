@@ -144,7 +144,7 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
         style={{
           width: '100%',
           maxWidth: '560px',
-          maxHeight: 'calc(100vh - 80px)',
+          maxHeight: 'calc(calc(100vh / var(--ui-scale, 1)) - 80px)',
           overflowY: 'auto',
           background: 'var(--color-bg-panel)',
           border: '1px solid var(--color-accent-primary-dim)',

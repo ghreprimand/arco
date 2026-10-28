@@ -1,3 +1,4 @@
+import { layoutPoint } from '../utils/pointer';
 import { useEffect, useState, useCallback } from 'react';
 import { FileViewerModal } from './FileViewerModal';
 import { useTerminalStore } from '../stores/terminalStore';
@@ -136,7 +137,7 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
     const mode = classifyMediaExt(path);
     if (!mode) return; // non-media files keep the default (no) context menu
     e.preventDefault();
-    setMediaMenu({ x: e.clientX, y: e.clientY, path, mode });
+    setMediaMenu({ ...layoutPoint(e), path, mode });
   }, []);
 
   // Close the media menu on any outside interaction.

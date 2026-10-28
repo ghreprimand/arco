@@ -1,3 +1,4 @@
+import { interfaceScale } from '../../utils/pointer';
 // static/js/dragSort.js
 
 /**
@@ -60,8 +61,8 @@ export function enable(containerId, itemSelector, options = {}) {
   function startDrag(clientY, item) {
     const rect = item.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    const relativeTop = rect.top - containerRect.top + container.scrollTop;
-    const relativeLeft = rect.left - containerRect.left;
+    const relativeTop = (rect.top - containerRect.top) / interfaceScale() + container.scrollTop;
+    const relativeLeft = (rect.left - containerRect.left) / interfaceScale();
 
     offsetY = clientY - rect.top;
     items = getItems();
@@ -71,13 +72,13 @@ export function enable(containerId, itemSelector, options = {}) {
       container.style.position = 'relative';
     }
 
-    placeholder = createPlaceholder(rect.height);
+    placeholder = createPlaceholder(rect.height / interfaceScale());
     item.parentNode.insertBefore(placeholder, item);
 
     item.classList.add('dragging');
     Object.assign(item.style, {
       position: 'absolute',
-      width: rect.width + 'px',
+      width: (rect.width / interfaceScale()) + 'px',
       left: relativeLeft + 'px',
       top: relativeTop + 'px',
       zIndex: '9999',
@@ -91,7 +92,7 @@ export function enable(containerId, itemSelector, options = {}) {
   function moveDrag(clientY) {
     if (!draggedEl) return;
     const containerRect = container.getBoundingClientRect();
-    const newTop = clientY - offsetY - containerRect.top + container.scrollTop;
+    const newTop = (clientY - offsetY - containerRect.top) / interfaceScale() + container.scrollTop;
     draggedEl.style.top = newTop + 'px';
 
     const otherItems = items.filter(i => i !== draggedEl);
@@ -125,7 +126,7 @@ export function enable(containerId, itemSelector, options = {}) {
 
     const phRect = placeholder.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    const snapTop = phRect.top - containerRect.top + container.scrollTop;
+    const snapTop = (phRect.top - containerRect.top) / interfaceScale() + container.scrollTop;
     draggedEl.style.transition = 'top 0.08s ease-out';
     draggedEl.style.top = snapTop + 'px';
 

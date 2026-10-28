@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint } from '../../../utils/pointer';
 /**
  * Canvas event wiring — mouse, touch (including pinch-zoom on two
  * fingers), and the canvas-area pan handler.
@@ -114,8 +115,8 @@ export function wireCanvasEvents({ canvasArea, beginDraw, continueDraw, endDraw,
         if (label) label.textContent = Math.round(state.zoom * 100) + '%';
         syncZoomControls?.();
       }
-      const dx = info.cx - multiStartCenter.x;
-      const dy = info.cy - multiStartCenter.y;
+      const dx = (info.cx - multiStartCenter.x) / interfaceScale();
+      const dy = (info.cy - multiStartCenter.y) / interfaceScale();
       applyCanvasOffset(multiStartPan.x + dx, multiStartPan.y + dy);
       return;
     }
@@ -173,15 +174,17 @@ export function wireCanvasEvents({ canvasArea, beginDraw, continueDraw, endDraw,
     const off = getOffset();
     panning = true;
     pid = e.pointerId;
-    startX = e.clientX - off.x;
-    startY = e.clientY - off.y;
+    const point = layoutPoint(e);
+    startX = point.x - off.x;
+    startY = point.y - off.y;
     try { canvasArea.setPointerCapture(pid); } catch {}
     canvasArea.style.cursor = 'grabbing';
     e.preventDefault();
   });
   canvasArea.addEventListener('pointermove', (e) => {
     if (!panning || e.pointerId !== pid) return;
-    applyOffset(e.clientX - startX, e.clientY - startY);
+    const point = layoutPoint(e);
+    applyOffset(point.x - startX, point.y - startY);
   });
   const endPan = () => {
     if (!panning) return;

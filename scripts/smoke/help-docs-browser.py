@@ -17,6 +17,8 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME)
         context = await browser.new_context(viewport={'width': 1440, 'height': 1000})
+        initial_scale = os.environ.get('ARCO_TEST_UI_SCALE', '1.1')
+        await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{initial_scale}')")
         errors, writes, messages = [], [], []
         async def api(route):
             path = urlparse(route.request.url).path
@@ -25,7 +27,7 @@ async def main():
             if route.request.method != 'GET' and path != '/api/session':
                 writes.append(path)
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': []}
-            if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}}
+            if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}, 'uiScale': float(initial_scale)}
             elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'zai', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
             elif path.endswith('/catalog'): data = {'models': []}
@@ -47,6 +49,18 @@ async def main():
           s.setState(st=>({connected:true,connectionState:'connected',showCreator:false,activeJobId:'help-chat',jobs:{...st.jobs,'help-chat':{...st.jobs['help-chat'],snapshotReceived:true,busy:false}}}));
           s.getState().setHelpMode(true);
         }''')
+        if initial_scale == '1.5':
+            await page.evaluate("testStore.getState().setHelpMode(false); testStore.getState().showJobCreator()")
+            await page.locator('[data-help="creator.chat-mode"]').wait_for()
+            await page.screenshot(path=str(ART/'scale-creator.png'))
+            await page.evaluate("testStore.setState({showCreator:false})")
+            await page.locator('[data-help="tabbar.tab"]').first.wait_for()
+            await page.screenshot(path=str(ART/'scale-workflow.png'))
+            await page.locator('[data-help="tabbar.tab"]').first.click(button='right')
+            await page.get_by_text('CLUSTER ACTIONS',exact=True).wait_for()
+            await page.screenshot(path=str(ART/'scale-context.png'))
+            await page.keyboard.press('Escape')
+            await page.evaluate("testStore.getState().setHelpMode(true)")
         # Each enabled signed-in provider gets its dot; disabling it removes its
         # trigger and the entire group disappears when none remain enabled.
         await page.evaluate("""() => {
@@ -89,10 +103,10 @@ async def main():
             await page.set_viewport_size({'width': width, 'height': height})
             await page.get_by_role('navigation', name='Manual contents').get_by_role('button', name='Incognito Chat — privacy and limits', exact=True).click()
             await page.wait_for_function("()=>{const a=document.getElementById('manual-incognito-chat').getBoundingClientRect(),b=document.querySelector('.manual-content').getBoundingClientRect();return a.top>=b.top-4&&a.top<=b.top+32}", timeout=4000)
-            assert await page.locator('.manual-content').evaluate('e=>e.clientWidth>=250 && e.scrollWidth<=e.clientWidth+2')
+            assert await page.locator('.manual-content').evaluate('e=>e.getBoundingClientRect().width>=250 && e.scrollWidth<=e.clientWidth+2')
             await page.screenshot(path=str(ART/f'manual-{width}.png'))
         await page.set_viewport_size({'width': 1440, 'height': 1000})
-        await page.evaluate("document.documentElement.style.zoom='2'")
+        await page.evaluate("document.documentElement.style.zoom='2';document.documentElement.style.setProperty('--ui-scale','2')")
         await page.get_by_role('navigation', name='Manual contents').get_by_role('button', name='Incognito Chat — privacy and limits', exact=True).click()
         await page.wait_for_function("()=>{const a=document.getElementById('manual-incognito-chat').getBoundingClientRect(),b=document.querySelector('.manual-content').getBoundingClientRect();return a.top>=b.top-4&&a.top<=b.top+32}", timeout=4000)
         assert await page.get_by_role('dialog', name='ARCO · USER MANUAL').evaluate('e=>{const r=e.getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight+2}')

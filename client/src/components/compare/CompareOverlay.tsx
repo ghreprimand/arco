@@ -30,7 +30,7 @@ export function CompareOverlay() {
       <div
         style={{
           background: 'var(--color-bg-panel)', border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px', padding: '16px 18px', width: 'min(1180px, 96vw)', height: 'min(820px, 92vh)',
+          borderRadius: '6px', padding: '16px 18px', width: 'min(1180px, calc(96vw / var(--ui-scale, 1)))', height: 'min(820px, calc(92vh / var(--ui-scale, 1)))',
           display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body)',
         }}
       >

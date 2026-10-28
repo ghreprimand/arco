@@ -1,3 +1,4 @@
+import { interfaceScale } from '../../../utils/pointer';
 /**
  * Slider-UX wiring shared across the editor:
  *
@@ -58,13 +59,13 @@ export function wireSliderUx({ registerDocClickAway }) {
     const minX = sliderRect.left + 8;
     const maxX = sliderRect.right - 8;
     const x = Math.max(minX, Math.min(maxX, cursorX));
-    sliderBubble.style.left = x + 'px';
-    sliderBubble.style.top  = (sliderRect.top - 8) + 'px';
+    sliderBubble.style.left = (x / interfaceScale()) + 'px';
+    sliderBubble.style.top  = (sliderRect.top / interfaceScale() - 8) + 'px';
   }
   function showSliderBubble(slider, e) {
     if (sliderBubble.parentElement !== document.body) document.body.appendChild(sliderBubble);
     sliderBubble.textContent = bubbleText(slider);
-    bubblePos(slider, e ? e.clientX : slider.getBoundingClientRect().left + slider.offsetWidth / 2);
+    bubblePos(slider, e ? e.clientX : slider.getBoundingClientRect().left + slider.offsetWidth * interfaceScale() / 2);
     sliderBubble.hidden = false;
     sliderBubble.classList.add('visible');
     sliderBubbleSlider = slider;
@@ -96,7 +97,7 @@ export function wireSliderUx({ registerDocClickAway }) {
     // browser default.
     if (slider.matches('.ge-eraser-row input[type="range"]')) {
       const rect = slider.getBoundingClientRect();
-      const valFrac = Math.max(0, Math.min(1, 1 - (rect.right - e.clientX) / 140));
+      const valFrac = Math.max(0, Math.min(1, 1 - (rect.right - e.clientX) / (140 * interfaceScale())));
       const min = parseFloat(slider.min) || 0;
       const max = parseFloat(slider.max) || 100;
       const step = parseFloat(slider.step) || 1;
@@ -162,9 +163,9 @@ export function wireSliderUx({ registerDocClickAway }) {
     // Position the input over where the chip sits.
     const crect = chip.getBoundingClientRect();
     const rrect = row.getBoundingClientRect();
-    inp.style.left = (crect.left - rrect.left) + 'px';
-    inp.style.top = (crect.top - rrect.top - 1) + 'px';
-    inp.style.width = Math.max(40, crect.width + 8) + 'px';
+    inp.style.left = ((crect.left - rrect.left) / interfaceScale()) + 'px';
+    inp.style.top = ((crect.top - rrect.top) / interfaceScale() - 1) + 'px';
+    inp.style.width = Math.max(40, crect.width / interfaceScale() + 8) + 'px';
     inp.focus();
     inp.select();
     const commit = () => {

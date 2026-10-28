@@ -3,6 +3,13 @@
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 import type { FallbackChainsConfig } from './fallback.js';
 
+export const UI_SCALES = [0.9, 1, 1.1, 1.2, 1.3, 1.5] as const;
+export const DEFAULT_UI_SCALE = 1.1;
+export function normalizeUiScale(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_UI_SCALE;
+  return UI_SCALES.reduce((best, step) => Math.abs(step - value) < Math.abs(best - value) ? step : best);
+}
+
 export interface AdvancedOptions {
   additionalDirectories?: string[];
   fallbackModel?: ModelName;
@@ -102,6 +109,8 @@ export interface ArcoSettings {
   // substitutes the active theme's display/body/code fonts with the pack's.
   // Validated against VALID_FONT_PACK_IDS.
   fontPackOverride?: string | null;
+  // Global interface scale, selected from UI_SCALES.
+  uiScale?: number;
   // Operator override for the active theme's frosted-glass backdrop-filter.
   // 'on'/'off' force it; absent = follow the theme's own `frosted` default.
   // Applied via the data-frosted attribute (see client themes/apply.ts).

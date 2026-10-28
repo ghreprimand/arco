@@ -1,3 +1,4 @@
+import { interfaceScale } from '../../utils/pointer';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { HELP_CONTENT } from '../../help/helpContent';
@@ -15,11 +16,13 @@ export function HelpPopover() {
 
   useLayoutEffect(() => {
     if (!popoverRef.current || !activeHelpPopover) return;
-    const anchor = activeHelpPopover.anchorRect;
+    const scale = interfaceScale();
+    const raw = activeHelpPopover.anchorRect;
+    const anchor = { top: raw.top / scale, bottom: raw.bottom / scale, left: raw.left / scale, width: raw.width / scale };
     const pw = popoverRef.current.offsetWidth;
     const ph = popoverRef.current.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vw = window.innerWidth / scale;
+    const vh = window.innerHeight / scale;
     const gap = 8;
 
     // Try below the anchor; flip above if it overflows; clamp to top

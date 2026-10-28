@@ -121,7 +121,7 @@ export function VideoEditor({ src, filename, onRegionChange }: Props) {
           onLoadedMetadata={onLoadedMeta}
           onTimeUpdate={(e) => setCurrent((e.target as HTMLVideoElement).currentTime)}
           onError={() => setError('the browser could not load/decode this video')}
-          style={{ maxWidth: '100%', maxHeight: '46vh' }}
+          style={{ maxWidth: '100%', maxHeight: 'calc(46vh / var(--ui-scale, 1))' }}
         />
       </div>
 

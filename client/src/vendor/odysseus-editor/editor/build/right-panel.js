@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint } from '../../../../utils/pointer';
 /**
  * Build the right-hand panel (controls + layers) — DOM creation,
  * controls innerHTML population, mobile bottom-sheet swipe behavior,
@@ -51,7 +52,7 @@ export function buildRightPanel({ controlsHTML, layerPanelHTML }) {
     controls.addEventListener('touchmove', (e) => {
       if (!dragging) return;
       const dy = e.touches[0].clientY - sy;
-      if (dy > 0) controls.style.transform = `translateY(${dy}px)`;
+      if (dy > 0) controls.style.transform = `translateY(${dy / interfaceScale()}px)`;
     }, { passive: true });
     controls.addEventListener('touchend', (e) => {
       if (!dragging) return;
@@ -173,8 +174,8 @@ export function buildRightPanel({ controlsHTML, layerPanelHTML }) {
   let panelStartW = 0;
   panelResize.addEventListener('mousedown', (e) => {
     panelResizing = true;
-    panelStartX = e.clientX;
-    panelStartW = rightPanel.getBoundingClientRect().width;
+    panelStartX = layoutPoint(e).x;
+    panelStartW = rightPanel.getBoundingClientRect().width / interfaceScale();
     e.preventDefault();
     document.body.style.cursor = 'ew-resize';
   });
@@ -182,8 +183,8 @@ export function buildRightPanel({ controlsHTML, layerPanelHTML }) {
     if (!panelResizing) return;
     // Dragging left → wider panel (the panel sits on the right of
     // the editor, so a leftward drag pulls its left edge left).
-    const delta = panelStartX - e.clientX;
-    const next = Math.max(160, Math.min(window.innerWidth - 200, panelStartW + delta));
+    const delta = panelStartX - layoutPoint(e).x;
+    const next = Math.max(160, Math.min(window.innerWidth / interfaceScale() - 200, panelStartW + delta));
     rightPanel.style.flex = `0 0 ${next}px`;
   });
   document.addEventListener('mouseup', () => {
@@ -191,7 +192,7 @@ export function buildRightPanel({ controlsHTML, layerPanelHTML }) {
     panelResizing = false;
     document.body.style.cursor = '';
     try {
-      const w = Math.round(rightPanel.getBoundingClientRect().width);
+      const w = Math.round(rightPanel.getBoundingClientRect().width / interfaceScale());
       localStorage.setItem('ge-right-panel-width', String(w));
     } catch {}
   });

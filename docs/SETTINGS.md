@@ -31,13 +31,14 @@ where it now lives. The table has one row per section; `navigation.test.ts`
 (`client/src/components/settings/`) checks that the rows match the sections
 the dialog renders and that every Settings help entry is covered.
 
-Sections: 21.
+Sections: 22.
 
 | Section id | Category | Section | Scope | Controls |
 | --- | --- | --- | --- | --- |
 | `themes` | Appearance | Theme | Global | Theme family and palette picker, search and categories; default Electric Blue |
 | `phosphor` | Appearance | Phosphor effects and softness | Global | Phosphor glow, effects and softness (shown with a Phosphor theme) |
 | `font-pack-override` | Appearance | Font pack override | Global | Font pack selector; default Victor Mono |
+| `interface-text-size` | Appearance | Interface text size | Global | 90% to 150%, default 110% |
 | `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness (default +30) |
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |

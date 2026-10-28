@@ -228,7 +228,7 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
       <div
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
-        style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-accent-secondary)', borderRadius: '6px', width: 'min(860px, 94vw)', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
+        style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-accent-secondary)', borderRadius: '6px', width: 'min(860px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(88vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column' }}
       >
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="display-font" style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid var(--color-accent-secondary)', color: 'var(--color-accent-secondary)', letterSpacing: '2px', borderRadius: '2px' }}>
@@ -251,7 +251,7 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
               autoFocus
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              style={{ width: '100%', minHeight: '52vh', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', padding: '8px', fontSize: '12px', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', minHeight: 'calc(52vh / var(--ui-scale, 1))', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', padding: '8px', fontSize: '12px', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
             />
           ) : body === null ? (
             !error && <div style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>loading…</div>

@@ -94,8 +94,8 @@ export function CookbookModal() {
           background: 'rgba(5, 12, 8, 0.98)',
           border: '1px solid var(--color-accent-secondary)',
           borderRadius: '6px',
-          width: 'min(1080px, 94vw)',
-          maxHeight: '90vh',
+          width: 'min(1080px, calc(94vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(90vh / var(--ui-scale, 1))',
           display: 'flex', flexDirection: 'column',
           boxShadow: '0 0 36px var(--color-accent-secondary-a30)',
         }}

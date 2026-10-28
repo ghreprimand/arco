@@ -481,7 +481,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
               <img
                 src={payload.dataUrl}
                 alt={filename}
-                style={{ maxWidth: '100%', maxHeight: '70vh', imageRendering: 'auto' }}
+                style={{ maxWidth: '100%', maxHeight: 'calc(70vh / var(--ui-scale, 1))', imageRendering: 'auto' }}
               />
             </div>
           )}

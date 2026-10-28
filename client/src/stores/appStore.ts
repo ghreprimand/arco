@@ -7,7 +7,7 @@ import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
 import { applyTheme, applyCrispText } from '../themes/apply';
 import { applyPhosphorPreferences } from '../themes/phosphor/preferences';
 import { PROVIDER_AUTO_ID, resolveProviderTheme } from '../themes/providerThemes';
-import { writeCachedThemeId, writeCachedFontPackOverride, writeCachedFrostedOverride, writeCachedFrostedOpacity, writeCachedBgBrightness, writeCachedTextBrightness, writeCachedCrispText } from '../themes/bootstrap';
+import { writeCachedThemeId, writeCachedFontPackOverride, writeCachedFrostedOverride, writeCachedFrostedOpacity, writeCachedBgBrightness, writeCachedTextBrightness, writeCachedCrispText, applyUiScale, writeCachedUiScale } from '../themes/bootstrap';
 import {
   capMessages, capSessionChat, trimJobMemory, LOADED_HISTORY_PIN,
   capWorkerText, capToolInputText, capWorkers, capActivityEntry,
@@ -304,6 +304,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setSettings: (settings) => {
     applyPhosphorPreferences(settings, true);
+    applyUiScale(settings.uiScale ?? 1.1);
+    writeCachedUiScale(settings.uiScale ?? 1.1);
     // Themes Phase 2 — every settings refresh re-applies the theme so external
     // patches (auto-compact, provider toggles, another tab) don't drop the
     // active theme. applyTheme is idempotent; cost is trivial. Also mirror

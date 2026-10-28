@@ -12,7 +12,9 @@ async def main():
  async with async_playwright() as p:
   browser = await p.chromium.launch(executable_path=CHROME, args=['--enable-unsafe-swiftshader'])
   context = await browser.new_context(viewport={'width':1536,'height':1080})
-  settings = {'themeId':'arch','enabledProviders':{'claude':True},'fontPackOverride':'jetbrains-uniform'}
+  initial_scale = os.environ.get('ARCO_TEST_UI_SCALE', '1.1')
+  await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{initial_scale}')")
+  settings = {'themeId':'arch','enabledProviders':{'claude':True},'fontPackOverride':'jetbrains-uniform','uiScale':float(initial_scale)}
   errors, writes, messages = [], [], []
   async def api(route):
    nonlocal settings
@@ -86,6 +88,27 @@ async def main():
   await page.screenshot(path=str(ART/'settings-open.png'))
   assert not errors, errors
   assert await page.locator('[data-help="settings.themes"]').count()==1, await page.locator('body').inner_text()
+  await page.evaluate("""async () => {
+    const {useTerminalStore:s}=await import('/src/stores/terminalStore.ts');
+    s.setState({windows:[{windowId:'scale-fixture',workflowId:'style-fixture',sessionId:'fixture-session'}]});
+  }""")
+  await page.locator('.xterm').wait_for()
+  terminal_width = await page.locator('.xterm').evaluate('e => e.getBoundingClientRect().width')
+  if initial_scale == '1.5': await page.screenshot(path=str(ART/'scale-settings-15.png'))
+  scale = page.get_by_role('group', name='Interface text size')
+  assert await page.locator('html').evaluate("e => e.style.zoom") == initial_scale
+  await scale.get_by_role('button',name='130%',exact=True).click()
+  await page.wait_for_function("() => document.documentElement.style.zoom === '1.3' && localStorage.getItem('arco_ui_scale') === '1.3'")
+  assert await scale.get_by_role('button',name='130%',exact=True).get_attribute('aria-pressed') == 'true'
+  await page.evaluate("async () => (await import('/src/themes/bootstrap.ts')).bootstrapCachedTheme()")
+  assert await page.locator('html').evaluate("e => e.style.zoom") == '1.3'
+  assert await page.locator('canvas').count()>=1
+  scaled_width = await page.locator('.xterm').evaluate('e => e.getBoundingClientRect().width')
+  assert (scaled_width > terminal_width) if float(initial_scale) < 1.3 else (scaled_width < terminal_width)
+  await page.evaluate("async () => (await import('/src/stores/terminalStore.ts')).useTerminalStore.getState().closeWindow('scale-fixture')")
+  await scale.get_by_role('button',name='Reset to default',exact=True).click()
+  await page.wait_for_function("() => document.documentElement.style.zoom === '1.1'")
+
   assert await page.get_by_text('THIS VIEW HIT A RENDER ERROR',exact=True).count()==0, await page.locator('body').inner_text()
   font = page.get_by_label('Font pack override')
   await font.select_option('victor-mono-uniform')
@@ -157,6 +180,24 @@ async def main():
   await page.reload();await page.wait_for_timeout(600)
   assert await page.locator('html').get_attribute('data-theme-family')=='phosphor'
   assert await page.locator('html').get_attribute('data-phosphor-softness')=='45'
+  if initial_scale == '1.5':
+   await page.evaluate("""async () => {
+    (await import('/src/themes/bootstrap.ts')).applyUiScale(1.5);
+    await import('/src/vendor/odysseus-editor/editor.css');
+    const el=document.createElement('div'); el.id='gallery-editor-container';
+    Object.assign(el.style,{position:'fixed',inset:'0',zIndex:'100'}); document.body.appendChild(el);
+    const editor=await import('/src/vendor/odysseus-editor/galleryEditor.js'); window.scaleEditor=editor;
+    editor.openEditor('',null,{w:128,h:128});
+   }""")
+   await page.locator('#gallery-editor-container canvas').first.wait_for()
+   await page.locator('#ge-history-btn').click()
+   head=page.locator('[data-history-drag]'); await head.wait_for()
+   before=await head.bounding_box()
+   await page.mouse.move(before['x']+before['width']/2,before['y']+10)
+   await page.mouse.down(); await page.mouse.move(before['x']+before['width']/2+60,before['y']+10,steps=5); await page.mouse.up()
+   after=await head.bounding_box()
+   assert abs(after['x']-before['x']-60)<3
+   await page.evaluate("scaleEditor.closeEditor(); document.getElementById('gallery-editor-container').remove()")
   assert not errors,errors
   result={'errors':errors,'settingsWrites':writes,'interceptedWsMessages':len(messages),'checks':['Real App/SettingsPanel, no demo layout','Six palettes preserve workflow data, transcript DOM and action labels','Family/category/search picker','Softness save, effects override, reduced motion, crisp wordmark','Classic cleanup','Cached startup restores family and softness']}
   (ART/'results.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))

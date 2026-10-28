@@ -44,8 +44,8 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
         style={{
           background: 'var(--color-bg-panel)',
           border: '1px solid var(--color-border-hairline)',
-          width: 'min(720px, 90vw)',
-          maxHeight: '80vh',
+          width: 'min(720px, calc(90vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(80vh / var(--ui-scale, 1))',
           display: 'flex', flexDirection: 'column',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         }}

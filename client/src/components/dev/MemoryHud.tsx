@@ -47,7 +47,7 @@ export function MemoryHud() {
         bottom: 8,
         left: 8,
         zIndex: 99999,
-        maxHeight: '40vh',
+        maxHeight: 'calc(40vh / var(--ui-scale, 1))',
         overflowY: 'auto',
         background: 'rgba(0,0,0,0.82)',
         color: '#9ef',

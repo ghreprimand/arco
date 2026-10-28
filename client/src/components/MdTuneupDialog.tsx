@@ -103,7 +103,7 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 'min(900px, 94vw)', maxHeight: '88vh', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
+          width: 'min(900px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(88vh / var(--ui-scale, 1))', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
           borderRadius: '6px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden',
         }}
       >
@@ -137,7 +137,7 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
                 <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>
                   Pick the instruction files to compact. Each is reviewed as a diff before anything is written; the original is backed up first.
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '46vh', overflow: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', padding: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: 'calc(46vh / var(--ui-scale, 1))', overflow: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', padding: '8px' }}>
                   {cand.candidates.map((c) => (
                     <label key={c.path} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--color-fg)', cursor: 'pointer', padding: '3px 4px' }}>
                       <input
@@ -214,7 +214,7 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
               <div style={{
                 fontSize: '12px', color: 'var(--color-fg)', lineHeight: 1.5, whiteSpace: 'pre-wrap',
                 background: 'var(--color-bg-elevated, rgba(255,255,255,0.03))', border: '1px solid var(--color-border-hairline)',
-                borderRadius: '4px', padding: '10px 12px', maxHeight: '22vh', overflow: 'auto',
+                borderRadius: '4px', padding: '10px 12px', maxHeight: 'calc(22vh / var(--ui-scale, 1))', overflow: 'auto',
               }}>
                 <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-accent-secondary-dim)', marginBottom: '6px' }}>WHAT CHANGED</div>
                 {entry.notes.trim()}

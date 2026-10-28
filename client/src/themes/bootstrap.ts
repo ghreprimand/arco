@@ -1,3 +1,4 @@
+import { DEFAULT_UI_SCALE, normalizeUiScale } from '@arco/shared';
 import { getTheme } from './registry';
 import { applyTheme, applyCrispText } from './apply';
 import { applyPhosphorPreferences, readPhosphorPreferences } from './phosphor/preferences';
@@ -18,6 +19,7 @@ import { applyPhosphorPreferences, readPhosphorPreferences } from './phosphor/pr
 // The server is the source of truth; this cache exists purely to avoid
 // the paint flicker.
 
+const LS_UI_SCALE_KEY = 'arco_ui_scale';
 const LS_KEY = 'arco_theme_id';
 const LS_FONT_PACK_KEY = 'arco_font_pack_override';
 const LS_FROSTED_KEY = 'arco_frosted_override';
@@ -163,7 +165,23 @@ export function writeCachedCrispText(v: boolean | undefined | null): void {
   }
 }
 
+export function applyUiScale(value: number): void {
+  if (typeof document !== 'undefined') {
+    const scale = String(normalizeUiScale(value));
+    document.documentElement.style.zoom = scale;
+    document.documentElement.style.setProperty('--ui-scale', scale);
+  }
+}
+export function readCachedUiScale(): number {
+  const value = readCachedNum(LS_UI_SCALE_KEY);
+  return value === null ? DEFAULT_UI_SCALE : normalizeUiScale(value);
+}
+export function writeCachedUiScale(value: number): void {
+  writeCachedNum(LS_UI_SCALE_KEY, normalizeUiScale(value));
+}
+
 export function bootstrapCachedTheme(): void {
+  applyUiScale(readCachedUiScale());
   applyPhosphorPreferences(readPhosphorPreferences());
   const cached = readCachedThemeId();
   const theme = getTheme(cached);

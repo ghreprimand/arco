@@ -1,3 +1,4 @@
+import { layoutPoint } from '../utils/pointer';
 import { useMemo, useState } from 'react';
 import {
   DndContext,
@@ -256,7 +257,7 @@ export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onA
                       onClose={() => { onRemoveWorkflow(item.id); removeJob(item.id); }}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        setContextAnchor({ jobId: item.id, x: e.clientX, y: e.clientY });
+                        setContextAnchor({ jobId: item.id, ...layoutPoint(e) });
                       }}
                     />
                   );

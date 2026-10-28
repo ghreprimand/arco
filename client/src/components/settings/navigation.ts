@@ -31,6 +31,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'themes', page: 'appearance', label: 'Theme', scope: 'Global', help: ['settings.themes'], keywords: 'classic phosphor palette family color colour' },
   { id: 'phosphor', page: 'appearance', label: 'Phosphor effects and softness', scope: 'Global', help: ['settings.phosphor-effects', 'settings.phosphor-softness'], aliases: ['phosphor-effects', 'phosphor-softness'], keywords: 'glow crt reduced motion' },
   { id: 'font-pack-override', page: 'appearance', label: 'Font pack override', scope: 'Global', help: ['settings.font-pack-override'], keywords: 'typography typeface' },
+  { id: 'interface-text-size', page: 'appearance', label: 'Interface text size', scope: 'Global', help: ['settings.interface-text-size'], keywords: 'scale zoom size' },
   { id: 'theme-brightness', page: 'appearance', label: 'Background and text brightness', scope: 'Global', help: ['settings.theme-brightness'] },
   { id: 'crisp-text', page: 'appearance', label: 'Crisp text', scope: 'Global', help: ['settings.crisp-text'] },
   { id: 'frosted-glass', page: 'appearance', label: 'Frosted glass and opacity', scope: 'Global', help: ['settings.frosted-glass'], keywords: 'transparency blur' },

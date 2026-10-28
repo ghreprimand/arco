@@ -2372,7 +2372,7 @@ function ChipPopover({
     );
   }
   return (
-    <div style={{ ...popoverStyle, maxHeight: '60vh', overflowY: 'auto' }}>
+    <div style={{ ...popoverStyle, maxHeight: 'calc(60vh / var(--ui-scale, 1))', overflowY: 'auto' }}>
       {entries.map((m) => (
         <button
           key={m.value}

@@ -1,3 +1,4 @@
+import { UI_SCALES, DEFAULT_UI_SCALE } from '@arco/shared';
 import { AppVersionSection } from './settings/AppVersionSection';
 import { EndpointHelp } from './EndpointHelp';
 import { SettingsLayout, SettingsSection } from './settings/SettingsLayout';
@@ -101,6 +102,19 @@ export function SettingsPanel({ onClose }: Props) {
   useEffect(() => {
     setTextBrightnessDraft(settings?.textBrightness ?? 30);
   }, [settings?.textBrightness]);
+  const saveUiScale = async (uiScale: number) => {
+    if (!settings) return;
+    const previous = settings;
+    setSettings({ ...settings, uiScale });
+    try {
+      const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uiScale }) });
+      if (!response.ok) throw new Error('settings save failed');
+      setSettings(await response.json() as ArcoSettings);
+    } catch {
+      setSettings(previous);
+      useAppStore.getState().pushNotification('error', 'Could not save interface text size.');
+    }
+  };
   const activeFontPackId = settings?.fontPackOverride ?? '';
   const capabilities = useAppStore((s) => s.capabilities);
   const ollamaLive = useAppStore((s) => s.ollamaLive);
@@ -558,6 +572,15 @@ export function SettingsPanel({ onClose }: Props) {
         </div>
         </SettingsSection>
 
+        <SettingsSection id="interface-text-size">
+          <div data-help="settings.interface-text-size">
+            <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>INTERFACE TEXT SIZE</div>
+            <div role="group" aria-label="Interface text size" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              {UI_SCALES.map(scale => <button key={scale} type="button" style={{ padding: '5px 8px', color: 'var(--color-accent-primary)', background: 'var(--color-bg-sunken)', border: `1px solid ${(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, cursor: 'pointer' }} aria-pressed={(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale} onClick={() => void saveUiScale(scale)}>{Math.round(scale * 100)}%</button>)}
+              <button type="button" onClick={() => void saveUiScale(DEFAULT_UI_SCALE)}>Reset to default</button>
+            </div>
+          </div>
+        </SettingsSection>
         <SettingsSection id="theme-brightness">
         <div data-help="settings.theme-brightness">
           <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>

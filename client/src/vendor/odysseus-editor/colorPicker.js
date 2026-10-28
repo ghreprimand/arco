@@ -1,3 +1,4 @@
+import { interfaceScale, layoutRect } from '../../utils/pointer';
 // In-house color picker with live-feedback HSV square, hue bar,
 // eyedropper, recent colors, and harmony suggestions.
 // Non-invasive: wraps existing <input type="color"> elements —
@@ -291,12 +292,12 @@ function commitCurrent() {
 
 // ── Open / close ──────────────────────────────────────────────────────
 function position(p, anchor) {
-  const rect = anchor.getBoundingClientRect();
-  const pRect = p.getBoundingClientRect();
+  const rect = layoutRect(anchor.getBoundingClientRect());
+  const pRect = layoutRect(p.getBoundingClientRect());
   let left = rect.left;
   let top = rect.bottom + 6;
-  if (left + pRect.width > window.innerWidth - 8) left = window.innerWidth - pRect.width - 8;
-  if (top + pRect.height > window.innerHeight - 8) top = rect.top - pRect.height - 6;
+  if (left + pRect.width > window.innerWidth / interfaceScale() - 8) left = window.innerWidth / interfaceScale() - pRect.width - 8;
+  if (top + pRect.height > window.innerHeight / interfaceScale() - 8) top = rect.top - pRect.height - 6;
   if (left < 8) left = 8;
   if (top < 8) top = 8;
   p.style.left = left + 'px';

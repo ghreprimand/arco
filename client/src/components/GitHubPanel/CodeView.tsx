@@ -494,7 +494,7 @@ function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owne
       </div>
       {isImage && file.download_url ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '16px', background: 'rgba(0, 8, 4, 0.6)', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
-          <img src={file.download_url} alt={file.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+          <img src={file.download_url} alt={file.name} style={{ maxWidth: '100%', maxHeight: 'calc(72vh / var(--ui-scale, 1))', objectFit: 'contain' }} />
         </div>
       ) : decoded !== null ? (
         lang === 'md' || lang === 'markdown' ? (
@@ -639,7 +639,7 @@ function GoToFileModal({ owner, name, refName, onClose, onPick }: { owner: strin
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: '560px', maxWidth: '90%', background: 'var(--color-bg)', border: '1px solid var(--color-accent-secondary-dim)', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}
+        style={{ width: '560px', maxWidth: '90%', background: 'var(--color-bg)', border: '1px solid var(--color-accent-secondary-dim)', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(70vh / var(--ui-scale, 1))' }}
       >
         <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border-hairline)' }}>
           <input

@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint, layoutRect } from '../../../utils/pointer';
 /**
  * History-panel subsystem — the floating frosted list of labeled
  * undo/redo entries that hangs off the topbar History button.
@@ -48,7 +49,7 @@ export function createHistoryPanel({ undo, redo }) {
   function minimiseHistoryPanel() {
     if (!state.historyPanelEl) return;
     const panel = state.historyPanelEl;
-    const r = panel.getBoundingClientRect();
+    const r = layoutRect(panel.getBoundingClientRect());
     panel._stashLeft = r.left;
     panel._stashTop  = r.top;
     panel.style.display = 'none';
@@ -83,7 +84,7 @@ export function createHistoryPanel({ undo, redo }) {
     state.historyPanelEl = panel;
     const btn = document.getElementById('ge-history-btn');
     if (btn) {
-      const r = btn.getBoundingClientRect();
+      const r = layoutRect(btn.getBoundingClientRect());
       panel.style.top  = (r.bottom + 6) + 'px';
       panel.style.left = Math.max(8, r.left) + 'px';
     }
@@ -105,13 +106,14 @@ export function createHistoryPanel({ undo, redo }) {
     head.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button')) return;
       e.preventDefault();
-      const startX = e.clientX, startY = e.clientY;
-      const r0 = panel.getBoundingClientRect();
+      const start = layoutPoint(e);
+      const r0 = layoutRect(panel.getBoundingClientRect());
       head.setPointerCapture(e.pointerId);
       head.style.cursor = 'grabbing';
       const onMove = (ev) => {
-        const nx = Math.max(0, Math.min(window.innerWidth - 60, r0.left + (ev.clientX - startX)));
-        const ny = Math.max(0, Math.min(window.innerHeight - 30, r0.top  + (ev.clientY - startY)));
+        const point = layoutPoint(ev);
+        const nx = Math.max(0, Math.min(window.innerWidth / interfaceScale() - 60, r0.left + point.x - start.x));
+        const ny = Math.max(0, Math.min(window.innerHeight / interfaceScale() - 30, r0.top + point.y - start.y));
         panel.style.left = nx + 'px';
         panel.style.top  = ny + 'px';
       };

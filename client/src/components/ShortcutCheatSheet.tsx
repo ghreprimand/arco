@@ -57,7 +57,7 @@ export function ShortcutCheatSheet({ onClose }: Props) {
         style={{
           width: '100%',
           maxWidth: '640px',
-          maxHeight: 'calc(100vh - 80px)',
+          maxHeight: 'calc(calc(100vh / var(--ui-scale, 1)) - 80px)',
           background: 'var(--color-bg-panel)',
           border: '1px solid var(--color-border-hairline)',
           borderRadius: '6px',

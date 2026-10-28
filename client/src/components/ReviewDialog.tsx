@@ -229,7 +229,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(420px, 92vw)',
+          width: 'min(420px, calc(92vw / var(--ui-scale, 1)))',
           fontFamily: 'var(--font-body)',
         }}
       >

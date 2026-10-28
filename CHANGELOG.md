@@ -15,6 +15,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Adjust interface text size from 90% to 150% in Appearance settings.
+
 - Optional Arco release notices with persistent dismissal, manual checks, an opt-out, and service, foreground and Docker update instructions.
 
 ### Changed

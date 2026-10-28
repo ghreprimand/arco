@@ -161,7 +161,7 @@ export function VoiceControl({ sendMessage, cancel, createWorkflow }: VoiceSende
     {state.error && <div role="alert" style={{ color: 'var(--color-danger)', padding: '3px 12px' }}>{state.error}</div>}
     {state.choices.length > 0 && <div style={{ display: 'flex', gap: 8, padding: '4px 12px', flexWrap: 'wrap' }}>
     </div>}
-    {state.open && <div style={{ padding: '4px 12px 12px', maxHeight: '35vh', overflow: 'auto', lineHeight: 1.5 }}>
+    {state.open && <div style={{ padding: '4px 12px 12px', maxHeight: 'calc(35vh / var(--ui-scale, 1))', overflow: 'auto', lineHeight: 1.5 }}>
       {state.enabled && state.lastHeard && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>Last heard: {state.lastHeard}</div>}
       {state.enabled && <p style={{ color: 'var(--color-fg-muted)' }}>{state.recognizer || 'Local CPU'} · Last segment: {state.endpointMs ?? '—'} ms silence + {state.recognitionMs ?? '—'} ms recognition · Interpretation: {state.interpretationMs === 0 ? 'direct · no model call' : `${state.interpretationMs ?? '—'} ms`} · First speech audio: {state.speechMs ?? '—'} ms</p>}
       {state.enabled && <p style={{ color: 'var(--color-fg-muted)' }}>Input peak {permille(state.inputLevel)} · room floor {permille(state.noiseFloor)} · speech onset {permille(state.speechOnset)} (‰ of full scale). A word whose peak stays under the onset is not heard.</p>}

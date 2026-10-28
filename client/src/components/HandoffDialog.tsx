@@ -144,8 +144,8 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(520px, 94vw)',
-          maxHeight: '88vh',
+          width: 'min(520px, calc(94vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
           overflowY: 'auto',
           fontFamily: 'var(--font-body)',
         }}

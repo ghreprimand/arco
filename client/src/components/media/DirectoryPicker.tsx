@@ -98,7 +98,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
       <div
         onClick={(e) => e.stopPropagation()}
         className={inline ? 'first-run-browser' : 'glow-border'}
-        style={{ width: '100%', maxWidth: inline ? undefined : '560px', height: inline ? '340px' : undefined, maxHeight: inline ? undefined : '80vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
+        style={{ width: '100%', maxWidth: inline ? undefined : '560px', height: inline ? '340px' : undefined, maxHeight: inline ? undefined : 'calc(80vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
       >
         {/* Header */}
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>

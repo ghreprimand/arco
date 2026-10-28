@@ -72,8 +72,8 @@ export function ArtifactModal({ onRespond }: Props) {
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-accent-secondary)',
           borderRadius: '6px',
-          width: 'min(820px, 92vw)',
-          maxHeight: '88vh',
+          width: 'min(820px, calc(92vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 36px var(--color-accent-secondary-a30)',
@@ -192,7 +192,7 @@ function ArtifactBody({ artifact }: { artifact: ArtifactItem }) {
     if (imagePayload.type === 'image') {
       return (
         <div style={{ ...box, display: 'flex', justifyContent: 'center', background: 'rgba(0, 8, 4, 0.6)' }}>
-          <img src={imagePayload.dataUrl} alt={artifact.title || 'artifact'} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '3px' }} />
+          <img src={imagePayload.dataUrl} alt={artifact.title || 'artifact'} style={{ maxWidth: '100%', maxHeight: 'calc(72vh / var(--ui-scale, 1))', objectFit: 'contain', borderRadius: '3px' }} />
         </div>
       );
     }

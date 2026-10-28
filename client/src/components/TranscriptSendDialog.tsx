@@ -118,8 +118,8 @@ export function TranscriptSendDialog({ cluster, fromWorkflowId, messages, onConf
         style={{
           background: 'var(--color-bg-panel)',
           border: '1px solid var(--color-border-hairline)',
-          width: 'min(720px, 92vw)',
-          maxHeight: '85vh',
+          width: 'min(720px, calc(92vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(85vh / var(--ui-scale, 1))',
           display: 'flex', flexDirection: 'column',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         }}

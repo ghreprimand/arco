@@ -70,7 +70,7 @@ export function ResearchDialog({ parentConfig, onConfirm, onSpawn, onCancel }: P
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(540px, 94vw)',
+          width: 'min(540px, calc(94vw / var(--ui-scale, 1)))',
           fontFamily: 'var(--font-body)',
         }}
       >

@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint, layoutRect } from '../../../utils/pointer';
 /**
  * Shortcuts-cheatsheet popover — floating frosted-glass list of every
  * editor keyboard shortcut, anchored above the topbar keyboard icon
@@ -33,7 +34,7 @@ export function createShortcutsPopover() {
       'border:1px solid color-mix(in srgb, var(--fg, #eee) 18%, transparent)',
       'border-radius:12px',
       'box-shadow:0 14px 36px rgba(0,0,0,0.5), inset 0 1px 0 color-mix(in srgb, var(--fg, #fff) 8%, transparent)',
-      'padding:12px 14px', 'min-width:540px', 'max-width:min(720px,92vw)',
+      'padding:12px 14px', 'min-width:540px', 'max-width:min(720px,calc(92vw / var(--ui-scale, 1)))',
       'font-size:12px', 'line-height:1.5',
     ].join(';');
     el.innerHTML = shortcutsPopupHTML();
@@ -47,8 +48,9 @@ export function createShortcutsPopover() {
       let drag = null;
       handle.addEventListener('pointerdown', (e) => {
         if (e.target.closest('#ge-shortcuts-close')) return;
-        const r = el.getBoundingClientRect();
-        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height };
+        const r = layoutRect(el.getBoundingClientRect());
+        const point = layoutPoint(e);
+        drag = { dx: point.x - r.left, dy: point.y - r.top, w: r.width, h: r.height };
         handle.setPointerCapture(e.pointerId);
         handle.style.cursor = 'grabbing';
         // Mark as user-positioned so subsequent toggles don't re-anchor.
@@ -57,11 +59,12 @@ export function createShortcutsPopover() {
       });
       handle.addEventListener('pointermove', (e) => {
         if (!drag) return;
-        let left = e.clientX - drag.dx;
-        let top  = e.clientY - drag.dy;
+        const point = layoutPoint(e);
+        let left = point.x - drag.dx;
+        let top = point.y - drag.dy;
         const m = 4;
-        left = Math.max(m, Math.min(left, window.innerWidth  - drag.w - m));
-        top  = Math.max(m, Math.min(top,  window.innerHeight - drag.h - m));
+        left = Math.max(m, Math.min(left, (window.innerWidth / interfaceScale())  - drag.w - m));
+        top  = Math.max(m, Math.min(top,  (window.innerHeight / interfaceScale()) - drag.h - m));
         el.style.left = left + 'px';
         el.style.top  = top + 'px';
       });
@@ -86,14 +89,14 @@ export function createShortcutsPopover() {
     // Place ABOVE the anchor, horizontally centred but clamped to
     // viewport. Falls back to BELOW if there's no room above.
     el.style.display = 'block';   // need a layout pass for accurate size
-    const ar = anchor.getBoundingClientRect();
-    const pr = el.getBoundingClientRect();
+    const ar = layoutRect(anchor.getBoundingClientRect());
+    const pr = layoutRect(el.getBoundingClientRect());
     const margin = 8;
     let left = ar.left + (ar.width / 2) - (pr.width / 2);
     let top = ar.top - pr.height - margin;
     if (top < margin) top = ar.bottom + margin;
-    left = Math.max(margin, Math.min(left, window.innerWidth - pr.width - margin));
-    top  = Math.max(margin, Math.min(top, window.innerHeight - pr.height - margin));
+    left = Math.max(margin, Math.min(left, (window.innerWidth / interfaceScale()) - pr.width - margin));
+    top  = Math.max(margin, Math.min(top, (window.innerHeight / interfaceScale()) - pr.height - margin));
     el.style.left = left + 'px';
     el.style.top  = top + 'px';
   }
@@ -112,10 +115,10 @@ export function createShortcutsPopover() {
         el.style.top  = saved.top;
         // Re-clamp in case the viewport changed since the user dragged.
         requestAnimationFrame(() => {
-          const r = el.getBoundingClientRect();
+          const r = layoutRect(el.getBoundingClientRect());
           const m = 4;
-          if (r.right > window.innerWidth)  el.style.left = (window.innerWidth - r.width - m) + 'px';
-          if (r.bottom > window.innerHeight) el.style.top = (window.innerHeight - r.height - m) + 'px';
+          if (r.right > (window.innerWidth / interfaceScale()))  el.style.left = ((window.innerWidth / interfaceScale()) - r.width - m) + 'px';
+          if (r.bottom > (window.innerHeight / interfaceScale())) el.style.top = ((window.innerHeight / interfaceScale()) - r.height - m) + 'px';
           if (r.left < 0) el.style.left = m + 'px';
           if (r.top  < 0) el.style.top  = m + 'px';
         });

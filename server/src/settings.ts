@@ -18,7 +18,7 @@ import { mkdirSync, watch as fsWatch, type FSWatcher } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import type { ArcoSettings, ProviderName, ModelName, WorkflowDefaults, EffortLevel, ProviderAccountsConfig, ProviderAccountProfile, FallbackChainsConfig, FallbackLegConfig, PinnedService, OllamaBackendConfig, OllamaUtilityConfig, OllamaCompactionConfig } from '@arco/shared';
-import { VALID_THEME_IDS, VALID_FONT_PACK_IDS, normalizeLegacyThemeId } from '@arco/shared';
+import { VALID_THEME_IDS, VALID_FONT_PACK_IDS, normalizeLegacyThemeId, DEFAULT_UI_SCALE, normalizeUiScale } from '@arco/shared';
 import { describeConfigValue } from './configValue.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
@@ -38,6 +38,7 @@ function defaults(): ArcoSettings {
     textBrightness: 30,
     codex: { transport: 'appserver' },
     claude: { transport: 'native' },
+    uiScale: DEFAULT_UI_SCALE,
     enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, zai: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
@@ -603,6 +604,7 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
     }
   }
   const result: ArcoSettings = { enabledProviders: enabled, fontPackOverride: base.fontPackOverride };
+  result.uiScale = normalizeUiScale(partial.uiScale);
   const wd = sanitizeWorkflowDefaults(partial.workflowDefaults);
   if (wd) result.workflowDefaults = wd;
   const providerAccounts = sanitizeProviderAccounts(partial.providerAccounts);
@@ -815,6 +817,12 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     // empty / non-absolute clears the field
   } else if (current.defaultWorkingDirectory) {
     merged.defaultWorkingDirectory = current.defaultWorkingDirectory;
+  }
+  if ('uiScale' in patch) {
+    if (typeof patch.uiScale !== 'number' || !Number.isFinite(patch.uiScale)) throw new Error('invalid uiScale');
+    merged.uiScale = normalizeUiScale(patch.uiScale);
+  } else {
+    merged.uiScale = current.uiScale;
   }
   if ('fontPackOverride' in patch) {
     if (patch.fontPackOverride === null || patch.fontPackOverride === undefined) {

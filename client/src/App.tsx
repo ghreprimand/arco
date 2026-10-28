@@ -672,8 +672,8 @@ ${scopeBody}
   return (
     <div
       style={{
-        height: '100vh',
-        width: '100vw',
+        height: '100%',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',

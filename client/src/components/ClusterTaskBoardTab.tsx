@@ -1393,7 +1393,7 @@ function SwarmCreateModal({
         }}
         style={{
           width: 'min(560px, 100%)',
-          maxHeight: 'min(720px, 92vh)',
+          maxHeight: 'min(720px, calc(92vh / var(--ui-scale, 1)))',
           overflowY: 'auto',
           border: '1px solid var(--color-border)',
           background: 'var(--color-bg-panel)',

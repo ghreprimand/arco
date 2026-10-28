@@ -302,13 +302,13 @@ export function CommandPalette({ onClose }: Props) {
         style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.45)', display: 'flex',
-          alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12vh',
+          alignItems: 'flex-start', justifyContent: 'center', paddingTop: 'calc(12vh / var(--ui-scale, 1))',
         }}
       >
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: 'min(640px, 90vw)', maxHeight: '70vh', display: 'flex', flexDirection: 'column',
+            width: 'min(640px, calc(90vw / var(--ui-scale, 1)))', maxHeight: 'calc(70vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
             background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-bright)',
             borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
             fontFamily: 'var(--font-body)',

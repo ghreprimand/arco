@@ -1,3 +1,4 @@
+import { interfaceScale, layoutPoint } from '../../utils/pointer';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../stores/appStore';
@@ -38,7 +39,7 @@ export function HelpCard() {
   // Seed position on open; reset the filter so each open starts clean.
   useEffect(() => {
     if (activeHelpCard) {
-      setPos({ x: Math.max(16, window.innerWidth - CARD_W - 32), y: 80 });
+      setPos({ x: Math.max(16, window.innerWidth / interfaceScale() - CARD_W - 32), y: 80 });
       setFilter('');
     }
   }, [activeHelpCard]);
@@ -67,13 +68,15 @@ export function HelpCard() {
   const onHeaderPointerDown = (e: React.PointerEvent) => {
     // Don't start a drag from the close button / filter input.
     if ((e.target as HTMLElement).closest('[data-no-drag]')) return;
-    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    const point = layoutPoint(e);
+    dragRef.current = { dx: point.x - pos.x, dy: point.y - pos.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onHeaderPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
-    const x = Math.min(Math.max(0, e.clientX - dragRef.current.dx), window.innerWidth - CARD_W);
-    const y = Math.min(Math.max(0, e.clientY - dragRef.current.dy), window.innerHeight - 60);
+    const point = layoutPoint(e);
+    const x = Math.min(Math.max(0, point.x - dragRef.current.dx), window.innerWidth / interfaceScale() - CARD_W);
+    const y = Math.min(Math.max(0, point.y - dragRef.current.dy), window.innerHeight / interfaceScale() - 60);
     setPos({ x, y });
   };
   const onHeaderPointerUp = (e: React.PointerEvent) => {
@@ -89,7 +92,7 @@ export function HelpCard() {
         left: pos.x,
         top: pos.y,
         width: CARD_W,
-        maxHeight: '76vh',
+        maxHeight: 'calc(76vh / var(--ui-scale, 1))',
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--color-bg-panel)',

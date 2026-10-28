@@ -244,8 +244,8 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(760px, 94vw)',
-          maxHeight: '90vh',
+          width: 'min(760px, calc(94vw / var(--ui-scale, 1)))',
+          maxHeight: 'calc(90vh / var(--ui-scale, 1))',
           overflowY: 'auto',
           fontFamily: 'var(--font-body)',
         }}
