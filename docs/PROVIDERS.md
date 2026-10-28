@@ -2,7 +2,7 @@
 
 **Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
-Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, **Antigravity**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two  -  `acp` (long-lived) and `print` (stateless one-shot)  -  but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
+Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, **Antigravity**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two - `acp` (long-lived) and `print` (stateless one-shot) - but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
 
 Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Gemini and Antigravity are Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
 
@@ -118,7 +118,7 @@ explicitly instead of inheriting a provider default:
 - **Strata** — the shared OpenAI HTTP worker advertises and dispatches only
   `WebSearch` / `WebFetch` when Chat web access is armed. Standalone logs/image
   caches mean it is unavailable in strict Incognito.
-- **llama.cpp, LM Studio**  -  tool schemas omitted; no web option.
+- **llama.cpp, LM Studio** - tool schemas omitted; no web option.
 - **Cursor** — routed to the stateless `-p --mode ask` transport
   (`--stream-partial-output` in chat) with deterministic transcript replay.
 
@@ -149,7 +149,7 @@ Unicode before MCP serialization; a truncated emoji previously wedged this path.
 `WorkerConfig.incognito:true` strengthens that boundary into Arco-side
 non-persistence. Claude CLI receives no session id and therefore emits
 `--no-session-persistence`; Codex is forced off app-server onto one-shot
-`exec --ephemeral` (Computer alone uses a verified ephemeral app-server thread).  Stateless turns receive a deterministic transcript
+`exec --ephemeral` (Computer alone uses a verified ephemeral app-server thread). Stateless turns receive a deterministic transcript
 from `WorkflowState.incognitoEvents`. Cursor is excluded from incognito because
 its CLI exposes resumable chats but no ephemeral-session flag. llama.cpp is
 also excluded because the shared Arco-managed `llama-server` writes an
@@ -486,7 +486,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
 
-**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels  -  `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server fold the same addendum into their stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input  -  measure via the `primary_turn_token_usage` event.
+**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
 
 **Adding a new level (e.g., a hypothetical `ultra`):** must pass operator sign-off + a plan-doc update first. The level's text MUST preserve code blocks / error strings / file paths verbatim and MUST NOT compress security warnings, irreversible operations, or order-sensitive multi-step sequences. The auto-clarity escape hatch in each level enforces this.
 
@@ -1057,7 +1057,7 @@ streamable-HTTP is the chosen transport.
   injects `{type:'http', name:'arco-cluster', url, headers:[]}` into both `session/new` and
   `session/load` `mcpServers`, refreshes ctx each `beginTurn`, and `closeClusterLoopbackMcp` on dispose.
 - **Plan/role/doctrine.** Folded into `appendSystemPrompt` via `turnEngine.ts` `needsStringFormCluster`
-  (which already listed `'cursor'`), same as Claude-CLI / Codex  -  string-form, not a forced
+  (which already listed `'cursor'`), same as Claude-CLI / Codex - string-form, not a forced
   block. Cursor is not a local provider, so it does NOT go through `buildLocalClusterSystemPrompt`.
 - **Model→provider inference** (`clusterHandlers.ts`). Bare `auto` + `grok-*` → `cursor`. Because Cursor
   **proxies** the claude-\*/gpt-\*/glm-\* families, those prefixes can't distinguish Cursor by id, so
