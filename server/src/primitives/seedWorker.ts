@@ -1,4 +1,4 @@
-// Phase 2 Lite — the primary-worker chat primitive.
+// The primary-worker chat primitive.
 //
 // One operator turn = one short-lived provider spawn, pinned to a native CLI
 // session so the conversation survives across turns (and is resumable from a

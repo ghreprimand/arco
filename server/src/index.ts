@@ -2285,13 +2285,9 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model
 
 httpServer.listen(PORT, HOST, () => {
   updateChecker.start();
-  console.log(`
-  ╔══════════════════════════════════════════╗
-  ║         A R C O      v${APP_VERSION} (Lite)       ║
-  ║         Server online :: ${PORT}             ║
-  ║         Phase 2 — primary-worker chat    ║
-  ╚══════════════════════════════════════════╝
-  `);
+  const bannerLines = [`ARCO v${APP_VERSION}`, `Server online :: ${PORT}`];
+  const bannerWidth = Math.max(...bannerLines.map((line) => line.length));
+  console.log(`\n  +-${'-'.repeat(bannerWidth)}-+\n${bannerLines.map((line) => `  | ${line.padEnd(bannerWidth)} |`).join('\n')}\n  +-${'-'.repeat(bannerWidth)}-+\n  `);
   if (!wsAuthEnabled()) {
     console.warn('[arco] ARCO_WS_AUTH=off — /ws and /terminal accept ANY local client (test servers only).');
   }
