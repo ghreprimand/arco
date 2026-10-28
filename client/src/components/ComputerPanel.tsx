@@ -1,3 +1,6 @@
+import { useStartupStore } from '../stores/startupStore';
+import { defaultComputerSelection } from '../utils/computerAvailability';
+import { computerCatalogs, syncComputerDefault } from '../voice/computerControl';
 import { ComputerActivityPanel } from './ComputerActivityPanel';
 import { ComputerScriptsPanel } from './ComputerScriptsPanel';
 import { ComputerWatchesPanel, ComputerMailRulesPanel } from './ComputerMonitoringPanels';
@@ -23,6 +26,10 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
   onCancel: (id: string) => void;
   onSend: (id: string, text: string) => boolean;
 }) {
+  const auth = useAppStore(s => s.authStatus);
+  const settings = useAppStore(s => s.settings);
+  const noAgent = !!auth && !defaultComputerSelection(auth, settings?.enabledProviders ?? {}, computerCatalogs());
+  useEffect(() => { syncComputerDefault(); }, [auth, settings]);
   const jobs = useAppStore((s) => s.jobs);
   const enabled = useVoiceStore((s) => s.enabled);
   const close = useComputerStore((s) => s.setOpen);
@@ -73,12 +80,13 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--color-border-hairline)' }}>
         <div style={{ flex: 1 }}>
           <h2 id="computer-title" className="display-font" style={{ margin: 0, fontSize: 16, letterSpacing: 2 }}>COMPUTER</h2>
-          <p style={{ margin: '5px 0 0', color: 'var(--color-fg-muted)', fontSize: 12 }}>Your voice and text conversation</p>
+          <p style={{ margin: '5px 0 0', color: 'var(--color-fg-muted)', fontSize: 12 }}>Computer operates the workbench: panels, settings, worker messages, scripts and watches. It does not browse the web or run shell commands; use a worker chat for web questions.</p>
         </div>
         <span style={{ color: 'var(--color-fg-muted)', fontSize: 11 }}>{busy ? 'WORKING' : enabled ? 'HANDS-FREE ON' : 'MIC OFF'}</span>
         {busy && <button style={button} disabled={!connected} onClick={stop}>STOP REQUEST</button>}
         <button ref={closeRef} style={button} aria-label="Close Computer" onClick={() => close(false)}>CLOSE ✕</button>
       </div>
+      {noAgent && <p style={{ margin: '10px 18px' }}>No Computer agent is connected. Connect Codex, Claude Code, Ollama or Strata in <a href="#connections" onClick={() => { close(false); useStartupStore.getState().setSetupOpen(true); }}>Connections</a>.</p>}
       <div role="region" aria-label="Computer settings and automations" style={{minHeight:0,maxHeight:'45%',overflowY:'auto',flexShrink:1}}>
         <ComputerAgentPicker key={`${selection.provider}:${selection.model}:${selection.effort}:${selection.history}`} />
         {job && <ComputerActivityPanel key={job.id} ownerId={job.id} />}
@@ -124,7 +132,7 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
         <p>Your conversations with Computer will appear here.</p>
         <p>Choose an agent above and press USE AGENT to start typing, or enable hands-free and say “Computer”.</p>
       </div>}
-      {job && <ComputerComposer key={job.id} job={job} onSend={onSend} />}
+      {job && !noAgent && <ComputerComposer key={job.id} job={job} onSend={onSend} />}
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ flex: 1, color: 'var(--color-fg-muted)', fontSize: 12 }}>Computer remembers requests within the current context.</span>
         <button style={button} onClick={() => { close(false); useVoiceStore.setState({ open: true }); }}>VOICE CONTROLS</button>

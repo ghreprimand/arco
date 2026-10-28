@@ -4,27 +4,27 @@ import { COMPUTER_PROVIDERS, type ComputerProvider, type EffortLevel } from '@ar
 export interface ComputerSelection { provider: ComputerProvider; model: string; effort: EffortLevel; history: 'saved' | 'none' }
 const KEY = 'arco.computer.selection.v1';
 const defaults: ComputerSelection = { provider: 'codex', model: 'gpt-6-luna', effort: 'low', history: 'saved' };
-function load(): ComputerSelection {
+function load(): { selection: ComputerSelection; automatic: boolean } {
   try {
     const value = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (value && COMPUTER_PROVIDERS.includes(value.provider) && typeof value.model === 'string'
       && ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(value.effort)
-      && ['saved', 'none'].includes(value.history) && !(value.provider === 'strata' && value.history === 'none')) return value;
+      && ['saved', 'none'].includes(value.history) && !(value.provider === 'strata' && value.history === 'none')) return { selection: value, automatic: false };
   } catch { /* preferences are optional */ }
-  return defaults;
+  return { selection: defaults, automatic: true };
 }
 // Only non-content preferences persist. Never store an Incognito workflow id.
 export const useComputerStore = create<{
   open: boolean; setOpen: (open: boolean) => void;
-  selection: ComputerSelection; activeId: string | null;
+  automatic: boolean; selection: ComputerSelection; activeId: string | null;
   contextEpoch: number;
   pending: ComputerSelection | null; error: string | null;
   select: (selection: ComputerSelection, id: string) => void;
 }>((set) => ({
-  open: false, setOpen: (open) => set({ open }), selection: load(), activeId: null, contextEpoch: 0, pending: null, error: null,
+  open: false, setOpen: (open) => set({ open }), ...load(), activeId: null, contextEpoch: 0, pending: null, error: null,
   select: (selection, activeId) => {
     try { localStorage.setItem(KEY, JSON.stringify(selection)); } catch {}
-    set((s) => ({ selection, activeId, pending: null, error: null, contextEpoch: s.contextEpoch + (s.selection.provider !== selection.provider || s.selection.model !== selection.model || s.selection.effort !== selection.effort || s.selection.history !== selection.history ? 1 : 0) }));
+    set((s) => ({ selection, activeId, automatic: false, pending: null, error: null, contextEpoch: s.contextEpoch + (s.selection.provider !== selection.provider || s.selection.model !== selection.model || s.selection.effort !== selection.effort || s.selection.history !== selection.history ? 1 : 0) }));
   },
 }));
 export function computerPrivate(): boolean {

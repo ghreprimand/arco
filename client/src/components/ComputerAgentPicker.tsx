@@ -1,3 +1,5 @@
+import { useAppStore } from '../stores/appStore';
+import { computerProviderConnected } from '../utils/computerAvailability';
 import { useState } from 'react';
 import { COMPUTER_PROVIDERS, type ComputerProvider, type ModelName } from '@arco/shared';
 import { useComputerStore } from '../stores/computerStore';
@@ -6,6 +8,8 @@ import { clampEffortForModel, effortsForModel } from '../utils/format';
 import { requestComputerSelection } from '../voice/computerControl';
 
 export function ComputerAgentPicker() {
+  const auth = useAppStore(s => s.authStatus);
+  const settings = useAppStore(s => s.settings);
   const selection = useComputerStore((s) => s.selection);
   const pending = useComputerStore((s) => s.pending);
   const error = useComputerStore((s) => s.error);
@@ -33,7 +37,7 @@ export function ComputerAgentPicker() {
       <label>History <select aria-label="Computer history mode" style={control} value={draft.history} onChange={(e) => setDraft({ ...draft, history: e.target.value as 'saved' | 'none' })}>
         <option value="saved">Saved history</option><option value="none">No history (Incognito)</option>
       </select></label>
-      <button style={{ ...control, color: 'var(--color-accent-primary)', cursor: 'pointer' }} disabled={!!pending || !models.length || privacyUnavailable}
+      <button style={{ ...control, color: 'var(--color-accent-primary)', cursor: 'pointer' }} disabled={!!pending || !models.length || privacyUnavailable || (!!auth && !computerProviderConnected(draft.provider, auth, settings?.enabledProviders))}
         onClick={() => { try { requestComputerSelection(draft); } catch (e) { useComputerStore.setState({ error: e instanceof Error ? e.message : 'Computer switch failed.' }); } }}>USE AGENT</button>
     </div>
     <div style={{ color: 'var(--color-fg-muted)' }}>Each provider/model/effort has a separate context. Changes wait for the current turn and queue. No earlier messages are copied.</div>

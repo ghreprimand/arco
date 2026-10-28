@@ -110,6 +110,11 @@ async def main():
         dialog = page.get_by_role('dialog', name='COMPUTER', exact=True)
         await expect(dialog).to_be_visible()
         await expect(dialog.get_by_text('Your conversations with Computer will appear here.')).to_be_visible()
+        await page.evaluate("window.savedComputerAuth = testStore.getState().authStatus; testStore.setState({authStatus:Object.fromEntries(Object.entries(window.savedComputerAuth).map(([provider,status])=>[provider,{...status,loggedIn:false}]))})")
+        await expect(dialog.get_by_text('No Computer agent is connected.', exact=False)).to_be_visible()
+        await expect(dialog.get_by_role('link', name='Connections', exact=True)).to_have_attribute('href', '#connections')
+        await expect(dialog.get_by_role('button', name='USE AGENT', exact=True)).to_be_disabled()
+        await page.evaluate('testStore.setState({authStatus:window.savedComputerAuth})')
         assert await page.evaluate('testStore.getState().activeJobId') == 'project'
         await page.keyboard.press('Escape')
         await expect(dialog).to_have_count(0)

@@ -489,6 +489,12 @@ request. A blocked script is distinct from an active Computer turn.
 
 ### Agent selection
 
+Computer operates the workbench: panels, settings, messages to workers, scripts
+and watches. It does not browse the web or run shell commands; send web questions
+to a worker chat. A new selection defaults to the first connected, enabled agent
+in this order: Codex, Claude Native, Ollama, Strata. Saved selections are retained.
+When none is connected, the panel links to Connections and does not send a turn.
+
 COMPUTER offers provider/model/effort/history
 and USE AGENT. Codex, Claude Native (Haiku/Sonnet/etc.), Ollama and Strata share
 the same `toolDefinitions.ts` schema catalog and browser executor. Codex uses

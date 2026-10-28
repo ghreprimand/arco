@@ -1,3 +1,4 @@
+import { computerProviderConnected, defaultComputerSelection } from '../utils/computerAvailability';
 import { COMPUTER_PROVIDERS, type EffortLevel, type ModelName } from '@arco/shared';
 import { useVoiceStore } from './store';
 import { useAppStore } from '../stores/appStore';
@@ -16,12 +17,21 @@ export function computerCatalogs(): ModelCatalogs {
     ollamaModels: s.authStatus?.ollama?.installedModels ?? [], strataModels: s.authStatus?.strata?.installedModels ?? [],
     lmstudioModels: [], llamacppModels: [], zaiModels: [] };
 }
+export function syncComputerDefault(): void {
+  const computer = useComputerStore.getState();
+  if (!computer.automatic || computer.activeId || computer.pending) return;
+  const app = useAppStore.getState();
+  const selection = defaultComputerSelection(app.authStatus, app.settings?.enabledProviders ?? {}, computerCatalogs());
+  if (selection && JSON.stringify(selection) !== JSON.stringify(computer.selection)) useComputerStore.setState({ selection });
+}
 export function requestComputerSelection(selection: ComputerSelection): string {
   if (useVoiceStore.getState().commandText !== null) throw Error('Finish or cancel the current capture before changing Computer.');
   if (!useAppStore.getState().connected) throw Error('Disconnected. Computer was not changed.');
   if (!COMPUTER_PROVIDERS.includes(selection.provider)) throw Error('Choose Codex, Claude, Ollama or Strata.');
   if (selection.history === 'none' && selection.provider === 'strata') throw Error('Strata keeps service logs/cache and cannot guarantee no-history. Choose Ollama, Claude or Codex, or keep saved history.');
   if (!['saved', 'none'].includes(selection.history)) throw Error('History must be saved or none.');
+  const app = useAppStore.getState();
+  if (app.authStatus && !computerProviderConnected(selection.provider, app.authStatus, app.settings?.enabledProviders)) throw Error('This Computer agent is not connected. Choose a connected agent or open Connections.');
   const catalogs = computerCatalogs();
   if (!modelsForProvider(selection.provider, catalogs).includes(selection.model as ModelName)) throw Error('That model is not in the available catalog. Refresh the model list or choose a listed model.');
   if (!effortsForModel(selection.provider, selection.model as ModelName, catalogs.claude, catalogs.codex).includes(selection.effort)) throw Error('That effort is not supported by the selected model.');

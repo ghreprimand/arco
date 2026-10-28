@@ -1,9 +1,10 @@
+import { defaultComputerSelection, computerProviderConnected, NO_COMPUTER_AGENT } from '../utils/computerAvailability';
 import { activityRequest } from './activity';
 import { voiceText, type WorkflowConfig, type ModelName } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useVoiceStore } from './store';
 import { useComputerStore, type ComputerSelection } from '../stores/computerStore';
-import { registerComputerSwitch } from './computerControl';
+import { registerComputerSwitch, syncComputerDefault, computerCatalogs } from './computerControl';
 import { COMPUTER_WORKING } from './computerRequest';
 
 type Selection = { clusterId: string | null; workflowId: string | null };
@@ -23,6 +24,7 @@ const matches = (config: WorkflowConfig, selection = useComputerStore.getState()
 // Reload restores saved jobs before any utterance opens the voice conversation.
 // Bind without creating a chat, enabling the mic or adopting an incognito context.
 export function restoreSavedComputer(): void {
+  syncComputerDefault();
   const state = useComputerStore.getState();
   if (state.activeId || state.pending || state.selection.history !== 'saved') return;
   const job = Object.values(useAppStore.getState().jobs).find((j) => matches(j.config));
@@ -83,6 +85,10 @@ export class ComputerConversation {
   // arco_targets. Replies come back through `watchReply` → `reply`.
   async talk(text: string, signal: AbortSignal, context = ''): Promise<string> {
     signal.throwIfAborted();
+    syncComputerDefault();
+    const app = useAppStore.getState();
+    if (app.authStatus && !defaultComputerSelection(app.authStatus, app.settings?.enabledProviders ?? {}, computerCatalogs())) return NO_COMPUTER_AGENT;
+    if (app.authStatus && !computerProviderConnected(useComputerStore.getState().selection.provider, app.authStatus, app.settings?.enabledProviders)) return 'This Computer agent is not connected. Choose a connected agent or open Connections.';
     if (this.switching || useComputerStore.getState().pending) return 'Computer is changing agents. Please wait before the next request.';
     if (this.opening) return 'Computer is opening. Please wait before the next request.';
     const generation = ++this.generation;
