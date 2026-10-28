@@ -4,7 +4,7 @@ import type { HelpEntry } from './shared';
 export const settingsHelp: Record<string, HelpEntry> = {
   'settings.first-run': {
     title: 'Run setup again',
-    body: <p>Reopens the welcome, folder, Connections and chat steps. Each step can be skipped. Setup completion is remembered in the Arco home so a provider outage never reopens it automatically.</p>,
+    body: <p>Reopens the welcome, folder, Connections and completion steps. Earlier steps can be skipped. Setup complete summarizes the chosen folder and provider, then offers Go to Home or Start a chat in the normal creator. Either choice saves completion. Setup completion is remembered in the Arco home so a provider outage never reopens it automatically.</p>,
   },
   'settings.projects': {
     title: 'Projects',

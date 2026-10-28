@@ -8,8 +8,10 @@ browser to navigate anywhere the server can read. Common-root shortcuts, UP, and
 new-folder creation help select a folder without scanning or registering its
 neighbors. Choosing the folder adds it as a project. Optional scanning is configured
 separately in Settings > Projects. Connect a provider through Connections (an
-existing CLI login is prefilled), then review and launch the
-prefilled chat creator. Every step has a skip action; **Skip setup** goes to Home.
+existing CLI login is prefilled). The final **Setup complete** screen summarizes
+the folder and provider. Choose **Go to Home**, or **Start a chat** to open the
+normal creator with that folder and provider prefilled. Either choice remembers
+setup completion. Earlier steps can be skipped; **Skip setup** goes to Home.
 Completion is remembered in the Arco home across browsers and provider outages.
 Settings > Projects > **Run setup again** reopens the same flow.
 

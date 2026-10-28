@@ -95,6 +95,12 @@ async def setup_chat(playwright):
         assert model.chats == 0, 'connection checks sent a prompt'
         assert await page.evaluate("window.__sent.filter(s=>/create_workflow|create_cluster|send_prompt/.test(s)).length") == 0
         await page.get_by_role('button', name='Continue to chat', exact=True).click()
+        await page.get_by_role('heading', name='Setup complete', exact=True).wait_for()
+        await expect(page.get_by_role('button', name='Skip this step', exact=True)).to_have_count(0)
+        await expect(page.get_by_text('Provider: Ollama (local) connected', exact=True)).to_be_visible()
+        await page.get_by_role('button', name='Start a chat', exact=True).click()
+        await expect(page.get_by_role('heading', name='Setup complete', exact=True)).to_have_count(0)
+        assert json.loads((server.home / '.arco/settings.json').read_text())['onboardingComplete'] is True
         await expect(page.locator('select').first).to_have_value('ollama')
         await page.get_by_placeholder(re.compile('^e.g. Code Review')).fill('Setup fixture')
         await page.get_by_role('button', name='LAUNCH WORKFLOW', exact=True).click()
@@ -133,8 +139,9 @@ async def skip_and_reopen(playwright):
         await page.get_by_role('button', name='Skip this step', exact=True).click()
         await page.get_by_role('button', name='Skip this step', exact=True).click()
         await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()
-        await page.get_by_role('heading', name='Start a chat', exact=True).wait_for()
-        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        await page.get_by_role('heading', name='Setup complete', exact=True).wait_for()
+        await expect(page.get_by_role('button', name='Skip this step', exact=True)).to_have_count(0)
+        await page.get_by_role('button', name='Go to Home', exact=True).click()
         await page.locator('#home-title').wait_for()
         await page.reload()
         await page.locator('#home-title').wait_for()
@@ -214,7 +221,7 @@ async def folder_browser(playwright):
         assert not settings.get('defaultWorkingDirectory')
         assert len(json.loads((server.home / '.arco/projects.json').read_text())['records']) == 1
         await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()
-        await page.get_by_role('button', name='Skip this step', exact=True).click()
+        await page.get_by_role('button', name='Go to Home', exact=True).click()
         await page.locator('#home-title').wait_for()
         # Scanning remains an explicit Settings operation, independent of setup.
         await page.evaluate("""async root => { const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({defaultWorkingDirectory:root})}); if (!res.ok) throw new Error('scan setting refused'); }""", str(root))

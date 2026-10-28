@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { PRIMARY_PROVIDERS, type WorkflowConfig } from '@arco/shared';
+import { PRIMARY_PROVIDERS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { completeOnboarding } from '../utils/completeOnboarding';
 import { DirectoryBrowser } from './media/DirectoryPicker';
-import { anyPrimaryProviderConnected } from '../utils/startupGate';
+import { anyPrimaryProviderConnected, PROVIDER_LABELS } from '../utils/startupGate';
 import { Connections } from './Connections/Connections';
 import { addFolder } from './Home/projectApi';
-import { WorkflowCreator } from './WorkflowCreator';
 
 // Sequence the existing folder registration, Connections and creator surfaces.
-export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => void }) {
-  const [step, setStep] = useState<'welcome' | 'folder' | 'provider' | 'chat'>('welcome');
+export function FirstRun() {
+  const [step, setStep] = useState<'welcome' | 'folder' | 'provider' | 'complete'>('welcome');
   const [path, setPath] = useState(''), [project, setProject] = useState('');
   const [scanCandidates, setScanCandidates] = useState<string[]>([]);
   const [browserKey, setBrowserKey] = useState(0);
@@ -47,7 +46,7 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
     if (!reply.ok) { setNote(reply.error); return; }
     setProject(folder.trim()); setStep('provider');
   };
-  const finish = async (config?: WorkflowConfig) => {
+  const finish = async (openChat = false) => {
     if (busy) return;
     setBusy(true); setNote('');
     try {
@@ -55,16 +54,13 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
       const startup = useStartupStore.getState();
       startup.setSetupDeferred(true); startup.setFirstRunOpen(false); startup.setSetupOpen(false);
       if (window.location.hash.startsWith('#connections')) window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      if (config) onCreate(config);
+      if (openChat) useAppStore.getState().openCreatorWith({ mode: project ? 'single' : 'chat', ...(project ? { workDir: project } : {}), provider });
       else useAppStore.getState().showHomeView();
     } catch (error) { setNote(error instanceof Error ? error.message : 'Setup could not be saved. Retry.'); }
     finally { setBusy(false); }
   };
-  const startChat = () => {
-    useAppStore.getState().openCreatorWith({ mode: project ? 'single' : 'chat', ...(project ? { workDir: project } : {}) });
-    setStep('chat'); setNote('');
-  };
-  if (step === 'provider') return <Connections mode="gate" onSkip={startChat} onContinue={startChat} canContinue={providerConnected} />;
+  const complete = () => { setStep('complete'); setNote(''); };
+  if (step === 'provider') return <Connections mode="gate" onSkip={complete} onContinue={complete} canContinue={providerConnected} />;
   return <div className="connections-backdrop">
     <div className="connections-dialog first-run-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" onKeyDown={e => {
       if (e.key === 'Escape') { e.stopPropagation(); void finish(); }
@@ -75,9 +71,9 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     }}>
       <header className="connections-header"><div>
-        <h1 id="first-run-title" ref={title} tabIndex={-1}>{step === 'welcome' ? 'Welcome to Arco' : step === 'folder' ? 'Add a project folder' : 'Start a chat'}</h1>
-        <p>{step === 'welcome' ? 'Arco is a workbench for AI coding tools, projects, and a voice operator. Add a folder, connect a provider, then start a conversation in the existing workspace.' : step === 'folder' ? 'Step 1 of 3: choose an existing folder on the Arco server. In Docker, mount the folder first.' : 'Step 3 of 3: review the existing creator and launch when ready. No prompt is sent until a message is submitted.'}</p>
-      </div><button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button></header>
+        <h1 id="first-run-title" ref={title} tabIndex={-1}>{step === 'welcome' ? 'Welcome to Arco' : step === 'folder' ? 'Add a project folder' : 'Setup complete'}</h1>
+        <p>{step === 'welcome' ? 'Arco is a workbench for AI coding tools, projects, and a voice operator. Add a folder, connect a provider, then start a conversation in the existing workspace.' : step === 'folder' ? 'Step 1 of 3: choose an existing folder on the Arco server. In Docker, mount the folder first.' : 'Your setup is ready. Go to Home or open a chat when you are ready.'}</p>
+      </div>{step !== 'complete' && <button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button>}</header>
       {step === 'welcome' && <div className="connections-actions"><button type="button" onClick={() => setStep('folder')}>Get started</button><button type="button" disabled={busy} onClick={() => void finish()}>Skip setup</button></div>}
       {step === 'folder' && <section className="connection-detail">
         <form className="first-run-path" onSubmit={e => { e.preventDefault(); void chooseFolder(path); }}>
@@ -92,11 +88,14 @@ export function FirstRun({ onCreate }: { onCreate: (config: WorkflowConfig) => v
         {browserRoot !== null && <DirectoryBrowser key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Adding...' : 'Use this folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
         <p>Browse any folder the server can read, or enter its absolute path. Configure optional folder scanning in Settings &gt; Projects.</p>
       </section>}
-      {step === 'chat' && <div style={{ overflow: 'auto', minHeight: 240 }}>
-        {!providerConnected && <p className="connections-scope">A provider is still needed to send messages. Skip to Home and connect one later, or return to Connections.</p>}
-        <button type="button" onClick={() => setStep('provider')}>Back to Connections</button>
-        <WorkflowCreator key={project} initialProvider={provider} onCreate={config => { void finish(config); }} />
-      </div>}
+      {step === 'complete' && <section className="connection-detail">
+        <p>Project folder added: {project || 'none yet'}</p>
+        <p>Provider: {provider ? `${PROVIDER_LABELS[provider]} connected` : 'none yet, connect later in Connections'}</p>
+        <div className="connections-actions" style={{ margin: 0 }}>
+          <button type="button" disabled={busy} style={{ borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} onClick={() => void finish()}>Go to Home</button>
+          <button type="button" disabled={busy} onClick={() => void finish(true)}>Start a chat</button>
+        </div>
+      </section>}
       <p className="connections-note" role="status">{note}</p>
     </div>
   </div>;

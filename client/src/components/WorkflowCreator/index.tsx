@@ -19,7 +19,8 @@ import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingT
 import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS, zaiModelsUiFrom } from './modelOptions';
 import type { Props, MemberDraft, DirEntry } from './types';
 
-export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider }: Props) {
+export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
+  const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
   const connected = useAppStore((s) => s.connected);
   const capabilities = useAppStore((s) => s.capabilities);
   const authStatus = useAppStore((s) => s.authStatus);

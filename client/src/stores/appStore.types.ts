@@ -1067,6 +1067,7 @@ export interface ClusterMemberLabel {
 export type ClusterCardLayout = 'auto' | 'rows' | 'columns' | 'grid';
 
 export interface CreatorPrefill {
+  provider?: ProviderName;
   mode: 'single' | 'chat' | 'cluster' | 'genesis';
   workDir?: string;
   resumeSessionId?: string;

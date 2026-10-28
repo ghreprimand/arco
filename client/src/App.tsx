@@ -657,7 +657,7 @@ ${scopeBody}
     // a disabled provider from inside the gate.
     return (
       <>
-        <FirstRun onCreate={createWorkflow} />
+        <FirstRun />
         {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
         {showManual && <UserManual onClose={() => setShowManual(false)} />}
         <HelpBanner />

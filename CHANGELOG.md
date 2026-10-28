@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Finish welcome setup with a folder and provider summary, then choose Go to Home or Start a chat in the normal creator.
+
 - Browse and choose a project folder during welcome setup with a typed path, root shortcuts, UP and new-folder controls. Keep large folder lists inside the dialog without configuring scanning.
 
 - Show first-run setup for an unused Arco home even when provider CLIs are signed in. Offer explicit scan-folder choices, keep discoveries out of saved project records, and collapse long scanned lists on Home.
