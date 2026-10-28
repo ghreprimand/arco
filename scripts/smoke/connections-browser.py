@@ -63,7 +63,8 @@ class IsolatedServer:
         (self.home/'.arco/settings.json').write_text(json.dumps({'ollama':{'baseUrl':model_url},'enabledProviders':{'llamacpp':False},'defaultWorkingDirectory':str(self.projects/'app'),**self.extra_settings()}))
         (self.home/'.arco/known-cwds.json').write_text(json.dumps([str(self.projects/'app')]))
         self.port=host_isolation.closed_port();self.base=f'http://127.0.0.1:{self.port}'
-        self.env=host_isolation.harden({'HOME':str(self.home),'ARCO_HOME':str(self.home/'.arco'),'TMPDIR':str(self.tmp),'ARCO_PORT':str(self.port),'ARCO_HOST':'127.0.0.1','ARCO_SERVE_CLIENT':'1','ARCO_UPLOADS_DIR':str(self.root/'uploads'),**self.extra_env()},self.root)
+        self.env=host_isolation.harden({'HOME':str(self.home),'ARCO_HOME':str(self.home/'.arco'),'TMPDIR':str(self.tmp),'ARCO_PORT':str(self.port),'ARCO_HOST':'127.0.0.1','ARCO_UPLOADS_DIR':str(self.root/'uploads'),**self.extra_env()},self.root)
+        self.env['ARCO_SERVE_CLIENT']='1'
         self.log=(self.root/'server.log').open('w')
         self.proc=subprocess.Popen(['node','--conditions','development','--import','tsx','server/src/index.ts'],cwd=REPO,env=self.env,stdout=self.log,stderr=self.log)
         deadline=time.monotonic()+60

@@ -39,6 +39,10 @@ const portFree = (port) => new Promise((done) => {
   const probe = createServer().once('error', () => done(false)).once('listening', () => probe.close(() => done(true)));
   probe.listen(port, '127.0.0.1');
 });
+if (selected.some((suite) => suite.isolatedServer) && process.platform === 'linux') {
+  const selfCheck = spawnSync('python3', [join(root, 'scripts/smoke/host_isolation_test.py')], { cwd: root, env: process.env, stdio: 'inherit', timeout: 30_000 });
+  if (selfCheck.status !== 0) { console.error('Host isolation self-check failed.'); process.exit(1); }
+}
 const results = [];
 for (const suite of selected) {
   if (suite.isolatedServer) {

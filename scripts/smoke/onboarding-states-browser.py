@@ -60,10 +60,11 @@ class IsolatedServer:
         env = {
             'HOME': str(self.home), 'TMPDIR': str(self.tmp),
             'PATH': f'{Path(sys.executable).parent}:{os.path.dirname(shutil.which("node"))}:/usr/bin:/bin',
-            'ARCO_PORT': str(self.port), 'ARCO_HOST': '127.0.0.1', 'ARCO_SERVE_CLIENT': '1',
+            'ARCO_PORT': str(self.port), 'ARCO_HOST': '127.0.0.1',
             'ARCO_UPLOADS_DIR': str(self.root / 'uploads'),
         }
         env = host_isolation.harden(env, self.root)
+        env['ARCO_SERVE_CLIENT'] = '1'
         self.proc = subprocess.Popen(
             ['node', '--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'],
             cwd=REPO, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

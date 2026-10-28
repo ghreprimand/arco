@@ -76,9 +76,10 @@ def main():
         base = f'http://127.0.0.1:{port}'
         env = harden({
             'HOME': str(home), 'ARCO_HOME': str(home / '.arco'), 'TMPDIR': str(root / 'tmp'),
-            'ARCO_PORT': str(port), 'ARCO_HOST': '127.0.0.1', 'ARCO_SERVE_CLIENT': '1',
+            'ARCO_PORT': str(port), 'ARCO_HOST': '127.0.0.1',
             'ARCO_UPLOADS_DIR': str(root / 'uploads'),
         }, root)
+        env['ARCO_SERVE_CLIENT'] = '1'
         with (root / 'server.log').open('w') as log:
             server = subprocess.Popen(['node', '--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'], cwd=REPO, env=env, stdout=log, stderr=log)
             try:

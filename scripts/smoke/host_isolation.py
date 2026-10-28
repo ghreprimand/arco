@@ -60,7 +60,9 @@ def harden(env, root):
     """Return env with denying stubs first on PATH and every host endpoint disabled."""
     stubs, log = install_stubs(root)
     dead = f'http://127.0.0.1:{closed_port()}'
-    hardened = dict(env)
+    blocked = {'ARCO_HUB_URL', 'ARCO_NTFY_URL', 'ARCO_LOG_FILE', 'ARCO_SERVE_CLIENT'}
+    hardened = {key: value for key, value in env.items()
+                if not key.startswith(('ARCH' + 'ON_')) and key not in blocked}
     hardened['PATH'] = os.pathsep.join([str(stubs), os.path.dirname(shutil.which('node')), '/usr/bin', '/bin'])
     home = hardened.get('HOME', str(Path(root) / 'home'))
     hardened.update({
