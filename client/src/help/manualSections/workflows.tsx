@@ -56,9 +56,9 @@ codex exec resume <thread-id> "next prompt"
           writes. Recover with <strong>Handoff</strong>.
         </Note>
         <p>
-          <strong>Session-less providers:</strong>
-          the local HTTP providers (Ollama, llama.cpp, LM Studio) are session-less. The local providers re-feed the rendered
-          transcript on every turn (the prefix cache makes this cheap).
+          <strong>Session-less providers:</strong> local HTTP providers (Ollama,
+          llama.cpp, LM Studio) re-feed the rendered transcript on every turn;
+          prefix caching reduces repeated prompt work.
         </p>
       </>
     ),

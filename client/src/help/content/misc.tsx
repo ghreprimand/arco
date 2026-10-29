@@ -656,7 +656,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Rotates this tab's session. The current agent writes a handoff
         document; a fresh session starts with that doc as its seed. <C>Original-worker</C>{' '}
-        (the primary self-reflects) only applies to Claude, Codex; other
+        (the primary self-reflects) only applies to Claude and Codex; other
         providers — Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
         <C>fresh-summarizer</C>.
       </p>

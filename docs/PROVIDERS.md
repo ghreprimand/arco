@@ -14,10 +14,10 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 | Provider | Transport | Effort levels | Native resume | Notes |
 |---|---|---|---|---|
-| Claude | `cli` (default) | low / medium / high / xhigh / max | UUID-based (`--session-id` / `--resume`) | Picker: `opus` / `sonnet` family aliases plus pinned ids (Opus 5.5, Fable 5.1, Sonnet 5, Opus 5, Opus 4.8, ...). Per-turn `claude` CLI spawn. Full two-way interop with terminal `claude`. Chat renders from `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl`. Auto-handoff supported. |
-| Claude | `native` | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools). |
-| Codex | `exec` (default) | model/catalog-driven; Astra / Sol: low through ultra, Luna: through max | UUID-based (`codex exec resume`) | Default model GPT-6 Astra (Sol and Luna also in the cold-catalog fallback; the live `model/list` catalog is authoritative). MAX context by default. Per-turn `codex exec` spawn. Full two-way interop with terminal `codex`. Supported effort values pass through; older models are not widened to Astra-only levels. Reviewer runs `-s read-only`. Transcript hydration on Resume for unclaimed rollouts. |
-| Codex | `app-server` | model/catalog-driven (same as `exec`) | UUID-based (rollouts in `~/.codex/sessions/`) | Long-lived `codex app-server` per tab. Structured `turn/interrupt` cancel + non-destructive `turn/steer` mid-turn input + `localImage` attachments + crash-recovery circuit breaker + output-style picker + native compact with context-signal reset. Reviewers / handoff seeds always run on `exec`. |
+| Claude | `cli` (alternate; also reviewers and handoff seeds) | low / medium / high / xhigh / max | UUID-based (`--session-id` / `--resume`) | Picker: `opus` / `sonnet` family aliases plus pinned ids (Opus 5.5, Fable 5.1, Sonnet 5, Opus 5, Opus 4.8, ...). Per-turn `claude` CLI spawn. Full two-way interop with terminal `claude`. Chat renders from `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl`. Auto-handoff supported. |
+| Claude | `native` (new-home default) | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools). |
+| Codex | `exec` (alternate; also reviewers and handoff seeds) | model/catalog-driven; Astra / Sol: low through ultra, Luna: through max | UUID-based (`codex exec resume`) | Default model GPT-6 Astra (Sol and Luna also in the cold-catalog fallback; the live `model/list` catalog is authoritative). MAX context by default. Per-turn `codex exec` spawn. Full two-way interop with terminal `codex`. Supported effort values pass through; older models are not widened to Astra-only levels. Reviewer runs `-s read-only`. Transcript hydration on Resume for unclaimed rollouts. |
+| Codex | `app-server` (new-home default) | model/catalog-driven (same as `exec`) | UUID-based (rollouts in `~/.codex/sessions/`) | Long-lived `codex app-server` per tab. Structured `turn/interrupt` cancel + non-destructive `turn/steer` mid-turn input + `localImage` attachments + crash-recovery circuit breaker + output-style picker + native compact with context-signal reset. Reviewers / handoff seeds always run on `exec`. |
 | Cursor | `acp` (default) + `print` | baked into the model id (`-low` / `-high` / `-xhigh` / `-max`) | `session/load` (loadSession capability) | Long-lived `cursor-agent acp` ACP worker; ~153 models incl. Grok. Steer / cancel / session resume / live model-swap via `session/set_model`. No per-turn token signal (the Usage tab is dashboard-polled). Cluster member via an in-process loopback HTTP MCP server. Read-only reviewer / primitives run a stateless `cursor-agent -p --mode ask` one-shot. |
 | Ollama | (single) | per model - graded thinking: `low` = thinking off (`think:false` + `/no_think`) plus the model's own levels from `/api/show` `thinking.values` (e.g. supported levels from `/api/show`); boolean-only models keep low / high | None | No native session concept; each turn is a fresh context. Tool use + large context + image attachments + web tools (SearXNG search, fetch with Camoufox stealth fallback). Mid-turn steer supported. Override base URL with `OLLAMA_URL_BASE` (default `http://localhost:11434`). |
 | llama.cpp | (single) | low / high (`low` = `/no_think`) | None | Operator-managed GGUF catalog at `~/.arco/llamacpp.json`. Singleton `llama-server` process owned by Arco (`llamacppManager`); switching aliases SIGTERMs the old server and warms the new one. OpenAI-compatible chat-completions + SSE streaming. Same tool-loop runtime as Ollama, with in-place auto-recovery (reasoning runaway / stream stall / tool-cap / context fill). Override binary with `ARCO_LLAMACPP_BIN`. |
@@ -158,7 +158,7 @@ PID registration are suppressed. Native and eligible local HTTP providers
 retain conversation state in process only; retention by a remote API service
 remains governed by that service, not Arco's disk policy.
 
-Two transports ship side-by-side, selected per-tab via `claude.transport` (`'cli'` default; `'native'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`claudeTransport`). Per-tab override lives on `WorkflowConfig.claudeTransport` and is editable from the CONFIG tab without a server restart.
+Two transports ship side-by-side, selected per-tab via `claude.transport`. New Arco homes use `native`; the home and project settings cascade can select either transport, and a per-tab choice takes precedence. Existing cascade and per-tab choices remain unchanged. Per-tab override lives on `WorkflowConfig.claudeTransport` and is editable from the CONFIG tab without a server restart.
 
 Reviewers and handoff seed turns always run on `cli` regardless of the tab's transport — Native is per-workflow long-lived and Arco-internal-only, so any path that needs a `~/.claude/projects/<sid>.jsonl` rollout (handoff destinations, reviewer recovery) goes through the CLI provider. After `handoff_complete`, the dispatcher disposes the cached Native worker so the next operator turn rebuilds the messages array from the post-handoff transcript.
 
@@ -166,7 +166,7 @@ Reviewers and handoff seed turns always run on `cli` regardless of the tab's tra
 
 Append-only prefix delivery is a current Native transport invariant. The in-process worker freezes `system` + `tools` on its first request and delivers every later config change (north-star, output style, cluster plan, CLAUDE.md re-read, posture, plan mode, MCP attach) as an appended `role:'system'` message with text and/or `tool_addition` / `tool_removal` blocks, so Claude Fable 5.1's preserved-thinking check never sees an edited prefix and the prompt cache survives config changes. Thinking blocks persist across turns (they used to be pruned at turn end). Every prefix mutation is a `ctx_action` in `events.jsonl`; `input_transformations` from Anthropic are logged per round. Pure helpers: `server/src/providers/claude-native/appendOnlyPrefix.ts` (`npm run test:append-only -w server`). Invariants: `docs/GOTCHAS.md § Claude Native transport`.
 
-### CLI transport (default)
+### CLI transport
 
 `server/src/providers/claude.ts`. Subprocess via `spawn('claude', args)`.
 
@@ -634,7 +634,7 @@ Default `unicode61` tokenizer (no stopwords — 'added' / 'fix' / 'the' all reta
 | `POST /api/workflows/:wfId/sandbox/clear` | — | Truncates the chunks table; emits `sandbox_db_cleared`. |
 | `POST /api/workflows/:wfId/sandbox/_test_insert` | `{ language, content }` | Dev-only escape hatch for the smoke harness. Gated on `NODE_ENV !== 'production'`. |
 
-**Trust model.** Per-tab. The sandbox is intentionally per-workflow, not per-cluster — if a cluster wants a shared knowledge graph the operator should attach codebase-memory-mcp () instead. The model knows it's calling `ctx_execute` vs `Read` — no silent redirection. The operator can read every stored chunk's full content via the Files-tab SANDBOX sub-section.
+**Trust model.** Per-tab. The sandbox is intentionally per-workflow, not per-cluster — if a cluster wants a shared knowledge graph the operator can attach the codebase-memory MCP integration instead. The model knows it's calling `ctx_execute` vs `Read` — no silent redirection. The operator can read every stored chunk's full content via the Files-tab SANDBOX sub-section.
 
 **Smoke.** `npm run smoke:phase-e` — 9/9 steps cover the toggle's persistence + meta.json round-trip, `_test_insert` landing a chunk + firing `sandbox_chunk_added` + creating sandbox.db on disk, `/sandbox/stats` reflecting chunkCount=1, clear endpoint emptying + firing `sandbox_db_cleared`, and `remove_workflow` unlinking the DB file.
 
@@ -642,13 +642,13 @@ Default `unicode61` tokenizer (no stopwords — 'added' / 'fix' / 'the' all reta
 
 ## Codex
 
-Two transports ship side-by-side, selected per-tab via `codex.transport` (`'exec'` default; `'appserver'` opt-in). The cascade — `~/.arco/settings.json` → `<cwd>/.arco/settings.json` → per-tab override — provides the default for new tabs; existing tabs persist their choice in `meta.json` (`codexTransport`). Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart.
+Two transports ship side-by-side, selected per-tab via `codex.transport`. New Arco homes use `appserver`; the home and project settings cascade can select either transport, and a per-tab choice takes precedence. Existing cascade and per-tab choices remain unchanged. Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart.
 
 Reviewers and handoff seed turns always run on `exec` regardless of the tab's transport — the per-workflow appserver child is too heavy for one-shot reviewer paths and there's no reviewer feature that benefits from mid-turn steer.
 
 The Codex CONFIG tab is sparse next to Claude Native by design, not omission. The Native-only efficiency knobs (server-side compaction, interleaved-thinking beta, tool-result filter, fact-force first edit, sandbox tools) all reach *inside* the in-process Anthropic request — request body, `anthropic-beta` headers, the `tools[]` array, or per-tool dispatch. Codex runs as an external subprocess, so Arco can't mutate those internals and the controls have nowhere to attach. **Output style is the exception on `appserver`:** Arco owns the per-turn `turn/start` input and folds the same style addendum into the stable prompt prefix. Codex `exec` still ignores it. What Codex *does* surface besides output style — codebase-index/memory + MCP servers — are the things you configure *around* a subprocess rather than inside its request. See `docs/GOTCHAS.md § Fact-force … protocol limit` for the fact-force-specific analysis (notably why the `appserver` approval bindings don't give a usable pre-execution gate today).
 
-### `exec` transport (default)
+### `exec` transport
 
 `server/src/providers/codex.ts`. Subprocess via `spawn('codex', args)`.
 
@@ -751,7 +751,7 @@ conditions; summed turn billing usage and delayed rollout files are not a
 substitute. Transport lifecycle, model/effort and the single approved Computer
 voice MCP configuration are unchanged.
 
-`server/src/providers/codex-appserver/` — + 6b adds the long-lived transport alongside the default `exec` worker; Arco ships the CONFIG-tab toggle. Unlocks non-destructive mid-turn steer (`turn/steer`) and structured cancel (`turn/interrupt`).
+`server/src/providers/codex-appserver/` — + 6b adds the long-lived transport alongside the per-turn `exec` worker; Arco ships the CONFIG-tab toggle. Unlocks non-destructive mid-turn steer (`turn/steer`) and structured cancel (`turn/interrupt`).
 
 Bindings pinned against **codex-cli 0.128.0** (the installed CLI is newer — 0.156.x as of 2026-09; new fields are validated against it before use). Vendored TS bindings under `server/src/providers/codex-appserver/bindings/` are regenerated via `codex app-server generate-ts --out … --experimental` — see plan doc §11.
 
@@ -835,7 +835,7 @@ Three layers, in priority order:
    ```
 
    Sanitized in `server/src/settings.ts:sanitizeCodexConfig`. Provides the default for tabs that don't carry a per-tab override.
-3. **Hard default** — `'exec'`.
+3. **Compatibility fallback when no cascade setting exists** — `'exec'`. New Arco homes set `codex.transport` to `appserver`.
 
 Cascade + per-tab resolution happens once per primary-turn invocation in `handleUserMessage`; an HMR-driven settings change between turns won't re-toggle the transport mid-loop. **Toggle latency**: flipping the toggle does not affect the in-flight turn or kill an already-running app-server child. The next operator turn picks up the new transport: appserver→exec leaves the existing child idle until tab close (cheap; ~100 MB RSS); exec→appserver spawns a fresh child on the next turn.
 

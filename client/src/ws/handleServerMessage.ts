@@ -465,6 +465,20 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'user_message_echo': {
+          // The server persists and broadcasts each user prompt. The originating
+          // tab already has an optimistic message with the same clientMessageId,
+          // so skip that duplicate; a remote tab or resume replay has no match
+          // and adds the persisted prompt to the transcript.
+          //
+          // The echo is emitted at enqueue time. Keep a matched follow-up marked
+          // queued until its session_entry arrives; clearing it here would show
+          // it during the wait and can render it again after the dedup window.
+          //
+          // A mid-turn steer closes the current assistant bubble at the delta
+          // cursor and inserts the steer between the before and after halves.
+          // Pin its optimistic timestamp at the split so a later queue-drain
+          // timestamp rebase cannot move it past the after-half. See
+          // docs/PROTOCOL.md for the message ordering contract.
           const store = useAppStore.getState();
           const ref = getStreamRef(msg.workflowId);
           const echoSeq = (msg as { seq?: number }).seq;

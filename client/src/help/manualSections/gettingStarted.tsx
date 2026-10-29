@@ -13,7 +13,7 @@ export const gettingStarted: Section[] = [
           pair a primary agent with a project directory. <strong>Chat</strong> tabs
           offer general conversation without a project; clusters group project
           agents. Providers include Claude, Codex, Cursor, Ollama,
-          llama.cpp, LM Studio, with mode-specific capabilities.
+          llama.cpp and LM Studio, with mode-specific capabilities.
         </p>
         <p>
           The whole point is that <em>you</em> drive. Arco does not give models hidden
@@ -60,9 +60,8 @@ export const gettingStarted: Section[] = [
           <li>Durable conversation replay for saved workflows and chats. Incognito
             is the explicit memory-only exception; transient telemetry is not a durable event log.</li>
           <li>
-            Native session interop — Arco's Claude/Codex sessions are real CLI
-            sessions. You can resume them in a terminal, or pick up a terminal session in
-            Arco.
+            Native CLI session interop: Claude CLI and Codex sessions can be
+            resumed in a terminal or selected from the corresponding provider in Arco.
           </li>
         </ul>
         <p>
@@ -176,8 +175,8 @@ export const gettingStarted: Section[] = [
             <strong>Effort</strong> — reasoning budget. Claude supports up to 5 levels
             (low/medium/high/xhigh/max). Codex is model/catalog-driven: GPT-6 Astra
             and Sol offer low/medium/high/xhigh/max/ultra, Luna stops at max; older models can expose fewer. Strata offers none/low/medium/high (none disables
-            thinking, high maps to Qwen xhigh). Other local models expose low/high as a thinking
-            toggle has none.
+            thinking, high maps to Qwen xhigh). Available effort controls for local
+            models follow each model's advertised reasoning levels.
           </li>
           <li>
             <strong>Tuning</strong> — a collapsible band shown for Claude, Codex
@@ -252,7 +251,7 @@ export const gettingStarted: Section[] = [
             <Code>↓ EDIT</Code> to expand and override per-row:
             <ul>
               <li>Display name (optional)</li>
-              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; LM Studio are not cluster members)</li>
+              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; LM Studio is not a cluster member)</li>
               <li>Model + effort (per-provider pickers)</li>
               <li>Role — free-form ≤120 chars (e.g. "director", "tester")</li>
               <li>Tier — light / standard / heavy / unset</li>

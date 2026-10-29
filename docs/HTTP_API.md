@@ -1245,7 +1245,7 @@ Returns the cached `Capabilities` snapshot (`shared/src/protocol/models.ts`):
   // Latest published upstream versions (npm for the npm-installed CLIs,
   // GitHub Releases for Ollama / llama.cpp). Best-effort: a failed probe leaves
   // the key undefined and the UI shows the installed version with no outdated mark.
-  latestVersions?: { claude? , codex?, ollama?, llamacpp? },
+  latestVersions?: { claude?, codex?, ollama?, llamacpp? },
 }
 ```
 

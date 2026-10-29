@@ -62,7 +62,7 @@ export const chat: Section[] = [
         Cursor is excluded because its CLI cannot disable session persistence;
         llama.cpp is excluded because its shared daemon writes a persistent log.
         Strata and DeepSeek are excluded because its service logs and image cache persist.
-        All listed providers support Chat tabs.</p>
+        These four providers also support standard Chat tabs.</p>
       <p>Codex uses ephemeral exec; Claude CLI disables session
         persistence. These overrides are privacy constraints, not changes to your
         saved transport defaults. Remote provider retention is governed by that

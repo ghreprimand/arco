@@ -641,9 +641,6 @@ Proposals are stored only while they are pending operator action (accept / apply
 │       └── mailbox/
 │           └── <recipientWfId>/
 │               └── <msgId>.json     # one file per pending peer message
-    ├── User/
-    ├── CachedData/
-    └──...
 ```
 
 ### bakeoffs/
@@ -798,6 +795,22 @@ Updated synchronously on each worker spawn / settle. On boot, `reapOrphanWorkers
 ### cli-snapshots/
 
 `server/src/capabilities.ts` writes `~/.arco/cli-snapshots/<provider>.txt` (raw `--version`/help capture) plus `<provider>.meta.json` per provider, and a diff file when a change is detected. Used to detect CLI upgrades between boots and emit `capabilities_changed` events. The CONFIG tab's red-dot indicator fires on any change.
+
+## Project `.arco/.gitignore`
+
+On first workflow initialization in a project cwd, `workflowStore.ts` writes
+`<cwd>/.arco/.gitignore` if the file does not already exist. The file excludes
+rebuildable and ephemeral projections:
+
+```text
+workflows/
+session-index.json
+title-events.jsonl
+```
+
+This prevents workflow events and related state from being committed with the
+project. If the file already exists, Arco leaves it untouched so operator edits
+are preserved. Existing `.gitignore` files are not modified.
 
 ## Crash recovery
 

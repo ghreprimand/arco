@@ -28,7 +28,7 @@ export const actions: Section[] = [
             [<strong key="rs">RESEARCH</strong>, <>Composer button: bounded cited web-research turn with a hard round cap; writes a markdown report to the RESEARCH tab.</>],
             [<strong key="cmp">COMPARE</strong>, <>Composer button: race one prompt across 2–6 read-only legs side-by-side, blind by default; you pick the winner.</>],
             [<strong key="sk">+SKILL</strong>, <>Arco-managed skills offer <strong>APPLY ONCE</strong> for the next turn or <strong>PIN TO TAB</strong> to apply every turn until removed. Pinned skills survive compaction, Handoff, reload, and restart.</>],
-            [<strong key="tm">TUNE MD</strong>, <>Composer button: a read-only worker proposes a compacted agent-instruction file (<Code>CLAUDE.md</Code> / <Code>AGENTS.md</Code>) as a diff; the original is backed up before any write, and you Accept / Reject each file.</>],
+            [<strong key="tm">TUNE MD</strong>, <>Composer button: a read-only worker proposes a compacted agent-instruction file (<Code>CLAUDE.md</Code> / <Code>CLAUDE.local.md</Code> / <Code>AGENTS.md</Code>) as a diff; the original is backed up before any write, and the operator accepts or rejects each file.</>],
             [<strong key="ra">RUN AS</strong>, <>Shared picker inside DOCS, GIT, RESEARCH, and COMPARE dialogs. Pick the same provider/model/effort as your tab to dispatch in-tab; pick something different to spawn a new tab and run the work there.</>],
           ]}
         />
@@ -79,7 +79,6 @@ export const actions: Section[] = [
             / seed drift / broken wiring). The verdict rule: PASS only if tools were
             used and nothing came back wrong.
           </li>
-
         </ul>
         <p>
           Output is parsed for a <Code>Verdict: PASS | MINOR | BLOCKING</Code> tail

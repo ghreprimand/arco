@@ -16,7 +16,7 @@ limited tool set inside a project Agent, not a Chat tab.
 | Saved Chat | Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata | Arco event/meta files and provider session storage where supported | + NEW -> CHAT -> PAST CHATS |
 | Incognito Chat | Claude, Codex, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
 
-Provider enabled/auth/model availability gates also
+For Chat tabs, provider enablement, authentication, and model availability gates
 apply. Cursor's CLI has no ephemeral-session flag and llama.cpp's shared daemon
 always logs to `~/.arco/llamacpp.log`, so both are rejected for Incognito. Strata is also excluded because its standalone
 request logs and encoded-image cache persist outside Arco.

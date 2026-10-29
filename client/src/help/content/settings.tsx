@@ -210,7 +210,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <p>
         Per-provider on/off toggle. Disabled providers are hidden from the
         workflow creator and Handoff/Spawn dialogs entirely — useful if you
-        don't want, say cluttering the picker.
+        prefer to keep a provider out of the picker.
       </p>
     ),
   },
@@ -355,7 +355,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         </ul>
         <p>
           Per-tab CONFIG settings override these. Reviewers and handoff seeds
-          always run on the default transport regardless. Project-level{' '}
+          for Claude and Codex always use CLI or exec regardless of the tab transport. Project-level{' '}
           <C>{'<cwd>/.arco/settings.json'}</C> overrides this global value
           for tabs in that cwd.
         </p>

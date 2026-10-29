@@ -10,7 +10,7 @@ export const providers: Section[] = [
     body: (
       <>
         <p>
-          Ten providers ship for Agent workflows, with different transports,
+          Eight providers ship for Agent workflows, with different transports,
           session resume, authentication and capabilities. Chat has a smaller
           provider set; Incognito narrows it further (see Chat in Workflows & sessions).
         </p>
@@ -175,8 +175,9 @@ export const providers: Section[] = [
       <>
         <p>
           OpenAI's Codex CLI. Frontier-tier reasoning, native thread_id resume,
-          and two transports: <Code>exec</Code> (default, per-turn subprocess) and{' '}
-          <Code>app-server</Code> (long-lived per-tab JSON-RPC child).
+          and two transports: <Code>exec</Code> (per-turn subprocess) and{' '}
+          <Code>app-server</Code> (long-lived per-tab JSON-RPC child, the default
+          for new Arco homes).
         </p>
         <p><strong>Auth:</strong> via <Code>codex login</Code>. API-key fallback if <Code>OPENAI_API_KEY</Code> is set.</p>
         <p><strong>Models &amp; effort.</strong> Arco's default is <Code>gpt-6-astra</Code>.

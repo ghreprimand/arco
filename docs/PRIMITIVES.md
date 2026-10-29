@@ -1137,11 +1137,11 @@ A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a pr
 
 ## 17. Agent-instruction-file tune-up (`md_tuneup_*`)
 
-A propose-only primitive that compacts a long-lived agent-instruction file (`AGENTS.md` / `CLAUDE.local.md` / `AGENTS.md`) - sibling to doc-editing, same propose->approve fence. Because the instruction file is re-read on every turn of every worker, accreted cruft (dated session logs, resolved TODOs, restated rules) is a fixed per-turn token tax; the tune-up runs ONE bounded, **read-only** worker turn that PROPOSES a compacted version. Protocol + fence rationale: `shared/src/protocol/mdTuneup.ts`.
+A propose-only primitive that compacts a long-lived agent-instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md`) - sibling to doc-editing, same propose->approve fence. Because the instruction file is re-read on every turn of every worker, accreted cruft (dated session logs, resolved TODOs, restated rules) is a fixed per-turn token tax; the tune-up runs ONE bounded, **read-only** worker turn that PROPOSES a compacted version. Protocol + fence rationale: `shared/src/protocol/mdTuneup.ts`.
 
 ### Trigger
 
-The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (claude->`AGENTS.md`, codex->`AGENTS.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
+The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (Claude->`CLAUDE.md`, Codex->`AGENTS.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
 
 ### Server-side flow
 

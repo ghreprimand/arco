@@ -51,6 +51,12 @@ export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
   return t.input + t.output + (t.cacheRead ?? 0) + (t.cacheCreate ?? 0);
 }
 
+// Context fill uses provider-aware cache semantics. Claude reports input,
+// cache-read, and cache-creation tokens as disjoint counts, so its context
+// total is input plus cache creation; cache reads describe an existing prefix.
+// Codex reports cached input as a subset of input, so adding it would count the
+// cached portion twice. Other supported providers currently fall back to the
+// Claude shape and do not populate cache fields, leaving the result as input.
 export function contextTokens(t: TokenUsage, provider?: ProviderName): number {
   if (provider === 'codex') {
     return t.input ?? 0;
@@ -105,6 +111,10 @@ export function cacheHitPercent(t: TokenUsage): number | null {
 // Claude-specific concept; Codex doesn't have an Arco-managed auto-compact.
 export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 
+// Fallback effort controls for providers without a live per-model catalog.
+// Codex uses this only before the catalog is available; keep its conservative
+// fallback so models that stop at high are not offered unsupported levels.
+// An empty result means the UI should not show a separate effort control.
 export function effortsForProvider(provider: ProviderName | undefined): EffortLevel[] {
   if (provider === 'claude') return ['low', 'medium', 'high', 'xhigh', 'max'];
   if (provider === 'codex') return ['low', 'medium', 'high'];

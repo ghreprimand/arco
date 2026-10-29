@@ -469,6 +469,12 @@ export async function appendCliSession(
   });
 }
 
+// Reconcile the latest CLI session id after a turn completes. Codex supplies
+// its server thread id on first-turn init, after workflow metadata is created
+// with Arco's placeholder id. Update that provider's latest entry in place
+// rather than appending a second row; when the ids already match, only refresh
+// lastActiveAt. This keeps resume lookup aligned with the live CLI session
+// after initial binding or session rotation.
 export async function reconcileLatestCliSession(
   cwd: string,
   wfid: string,

@@ -1,4 +1,14 @@
 
+// Deterministic, side-effect-free mapping from provider errors to a
+// FailoverReason and retry/fallback action. Quota tracking remains separate:
+// quota.ts records provider availability, while this module classifies what
+// the caller should do after a failed request. It does not wire results into
+// live dispatch; unit tests can import it without starting the server.
+//
+// Classification uses both an HTTP-like status and normalized message/code
+// text. Specific text refines ambiguous status codes, such as an invalid key
+// inside a 401. Unknown errors use conservative backoff rather than failing
+// immediately.
 import type { ProviderName } from '@arco/shared';
 
 // ── Taxonomy ────────────────────────────────────────────────────────────────
@@ -145,7 +155,8 @@ function make(reason: FailoverReason): Classification {
  *
  * Pure and side-effect-free. `provider` is accepted for provider-specific
  * disambiguation (and forward-compat) but the current taxonomy is largely
- * provider-agnostic — the same Anthropic/OpenAI error strings recur.
+ * provider-agnostic; common authentication, quota, and capacity failures
+ * appear across supported transports.
  */
 export function classifyError(provider: ProviderName, err: unknown): Classification {
   const { status, text } = normalize(err);
