@@ -78,7 +78,7 @@ async def main():
             await expect(page.get_by_role('heading', name=re.compile(r'^Other projects.*1'))).to_be_visible()
             await page.get_by_label('Search folders (press /)', exact=True).fill('notes')
             personal_group = page.locator('section[aria-labelledby="home-group-root-1"]')
-            await expect(personal_group.get_by_role('button', name='notes Open folder', exact=True)).to_be_visible()
+            await expect(personal_group.get_by_role('button', name='Open notes', exact=True)).to_be_visible()
             await page.get_by_label('Search folders (press /)', exact=True).fill('')
             print('PASS: named/nested/missing roots in Settings and Home; browsing default independent; cross-root search')
 

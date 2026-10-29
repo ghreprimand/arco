@@ -26,7 +26,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Project locations show available-folder counts and a few folder choices immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without bookmarking it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards keep saved-session Resume, Open, pin, archive and missing-folder recovery. Unavailable locations stay visible.
+        Project locations show available-folder counts and a few folder choices with their paths immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without bookmarking it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards preview the latest saved session and offer Resume, Open, the full saved-session list, pin, archive and missing-folder recovery. Unavailable locations stay visible.
       </p>
     ),
   },

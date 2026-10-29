@@ -25,13 +25,13 @@ running turn. **Start a chat**, **New session**, and **More ways to start** reta
 the normal chat, session, cluster and Genesis creators.
 
 Each **Project location** shows its name, path and available-folder count. The first
-few folders are visible immediately; long lists offer **Show all N folders** and
+few folders are visible immediately with their paths; long lists offer **Show all N folders** and
 **Show fewer**, with a bounded scrolling area. Search works across locations.
 Choose a folder to open the creator with that explicit path. **Browse Work**, for
 example, opens the folder browser at Work. Opening a folder never bookmarks it, trusts it, or launches work automatically.
 
-**Pinned** keeps shortcuts to folders. Cards with saved sessions offer one-click
-**Resume**; sessions already open offer **Open**. Pinning, archive, and missing-folder
+**Pinned** keeps shortcuts to folders. Cards preview the latest saved session with one-click
+**Resume**; **Saved sessions** opens the full list, and sessions already open offer **Open**. Pinning, archive, and missing-folder
 recovery remain on the cards. **Other projects** holds bookmarked or previously used
 folders outside configured locations. Missing locations remain visible so a drive
 can be reconnected or its path edited.

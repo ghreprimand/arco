@@ -233,9 +233,9 @@ async def folder_browser(playwright):
         await page.get_by_role('button', name='Reload list', exact=True).click()
         group = page.locator('section[aria-labelledby="home-group-root-0"]')
         await expect(group.get_by_role('heading',level=3)).to_contain_text('151 folders')
-        await expect(group.get_by_role('button', name='sample-000 Open folder', exact=True)).to_be_visible()
+        await expect(group.get_by_role('button', name='Open sample-000', exact=True)).to_be_visible()
         await page.get_by_label('Search folders (press /)', exact=True).fill('sample-149')
-        await expect(group.get_by_role('button', name='sample-149 Open folder', exact=True)).to_be_visible()
+        await expect(group.get_by_role('button', name='Open sample-149', exact=True)).to_be_visible()
         print('PASS: bounded folder browser, root shortcuts, UP, new folder and explicit registration; setup never configures scanning')
     finally:
         if b:

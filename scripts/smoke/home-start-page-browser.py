@@ -30,7 +30,7 @@ async def check(browser, scale, scenario):
         for p in state['projects']:
             p['rootPath'] = '/projects' if p['path'].startswith('/projects/') else '/work'
     if scenario == 'discovery': roots = roots[:1]
-    if scenario == 'multiple': state['projects'] += [{'name':f'personal-{i}', 'path':f'/work/personal-{i}', 'source':'scanned', 'exists':True, 'rootPath':'/work'} for i in range(2)]
+    if scenario == 'multiple': state['projects'] += [{'name':'api-service', 'path':'/work/api-service', 'source':'scanned', 'exists':True, 'rootPath':'/work'}, {'name':'personal-1', 'path':'/work/personal-1', 'source':'scanned', 'exists':True, 'rootPath':'/work'}]
     errors, writes = [], []
 
     async def api(route):
@@ -92,22 +92,27 @@ async def check(browser, scale, scenario):
         await expect(page.get_by_role('heading', name='Project locations', exact=True)).to_be_visible()
         await expect(page.get_by_role('heading',name='No saved projects yet',exact=True)).to_have_count(0)
         await expect(page.get_by_text('No provider connected', exact=False)).to_be_visible()
+    if scenario == 'multiple':
+        await expect(page.get_by_role('button',name='Open api-service / projects')).to_be_visible()
+        await expect(page.get_by_role('button',name='Open api-service / work')).to_be_visible()
+        await expect(page.get_by_text('/work/api-service',exact=True)).to_be_visible()
     if discovery:
         group = page.locator('section[aria-labelledby="home-group-root-0"]')
         await expect(group.get_by_role('heading')).to_contain_text('151 folders')
         assert await group.locator('.home-folder-list button').count() == 6
-        await expect(group.get_by_role('button',name='api-service Open folder',exact=True)).to_be_visible()
+        first_label = 'Open api-service / projects' if scenario == 'multiple' else 'Open api-service'
+        await expect(group.get_by_role('button',name=first_label,exact=True)).to_be_visible()
         await group.get_by_role('button',name='Show all 151 folders',exact=True).click()
         assert await group.locator('.home-folder-list button').count() == 151
         assert await group.locator('.home-location-folders.expanded').evaluate('el=>el.scrollHeight>el.clientHeight && el.clientHeight>0')
         await group.get_by_role('button',name='Show fewer',exact=True).click()
         assert await group.locator('.home-folder-list button').count() == 6
         await page.get_by_label('Search folders (press /)',exact=True).fill('workspace-150')
-        await expect(group.get_by_role('button',name='workspace-150 Open folder',exact=True)).to_be_visible()
+        await expect(group.get_by_role('button',name='Open workspace-150',exact=True)).to_be_visible()
         await page.get_by_label('Search folders (press /)',exact=True).fill('Work')
         await expect(group.get_by_role('heading')).to_contain_text('151 folders')
         await page.get_by_label('Search folders (press /)',exact=True).fill('')
-        await group.get_by_role('button',name='api-service Open folder',exact=True).click()
+        await group.get_by_role('button',name=first_label,exact=True).click()
         await expect(page.get_by_placeholder('Pick a project below, or type a folder path',exact=True)).to_have_value('/projects/api-service')
         await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showHomeView();}")
         await page.locator('#home-title').wait_for()
@@ -196,6 +201,14 @@ async def check(browser, scale, scenario):
     await page.wait_for_timeout(1500)
     await page.locator('.home-page').evaluate('(el) => el.scrollTop = 0')
     await page.screenshot(animations='disabled', path=str(ART / f'{scenario}-{round(scale * 100)}.png'))
+    if scenario in ['discovery', 'populated']:
+        for width,height in [(900,600),(1920,1200),(2560,1440),(3840,2160)]:
+            await page.set_viewport_size({'width':width,'height':height})
+            assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
+            if width == 3840:
+                assert await page.locator('.home-content').evaluate('el => el.offsetWidth >= 1800 && el.offsetWidth <= 2200')
+            await page.screenshot(animations='disabled',scale='css',path=str(ART / f'home-{scenario}-{width}x{height}-{round(scale*100)}.png'))
+        await page.set_viewport_size({'width':1280,'height':720})
     if discovery:
         await page.locator('section[aria-labelledby="home-group-root-0"]').scroll_into_view_if_needed()
         await page.screenshot(animations='disabled', path=str(ART / f'discovery-roots-{round(scale * 100)}.png'))

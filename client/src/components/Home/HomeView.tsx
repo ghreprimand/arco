@@ -169,6 +169,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         {projects && !organization && <p role="alert" className="home-feedback">Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Folders are still listed; nothing was changed.</p>}
         {projects && availableCount === 0 && projects.length > 0 && !query && <p className="home-feedback">No available folders. Reconnect a missing location or open another folder.</p>}
         {projects && projects.length > 0 && shown.length === 0 && <p className="home-feedback">No folder matches "{query}".</p>}
+        <div className="home-location-groups">
         {groups.map(group => {
           const more = group.discovered ?? [];
           const showAll = !!query.trim() || expanded.has(group.path || group.key);
@@ -177,7 +178,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
           const cards = group.projects.slice(0, limit);
           const folderChoices = more.slice(0, Math.max(0, limit - cards.length));
           return <section key={group.key} className="home-project-group" aria-labelledby={`home-group-${group.key}`}>
-            <div className="home-location-heading"><div><h3 id={`home-group-${group.key}`}>{group.path ? group.title : group.key === 'scanned' ? 'Available folders' : group.title}
+            <div className="home-location-heading"><div>{group.path && <span className="home-location-kicker">PROJECT LOCATION</span>}<h3 id={`home-group-${group.key}`}>{group.path ? group.title : group.key === 'scanned' ? 'Available folders' : group.title}
               {' '}<span className="home-count">{group.path ? `${group.folderCount} ${group.folderCount === 1 ? 'folder' : 'folders'}` : `${group.projects.length}`}{!!group.unavailableCount && ` / ${group.unavailableCount} unavailable`}</span></h3>
               {group.path && <p className="home-location-path" title={group.path}>{group.path}</p>}</div>
               {group.path && <button type="button" onClick={() => { setBrowserRoot(group.path!); setAddOpen(true); }}>Browse {group.title}</button>}
@@ -192,13 +193,14 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
             </ul>
             {!!more.length && <div className="home-folder-choices">
               <ul className="home-folder-list" aria-label={`Folders in ${group.title}`}>
-                {folderChoices.map(project => <li key={project.path}><button type="button" disabled={!project.exists} onClick={() => start({ mode: 'single', workDir: project.path })}><strong>{project.name}</strong><span>Open folder</span></button></li>)}
+                {folderChoices.map(project => <li key={project.path}><button type="button" disabled={!project.exists} aria-label={`Open ${labels.get(project.path) ?? project.name}`} title={project.path} onClick={() => start({ mode: 'single', workDir: project.path })}><strong>{labels.get(project.path) ?? project.name}</strong><span>{project.path}</span></button></li>)}
               </ul>
             </div>}
             </div>
             {group.path && totalChoices > 6 && !query.trim() && <button type="button" aria-expanded={showAll} onClick={() => setExpanded(old => { const next = new Set(old); const key = group.path || group.key; if (next.has(key)) next.delete(key); else next.add(key); return next; })}>{showAll ? 'Show fewer' : `Show all ${totalChoices} folders`}</button>}
           </section>;
         })}
+        </div>
 
       </section>
     </div>

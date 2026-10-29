@@ -124,7 +124,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           <div style={muted}>
             {missing
               ? `Folder not found. Its saved sessions stay on disk.${canOrganize ? ' If it moved, use Relocate...; otherwise archive it or remove its bookmark.' : ' Remove or add its bookmark in Settings.'}`
-              : `${work.length} open ${work.length === 1 ? 'tab' : 'tabs'}`}
+              : work.length ? `${work.length} open ${work.length === 1 ? 'tab' : 'tabs'}` : 'Project folder'}
           </div>
         </div>
         <div className="home-card-actions">
@@ -212,7 +212,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           {savedError && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{savedError} <button type="button" style={action} onClick={() => void loadSaved()}>Retry</button></div>}
           {saved && saved.length > 0 && (
             <ul aria-label={`Saved sessions in ${label}`} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {(expanded ? saved : saved.slice(0, 3)).map((row) => savedRow(row, !missing))}
+              {(expanded ? saved : saved.slice(0, 1)).map((row) => savedRow(row, !missing))}
             </ul>
           )}
           {expanded && earlier.map((group) => (

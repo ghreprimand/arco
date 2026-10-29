@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give Home more room for project locations, distinguish folder paths, and bring the latest saved session forward.
+
 - Resize or maximize larger browsing, search and editing dialogs while keeping controls and folder choices in view.
 
 - Call optional individual folder shortcuts Bookmarked folders, with consistent bookmark actions distinct from project locations and saved chats.
