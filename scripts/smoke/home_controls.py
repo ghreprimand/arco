@@ -1,4 +1,4 @@
-"""Shared explicit UI navigation for saving an individual project from Home."""
+"""Shared explicit UI navigation for bookmarking an individual folder from Home."""
 async def open_saved_project_form(page):
     dialog = page.get_by_role('dialog', name='Open another folder', exact=True)
     if not await dialog.count():

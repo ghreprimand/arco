@@ -43,7 +43,7 @@ Sections: 22.
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |
 | `operator-name` | Appearance | Operator name in chat | Global | Operator label shown in chat |
-| `projects` | Projects | Project locations and saved folders | Global | Project locations with folded Add/Edit and duplicate/alias rename feedback; Manage saved project folders for individual add/keep/remove; Advanced folder options for independent browsing defaults; non-destructive multi-location Run setup again |
+| `projects` | Projects | Project locations and bookmarks | Global | Project locations with folded Add/Edit and duplicate/alias rename feedback; Bookmarked folders for optional Bookmark folder/Remove bookmark controls; Advanced folder options for independent browsing defaults; non-destructive multi-location Run setup again |
 | `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
 | `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub, Antigravity), Claude Native authentication, Codex accounts and profiles, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
@@ -86,6 +86,6 @@ an existing `defaultWorkingDirectory` to one location. An explicit `projectRoots
 keeps discovery off, including after later settings changes. New writes preserve
 that distinction. `defaultWorkingDirectory` thereafter controls browsing only.
 Location paths are normalized and deduplicated, including existing aliases. Projects
-under overlapping locations belong to the longest matching location; saved project paths
-and session identity remain unchanged. Removing a location never removes registered
-projects, folders, saved sessions or trust decisions. Missing locations stay listed. Duplicate canonical paths are refused during edits; adding an existing path offers explicit rename feedback rather than discarding the name.
+under overlapping locations belong to the longest matching location; bookmarked folder paths
+and session identity remain unchanged. Removing a location never removes bookmarked
+folders, files, saved sessions or trust decisions. Missing locations stay listed. Duplicate canonical paths are refused during edits; adding an existing path offers explicit rename feedback rather than discarding the name.

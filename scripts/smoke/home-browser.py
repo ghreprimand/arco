@@ -590,12 +590,12 @@ async def scenario_missing_and_add(playwright, server, scratch):
         # Add through Home's own form.
         await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(gone))
-        await page.get_by_role('button', name='Add', exact=True).click()
-        await page.get_by_text(f'Added {gone}.').wait_for(timeout=10000)
+        await page.get_by_role('button', name='Bookmark folder', exact=True).click()
+        await page.get_by_text(f'Bookmarked {gone}.').wait_for(timeout=10000)
         await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(beta))
-        await page.get_by_role('button', name='Add', exact=True).click()
-        await page.get_by_text(f'Added {beta}.').wait_for(timeout=10000)
+        await page.get_by_role('button', name='Bookmark folder', exact=True).click()
+        await page.get_by_text(f'Bookmarked {beta}.').wait_for(timeout=10000)
         gone.rmdir()
         await page.get_by_role('button', name='Close folder browser', exact=True).click()
         await page.get_by_role('button', name='Reload list').click()
@@ -608,18 +608,18 @@ async def scenario_missing_and_add(playwright, server, scratch):
         before = (await (await page.request.get(server.base + '/api/projects')).json())['projects']
         await open_saved_project_form(page)
         await page.locator('#home-add').fill('relative/not-absolute')
-        await page.get_by_role('button', name='Add', exact=True).click()
+        await page.get_by_role('button', name='Bookmark folder', exact=True).click()
         status = page.locator('#home-add-status')
-        await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
+        await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not bookmarked: ')", timeout=10000)
         message = await status.inner_text()
-        assert len(message) > len('Not added: ') + 3, f'the refusal gives no reason: {message!r}'
+        assert len(message) > len('Not bookmarked: ') + 3, f'the refusal gives no reason: {message!r}'
         assert (await (await page.request.get(server.base + '/api/projects')).json())['projects'] == before
         await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(scratch / 'never-created'))
-        await page.get_by_role('button', name='Add', exact=True).click()
-        await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
+        await page.get_by_role('button', name='Bookmark folder', exact=True).click()
+        await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not bookmarked: ')", timeout=10000)
         assert (await (await page.request.get(server.base + '/api/projects')).json())['projects'] == before
-        assert (await status.inner_text()).startswith('Not added: ')
+        assert (await status.inner_text()).startswith('Not bookmarked: ')
     finally:
         await b.close()
     # Documented states for an empty registry and an unreachable list (client fixtures).

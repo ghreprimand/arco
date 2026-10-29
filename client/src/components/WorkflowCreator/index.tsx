@@ -1104,7 +1104,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           )}
           {mode !== 'genesis' && mode !== 'chat' && showBrowser && <div style={spanBoth}>
             <DirectoryBrowser inline withFilename={false} initialPath={browserPath || workDir || settings?.defaultWorkingDirectory || ''} roots={settings?.projectRoots} title="Browse another folder" confirmLabel="Use for this session" onDone={result => { if (result) { setWorkDir(result.dir); setBrowserPath(result.dir); setShowBrowser(false); } }} />
-            <p style={hintStyle}>Browsing and selecting a folder do not save it as a project. Use Keep current folder to save it.</p>
+            <p style={hintStyle}>Browsing and selecting a folder do not bookmark it. Use Bookmark folder to keep it listed independently of project locations.</p>
           </div>}
 
         {/* Conversation mode — spans both columns. Unified resume picker:

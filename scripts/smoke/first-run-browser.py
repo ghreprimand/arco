@@ -83,10 +83,10 @@ async def setup_chat(playwright):
         await page.get_by_role('button', name='Get started', exact=True).click()
         await page.get_by_role('button',name='Add a single project folder',exact=True).click()
         await page.get_by_label('Project folder path', exact=True).fill(str(server.projects / 'missing'))
-        await page.get_by_role('button', name='Add folder', exact=True).click()
+        await page.locator('.first-run-path').get_by_role('button', name='Bookmark folder', exact=True).click()
         await expect(page.get_by_role('status')).to_contain_text('project directory')
         await page.get_by_label('Project folder path', exact=True).fill(str(server.projects / 'app'))
-        await page.get_by_role('button', name='Add folder', exact=True).click()
+        await page.locator('.first-run-path').get_by_role('button', name='Bookmark folder', exact=True).click()
         await page.get_by_role('button', name='Continue', exact=True).click()
         dialog = page.get_by_role('dialog', name='Welcome - Connections', exact=True)
         await dialog.get_by_role('navigation', name='Connections').get_by_role('button', name=re.compile('^Ollama')).click()
@@ -217,7 +217,7 @@ async def folder_browser(playwright):
         assert not (server.home / '.arco/projects.json').exists()
         assert (await (await page.request.get(server.base + '/api/installation-history')).json())['used'] is False
         assert '/api/settings' not in b.writes
-        await page.get_by_role('button', name='Add this folder', exact=True).click()
+        await page.locator('.first-run-browser').get_by_role('button', name='Bookmark folder', exact=True).click()
         await expect(page.get_by_role('heading', name='Add project locations', exact=True)).to_be_visible()
         await page.get_by_role('button', name='Continue', exact=True).click()
         await page.get_by_role('heading', name='Welcome - Connections', exact=True).wait_for()

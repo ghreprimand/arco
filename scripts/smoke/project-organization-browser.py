@@ -11,7 +11,7 @@ Scenarios:
      one stable id per project; nothing is launched
   2  archive moves a project out of the main lists, Show archived brings it back,
      Unarchive restores it
-  3  Remove from list asks first, says files are not touched, forgets only the
+  3  Remove bookmark asks first, says files are not touched, forgets only the
      registration and leaves the folder and its file in place
   4  a moved folder shows Folder not found with start actions disabled; a bad
      relocation says why and changes nothing; Relocate keeps the name, pin and id,
@@ -107,7 +107,7 @@ async def status_text(page):
 async def add_folder(page, path):
     await open_saved_project_form(page)
     await page.locator('#home-add').fill(str(path))
-    await page.get_by_role('button', name='Add', exact=True).click()
+    await page.get_by_role('button', name='Bookmark folder', exact=True).click()
     await page.wait_for_function("document.querySelector('#home-add-status').innerText !== ''", timeout=10000)
     result = await page.locator('#home-add-status').inner_text()
     await page.get_by_role('button', name='Close folder browser', exact=True).click()
@@ -167,7 +167,7 @@ async def scenario_archive(playwright, server):
     folder.mkdir()
     b, page = await open_home(playwright, server)
     try:
-        assert (await add_folder(page, folder)).startswith('Added')
+        assert (await add_folder(page, folder)).startswith('Bookmarked')
         await manage(page, 'archive-me')
         await page.get_by_role('button', name='Archive', exact=True).click()
         await page.get_by_role('button', name='Show archived (1)').wait_for(timeout=10000)
@@ -190,22 +190,22 @@ async def scenario_remove(playwright, server):
     (folder / 'keep.txt').write_text('synthetic content')
     b, page = await open_home(playwright, server)
     try:
-        assert (await add_folder(page, folder)).startswith('Added')
+        assert (await add_folder(page, folder)).startswith('Bookmarked')
         await manage(page, 'remove-me')
-        await page.get_by_role('button', name='Remove from list...').click()
+        await page.get_by_role('button', name='Remove bookmark...').click()
         group = page.get_by_role('group', name='Confirm removing remove-me')
-        await group.get_by_text('Files are not touched.').wait_for(timeout=5000)
+        await group.get_by_text('Files and saved chats are not touched.').wait_for(timeout=5000)
         await group.get_by_role('button', name='Cancel').click()
         assert str(folder) in settings_projects(server), 'Cancel removed the project'
-        await page.get_by_role('button', name='Remove from list...').click()
-        await page.get_by_role('group', name='Confirm removing remove-me').get_by_role('button', name='Remove from list').click()
+        await page.get_by_role('button', name='Remove bookmark...').click()
+        await page.get_by_role('group', name='Confirm removing remove-me').get_by_role('button', name='Remove bookmark').click()
         await page.wait_for_function("() => !document.querySelector('li[aria-label=\"Project remove-me\"]')", timeout=10000)
-        assert 'Its files were not touched.' in await status_text(page)
+        assert 'Its files and saved chats were not touched.' in await status_text(page)
         assert str(folder) not in settings_projects(server)
         assert (folder / 'keep.txt').read_text() == 'synthetic content'
         # A scanned or recent project explains why it can only be archived.
         await manage(page, 'app')
-        assert await page.get_by_role('button', name='Remove from list...').count() == 1, 'registered app offers removal'
+        assert await page.get_by_role('button', name='Remove bookmark...').count() == 1, 'registered app offers removal'
     finally:
         await b.close()
 
@@ -222,7 +222,7 @@ async def scenario_relocate(playwright, server):
         {'type': 'user', 'timestamp': '2026-10-01T10:00:00Z', 'message': {'content': OLD_TITLE}}) + '\n')
     b, page = await open_home(playwright, server)
     try:
-        assert (await add_folder(page, old)).startswith('Added')
+        assert (await add_folder(page, old)).startswith('Bookmarked')
         await page.get_by_role('button', name='Pin client-site', exact=True).click()
         # Pinning moves the card to the Pinned group, which remounts it; open Manage only afterwards.
         await page.wait_for_function("() => !!document.getElementById('home-group-pinned')", timeout=15000)
@@ -278,8 +278,8 @@ async def scenario_create(playwright, server):
         await open_saved_project_form(page)
         if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
         await page.locator('#home-create').fill(str(explicit))
-        await page.get_by_role('button', name='Create', exact=True).click()
-        await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Created and added')")
+        await page.get_by_role('button', name='Create and bookmark', exact=True).click()
+        await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Created and bookmarked')")
         assert explicit.is_dir() and not any(explicit.iterdir())
     finally:
         await b.close()
@@ -291,15 +291,15 @@ async def scenario_create(playwright, server):
         await open_saved_project_form(page)
         if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
         await page.locator('#home-create').fill('new-idea')
-        await page.get_by_role('button', name='Create', exact=True).click()
-        await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Created and added')", timeout=10000)
+        await page.get_by_role('button', name='Create and bookmark', exact=True).click()
+        await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Created and bookmarked')", timeout=10000)
         assert (scan / 'new-idea').is_dir() and not any((scan / 'new-idea').iterdir())
         assert 'new-idea' in await group_names(page, 'registered')
         for name, expect in (('new-idea', 'already exists'), ('../escape', 'folder name')):
             await open_saved_project_form(page)
             if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
             await page.locator('#home-create').fill(name)
-            await page.get_by_role('button', name='Create', exact=True).click()
+            await page.get_by_role('button', name='Create and bookmark', exact=True).click()
             await page.wait_for_function("document.querySelector('#home-create-status').innerText.startsWith('Not created')", timeout=10000)
             assert expect in await page.locator('#home-create-status').inner_text()
         assert not (server.home / 'escape').exists() and not (server.root / 'escape').exists()
@@ -312,7 +312,7 @@ async def scenario_refused_roots(playwright, server):
     try:
         for path in ('/', str(server.home)):
             message = await add_folder(page, path)
-            assert message.startswith('Not added:') and len(message) > 20, f'{path}: {message!r}'
+            assert message.startswith('Not bookmarked:') and len(message) > 20, f'{path}: {message!r}'
         assert '/' not in settings_projects(server) and str(server.home) not in settings_projects(server)
     finally:
         await b.close()
@@ -348,7 +348,7 @@ async def main():
             for label, run in (
                 ('pin and rename survive reload and restart with a stable id', lambda: scenario_pin_rename_persist(playwright, server)),
                 ('archive hides, Show archived reveals, Unarchive restores', lambda: scenario_archive(playwright, server)),
-                ('Remove from list confirms and leaves files in place', lambda: scenario_remove(playwright, server)),
+                ('Remove bookmark confirms and leaves files in place', lambda: scenario_remove(playwright, server)),
                 ('missing folder relocation keeps identity and lists earlier sessions', lambda: scenario_relocate(playwright, server)),
                 ('create a folder in the scan folder; refusals', lambda: scenario_create(playwright, server)),
                 ('the filesystem root and home folder cannot be added', lambda: scenario_refused_roots(playwright, server)),

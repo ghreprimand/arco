@@ -45,9 +45,9 @@ export function ProjectsSettings() {
       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.path}>{p.path}</span>
       <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>{p.exists ? (p.source === 'scanned' ? 'FOLDER' : p.source === 'recent' ? 'USED' : '') : 'MISSING'}</span>
       {removable ? (
-        <button onClick={() => { void mutate('DELETE', p.path); }} disabled={busy} title="Remove from the project list" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '11px' }}>Remove</button>
+        <button onClick={() => { void mutate('DELETE', p.path); }} disabled={busy} title="Remove bookmark" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '11px' }}>Remove bookmark</button>
       ) : (
-        <button onClick={() => { void mutate('POST', p.path); }} disabled={busy || !p.exists} title="Keep this folder in the project list" className="display-font" style={{ background: 'none', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', padding: '1px 6px' }}>KEEP</button>
+        <button onClick={() => { void mutate('POST', p.path); }} disabled={busy || !p.exists} title="Bookmark this folder" className="display-font" style={{ background: 'none', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', padding: '1px 6px' }}>Bookmark folder</button>
       )}
     </div>
   );
@@ -55,10 +55,8 @@ export function ProjectsSettings() {
   return (
     <div data-help="settings.projects">
       <ProjectRootsSettings onChanged={() => void load()} />
-      <details className="saved-project-management"><summary>Manage saved project folders ({registered.length})</summary>
-      <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
-        SAVED PROJECT FOLDERS
-      </div>
+      <details className="saved-project-management"><summary>Bookmarked folders ({registered.length})</summary>
+      <p>Bookmarks are optional. Folders inside project locations already appear automatically; bookmarks keep individual folders listed independently of locations.</p>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
         <input
           type="text"
@@ -75,19 +73,19 @@ export function ProjectsSettings() {
           className="display-font"
           style={{ background: 'none', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: draft.trim() ? 'var(--color-accent-secondary)' : 'var(--color-fg-muted)', cursor: draft.trim() ? 'pointer' : 'not-allowed', fontSize: '10px', letterSpacing: '1px', padding: '5px 10px', whiteSpace: 'nowrap' }}
         >
-          {busy ? '...' : '+ ADD'}
+          {busy ? '...' : 'Bookmark folder'}
         </button>
       </div>
       {error && <div style={{ color: 'var(--color-warning)', fontSize: '10px', fontFamily: 'var(--font-display)', marginBottom: '6px' }}>{error}</div>}
       <div style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)', marginBottom: '8px', maxHeight: '220px', overflowY: 'auto' }}>
         {registered.map((p) => row(p, true))}
         {registered.length === 0 && (
-          <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No saved project folders. Add a path above, or keep a folder below.</div>
+          <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No bookmarked folders. Enter a path above, or bookmark a folder below.</div>
         )}
         <details><summary>Other available folders ({others.length})</summary>{others.map((p) => row(p, false))}</details>
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
-        Saved folders stay available even when their location is removed. Removing a saved folder never deletes its files or sessions.
+        Bookmarks do not control saved chats or files. Removing a bookmark deletes neither.
       </div>
       </details>
       <details className="advanced-folder-options"><summary>Advanced folder options</summary><WorkingDirectoryDefault /></details>

@@ -26,7 +26,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Project locations show available-folder counts and a few folder choices immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without saving it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards keep saved-session Resume, Open, pin, archive and missing-folder recovery. Unavailable locations stay visible.
+        Project locations show available-folder counts and a few folder choices immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without bookmarking it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards keep saved-session Resume, Open, pin, archive and missing-folder recovery. Unavailable locations stay visible.
       </p>
     ),
   },
@@ -37,8 +37,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Rename changes only the name Arco shows; leave it empty to use the
         folder name. Archive keeps a project out of the main lists without
-        touching its folder or sessions. Remove from list forgets a folder you
-        added; files are not touched. Relocate, for a missing folder, points
+        touching its folder or sessions. Remove bookmark forgets an individual folder bookmark; files and saved chats are not touched. Relocate, for a missing folder, points
         the project at its new location and keeps its name, pin and the
         sessions listed under the old location. Nothing here moves or deletes
         files.
@@ -50,20 +49,18 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Create a project folder',
     body: (
       <p>
-        Under Open another folder, expand Save a project folder, then Create a new project folder to create one empty folder at an absolute path, or use a plain
+        Under Open another folder, expand Bookmark a folder, then Create a new project folder to create one empty folder at an absolute path, or use a plain
         name inside the displayed default browsing location. The parent must exist. An existing
-        folder with that name is never reused; add it instead.
+        folder with that name is never reused; bookmark it instead.
       </p>
     ),
   },
 
   'home.add-folder': {
-    title: 'Add a project folder',
+    title: 'Bookmark a folder',
     body: (
       <p>
-        Under Open another folder, expand Save a project folder to keep an individual path or create a folder. Adding an existing path adds
-        it to the project list; it does not create a folder. In Docker, mount
-        the folder before adding it.
+        Under Open another folder, expand Bookmark a folder for Bookmark folder or Create and bookmark. Bookmarks are optional and keep individual folders listed independently of project locations. Folders inside locations already appear automatically. Bookmarking an existing path does not create a folder or control saved chats and files. In Docker, mount the folder before bookmarking it.
       </p>
     ),
   },
@@ -72,7 +69,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Filter All folders, Pinned and recent, or a project location, then search by name or path. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without saving it; Keep current folder saves it for later. Settings / Projects manages project locations and saved folders.
+        Filter All folders, Pinned and recent, or a project location, then search by name or path. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without bookmarking it; Bookmark folder keeps it listed independently of locations. Settings / Projects manages project locations and bookmarked folders.
       </p>
     ),
   },

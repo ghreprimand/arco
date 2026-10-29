@@ -123,7 +123,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           {project.previousPaths?.length ? <div style={muted}>Moved from {project.previousPaths[0]}</div> : null}
           <div style={muted}>
             {missing
-              ? `Folder not found. Its saved sessions stay on disk.${canOrganize ? ' If it moved, use Relocate...; otherwise archive it or remove it from the list.' : ' Remove or re-add it in Settings.'}`
+              ? `Folder not found. Its saved sessions stay on disk.${canOrganize ? ' If it moved, use Relocate...; otherwise archive it or remove its bookmark.' : ' Remove or add its bookmark in Settings.'}`
               : `${work.length} open ${work.length === 1 ? 'tab' : 'tabs'}`}
           </div>
         </div>
@@ -133,7 +133,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           <button type="button" style={action} disabled={missing} aria-expanded={expanded} aria-controls={listId} onClick={toggle} aria-label={`${expanded ? 'Hide' : 'Show'} saved sessions for ${label}`}>
             {expanded ? 'Hide saved' : 'Saved sessions'}
           </button>
-          {organization && !project.id && <button type="button" style={action} disabled={busy || missing} onClick={() => void change(keepFolder(project.path), `Kept ${label}.`)}>Keep project</button>}
+          {organization && !project.id && <button type="button" style={action} disabled={busy || missing} onClick={() => void change(keepFolder(project.path), `Bookmarked ${label}.`)}>Bookmark folder</button>}
           {canOrganize && (
             <button type="button" style={action} disabled={busy} aria-pressed={!!project.pinned}
               onClick={() => void change(organize(project.id!, { pinned: !project.pinned }), `${project.pinned ? 'Unpinned' : 'Pinned'} ${label}.`)}
@@ -174,15 +174,15 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           {project.source === 'registered' ? (
             confirmRemove ? (
               <div role="group" aria-label={`Confirm removing ${label}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px' }}>Remove {label} from the project list? Files are not touched.</span>
+                <span style={{ fontSize: '12px' }}>Remove the bookmark for {label}? Files and saved chats are not touched.</span>
                 <button type="button" style={action} disabled={busy}
-                  onClick={() => void change(removeFromList(project.path), `Removed ${label} from the list. Its files were not touched.`)}>Remove from list</button>
+                  onClick={() => void change(removeFromList(project.path), `Removed bookmark for ${label}. Its files and saved chats were not touched.`)}>Remove bookmark</button>
                 <button type="button" style={action} onClick={() => setConfirmRemove(false)}>Cancel</button>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" style={action} disabled={busy} onClick={() => setConfirmRemove(true)}>Remove from list...</button>
-                <span style={muted}>Forgets this registration only. Files are not touched.</span>
+                <button type="button" style={action} disabled={busy} onClick={() => setConfirmRemove(true)}>Remove bookmark...</button>
+                <span style={muted}>Removes this bookmark only. Files and saved chats are not touched.</span>
               </div>
             )
           ) : (

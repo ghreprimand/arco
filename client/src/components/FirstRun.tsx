@@ -63,8 +63,8 @@ export function FirstRun() {
       if (!reply.ok) throw new Error(reply.error);
       setProjects((parseProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
       setProject(folder.trim());
-      setPath(''); setNote('Added. Add another folder or continue when ready.');
-    } catch (error) { setNote(error instanceof Error ? error.message : 'Folder was not added.'); }
+      setPath(''); setNote('Bookmarked. Add another folder or continue when ready.');
+    } catch (error) { setNote(error instanceof Error ? error.message : 'Folder was not bookmarked.'); }
     finally { setBusy(false); }
   };
   const removeChoice = async (folder: string, root: boolean) => {
@@ -82,7 +82,7 @@ export function FirstRun() {
   };
   const summary = <div aria-label="Setup folder choices"><h2>Folder choices</h2>
     <ul>{roots.map(root => <li key={`root-${root.path}`}><strong>{root.name}</strong> / Location: {root.path}{!root.exists ? ' (not reachable)' : ''}{step === 'folder' && <button type="button" disabled={busy} aria-label={`Remove setup location ${root.name}`} onClick={() => void removeChoice(root.path, true)}>Remove</button>}</li>)}
-      {projects.map(folder => <li key={`project-${folder.path}`}>Project: {folder.name} / {folder.path}{step === 'folder' && <button type="button" disabled={busy} aria-label={`Remove setup project ${folder.name}`} onClick={() => void removeChoice(folder.path, false)}>Remove</button>}</li>)}
+      {projects.map(folder => <li key={`project-${folder.path}`}>Bookmark: {folder.name} / {folder.path}{step === 'folder' && <button type="button" disabled={busy} aria-label={`Remove bookmark for ${folder.name}`} onClick={() => void removeChoice(folder.path, false)}>Remove bookmark</button>}</li>)}
     </ul>{!roots.length && !projects.length && <p>No folders added yet.</p>}
     {step === 'folder' && <p>Existing folders and saved work stay in place.</p>}
   </div>;
@@ -124,12 +124,12 @@ export function FirstRun() {
           <form className="first-run-path" onSubmit={e => { e.preventDefault(); void chooseFolder(path); }}>
             <label htmlFor="first-run-folder">Project folder path</label>
             <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required placeholder="Absolute folder path" />
-            <button type="submit" disabled={busy || !loaded || !path.trim()}>Add folder</button>
+            <button type="submit" disabled={busy || !loaded || !path.trim()}>Bookmark folder</button>
             <button type="button" disabled={busy || !loaded || !path.trim()} onClick={() => browse(path.trim())}>Browse path</button>
           </form>
           <div className="first-run-shortcuts" aria-label="Folder shortcuts">{scanCandidates.map(root => <button type="button" key={root} title={root} onClick={() => browse(root)}>{root.split(/[\\/]/).filter(Boolean).at(-1)}</button>)}</div>
-          {browserRoot !== null && <DirectoryBrowser roots={roots} key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Adding...' : 'Add this folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
-          <p>A single folder is useful for a one-off project outside your usual locations.</p>
+          {browserRoot !== null && <DirectoryBrowser roots={roots} key={browserKey} initialPath={browserRoot} inline withFilename={false} title="Browse project folders" confirmLabel={busy ? 'Bookmarking...' : 'Bookmark folder'} onDone={result => { if (result) void chooseFolder(result.dir); }} />}
+          <p>Bookmarks are optional and keep individual folders listed independently of project locations. They do not control saved chats or files.</p>
         </>}
 
       </section>}

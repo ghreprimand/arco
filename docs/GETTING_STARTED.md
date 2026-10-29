@@ -16,7 +16,7 @@ final **Setup complete** screen summarizes the choices and provider. Choose
 chosen single project folder can prefill a session; a location never chooses its
 first child. Either choice remembers setup completion. Earlier steps can be
 skipped. Settings > Projects > **Run setup again** shows existing choices and
-preserves chats, settings, locations and saved folders unless explicitly edited.
+preserves chats, settings, locations and bookmarked folders unless explicitly edited.
 
 ## Home: project locations and recent work
 
@@ -28,19 +28,18 @@ Each **Project location** shows its name, path and available-folder count. The f
 few folders are visible immediately; long lists offer **Show all N folders** and
 **Show fewer**, with a bounded scrolling area. Search works across locations.
 Choose a folder to open the creator with that explicit path. **Browse Work**, for
-example, opens the folder browser at Work. Opening a folder never saves it as a
-project, trusts it, or launches work automatically.
+example, opens the folder browser at Work. Opening a folder never bookmarks it, trusts it, or launches work automatically.
 
 **Pinned** keeps shortcuts to folders. Cards with saved sessions offer one-click
 **Resume**; sessions already open offer **Open**. Pinning, archive, and missing-folder
-recovery remain on the cards. **Other projects** holds saved or previously used
+recovery remain on the cards. **Other projects** holds bookmarked or previously used
 folders outside configured locations. Missing locations remain visible so a drive
 can be reconnected or its path edited.
 
 Use **Add project location** for another parent folder, or **Open another folder**
 for a one-off session. The latter opens the shared folder browser; **Use this
-folder** opens the creator without saving it. Its **Save a project folder**
-disclosure keeps explicit save and create controls available. A compact status
+folder** opens the creator without bookmarking it. Its **Bookmark a folder**
+disclosure offers **Bookmark folder** and **Create and bookmark**. A compact status
 area links to Connections and the installed Arco version/update controls.
 
 ## Manage locations and one-off folders
@@ -52,10 +51,12 @@ and offers an explicit rename. Saving a rename shows confirmation and updates
 Home. Editing a location onto another location's path is refused without dropping
 either location. These same checks apply during setup.
 
-**Manage saved project folders** contains individual-folder add, keep and remove
-controls. **Advanced folder options** contains the independent **Default browsing
-location**. Changing that starting location never adds a project location or saves
-its children. Removing a location stops its listing and grouping; saved projects,
+**Bookmarked folders (N)** contains **Bookmark folder** and **Remove bookmark**.
+Bookmarks are optional: folders inside project locations already appear automatically.
+Bookmarks keep individual folders listed independently of locations; they do not
+control saved chats or files. **Advanced folder options** contains the independent **Default browsing
+location**. Changing that starting location never adds a project location or bookmarks
+its children. Removing a location stops its listing and grouping; bookmarked folders,
 files, sessions and trust choices remain unchanged. The legacy single-location
 setting migrates automatically; an explicitly empty list stays empty.
 
@@ -64,7 +65,7 @@ or one named location. Search by name or path. Filtering never replaces a typed
 working folder. **Browse this location** starts navigation there; **Browse another
 folder** can reach other directories. The browser offers an editable path, UP,
 shortcuts and new-folder creation at the displayed parent. **Use for this session**
-selects a folder without saving it. **Keep current folder** explicitly saves it.
+selects a folder without bookmarking it. **Bookmark folder** explicitly keeps it listed independently of locations.
 In Docker, folders must be mounted before they can be selected.
 
 ## Before starting

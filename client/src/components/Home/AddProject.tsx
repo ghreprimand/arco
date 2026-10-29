@@ -27,15 +27,15 @@ export function AddProject({ initialPath, scanFolder, roots, onList, onClose, an
     if (!folder.trim() || adding || creating) return;
     setAdding(true); setAddStatus('');
     const reply = await addFolder(folder.trim()); setAdding(false);
-    if (!reply.ok) { setAddStatus(`Not added: ${reply.error}.`); return; }
-    onList(reply.body); setPath(''); setAddStatus(`Added ${folder.trim()}.`); announce(`Added ${folder.trim()}.`);
+    if (!reply.ok) { setAddStatus(`Not bookmarked: ${reply.error}.`); return; }
+    onList(reply.body); setPath(''); setAddStatus(`Bookmarked ${folder.trim()}.`); announce(`Bookmarked ${folder.trim()}.`);
   }
   async function create() {
     if (!name.trim() || creating || adding) return;
     setCreating(true); setCreateStatus('');
     const reply = await createFolder(name.trim()); setCreating(false);
     if (!reply.ok) { setCreateStatus(`Not created: ${reply.error}.`); return; }
-    onList(reply.body); setName(''); setCreateStatus(`Created and added ${name.trim()}.`); announce(`Created and added ${name.trim()}.`);
+    onList(reply.body); setName(''); setCreateStatus(`Created and bookmarked ${name.trim()}.`); announce(`Created and bookmarked ${name.trim()}.`);
   }
   return <div className="home-add-backdrop" onClick={onClose}>
     <div className="home-add-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="home-add-title" onClick={e => e.stopPropagation()} onKeyDown={e => {
@@ -46,13 +46,13 @@ export function AddProject({ initialPath, scanFolder, roots, onList, onClose, an
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
       if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     }}>
-      <header><div><span className="home-eyebrow">PROJECT FOLDERS</span><h2 id="home-add-title">Open another folder</h2><p>Choose a folder for this session. Save it only if wanted.</p></div><button type="button" aria-label="Close folder browser" onClick={onClose}>Done</button></header>
-      <DirectoryBrowser roots={roots} key={browseKey} initialPath={root} inline withFilename={false} title="Browse project folders" confirmLabel={onChoose ? 'Use this folder' : adding ? 'Adding...' : 'Add this folder'} onDone={result => { if (result) { if (onChoose) onChoose(result.dir); else void add(result.dir); } }} />
-      <details className="home-save-project"><summary>Save a project folder</summary>
+      <header><div><span className="home-eyebrow">PROJECT FOLDERS</span><h2 id="home-add-title">Open another folder</h2><p>Choose a folder for this session. Bookmark it only if wanted.</p></div><button type="button" aria-label="Close folder browser" onClick={onClose}>Done</button></header>
+      <DirectoryBrowser roots={roots} key={browseKey} initialPath={root} inline withFilename={false} title="Browse project folders" confirmLabel={onChoose ? 'Use this folder' : adding ? 'Bookmarking...' : 'Bookmark folder'} onDone={result => { if (result) { if (onChoose) onChoose(result.dir); else void add(result.dir); } }} />
+      <details className="home-save-project"><summary>Bookmark a folder</summary>
       <form onSubmit={e => { e.preventDefault(); void add(path); }} data-help="home.add-folder">
-        <label htmlFor="home-add">Add a project folder</label>
+        <label htmlFor="home-add">Folder path</label>
         <div className="home-field-row"><input id="home-add" ref={input} value={path} onChange={e => setPath(e.target.value)} placeholder="Absolute folder path" aria-describedby="home-add-status" />
-          <button type="submit" disabled={adding || creating || !path.trim()}>{adding ? 'Adding...' : 'Add'}</button>
+          <button type="submit" disabled={adding || creating || !path.trim()}>{adding ? 'Bookmarking...' : 'Bookmark folder'}</button>
           <button type="button" disabled={!path.trim()} onClick={() => { setRoot(path.trim()); setBrowseKey(key => key + 1); }}>Browse path</button></div>
         <div id="home-add-status" role="status">{addStatus}</div>
       </form>
@@ -60,7 +60,7 @@ export function AddProject({ initialPath, scanFolder, roots, onList, onClose, an
         <form onSubmit={e => { e.preventDefault(); void create(); }} data-help="home.create-folder">
           <label htmlFor="home-create">Create a new project folder</label>
           <div className="home-field-row"><input id="home-create" value={name} onChange={e => setName(e.target.value)} placeholder="Absolute new folder path, or name in the displayed parent" maxLength={1024} aria-describedby="home-create-help home-create-status" />
-            <button type="submit" disabled={adding || creating || !name.trim()}>{creating ? 'Creating...' : 'Create'}</button></div>
+            <button type="submit" disabled={adding || creating || !name.trim()}>{creating ? 'Creating...' : 'Create and bookmark'}</button></div>
           <p id="home-create-help">{scanFolder ? `Enter an absolute new folder path, or a name to create inside ${scanFolder}.` : 'Enter an absolute path to a new folder inside an existing parent.'}</p>
           <div id="home-create-status" role="status">{createStatus}</div>
         </form>

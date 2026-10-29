@@ -108,8 +108,8 @@ async def main():
             await expect(field).to_have_value(str(outside / 'fresh-session'))
             stored = await api(page, '/api/settings')
             assert stored['projects'] == [str(server.projects / 'app')]
-            await page.get_by_role('button', name='Keep current folder', exact=True).click()
-            await expect(page.get_by_role('button', name='Keep current folder', exact=True)).to_have_count(0)
+            await page.get_by_role('button', name='Bookmark folder', exact=True).click()
+            await expect(page.get_by_role('button', name='Bookmark folder', exact=True)).to_have_count(0)
             assert (await api(page, '/api/settings'))['projects'] == [str(server.projects / 'app'), str(outside / 'fresh-session')]
             await home(page)
             # Explicit caller prefill survives project loading and root filtering.
@@ -117,7 +117,7 @@ async def main():
             await expect(field).to_have_value(str(server.projects / 'app'))
             await page.get_by_label('Project location', exact=True).select_option(str(personal))
             await expect(field).to_have_value(str(server.projects / 'app'))
-            print('PASS: no implicit cwd, typed/prefilled selections survive loading, one-off browser/create destination and explicit Keep')
+            print('PASS: no implicit cwd, typed/prefilled selections survive loading, one-off browser/create destination and explicit Bookmark folder')
 
             await home(page)
             await page.goto(server.base + '/#settings/projects/projects')
@@ -133,7 +133,7 @@ async def main():
             await expect(page.get_by_role('heading', name='Add project locations', exact=True)).to_be_visible()
             await page.get_by_role('button',name='Add a single project folder',exact=True).click()
             await page.get_by_label('Project folder path', exact=True).fill(str(personal / 'notes'))
-            await page.get_by_role('button', name='Add folder', exact=True).click()
+            await page.locator('.first-run-path').get_by_role('button', name='Bookmark folder', exact=True).click()
             await expect(summary).to_contain_text(str(personal / 'notes'))
             for scale in [1.1, 1.5]:
                 await page.evaluate('value => {document.documentElement.style.setProperty("--ui-scale", String(value));document.documentElement.style.zoom=String(value);}', scale)
