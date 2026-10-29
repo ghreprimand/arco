@@ -271,23 +271,13 @@ export const headerHelp: Record<string, HelpEntry> = {
     manualSection: 'provider-updates',
   },
   'header.workflow-status': {
-    title: 'Workflow status chip',
+    title: 'Provider throttling',
     body: (
-      <>
-        <p>
-          One compact chip folding the two pieces of urgent runtime state:{' '}
-          <strong>context fill</strong> for the active workflow (<C>◔ %</C>,
-          escalating green → amber → red as the window fills) and{' '}
-          <strong>provider quota</strong> (<C>⚠ N</C> when any provider is
-          throttled).
-        </p>
-        <p>
-          Click for details — exact context tokens / window size with a fill
-          bar, plus per-provider quota status and reset times. Hidden entirely
-          when there's no active-workflow context reading and nothing is
-          throttled.
-        </p>
-      </>
+      <p>
+        This warning appears when a provider is throttled. Open it to see the
+        affected providers and their known reset times. It remains visible in
+        focus mode. Context usage remains beside each worker composer.
+      </p>
     ),
   },
   'header.knowledge': {
@@ -420,7 +410,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           / auth chip, the KNOWLEDGE / TOOLS dropdowns, the ⌸ ARCHIVE button, and Settings / Manual.
         </p>
         <p>
-          Urgent state stays — the workflow status chip (context + quota),
+          Urgent state stays — the provider throttling warning,
           connection health, the ⏻ system menu, and this toggle (now{' '}
           <C>◳ EXIT FOCUS</C>). Operator-armed and fully reversible; the choice
           persists across reloads.

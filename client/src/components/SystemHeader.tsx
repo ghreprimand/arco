@@ -170,9 +170,8 @@ export function SystemHeader({ isHome, onReconnect, onRestartServer, reconnectSt
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: '1px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {/* Status cluster — urgent runtime state, always visible: provider
-              versions (folded into a popover), the workflow status chip
-              (context + quota), and the Claude auth chip. */}
-          {/* Workflow status (context + quota) stays visible in focus mode —
+              versions (folded into a popover), the provider throttling warning, and the Claude auth chip. */}
+          {/* Provider throttling stays visible in focus mode —
               it's urgent runtime state. Everything else is secondary chrome. */}
           <WorkflowStatusChip />
 

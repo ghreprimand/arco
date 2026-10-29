@@ -16,10 +16,10 @@ export const workspace: Section[] = [
             sits beside it.
           </li>
           <li>
-            <strong>Workflow status chip</strong> — one chip carrying context
-            fill (◔ %) for the active workflow and provider quota (⚠ N when any
-            provider is throttled). Click for exact context tokens/window plus
-            per-provider quota status and reset times. Stays visible in focus mode.
+            <strong>Provider throttling</strong> - appears only when a provider
+            is throttled. Open it for affected providers and known reset times.
+            The warning stays visible in focus mode. Context usage remains by
+            each worker composer.
           </li>
           <li>
             <strong>Providers popover</strong> — folds the per-provider version

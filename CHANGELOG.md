@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show a provider throttling warning in the header only while a provider is throttled.
+
 - Hide the duplicate header wordmark on Home while keeping it in other views.
 
 - Remove Gemini and dedicated Google provider paths while preserving historical work; keep retired saved choices visibly unavailable until a supported provider is explicitly selected.
