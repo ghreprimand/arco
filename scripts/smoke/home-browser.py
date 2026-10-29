@@ -241,12 +241,12 @@ async def scenario_restore_race(playwright, server):
     page = await b.open()
     try:
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         assert await page.locator('.home-work-grid li').count() == 0, 'restored work arrived before the hold released'
         hold.release()
         await page.locator('.home-work-grid li').first.wait_for(timeout=30000)  # the restore landed
         await page.wait_for_timeout(3000)
-        assert await page.get_by_role('heading', name='HOME', exact=True).count() == 1, \
+        assert await page.locator('#home-title').count() == 1, \
             f'the late restore replaced Home | errors={b.errors[-3:]} | text={(await page.evaluate("document.body.innerText"))[:300]!r}'
         text = await main_text(page)
         assert re.search(r'Open work \([1-9]', text), f'restored work is not listed as open work: {text[:500]!r}'
@@ -260,7 +260,7 @@ async def scenario_reload_and_outage(playwright, server, outage_server):
     page = await b.open()
     try:
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         await page.reload()
         try:
             await page.get_by_text('ONLINE', exact=True).wait_for(timeout=30000)
@@ -272,7 +272,7 @@ async def scenario_reload_and_outage(playwright, server, outage_server):
             await page.get_by_text('ONLINE', exact=True).wait_for(timeout=45000)
         await b.settle()
         await page.wait_for_timeout(1500)
-        assert await page.get_by_role('heading', name='HOME', exact=True).count() == 1, 'a reload left Home'
+        assert await page.locator('#home-title').count() == 1, 'a reload left Home'
         assert await home_button(page).get_attribute('aria-current') == 'page'
     finally:
         await b.close()
@@ -282,7 +282,7 @@ async def scenario_reload_and_outage(playwright, server, outage_server):
     try:
         await page.get_by_text('No provider connected', exact=False).wait_for(timeout=20000)
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         await page.wait_for_timeout(1500)
         assert await page.get_by_text('No provider connected', exact=False).count() == 1, 'the outage banner disappeared'
         assert 'app' in await main_text(page), 'Home does not list the returning project during an outage'
@@ -302,7 +302,7 @@ async def scenario_keyboard(playwright, server):
         else:
             raise AssertionError('Tab never reached the HOME button')
         await page.keyboard.press('Enter')
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         await page.wait_for_function("document.activeElement?.id === 'home-title'", timeout=5000)
         focus = await page.evaluate('document.activeElement && document.activeElement.id')
         assert focus == 'home-title', f'Home did not move focus to its heading: {focus!r}'
@@ -343,7 +343,7 @@ async def scenario_privacy(playwright, server):
         incog_ids = json.loads(await page.evaluate("sessionStorage.getItem('__incogIds') || '[]'"))
         assert incog_ids, 'no Incognito workflow was created'
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         text = await main_text(page)
         # The seeded server already holds a workflow, a cluster and a normal chat: these are
         # restored into this browser; only the Incognito chat made here must be absent.
@@ -384,7 +384,7 @@ async def scenario_project_list_is_projects(playwright, server):
         await b.new_chat(incognito=True)
         incog_ids = json.loads(await page.evaluate("sessionStorage.getItem('__incogIds') || '[]'"))
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         await page.get_by_role('heading', name='Project locations',exact=True).wait_for(timeout=10000)
         await page.wait_for_timeout(500)
         paths = await page.evaluate("[...document.querySelectorAll('main h4 + div')].map((d) => d.textContent)")
@@ -481,13 +481,13 @@ async def scenario_saved_errors(playwright, server):
     page = await b.open()
     try:
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         card = page.locator('li', has=page.get_by_role('heading', name='app', exact=True))
         for index, (label, fixture) in enumerate(cases):
             mode['bad'] = fixture
             if index:
                 await page.reload()
-                await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=30000)
+                await page.locator('#home-title').wait_for(timeout=30000)
                 await page.get_by_role('heading', name='app', exact=True).wait_for(timeout=15000)
             mode['calls'] = 0
             await page.get_by_role('button', name='Show saved sessions for app').click()
@@ -515,7 +515,7 @@ async def scenario_saved_errors(playwright, server):
         # A genuinely empty answer is the only thing that says "No saved sessions".
         mode['bad'] = dict(status=200, json={'sessions': []})
         await page.reload()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=30000)
+        await page.locator('#home-title').wait_for(timeout=30000)
         await page.get_by_role('button', name='Show saved sessions for app').click()
         await card.get_by_text('No saved sessions in this folder').wait_for(timeout=10000)
         assert await card.get_by_role('alert').count() == 0
@@ -571,7 +571,7 @@ async def scenario_open_marking(playwright, server):
         assert await list_.get_by_role('button', name=re.compile(f'^(Resume|Open) {CODEX_TITLE}')).count() == 1
         await list_.get_by_role('button', name=f'Open {CLAUDE_TITLE}').click()
         await page.wait_for_timeout(500)
-        assert await page.get_by_role('heading', name='HOME', exact=True).count() == 0, 'Open did not leave Home'
+        assert await page.locator('#home-title').count() == 0, 'Open did not leave Home'
         assert await page.get_by_role('button', name=re.compile('^SINGLE WORKFLOW')).count() == 0, 'Open showed the creator, not the session'
     finally:
         await b.close()
@@ -586,7 +586,7 @@ async def scenario_missing_and_add(playwright, server, scratch):
     page = await b.open()
     try:
         await home_button(page).click()
-        await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+        await page.locator('#home-title').wait_for(timeout=5000)
         # Add through Home's own form.
         await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(gone))
@@ -667,14 +667,14 @@ async def scenario_start_buttons(playwright, server):
         )
         for label, mode in expectations:
             await home_button(page).click()
-            await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+            await page.locator('#home-title').wait_for(timeout=5000)
             if label in ('New cluster', 'New idea (Genesis)'): await page.get_by_text('More ways to start', exact=True).click()
             await page.get_by_role('button', name=label, exact=True).first.click()
             await page.get_by_role('button', name=re.compile('^SINGLE WORKFLOW')).wait_for(timeout=10000)
             await page.wait_for_timeout(300)
             got = await creator_mode(page)
             assert got == mode, f'{label!r} opened the creator in {got!r}, expected {mode!r}'
-            assert await page.get_by_role('heading', name='HOME', exact=True).count() == 0
+            assert await page.locator('#home-title').count() == 0
             if mode in ('CHAT', 'GENESIS'):
                 assert not await creator_folder(page), 'a no-project start pre-filled a folder'
         # A project start pre-fills that project (not the creator's default pick, which is `app`).

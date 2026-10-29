@@ -38,7 +38,7 @@ test('Home is a labelled landmark with Start, Open work and project search; Inco
     html = renderToStaticMarkup(<HomeView />);
   } finally { initial.jobs = before; }
   assert.match(html, /<main aria-labelledby="home-title"/);
-  assert.match(html, /<h1 id="home-title"[^>]*>HOME<\/h1>/);
+  assert.match(html, /<h1 id="home-title"[^>]*>ARCO<\/h1>/);
   for (const label of ['New session', 'Start a chat', 'New cluster', 'New idea \\(Genesis\\)']) {
     assert.match(html, new RegExp(`<button type="button"[^>]*>${label}</button>`));
   }

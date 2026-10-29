@@ -53,7 +53,7 @@ async def open_home(playwright, server):
     b = h.Browser(playwright, server)
     page = await b.open()
     await page.get_by_role('button', name=re.compile('^Home:')).click()
-    await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
+    await page.locator('#home-title').wait_for(timeout=5000)
     await page.get_by_role('button', name='Reload list').click()
     await page.wait_for_timeout(300)
     return b, page

@@ -74,6 +74,10 @@ async def check(browser, scale, scenario):
     page.on('pageerror', lambda error: errors.append(str(error)))
     await page.goto(URL)
     await page.locator('#home-title').wait_for()
+    await expect(page.get_by_role('main',name='ARCO',exact=True)).to_be_visible()
+    await page.locator('#home-title').focus()
+    await expect(page.locator('#home-title')).to_be_focused()
+    assert await page.locator('#home-title').evaluate("el => { const root=document.documentElement, family=root.getAttribute('data-theme-family'), before=root.getAttribute('data-phosphor-effects'); root.setAttribute('data-theme-family','phosphor'); root.setAttribute('data-phosphor-effects','off'); const off=getComputedStyle(el).textShadow; const crisp=root.getAttribute('data-crisp'); root.setAttribute('data-phosphor-effects','on'); root.setAttribute('data-crisp','1'); const sharp=getComputedStyle(el).textShadow; if (crisp === null) root.removeAttribute('data-crisp'); else root.setAttribute('data-crisp',crisp); if (family === null) root.removeAttribute('data-theme-family'); else root.setAttribute('data-theme-family',family); if (before === null) root.removeAttribute('data-phosphor-effects'); else root.setAttribute('data-phosphor-effects',before); return off === 'none' && sharp === 'none'; }")
     await page.evaluate("async () => { const { useAppStore: s } = await import('/src/stores/appStore.ts'); s.setState({connected:true,connectionState:'online'}); }")
     if populated:
         await page.evaluate('''async () => {
@@ -201,10 +205,14 @@ async def check(browser, scale, scenario):
     await page.wait_for_timeout(1500)
     await page.locator('.home-page').evaluate('(el) => el.scrollTop = 0')
     await page.screenshot(animations='disabled', path=str(ART / f'{scenario}-{round(scale * 100)}.png'))
-    if scenario in ['discovery', 'populated']:
-        for width,height in [(900,600),(1920,1200),(2560,1440),(3840,2160)]:
+    if scenario in ['empty', 'discovery', 'populated']:
+        for width,height in [(900,600),(1920,1080),(1920,1200),(3840,2160)]:
             await page.set_viewport_size({'width':width,'height':height})
             assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
+            title = page.locator('#home-title')
+            await expect(title).to_be_visible()
+            assert await title.evaluate('el => {const r=el.getBoundingClientRect(), p=el.closest(".home-content").getBoundingClientRect(); return Math.abs((r.left+r.right-p.left-p.right)/2)<2 && r.left>=0 && r.right<=innerWidth+1}')
+            await expect(page.get_by_role('button',name='Start a chat',exact=True)).to_be_visible()
             if width == 3840:
                 assert await page.locator('.home-content').evaluate('el => el.offsetWidth >= 1800 && el.offsetWidth <= 2200')
             await page.screenshot(animations='disabled',scale='css',path=str(ART / f'home-{scenario}-{width}x{height}-{round(scale*100)}.png'))
@@ -285,7 +293,8 @@ async def main():
     ART.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
-        await check(browser, 1.0, 'discovery')
+        for scenario in ['empty', 'discovery', 'populated']:
+            await check(browser, 1.0, scenario)
         scenarios = ['discovery'] if os.environ.get('ARCO_HOME_DISCOVERY_ONLY') == '1' else ['empty', 'discovery', 'multiple', 'populated']
         for scale in [1.1, 1.5]:
             for scenario in scenarios:

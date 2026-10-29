@@ -9,6 +9,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Remove Antigravity integration and desktop launch paths while preserving historical work and explicitly rejecting retired provider requests.
 
+- Show a centered, theme-aware Arco wordmark on Home.
+
 - Give Home more room for project locations, distinguish folder paths, and bring the latest saved session forward.
 
 - Resize or maximize larger browsing, search and editing dialogs while keeping controls and folder choices in view.

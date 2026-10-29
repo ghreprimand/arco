@@ -136,8 +136,8 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   return <main aria-labelledby="home-title" className="home-page">
     <div className="home-content">
       <header className={availableCount > 0 ? 'home-header home-header-compact' : 'home-header'}>
-        <div>{availableCount === 0 && <span className="home-eyebrow">YOUR WORKSPACE</span>}<h1 id="home-title" ref={heading} tabIndex={-1}>HOME</h1>
-          {(availableCount === 0 || work.length > 0) && <p>{work.length ? 'Pick up where you left off.' : 'A place for projects, conversations, and your next idea.'}</p>}</div>
+        <h1 id="home-title" className="home-wordmark" ref={heading} tabIndex={-1}>ARCO</h1>
+        {(availableCount === 0 || work.length > 0) && <p>{work.length ? 'Pick up where you left off.' : 'A place for projects, conversations, and your next idea.'}</p>}
         <HomeStatus />
         {availableCount > 0 && work.length === 0 && startControls}
       </header>
