@@ -32,6 +32,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep Bakeoff usable before its comparison list arrives, including navigation and reload.
+
 - Restore switching from the shipped Phosphor default to Arco Classic themes in Settings.
 
 - Correct provider, transport, instruction-file, and Docker guidance in the in-app manual and reference docs.

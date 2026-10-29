@@ -30,6 +30,7 @@ interface SelectedDiff {
 }
 
 const ATTEMPT_COUNTS = [2, 3, 4, 5] as const;
+const EMPTY_BAKEOFFS: BakeoffState[] = [];
 
 function primarySelection(job: JobState): RunAsSelection {
   return {
@@ -52,7 +53,7 @@ function shortRef(ref: string): string {
 }
 
 export function BakeoffTab({ job, onList, onStart, onPromote, onCleanup }: Props) {
-  const bakeoffs = useAppStore((state) => state.bakeoffsByWorkflow[job.id] ?? []);
+  const bakeoffs = useAppStore((state) => state.bakeoffsByWorkflow[job.id] ?? EMPTY_BAKEOFFS);
   const setActiveJob = useAppStore((state) => state.setActiveJob);
   const current = useMemo(() => primarySelection(job), [job]);
   const [name, setName] = useState('');
