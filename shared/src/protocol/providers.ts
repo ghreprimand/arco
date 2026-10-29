@@ -6,16 +6,16 @@ export type ModelName = 'haiku' | 'sonnet' | 'opus' | (string & {});
 // describes it as "Maximum reasoning with automatic task delegation". It is
 // representable here so the picker can offer it, but it only ever surfaces for
 // a model whose live catalog entry advertises it (see effortsForModel); no
-// Claude/Gemini/local model lists it, so nothing else can select it.
+// Claude/local model lists it, so nothing else can select it.
 // Strata exposes none explicitly; other providers keep their own picker sets.
 export type EffortLevel = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
-export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
+export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
 
 // Lite: only 'passthrough' remains — primary-worker output mirrored to chat.
 // The old 'planning'/'synthesis' phases are gone with the orchestrator.
 export type PrimaryPhase = 'passthrough';
 
-export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+export const PRIMARY_PROVIDERS: ProviderName[] = ['claude',  'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 
 export type AuthLoginTarget = ProviderName | 'github';
 
@@ -69,6 +69,7 @@ export const EFFORT_RANK: Record<EffortLevel, number> = {
 
 // Historical configurations retain their provider identity until explicitly changed.
 export function retiredProviderReason(provider: unknown): string | undefined {
+  if (provider === 'gemini') return 'Gemini support has been removed. Saved work is preserved; choose a supported provider explicitly for new work.';
   return provider === 'antigravity'
     ? 'Antigravity support has been removed. Saved work is preserved; choose a supported provider explicitly for new work.'
     : undefined;

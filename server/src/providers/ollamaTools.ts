@@ -1,20 +1,3 @@
-// Server-side tool runtime for the Ollama primary path (plan §5.4 / §8.1
-// Path A). The Ollama HTTP API is stateless: the model emits `tool_calls`
-// and the *caller* is responsible for executing them and feeding results
-// back. Subprocess providers (Claude/Codex/Gemini) own their own tool
-// runtimes inside the CLI; for Ollama, Arco is the runtime.
-//
-// Security model — every tool path is resolved against the workflow cwd
-// and rejected if the resolved path escapes. The Ollama branch is the only
-// way a local model can touch the filesystem in Arco, and a model trained
-// on adversarial corpora is not assumed safe — without this guard, a single
-// `Read {file_path: "/etc/shadow"}` call would succeed. Path validation
-// happens here (not in the loop layer) so a future allowlist expansion
-// can't accidentally bypass it.
-//
-// v1 allowlist: Read / Grep / Glob / Write. Bash lands in Phase B (plan
-// suggested-execution-order §1–2). WebFetch and anything network-touching
-// are explicitly out of scope for v1 (plan §8.1).
 
 import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join } from 'node:path';

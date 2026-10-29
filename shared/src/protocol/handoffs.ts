@@ -118,7 +118,7 @@ export interface HandoffCompleteMessage {
     sessionId: string;
     turnCount: number;
   };
-  newSessionId?: string; // empty when Gemini (no native session id in Lite)
+  newSessionId?: string; // optional for providers without native session ids
   completedAt: number;
 }
 

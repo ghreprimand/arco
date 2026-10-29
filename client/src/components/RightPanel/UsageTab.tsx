@@ -21,7 +21,7 @@ import { CursorIncludedGauge } from '../CursorIncludedGauge';
 const PROVIDER_COLORS: Partial<Record<ProviderName, string>> = {
   claude: '#d97757',
   codex: '#10a37f',
-  gemini: '#4285f4',
+
   ollama: '#a78bfa',
   llamacpp: '#e0a030',
   lmstudio: '#8b95f2',

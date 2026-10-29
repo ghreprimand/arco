@@ -45,12 +45,6 @@ export interface WorkflowDefaults {
   providerAccountRef?: string;
   skipPermissions?: boolean;
   fastMode?: boolean;
-  // Native-only efficiency knobs surfaced on the New-tab picker so the
-  // operator's preference becomes the default for future Claude tabs.
-  // The fields are stored on every workflow created from the New tab
-  // regardless of provider — they're no-ops on CLI / Codex / Gemini /
-  // Ollama / llama.cpp tabs (only Native honors them) but a transport
-  // flip on the same tab picks them up automatically.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   outputStyle?: 'normal' | 'lite' | 'terse';
 }
@@ -87,7 +81,7 @@ export interface ArcoSettings {
   // Operator-dismissed CLI version bumps. Shape: { claude: "1.5.0", … }.
   // When current CLI version matches the stored value, the CONFIG tab dot
   // stays dark; a newer version re-arms it.
-  acknowledgedCliVersions?: Partial<Record<'claude' | 'gemini' | 'codex', string>>;
+  acknowledgedCliVersions?: Partial<Record<'claude' | 'codex', string>>;
   // Operator display name. When set (and non-empty after trim), the chat
   // role label "> OPERATOR" is replaced by "> <name>" (uppercased).
   // Sanitized server-side: trimmed, single-line, max 32 chars.

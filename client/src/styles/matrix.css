@@ -117,7 +117,7 @@
 
 /* Worker actively burning CPU (or with active subprocesses). Faster, brighter
    pulse so the operator can distinguish "alive and working" from "alive but
-   waiting on an API response" — critical for Gemini, which often goes silent
+   waiting on an API response" — useful when a worker goes silent
    for minutes at a time without surfacing any text events. */
 .status-dot--cpu-active {
   background: var(--color-accent-secondary);

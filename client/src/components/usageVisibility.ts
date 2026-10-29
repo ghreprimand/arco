@@ -1,6 +1,6 @@
 import type { AuthStatusByProvider, ProviderName } from '@arco/shared';
 
-export const USAGE_PROVIDERS = ['claude', 'gemini', 'codex', 'cursor', 'ollama'] as const;
+export const USAGE_PROVIDERS = ['claude',  'codex', 'cursor', 'ollama'] as const;
 
 export function hasEnabledUsageProvider(
   auth: AuthStatusByProvider | null | undefined,

@@ -67,15 +67,8 @@ export interface TurnContext {
 
 export interface TurnHandle {
   workerId: string;
-  // Pre-minted UUID for Claude-first-turn. Empty for Codex (captured at init)
-  // and Gemini/Ollama (no native session concept in Lite). Use
-  // `onSessionDiscovered` to learn Codex's thread_id when it arrives.
   initialSessionId: string;
   settled: Promise<{ error?: string; lastPromptTokens?: number; modelContextWindow?: number }>;
-  // Fires exactly once when the provider emits its init event. Carries the
-  // authoritative native session id (Codex thread_id; Claude confirms the
-  // pre-minted uuid). Never fires for Gemini/Ollama since they have no init-
-  // phase session payload.
   onSessionDiscovered: (cb: (sessionId: string) => void) => void;
 }
 
@@ -203,12 +196,6 @@ export function runPrimaryTurn(
     // activity poll skips the tree-RSS kill for this primary turn. Operator
     // opt-in only — reviewers/handoff reflections never set this.
     disableRssGuard?: boolean;
-    // Pre-rendered workflow transcript prepended to the provider's request.
-    // Ollama-as-primary path uses this to feed prior turns through the
-    // /api/chat structured-messages shape — without it the model has no
-    // memory and the prefix cache has nothing stable to hit. Other primary
-    // providers ignore the field (Claude/Codex use native session resume,
-    // Gemini concatenates).
     appendSystemPrompt?: string;
     // Provider-side system prompt. Today only the Ollama path consumes it
     // (sets behavior + tool-availability framing for local models). Pass
@@ -290,9 +277,6 @@ export function runPrimaryTurn(
     // WorkflowConfig.efficiencySandbox in handleUserMessage. Native-only;
     // CLI / Codex ignore the field.
     efficiencySandbox?: 'off' | 'on';
-    // docs/PROVIDERS.md - operator-armed durable review gate. Resolved from
-    // WorkflowConfig.reviewSafeMode in handleUserMessage. Native-only; CLI /
-    // Codex / Gemini ignore the field.
     reviewSafeMode?: 'off' | 'on';
     // docs/PROVIDERS.md - output-style addendum level. Resolved from
     // WorkflowConfig.outputStyle in handleUserMessage. Honored by Claude
@@ -446,14 +430,6 @@ export function runPrimaryTurn(
     else if (claudeNewSessionId) spawnOptions.sessionId = claudeNewSessionId;
   } else if ((primary.provider === 'codex') && !incognito) {
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
-  } else if (primary.provider === 'gemini') {
-    // Gemini supports `-r <index>` resume, but `--list-sessions` returns an
-    // index that shifts whenever sessions are added/deleted. The provider
-    // resolves the stored UUID → current index immediately before spawn,
-    // so we just thread the UUID through here. The `init` event from the
-    // CLI surfaces the same UUID back to onInit, which lets seedWorker pin
-    // it as primarySessionId on the first turn — same flow as Claude/Codex.
-    if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
   } else if (primary.provider === 'cursor') {
     // Cursor (ACP): the worker persists its sessionId via the `init` event
     // (onInit above → primarySessionId). On a later turn we thread that id
@@ -537,12 +513,6 @@ export function runPrimaryTurn(
         });
         return;
       case 'worker_tool_use': {
-        // Prefer the provider's own tool_use id when present (Native worker
-        // forwards Anthropic's block.id) — chat-side surfaces (e.g. the
-        // Phase 7b Task inline card) match on this id, so a server-minted
-        // UUID would never line up with the assistant's tool_use block.
-        // Fall back to a server-minted id for bg-tracker correlation when
-        // the provider doesn't supply one (CLI Claude, Codex, Gemini).
         const toolUseId = ev.toolUseId ?? randomUUID();
         ctx.broadcast({
           type: 'primary_tool_use',

@@ -42,7 +42,7 @@ function check(
 // ── Auth: transient (401, refreshable token) vs permanent (invalid key) ──
 check('401 status only', 'claude', { status: 401, error: { message: 'Unauthorized' } }, 'auth', 'rotate');
 check('"Unauthorized" string', 'codex', 'Unauthorized', 'auth', 'rotate');
-check('expired token → transient auth', 'gemini', { status: 401, error: { message: 'token expired, please reauthenticate' } }, 'auth', 'rotate');
+check('expired token → transient auth', 'strata', { status: 401, error: { message: 'token expired, please reauthenticate' } }, 'auth', 'rotate');
 check(
   'invalid_api_key → permanent auth',
   'claude',
@@ -65,7 +65,7 @@ check('CLI "usage limit reached" string', 'claude', 'Claude AI usage limit reach
 
 // ── Overloaded (503/529 / overloaded_error) → backoff ──
 check('Anthropic overloaded_error', 'claude', { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }, 'overloaded', 'backoff');
-check('503 service unavailable', 'gemini', { status: 503, error: { message: 'Service Unavailable' } }, 'overloaded', 'backoff');
+check('503 service unavailable', 'strata', { status: 503, error: { message: 'Service Unavailable' } }, 'overloaded', 'backoff');
 check('529 capacity status', 'claude', { status: 529, error: { message: 'Overloaded' } }, 'overloaded', 'backoff');
 
 // ── Context overflow → compress (NOT failover) ──
@@ -79,7 +79,7 @@ check('deprecated model string', 'claude', new Error('The model has been depreca
 
 // ── Content policy → no_retry ──
 check('content_policy block', 'claude', { error: { type: 'invalid_request_error', message: 'Output blocked by content policy' } }, 'content_policy_blocked', 'no_retry', true);
-check('Gemini responsible AI block', 'gemini', { error: { message: 'blocked by content safety filter (responsible AI)' } }, 'content_policy_blocked', 'no_retry', true);
+check('provider content safety block', 'strata', { error: { message: 'blocked by content safety filter (responsible AI)' } }, 'content_policy_blocked', 'no_retry', true);
 
 // ── Anthropic OAuth long-context beta forbidden (specific) ──
 check(
@@ -92,7 +92,7 @@ check(
 );
 
 // ── Network / transient → backoff ──
-check('ECONNRESET', 'gemini', new Error('read ECONNRESET'), 'network', 'backoff');
+check('ECONNRESET', 'strata', new Error('read ECONNRESET'), 'network', 'backoff');
 check('fetch failed', 'ollama', new Error('fetch failed'), 'network', 'backoff');
 
 // ── Generic 5xx → server_error backoff ──

@@ -1,35 +1,11 @@
-// ── Agent-instruction-file tune-up (CLAUDE.md / AGENTS.md / GEMINI.md compaction) ──
-//
-// A long-lived project's instruction file accretes cruft — dated session logs,
-// resolved TODOs, restated rules — and since it is re-read on EVERY turn of
-// EVERY worker, that bloat is a fixed per-turn token tax. This primitive runs
-// ONE bounded, READ-ONLY worker turn that PROPOSES a compacted version of the
-// file. The proposal comes back as `md_tuneup_proposed`; the client previews it
-// as an A3 diff (original vs proposed) plus the agent's notes, and the operator
-// Accepts or Rejects. On Accept the client fires `md_tuneup_accept`; the server
-// backs up the original to `.arco/md-backups/<name>.<ts>.bak` and only THEN
-// writes the proposed content through the `resolveWithinCwd`-guarded path.
-//
-// Fence note (CLAUDE.md "hard fences" → "LLM-mutated instructions across
-// sessions"): the REJECTED pattern is autonomous, trace-derived, silent
-// mutation (`headroom learn`). This is the opposite — operator-initiated
-// (button), source is the file itself (not session traces), the agent only
-// PROPOSES (NO Write tool), the operator reviews the diff and approves, and the
-// write is backed up + reversible. Maps onto the documented "operator-reviewed"
-// narrowing (docs/PROVIDERS.md); same posture as docEdit.ts.
 
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 
-// Which instruction file to tune. 'auto' lets the server pick by the
-// workflow's primary provider (claude→CLAUDE.md, codex→AGENTS.md,
-// gemini→GEMINI.md); otherwise a repo-RELATIVE path (e.g. 'CLAUDE.md',
-// 'packages/api/AGENTS.md') chosen from the discovered candidates. The server
-// resolves it through resolveWithinCwd and refuses anything escaping the cwd.
 export type MdTuneupTarget = string;
 
 // The set of filenames Arco treats as agent-instruction files when scanning a
 // repo for tune-up candidates. Single source of truth for client + server.
-export const INSTRUCTION_FILE_NAMES = ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md', 'GEMINI.md'] as const;
+export const INSTRUCTION_FILE_NAMES = ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md'] as const;
 
 // One discovered instruction file (repo-relative path, base name, byte size).
 export interface MdTuneupCandidate {

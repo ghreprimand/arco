@@ -1,31 +1,3 @@
-// Workbench Expansion C1 — error-classifier taxonomy.
-//
-// A pure, dependency-light mapping from a provider error to a FailoverReason
-// and the FailoverAction the retry/fallback layer should take. Ported from
-// Hermes's `error_classifier.py` (Arco runs the same Anthropic / OpenAI /
-// Gemini providers, so the substring/status mapping carries over almost
-// verbatim).
-//
-// Scope (C1): this module is the classifier ONLY. It does NOT touch quota
-// tracking (`quota.ts` tracks *availability*; this classifies the *action*)
-// and it does NOT rewire any live provider error path — wiring the result
-// into fallback control flow is C2. Keep it side-effect-free and importable
-// from a unit smoke with no server boot.
-//
-// Shape: classifyError(provider, err) → { reason, action, permanent }.
-//   - `reason` is the taxonomy bucket (what kind of failure this is).
-//   - `action` is what the caller should do (the C2 consumer switches on it).
-//   - `permanent` is a convenience flag: true when retrying the *same request*
-//     against the *same provider* can never succeed (auth revoked, billing
-//     dead, content blocked, beta forbidden). C2 uses it to fail closed fast
-//     rather than burn the backoff ladder.
-//
-// Matching strategy: we inspect both a numeric status code (401/403/429/5xx)
-// AND a lowercased message/code string. Status is checked first where it's
-// unambiguous, but a more specific substring (e.g. `invalid_api_key` inside a
-// 401) refines an `auth` into an `auth_permanent`. Unknown errors fall through
-// to `{ reason: 'unknown', action: 'backoff' }` — conservative: a transient
-// blip gets one or two retries rather than being treated as fatal.
 
 import type { ProviderName } from '@arco/shared';
 
@@ -173,7 +145,7 @@ function make(reason: FailoverReason): Classification {
  *
  * Pure and side-effect-free. `provider` is accepted for provider-specific
  * disambiguation (and forward-compat) but the current taxonomy is largely
- * provider-agnostic — the same Anthropic/OpenAI/Gemini error strings recur.
+ * provider-agnostic — the same Anthropic/OpenAI error strings recur.
  */
 export function classifyError(provider: ProviderName, err: unknown): Classification {
   const { status, text } = normalize(err);

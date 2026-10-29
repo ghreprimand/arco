@@ -57,9 +57,9 @@ export interface PlatformDep {
  *
  * `ownPackage` is the narrowing that keeps this honest. Plenty of CLIs pull in
  * *someone else's* platform build as an optional dep and run fine without it —
- * @google/gemini-cli optionally depends on `@lydell/node-pty-linux-x64`, and
- * treating that as its binary would downgrade gemini over a package that has
- * nothing to do with whether `gemini` starts. Only a build the package publishes
+ * a pure-JS application may optionally depend on a native terminal package.
+ * That dependency does not establish that the application itself requires a
+ * platform build. Only a build the package publishes
  * for itself is load-bearing, so only that one gates the install.
  */
 export function findPlatformDep(

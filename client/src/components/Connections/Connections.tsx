@@ -13,7 +13,7 @@ export function useConnectionsDeepLinks() {
     const open = () => {
       const match = /^#connections(?:\/([a-z]+))?$/.exec(window.location.hash);
       if (!match) return;
-      const ids = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
+      const ids = ['claude','codex','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
       if (match[1] && !ids.includes(match[1])) return;
       useStartupStore.getState().openConnections(match[1] as AuthLoginTarget | undefined);
     };

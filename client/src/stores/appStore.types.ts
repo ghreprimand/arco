@@ -8,7 +8,7 @@ import type {
   CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, TokenUsage, GenerationSpeed, AuthStatusByProvider,
   ProviderName, PrimaryArtifactMessage, ArcoSettings, QuotaStatusMessage,
   CliChangeEntry, PrimaryBackgroundJob, PreviewHistoryEntry, ClaudeCatalogSnapshot,
-  CodexCatalogSnapshot, GeminiCatalogSnapshot, CursorCatalogSnapshot, PrimaryTurnTokenUsageMessage, ClusterStatePayload,
+  CodexCatalogSnapshot,  CursorCatalogSnapshot, PrimaryTurnTokenUsageMessage, ClusterStatePayload,
   WorkflowSessionMetadata, HandoffLockSnapshotMessage, DiagnosticItem,
   LedgerTask, McpServerDef, McpToolInfo, McpWorkflowAllow,
   GenesisSeed, GenesisReadiness, GenesisCodebaseInfo, GenesisAssistField, GenesisAssistIntent, GenesisNameOption,
@@ -586,9 +586,6 @@ export interface AppState {
   // via useCodexCatalogFor(accountRef); `codexCatalog` above is the
   // default-account fallback for surfaces without an account in scope.
   codexCatalogByAccount: Record<string, CodexCatalogSnapshot>;
-  // Live Gemini catalog — populated by /api/gemini-native/catalog. Null on
-  // cold-start or fetch failure; picker falls back to static GEMINI_MODELS.
-  geminiNativeCatalog: GeminiCatalogSnapshot | null;
   // Live Cursor catalog — populated by /api/cursor/catalog. Null on cold-start
   // or fetch failure; picker falls back to a static `auto`-only seed.
   cursorCatalog: CursorCatalogSnapshot | null;
@@ -759,7 +756,6 @@ export interface AppState {
   setClaudeNativeCatalog: (snap: ClaudeCatalogSnapshot | null) => void;
   setCodexCatalog: (snap: CodexCatalogSnapshot | null) => void;
   setCodexCatalogForAccount: (accountRef: string, snap: CodexCatalogSnapshot) => void;
-  setGeminiNativeCatalog: (snap: GeminiCatalogSnapshot | null) => void;
   setCursorCatalog: (snap: CursorCatalogSnapshot | null) => void;
   setSettings: (s: ArcoSettings) => void;
   // Themes Phase 2 — applies theme locally (optimistic), patches /api/settings,

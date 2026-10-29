@@ -63,7 +63,6 @@ ensureLiveTokens as ensureClaudeNativeTokens,
 } from '../providers/claude-native/oauth.js';
 import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
 import { resolveProviderAccount, ensureCodexAccountHome } from '../providerAccounts.js';
-import { getCatalog as getGeminiNativeCatalog } from '../providers/gemini-native/catalog.js';
 import { getCursorCatalog } from '../providers/cursor/catalog.js';
 import { probeLlamacppLive } from '../providers/llamacpp.js';
 import { llamacppManager } from '../providers/llamacppManager.js';
@@ -1158,9 +1157,9 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
       const raw = url.searchParams.get('provider') || '';
-      if (raw !== 'claude' && raw !== 'gemini' && raw !== 'codex' && raw !== 'ollama') {
+      if (raw !== 'claude' && raw !== 'codex' && raw !== 'ollama') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'provider must be claude|gemini|codex|ollama' }));
+        res.end(JSON.stringify({ error: 'provider must be claude|codex|ollama' }));
         return;
       }
       const provider = raw as ProviderName;
@@ -1562,28 +1561,6 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Live Gemini model catalog — fetched from generativelanguage.googleapis.com
-  // using OAuth Bearer tokens piggybacked from ~/.gemini/oauth_creds.json.
-  // Same shape contract as the Claude/Codex endpoints: ?force=1 bypasses cache.
-  if (req.url?.startsWith('/api/gemini-native/catalog') && req.method === 'GET') {
-    try {
-      const url = new URL(req.url, `http://localhost:${PORT}`);
-      const force = url.searchParams.get('force') === '1';
-      const snapshot = await getGeminiNativeCatalog(force);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(snapshot));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: message }));
-    }
-    return;
-  }
-
-  // Live Cursor model catalog — short-lived `cursor-agent models` spawn parses
-  // the ~155-row text list once an hour. Same shape contract as the other
-  // catalog endpoints: ?force=1 bypasses the cache. UI picker uses this to
-  // surface the full Cursor model roster (Grok / GPT-5.x / Claude / Gemini / …).
   if (req.url?.startsWith('/api/cursor/catalog') && req.method === 'GET') {
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -1705,8 +1682,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: retired }));
         return;
       }
-      const provider = raw === 'gemini' ? 'gemini'
-        : raw === 'github' ? 'github'
+      const provider = raw === 'github' ? 'github'
         : raw === 'ollama' ? 'ollama'
         : raw === 'codex' ? 'codex'
         : raw === 'cursor' ? 'cursor'
@@ -1746,7 +1722,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: retired }));
         return;
       }
-      const provider: CliProvider = providerParam === 'gemini' || providerParam === 'codex'
+      const provider: CliProvider = providerParam === 'codex'
         ? providerParam
         : 'claude';
       const result = await runCliUpdate(deps.getCapabilities(), provider);

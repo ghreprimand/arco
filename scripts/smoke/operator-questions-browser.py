@@ -12,7 +12,7 @@ async def main():
    path=urlparse(route.request.url).path
    data={'files':[],'entries':[],'workflows':[],'projects':[],'clusters':[],'skills':[],'plans':[],'items':[],'tasks':[],'sessions':[],'messages':[],'chats':[]}
    if path=='/api/settings':data={'themeId':'arch','enabledProviders':{'codex':True}}
-   elif path=='/api/auth-status':data={n:{'loggedIn':n=='codex','installed':True,'cliInstalled':True} for n in ['claude','codex','cursor','gemini','ollama','llamacpp','lmstudio','strata','github']}
+   elif path=='/api/auth-status':data={n:{'loggedIn':n=='codex','installed':True,'cliInstalled':True} for n in ['claude','codex','cursor','ollama','llamacpp','lmstudio','strata','github']}
    elif path=='/api/capabilities':data={'efforts':['low','medium','high'],'models':['gpt-5.5'],'cliVersion':'unknown','codexVersion':'0.162.1'}
    elif path.endswith('/catalog'):data={'models':[]}
    elif path.endswith('/usage'):data={'available':False}

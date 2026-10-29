@@ -1,21 +1,3 @@
-// Agent-instruction-file tune-up prompt — the "compact this CLAUDE.md" primitive.
-//
-// CLAUDE.md / AGENTS.md / GEMINI.md files accrete cruft: agents treat them as a
-// work log, dated session entries pile up, resolved TODOs linger, and the same
-// rule gets restated three ways. Over a long-lived project the file balloons
-// into tens of thousands of tokens that are re-read on EVERY turn of EVERY
-// worker — a fixed per-turn tax. This primitive runs ONE bounded, READ-ONLY
-// turn that proposes a compacted version; the operator reviews a diff and
-// accepts, at which point the server backs up the original and writes.
-//
-// Fence note (CLAUDE.md "hard fences" → "LLM-mutated instructions across
-// sessions"): the rejected pattern is AUTONOMOUS, trace-derived, silent
-// mutation (`headroom learn`). This is the opposite: operator-initiated (button
-// press), source is the file itself (not session traces), the agent only
-// PROPOSES, the operator reviews the diff and approves, the write is backed up
-// and reversible. That maps onto the documented "operator-reviewed" narrowing
-// (docs/PROVIDERS.md) and clears the four-question test - same posture as
-// runDocEdit.ts.
 
 // The tune-up worker's entire output is the replacement file content, optionally
 // followed by a notes block after this sentinel. The server splits on the
@@ -42,7 +24,6 @@ export function instructionFileKind(baseName: string): string {
   const lower = baseName.toLowerCase();
   if (lower === 'claude.md') return 'Claude';
   if (lower === 'agents.md') return 'Codex / GPT';
-  if (lower === 'gemini.md') return 'Gemini';
   return 'agent';
 }
 

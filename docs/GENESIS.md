@@ -90,7 +90,7 @@ actions through the ordinary `genesis_seed_update` path. Covered by `npm run smo
 store (`.arco/workflows/<wfid>`) scratch->real and re-init it (recovering the seq from the moved
 `events.jsonl`, so the **transcript + monotonic seq carry over**) -> repoint `workflowCwds` +
 `config.workingDirectory` -> write the seed docs (`README.md`, `SPEC.md`, `TODO.md`), `.gitignore`,
-and local gitignored agent notes (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) with the Appendix-D
+and local gitignored agent notes (`AGENTS.md`, `CLAUDE.md`) with the Appendix-D
 hardened writer -> `git init` + initial commit -> optional `gh repo create` (best-effort,
 non-fatal) -> seed + attach a plan -> rename the workflow to the final seed title -> rewrite
 `meta.json` (real cwd + seed mirror + planId) -> remove the scratch dir -> broadcast

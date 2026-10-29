@@ -2,7 +2,7 @@
 
 **Chat tab** - Projectless conversation (`kind:'chat'`, reaching workers as
 `interactionMode:'chat'`), with a lightweight composer and no Agent workbench.
-Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata; not Gemini.
+Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata.
 The per-tab **web toggle** (`chatWebAccess`, Claude/Codex/Ollama/Strata; decided by
 `chatWebArmed()`) adds web search + fetch and nothing else. Saved chats reopen via
 PAST CHATS. Not the same as Claude Native's `chat` tool posture. See [CHAT.md](CHAT.md).
@@ -84,7 +84,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Efficiency level** - Per-cluster operator knob that fights cluster over-review loops. `ClusterEfficiencyLevel = 'thorough' | 'balanced' | 'lean'` (default `'thorough'`; `shared/src/protocol/clusters.ts`). `server/src/clusterEfficiency.ts` is the single source of truth: each level is a DETERMINISTIC bundle of three effects - a restraint doctrine injected into member system prompts, a smaller peer-send budget (15 -> 8 -> 4, `sendBudgetFor`), and a softer mailbox-notice variant (`mailboxNoticeVariantFor`). Set via the cluster header chip or the `+ NEW` creator; takes effect next turn; reversible. See [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) section13.
 
-**Effort** - Reasoning-budget setting. Provider-specific: Claude has `low / medium / high / xhigh / max` (model-gated; ultracode forces `xhigh`); Codex is catalog-driven per model - values pass through 1:1 and clamp to the model's highest supported level (GPT-6 Astra / Sol reach `max` / `ultra`, Luna `max`); Cursor bakes effort into the model id; Ollama offers `low` (thinking off, `/no_think`) plus each model's advertised thinking levels (`/api/show` `thinking.values`; `shared/src/protocol/ollamaThinking.ts`); llama.cpp / LM Studio offer `low` / `high`, where `low` injects `/no_think`; Gemini have none.
+**Effort** - Reasoning-budget setting. Provider-specific: Claude has `low / medium / high / xhigh / max` (model-gated; ultracode forces `xhigh`); Codex is catalog-driven per model - values pass through 1:1 and clamp to the model's highest supported level (GPT-6 Astra / Sol reach `max` / `ultra`, Luna `max`); Cursor bakes effort into the model id; Ollama offers `low` (thinking off, `/no_think`) plus each model's advertised thinking levels (`/api/show` `thinking.values`; `shared/src/protocol/ollamaThinking.ts`); llama.cpp / LM Studio offer `low` / `high`, where `low` injects `/no_think`.
 
 **events.jsonl** - Per-workflow append-only NDJSON log at `<cwd>/.arco/workflows/<wfid>/events.jsonl`. Every server message broadcast to observers gets stamped with a monotonic seq and persisted here. The server-side source of truth for replay on reconnect.
 
@@ -114,7 +114,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Manager** - Synonym for `WorkerManager` instance. Per-workflow process supervisor. Tracks live workers, runs the activity probe, kills the tree on cancel.
 
-**MD tune-up** (`md_tuneup_*`) - Operator-triggered primitive that PROPOSES a compacted rewrite of a project agent-instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md` / `GEMINI.md`; `INSTRUCTION_FILE_NAMES`). Opened from the composer `TUNE MD` button: `md_tuneup_candidates_request` lists the repo's instruction files, the operator picks one (or `'auto'` -> the file matching the tab's primary provider), and `md_tuneup_request` fires ONE bounded, READ-ONLY worker turn (no `Write` tool). The proposal returns as `md_tuneup_proposed`; the client previews an original-vs-proposed diff, and on Accept (`md_tuneup_accept`) the server backs the original up to `.arco/md-backups/<name>.<ts>.bak` before writing through the `resolveWithinCwd`-guarded path (reversible). Operator-reviewed - the opposite of the rejected autonomous `headroom learn` pattern. `server/src/primitives/runMdTuneup.ts`; protocol `shared/src/protocol/mdTuneup.ts`. See **Primitive**.
+**MD tune-up** (`md_tuneup_*`) - Operator-triggered primitive that PROPOSES a compacted rewrite of a project agent-instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md`; `INSTRUCTION_FILE_NAMES`). Opened from the composer `TUNE MD` button: `md_tuneup_candidates_request` lists the repo's instruction files, the operator picks one (or `'auto'` -> the file matching the tab's primary provider), and `md_tuneup_request` fires ONE bounded, READ-ONLY worker turn (no `Write` tool). The proposal returns as `md_tuneup_proposed`; the client previews an original-vs-proposed diff, and on Accept (`md_tuneup_accept`) the server backs the original up to `.arco/md-backups/<name>.<ts>.bak` before writing through the `resolveWithinCwd`-guarded path (reversible). Operator-reviewed - the opposite of the rejected autonomous `headroom learn` pattern. `server/src/primitives/runMdTuneup.ts`; protocol `shared/src/protocol/mdTuneup.ts`. See **Primitive**.
 
 **Member** - A workflow that belongs to a cluster. Each member is otherwise a normal workflow (own events.jsonl, own meta.json, own primary turn machinery); the cluster registers `peer_*` tools into the member's tool list and notifies the member of pending mailbox messages via a pre-turn system-prompt notice (the content itself is only delivered when the worker calls `peer_read`).
 
@@ -158,7 +158,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Project-trust** - DD7 gate (`server/src/projectTrust.ts`) closing the cloned-repo prompt-injection vector. A repo's project-local surfaces that Arco would otherwise fold into the agent unread - `CLAUDE.md`, project `.arco/skills/`, project `.arco/settings.json`, project `/prompt` templates - stay SUPPRESSED until the operator vouches for the repo. `decideTrust()` is a pure read over a flat `trust.json` (nearest-ancestor wins); a two-pass bootstrap resolves trust from USER/GLOBAL scope only, so a cloned repo can't self-grant via its own `defaultProjectTrust`. The decision + suppressed-resource list land in events.jsonl; flipping/deleting the `trust.json` line reverses it.
 
-**Provider** - One of the AI back-ends Arco talks to: Claude, Codex, Gemini, Ollama, llama.cpp, LM Studio, Cursor. Each has a module under `server/src/providers/`. (`ProviderName` in `shared/src/protocol/providers.ts`.)
+**Provider** - One of the AI back-ends Arco talks to: Claude, Codex, Ollama, llama.cpp, LM Studio, Cursor. Each has a module under `server/src/providers/`. (`ProviderName` in `shared/src/protocol/providers.ts`.)
 
 **Plan-scoped review** - A review whose subject is a plan body instead of workflow transcript. Trigger surfaces in the Plan tab pair REVIEW (critique mode by default - audit the plan structure) with VERIFY (verify mode + INCLUDE GIT DIFF on by default - audit the claimed-done work against the changes) at both whole-plan and per-section granularity: `REVIEW PLAN` / `VERIFY WORK` (top), `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` (per section), plus `CUSTOM REVIEW` (operator-selected items, verify mode). Either button's mode + git-diff stay editable in the resulting dialog. VERIFY mode filters items to `[x]` only and tells the reviewer to cross-check claims against the code; CRITIQUE mode shows everything with check state preserved and asks for plan-level evaluation. Implemented via `kind: 'plan-whole' | 'plan-phase' | 'plan-items'` on `ReviewContextRef`. See [`PRIMITIVES.md section Plan-scoped review`](PRIMITIVES.md).
 
@@ -198,7 +198,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Resume** - Two senses:
 - **Resume picker** - UI surface (`WorkflowCreator`) listing native CLI sessions for a cwd; operator picks one to continue inside Arco
-- **CLI resume** - Provider-specific: Claude `--resume <uuid>`, Codex `codex exec resume <uuid>` (app-server `thread/resume`), Gemini `-r <index>` re-resolved from the stored UUID each spawn, Cursor ACP `session/load`. Claude Native and the local HTTP providers replay from `events.jsonl` instead
+- **CLI resume** - Provider-specific: Claude `--resume <uuid>`, Codex `codex exec resume <uuid>` (app-server `thread/resume`) `-r <index>` re-resolved from the stored UUID each spawn, Cursor ACP `session/load`. Claude Native and the local HTTP providers replay from `events.jsonl` instead
 
 **Review** - Two senses:
 1. **(Primitive)** One of the three operator primitives. Spawns an ephemeral reviewer worker (any provider/model) over a turn slice; output is a read-only artifact in the right-pane Review tab. See [`PRIMITIVES.md`](PRIMITIVES.md).
@@ -397,7 +397,6 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Goal run** - Per-tab operator-armed north-star auto-continue (`WorkflowConfig.goalRun`, default OFF; `/goal run <n>`, n <= 500, default 10). After each settled turn `maybeGoalRun` dispatches one deterministic continuation turn until the budget is spent or a stop trips (turn error, throttle, context >=92%, north star cleared, optional token ceiling). Busy/queued is a skip, not a stop. Every tick is a real turn + `goal_run_state`; the `RUN n/N` chip stops it. Counters are not persisted - a restart ends the run. A model signal may shorten a run, never extend one. `server/src/goalRun.ts`; [`TASK_LEDGER.md`](TASK_LEDGER.md).
 
-**Gemini Native (stub)** - Planned in-process Gemini worker (`docs/PROVIDERS.md`). NOT shipped: only `server/src/providers/gemini-native/auth.ts` + `catalog.ts` exist (the catalog is prefetched for the picker); there is no worker and no `geminiTransport` toggle. Gemini today runs only through the `cli` transport.
 
 
 **MoE / routed expert** - Mixture of experts: each token selects a subset of

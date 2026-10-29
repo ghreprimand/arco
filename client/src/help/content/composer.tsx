@@ -285,7 +285,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Opens the agent-instruction tune-up flow for files like{' '}
-        <C>CLAUDE.md</C>, <C>AGENTS.md</C>, and <C>GEMINI.md</C>. Arco
+        <C>CLAUDE.md</C>, <C>AGENTS.md</C>,. Arco
         proposes a tightened diff; you approve it, and the original is backed
         up before writing.
       </p>

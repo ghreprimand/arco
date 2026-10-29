@@ -92,10 +92,6 @@ After the three sections, if (and only if) you raised specific file-anchored con
 
 Rules for the block: it is a JSON array; \`severity\` is one of "info" | "warning" | "error"; \`line\` is a positive integer; \`file\` is repo-relative. Include only concerns you can anchor to a real file and line. Omit the block entirely if you have no file-anchored findings — the prose above is what matters; the block is an optional convenience.`;
 
-// Local-reviewer addendum. Frontier reviewers (Claude/Codex/Gemini) tend to
-// pull files via tools by default; smaller local models opine purely on the
-// diff text in the prompt and miss orphan files, seed-data drift, and broken
-// wiring. The checklist nudges them to verify against the live tree.
 const LOCAL_REVIEWER_ADDENDUM = `
 
 ---

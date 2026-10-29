@@ -46,7 +46,7 @@ Sections: 22.
 | `projects` | Projects | Project locations and bookmarks | Global | Project locations with folded Add/Edit and duplicate/alias rename feedback; Bookmarked folders for optional Bookmark folder/Remove bookmark controls; Advanced folder options for independent browsing defaults; non-destructive multi-location Run setup again |
 | `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
-| `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub), Claude Native authentication, Codex accounts and profiles, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
+| `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub), Claude Native authentication, Codex accounts and profiles, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
 | `llamacpp-catalog` | Providers and models | llama.cpp model registry | Global | llama.cpp registry editor and preload (shown when llama.cpp is enabled and installed) |
 | `catalog` | Providers and models | Model catalog | Global | Model catalog editor |
 | `auto-handoff-defaults` | Agents and clusters | Auto-handoff defaults | Global, for new workflows | Auto-handoff warn and handoff thresholds, summarizer |
@@ -56,7 +56,7 @@ Sections: 22.
 | `voice-setup` | Voice | Voice setup | Global | Local speech status, install log, microphone test, test phrase, model notices |
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
-| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, Check for new releases, Updating Arco link; Claude, Gemini, Codex CLI and Ollama daemon versions |
+| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions |
 
 Requests that name a control inside a section open that section and focus the
 control: `endpoint-discovery`, `ollama`, `lmstudio`, `strata-endpoint`,

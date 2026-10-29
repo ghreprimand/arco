@@ -32,7 +32,7 @@ import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 //   - STUB: Open summary (F2 — summaryRef is null → "no summary yet"); Reference
 //     in current tab (D1 context-refs — DEFERRED, disabled with a TODO tooltip).
 
-const PROVIDERS: ProviderName[] = ['claude', 'codex', 'gemini', 'ollama', 'llamacpp'];
+const PROVIDERS: ProviderName[] = ['claude', 'codex',  'ollama', 'llamacpp'];
 
 interface Props {
   onClose: () => void;

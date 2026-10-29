@@ -1,18 +1,6 @@
 import path from 'node:path';
 
-// Hard safety caps applied to every worker, regardless of provider.
-// These exist to convert "system can hard-lock from a runaway scan" into
-// "worker gets terminated when it gets stupid" — see the 2026-04-16 incident
-// where a Gemini worker ballooned 63GB and OOM'd the operator's box.
 
-// Per-worker text-output cap. Anything beyond this is dropped from
-// `worker.output` and the worker is force-finished with a truncation notice.
-// The 2026-04-16 Gemini incident was a 63GB *RSS* runaway — a memory issue
-// the RSS_KILL guard now handles directly. The text cap was doing collateral
-// safety work; 50MB gives Native (1M-context) and long agentic Codex/exec
-// runs comfortable headroom while still catching "model went berserk
-// printing forever." Reports beyond this should write to the artifacts dir
-// (the safety footer nudges this). Override via ARCO_MAX_WORKER_OUTPUT_BYTES.
 function parseOutputCapEnv(): number {
   const DEFAULT_CAP = 50 * 1024 * 1024;
   const raw = process.env.ARCO_MAX_WORKER_OUTPUT_BYTES;
@@ -35,21 +23,6 @@ export const OUTPUT_TRUNCATION_NOTICE =
   'For reports larger than this, instruct the worker to write the full ' +
   'output to a markdown file in the workflow artifacts directory and return only a brief summary + path.]';
 
-// Tree-RSS auto-kill threshold, polled by WorkerManager via the /proc
-// activity probe. Any worker whose process tree (worker + descendants)
-// exceeds this gets killed and surfaced as a worker_error.
-//
-// 32GB default (raised from 16GB on 2026-04-28 after the cap tripped on a
-// legitimate workload with 48 subprocesses on a 96GB-RAM box). Earlier history:
-// 4GB → 16GB on 2026-04-22 after the 2026-04-16 Gemini runaway (63GB scan).
-// 32GB still catches that scenario well before swap-death on ≥64GB systems
-// while leaving headroom for fan-out workloads (many concurrent subprocesses,
-// Clang ThinLTO link phases, large `grep -r`, kernel compiles at high `-j`).
-// Systems with <64GB RAM should shrink this via ARCO_RSS_KILL_BYTES.
-// Workflows doing known-huge work (kernel build, LTO link) can opt out
-// entirely by setting `disableRssGuard: true` in the workflow's meta.json —
-// skips only the tree-RSS kill, NOT the 5MB output cap or process-tree kill
-// on cancel.
 function parseRssEnv(): number {
   const raw = process.env.ARCO_RSS_KILL_BYTES;
   if (!raw) return 32 * 1024 * 1024 * 1024;

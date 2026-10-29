@@ -26,7 +26,7 @@ export interface QuotaState {
   sourceOfTruth: ThrottleSource;
 }
 
-const PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek'];
+const PROVIDERS: ProviderName[] = ['claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 
 function defaultState(): QuotaState {
   return { throttled: false, sourceOfTruth: 'default-available' };
@@ -152,14 +152,6 @@ export interface ReviewerFallback {
 }
 
 export function crossFamilyFallback(primaryModel: string): ReviewerFallback | null {
-  // Claude → Gemini
-  if (primaryModel === 'haiku') return { model: 'gemini-3-flash-preview', provider: 'gemini' };
-  if (primaryModel === 'sonnet') return { model: 'gemini-3.1-pro-preview', provider: 'gemini' };
-  if (primaryModel === 'opus' || primaryModel === 'opus[1m]') return { model: 'gemini-3.1-pro-preview', provider: 'gemini' };
-  // Gemini → Claude (except pro which falls back within family per §5.4)
-  if (primaryModel === 'gemini-3.1-flash-lite-preview') return { model: 'sonnet', provider: 'claude' };
-  if (primaryModel === 'gemini-3-flash-preview') return { model: 'opus', provider: 'claude' };
-  if (primaryModel === 'gemini-3.1-pro-preview') return { model: 'gemini-3.1-pro-preview', provider: 'gemini' };
   // Codex → Claude
   if (primaryModel === 'gpt-5.4-mini') return { model: 'opus', provider: 'claude' };
   if (primaryModel === 'gpt-5.3-codex') return { model: 'opus', provider: 'claude' };

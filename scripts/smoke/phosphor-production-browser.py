@@ -27,7 +27,7 @@ async def main():
     patch=req.post_data_json; writes.append(patch); settings={**settings, **patch}
    data={}
    if path == '/api/settings': data=settings
-   elif path == '/api/auth-status': data={name:{'loggedIn':name=='claude','installed':True,'cliInstalled':True} for name in ['claude','gemini','codex','cursor','ollama','llamacpp','lmstudio','strata','deepseek','github']}
+   elif path == '/api/auth-status': data={name:{'loggedIn':name=='claude','installed':True,'cliInstalled':True} for name in ['claude','codex','cursor','ollama','llamacpp','lmstudio','strata','deepseek','github']}
    elif path == '/api/capabilities': data={'efforts':['low','medium','high'],'models':['claude-opus-4-6'],'cliVersion':'fixture'}
    elif path == '/api/usage': data={'available':False}
    elif path.endswith('/catalog'): data={'models':[]}

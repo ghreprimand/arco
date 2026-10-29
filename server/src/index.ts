@@ -66,7 +66,6 @@ setClaudeNativeWorkflowEventBroadcast,
 debugSeedNativeCompactProbe,
 } from './providers/claude-native/index.js';
 import type { PlanBroadcast,TaskSpawnHandle } from './providers/claude-native/worker.js';
-import { scheduleGeminiNativeCatalogPrefetch } from './providers/gemini-native/catalog.js';
 import { scheduleCursorCatalogPrefetch } from './providers/cursor/catalog.js';
 import { llamacppManager } from './providers/llamacppManager.js';
 import { lspManager } from './lsp/client.js';
@@ -356,12 +355,6 @@ try {
   console.warn('[arco] CLI change detection failed:', err instanceof Error ? err.message : err);
 }
 
-// Periodic background re-probe. The three primary-capable CLIs (Claude,
-// Gemini, Codex) release updates often; one-shot boot detection misses
-// upgrades installed while Arco is long-lived. Every 4h we re-run
-// probeCapabilities + detectCliChanges, broadcast the refreshed
-// capabilities + any newly-detected changes to every open client, and
-// merge into cliChanges so future reconnects see them too.
 async function periodicCapabilityProbe(): Promise<void> {
   try {
     const next = await probeCapabilities();
@@ -369,13 +362,11 @@ async function periodicCapabilityProbe(): Promise<void> {
     const lvPrev = capabilities.latestVersions ?? {};
     const versionsChanged =
       next.cliVersion !== capabilities.cliVersion ||
-      next.geminiVersion !== capabilities.geminiVersion ||
       next.codexVersion !== capabilities.codexVersion ||
       next.cursorVersion !== capabilities.cursorVersion ||
       next.strataVersion !== capabilities.strataVersion ||
       next.xolotlRevision !== capabilities.xolotlRevision ||
       lvNext.claude !== lvPrev.claude ||
-      lvNext.gemini !== lvPrev.gemini ||
       lvNext.codex !== lvPrev.codex ||
       lvNext.ollama !== lvPrev.ollama ||
       lvNext.strata !== lvPrev.strata ||
@@ -2202,7 +2193,6 @@ httpServer.listen(PORT, HOST, () => {
   }
   ensureCatalog().catch((err) => console.error('[arco] ensureCatalog:', err));
   ensureLlamacppCatalog().catch((err) => console.error('[arco] ensureLlamacppCatalog:', err));
-  scheduleGeminiNativeCatalogPrefetch();
   scheduleCursorCatalogPrefetch();
   readSettings().catch((err) => console.error('[arco] initial readSettings failed:', err));
   // docs/PROTOCOL_CLUSTER.md - configure the idle-nudger detector with

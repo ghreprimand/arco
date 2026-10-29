@@ -95,8 +95,6 @@ async function deleteProviderSessions(
         const p = await findCodexRolloutPath(s.sessionId).catch(() => null);
         if (p) await unlink(p).then(() => removed.push(`codex rollout ${s.sessionId.slice(0, 8)}`)).catch(() => {});
       }
-      // gemini raw-session deletion isn't wired in v1 (no stable locator); the
-      // Arco-side data is still fully purged. Noted in HTTP_API / PERSISTENCE.
     } catch {
       /* best-effort per session */
     }

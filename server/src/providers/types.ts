@@ -51,9 +51,6 @@ export interface ProviderProcess extends EventEmitter {
   readonly id: string;
   readonly status: 'spawning' | 'running' | 'completed' | 'failed';
   readonly output: string;
-  // OS process id when the provider runs as a subprocess (claude, gemini,
-  // codex). Undefined for non-subprocess providers like Ollama (HTTP-only).
-  // Used by processActivity to probe /proc/<pid>/stat.
   readonly pid?: number;
   spawn(prompt: string): void;
   kill(): void;

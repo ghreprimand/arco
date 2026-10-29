@@ -1953,10 +1953,6 @@ export async function handleUserMessage(
   const efficiencyConfigProtection: 'on' | 'off' = claudeTransport === 'native'
     ? (wf.config.efficiencyConfigProtection ?? 'on')
     : 'off';
-  // docs/PROVIDERS.md - opt-in sandbox tool surface. Native-only
-  // (the tools are registered into the in-process Anthropic tools[] array;
-  // CLI / Codex / Gemini don't surface a per-turn tools[] we control).
-  // Default 'off' so the toggle stays operator-opted-in.
   const efficiencySandbox: 'off' | 'on' = claudeTransport === 'native' && !isolatedMember
     ? (wf.config.efficiencySandbox ?? 'off')
     : 'off';
@@ -2493,18 +2489,6 @@ export async function handleUserMessage(
         }
       }
 
-      // docs/ARCHITECTURE.md - Genesis staged-ideation system block. A
-      // from-nothing genesis workflow runs its staged conversation in a hidden
-      // scratch dir (~/.arco/genesis/<wfid>) until `genesis_scaffold` creates
-      // the real project and rebinds the cwd. While the workflow is still in that
-      // scratch dir we fold the staged framing into the turn the same way cluster
-      // hints do — finalSystemPrompt for ollama/llamacpp, finalAppend (a system
-      // block on Native, --append-system-prompt on CLI Claude/Codex, system
-      // instruction on Gemini) otherwise. Once scaffolded the cwd is the real
-      // project dir, this condition is false, and the seed docs + CLAUDE.md carry
-      // the context (M3 Creative-mode adds its own in-workflow path). Genesis and
-      // cluster membership are mutually exclusive (a scratch-dir genesis is not a
-      // cluster member), so this never double-injects with the block above.
       const genesisSeed = wf.config.genesisSeed;
       // Separator-agnostic scratch-dir check (POSIX primary; tolerate Windows).
       const inGenesisScratch = !!genesisSeed && /[\\/]\.arco[\\/]genesis[\\/]/.test(cwd);
@@ -2799,12 +2783,6 @@ export async function handleUserMessage(
         break;
       }
 
-      // Phase 2 — emit context estimate after each settled turn (uses
-      // per-session calibration when available, byte-count otherwise).
-      // Fire-and-forget; a missing JSONL (Gemini/Codex/Ollama) is a silent no-op.
-      // Skip for Native — separate branch below uses the SDK-reported
-      // lastPromptTokens (no JSONL exists, and a stale CLI JSONL from a prior
-      // CLI session on this workflow would otherwise win the race).
       if (wf.primary.provider === 'claude' && wf.primarySessionId && claudeTransport !== 'native') {
         const sid = wf.primarySessionId;
         estimateContextFill(cwd, sid, wf.primary.model, wf.calibration).then((est) => {

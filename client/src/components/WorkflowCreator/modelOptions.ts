@@ -35,15 +35,6 @@ export function deriveDisplayNames(members: MemberDraft[]): string[] {
 export const CLAUDE_MODELS: { value: ModelName; label: string }[] = [
   ...CLAUDE_MODEL_VALUES.map((value) => ({ value, label: CLAUDE_MODEL_LABELS[value] ?? value.toUpperCase() })),
 ];
-// 3.x preview tier first (current generation); 2.5 family stays reachable
-// via the catalog or by the orchestrator picking explicitly when 3.x is
-// capacity-throttled. UI picker shows the 3.x tiers operators most commonly
-// want for orchestrator-mode work.
-export const GEMINI_MODELS_UI: { value: ModelName; label: string }[] = [
-  { value: 'gemini-3.1-flash-lite-preview', label: 'F-LITE 3.1' },
-  { value: 'gemini-3-flash-preview', label: 'FLASH 3' },
-  { value: 'gemini-3.1-pro-preview', label: 'PRO 3.1' },
-];
 // Static fallback for cold-start (codexCatalog null). Live picker is
 // constructed inside the component from `codexCatalog`.
 export const CODEX_MODELS_UI_FALLBACK: { value: ModelName; label: string }[] = [

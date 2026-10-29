@@ -157,7 +157,6 @@ Unified list of native CLI sessions for the given cwd. Walks:
 
 - **Claude** - `~/.claude/projects/<cwd-hash>/*.jsonl`
 - **Codex** - `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl` (last 30 days)
-- **Gemini** - `~/.gemini/tmp/*/.project_root` (matches cwd) -> `chats/session-*.json`
 
 **Response:**
 ```ts
@@ -180,7 +179,7 @@ Unified list of native CLI sessions for the given cwd. Walks:
 
 `SessionInfo` in `shared/src/protocol/workflows.ts`. Any error degrades to `200 { sessions: [] }`.
 
-Claimed sessions render with a `★` and the workflow name; selecting one reuses its `workflowId`. Unclaimed sessions get a fresh wfid pinned to the native session UUID. Gemini's `-r` flag takes an *index*, not a UUID - the provider re-resolves the UUID against `gemini --list-sessions` immediately before every spawn (indexes shift when sessions are added or deleted).
+Claimed sessions render with a `★` and the workflow name; selecting one reuses its `workflowId`. Unclaimed sessions get a fresh wfid pinned to the native session UUID.
 
 ### `GET /api/session-index?path=<cwd>` The resume-picker's session-index read. Awaits a backfill (`backfillSessionIndex`) first so the file is authoritative even for workflows that haven't taken a turn this run, then returns the on-disk projection. Always answers **200** with `{ entries }` (degrades to `{ entries: [] }` on error - never a 500). Backed by `server/src/http/workflowDataRoutes.ts`.
 
@@ -274,7 +273,7 @@ Backward-paging read of a workflow's persisted `events.jsonl` (the HISTORY-tab "
 **Conversation purge - irreversible.** Deletes a workflow's on-disk footprint. Body: `{ "confirm": true }`; **`nuclear` additionally requires `{ "confirmName": "<workflow name>" }`** matching `meta.json`'s `name` (the secondary verification - else `400`).
 
 - `mode=arco` (default) - removes everything Arco wrote: the `<cwd>/.arco/workflows/<wfid>/` tree (events.jsonl, meta.json, artifacts, handoffs, sandbox, mcp-config), git (`refs/arco/<wfid>/*`, cwd repo + shadow store) + legacy tar checkpoints, the recall row (+ FTS), and the cluster mailbox. Leaves the provider's own session file.
-- `mode=nuclear` - all of the above **plus** the bound provider session files (`~/.claude/projects/.../<sessionId>.jsonl`, Codex rollout) from `meta.cliSessions`, so the conversation is gone from those CLIs too. (Gemini raw-session deletion is not wired in v1 - Arco-side data is still fully purged.)
+- `mode=nuclear` - all of the above **plus** the bound provider session files (`~/.claude/projects/.../<sessionId>.jsonl`, Codex rollout) from `meta.cliSessions`, so the conversation is gone from those CLIs too.
 - In-memory teardown (`handleRemoveWorkflow`) runs first, so purging an open tab is clean. Every deletion is best-effort/isolated; returns `{ ok, removed: string[], error? }`. Backed by `server/src/workflows/purgeWorkflow.ts`. Smoke: `npm run smoke:purge`.
 
 ### `GET /api/workflows/diff?wfid=<wfid>[&path=<cwd>][&from=<rev>][&to=<rev|WORKTREE>]`
@@ -403,7 +402,7 @@ Workbench Expansion A5. Content search over a workflow cwd via ripgrep. Backed b
 Workbench Expansion F1. The **machine-global, cross-cwd Recall index** - every workflow ever run, each with a non-blank title. Route: `server/src/http/recallRoutes.ts`; backed by the SQLite store `server/src/recall/index.ts` (`getRecallIndex.query`). Read-only deterministic projection of `meta.json` + `events.jsonl` - **no LLM**.
 
 - `project` - optional; filters to one project (a cwd basename).
-- `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) includes `cursor`; filtering by it currently returns everything.
+- `provider` - optional; one of `claude` / `codex` / `ollama` / `llamacpp` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) includes `cursor`; filtering by it currently returns everything.
 - Always answers **200** with `{ entries: RecallEntry[] }`, sorted `lastActiveAt` desc. An index read error degrades to `{ entries: [] }` (never a 500) so the client renders an empty Recall view, not an error.
 - `RecallEntry` (`shared/src/protocol/recall.ts`): `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef|null, tags[] }`. `summaryRef` populated once a summary exists; `tags`/`pinned`/links set via the F4 mutation routes below.
 
@@ -896,7 +895,7 @@ It does not read or restore snapshots.
 
 ### `POST /api/clusters`
 
-Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `ollama` / `llamacpp` / `cursor` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider (e.g. `gemini`) with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
+Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `ollama` / `llamacpp` / `cursor` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
 
 **Body:**
 ```ts
@@ -1241,13 +1240,12 @@ Returns the cached `Capabilities` snapshot (`shared/src/protocol/models.ts`):
   efforts: EffortLevel[],            // Claude CLI efforts
   models: ModelName[],               // Claude CLI models
   cliVersion: string,                // `claude --version`
-  geminiVersion?: string,
   codexVersion?: string,
   cursorVersion?: string,            // date-stamped, not npm - display-only, no latestVersions.cursor / self-update
   // Latest published upstream versions (npm for the npm-installed CLIs,
   // GitHub Releases for Ollama / llama.cpp). Best-effort: a failed probe leaves
   // the key undefined and the UI shows the installed version with no outdated mark.
-  latestVersions?: { claude?, gemini?, codex?, ollama?, llamacpp? },
+  latestVersions?: { claude? , codex?, ollama?, llamacpp? },
 }
 ```
 
@@ -1458,7 +1456,7 @@ Returns `ArcoSettings` (operator preferences):
   fontPackOverride?: FontPackId,     // optional typography override; substitutes display/body/code fonts on every theme
   operatorName?: string,             // replaces "OPERATOR" label in chat
   defaultWorkingDirectory?: string,  // abs path; cwd-browser root (Settings + WorkflowCreator). Unset -> ~/Projects -> $HOME. Not confined to $HOME.
-  acknowledgedCliVersions?: { claude?: string; gemini?: string; codex?: string },
+  acknowledgedCliVersions?: { claude?: string; codex?: string },
   //... full shape: ArcoSettings in shared/src/protocol/settings.ts
 }
 ```
@@ -1487,7 +1485,6 @@ Returns the per-provider auth snapshot:
 {
   claude: AuthStatus,
   codex: AuthStatus,
-  gemini: AuthStatus,
   ollama: AuthStatus,
   llamacpp: AuthStatus,
   deepseek: AuthStatus,             // prepared Exact/Light availability; live residency from /api/deepseek
@@ -1521,11 +1518,10 @@ Polled every 2 minutes by the client.
 
 ### `POST /api/auth-login?provider=<name>`
 
-Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `gemini` / `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `lmstudio`) to `claude`. Retired provider identifiers return 400 with an explicit unsupported message. Provider-specific behavior (`triggerAuthLogin`):
+Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `lmstudio`) to `claude`. Retired provider identifiers return 400 with an explicit unsupported message. Provider-specific behavior (`triggerAuthLogin`):
 
 - **Claude** - spawns `claude auth login --claudeai` detached; returns immediately (`started: true`) and the operator completes browser OAuth.
 - **Codex** - opens a terminal with `codex login`. An optional `account` query selects a Codex account profile.
-- **Gemini** - opens a terminal that runs `gemini` (which drives the Google OAuth flow). Terminal selection via `findTerminal`: `TERMINAL` env var -> `konsole` -> `gnome-terminal` -> `kgx` -> `kitty` -> `alacritty`.
 - **Cursor** - opens a terminal with `cursor-agent login`. An expired long-lived ACP process is retired when its exact sign-in response is observed; the operator resends after completing OAuth and Arco starts a fresh process.
 - **GitHub** - opens a terminal with `gh auth login`.
 - **Ollama** - no auth; returns `started: false` + a `manual` hint ("run `ollama serve` ..."). (Reachability is reported by `/api/auth-status`, not here.)
@@ -1675,10 +1671,6 @@ Codex model catalog, fetched via a short-lived `codex app-server` process and th
 ```
 
 Used two ways: (1) the picker reads it for the live model list (vs the compile-time `CODEX_MODELS`), and (2) `getCachedCodexModelCapabilities(modelId)` is consulted by `mapEffort` (`codex-appserver/worker.ts`) and `mapEffortToReasoning` (`codex.ts`) to downgrade to the highest *supported* effort for the active model - preventing silent 400s when an operator picks an effort the model doesn't advertise.
-
-### `GET /api/gemini-native/catalog[?force=1]`
-
-Gemini model catalog, fetched from `generativelanguage.googleapis.com` using OAuth Bearer tokens piggybacked from `~/.gemini/oauth_creds.json`. Same `?force=1`-bypasses-cache shape contract as the Claude / Codex catalog endpoints. **Unshipped stub** - the native Gemini transport is not wired; the route returns a catalog snapshot, but no native worker consumes it.
 
 ### `GET /api/cursor/catalog[?force=1]`
 
@@ -1882,18 +1874,6 @@ Returns the count of currently connected WS sessions. Used by the launcher to de
 ```ts
 { count: number }
 ```
-
-### `POST /api/check-updates?provider=<claude|gemini|codex>`
-
-Runs the update command for the specified CLI (any other value -> `claude`), then re-probes capabilities and broadcasts the refreshed snapshot via `capabilities_updated` to all WS clients. Claude uses its built-in self-updater (`claude update`). Gemini and Codex go through an **installability pre-flight** (`server/src/npmPlatformResolve.ts`): `latest`'s self-published platform build must exist for this platform-arch, else it walks back to the newest version that has one (why: npm exits 0 when an optional platform binary is missing, leaving a dead launcher during upstream's publish race). The resolved version is installed explicitly; an already-installed working version is a no-op. If the CLI doesn't run afterwards, one `--force` retry, then `updated:false` + `error`. A non-npm install (pipx, brew, curl-script) surfaces the npm error verbatim.
-
-Returns `{ provider, updated, previousVersion, currentVersion, capabilities, output, notice?, error? }` - `notice` is the operator-facing walk-back explanation. Body is empty. Ollama is intentionally not supported here - see `OllamaReleasesModal` for the click-target on the Ollama header card.
-
-### `POST /api/debug/throttle?provider=<claude|gemini|codex|ollama>[&resets=<epochMs>][&clear=1]`
-
-Manually marks a provider throttled (until `resets`, default now + 30 min) or, with `clear=1`, available. Dev aid for the QuotaBadge UI without waiting for a real rate-limit; not auth-gated. Body empty. Returns `{ ok: true, providers: <quota wire snapshot> }`; other providers -> `400`.
-
----
 
 ## GitHub proxy
 

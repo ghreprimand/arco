@@ -44,10 +44,6 @@ import type {
 // own "what did I do today" mental model when Arco runs on their machine.
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 
-// Providers whose token shape is Anthropic-style (input/cacheRead/cacheCreate
-// disjoint). Everything else is treated OpenAI-style (input is the full
-// prompt). Codex/Ollama/llamacpp/gemini all fall through to the OpenAI branch;
-// gemini/ollama/llamacpp report cacheRead 0 so their ratio is 0 regardless.
 function promptTokensFor(provider: ProviderName, ev: PrimaryTurnTokenUsageMessage): number {
   if (provider === 'claude') {
     return ev.input + ev.cacheRead + ev.cacheCreate;

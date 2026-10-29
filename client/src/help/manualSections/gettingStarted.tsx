@@ -12,7 +12,7 @@ export const gettingStarted: Section[] = [
           Arco is a <strong>multi-provider coding workbench</strong>. Agent tabs
           pair a primary agent with a project directory. <strong>Chat</strong> tabs
           offer general conversation without a project; clusters group project
-          agents. Providers include Claude, Codex, Cursor, Gemini, Ollama,
+          agents. Providers include Claude, Codex, Cursor, Ollama,
           llama.cpp, LM Studio, with mode-specific capabilities.
         </p>
         <p>
@@ -60,7 +60,7 @@ export const gettingStarted: Section[] = [
           <li>Durable conversation replay for saved workflows and chats. Incognito
             is the explicit memory-only exception; transient telemetry is not a durable event log.</li>
           <li>
-            Native session interop — Arco's Claude/Codex/Gemini sessions are real CLI
+            Native session interop — Arco's Claude/Codex sessions are real CLI
             sessions. You can resume them in a terminal, or pick up a terminal session in
             Arco.
           </li>
@@ -115,7 +115,7 @@ export const gettingStarted: Section[] = [
             instructions. The provider list can be searched and grouped by type.
           </li>
           <li>
-            For CLI auth (Claude, Gemini,
+            For CLI auth (Claude,
             Codex, Cursor, GitHub) Arco shows the headless login command with{' '}
             <Code>RUN IN TERMINAL</Code> / <Code>COPY</Code>; it runs on the Arco
             machine and prints a link or code to complete in a browser or device. Then
@@ -164,7 +164,7 @@ export const gettingStarted: Section[] = [
             from a Home project card pre-fills its folder.
           </li>
           <li>
-            <strong>Provider</strong> — Claude / Codex / Gemini / Cursor / Ollama /
+            <strong>Provider</strong> — Claude / Codex / Cursor / Ollama /
             llama.cpp / LM Studio / Strata. Disabled providers (or providers
             without auth) are greyed out.
           </li>
@@ -177,7 +177,7 @@ export const gettingStarted: Section[] = [
             (low/medium/high/xhigh/max). Codex is model/catalog-driven: GPT-6 Astra
             and Sol offer low/medium/high/xhigh/max/ultra, Luna stops at max; older models can expose fewer. Strata offers none/low/medium/high (none disables
             thinking, high maps to Qwen xhigh). Other local models expose low/high as a thinking
-            toggle, and Gemini has none.
+            toggle has none.
           </li>
           <li>
             <strong>Tuning</strong> — a collapsible band shown for Claude, Codex
@@ -192,7 +192,7 @@ export const gettingStarted: Section[] = [
           Below the form, the <strong>RESUME</strong> picker lists native CLI sessions
           already on disk for this cwd (
           <Code>~/.claude/projects/&lt;hash&gt;</Code>,{' '}
-          <Code>~/.codex/sessions/…</Code>, <Code>~/.gemini/tmp/…</Code>). Pick one to
+          <Code>~/.codex/sessions/…</Code>). Pick one to
           continue an existing conversation inside Arco.
         </p>
         <Note kind="tip">
@@ -252,7 +252,7 @@ export const gettingStarted: Section[] = [
             <Code>↓ EDIT</Code> to expand and override per-row:
             <ul>
               <li>Display name (optional)</li>
-              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; Gemini, LM Studio are not cluster members)</li>
+              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; LM Studio are not cluster members)</li>
               <li>Model + effort (per-provider pickers)</li>
               <li>Role — free-form ≤120 chars (e.g. "director", "tester")</li>
               <li>Tier — light / standard / heavy / unset</li>

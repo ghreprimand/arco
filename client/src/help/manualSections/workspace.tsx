@@ -23,7 +23,7 @@ export const workspace: Section[] = [
           </li>
           <li>
             <strong>Providers popover</strong> — folds the per-provider version
-            chips (Claude / Gemini / Codex, plus Ollama when the daemon is
+            chips (Claude / Codex, plus Ollama when the daemon is
             reachable, a llama.cpp build chip and a Cursor chip) behind one trigger whose dot turns warning-color when any
             provider has an update. Open it to see the grid; each chip compares
             against the upstream latest — npm registry for the three CLIs, GitHub
@@ -31,7 +31,7 @@ export const workspace: Section[] = [
             version is older than the upstream latest, the chip turns
             warning-color and the tooltip reads <Code>outdated: vX → vY</Code>.
             <br />
-            Clicking a Claude / Gemini / Codex chip runs the upstream installer
+            Clicking a Claude / Codex chip runs the upstream installer
             (<Code>claude update</Code> or a resolved npm package version) and
             flashes back as <Code>v… (latest)</Code> or <Code>→ vNEW</Code>.
             If an npm platform binary is not yet published, an older installable
@@ -49,7 +49,7 @@ export const workspace: Section[] = [
           <li>
             <strong>Live-status dots</strong> — when at least one provider is
             authed, a compact dot per provider (<Code>C</Code> Claude,{' '}
-            <Code>G</Code> Gemini, <Code>X</Code> Codex,{' '}
+            <Code>X</Code> Codex,{' '}
             <Code>R</Code> Cursor, <Code>O</Code> Ollama): green ● live, hollow ○
             idle, red ● down. Hover a dot for its usage detail — Claude&apos;s
             5-hour and weekly burn (polled every 3 minutes), Codex usage,

@@ -24,7 +24,7 @@ This foreground run serves the built client at <http://localhost:3001> and
 stops with Ctrl+C. Use `npm run dev` only for development; its watchers restart
 the server when `server/` or `shared/` changes and end in-flight agent turns.
 
-**Requirements.** Node.js 24 or newer (`package.json` `engines`), npm, Git, and a C/C++ toolchain with Python 3 for the `better-sqlite3` and `node-pty` native modules when no prebuilt binary matches the platform (Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows). Provider CLIs (`claude`, `codex`, `gemini`, `cursor-agent`, ...) are installed separately from their vendors.
+**Requirements.** Node.js 24 or newer (`package.json` `engines`), npm, Git, and a C/C++ toolchain with Python 3 for the `better-sqlite3` and `node-pty` native modules when no prebuilt binary matches the platform (Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows). Provider CLIs (`claude`, `codex`, `cursor-agent`, ...) are installed separately from their vendors.
 
 **`NODE_ENV=production` drops dev dependencies.** With `NODE_ENV=production` exported in the shell, `npm ci` and `npm install` skip `devDependencies` (TypeScript, Vite, tsx), so `npm run build` fails with missing type definitions. Install with `env -u NODE_ENV npm ci --include=dev` (POSIX) or `npm ci --include=dev` after clearing the variable (PowerShell: `Remove-Item Env:NODE_ENV`).
 
@@ -265,9 +265,8 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata native, and Ollama/Strata Chat web toggles) |
 | `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
 | `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the explicitly selected Camoufox Codex usage fallback and the local `WebFetch` stealth fallback |
-| `TERMINAL` | (auto-detect) | Preferred terminal for Gemini / Codex auth flows; falls back through `konsole`, `gnome-terminal`, `kgx`, `kitty`, `alacritty` |
+| `TERMINAL` | (auto-detect) | Preferred terminal for Codex auth flows; falls back through `konsole`, `gnome-terminal`, `kgx`, `kitty`, `alacritty` |
 | `OPENAI_API_KEY` | unset | Env-var auth fallback for Codex (subscription auth preferred); detected by the auth-status probe |
-| `GEMINI_API_KEY` | unset | Env-var auth fallback for Gemini (OAuth preferred); detected by the auth-status probe |
 | `ARCO_CLUSTER_IDLE_FLOOR_SECONDS` | `10` | Minimum idle time before the nudger fires; set to `1` when running cluster smoke tests |
 | `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS` | `20000` | Per-recipient cooldown for AUTO-PICKUP turns |
 | `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` | `10` | Cluster-wide rate cap for auto-turns |
@@ -438,7 +437,6 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Claude (Native transport) | `POST /api/auth/claude-native/login` (browser OAuth, callback at `localhost:53692`; falls back to manual paste if the port can't bind) | `GET /api/auth/claude-native` |
 | Codex | `codex login` | `codex login status` |
 | Codex usage probe | `POST /api/codex-usage-login` (terminal-launched flow) | `GET /api/codex-usage` |
-| Gemini | `gemini auth login` (interactive  - opens a terminal) | `~/.gemini/oauth_creds.json` exists |
 | GitHub | `gh auth login` | `gh auth status` |
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
 | Cursor (ACP) | `cursor-agent login` (interactive  - launches a terminal for the browser OAuth flow) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll (no `cursor-agent auth status` command exists) |
@@ -467,7 +465,7 @@ npm run dev
 
 On the Ollama host, the daemon must listen on an address reachable from the Tailnet. Ollama binds `127.0.0.1:11434` by default; set `OLLAMA_HOST` on that machine, then restart Ollama. Prefer binding to the host's Tailscale IP when practical, or use firewall/Tailscale ACLs if binding `0.0.0.0:11434`, because Ollama's HTTP API has no built-in auth.
 
-API-key fallbacks (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) work but Arco is designed around subscription auth. Claude Native does not honor `ANTHROPIC_API_KEY`  - it explicitly uses the OAuth `authToken` field on the SDK so the wire fingerprint matches Claude Code.
+API-key fallbacks (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) work but Arco is designed around subscription auth. Claude Native does not honor `ANTHROPIC_API_KEY`  - it explicitly uses the OAuth `authToken` field on the SDK so the wire fingerprint matches Claude Code.
 
 ---
 

@@ -65,7 +65,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
     effort !== currentConfig.primaryEffort ||
     accountChanged;
 
-  const availableProviders = (['claude', 'codex', 'cursor', 'gemini',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor',   'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
 
     if (!isProviderEnabled(p)) return false;
     if (p === 'ollama') return !!authStatus?.ollama?.loggedIn && ollamaModels.length > 0;
@@ -353,8 +353,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
         {(() => {
           const honored = effortsForModel(provider, model, claudeNativeCatalog, codexCatalog);
           if (honored.length === 0) {
-            const reason = provider === 'gemini' ? 'Gemini CLI has no effort flag.'
-              : provider === 'ollama' ? 'Local models have no effort flag.'
+            const reason = provider === 'ollama' ? 'Local models have no effort flag.'
               : provider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
               : 'Provider does not honor effort.';
             return (

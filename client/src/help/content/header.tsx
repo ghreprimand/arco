@@ -239,7 +239,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Live version of each detected provider CLI (Claude / Gemini / Codex) plus
+          Live version of each detected provider CLI (Claude / Codex) plus
           Ollama and Strata chips when their servers are reachable, a llama.cpp build chip, and
           a Cursor chip, shown in the Providers popover. Each chip compares against the upstream latest (npm registry
           for the three CLIs, GitHub Releases for Ollama and Strata, refreshed every 4
@@ -248,7 +248,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           reads <C>outdated: vX → vY</C>.
         </p>
         <p>
-          Click on Claude / Gemini / Codex runs the upstream installer
+          Click on Claude / Codex runs the upstream installer
           (<C>claude update</C> or a resolved npm package version) and flashes
           back as <C>v… (latest)</C> or <C>→ vNEW</C>. Click on Ollama opens an
           in-app modal with the last ~10 GitHub releases (themed; markdown notes;
@@ -463,7 +463,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       <>
         <p>
           A compact dot per authed/enabled provider — green ● = live, hollow ○ =
-          ready/idle, red ● = down. <C>C</C> Claude, <C>G</C> Gemini, <C>X</C>{' '}
+          ready/idle, red ● = down. <C>C</C> Claude, <C>X</C>{' '}
           Codex, <C>Z</C> <C>R</C> Cursor, <C>O</C> Ollama.
         </p>
         <p>

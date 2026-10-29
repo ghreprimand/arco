@@ -4,7 +4,7 @@ The complete feature tour, with links to subsystem contracts and controls. For i
 
 ## What Arco does
 
-- **Tabbed multi-provider workspace** - every project is a tab. Each tab has one long-lived primary agent (Claude / Codex / Gemini / Cursor / Ollama / llama.cpp / LM Studio / Strata / DeepSeek) the operator chats with directly.
+- **Tabbed multi-provider workspace** - every project is a tab. Each tab has one long-lived primary agent (Claude / Codex / Cursor / Ollama / llama.cpp / LM Studio / Strata / DeepSeek) the operator chats with directly.
 - **Project Home** - cards represent folders from arbitrary paths. Stable project identity preserves saved workflows across relocation; cards can be pinned, archived, opened, or continued. See [Getting started](GETTING_STARTED.md).
 - **Native session interop** - every Arco Claude-CLI / Codex-exec session is a native CLI session. Start in Arco, resume in a terminal with `claude --resume <uuid>`. Start in a terminal, resume in Arco. Arco owns tab-state; the provider owns conversation-state.
 - **Inline tool-call pills** - when the primary invokes Bash / Read / Grep / WebFetch / etc., each call renders as a compact row between assistant bubbles. Click to expand the full JSON input; click a file path to open it in the viewer modal.

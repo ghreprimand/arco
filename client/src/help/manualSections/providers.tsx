@@ -20,7 +20,6 @@ export const providers: Section[] = [
             ['Claude', <>cli subprocess or native <Code>@anthropic-ai/sdk</Code></>, 'UUID', 'rich', 'yes', '5'],
             ['Codex', <>exec subprocess or long-lived <Code>app-server</Code></>, 'thread_id', 'yes', 'yes', 'model-dependent; Astra up to ultra'],
             ['Cursor', <>ACP (<Code>cursor-agent acp</Code>, JSON-RPC over stdio)</>, 'session/load', 'yes (fs + permission callbacks)', 'model-dependent', 'baked into model id'],
-            ['Gemini', 'subprocess', 'index→UUID', 'yes (--yolo)', 'no', 'none'],
             ['Ollama', 'HTTP', 'none (transcript replay)', 'yes (server-side allowlist)', 'model-dependent', 'none'],
             ['llama.cpp', 'HTTP (singleton llama-server)', 'none (transcript replay)', 'yes (OpenAI-format + XML fallback)', 'model-dependent', 'none'],
             ['DeepSeek / Xolotl', 'HTTP (guarded user service)', 'none (transcript replay)', 'yes (Chat web-only)', 'yes', 'none, low, medium, high'],
@@ -30,7 +29,7 @@ export const providers: Section[] = [
         />
         <Note kind="tip">
           The most common operator pattern: <strong>Claude as primary</strong>, with
-          Codex / Gemini for cross-family review. Pick the family that
+          Codex for cross-family review. Pick the family that
           tends to disagree most usefully with your primary.
         </Note>
       </>
@@ -255,7 +254,7 @@ export const providers: Section[] = [
       <>
         <p>
           Cursor's metered subscription fronts ~153 models — Grok 4.5, GPT-5.x,
-          Claude, Gemini, GLM, Kimi — under one login. Arco drives it through{' '}
+          Claude, GLM, Kimi — under one login. Arco drives it through{' '}
           <Code>cursor-agent acp</Code> (ACP = Agent Client Protocol, real JSON-RPC 2.0
           over stdio), cloned from the Codex <Code>app-server</Code> mechanics: a
           long-lived in-process worker plus a per-turn wrapper. Badge letter{' '}
@@ -339,41 +338,6 @@ export const providers: Section[] = [
           from local token totals. All Cursor transports now ship — see{' '}
           <Code>docs/PROVIDERS.md</Code>.
         </Note>
-      </>
-    ),
-  },
-  {
-    id: 'provider-gemini',
-    group: 'Providers',
-    title: 'Gemini',
-    body: (
-      <>
-        <p>
-          Google's Gemini CLI. No reasoning blocks in the stream, no effort flag, but
-          fast and cheap, with native session resume (added 2026-04-27).
-        </p>
-        <p><strong>Auth:</strong> via <Code>gemini auth login</Code>. API-key fallback if <Code>GEMINI_API_KEY</Code> is set.</p>
-        <p><strong>Quirks worth knowing:</strong></p>
-        <ul>
-          <li>
-            <strong>Index-based resume.</strong> Gemini's <Code>-r</Code> flag wants a
-            numeric index, not a UUID. Indexes shift when sessions are added or
-            deleted. Arco stores the stable UUID and resolves it to the current
-            index immediately before every spawn (5s timeout; null fails loudly so
-            you don't accidentally start a fresh session).
-          </li>
-          <li>
-            <strong>Prefix-cache cost.</strong> Gemini has no <Code>--append-system-prompt</Code>{' '}
-            flag, so the entire prepended transcript pays full decode cost on every
-            spawn for fresh sessions. Native resume sidesteps this — the CLI loads
-            prior conversation from disk and Arco skips the prepend.
-          </li>
-          <li>
-            <strong>Tool use requires <Code>--yolo</Code>.</strong> The plan-mode
-            default doesn't execute tools. Workers (reviewers, summarizers) get YOLO;
-            primaries are plan-mode by default for safety.
-          </li>
-        </ul>
       </>
     ),
   },

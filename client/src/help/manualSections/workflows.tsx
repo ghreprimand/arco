@@ -42,9 +42,7 @@ claude --resume <session-uuid>
 
 # Codex — resume by thread id
 codex exec resume <thread-id> "next prompt"
-
-# Gemini — resume by index (Arco stores the UUID and resolves to index)
-gemini -r <index>`}</Pre>
+`}</Pre>
         <p>
           And vice versa — start a session in a terminal, then pick it up in Arco
           via the <strong>RESUME</strong> picker in the workflow creator. Arco owns
@@ -58,7 +56,7 @@ gemini -r <index>`}</Pre>
           writes. Recover with <strong>Handoff</strong>.
         </Note>
         <p>
-          <strong>Session-less providers:</strong> Gemini supports resume by index;
+          <strong>Session-less providers:</strong>
           the local HTTP providers (Ollama, llama.cpp, LM Studio) are session-less. The local providers re-feed the rendered
           transcript on every turn (the prefix cache makes this cheap).
         </p>
@@ -86,8 +84,7 @@ gemini -r <index>`}</Pre>
           The native CLI session files live with the provider:
         </p>
         <Pre>{`~/.claude/projects/<cwd-hash>/<sessionId>.jsonl     # Claude
-~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl  # Codex
-~/.gemini/tmp/<dir>/chats/session-*.json            # Gemini`}</Pre>
+~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl  # Codex`}</Pre>
         <p>
           Atomic tmp+rename writes are used for everything but{' '}
           <Code>events.jsonl</Code>, which is append-only.
@@ -144,10 +141,7 @@ gemini -r <index>`}</Pre>
             model metadata estimate.
           </li>
 
-          <li>
-            <strong>Gemini / Ollama / llama.cpp / LM Studio</strong> — compact token readout only
-            when usage is reported; no Arco percentage threshold.
-          </li>
+
         </ul>
         <p>
           <strong>Claude CLI calibration</strong> runs on idle moments when a turn

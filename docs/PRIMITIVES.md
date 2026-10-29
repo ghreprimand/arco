@@ -42,7 +42,7 @@ Two additional surfaces, DOCS and GIT, reuse the primary-turn machinery to dispa
    - **Claude (resume)** - pass `--resume <wf.primarySessionId>`.
    - **Codex (first turn)** - pass nothing; capture `thread_id` from the `thread.started` init event, then reconcile the placeholder UUID in `meta.json`.
    - **Codex (resume)** - pass `codex exec resume <wf.primarySessionId> <prompt>`.
-   - **Gemini / Ollama** - no session concept; each turn is fresh.
+   - **Ollama** - no session concept; each turn is fresh.
 3. Inject the attached plan (if any) as a header prefix to the prompt - `wf.planId` set ⇒ `buildPlanPrefix` reads from `<cwd>/.arco/plans/<planId>.md`. The plan body re-injects on every turn so operator edits propagate.
 4. Spawn via `WorkerManager.spawn(spec)`. Returns a `TurnHandle`: `{ workerId, initialSessionId, onSessionDiscovered, settled: Promise }`.
 5. Stream events. The seedWorker's job is to translate each `WorkerEvent` (`text`/`thinking`/`tool_use`/`result`/`system_notice`) into the corresponding `primary_*` protocol message and broadcast it.
@@ -124,7 +124,6 @@ client -> server: review_request {
    - **Claude** - tools restricted to `READ_ONLY_CLAUDE_TOOLS` (`['Read', 'Grep', 'Glob', 'LSP']`).
    - **Codex** - `sandbox: 'read-only'` via `WorkerConfig.sandbox`. `-s read-only` argv.
    - **Ollama / llama.cpp / LM Studio** - each gets a read-only allowlist (`READ_ONLY_OLLAMA_TOOLS` / `READ_ONLY_LLAMACPP_TOOLS` / `READ_ONLY_LMSTUDIO_TOOLS`, all `['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']`); they share Ollama's server-side tool registry. Ollama additionally runs with `skipPermissions: true` so its SAFE mode doesn't refuse the read/search tools (the allowlist, not SAFE mode, is what enforces safety).
-   - **Gemini** - no tool restriction (no tool use).
 6. Collect `worker_text` deltas into a `collected` buffer. Don't broadcast them as primary text - review output is **not** mirrored to chat.
    - **Fallback chain.** The reviewer is a bounded job, so `runReviewer` walks `[reviewer,...reviewerFallbacks]` on a classified provider failure; `collected` resets per leg so a failed leg's partial output never bleeds into the artifact. Unset ⇒ single leg.
    - **Ollama structured output.** Ollama reviewers get `ollamaFormat: REVIEW_FORMAT_SCHEMA` (`reviewSchema.ts`) - Ollama's sampler-level JSON-schema constraint; `parseStructuredReview` + `reconstructStructuredReview` rebuild the canonical markdown body so the artifact, badge and findings are unchanged downstream. Ollama-only because no other provider exposes a sampler-constrained `format`; small models were the main source of verdict-regex misses.
@@ -197,7 +196,7 @@ The reviewer framing (`runReviewer.ts_FRAMING`) asks the model to append an opti
 
 ### Local-reviewer addendum
 
-When the reviewer's provider is `ollama` or `llamacpp`, `runReviewer.ts` builds the framing as `BASE_FRAMING + LOCAL_REVIEWER_ADDENDUM` instead of `BASE_FRAMING` alone. The addendum exists because frontier reviewers (Claude / Codex / Gemini) routinely pull files via tools to verify diff claims; smaller local models tend to opine on the diff text alone and miss orphan files / seed-data drift / broken wiring / typos in identifiers.
+When the reviewer's provider is `ollama` or `llamacpp`, `runReviewer.ts` builds the framing as `BASE_FRAMING + LOCAL_REVIEWER_ADDENDUM` instead of `BASE_FRAMING` alone. The addendum exists because frontier reviewers (Claude / Codex) routinely pull files via tools to verify diff claims; smaller local models tend to opine on the diff text alone and miss orphan files / seed-data drift / broken wiring / typos in identifiers.
 
 The addendum:
 
@@ -382,7 +381,7 @@ sequenceDiagram
 
 **Summarizer resolution.** When the request carries no `summarizer`, both Handoff and Spawn fall back to the operator's pinned `settings.handoffSummarizer` (model and effort come from the tab's primary, or, for Spawn, from the new tab's primary) before defaulting to the primary itself. Why: a handoff fires exactly when the current worker is low on context, so letting that degraded worker summarize itself is the failure mode to dodge. Auto-handoff never sends `summarizer`, so it always takes this chain.
 
-**Original-worker on a non-resumable provider.** Only Claude / Codex have a live session to resume. For Ollama / llama.cpp / LM Studio / Gemini, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ autoHandoff.autoAt` (default 90) the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
+**Original-worker on a non-resumable provider.** Only Claude / Codex have a live session to resume. For Ollama / llama.cpp / LM Studio, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ autoHandoff.autoAt` (default 90) the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
 
 **Per-cwd serialization.** Handoffs in the same cwd are chained (`cwdHandoffChain`): a second request waits (`[HANDOFF QUEUED]` notice) so two reflections don't read repo state mid-write; a duplicate on the same workflow is ignored. The chain is mirrored to clients as `handoff_lock_snapshot` (-> `appStore.handoffLocksByCwd`) and a wedged slot can be cleared by the operator via `handoff_lock_clear` (`handleHandoffLockClear`).
 
@@ -1122,7 +1121,7 @@ are stored in `OrchestrationAssistModelRef` but are never applied by the server 
 
 ## 16. Review safe-mode gate (durable HITL approval - DEBAG)
 
-A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a primitive - no ephemeral worker, no artifact; like it is transport-level). The operator arms it with the **REVIEW SAFE-MODE** toggle in CONFIG (`WorkflowConfig.reviewSafeMode: 'off' | 'on'`, default `off`, Native-only - CLI / Codex / Gemini ignore it). When armed, the Native worker consults a deterministic classifier before running each tool and **parks** sensitive calls for operator approval instead of running them.
+A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a primitive - no ephemeral worker, no artifact; like it is transport-level). The operator arms it with the **REVIEW SAFE-MODE** toggle in CONFIG (`WorkflowConfig.reviewSafeMode: 'off' | 'on'`, default `off`, Native-only - CLI / Codex ignore it). When armed, the Native worker consults a deterministic classifier before running each tool and **parks** sensitive calls for operator approval instead of running them.
 
 **Classifier** (`server/src/providers/claude-native/gateReview.ts` - a static allowlist, no model judgment, modeled on `pretoolGuards.ts`). `classifyGate(toolName, input, cwd)` flags: `Bash` -> category `bash` (any shell command), or `git-destructive` when the command matches `git push` / `git reset --hard` / `git clean -fd`; `KillShell` -> `kill-shell`; `Write` / `Edit` / `MultiEdit` whose resolved `file_path` escapes the workflow cwd -> `write-outside-cwd` (in-cwd writes are inert). Firing is two-condition: a call gates only if it is sensitive AND safe-mode is armed (`evaluateGate(armed, ...)`); with safe-mode off the module is never consulted, so the hot path is untouched.
 
@@ -1138,11 +1137,11 @@ A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a pr
 
 ## 17. Agent-instruction-file tune-up (`md_tuneup_*`)
 
-A propose-only primitive that compacts a long-lived agent-instruction file (`AGENTS.md` / `CLAUDE.local.md` / `AGENTS.md` / `GEMINI.md`) - sibling to doc-editing, same propose->approve fence. Because the instruction file is re-read on every turn of every worker, accreted cruft (dated session logs, resolved TODOs, restated rules) is a fixed per-turn token tax; the tune-up runs ONE bounded, **read-only** worker turn that PROPOSES a compacted version. Protocol + fence rationale: `shared/src/protocol/mdTuneup.ts`.
+A propose-only primitive that compacts a long-lived agent-instruction file (`AGENTS.md` / `CLAUDE.local.md` / `AGENTS.md`) - sibling to doc-editing, same propose->approve fence. Because the instruction file is re-read on every turn of every worker, accreted cruft (dated session logs, resolved TODOs, restated rules) is a fixed per-turn token tax; the tune-up runs ONE bounded, **read-only** worker turn that PROPOSES a compacted version. Protocol + fence rationale: `shared/src/protocol/mdTuneup.ts`.
 
 ### Trigger
 
-The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (claude->`AGENTS.md`, codex->`AGENTS.md`, gemini->`GEMINI.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
+The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFiles` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (claude->`AGENTS.md`, codex->`AGENTS.md`). The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
 
 ### Server-side flow
 

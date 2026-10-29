@@ -32,7 +32,7 @@ test('catalog reads metadata without probing an endpoint or reading retired secr
   writeFileSync(join(home,'.arco','provider-secrets.json'),JSON.stringify({ zaiApiKey: '!false' }));
   const res=await fetch(base+'/api/connections');const body=await res.json();
   assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
-  assert.equal(body.providers.length,10);assert.deepEqual(requested,[]);
+  assert.equal(body.providers.length,9);assert.deepEqual(requested,[]);
   assert.ok(!JSON.stringify(body).includes('!false'));
 });
 test('only an explicit supported check reaches the selected fixture runtime',async()=>{
@@ -40,6 +40,7 @@ test('only an explicit supported check reaches the selected fixture runtime',asy
     ['/api/connections','POST',405],['/api/connections/check?provider=ollama','GET',405],
     ['/api/connections/check?provider=unknown','POST',400],['/api/connections/check?provider=codex','POST',409],
     ['/api/connections/check?provider=antigravity','POST',400],
+    ['/api/connections/check?provider=gemini','POST',400],
   ] as const)assert.equal((await fetch(base+url,{method})).status,status);
   assert.deepEqual(requested,[],'no refused action probes a provider');
   const res=await fetch(base+'/api/connections/check?provider=ollama',{method:'POST'});

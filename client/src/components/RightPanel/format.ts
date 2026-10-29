@@ -4,13 +4,12 @@ import type { ActivityEntry } from '../../stores/appStore';
 
 const CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODEL_VALUES] as ModelName[];
 const CODEX_MODELS: ModelName[] = [...CODEX_PICKER_MODELS];
-const GEMINI_MODELS: ModelName[] = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'];
 
 export function modelsFor(provider: ProviderName): ModelName[] {
   if (provider === 'claude') return CLAUDE_MODELS;
   if (provider === 'codex') return CODEX_MODELS;
 
-  if (provider === 'gemini') return GEMINI_MODELS;
+
   return [];
 }
 

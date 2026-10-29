@@ -66,7 +66,6 @@ export function ConfigTab({
   // Codex profile, so flipping the ACCOUNT PROFILE toggle re-filters models to
   // that account's entitlements (e.g. WORK sees GPT-5.6 Sol, HOME doesn't).
   const codexCatalog = useCodexCatalogFor(c.providerAccountRef);
-  const geminiNativeCatalog = useAppStore((s) => s.geminiNativeCatalog);
   const cursorCatalog = useAppStore((s) => s.cursorCatalog);
   const authStatus = useAppStore((s) => s.authStatus);
   // Match the live chip's model picker — when the catalog is populated, the
@@ -79,9 +78,7 @@ export function ConfigTab({
     if (provider === 'codex' && codexCatalog?.models?.length) {
       return codexCatalog.models.filter((m) => !m.hidden).map((m) => m.id as ModelName);
     }
-    if (provider === 'gemini' && geminiNativeCatalog?.models?.length) {
-      return geminiNativeCatalog.models.map((m) => m.id as ModelName);
-    }
+
     // Cursor's ~153-model roster is a live catalog (GET /api/cursor/catalog),
     // so the live-swap dropdown reads it here — mirrors RunAsPicker. Effort is
     // baked into the id, so there's no separate effort surface (below).
@@ -121,10 +118,7 @@ export function ConfigTab({
       const live = codexCatalog?.models?.find((m) => m.id === idStr);
       if (live?.displayName) return live.displayName;
     }
-    if (provider === 'gemini') {
-      const live = geminiNativeCatalog?.models?.find((m) => m.id === idStr);
-      if (live?.displayName) return live.displayName.replace(/^Gemini\s+/i, '');
-    }
+
     if (provider === 'cursor') {
       const live = cursorCatalog?.models?.find((m) => m.id === idStr);
       if (live?.displayName) return live.displayName;
@@ -218,7 +212,7 @@ export function ConfigTab({
             </td>
           </tr>
 
-          {/* EFFORT — editable except on Gemini */}
+
           <tr style={{ borderBottom: '1px solid var(--color-accent-primary-a05)' }}>
             <td
               className="display-font"
@@ -247,8 +241,7 @@ export function ConfigTab({
                 </select>
               ) : (
                 <span style={{ color: 'var(--color-fg-muted)', fontStyle: 'italic' }}>
-                  {provider === 'gemini' ? '(CLI has no effort flag)'
-                    : provider === 'ollama' ? '(local models have no effort flag)'
+                  {provider === 'ollama' ? '(local models have no effort flag)'
                     : provider === 'cursor' ? '(set via the model picker above)'
                     : '(not honored)'}
                 </span>
@@ -376,10 +369,7 @@ export function ConfigTab({
         <ClaudeNativeConfigProtectionSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* docs/PROVIDERS.md - Native opt-in sandbox tools.
-          Native-only; CLI parity not planned (the tools register into the
-          in-process Anthropic tools[] array which CLI / Codex / Gemini
-          don't surface). Default 'off' - operator opts in per tab. */}
+
       {provider === 'claude' && canEdit && (
         <ClaudeNativeSandboxSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
@@ -412,10 +402,7 @@ export function ConfigTab({
 
 
 
-      {/* docs/PROVIDERS.md - operator-attachable codebase-memory-mcp.
-          Provider-agnostic (the binary is operator-installed and Arco
-          drives it via MCP - surface is the same for Claude / Codex / Gemini
-          once the spawn-site wiring lands post-Cluster-3). */}
+
       {onAttachCodebaseMemory && onDetachCodebaseMemory && (
         <CodebaseMemorySection
           job={job}
@@ -436,10 +423,6 @@ export function ConfigTab({
   );
 }
 
-// CLI version/flag drift notice. Server probes `claude/gemini/codex --help`
-// at boot, diffs against the last snapshot, and pushes `capabilities_changed`
-// on connect for any unacknowledged bump. Ack writes the version to
-// ~/.arco/settings.json and clears the dot until the next bump.
 function CliStatusCard() {
   const changes = useAppStore((s) => s.cliChanges);
   const ack = useAppStore((s) => s.acknowledgeCliChange);

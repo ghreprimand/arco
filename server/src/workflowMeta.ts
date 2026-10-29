@@ -469,19 +469,6 @@ export async function appendCliSession(
   });
 }
 
-// Reconcile meta.cliSessions with the orchestrator's live session id after a
-// turn completes. Purpose: Codex mints its own thread_id on first-turn `init`,
-// but meta was persisted with Arco's placeholder UUID at workflow creation.
-// Without reconciliation the stored id never matches a real Codex rollout and
-// the next `codex exec resume` errors with "no rollout found for thread id".
-// Claude/Gemini are no-ops in the common case (Claude's UUID matches by
-// construction; Gemini has its own index model), but the helper is generic.
-// Idempotent: when the latest cliSession for `provider` already matches
-// `liveSessionId`, the function touches `lastActiveAt` only — no append/mutate
-// of the id. When it mismatches (placeholder → real id on first Codex turn,
-// or post-compact when a new CLI session started), the latest entry is
-// rewritten in place (same-run binding) rather than appended, so we don't
-// accumulate placeholder entries in the ledger.
 export async function reconcileLatestCliSession(
   cwd: string,
   wfid: string,

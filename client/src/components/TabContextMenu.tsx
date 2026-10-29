@@ -285,7 +285,7 @@ export function TabContextMenu({
 
         {!anchorIsNative ? (
           <div style={{ color: 'var(--color-warning)', padding: '12px 0' }}>
-            Clusters accept only Claude or Codex tabs today. Gemini / Ollama / llama.cpp have no MCP wiring path.
+            Clusters accept only Claude or Codex tabs today. Ollama / llama.cpp have no MCP wiring path.
           </div>
         ) : mode === 'create-existing' ? (
           existingCandidates.length === 0 ? (

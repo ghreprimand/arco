@@ -345,16 +345,6 @@ async function checkCodexCli(): Promise<DiagnosticCheck> {
   return mk(id, 'providers', label, 'ok', `codex ${v}`);
 }
 
-async function checkGeminiCli(): Promise<DiagnosticCheck> {
-  const id = 'providers.gemini';
-  const label = 'Gemini CLI';
-  const v = await probeVersion('gemini');
-  if (!v) {
-    return mk(id, 'providers', label, 'warn', 'gemini CLI not found on PATH', 'install @google/gemini-cli');
-  }
-  return mk(id, 'providers', label, 'ok', `gemini ${v}`);
-}
-
 async function checkOllama(): Promise<DiagnosticCheck> {
   const id = 'providers.ollama';
   const label = 'Ollama daemon';
@@ -791,7 +781,6 @@ const GROUPS: GroupSpec[] = [
       { id: 'providers.claude-cli', label: 'Claude CLI', fn: checkClaudeCli },
       { id: 'providers.claude-native', label: 'Claude Native (OAuth)', fn: checkClaudeNative },
       { id: 'providers.codex', label: 'Codex CLI', fn: checkCodexCli },
-      { id: 'providers.gemini', label: 'Gemini CLI', fn: checkGeminiCli },
       { id: 'providers.ollama', label: 'Ollama daemon', fn: checkOllama },
       { id: 'providers.llamacpp', label: 'llama.cpp', fn: checkLlamacpp },
     ],

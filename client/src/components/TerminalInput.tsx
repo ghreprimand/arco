@@ -1670,7 +1670,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             onClick={() => setShowTuneupDialog(true)}
             data-help="composer.tuneup"
             className="display-font"
-            title="Compact this project's agent-instruction file (CLAUDE.md / AGENTS.md / GEMINI.md) — proposes a tightened version as a diff; backs up the original before writing"
+            title="Compact this project's agent-instruction file (CLAUDE.md / AGENTS.md) — proposes a tightened version as a diff; backs up the original before writing"
             style={{
               padding: '3px 8px',
               background: 'transparent',
@@ -2456,7 +2456,6 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
     // the same conditions so we don't advertise a button that'll just bounce.
     const canRecalibrate =
       typeof onRecalibrate === 'function' &&
-      job.config.primaryProvider !== 'gemini' &&
       job.config.primaryProvider !== 'codex' && job.config.primaryProvider !== 'ollama' && job.busy !== true;
     const isGroundTruth = cu.method === 'ground-truth';
     const headline = isGroundTruth
@@ -2598,9 +2597,6 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
     );
   }
 
-  // Other non-Claude providers (Gemini, Ollama) or Claude
-  // pre-first-turn: compact form. No model-window denominator because
-  // these providers don't have a uniform window/usage shape today.
   const ctx = last ? contextTokens(last, provider) : 0;
   return (
     <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', gap: '8px', alignItems: 'center' }}>

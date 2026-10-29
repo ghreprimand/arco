@@ -207,9 +207,6 @@ async function tryLlmSummary(
       model: summarizer.model,
       effort: summarizer.effort,
       provider: summarizer.provider,
-      // Read-only allowlist for providers whose registry honors it (claude /
-      // ollama filter server-side; codex / gemini ignore — harmless). The
-      // summarizer just compresses the supplied transcript: no Write/Bash.
       tools: summarizer.provider === 'claude' || summarizer.provider === 'ollama'
         ? ['Read', 'Grep', 'Glob']
         : undefined,

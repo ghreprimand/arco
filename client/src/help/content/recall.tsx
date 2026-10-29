@@ -52,7 +52,7 @@ export const recallHelp: Record<string, HelpEntry> = {
   },
   'recall.filter.provider': {
     title: 'Provider filter',
-    body: <p>Narrow results to one provider (Claude / Codex / Gemini / …).</p>,
+    body: <p>Narrow results to one provider (Claude / Codex / …).</p>,
     manualSection: 'recall-search',
   },
   'recall.filter.date': {

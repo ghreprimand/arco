@@ -106,7 +106,6 @@ function AppBody() {
   const setClaudeNativeCatalog = useAppStore((s) => s.setClaudeNativeCatalog);
   const setCodexCatalog = useAppStore((s) => s.setCodexCatalog);
   const setCodexCatalogForAccount = useAppStore((s) => s.setCodexCatalogForAccount);
-  const setGeminiNativeCatalog = useAppStore((s) => s.setGeminiNativeCatalog);
   const setCursorCatalog = useAppStore((s) => s.setCursorCatalog);
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
@@ -328,21 +327,6 @@ function AppBody() {
     const id = setInterval(load, 30 * 60 * 1000);
     return () => clearInterval(id);
   }, [connected, codexAccountKey, setCodexCatalog, setCodexCatalogForAccount]);
-
-  useEffect(() => {
-    if (!connected) return;
-    // Gemini Native catalog: 30-min client poll, server caches for 1h.
-    // Empty models → picker falls back to static GEMINI_MODELS list.
-    const load = () => {
-      fetch('/api/gemini-native/catalog')
-        .then((r) => r.json())
-        .then(setGeminiNativeCatalog)
-        .catch(() => { /* keep prior snapshot */ });
-    };
-    load();
-    const id = setInterval(load, 30 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [setGeminiNativeCatalog, connected]);
 
   useEffect(() => {
     if (!connected) return;

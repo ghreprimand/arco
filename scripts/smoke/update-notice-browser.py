@@ -40,7 +40,7 @@ async def main():
                 status['enabled'] = settings['updateCheck']
                 data = status
             elif path == '/api/auth-status':
-                data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
+                data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
             elif path == '/api/skills': data = {'project': [], 'global': []}
             elif path == '/api/handoff-prompts':

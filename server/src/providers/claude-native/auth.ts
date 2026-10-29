@@ -1,13 +1,3 @@
-// Phase 7a — token store for Claude Native OAuth credentials.
-//
-// Storage shape: ~/.arco/auth.json with `claude.native` namespace so a
-// future `claude.cli` token persistence (or Codex / Gemini OAuth wins)
-// can share the file without collision. Mode 0600, parent dir 0700,
-// atomic tmp+rename, proper-lockfile around read/refresh/write.
-//
-// Lock is held only across the read-refresh-write cycle — never across
-// the actual SDK call — so refreshes are serialized but model traffic is
-// not.
 
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';

@@ -138,7 +138,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   claudeNativeCatalog: null,
   codexCatalog: null,
   codexCatalogByAccount: {},
-  geminiNativeCatalog: null,
+
   cursorCatalog: null,
   settings: null,
   showSettings: false,
@@ -231,7 +231,6 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     if (!s) return [];
     const out: ProviderName[] = [];
     if (s.claude.loggedIn) out.push('claude');
-    if (s.gemini.loggedIn) out.push('gemini');
     if (s.codex.loggedIn) out.push('codex');
 
     if (s.ollama.loggedIn) out.push('ollama');
@@ -296,7 +295,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setCodexCatalog: (codexCatalog) => set({ codexCatalog }),
   setCodexCatalogForAccount: (accountRef, snap) =>
     set((s) => ({ codexCatalogByAccount: { ...s.codexCatalogByAccount, [accountRef]: snap } })),
-  setGeminiNativeCatalog: (geminiNativeCatalog) => set({ geminiNativeCatalog }),
+
   setCursorCatalog: (cursorCatalog) => set({ cursorCatalog }),
 
   setSettings: (settings) => {

@@ -248,7 +248,7 @@ async def signed_in_first_run(playwright):
     b = None
     try:
         b, page = await page_for(playwright, server)
-        await b.context.route('**/api/auth-status', lambda route: route.fulfill(json={p: {'loggedIn': True} for p in ['claude', 'codex', 'gemini', 'cursor']}))
+        await b.context.route('**/api/auth-status', lambda route: route.fulfill(json={p: {'loggedIn': True} for p in ['claude', 'codex', 'cursor']}))
         await page.reload()
         await page.get_by_role('heading', name='Welcome to Arco', exact=True).wait_for()
         await page.get_by_role('button', name='Get started', exact=True).click()

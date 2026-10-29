@@ -286,7 +286,6 @@ function seedGitignore(): string {
     '# Local agent guidance generated from the Genesis seed',
     'AGENTS.md',
     'CLAUDE.md',
-    'GEMINI.md',
     '',
     '# Local/private configuration',
     '.env',
@@ -295,7 +294,7 @@ function seedGitignore(): string {
   ].join('\n');
 }
 
-function seedAgentNotes(seed: GenesisSeed, target: 'AGENTS.md' | 'CLAUDE.md' | 'GEMINI.md'): string {
+function seedAgentNotes(seed: GenesisSeed, target: 'AGENTS.md' | 'CLAUDE.md'): string {
   return [
     `# ${orEmpty(seed.title, 'Untitled Project')} — agent notes`,
     '',
@@ -334,6 +333,5 @@ export function buildSeedDocs(seed: GenesisSeed): ScaffoldFile[] {
     { path: 'TODO.md', content: seedTodo(seed) },
     { path: 'AGENTS.md', content: seedAgentNotes(seed, 'AGENTS.md') },
     { path: 'CLAUDE.md', content: seedAgentNotes(seed, 'CLAUDE.md') },
-    { path: 'GEMINI.md', content: seedAgentNotes(seed, 'GEMINI.md') },
   ];
 }

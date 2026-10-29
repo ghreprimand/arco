@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { chmodSync, writeFileSync } from 'node:fs';
 import { createServer as createIsolationServer } from 'node:net';
 const DENIED_COMMANDS = [
-  'claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli',
+  'claude', 'codex',  'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli',
   'lms',  'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget',
 ] as const;
 
@@ -137,7 +137,7 @@ test('hardened environment: provider CLIs resolve to denying stubs even after th
       const res = await fetch(`${base}${route}`, { headers: { Cookie: cookie, Origin: base } });
       await res.arrayBuffer();
     }
-    for (const route of ['/api/auth-login?provider=antigravity', '/api/check-updates?provider=antigravity']) {
+    for (const route of ['/api/auth-login?provider=antigravity', '/api/check-updates?provider=antigravity', '/api/auth-login?provider=gemini', '/api/check-updates?provider=gemini']) {
       const res = await fetch(`${base}${route}`, { method: 'POST', headers: { Cookie: cookie, Origin: base } });
       assert.equal(res.status, 400, `${route} must not fall through to another provider`);
       assert.match((await res.json() as { error: string }).error, /support has been removed/);

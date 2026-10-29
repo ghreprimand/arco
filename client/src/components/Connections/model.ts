@@ -5,7 +5,7 @@ export const KINDS = [
   { id:'local', label:'Local models', description:'Connect a separately installed runtime. No models are installed by this screen.' },
   { id:'tool', label:'Tool accounts', description:'Accounts for features such as GitHub. These do not provide AI models.' },
 ] as const;
-const IDS = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
+const IDS = ['claude','codex','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
 export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as ConnectionCatalog;
@@ -56,9 +56,7 @@ export function credentialSource(p: ConnectionDefinition, status: AuthStatus | u
   if (p.kind === 'local') return 'Service availability; no account identity is reported.';
   if (p.kind === 'desktop') return 'Desktop detection only; account access is not verified.';
   if (status?.apiProvider === 'openai-api-key') return 'OpenAI API key reported active; API usage is billed separately.';
-  if (status?.apiProvider === 'google-api-key') return 'Gemini API key reported active; review the provider account billing.';
   if (status?.apiProvider === 'chatgpt-oauth') return 'ChatGPT sign-in reported by Codex.';
-  if (status?.apiProvider === 'google-oauth') return 'Google sign-in reported by Gemini CLI.';
   if (status?.loggedIn) return 'Provider-owned credentials detected. This check does not establish billing or model access.';
   return 'No active credential reported. Sign in or review provider settings.';
 }

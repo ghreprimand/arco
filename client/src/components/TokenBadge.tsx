@@ -27,10 +27,6 @@ interface Props {
   showBar?: boolean;
   // Suppresses the "out" half; useful in places where only ctx is meaningful.
   hideOut?: boolean;
-  // Provider this turn ran against. Drives the ctx formula: Codex uses input
-  // (cacheRead is a subset of input) while Claude uses input+cacheCreate
-  // (matches auto-compact). Defaults to Claude shape if omitted, which is
-  // harmless for Gemini/Ollama because they don't populate cache fields.
   provider?: ProviderName;
   // Optional style overrides for the container span.
   style?: React.CSSProperties;

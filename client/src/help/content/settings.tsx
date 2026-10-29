@@ -210,7 +210,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <p>
         Per-provider on/off toggle. Disabled providers are hidden from the
         workflow creator and Handoff/Spawn dialogs entirely — useful if you
-        don't want, say, Gemini cluttering the picker.
+        don't want, say cluttering the picker.
       </p>
     ),
   },
@@ -222,7 +222,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           Per-provider auth state + login button. Each provider authenticates
           independently. <C>LIVE</C> chip = authed; <C>LOG IN</C> button
-          starts the auth flow (browser OAuth for Claude/Gemini; ChatGPT
+          starts the auth flow (browser OAuth for Claude; ChatGPT
           OAuth for Codex; gh-cli flow for GitHub).
         </p>
         <p>
@@ -412,7 +412,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     manualSection: 'provider-updates',
     body: (
       <p>
-        Detected versions of the provider CLIs (Claude / Gemini / Codex) and
+        Detected versions of the provider CLIs (Claude / Codex) and
         Ollama and Strata engines, alongside the upstream latest (npm registry / GitHub
         Releases). Re-probed every 4 hours; the header chips paint warning-color
         when outdated, and clicking them runs the installer (CLIs) or opens the

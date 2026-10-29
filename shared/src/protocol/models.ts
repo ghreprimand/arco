@@ -35,13 +35,6 @@ export const CLAUDE_MODEL_LABELS: Record<string, string> = {
   'opus[1m]': 'OPUS 1M',
 };
 
-// Gemini models available headlessly via the CLI's `-m` flag.
-export const GEMINI_MODELS = [
-  'gemini-3.1-pro-preview',
-  'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite-preview',
-] as const;
-
 // Codex CLI's GPT family. Frontier first, mini-tier last. Spans GPT-5.x and
 // GPT-6 (Astra 2026-09-03; Sol + Luna 2026-09-22; 6.1 Sol 2026-09-29) — don't
 // re-pin the naming to a single generation, and don't assume a single-dash
@@ -266,36 +259,6 @@ export interface CodexCatalogSnapshot {
   fresh: boolean;
 }
 
-// Live Gemini model catalog, fetched via GET /v1beta/models with OAuth Bearer
-// tokens piggybacked from ~/.gemini/oauth_creds.json. Same lazy-1h-cache
-// pattern as Claude and Codex catalogs. thinkingSchema records which API
-// shape applies: 'budget' for gemini-2.x (thinkingBudget), 'level' for
-// gemini-3.x (thinkingLevel enum), 'none' for models without thinking support.
-export interface GeminiCatalogModel {
-  id: string;              // "gemini-2.5-flash" (models/ prefix stripped)
-  displayName: string;
-  description: string;
-  inputTokenLimit: number;
-  outputTokenLimit: number;
-  supportsThinking: boolean;
-  thinkingSchema: 'budget' | 'level' | 'none';
-}
-
-export interface GeminiCatalogSnapshot {
-  fetchedAt: number;
-  models: GeminiCatalogModel[];
-  fresh: boolean;
-  // cloudaicompanionProject resolved via loadCodeAssist — required for
-  // streamGenerateContent calls against cloudcode-pa.googleapis.com.
-  // Empty string when auth failed on this fetch.
-  projectId: string;
-}
-
-// Live Cursor model catalog, enumerated by a short-lived `cursor-agent models`
-// spawn (155-ish rows: `<id> - <Display Name>`, first line is a header we skip).
-// Same lazy-1h-cache pattern as Claude/Codex/Gemini. Cursor bakes reasoning
-// effort into the model id (`-low`/`-high`/`-xhigh`/`-max`) so there's no
-// separate effort surface — the picker lists ids flat, no per-model efforts.
 export interface CursorCatalogModel {
   id: string;           // "grok-4.5-xhigh", "auto", "claude-opus-4-8-high"
   displayName: string;  // "Cursor Grok 4.5", "Auto (current, default)"
@@ -677,7 +640,6 @@ export interface Capabilities {
   efforts: EffortLevel[];
   models: ModelName[];
   cliVersion: string;
-  geminiVersion?: string;
   codexVersion?: string;
   // `cursor-agent --version` — date-stamped (e.g. "2026.07.08-0c04a8a"), not
   // semver, and not npm-installed, so there's no upstream `latestVersions.cursor`
@@ -694,7 +656,6 @@ export interface Capabilities {
   // CLI re-probe.
   latestVersions?: {
     claude?: string;
-    gemini?: string;
     codex?: string;
     ollama?: string;
     strata?: string;
@@ -746,7 +707,6 @@ export interface AuthStatus {
 
 export interface AuthStatusByProvider {
   claude: AuthStatus;
-  gemini: AuthStatus;
   ollama: AuthStatus;
   codex: AuthStatus;
   github: AuthStatus;
@@ -776,7 +736,7 @@ export interface AuthStatusByProvider {
 // Drives the red dot on the CONFIG tab + the CLI STATUS card. Cleared
 // by writing the `toVersion` to settings.acknowledgedCliVersions.
 export interface CliChangeEntry {
-  provider: 'claude' | 'gemini' | 'codex';
+  provider: 'claude' | 'codex';
   fromVersion: string;
   toVersion: string;
   newFlags: string[];

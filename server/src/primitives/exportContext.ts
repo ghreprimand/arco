@@ -177,8 +177,6 @@ function runOriginalWorker(
   if (original.primary.provider === 'claude' && original.transport === 'native') {
     return runOriginalWorkerNative(ctx, original, handoffId, artifactName, ab);
   }
-  // Original-worker requires a resumable session (Claude UUID or app-server
-  // thread_id). Ollama has no resume; Gemini's resume isn't wired in Lite.
   if (original.primary.provider !== 'claude' && original.primary.provider !== 'codex') {
     const err = `original-worker mode needs a resumable CLI session; provider=${original.primary.provider} isn't supported. Try fresh-summarizer mode.`;
     ctx.broadcast({
@@ -513,11 +511,6 @@ function runFreshSummarizer(
         model: args.summarizer.model,
         effort: args.summarizer.effort,
         provider: args.summarizer.provider,
-        // Read-only allowlist for any provider whose tool registry honors it.
-        // Summarizer is just compressing a transcript — no need for Write or
-        // Bash. Claude and Ollama both filter tool sets server-side; codex /
-        // gemini ignore the field today (their tool surface isn't allowlist-
-        // gated yet, but giving them the list is harmless).
         tools: args.summarizer.provider === 'claude' || args.summarizer.provider === 'ollama'
           ? ['Read', 'Grep', 'Glob']
           : undefined,

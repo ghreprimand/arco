@@ -26,7 +26,6 @@ export interface ModelCatalogs {
 
 const STATIC_CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 const STATIC_CODEX_MODELS: ModelName[] = [...CODEX_PICKER_MODELS];
-const STATIC_GEMINI_MODELS: ModelName[] = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'];
 const CURSOR_COLD_MODELS: ModelName[] = ['auto'] as ModelName[];
 
 export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): ModelName[] {
@@ -45,7 +44,7 @@ export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): Mod
     return CURSOR_COLD_MODELS;
   }
 
-  if (provider === 'gemini') return STATIC_GEMINI_MODELS;
+
 
   if (provider === 'ollama') return c.ollamaModels as ModelName[];
   if (provider === 'llamacpp') return c.llamacppModels as ModelName[];
@@ -72,7 +71,7 @@ export function defaultModelForProvider(provider: ProviderName, c: ModelCatalogs
     return (def?.id ?? 'auto') as ModelName;
   }
 
-  if (provider === 'gemini') return 'gemini-3.1-pro-preview';
+
 
   if (provider === 'ollama') return (c.ollamaModels[0] ?? '') as ModelName;
   if (provider === 'llamacpp') return (c.llamacppModels[0] ?? '') as ModelName;

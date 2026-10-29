@@ -480,7 +480,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
               </div>
             )}
             <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
-              Creates a fresh project folder and writes <code>README.md</code>, <code>SPEC.md</code>, <code>TODO.md</code>, <code>.gitignore</code>, and local gitignored agent notes for Claude, Codex, and Gemini. Git is initialized best-effort. If GitHub is checked, Arco runs <code>gh repo create</code> with the selected visibility and pushes the initial commit when local <code>gh</code> auth is available.
+              Creates a fresh project folder and writes <code>README.md</code>, <code>SPEC.md</code>, <code>TODO.md</code>, <code>.gitignore</code>, and local gitignored agent notes for Claude and Codex. Git is initialized best-effort. If GitHub is checked, Arco runs <code>gh repo create</code> with the selected visibility and pushes the initial commit when local <code>gh</code> auth is available.
             </div>
           </>
         )}

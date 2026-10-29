@@ -319,7 +319,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           primitives always run as <C>normal</C> regardless. The New-tab
           picker carries the operator's preferred default for future supported
           tabs (saved to <C>workflowDefaults.outputStyle</C>). Claude CLI,
-          Codex exec, and Gemini operators install upstream{' '}
+          Codex exec operators install upstream{' '}
           <a href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noopener noreferrer">caveman</a>{' '}
           (MIT) themselves — Arco doesn't ship a wrapper for those transports.
         </p>
@@ -359,7 +359,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         selected model's catalog entry. On Ollama, LOW turns thinking off and the
         rest are the model's own advertised thinking levels (LOW / HIGH on models
         without levels). Strata uses NONE / LOW / MEDIUM / HIGH: NONE disables
-        reasoning; HIGH maps to Qwen xhigh. Gemini / Cursor show no picker — Cursor
+        reasoning; HIGH maps to Qwen xhigh. Cursor show no picker — Cursor
         bakes effort into the model id; the others expose no effort flag.
       </p>
     ),

@@ -125,8 +125,7 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
                 padding: '0 4px',
               }}
             >
-              {worker.provider === 'gemini' ? 'GEMINI'
-                : worker.provider === 'codex' ? 'CODEX · OPENAI'
+              {worker.provider === 'codex' ? 'CODEX · OPENAI'
                 : worker.provider === 'llamacpp' ? 'LLAMA.CPP · LOCAL'
                 : 'OLLAMA · LOCAL'}
             </span>
@@ -321,10 +320,6 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)}G`;
 }
 
-// Empty-output placeholder for active workers. Surfaces /proc activity so the
-// operator can see whether the worker is actually doing work (CPU active /
-// subprocesses running) or sitting idle waiting on a model API call. Most
-// useful for Gemini, which batches all stdout into the final result event.
 function ProcessHint({ worker }: { worker: WorkerState }) {
   const a = worker.activity;
   const baseStyle: React.CSSProperties = { color: 'var(--color-fg-muted)', fontStyle: 'italic', fontFamily: 'var(--font-body)' };
@@ -361,7 +356,7 @@ function ProcessHint({ worker }: { worker: WorkerState }) {
       <span style={{ color: 'var(--color-warning-dim)' }}>
         waiting on the model API
       </span>{' '}
-      (common for Gemini between tool calls).
+      (common between tool calls).
     </div>
   );
 }

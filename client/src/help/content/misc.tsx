@@ -585,12 +585,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Provider',
     body: (
       <p>
-        Pick which AI back-end runs this tab. Ten providers (Claude / Codex /
-        Gemini / Cursor / Ollama / llama.cpp / LM Studio / Strata); the picker hides ones disabled
+        Pick which AI back-end runs this tab. Providers (Claude / Codex /
+        Cursor / Ollama / llama.cpp / LM Studio / Strata); the picker hides ones disabled
         in Settings or without auth. Local providers (Ollama, llama.cpp) require
         installed models — empty catalogs hide the option. In cluster creation,
-        only providers with peer-tool wiring are eligible. Chat excludes Gemini
-       ; Incognito additionally excludes Cursor, llama.cpp and Strata.
+        only providers with peer-tool wiring are eligible. Incognito additionally excludes Cursor, llama.cpp and Strata.
       </p>
     ),
     manualSection: 'providers-overview',
@@ -622,7 +621,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Codex follows the selected model's catalog (Astra and Sol: low through ultra; Luna stops at max;
         older models may stop at xhigh), Strata offers none/low/medium/high (none
         disables reasoning; high maps to Qwen xhigh), other local models expose low/high as a thinking toggle, and
-        Gemini has none. Higher effort = more thinking tokens = more cost /
+        Higher effort = more thinking tokens = more cost /
         more time. <b>Cursor</b> has no separate effort here — it's baked into
         the model id, so set it in the MODEL picker above.
       </p>
@@ -633,8 +632,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Lists CLI sessions already on disk for this cwd (
-        <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>,{' '}
-        <C>~/.gemini/tmp</C>). Pick one to continue inside Arco — the session
+        <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>). Pick one to continue inside Arco — the session
         remains a real native CLI session you can also resume from a terminal.
       </p>
     ),
@@ -659,7 +657,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Rotates this tab's session. The current agent writes a handoff
         document; a fresh session starts with that doc as its seed. <C>Original-worker</C>{' '}
         (the primary self-reflects) only applies to Claude, Codex; other
-        providers — Gemini, Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
+        providers — Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
         <C>fresh-summarizer</C>.
       </p>
     ),

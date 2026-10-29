@@ -29,10 +29,6 @@ const SKIP_DIRS = new Set([
 const DISCOVERY_MAX_DEPTH = 6;
 const INSTRUCTION_NAME_SET = new Set<string>(INSTRUCTION_FILE_NAMES);
 
-// Walk the cwd (bounded depth, skipping heavy dirs) and collect every agent-
-// instruction file (CLAUDE.md / CLAUDE.local.md / AGENTS.md / GEMINI.md),
-// root-level and nested. Returns repo-relative paths sorted shallowest-first
-// (root files before nested) so the dialog lists the most likely targets up top.
 export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCandidate[]> {
   const found: MdTuneupCandidate[] = [];
   const walk = async (dir: string, depth: number): Promise<void> => {

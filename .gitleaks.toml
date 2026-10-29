@@ -6,7 +6,7 @@ useDefault = true
 id = "generic-api-key"
 
 [[rules.allowlists]]
-description = "Public installed-app registration shipped by Google Gemini CLI, used by both Gemini sign-in implementations; not a user credential. See docs/THIRD_PARTY.md."
+description = "Historical public installed-app registration in removed provider files; not a user credential. Retained only for scanning existing history."
 condition = "AND"
 paths = ['''(?:^|/)server/src/providers/gemini-native/auth\.ts$''', '''(?:^|/)scripts/antigravity-oauth\.mjs$''']
 regexTarget = "secret"

@@ -66,7 +66,7 @@ export function anyPrimaryProviderConnected(
 export const PROVIDER_LABELS: Record<ProviderName, string> = {
   claude: 'Claude (Anthropic)',
   codex: 'Codex (OpenAI)',
-  gemini: 'Gemini (Google)',
+
   cursor: 'Cursor',
 
   ollama: 'Ollama (local)',

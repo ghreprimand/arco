@@ -130,7 +130,6 @@ Host credentials are never imported automatically.
 | Claude Native | API adapter retained | Browser sign-in through the published callback port; container acceptance pending |
 | Ollama / LM Studio | HTTP adapters retained | Reachable model endpoint in provider settings |
 | Strata | HTTP adapters retained | Provider configuration and container acceptance |
-| Gemini / Cursor | CLIs unbundled; disabled on new volumes | Custom image with the CLI; explicit enable and acceptance |
 | llama.cpp | Executable unbundled; disabled on new volumes | Custom runtime/model setup and acceptance |
 
 These are deployment states, not claims that every adapter has passed live

@@ -30,7 +30,7 @@ const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASE
 const PROJECT_SETTINGS_DIRNAME = '.arco';
 const PROJECT_SETTINGS_BASENAME = 'settings.json';
 
-const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+const ALL_PROVIDERS: ProviderName[] = ['claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
 function defaults(): ArcoSettings {
@@ -40,7 +40,7 @@ function defaults(): ArcoSettings {
     codex: { transport: 'appserver' },
     claude: { transport: 'native' },
     uiScale: DEFAULT_UI_SCALE,
-    enabledProviders: { claude: true, gemini: true, ollama: true, codex: true,  llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
+    enabledProviders: { claude: true,  ollama: true, codex: true,  llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
 
@@ -248,7 +248,7 @@ function sanitizeAcknowledgedCliVersions(raw: unknown): ArcoSettings['acknowledg
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
   const out: NonNullable<ArcoSettings['acknowledgedCliVersions']> = {};
-  for (const p of ['claude', 'gemini', 'codex'] as const) {
+  for (const p of ['claude',  'codex'] as const) {
     const v = r[p];
     if (typeof v === 'string' && v.length > 0) out[p] = v;
   }

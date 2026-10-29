@@ -1,7 +1,3 @@
-// Phase 2 context robustness — pty-based ground-truth calibration.
-// Spawns a hidden `claude --resume <sessionId>` pty, sends `/context`, parses
-// the real token counts, and updates the per-session bytes/token ratio.
-// Claude-only; Gemini/Codex/Ollama skip calibration entirely.
 
 import { registerWorkerPid, unregisterWorkerPid } from './workers/pidRegistry.js';
 import { commandArgs } from './windowsCommand.js';

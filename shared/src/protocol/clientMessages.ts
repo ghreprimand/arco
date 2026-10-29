@@ -346,21 +346,8 @@ export interface UpdatePrimaryConfigMessage {
   // (the gate is a safety default — the operator flips to 'off' to relax it
   // for one workflow). Takes effect on the next turn.
   efficiencyConfigProtection?: 'on' | 'off';
-  // docs/PROVIDERS.md - opt-in sandbox tools toggle. Persists to
-  // meta.json + WorkflowConfig.efficiencySandbox. Native-only; CLI / Codex /
-  // Gemini ignore. Takes effect on the next turn (tool surface is rebuilt
-  // per turn). Default 'off'; flip via the CONFIG-tab toggle.
   efficiencySandbox?: 'off' | 'on';
-  // docs/PROVIDERS.md - operator-armed durable review-gate toggle. Persists to
-  // meta.json + WorkflowConfig.reviewSafeMode. Native-only; CLI / Codex /
-  // Gemini ignore. Takes effect on the next turn. Default 'off'.
   reviewSafeMode?: 'off' | 'on';
-  // docs/PROVIDERS.md - per-tab output-style picker. Persists to
-  // meta.json + WorkflowConfig.outputStyle. Only honored on Native
-  // transport; CLI/Codex/Gemini ignore. Takes effect on the next turn.
-  // Renamed from `caveman` → `terse` 2026-05-10 for operator UX clarity;
-  // legacy `caveman` accepted on the wire for back-compat (server
-  // aliases to `terse` on rehydrate).
   outputStyle?: 'normal' | 'lite' | 'terse';
   // docs/GOTCHAS.md - operator-set persistent north-star. Persists to
   // meta.json + WorkflowConfig.goal; injected as a stable system block every

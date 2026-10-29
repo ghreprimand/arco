@@ -77,10 +77,6 @@ function usageToTokens(usage?: Record<string, number>): TokenUsage | undefined {
   const output = usage.output_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cacheCreate = usage.cache_creation_input_tokens ?? 0;
-  // Codex-only enrichments. reasoning_output_tokens is a SUBSET of output
-  // (the model's hidden reasoning trace, billed differently); total_tokens
-  // is the provider's authoritative total. Both are optional — Claude /
-  // Gemini / Ollama don't populate them.
   const reasoningOutput = usage.reasoning_output_tokens;
   const total = usage.total_tokens;
   if (!input && !output && !cacheRead && !cacheCreate) return undefined;

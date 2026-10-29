@@ -3,7 +3,6 @@ import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
 import { ClaudeProvider } from './claude.js';
-import { GeminiProvider } from './gemini.js';
 import { OllamaProvider } from './ollama.js';
 import { CodexProvider } from './codex.js';
 import { CodexAppServerProvider, disposeCodexAppServerWorker } from './codex-appserver/index.js';
@@ -20,7 +19,7 @@ export type { Provider, ProviderProcess } from './types.js';
 
 const PROVIDERS: Record<ProviderName, Provider> = {
   claude: ClaudeProvider,
-  gemini: GeminiProvider,
+
   ollama: OllamaProvider,
   codex: CodexProvider,
 
@@ -173,5 +172,5 @@ export function disposeProviderResources(workflowId: string): void {
 }
 
 export function isKnownProvider(name: string): name is ProviderName {
-  return name === 'claude' || name === 'gemini' || name === 'ollama' || name === 'codex' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
+  return name === 'claude' || name === 'ollama' || name === 'codex' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
 }

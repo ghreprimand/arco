@@ -1,17 +1,6 @@
 import type { ProviderName } from '@arco/shared';
 import type { Theme } from './types';
 
-// Provider auto-tint (idea ported from the Odysseus gpt/claude "mimic the app"
-// themes, 2026-06-05). Arco is a multi-provider workbench, so the novel move
-// is a single `provider-auto` theme that re-tints the whole UI to match the
-// ACTIVE tab's provider — Claude tab → Claude clay, Codex tab → OpenAI green,
-// Gemini tab → Google blue, etc. The picker shows only `provider-auto`; the
-// per-provider palettes below are resolved at apply time from the active job's
-// primaryProvider (see appStore.applyResolvedTheme).
-//
-// These are deliberately flat, opaque, distraction-free brand palettes
-// (shaderPreset 'none', no frosted) — the point is "you can tell which provider
-// you're talking to at a glance," not another animated backdrop.
 
 type RGB = [number, number, number];
 
@@ -125,14 +114,7 @@ export const PROVIDER_THEMES: Record<ProviderName, Theme> = {
     secondary: '#9a9aa8', secondaryRgb: [154, 154, 168], secondaryDim: '#70707e', secondaryBright: '#c2c2d0',
     danger: '#ef4444', warning: '#e0b341', warningDim: '#94762c', success: '#19c37d',
   }),
-  gemini: buildProviderTheme({
-    id: 'provider-gemini', name: 'Gemini', description: 'Google — signal blue and violet',
-    bg: '#1b1c1f', panel: 'rgba(38, 39, 43, 0.95)', input: 'rgba(27, 28, 31, 0.97)', elevated: 'rgba(48, 50, 55, 0.96)',
-    fg: '#e3e3e3', fgRgb: [227, 227, 227], fgMuted: 0.55,
-    primary: '#5b9bf6', primaryRgb: [91, 155, 246], primaryDim: '#3a6cb8', primaryTint: '#16243a',
-    secondary: '#a98bdb', secondaryRgb: [169, 139, 219], secondaryDim: '#7d61ab', secondaryBright: '#c6b0ea',
-    danger: '#ef5350', warning: '#e6b54a', warningDim: '#977430', success: '#5cc98a',
-  }),
+
 
   ollama: buildProviderTheme({
     id: 'provider-ollama', name: 'Ollama', description: 'Local Ollama — neutral slate',

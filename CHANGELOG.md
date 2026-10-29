@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Remove Gemini and dedicated Google provider paths while preserving historical work; keep retired saved choices visibly unavailable until a supported provider is explicitly selected.
+
 - Remove Antigravity integration and desktop launch paths while preserving historical work and explicitly rejecting retired provider requests.
 
 - Give Home more room for project locations, distinguish folder paths, and bring the latest saved session forward.

@@ -26,7 +26,7 @@ export const troubleshooting: Section[] = [
             the workflow-recovery registry.
           </li>
           <li>
-            <strong>Providers</strong> — Claude CLI / Native, Codex, Gemini,
+            <strong>Providers</strong> — Claude CLI / Native, Codex,
             Ollama, llama.cpp version/auth/reachability.
           </li>
           <li>

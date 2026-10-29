@@ -5,7 +5,6 @@ import { homedir } from 'os';
 import type { SessionInfo } from '@arco/shared';
 import { UUID_PATTERN, CODEX_SCAN_DAYS } from '../server/constants.js';
 import { accountShortLabel, configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
-import { discoverGeminiSessions } from '../providers/gemini.js';
 import { listWorkflowMetas, readMeta, arcoInternalSessionInfoForMeta } from '../workflowMeta.js';
 import { backfillSessionIndex } from './sessionIndex.js';
 import { getRecallIndex } from '../recall/index.js';
@@ -272,10 +271,9 @@ export async function discoverSessions(targetDir: string): Promise<SessionInfo[]
   void backfillSessionIndex(resolved, readMeta).catch((err) => {
     console.error('[arco] session index backfill failed:', err);
   });
-  const [claude, codex, gemini, arcoMetas] = await Promise.all([
+  const [claude, codex, arcoMetas] = await Promise.all([
     discoverClaudeSessions(resolved),
     discoverCodexSessions(resolved),
-    discoverGeminiSessions(resolved),
     listWorkflowMetas(resolved),
   ]);
 
@@ -306,7 +304,7 @@ export async function discoverSessions(targetDir: string): Promise<SessionInfo[]
     }
   }
 
-  const all: SessionInfo[] = [...claude, ...codex, ...gemini].map((s) => {
+  const all: SessionInfo[] = [...claude, ...codex].map((s) => {
     const claim = claimedBy.get(s.sessionId);
     return claim
       ? { ...s, arcoWorkflowId: claim.workflowId, arcoName: claim.name }

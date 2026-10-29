@@ -189,7 +189,7 @@ export function SettingsPanel({ onClose }: Props) {
     const next: ArcoSettings = {
       enabledProviders: {
         claude: settings?.enabledProviders.claude !== false,
-        gemini: settings?.enabledProviders.gemini !== false,
+
         ollama: settings?.enabledProviders.ollama !== false,
         codex: settings?.enabledProviders.codex !== false,
 
@@ -769,10 +769,9 @@ export function SettingsPanel({ onClose }: Props) {
             ENABLED PROVIDERS
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-            {(['claude', 'gemini', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).map((p) => {
+            {(['claude',  'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).map((p) => {
               const enabled = settings?.enabledProviders[p] !== false;
               const label = p === 'claude' ? 'CLAUDE'
-                : p === 'gemini' ? 'GEMINI'
                 : p === 'codex' ? 'CODEX'
                 : p === 'cursor' ? 'CURSOR'
                 : p === 'ollama' ? 'OLLAMA'
@@ -786,9 +785,7 @@ export function SettingsPanel({ onClose }: Props) {
                     ? 'Local worker provider — OpenAI-compatible endpoint (default :1234)'
                   : p === 'cursor'
                     ? 'ACP Agent; print Chat/review — live model catalog (cursor-agent login)'
-                  : p === 'gemini'
-                    ? 'Agent and reviewer — CLI transport; no Chat mode'
-                    : p === 'codex'
+                  : p === 'codex'
                       ? 'Agent, Chat and reviewer — catalog-driven GPT models'
                       : 'Agent, Chat and reviewer — CLI or Native transport';
               return (
@@ -1106,13 +1103,7 @@ export function SettingsPanel({ onClose }: Props) {
               loginPending={loginPending === 'claude'}
               onLogin={() => startLogin('claude')}
             />
-            <ProviderRow
-              label="GEMINI (GOOGLE)"
-              provider="gemini"
-              status={authStatus?.gemini}
-              loginPending={loginPending === 'gemini'}
-              onLogin={() => startLogin('gemini')}
-            />
+
             <CodexProfilesSection />
 
 
@@ -1427,7 +1418,7 @@ export function SettingsPanel({ onClose }: Props) {
             </div>
             <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6' }}>
               <div>Claude CLI: v{capabilities.cliVersion}</div>
-              <div>Gemini CLI: {capabilities.geminiVersion && capabilities.geminiVersion !== 'unknown' ? `v${capabilities.geminiVersion}` : 'not installed'}</div>
+
               <div>Codex CLI: {capabilities.codexVersion && capabilities.codexVersion !== 'unknown' ? `v${capabilities.codexVersion}` : 'not installed'}</div>
               <div>Ollama daemon: {ollamaLive?.up && ollamaLive.version ? `v${ollamaLive.version}` : ollamaLive?.up ? 'up (version unknown)' : 'not running'}</div>
             </div>

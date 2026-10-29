@@ -90,7 +90,7 @@ export class TemplateValidationError extends Error {
 }
 
 const PROVIDERS: ReadonlySet<ProviderName> = new Set([
-  'claude', 'gemini', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek',
+  'claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek',
 ]);
 const EFFORTS: ReadonlySet<EffortLevel> = new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
 

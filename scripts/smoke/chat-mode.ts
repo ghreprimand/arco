@@ -24,7 +24,7 @@ async function main() {
       },
     });
     const msg = await c.waitFor((m) => m.type === 'error' && String(m.message).includes('not available in Chat mode'), 3000, 'unsupported-provider error');
-    assert(String(msg.message).includes('gemini'), 'error identifies Gemini');
+    assert(String(msg.message).toLowerCase().includes('gemini'), 'error identifies Gemini');
   });
 
   await step('reject non-private Incognito providers and provider-session resume', async () => {

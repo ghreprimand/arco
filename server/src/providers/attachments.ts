@@ -86,9 +86,6 @@ export function withAttachmentRefs(prompt: string, paths: string[], label?: stri
   return `${prompt}\n\n${attachmentRefs(paths, label)}`;
 }
 
-// Parent dirs of the attachments, deduped — for CLIs whose file tools are
-// fenced to the workspace (Gemini `--include-directories`). Uploads live in
-// the server's ./uploads, which is never inside the tab's project cwd.
 export function attachmentDirs(paths: string[] | undefined): string[] {
   return [...new Set((paths ?? []).map((p) => dirname(p)))];
 }

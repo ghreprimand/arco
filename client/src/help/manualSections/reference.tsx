@@ -65,10 +65,9 @@ export const reference: Section[] = [
             [<Code key="rk">ARCO_RSS_KILL_BYTES</Code>, '32 GB', 'Per-worker-tree RSS auto-kill threshold (shrink on <64 GB RAM).'],
             [<Code key="hub">ARCO_HUB_URL</Code>, '(unset)', 'Tailnet management-hub URL; set to link this instance for remote control. Inert when unset.'],
             [<Code key="ntfy">ARCO_NTFY_URL</Code>, '(unset)', 'ntfy topic URL for external push notifications. Inert when unset.'],
-            [<Code key="tm">TERMINAL</Code>, '(auto-detect)', 'Preferred terminal for Gemini / Codex auth flows.'],
+            [<Code key="tm">TERMINAL</Code>, '(auto-detect)', 'Preferred terminal for Codex auth flows.'],
             [<Code key="ak">ANTHROPIC_API_KEY</Code>, '(unset)', 'API-key fallback for Claude (subscription preferred).'],
             [<Code key="ok">OPENAI_API_KEY</Code>, '(unset)', 'API-key fallback for Codex.'],
-            [<Code key="gk">GEMINI_API_KEY</Code>, '(unset)', 'API-key fallback for Gemini.'],
           ]}
         />
       </>
@@ -164,7 +163,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
           </li>
           <li>
             <strong>Server</strong> spawns provider CLIs as subprocesses
-            (Claude/Gemini/Codex), in-process workers (Claude Native), HTTP
+            (Claude/Codex), in-process workers (Claude Native), HTTP
             clients (Ollama, llama.cpp, LM Studio), or desktop RPC clients
             via <Code>server/src/providers/</Code>. One WebSocket
             per client; every workflow-scoped message gets a monotonic{' '}

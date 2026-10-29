@@ -28,7 +28,7 @@ async def main():
                 writes.append(path)
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': []}
             if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}, 'uiScale': float(initial_scale)}
-            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
+            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
             elif path.endswith('/catalog'): data = {'models': []}
             elif path == '/api/list-dirs': data = {'dirs': [], 'path': '/demo', 'parent': '/'}
@@ -71,7 +71,7 @@ async def main():
         # Each enabled signed-in provider gets its dot; disabling it removes its
         # trigger and the entire group disappears when none remain enabled.
         await page.evaluate("""() => {
-          const names=['claude','gemini','codex','cursor','ollama'];
+          const names=['claude','codex','cursor','ollama'];
           testStore.setState(st=>({authStatus:{...st.authStatus,...Object.fromEntries(names.map(n=>[n,{loggedIn:true}]))},settings:{...st.settings,enabledProviders:Object.fromEntries(names.map(n=>[n,true]))}}));
         }""")
         bar = page.locator('[data-help="header.live-status"]')
@@ -90,7 +90,7 @@ async def main():
         await popup.get_by_text('Camoufox fixture missing').wait_for()
         assert any(q.get('source') == ['camoufox'] for q in quota_queries)
         await page.evaluate('testStore.getState().setHelpMode(true)')
-        for name, letter in [('claude','C'),('gemini','G'),('codex','X'),('cursor','R'),('ollama','O')]:
+        for name, letter in [('claude','C'),('codex','X'),('cursor','R'),('ollama','O')]:
             await page.wait_for_function("letter => [...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
             await page.evaluate("name => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,[name]:false}}}))", name)
             if name != 'ollama':

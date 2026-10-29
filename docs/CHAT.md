@@ -16,8 +16,7 @@ limited tool set inside a project Agent, not a Chat tab.
 | Saved Chat | Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata | Arco event/meta files and provider session storage where supported | + NEW -> CHAT -> PAST CHATS |
 | Incognito Chat | Claude, Codex, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
 
-Gemini are Agent-only: the creator filters them and the server
-rejects a crafted request. Provider enabled/auth/model availability gates also
+Provider enabled/auth/model availability gates also
 apply. Cursor's CLI has no ephemeral-session flag and llama.cpp's shared daemon
 always logs to `~/.arco/llamacpp.log`, so both are rejected for Incognito. Strata is also excluded because its standalone
 request logs and encoded-image cache persist outside Arco.
@@ -98,7 +97,7 @@ every transport (`server/src/providers/attachments.ts` for the newer ones):
 | Cursor (Chat → `print`) | path reference + `--add-dir <upload dir>`; `--mode ask`'s read tool opens the image (verified with a live turn) |
 | Cursor (Agent → ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image` (cursor-agent 2026.09 does); path reference otherwise |
 
-Before 2026-09-25 Cursor (and Gemini on Agent tabs) dropped attachments
+Before 2026-09-25 Cursor dropped attachments
 outright. Most chats have no file tools, so a model that only receives a path
 reference cannot open it — Cursor's ask mode is the exception.
 

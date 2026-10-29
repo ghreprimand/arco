@@ -1,14 +1,3 @@
-// Start command-line tools on Windows without a shell.
-//
-// npm installs global CLIs (codex, claude, gemini, npx, language servers) on
-// Windows as `.cmd` shims. Node refuses to spawn `.cmd`/`.bat` files without a
-// shell (EINVAL since the CVE-2024-27980 fix), and running them through
-// cmd.exe would reintroduce argument-quoting injection. resolveCommand()
-// finds the command on PATH with PATHEXT; a native `.exe`/`.com` is started
-// directly, and an npm shim is read to find the JavaScript entry it wraps,
-// which is then started with this Node binary. On other platforms, and for
-// anything it cannot resolve, the command and arguments pass through
-// unchanged.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { win32 } from 'node:path';
 

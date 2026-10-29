@@ -1,24 +1,3 @@
-// docs/PROVIDERS.md / Excellence LE-4 - structured-output schema for
-// the Review primitive's verdict, used ONLY on the Ollama path.
-//
-// WHY a schema (and why Ollama-only): small local models are unreliable at
-// emitting the exact markdown shape the free-text parsers expect — a stray
-// heading, an italicized verdict line, or a JSON example inside the prose can
-// make `detectVerdict` / `parseReviewFindings` miss. Ollama's /api/chat
-// `format` field constrains decoding at the SAMPLER level to a JSON schema, so
-// the model is FORCED to emit conforming tokens — dramatically more reliable
-// than regex-scraping. No other provider exposes a sampler-constrained `format`
-// field, so this schema is never sent to Claude/Codex/Gemini; their reviewers
-// keep the existing tolerant free-text parsing (runReviewer.detectVerdict +
-// parseReviewFindings).
-//
-// The reviewer's natural output is markdown prose (Summary/Concerns/Verdict)
-// plus an optional trailing findings block. A whole-output JSON schema would
-// destroy that prose, so the schema captures the SAME information as a JSON
-// object and reconstructStructuredReview() rebuilds the canonical markdown body
-// from it — meaning the on-disk artifact format, the verdict badge, and the
-// clickable findings all keep working unchanged downstream. We also lift the
-// verdict + findings straight from the guaranteed-valid JSON (no re-scrape).
 
 import type { Finding, FindingSeverity } from './parseReviewFindings.js';
 

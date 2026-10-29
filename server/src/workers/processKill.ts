@@ -1,14 +1,3 @@
-// Process-tree kill helper. When a worker is `spawn(detached: true)`, the
-// child process becomes a process group leader, and `process.kill(-pid, sig)`
-// (negative pid) sends the signal to the WHOLE group — every descendant
-// shell command, find, du, etc.
-//
-// Without this, killing the worker only takes down the immediate CLI
-// (gemini / claude / codex) and any runaway subprocess (e.g. a 60GB `find /`)
-// keeps running until OOM hits. Critical for the safety story.
-//
-// SIGTERM first, then SIGKILL after a grace period, so well-behaved
-// processes get a chance to clean up but unkillable ones still die.
 
 import { spawn } from 'node:child_process';
 

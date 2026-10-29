@@ -7,7 +7,7 @@ import { useMdTuneupStore, type MdTuneupEditor } from '../stores/mdTuneupStore';
 //
 // Two phases:
 //   1. SELECT — on open we ask the server which instruction files exist
-//      (CLAUDE.md / CLAUDE.local.md / AGENTS.md / GEMINI.md, root + nested) and
+//      (CLAUDE.md / CLAUDE.local.md / AGENTS.md, root + nested) and
 //      show a checklist. The file the tab's provider reads is pre-checked.
 //   2. REVIEW — the operator's picks become a queue; each file is tuned in turn
 //      by a READ-ONLY worker that PROPOSES a compacted version. We show the
@@ -125,7 +125,7 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
             {cand?.loaded && cand.candidates.length === 0 && (
               <>
                 <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
-                  No CLAUDE.md / CLAUDE.local.md / AGENTS.md / GEMINI.md found in this project. Nothing to tune up.
+                  No CLAUDE.md / CLAUDE.local.md / AGENTS.md found in this project. Nothing to tune up.
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button className="display-font" onClick={dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>CLOSE</button>

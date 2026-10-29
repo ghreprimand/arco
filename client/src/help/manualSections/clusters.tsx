@@ -145,7 +145,7 @@ export const clusters: Section[] = [
             Providers without a peer-tool path remain ineligible. The cluster
             member fence is{' '}
             <strong>Claude / Codex / Ollama / llama.cpp / Cursor</strong>;
-            Gemini, LM Studio are not cluster members. Cursor
+            LM Studio are not cluster members. Cursor
             is fresh-spawn membership only, wired via a loopback StreamableHTTP
             MCP server for peer tools.
           </li>

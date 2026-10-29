@@ -230,48 +230,9 @@ export interface WorkflowConfig {
   // only honored on Claude Native (CLI parity is deferred — master
   // refactor §3.3 F4). Defaults to `'off'`; the operator explicitly opts in.
   efficiencyFactForce?: 'on' | 'off';
-  // Per-tab config-protection write-gate. `'on'` (default for ALL tabs —
-  // safety gate) intercepts `Edit`/`Write`/`MultiEdit` targeting lint /
-  // format / type-check config files (eslint.config.*, tsconfig*.json,
-  // .prettierrc*, ruff.toml, .editorconfig) with a synthetic tool_result
-  // nudging the model to fix the code instead of weakening the gate.
-  // `'off'` relaxes the gate for this one workflow — the operator opts out
-  // when a legitimate config edit (e.g. a new path mapping) is needed.
-  // Per-tab CONFIG toggle; only honored on Claude Native (the gate lives in
-  // the Native worker's dispatchTool — CLI / Codex / Gemini have no gate).
-  // Absent field ⇒ `'on'` (gate stays on; opting out is explicit).
   efficiencyConfigProtection?: 'on' | 'off';
-  // docs/PROVIDERS.md - opt-in sandbox tool surface. When
-  // `'on'`, the Native worker registers three additional tools in the
-  // Anthropic tools[] array: `ctx_execute` / `ctx_search` / `ctx_fetch`.
-  // The worker also appends a system-prompt nudge so the model knows the
-  // tools exist and what they're useful for. Per-tab opt-in; default
-  // `'off'`. Native-only — CLI / Codex / Gemini ignore the field.
-  // Per-tab SQLite database (with an FTS5 virtual table over chunk
-  // content) lives at <cwd>/.arco/workflows/<wfId>/sandbox.db and is
-  // unlinked on tab close (remove_workflow) or operator Clear-DB.
   efficiencySandbox?: 'off' | 'on';
-  // docs/PROVIDERS.md - operator-armed durable HITL review gate. When `'on'`, the
-  // Native worker's dispatchTool pauses on a *sensitive* tool call (static
-  // allowlist in `gateReview.ts`: Bash, KillShell, write outside cwd, git
-  // push/reset --hard/clean) and surfaces an editable proposal the operator
-  // approves / edits / rejects. Default `'off'` ⇒ the gate is inert and adds
-  // nothing to the hot path. Native-only — CLI / Codex / Gemini ignore the field.
   reviewSafeMode?: 'off' | 'on';
-  // docs/PROVIDERS.md - operator-armed terseness picker. Three levels:
-  // `normal` (default; no addendum, status quo), `lite` (drop fillers /
-  // pleasantries / hedging; keep grammar), `terse` (fragments OK; drop
-  // articles; short synonyms — was `caveman`, renamed 2026-05-10).
-  // Cuts output tokens. The Native system-block builder appends
-  // `outputStyleAddendum(level)` after the forced-first block. Code
-  // blocks / error strings / file paths preserved verbatim by the addendum
-  // text. Native-only — CLI / Codex / Gemini ignore (operators install
-  // upstream caveman themselves; see helpContent for the link). Persists
-  // to meta.json; takes effect on the next turn (system block is rebuilt
-  // per turn). Review / Handoff seed / DOCS / GIT primitives hard-code
-  // `'normal'` regardless of source tab — see plan §6. Legacy `'caveman'`
-  // values in pre-2026-05-10 meta.json files are auto-aliased to `'terse'`
-  // on rehydrate.
   outputStyle?: 'normal' | 'lite' | 'terse';
   // docs/GOTCHAS.md - operator-set persistent north-star. Short free-text
   // objective ("what is this whole session ultimately in service of") injected as

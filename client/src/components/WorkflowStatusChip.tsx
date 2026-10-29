@@ -13,10 +13,10 @@ import type { ProviderName } from '@arco/shared';
 // reset times). Renders nothing when there's neither an active-workflow context
 // reading nor a throttle — a fresh boot / cluster tab stays clean.
 
-const PROVIDER_ORDER: ProviderName[] = ['claude', 'gemini', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
+const PROVIDER_ORDER: ProviderName[] = ['claude',  'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 const PROVIDER_LABEL: Record<ProviderName, string> = {
   claude: 'CLAUDE',
-  gemini: 'GEMINI',
+
   codex: 'CODEX',
   cursor: 'CURSOR',
   ollama: 'OLLAMA',

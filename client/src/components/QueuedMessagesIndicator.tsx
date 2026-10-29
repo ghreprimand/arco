@@ -140,7 +140,6 @@ function providerSteerTooltip(
     case 'ollama':
     case 'llamacpp':
       return `STEER — ${midTurnSemantics}`;
-    case 'gemini':
       return `STEER — delivered after the current turn for ${provider} (single-shot transport, no mid-turn surface).`;
     default:
       return 'STEER — delivered after the current turn for this provider.';

@@ -53,7 +53,6 @@ export interface AuthStatus {
 
 export interface AuthStatusByProvider {
   claude: AuthStatus;
-  gemini: AuthStatus;
   ollama: AuthStatus;
   codex: AuthStatus;
   github: AuthStatus;
@@ -120,37 +119,6 @@ export async function getClaudeAuthStatus(): Promise<AuthStatus> {
   const error = 'claude auth status probe failed (timeout or unparseable output)';
   if (lastClaudeStatus) return { ...lastClaudeStatus, probeFailed: true, error };
   return { loggedIn: false, probeFailed: true, error };
-}
-
-// Gemini CLI authenticates either via Google OAuth (writes
-// ~/.gemini/oauth_creds.json) or via the GEMINI_API_KEY env var. There's no
-// `gemini auth status` command; we inspect the filesystem directly.
-async function getGeminiAuthStatus(): Promise<AuthStatus> {
-  if (process.env.GEMINI_API_KEY) {
-    return { loggedIn: true, apiProvider: 'google-api-key' };
-  }
-  const credsPath = join(homedir(), '.gemini', 'oauth_creds.json');
-  try {
-    await access(credsPath);
-    const st = await stat(credsPath);
-    if (!st.size) return { loggedIn: false };
-  } catch {
-    return { loggedIn: false };
-  }
-  let email: string | undefined;
-  try {
-    const raw = await readFile(join(homedir(), '.gemini', 'google_accounts.json'), 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed.active === 'string' && parsed.active) {
-      email = parsed.active;
-    }
-  } catch { /* optional — just skip the email */ }
-  return {
-    loggedIn: true,
-    email,
-    apiProvider: 'google-oauth',
-    subscriptionType: 'gemini-cli',
-  };
 }
 
 // `gh auth status` exits non-zero when not logged in and prints to stderr.
@@ -358,9 +326,8 @@ async function getCursorAuthStatus(): Promise<AuthStatus> {
 }
 
 export async function getAuthStatus(): Promise<AuthStatusByProvider> {
-  const [claude, gemini, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
+  const [claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
     getClaudeAuthStatus(),
-    getGeminiAuthStatus(),
     getOllamaAuthStatus(),
     getCodexAuthStatus(),
     getGithubAuthStatus(),
@@ -370,14 +337,14 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
     getDeepSeekAuthStatus(),
     getCursorAuthStatus(),
   ]);
-  return { claude, gemini, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor };
+  return { claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor };
 }
 
 // Explicit Connections check: probe only the operator-selected integration.
 // This reuses provider-owned detection and never starts an inference turn.
 export async function getConnectionStatus(provider: AuthLoginTarget): Promise<AuthStatus> {
   const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
-    claude:getClaudeAuthStatus, codex:getCodexAuthStatus, gemini:getGeminiAuthStatus, github:getGithubAuthStatus, cursor:getCursorAuthStatus,
+    claude:getClaudeAuthStatus, codex:getCodexAuthStatus,  github:getGithubAuthStatus, cursor:getCursorAuthStatus,
     ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
     llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus,
   };
@@ -408,12 +375,7 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
     const command = 'claude auth login --claudeai';
     return authLoginInstructions(command, 'Sign in, then paste the code it shows back into the terminal.');
   }
-  if (provider === 'gemini') {
-    // Gemini CLI has no `auth login` — OAuth runs inside the interactive TUI.
-    // NO_BROWSER switches it to the print-URL / paste-code flow.
-    const command = 'env NO_BROWSER=true gemini';
-    return authLoginInstructions(command, 'Finish the Google sign-in, then /quit.');
-  }
+
   if (provider === 'codex') {
     const account = accountRef ? await resolveProviderAccount('codex', accountRef) : null;
     if (accountRef && !account) {

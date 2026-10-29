@@ -17,7 +17,7 @@ import { PastChatsList } from './PastChatsList';
 import { ProjectPicker } from './ProjectPicker';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
-import { deriveDisplayNames, CLAUDE_MODELS, GEMINI_MODELS_UI, CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
+import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
@@ -70,9 +70,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }
     return CLAUDE_MODELS;
   })();
-  // Cursor picker from the live catalog (~153 models). No pigeonholing — the
-  // full roster (Grok / GPT-5.x / Claude / Gemini / GLM / Kimi …) is offered.
-  // Cursor bakes effort into the id, so label = display name, subline = raw id.
   const cursorModelsForPicker: { value: ModelName; label: string; subline?: string }[] = (() => {
     if (cursorCatalog?.models?.length) {
       return cursorCatalog.models.map((m) => ({
@@ -173,7 +170,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
   const activeModelOptions: { value: ModelName; label: string; subline?: string }[] | null = (() => {
     if (!PRIMARY_PROVIDERS.includes(primaryProvider) || primaryProvider === 'cursor') return null;
-    if (primaryProvider === 'gemini') return GEMINI_MODELS_UI as { value: ModelName; label: string }[];
+
     if (primaryProvider === 'codex') return codexModelsForPicker;
 
     if (primaryProvider === 'ollama') return ollamaModelsForPicker;
@@ -314,11 +311,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     return prefill && prefill.mode !== 'chat' && prefill.mode !== 'genesis' ? prefill.workDir ?? '' : '';
   });
   const [browserPath, setBrowserPath] = useState('');
-  // Resume picker. Phase 3 Lite: unified across providers — every Arco tab
-  // IS a native CLI session, so the picker lists whatever Claude + Codex
-  // have on disk for this cwd (plus any Gemini sessions once that's wired).
-  // Entries that match an existing Arco meta.json surface the workflow's
-  // name; selecting one lands back in that same wfid on the server.
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
@@ -371,7 +363,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       if (s.provider === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
       if (s.provider === 'codex') setModel(DEFAULT_CODEX_MODEL);
 
-      if (s.provider === 'gemini') setModel('gemini-3.1-pro-preview');
+
       setEffort(clampEffortForProvider(effort, s.provider));
     }
     if (s.arcoName && !name) setName(s.arcoName);
@@ -382,10 +374,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   useEffect(() => {
     const prefill = useAppStore.getState().takeCreatorPrefill();
     if (!prefill) return;
-    if (prefill.mode === 'chat' && (primaryProvider === 'gemini')) {
-      setPrimaryProvider('claude');
-      setModel(claudeModelsForPicker[0]?.value ?? 'opus');
-    }
+
     const dir = prefill.mode === 'single' || prefill.mode === 'cluster' ? prefill.workDir : undefined;
     if (dir) setBrowserPath(dir);
     if (dir && prefill.resumeSessionId) {
@@ -868,10 +857,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </button>
             <button data-help="creator.chat-mode" onClick={() => {
               setMode('chat');
-              if (primaryProvider === 'gemini') {
-                setPrimaryProvider('claude');
-                setModel(claudeModelsForPicker[0]?.value ?? 'opus');
-              }
+
             }} style={modePill(mode === 'chat')}>
               <div>CHAT</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Conversation, no project</div>
@@ -1200,10 +1186,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           <div style={bandGrid}>
             <div style={bandHalf}>
 
-        {/* Primary agent provider — Gemini gated as EXPERIMENTAL, Codex newly
-            framework'd. Filter disabled providers out entirely so the operator
-            never sees them. */}
-        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('gemini') && authStatus.gemini.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn)  || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
+
+        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn)  || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
           <div data-help="creator.provider">
             <label className="display-font" style={labelStyle}>PRIMARY AGENT</label>
             <select
@@ -1216,7 +1200,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 // left the select displaying a model the tab wasn't on (and
                 // 404'd on Native). Cold catalog still falls back to the alias.
                 if (p === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
-                if (p === 'gemini') setModel('gemini-3.1-pro-preview');
+
                 if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
 
                 if (p === 'cursor') setModel('auto');
@@ -1235,13 +1219,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               style={{ ...inputStyle, cursor: 'pointer' }}
             >
               {!supportedProvider && <option value={primaryProvider} disabled>Unavailable: {primaryProvider}</option>}
-              {(['claude', 'gemini', 'codex', 'cursor',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
-                .filter((p) => mode !== 'chat' || (p !== 'gemini'))
+              {(['claude',  'codex', 'cursor',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
                 .filter((p) => !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
                 .filter(isProviderEnabled).map((p) => {
                 const authed = authStatus[p]?.loggedIn;
-                const label = p === 'claude' ? 'CLAUDE' : p === 'gemini' ? 'GEMINI' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
-                const sub = p === 'claude' ? 'default' : p === 'gemini' ? 'experimental' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
+                const label = p === 'claude' ? 'CLAUDE' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
+                const sub = p === 'claude' ? 'default' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
                 return (
                   <option key={p} value={p} disabled={!authed}>
                     {label} — {sub}{authed ? '' : ' (not authenticated)'}
@@ -1374,8 +1357,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 // effortsForModel in utils/format for the rationale.
                 const honored = effortsForModel(primaryProvider, model, claudeNativeCatalog, codexCatalog);
                 if (honored.length === 0) {
-                  const reason = primaryProvider === 'gemini' ? 'Gemini CLI has no effort flag.'
-                    : (primaryProvider === 'strata' || primaryProvider === 'deepseek') ? 'None disables thinking; low, medium and high set reasoning effort.' : (primaryProvider === 'ollama' || primaryProvider === 'llamacpp' || primaryProvider === 'lmstudio') ? 'Local models have no effort flag.'
+                  const reason = (primaryProvider === 'strata' || primaryProvider === 'deepseek') ? 'None disables thinking; low, medium and high set reasoning effort.' : (primaryProvider === 'ollama' || primaryProvider === 'llamacpp' || primaryProvider === 'lmstudio') ? 'Local models have no effort flag.'
                     : primaryProvider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
                     : 'Provider does not honor effort.';
                   return (
@@ -1514,7 +1496,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 ))}
               </div>
               <div style={hintStyle}>
-                Trims noisy Bash output before it enters context. Native-only — no effect on CLI/Codex/Gemini.
+                Trims noisy Bash output before it enters context. Native-only — no effect on CLI/Codex.
               </div>
             </div>
         )}

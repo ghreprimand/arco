@@ -14,7 +14,7 @@ If you're new to the codebase, read in this order:
 2. [`GLOSSARY.md`](GLOSSARY.md) - terminology
 3. [`PROTOCOL.md`](PROTOCOL.md) - every WebSocket message, what it does (with siblings [`PROTOCOL_PRIMITIVES.md`](PROTOCOL_PRIMITIVES.md) - operator-primitive messages, and [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) - cluster-mode messages)
 4. [`HTTP_API.md`](HTTP_API.md) - every HTTP endpoint with request/response shapes
-5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server + appserver, Gemini, Ollama, llama.cpp, LM Studio, Strata, Cursor acp + print)
+5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server + appserver, Ollama, llama.cpp, LM Studio, Strata, Cursor acp + print)
 6. [`PRIMITIVES.md`](PRIMITIVES.md) - Review, Handoff, Spawn deep dives
 7. [`PERSISTENCE.md`](PERSISTENCE.md) - `events.jsonl`, `meta.json`, `.arco/` layout
 8. [`CLIENT.md`](CLIENT.md) - Zustand store, component tree, render pipeline
@@ -71,7 +71,7 @@ workbench with a project cwd, tools, primitives, and the right panel.
 an Arco-owned storage cwd under `~/.arco/chats/<workflowId>` solely for
 durable events/meta, skips project discovery and checkpoints, and runs under
 `WorkerConfig.interactionMode:'chat'`. Chat supports Claude, Codex,
-Cursor, Ollama, llama.cpp, LM Studio, Strata, and DeepSeek; Gemini are not offered.
+Cursor, Ollama, llama.cpp, LM Studio, Strata, and DeepSeek.
 Native/local APIs receive no project tools; CLI backends are additionally isolated and
 read-only where their transport cannot remove every built-in tool. The single
 exception is the per-tab **web-access toggle** (`WorkflowConfig.chatWebAccess`,
@@ -100,7 +100,7 @@ structured log; notifications, hub reporting, durable PID registration, and
 Claude argv/temp-file framing are disabled. Cursor and llama.cpp are unavailable
 because their local persistence/logging cannot meet the strict boundary.
 
-Arco is a tabbed multi-provider coding workbench. Each tab owns one long-lived **primary agent** (Claude / Codex / Gemini / Ollama / llama.cpp / LM Studio / Strata / DeepSeek / Cursor - ten providers) running against one **working directory**. **Claude has two transports** - `cli` (default, per-turn `claude` spawn) and `native` (long-lived in-process worker via `@anthropic-ai/sdk`); **Codex has two** - `exec` (default, per-turn `codex exec --json`) and `appserver` (long-lived `codex app-server` per tab); **Cursor has two** - `acp` (default, long-lived `cursor-agent acp` ACP worker) and `print` (stateless `cursor-agent -p --mode ask` one-shot, auto-routed for read-only primitive spawns). Operators chat directly with that primary; ordinary chat messages are not secretly routed and Arco does not silently pick models for them. Three operator-triggered **primitives** layer on top - **Review** (cross-family second opinion, transcript-scoped or plan-scoped), **Handoff** (rotate to a fresh session within the same tab), **Spawn** (fork the conversation to a new tab) - plus two structured one-off composer surfaces (**DOCS** / **GIT**). A **cluster** is a parent tab kind that hosts N member workflows pinned to one cwd; members hand notes via a budgeted peer-tool substrate between operator turns. Same-provider model and effort changes happen live without rotation; provider swaps require a Handoff. Every workflow-scoped event is stamped with a monotonic `seq` and persisted to `events.jsonl` so reconnecting clients get lossless replay. There is no hidden orchestrator authority, no silent autonomous routing, and no LLM-curated memory: model-assisted proposals or dispatch are eligible only when operator-armed, visible, logged, reversible, and applied through explicit approval or bounded task tools.
+Arco is a tabbed multi-provider coding workbench. Each tab owns one long-lived **primary agent** (Claude / Codex / Ollama / llama.cpp / LM Studio / Strata / DeepSeek / Cursor - ten providers) running against one **working directory**. **Claude has two transports** - `cli` (default, per-turn `claude` spawn) and `native` (long-lived in-process worker via `@anthropic-ai/sdk`); **Codex has two** - `exec` (default, per-turn `codex exec --json`) and `appserver` (long-lived `codex app-server` per tab); **Cursor has two** - `acp` (default, long-lived `cursor-agent acp` ACP worker) and `print` (stateless `cursor-agent -p --mode ask` one-shot, auto-routed for read-only primitive spawns). Operators chat directly with that primary; ordinary chat messages are not secretly routed and Arco does not silently pick models for them. Three operator-triggered **primitives** layer on top - **Review** (cross-family second opinion, transcript-scoped or plan-scoped), **Handoff** (rotate to a fresh session within the same tab), **Spawn** (fork the conversation to a new tab) - plus two structured one-off composer surfaces (**DOCS** / **GIT**). A **cluster** is a parent tab kind that hosts N member workflows pinned to one cwd; members hand notes via a budgeted peer-tool substrate between operator turns. Same-provider model and effort changes happen live without rotation; provider swaps require a Handoff. Every workflow-scoped event is stamped with a monotonic `seq` and persisted to `events.jsonl` so reconnecting clients get lossless replay. There is no hidden orchestrator authority, no silent autonomous routing, and no LLM-curated memory: model-assisted proposals or dispatch are eligible only when operator-armed, visible, logged, reversible, and applied through explicit approval or bounded task tools.
 
 ---
 
@@ -154,7 +154,7 @@ FREE VRAM. No engine is spawned beneath an Arco worker. See [DEEPSEEK.md](DEEPSE
 │  │  runReviewer        │    │  claude-native/        │        │
 │  │  exportContext      │    │  codex (exec)                    │        │
 │  │  reviewContent      │    │  codex-appserver/       │        │
-│  │                     │    │  gemini / ollama / ollamaTools   │        │
+│  │                     │    │  ollama / ollamaTools   │        │
 │  │                     │    │  llamacpp + llamacppManager      │        │
 │  │                     │    │  lmstudio (/v1 OpenAI-compat)    │        │
 │  │                     │    │  cursor (ACP) / cursor print     │        │
@@ -172,7 +172,7 @@ FREE VRAM. No engine is spawned beneath an Arco worker. See [DEEPSEEK.md](DEEPSE
 └─────────────────────────────────────────────────────────────────────────┘
                              │
                              ▼
-                Per-turn subprocess CLIs (CLI Claude, Codex exec, Gemini)
+                Per-turn subprocess CLIs (CLI Claude, Codex exec)
                 Long-lived subprocess (Codex app-server)
                 In-process @anthropic-ai/sdk (Claude Native)
                 HTTP (Ollama, llama.cpp via singleton llamacppManager, LM Studio via OpenAI-compat /v1)
@@ -186,7 +186,7 @@ graph TB
     subgraph "Node Server"
       S[index.ts<br/>WS dispatcher]
       P[primitives/<br/>seedWorker, runReviewer,<br/>runExportContext, reviewContent]
-      V[providers/<br/>claude CLI, claude-native,<br/>codex exec, codex-appserver, gemini, ollama, llamacpp, lmstudio,  cursor]
+      V[providers/<br/>claude CLI, claude-native,<br/>codex exec, codex-appserver,  ollama, llamacpp, lmstudio,  cursor]
       W[workers/<br/>spawn, RSS guard]
       ST[workflowStore.ts<br/>events.jsonl]
       M[workflowMeta.ts<br/>meta.json]
@@ -194,7 +194,7 @@ graph TB
       MCP[mcp/clusterMcpServer<br/>+ mcpConfigWriter]
     end
     subgraph "External processes"
-      CLI[Per-turn CLIs: claude, codex exec, gemini]
+      CLI[Per-turn CLIs: claude, codex exec]
       NAT[In-process: @anthropic-ai/sdk<br/>Claude Native worker]
       APP[Long-lived: codex app-server]
       OL[HTTP: Ollama, llama.cpp, LM Studio]
@@ -398,11 +398,11 @@ All three primitives accept a `broadcast` callback so events can be stamped to a
 - `index.ts` - factory: `createProviderProcess(id, config)` dispatches to the right module
 - `claude.ts` - Claude **CLI transport** (default; per-turn `claude` spawn). Plus `claude-native/` (long-lived in-process worker via `@anthropic-ai/sdk` with OAuth subscription auth and the Claude-Code wire fingerprint, used when `claudeTransport: 'native'`).
 - `codex.ts` - Codex **`exec` transport** (default; per-turn `codex exec --json`). Plus `codex-appserver/` (long-lived `codex app-server` per tab with structured `turn/interrupt` cancel + `turn/steer` mid-turn input, used when `codexTransport: 'appserver'`).
-- `gemini.ts`, `ollama.ts`, `ollamaTools.ts` - additional providers + the local-tool runtime. (`gemini-native/` holds only an `auth.ts` + `catalog.ts` stub - no worker yet; the native Gemini transport is unshipped, see.)
+- `ollama.ts`, `ollamaTools.ts` - additional providers + the local-tool runtime.
 - `llamacpp.ts` + `llamacppManager.ts` + `llamacppRecovery.ts` - singleton manager owns the `llama-server` daemon, OpenAI-compatible chat-completions endpoint, in-place auto-recovery for reasoning runaway / stall / tool-cap / context fill
 - `lmstudio.ts` - LM Studio provider via its OpenAI-compatible `/v1` endpoint
 - `cursor/` - Cursor via `cursor-agent` over the Agent Client Protocol (ACP). Default `acp` transport is a long-lived per-workflow JSON-RPC 2.0 worker (`worker.ts` / `acpJsonRpc.ts`); `print.ts` is the stateless `cursor-agent -p --mode ask` read-only one-shot used for reviewer / fresh-summarizer / DOCS / research / compare primitives (routed when `config.sandbox === 'read-only'` so a primitive never hijacks the live ACP session). `catalog.ts` enumerates the family×effort model roster via a short-lived `cursor-agent models` spawn - Cursor bakes reasoning effort into the model id (`-low` / `-high` / `-xhigh` / `-max`), so there is no separate effort surface. Cluster peer tools ride an in-process loopback StreamableHTTP MCP (`mcp/clusterMcpLoopback.ts`), since Cursor ACP honors MCP only over http/sse, not stdio.
-- `gemini-stream.ts`, `codex-stream.ts` - streaming JSONL parsers
+- `codex-stream.ts` - streaming JSONL parsers
 
 Every provider implements `spawn(prompt) -> events` and emits a uniform event stream: `init`, `text`, `thinking`, `tool_use`, `result`, `error`, `system_notice`. The `seedWorker` (and `runReviewer`, `runExportContext`) wrap these into the protocol's `worker_*` and `primary_*` messages.
 
@@ -445,7 +445,6 @@ Per-service. Status discovered at boot and cached:
 - `GET /api/auth-status` returns combined snapshot (per-provider `loggedIn`, `email`, `subscriptionType`, `installedModels`, `error`)
 - `POST /api/auth-login?provider=<name>` triggers the appropriate flow:
   - **Claude** - shells `claude auth login --claudeai`
-  - **Gemini** - opens a terminal emulator with `gemini auth login` (interactive OAuth). Falls back through `TERMINAL` env var -> `konsole`/`gnome-terminal`/`kgx`/`kitty`/`alacritty`
   - **Codex** - shells `codex login`
   - **GitHub** - `gh auth login`
   - **Ollama** - no login; just probes `OLLAMA_URL_BASE/api/tags`
@@ -460,7 +459,7 @@ Opening a repo Arco hasn't seen before suppresses its project-local `AGENTS.md`,
 
 ### Quotas
 
-`server/src/quota.ts` tracks per-provider throttle state. Providers detect throttling from stderr / API responses (Claude rate-limit text; Codex/Gemini 429 + Retry-After) and call `markThrottled(provider, errorText, resetsAt?)`. The state listener broadcasts `quota_status` on every change and on every WS connect. UI's `QuotaBadge` reflects this. Lazy recovery: once `resetsAt` passes, `isAvailable` flips automatically.
+`server/src/quota.ts` tracks per-provider throttle state. Providers detect throttling from stderr / API responses (Claude rate-limit text; Codex 429 + Retry-After) and call `markThrottled(provider, errorText, resetsAt?)`. The state listener broadcasts `quota_status` on every change and on every WS connect. UI's `QuotaBadge` reflects this. Lazy recovery: once `resetsAt` passes, `isAvailable` flips automatically.
 
 ### System notices
 
@@ -605,7 +604,7 @@ Operator-global, under `~/.arco/`:
 
 Two distinct numbers; both surface in `TokenBadge.tsx` / `TokensFooter`:
 
-- **`ctx` (per-turn)** - provider-aware. **Claude**: `tokens.input + tokens.cacheCreate` (the three input flavours are disjoint, this sum matches the auto-compact threshold). **Codex**: just `tokens.input` - OpenAI's `input_tokens` IS the full prompt size; `cached_input_tokens` is a subset shown for transparency, not added to the total. The provider-aware split lives in `client/src/utils/format.ts:contextTokens(usage, provider?)`. **Ollama** reports `input_tokens` post-cache (the daemon's `prompt_eval_count` after prefix-cache hit), so `ctx` displays the actual delta the daemon paid this turn rather than the full message stack - accurate, but the multi-turn growth curve flattens quickly once the cache is hot. **Gemini** default to the Claude shape; they don't populate cache fields today, so the result is just `input`.
+- **`ctx` (per-turn)** - provider-aware. **Claude**: `tokens.input + tokens.cacheCreate` (the three input flavours are disjoint, this sum matches the auto-compact threshold). **Codex**: just `tokens.input` - OpenAI's `input_tokens` IS the full prompt size; `cached_input_tokens` is a subset shown for transparency, not added to the total. The provider-aware split lives in `client/src/utils/format.ts:contextTokens(usage, provider?)`. **Ollama** reports `input_tokens` post-cache (the daemon's `prompt_eval_count` after prefix-cache hit), so `ctx` displays the actual delta the daemon paid this turn rather than the full message stack - accurate, but the multi-turn growth curve flattens quickly once the cache is hot.
 - **`out` (cumulative)** - `tokens.output` summed across every turn of the workflow. "Work produced." No billing consequence on Max subscription.
 
 **Compaction in Lite.** The Handoff button is still the operator-driven escape hatch, but Native Claude tabs also have server-side compaction available:
@@ -651,7 +650,6 @@ The command-line surface for each provider's primary turn (full detail in [PROVI
 
 **Claude (workers):** same base + `--no-session-persistence` and a `--tools <csv>` allowlist where the primitive restricts tools.
 
-**Gemini:** `gemini -p '' --output-format stream-json -m <model> [-r <index>] [--yolo] [--include-directories <a,b>]`. Prompt via stdin. No `--approval-mode`, `--effort`, or `--fallback-model`.
 
 **Codex (primary):** `codex exec --json --color never --skip-git-repo-check -s <sandbox> -m <model> [-i <image>...] [-c reasoning_effort="<e>"] [-c model_context_window=<n>] [-c web_search="live|disabled"] [--ephemeral] [-C <cwd>]`. Sandbox from `WorkerConfig.sandbox` (defaults to `read-only` for primary). `web_search` is Chat-only; `--ephemeral` is Incognito-only.
 
@@ -764,7 +762,7 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 - **Native Claude** - in-process tool registration gated on `worker.config.clusterId`.
 - **CLI Claude** - `--mcp-config <path>` writes a per-spawn `arco-cluster` stdio MCP child via `server/src/mcp/clusterMcpServer.ts`, translating MCP tool calls into REST against `/api/clusters/:id/peer/*`.
 - **Codex `exec` + `app-server`** - same MCP child registered via Codex's `-c mcp_servers.arco-cluster.*` TOML overrides (no `--mcp-config` flag in Codex CLI). The `app-server` transport's MCP child lives for the appserver's lifetime, not per-turn; cluster-context-change recycle in `acquireWorker`.
-- **Ollama / llama.cpp** - local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `ollama` / `llamacpp` / `cursor`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical - it now delegates to `isClusterMemberProvider`) rejects anything outside that set (Gemini have no peer-wiring path Arco can drive). Local members are capped at **one per cluster by default** (the cap guards against local-model resource fights); set `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift it.
+- **Ollama / llama.cpp** - local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `ollama` / `llamacpp` / `cursor`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical - it now delegates to `isClusterMemberProvider`) rejects anything outside that set (other providers have no peer-wiring path Arco can drive). Local members are capped at **one per cluster by default** (the cap guards against local-model resource fights); set `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift it.
 - **Cursor** - peer tools ride an in-process loopback StreamableHTTP MCP server (`mcp/clusterMcpLoopback.ts`) whose URL is handed to Cursor in `session/new` / `session/load` `mcpServers`; Cursor ACP honors MCP only over http/sse, not stdio. Fresh-only membership; the server list is refreshed each turn so a mid-life board attach/detach reflects on the next tool call.
 
 **Plan + role propagation.** Native injects via forced system blocks (`FORCED_FIRST_BLOCK -> cluster plan -> cluster role -> appendSystemPrompt -> systemPrompt -> output style`). CLI Claude and Codex `exec` fold the same blocks into `WorkerConfig.appendSystemPrompt` under a 16 KB soft cap; Codex app-server uses a bounded 48 KB fold so its JSON-RPC path can carry the full 32 KB maximum plan plus small cluster blocks. App-server also sends stable role, Director contract, and code-mode tool mapping as `developerInstructions`, so Codex's built-in `/root` framing cannot outrank the assigned Arco role.
@@ -835,7 +833,7 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `contextEstimator.ts` | Byte-count context-fill estimation. Per-model constants (`MODEL_WINDOWS`, `BYTES_PER_TOKEN`, `OVERHEAD_TOKENS`). Reads JSONL byte size, applies ratio + overhead, returns a percentage. |
 | `contextCalibrator.ts` | Ground-truth calibration via `claude --resume <sid> --print "/context"`. Parses Claude's markdown report, computes per-session `ratio`/`overhead`, persists to `meta.calibration`. Zone-gated (zones E/A/B/C); idle-only. |
 | `usage.ts` | Probes Claude's 5-hour and weekly usage from the OAuth API (`https://api.anthropic.com/api/oauth/usage`). Caches at 2-minute TTL. Drives the `UsageBar` in the SystemHeader. |
-| `auth.ts` | Per-provider auth status + login triggers. Handles the terminal-spawn for Gemini/Codex OAuth flows (with TERMINAL fallback chain). Wraps `gh auth status` for GitHub. |
+| `auth.ts` | Per-provider auth status + login triggers. Handles the terminal-spawn for Codex OAuth flows (with TERMINAL fallback chain). Wraps `gh auth status` for GitHub. |
 | `quota.ts` | Per-provider throttle state. Process-local (not persisted; restart re-flips on observed errors). `markThrottled(provider, error, resetsAt?)` and `markAvailable(provider)`. Lazy passive recovery via `resetsAt`. |
 | `capabilities.ts` | Probes each provider CLI's `--version` and help output. Snapshots persist to `~/.arco/cli-snapshots/`. Computes `cliChanges[]` between boots. |
 | `crashRecovery.ts` | Boot-time scan of `~/.arco/known-cwds.json` for workflows active in the last 24h; pre-inits workflowStore so seq continuity holds across restart. |

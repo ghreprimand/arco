@@ -23,7 +23,6 @@ export function UsageBar({ usage }: Props) {
   const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
   const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
   const claudeAuthed = authStatus?.claude.loggedIn ?? false;
-  const geminiAuthed = authStatus?.gemini.loggedIn ?? false;
   const codexAuthed = authStatus?.codex.loggedIn ?? false;
   const cursorAuthed = authStatus?.cursor?.loggedIn ?? false;
   // Ollama dot appears whenever the provider is enabled — even if the daemon is
@@ -34,9 +33,6 @@ export function UsageBar({ usage }: Props) {
   return (
     <div data-help="header.live-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {isProviderEnabled('claude') && claudeAuthed && <ClaudeStatus usage={usage} />}
-      {isProviderEnabled('gemini') && geminiAuthed && (
-        <GeminiStatus tooltip="Gemini — LIVE. The CLI exposes no usage/quota endpoint for personal accounts, so live status only." />
-      )}
       {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
       {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
       {ollamaShown && <OllamaStatus daemonUp={ollamaDaemonUp} live={ollamaLive} />}
@@ -86,10 +82,6 @@ function StatusDot({ letter, state, title, href }: { letter: string; state: DotS
       {content}
     </a>
   );
-}
-
-function GeminiStatus({ tooltip }: { tooltip: string }) {
-  return <StatusDot letter="G" state="live" title={tooltip} />;
 }
 
 const CODEX_ANALYTICS_URL = 'https://chatgpt.com/settings/usage?tab=overview';

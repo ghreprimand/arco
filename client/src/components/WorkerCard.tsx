@@ -39,9 +39,6 @@ export function WorkerCard({ jobId, worker }: Props) {
   const isActive = worker.status === 'running' || worker.status === 'spawning';
   const isDone = worker.status === 'completed';
   const latestTool = worker.toolCalls.length > 0 ? worker.toolCalls[worker.toolCalls.length - 1] : null;
-  // Time since the latest tool started — the most useful signal for "is this
-  // tool still running" especially for Gemini workers, which don't stream
-  // stdout while a shell command is executing.
   const latestToolElapsed = isActive && latestTool ? now - latestTool.timestamp : 0;
   const sinceLastEvent = isActive && worker.lastActivityAt ? now - worker.lastActivityAt : 0;
 
@@ -124,7 +121,7 @@ export function WorkerCard({ jobId, worker }: Props) {
         )}
         {isActive && sinceLastEvent > 5000 && (
           <span
-            title="Time since last event from the worker — high values mean a tool is running silently (common for Gemini shell commands)"
+            title="Time since last event from the worker — high values mean a tool is running silently (common for long shell commands)"
             style={{ color: sinceLastEvent > 30000 ? 'var(--color-warning)' : 'var(--color-fg-muted)', fontSize: '9px' }}
           >
             · idle {formatShort(sinceLastEvent)}
@@ -262,7 +259,7 @@ function effortBadgeColor(e: WorkerState['effort']): string {
 }
 
 function effortBadgeTitle(e: WorkerState['effort'], p: WorkerState['provider']): string {
-  if (p === 'gemini') return `effort=${e} (ignored — Gemini CLI has no effort knob)`;
+
   // Codex used to top out at 'xhigh'. Since GPT-6 Astra (2026-09-03) it accepts
   // 'max' and 'ultra' too, and the effort is clamped per-model against the live
   // catalog rather than collapsed by a blanket rule — so don't claim a fixed
@@ -280,7 +277,6 @@ function effortBadgeTitle(e: WorkerState['effort'], p: WorkerState['provider']):
 
 function providerBadgeChar(p: WorkerState['provider']): string {
   switch (p) {
-    case 'gemini': return 'G';
     case 'codex': return 'C';
     case 'cursor': return 'R';
     case 'ollama': return 'O';
@@ -291,7 +287,6 @@ function providerBadgeChar(p: WorkerState['provider']): string {
 
 function providerBadgeTitle(p: WorkerState['provider']): string {
   switch (p) {
-    case 'gemini': return 'Gemini';
     case 'codex': return 'Codex (OpenAI)';
     case 'cursor': return 'Cursor (ACP · ~153 models)';
     case 'ollama': return 'Ollama (local)';
@@ -302,7 +297,6 @@ function providerBadgeTitle(p: WorkerState['provider']): string {
 
 function providerBadgeColor(p: WorkerState['provider']): string {
   switch (p) {
-    case 'gemini': return 'var(--color-accent-secondary)';
     case 'codex': return 'var(--color-accent-primary)';
     case 'cursor': return '#6cc6d6';
     case 'ollama': return 'var(--color-warning)';

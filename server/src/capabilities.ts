@@ -22,7 +22,7 @@ const MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 // Provider we know how to check/update from Arco. Not a union with
 // ProviderName because Ollama isn't a CLI and doesn't ship with a version
 // flag in the same sense.
-export type CliProvider = 'claude' | 'gemini' | 'codex';
+export type CliProvider = 'claude' | 'codex';
 
 // 'unknown' = the CLI isn't installed (the PROVIDERS popover hides those rows).
 // 'broken' = it IS installed but the version probe failed. Keeping them distinct
@@ -71,9 +71,8 @@ export async function probeCapabilities(): Promise<Capabilities> {
     // Keep fallback
   }
 
-  const [cliVersion, geminiVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions] = await Promise.all([
+  const [cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions] = await Promise.all([
     probeVersion('claude'),
-    probeVersion('gemini'),
     probeVersion('codex'),
     probeVersion('cursor-agent'),
     probeStrataVersion(await getStrataBase()),
@@ -81,7 +80,7 @@ export async function probeCapabilities(): Promise<Capabilities> {
     probeLatestVersions(),
   ]);
 
-  return { efforts, models: MODELS, cliVersion, geminiVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions };
+  return { efforts, models: MODELS, cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions };
 }
 
 // ── Upstream latest-version probes ──
@@ -141,9 +140,8 @@ async function strataLatestRelease(): Promise<string | undefined> {
 }
 
 export async function probeLatestVersions(): Promise<Capabilities['latestVersions']> {
-  const [claude, gemini, codex, ollama, strata, xolotl] = await Promise.all([
+  const [claude, codex, ollama, strata, xolotl] = await Promise.all([
     npmLatest('@anthropic-ai/claude-code'),
-    npmLatest('@google/gemini-cli'),
     npmLatest('@openai/codex'),
     ollamaLatestRelease(),
     strataLatestRelease(),
@@ -152,7 +150,7 @@ export async function probeLatestVersions(): Promise<Capabilities['latestVersion
       return typeof sha === 'string' && /^[a-f0-9]{40}$/.test(sha) ? sha : undefined;
     }),
   ]);
-  return { claude, gemini, codex, ollama, strata, xolotl };
+  return { claude, codex, ollama, strata, xolotl };
 }
 
 export interface UpdateResult {
@@ -171,14 +169,9 @@ export interface UpdateResult {
   notice?: string;
 }
 
-// Claude ships a true self-updater (`claude update`). Gemini and Codex are
-// typically installed via npm and don't expose one, so we fall back to
-// `npm install -g <pkg>@latest`. If the operator installed via another
-// mechanism (pipx, homebrew, curl script), that command fails and the error
-// surfaces in the UI — they can update manually.
 const UPDATE_COMMAND: Record<CliProvider, { cmd: string; args: string[] }> = {
   claude: { cmd: 'claude', args: ['update'] },
-  gemini: { cmd: 'npm', args: ['install', '-g', '@google/gemini-cli@latest'] },
+
   codex: { cmd: 'npm', args: ['install', '-g', '@openai/codex@latest'] },
 };
 
@@ -186,19 +179,19 @@ const UPDATE_COMMAND: Record<CliProvider, { cmd: string; args: string[] }> = {
 // is absent on purpose: it self-updates via `claude update`, so there is no
 // `npm install` for us to aim at a specific version.
 const NPM_PACKAGE: Partial<Record<CliProvider, string>> = {
-  gemini: '@google/gemini-cli',
+
   codex: '@openai/codex',
 };
 
 function versionForProvider(caps: Capabilities, provider: CliProvider): string {
   if (provider === 'claude') return caps.cliVersion;
-  if (provider === 'gemini') return caps.geminiVersion ?? 'unknown';
+
   return caps.codexVersion ?? 'unknown';
 }
 
 /**
  * Run the update command for the given CLI provider. Claude uses its built-in
- * self-updater; Gemini/Codex fall back to `npm install -g …@latest`. Re-probes
+ * self-updater; Codex falls back to `npm install -g …@latest`. Re-probes
  * capabilities after so callers get the refreshed version strings.
  */
 export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude'): Promise<UpdateResult> {
@@ -308,7 +301,7 @@ const SNAPSHOT_DIR = join(arcoHome(), 'cli-snapshots');
 
 const HELP_PROBES: Record<CliProvider, string[][]> = {
   claude: [['--help'], ['config', '--help'], ['mcp', '--help']],
-  gemini: [['--help']],
+
   codex: [['--help'], ['exec', '--help']],
 };
 
@@ -393,7 +386,7 @@ function simpleDiff(oldText: string, newText: string): string {
  * baseline silently and are NOT reported as changes.
  */
 export async function detectCliChanges(caps: Capabilities): Promise<CliChange[]> {
-  const providers: CliProvider[] = ['claude', 'gemini', 'codex'];
+  const providers: CliProvider[] = ['claude',  'codex'];
   const changes: CliChange[] = [];
   for (const p of providers) {
     const currentVersion = versionForProvider(caps, p);

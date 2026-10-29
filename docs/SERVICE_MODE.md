@@ -76,7 +76,7 @@ Load-bearing details:
 - **`ExecStart` runs the compiled server** (`node server/dist/index.js`) — never `tsx`, never `npm run dev`. Production runs compiled.
 - **`Environment=ARCO_SERVE_CLIENT=1`** flips on the in-process static-serve fallback (see below).
 - **`Environment=ARCO_LOG_FILE=1`** turns on structured file logging (see [Logs](#logs)). Off in dev, so `npm run dev` is unchanged.
-- **`Environment=NODE_OPTIONS=--dns-result-order=ipv4first`** makes the spawned provider CLIs (claude/codex/gemini are separate Node processes that inherit it) prefer IPv4. The server's own process already hard-blocks IPv6 in code (`server/src/net/forceIpv4.ts` forces `dns.lookup` to family 4 — a v6 usage fetch once crash-looped the service into a permanent "SERVER DOWN"); this line is the belt for the children.
+- **`Environment=NODE_OPTIONS=--dns-result-order=ipv4first`** makes the spawned provider CLIs (claude/codex are separate Node processes that inherit it) prefer IPv4. The server's own process already hard-blocks IPv6 in code (`server/src/net/forceIpv4.ts` forces `dns.lookup` to family 4 — a v6 usage fetch once crash-looped the service into a permanent "SERVER DOWN"); this line is the belt for the children.
 - **`Restart=on-failure` + `RestartSec=3`** is the restart-on-crash acceptance: the service comes back a few seconds after a crash.
 - **`StartLimitIntervalSec=60` + `StartLimitBurst=5`** (in `[Unit]`, where systemd requires them) bound a crash-loop: more than 5 failures in 60s and systemd stops respawning (`failed` state) instead of hammering forever.
 - **`WantedBy=default.target`** because a `--user` unit has no `multi-user.target`.

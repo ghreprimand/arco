@@ -133,7 +133,7 @@ function tagLine(label: string): string {
 // (e.g. mid-stream partial JSON that already passed the unclosed-block check).
 interface DescribedDispatch {
   count: number;
-  summary: string;       // "w1 (sonnet) · w2 (gemini-3-flash-preview)"
+  summary: string;       // "w1 (sonnet) · w2 (gpt-5.4-mini)"
   lineage: string[];     // ["↻ w2b escalated from w2 (sonnet → opus)", ...]
 }
 

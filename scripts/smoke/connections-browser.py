@@ -100,7 +100,7 @@ class Browser:
 
 h=SimpleNamespace(IsolatedServer=IsolatedServer,FakeModel=FakeModel,Browser=Browser,INSTRUMENT=INSTRUMENT,REPO=REPO,async_playwright=async_playwright)
 
-IDS=['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github']
+IDS=['claude','codex','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github']
 
 class Server(h.IsolatedServer):
     def extra_env(self):
@@ -272,15 +272,15 @@ async def login_and_deep_links(playwright,server):
         await dialog.get_by_text('Sign-in could not be started.',exact=False).wait_for()
         assert state['logins']==['claude']
         async def command(route):
-            await route.fulfill(status=200,json={'started':False,'command':'gemini','hostCommand':'docker compose exec arco gemini','manual':'Synthetic terminal fallback'})
-        await b.context.route('**/api/auth-login?provider=gemini&inApp=1',command)
-        gemini=await choose(dialog,'Gemini CLI')
-        if await gemini.get_by_role('button',name='Enable provider',exact=True).count():
-            await gemini.get_by_role('button',name='Enable provider',exact=True).click()
-            await gemini.get_by_role('button',name='Disable provider',exact=True).wait_for()
-        await gemini.get_by_role('button',name='Sign in to Gemini CLI',exact=True).click()
-        await gemini.get_by_text('docker compose exec arco gemini',exact=True).wait_for()
-        await gemini.get_by_role('button',name='Advanced provider settings',exact=True).click()
+            await route.fulfill(status=200,json={'started':False,'command':'cursor-agent login','hostCommand':'docker compose exec arco cursor-agent login','manual':'Synthetic terminal fallback'})
+        await b.context.route('**/api/auth-login?provider=cursor&inApp=1',command)
+        cursor=await choose(dialog,'Cursor')
+        if await cursor.get_by_role('button',name='Enable provider',exact=True).count():
+            await cursor.get_by_role('button',name='Enable provider',exact=True).click()
+            await cursor.get_by_role('button',name='Disable provider',exact=True).wait_for()
+        await cursor.get_by_role('button',name='Sign in to Cursor',exact=True).click()
+        await cursor.get_by_text('docker compose exec arco cursor-agent login',exact=True).wait_for()
+        await cursor.get_by_role('button',name='Advanced provider settings',exact=True).click()
         await page.get_by_role('dialog',name='Settings',exact=True).wait_for()
         await page.get_by_role('button',name='Close settings',exact=True).click()
         dialog=page.get_by_role('dialog',name='Connections',exact=True)

@@ -35,7 +35,7 @@ async def main():
             elif path == '/api/settings':
                 data = dict(themeId='arch', enabledProviders=dict(strata=True, deepseek=True))
             elif path == '/api/auth-status':
-                data = {n: dict(loggedIn=False) for n in ['claude', 'codex', 'gemini',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
+                data = {n: dict(loggedIn=False) for n in ['claude', 'codex',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities':
                 data = dict(efforts=['low','medium','high'], models=[], cliVersion='unknown', strataVersion=installed['strata'],
                             xolotlRevision='1111111111111111111111111111111111111111', latestVersions=dict(strata='0.1.45.0', xolotl='2222222222222222222222222222222222222222'))

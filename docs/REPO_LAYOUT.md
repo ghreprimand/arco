@@ -13,7 +13,7 @@ Arco/
   server/src/
     index.ts                     # HTTP + WS server, workflow state machine
     providers/                   # claude / claude-native/ / codex / codex-appserver/ /
-                                 #   cursor/ / gemini (+ gemini-native/ stub) / ollama / llamacpp
+                                 #   cursor/ / ollama / llamacpp
                                  #   (+ Manager) / lmstudio, plus goalBlock,
                                  #   outputStyle, codexCodeMode, ragInjection, fallbackChain,
                                  #   errorClassifier

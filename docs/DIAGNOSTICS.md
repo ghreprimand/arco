@@ -75,7 +75,6 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `providers.claude-cli` | `claude --version`. Absent -> warn. |
 | `providers.claude-native` | OAuth tokens present + unexpired at `~/.arco/auth.json`. |
 | `providers.codex` | `codex --version`. |
-| `providers.gemini` | `gemini --version`. |
 | `providers.ollama` | base-URL `/api/tags` reachable + installed-model count. |
 | `providers.llamacpp` | `llamacppManager.getStatus()` + catalog readable + registered-model count. |
 

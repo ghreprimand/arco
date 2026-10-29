@@ -2174,17 +2174,9 @@ export async function handleDocEditRequest(
   });
 }
 
-// Agent-instruction-file tune-up — see shared/src/protocol/mdTuneup.ts. Picks
-// the right instruction file for the tab's provider (CLAUDE.md / AGENTS.md /
-// GEMINI.md), then spawns runMdTuneup (a READ-ONLY worker that PROPOSES a
-// compacted version). The proposal arrives as md_tuneup_proposed; the operator
-// reviews the diff and Accepts → handleMdTuneupAccept does the backup + write.
-//
-// FENCE: same posture as handleDocEditRequest — the agent never writes the
-// file; it proposes, the operator approves, the write is backed up + reversible.
-function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' | 'GEMINI.md' {
+function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' {
   if (provider === 'codex') return 'AGENTS.md';
-  if (provider === 'gemini') return 'GEMINI.md';
+
   return 'CLAUDE.md';
 }
 

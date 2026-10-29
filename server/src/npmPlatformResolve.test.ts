@@ -55,14 +55,14 @@ test('returns null for pure-JS packages so they skip the check entirely', () => 
 });
 
 test("ignores a third party's platform build", () => {
-  // Real shape: @google/gemini-cli optionally depends on node-pty's linux-x64
-  // build. gemini runs without it, so gating (and downgrading) the CLI on that
+  // A pure-JS package optionally depends on node-pty's linux-x64
+  // build. The app runs without it, so gating (and downgrading) the CLI on that
   // package would be a false positive — only a self-published binary counts.
-  const gemini = { '@lydell/node-pty-linux-x64': '1.1.0' };
-  assert.equal(findPlatformDep(gemini, 'linux-x64', '@google/gemini-cli'), null);
+  const unrelatedPackage = { '@lydell/node-pty-linux-x64': '1.1.0' };
+  assert.equal(findPlatformDep(unrelatedPackage, 'linux-x64', '@vendor/app'), null);
   // Same manifest, no ownPackage filter: still found, so the narrowing is what
   // rejects it rather than the suffix match silently not firing.
-  assert.ok(findPlatformDep(gemini, 'linux-x64'));
+  assert.ok(findPlatformDep(unrelatedPackage, 'linux-x64'));
 });
 
 test('accepts a self-published build named after the package', () => {

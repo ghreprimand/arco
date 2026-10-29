@@ -116,7 +116,7 @@ export function renderSystemdUnit(opts: UnitOptions): string {
     // usage fetch once crash-looped the service into a permanent "SERVER DOWN" —
     // see server/src/net/forceIpv4.ts). The server's OWN process hard-blocks v6
     // in code (forceIpv4.ts forces dns.lookup to family 4). This NODE_OPTIONS
-    // line is the belt for the SPAWNED provider CLIs (claude/codex/gemini are
+    // line is the belt for the SPAWNED provider CLIs (claude/codex are
     // separate Node processes that inherit it) — it makes them prefer IPv4 too.
     'Environment=NODE_OPTIONS=--dns-result-order=ipv4first',
   ];

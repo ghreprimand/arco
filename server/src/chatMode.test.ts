@@ -13,7 +13,7 @@ import { createProviderProcess } from './providers/index.js';
 import { registerPrivateLogToken, shouldSuppressOperationalLog, withoutOperationalLogging } from './server/logger.js';
 
 test('chat support excludes Gemini and Antigravity', () => {
-  assert.equal(CHAT_PROVIDERS.has('gemini'), false);
+  assert.equal(CHAT_PROVIDERS.has('gemini' as never), false);
   assert.equal(CHAT_PROVIDERS.has('antigravity' as never), false);
   for (const provider of ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata'] as const) {
     assert.equal(CHAT_PROVIDERS.has(provider), true, provider);

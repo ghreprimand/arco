@@ -9,7 +9,7 @@ from home_controls import open_saved_project_form
 
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5196') + '/'
 ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', '/tmp/arco-home-start-page'))
-IDS = ['claude', 'codex', 'gemini', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']
+IDS = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']
 
 
 def project(name, folder, index, **extra):
@@ -242,7 +242,7 @@ async def check(browser, scale, scenario):
     assert [path for path in writes if path != '/api/session'] == ['/api/projects'], writes
     assert not any(message.get('type') in ('create_workflow', 'send_prompt', 'create_cluster') for message in state['messages'])
     if populated and scale == 1.1:
-        for retired in ['antigravity']:
+        for retired in ['antigravity', 'gemini']:
             await page.evaluate("""async provider => {
               const {useAppStore:s} = await import('/src/stores/appStore.ts');
               s.setState({settings:{...s.getState().settings, workflowDefaults:{primaryProvider:provider,primaryModel:'historical-model'}}});

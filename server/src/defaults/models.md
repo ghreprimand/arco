@@ -15,9 +15,9 @@ Pick the model the task actually needs, then the cheapest option at that capabil
 
 The clearest mental discriminator: **judgment vs execution**.
 
-- **Judgment** work: novel decomposition, architecture, hard debugging, cross-system reasoning, high-stakes review, recognizing when a worker output is wrong. → **Opus / Gemini-3.1-pro-preview / GPT-5.5 / GPT-5.1-codex-max.**
-- **Execution** work: implementing against a clear spec, refactoring, running shell commands, drafting prose, summarizing. → **Sonnet / Gemini-3-flash-preview / GPT-5.4-mini / GPT-5.3-codex.**
-- **Bulk / cheap** work: file lookups, simple greps, bulk classification. → **Haiku / Gemini-3.1-flash-lite-preview / GPT-5.1-codex-mini.**
+- **Judgment** work: novel decomposition, architecture, hard debugging, cross-system reasoning, high-stakes review, recognizing when a worker output is wrong. → **Opus-3.1-pro-preview / GPT-5.5 / GPT-5.1-codex-max.**
+- **Execution** work: implementing against a clear spec, refactoring, running shell commands, drafting prose, summarizing. → **Sonnet-3-flash-preview / GPT-5.4-mini / GPT-5.3-codex.**
+- **Bulk / cheap** work: file lookups, simple greps, bulk classification. → **Haiku-3.1-flash-lite-preview / GPT-5.1-codex-mini.**
 
 Never substitute lesser models on judgment work just to save tokens. Conversely, never burn judgment-tier tokens on pure execution.
 
@@ -25,23 +25,12 @@ Never substitute lesser models on judgment work just to save tokens. Conversely,
 
 Replace this section with a short description of the operator: the projects worked on, preferred working style, and the provider subscriptions available. The orchestrator reads it when routing work. Example: a solo developer working iteratively on a TypeScript web application, preferring minimal first passes and valuing outcome quality over absolute cost minimization.
 
-## Gemini family — 3.x only
-
-Arco's Gemini lineup is **3.x preview only**. 2.5 has been removed from the system: operator reports it is painfully slow and notably weaker than 3.x on the same tasks. Do not pick `gemini-2.5-*` — those IDs are coerced to their 3.x equivalents server-side, and the picker doesn't expose them.
-
-- `gemini-3.1-pro-preview` — top tier, peer to Opus on hard problems, 2M-token context, multimodal. Use for long-context reads and judgment work where Gemini's style helps.
-- `gemini-3-flash-preview` — fast general-purpose worker. Strong day-to-day execution model. Peer to Sonnet on most tasks.
-- `gemini-3.1-flash-lite-preview` — cheapest Gemini tier. Bulk classification / extraction / template-shaped work.
-
-Capacity: 3.x Pro can hit daily quotas on personal accounts. If a Pro worker 429s, fall back within 3.x — either Flash (next step down) or redispatch to Claude / Codex. **Do not fall back to 2.5.**
-
 ## Effort defaults — bias high, escalate to max for judgment-heavy work
 
 Effort is **capability** for execution-tier models. `max` produces materially better output on genuinely hard reasoning (architecture, deep debugging, critical review) but costs wall-clock time and quota pressure. `high` is the right default for most substantive asks — investigations, summaries, read-shaped audits, single-file edits. Escalate to `max` deliberately when the task rewards deeper reasoning.
 
 - **sonnet / haiku / gpt-5.4-mini / gpt-5.3-codex / gpt-5.2-codex / gpt-5.1-codex-mini** → `effort: high` by default. Use `max` for judgment-heavy work (hard reasoning, deep audits, complex debugging). Don't default to `max` on prose- or read-shaped asks.
 - **opus / gpt-5.5 / gpt-5.1-codex-max** → `effort: high` by default; `max` when judgment-heavy (architecture, hard debugging, deep audits). The cost gradient matters here.
-- **gemini-3.x** → effort field ignored by the CLI. Include for UI consistency but it has no behavioral effect.
 
 The operator can set a per-workflow Claude effort floor via `minClaudeWorkerEffort` in the workflow config — the server coerces worker specs upward to that floor before spawn. So your spec is the floor; the operator's setting is a safety net above it.
 
@@ -49,7 +38,7 @@ The operator can set a per-workflow Claude effort floor via `minClaudeWorkerEffo
 
 When a worker writes a report file (the server-appended footer points it at the workflow artifacts directory), reference the file in chat as `[artifact:<name>]` — e.g. `[artifact:audit-spawns.md]`. Place the marker on its own line (blank line before and after) so the client can render the inline-expand affordance cleanly — mid-paragraph refs split the paragraph in the rendered view. Use bare filenames; don't wrap the marker in code fences or inline backticks.
 
-**Open-ended asks are not opus signals.** A "deep dive on X", "investigate Y", "tell me about Z" prompt is broad in *scope*, not necessarily *judgment-bound*. Sonnet at `max` (or gemini-3-flash-preview, gpt-5.4-mini at their max) answers these better than opus at medium — and sonnet@max is ~5–10× cheaper than opus@max. Only escalate to opus / pro / gpt-5.5 when the task genuinely requires hard reasoning (architecture, root-cause debugging, critical review). Prompt breadth ≠ judgment depth.
+**Open-ended asks are not opus signals.** A "deep dive on X", "investigate Y", "tell me about Z" prompt is broad in *scope*, not necessarily *judgment-bound*. Sonnet at `max` (or gpt-5.4-mini at their max) answers these better than opus at medium — and sonnet@max is ~5–10× cheaper than opus@max. Only escalate to opus / pro / gpt-5.5 when the task genuinely requires hard reasoning (architecture, root-cause debugging, critical review). Prompt breadth ≠ judgment depth.
 
 ## Dispatch modes — pick one per turn
 
@@ -65,21 +54,21 @@ Match the operator's ask to the closest row. Pick PREFERRED. If output fails QC,
 
 | Task class                                    | Preferred                       | Fallback                        | Escalate-to            |
 |-----------------------------------------------|---------------------------------|---------------------------------|------------------------|
-| Plan / decompose / architect (round 1)        | opus                            | gemini-3.1-pro-preview          | gpt-5.1-codex-max      |
+| Plan / decompose / architect (round 1)        | opus                            | - | gpt-5.1-codex-max      |
 | Code: simple feature against clear spec       | sonnet                          | gpt-5.3-codex                   | opus                   |
 | Code: multi-file refactor                     | sonnet                          | gpt-5.3-codex                   | opus                   |
 | Code: deep debugging (unknown root cause)     | opus                            | gpt-5.1-codex-max               | (operator)             |
 | Code: write tests against known behavior      | sonnet                          | gpt-5.4-mini                    | opus                   |
 | Code: review / audit (correctness, security)  | opus                            | gpt-5.1-codex-max               | (operator)             |
-| File lookup / search / grep                   | haiku                           | gemini-3.1-flash-lite-preview   | sonnet                 |
-| Summarization (< 10k input)                   | haiku                           | gemini-3-flash-preview          | sonnet                 |
-| Summarization (10k–100k input)                | gemini-3-flash-preview          | sonnet                          | gemini-3.1-pro-preview |
-| Summarization (> 100k input)                  | gemini-3.1-pro-preview          | opus                            | (operator)             |
-| Investigation / deep-dive (open-ended)        | sonnet                          | gemini-3-flash-preview          | opus                   |
-| Web research                                  | sonnet                          | gemini-3-flash-preview          | gemini-3.1-pro-preview |
-| Drafting prose (docs, commits, PR bodies)     | sonnet                          | gemini-3-flash-preview          | opus                   |
-| Bulk classification / extraction              | gemini-3.1-flash-lite-preview   | haiku                           | sonnet                 |
-| Long-context read (large / many files)        | gemini-3.1-pro-preview          | opus                            | (operator)             |
+| File lookup / search / grep                   | haiku                           | - | sonnet                 |
+| Summarization (< 10k input)                   | haiku                           | - | sonnet                 |
+| Summarization (10k–100k input)                | - | sonnet                          | - |
+| Summarization (> 100k input)                  | - | opus                            | (operator)             |
+| Investigation / deep-dive (open-ended)        | sonnet                          | - | opus                   |
+| Web research                                  | sonnet                          | - | - |
+| Drafting prose (docs, commits, PR bodies)     | sonnet                          | - | opus                   |
+| Bulk classification / extraction              | - | haiku                           | sonnet                 |
+| Long-context read (large / many files)        | - | opus                            | (operator)             |
 | Uncensored content analysis                   | heretic                         | (none)                          | (operator)             |
 | Local coding (Qwen3.6-27B, text+tools)         | coder                           | sonnet                          | opus                   |
 | Local vision (Qwen3-VL-30B, image input)       | qwen3-vl                        | sonnet                          | opus                   |
@@ -96,15 +85,6 @@ Balanced coding / investigation / prose. Default for non-trivial execution work.
 
 ### Claude — Haiku 4.5
 Fast retrieval, grep/find, simple transforms. Stumbles on ambiguous tasks. Bounded-mechanical work only.
-
-### Gemini — 3.1 Pro Preview
-Top-tier reasoning with 2M-token context and multimodal input. Peer to Opus, different reasoning style — useful as a second opinion. Use for very-long-context reads or as judgment-tier alternative to Opus. Pro tier can 429 on personal quotas.
-
-### Gemini — 3 Flash Preview
-Fast general-purpose worker. Strong on summarization with long context and on tool-heavy investigation. Peer to Sonnet. Use when Sonnet would also work but Gemini's context is an advantage, or when Claude quotas are tight.
-
-### Gemini — 3.1 Flash Lite Preview
-Cheapest Gemini tier. Bulk classification, extraction, simple transforms. Weaker reasoning and tool use — template-shaped tasks only.
 
 ### OpenAI Codex — GPT-5.5
 Latest frontier agentic model (released 2026-04-23). Broad capability across coding, computer use, knowledge work, research. Sensible Codex default when picking strongest tier. 400K context window. Available via Codex CLI on a ChatGPT subscription (not API-key auth).
@@ -136,10 +116,9 @@ Use when the model architecture you need isn't yet wired up by Ollama. Today's s
 ## Anti-patterns (don't do these)
 
 - **Rewriting the operator's prompt into a checklist.** If the operator asked in 20 words, the worker task should also be close to 20 words. Adding "investigate these 7 categories" is reframing, not routing.
-- **Opus for file lookups** — burn Haiku or Gemini-3.1-flash-lite-preview tokens, not frontier ones.
+- **Opus for file lookups** — burn Haiku tokens, not frontier ones.
 - **Haiku for architecture** — ambiguous tasks fail at this tier. Opus.
-- **Gemini Pro for short inputs** — the long-context advantage is wasted. Flash or Sonnet.
-- **Codex for non-code work** — Codex CLI is tuned for code. Prose / research / general reasoning go to Claude or Gemini.
+- **Codex for non-code work** — Codex CLI is tuned for code. Prose / research / general reasoning go to Claude .
 - **Heretic as general-purpose** — specialist only.
 - **Same model 3x failing in a row** — change tier or family. Don't loop.
 - **Fanning out on a single-ask prompt** — "do a deep dive on X" is ONE ask (passthrough), not a fan-out trigger.
@@ -156,7 +135,6 @@ Use when the model architecture you need isn't yet wired up by Ollama. Today's s
 - Verdict per worker: ACCEPT / REDISPATCH / ESCALATE / REVIEW.
 - Escalation ladders:
   - Claude: haiku → sonnet → opus
-  - Gemini 3.x: flash-lite → flash → pro (on 429, redispatch to Claude or Codex — don't fall back to 2.5, it's removed)
   - Codex: mini → 5.5 / 5.3-codex → 5.1-codex-max
   - Cross-family: any worker family that misses → try a different family entirely.
 - Budget: max 2 escalations per original task. After top-tier failure, pick least-bad and proceed.

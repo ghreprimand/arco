@@ -369,7 +369,7 @@ Optional progress signal fired when the worker is spawned.
 
 ## Agent-instruction-file tune-up (TUNE MD  - sibling)
 
-Proposes a compacted version of an instruction file (`AGENTS.md` / `CLAUDE.local.md` / `AGENTS.md` / `GEMINI.md`) - the per-turn token tax of an accreted instruction file, paid back. ONE bounded, **read-only** worker turn: the agent has **no Write/Edit tool** and never touches disk. On Accept the server re-reads the file, backs the original up to `.arco/md-backups/<name>.<ts>.bak`, then writes through the `resolveWithinCwd`-guarded path. Same propose-then-approve posture as doc-editing - operator-initiated, source is the file itself (not session traces), reviewed as a diff before any write. Defined in `shared/src/protocol/mdTuneup.ts`; `INSTRUCTION_FILE_NAMES = ['AGENTS.md','CLAUDE.local.md','AGENTS.md','GEMINI.md']`.
+Proposes a compacted version of an instruction file (`AGENTS.md` / `CLAUDE.local.md` / `AGENTS.md`) - the per-turn token tax of an accreted instruction file, paid back. ONE bounded, **read-only** worker turn: the agent has **no Write/Edit tool** and never touches disk. On Accept the server re-reads the file, backs the original up to `.arco/md-backups/<name>.<ts>.bak`, then writes through the `resolveWithinCwd`-guarded path. Same propose-then-approve posture as doc-editing - operator-initiated, source is the file itself (not session traces), reviewed as a diff before any write. Defined in `shared/src/protocol/mdTuneup.ts`; `INSTRUCTION_FILE_NAMES = ['AGENTS.md','CLAUDE.local.md','AGENTS.md']`.
 
 ### `md_tuneup_candidates_request` -> / `md_tuneup_candidates` <-
 
@@ -390,7 +390,7 @@ Proposes a compacted version of an instruction file (`AGENTS.md` / `CLAUDE.local
   type: 'md_tuneup_request',
   workflowId: string,
   editor: { provider: ProviderName, model: ModelName, effort: EffortLevel, providerAccountRef?: string },  // RUN AS picker output; read-only worker
-  target: string,                 // 'auto' (server picks by provider: codex->AGENTS.md, gemini->GEMINI.md, else AGENTS.md) or a repo-relative path from the candidates; guarded by resolveWithinCwd
+  target: string,                 // 'auto' (server picks by provider: codex->AGENTS.md, else AGENTS.md) or a repo-relative path from the candidates; guarded by resolveWithinCwd
 }
 ```
 
@@ -535,7 +535,7 @@ Fires after the new session is pre-warmed and the old session is archived in `me
     sessionId: string,
     turnCount: number,
   },
-  newSessionId?: string,            // empty/absent when Gemini (no native session id in Lite)
+  newSessionId?: string,            // optional for providers without native session ids
   completedAt: number,
 }
 ```

@@ -1,14 +1,3 @@
-// Linux /proc-based activity probe for worker subprocesses.
-//
-// Why: providers like Gemini batch all stdout into the final result event in
-// `--json` mode. The operator sees a worker card sitting at "0 TOOLS · 2m"
-// with empty output and can't tell whether the worker is actually working or
-// frozen. This module gives us a real, ground-truth signal: is the worker
-// process (or any of its descendants) consuming CPU? Are there any subprocess
-// like an inventory.sh actively running?
-//
-// macOS / Windows fallback: probes silently return null (no /proc). Caller
-// should treat absence as "no signal" rather than "frozen".
 
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
@@ -132,9 +121,6 @@ export async function probeProcessActivity(pid: number): Promise<ProcessActivity
     rssPages += d.rssPages;
   }
   const pageSize = 4096; // glibc default; getconf PAGESIZE on x86_64 is 4096
-  // rssBytes is the SUM across the whole process tree — gemini's runaway is
-  // usually a child shell command (find / du), not the gemini process itself.
-  // The auto-kill threshold and the operator MEM chip both work off this sum.
   return {
     alive: true,
     cpuTicks,

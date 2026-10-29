@@ -92,7 +92,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
     }
   }, [provider, providerAccountRef, codexAccounts, parentConfig.primaryProvider, parentConfig.providerAccountRef]);
 
-  const availableProviders = (['claude', 'codex', 'cursor', 'gemini',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor',   'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
 
     return Boolean(authStatus?.[p]?.loggedIn);
@@ -268,8 +268,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
         {(() => {
           const honored = effortsForModel(provider, model, claudeNativeCatalog, codexCatalog);
           if (honored.length === 0) {
-            const reason = provider === 'gemini' ? 'Gemini CLI has no effort flag.'
-              : provider === 'ollama' ? 'Local models have no effort flag.'
+            const reason = provider === 'ollama' ? 'Local models have no effort flag.'
               : provider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
               : 'Provider does not honor effort.';
             return (
@@ -352,7 +351,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 cursor: canJoinCluster ? 'pointer' : 'not-allowed',
                 opacity: canJoinCluster ? 1 : 0.55,
               }}
-              title={canJoinCluster ? undefined : 'Cluster membership is Claude or Codex only today (Gemini / Ollama / llama.cpp have no MCP wiring path).'}
+              title={canJoinCluster ? undefined : 'Cluster membership is Claude or Codex only today (Ollama / llama.cpp have no MCP wiring path).'}
             >
               <input
                 type="checkbox"

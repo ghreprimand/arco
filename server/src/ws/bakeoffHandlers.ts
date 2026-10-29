@@ -30,7 +30,7 @@ const RUNTIME_STARTED_AT = Date.now();
 const PROVIDERS = new Set<ProviderName>([
   'claude',
   'codex',
-  'gemini',
+
   'ollama',
   'llamacpp',
   'lmstudio', 'strata', 'deepseek',

@@ -80,25 +80,25 @@ async function main(): Promise<void> {
 
     // ── seed docs ──
     const docs = buildSeedDocs(SEED);
-    check('seed docs are the 7 expected files',
-      docs.map((d) => d.path).join(',') === '.gitignore,README.md,SPEC.md,TODO.md,AGENTS.md,CLAUDE.md,GEMINI.md',
+    check('seed docs are the 6 expected files',
+      docs.map((d) => d.path).join(',') === '.gitignore,README.md,SPEC.md,TODO.md,AGENTS.md,CLAUDE.md',
       docs.map((d) => d.path).join(','));
     check('.gitignore ignores Arco metadata', docs[0].content.includes('.arco/'));
-    check('.gitignore ignores local agent notes', docs[0].content.includes('AGENTS.md') && docs[0].content.includes('CLAUDE.md') && docs[0].content.includes('GEMINI.md'));
+    check('.gitignore ignores local agent notes', docs[0].content.includes('AGENTS.md') && docs[0].content.includes('CLAUDE.md'));
     check('README carries the concept', docs[1].content.includes(SEED.concept));
     check('SPEC carries the spark', docs[2].content.includes(SEED.spark));
     check('AGENTS.md carries the case', docs[4].content.includes(SEED.theCase));
     const publicDocs = buildSeedDocs({ ...SEED, github: { create: true, visibility: 'public' } });
     check('public GitHub seed adds public safety directive', publicDocs.some((d) => d.path === 'AGENTS.md' && /Public Repository Safety/.test(d.content)));
     const emptyDocs = buildSeedDocs(emptyGenesisSeed());
-    check('empty seed still yields 7 docs', emptyDocs.length === 7);
+    check('empty seed still yields 6 docs', emptyDocs.length === 6);
     check('empty seed README has placeholder', /not captured yet/i.test(emptyDocs[1].content));
 
     // ── happy-path write ──
     const target = await uniqueProjectDir(tmpRoot, 'write-test');
     await fs.mkdir(target);
     const res = await writeScaffold(target, docs);
-    check('writeScaffold wrote 7 files', res.written.length === 7, String(res.written.length));
+    check('writeScaffold wrote 6 files', res.written.length === 6, String(res.written.length));
     const readme = await fs.readFile(path.join(target, 'README.md'), 'utf8');
     check('written README matches', readme.includes(SEED.concept));
 
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
     const altDir = await uniqueProjectDir(altRoot, 'A New Take');
     await fs.mkdir(altDir, { recursive: true });
     const altRes = await writeScaffold(altDir, buildSeedDocs({ ...SEED, title: 'A New Take', creative: true }));
-    check('creative scaffold wrote 7 docs', altRes.written.length === 7, String(altRes.written.length));
+    check('creative scaffold wrote 6 docs', altRes.written.length === 6, String(altRes.written.length));
     check('alternative dir is under ALTERNATIVE/', path.relative(existing, altDir).split(path.sep)[0] === ALTERNATIVE_DIR, path.relative(existing, altDir));
     const existingStill = await fs.readFile(path.join(existing, 'src.ts'), 'utf8');
     check('creative scaffold left the existing file untouched', existingStill === 'export const real = true;');

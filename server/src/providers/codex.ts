@@ -60,15 +60,6 @@ export function parseCodexThrottle(text: string): { resetsAt?: number } | null {
   return { resetsAt: Date.now() + CODEX_COOLDOWN_MS };
 }
 
-// OpenAI Codex CLI worker. `codex exec --json` runs non-interactively, streams
-// JSONL events, and supports UUID-based session resume via `codex exec resume
-// <uuid>`. Mirrors the Claude provider shape more closely than Gemini does
-// (UUID sessions, sandbox knob, --add-dir support, no index juggling).
-//
-// Sandbox mapping (worker tools):
-//   skipPermissions === true   → -s danger-full-access  (full system access)
-//   skipPermissions === false  → -s workspace-write     (writes scoped to cwd + add-dir)
-// The orchestrator path uses -s read-only — see OrchestratorAgent.
 
 class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
   readonly id: string;
@@ -279,11 +270,6 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('-c', `model_reasoning_effort="${reasoning}"`);
     }
 
-    // `--add-dir` and `-C` are exec-only. The spawn's `cwd` option already
-    // pins the process's working directory, so dropping `-C` on resume is
-    // behaviour-preserving. `--add-dir` has no resume equivalent; callers
-    // using additionalDirectories on a resume turn silently lose them, which
-    // matches what happens today with Gemini primary resumes.
     if (!isResume) {
       if (this.config.additionalDirectories?.length) {
         for (const dir of this.config.additionalDirectories) {

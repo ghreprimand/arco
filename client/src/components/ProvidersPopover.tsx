@@ -11,7 +11,7 @@ import { ProviderReleasesModal, type ReleaseRuntime } from './ProviderReleasesMo
 // store slices + owns the update-check + Ollama-releases-modal state that used
 // to sit in SystemHeader.
 
-type CliProvider = 'claude' | 'gemini' | 'codex';
+type CliProvider = 'claude' | 'codex';
 type VersionedProvider = CliProvider | 'ollama' | 'llamacpp' | 'cursor' | 'strata' | 'deepseek';
 
 // Lightweight semver compare — the four upstream sources we read all emit
@@ -40,12 +40,12 @@ export function ProvidersPopover() {
   const [open, setOpen] = useState(false);
   const [releasesRuntime, setReleasesRuntime] = useState<ReleaseRuntime | null>(null);
   const [checking, setChecking] = useState<CliProvider | null>(null);
-  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null, gemini: null, codex: null });
+  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   // The row's result slot is a narrow right-aligned chip, so the displayed
   // string is truncated hard. Keep the untruncated text for the tooltip —
   // an update failure ("Missing optional dependency @openai/codex-linux-x64…")
   // is only actionable if the operator can read the whole thing.
-  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null, gemini: null, codex: null });
+  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -110,7 +110,6 @@ export function ProvidersPopover() {
   // providers drop out of both).
   const rows = ([
     { provider: 'claude' as const, label: 'CLAUDE', version: capabilities.cliVersion },
-    { provider: 'gemini' as const, label: 'GEMINI', version: capabilities.geminiVersion ?? 'unknown' },
     { provider: 'codex' as const, label: 'CODEX', version: capabilities.codexVersion ?? 'unknown' },
     // Ollama is not a CLI we self-update, but the operator still wants the
     // version visible when the daemon is reachable. Installed version comes

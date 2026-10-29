@@ -2,9 +2,9 @@
 
 **Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
-Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two - `acp` (long-lived) and `print` (stateless one-shot) - but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
+Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Ollama**, **LM Studio**, **llama.cpp**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two - `acp` (long-lived) and `print` (stateless one-shot) - but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
 
-Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Gemini is Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
+Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
 
 For the abstract interface, see `server/src/providers/types.ts`. For when these are invoked in the broader lifecycle, see [`PRIMITIVES.md`](PRIMITIVES.md). For protocol-level message shapes, see [`PROTOCOL.md`](PROTOCOL.md).
 
@@ -18,7 +18,6 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 | Claude | `native` | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools). |
 | Codex | `exec` (default) | model/catalog-driven; Astra / Sol: low through ultra, Luna: through max | UUID-based (`codex exec resume`) | Default model GPT-6 Astra (Sol and Luna also in the cold-catalog fallback; the live `model/list` catalog is authoritative). MAX context by default. Per-turn `codex exec` spawn. Full two-way interop with terminal `codex`. Supported effort values pass through; older models are not widened to Astra-only levels. Reviewer runs `-s read-only`. Transcript hydration on Resume for unclaimed rollouts. |
 | Codex | `app-server` | model/catalog-driven (same as `exec`) | UUID-based (rollouts in `~/.codex/sessions/`) | Long-lived `codex app-server` per tab. Structured `turn/interrupt` cancel + non-destructive `turn/steer` mid-turn input + `localImage` attachments + crash-recovery circuit breaker + output-style picker + native compact with context-signal reset. Reviewers / handoff seeds always run on `exec`. |
-| Gemini | `cli` | (no effort flag) | UUID-stored / index-resolved (`--list-sessions` -> `-r <index>`) | Per-turn `gemini` spawn; two-way interop with terminal `gemini`. Arco stores the stable UUID and re-resolves the index on each spawn. Chat hydration of unclaimed sessions deferred - agent has full context, chat starts empty. (An in-process `gemini-native` transport is an unfinished stub, not shipped.) |
 | Cursor | `acp` (default) + `print` | baked into the model id (`-low` / `-high` / `-xhigh` / `-max`) | `session/load` (loadSession capability) | Long-lived `cursor-agent acp` ACP worker; ~153 models incl. Grok. Steer / cancel / session resume / live model-swap via `session/set_model`. No per-turn token signal (the Usage tab is dashboard-polled). Cluster member via an in-process loopback HTTP MCP server. Read-only reviewer / primitives run a stateless `cursor-agent -p --mode ask` one-shot. |
 | Ollama | (single) | per model - graded thinking: `low` = thinking off (`think:false` + `/no_think`) plus the model's own levels from `/api/show` `thinking.values` (e.g. supported levels from `/api/show`); boolean-only models keep low / high | None | No native session concept; each turn is a fresh context. Tool use + large context + image attachments + web tools (SearXNG search, fetch with Camoufox stealth fallback). Mid-turn steer supported. Override base URL with `OLLAMA_URL_BASE` (default `http://localhost:11434`). |
 | llama.cpp | (single) | low / high (`low` = `/no_think`) | None | Operator-managed GGUF catalog at `~/.arco/llamacpp.json`. Singleton `llama-server` process owned by Arco (`llamacppManager`); switching aliases SIGTERMs the old server and warms the new one. OpenAI-compatible chat-completions + SSE streaming. Same tool-loop runtime as Ollama, with in-place auto-recovery (reasoning runaway / stream stall / tool-cap / context fill). Override binary with `ARCO_LLAMACPP_BIN`. |
@@ -28,7 +27,7 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 All configured providers can act as reviewers or primary agents. Local reviewers (Ollama, llama.cpp, LM Studio, Strata) get a prompt addendum reminding them to use their read-only tools to verify diff claims against the live tree. Cross-family reviewer pairings are the most useful.
 
-Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Gemini/Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
+Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
 
 ## The provider abstraction
 
@@ -485,7 +484,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
 
-**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
+**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, local transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
 
 **Adding a new level (e.g., a hypothetical `ultra`):** must pass operator sign-off + a plan-doc update first. The level's text MUST preserve code blocks / error strings / file paths verbatim and MUST NOT compress security warnings, irreversible operations, or order-sensitive multi-step sequences. The auto-clarity escape hatch in each level enforces this.
 
@@ -571,7 +570,7 @@ The `[claude-native:<workflowId>]` log prefix is grep-stable for forensic runs; 
 
 ### Per-tab sandbox tools
 
-Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
+Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Ollama / llama.cpp ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
 
 **Three tools register when the toggle is on:**
 
@@ -1072,87 +1071,6 @@ streamable-HTTP is the chosen transport.
 board-gated factory (6 vs 17 tools), and the loopback lifecycle (ensure → tools/list over a real
 StreamableHTTP MCP client → idempotent re-ensure same URL, board-attach flips 6→17 → close tears the
 listener down).
-
----
-
-## Gemini
-
-`server/src/providers/gemini.ts`. Subprocess via `spawn('gemini', args)`. Agent-only (not offered for Chat).
-
-### Argv
-
-Primary and workers share one `buildArgs`. The only conditional flags are `-r`, `--yolo`, and `--include-directories`:
-
-```
-gemini
-  -p ''                               # empty -p activates headless mode
-  --output-format stream-json
-  -m <model>                          # alias-resolved (see Capability detection)
-  [-r <index>]                        # resume (index resolved from stored UUID per spawn)
-  [--yolo]                            # only when config.skipPermissions — Gemini's --dangerously-skip-permissions
-  [--include-directories <a,b>]       # cross-directory reads + the upload dir of any attachment
-```
-
-Attachments fold into the stdin prompt as `[attached file: <path>]` refs and their parent dirs join
-`--include-directories`, so `read_file` (which ingests images and PDFs) isn't refused by the
-workspace fence. Before 2026-09-25 Gemini dropped attachments entirely.
-
-There is **no `--approval-mode` flag** — Arco never sets one, so the Gemini CLI's own permission default applies unless `--yolo` is passed. `-r <index>` resumes a specific in-process conversation by index. Gemini's `-r` flag only honors a numeric index (or the literal string `latest`) — UUIDs aren't accepted, and indexes shift whenever sessions are added or deleted. Arco stores the stable UUID and resolves it back to the current index immediately before every spawn (see "Session resume" below).
-
-No `--effort`, no `--fallback-model`, no `--append-system-prompt`. Gemini's reasoning budget is implicit per model.
-
-### Stdin
-
-The full prompt (including any appendSystemPrompt or transcript) is sent on stdin. **GOTCHA — prompt-prefix cost:** Gemini has no `--append-system-prompt` flag, so the entire prepended transcript pays full decode cost on every spawn. A future session-cache approach is planned to reduce this cost.
-
-### Event parsing
-
-Stdout is NDJSON. `GeminiStreamParser` (`gemini-stream.ts`) handles:
-
-- `system.init` → `init`
-- `assistant.message.delta.text` → `text`
-- `assistant.tool_use` → `tool_use`
-- `result` → `result`
-
-No reasoning blocks (Gemini doesn't expose them in `--output-format stream-json`).
-
-### Session resume
-
-**Native resume supported (2026-04-27).** The provider exposes two helpers:
-
-- `discoverGeminiSessions(resolvedCwd)` walks `~/.gemini/tmp/*/.project_root` for files matching the cwd, then reads each `chats/session-*.json` to surface `sessionId` (UUID), `startTime`, `kind` (only `'main'` is operator-resumable), and first/last user previews. Plugs into `discoverSessions()` so `/api/sessions` returns Gemini sessions alongside Claude/Codex.
-- `resolveGeminiResumeIndex(uuid, cwd)` shells `gemini --list-sessions` from cwd, parses each line (`  N. <preview> (<rel>) [<uuid>]`) and returns the current index for the requested UUID. Re-runs on every spawn because indexes are unstable. 5s timeout; null result fails the spawn loudly with a clear error rather than silently starting a fresh session.
-
-When `WorkerConfig.resumeSessionId` is set, the spawn path:
-1. Resolves UUID → index via `resolveGeminiResumeIndex` (async, off the back of the sync `spawn()` interface).
-2. Appends `-r <index>` to argv.
-3. **Skips the `appendSystemPrompt` transcript prepend** — Gemini's CLI loads the prior conversation natively from the on-disk session, so re-prepending would double-feed history (and double-pay tokens). The prompt-prefix cost note still applies to fresh-session spawns.
-
-The CLI emits `init.session_id` for both fresh and resumed sessions, so `wf.primarySessionId` is captured by the existing `onInit` callback and subsequent turns in the same workflow auto-resume the same UUID without operator action.
-
-**Caveat:** transcript hydration into the chat panel (`/api/transcript?provider=gemini`) isn't wired yet. For sessions Arco already owns, the events.jsonl replay path fills the chat normally. For never-before-seen Gemini sessions picked from the Resume picker, the agent has full context but the chat panel renders empty until the operator types the next turn.
-
-### Auth
-
-OAuth via `~/.gemini/oauth_creds.json`. `POST /api/auth-login?provider=gemini` opens a terminal with `gemini auth login` for the interactive flow. Falls back through `TERMINAL` env var → `konsole` / `gnome-terminal` / `kgx` / `kitty` / `alacritty`.
-
-API-key fallback: `GEMINI_API_KEY` env var.
-
-### Capability detection
-
-`gemini --version`. Model alias mapping (Gemini parity):
-- `haiku` → `gemini-3.1-flash-lite-preview`
-- `sonnet` → `gemini-3-flash-preview`
-- `opus` (and `opus[1m]`) → `gemini-3.1-pro-preview`
-- `gemini-2.5-{pro,flash,flash-lite}` remap to their 3.x `-preview` equivalents
-- Unrecognized names fall through to `gemini-3-flash-preview` (default)
-
-### Quirks
-
-- **Throttle detection** — 429 HTTP, `RESOURCE_EXHAUSTED`, Retry-After header. Daily quota resets at midnight UTC.
-- **No effort flag** — `WorkerConfig.effort` is ignored when spawning Gemini. The `primary_model` event reports `(none)` for effort.
-- **No fallback model** — if the primary model fails, the spawn errors and the turn fails. Operator can swap model live and retry.
-- **Tool use gated on `--yolo`** — Arco passes `--yolo` only when `config.skipPermissions` is set; without it the Gemini CLI's default permission prompts would block unattended tool invocation. (Arco does not set `--approval-mode`.)
 
 ---
 
@@ -1802,27 +1720,27 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 
 ## Comparison matrix
 
-| | Claude (CLI) | Claude (Native) | Codex (exec) | Codex (appserver) | Gemini | Ollama | llama.cpp | LM Studio |
-|---|---|---|---|---|---|---|---|---|
-| Spawn | subprocess per turn | in-process SDK (long-lived) | subprocess per turn | subprocess long-lived (one per tab) | subprocess per turn | HTTP | HTTP (Arco-managed daemon) | HTTP (OpenAI-compat `/v1`) |
-| Stream format | NDJSON | SSE (Anthropic Messages) | NDJSON (`--json`) | NDJSON over stdio (no `jsonrpc:"2.0"` envelope) | NDJSON | NDJSON | OpenAI SSE | OpenAI SSE |
-| Session resume | UUID `--resume` | replay-from-`events.jsonl` (Arco-internal; no rollout file; append-only prefix + preserved thinking) | thread_id `exec resume` | `thread/resume` JSON-RPC | UUID → live-index `-r` resolve | none | none | none |
-| Native session file | `~/.claude/projects/.../X.jsonl` | — | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.gemini/tmp/.../chats/session-X.json` | — | — | — |
-| Tool use | yes (rich) | yes (in-process Bash/Read/Edit/Grep/Glob/KillShell/TodoWrite/Task/AskUserQuestion/EnterPlanMode) | yes | yes | yes (with `--yolo`) | yes (server-side allowlist) | yes (server-side allowlist) | yes (shared Ollama server-side runtime) |
-| Reasoning blocks | yes | yes (interleaved when model supports) | yes | yes | no | yes (`message.thinking` native + `<think>` fallback) | yes (OpenAI `reasoning_content`) | yes (OpenAI `reasoning_content` + `<think>` fallback) |
-| Effort levels | up to 5 | up to 5 | model/catalog-driven; Astra: low through ultra | model/catalog-driven; Astra: low through ultra | none | per model (low=off + `thinking.values` levels; else low / high) | 2 (low / high) | 2 (low / high) |
-| Auth | subscription / API key | OAuth subscription (`~/.arco/auth.json`) | subscription / API key | subscription / API key | OAuth / API key | none | none | none |
-| Throttle detection | yes (regex + Retry-After) | yes (structured Anthropic error envelope) | yes (30 min cooldown) | yes (`error.codexErrorInfo`) | yes (429 + Retry-After) | n/a | n/a | n/a |
-| Retry on transient errors | yes (15/30/60s) | yes (header-aware `retry-after`, 15/30/60s fallback) | no | no | no | no | no | no |
-| Mid-turn cancel | yes (SIGKILL) | yes (loop-abort, in-process) | yes (SIGKILL) | yes (`turn/interrupt` + 5s ack; SIGKILL fallback) | yes (SIGKILL) | yes (abort fetch) | yes (abort fetch) | yes (abort fetch) |
-| Mid-turn steer | post-turn drain | drain hook between tool-result append + next API call | post-turn drain | `turn/steer` RPC (precondition: `expectedTurnId`) | post-turn drain | yes (between tool-loop iterations) | yes (between tool-loop iterations) | yes (between tool-loop iterations) |
-| Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a | n/a |
-| Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | no | yes | no — in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
-| Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default — CONFIG SERVER-SIDE COMPACTION toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a | n/a |
-| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | no | in-process tool registry (one local member per cluster) | in-process tool registry (one local member per cluster) | no |
-| Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | no | yes (+ web) | yes (not Incognito) | yes |
-| Single-consumer | no | no | no | no | no | no | one model at a time per Arco (manager-owned) | no |
-| Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | side tabs, second opinion | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) |
+| | Claude (CLI) | Claude (Native) | Codex (exec) | Codex (appserver) | Ollama | llama.cpp | LM Studio |
+|---|---|---|---|---|---|---|---|
+| Spawn | subprocess per turn | in-process SDK (long-lived) | subprocess per turn | subprocess long-lived (one per tab) | HTTP | HTTP (Arco-managed daemon) | HTTP (OpenAI-compat `/v1`) |
+| Stream format | NDJSON | SSE (Anthropic Messages) | NDJSON (`--json`) | NDJSON over stdio (no `jsonrpc:"2.0"` envelope) | NDJSON | OpenAI SSE | OpenAI SSE |
+| Session resume | UUID `--resume` | replay-from-`events.jsonl` (Arco-internal; no rollout file; append-only prefix + preserved thinking) | thread_id `exec resume` | `thread/resume` JSON-RPC | none | none | none |
+| Native session file | `~/.claude/projects/.../X.jsonl` | — | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.codex/sessions/.../rollout-X.jsonl` | — | — | — |
+| Tool use | yes (rich) | yes (in-process Bash/Read/Edit/Grep/Glob/KillShell/TodoWrite/Task/AskUserQuestion/EnterPlanMode) | yes | yes | yes (server-side allowlist) | yes (server-side allowlist) | yes (shared Ollama server-side runtime) |
+| Reasoning blocks | yes | yes (interleaved when model supports) | yes | yes | yes (`message.thinking` native + `<think>` fallback) | yes (OpenAI `reasoning_content`) | yes (OpenAI `reasoning_content` + `<think>` fallback) |
+| Effort levels | up to 5 | up to 5 | model/catalog-driven; Astra: low through ultra | model/catalog-driven; Astra: low through ultra | per model (low=off + `thinking.values` levels; else low / high) | 2 (low / high) | 2 (low / high) |
+| Auth | subscription / API key | OAuth subscription (`~/.arco/auth.json`) | subscription / API key | subscription / API key | none | none | none |
+| Throttle detection | yes (regex + Retry-After) | yes (structured Anthropic error envelope) | yes (30 min cooldown) | yes (`error.codexErrorInfo`) | n/a | n/a | n/a |
+| Retry on transient errors | yes (15/30/60s) | yes (header-aware `retry-after`, 15/30/60s fallback) | no | no | no | no | no |
+| Mid-turn cancel | yes (SIGKILL) | yes (loop-abort, in-process) | yes (SIGKILL) | yes (`turn/interrupt` + 5s ack; SIGKILL fallback) | yes (abort fetch) | yes (abort fetch) | yes (abort fetch) |
+| Mid-turn steer | post-turn drain | drain hook between tool-result append + next API call | post-turn drain | `turn/steer` RPC (precondition: `expectedTurnId`) | yes (between tool-loop iterations) | yes (between tool-loop iterations) | yes (between tool-loop iterations) |
+| Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a |
+| Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | yes | no — in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
+| Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default — CONFIG SERVER-SIDE COMPACTION toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a |
+| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | in-process tool registry (one local member per cluster) | in-process tool registry (one local member per cluster) | no |
+| Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (not Incognito) | yes |
+| Single-consumer | no | no | no | no | no | one model at a time per Arco (manager-owned) | no |
+| Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) |
 
 
 **Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
@@ -1843,7 +1761,7 @@ nested `{ status, error: { type, message } }` / Codex `codexErrorInfo` shapes.
 > **Scope:** C1 ships the classifier module + its smoke only. The first consumer
 > that wires `action` into control flow is **C2 — provider fallback chains**
 > (below). C1/C2 do **not** rewire the live single-provider error path: the
-> existing `markThrottled` parsing in `claude.ts` / `codex.ts` / `gemini.ts` and
+> existing `markThrottled` parsing in `claude.ts` / `codex.ts` and
 > the live primary turn are untouched, and a live primary turn never falls back.
 
 `classifyError(provider: ProviderName, err: unknown) → { reason, action, permanent }`.
@@ -1855,11 +1773,11 @@ can never succeed (C2 fails closed fast rather than burning the backoff ladder).
 | `auth` | `rotate` | no | 401, `Unauthorized`, `token expired` / `reauthenticate` | all |
 | `auth_permanent` | `fail` | yes | `invalid_api_key`, `authentication_error`, `revoked`, 403 `permission_error` | Claude, Codex |
 | `billing` | `rotate` | yes | 402, `insufficient_quota`, `credit balance too low`, `past_due` | Claude, Codex |
-| `rate_limit` | `backoff_then_rotate` | no | 429, `rate_limit_error`, `usage limit reached`, `too many requests` | Claude, Codex, Gemini |
-| `overloaded` | `backoff` | no | `overloaded_error`, 503/529, `service unavailable`, `capacity` | Claude, Gemini |
+| `rate_limit` | `backoff_then_rotate` | no | 429, `rate_limit_error`, `usage limit reached`, `too many requests` | Claude, Codex |
+| `overloaded` | `backoff` | no | `overloaded_error`, 503/529, `service unavailable`, `capacity` | Claude |
 | `context_overflow` | `compress` | no | `prompt is too long`, `context_length_exceeded`, 413, `request too large` | Claude, Codex |
-| `model_not_found` | `fallback` | no | `model_not_found`, `does not exist`, `has been deprecated`, 404 on a model route | Claude, Codex, Gemini |
-| `content_policy_blocked` | `no_retry` | yes | `content policy`, `safety` / `responsible ai` filter, `output_blocked` | Claude, Gemini |
+| `model_not_found` | `fallback` | no | `model_not_found`, `does not exist`, `has been deprecated`, 404 on a model route | Claude, Codex |
+| `content_policy_blocked` | `no_retry` | yes | `content policy`, `safety` / `responsible ai` filter, `output_blocked` | Claude |
 | `oauth_long_context_beta_forbidden` | `fail` | yes | Anthropic `oauth_long_context_beta` beta forbidden for an OAuth/subscription account | Claude (Native) |
 | `invalid_request` | `no_retry` | yes | 400/422, malformed request not otherwise classified | all |
 | `server_error` | `backoff` | no | generic 5xx | all |
@@ -1970,7 +1888,7 @@ not the app tag; current details are in [STRATA.md](STRATA.md#engine-and-compone
 
 ## Retired provider history
 
-Antigravity support has been removed. Existing workflow metadata, transcripts,
+Antigravity and Gemini support have been removed. Existing workflow metadata, transcripts,
 artifacts and provider identity remain readable through the normal history tools.
 A retired provider cannot start or resume work; choose a supported provider
 explicitly for new work. Updating unrelated settings preserves retired defaults
