@@ -9,8 +9,8 @@ test('Connections metadata reveals only allowlisted key presence, never secret v
   assert.deepEqual(catalog.environmentKeys,['ANTHROPIC_API_KEY','OPENAI_API_KEY']);
   const encoded=JSON.stringify(catalog);
   for(const secret of ['synthetic-never-display','another-secret','must-not-appear','/synthetic/private-home'])assert.ok(!encoded.includes(secret));
-  assert.equal(catalog.providers.length,11);
-  assert.equal(new Set(catalog.providers.map(p=>p.id)).size,11);
-  assert.deepEqual(new Set(catalog.providers.map(p=>p.kind)),new Set(['plan','local','desktop','tool']));
+  assert.equal(catalog.providers.length,10);
+  assert.equal(new Set(catalog.providers.map(p=>p.id)).size,10);
+  assert.deepEqual(new Set(catalog.providers.map(p=>p.kind)),new Set(['plan','local','tool']));
   for(const p of catalog.providers)assert.ok(p.settingsSection && p.prerequisite && p.recovery);
 });

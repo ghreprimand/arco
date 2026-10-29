@@ -66,7 +66,7 @@ export function HandoffList({ rows, emptyText, onCancelHandoff, onClearLock }: H
     <div style={{ overflowY: 'auto', flex: 1 }}>
       {sorted.map((row) => {
         const key = rowKey(row);
-        const cancellable = row.provider !== 'antigravity';
+        const cancellable = true;
         const cancelRow =
           row.kind === 'lock'
             ? onClearLock ? () => onClearLock(row.cwd, row.workflowId, row.handoffId) : undefined

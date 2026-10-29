@@ -506,14 +506,7 @@ export class WorkerManager {
       });
     });
 
-    // Listeners are wired; now fire the subprocess. The activity probe catches
-    // silent exits (no result/error within the grace window).
-    //
-    // Skip the Arco safety footer for Antigravity — it's agent-in-agent
-    // (desktop app has its own sandboxing + permission model), and the
-    // footer's "[Arco safety reminders...]" text confuses Gemini into
-    // responding about Arco instead of the operator's actual project.
-    const footer = spec.provider === 'antigravity' || options?.interactionMode === 'chat'
+    const footer = options?.interactionMode === 'chat'
       ? ''
       : buildWorkerSafetyFooter(options?.cwd, options?.workflowId);
     worker.spawn(spec.task + footer);

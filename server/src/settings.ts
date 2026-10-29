@@ -1,3 +1,4 @@
+import { retiredProviderReason } from '@arco/shared';
 // Three-layer operator-settings cascade.
 //
 // Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
@@ -29,7 +30,7 @@ const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASE
 const PROJECT_SETTINGS_DIRNAME = '.arco';
 const PROJECT_SETTINGS_BASENAME = 'settings.json';
 
-const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex', 'antigravity', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
 function defaults(): ArcoSettings {
@@ -39,7 +40,7 @@ function defaults(): ArcoSettings {
     codex: { transport: 'appserver' },
     claude: { transport: 'native' },
     uiScale: DEFAULT_UI_SCALE,
-    enabledProviders: { claude: true, gemini: true, ollama: true, codex: true, antigravity: true, llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
+    enabledProviders: { claude: true, gemini: true, ollama: true, codex: true,  llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
   };
 }
 
@@ -55,11 +56,11 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
   const provider = r.primaryProvider ?? r.orchestratorProvider;
   const model = r.primaryModel ?? r.orchestratorModel;
   const effort = r.primaryEffort ?? r.orchestratorEffort;
-  if (typeof provider === 'string' && (ALL_PROVIDERS as string[]).includes(provider)) {
+  if (typeof provider === 'string' && ((ALL_PROVIDERS as string[]).includes(provider) || retiredProviderReason(provider))) {
     out.primaryProvider = provider as ProviderName;
   }
   // A removed provider's model must not become another provider's default.
-  const unsupportedProvider = typeof provider === 'string' && !(ALL_PROVIDERS as string[]).includes(provider);
+  const unsupportedProvider = typeof provider === 'string' && !(ALL_PROVIDERS as string[]).includes(provider) && !retiredProviderReason(provider);
   if (!unsupportedProvider && typeof model === 'string' && model.length > 0) {
     out.primaryModel = model as WorkflowDefaults['primaryModel'];
   }
@@ -98,7 +99,7 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
 function sanitizeFallbackLeg(raw: unknown): FallbackLegConfig | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
-  if (typeof r.provider !== 'string' || !(ALL_PROVIDERS as string[]).includes(r.provider)) return undefined;
+  if (typeof r.provider !== 'string' || !(ALL_PROVIDERS as string[]).includes(r.provider) && !retiredProviderReason(r.provider)) return undefined;
   if (typeof r.model !== 'string' || r.model.trim().length === 0) return undefined;
   const leg: FallbackLegConfig = { provider: r.provider as ProviderName, model: r.model.trim() };
   if (typeof r.effort === 'string' && (EFFORT_LEVELS as string[]).includes(r.effort)) {
@@ -411,7 +412,7 @@ function sanitizeClaudeNativeCompactDefault(raw: unknown): boolean | undefined {
 function sanitizeHandoffSummarizer(raw: unknown): { provider: ProviderName; model?: ModelName; effort?: EffortLevel } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
-  if (typeof r.provider !== 'string' || !(ALL_PROVIDERS as string[]).includes(r.provider)) return undefined;
+  if (typeof r.provider !== 'string' || !(ALL_PROVIDERS as string[]).includes(r.provider) && !retiredProviderReason(r.provider)) return undefined;
   const out: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } = { provider: r.provider as ProviderName };
   if (typeof r.model === 'string' && r.model.trim().length > 0) {
     out.model = r.model.trim() as ModelName;

@@ -9,25 +9,13 @@ export type ModelName = 'haiku' | 'sonnet' | 'opus' | (string & {});
 // Claude/Gemini/local model lists it, so nothing else can select it.
 // Strata exposes none explicitly; other providers keep their own picker sets.
 export type EffortLevel = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
-export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'antigravity' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
+export type ProviderName = 'claude' | 'gemini' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
 
 // Lite: only 'passthrough' remains — primary-worker output mirrored to chat.
 // The old 'planning'/'synthesis' phases are gone with the orchestrator.
 export type PrimaryPhase = 'passthrough';
 
-// Providers that can run as a primary worker (the long-lived chat agent per
-// tab). Ollama is primary-capable: no native session concept, so each turn
-// re-prepends the workflow's events.jsonl transcript as structured /api/chat
-// messages and lets Ollama's prefix cache absorb the unchanged prefix bytes.
-// Antigravity is primary-capable via the desktop app's local RPC path. It
-// resumes primary turns by opaque cascade id; reviewer-style turns start a
-// fresh cascade and do not persist that id.
-// LM Studio (M13) is primary-capable like llama.cpp — same OpenAI-compatible
-// HTTP transport (the standing verdict: NOT the native lmstudio.js SDK), just
-// pointed at a configurable remote endpoint instead of a locally-spawned
-// llama-server. It reuses the same transcript-rebuild + skills/cluster
-// scaffolding as llama.cpp in turnEngine.
-export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+export const PRIMARY_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
 
 export type AuthLoginTarget = ProviderName | 'github';
 
@@ -78,3 +66,10 @@ export const EFFORT_RANK: Record<EffortLevel, number> = {
   max: 4,
   ultra: 5,
 };
+
+// Historical configurations retain their provider identity until explicitly changed.
+export function retiredProviderReason(provider: unknown): string | undefined {
+  return provider === 'antigravity'
+    ? 'Antigravity support has been removed. Saved work is preserved; choose a supported provider explicitly for new work.'
+    : undefined;
+}

@@ -172,7 +172,7 @@ Unified list of native CLI sessions for the given cwd. Walks:
     aiTitle?: string,             // Claude only - best-guess conversation title
     arcoWorkflowId?: string,    // set if claimed by an existing workflow
     arcoName?: string,
-    arcoInternal?: boolean,     // continuity is Arco-managed (Native event replay, Antigravity, Ollama) - resume by wfid
+    arcoInternal?: boolean,     // continuity is Arco-managed (Native event replay, Ollama) - resume by wfid
     providerAccountRef?: string, providerAccountLabel?: string, providerAccountShortLabel?: string,
   }>,
 }
@@ -403,7 +403,7 @@ Workbench Expansion A5. Content search over a workflow cwd via ripgrep. Backed b
 Workbench Expansion F1. The **machine-global, cross-cwd Recall index** - every workflow ever run, each with a non-blank title. Route: `server/src/http/recallRoutes.ts`; backed by the SQLite store `server/src/recall/index.ts` (`getRecallIndex.query`). Read-only deterministic projection of `meta.json` + `events.jsonl` - **no LLM**.
 
 - `project` - optional; filters to one project (a cwd basename).
-- `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `antigravity` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) includes `cursor`; filtering by it currently returns everything.
+- `provider` - optional; one of `claude` / `codex` / `gemini` / `ollama` / `llamacpp` / `lmstudio`. An unrecognized value is ignored (no filter), not rejected - note the allowlist (`recallRoutes.ts` `PROVIDERS`) includes `cursor`; filtering by it currently returns everything.
 - Always answers **200** with `{ entries: RecallEntry[] }`, sorted `lastActiveAt` desc. An index read error degrades to `{ entries: [] }` (never a 500) so the client renders an empty Recall view, not an error.
 - `RecallEntry` (`shared/src/protocol/recall.ts`): `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount, summaryRef|null, tags[] }`. `summaryRef` populated once a summary exists; `tags`/`pinned`/links set via the F4 mutation routes below.
 
@@ -487,7 +487,7 @@ Operations A1. **Operator-triggered**, **read-only** grouped status checks ("wha
 - Always **200** with a `DiagnosticsReport`; a genuine throw -> **500** with an empty report (`groups: []`). `runDiagnostics` itself never throws - each probe is `safeProbe`-wrapped (a thrown probe becomes an `error` result carrying the message) and time-bounded, and all probes run concurrently (`Promise.all`) so one slow binary can't hang the call.
 - `DiagnosticsReport` (`shared/src/protocol/opsDiagnostics.ts`): `{ groups: DiagnosticGroup[], generatedAt: number, arcoVersion: string, platform: string }` where `platform` is `${os}/${arch}` (e.g. `linux/x64`).
 - `DiagnosticGroup`: `{ id, label, checks: DiagnosticCheck[] }`; `id` ∈ `core | providers | local-tools | workbench | storage` (fixed order = render order).
-- `DiagnosticCheck`: `{ id, group, label, status, detail, hint? }`. `status` ∈ `ok | warn | error | skipped` - **warn** = degraded / optional dependency absent (ffmpeg or a language server missing); **error** = something that should work doesn't; **skipped** = not probed on this platform/config (e.g. Antigravity CDP, per-cwd `.arco` from a global call).
+- `DiagnosticCheck`: `{ id, group, label, status, detail, hint? }`. `status` ∈ `ok | warn | error | skipped` - **warn** = degraded / optional dependency absent (ffmpeg or a language server missing); **error** = something that should work doesn't; **skipped** = not probed on this platform/config (e.g. per-cwd `.arco` from a global call).
 - Probes reuse existing helpers (`capabilities`/`media/ffmpeg`/`github`/`ollama`/`llamacppManager`/`cookbook/hardware`/`claude-native/auth`); the one write is a throwaway temp-file `events.jsonl` round-trip under `tmpdir` - never a real workflow log.
 
 See `docs/DIAGNOSTICS.md`.
@@ -1494,7 +1494,6 @@ Returns the per-provider auth snapshot:
   strata: AuthStatus,               // standalone Strata; context + image modalities from /models
   lmstudio: AuthStatus,             // local runtime; loggedIn = LM Studio server reachable
   cursor: AuthStatus,               // Cursor (ACP) - loggedIn = ~/.config/cursor/auth.json carries a session token
-  antigravity: AuthStatus,
   github: AuthStatus,
 }
 
@@ -1522,7 +1521,7 @@ Polled every 2 minutes by the client.
 
 ### `POST /api/auth-login?provider=<name>`
 
-Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `gemini` / `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `antigravity` / `lmstudio`) to `claude`. Provider-specific behavior (`triggerAuthLogin`):
+Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `gemini` / `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `lmstudio`) to `claude`. Retired provider identifiers return 400 with an explicit unsupported message. Provider-specific behavior (`triggerAuthLogin`):
 
 - **Claude** - spawns `claude auth login --claudeai` detached; returns immediately (`started: true`) and the operator completes browser OAuth.
 - **Codex** - opens a terminal with `codex login`. An optional `account` query selects a Codex account profile.

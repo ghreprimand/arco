@@ -90,14 +90,12 @@ import type {
 import { WorkerManager } from '../workers/WorkerManager.js';
 import {
   applyAutoHandoffDefault,
-  broadcastSessionMetadata,
   deriveAutoHandoff,
   derivePrimaryConfig,
   claimBusy,
   drainQueueIfIdle,
   persistInitialMeta,
   releaseBusy,
-  sessionMetadataForWorkflow,
   startSessionWatcher,
 } from './turnEngine.js';
 
@@ -298,15 +296,6 @@ export async function handleHandoffRequest(
       }
     : undefined;
 
-  // WP6 — uniform original/fresh choice across providers. Only Claude/Codex
-  // have a live session to resume; everything else (Ollama/llama.cpp/LM Studio/
-  // Gemini/Antigravity) has no rollout to --resume into. Rather than blocking
-  // ORIGINAL for those, we *translate* it: "original worker" on a local model
-  // means "the SAME model re-reads its own transcript" — i.e. the fresh-
-  // summarizer mechanism, but pinned to the tab's own primary instead of the
-  // configured fresh summarizer. This keeps the operator's mental model
-  // ("original = the worker that did the work writes the summary") intact even
-  // where there's no session to revive.
   const resumable = wf.primary.provider === 'claude' || wf.primary.provider === 'codex';
   let effectiveMode = msg.mode;
   let translatedSummarizer = effectiveSummarizer;
@@ -642,7 +631,7 @@ export async function handleHandoffRequest(
       // practice; startSessionWatcher is a no-op on other providers.
       startSessionWatcher(msg.workflowId, wf, cwd, ws);
     }
-    if (wf.primary.provider === 'antigravity') broadcastSessionMetadata(msg.workflowId, wf);
+
     reconcileLatestCliSession(cwd, msg.workflowId, wf.primary.provider, sid, handoffAccount?.profile.id).catch((err) => {
       console.error(`[arco] handoff ${handle.handoffId} meta reconcile (${wf.primary.provider}) failed:`, err);
     });
@@ -777,12 +766,6 @@ export async function handleSpawnFromHere(
     });
   }
 
-  // Phase 4 — operator asked to spawn-into-cluster. Validate up front so
-  // we don't half-create the workflow only to refuse the join. Fence now
-  // accepts Claude (Native + CLI) and Codex (exec + appserver); Gemini /
-  // Ollama / llama.cpp / Antigravity still rejected. Effective-transport
-  // rule mirrors assertAllMembersClaudeOrCodex: per-tab override → settings
-  // cascade → 'cli' fallback for Claude.
   if (msg.joinClusterId) {
     const targetCluster = await clusterStore.readCluster(msg.joinClusterId).catch(() => null);
     if (!targetCluster) {
@@ -951,12 +934,6 @@ export async function handleSpawnFromHere(
       }
     : undefined;
 
-  // WP6 — mirror Handoff's uniform original/fresh translation. On a non-
-  // resumable parent (Ollama/llama.cpp/LM Studio/Gemini/Antigravity),
-  // "original worker" means the SAME local model re-reads the parent's
-  // transcript via the fresh-summarizer mechanism, pinned to the parent's
-  // primary rather than the configured fresh summarizer. Overflow falls back
-  // to the configured summarizer (same lastContextPercent heuristic as Handoff).
   const parentResumable = parent.primary.provider === 'claude' || parent.primary.provider === 'codex';
   let effectiveMode = msg.mode;
   let translatedSummarizer = summarizer;
@@ -998,9 +975,6 @@ export async function handleSpawnFromHere(
     }
   }
 
-  // Safety net: 'original-worker' still needs a resumable parent session.
-  // Ollama/Gemini/Antigravity parents, or parents that haven't taken a
-  // turn, fall through to 'fresh-summarizer' — same rationale as Handoff.
   if (effectiveMode === 'original-worker' && !parentHadSession) {
     console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)}: parent has no resumable session, falling back to fresh-summarizer`);
     effectiveMode = 'fresh-summarizer';
@@ -1201,7 +1175,6 @@ export async function handleSpawnFromHere(
       wf.primarySessionId = sid;
       startSessionWatcher(newWorkflowId, wf, newCwd, ws);
     }
-    if (wf && wf.primary.provider === 'antigravity') broadcastSessionMetadata(newWorkflowId, wf);
     reconcileLatestCliSession(newCwd, newWorkflowId, newPrimary.provider, sid, spawnAccount?.profile.id).catch((err) => {
       console.error(`[arco] spawn meta reconcile (${newPrimary.provider}) failed:`, err);
     });
@@ -1727,7 +1700,6 @@ export async function rehydrateOneWorkflow(
     lastSeq,
     ...(snapshotOnly ? { snapshotOnly: true, snapshotReason } : {}),
     ...(wf.primary.provider === 'claude' && wf.primarySessionId ? { claudeSessionId: wf.primarySessionId } : {}),
-    ...(sessionMetadataForWorkflow(wf) ? { sessionMetadata: sessionMetadataForWorkflow(wf) } : {}),
     ...(latestNativeLastPromptTokens
       ? { lastTurnTokens: { input: latestNativeLastPromptTokens, output: 0, cacheRead: 0, cacheCreate: 0 } }
       : codexSnapshot?.tokens ? { lastTurnTokens: codexSnapshot.tokens } : {}),

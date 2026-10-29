@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, retiredProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
@@ -171,12 +171,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     appliedDefaultsRef.current = true;
   }, [settings]);
 
-  // The option set the MODEL <select> actually renders for the current
-  // provider — hoisted so the reconcile effect below compares picker state
-  // against exactly what the operator is being shown. Cursor (its own
-  // component; `auto` isn't a catalog id) and Antigravity (no picker) opt out.
   const activeModelOptions: { value: ModelName; label: string; subline?: string }[] | null = (() => {
-    if (primaryProvider === 'cursor' || primaryProvider === 'antigravity') return null;
+    if (!PRIMARY_PROVIDERS.includes(primaryProvider) || primaryProvider === 'cursor') return null;
     if (primaryProvider === 'gemini') return GEMINI_MODELS_UI as { value: ModelName; label: string }[];
     if (primaryProvider === 'codex') return codexModelsForPicker;
 
@@ -386,7 +382,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   useEffect(() => {
     const prefill = useAppStore.getState().takeCreatorPrefill();
     if (!prefill) return;
-    if (prefill.mode === 'chat' && (primaryProvider === 'gemini' || primaryProvider === 'antigravity')) {
+    if (prefill.mode === 'chat' && (primaryProvider === 'gemini')) {
       setPrimaryProvider('claude');
       setModel(claudeModelsForPicker[0]?.value ?? 'opus');
     }
@@ -404,10 +400,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2026-05-11 — build a fresh MemberDraft from the current DEFAULTS group.
-  // Cluster fence: Claude/Codex plus local Ollama/llama.cpp. Gemini and
-  // Antigravity stay out because Arco cannot inject cluster peer tools
-  // into them today. Effort re-clamps to whatever the provider/model honors.
   const draftFromDefaults = (): MemberDraft => {
     const provider: ClusterMemberProvider =
       primaryProvider === 'codex' || primaryProvider === 'ollama' || primaryProvider === 'llamacpp'
@@ -464,8 +456,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }));
   };
 
-  const canLaunch = connected && workDir && (conversationMode !== 'resume' || Boolean(selectedSessionId));
-  const canLaunchChat = connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
+  const supportedProvider = PRIMARY_PROVIDERS.includes(primaryProvider);
+  const canLaunch = supportedProvider && connected && workDir && (conversationMode !== 'resume' || Boolean(selectedSessionId));
+  const canLaunchChat = supportedProvider && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const clusterSubmitProblems = (() => {
     if (mode !== 'cluster') return [] as string[];
     const problems: string[] = [];
@@ -483,7 +476,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   })();
   const canLaunchCluster = connected && clusterSubmitProblems.length === 0;
   // Genesis launches with no cwd — gate on a working name + a Spark instead.
-  const canLaunchGenesis = connected && name.trim().length > 0 && spark.trim().length > 0;
+  const canLaunchGenesis = supportedProvider && connected && name.trim().length > 0 && spark.trim().length > 0;
 
   // 2026-05-11 — apply a saved preset: overwrite the MEMBERS list and
   // (if the operator hasn't typed a cluster name yet) seed clusterName from
@@ -875,7 +868,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </button>
             <button data-help="creator.chat-mode" onClick={() => {
               setMode('chat');
-              if (primaryProvider === 'gemini' || primaryProvider === 'antigravity') {
+              if (primaryProvider === 'gemini') {
                 setPrimaryProvider('claude');
                 setModel(claudeModelsForPicker[0]?.value ?? 'opus');
               }
@@ -1200,9 +1193,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           </div>
         </div>
 
-        {/* I5 Band 2 — AGENT. Left half: provider (+ account / antigravity info).
-            Right half: model. Effort spans both columns below. In cluster mode
-            this band holds the per-new-member defaults. */}
+        {!supportedProvider && <p role="alert">{retiredProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
+
         <div style={bandStyle}>
           <div className="display-font glow-text-bright" style={bandHeaderStyle}>{mode === 'cluster' ? 'MEMBER DEFAULTS' : mode === 'chat' ? 'CHAT MODEL' : 'AGENT'}</div>
           <div style={bandGrid}>
@@ -1211,7 +1203,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* Primary agent provider — Gemini gated as EXPERIMENTAL, Codex newly
             framework'd. Filter disabled providers out entirely so the operator
             never sees them. */}
-        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('gemini') && authStatus.gemini.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn) || isProviderEnabled('antigravity') || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
+        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('gemini') && authStatus.gemini.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn)  || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
           <div data-help="creator.provider">
             <label className="display-font" style={labelStyle}>PRIMARY AGENT</label>
             <select
@@ -1228,7 +1220,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
 
                 if (p === 'cursor') setModel('auto');
-                if (p === 'antigravity') setModel('antigravity-desktop');
+
                 // Default to the first installed local model so single-model
                 // setups need no second pick; fall back to the historical
                 // reviewer slot for Ollama, leave as-is for llama.cpp if empty.
@@ -1242,15 +1234,14 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               }}
               style={{ ...inputStyle, cursor: 'pointer' }}
             >
-              {(['claude', 'gemini', 'codex', 'cursor', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
-                .filter((p) => mode !== 'chat' || (p !== 'gemini' && p !== 'antigravity'))
+              {!supportedProvider && <option value={primaryProvider} disabled>Unavailable: {primaryProvider}</option>}
+              {(['claude', 'gemini', 'codex', 'cursor',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
+                .filter((p) => mode !== 'chat' || (p !== 'gemini'))
                 .filter((p) => !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
                 .filter(isProviderEnabled).map((p) => {
-                // Antigravity authenticates inside its own desktop app; treat it
-                // as always-available so long as it's enabled in settings.
-                const authed = p === 'antigravity' ? true : authStatus[p]?.loggedIn;
-                const label = p === 'claude' ? 'CLAUDE' : p === 'gemini' ? 'GEMINI' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'antigravity' ? 'ANTIGRAV' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
-                const sub = p === 'claude' ? 'default' : p === 'gemini' ? 'experimental' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'antigravity' ? 'desktop app' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
+                const authed = authStatus[p]?.loggedIn;
+                const label = p === 'claude' ? 'CLAUDE' : p === 'gemini' ? 'GEMINI' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
+                const sub = p === 'claude' ? 'default' : p === 'gemini' ? 'experimental' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
                 return (
                   <option key={p} value={p} disabled={!authed}>
                     {label} — {sub}{authed ? '' : ' (not authenticated)'}
@@ -1258,34 +1249,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 );
               })}
             </select>
-            {primaryProvider === 'antigravity' && (() => {
-              const info = authStatus?.antigravity?.antigravityInfo;
-              const reachable = info?.reachable;
-              const profile = info?.profileMode === 'default'
-                ? 'default (signed-in) profile'
-                : info?.profileMode === 'isolated'
-                  ? `isolated profile (${info.userDataDir ?? '~/.arco/antigravity-data'})`
-                  : info?.profileMode === 'custom'
-                    ? `custom profile${info.userDataDir ? ` (${info.userDataDir})` : ''}`
-                    : 'profile unknown';
-              return (
-                <div style={{ marginTop: '6px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>
-                  <div>
-                    Antigravity RPC through the desktop app. First turn starts a cascade; later turns resume its cascade id. Context and compaction remain Antigravity-managed.
-                  </div>
-                  {info && (
-                    <div style={{ marginTop: '4px' }}>
-                      Desktop: {reachable ? `reachable on :${info.debugPort}` : `not reachable on :${info.debugPort}`} · Profile: {profile} · Model: <code>{info.configuredModelId}</code>
-                    </div>
-                  )}
-                  {info?.capabilities && (
-                    <div style={{ marginTop: '4px' }}>
-                      Capabilities: modelAccess={String(info.capabilities.modelAccess)} · webSearch={info.capabilities.webSearch} · shellTools={info.capabilities.shellTools} · pathAttachments={String(info.capabilities.pathAttachments)} · nativeImages={info.capabilities.nativeImageAttachments} · clusterTools={String(info.capabilities.clusterTools)} · artifacts={info.capabilities.artifacts} · context={info.capabilities.contextAccounting}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+
             {visibleProviderAccounts.length > 0 && (
               <div style={{ marginTop: '12px' }}>
                 <label className="display-font" style={labelStyle}>ACCOUNT PROFILE</label>
@@ -1336,13 +1300,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </div>
             <div style={bandHalf}>
 
-        {/* MODEL — right half of the AGENT band. Hidden for Antigravity (model
-            + effort come from its own composer); a short note keeps the half
-            from reading empty in that case. EFFORT spans both columns below. */}
-        {primaryProvider === 'antigravity' && (
-          <div className="display-font" style={{ ...hintStyle, marginTop: 0 }}>Model &amp; effort are managed in the Antigravity desktop app.</div>
-        )}
-        {primaryProvider !== 'antigravity' && (
+
+
+        {(
             <div data-help="creator.model">
               <label className="display-font" style={labelStyle}>MODEL</label>
               {primaryProvider === 'cursor' && cursorCatalog?.models?.length ? (
@@ -1403,7 +1363,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </div>
             <div style={bandHalf}>
 
-        {primaryProvider !== 'antigravity' && (
+        {(
             <div data-help="creator.effort">
               <label className="display-font" style={labelStyle}>EFFORT</label>
               {(() => {
@@ -1414,9 +1374,6 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                 // effortsForModel in utils/format for the rationale.
                 const honored = effortsForModel(primaryProvider, model, claudeNativeCatalog, codexCatalog);
                 if (honored.length === 0) {
-                  // This block only renders for non-antigravity providers
-                  // (the surrounding wrapper hides the model+effort row
-                  // entirely when primaryProvider === 'antigravity').
                   const reason = primaryProvider === 'gemini' ? 'Gemini CLI has no effort flag.'
                     : (primaryProvider === 'strata' || primaryProvider === 'deepseek') ? 'None disables thinking; low, medium and high set reasoning effort.' : (primaryProvider === 'ollama' || primaryProvider === 'llamacpp' || primaryProvider === 'lmstudio') ? 'Local models have no effort flag.'
                     : primaryProvider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'

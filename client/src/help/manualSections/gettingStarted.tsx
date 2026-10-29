@@ -13,7 +13,7 @@ export const gettingStarted: Section[] = [
           pair a primary agent with a project directory. <strong>Chat</strong> tabs
           offer general conversation without a project; clusters group project
           agents. Providers include Claude, Codex, Cursor, Gemini, Ollama,
-          llama.cpp, LM Studio and Antigravity, with mode-specific capabilities.
+          llama.cpp, LM Studio, with mode-specific capabilities.
         </p>
         <p>
           The whole point is that <em>you</em> drive. Arco does not give models hidden
@@ -136,10 +136,6 @@ export const gettingStarted: Section[] = [
           <Code>docs/SETTINGS.md</Code>. Each provider is independent —
           Claude can be live while Codex is unauthenticated, etc.
         </p>
-        <Note kind="warn">
-          Arco does <em>not</em> manage Antigravity auth. The desktop app uses its own
-          Google login, configured in the desktop app itself.
-        </Note>
       </>
     ),
   },
@@ -169,7 +165,7 @@ export const gettingStarted: Section[] = [
           </li>
           <li>
             <strong>Provider</strong> — Claude / Codex / Gemini / Cursor / Ollama /
-            llama.cpp / LM Studio / Strata / Antigravity. Disabled providers (or providers
+            llama.cpp / LM Studio / Strata. Disabled providers (or providers
             without auth) are greyed out.
           </li>
           <li>
@@ -256,7 +252,7 @@ export const gettingStarted: Section[] = [
             <Code>↓ EDIT</Code> to expand and override per-row:
             <ul>
               <li>Display name (optional)</li>
-              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; Gemini, LM Studio and Antigravity are not cluster members)</li>
+              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; Gemini, LM Studio are not cluster members)</li>
               <li>Model + effort (per-provider pickers)</li>
               <li>Role — free-form ≤120 chars (e.g. "director", "tester")</li>
               <li>Tier — light / standard / heavy / unset</li>

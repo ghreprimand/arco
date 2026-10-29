@@ -240,8 +240,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         Handoff documents written when sessions in this tab were rotated. They
         live forever in <C>.arco/workflows/&lt;wfid&gt;/handoffs/</C>. An
         in-flight handoff shows a <C>✕</C> on its <C>RUN…</C> row to cancel it
-        (kills the worker and frees the tab) — hidden for Antigravity, whose RPC
-        has no stop method.
+        (kills the worker and frees the tab).
       </p>
     ),
     manualSection: 'handoff-action',
@@ -295,14 +294,6 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           tool allowlist (Claude), auto-handoff thresholds, RSS guard opt-out.
           A red dot means the underlying CLI's capability surface changed
           since you last viewed it.
-        </p>
-        <p>
-          Antigravity tabs show read-only RPC diagnostics instead of controls
-          Arco does not own: desktop reachability, default/signed-in vs
-          isolated/custom profile mode, configured model/display model, cascade
-          state, <C>CTX: Antigravity-managed</C>, artifacts partial, and
-          <C>clusterTools false</C>. If unavailable, check the binary path,
-          profile, model, and restart semantics in the manual.
         </p>
         <p>
           Claude tabs have a TRANSPORT toggle (<C>cli</C> per-turn spawn vs{' '}
@@ -368,7 +359,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         selected model's catalog entry. On Ollama, LOW turns thinking off and the
         rest are the model's own advertised thinking levels (LOW / HIGH on models
         without levels). Strata uses NONE / LOW / MEDIUM / HIGH: NONE disables
-        reasoning; HIGH maps to Qwen xhigh. Gemini / Antigravity / Cursor show no picker — Cursor
+        reasoning; HIGH maps to Qwen xhigh. Gemini / Cursor show no picker — Cursor
         bakes effort into the model id; the others expose no effort flag.
       </p>
     ),

@@ -3,18 +3,16 @@ import test from 'node:test';
 import { connectionCatalog } from '../../../../server/src/connectionCatalog.js';
 import { connectionState,credentialSource,parseConnectionCatalog,parseConnectionStatus,safeEndpoint } from './model.js';
 const catalog=connectionCatalog({});
-const codex=catalog.providers.find(p=>p.id==='codex')!,desktop=catalog.providers.find(p=>p.id==='antigravity')!;
+const codex=catalog.providers.find(p=>p.id==='codex')!;
 test('a failed or stale check never turns into an instruction to sign in again',()=>{
   assert.equal(connectionState(codex,{loggedIn:true,probeFailed:true},true,false),'Status unknown');
   assert.equal(connectionState(codex,{loggedIn:true},false,false),'Disabled');
-  assert.equal(connectionState(desktop,{loggedIn:true},true,true),'Unavailable here');
   assert.equal(connectionState(codex,{loggedIn:true},true,false),'Connected');
   assert.equal(connectionState(codex,undefined,true,false),'Status unknown');
 });
 test('credential descriptions report evidence without inventing an account or billing identity',()=>{
   assert.match(credentialSource(codex,{loggedIn:true,apiProvider:'openai-api-key'},catalog),/API usage is billed separately/);
   assert.match(credentialSource(codex,{loggedIn:true,accountStatuses:[{id:'a',label:'Account A',loggedIn:true}]},catalog),/profiles/);
-  assert.match(credentialSource(desktop,{loggedIn:true},catalog),/account access is not verified/);
   assert.equal(safeEndpoint('https://user:private-value@example.invalid/v1?secret=private-value#private-value'),'https://example.invalid/v1');
   assert.equal(safeEndpoint('!private command'),'');
 });

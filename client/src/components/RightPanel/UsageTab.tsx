@@ -27,7 +27,7 @@ const PROVIDER_COLORS: Partial<Record<ProviderName, string>> = {
   lmstudio: '#8b95f2',
   strata: '#e5ae71',
   deepseek: '#64a8fa',
-  antigravity: '#4dd0e1',
+
   cursor: '#6cc6d6',
 };
 

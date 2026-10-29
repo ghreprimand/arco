@@ -475,7 +475,7 @@ There is no cancel message - the single bounded turn settles on its own (same as
 }
 ```
 
-Cancels an in-flight handoff. `handleHandoffCancel` broadcasts a `handoff_artifact_ready` with `cancelled: true` (sticky - the worker-kill error that follows is ignored client-side), then calls the handle's `abort` which kills the reflection/summarizer worker via `manager.kill`. The kill makes `handle.settled` resolve, so the normal cleanup (`busy=false` + handoff-slot release + `wf.activeHandoff` clear) runs. The client only surfaces the cancel `✕` for providers whose worker is truly killable - **not Antigravity** (its RPC has no stop method; a cancel would only detach Arco's poll loop while the desktop agent keeps running).
+Cancels an in-flight handoff. `handleHandoffCancel` broadcasts a `handoff_artifact_ready` with `cancelled: true` (sticky - the worker-kill error that follows is ignored client-side), then calls the handle's `abort` which kills the reflection/summarizer worker via `manager.kill`. The kill makes `handle.settled` resolve, so the normal cleanup (`busy=false` + handoff-slot release + `wf.activeHandoff` clear) runs. The client surfaces the cancel `✕` while a handoff worker is active.
 
 ### `handoff_lock_clear` -> / `handoff_lock_snapshot` <-
 

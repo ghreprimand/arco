@@ -229,12 +229,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           Ollama, llama.cpp, LM Studio and Strata are auth-less; the button reads <C>HELP</C> and
           opens troubleshooting tips. Strata lists configured profiles; LIVE does not
           mean their weights are resident in VRAM. After FREE VRAM, models remain
-          available on demand. Antigravity isn't listed — its auth lives
-          inside the desktop app. For Antigravity, unavailable usually means the
-          app is not launched, <C>ANTIGRAVITY_BINARY</C> is wrong, the isolated
-          profile is not signed in, <C>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</C> is
-          needed, or the server was restarted in-app without picking up external
-          env changes.
+          available on demand.
         </p>
       </>
     ),

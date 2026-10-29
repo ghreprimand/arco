@@ -14,14 +14,12 @@ import { modelsFor } from './format';
 export function ConfigTab({
   job,
   onUpdatePrimary,
-  onFreshAntigravityCascade,
   onAttachCodebaseMemory,
   onDetachCodebaseMemory,
   mcp,
 }: {
   job: JobState;
   onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
-  onFreshAntigravityCascade?: () => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   mcp?: McpSenders;
@@ -133,11 +131,6 @@ export function ConfigTab({
     }
     return idStr;
   };
-  // Per-model effort filter — surfaces gpt-5.5 xhigh and Claude opus-4-6
-  // max while keeping older / lighter models on low/med/high. Gemini /
-  // Ollama / Antigravity still show no picker (CLI has no effort flag).
-  // Reads the live Claude catalog when present (authoritative); falls
-  // back to the static gating table otherwise.
   const honoredEfforts = effortsForModel(provider, c.primaryModel, claudeNativeCatalog, codexCatalog);
   const effortEditable = canEdit && honoredEfforts.length > 0;
 
@@ -256,7 +249,6 @@ export function ConfigTab({
                 <span style={{ color: 'var(--color-fg-muted)', fontStyle: 'italic' }}>
                   {provider === 'gemini' ? '(CLI has no effort flag)'
                     : provider === 'ollama' ? '(local models have no effort flag)'
-                    : provider === 'antigravity' ? '(set inside desktop app)'
                     : provider === 'cursor' ? '(set via the model picker above)'
                     : '(not honored)'}
                 </span>
@@ -417,15 +409,8 @@ export function ConfigTab({
         <OutputStyleSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* Phase A — Antigravity provider diagnostics + capability surface.
-          Read-only; auth probe + capability map come from the server's
-          auth status. Shown for Antigravity tabs only. */}
-      {provider === 'antigravity' && (
-        <>
-          <AntigravitySessionSection job={job} onFreshCascade={onFreshAntigravityCascade} />
-          <AntigravityDiagnosticsSection />
-        </>
-      )}
+
+
 
       {/* docs/PROVIDERS.md - operator-attachable codebase-memory-mcp.
           Provider-agnostic (the binary is operator-installed and Arco
@@ -790,163 +775,6 @@ function ModePill({
     >
       {children}
     </button>
-  );
-}
-
-function AntigravitySessionSection({
-  job,
-  onFreshCascade,
-}: {
-  job: JobState;
-  onFreshCascade?: () => void;
-}) {
-  const meta = job.sessionMetadata;
-  const cascadeId = meta?.sessionKind === 'antigravity-cascade' ? meta.cascadeId : undefined;
-  return (
-    <div style={{ marginTop: '18px' }}>
-      <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)', marginBottom: '8px' }}>
-        ANTIGRAVITY SESSION
-      </div>
-      <table style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-body)', borderCollapse: 'collapse', marginBottom: '8px' }}>
-        <tbody>
-          <StaticRow k="CTX" v={meta?.contextLabel ?? 'Antigravity-managed'} />
-          <StaticRow k="COMPACTION" v="Antigravity-managed; no Arco auto-handoff" />
-          {cascadeId ? (
-            <CopyableRow k="CASCADE" v={cascadeId} />
-          ) : (
-            <StaticRow k="CASCADE" v="fresh on next turn" />
-          )}
-        </tbody>
-      </table>
-      <button
-        type="button"
-        onClick={onFreshCascade}
-        disabled={!onFreshCascade || job.busy === true}
-        className="display-font"
-        title="Clear Arco's stored Antigravity cascade id. The next turn starts a fresh cascade; this does not compact Antigravity internals."
-        style={{
-          ...miniBtnStyle,
-          opacity: !onFreshCascade || job.busy === true ? 0.5 : 1,
-          cursor: !onFreshCascade || job.busy === true ? 'not-allowed' : 'pointer',
-        }}
-      >
-        FRESH CASCADE
-      </button>
-      <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginTop: '8px' }}>
-        Clears only Arco's stored cascade id. Antigravity owns its context, cache, checkpoints, and internal compaction.
-      </div>
-    </div>
-  );
-}
-
-// Phase A — read-only Antigravity diagnostics + capability map. Reads from
-// `authStatus.antigravity.antigravityInfo` (server populates from
-// `antigravityManager.diagnostics()`). Compact two-column table matching the
-// PRIMARY AGENT block above; no controls — context, compaction, and tools
-// remain Antigravity-managed.
-function AntigravityDiagnosticsSection() {
-  const authStatus = useAppStore((s) => s.authStatus);
-  const info = authStatus?.antigravity?.antigravityInfo;
-
-  const profileLabel = info
-    ? info.profileMode === 'default'
-      ? 'DEFAULT (signed-in profile)'
-      : info.profileMode === 'isolated'
-        ? `ISOLATED${info.userDataDir ? ` (${info.userDataDir})` : ''}`
-        : `CUSTOM${info.userDataDir ? ` (${info.userDataDir})` : ''}`
-    : null;
-
-  // Prefer Antigravity's own catalog label (ground truth) over the hardcoded
-  // config mapping, and mark which source it came from.
-  const displayModel = info
-    ? info.catalogModelDisplayName
-      ? `${info.catalogModelDisplayName} (catalog)`
-      : info.configuredModelDisplayName
-        ? `${info.configuredModelDisplayName} (configured)`
-        : null
-    : null;
-
-  const rows: Array<[string, string]> = info
-    ? [
-        ['TRANSPORT', 'Antigravity RPC'],
-        ['DESKTOP REACHABILITY', info.reachable ? `reachable on debug port :${info.debugPort}` : `not reachable on debug port :${info.debugPort}`],
-        ['PROFILE', profileLabel ?? ''],
-        ['WORKSPACE', info.workspace],
-        ['CONFIGURED MODEL', info.configuredModelId],
-        ...(displayModel ? [['DISPLAY MODEL', displayModel] as [string, string]] : []),
-        ...(info.catalogModelEnum ? [['MODEL ENUM', info.catalogModelEnum] as [string, string]] : []),
-        ['CASCADE STATE', 'see Antigravity session above'],
-        ['CTX', 'Antigravity-managed'],
-        ['STEP TRACE', info.traceEnabled
-          ? `enabled${info.rawTraceEnabled ? ' + raw' : ''} → .arco/workflows/<id>/debug/antigravity-rpc-steps.jsonl`
-          : 'disabled'],
-        ...(info.desktopBrowser ? [['DESKTOP BUILD', info.desktopBrowser] as [string, string]] : []),
-      ]
-    : [];
-
-  const capRows: Array<[string, string]> = info
-    ? [
-        ['MODEL ACCESS', String(info.capabilities.modelAccess)],
-        ['WEB SEARCH', info.capabilities.webSearch],
-        ['SHELL TOOLS', info.capabilities.shellTools],
-        ['PATH ATTACHMENTS', String(info.capabilities.pathAttachments)],
-        ['NATIVE IMAGES', info.capabilities.nativeImageAttachments],
-        ['CLUSTER TOOLS', String(info.capabilities.clusterTools)],
-        ['ARTIFACTS', info.capabilities.artifacts],
-        ['CONTEXT ACCOUNTING', info.capabilities.contextAccounting],
-      ]
-    : [];
-
-  return (
-    <div style={{ marginTop: '18px' }}>
-      <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)', marginBottom: '8px' }}>
-        ANTIGRAVITY RPC
-      </div>
-      {info ? (
-        <>
-          {!info.reachable && (
-            <div
-              style={{
-                marginBottom: '10px',
-                padding: '8px 10px',
-                border: '1px solid var(--color-warning)',
-                background: 'rgba(255, 183, 77, 0.08)',
-                color: 'var(--color-warning)',
-                fontSize: '11px',
-                fontFamily: 'var(--font-body)',
-                lineHeight: 1.45,
-              }}
-            >
-              Antigravity desktop/RPC is not reachable. Launch the desktop app or check ANTIGRAVITY_BINARY, profile env, and server restart; Arco can only use this provider after the local RPC endpoint is reachable.
-            </div>
-          )}
-          <table style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-body)', borderCollapse: 'collapse' }}>
-            <tbody>
-              {rows.map(([k, v]) => (
-                <StaticRow key={k} k={k} v={v} />
-              ))}
-            </tbody>
-          </table>
-          <div className="display-font" style={{ marginTop: '12px', marginBottom: '6px', fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-accent-secondary-dim)' }}>
-            CAPABILITIES
-          </div>
-          <table style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-body)', borderCollapse: 'collapse' }}>
-            <tbody>
-              {capRows.map(([k, v]) => (
-                <StaticRow key={k} k={k} v={v} />
-              ))}
-            </tbody>
-          </table>
-          <div className="display-font" style={{ marginTop: '10px', fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', lineHeight: 1.5 }}>
-            Debug port is liveness only — no CDP transport. Context, cache, and compaction remain Antigravity-managed.
-          </div>
-        </>
-      ) : (
-        <div style={{ fontSize: '11px', fontFamily: 'var(--font-body)', color: 'var(--color-fg-muted)', fontStyle: 'italic' }}>
-          Diagnostics not loaded yet — waiting for /api/auth-status.
-        </div>
-      )}
-    </div>
   );
 }
 

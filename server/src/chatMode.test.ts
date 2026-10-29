@@ -14,7 +14,7 @@ import { registerPrivateLogToken, shouldSuppressOperationalLog, withoutOperation
 
 test('chat support excludes Gemini and Antigravity', () => {
   assert.equal(CHAT_PROVIDERS.has('gemini'), false);
-  assert.equal(CHAT_PROVIDERS.has('antigravity'), false);
+  assert.equal(CHAT_PROVIDERS.has('antigravity' as never), false);
   for (const provider of ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata'] as const) {
     assert.equal(CHAT_PROVIDERS.has(provider), true, provider);
   }

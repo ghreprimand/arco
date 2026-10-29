@@ -1540,9 +1540,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             onClick={() => setShowHandoffDialog(true)}
             data-help="actions.handoff"
             className="display-font"
-            title={job.config.primaryProvider === 'antigravity'
-              ? 'Create handoff text and seed a fresh Antigravity cascade'
-              : 'Rotate session — archive current, pre-warm fresh session with handoff context'}
+            title={'Rotate session — archive current, pre-warm fresh session with handoff context'}
             style={{
               padding: '3px 8px',
               background: 'transparent',
@@ -2459,7 +2457,7 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
     const canRecalibrate =
       typeof onRecalibrate === 'function' &&
       job.config.primaryProvider !== 'gemini' &&
-      job.config.primaryProvider !== 'codex' && job.config.primaryProvider !== 'ollama' && job.config.primaryProvider !== 'antigravity' && job.busy !== true;
+      job.config.primaryProvider !== 'codex' && job.config.primaryProvider !== 'ollama' && job.busy !== true;
     const isGroundTruth = cu.method === 'ground-truth';
     const headline = isGroundTruth
       ? 'Context fill (provider ground-truth)'
@@ -2535,18 +2533,7 @@ function TokensFooter({ job, codexCatalog, onRecalibrate }: { job: JobState; cod
       </span>
     );
   }
-  if (provider === 'antigravity') {
-    return (
-      <span
-        title="Antigravity owns this cascade's context, cache, checkpoints, and internal compaction. Arco has no trustworthy context percentage for this provider."
-        style={{ opacity: 0.75, whiteSpace: 'nowrap' }}
-      >
-        CTX: Antigravity-managed
-        <span style={{ color: 'var(--color-fg-muted)', opacity: 0.6 }}> · </span>
-        ↑ {outCumulative > 0 ? compact(outCumulative) : '—'} OUT
-      </span>
-    );
-  }
+
   if (last && (provider === 'codex')) {
     const ctx = contextTokens(last, provider);
     // Prefer the provider-reported context window (set when Codex emits

@@ -395,7 +395,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="h">HANDOFFS</strong>,
-              <>The handoff documents written when a session was rotated. Click any to view; they live forever in <Code>.arco/workflows/&lt;wfid&gt;/handoffs/</Code>. An in-flight handoff has a <Code>✕</Code> on its <Code>RUN…</Code> row to cancel it (not shown for Antigravity, whose desktop has no stop hook).</>,
+              <>The handoff documents written when a session was rotated. Click any to view; they live forever in <Code>.arco/workflows/&lt;wfid&gt;/handoffs/</Code>. An in-flight handoff has a <Code>✕</Code> on its <Code>RUN…</Code> row to cancel it.</>,
             ],
             [
               <strong key="p">PLAN</strong>,

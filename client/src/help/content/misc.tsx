@@ -586,11 +586,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Pick which AI back-end runs this tab. Ten providers (Claude / Codex /
-        Gemini / Cursor / Ollama / llama.cpp / LM Studio / Strata / Antigravity); the picker hides ones disabled
+        Gemini / Cursor / Ollama / llama.cpp / LM Studio / Strata); the picker hides ones disabled
         in Settings or without auth. Local providers (Ollama, llama.cpp) require
         installed models — empty catalogs hide the option. In cluster creation,
         only providers with peer-tool wiring are eligible. Chat excludes Gemini
-        and Antigravity; Incognito additionally excludes Cursor, llama.cpp and Strata.
+       ; Incognito additionally excludes Cursor, llama.cpp and Strata.
       </p>
     ),
     manualSection: 'providers-overview',
@@ -657,11 +657,9 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Rotates this tab's session. The current agent writes a handoff
-        document; a fresh session starts with that doc as its seed. For
-        Antigravity, this means a fresh cascade seeded with handoff text, not
-        compaction of Antigravity's internal context. <C>Original-worker</C>{' '}
+        document; a fresh session starts with that doc as its seed. <C>Original-worker</C>{' '}
         (the primary self-reflects) only applies to Claude, Codex; other
-        providers — Antigravity, Gemini, Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
+        providers — Gemini, Cursor, Ollama, llama.cpp, LM Studio — auto-fall back to{' '}
         <C>fresh-summarizer</C>.
       </p>
     ),
@@ -806,7 +804,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           <li>
             <strong>FRESH SUMMARIZER</strong> — an ephemeral worker reads the
             rendered transcript and writes the doc. Lower fidelity. Required
-            for non-resumable primaries (Ollama, Antigravity).
+            for non-resumable primaries (Ollama).
           </li>
         </ul>
       </>

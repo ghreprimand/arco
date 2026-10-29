@@ -21,7 +21,7 @@ export const configuration: Section[] = [
         <p>
           Claude has two auth surfaces: CLI auth and Claude Native OAuth. Ollama,
           llama.cpp, LM Studio and Strata are auth-less; their buttons read <Code>HELP</Code> and
-          open troubleshooting tips. Antigravity auth lives inside the desktop app.
+          open troubleshooting tips.
         </p>
         <p>
           Settings cascade as defaults → <Code>~/.arco/settings.json</Code> →

@@ -23,7 +23,7 @@ try {
   // A test may prepend its own fake executable. Otherwise an accidental real
   // provider subprocess fails before it can make a paid call or use host auth.
   const windows = process.platform === 'win32';
-  for (const command of ['claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli', 'lms', 'antigravity', 'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget']) {
+  for (const command of ['claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli', 'lms', 'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget']) {
     writeFileSync(join(binaries, command), '#!/bin/sh\necho "Real provider commands are disabled in unit tests; install a fixture on PATH." >&2\nexit 97\n', { mode: 0o755 });
     // Windows resolves commands through PATHEXT, so an extensionless script
     // would not shadow an npm-installed `codex.cmd`; add a `.cmd` stub too.

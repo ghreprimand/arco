@@ -190,13 +190,9 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
       setProviderAccountRef(codexAccounts[0]?.id);
     }
   }, [provider, providerAccountRef, codexAccounts, primary.provider, primary.providerAccountRef]);
-  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
-    // Antigravity auths inside its own desktop app (the Google account signed
-    // into the isolated Arco profile), not through Arco's auth service.
-    // Trust the operator to have it running; runtime surfaces a clear error
-    // if the Antigravity desktop/RPC endpoint is unreachable when the review fires.
-    if (p === 'antigravity') return true;
+
     // Ollama is "logged in" if the daemon is reachable AND has at least one
     // model installed — without a model there's nothing to spawn.
     if (p === 'ollama') return !!authStatus?.ollama?.loggedIn && ollamaModels.length > 0;
@@ -300,7 +296,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
                   setEffort(clampEffortForProvider(effort, p));
                 }}
               >
-                {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'antigravity' ? 'ANTIGRAV' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
+                {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
               </Pill>
             ))}
           </Row>
@@ -355,7 +351,6 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
           const honored = effortsForModel(provider, model, claudeNativeCatalog, codexCatalog);
           if (honored.length === 0) {
             const reason = provider === 'gemini' ? 'Gemini CLI has no effort flag.'
-              : provider === 'antigravity' ? 'Effort is set inside the Antigravity desktop app.'
               : provider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
               : 'Provider does not honor effort.';
             return (

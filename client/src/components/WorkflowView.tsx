@@ -40,7 +40,6 @@ interface Props {
   onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; ollamaParams?: Record<string, unknown> }) => void;
   onLoadEarlier?: () => void;
   onRecalibrate?: () => void;
-  onFreshAntigravityCascade?: () => void;
   onAttachPlan?: (planId: string) => void;
   onDetachPlan?: () => void;
   // Operator-chosen shortcut from the PlanCandidateBanner: when the active
@@ -107,7 +106,7 @@ const MIN_FRACTION = 0.2;
 const MAX_FRACTION = 0.55;
 const DEFAULT_FRACTION = 0.34;
 
-export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onCancelQueued, onUpload, onReview, onCancelReview, onCancelHandoff, onClearHandoffLock, onHandoff, onSpawn, onUpdatePrimary, onLoadEarlier, onRecalibrate, onFreshAntigravityCascade, onAttachPlan, onDetachPlan, onAttachPlanToCluster, onBackToCluster, onPromoteToCluster, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onArmPlanMode, onAttachCodebaseMemory, onDetachCodebaseMemory, onTranscriptSend, onResearch, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, mcp }: Props) {
+export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onCancelQueued, onUpload, onReview, onCancelReview, onCancelHandoff, onClearHandoffLock, onHandoff, onSpawn, onUpdatePrimary, onLoadEarlier, onRecalibrate, onAttachPlan, onDetachPlan, onAttachPlanToCluster, onBackToCluster, onPromoteToCluster, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onArmPlanMode, onAttachCodebaseMemory, onDetachCodebaseMemory, onTranscriptSend, onResearch, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, mcp }: Props) {
   // I3 — focus mode hides the right panel (+ splitter), giving the chat the
   // full width. Reversible: toggling off restores the persisted split fraction.
   const focusMode = useAppStore((s) => s.focusMode);
@@ -272,7 +271,7 @@ export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetTo
             onClearPreviewPort={onClearPreviewPort}
             onPreviewCapture={onPreviewCapture}
             onReviewCapture={onReviewCapture}
-            onFreshAntigravityCascade={onFreshAntigravityCascade}
+
             onAttachCodebaseMemory={onAttachCodebaseMemory}
             onDetachCodebaseMemory={onDetachCodebaseMemory}
             onCancelResearch={onCancelResearch}

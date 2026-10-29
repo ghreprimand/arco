@@ -2,7 +2,7 @@
 
 **Chat tab** - Projectless conversation (`kind:'chat'`, reaching workers as
 `interactionMode:'chat'`), with a lightweight composer and no Agent workbench.
-Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata; not Gemini/Antigravity.
+Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata; not Gemini.
 The per-tab **web toggle** (`chatWebAccess`, Claude/Codex/Ollama/Strata; decided by
 `chatWebArmed()`) adds web search + fetch and nothing else. Saved chats reopen via
 PAST CHATS. Not the same as Claude Native's `chat` tool posture. See [CHAT.md](CHAT.md).
@@ -25,7 +25,6 @@ Vocabulary used throughout the codebase and the rest of the docs. Sorted alphabe
 
 **Agent** - Synonym for "primary." The single long-lived AI process that owns the conversation in a tab. Distinct from "worker" (short-lived sub-process spawned by a primitive).
 
-**Antigravity** - Google's desktop AI app. Arco talks to it through the local language-server RPC endpoint, using an isolated user-data-dir at `~/.arco/antigravity-data/` by default or the normal signed-in profile when `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set. Can act as either a primary or a reviewer. The localhost debug port is only used for desktop liveness probing.
 
 **Arco Lite** - The current operator-driven architecture uses Review, Handoff, and Spawn primitives, with bounded, visible, logged, and reversible operator-armed automations. See [`PRIMITIVES.md`](PRIMITIVES.md) for the operator primitives and [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) for cluster roles and behavior.
 
@@ -55,7 +54,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Capability detection** - `probeCapabilities()` runs each provider CLI's version probe at boot, every 4 hours, and on demand. Differences from the cached snapshot become `capabilities_changed` events surfaced as red-dot CONFIG indicators.
 
-**CDP** - Chrome DevTools Protocol. Arco no longer uses CDP as an Antigravity transport; the remaining Antigravity debug-port check is only a process liveness probe.
+**CDP** - Chrome DevTools Protocol. Arco uses it for local browser preview capture.
 
 **Claim** - A server-side reservation written to a task's run history when the dispatcher (or a worker's `cluster_task_claim` tool call) assigns a task to a member. A claim records `assignee`, `claimedAt`, and `runId`; the task status moves to `in_progress`. Recovery via `task_run_recover` can reclaim, terminate, reassign, or fail a stale claim. See `server/src/project/taskLedger.ts`.
 
@@ -85,13 +84,13 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Efficiency level** - Per-cluster operator knob that fights cluster over-review loops. `ClusterEfficiencyLevel = 'thorough' | 'balanced' | 'lean'` (default `'thorough'`; `shared/src/protocol/clusters.ts`). `server/src/clusterEfficiency.ts` is the single source of truth: each level is a DETERMINISTIC bundle of three effects - a restraint doctrine injected into member system prompts, a smaller peer-send budget (15 -> 8 -> 4, `sendBudgetFor`), and a softer mailbox-notice variant (`mailboxNoticeVariantFor`). Set via the cluster header chip or the `+ NEW` creator; takes effect next turn; reversible. See [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) section13.
 
-**Effort** - Reasoning-budget setting. Provider-specific: Claude has `low / medium / high / xhigh / max` (model-gated; ultracode forces `xhigh`); Codex is catalog-driven per model - values pass through 1:1 and clamp to the model's highest supported level (GPT-6 Astra / Sol reach `max` / `ultra`, Luna `max`); Cursor bakes effort into the model id; Ollama offers `low` (thinking off, `/no_think`) plus each model's advertised thinking levels (`/api/show` `thinking.values`; `shared/src/protocol/ollamaThinking.ts`); llama.cpp / LM Studio offer `low` / `high`, where `low` injects `/no_think`; Gemini and Antigravity have none.
+**Effort** - Reasoning-budget setting. Provider-specific: Claude has `low / medium / high / xhigh / max` (model-gated; ultracode forces `xhigh`); Codex is catalog-driven per model - values pass through 1:1 and clamp to the model's highest supported level (GPT-6 Astra / Sol reach `max` / `ultra`, Luna `max`); Cursor bakes effort into the model id; Ollama offers `low` (thinking off, `/no_think`) plus each model's advertised thinking levels (`/api/show` `thinking.values`; `shared/src/protocol/ollamaThinking.ts`); llama.cpp / LM Studio offer `low` / `high`, where `low` injects `/no_think`; Gemini have none.
 
 **events.jsonl** - Per-workflow append-only NDJSON log at `<cwd>/.arco/workflows/<wfid>/events.jsonl`. Every server message broadcast to observers gets stamped with a monotonic seq and persisted here. The server-side source of truth for replay on reconnect.
 
 **Fold** - Deterministic, model-free in-place transcript trim for Claude Native (section2.1). Replaces a folded prefix with a reproducible digest (task / files / cmds / searches / errors / open-todos via `buildFoldDigest`, `server/src/providers/claude-native/foldDigest.ts`) plus a verbatim recent tail bounded by a token budget (~20% of the window). Far cheaper than a Handoff - no model round, instant. Fired manually via the composer Fold button (`fold_workflow` WS message) or automatically when `autoFold` is enabled and the token-budget meter crosses `foldAt` (which sits below `autoHandoff.warnAt`). Emits `context_folded` (`trigger: 'operator' | 'auto'` + byte-delta fields for anti-thrash termination); re-seeds byte-identically on replay like `native_compacted`. Native-only. Config: `WorkflowConfig.autoFold = { enabled, foldAt }` (default OFF). See **token-budget meter**.
 
-**Fresh-summarizer** - A handoff mode where an ephemeral worker reads a rendered transcript and writes the handoff doc, instead of asking the primary to self-reflect. Lower fidelity; used when the primary can't be resumed (Ollama, Antigravity).
+**Fresh-summarizer** - A handoff mode where an ephemeral worker reads a rendered transcript and writes the handoff doc, instead of asking the primary to self-reflect. Lower fidelity; used when the primary can't be resumed (Ollama).
 
 **Ghost worker** - A primary worker process that has silently exited (e.g., crash, server restart mid-turn) without emitting `primary_turn_ended`. The server's `handleCancel` unconditionally broadcasts `turn_cancelled` + `primary_turn_ended` as the escape hatch - without it, the UI would stay stuck on busy forever.
 
@@ -159,7 +158,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Project-trust** - DD7 gate (`server/src/projectTrust.ts`) closing the cloned-repo prompt-injection vector. A repo's project-local surfaces that Arco would otherwise fold into the agent unread - `CLAUDE.md`, project `.arco/skills/`, project `.arco/settings.json`, project `/prompt` templates - stay SUPPRESSED until the operator vouches for the repo. `decideTrust()` is a pure read over a flat `trust.json` (nearest-ancestor wins); a two-pass bootstrap resolves trust from USER/GLOBAL scope only, so a cloned repo can't self-grant via its own `defaultProjectTrust`. The decision + suppressed-resource list land in events.jsonl; flipping/deleting the `trust.json` line reverses it.
 
-**Provider** - One of the AI back-ends Arco talks to: Claude, Codex, Gemini, Ollama, llama.cpp, LM Studio, Antigravity, Cursor. Each has a module under `server/src/providers/`. (`ProviderName` in `shared/src/protocol/providers.ts`.)
+**Provider** - One of the AI back-ends Arco talks to: Claude, Codex, Gemini, Ollama, llama.cpp, LM Studio, Cursor. Each has a module under `server/src/providers/`. (`ProviderName` in `shared/src/protocol/providers.ts`.)
 
 **Plan-scoped review** - A review whose subject is a plan body instead of workflow transcript. Trigger surfaces in the Plan tab pair REVIEW (critique mode by default - audit the plan structure) with VERIFY (verify mode + INCLUDE GIT DIFF on by default - audit the claimed-done work against the changes) at both whole-plan and per-section granularity: `REVIEW PLAN` / `VERIFY WORK` (top), `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` (per section), plus `CUSTOM REVIEW` (operator-selected items, verify mode). Either button's mode + git-diff stay editable in the resulting dialog. VERIFY mode filters items to `[x]` only and tells the reviewer to cross-check claims against the code; CRITIQUE mode shows everything with check state preserved and asks for plan-level evaluation. Implemented via `kind: 'plan-whole' | 'plan-phase' | 'plan-items'` on `ReviewContextRef`. See [`PRIMITIVES.md section Plan-scoped review`](PRIMITIVES.md).
 
@@ -257,7 +256,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Tool-result eviction** - section2.2 per-turn aggregate tool-result spill for Claude Native (`server/src/providers/claude-native/toolResultEviction.ts`). Operator-armed (off by default; `ARCO_TOOL_EVICT`). When a batch's summed tool-result tokens exceed the turn budget (`ARCO_TURN_TOOL_TOKEN_BUDGET`) it spills the largest results first, replacing each with a 1-line note; the raw output is gzipped under `.arco/workflows/<wfid>/artifacts/raw-tools/` and a `tool_evicted` event carries the byte counts + `rawArtifactPath` (fully reversible). Distinct from `tool_filtered`, which trims a single result in place via a configured filter pack.
 
-**Tool use** - A primary or worker invoking a tool (Bash, Read, Grep, etc.). Surfaces in chat as inline `ToolCallPill` rows; full input visible on click. Every provider with tools emits `tool_use` events; Antigravity's are mapped from observed RPC trajectory steps, and Cursor's from ACP tool-call updates.
+**Tool use** - A primary or worker invoking a tool (Bash, Read, Grep, etc.). Surfaces in chat as inline `ToolCallPill` rows; full input visible on click. Every provider with tools emits `tool_use` events; Cursor's are mapped from ACP tool-call updates.
 
 **Transient broadcast** - `broadcastTransient(workflowId, message)`. Fans to observers WITHOUT persisting to `events.jsonl`. Used for derived state like `session_entry` (already on disk in the JSONL) and ephemeral state like `context_usage`.
 

@@ -1,39 +1,3 @@
-// Session-cookie gate for the `/ws` control socket, the `/terminal` PTY
-// channel, and the HTTP `/api/*` + `/upload` surface.
-//
-// The origin guard (originGuard.ts) stops hostile *web pages*; it lets any
-// Origin-less client through by design. That left the control plane open to
-// every local process — including the agents Arco itself spawns. 2026-10-10
-// incident: a cluster Director grepped shared/src/protocol, then drove
-// `cluster_dispatch_once` and `update_primary_config { goalRun }` from Bash
-// over a hand-rolled Node `ws` client — operator-absent orchestration with AUTO-PICKUP / NUDGES / the dispatcher all OFF, because
-// those toggles only fence Arco's own automation.
-//
-// Shape: an HMAC key lives in process memory only (never on disk, never in env,
-// rotated every boot). `POST /api/session` mints a short-lived token into an
-// HttpOnly SameSite=Strict cookie, and only for requests carrying the fetch
-// metadata a browser attaches to a same-origin fetch from the Arco page. The
-// WS upgrade then requires that cookie plus an allowed Origin. Page JS never
-// sees the token; the client re-mints before every connect, so a server restart
-// (new key) costs nothing.
-//
-// HTTP routes need the same cookie, EXCEPT the agent tool surface: cluster peer
-// tools (`/api/clusters/:id/peer/*`, from the MCP children + Antigravity bridge)
-// and plan tools (`/api/plans`, `/api/plans/attach`). Those are the bounded
-// tools agents are meant to have; everything else is operator-only.
-//
-// The cookie carries no Max-Age (session cookie), so browsers keep it in memory
-// rather than writing it to the on-disk cookie store another same-user process
-// could read. Server-side TTL still caps it at an hour; the client re-mints
-// on a timer and retries once on a 401.
-//
-// Limit, stated plainly: a same-user process that deliberately forges browser
-// headers can still mint. This turns "read the protocol and script it" into
-// explicit circumvention, and every mint / refusal is logged. It is not an OS
-// sandbox.
-//
-// ARCO_WS_AUTH=off disables the gate for throwaway test servers (the smoke
-// harness connects with a plain Node client). Never set it on arco.service.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { IncomingMessage } from 'http';

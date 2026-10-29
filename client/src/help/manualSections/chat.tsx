@@ -11,7 +11,7 @@ export const chat: Section[] = [
         right-hand workbench, skills, or Review/Handoff/Spawn actions.
         Use an Agent tab for file access, commands or project work.</p>
       <p>Chat supports <strong>Claude, Codex, Cursor, Ollama, llama.cpp,
-        LM Studio, Strata and DeepSeek</strong>. Gemini and Antigravity are Agent-only. The creator also
+        LM Studio, Strata and DeepSeek</strong>. Gemini is Agent-only. The creator also
         respects enabled providers, authentication and available models.</p>
       <p>The header carries the live controls: <strong>model</strong> and
         <strong> effort</strong> swap for the next message (same provider — the history
@@ -62,7 +62,7 @@ export const chat: Section[] = [
         Cursor is excluded because its CLI cannot disable session persistence;
         llama.cpp is excluded because its shared daemon writes a persistent log.
         Strata and DeepSeek are excluded because its service logs and image cache persist.
-        Gemini and Antigravity are unavailable in all Chat tabs.</p>
+        Gemini is unavailable in all Chat tabs.</p>
       <p>Codex uses ephemeral exec; Claude CLI disables session
         persistence. These overrides are privacy constraints, not changes to your
         saved transport defaults. Remote provider retention is governed by that

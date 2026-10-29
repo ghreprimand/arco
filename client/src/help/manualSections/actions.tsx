@@ -48,8 +48,7 @@ export const actions: Section[] = [
         <ul>
           <li>
             <strong>Reviewer provider/model/effort</strong> — typically a different
-            family from the primary. Codex reviewing Claude. Antigravity reviewing
-            either. The whole point is the second opinion.
+            family from the primary, such as Codex reviewing Claude. The whole point is the second opinion.
           </li>
           <li>
             <strong>Context scope</strong> — <Code>last-turn</Code> (default){' '}
@@ -80,10 +79,7 @@ export const actions: Section[] = [
             / seed drift / broken wiring). The verdict rule: PASS only if tools were
             used and nothing came back wrong.
           </li>
-          <li>
-            <strong>Antigravity</strong> reviewer — fresh RPC cascade seeded with
-            the review prompt; no CDP artifact watcher is involved.
-          </li>
+
         </ul>
         <p>
           Output is parsed for a <Code>Verdict: PASS | MINOR | BLOCKING</Code> tail
@@ -150,7 +146,7 @@ export const actions: Section[] = [
           <li>
             <strong>Fresh summarizer</strong> — an ephemeral worker reads the rendered
             transcript and writes the doc. Used when the primary can't be resumed
-            (Ollama, llama.cpp, LM Studio, Antigravity).
+            (Ollama, llama.cpp, LM Studio).
           </li>
         </ul>
         <p>

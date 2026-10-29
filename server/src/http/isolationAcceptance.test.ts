@@ -21,7 +21,7 @@ import { chmodSync } from 'node:fs';
 import { createServer as createIsolationServer } from 'node:net';
 const DENIED_COMMANDS = [
   'claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli',
-  'lms', 'antigravity', 'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget',
+  'lms',  'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget',
 ] as const;
 
 async function closedPort(): Promise<number> {

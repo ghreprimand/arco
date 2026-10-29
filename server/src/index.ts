@@ -177,7 +177,6 @@ broadcastTaskDispatchResult,
 initClusterHandlers,
 } from './ws/clusterHandlers.js';
 import {
-broadcastSessionMetadata,
 deriveAutoHandoff,
 derivePrimaryConfig,
 handleUserMessage,
@@ -340,27 +339,6 @@ captureBootRev();
 // `stores`, flips on the post-listen workflow recovery below).
 markReady('capabilities');
 
-// Antigravity desktop integration — probe the isolated-profile CDP endpoint
-// at boot so the operator sees "available / not running / not installed" in
-// the server log without having to dig through runtime errors.
-(async () => {
-  try {
-    const { antigravityManager } = await import('./providers/antigravityManager.js');
-    const diag = await antigravityManager.diagnostics();
-    const profile = diag.profileMode === 'default'
-      ? 'default profile'
-      : `${diag.profileMode} profile${diag.userDataDir ? ` ${diag.userDataDir}` : ''}`;
-    if (diag.available) {
-      console.log(`[arco] Antigravity: available (RPC, debug-port :${diag.cdpPort}, ${profile}, model ${diag.configuredModelId}${diag.cdp.browser ? `, ${diag.cdp.browser}` : ''})`);
-    } else if (diag.installed) {
-      console.log(`[arco] Antigravity: not running (${diag.reason}, ${profile}, model ${diag.configuredModelId}) — will lazy-spawn on first use`);
-    } else {
-      console.log(`[arco] Antigravity: not installed (${diag.reason})`);
-    }
-  } catch (err) {
-    console.warn('[arco] Antigravity probe failed:', err instanceof Error ? err.message : err);
-  }
-})();
 
 // Diff CLI help surfaces against the last boot's snapshots. First-run
 // providers seed a baseline silently; subsequent version/flag changes are
@@ -937,11 +915,6 @@ wss.on('connection', (ws: WebSocket) => {
       case 'recalibrate_request':
         handleRecalibrateRequest(ws, msg.workflowId).catch((err) => {
           console.error('[arco] recalibrate_request handler failed:', err);
-        });
-        break;
-      case 'fresh_antigravity_cascade':
-        handleFreshAntigravityCascadeRequest(ws, msg.workflowId).catch((err) => {
-          console.error('[arco] fresh_antigravity_cascade handler failed:', err);
         });
         break;
       case 'plan_attach':
@@ -1592,60 +1565,6 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
   }
 }
 
-async function handleFreshAntigravityCascadeRequest(ws: WebSocket, workflowId: string): Promise<void> {
-  const wf = workflows.get(workflowId);
-  if (!wf) return;
-  const cwd = wf.config.workingDirectory;
-  if (!cwd) return;
-  if (wf.primary.provider !== 'antigravity') {
-    send(ws, { type: 'system_notice', workflowId, content: '[ANTIGRAVITY] Fresh cascade reset is only available for Antigravity primaries.' });
-    return;
-  }
-  if (wf.busy) {
-    send(ws, { type: 'system_notice', workflowId, content: '[ANTIGRAVITY] Primary turn in flight — wait for it to finish before resetting the cascade.' });
-    return;
-  }
-
-  const oldCascadeId = wf.primarySessionId;
-  if (oldCascadeId) {
-    const transcript = await replayWorkflowEvents(cwd, workflowId, 0).catch(() => []);
-    const turnCount = transcript.filter((ev) => ev.type === 'user_message_echo').length;
-    await appendHistoryEntry(cwd, workflowId, {
-      sessionId: oldCascadeId,
-      provider: 'antigravity',
-      startedAt: transcript[0] && 'timestamp' in transcript[0] && typeof transcript[0].timestamp === 'number'
-        ? transcript[0].timestamp
-        : Date.now(),
-      endedAt: Date.now(),
-      turnCount,
-      archivedReason: 'fresh-cascade-reset',
-    }).catch((err) => {
-      console.error(`[arco] [${workflowId.slice(0, 8)}] antigravity cascade-reset history append failed:`, err);
-    });
-  }
-
-  wf.primarySessionId = undefined;
-  wf.autoHandoff.warnFired = false;
-  wf.autoHandoff.autoFired = false;
-  wf.calibration = undefined;
-  wf.lastContextPercent = 0;
-
-  try {
-    await clearProviderCliSessions(cwd, workflowId, 'antigravity');
-  } catch (err) {
-    console.error(`[arco] [${workflowId.slice(0, 8)}] antigravity cascade-reset meta write failed:`, err);
-  }
-
-  send(ws, {
-    type: 'system_notice',
-    workflowId,
-    content: oldCascadeId
-      ? '[ANTIGRAVITY] Stored cascade id cleared. The next Antigravity turn will start a fresh cascade; this does not compact Antigravity internal context/cache.'
-      : '[ANTIGRAVITY] No stored cascade id. The next Antigravity turn will start a fresh cascade.',
-  });
-  broadcastSessionMetadata(workflowId, wf);
-}
-
 // Build the plan-header prefix to prepend to the next primary turn's prompt.
 // Returns '' when no plan is attached. When a plan is attached, includes a
 // one-line "active plan" header. When the plan body has been edited since
@@ -1776,12 +1695,6 @@ async function handlePlanDetach(workflowId: string): Promise<void> {
 // events.jsonl write + observer broadcast still happen when no socket
 // originated the message.
 
-// docs/PROTOCOL_CLUSTER.md + local-provider followup. Claude and Codex
-// wire peer tools through Native/MCP. Ollama and llama.cpp use Arco's
-// server-side local tool runtime, so they can now participate without stdio
-// MCP. Gemini / Antigravity stay rejected because Arco cannot inject peer
-// tools into those providers today. Returns null on success, an error code
-// string on rejection.
 async function assertAllMembersClaudeOrCodex(memberIds: string[]): Promise<string | null> {
   for (const wfid of memberIds) {
     const wf = workflows.get(wfid);

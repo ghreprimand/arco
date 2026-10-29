@@ -61,12 +61,6 @@ export const reference: Section[] = [
             [<Code key="ou">OLLAMA_URL_BASE</Code>, 'http://localhost:11434', 'Ollama daemon endpoint.'],
             [<Code key="lm">LMSTUDIO_URL_BASE</Code>, 'http://localhost:1234/v1', 'LM Studio OpenAI-compatible endpoint (a bare host:port gets /v1 appended).'],
             [<Code key="sx">ARCO_SEARXNG_URL</Code>, 'http://127.0.0.1:8888', 'Local SearXNG used by the WebSearch tool.'],
-            [<Code key="ab">ANTIGRAVITY_BINARY</Code>, '/opt/antigravity/antigravity', 'Antigravity desktop app path.'],
-            [<Code key="ad">ANTIGRAVITY_USE_DEFAULT_PROFILE</Code>, '(unset)', 'Set 1 to reuse your normal signed-in Antigravity profile.'],
-            [<Code key="aud">ANTIGRAVITY_USER_DATA_DIR</Code>, '~/.arco/antigravity-data', 'Custom Antigravity profile path; default or none omits --user-data-dir.'],
-            [<Code key="acp">ANTIGRAVITY_CDP_PORT</Code>, '9222', 'Antigravity desktop debug port used only for liveness probing.'],
-            [<Code key="aw">ANTIGRAVITY_WORKSPACE</Code>, '~/Projects', 'Folder opened when Arco lazy-spawns Antigravity.'],
-            [<Code key="arm">ANTIGRAVITY_RPC_MODEL</Code>, 'gemini-3-flash-agent', 'Antigravity RPC model id; default is Gemini 3.5 Flash High.'],
             [<Code key="cf">ARCO_CAMOUFOX_PYTHON</Code>, '/opt/camoufox/bin/python', 'Camoufox Python for stealth WebFetch.'],
             [<Code key="rk">ARCO_RSS_KILL_BYTES</Code>, '32 GB', 'Per-worker-tree RSS auto-kill threshold (shrink on <64 GB RAM).'],
             [<Code key="hub">ARCO_HUB_URL</Code>, '(unset)', 'Tailnet management-hub URL; set to link this instance for remote control. Inert when unset.'],
@@ -125,7 +119,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
             [<strong key="g">Ghost worker</strong>, 'A primary worker that silently exited without emitting primary_turn_ended. Cancel forces the UI unstuck.'],
             [<strong key="c">Concurrent writer</strong>, 'A foreign claude --resume terminal appending to a session Arco has open. Triggers a 60s lockout.'],
             [<strong key="rs">RSS guard</strong>, 'Per-worker-tree memory cap (32 GB default). Kills runaway workers.'],
-            [<strong key="cd">CDP</strong>, 'Chrome DevTools Protocol. Antigravity no longer uses this as a transport; Arco only probes the desktop debug port for liveness.'],
+            [<strong key="cd">CDP</strong>, 'Chrome DevTools Protocol, used for local browser preview capture.'],
             [<strong key="bc">Broadcast</strong>, "Server-side fan-out of a message to every observer of a workflow. Persists to events.jsonl first, then writes to all observers."],
             [<strong key="cl1">Cluster</strong>, 'A parent tab kind hosting N member workflows pinned to one cwd. Members address each other via peer tools; no hidden model authority.'],
             [<strong key="cl2">Member</strong>, 'One workflow inside a cluster. Addressed by 8-char workflowId prefix in peer tools.'],
@@ -172,7 +166,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
             <strong>Server</strong> spawns provider CLIs as subprocesses
             (Claude/Gemini/Codex), in-process workers (Claude Native), HTTP
             clients (Ollama, llama.cpp, LM Studio), or desktop RPC clients
-            (Antigravity) via <Code>server/src/providers/</Code>. One WebSocket
+            via <Code>server/src/providers/</Code>. One WebSocket
             per client; every workflow-scoped message gets a monotonic{' '}
             <Code>seq</Code> and lands in <Code>events.jsonl</Code> for lossless
             replay.

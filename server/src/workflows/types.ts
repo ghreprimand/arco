@@ -30,11 +30,6 @@ export interface Session {
   clusterObserved: Map<string, Set<string>>;
 }
 
-// Phase 2 Lite: WorkflowState is per-tab mutable state. `primarySessionId`
-// pins provider continuation state across turns — Claude: pre-minted UUID
-// passed as --session-id/--resume; Codex: captured from thread.started init
-// event; Antigravity: opaque cascade id. Gemini/Ollama primaries have no
-// native-session concept in this phase.
 export interface WorkflowState {
   config: WorkflowConfig;
   busy: boolean;

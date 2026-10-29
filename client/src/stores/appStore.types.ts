@@ -236,11 +236,6 @@ export interface JobState {
   // counter stays as the audit fallback for non-Native tabs and the first
   // paint before the worker emits.
   toolCallsSinceHandoff?: number;
-  // docs/PROVIDERS.md - worker-authoritative mirror of the
-  // Claude Native worker's `toolCallCountSinceCompact`. Updated on every
-  // `primary_tool_counter` server push. Native-only; undefined for CLI /
-  // Codex / Gemini / Ollama / llama.cpp / Antigravity tabs. The composer
-  // chip prefers this value over the local recount when defined.
   toolCallsSinceCompact?: number;
   // docs/PROVIDERS.md - best-effort live count of sandbox
   // chunks stored in this tab's per-workflow SQLite index. Incremented on
@@ -323,8 +318,6 @@ export interface JobState {
   // workflow_state_snapshot, and context_usage messages. Used to expose
   // `claude --resume <id>` in the CONFIG tab.
   claudeSessionId?: string;
-  // Provider-scoped continuation metadata. Antigravity uses this to expose
-  // the stored cascade id without treating it as a Claude/Codex session.
   sessionMetadata?: WorkflowSessionMetadata;
   // Tail-first hydration — set from the server's `session_history_status`
   // message (Claude JSONL path) and from the transcript REST response's

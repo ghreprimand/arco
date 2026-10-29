@@ -309,16 +309,6 @@ Broadcast on every successful `rename_workflow`. `name === null` means the opera
 { type: 'workflow_renamed', workflowId: string, name: string | null }
 ```
 
-### `fresh_antigravity_cascade` ->
-
-Antigravity-only. Forget the currently stored cascade id so the next primary turn starts a fresh Antigravity cascade. Does not compact or inspect Antigravity's internal context/cache; other providers no-op.
-
-```ts
-{ type: 'fresh_antigravity_cascade', workflowId: string }
-```
-
----
-
 ## Primary turn
 
 ### `user_message` ->
@@ -2787,7 +2777,6 @@ export type ClientMessage =
   | CancelQueuedMessageMessage
   | LoadEarlierMessagesMessage
   | RecalibrateRequestMessage
-  | FreshAntigravityCascadeMessage                                  // Antigravity - forget cascade id
   | PlanAttachMessage | PlanDetachMessage
   | SetPreviewPortMessage | ClearPreviewPortMessage
   | OperatorQuestionReplyMessage         // Codex app-server structured question answers

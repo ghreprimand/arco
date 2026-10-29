@@ -26,7 +26,7 @@ export interface QuotaState {
   sourceOfTruth: ThrottleSource;
 }
 
-const PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex', 'antigravity', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
+const PROVIDERS: ProviderName[] = ['claude', 'gemini', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 
 function defaultState(): QuotaState {
   return { throttled: false, sourceOfTruth: 'default-available' };

@@ -9,7 +9,7 @@ from home_controls import open_saved_project_form
 
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5196') + '/'
 ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', '/tmp/arco-home-start-page'))
-IDS = ['claude', 'codex', 'gemini', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'antigravity', 'github']
+IDS = ['claude', 'codex', 'gemini', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']
 
 
 def project(name, folder, index, **extra):
@@ -241,6 +241,22 @@ async def check(browser, scale, scenario):
     await expect(page.get_by_role('button', name='Open another folder', exact=True)).to_be_focused()
     assert [path for path in writes if path != '/api/session'] == ['/api/projects'], writes
     assert not any(message.get('type') in ('create_workflow', 'send_prompt', 'create_cluster') for message in state['messages'])
+    if populated and scale == 1.1:
+        for retired in ['antigravity']:
+            await page.evaluate("""async provider => {
+              const {useAppStore:s} = await import('/src/stores/appStore.ts');
+              s.setState({settings:{...s.getState().settings, workflowDefaults:{primaryProvider:provider,primaryModel:'historical-model'}}});
+              s.getState().openCreatorWith({mode:'chat',provider});
+            }""", retired)
+            await expect(page.get_by_role('alert').filter(has_text='support has been removed')).to_be_visible()
+            picker=page.locator('[data-help="creator.provider"] select')
+            await expect(picker).to_have_value(retired)
+            await expect(page.get_by_role('button',name='START CHAT',exact=True)).to_be_disabled()
+            await picker.select_option('claude')
+            await expect(page.get_by_role('button',name='START CHAT',exact=True)).to_be_enabled()
+            assert await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts'); return s.getState().settings.workflowDefaults.primaryProvider;}""")==retired
+            await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showHomeView();}""")
+        assert not any(message.get('type') in ('create_workflow','send_prompt','create_cluster') for message in state['messages'])
     assert not errors, errors
     await context.close()
     print(f'PASS: {scenario} Home at {round(scale * 100)}%, 1280x720; bounded cards/dialog, status, explicit folder registration, keyboard focus, no implicit work')

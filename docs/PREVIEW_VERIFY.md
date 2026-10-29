@@ -17,8 +17,7 @@ A dev server speaks HTTP, not CDP, so "capture the preview" means *a browser mus
 render the URL*. Arco does **not** bundle a browser. Browser automation packages often download
 Chromium during installation. Instead, Arco drives an installed system browser
 over a raw CDP WebSocket using the already-present `ws` dependency, mirroring the
-Antigravity manager's launch-with-`--remote-debugging-port` + `/json` probe
-pattern (`server/src/providers/antigravityManager.ts`).
+system browser launch-with-`--remote-debugging-port` and `/json` probe pattern.
 
 **Browser discovery** (`findBrowserBinary`, `server/src/preview/captureViaCdp.ts`):
 

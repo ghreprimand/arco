@@ -2,9 +2,9 @@
 
 **Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
-Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, **Antigravity**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two - `acp` (long-lived) and `print` (stateless one-shot) - but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
+Per-provider deep dive. The generally available providers are **Claude**, **Codex**, **Gemini**, **Ollama**, **LM Studio**, **llama.cpp**, and **Cursor**. Two optional integrations, **Strata** and **DeepSeek through Xolotl**, require separately installed external services that Arco does not distribute. All configured providers can act as primaries and reviewers. They differ in spawn mechanism, session resume, auth, and capability detection; this doc tracks each one's particulars. Two providers run multiple transports side-by-side, picked per-tab from the CONFIG tab: **Claude** has `cli` (per-turn `claude` subprocess) and `native` (long-lived in-process Anthropic-API worker via `@anthropic-ai/sdk`); **Codex** has `exec` (per-turn `codex exec` subprocess) and `appserver` (long-lived `codex app-server` child). **Cursor** also has two - `acp` (long-lived) and `print` (stateless one-shot) - but the choice is routed automatically (`sandbox: 'read-only'` -> `print`), not toggled.
 
-Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Gemini and Antigravity are Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
+Chat tabs support Claude, Codex, Cursor, Ollama, llama.cpp, and LM Studio; Gemini is Agent-only. Optional Strata and DeepSeek integrations are available when their external services are installed. See the contract below and [`CHAT.md`](CHAT.md).
 
 For the abstract interface, see `server/src/providers/types.ts`. For when these are invoked in the broader lifecycle, see [`PRIMITIVES.md`](PRIMITIVES.md). For protocol-level message shapes, see [`PROTOCOL.md`](PROTOCOL.md).
 
@@ -23,13 +23,12 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 | Ollama | (single) | per model - graded thinking: `low` = thinking off (`think:false` + `/no_think`) plus the model's own levels from `/api/show` `thinking.values` (e.g. supported levels from `/api/show`); boolean-only models keep low / high | None | No native session concept; each turn is a fresh context. Tool use + large context + image attachments + web tools (SearXNG search, fetch with Camoufox stealth fallback). Mid-turn steer supported. Override base URL with `OLLAMA_URL_BASE` (default `http://localhost:11434`). |
 | llama.cpp | (single) | low / high (`low` = `/no_think`) | None | Operator-managed GGUF catalog at `~/.arco/llamacpp.json`. Singleton `llama-server` process owned by Arco (`llamacppManager`); switching aliases SIGTERMs the old server and warms the new one. OpenAI-compatible chat-completions + SSE streaming. Same tool-loop runtime as Ollama, with in-place auto-recovery (reasoning runaway / stream stall / tool-cap / context fill). Override binary with `ARCO_LLAMACPP_BIN`. |
 | LM Studio | (single) | low / high (`low` = `/no_think`) | None | LM Studio reached via its **OpenAI-compatible** HTTP API (`/v1/chat/completions`, `/v1/models`) - not the native SDK. Joins ollama / llama.cpp on the serial local queue, same tool-loop runtime + recovery. Whatever model is loaded in the LM Studio app is the active model. Override base URL with `LMSTUDIO_URL_BASE` (default `http://localhost:1234`). |
-| Antigravity | `rpc` | (set in desktop app) | Cascade (opaque id) | Google's Antigravity desktop app driven via its local **language-server RPC** (the CDP debug port `:9222` is liveness-only). Real multi-step agent - web search, shell, file ops surfaced as merged Activity rows. Uses the desktop's signed-in profile (`ANTIGRAVITY_USE_DEFAULT_PROFILE=1`) or an isolated user-data-dir at `~/.arco/antigravity-data/`. Context is Antigravity-managed/opaque; handoff auto-degrades to fresh-summarizer; excluded from clusters. Primary or reviewer. |
 | DeepSeek / Xolotl | HTTP + guarded user services | none / low / medium / high | Transcript replay | Configured profiles with model-specific context, image, and tool capabilities, guarded loading and unloading, and source-version tracking; see [`docs/DEEPSEEK.md`](DEEPSEEK.md). |
 | Strata | (single HTTP worker + optional registered user services) | none / low / medium / high (`none` disables reasoning; high maps to Qwen xhigh) | Transcript replay | Standalone OpenAI-compatible service at `http://127.0.0.1:8081/v1`. The service reports installed model IDs, context and capabilities; one profile is resident at a time. Streaming reasoning, tools, image input, Chat web-only toggle, native tok/s, FREE VRAM and release notices. [Runbook](STRATA.md). |
 
 All configured providers can act as reviewers or primary agents. Local reviewers (Ollama, llama.cpp, LM Studio, Strata) get a prompt addendum reminding them to use their read-only tools to verify diff claims against the live tree. Cross-family reviewer pairings are the most useful.
 
-Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Gemini/Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`; Antigravity uses the desktop app's own auth. The auth overlay blocks app use only when no primary-capable provider is authed.
+Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Gemini/Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
 
 ## The provider abstraction
 
@@ -40,7 +39,7 @@ interface ProviderProcess {
   id: string;
   status: 'spawning' | 'running' | 'completed' | 'failed';
   output: string;        // accumulated text, capped at MAX_WORKER_OUTPUT_BYTES (50 MB; ARCO_MAX_WORKER_OUTPUT_BYTES env override)
-  pid?: number;          // undefined for HTTP/RPC providers (Ollama, LM Studio, Antigravity)
+  pid?: number;          // undefined for HTTP/RPC providers (Ollama, LM Studio)
   spawn(prompt: string): void;
   kill(): void;
   // (extends EventEmitter — `on(event, handler)` comes from there)
@@ -49,7 +48,7 @@ interface ProviderProcess {
 
 `ProviderEvents` is a unified set every provider emits:
 
-- `init` — `{ model, sessionId? }` — provider has started; sessionId fires for Codex (thread_id) and Antigravity (opaque cascade id)
+- `init` — `{ model, sessionId? }` — provider has started; sessionId fires for Codex (thread_id) (opaque cascade id)
 - `text` — `{ text }` — streaming text delta
 - `thinking` — `{ text }` — reasoning block (Claude / Codex extended thinking)
 - `tool_use` — `{ tool, input, toolUseId? }` — tool invocation
@@ -486,7 +485,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
 
-**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local, and Antigravity transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
+**Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, Gemini, local transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
 
 **Adding a new level (e.g., a hypothetical `ultra`):** must pass operator sign-off + a plan-doc update first. The level's text MUST preserve code blocks / error strings / file paths verbatim and MUST NOT compress security warnings, irreversible operations, or order-sensitive multi-step sequences. The auto-clarity escape hatch in each level enforces this.
 
@@ -572,7 +571,7 @@ The `[claude-native:<workflowId>]` log prefix is grep-stable for forensic runs; 
 
 ### Per-tab sandbox tools
 
-Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp / Antigravity ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
+Operator-opt-in extra tool surface gated on `WorkflowConfig.efficiencySandbox === 'on'`. Per-tab CONFIG-tab toggle; default `'off'`. Native-only — CLI / Codex / Gemini / Ollama / llama.cpp ignore the field (the tools are registered into the in-process Anthropic `tools[]` array which only Native controls). Inspired by `mksglu/context-mode` (the substitution-at-call-site idea) but stripped of context-mode's silent `Read` redirection + self-heal config mutation — both rejected by the operator-autonomy contract.
 
 **Three tools register when the toggle is on:**
 
@@ -1167,7 +1166,7 @@ API-key fallback: `GEMINI_API_KEY` env var.
 
 `fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Image attachments ride the final user message's `images` field (base64, 5 MB each; vision-capable models only); non-images fold as `[attached file: <path>]`.
 
-**Image downscaling (all providers).** Every image upload gets a background-derived sibling `<path>.model.<ext>` (≤2000px long edge, ≤3.75 MB raw, JPEG q85 fallback; ImageMagick `magick`/`convert`, macOS `sips`) in `providers/attachments.ts`. Models receive that copy: `modelImagePath` (sync — Claude CLI, Native `buildImageBlock`, Codex exec `-i`) or `awaitModelImage` (≤5 s — Codex app-server `localImage`, Cursor ACP, Ollama, llama.cpp, LM Studio, Antigravity staging); `turnEngine` also awaits before spawning so a send right after a paste gets the copy. Media type follows the derived file; text refs keep the original path; the original file is never modified. No image tool ⇒ original, as before.
+**Image downscaling (all providers).** Every image upload gets a background-derived sibling `<path>.model.<ext>` (≤2000px long edge, ≤3.75 MB raw, JPEG q85 fallback; ImageMagick `magick`/`convert`, macOS `sips`) in `providers/attachments.ts`. Models receive that copy: `modelImagePath` (sync — Claude CLI, Native `buildImageBlock`, Codex exec `-i`) or `awaitModelImage` (≤5 s — Codex app-server `localImage`, Cursor ACP, Ollama, llama.cpp, LM Studio staging); `turnEngine` also awaits before spawning so a send right after a paste gets the copy. Media type follows the derived file; text refs keep the original path; the original file is never modified. No image tool ⇒ original, as before.
 
 `OLLAMA_URL_BASE` defaults to `http://localhost:11434`. Override it with the env var. `settings.ollama.baseUrl` supports DD12 config-value interpolation (`!cmd ...` runs a command; `${ENV}` reads an env var) through `resolveConfigValue`, so the endpoint can be derived at resolve time. `keep_alive` is per request (`'10m'`), long enough for consecutive turns and short enough to return VRAM when a tab is idle; see Quirks.
 
@@ -1771,164 +1770,6 @@ The compaction path (context fill) does require a model call. The model summariz
 
 ---
 
-## Antigravity
-
-`server/src/providers/antigravity.ts` — RPC-only provider for Google's Antigravity desktop app. There is no subprocess in the worker tree.
-
-Arco uses Antigravity's local language-server RPC endpoint for every Antigravity turn. The desktop binary is launched **once** on first use against an isolated user-data-dir at `~/.arco/antigravity-data/` so it doesn't collide with the operator's own Antigravity installation. Set `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` to reuse the normal signed-in profile, which is the subscription-backed path for Gemini 3.5 Flash High.
-
-### RPC turns
-
-- **Single transport** — both primary and reviewer-style spawns go through RPC (`StartCascade`, `SendUserCascadeMessage`, `GetCascadeTrajectorySteps`).
-- **Fresh reviewer cascades** — reviewer spawns pass no `resumeSessionId`, so the RPC layer starts a fresh cascade and `runReviewer` persists the returned text as the review artifact.
-- **Primary resume** — first primary turn starts a new cascade; subsequent turns pass the stored cascade id as `resumeSessionId`.
-- **Session metadata (Phase E1/E2)** — Arco stores the opaque Antigravity cascade id in the internal `wf.primarySessionId` slot, but client wire metadata labels it as `sessionKind: antigravity-cascade` with `cascadeId`, `opaqueContext: true`, `arcoAutoCompact: false`, and `contextLabel: Antigravity-managed`. It is not surfaced as a Claude/Codex session id.
-- **Workflow-id resume** — `/api/sessions` lists Antigravity meta workflows as Arco-internal rows using `sessionId = workflowId`. When the operator resumes that row, `handleCreateWorkflow` restores the latest Antigravity `meta.cliSessions[]` entry as the cascade id before the next turn.
-- **Fresh cascade reset** — CONFIG exposes `FRESH CASCADE`, which clears Arco's stored cascade id and removes the persisted Antigravity cascade binding from meta. The next user turn calls `StartCascade` without `resumeSessionId` and stores the returned cascade id. This is a fresh cascade reset, not Antigravity compaction.
-- **Handoff semantics** — Handoff may still write a markdown handoff artifact and pre-warm a new Antigravity cascade with that text. Label this as a fresh cascade seeded with handoff text; Arco does not compact or inspect Antigravity's internal cascade.
-- **Cwd prepend** — turns prepend `[Project directory: <cwd>]\n\n` to the prompt so Antigravity knows where to operate.
-- **Attached plans** — Antigravity receives the same one-line `buildPlanPrefix()` header every other provider sees: `[Active project plan: "<title>" — file: .arco/plans/<id>.md. …]`. The plan body is **not** injected. Antigravity must read `.arco/plans/<id>.md` on demand via its normal file tools and tick checkboxes (`- [ ]` → `- [x]`) through normal file edits. Verified by `smoke:antigravity-phase-b1`.
-- **Attachments** — operator uploads are split into images (`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp`) and non-images. Both are **staged into `<cwd>/.arco/workflows/<workflowId>/attachments/<safeName>`** before the turn fires so the path Antigravity is told about survives a server restart and the transient `server/uploads/<id>` directory turnover. Collision-safe: same-size re-uploads reuse the existing staged file; different content gets `-1`, `-2`, … appended. The prompt gets a clearly-labelled `Attached files:` / `Attached images:` block listing the staged absolute paths — no base64 inlining, no file-body inlining. Antigravity reads/opens those paths via its normal file tools. **Path-only mode is explicit**: one `system_notice` per turn with attachments — `[ANTIGRAVITY] attachments delivered as local file paths, not native Antigravity message parts: N image(s)…; M file(s)…` — so the operator never has to guess whether image bytes went up the wire. Native `SendUserCascadeMessage.items[]` image/file shapes remain unproven; `nativeImageAttachments` stays `unknown` in capabilities. The framing + notice are the only call sites to swap when a native item shape is discovered.
-- **Artifacts / generated files ()** — after each Antigravity turn, Arco conservatively ingests newly-created artifact-shaped files without mutating the originals. If the operator prompt looks file-creation-shaped (`save`, `create`, `write`, `generate`, `artifact`, filename/image terms), the provider snapshots the workflow cwd before the turn and scans it again shortly after the planner response. Only new files with extensions `.md`, `.txt`, `.json`, `.png`, `.jpg`, `.jpeg`, `.webp`, or `.gif` are candidates. The cwd scan excludes `.arco`, `.git`, `node_modules`, build outputs (`dist`, `build`, `out`, `coverage`, `.next`, `.vite`, `.turbo`, `target`), common caches, and Antigravity internal `.system_generated` logs. Text artifacts copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/`; images copy to `<cwd>/.arco/workflows/<workflowId>/artifacts/images/`; destination names are collision-safe. Metadata appends to `<cwd>/.arco/workflows/<workflowId>/artifacts/antigravity-artifacts.jsonl` with `sourcePath`, `copiedPath`, `artifactName`, `kind`, `detectedFrom`, `workflowId`, optional `cascadeId`, `copiedAt`, and `size`. Text copies are appended to the assistant reply as `[artifact:<name>]` markers using the existing artifact fetch endpoint. Image copies are listed by absolute copied path in the assistant reply/system notice and open through the existing file viewer. If `~/.gemini/antigravity/brain/<cascadeId>/` exists, Arco also scans that exact directory for recent allowed files; no broader brain-root sweep is performed.
-- **Generated-image step shape** — current Antigravity trajectory tracing has not proven a distinct generated-image/file-output step. `antigravityRpc.ts` contains guarded inspection for likely fields (`generatedImage`, `imageGeneration`, `fileOutput`, `artifact`) if they appear in a future trace, but  support relies on filesystem detection today. Do not claim native generated-image support until a live trace proves the shape.
-- **Tool activity** — the RPC poller maps observed trajectory steps into merged Arco Activity rows. Each step type is normalized to a stable display name:
-  - `search_web` / `web_search` → `WebSearch` with `{ query }` input
-  - `run_command` / `bash` → `Bash` with `{ command, cwd }` input; includes exit code in output when available
-  - `read_file` / `view_file` → `ReadFile` with `{ path }` input
-  - `write_file` / `edit_file` / `replace_file` / `replace_file_content` / `str_replace_editor` → `WriteFile` with `{ path }` input
-  - Path resolution for the file tools handles Antigravity's PascalCase arg keys (`AbsolutePath` for `view_file`, `TargetFile` for `replace_file_content`, `DirectoryPath` for `list_dir`, `SearchPath`/`Query` for `grep_search`) via case-insensitive `pathFromArgs` / `queryFromArgs` lookups, and falls back to the step-level `file://` URI fields (`viewFile.absolutePathUri`, `codeAction.actionSpec.command.file.absoluteUri`, `listDirectory.directoryPathUri`, `grepSearch.searchPathUri`) converted to a plain path. `grep_search` rows also carry the `query`.
-  - **Turn completion** — Antigravity runs a multi-step agent loop *inside one cascade* (planner-response → tool → planner-response → … → final answer). The turn returns only on a `DONE` planner-response that has text **and no pending `toolCalls`**; an intermediate response carrying `toolCalls` is mid-loop (even if it also has narration text), so returning on it would end the turn at a preamble like "I will begin by listing…". See `extractLatestPlannerResponse`.
-  - `list_dir` / `find_files` / `glob` → `ListDir` / `FindFiles` with `{ path }` input
-  - `grep` / `search_code` → `Grep`
-  - Permission steps → `PermissionRequest` rows (in_progress before approval, completed after)
-  - Stall states → `waiting_unbridged_tool` rows (emitted at half the stall timeout) and `timed_out` rows (on actual timeout)
-  - `command_status` / `send_command_input` polling steps (and the `RUN_COMMAND` launcher row while later polling steps exist) are *not* treated as stalls — Antigravity legitimately keeps them `RUNNING` for the requested wait duration and keeps the original permission step `WAITING` after approval, so the poller follows the later steps instead of timing out the historical row. The overall `RPC_TIMEOUT_MS` deadline still guards a genuinely stuck command.
-  - Stable `toolUseId` is derived from `metadata.toolCall.id` or `cascadeId:stepIndex`; in-progress and completed rows for the same step merge by id rather than duplicating.
-
-### Manager (`antigravityManager.ts`)
-
-`AntigravityManager` is a desktop-process launcher and diagnostics helper.
-
-- **Lazy-spawn** — first RPC use launches the desktop binary at `ANTIGRAVITY_BINARY` (default `/opt/antigravity/antigravity`) with `--user-data-dir=~/.arco/antigravity-data/ --remote-debugging-port=9222`.
-- **Signed-in default profile option** — set `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` to omit `--user-data-dir` and reuse the normal Antigravity profile. This is the path to use when you want Arco to share the same subscription-gated models selected in the desktop app, such as Gemini 3.5 Flash.
-- **Overrides** — `ANTIGRAVITY_USER_DATA_DIR` points Arco at a custom profile, `ANTIGRAVITY_CDP_PORT` changes the CDP port, and `ANTIGRAVITY_WORKSPACE` changes the folder opened on lazy-spawn.
-- **Debug-port liveness** — `ANTIGRAVITY_CDP_PORT` is only a process-detection probe. Arco no longer uses CDP for composer injection, DOM scraping, or chat transport.
-- **Model override** — `ANTIGRAVITY_RPC_MODEL` defaults to `gemini-3-flash-agent`.
-
-### Auth
-
-**Operator's responsibility.** Arco doesn't manage Antigravity auth — the desktop app uses its own Google login. Arco checks whether the desktop app is reachable and the RPC layer discovers the local language-server endpoint.
-
-### Capability detection
-
-Debug-port reachability is checked at boot for operator visibility. First explicit use can lazy-spawn the app and then the RPC layer discovers the language-server Connect endpoint.
-
-Provider discovery surfaces a structured `AntigravityCapabilities` object alongside the diagnostics so the CONFIG/auth UI shows what the provider currently drives:
-
-| Capability | Value | What it means |
-|---|---|---|
-| `modelAccess` | `true` | `GetAvailableModels` + cascade dispatch works against the configured `ANTIGRAVITY_RPC_MODEL`. |
-| `webSearch` | `observed` | Trajectory steps map into a `search_web`-shaped Activity row; rich citation surfacing is not yet wired up. |
-| `shellTools` | `observed` | Start/in-progress/completed shell rows merge into Activity by stable `toolUseId`. |
-| `pathAttachments` | `true` | Operator attachments are appended to the prompt as `[attached file: <path>]`. |
-| `nativeImageAttachments` | `unknown` | `SendUserCascadeMessage.items[]` image schema is unprobed; Image-attachment support remains unprobed. |
-| `clusterTools` | `false` | `peer_*` / `cluster_plan_*` are not bridged into Antigravity yet (not yet bridged). |
-| `artifacts` | `partial` | Newly-created `.md`/`.txt`/`.json` and common image files are copied into Arco artifacts from the workflow cwd, and from `~/.gemini/antigravity/brain/<cascadeId>/` when that exact cascade directory exists. Generated-image RPC step shape remains unproven. |
-| `contextAccounting` | `opaque` | Antigravity owns context/cache/compaction; Arco does not invent CTX percentages. |
-
- smoke: `npm run smoke:antigravity-phase-f`. Structural coverage always verifies text/image copy rules and metadata. If desktop is reachable, it also asks Antigravity to create a uniquely named text file in the cwd; set `ANTIGRAVITY_PHASE_F_REQUIRE_LIVE=1` to make an unavailable desktop exit 2, or `ANTIGRAVITY_PHASE_F_STRUCTURAL_ONLY=1` to skip the live turn.
-
-### Context/cache/compaction
-
-Antigravity context, cache, checkpoints, and internal compaction are opaque to Arco. The UI footer reads `CTX: Antigravity-managed` and does not render a percentage unless a future RPC shape reports both a trustworthy current context usage and a context window. Claude-only calibration and Arco auto-handoff threshold logic do not run for Antigravity.
-
-Server-side reference: `ANTIGRAVITY_CAPABILITIES` in `server/src/providers/antigravityCapabilities.ts`. Client-side: `AuthStatus.antigravityInfo` in `shared/src/protocol.ts`.
-
-### Cluster status
-
-Antigravity is still **not** a cluster member provider. `ClusterMemberProvider` is
-`claude | codex | ollama | llamacpp | cursor` (Cursor joined this window as the
-6th cluster member, via an in-process loopback HTTP MCP);
-`isClusterMemberProvider('antigravity')` is false and
-`npm run smoke:antigravity-phase-d` checks that fence.
-
-Live discovery is read-only only. It calls MCP-related read surfaces such as
-`GetMcpServerStates`, `ListMcpResources`, `ListMcpPrompts`, and `GetMcpPrompt`, then reports shape
-summaries. Registration/config-shaped candidates such as `RegisterTool`, `RegisterLocalTool`,
-`RegisterDynamicTool`, `RegisterMcpServer`, and `SetMcpServerConfig` are static-scanned/reported as
-skipped; they must not be invoked against the live desktop app until their schema and side effects
-are understood.
-
-A disabled fallback CLI skeleton lives in `server/src/providers/antigravityClusterBridge.ts`; it can
-generate a visible `.arco/bin/cluster-tool` command shape for `peer_list`, `peer_send`,
-`peer_read`, `cluster_plan_tick`, and `cluster_plan_write`, routed through the same loopback REST
-peer endpoints the Claude/Codex MCP child uses. It is not generated or injected into Antigravity
-turns yet.
-
-Prompt-only peer instructions are not enough for cluster enablement, and hidden mailbox injection is
-explicitly rejected. Antigravity should receive shared plan, role hint, pending peer-message
-prologue, and bridge usage instructions only when a real bridge is verified and
-`WorkerConfig.clusterId` is present.
-
-### Restart / env semantics
-
-Antigravity-relevant env flags live on the Arco server process — there is no API key. They are read once at server start and at lazy-spawn time:
-
-- **`ANTIGRAVITY_BINARY`** — desktop binary path (default `/opt/antigravity/antigravity`).
-- **`ANTIGRAVITY_USE_DEFAULT_PROFILE=1`** — share the operator's signed-in profile (the subscription-backed path for Gemini 3.5 Flash High). Omit and the manager uses `~/.arco/antigravity-data/`.
-- **`ANTIGRAVITY_USER_DATA_DIR`** — custom profile path; `default` or `none` omits `--user-data-dir`.
-- **`ANTIGRAVITY_CDP_PORT`** — desktop debug-port used for liveness only (Arco does not run a CDP transport).
-- **`ANTIGRAVITY_WORKSPACE`** — folder opened on lazy-spawn.
-- **`ANTIGRAVITY_RPC_MODEL`** — overrides the catalog id used for cascades (default `gemini-3-flash-agent`).
-- **`ANTIGRAVITY_RPC_TOOL_TIMEOUT_MS`** — milliseconds before the poller throws on an unbridged waiting/running step (default `45000`). A `waiting_unbridged_tool` Activity row is emitted at half this value; a `timed_out` row is emitted at the limit before the error is thrown.
-- **`ANTIGRAVITY_RPC_TRACE_STEPS=1`** — enable per-step debug trace. Each new trajectory step is appended as a compact JSONL record to `<cwd>/.arco/workflows/<workflowId>/debug/antigravity-rpc-steps.jsonl`. Fields: `cascadeId`, `stepIndex`, `type`, `status`, `toolName`, `toolId`, `command`, `path`, `query`, `interactionKind`. CSRF tokens, auth headers, and full content blobs are never written. If `cwd` or `workflowId` is absent the trace is silently skipped without failing the turn.
-- **`ANTIGRAVITY_RPC_TRACE_RAW=1`** — field-shape discovery aid. Writes the *full* redacted raw step object (one `{ stepIndex, raw }` line per step, truncated to 20 KB) to a sibling `antigravity-rpc-steps-raw.jsonl`. Use this when a new step type surfaces a tool input/path under an unknown field name: inspect the raw shape, then map it into `PlannerStep` and the extractors. CSRF tokens / auth headers / credentials are redacted; large content blobs are truncated. Independent of `ANTIGRAVITY_RPC_TRACE_STEPS`.
-
-Both trace flags are surfaced in the CONFIG `ANTIGRAVITY RPC` section's `STEP TRACE` row (on/off + the per-workflow trace path), so the operator can confirm tracing is active without checking the server env. The CONFIG `DISPLAY MODEL` / `MODEL ENUM` rows are resolved live from Antigravity's `GetAvailableModels` catalog (cached ~10 min; `cachedConfiguredModelCatalog` in `antigravityRpc.ts`) and tagged `(catalog)` vs `(configured)` so the label is self-verifying rather than relying on the hardcoded `configuredAntigravityModelDisplayName()` fallback.
-
-Restart rules:
-
-- **Launcher start** (`scripts/arco start`) — composes the desired env once and execs the server with it. Use this when you want to be sure the env is right.
-- **In-app restart** — the server respawns from its own `process.env`, so any env set when the server was launched survives. Changing env from outside the running server does **not** propagate until the next launcher-driven start.
-- **Manual `npm run dev`** — inherits whatever the shell has. Export the flags explicitly (or use the launcher) if you want anything other than the isolated profile and default model.
-
- removed `ANTIGRAVITY_TRANSPORT`. RPC is the only transport; do not set this variable.
-
-### Troubleshooting
-
-- **App not launched / binary path** — CONFIG shows `DESKTOP REACHABILITY`. If it is not reachable, launch Antigravity or set `ANTIGRAVITY_BINARY` to the desktop binary path.
-- **Wrong profile or not signed in** — default Arco mode uses the isolated `~/.arco/antigravity-data/` profile. Set `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` for the normal signed-in subscription-backed profile, or make sure `ANTIGRAVITY_USER_DATA_DIR` points at a signed-in custom profile.
-- **Wrong model / not Gemini Flash High** — `ANTIGRAVITY_RPC_MODEL` should normally be `gemini-3-flash-agent`, displayed as `Gemini 3.5 Flash (High)`.
-- **Env changes ignored after restart** — in-app restart inherits the existing server environment. Use a launcher-driven start or restart the shell process that owns the server after changing Antigravity env vars.
-- **Debug port confusion** — `ANTIGRAVITY_CDP_PORT` is liveness only, not CDP prompt transport. RPC turn delivery goes through the local language-server endpoint.
-- **Unbridged tool timeout** — Activity rows named `waiting_unbridged_tool` followed by `timed_out` mean Antigravity produced a waiting/running trajectory step Arco could not bridge before `ANTIGRAVITY_RPC_TOOL_TIMEOUT_MS`.
-- **Path-only attachments** — uploads are staged as local files and referenced by path in the prompt. Arco does not claim native image attachment support for Antigravity.
-- **Artifacts partial** — text artifacts surface as `[artifact:<name>]`; images are copied to `artifacts/images/` and surfaced as file paths/file-viewer targets. Generated-image RPC shape is still unproven.
-- **Clusters disabled** — Antigravity is excluded from `ClusterMemberProvider`; no `peer_*` or `cluster_plan_*` tools are injected.
-
-### Smoke
-
-`npm run smoke:antigravity-phase-a` drives the catalog lookup, a text turn, a web-search turn, and a shell turn through `runAntigravityRpcTurn` directly. The desktop app must be running and signed in; the script prints the resolved display model (e.g. `Gemini 3.5 Flash (High)`) and exits 2 if the desktop process is unreachable.
-
-`npm run smoke:antigravity-phase-b1` mints a throwaway workflow cwd with `.arco/plans/<id>.md`, prepends the same plan-prefix header `buildPlanPrefix()` emits on first attach, and asks Antigravity to read the first heading and tick exactly one checkbox. Asserts the file changed on disk, the heading appears in the assistant text, and at least one tool row carries the plan path (or is read/write/edit-shaped). Exits 2 if the desktop app is unreachable.
-
-`npm run smoke:antigravity-phase-b2` runs a real `AntigravityProvider` turn with two attachments (a text file with a unique marker and a 5×5 PNG fixture). Asserts both files were staged under `<cwd>/.arco/workflows/<wfid>/attachments/`, the text marker comes back in the assistant reply, exactly one `[ANTIGRAVITY]` `system_notice` flags path-only delivery and mentions the image, and tool rows reference the staged paths. Exits 2 if the desktop app is unreachable.
-
-`npm run smoke:antigravity-phase-c` verifies tool-activity normalization. Enables `ANTIGRAVITY_RPC_TRACE_STEPS=1` and drives three turns: (1) web-search query — asserts at least one `WebSearch` row and no duplicate id:status pairs; (2) shell command `echo phase-c-smoke-ok` — asserts in_progress and completed rows merge under a stable id; (3) file read+write over a temp file — asserts file-shaped rows carry the expected path in input. After all turns, asserts the JSONL trace file exists, contains parseable entries with required fields, and contains no CSRF tokens or auth headers. Stall/timeout rows are not smoke-tested (hard to induce deterministically); they are covered by code review. Exits 2 if the desktop app is unreachable.
-
-`npm run smoke:antigravity-phase-e` is structural and does not require a live desktop. It verifies opaque Antigravity session metadata, Claude-only context/auto-handoff gates, the percent-free CTX footer, and persisted fresh-cascade clearing.
-
-### Quirks
-
-- **No mid-turn cancel** — `kill()` detaches Arco's poll loop, but Antigravity's in-flight agent work can keep running in the desktop app.
-- **Opaque context** — Antigravity owns cascade context, cache, and compaction. Arco stores the cascade id but does not invent CTX percentages or auto-compaction behavior.
-- **No safety footer** — `WorkerManager.spawn` skips the `[Arco safety reminders...]` blob for Antigravity. The footer derails the underlying Gemini model into Arco talk instead of the intended task.
-- **Cluster gap** — Antigravity remains excluded from clusters until it has a deterministic peer-tool bridge.
-
-The Antigravity RPC details above describe the current integration. Acceptance that requires a signed-in desktop app must be run on the target host; see [Development status](DEVELOPMENT_STATUS.md) for platform and capability limits.
-
----
-
 ## External MCP integrations
 
 External MCP servers that Arco surfaces as operator-attachable per-tab options. Unlike the in-process per-cluster MCP server (Cluster + scope), these are operator-installed binaries running on the same machine. Arco's job is the UX (toggle, status, re-index button) + persistence of intent + spawn-time wiring to inject the server entry into the worker's `--mcp-config`.
@@ -1961,27 +1802,27 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 
 ## Comparison matrix
 
-| | Claude (CLI) | Claude (Native) | Codex (exec) | Codex (appserver) | Gemini | Ollama | llama.cpp | LM Studio | Antigravity |
-|---|---|---|---|---|---|---|---|---|---|
-| Spawn | subprocess per turn | in-process SDK (long-lived) | subprocess per turn | subprocess long-lived (one per tab) | subprocess per turn | HTTP | HTTP (Arco-managed daemon) | HTTP (OpenAI-compat `/v1`) | desktop app + RPC |
-| Stream format | NDJSON | SSE (Anthropic Messages) | NDJSON (`--json`) | NDJSON over stdio (no `jsonrpc:"2.0"` envelope) | NDJSON | NDJSON | OpenAI SSE | OpenAI SSE | polled RPC trajectory |
-| Session resume | UUID `--resume` | replay-from-`events.jsonl` (Arco-internal; no rollout file; append-only prefix + preserved thinking) | thread_id `exec resume` | `thread/resume` JSON-RPC | UUID → live-index `-r` resolve | none | none | none | cascade id |
-| Native session file | `~/.claude/projects/.../X.jsonl` | — | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.gemini/tmp/.../chats/session-X.json` | — | — | — | — |
-| Tool use | yes (rich) | yes (in-process Bash/Read/Edit/Grep/Glob/KillShell/TodoWrite/Task/AskUserQuestion/EnterPlanMode) | yes | yes | yes (with `--yolo`) | yes (server-side allowlist) | yes (server-side allowlist) | yes (shared Ollama server-side runtime) | observed via RPC trajectory |
-| Reasoning blocks | yes | yes (interleaved when model supports) | yes | yes | no | yes (`message.thinking` native + `<think>` fallback) | yes (OpenAI `reasoning_content`) | yes (OpenAI `reasoning_content` + `<think>` fallback) | partial |
-| Effort levels | up to 5 | up to 5 | model/catalog-driven; Astra: low through ultra | model/catalog-driven; Astra: low through ultra | none | per model (low=off + `thinking.values` levels; else low / high) | 2 (low / high) | 2 (low / high) | none |
-| Auth | subscription / API key | OAuth subscription (`~/.arco/auth.json`) | subscription / API key | subscription / API key | OAuth / API key | none | none | none | desktop app |
-| Throttle detection | yes (regex + Retry-After) | yes (structured Anthropic error envelope) | yes (30 min cooldown) | yes (`error.codexErrorInfo`) | yes (429 + Retry-After) | n/a | n/a | n/a | n/a |
-| Retry on transient errors | yes (15/30/60s) | yes (header-aware `retry-after`, 15/30/60s fallback) | no | no | no | no | no | no | no |
-| Mid-turn cancel | yes (SIGKILL) | yes (loop-abort, in-process) | yes (SIGKILL) | yes (`turn/interrupt` + 5s ack; SIGKILL fallback) | yes (SIGKILL) | yes (abort fetch) | yes (abort fetch) | yes (abort fetch) | no |
-| Mid-turn steer | post-turn drain | drain hook between tool-result append + next API call | post-turn drain | `turn/steer` RPC (precondition: `expectedTurnId`) | post-turn drain | yes (between tool-loop iterations) | yes (between tool-loop iterations) | yes (between tool-loop iterations) | no |
-| Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a | n/a | n/a |
-| Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | no | yes | no — in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no | no (fresh cascade reset only) |
-| Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default — CONFIG SERVER-SIDE COMPACTION toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | no | in-process tool registry (one local member per cluster) | in-process tool registry (one local member per cluster) | no | no |
-| Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | no | yes (+ web) | yes (not Incognito) | yes | no |
-| Single-consumer | no | no | no | no | no | no | one model at a time per Arco (manager-owned) | no | no Arco mutex; Antigravity app/backend may still serialize work |
-| Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | side tabs, second opinion | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) | multi-modal review, web research |
+| | Claude (CLI) | Claude (Native) | Codex (exec) | Codex (appserver) | Gemini | Ollama | llama.cpp | LM Studio |
+|---|---|---|---|---|---|---|---|---|
+| Spawn | subprocess per turn | in-process SDK (long-lived) | subprocess per turn | subprocess long-lived (one per tab) | subprocess per turn | HTTP | HTTP (Arco-managed daemon) | HTTP (OpenAI-compat `/v1`) |
+| Stream format | NDJSON | SSE (Anthropic Messages) | NDJSON (`--json`) | NDJSON over stdio (no `jsonrpc:"2.0"` envelope) | NDJSON | NDJSON | OpenAI SSE | OpenAI SSE |
+| Session resume | UUID `--resume` | replay-from-`events.jsonl` (Arco-internal; no rollout file; append-only prefix + preserved thinking) | thread_id `exec resume` | `thread/resume` JSON-RPC | UUID → live-index `-r` resolve | none | none | none |
+| Native session file | `~/.claude/projects/.../X.jsonl` | — | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.codex/sessions/.../rollout-X.jsonl` | `~/.gemini/tmp/.../chats/session-X.json` | — | — | — |
+| Tool use | yes (rich) | yes (in-process Bash/Read/Edit/Grep/Glob/KillShell/TodoWrite/Task/AskUserQuestion/EnterPlanMode) | yes | yes | yes (with `--yolo`) | yes (server-side allowlist) | yes (server-side allowlist) | yes (shared Ollama server-side runtime) |
+| Reasoning blocks | yes | yes (interleaved when model supports) | yes | yes | no | yes (`message.thinking` native + `<think>` fallback) | yes (OpenAI `reasoning_content`) | yes (OpenAI `reasoning_content` + `<think>` fallback) |
+| Effort levels | up to 5 | up to 5 | model/catalog-driven; Astra: low through ultra | model/catalog-driven; Astra: low through ultra | none | per model (low=off + `thinking.values` levels; else low / high) | 2 (low / high) | 2 (low / high) |
+| Auth | subscription / API key | OAuth subscription (`~/.arco/auth.json`) | subscription / API key | subscription / API key | OAuth / API key | none | none | none |
+| Throttle detection | yes (regex + Retry-After) | yes (structured Anthropic error envelope) | yes (30 min cooldown) | yes (`error.codexErrorInfo`) | yes (429 + Retry-After) | n/a | n/a | n/a |
+| Retry on transient errors | yes (15/30/60s) | yes (header-aware `retry-after`, 15/30/60s fallback) | no | no | no | no | no | no |
+| Mid-turn cancel | yes (SIGKILL) | yes (loop-abort, in-process) | yes (SIGKILL) | yes (`turn/interrupt` + 5s ack; SIGKILL fallback) | yes (SIGKILL) | yes (abort fetch) | yes (abort fetch) | yes (abort fetch) |
+| Mid-turn steer | post-turn drain | drain hook between tool-result append + next API call | post-turn drain | `turn/steer` RPC (precondition: `expectedTurnId`) | post-turn drain | yes (between tool-loop iterations) | yes (between tool-loop iterations) | yes (between tool-loop iterations) |
+| Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a | n/a |
+| Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | no | yes | no — in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
+| Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default — CONFIG SERVER-SIDE COMPACTION toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a | n/a |
+| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | no | in-process tool registry (one local member per cluster) | in-process tool registry (one local member per cluster) | no |
+| Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | no | yes (+ web) | yes (not Incognito) | yes |
+| Single-consumer | no | no | no | no | no | no | one model at a time per Arco (manager-owned) | no |
+| Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | side tabs, second opinion | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) |
 
 
 **Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
@@ -2126,3 +1967,12 @@ providers; stubs a throttle on leg 0 and asserts leg 1 runs + one
 Strata 0.2 separates app/Terminal and engine versions. `latestVersions.strata`
 tracks engine packages from the component feed (release-note/legacy fallbacks),
 not the app tag; current details are in [STRATA.md](STRATA.md#engine-and-component-updates).
+
+## Retired provider history
+
+Antigravity support has been removed. Existing workflow metadata, transcripts,
+artifacts and provider identity remain readable through the normal history tools.
+A retired provider cannot start or resume work; choose a supported provider
+explicitly for new work. Updating unrelated settings preserves retired defaults
+until they are explicitly changed. Arco does not uninstall external applications
+or delete their profiles or credentials.

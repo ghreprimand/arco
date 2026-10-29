@@ -179,7 +179,6 @@ release announcement is recorded in the server log, never in a workflow's
 | 8081 | Strata service | Standalone OpenAI-compatible `/v1`; `STRATA_URL_BASE` or Settings -> STRATA ENDPOINT |
 | 8888 | SearXNG | Default search backend for local web tools; `ARCO_SEARXNG_URL` |
 | 11434 | Ollama daemon | Default Ollama port; override the URL via `OLLAMA_URL_BASE` |
-| 9222 | Antigravity desktop debug port | Liveness probe only; RPC uses the local language-server endpoint |
 
 `/ws` and `/api/*` on the Vite dev server proxy to the server port. `/uploads/*` is served directly by the server.
 
@@ -266,12 +265,6 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata native, and Ollama/Strata Chat web toggles) |
 | `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
 | `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the explicitly selected Camoufox Codex usage fallback and the local `WebFetch` stealth fallback |
-| `ANTIGRAVITY_BINARY` | `/opt/antigravity/antigravity` | Antigravity desktop app path |
-| `ANTIGRAVITY_USE_DEFAULT_PROFILE` | unset | Set `1` to omit `--user-data-dir` and reuse the signed-in Antigravity profile |
-| `ANTIGRAVITY_USER_DATA_DIR` | `~/.arco/antigravity-data` | Custom Antigravity profile path; `default` or `none` omits `--user-data-dir` |
-| `ANTIGRAVITY_CDP_PORT` | `9222` | Antigravity desktop debug port used only for liveness probing |
-| `ANTIGRAVITY_WORKSPACE` | `~/Projects` | Folder opened when Arco lazy-spawns Antigravity |
-| `ANTIGRAVITY_RPC_MODEL` | `gemini-3-flash-agent` | Antigravity RPC model id; `gemini-3-flash-agent` is Gemini 3.5 Flash High |
 | `TERMINAL` | (auto-detect) | Preferred terminal for Gemini / Codex auth flows; falls back through `konsole`, `gnome-terminal`, `kgx`, `kitty`, `alacritty` |
 | `OPENAI_API_KEY` | unset | Env-var auth fallback for Codex (subscription auth preferred); detected by the auth-status probe |
 | `GEMINI_API_KEY` | unset | Env-var auth fallback for Gemini (OAuth preferred); detected by the auth-status probe |
@@ -448,7 +441,6 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Gemini | `gemini auth login` (interactive  - opens a terminal) | `~/.gemini/oauth_creds.json` exists |
 | GitHub | `gh auth login` | `gh auth status` |
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
-| Antigravity | (operator manages in desktop app) | Desktop debug-port liveness + RPC endpoint discovery |
 | Cursor (ACP) | `cursor-agent login` (interactive  - launches a terminal for the browser OAuth flow) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll (no `cursor-agent auth status` command exists) |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
@@ -517,7 +509,6 @@ The audio panel's **STEMS** control shells out to **`demucs`** (Python + torch) 
 | Launcher trace | `$XDG_CACHE_HOME/arco/launcher-trace.log` | What launcher command ran when |
 | Restart script | `$TMPDIR/arco-respawn-<pid>.sh` | Generated each restart |
 | Restart output | `$TMPDIR/arco-respawn.log` | Stdout/stderr of the respawned `npm run dev` |
-| Antigravity RPC diagnostics | Server log + future RPC smoke output | Confirms desktop liveness, profile mode, and RPC model resolution |
 | Service mode (systemd) | journald + `~/.arco/logs/` | The unit sets `ARCO_LOG_FILE=1` (rotating file log) and journald captures stdout/stderr. View via `npm run arco:service -- logs`. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
 
 To watch live: `scripts/arco logs` or `tail -f $XDG_CACHE_HOME/arco/arco.log` (dev); `npm run arco:service -- logs` (service mode).
@@ -829,21 +820,6 @@ A foreign `claude --resume <uuid>` terminal is writing to a session Arco has ope
 
 Either the operator clicked Remove (the workflow directory was deleted), or `known-cwds.json` was hand-edited / removed. To re-add: open a fresh tab for the same cwd; if the workflow has any sessions on disk, the Resume picker will surface them.
 
-### "Antigravity is unavailable"
-
-Arco could not reach the desktop app or discover its local RPC language-server endpoint:
-
-- Confirm the Antigravity desktop app is launched, or that the binary exists at `ANTIGRAVITY_BINARY` (default `/opt/antigravity/antigravity`) so Arco can lazy-spawn it.
-- Check the profile. The default Arco mode is an isolated profile at `~/.arco/antigravity-data/`; use `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` when you need the normal signed-in subscription-backed profile.
-- If you set `ANTIGRAVITY_USER_DATA_DIR`, make sure that custom profile is signed in. Wrong-profile failures look like unavailable model/auth failures.
-- Confirm `ANTIGRAVITY_RPC_MODEL=gemini-3-flash-agent` unless you intentionally changed it. That id is the Gemini 3.5 Flash High route Arco expects.
-- Restart from the launcher or restart the server process after external env changes. In-app restart inherits the already-running server environment and will not pick up new shell exports.
-- The debug port is liveness only, not prompt transport. A reachable `ANTIGRAVITY_CDP_PORT` means the desktop process is up; the actual turn still depends on discovering the language-server RPC endpoint.
-- If ACTIVITY shows `waiting_unbridged_tool` and then `timed_out`, model access worked but Antigravity is waiting on a tool shape Arco cannot bridge yet.
-- Attachments are path-only: Arco stages uploads under `.arco/workflows/<id>/attachments/` and tells Antigravity the local paths. Native image attachment support is not claimed.
-- Artifacts are partial. Text files surface as `[artifact:<name>]`; image files are copied to `artifacts/images/` and shown by path/file viewer. Generated-image RPC step shape is still unproven.
-- Clusters are disabled for Antigravity; it cannot be added as a cluster member until a deterministic peer-tool bridge exists.
-
 ### Cursor answers "Please sign in to continue"
 
 A long-lived `cursor-agent acp` child keeps the credentials (and CLI binary) it started with, so a fresh `cursor-agent login` or CLI update doesn't reach an already-running tab. Arco recognizes that exact reply, shows the `[AUTH:cursor]` re-login card instead of the bubble, and retires the cached worker; after logging in, resend  - the next turn starts a current process and resumes the ACP session where Cursor allows.
@@ -890,7 +866,6 @@ If a workflow's events.jsonl gets unwieldy:
 
 Saved Chat tabs live under `~/.arco/chats/<wfid>/`; closing a chat tab does not delete it (it stays in PAST CHATS). Removing a chat's directory while Arco is stopped deletes it for good. Incognito chats never write there.
 
-The `~/.arco/antigravity-data/` Chromium profile can also grow. Clear it with `rm -rf ~/.arco/antigravity-data/` while Arco and the desktop app are stopped; the next use will spawn a fresh isolated profile and you'll need to re-authenticate Antigravity. If `ANTIGRAVITY_USE_DEFAULT_PROFILE=1` is set, Arco uses Antigravity's normal profile instead, so do not remove it as part of Arco cleanup.
 
 ---
 

@@ -15,7 +15,7 @@ export function parseAuthNotice(content: string): { provider: ProviderName; body
   const m = content.match(AUTH_NOTICE_RE);
   if (!m) return null;
   const raw = m[1];
-  if (raw !== 'claude' && raw !== 'gemini' && raw !== 'codex' && raw !== 'ollama' && raw !== 'github' && raw !== 'antigravity' && raw !== 'cursor') {
+  if (raw !== 'claude' && raw !== 'gemini' && raw !== 'codex' && raw !== 'ollama' && raw !== 'github' && raw !== 'cursor') {
     return null;
   }
   return { provider: raw as ProviderName, body: m[2] };

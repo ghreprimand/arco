@@ -641,7 +641,6 @@ Proposals are stored only while they are pending operator action (accept / apply
 │       └── mailbox/
 │           └── <recipientWfId>/
 │               └── <msgId>.json     # one file per pending peer message
-└── antigravity-data/                # isolated Antigravity user-data-dir
     ├── User/
     ├── CachedData/
     └──...
@@ -799,26 +798,6 @@ Updated synchronously on each worker spawn / settle. On boot, `reapOrphanWorkers
 ### cli-snapshots/
 
 `server/src/capabilities.ts` writes `~/.arco/cli-snapshots/<provider>.txt` (raw `--version`/help capture) plus `<provider>.meta.json` per provider, and a diff file when a change is detected. Used to detect CLI upgrades between boots and emit `capabilities_changed` events. The CONFIG tab's red-dot indicator fires on any change.
-
-### antigravity-data/
-
-Isolated Chromium user-data-dir for the Antigravity desktop app spawn. Keeps Arco's automation from cross-contaminating the operator's own Antigravity install. See [`PROVIDERS.md`](PROVIDERS.md).
-
----
-
-##.gitignore
-
-On first workflow init in a cwd (`workflowStore.ts`), Arco writes `<cwd>/.arco/.gitignore` if the file doesn't already exist. It lists the rebuildable/ephemeral projections:
-
-```
-workflows/
-session-index.json
-title-events.jsonl
-```
-
-This stops `events.jsonl` and friends from being accidentally committed. The write is skipped if the file already exists, so operator edits aren't clobbered on rehydrate - and an existing `.gitignore` is never modified (operator's responsibility to add the rules manually).
-
----
 
 ## Crash recovery
 

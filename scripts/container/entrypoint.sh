@@ -12,7 +12,7 @@ try {
   try {
     writeFileSync(fd, JSON.stringify({
       defaultWorkingDirectory: '/projects',
-      enabledProviders: { gemini: false, cursor: false, antigravity: false, llamacpp: false },
+      enabledProviders: { gemini: false, cursor: false, llamacpp: false },
     }) + '\n');
     fsyncSync(fd);
   } finally { closeSync(fd); }

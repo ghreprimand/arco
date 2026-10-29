@@ -53,7 +53,6 @@ export interface Props {
   // docs/ARCHITECTURE.md - attach a preview-capture report to a Review (fires
   // a reviewer over the report artifact, reusing the tab's primary config).
   onReviewCapture?: (reportName: string) => void;
-  onFreshAntigravityCascade?: () => void;
   // docs/ARCHITECTURE.md - RESEARCH tab. Cancel an in-flight run,
   // and the artifact viewer's "dig deeper" composer (appends a cited addendum
   // to the same report by re-running a bounded mini-round seeded with it).

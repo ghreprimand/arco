@@ -98,9 +98,6 @@ export interface ExportHandle {
   handoffId: string;
   artifactName: string;
   settled: Promise<{ body?: string; error?: string }>;
-  // Kill the in-flight reflection/summarizer worker. No-op once settled or if
-  // no worker spawned. For providers whose kill only detaches (Antigravity),
-  // this stops Arco waiting but the desktop agent keeps running.
   abort: () => void;
 }
 

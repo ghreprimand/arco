@@ -132,7 +132,6 @@ Host credentials are never imported automatically.
 | Strata | HTTP adapters retained | Provider configuration and container acceptance |
 | Gemini / Cursor | CLIs unbundled; disabled on new volumes | Custom image with the CLI; explicit enable and acceptance |
 | llama.cpp | Executable unbundled; disabled on new volumes | Custom runtime/model setup and acceptance |
-| Antigravity | Desktop app unbundled; disabled on new volumes | Separate desktop integration; unsupported in the stock image |
 
 These are deployment states, not claims that every adapter has passed live
 provider acceptance. Initial disabled-provider settings are written only for a

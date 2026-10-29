@@ -68,7 +68,7 @@ export const PROVIDER_LABELS: Record<ProviderName, string> = {
   codex: 'Codex (OpenAI)',
   gemini: 'Gemini (Google)',
   cursor: 'Cursor',
-  antigravity: 'Antigravity (desktop app)',
+
   ollama: 'Ollama (local)',
   lmstudio: 'LM Studio (local)',
   llamacpp: 'llama.cpp (local)',
@@ -114,7 +114,6 @@ export function disconnectedProviderLines(
     const error = status?.error && status.error !== 'Not logged in' ? status.error.replace(/\s+/g, ' ').slice(0, 120) : '';
     let detail: string;
     if (local) detail = `not reachable${endpoint ? ` at ${endpoint}` : ''}${error ? ` (${error})` : ''}`;
-    else if (provider === 'antigravity') detail = error || 'desktop app not detected';
     else detail = error ? `not signed in (${error})` : 'not signed in';
     lines.push({ provider, label: PROVIDER_LABELS[provider], detail });
   }

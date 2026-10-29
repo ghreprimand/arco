@@ -877,11 +877,6 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'recalibrate_request', workflowId }));
   }, []);
 
-  const requestFreshAntigravityCascade = useCallback((workflowId: string) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ type: 'fresh_antigravity_cascade', workflowId }));
-  }, []);
-
   const attachPlan = useCallback((workflowId: string, planId: string) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({ type: 'plan_attach', workflowId, planId }));
@@ -1481,7 +1476,6 @@ export function useWebSocket() {
     updatePrimaryConfig,
     loadEarlierMessages,
     requestRecalibrate,
-    requestFreshAntigravityCascade,
     attachPlan,
     detachPlan,
     setPreviewPort,

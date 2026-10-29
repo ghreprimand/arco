@@ -27,8 +27,7 @@ export const troubleshooting: Section[] = [
           </li>
           <li>
             <strong>Providers</strong> — Claude CLI / Native, Codex, Gemini,
-            Ollama, llama.cpp version/auth/reachability, plus
-            Antigravity (not cheaply probable, so reported <Code>skipped</Code>).
+            Ollama, llama.cpp version/auth/reachability.
           </li>
           <li>
             <strong>Local Tools</strong> — <Code>gh</Code> auth, ffmpeg, ffprobe,
@@ -331,7 +330,6 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
         <ul>
           <li>Check Settings — is the provider toggled on?</li>
           <li>Check Settings — is the provider authed (LIVE chip)?</li>
-          <li>For Antigravity: is the desktop binary at <Code>/opt/antigravity/antigravity</Code> (or <Code>ANTIGRAVITY_BINARY</Code>)?</li>
           <li>For Ollama: is the daemon running on <Code>OLLAMA_URL_BASE</Code>?</li>
         </ul>
         <p><strong>"Tool calls don't show as inline pills"</strong></p>
@@ -342,12 +340,6 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
         <ul>
           <li>Claude — calibration hasn't run yet for this session. It runs on idle moments crossing zone thresholds, or click the CTX cluster to recalibrate now.</li>
           <li>Codex — the session hasn't yet emitted a token snapshot with <Code>model_context_window</Code>. Until then, the denominator uses the selected account/model catalog and the tab's MAX or STANDARD policy.</li>
-        </ul>
-        <p><strong>"Antigravity is unavailable"</strong></p>
-        <ul>
-          <li>Confirm the desktop app is launched, or that the binary exists at <Code>ANTIGRAVITY_BINARY</Code>.</li>
-          <li>The default Arco profile is isolated. Use <Code>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</Code> for the normal signed-in subscription-backed profile.</li>
-          <li>Restart from the launcher after external env changes; in-app restart inherits the current server env.</li>
         </ul>
         <p><strong>"My MCP server can't authenticate / is missing an API key"</strong></p>
         <ul>
@@ -365,31 +357,6 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
         <ul>
           <li>Something the agent ran (a recursive find, a huge build, a runaway test) ballooned memory. The kill is intentional.</li>
           <li>If your project legitimately needs &gt;32 GB, opt out of the RSS guard from CONFIG for that workflow specifically (or shrink/raise the cap with <Code>ARCO_RSS_KILL_BYTES</Code>).</li>
-        </ul>
-      </>
-    ),
-  },
-  {
-    id: 'antigravity-troubleshooting',
-    group: 'Troubleshooting',
-    title: 'Antigravity troubleshooting',
-    body: (
-      <>
-        <p>
-          CONFIG shows the active Antigravity RPC state: desktop reachability,
-          profile mode, configured model, cascade state, CTX ownership, and
-          capability flags. If the provider is down, start there.
-        </p>
-        <ul>
-          <li><strong>App not launched / binary path:</strong> launch Antigravity or set <Code>ANTIGRAVITY_BINARY</Code>.</li>
-          <li><strong>Wrong profile or not signed in:</strong> isolated profile is the default; use <Code>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</Code> for your normal signed-in profile, or sign in to the custom <Code>ANTIGRAVITY_USER_DATA_DIR</Code>.</li>
-          <li><strong>Wrong model:</strong> use <Code>ANTIGRAVITY_RPC_MODEL=gemini-3-flash-agent</Code> for Gemini 3.5 Flash High.</li>
-          <li><strong>Env changes:</strong> in-app restart does not pick up external shell exports; restart the server from the launcher or owning shell.</li>
-          <li><strong>Debug port:</strong> <Code>ANTIGRAVITY_CDP_PORT</Code> is liveness only, not prompt transport.</li>
-          <li><strong>Unbridged tool timeout:</strong> <Code>waiting_unbridged_tool</Code> then <Code>timed_out</Code> means model access worked but a tool step was opaque to Arco.</li>
-          <li><strong>Path-only attachments:</strong> uploads are local paths, not native Antigravity image/file message parts.</li>
-          <li><strong>Artifacts partial:</strong> text artifacts appear as <Code>[artifact:&lt;name&gt;]</Code>; images surface as copied paths/file-viewer targets. Generated-image RPC shape is unproven.</li>
-          <li><strong>Clusters disabled:</strong> Antigravity cannot be added as a cluster member yet.</li>
         </ul>
       </>
     ),

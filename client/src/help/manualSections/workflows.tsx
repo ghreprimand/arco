@@ -59,10 +59,8 @@ gemini -r <index>`}</Pre>
         </Note>
         <p>
           <strong>Session-less providers:</strong> Gemini supports resume by index;
-          the local HTTP providers (Ollama, llama.cpp, LM Studio) and Antigravity are
-          session-less in different ways. The local providers re-feed the rendered
+          the local HTTP providers (Ollama, llama.cpp, LM Studio) are session-less. The local providers re-feed the rendered
           transcript on every turn (the prefix cache makes this cheap).
-          Antigravity resumes by cascade id; starting without a stored cascade creates a fresh one.
         </p>
       </>
     ),
@@ -145,11 +143,7 @@ gemini -r <index>`}</Pre>
             <Code>model_context_window</Code>, <Code>○</Code> when falling back to the
             model metadata estimate.
           </li>
-          <li>
-            <strong>Antigravity</strong> — shown as <Code>CTX: Antigravity-managed</Code>.
-            Arco does not have trustworthy context-fill or cache numbers for the
-            desktop cascade.
-          </li>
+
           <li>
             <strong>Gemini / Ollama / llama.cpp / LM Studio</strong> — compact token readout only
             when usage is reported; no Arco percentage threshold.
@@ -186,8 +180,7 @@ gemini -r <index>`}</Pre>
           Auto-handoff only runs when Arco has a trusted context-fill signal for the
           active provider. Claude uses session or Native counts; Codex app-server and
           Codex uses the latest rollout token snapshot; Ollama uses the daemon prompt
-          count. Antigravity owns its cascade context/cache/compaction, so Arco offers
-          only a manual fresh-cascade reset, not percentage-triggered handoff.
+          count.
         </Note>
       </>
     ),

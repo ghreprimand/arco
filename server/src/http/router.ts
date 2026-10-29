@@ -1,3 +1,4 @@
+import { retiredProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { updateChecker } from '../server/updateCheck.js';
 import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
@@ -1698,6 +1699,12 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
       const raw = url.searchParams.get('provider') || 'claude';
+      const retired = retiredProviderReason(raw);
+      if (retired) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: retired }));
+        return;
+      }
       const provider = raw === 'gemini' ? 'gemini'
         : raw === 'github' ? 'github'
         : raw === 'ollama' ? 'ollama'
@@ -1733,6 +1740,12 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, 'http://localhost');
       const providerParam = url.searchParams.get('provider');
+      const retired = retiredProviderReason(providerParam);
+      if (retired) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: retired }));
+        return;
+      }
       const provider: CliProvider = providerParam === 'gemini' || providerParam === 'codex'
         ? providerParam
         : 'claude';

@@ -1,13 +1,3 @@
-// Part G — Preview Verification (ARCO_OPS §G1).
-//
-// Operator-triggered capture against the running Live Preview. Arco launches a
-// system headless Chromium, points it at the workflow's bound preview port
-// (`http://127.0.0.1:<port>/`), and collects a screenshot + console errors +
-// failed/error network requests + the page title/URL — turning the preview into
-// inspectable evidence rather than autonomous browsing. No browser binary is
-// bundled (LFS constraint): we drive a system Chrome/Chromium over a raw CDP
-// WebSocket, mirroring the Antigravity probe pattern, and degrade gracefully when
-// none is installed.
 
 // Which facets the operator asked for. The capture session always runs the same
 // CDP flow once the browser is up (collecting all three is cheap); `captures`

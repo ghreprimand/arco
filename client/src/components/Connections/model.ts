@@ -3,10 +3,9 @@ import type { AuthStatus, AuthStatusByProvider, ConnectionCatalog, ConnectionDef
 export const KINDS = [
   { id:'plan', label:'Provider sign-in', description:'Use a provider-owned tool and an eligible account. A subscription is not an API key.' },
   { id:'local', label:'Local models', description:'Connect a separately installed runtime. No models are installed by this screen.' },
-  { id:'desktop', label:'Desktop integrations', description:'Integrations that need a compatible application on the Arco server.' },
   { id:'tool', label:'Tool accounts', description:'Accounts for features such as GitHub. These do not provide AI models.' },
 ] as const;
-const IDS = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github'];
+const IDS = ['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
 export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as ConnectionCatalog;

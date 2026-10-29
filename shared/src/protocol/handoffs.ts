@@ -33,9 +33,6 @@ export interface HandoffRequestMessage {
   };
 }
 
-// Cancel an in-flight handoff. Kills the reflection/summarizer worker and frees
-// the tab. For providers whose kill only detaches (Antigravity) the desktop
-// agent keeps running, so the client hides cancel for those.
 export interface HandoffCancelMessage {
   type: 'handoff_cancel';
   workflowId: string;

@@ -742,39 +742,6 @@ export interface AuthStatus {
     thinkingLevels?: string[];
     thinkingCanDisable?: boolean;
   }>;
-  // Antigravity-only — Phase A capability/diagnostics snapshot from
-  // antigravityManager.diagnostics(). `reachable` mirrors `loggedIn` but is
-  // kept so the CONFIG/auth UI can distinguish "desktop process up" from
-  // "subscription valid" once an auth probe lands. Capability values are
-  // 'supported' | 'observed' | 'partial' | 'opaque' | 'unknown' | booleans;
-  // see AntigravityCapabilities in server/providers/antigravityRpc.ts.
-  antigravityInfo?: {
-    reachable: boolean;
-    profileMode: 'default' | 'isolated' | 'custom';
-    userDataDir?: string;
-    debugPort: number;
-    workspace: string;
-    configuredModelId: string;
-    configuredModelDisplayName?: string;
-    // Ground-truth label/enum from Antigravity's live GetAvailableModels catalog
-    // (present only when reachable); distinct from the hardcoded display label.
-    catalogModelDisplayName?: string;
-    catalogModelEnum?: string;
-    // Step-trace env flags, so the operator can see whether tracing is on.
-    traceEnabled?: boolean;
-    rawTraceEnabled?: boolean;
-    desktopBrowser?: string;
-    capabilities: {
-      modelAccess: boolean;
-      webSearch: string;
-      shellTools: string;
-      pathAttachments: boolean;
-      nativeImageAttachments: string;
-      clusterTools: boolean;
-      artifacts: string;
-      contextAccounting: string;
-    };
-  };
 }
 
 export interface AuthStatusByProvider {
@@ -783,11 +750,6 @@ export interface AuthStatusByProvider {
   ollama: AuthStatus;
   codex: AuthStatus;
   github: AuthStatus;
-  // Antigravity auths inside its own desktop app; Arco doesn't manage a
-  // login flow for it. This field exists so ProviderName-keyed indexing
-  // typechecks cleanly — server populates it from desktop/RPC diagnostics
-  // (loggedIn == desktop debug-port reachable for now).
-  antigravity: AuthStatus;
   // llama.cpp is local + auth-less like Ollama. loggedIn == llama-server
   // binary present on PATH AND ~/.arco/llamacpp.json parses cleanly. The
   // operator-declared model registry populates installedModels +

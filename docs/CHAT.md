@@ -16,7 +16,7 @@ limited tool set inside a project Agent, not a Chat tab.
 | Saved Chat | Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata | Arco event/meta files and provider session storage where supported | + NEW -> CHAT -> PAST CHATS |
 | Incognito Chat | Claude, Codex, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
 
-Gemini and Antigravity are Agent-only: the creator filters them and the server
+Gemini are Agent-only: the creator filters them and the server
 rejects a crafted request. Provider enabled/auth/model availability gates also
 apply. Cursor's CLI has no ephemeral-session flag and llama.cpp's shared daemon
 always logs to `~/.arco/llamacpp.log`, so both are rejected for Incognito. Strata is also excluded because its standalone
@@ -109,7 +109,7 @@ fitted to 2000×2000; still over the cap ⇒ JPEG q85 with alpha flattened onto
 white (`.model.jpg`). GIFs are left alone. The original is never modified, and
 `[attached file: …]` refs and `path` fields keep naming it — only the bytes
 the model receives change. Async turn starts (Codex app-server, Cursor ACP,
-Ollama, llama.cpp, LM Studio, Antigravity) `awaitModelImage` (≤5 s; an
+Ollama, llama.cpp, LM Studio) `awaitModelImage` (≤5 s; an
 upload that predates this, in `./uploads`, derives on demand); sync ones
 (Claude CLI / Native, Codex exec) take `modelImagePath` — the sibling if it's
 on disk. Media type follows the derived file. Tooling is detected once:

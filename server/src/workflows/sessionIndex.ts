@@ -194,8 +194,6 @@ function dynamicSubtitle(messages: string[], title: string): string | undefined 
 // never set here, so a plain meta upsert can't clobber them.
 function deriveEntry(meta: WorkflowMeta, messages: string[]): SessionIndexEntry {
   const newest = newestCliSession(meta);
-  // No native session (Claude Native replay / Antigravity / Ollama): the Arco
-  // workflow id is the resume key, matching arcoInternalSessionInfoForMeta.
   const provider = newest?.provider ?? meta.primaryProvider;
   const sessionId = newest?.sessionId ?? meta.workflowId;
   const lastSeq = meta.lastEventSeq ?? undefined;

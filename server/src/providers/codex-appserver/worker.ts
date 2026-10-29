@@ -1,19 +1,4 @@
 import { CodexOperatorQuestions } from './operatorQuestions.js';
-// Long-lived per-workflow `codex app-server` worker (Phase 6a + 6b).
-//
-// One Codex CLI subprocess runs for the lifetime of an Arco tab on the
-// `appserver` transport. Each operator turn is one `turn/start` round-trip
-// against the same JSON-RPC connection, with notifications streaming back
-// as the model thinks/runs tools/replies. Cancel is `turn/interrupt` (not
-// SIGKILL); steer is `turn/steer` (not "queue and wait for next turn").
-//
-// Pattern parallels `antigravity.ts:antigravityManager` — one connection
-// per primary tab — except scoped per-workflow, mutex-guarded by the JSON-
-// RPC request/response IDs rather than an explicit lock.
-//
-// The exec-mode worker (`codex.ts`) is unchanged and remains the default.
-// `codex.transport: 'appserver'` in settings opts a tab into this path.
-// See `docs/PROVIDERS.md` for the full design.
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';

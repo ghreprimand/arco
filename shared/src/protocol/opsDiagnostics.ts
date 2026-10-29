@@ -11,17 +11,6 @@
 
 import type { HardwareProfile, FitVerdict } from './cookbook.js';
 import type { LlamacppServeDiagnosis } from './llamacppDiagnose.js';
-//
-// Status semantics (deterministic, operator-readable — four-question fence):
-//   ok      — the probe ran and the thing works.
-//   warn    — degraded or an optional dependency is absent (e.g. ffmpeg not
-//             installed, TS language server not on PATH). Not an error: Arco
-//             still functions, the operator just loses a capability.
-//   error   — something that should work doesn't (e.g. the data dir is not
-//             writable). A thrown probe also lands here with its message.
-//   skipped — not probed on this platform/config (e.g. Antigravity CDP detection
-//             when no cheap probe exists). Distinct from warn: nothing is wrong,
-//             we simply didn't look.
 export type DiagnosticStatus = 'ok' | 'warn' | 'error' | 'skipped';
 
 // The fixed groups. Order here is the render order in the UI.

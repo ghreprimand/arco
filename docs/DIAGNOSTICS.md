@@ -41,7 +41,7 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `ok` | The probe ran and the thing works. | green (`--color-success`) |
 | `warn` | Degraded, or an **optional** dependency is absent (ffmpeg missing, the TS language server not on PATH). Arco still functions; the operator loses a capability. | amber (`--color-warning`) |
 | `error` | Something that **should** work doesn't (data dir not writable). A probe that **throws** also lands here, with `detail` prefixed `probe threw:`. | red (`--color-danger`) |
-| `skipped` | Not probed on this platform/config (Antigravity CDP; per-cwd `.arco` from a machine-global call). Distinct from `warn`, nothing is wrong, we just didn't look. | grey (`--color-fg-muted`) |
+| `skipped` | Not probed on this platform/config (per-cwd `.arco` from a machine-global call). Distinct from `warn`, nothing is wrong, we just didn't look. | grey (`--color-fg-muted`) |
 
 ## Resilience
 
@@ -78,7 +78,6 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `providers.gemini` | `gemini --version`. |
 | `providers.ollama` | base-URL `/api/tags` reachable + installed-model count. |
 | `providers.llamacpp` | `llamacppManager.getStatus()` + catalog readable + registered-model count. |
-| `providers.antigravity` | **`skipped`**, CDP presence has no cheap side-effect-free check. |
 
 ### Local Tools
 | id | Probes |
@@ -363,9 +362,3 @@ The diagnostic chip (`b·w·s`) next to CANCEL tells you which flag is keeping t
 ### Worker output truncated
 
 50 MB cap per worker per turn (`ARCO_MAX_WORKER_OUTPUT_BYTES`). Check the worker's `output` in the WorkerDetailModal: there's a truncation notice at the end if it hit the cap.
-
-### Antigravity tool rows missing or mis-labelled
-
-Antigravity is RPC-only now (the CDP port is liveness only), so DOM-scrape tooling such as `scripts/antigravity-chat-dump.mjs` is historical. Set `ANTIGRAVITY_RPC_TRACE_STEPS=1` (compact per-step JSONL) or `ANTIGRAVITY_RPC_TRACE_RAW=1` (redacted raw step objects) and read `<cwd>/.arco/workflows/<wfid>/debug/antigravity-rpc-steps*.jsonl`; see `docs/PROVIDERS.md` under `Antigravity`.
-
----

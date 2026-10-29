@@ -1,3 +1,4 @@
+import { retiredProviderReason } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
 // Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
@@ -519,7 +520,7 @@ export function latestCliSessionFor(meta: WorkflowMeta, provider: ProviderName):
 }
 
 export function arcoInternalSessionInfoForMeta(meta: WorkflowMeta): SessionInfo | null {
-  if (meta.primaryProvider !== 'claude' && meta.primaryProvider !== 'antigravity' && meta.primaryProvider !== 'ollama') return null;
+  if (meta.primaryProvider !== 'claude' && meta.primaryProvider !== 'ollama' && !retiredProviderReason(meta.primaryProvider)) return null;
   if (meta.primaryProvider === 'claude' && latestCliSessionFor(meta, 'claude')) return null;
   return {
     sessionId: meta.workflowId,

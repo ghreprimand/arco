@@ -446,12 +446,6 @@ export function runPrimaryTurn(
     else if (claudeNewSessionId) spawnOptions.sessionId = claudeNewSessionId;
   } else if ((primary.provider === 'codex') && !incognito) {
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
-  } else if (primary.provider === 'antigravity') {
-    // Resume an in-progress Antigravity cascade by id; absence of
-    // resumeSessionId tells the RPC layer to start a fresh cascade. The
-    // provider surfaces the cascadeId on its init event so seedWorker can
-    // pin it as the workflow's primarySessionId for subsequent turns.
-    if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
   } else if (primary.provider === 'gemini') {
     // Gemini supports `-r <index>` resume, but `--list-sessions` returns an
     // index that shifts whenever sessions are added/deleted. The provider

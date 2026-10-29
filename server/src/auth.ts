@@ -49,33 +49,6 @@ export interface AuthStatus {
     thinkingLevels?: string[];
     thinkingCanDisable?: boolean;
   }>;
-  // Antigravity-only — Phase A capability/diagnostics snapshot from
-  // antigravityManager.diagnostics(). Mirrors AuthStatus in
-  // shared/src/protocol.ts.
-  antigravityInfo?: {
-    reachable: boolean;
-    profileMode: 'default' | 'isolated' | 'custom';
-    userDataDir?: string;
-    debugPort: number;
-    workspace: string;
-    configuredModelId: string;
-    configuredModelDisplayName?: string;
-    catalogModelDisplayName?: string;
-    catalogModelEnum?: string;
-    traceEnabled?: boolean;
-    rawTraceEnabled?: boolean;
-    desktopBrowser?: string;
-    capabilities: {
-      modelAccess: boolean;
-      webSearch: string;
-      shellTools: string;
-      pathAttachments: boolean;
-      nativeImageAttachments: string;
-      clusterTools: boolean;
-      artifacts: string;
-      contextAccounting: string;
-    };
-  };
 }
 
 export interface AuthStatusByProvider {
@@ -84,9 +57,6 @@ export interface AuthStatusByProvider {
   ollama: AuthStatus;
   codex: AuthStatus;
   github: AuthStatus;
-  // Antigravity: loggedIn == desktop debug-port reachable for now, since auth
-  // happens inside the Antigravity desktop profile, not through Arco.
-  antigravity: AuthStatus;
   // llama.cpp: loggedIn == llama-server binary present + ~/.arco/llamacpp.json
   // parses cleanly. Models from the catalog populate installedModels +
   // installedModelCapabilities so the picker UI works identically to Ollama's.
@@ -375,40 +345,6 @@ async function getDeepSeekAuthStatus(): Promise<AuthStatus> {
   };
 }
 
-
-async function getAntigravityAuthStatus(): Promise<AuthStatus> {
-  const { antigravityManager } = await import('./providers/antigravityManager.js');
-  const diag = await antigravityManager.diagnostics();
-  const info = {
-    reachable: diag.cdp.reachable,
-    profileMode: diag.profileMode,
-    ...(diag.userDataDir ? { userDataDir: diag.userDataDir } : {}),
-    debugPort: diag.cdpPort,
-    workspace: diag.workspace,
-    configuredModelId: diag.configuredModelId,
-    ...(diag.configuredModelDisplayName ? { configuredModelDisplayName: diag.configuredModelDisplayName } : {}),
-    ...(diag.catalogModelDisplayName ? { catalogModelDisplayName: diag.catalogModelDisplayName } : {}),
-    ...(diag.catalogModelEnum ? { catalogModelEnum: diag.catalogModelEnum } : {}),
-    traceEnabled: diag.traceEnabled,
-    rawTraceEnabled: diag.rawTraceEnabled,
-    ...(diag.cdp.browser ? { desktopBrowser: diag.cdp.browser } : {}),
-    capabilities: diag.capabilities,
-  } satisfies NonNullable<AuthStatus['antigravityInfo']>;
-  if (diag.available) {
-    return {
-      loggedIn: true,
-      apiProvider: 'antigravity-desktop',
-      subscriptionType: 'desktop-app',
-      antigravityInfo: info,
-    };
-  }
-  return {
-    loggedIn: false,
-    error: diag.reason ?? 'Antigravity unavailable',
-    antigravityInfo: info,
-  };
-}
-
 // Cursor stores a cursor.com session JWT that `cursor-agent` refreshes in the
 // background — auth.json on Linux, the login keychain on macOS. loggedIn == a
 // token is readable. No `cursor-agent auth status --json` command exists, so
@@ -422,20 +358,19 @@ async function getCursorAuthStatus(): Promise<AuthStatus> {
 }
 
 export async function getAuthStatus(): Promise<AuthStatusByProvider> {
-  const [claude, gemini, ollama, codex, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
+  const [claude, gemini, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
     getClaudeAuthStatus(),
     getGeminiAuthStatus(),
     getOllamaAuthStatus(),
     getCodexAuthStatus(),
     getGithubAuthStatus(),
-    getAntigravityAuthStatus(),
     getLlamacppAuthStatus(),
     getLmstudioAuthStatus(),
     getStrataAuthStatus(),
     getDeepSeekAuthStatus(),
     getCursorAuthStatus(),
   ]);
-  return { claude, gemini, ollama, codex, github, antigravity, llamacpp, lmstudio, strata, deepseek, cursor };
+  return { claude, gemini, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor };
 }
 
 // Explicit Connections check: probe only the operator-selected integration.
@@ -444,7 +379,7 @@ export async function getConnectionStatus(provider: AuthLoginTarget): Promise<Au
   const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
     claude:getClaudeAuthStatus, codex:getCodexAuthStatus, gemini:getGeminiAuthStatus, github:getGithubAuthStatus, cursor:getCursorAuthStatus,
     ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
-    llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus, antigravity:getAntigravityAuthStatus,
+    llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus,
   };
   return probes[provider]();
 }

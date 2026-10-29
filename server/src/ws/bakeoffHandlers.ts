@@ -34,7 +34,7 @@ const PROVIDERS = new Set<ProviderName>([
   'ollama',
   'llamacpp',
   'lmstudio', 'strata', 'deepseek',
-  'antigravity',
+
   'cursor',
 ]);
 

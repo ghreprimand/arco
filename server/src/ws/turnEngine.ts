@@ -11,7 +11,6 @@ SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
 } from '@arco/shared';
-import { type WorkflowSessionMetadata} from '@arco/shared';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
@@ -426,24 +425,7 @@ export function applyAutoHandoffDefault(
   return true;
 }
 
-export function sessionMetadataForWorkflow(wf: WorkflowState): WorkflowSessionMetadata | undefined {
-  if (wf.primary.provider !== 'antigravity') return undefined;
-  return {
-    sessionKind: 'antigravity-cascade',
-    ...(wf.primarySessionId ? { cascadeId: wf.primarySessionId } : {}),
-    opaqueContext: true,
-    arcoAutoCompact: false,
-    contextLabel: 'Antigravity-managed',
-  };
-}
 
-export function broadcastSessionMetadata(workflowId: string, wf: WorkflowState): void {
-  broadcastTransient(workflowId, {
-    type: 'workflow_session_metadata',
-    workflowId,
-    sessionMetadata: sessionMetadataForWorkflow(wf),
-  });
-}
 
 export async function refreshCodexTokenSnapshot(
   workflowId: string,
@@ -731,10 +713,6 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
   // the temp root + broadcast lock snapshots. deriveAutoHandoff defaults ON,
   // so an Ollama chat at 90% window used to rotate into an Agent tab silently.
   if (isChatWorkflow(wf.config)) return;
-  // Provider-agnostic: read the shared signal each post-turn context_usage
-  // branch keeps fresh (Claude CLI/Native, Codex, Ollama). Providers with no
-  // signal yet (gemini/antigravity/llamacpp) leave it 0/undefined, which
-  // no-ops here — the safe default until they grow a ctx-fill estimate.
   const percentOfWindow = wf.lastContextPercent;
   if (typeof percentOfWindow !== 'number' || percentOfWindow <= 0) return;
 
@@ -2230,12 +2208,6 @@ export async function handleUserMessage(
         if (rendered) primaryAppendSystemPrompt = `Conversation so far:\n\n${rendered}`;
       }
 
-      // Skills manifest + standing pins go wherever the provider's system prompt actually
-      // lives. ollama/llamacpp use `systemPrompt` (their `appendSystemPrompt`
-      // carries the rendered transcript); claude/codex/gemini have no
-      // `systemPrompt` and feed everything through `appendSystemPrompt`.
-      // Antigravity's RPC path frames prompts in its provider implementation,
-      // so it does not consume either field here.
       const usesSystemPromptForSkills = wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek');
       const primarySkillsContext = [pinnedSkillsBlock, primarySkillsManifest].filter(Boolean).join('\n\n');
       let finalSystemPrompt = usesSystemPromptForSkills && primarySkillsContext
@@ -2768,7 +2740,7 @@ export async function handleUserMessage(
       turn.onSessionDiscovered((sid) => {
         if (incognito) return;
         if (!wf.primarySessionId) wf.primarySessionId = sid;
-        if (wf.primary.provider === 'antigravity') broadcastSessionMetadata(workflowId, wf);
+
         reconcileLatestCliSession(cwd, workflowId, wf.primary.provider, sid, providerAccount?.profile.id).catch((err) => {
           console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (${wf.primary.provider}) failed:`, err);
         });

@@ -32,7 +32,7 @@ async def main():
             if req.method not in ['GET', 'HEAD']: state['writes'].append((path, req.post_data_json if req.post_data else None))
             data = {'files': [], 'projects': [], 'workflows': [], 'clusters': [], 'skills': [], 'sessions': [], 'tasks': [], 'items': []}
             if path == '/api/settings': data = {'themeId': 'phosphor:arco:electric', 'uiScale': 1.1, 'onboardingComplete': True, 'enabledProviders': {'claude': True}, 'projectRoots': []}
-            elif path == '/api/auth-status': data = {name: {'loggedIn': name == 'claude'} for name in ['claude','codex','gemini','ollama','cursor','strata','deepseek','llamacpp','lmstudio','antigravity','github']}
+            elif path == '/api/auth-status': data = {name: {'loggedIn': name == 'claude'} for name in ['claude','codex','gemini','ollama','cursor','strata','deepseek','llamacpp','lmstudio','github']}
             elif path == '/api/installation-history': data = {'used': True}
             elif path == '/api/projects': data = {'projects': [], 'roots': [], 'organization': True}
             elif path == '/api/outputs': data = {'outputs': [o for o in state['outputs'] if o['workflowId'] in ([A,B] if query.get('clusterId') else query.get('workflowId',[]))]}

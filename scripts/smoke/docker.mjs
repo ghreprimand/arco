@@ -103,7 +103,7 @@ try {
   const auth = await (await fetch(`${base}/api/auth-status`, { headers })).json();
   assert.equal(auth.codex.loggedIn, false, 'Clean bundled Codex must require login');
 
-  for (const provider of ['gemini', 'cursor', 'antigravity', 'llamacpp']) assert.equal(settings.enabledProviders[provider], false);
+  for (const provider of ['gemini', 'cursor', 'llamacpp']) assert.equal(settings.enabledProviders[provider], false);
   assert.equal(existsSync(join(project, 'auth.json')), false);
   // The default endpoint is the container's own localhost, not the host.
   assert.equal(auth.ollama.loggedIn, false, 'Ollama must not appear reachable before the host endpoint is configured');

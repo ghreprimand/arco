@@ -65,10 +65,8 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
     effort !== currentConfig.primaryEffort ||
     accountChanged;
 
-  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
-    // Antigravity isn't a toggleable provider; offer it unconditionally like the
-    // Spawn / RUN AS / Review pickers (reachability is surfaced in CONFIG).
-    if (p === 'antigravity') return true;
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+
     if (!isProviderEnabled(p)) return false;
     if (p === 'ollama') return !!authStatus?.ollama?.loggedIn && ollamaModels.length > 0;
     if (p === 'llamacpp') return !!authStatus?.llamacpp?.loggedIn && llamacppModels.length > 0;
@@ -165,9 +163,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
           className="display-font"
           style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginBottom: '14px', letterSpacing: '0.5px', lineHeight: 1.5 }}
         >
-          {currentProvider === 'antigravity'
-            ? 'Generates a handoff document and seeds a fresh Antigravity cascade in the same tab. This does not compact Antigravity internal context.'
-            : 'Archives the current session, generates a handoff document, and seeds a fresh session in the same tab.'}
+          {'Archives the current session, generates a handoff document, and seeds a fresh session in the same tab.'}
         </div>
 
         <div data-help="handoff.mode" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
@@ -219,7 +215,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
                       setSumEffort(clampEffortForProvider(sumEffort, p));
                     }}
                   >
-                    {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'antigravity' ? 'ANTIGRAV' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
+                    {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
                   </Pill>
                 ))}
               </Row>
@@ -303,7 +299,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
                   setEffort(clampEffortForProvider(effort, p));
                 }}
               >
-                {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'antigravity' ? 'ANTIGRAV' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
+                {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
               </Pill>
             ))}
           </Row>
@@ -359,7 +355,6 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
           if (honored.length === 0) {
             const reason = provider === 'gemini' ? 'Gemini CLI has no effort flag.'
               : provider === 'ollama' ? 'Local models have no effort flag.'
-              : provider === 'antigravity' ? 'Effort is set inside the Antigravity desktop app.'
               : provider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
               : 'Provider does not honor effort.';
             return (

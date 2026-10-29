@@ -414,14 +414,6 @@ export interface RecalibrateRequestMessage {
   workflowId: string;
 }
 
-// Antigravity-only: forget the currently stored cascade id. The next primary
-// turn starts a fresh Antigravity cascade; this does not compact or inspect
-// Antigravity's internal context/cache.
-export interface FreshAntigravityCascadeMessage {
-  type: 'fresh_antigravity_cascade';
-  workflowId: string;
-}
-
 // Preview tab — operator binds a port for the dev server the agent is running.
 // Server persists to meta.json, tracks it on WorkflowState, and rebroadcasts as
 // `preview_set` so every observer (and replay) hydrates the iframe target.
@@ -567,7 +559,6 @@ export type ClientMessage =
   | CancelQueuedMessageMessage
   | LoadEarlierMessagesMessage
   | RecalibrateRequestMessage
-  | FreshAntigravityCascadeMessage
   | PlanAttachMessage
   | PlanDetachMessage
   | SetPreviewPortMessage

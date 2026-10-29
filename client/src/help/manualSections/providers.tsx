@@ -26,12 +26,11 @@ export const providers: Section[] = [
             ['DeepSeek / Xolotl', 'HTTP (guarded user service)', 'none (transcript replay)', 'yes (Chat web-only)', 'yes', 'none, low, medium, high'],
             ['Strata', 'HTTP (standalone OpenAI-compatible /v1)', 'none (transcript replay)', 'yes (local allowlist; Chat web-only)', 'yes', 'none, low, medium, high'],
             ['LM Studio', 'HTTP (OpenAI-compatible /v1, configurable endpoint)', 'none (transcript replay)', 'yes (reuses local allowlist)', 'model-dependent', 'none'],
-            ['Antigravity', 'desktop app RPC', 'cascade id', 'observed via RPC trajectory', 'partial', 'none'],
           ]}
         />
         <Note kind="tip">
           The most common operator pattern: <strong>Claude as primary</strong>, with
-          Codex / Antigravity / Gemini for cross-family review. Pick the family that
+          Codex / Gemini for cross-family review. Pick the family that
           tends to disagree most usefully with your primary.
         </Note>
       </>
@@ -655,95 +654,6 @@ export const providers: Section[] = [
           Use LM Studio when you already manage models in its app (or want to point
           Arco at a remote LM Studio host) and prefer its model management over
           Arco-owned llama.cpp loadouts.
-        </Note>
-      </>
-    ),
-  },
-  {
-    id: 'provider-antigravity',
-    group: 'Providers',
-    title: 'Antigravity (desktop app via RPC)',
-    body: (
-      <>
-        <p>
-          Google's Antigravity desktop app, driven through its local
-          language-server RPC endpoint. Arco launches the desktop binary{' '}
-          <em>once</em> on first use against an isolated user-data-dir at{' '}
-          <Code>~/.arco/antigravity-data/</Code> so it doesn't collide with your
-          own Antigravity installation. Set <Code>ANTIGRAVITY_USE_DEFAULT_PROFILE=1</Code>
-          to reuse your normal signed-in Antigravity profile instead.
-        </p>
-        <p>
-          This is the most unusual provider in Arco. There is no subprocess in the
-          worker tree; the desktop app provides the authenticated model/tool path and
-          Arco talks to the local RPC service it starts.
-        </p>
-        <p><strong>RPC behavior:</strong></p>
-        <ul>
-          <li>
-            <strong>Reviewer turns</strong> — no <Code>resumeSessionId</Code> is
-            passed, so the RPC layer starts a fresh cascade. The returned text is
-            saved as the normal Arco review artifact.
-          </li>
-          <li>
-            <strong>Primary turns</strong> — first turn starts a new cascade; turn 2+
-            resumes the stored cascade id. Cwd is prepended to every prompt as{' '}
-            <Code>[Project directory: &lt;cwd&gt;]</Code>. Replies and tool activity
-            are read from the RPC trajectory.
-          </li>
-          <li>
-            <strong>Fresh cascade</strong> — CONFIG can clear Arco's stored cascade
-            id. The next turn starts a fresh Antigravity cascade; this does not compact
-            Antigravity's internal context.
-          </li>
-          <li>
-            <strong>Handoff</strong> — creates a markdown handoff and seeds a fresh
-            cascade with that text. Treat it as a fresh cascade reset with context text,
-            not as Antigravity compaction.
-          </li>
-        </ul>
-        <p>
-          The <Code>ANTIGRAVITY_CDP_PORT</Code> setting remains only as a desktop
-          liveness probe. Arco no longer uses CDP for composer injection, DOM
-          scraping, or prompt transport.
-        </p>
-        <Note kind="warn">
-          <strong>Caveats specific to Antigravity:</strong>
-          <ul>
-            <li>
-              <strong>No mid-turn cancel.</strong> Killing the worker stops Arco's
-              RPC poll loop, but the desktop app's agent work can keep running in
-              the background.
-            </li>
-            <li>
-              <strong>Opaque context.</strong> Arco stores the cascade id for
-              resume, but Antigravity owns context, cache, and compaction.
-            </li>
-            <li>
-              <strong>No safety footer.</strong> Arco skips the safety-reminder
-              boilerplate for Antigravity — the underlying Gemini model gets derailed
-              into "Arco talk" if it sees those reminders.
-            </li>
-            <li>
-              <strong>Auth is the operator's job.</strong> Arco doesn't manage
-              Antigravity auth; the desktop app uses its own Google login.
-            </li>
-            <li>
-              <strong>Path-only attachments.</strong> Uploads are staged as local
-              files and referenced by path. Arco does not claim native image
-              attachment support for Antigravity.
-            </li>
-            <li>
-              <strong>Artifacts are partial.</strong> Text artifacts surface as{' '}
-              <Code>[artifact:&lt;name&gt;]</Code>; image artifacts surface as
-              copied paths/file-viewer targets. Generated-image RPC shape is
-              still unproven.
-            </li>
-            <li>
-              <strong>Clusters disabled.</strong> Antigravity is not a cluster
-              member provider and receives no peer tools.
-            </li>
-          </ul>
         </Note>
       </>
     ),

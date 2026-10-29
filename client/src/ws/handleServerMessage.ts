@@ -279,7 +279,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               }
             }
           }
-          if (msg.sessionMetadata || (msg.config.primaryProvider ?? 'claude') !== 'antigravity') {
+          if (msg.sessionMetadata) {
             store.setSessionMetadata(msg.workflowId, msg.sessionMetadata);
           }
           // Phase 7b — parented Task children skip the [RESUMED]/transcript
@@ -465,30 +465,6 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'user_message_echo': {
-          // Server echoing a user prompt it persisted to events.jsonl. Dedup
-          // against the originating tab's locally-added message (they share
-          // `clientMessageId`). On a resume-picker replay or a remote tab,
-          // no local match exists → add to chat.
-          //
-          // Deliberately does NOT touch the `queued` flag on a match for the
-          // post-turn (follow-up) path. The server emits this echo at enqueue
-          // time (not drain time), so flipping queued:false here would
-          // surface the message in the chat log during the wait AND leave
-          // the later sessionChat entry to double-render once the 5s dedup
-          // proximity window blows. Queued entries stay queued:true until
-          // the corresponding session_entry arrives (handled below).
-          // See docs/PROTOCOL.md
-          //
-          // Phase 4 follow-up — render-layer split on mid-turn steer. When
-          // `kind: 'steer'` arrives while an assistant block is still
-          // streaming (Codex appserver / Ollama / llama.cpp), close the
-          // current bubble at the delta cursor so the steer renders inline
-          // between halves. This also pins the optimistic's queued:false +
-          // timestamp at split time so the steer surfaces immediately
-          // (without waiting for queued_messages_drained, whose drainedAt
-          // rebase would shove it past the after-half). Claude / Gemini /
-          // Antigravity don't reach here because their echo arrives after
-          // primary_complete already cleared ref.passthrough.
           const store = useAppStore.getState();
           const ref = getStreamRef(msg.workflowId);
           const echoSeq = (msg as { seq?: number }).seq;
@@ -1231,7 +1207,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             store.setModelContextWindow(msg.workflowId, msg.modelContextWindow);
           }
           if (msg.claudeSessionId) store.setClaudeSessionId(msg.workflowId, msg.claudeSessionId);
-          if (msg.sessionMetadata || useAppStore.getState().jobs[msg.workflowId]?.config.primaryProvider !== 'antigravity') {
+          if (msg.sessionMetadata) {
             store.setSessionMetadata(msg.workflowId, msg.sessionMetadata);
           }
           if (!msg.busy) {

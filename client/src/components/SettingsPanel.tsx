@@ -192,7 +192,7 @@ export function SettingsPanel({ onClose }: Props) {
         gemini: settings?.enabledProviders.gemini !== false,
         ollama: settings?.enabledProviders.ollama !== false,
         codex: settings?.enabledProviders.codex !== false,
-        antigravity: settings?.enabledProviders.antigravity !== false,
+
         llamacpp: settings?.enabledProviders.llamacpp !== false,
         lmstudio: settings?.enabledProviders.lmstudio !== false,
         strata: settings?.enabledProviders.strata !== false,

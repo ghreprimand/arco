@@ -6,6 +6,7 @@ import type { ResolvedMcpServer } from './mcp.js';
 import type { GenesisSeed } from './genesis.js';
 
 export interface WorkflowSessionMetadata {
+  // Read-only historical continuation metadata; no active provider uses this kind.
   sessionKind?: 'antigravity-cascade';
   cascadeId?: string;
   opaqueContext?: boolean;
@@ -378,10 +379,6 @@ export interface SessionInfo {
   // than minting a new one on resume.
   arcoWorkflowId?: string;
   arcoName?: string;
-  // True for workflows resumed by Arco workflow id instead of a native
-  // provider session picker id. Used for providers whose continuity is
-  // Arco-managed rather than native-session-managed, such as Claude Native
-  // event replay, Antigravity workflow-id rows, and Ollama transcript replay.
   arcoInternal?: boolean;
   // Claude's dynamic conversation title (`ai-title` entry in the session
   // JSONL). Claude writes this AT MOST ONCE per session — many sessions
@@ -747,10 +744,6 @@ export interface WorkerConfig {
 export interface SessionIndexEntry {
   // Which provider CLI/transport owns the resumable session.
   provider: ProviderName;
-  // The native provider session id, or — for Arco-internal continuity
-  // (Claude Native replay / Antigravity / Ollama, which have no native
-  // resume token) — the Arco workflow id. The (provider, sessionId) pair
-  // is the index key.
   sessionId: string;
   // The Arco workflow that owns this session, when one claims it. Absent for
   // a native session discovered on disk with no Arco meta.json.

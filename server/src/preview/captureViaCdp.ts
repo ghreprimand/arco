@@ -1,19 +1,3 @@
-// Part G — Preview Verification (ARCO_OPS §G1).
-//
-// CDP-based capture of the running Live Preview: screenshot + console errors +
-// failed/error network requests + page title/URL. We do NOT bundle a browser
-// (the operator's box is LFS — installs are manifest-tracked, never curl|sh; puppeteer/
-// playwright would download a Chromium on install). Instead we drive a SYSTEM
-// Chrome/Chromium over a raw CDP WebSocket using the already-present `ws`
-// dependency, mirroring the Antigravity manager's launch-with-
-// `--remote-debugging-port` + `/json` probe pattern
-// (`server/src/providers/antigravityManager.ts`). When no browser is installed
-// the capture degrades gracefully: it returns `{ ok:false, error }` naming the
-// missing browser rather than throwing.
-//
-// Everything here is POSIX / cross-platform: argv-only spawn (no shell), browser
-// discovery covers Linux PATH names + macOS .app bundle paths, and the temp
-// profile is created/removed under the OS temp dir.
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';

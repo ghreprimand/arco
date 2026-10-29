@@ -63,7 +63,7 @@ Arco/
 │   │                                #   gemini, gemini-native/ (auth+catalog stub only),
 │   │                                #   ollama, ollamaTools, llamacpp,
 │   │                                #   llamacppManager, llamacppRecovery, lmstudio,
-│   │                                #   antigravity, cursor/ (acp worker + print.ts one-shot);
+│   │                                #   cursor/ (acp worker + print.ts one-shot);
 │   │                                #   shared: codexCodeMode, goalBlock, outputStyle
 │   ├── mcp/                         # MCP registry + clusterMcpServer/clusterMcpTools +
 │   │                                #   clusterMcpLoopback (Cursor) + osvCheck + safeEnv

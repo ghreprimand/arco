@@ -100,7 +100,7 @@ class Browser:
 
 h=SimpleNamespace(IsolatedServer=IsolatedServer,FakeModel=FakeModel,Browser=Browser,INSTRUMENT=INSTRUMENT,REPO=REPO,async_playwright=async_playwright)
 
-IDS=['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','antigravity','github']
+IDS=['claude','codex','gemini','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github']
 
 class Server(h.IsolatedServer):
     def extra_env(self):
@@ -213,14 +213,11 @@ async def categories(playwright,server):
     b,page,state=await browser(playwright,server)
     try:
         dialog=await open_connections(page)
-        for label in ['Provider sign-in','Local models','Desktop integrations','Tool accounts']:
+        for label in ['Provider sign-in','Local models','Tool accounts']:
             assert await dialog.get_by_role('navigation').get_by_role('heading',name=label,exact=True).count()==1
         codex=await choose(dialog,'Codex')
         await codex.get_by_text('OpenAI API key reported active; API usage is billed separately.',exact=True).wait_for()
         await codex.get_by_text('Reported account: operator@example.invalid',exact=True).wait_for()
-        desktop=await choose(dialog,'Antigravity')
-        await desktop.get_by_role('status').filter(has_text='Unavailable here').wait_for()
-        assert await desktop.get_by_role('button',name='Check connection',exact=True).is_disabled()
         llama=await choose(dialog,'llama.cpp')
         await llama.get_by_role('status').filter(has_text='Disabled').wait_for()
         await llama.get_by_role('button',name='Enable provider',exact=True).click()

@@ -1,3 +1,4 @@
+import { retiredProviderReason } from '@arco/shared';
 import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
@@ -7,7 +8,6 @@ import { OllamaProvider } from './ollama.js';
 import { CodexProvider } from './codex.js';
 import { CodexAppServerProvider, disposeCodexAppServerWorker } from './codex-appserver/index.js';
 import { ClaudeNativeProvider, disposeClaudeNativeWorker } from './claude-native/index.js';
-import { AntigravityProvider } from './antigravity.js';
 import { LlamacppProvider } from './llamacpp.js';
 import { isLocalModelProvider, localModelsUnloading, localModelBusyMessage } from './localModelControl.js';
 import { DeepSeekProvider } from './deepseek.js';
@@ -23,7 +23,7 @@ const PROVIDERS: Record<ProviderName, Provider> = {
   gemini: GeminiProvider,
   ollama: OllamaProvider,
   codex: CodexProvider,
-  antigravity: AntigravityProvider,
+
   llamacpp: LlamacppProvider,
   lmstudio: LmstudioProvider,
   strata: StrataProvider,
@@ -156,7 +156,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   }
   const provider = PROVIDERS[name];
   if (!provider) {
-    throw new Error(`Unknown provider: ${name}`);
+    throw new Error(retiredProviderReason(name) ?? `Unknown provider: ${name}`);
   }
   return provider.create(id, config);
 }
@@ -173,5 +173,5 @@ export function disposeProviderResources(workflowId: string): void {
 }
 
 export function isKnownProvider(name: string): name is ProviderName {
-  return name === 'claude' || name === 'gemini' || name === 'ollama' || name === 'codex' || name === 'antigravity' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
+  return name === 'claude' || name === 'gemini' || name === 'ollama' || name === 'codex' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
 }

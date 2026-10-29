@@ -91,7 +91,7 @@ const SECRET_SEGMENTS = new Set(['auth.json', 'provider-accounts']);
 //   llamacpp.json   model catalog cache (server/src/llamacppCatalog.ts)
 //   models/         downloaded model blobs (server/src/cookbook/install.ts) — huge
 //   camoufox-chatgpt-profile/  scraped browser profile (server/src/codexUsage.ts)
-//   antigravity-data/  CDP user-data dir (server/src/providers/antigravityManager.ts)
+//   antigravity-data/  legacy desktop profile; still excluded to protect old credentials
 //   checkpoints/    git-snapshot working trees (server/src/gitSnapshots.ts) — large
 //   known-cwds.json runtime cwd registry (regenerated as workflows run)
 const REGENERABLE_SEGMENTS = new Set([

@@ -24,7 +24,7 @@ async def main():
             if path == '/api/settings':
                 data = {'themeId': 'arch', 'enabledProviders': {'codex': True, 'claude': True}}
             elif path == '/api/auth-status':
-                data = {n: {'loggedIn': True, 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'github']}
+                data = {n: {'loggedIn': True, 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'github']}
             elif path == '/api/capabilities':
                 data = {'efforts': ['low', 'medium', 'high'], 'models': ['gpt-5.5'], 'cliVersion': 'fixture', 'codexVersion': '0.164.0'}
             elif path.endswith('/catalog'):

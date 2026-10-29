@@ -92,13 +92,9 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
     }
   }, [provider, providerAccountRef, codexAccounts, parentConfig.primaryProvider, parentConfig.providerAccountRef]);
 
-  // All six providers are spawnable. Antigravity is always-available when
-  // enabled (auth happens inside its desktop app, not via Arco). Local
-  // providers require auth (the WS connection to the daemon, or a
-  // configured catalog for llama.cpp).
-  const availableProviders = (['claude', 'codex', 'cursor', 'gemini', 'antigravity', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'gemini',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
     if (!isProviderEnabled(p)) return false;
-    if (p === 'antigravity') return true;
+
     return Boolean(authStatus?.[p]?.loggedIn);
   });
 
@@ -208,7 +204,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                   setEffort(clampEffortForProvider(effort, p));
                 }}
               >
-                {p === 'antigravity' ? 'ANTIGRAV' : p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
+                {p === 'llamacpp' ? 'LLAMA' : p === 'lmstudio' ? 'LM STUDIO' : p === 'deepseek' ? 'XOLOTL' : p.toUpperCase()}
               </Pill>
             ))}
           </Row>
@@ -236,9 +232,8 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
           </Field>
         )}
 
-        {/* Antigravity has no separate MODEL picker — model + effort are
-            chosen inside the desktop app. Skip the row entirely. */}
-        {provider !== 'antigravity' && (
+
+        {(
           <Field label="MODEL" helpKey="spawn.model">
             {provider === 'cursor' && cursorCatalog?.models?.length ? (
               // Cursor: family × effort × flags (effort baked into the id).
@@ -275,7 +270,6 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
           if (honored.length === 0) {
             const reason = provider === 'gemini' ? 'Gemini CLI has no effort flag.'
               : provider === 'ollama' ? 'Local models have no effort flag.'
-              : provider === 'antigravity' ? 'Effort is set inside the Antigravity desktop app.'
               : provider === 'cursor' ? 'Cursor bakes effort into the model id — set it in the MODEL picker above.'
               : 'Provider does not honor effort.';
             return (
@@ -358,7 +352,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 cursor: canJoinCluster ? 'pointer' : 'not-allowed',
                 opacity: canJoinCluster ? 1 : 0.55,
               }}
-              title={canJoinCluster ? undefined : 'Cluster membership is Claude or Codex only today (Gemini / Ollama / llama.cpp / Antigravity have no MCP wiring path).'}
+              title={canJoinCluster ? undefined : 'Cluster membership is Claude or Codex only today (Gemini / Ollama / llama.cpp have no MCP wiring path).'}
             >
               <input
                 type="checkbox"

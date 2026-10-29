@@ -35,7 +35,7 @@ per **(provider, sessionId)**, that pair is the key. An entry carries:
 
 | field | source / meaning |
 |---|---|
-| `provider`, `sessionId` | the resumable session's key. For Arco-internal continuity (Claude Native replay / Antigravity / Ollama, no native resume token) `sessionId` is the Arco **workflow id**, mirroring `arcoInternalSessionInfoForMeta`. |
+| `provider`, `sessionId` | the resumable session's key. For Arco-internal continuity (Claude Native replay / Ollama, no native resume token) `sessionId` is the Arco **workflow id**, mirroring `arcoInternalSessionInfoForMeta`. |
 | `workflowId?` | the owning Arco workflow, when one claims the session. Absent for a native session found on disk with no `meta.json`. |
 | `cwd`, `startedAt`, `lastActiveAt` | from `meta.json`. |
 | `title` | **never blank.** Resolved through the layered chain below. |

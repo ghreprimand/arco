@@ -27,11 +27,6 @@ export interface ModelCatalogs {
 const STATIC_CLAUDE_MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 const STATIC_CODEX_MODELS: ModelName[] = [...CODEX_PICKER_MODELS];
 const STATIC_GEMINI_MODELS: ModelName[] = ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview'];
-// Antigravity has no Arco-side model choice — the model is whatever the
-// operator picked inside the desktop composer. A stub id keeps the plumbing
-// branch-free.
-export const ANTIGRAVITY_STUB_MODEL: ModelName = 'antigravity-desktop';
-// Cursor cold-catalog seed. `auto` is a real catalog id, not a synthesized one.
 const CURSOR_COLD_MODELS: ModelName[] = ['auto'] as ModelName[];
 
 export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): ModelName[] {
@@ -51,7 +46,7 @@ export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): Mod
   }
 
   if (provider === 'gemini') return STATIC_GEMINI_MODELS;
-  if (provider === 'antigravity') return [ANTIGRAVITY_STUB_MODEL];
+
   if (provider === 'ollama') return c.ollamaModels as ModelName[];
   if (provider === 'llamacpp') return c.llamacppModels as ModelName[];
   if (provider === 'deepseek') return (c.deepseekModels ?? []) as ModelName[];
@@ -78,7 +73,7 @@ export function defaultModelForProvider(provider: ProviderName, c: ModelCatalogs
   }
 
   if (provider === 'gemini') return 'gemini-3.1-pro-preview';
-  if (provider === 'antigravity') return ANTIGRAVITY_STUB_MODEL;
+
   if (provider === 'ollama') return (c.ollamaModels[0] ?? '') as ModelName;
   if (provider === 'llamacpp') return (c.llamacppModels[0] ?? '') as ModelName;
   if (provider === 'deepseek') return (c.deepseekModels?.[0] ?? '') as ModelName;

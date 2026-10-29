@@ -41,7 +41,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'enabled-providers', page: 'providers', label: 'Enabled providers', scope: 'Global', help: ['settings.enabled-providers'], keywords: 'hide show provider on off' },
   { id: 'authentication', page: 'providers', label: 'Sign-in, accounts and local endpoints', scope: 'Global', help: ['settings.authentication', 'settings.endpoint-discovery', 'settings.codex-profiles', 'settings.deepseek', 'settings.strata-endpoint'],
     aliases: ['endpoint-discovery', 'codex-profiles', 'deepseek', 'strata-endpoint', 'ollama', 'lmstudio', 'native-auth'],
-    keywords: 'Claude Gemini Codex Cursor GitHub Ollama llama.cpp LM Studio Strata DeepSeek Xolotl Antigravity login logout API key URL host profile utility compaction session titles' },
+    keywords: 'Claude Gemini Codex Cursor GitHub Ollama llama.cpp LM Studio Strata DeepSeek Xolotl login logout API key URL host profile utility compaction session titles' },
   { id: 'llamacpp-catalog', page: 'providers', label: 'llama.cpp model registry', scope: 'Global', help: ['settings.llamacpp-catalog'], keywords: 'gguf preload load' },
   { id: 'catalog', page: 'providers', label: 'Model catalog', scope: 'Global', help: ['settings.catalog'], keywords: 'models context window' },
   { id: 'auto-handoff-defaults', page: 'agents', label: 'Auto-handoff defaults', scope: 'Global, for new workflows', help: ['settings.auto-handoff-defaults'], keywords: 'warn threshold context summarizer' },

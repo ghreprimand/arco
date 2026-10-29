@@ -133,14 +133,7 @@ export const PROVIDER_THEMES: Record<ProviderName, Theme> = {
     secondary: '#a98bdb', secondaryRgb: [169, 139, 219], secondaryDim: '#7d61ab', secondaryBright: '#c6b0ea',
     danger: '#ef5350', warning: '#e6b54a', warningDim: '#977430', success: '#5cc98a',
   }),
-  antigravity: buildProviderTheme({
-    id: 'provider-antigravity', name: 'Antigravity', description: 'Google Antigravity — deep violet',
-    bg: '#16131f', panel: 'rgba(32, 27, 44, 0.95)', input: 'rgba(22, 18, 31, 0.97)', elevated: 'rgba(42, 35, 56, 0.96)',
-    fg: '#e8e3f2', fgRgb: [232, 227, 242], fgMuted: 0.52,
-    primary: '#a78bfa', primaryRgb: [167, 139, 250], primaryDim: '#7657c4', primaryTint: '#241a3a',
-    secondary: '#7c9fe0', secondaryRgb: [124, 159, 224], secondaryDim: '#5573ad', secondaryBright: '#a6c0ef',
-    danger: '#e85d6e', warning: '#dcab4f', warningDim: '#937134', success: '#83c08c',
-  }),
+
   ollama: buildProviderTheme({
     id: 'provider-ollama', name: 'Ollama', description: 'Local Ollama — neutral slate',
     bg: '#18181b', panel: 'rgba(36, 36, 40, 0.95)', input: 'rgba(24, 24, 27, 0.97)', elevated: 'rgba(46, 46, 51, 0.96)',

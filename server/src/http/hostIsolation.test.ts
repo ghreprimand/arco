@@ -16,7 +16,7 @@ import { chmodSync, writeFileSync } from 'node:fs';
 import { createServer as createIsolationServer } from 'node:net';
 const DENIED_COMMANDS = [
   'claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli',
-  'lms', 'antigravity', 'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget',
+  'lms',  'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget',
 ] as const;
 
 async function closedPort(): Promise<number> {
@@ -60,8 +60,6 @@ async function hardenServerEnv(env: Record<string, string>, root: string): Promi
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-// Default loopback endpoints the server may probe: Ollama, LM Studio, Strata, llama.cpp/other
-// local runtimes, Xolotl and the Antigravity debug port.
 const DEFAULT_PORTS = [11434, 1234, 8081, 8080, 8150, 9222];
 
 const onlyLoopback = () => Object.values(networkInterfaces()).flat().every((i) => !i || i.internal);
@@ -138,6 +136,11 @@ test('hardened environment: provider CLIs resolve to denying stubs even after th
     for (const route of ['/api/auth-status', '/api/capabilities', '/api/deepseek', '/api/settings']) {
       const res = await fetch(`${base}${route}`, { headers: { Cookie: cookie, Origin: base } });
       await res.arrayBuffer();
+    }
+    for (const route of ['/api/auth-login?provider=antigravity', '/api/check-updates?provider=antigravity']) {
+      const res = await fetch(`${base}${route}`, { method: 'POST', headers: { Cookie: cookie, Origin: base } });
+      assert.equal(res.status, 400, `${route} must not fall through to another provider`);
+      assert.match((await res.json() as { error: string }).error, /support has been removed/);
     }
     await delay(4000);
     const contacted = [...decoys.hits].filter(([, n]) => n > 0).map(([p]) => p);

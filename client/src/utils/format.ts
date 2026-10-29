@@ -51,30 +51,6 @@ export function totalTokens(t: TokenUsage, provider?: ProviderName): number {
   return t.input + t.output + (t.cacheRead ?? 0) + (t.cacheCreate ?? 0);
 }
 
-// The "fills the context window" number — provider-aware.
-//
-// CRITICAL: Anthropic and OpenAI report cache fields with OPPOSITE semantics.
-//
-//   Claude (Anthropic): input_tokens, cache_read_input_tokens, and
-//     cache_creation_input_tokens are DISJOINT — they sum to the total
-//     prompt. Arco's ctx for Claude is `input + cacheCreate`, matching
-//     server/src/index.ts:maybeAutoCompact's threshold metric. Cache-reads
-//     are deliberately excluded because the prior cached prefix isn't NEW
-//     context being sent (it's already-counted cumulative state).
-//
-//   Codex (OpenAI): cached_input_tokens is a SUBSET of input_tokens —
-//     `input_tokens` is the full prompt size, `cached_input_tokens` is
-//     informational ("of those input_tokens, this many were served from
-//     prefix cache"). Confirmed against real rollout payloads where
-//     input=8402, cached=7296 with input being the only number that
-//     matches what the model actually saw. So Arco's ctx for Codex is
-//     just `input` — adding cacheRead would double-count the cached
-//     portion (and was the source of an inflated "89k after 3 prompts"
-//     report before this was fixed, 2026-04-26).
-//
-//   Other providers (Gemini, Ollama, Antigravity): default to the Claude
-//     shape — they don't populate cacheRead/cacheCreate today, so the
-//     result is just `input` regardless.
 export function contextTokens(t: TokenUsage, provider?: ProviderName): number {
   if (provider === 'codex') {
     return t.input ?? 0;
@@ -129,24 +105,6 @@ export function cacheHitPercent(t: TokenUsage): number | null {
 // Claude-specific concept; Codex doesn't have an Arco-managed auto-compact.
 export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 
-// Per-provider effort levels that the CLI actually honors. Used by the
-// effort picker in WorkflowCreator / HandoffDialog / SpawnDialog /
-// ReviewDialog / the CONFIG tab.
-//
-//   Claude    — all 5 levels are real (low/medium/high/xhigh/max).
-//   Codex     — this is only the no-catalog FALLBACK (low/medium/high). The real
-//               surface is per-model and comes from the live catalog via
-//               effortsForModel: gpt-5.5 adds xhigh, and gpt-6-astra goes on to
-//               max and ultra. Don't widen this fallback to match Astra — a
-//               model that genuinely stops at high must not be offered more.
-//   Gemini    — CLI has no effort flag (gemini.ts:buildArgs comment confirms).
-//               Value is ignored. Empty array → hide the picker entirely.
-//   Ollama    — same as Gemini, no effort flag.
-//   Antigravity — operator sets effort inside the desktop app; Arco
-//               doesn't pass anything. Hide the picker.
-//
-// When the array is empty, callers should hide the effort UI rather than
-// render an enabled-but-useless control.
 export function effortsForProvider(provider: ProviderName | undefined): EffortLevel[] {
   if (provider === 'claude') return ['low', 'medium', 'high', 'xhigh', 'max'];
   if (provider === 'codex') return ['low', 'medium', 'high'];

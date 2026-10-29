@@ -38,7 +38,7 @@ test('existing workflows retain the Docker fallback as well as their terminal sh
 });
 test('first-run settings remain reachable while server-owned connection details are loading', () => {
   const settings = useAppStore.getState().settings;
-  useAppStore.setState({ settings: { enabledProviders: { gemini: false, cursor: false, antigravity: false, llamacpp: false } } as ArcoSettings });
+  useAppStore.setState({ settings: { enabledProviders: { gemini: false, cursor: false, llamacpp: false } } as ArcoSettings });
   try {
     const html = renderToStaticMarkup(<AuthOverlay />);
     assert.match(html, /PROVIDER SETTINGS/);

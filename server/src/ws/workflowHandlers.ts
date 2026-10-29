@@ -1,3 +1,5 @@
+import { retiredProviderReason } from '@arco/shared';
+import { isKnownProvider } from '../providers/index.js';
 import { publishWorkerActivity } from './turnEngine.js';
 import { clearPrivateWatches } from '../voice/watches.js';
 // server/src/ws/workflowHandlers.ts — workflow-lifecycle WS handler region
@@ -109,7 +111,6 @@ import {
   disarmGoalRun,
   persistInitialMeta,
   revokeBusy,
-  sessionMetadataForWorkflow,
   startSessionWatcher,
   toSessionEntries,
 } from './turnEngine.js';
@@ -215,6 +216,11 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     };
   }
 
+  const provider = config.primaryProvider ?? 'claude';
+  if (!isKnownProvider(provider)) {
+    send(ws, { type: 'error', message: retiredProviderReason(provider) ?? `Unsupported provider: ${provider}` });
+    return;
+  }
   const primary = derivePrimaryConfig(config);
   const manager = new WorkerManager();
   // docs/PROVIDERS.md - fact-force defaults OFF for new tabs.
@@ -649,7 +655,6 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     ...(wfNowForCreate?.primary.provider === 'claude' && wfNowForCreate.primarySessionId
       ? { claudeSessionId: wfNowForCreate.primarySessionId }
       : {}),
-    ...(wfNowForCreate ? { sessionMetadata: sessionMetadataForWorkflow(wfNowForCreate) } : {}),
   });
   // Genesis creation starts with the seed on config, but the right-panel UI
   // reads the normalized seed/readiness fields populated by genesis_seed_updated.
@@ -2180,7 +2185,6 @@ export async function handleDocEditRequest(
 function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' | 'GEMINI.md' {
   if (provider === 'codex') return 'AGENTS.md';
   if (provider === 'gemini') return 'GEMINI.md';
-  // Claude + local providers (ollama/llamacpp/lmstudio/antigravity) → CLAUDE.md.
   return 'CLAUDE.md';
 }
 

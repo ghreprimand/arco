@@ -386,15 +386,6 @@ async function checkLlamacpp(): Promise<DiagnosticCheck> {
   return mk(id, 'providers', label, 'ok', `manager ${status.state}; ${catalogCount} model(s) registered`);
 }
 
-// Antigravity is a CDP-driven desktop-app integration. There is no cheap,
-// side-effect-free presence probe (a real probe would attach to the running
-// app), so per the plan we report `skipped` ("not probed") rather than guess.
-async function checkAntigravity(): Promise<DiagnosticCheck> {
-  const id = 'providers.antigravity';
-  const label = 'Antigravity (CDP)';
-  return mk(id, 'providers', label, 'skipped', 'not probed — CDP presence has no cheap side-effect-free check');
-}
-
 // ── LOCAL TOOLS ───────────────────────────────────────────────────────────────
 
 async function checkGh(): Promise<DiagnosticCheck> {
@@ -803,7 +794,6 @@ const GROUPS: GroupSpec[] = [
       { id: 'providers.gemini', label: 'Gemini CLI', fn: checkGeminiCli },
       { id: 'providers.ollama', label: 'Ollama daemon', fn: checkOllama },
       { id: 'providers.llamacpp', label: 'llama.cpp', fn: checkLlamacpp },
-      { id: 'providers.antigravity', label: 'Antigravity (CDP)', fn: checkAntigravity },
     ],
   },
   {

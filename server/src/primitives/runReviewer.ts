@@ -252,9 +252,6 @@ export function runReviewer(
       spec,
       (ev) => {
         if (ev.type === 'worker_text') collected += ev.text;
-        // Surface any provider-level out-of-band notices (e.g. Antigravity
-        // "waiting for another turn to finish") into the reviewing workflow's
-        // chat so the operator can see why the review is queued.
         else if (ev.type === 'worker_system_notice') {
           ctx.broadcast({
             type: 'system_notice',

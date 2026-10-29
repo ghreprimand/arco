@@ -28,7 +28,7 @@ async def main():
                 writes.append(path)
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': []}
             if path == '/api/settings': data = {'themeId': 'arch', 'enabledProviders': {'claude': True}, 'uiScale': float(initial_scale)}
-            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'antigravity', 'deepseek', 'github']}
+            elif path == '/api/auth-status': data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'gemini', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
             elif path.endswith('/catalog'): data = {'models': []}
             elif path == '/api/list-dirs': data = {'dirs': [], 'path': '/demo', 'parent': '/'}
