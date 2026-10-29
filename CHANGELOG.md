@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Hide the duplicate header wordmark on Home while keeping it in other views.
+
 - Remove Gemini and dedicated Google provider paths while preserving historical work; keep retired saved choices visibly unavailable until a supported provider is explicitly selected.
 
 - Remove Antigravity integration and desktop launch paths while preserving historical work and explicitly rejecting retired provider requests.

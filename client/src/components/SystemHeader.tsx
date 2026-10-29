@@ -24,6 +24,7 @@ import { StatusLight } from './primitives/StatusLight';
 import type { WorkbenchNoticeCategory } from '@arco/shared';
 
 interface Props {
+  isHome: boolean;
   onReconnect: () => void;
   onRestartServer: () => void;
   reconnectState?: { attempting: boolean; nextAttemptIn: number };
@@ -44,7 +45,7 @@ function GroupDivider() {
   return <span aria-hidden style={{ width: '1px', height: '16px', background: 'var(--color-border-hairline)', opacity: 0.6, flexShrink: 0 }} />;
 }
 
-export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onSetPreviewPort, onSetNotificationMutes, onHubLinkToggle }: Props) {
+export function SystemHeader({ isHome, onReconnect, onRestartServer, reconnectState, onSetPreviewPort, onSetNotificationMutes, onHubLinkToggle }: Props) {
   const connected = useAppStore((s) => s.connected);
   const computerOpen = useComputerStore((s) => s.open);
   const setComputerOpen = useComputerStore((s) => s.setOpen);
@@ -158,8 +159,9 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <h1
             data-help="header.arco-mark"
+            aria-hidden={isHome || undefined}
             className="display-font glow-text-bright arco-wordmark"
-            style={{ fontSize: '16px', letterSpacing: '4px', fontWeight: 400 }}
+            style={{ fontSize: '16px', letterSpacing: '4px', fontWeight: 400, visibility: isHome ? 'hidden' : 'visible' }}
           >
             ARCO
           </h1>

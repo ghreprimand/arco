@@ -654,7 +654,7 @@ ${scopeBody}
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
         {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
-        <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
+        <SystemHeader isHome={showHome && !showGithub} onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}
           onCreateCluster={createCluster}

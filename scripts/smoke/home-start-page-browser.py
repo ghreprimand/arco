@@ -74,6 +74,16 @@ async def check(browser, scale, scenario):
     page.on('pageerror', lambda error: errors.append(str(error)))
     await page.goto(URL)
     await page.locator('#home-title').wait_for()
+    mark = page.locator('header .arco-wordmark')
+    await expect(mark).to_be_hidden()
+    assert await mark.get_attribute('aria-hidden') == 'true'
+    geometry = await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}')
+    await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showJobCreator();}")
+    await expect(mark).to_be_visible()
+    after = await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}')
+    assert after == geometry, (geometry, after)
+    await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showHomeView();}")
+    await expect(mark).to_be_hidden()
     await expect(page.get_by_role('main',name='ARCO',exact=True)).to_be_visible()
     await page.locator('#home-title').focus()
     await expect(page.locator('#home-title')).to_be_focused()
@@ -86,6 +96,13 @@ async def check(browser, scale, scenario):
           s.getState().createJob('private-fixture', {kind:'chat',incognito:true,name:'Private fixture conversation',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',workingDirectory:'',skipPermissions:false},undefined,undefined,true);
           s.getState().showHomeView();
         }''')
+        await expect(mark).to_be_hidden()
+        geometry = await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}')
+        await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setActiveJob('open-fixture');}")
+        await expect(mark).to_be_visible()
+        assert await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}') == geometry
+        await page.get_by_role('button',name='Home: projects, open work and saved sessions',exact=True).click()
+        await expect(mark).to_be_hidden()
         await expect(page.get_by_role('heading', name='Open work (1)', exact=False)).to_be_visible()
         await expect(page.locator('.home-work-details small')).to_contain_text('Harbor')
         await expect(page.get_by_role('button', name='Resume Plan the next small release', exact=True)).to_be_visible()
@@ -209,6 +226,13 @@ async def check(browser, scale, scenario):
         for width,height in [(900,600),(1920,1080),(1920,1200),(3840,2160)]:
             await page.set_viewport_size({'width':width,'height':height})
             assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
+            if width in [900, 1920]:
+                before = await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}')
+                await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showJobCreator();}")
+                await expect(mark).to_be_visible()
+                assert await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}') == before
+                await page.get_by_role('button',name='Home: projects, open work and saved sessions',exact=True).click()
+                await expect(mark).to_be_hidden()
             title = page.locator('#home-title')
             await expect(title).to_be_visible()
             assert await title.evaluate('el => {const r=el.getBoundingClientRect(), p=el.closest(".home-content").getBoundingClientRect(); return Math.abs((r.left+r.right-p.left-p.right)/2)<2 && r.left>=0 && r.right<=innerWidth+1}')
