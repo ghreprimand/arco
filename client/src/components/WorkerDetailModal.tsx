@@ -127,7 +127,8 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
             >
               {worker.provider === 'codex' ? 'CODEX · OPENAI'
                 : worker.provider === 'llamacpp' ? 'LLAMA.CPP · LOCAL'
-                : 'OLLAMA · LOCAL'}
+                : worker.provider === 'ollama' ? 'OLLAMA · LOCAL'
+                : String(worker.provider).toUpperCase()}
             </span>
           )}
           <span style={{ color: 'var(--color-fg-muted)' }}>·</span>

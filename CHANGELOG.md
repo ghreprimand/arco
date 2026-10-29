@@ -26,6 +26,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Preserve historical worker provider labels in the detail viewer instead of displaying Ollama for retired providers.
+
 - Keep Recall draft actions reachable when browser zoom and interface size constrain the dialog.
 
 - Open provider Settings above setup and return to the same Connections selection with keyboard focus intact.

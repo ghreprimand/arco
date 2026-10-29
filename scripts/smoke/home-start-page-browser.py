@@ -256,6 +256,25 @@ async def check(browser, scale, scenario):
             await expect(page.get_by_role('button',name='START CHAT',exact=True)).to_be_enabled()
             assert await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts'); return s.getState().settings.workflowDefaults.primaryProvider;}""")==retired
             await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showHomeView();}""")
+        # Replay preserves historical provider identity even when the provider
+        # no longer has a current picker entry or provider-specific adapter.
+        for provider, label in [('gemini', 'GEMINI'), ('antigravity', 'ANTIGRAVITY'), ('fixture-retired', 'FIXTURE-RETIRED'), ('codex', 'CODEX · OPENAI'), ('llamacpp', 'LLAMA.CPP · LOCAL'), ('ollama', 'OLLAMA · LOCAL')]:
+            await page.evaluate("""async provider => {
+              const {useAppStore:s}=await import('/src/stores/appStore.ts');
+              const {handleServerMessage:replay}=await import('/src/ws/handleServerMessage.ts');
+              s.getState().createJob('history-worker-fixture', {name:'Historical worker fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',workingDirectory:'/projects/harbor',skipPermissions:false},undefined,undefined,true);
+              const deps={wsRef:{current:null},scheduleReconnect:()=>{}};
+              replay({type:'worker_spawned',workflowId:'history-worker-fixture',workerId:'saved-worker',provider,model:'historical-model',effort:'low',task:'Read the saved report'},deps);
+              replay({type:'worker_text',workflowId:'history-worker-fixture',workerId:'saved-worker',text:'Preserved worker output'},deps);
+              s.getState().setDetailWorker({jobId:'history-worker-fixture',workerId:'saved-worker'});
+            }""", provider)
+            await expect(page.get_by_text(label, exact=True)).to_be_visible()
+            if provider != 'ollama':
+                await expect(page.get_by_text('OLLAMA · LOCAL', exact=True)).to_have_count(0)
+            await expect(page.get_by_text('Preserved worker output', exact=True)).to_be_visible()
+            assert await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().jobs['history-worker-fixture'].workers['saved-worker'].provider;}""") == provider
+            await page.keyboard.press('Escape')
+            await expect(page.get_by_text('Preserved worker output', exact=True)).to_have_count(0)
         assert not any(message.get('type') in ('create_workflow','send_prompt','create_cluster') for message in state['messages'])
     assert not errors, errors
     await context.close()
