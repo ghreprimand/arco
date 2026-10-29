@@ -1,3 +1,7 @@
+// Ground-truth context calibration for resumable Claude CLI sessions. The
+// provider's `/context` output corrects the per-session estimate derived from
+// persisted message bytes; calibration runs only when an eligible session
+// crosses a configured zone and never delays the primary turn.
 
 import { registerWorkerPid, unregisterWorkerPid } from './workers/pidRegistry.js';
 import { commandArgs } from './windowsCommand.js';

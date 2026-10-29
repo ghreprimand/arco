@@ -4,6 +4,10 @@ import { resolve, relative, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import dns from 'node:dns/promises';
 
+// Server-side tool runtime for local Ollama workers. File access is resolved
+// against the workflow working directory and bounded output limits keep large
+// reads, searches, and command results from exhausting the model context.
+
 // Per-tool output cap. Larger than a single-line tool result needs to be,
 // smaller than anything that could meaningfully bloat a turn's input
 // tokens. Read/Grep results above this get truncated with a notice; the

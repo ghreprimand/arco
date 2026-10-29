@@ -67,8 +67,11 @@ export interface TurnContext {
 
 export interface TurnHandle {
   workerId: string;
+  // Claude CLI receives a UUID on its first turn. Codex and Cursor report
+  // their provider-owned session id through the init event instead.
   initialSessionId: string;
   settled: Promise<{ error?: string; lastPromptTokens?: number; modelContextWindow?: number }>;
+  // Fires once when a provider reports its authoritative resumable session id.
   onSessionDiscovered: (cb: (sessionId: string) => void) => void;
 }
 
@@ -196,6 +199,8 @@ export function runPrimaryTurn(
     // activity poll skips the tree-RSS kill for this primary turn. Operator
     // opt-in only — reviewers/handoff reflections never set this.
     disableRssGuard?: boolean;
+    // Additional stable context for the selected transport. Local providers
+    // can also use this field to carry the rendered workflow transcript.
     appendSystemPrompt?: string;
     // Provider-side system prompt. Today only the Ollama path consumes it
     // (sets behavior + tool-availability framing for local models). Pass
@@ -513,6 +518,9 @@ export function runPrimaryTurn(
         });
         return;
       case 'worker_tool_use': {
+        // Preserve the provider's tool-use id when supplied so chat-side
+        // action cards can correlate with the corresponding assistant block.
+        // Generate one only for providers that do not supply an id.
         const toolUseId = ev.toolUseId ?? randomUUID();
         ctx.broadcast({
           type: 'primary_tool_use',

@@ -15,7 +15,7 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 | Provider | Transport | Effort levels | Native resume | Notes |
 |---|---|---|---|---|
 | Claude | `cli` (alternate; also reviewers and handoff seeds) | low / medium / high / xhigh / max | UUID-based (`--session-id` / `--resume`) | Picker: `opus` / `sonnet` family aliases plus pinned ids (Opus 5.5, Fable 5.1, Sonnet 5, Opus 5, Opus 4.8, ...). Per-turn `claude` CLI spawn. Full two-way interop with terminal `claude`. Chat renders from `~/.claude/projects/<cwd-hash>/<sessionId>.jsonl`. Auto-handoff supported. |
-| Claude | `native` (new-home default) | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools). |
+| Claude | `native` (new-home default) | low / medium / high / xhigh / max | Replay from `events.jsonl` (Arco-internal; no terminal resume) | Long-lived in-process `@anthropic-ai/sdk` worker, no CLI spawn. OAuth subscription auth + pinned Claude Code wire fingerprint. Append-only request prefix with preserved thinking (required by Fable 5.1 / Mythos 5.1 / Opus 5.5). Ships its own Bash / Read / Edit / Grep / Glob / Task tools, Claude-Code-compatible hooks runner, server-side `compact` + auto-handoff + deterministic Fold, operator-armed plan-mode, parallel `Task` subagent fan-out (depth-1 cap), output-style picker (normal / lite / terse), and posture-based toolsets (operator cycles a full / coding / review / chat posture that scopes exposed tools).
 | Codex | `exec` (alternate; also reviewers and handoff seeds) | model/catalog-driven; Astra / Sol: low through ultra, Luna: through max | UUID-based (`codex exec resume`) | Default model GPT-6 Astra (Sol and Luna also in the cold-catalog fallback; the live `model/list` catalog is authoritative). MAX context by default. Per-turn `codex exec` spawn. Full two-way interop with terminal `codex`. Supported effort values pass through; older models are not widened to Astra-only levels. Reviewer runs `-s read-only`. Transcript hydration on Resume for unclaimed rollouts. |
 | Codex | `app-server` (new-home default) | model/catalog-driven (same as `exec`) | UUID-based (rollouts in `~/.codex/sessions/`) | Long-lived `codex app-server` per tab. Structured `turn/interrupt` cancel + non-destructive `turn/steer` mid-turn input + `localImage` attachments + crash-recovery circuit breaker + output-style picker + native compact with context-signal reset. Reviewers / handoff seeds always run on `exec`. |
 | Cursor | `acp` (default) + `print` | baked into the model id (`-low` / `-high` / `-xhigh` / `-max`) | `session/load` (loadSession capability) | Long-lived `cursor-agent acp` ACP worker; ~153 models incl. Grok. Steer / cancel / session resume / live model-swap via `session/set_model`. No per-turn token signal (the Usage tab is dashboard-polled). Cluster member via an in-process loopback HTTP MCP server. Read-only reviewer / primitives run a stateless `cursor-agent -p --mode ask` one-shot. |
@@ -47,13 +47,13 @@ interface ProviderProcess {
 
 `ProviderEvents` is a unified set every provider emits:
 
-- `init` — `{ model, sessionId? }` — provider has started; sessionId fires for Codex (thread_id) (opaque cascade id)
-- `text` — `{ text }` — streaming text delta
-- `thinking` — `{ text }` — reasoning block (Claude / Codex extended thinking)
-- `tool_use` — `{ tool, input, toolUseId? }` — tool invocation
-- `result` — `{ costUsd, durationMs, tokens }` — turn complete
-- `error` — `{ error, detail? }` — fatal failure
-- `system_notice` — `{ text }` — out-of-band status (rate-limit warnings, retry backoff)
+- `init`: `{ model, sessionId? }` indicates that the provider has started; Codex reports its `thread_id` here.
+- `text`: `{ text }` is an incremental assistant-text fragment.
+- `thinking`: `{ text }` is an incremental reasoning fragment when the transport exposes it.
+- `tool_use`: carries the tool name and serialized input, with optional status and provider item identifiers for progress updates.
+- `result`: closes the turn with final text, cost and duration, plus optional usage, context, and byte telemetry.
+- `error`: carries the fatal error text.
+- `system_notice`: reports transient status such as rate limits or retry backoff outside the assistant transcript.
 
 `server/src/providers/index.ts` is a thin factory:
 

@@ -92,6 +92,8 @@ After the three sections, if (and only if) you raised specific file-anchored con
 
 Rules for the block: it is a JSON array; \`severity\` is one of "info" | "warning" | "error"; \`line\` is a positive integer; \`file\` is repo-relative. Include only concerns you can anchor to a real file and line. Omit the block entirely if you have no file-anchored findings — the prose above is what matters; the block is an optional convenience.`;
 
+// Local reviewers receive an explicit instruction to inspect the live tree;
+// diff-only review can miss orphan files, seed-data drift, or broken wiring.
 const LOCAL_REVIEWER_ADDENDUM = `
 
 ---

@@ -616,6 +616,8 @@ export interface PrimaryTurnTokenUsageMessage {
   turnStartedAt: number;
   durationMs: number;
   provider: ProviderName;
+  // Identifies the transport that produced this reading. It is optional for
+  // historical events that predate transport telemetry.
   transport?: 'native' | 'cli' | 'exec' | 'appserver';
   // Anthropic-shape (Claude): input/cacheRead/cacheCreate are disjoint and
   // sum to the prompt size. OpenAI-shape (Codex): input is the full prompt

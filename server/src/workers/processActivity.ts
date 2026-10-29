@@ -10,8 +10,8 @@ export interface ProcessActivity {
   // Subprocess count below pid (includes nested grandchildren). 0 when the
   // worker is sitting idle waiting on an API response.
   descendantCount: number;
-  // Resident set size of the worker process itself (not including children).
-  // Useful for spotting runaway memory.
+  // Resident set size of the worker and all descendants. The RSS guard uses
+  // this aggregate so child tools are included in runaway-memory checks.
   rssBytes: number;
 }
 
@@ -53,8 +53,8 @@ async function readStat(pid: number): Promise<StatRow | null> {
 }
 
 // Build a PID → stat-row map by scanning /proc once. Cheap on Linux (~1ms for
-// a few hundred processes). We do this each probe so we don't miss
-// short-lived subprocesses.
+// a few hundred processes). Each probe takes a fresh snapshot so CPU and RSS
+// totals include nested and short-lived subprocesses when they are present.
 async function snapshotAllPids(): Promise<Map<number, StatRow>> {
   const out = new Map<number, StatRow>();
   let entries: string[];

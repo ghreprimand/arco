@@ -12,6 +12,8 @@ function parseOutputCapEnv(): number {
   }
   return n;
 }
+// Bounds returned worker text separately from process memory; truncation keeps
+// large transcripts and report output from growing without limit.
 export const MAX_WORKER_OUTPUT_BYTES = parseOutputCapEnv();
 
 function formatCapMb(bytes: number): string {
@@ -33,6 +35,8 @@ function parseRssEnv(): number {
   }
   return n;
 }
+// WorkerManager compares this with Linux RSS summed across the worker tree.
+// Workflow opt-out bypasses this memory guard only, not output caps or cancel cleanup.
 export const RSS_KILL_BYTES = parseRssEnv();
 
 // Canonical per-workflow artifacts directory. Duplicated from workflowMeta /

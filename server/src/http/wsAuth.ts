@@ -1,4 +1,12 @@
 
+// Session-cookie gate for the browser control surface, including WebSocket and
+// HTTP API requests. Origin checks limit hostile web pages but do not
+// authenticate local non-browser clients, so protected requests also require
+// a short-lived, process-signed HttpOnly cookie. Only the bounded agent-tool
+// routes below are exempt; the remaining API and upload routes are operator-only.
+// This is a browser-session boundary, not an operating-system sandbox: a local
+// process that deliberately forges browser metadata can still imitate a page.
+
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { IncomingMessage } from 'http';
 import { PORT } from '../server/constants.js';

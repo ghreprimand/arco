@@ -767,6 +767,9 @@ export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cw
       wf.autoHandoff.mode
       ?? cascade?.autoHandoffDefaults?.mode
       ?? 'original-worker';
+    // Keep mode resolution in sync with manual handoff: provider-specific
+    // resume capability is handled by handoffHandlers, which translates the
+    // original-worker choice where a live session cannot be reopened.
     const synthMsg: import('@arco/shared').HandoffRequestMessage = {
       type: 'handoff_request',
       workflowId,
@@ -2204,6 +2207,9 @@ export async function handleUserMessage(
         if (rendered) primaryAppendSystemPrompt = `Conversation so far:\n\n${rendered}`;
       }
 
+      // Local HTTP transports receive stable tool instructions through the
+      // provider system-prompt field; Claude and Codex transports fold them
+      // into their string-form prompt or native request blocks.
       const usesSystemPromptForSkills = wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek');
       const primarySkillsContext = [pinnedSkillsBlock, primarySkillsManifest].filter(Boolean).join('\n\n');
       let finalSystemPrompt = usesSystemPromptForSkills && primarySkillsContext

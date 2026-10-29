@@ -52,6 +52,9 @@ export function npmShimTarget(shimPath: string, text: string): string | null {
   return win32.join(win32.dirname(shimPath), match[1]);
 }
 
+// Resolve npm's Windows command shims to a Node entry point where possible.
+// This lets child-process callers pass argument arrays directly instead of
+// routing provider CLI arguments through cmd.exe shell parsing.
 export function resolveCommand(command: string, args: readonly string[] = [], opts: ResolveOptions = {}): ResolvedCommand {
   const platform = opts.platform ?? process.platform;
   if (platform !== 'win32') return { command, args: [...args] };

@@ -51,6 +51,7 @@ export interface ProviderProcess extends EventEmitter {
   readonly id: string;
   readonly status: 'spawning' | 'running' | 'completed' | 'failed';
   readonly output: string;
+  // Process id for tree monitoring and cancellation; absent for in-process and HTTP/RPC providers.
   readonly pid?: number;
   spawn(prompt: string): void;
   kill(): void;

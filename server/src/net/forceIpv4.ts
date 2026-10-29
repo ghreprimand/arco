@@ -1,3 +1,9 @@
+// Apply IPv4-first DNS behavior inside this server process before network
+// clients are initialized. Some runtime environments have incomplete IPv6
+// routing; default lookups therefore request IPv4 while explicit family
+// requests remain intact. This patch affects the server process only, not
+// separately spawned CLI processes.
+
 import dns from 'node:dns';
 
 // Belt-and-suspenders for any code that resolves addresses directly rather than

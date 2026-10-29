@@ -29,6 +29,9 @@ const SKIP_DIRS = new Set([
 const DISCOVERY_MAX_DEPTH = 6;
 const INSTRUCTION_NAME_SET = new Set<string>(INSTRUCTION_FILE_NAMES);
 
+// Discover recognized instruction files at the project root and in nested
+// folders. Results use project-relative paths and sort shallowest-first so
+// likely top-level guidance appears before files scoped to subdirectories.
 export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCandidate[]> {
   const found: MdTuneupCandidate[] = [];
   const walk = async (dir: string, depth: number): Promise<void> => {

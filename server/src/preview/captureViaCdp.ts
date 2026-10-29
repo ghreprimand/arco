@@ -12,6 +12,12 @@ import type {
   PreviewViewport,
 } from '@arco/shared';
 
+// Capture the running Live Preview through Chrome DevTools Protocol. The
+// system browser is discovered at runtime and driven over the existing
+// WebSocket dependency, avoiding a browser download during package install.
+// Missing browsers return a structured error; screenshots and probe data are
+// written only to the requested workflow artifact location.
+
 // G2 — device-class presets. `desktop` is the G1 default (no mobile emulation);
 // `tablet`/`mobile` set a narrower logical viewport and flip on mobile device-
 // metrics so responsive layouts collapse like they would on the real device.

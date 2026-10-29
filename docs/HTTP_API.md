@@ -1530,6 +1530,12 @@ When a terminal can't be found, or the systemd service has no desktop display en
 
 **Response:** always `200` with `{ started: boolean, manual?: string }` - `started: true` = the OAuth flow launched (spawned / a terminal opened); `started: false` carries the `manual` fallback. (A truly unexpected throw is a `500 { error }`.)
 
+### `POST /api/check-updates?provider=<claude|codex>`
+
+Runs the selected CLI updater, probes capabilities again, and broadcasts the refreshed snapshot as `capabilities_updated`. `provider` defaults to `claude`; unrecognized non-retired values also select Claude. Retired provider identifiers return `400` with an unsupported-provider error. Claude uses its built-in updater; Codex uses npm installation with a platform-installability check and a repair retry when the post-update probe cannot run the CLI.
+
+**Response:** `{ provider, updated, previousVersion, currentVersion, capabilities, output, notice?, error? }`. `notice` explains a selected installable version when the registry's latest release is not ready for the current platform. A CLI that remains unavailable after the update returns `updated: false` and an error.
+
 ## Claude Native auth
 
 OAuth bootstrap for the in-process Claude Native transport. Tokens persist to `~/.arco/auth.json`; refresh races serialized via `proper-lockfile`. Local callback server binds port `53692`; when binding fails (the operator's remote-only setup, or the port is otherwise held), the bootstrap falls back to manual paste - see `docs/GOTCHAS.md Native transport` for the EADDRINUSE rule.
@@ -1701,6 +1707,10 @@ Probes Claude's 5-hour and weekly usage from the OAuth API at `https://api.anthr
 ```
 
 Drives the Claude usage bars exposed via the `CLAUDE [LIVE]` pill's hover popover in `UsageBar`.
+
+### `POST /api/debug/throttle?provider=<claude|codex|ollama>[&resets=<epochMs>][&clear=1]`
+
+Test and acceptance helper for provider quota indicators. The provider value marks that provider throttled until `resets` (default: 30 minutes from the request); `clear=1` clears the throttle. Returns `{ ok: true, providers }` with the current quota snapshot, or `400` for an unsupported provider. This endpoint changes in-memory quota state only and does not call a provider.
 
 ### `GET /api/codex-usage[?force=1&account=<id>&source=camoufox]`
 

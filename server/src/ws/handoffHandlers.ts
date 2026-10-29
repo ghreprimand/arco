@@ -299,6 +299,10 @@ export async function handleHandoffRequest(
   const resumable = wf.primary.provider === 'claude' || wf.primary.provider === 'codex';
   let effectiveMode = msg.mode;
   let translatedSummarizer = effectiveSummarizer;
+  // A non-resumable provider cannot reopen a live session. Preserve the
+  // operator's "original worker" choice by having the same model reread the
+  // transcript through the summarizer path, with the configured summarizer as
+  // a fallback when the transcript is too large for that model.
   if (effectiveMode === 'original-worker' && !resumable) {
     // Overflow heuristic: the summarizer must re-read roughly the whole
     // conversation. If live context is already near full, a same-sized local
@@ -344,11 +348,9 @@ export async function handleHandoffRequest(
     }
   }
 
-  // Safety net for the still-no-session cases that didn't hit the WP6 translation
-  // above (resumable providers that haven't taken a turn yet, or a provider with
-  // no original-worker reflection path). Quietly degrade to fresh-summarizer
-  // rather than erroring out on exportContext's error path. exportContext only
-  // implements original-worker for Claude (cli + native), Codex.
+  // Safety net for resumable providers that have not taken a turn yet and for
+  // providers without an original-worker reflection path. Degrade to the
+  // fresh-summarizer path rather than failing during artifact export.
   const originalWorkerEligible = wf.primary.provider === 'claude' || wf.primary.provider === 'codex';
   if (effectiveMode === 'original-worker' && (!originalPrimary || !originalWorkerEligible)) {
     const why = !originalWorkerEligible ? `provider ${wf.primary.provider} has no original-worker path` : 'no resumable session';

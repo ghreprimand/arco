@@ -1,3 +1,8 @@
+// Codex CLI exec transport: each turn streams JSONL and can resume a session
+// by its stable UUID. The sandbox mode controls filesystem access: normal
+// workers use workspace-write or danger-full-access from the workflow setting;
+// read-only review work uses the restricted read-only mode.
+
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';

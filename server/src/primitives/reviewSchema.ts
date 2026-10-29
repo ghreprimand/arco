@@ -3,6 +3,12 @@ import type { Finding, FindingSeverity } from './parseReviewFindings.js';
 
 export type ReviewVerdict = 'PASS' | 'MINOR' | 'BLOCKING';
 
+// Ollama can constrain decoding with a JSON Schema, which makes verdict and
+// finding extraction more reliable for local models. The schema represents the
+// review's Summary, Concerns and Verdict sections; reconstruction keeps the
+// persisted markdown artifact and clickable findings in their existing format.
+// Other providers continue to use the tolerant free-text parser.
+
 // The structured review object the Ollama model is constrained to emit. Mirrors
 // the three prose sections + the optional findings array. `concerns` is free
 // prose (may be "None."); `findings` is the file-anchored convenience list.

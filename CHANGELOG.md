@@ -30,6 +30,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Correct provider, transport, instruction-file, and Docker guidance in the in-app manual and reference docs.
 
+- Restore retained-provider routing and HTTP API guidance after provider removal.
+
 - Preserve historical worker provider labels in the detail viewer instead of displaying Ollama for retired providers.
 
 - Keep Recall draft actions reachable when browser zoom and interface size constrain the dialog.

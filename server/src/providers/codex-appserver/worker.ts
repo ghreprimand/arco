@@ -1,3 +1,8 @@
+// Long-lived Codex app-server worker, scoped to one workflow. Turns share one
+// JSON-RPC connection; notifications stream progress, `turn/interrupt` cancels
+// the active turn, and `turn/steer` adds input without waiting for a new turn.
+// See `docs/PROVIDERS.md` for the user-facing transport behavior.
+
 import { CodexOperatorQuestions } from './operatorQuestions.js';
 
 import { spawn, type ChildProcess } from 'child_process';

@@ -18,6 +18,10 @@
 //                        session is otherwise unavailable.
 //
 // Both paths persist to `<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`.
+// Original-worker mode needs a resumable Claude or Codex session. Providers
+// without that session path use a fresh summarizer, optionally pinned to the
+// source provider, so the operator can still choose the original worker's
+// context without implying that a native session is being resumed.
 
 import { promises as fs } from 'fs';
 import path from 'path';

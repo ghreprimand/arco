@@ -15,9 +15,9 @@ Pick the model the task actually needs, then the cheapest option at that capabil
 
 The clearest mental discriminator: **judgment vs execution**.
 
-- **Judgment** work: novel decomposition, architecture, hard debugging, cross-system reasoning, high-stakes review, recognizing when a worker output is wrong. → **Opus-3.1-pro-preview / GPT-5.5 / GPT-5.1-codex-max.**
-- **Execution** work: implementing against a clear spec, refactoring, running shell commands, drafting prose, summarizing. → **Sonnet-3-flash-preview / GPT-5.4-mini / GPT-5.3-codex.**
-- **Bulk / cheap** work: file lookups, simple greps, bulk classification. → **Haiku-3.1-flash-lite-preview / GPT-5.1-codex-mini.**
+- **Judgment** work: novel decomposition, architecture, hard debugging, cross-system reasoning, high-stakes review, recognizing when a worker output is wrong. Use **Opus / GPT-5.5 / GPT-5.1-codex-max**.
+- **Execution** work: implementing against a clear spec, refactoring, running shell commands, drafting prose, summarizing. Use **Sonnet / GPT-5.4-mini / GPT-5.3-codex**.
+- **Bulk / cheap** work: file lookups, simple greps, bulk classification. Use **Haiku / GPT-5.1-codex-mini**.
 
 Never substitute lesser models on judgment work just to save tokens. Conversely, never burn judgment-tier tokens on pure execution.
 
@@ -38,7 +38,7 @@ The operator can set a per-workflow Claude effort floor via `minClaudeWorkerEffo
 
 When a worker writes a report file (the server-appended footer points it at the workflow artifacts directory), reference the file in chat as `[artifact:<name>]` — e.g. `[artifact:audit-spawns.md]`. Place the marker on its own line (blank line before and after) so the client can render the inline-expand affordance cleanly — mid-paragraph refs split the paragraph in the rendered view. Use bare filenames; don't wrap the marker in code fences or inline backticks.
 
-**Open-ended asks are not opus signals.** A "deep dive on X", "investigate Y", "tell me about Z" prompt is broad in *scope*, not necessarily *judgment-bound*. Sonnet at `max` (or gpt-5.4-mini at their max) answers these better than opus at medium — and sonnet@max is ~5–10× cheaper than opus@max. Only escalate to opus / pro / gpt-5.5 when the task genuinely requires hard reasoning (architecture, root-cause debugging, critical review). Prompt breadth ≠ judgment depth.
+**Open-ended asks are not opus signals.** A "deep dive on X", "investigate Y", "tell me about Z" prompt is broad in scope, not necessarily judgment-bound. Sonnet at `max` or GPT-5.4-mini at its maximum effort can handle many broad investigations; reserve Opus or GPT-5.5 for work that requires hard reasoning (architecture, root-cause debugging, critical review). Prompt breadth does not imply judgment depth.
 
 ## Dispatch modes — pick one per turn
 
@@ -54,21 +54,21 @@ Match the operator's ask to the closest row. Pick PREFERRED. If output fails QC,
 
 | Task class                                    | Preferred                       | Fallback                        | Escalate-to            |
 |-----------------------------------------------|---------------------------------|---------------------------------|------------------------|
-| Plan / decompose / architect (round 1)        | opus                            | - | gpt-5.1-codex-max      |
+| Plan / decompose / architect (round 1)        | opus                            | -                               | gpt-5.1-codex-max      |
 | Code: simple feature against clear spec       | sonnet                          | gpt-5.3-codex                   | opus                   |
 | Code: multi-file refactor                     | sonnet                          | gpt-5.3-codex                   | opus                   |
 | Code: deep debugging (unknown root cause)     | opus                            | gpt-5.1-codex-max               | (operator)             |
 | Code: write tests against known behavior      | sonnet                          | gpt-5.4-mini                    | opus                   |
 | Code: review / audit (correctness, security)  | opus                            | gpt-5.1-codex-max               | (operator)             |
-| File lookup / search / grep                   | haiku                           | - | sonnet                 |
-| Summarization (< 10k input)                   | haiku                           | - | sonnet                 |
-| Summarization (10k–100k input)                | - | sonnet                          | - |
-| Summarization (> 100k input)                  | - | opus                            | (operator)             |
-| Investigation / deep-dive (open-ended)        | sonnet                          | - | opus                   |
-| Web research                                  | sonnet                          | - | - |
-| Drafting prose (docs, commits, PR bodies)     | sonnet                          | - | opus                   |
-| Bulk classification / extraction              | - | haiku                           | sonnet                 |
-| Long-context read (large / many files)        | - | opus                            | (operator)             |
+| File lookup / search / grep                   | haiku                           | -                               | sonnet                 |
+| Summarization (< 10k input)                   | haiku                           | -                               | sonnet                 |
+| Summarization (10k-100k input)                | -                               | sonnet                          | -                      |
+| Summarization (> 100k input)                  | -                               | opus                            | (operator)             |
+| Investigation / deep-dive (open-ended)        | sonnet                          | -                               | opus                   |
+| Web research                                  | sonnet                          | -                               | -                      |
+| Drafting prose (docs, commits, PR bodies)     | sonnet                          | -                               | opus                   |
+| Bulk classification / extraction              | -                               | haiku                           | sonnet                 |
+| Long-context read (large / many files)        | -                               | opus                            | (operator)             |
 | Uncensored content analysis                   | heretic                         | (none)                          | (operator)             |
 | Local coding (Qwen3.6-27B, text+tools)         | coder                           | sonnet                          | opus                   |
 | Local vision (Qwen3-VL-30B, image input)       | qwen3-vl                        | sonnet                          | opus                   |
@@ -118,7 +118,7 @@ Use when the model architecture you need isn't yet wired up by Ollama. Today's s
 - **Rewriting the operator's prompt into a checklist.** If the operator asked in 20 words, the worker task should also be close to 20 words. Adding "investigate these 7 categories" is reframing, not routing.
 - **Opus for file lookups** — burn Haiku tokens, not frontier ones.
 - **Haiku for architecture** — ambiguous tasks fail at this tier. Opus.
-- **Codex for non-code work** — Codex CLI is tuned for code. Prose / research / general reasoning go to Claude .
+- **Codex for non-code work**: Codex CLI is tuned for code. Prose, research, and general reasoning go to Claude.
 - **Heretic as general-purpose** — specialist only.
 - **Same model 3x failing in a row** — change tier or family. Don't loop.
 - **Fanning out on a single-ask prompt** — "do a deep dive on X" is ONE ask (passthrough), not a fan-out trigger.

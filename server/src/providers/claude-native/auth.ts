@@ -6,6 +6,11 @@ import * as lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../../atomicFile.js';
 import { arcoHome } from '../../arcoHome.js';
 
+// Store Native OAuth credentials in the `claude.native` namespace so other
+// authentication modes can coexist without overwriting them. Restrictive file
+// permissions, atomic replacement and a lock around refresh protect the token
+// update; the lock is released before model requests are sent.
+
 export interface ClaudeNativeTokens {
   accessToken: string;
   refreshToken: string;

@@ -3,9 +3,10 @@ import { spawn } from 'node:child_process';
 
 const DEFAULT_GRACE_MS = 5000;
 
-// Windows has no process groups or POSIX signals: `process.kill` there ends
-// only the one process. `taskkill /T /F` ends the process and every
-// descendant it started (a shell's provider CLI, for example).
+// On Unix, a detached child PID is also its process-group ID; signaling the
+// group reaches shells and their descendants. Windows has no
+// process groups or POSIX signals: `process.kill` ends only one process, while
+// `taskkill /T /F` ends it and its descendants.
 export function windowsTreeKillArgs(pid: number): string[] {
   return ['/pid', String(pid), '/T', '/F'];
 }
