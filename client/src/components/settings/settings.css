@@ -1,4 +1,4 @@
-.settings-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9200;padding:20px}
+.settings-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9600;padding:20px}
 .settings-dialog{width:100%;max-width:960px;max-height:calc(100vh / var(--ui-scale, 1) - 40px);background:var(--color-bg-panel);border:1px solid var(--color-border-hairline);border-radius:6px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
 .settings-header{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .settings-header h2{font-size:14px;letter-spacing:4px;margin:0}

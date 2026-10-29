@@ -18,6 +18,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Open provider Settings above setup and return to the same Connections selection with keyboard focus intact.
+
 - Keep the Settings close button accessible at larger interface sizes while settings content scrolls.
 
 - Default Computer to a connected agent, offer Connections when none is available, and explain its workbench-only scope.

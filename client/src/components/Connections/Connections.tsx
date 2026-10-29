@@ -24,6 +24,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
   const auth = useAppStore(s=>s.authStatus), settings = useAppStore(s=>s.settings);
   const setAuth = useAppStore(s=>s.setAuthStatus), setSettings = useAppStore(s=>s.setSettings);
   const connected = useAppStore(s=>s.connected);
+  const settingsOpen = useAppStore(s=>s.showSettings);
   const selected = useStartupStore(s=>s.setupProvider) ?? 'claude';
   const [catalog,setCatalog] = useState<ConnectionCatalog | null>(null);
   const [catalogError,setCatalogError] = useState(''), [note,setNote] = useState('');
@@ -124,7 +125,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
     if(e.shiftKey && (document.activeElement===first || document.activeElement===dialog.current)){e.preventDefault();last?.focus();}
     else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first?.focus();}
   };
-  return <div className="connections-backdrop">
+  return <div className="connections-backdrop" inert={settingsOpen} aria-hidden={settingsOpen || undefined}>
     <div className="connections-dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="provider-setup-title" aria-describedby="provider-setup-intro" tabIndex={-1} onKeyDown={trap} data-help="auth.connections">
       <header className="connections-header"><div><h1 id="provider-setup-title">{mode==='gate'?'Welcome - Connections':'Connections'}</h1>
         <p id="provider-setup-intro">Connect an AI tool, choose a project, then start work. Provider sign-in, API credentials, local services and tool accounts are different access paths.</p>

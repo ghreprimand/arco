@@ -83,7 +83,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
   useEffect(() => {
     if (!initial?.focus) search.current?.focus();
     const back = opener.current;
-    return () => { if (back?.isConnected) back.focus(); };
+    return () => { requestAnimationFrame(() => { if (back?.isConnected) back.focus(); }); };
   }, []);
 
   // A request while open (Connections, the outage banner, a deep link).
@@ -110,6 +110,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
     } else {
       el.scrollIntoView({ block: 'start' });
       (el.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled), select:not(:disabled), textarea:not(:disabled)') ?? el).focus({ preventScroll: true });
+      if (!root.contains(document.activeElement)) content.current?.focus({ preventScroll: true });
     }
     setFocus(null);
     clearRequest(null);
@@ -130,6 +131,13 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
     <div className="settings-backdrop" onClick={close}>
       <Panel ref={dialog} className="settings-dialog" role="dialog" aria-label="Settings" aria-modal="true" onClick={(e: React.MouseEvent) => e.stopPropagation()}
         onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Tab' && dialog.current && (e.target as HTMLElement).closest('[role="dialog"]') === dialog.current) {
+            const list = [...dialog.current.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]')].filter(el => el.getClientRects().length > 0);
+            const first = list[0], last = list.at(-1);
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+            return;
+          }
           if (e.key !== 'Escape' || e.defaultPrevented || (e.target as HTMLElement).closest('[role="dialog"]') !== dialog.current) return;
           if (e.target === search.current) { e.preventDefault(); e.stopPropagation(); if (query) setQuery(''); else close(); return; }
           if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
@@ -137,6 +145,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
         }}>
         <header className="settings-header">
           <h2 className="display-font glow-text-bright">SETTINGS</h2>
+          {document.querySelector('.connections-backdrop') && <span>Close Settings to return to Connections.</span>}
           <button type="button" className="display-font" onClick={close} aria-label="Close settings">CLOSE ✕</button>
         </header>
         <label className="settings-search" data-help="settings.navigation">Find a setting

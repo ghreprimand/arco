@@ -954,7 +954,7 @@ ${scopeBody}
       </div>
 
       {computerOpen && <ComputerPanel onLoadEarlier={loadEarlierMessages} onCancel={cancel} onSend={sendMessage} />}
-      {setupOpen && !showSettings && <AuthOverlay mode="dialog" />}
+      {setupOpen && <AuthOverlay mode="dialog" />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {showManual && <UserManual onClose={() => setShowManual(false)} />}
       <HelpBanner />

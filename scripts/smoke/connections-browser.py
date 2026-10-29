@@ -173,6 +173,42 @@ async def first_run(playwright,server):
         assert not state['checks'] and not state['logins'],'browsing/skip never starts provider actions'
     finally: await b.close()
 
+async def setup_settings_navigation(playwright,server):
+    b,page,state=await browser(playwright,server,ready=False,fresh=True)
+    try:
+        writes=[]
+        page.on('request',lambda req: writes.append(req.post_data_json) if req.method == 'POST' and urlparse(req.url).path == '/api/settings' else None)
+        await page.set_viewport_size({'width':1280,'height':720})
+        await page.get_by_role('button',name='Get started',exact=True).click()
+        await page.get_by_role('button',name='Skip this step',exact=True).click()
+        dialog=page.get_by_role('dialog',name='Welcome - Connections',exact=True)
+        codex=await choose(dialog,'Codex')
+        for scale in (1.1,1.5):
+            await page.evaluate("scale => {document.documentElement.style.zoom=scale;document.documentElement.style.setProperty('--ui-scale',scale)}",scale)
+            for name,section in [('Transport defaults','transport-defaults'),('Accounts and profiles','authentication'),('Runtime versions','cli-versions'),('PROVIDER SETTINGS','authentication'),('All provider controls','enabled-providers')]:
+                opener=dialog.get_by_role('button',name=name,exact=True)
+                await opener.click()
+                settings=page.get_by_role('dialog',name='Settings',exact=True)
+                await settings.locator(f'[data-settings-section="{section}"]:not([hidden])').wait_for()
+                await expect(settings.get_by_text('Close Settings to return to Connections.')).to_be_visible()
+                assert await page.locator('.connections-backdrop').evaluate("el => el.inert && el.getAttribute('aria-hidden') === 'true'"), f"backdrop not inert: {name}"
+                assert await settings.evaluate("el => el.contains(document.activeElement)"), f"focus escaped Settings: {name}"
+                close=settings.get_by_role('button',name='Close settings',exact=True)
+                await close.focus()
+                await page.keyboard.press('Shift+Tab')
+                assert await settings.evaluate("el => el.contains(document.activeElement)"), f"focus escaped Settings: {name}"
+                if name == 'Runtime versions':
+                    await close.focus(); await page.keyboard.press('Escape')
+                else:
+                    await close.click(timeout=3000)
+                await expect(opener).to_be_focused()
+                await expect(dialog.get_by_role('region',name='Codex connection')).to_be_visible()
+        assert await page.get_by_role('heading',name='Setup complete').count()==0
+        assert not any(isinstance(body,dict) and body.get('onboardingComplete') for body in writes), 'opening Settings must not complete setup'
+        await no_launch(page)
+        assert not state['checks'] and not state['logins']
+    finally: await b.close()
+
 async def categories(playwright,server):
     b,page,state=await browser(playwright,server)
     try:
@@ -293,6 +329,9 @@ async def scoped_login(playwright,server):
         await codex.get_by_role('button',name='Accounts and profiles',exact=True).click()
         settings=page.get_by_role('dialog',name='Settings',exact=True)
         await settings.locator('[data-help="settings.codex-profiles"]').wait_for()
+        await settings.get_by_role('button',name='Close settings',exact=True).click()
+        await expect(codex.get_by_role('button',name='Accounts and profiles',exact=True)).to_be_focused()
+        await expect(dialog.get_by_role('region',name='Codex connection')).to_be_visible()
         await no_launch(page)
     finally:await b.close()
 
@@ -302,7 +341,7 @@ async def main():
     failed=[]
     try:
         async with h.async_playwright() as playwright:
-            for label,run in [('first-run skip and returning continuity',first_run),('categories, source, disabled and unavailable states',categories),('explicit selected checks and failed endpoint saves',checks_and_endpoints),('login recovery, fallback and deep links',login_and_deep_links),('provider-owned code flow and account profiles',scoped_login)]:
+            for label,run in [('setup settings navigation',setup_settings_navigation),('first-run skip and returning continuity',first_run),('categories, source, disabled and unavailable states',categories),('explicit selected checks and failed endpoint saves',checks_and_endpoints),('login recovery, fallback and deep links',login_and_deep_links),('provider-owned code flow and account profiles',scoped_login)]:
                 if len(sys.argv)>1 and sys.argv[1] not in label:continue
                 try:
                     await asyncio.wait_for(run(playwright,server),120)
