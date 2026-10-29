@@ -245,7 +245,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
         style={{
           width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))', height: 'calc(88vh / var(--ui-scale, 1))', maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
           background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-bright)',
-          borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
+          borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflowY: 'auto',
           fontFamily: 'var(--font-body)',
         }}
       >

@@ -20,6 +20,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep Recall draft actions reachable when browser zoom and interface size constrain the dialog.
+
 - Open provider Settings above setup and return to the same Connections selection with keyboard focus intact.
 
 - Keep the Settings close button accessible at larger interface sizes while settings content scrolls.

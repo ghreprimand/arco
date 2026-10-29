@@ -167,7 +167,7 @@ async def check(browser, scale, scenario):
         assert after['width'] < before['width'], (before, after)
         await page.keyboard.press('Home')
         await page.evaluate("window.__pickerRoot.unmount(); document.getElementById('standalone-picker-test').remove()")
-        await page.set_viewport_size({'width':1280,'height':720})
+        await page.set_viewport_size({'width':1024,'height':576})
         await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setShowRecall(true)}")
         recall=page.get_by_role('dialog',name='Recall')
         await expect(recall).to_be_visible()
@@ -178,6 +178,7 @@ async def check(browser, scale, scenario):
         await expect(recall.locator('[data-help="recall.summary-viewer"]')).to_be_visible()
         await expect(recall.locator('[data-help="recall.distill-kb"]')).to_be_visible()
         assert await recall.get_by_role('region',name='Recall results').evaluate('el => el.getBoundingClientRect().height >= 50')
+        await recall.get_by_role('button',name='SAVE TO KB').scroll_into_view_if_needed()
         await expect(recall.get_by_role('button',name='SAVE TO KB')).to_be_in_viewport()
         assert await recall.get_by_role('button',name='SAVE TO KB').evaluate("el => {const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}")
         await recall.get_by_role('button',name='Maximize dialog').click()
@@ -187,6 +188,7 @@ async def check(browser, scale, scenario):
         await recall.get_by_role('button',name='Resize dialog').focus()
         await page.keyboard.press('Escape')
         await expect(recall).to_have_count(0)
+        await page.set_viewport_size({'width':1280,'height':720})
         assert not [path for path in writes if path != '/api/session'], writes
     assert await page.locator('#home-add').count() == 0
     await expect(page.get_by_role('button', name='Arco v0.1.0', exact=True)).to_be_visible()
