@@ -81,6 +81,7 @@ async def setup_chat(playwright):
         b, page = await page_for(playwright, server)
         await page.get_by_role('heading', name='Welcome to Arco', exact=True).wait_for()
         await page.get_by_role('button', name='Get started', exact=True).click()
+        await page.get_by_role('button',name='Add a single project folder',exact=True).click()
         await page.get_by_label('Project folder path', exact=True).fill(str(server.projects / 'missing'))
         await page.get_by_role('button', name='Add folder', exact=True).click()
         await expect(page.get_by_role('status')).to_contain_text('project directory')
@@ -196,6 +197,7 @@ async def folder_browser(playwright):
         b, page = await page_for(playwright, server)
         await page.set_viewport_size({'width': 760, 'height': 520})
         await page.get_by_role('button', name='Get started', exact=True).click()
+        await page.get_by_role('button',name='Add a single project folder',exact=True).click()
         await expect(page.get_by_role('button', name='Scan folder', exact=True)).to_have_count(0)
         shortcuts = page.get_by_label('Folder shortcuts', exact=True)
         assert await shortcuts.get_by_role('button').count() <= 6
@@ -216,7 +218,7 @@ async def folder_browser(playwright):
         assert (await (await page.request.get(server.base + '/api/installation-history')).json())['used'] is False
         assert '/api/settings' not in b.writes
         await page.get_by_role('button', name='Add this folder', exact=True).click()
-        await expect(page.get_by_role('heading', name='Add project folders', exact=True)).to_be_visible()
+        await expect(page.get_by_role('heading', name='Add project locations', exact=True)).to_be_visible()
         await page.get_by_role('button', name='Continue', exact=True).click()
         await page.get_by_role('heading', name='Welcome - Connections', exact=True).wait_for()
         settings = json.loads((server.home / '.arco/settings.json').read_text())
@@ -230,10 +232,10 @@ async def folder_browser(playwright):
         await page.evaluate("""async root => { const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({projectRoots:[{name:'Projects',path:root}]})}); if (!res.ok) throw new Error('scan setting refused'); }""", str(root))
         await page.get_by_role('button', name='Reload list', exact=True).click()
         group = page.locator('section[aria-labelledby="home-group-root-0"]')
-        await expect(group.locator('summary')).to_contain_text('(150)')
-        await expect(group.get_by_role('button', name='sample-000', exact=True)).to_be_hidden()
-        await page.get_by_label('Search projects (press /)', exact=True).fill('sample-149')
-        await expect(group.get_by_role('button', name='sample-149', exact=True)).to_be_visible()
+        await expect(group.get_by_role('heading',level=3)).to_contain_text('151 folders')
+        await expect(group.get_by_role('button', name='sample-000 Open folder', exact=True)).to_be_visible()
+        await page.get_by_label('Search folders (press /)', exact=True).fill('sample-149')
+        await expect(group.get_by_role('button', name='sample-149 Open folder', exact=True)).to_be_visible()
         print('PASS: bounded folder browser, root shortcuts, UP, new folder and explicit registration; setup never configures scanning')
     finally:
         if b:

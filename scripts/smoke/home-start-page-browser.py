@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
+from home_controls import open_saved_project_form
 
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5196') + '/'
 ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', '/tmp/arco-home-start-page'))
@@ -17,16 +18,19 @@ def project(name, folder, index, **extra):
 
 async def check(browser, scale, scenario):
     populated = scenario == 'populated'
-    discovery = scenario == 'discovery'
+    discovery = scenario in ['discovery', 'multiple']
     context = await browser.new_context(viewport={'width': 1280, 'height': 720})
     await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{scale}');")
     state = {'projects': [project('Harbor', '/projects/harbor', 1, pinned=True), project('Field notes', '/work/field-notes', 2), project('Moved project', '/work/old-location', 3, exists=False), project('Archived toolkit', '/work/toolkit', 4, archived=True)] if populated else [], 'messages': []}
     state['projects'] += [{'name': 'discovered', 'path': '/projects/discovered/sample', 'source': 'scanned', 'exists': True}] if populated else []
     roots = [{'name': 'Work', 'path': '/projects', 'exists': True}, {'name': 'Personal', 'path': '/work', 'exists': True}, {'name': 'Offline drive', 'path': '/offline', 'exists': False}] if populated or discovery else []
     if populated or discovery:
-        state['projects'] = [p for p in state['projects'] if p['source'] != 'scanned'] + [{'name': f'discovered-{i:03}', 'path': f'/projects/discovered-{i:03}', 'source': 'scanned', 'exists': True} for i in range(151)]
+        names = ['api-service','design-studio','render-tools','research-notes','utilities','web-client'] + [f'workspace-{i:03}' for i in range(6,151)]
+        state['projects'] = [p for p in state['projects'] if p['source'] != 'scanned'] + [{'name':name, 'path':'/projects/'+name, 'source':'scanned', 'exists':True} for name in names]
         for p in state['projects']:
             p['rootPath'] = '/projects' if p['path'].startswith('/projects/') else '/work'
+    if scenario == 'discovery': roots = roots[:1]
+    if scenario == 'multiple': state['projects'] += [{'name':f'personal-{i}', 'path':f'/work/personal-{i}', 'source':'scanned', 'exists':True, 'rootPath':'/work'} for i in range(2)]
     errors, writes = [], []
 
     async def api(route):
@@ -48,7 +52,7 @@ async def check(browser, scale, scenario):
             data = {'roots': roots, 'projects': state['projects'], 'organization': True, 'scanFolder': '/projects/discovered' if populated else None, 'homeFolder': '/projects'}
         elif path == '/api/list-dirs':
             folder = parse_qs(urlparse(request.url).query).get('path', ['/projects'])[0] or '/projects'
-            data = {'parent': folder, 'dirs': [{'name': 'harbor', 'path': '/projects/harbor'}] if folder == '/projects' else []}
+            data = {'parent': folder, 'dirs': [{'name':p['name'], 'path':p['path']} for p in state['projects'] if p['exists'] and p['path'].rsplit('/',1)[0] == folder]}
         elif path == '/api/sessions':
             folder = parse_qs(urlparse(request.url).query).get('path', [''])[0]
             data = {'sessions': [{'sessionId': 'saved-fixture-session', 'name': 'Plan the next small release', 'provider': 'claude', 'cwd': folder, 'startedAt': 1793210400000}] if folder == '/projects/harbor' else []}
@@ -85,14 +89,34 @@ async def check(browser, scale, scenario):
         await expect(page.get_by_text('Private fixture conversation', exact=True)).to_have_count(0)
         assert not await page.get_by_role('listitem', name='Project discovered', exact=True).count()
     else:
-        await expect(page.get_by_role('heading', name='No saved projects yet', exact=True)).to_be_visible()
+        await expect(page.get_by_role('heading', name='Project locations', exact=True)).to_be_visible()
+        await expect(page.get_by_role('heading',name='No saved projects yet',exact=True)).to_have_count(0)
         await expect(page.get_by_text('No provider connected', exact=False)).to_be_visible()
     if discovery:
         group = page.locator('section[aria-labelledby="home-group-root-0"]')
-        await expect(group.locator('summary')).to_have_text('Discovered folders (151)')
-        await expect(group.get_by_role('button', name='discovered-150', exact=True)).to_be_hidden()
-        assert await page.locator('.home-project-card').count() == 0
-        await expect(page.get_by_role('heading', name='Projects', exact=True)).to_be_visible()
+        await expect(group.get_by_role('heading')).to_contain_text('151 folders')
+        assert await group.locator('.home-folder-list button').count() == 6
+        await expect(group.get_by_role('button',name='api-service Open folder',exact=True)).to_be_visible()
+        await group.get_by_role('button',name='Show all 151 folders',exact=True).click()
+        assert await group.locator('.home-folder-list button').count() == 151
+        assert await group.locator('.home-location-folders.expanded').evaluate('el=>el.scrollHeight>el.clientHeight && el.clientHeight>0')
+        await group.get_by_role('button',name='Show fewer',exact=True).click()
+        assert await group.locator('.home-folder-list button').count() == 6
+        await page.get_by_label('Search folders (press /)',exact=True).fill('workspace-150')
+        await expect(group.get_by_role('button',name='workspace-150 Open folder',exact=True)).to_be_visible()
+        await page.get_by_label('Search folders (press /)',exact=True).fill('Work')
+        await expect(group.get_by_role('heading')).to_contain_text('151 folders')
+        await page.get_by_label('Search folders (press /)',exact=True).fill('')
+        await group.get_by_role('button',name='api-service Open folder',exact=True).click()
+        await expect(page.get_by_placeholder('Pick a project below, or type a folder path',exact=True)).to_have_value('/projects/api-service')
+        await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showHomeView();}")
+        await page.locator('#home-title').wait_for()
+        await group.get_by_role('button',name='Browse Work',exact=True).click()
+        dialog=page.get_by_role('dialog',name='Open another folder',exact=True)
+        await expect(dialog.get_by_label('Browse folder path',exact=True)).to_have_value('/projects')
+        await page.keyboard.press('Escape')
+        await expect(dialog).to_have_count(0)
+        assert not [path for path in writes if path != '/api/session'], writes
     assert await page.locator('#home-add').count() == 0
     await expect(page.get_by_role('button', name='Arco v0.1.0', exact=True)).to_be_visible()
     assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
@@ -117,9 +141,10 @@ async def check(browser, scale, scenario):
     await page.evaluate("""async () => { const {useAppStore:s} = await import('/src/stores/appStore.ts'); s.setState({settings:{...s.getState().settings,updateCheck:false}}); }""")
     await expect(page.get_by_role('button', name='Arco v0.1.0', exact=True)).to_be_visible()
     # Add is explicit, keyboard reachable, and works for arbitrary paths.
-    await page.get_by_role('button', name='Add project', exact=True).click()
-    dialog = page.get_by_role('dialog', name='Add project', exact=True)
+    await open_saved_project_form(page)
+    dialog = page.get_by_role('dialog', name='Open another folder', exact=True)
     await expect(dialog).to_be_visible()
+    await page.locator('#home-add').focus()
     await expect(page.locator('#home-add')).to_be_focused()
     assert await dialog.evaluate('(el) => el.getBoundingClientRect().top >= 0 && el.getBoundingClientRect().bottom <= innerHeight + 1')
     await page.locator('#home-add').fill('/work/shared/notes')
@@ -127,7 +152,7 @@ async def check(browser, scale, scenario):
     await expect(dialog.locator('#home-add-status')).to_have_text('Added /work/shared/notes.')
     await page.keyboard.press('Escape')
     await expect(dialog).to_have_count(0)
-    await expect(page.get_by_role('button', name='Add project', exact=True)).to_be_focused()
+    await expect(page.get_by_role('button', name='Open another folder', exact=True)).to_be_focused()
     assert [path for path in writes if path != '/api/session'] == ['/api/projects'], writes
     assert not any(message.get('type') in ('create_workflow', 'send_prompt', 'create_cluster') for message in state['messages'])
     assert not errors, errors
@@ -140,7 +165,7 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         for scale in [1.1, 1.5]:
-            for scenario in ['empty', 'discovery', 'populated']:
+            for scenario in ['empty', 'discovery', 'multiple', 'populated']:
                 await check(browser, scale, scenario)
         await browser.close()
 

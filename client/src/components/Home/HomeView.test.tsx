@@ -42,14 +42,14 @@ test('Home is a labelled landmark with Start, Open work and project search; Inco
   for (const label of ['New session', 'Start a chat', 'New cluster', 'New idea \\(Genesis\\)']) {
     assert.match(html, new RegExp(`<button type="button"[^>]*>${label}</button>`));
   }
-  assert.match(html, /<label for="home-search"[^>]*>Search projects \(press \/\)<\/label>/);
+  assert.match(html, /<label for="home-search"[^>]*>Search folders \(press \/\)<\/label>/);
   assert.doesNotMatch(html, /id="home-add"/);
-  assert.match(html, />Add project<\/button>/);
+  assert.match(html, />Add project location<\/button>/);
   assert.match(html, /id="home-open"/);
   assert.ok(html.indexOf('home.open-work') < html.indexOf('home.start'));
   assert.match(html, /aria-label="Open session Visible work"/);
   assert.doesNotMatch(html, /Private draft/, 'Incognito tabs are never listed on Home');
-  assert.match(html, /Loading projects.../);
+  assert.match(html, /Loading folders.../);
   assert.doesNotMatch(html, /<div[^>]*onClick/, 'actions are buttons, not clickable divs');
   for (const key of ['home.start', 'home.open-work', 'home.projects']) {
     assert.equal(html.split(`data-help=${JSON.stringify(key)}`).length - 1, 1, `contextual help ${key} is bound once`);

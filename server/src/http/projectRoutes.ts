@@ -1,5 +1,6 @@
 // /api/projects -- the flat project list (server/src/projects.ts).
 //   GET    /api/projects           -> { projects, scanFolder }
+//   GET    /api/projects?locationPath=... -> also resolve a canonical location path
 //   POST   /api/projects { path }  -> register an existing directory
 //   DELETE /api/projects { path }  -> forget a registered directory (files untouched)
 //   PATCH  /api/projects { id, displayName?, pinned?, archived? } -> organize
@@ -9,6 +10,8 @@
 // follow the scan folder and the crash-recovery registry. Organization
 // metadata lives in projectRecords.ts. No route deletes or moves files.
 import { IncomingMessage, ServerResponse } from 'http';
+import { assertSafePath } from '../fileAccessPolicy.js';
+import { sanitizeProjectRoots } from '../settings.js';
 import { addProject, createProject, listProjects, organizeProject, relocateProject, removeProject, type ProjectMutation } from '../projects.js';
 
 function sendJson(res: ServerResponse, code: number, body: unknown): true {
@@ -45,7 +48,13 @@ export async function tryHandleProjectRoutes(req: IncomingMessage, res: ServerRe
   if (path !== '/api/projects' && !action) return false;
   try {
     if (action) return req.method === 'POST' ? reply(res, await action(await readBody(req))) : sendJson(res, 405, { error: 'method not allowed' });
-    if (req.method === 'GET') return sendJson(res, 200, await listProjects());
+    if (req.method === 'GET') {
+      const requested = new URL(req.url || '/', 'http://localhost').searchParams.get('locationPath');
+      const location = requested === null ? undefined : sanitizeProjectRoots([{ name: '', path: requested }])?.[0];
+      if (requested !== null && !location) return sendJson(res, 400, { error: 'Choose an absolute folder path below the home or filesystem root.' });
+      if (location) { try { assertSafePath(location.path); } catch { return sendJson(res, 400, { error: 'Choose an ordinary project folder outside protected state.' }); } }
+      return sendJson(res, 200, { ...await listProjects(), ...(location ? { locationPath: location.path } : {}) });
+    }
     if (req.method === 'POST' || req.method === 'DELETE') {
       const body = await readBody(req);
       return reply(res, req.method === 'POST' ? await addProject(body.path) : await removeProject(body.path));

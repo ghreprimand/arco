@@ -68,3 +68,18 @@ test('new browsing default never adds roots and broad or malformed roots are ref
   for (const path of ['relative', home]) await assert.rejects(patchSettings({ projectRoots: [{ name: 'Bad', path }] }));
   assert.deepEqual((await readSettings()).projectRoots, []);
 });
+
+test('duplicate location adds and edit collisions are refused without silently dropping either name', async () => {
+  const { patchSettings, readSettings } = await import('./settings.js');
+  const baseline = [{ name: 'Work', path: work }, { name: 'Personal', path: personal }];
+  await patchSettings({ projectRoots: baseline });
+  await assert.rejects(patchSettings({ projectRoots: [...baseline, { name: 'Main', path: work }] }), /already uses this folder/);
+  assert.deepEqual((await readSettings()).projectRoots, baseline);
+  const alias = join(sandbox, 'work-alias');
+  try { realpathSync(alias); await assert.rejects(patchSettings({ projectRoots: [...baseline, { name: 'Alias', path: alias }] }), /already uses this folder/); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  assert.deepEqual((await readSettings()).projectRoots, baseline);
+  await assert.rejects(patchSettings({ projectRoots: [{ name: 'Main', path: personal }, baseline[1]] }), /already uses this folder/);
+  assert.deepEqual((await readSettings()).projectRoots, baseline);
+  await patchSettings({ projectRoots: [{ name: 'Main', path: work }, baseline[1]] });
+  assert.deepEqual((await readSettings()).projectRoots, [{ name: 'Main', path: work }, baseline[1]]);
+});

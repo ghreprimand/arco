@@ -10,3 +10,7 @@
 .first-run-path{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.first-run-path label{flex-basis:100%}.first-run-path input{flex:1;min-width:160px}
 .first-run-shortcuts{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}.first-run-shortcuts button{font-size:11px;padding:3px 8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .first-run-browser{background:var(--color-bg-sunken)!important}.first-run-browser [role=region] button{font:12px var(--font-body)!important;padding:4px 12px!important;border-bottom:1px solid var(--color-accent-primary-a05)!important;color:var(--color-accent-primary-dim)!important;background:transparent!important}
+.first-run-folder-step{overflow:hidden}.first-run-folder-step>.connection-detail{flex:1;flex-shrink:1;min-height:0;overflow-y:auto}
+.first-run-folder-step>.setup-folder-actions{flex-shrink:0;margin:0;padding:12px 22px;background:var(--color-bg-panel);border-top:1px solid var(--color-border-hairline)}
+.first-run-folder-step>.setup-folder-actions>button:last-child{border-color:var(--color-accent-primary);color:var(--color-accent-primary)}
+.first-run-folder-step>.connections-note:empty{display:none}

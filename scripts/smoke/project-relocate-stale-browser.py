@@ -13,6 +13,7 @@ external move of the folder followed by Relocate to the same project id):
 In both, the session may be listed read-only under the previous location, nothing is launched.
 """
 import asyncio
+from home_controls import open_saved_project_form
 import importlib.util
 import json
 import re
@@ -63,12 +64,12 @@ def card(page, label):
 
 
 async def add_folder(page, path):
-    await page.get_by_role('button', name='Add project', exact=True).click()
+    await open_saved_project_form(page)
     await page.locator('#home-add').fill(str(path))
     await page.get_by_role('button', name='Add', exact=True).click()
     await page.wait_for_function("document.querySelector('#home-add-status').innerText !== ''", timeout=10000)
     result = await page.locator('#home-add-status').inner_text()
-    await page.get_by_role('button', name='Close Add project', exact=True).click()
+    await page.get_by_role('button', name='Close folder browser', exact=True).click()
     return result
 
 

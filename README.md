@@ -59,7 +59,7 @@ the Linux service and macOS launchd procedures.
 
 Provider command-line tools, accounts, and local model endpoints are configured
 separately through Connections. An unused Arco home opens **Welcome to Arco** even
-when provider CLIs are already signed in. Add named project roots or individual
+when provider CLIs are already signed in. Add named project locations or individual
 folders, connect a provider, then choose Home or the normal creator. Every earlier
 step can be skipped. Settings > Projects > **Run setup again** shows existing
 choices without discarding saved work;

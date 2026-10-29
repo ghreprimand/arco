@@ -3,63 +3,69 @@
 This guide takes a new Arco installation through provider setup to a project
 chat, then covers a first cluster, optional voice setup, and backups. A new
 Arco home with no completed setup, confirmed provider, saved work or added projects opens **Welcome to Arco**, even when provider CLIs are already signed in on the machine.
-Select **Get started** to add several folder choices. A **Project root** is a named
-folder containing projects, such as Work or Personal. An **Individual project** is
-one working folder and may live anywhere. Choose the folder type, enter an
-absolute path or browse with root shortcuts, UP and new-folder controls. **Add
-folder** adds the choice to the visible summary without advancing. Use **Add
-another** for more choices, then **Continue**. A discovery root lists its immediate
-children as suggestions; it never registers or trusts those children automatically.
+Select **Get started**, then **Add project location** to choose a folder containing
+projects, such as Work or Personal. Enter a location name and absolute folder path,
+or browse with folder shortcuts and UP. **Add a single project folder** is a
+secondary option for a one-off folder outside the usual locations. Add several
+choices to the visible summary, then choose **Continue**. Adding the first choice
+does not advance the step or start work.
 
 Connect a provider through Connections; an existing CLI login is prefilled. The
-final **Setup complete** screen summarizes the folder choices and provider. Choose
-**Go to Home**, or **Start a chat** to open the normal creator. A selected individual
-folder can prefill that creator; a root never silently chooses its first child.
-Either choice remembers setup completion without launching a turn. Earlier steps
-can be skipped. Settings > Projects > **Run setup again** shows existing choices
-and preserves chats, settings, roots and registered folders unless explicitly
-edited. Removing a choice never deletes its files or saved sessions.
+final **Setup complete** screen summarizes the choices and provider. Choose
+**Go to Home**, or **Start a chat** to open the normal creator. Only an explicitly
+chosen single project folder can prefill a session; a location never chooses its
+first child. Either choice remembers setup completion. Earlier steps can be
+skipped. Settings > Projects > **Run setup again** shows existing choices and
+preserves chats, settings, locations and saved folders unless explicitly edited.
 
-## Home: a place to start and return
+## Home: project locations and recent work
 
-Home shows open work first; **Resume** returns to a tab without stopping its
-running turn. **Start a chat** opens the normal creator without a project.
-**New session** works in a project folder; **More ways to start** keeps the
-cluster and Genesis creators available.
+Home shows open work first. **Resume** returns to a tab without stopping its
+running turn. **Start a chat**, **New session**, and **More ways to start** retain
+the normal chat, session, cluster and Genesis creators.
 
-**Pinned** keeps shortcuts from every root. Each named root has a separate group
-with its path, saved or recent project cards, and an expandable **Discovered
-folders** list. **Other projects** contains individual folders outside the roots.
-Discovery-only groups retain guidance: discovered folders are suggestions, not
-saved projects. Missing roots stay visible so a drive can be reconnected or its
-path edited. Search includes names and paths across groups. Archived cards remain
-available through **Show archived**.
+Each **Project location** shows its name, path and available-folder count. The first
+few folders are visible immediately; long lists offer **Show all N folders** and
+**Show fewer**, with a bounded scrolling area. Search works across locations.
+Choose a folder to open the creator with that explicit path. **Browse Work**, for
+example, opens the folder browser at Work. Opening a folder never saves it as a
+project, trusts it, or launches work automatically.
 
-Saved-session **Resume** restores the existing session without sending a prompt;
-an already open session offers **Open**. Project names, pins, archive and
-missing-folder relocation remain on each card. **Add project** opens the shared
-folder browser or an absolute-path field. Creating a folder shows its destination
-parent and never reuses an existing folder. These controls do not register neighbors.
-A compact status area links to Connections and Arco version/update controls.
+**Pinned** keeps shortcuts to folders. Cards with saved sessions offer one-click
+**Resume**; sessions already open offer **Open**. Pinning, archive, and missing-folder
+recovery remain on the cards. **Other projects** holds saved or previously used
+folders outside configured locations. Missing locations remain visible so a drive
+can be reconnected or its path edited.
 
-## Multiple roots and one-off session folders
+Use **Add project location** for another parent folder, or **Open another folder**
+for a one-off session. The latter opens the shared folder browser; **Use this
+folder** opens the creator without saving it. Its **Save a project folder**
+disclosure keeps explicit save and create controls available. A compact status
+area links to Connections and the installed Arco version/update controls.
 
-Settings > Projects separates **Project roots**, **Individual projects**, and the
-**Default browsing location**. Add or edit a root name and absolute path; browse
-when needed. Removing a root stops discovery and grouping only. Its registered
-projects and saved sessions remain available under Other projects. An existing
-single discovery folder migrates to one named root; explicitly removing the last
-root keeps discovery disabled. The browsing location is independent and never adds
-a discovery root or registers folders.
+## Manage locations and one-off folders
 
-In the normal creator, **Project group** filters All projects, Pinned and recent,
-or one named root. Search project choices by name or path. Selecting a group never
-sets the working folder or replaces a typed path. **Browse this root** starts
-navigation there; **Browse another folder** can reach folders outside all roots.
-The browser offers an editable path, UP, root shortcuts and new-folder creation
-at the displayed parent. **Use for this session** selects a one-off folder without
-saving it. **Keep current folder** explicitly registers it. Nothing selects the
-first discovered folder automatically. In Docker, the folders must be mounted.
+Settings > Projects starts with the compact **Project locations** list. **Add
+location** opens its form; **Edit** changes a name or path. Adding an existing path
+or an alias explains which location already uses it, keeps the submitted name,
+and offers an explicit rename. Saving a rename shows confirmation and updates
+Home. Editing a location onto another location's path is refused without dropping
+either location. These same checks apply during setup.
+
+**Manage saved project folders** contains individual-folder add, keep and remove
+controls. **Advanced folder options** contains the independent **Default browsing
+location**. Changing that starting location never adds a project location or saves
+its children. Removing a location stops its listing and grouping; saved projects,
+files, sessions and trust choices remain unchanged. The legacy single-location
+setting migrates automatically; an explicitly empty list stays empty.
+
+In the creator, **Project location** filters **All folders**, **Pinned and recent**,
+or one named location. Search by name or path. Filtering never replaces a typed
+working folder. **Browse this location** starts navigation there; **Browse another
+folder** can reach other directories. The browser offers an editable path, UP,
+shortcuts and new-folder creation at the displayed parent. **Use for this session**
+selects a folder without saving it. **Keep current folder** explicitly saves it.
+In Docker, folders must be mounted before they can be selected.
 
 ## Before starting
 

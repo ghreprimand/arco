@@ -834,7 +834,14 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   // Explicit [] survives every later patch and never resurrects the legacy root.
   if ('projectRoots' in patch) {
     if (!Array.isArray(patch.projectRoots) || patch.projectRoots.some(root => !root || !sanitizeProjectRoots([root])?.length)) {
-      throw new Error('project roots require absolute folder paths below the filesystem and home roots');
+      throw new Error('project locations require absolute folder paths below the filesystem and home roots');
+    }
+    const canonical = patch.projectRoots.map(root => sanitizeProjectRoots([root])![0].path);
+    const seen = new Set<string>();
+    for (const folder of canonical) {
+      const key = process.platform === 'win32' ? folder.toLowerCase() : folder;
+      if (seen.has(key)) throw new Error('A project location already uses this folder. Edit that location instead; no locations were changed.');
+      seen.add(key);
     }
   }
   merged.projectRoots = 'projectRoots' in patch ? sanitizeProjectRoots(patch.projectRoots) ?? [] : current.projectRoots ?? [];

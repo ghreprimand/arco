@@ -43,7 +43,7 @@ export function ProjectsSettings() {
   const row = (p: ProjectEntry, removable: boolean) => (
     <div key={p.path} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', borderBottom: '1px solid var(--color-accent-primary-a05)', fontSize: '11px', fontFamily: 'var(--font-code)', color: p.exists ? 'var(--color-accent-primary-dim)' : 'var(--color-fg-muted)' }}>
       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.path}>{p.path}</span>
-      <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>{p.exists ? (p.source === 'scanned' ? 'SCANNED' : p.source === 'recent' ? 'RECENT' : '') : 'MISSING'}</span>
+      <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>{p.exists ? (p.source === 'scanned' ? 'FOLDER' : p.source === 'recent' ? 'USED' : '') : 'MISSING'}</span>
       {removable ? (
         <button onClick={() => { void mutate('DELETE', p.path); }} disabled={busy} title="Remove from the project list" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '11px' }}>Remove</button>
       ) : (
@@ -54,9 +54,10 @@ export function ProjectsSettings() {
 
   return (
     <div data-help="settings.projects">
-      <ProjectRootsSettings />
+      <ProjectRootsSettings onChanged={() => void load()} />
+      <details className="saved-project-management"><summary>Manage saved project folders ({registered.length})</summary>
       <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
-        INDIVIDUAL PROJECTS
+        SAVED PROJECT FOLDERS
       </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
         <input
@@ -81,15 +82,15 @@ export function ProjectsSettings() {
       <div style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)', marginBottom: '8px', maxHeight: '220px', overflowY: 'auto' }}>
         {registered.map((p) => row(p, true))}
         {registered.length === 0 && (
-          <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No registered projects. Add a path above, or KEEP one of the folders below.</div>
+          <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No saved project folders. Add a path above, or keep a folder below.</div>
         )}
-        <details><summary>Discovered and recent folders ({others.length})</summary>{others.map((p) => row(p, false))}</details>
+        <details><summary>Other available folders ({others.length})</summary>{others.map((p) => row(p, false))}</details>
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
-        Projects can live anywhere the server can read. Registered folders stay listed; SCANNED folders come from the
-        named roots above and RECENT ones from earlier workflows.
+        Saved folders stay available even when their location is removed. Removing a saved folder never deletes its files or sessions.
       </div>
-      <WorkingDirectoryDefault />
+      </details>
+      <details className="advanced-folder-options"><summary>Advanced folder options</summary><WorkingDirectoryDefault /></details>
     </div>
   );
 }

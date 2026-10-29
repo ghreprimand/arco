@@ -43,7 +43,7 @@ Sections: 22.
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity |
 | `operator-name` | Appearance | Operator name in chat | Global | Operator label shown in chat |
-| `projects` | Projects | Named roots, individual projects and browsing location | Global | Named project roots (add, browse, edit, remove, availability), individual projects (add, keep, remove), independent default browsing location, non-destructive multi-folder Run setup again; discoveries are not saved projects |
+| `projects` | Projects | Project locations and saved folders | Global | Project locations with folded Add/Edit and duplicate/alias rename feedback; Manage saved project folders for individual add/keep/remove; Advanced folder options for independent browsing defaults; non-destructive multi-location Run setup again |
 | `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
 | `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | Provider sign-in rows (Claude, Gemini, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, GitHub, Antigravity), Claude Native authentication, Codex accounts and profiles, Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl |
@@ -79,13 +79,13 @@ version can notify again. The checkbox saves `updateCheck`. The server first
 checks 30 seconds after boot, then every six hours. It never downloads or
 installs updates automatically.
 
-### Project root migration
+### Project location migration
 
-`projectRoots` stores named `{ name, path }` discovery roots. An absent field migrates
-an existing `defaultWorkingDirectory` to one root. An explicit `projectRoots: []`
+`projectRoots` stores named `{ name, path }` project locations. An absent field migrates
+an existing `defaultWorkingDirectory` to one location. An explicit `projectRoots: []`
 keeps discovery off, including after later settings changes. New writes preserve
 that distinction. `defaultWorkingDirectory` thereafter controls browsing only.
-Root paths are normalized and deduplicated, including existing aliases. Projects
-under overlapping roots belong to the longest matching root; saved project paths
-and session identity remain unchanged. Removing a root never removes registered
-projects, folders, saved sessions or trust decisions. Missing roots stay listed.
+Location paths are normalized and deduplicated, including existing aliases. Projects
+under overlapping locations belong to the longest matching location; saved project paths
+and session identity remain unchanged. Removing a location never removes registered
+projects, folders, saved sessions or trust decisions. Missing locations stay listed. Duplicate canonical paths are refused during edits; adding an existing path offers explicit rename feedback rather than discarding the name.

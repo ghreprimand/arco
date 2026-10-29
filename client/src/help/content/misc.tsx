@@ -26,12 +26,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Browse pinned shortcuts, named root groups, and Other projects for individual folders outside roots. A root contains projects; a project is one working folder.
-        Cards preview their latest saved sessions. Resume restores one through the normal workflow path without sending a prompt; an already open session offers Open. Search by name or folder. Additional discovered folders stay in a compact expandable list until opened or searched. Discovery does not count as saved work. Archived projects are hidden until you choose
-        Show archived. A project whose folder is missing stays listed so it can
-        be relocated or archived; a folder you added yourself can also be
-        removed from the list. Its saved sessions stay on disk. In Docker, only
-        mounted folders are visible.
+        Project locations show available-folder counts and a few folder choices immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without saving it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards keep saved-session Resume, Open, pin, archive and missing-folder recovery. Unavailable locations stay visible.
       </p>
     ),
   },
@@ -55,7 +50,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Create a project folder',
     body: (
       <p>
-        Under Add project, expand Create a new project folder to create one empty folder at an absolute path, or use a plain
+        Under Open another folder, expand Save a project folder, then Create a new project folder to create one empty folder at an absolute path, or use a plain
         name inside the displayed default browsing location. The parent must exist. An existing
         folder with that name is never reused; add it instead.
       </p>
@@ -66,7 +61,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Add a project folder',
     body: (
       <p>
-        Choose Add project to browse any readable folder, type an absolute path, or create a folder. Adding an existing path adds
+        Under Open another folder, expand Save a project folder to keep an individual path or create a folder. Adding an existing path adds
         it to the project list; it does not create a folder. In Docker, mount
         the folder before adding it.
       </p>
@@ -77,7 +72,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Filter All projects, Pinned and recent, or a named root, then search by name or path. Choosing a group never selects a folder. Browse this root opens navigation without changing the session folder. Browse another folder offers editable paths, Up, root shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without saving it; Keep current folder explicitly registers it. Settings / Projects manages roots and individual projects.
+        Filter All folders, Pinned and recent, or a project location, then search by name or path. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without saving it; Keep current folder saves it for later. Settings / Projects manages project locations and saved folders.
       </p>
     ),
   },
@@ -424,7 +419,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Working directory',
     body: (
       <p>
-        The working folder the agent operates against. Type an absolute path, choose a project, or browse any readable folder. Root selection filters choices; directory navigation does not change the working folder until confirmed. Loading never selects the first discovered child.
+        The working folder the agent operates against. Type an absolute path, choose a project, or browse any readable folder. Location selection filters choices; directory navigation does not change the working folder until confirmed. Loading never selects the first discovered child.
         All persistence (<C>events.jsonl</C>, <C>meta.json</C>, artifacts)
         lives under <C>&lt;cwd&gt;/.arco/</C>.
       </p>

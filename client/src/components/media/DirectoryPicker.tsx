@@ -121,7 +121,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
           <input id={pathId} value={pathDraft} onChange={e => { pathEdits.current++; setPathDraft(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void load(pathDraft); } }} style={{ ...input, flex: 1, minWidth: 0 }} />
           <button type="button" style={btn} onClick={() => void load(pathDraft)} disabled={loading}>Go</button>
         </div>
-        {roots.length > 0 && <div aria-label="Root shortcuts" style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 64, overflowY: 'auto' }}>{roots.map(root => <button type="button" key={root.path} style={btn} title={root.path} onClick={() => void load(root.path)}>{root.name}</button>)}</div>}
+        {roots.length > 0 && <div aria-label="Location shortcuts" style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 64, overflowY: 'auto' }}>{roots.map(root => <button type="button" key={root.path} style={btn} title={root.path} onClick={() => void load(root.path)}>{root.name}</button>)}</div>}
 
         {/* Folder list */}
         <div role={inline ? 'region' : undefined} aria-label={inline ? 'Project folders' : undefined} style={{ flex: 1, minHeight: inline ? 0 : '160px', overflowY: 'auto' }}>

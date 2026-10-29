@@ -24,6 +24,7 @@ Scenarios:
      organization controls
 """
 import asyncio
+from home_controls import open_saved_project_form
 import importlib.util
 import json
 import re
@@ -104,12 +105,12 @@ async def status_text(page):
 
 
 async def add_folder(page, path):
-    if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+    await open_saved_project_form(page)
     await page.locator('#home-add').fill(str(path))
     await page.get_by_role('button', name='Add', exact=True).click()
     await page.wait_for_function("document.querySelector('#home-add-status').innerText !== ''", timeout=10000)
     result = await page.locator('#home-add-status').inner_text()
-    await page.get_by_role('button', name='Close Add project', exact=True).click()
+    await page.get_by_role('button', name='Close folder browser', exact=True).click()
     return result
 
 
@@ -270,11 +271,11 @@ async def scenario_create(playwright, server):
     scan = server.home / 'Projects'
     b, page = await open_home(playwright, server)
     try:
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        await open_saved_project_form(page)
         if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
         assert await page.locator('#home-create').is_enabled(), 'Absolute folder creation needs no scan folder'
         explicit = server.root / 'explicit-created'
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        await open_saved_project_form(page)
         if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
         await page.locator('#home-create').fill(str(explicit))
         await page.get_by_role('button', name='Create', exact=True).click()
@@ -287,7 +288,7 @@ async def scenario_create(playwright, server):
     await page.evaluate("""async root => { const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({defaultWorkingDirectory:root})}); if (!res.ok) throw new Error('scan setting refused'); }""", str(scan))
     await page.get_by_role('button', name='Reload list').click()
     try:
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        await open_saved_project_form(page)
         if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
         await page.locator('#home-create').fill('new-idea')
         await page.get_by_role('button', name='Create', exact=True).click()
@@ -295,7 +296,7 @@ async def scenario_create(playwright, server):
         assert (scan / 'new-idea').is_dir() and not any((scan / 'new-idea').iterdir())
         assert 'new-idea' in await group_names(page, 'registered')
         for name, expect in (('new-idea', 'already exists'), ('../escape', 'folder name')):
-            if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+            await open_saved_project_form(page)
             if not await page.locator('#home-create').is_visible(): await page.get_by_text('Create a new project folder', exact=True).first.click()
             await page.locator('#home-create').fill(name)
             await page.get_by_role('button', name='Create', exact=True).click()

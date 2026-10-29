@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show project locations with useful folder choices and truthful counts, simplify Settings/setup, and keep duplicate location names until an explicit rename is confirmed.
+
 - Keep generated files in Workspace Outputs after previews close, with producer attribution, existing viewers/editors, and reviewed copy/move destinations.
 
 - Manage multiple named project roots, browse root groups on Home, search and choose one-off session folders, and add several folders during non-destructive setup.

@@ -184,3 +184,18 @@ test('an explicit new folder path works outside the scan folder without reusing 
   assert.equal((await call('POST', '/api/projects/create', { path: join(sandbox, 'absent-parent', 'project') })).status, 400);
   assert.equal((await call('POST', '/api/projects/create', { path: join(home, '.codex', 'project') })).status, 400);
 });
+
+test('location path checks normalize ordinary aliases and do not disclose protected targets', async () => {
+  const { symlinkSync } = await import('node:fs');
+  const alias = join(sandbox, 'location-alias');
+  symlinkSync(outside, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  const normal = await call('GET', '/api/projects?locationPath=' + encodeURIComponent(alias));
+  assert.equal(normal.status, 200);
+  assert.equal((normal.json as List & { locationPath?: string }).locationPath, outside);
+  const protectedDir = join(home, '.codex'); mkdirSync(protectedDir, { recursive: true });
+  const privateAlias = join(sandbox, 'protected-location-alias');
+  symlinkSync(protectedDir, privateAlias, process.platform === 'win32' ? 'junction' : 'dir');
+  const denied = await call('GET', '/api/projects?locationPath=' + encodeURIComponent(privateAlias));
+  assert.equal(denied.status, 400);
+  assert.equal((denied.json as List & { locationPath?: string }).locationPath, undefined);
+});

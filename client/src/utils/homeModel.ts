@@ -29,6 +29,8 @@ export interface HomeGroup {
   discovered?: HomeProject[];
   savedCount?: number;
   pinnedCount?: number;
+  folderCount?: number;
+  unavailableCount?: number;
   title: string;
   description: string;
   projects: HomeProject[];
@@ -138,7 +140,7 @@ export function groupProjects(projects: HomeProject[], showArchived = false, roo
     for (const root of roots) {
       const inside = live.filter(p => p.rootPath === root.path);
       groups.push({ key: `root-${roots.indexOf(root)}`, title: root.name, path: root.path, exists: root.exists,
-        description: 'Saved and recent projects in this root.', savedCount: inside.filter(p => p.source !== 'scanned').length, pinnedCount: inside.filter(p => p.pinned).length, projects: inside.filter(p => p.source !== 'scanned' && !p.pinned), discovered: inside.filter(p => p.source === 'scanned') });
+        description: 'Choose a folder to start a session.', folderCount: inside.filter(p => p.exists).length, unavailableCount: inside.filter(p => !p.exists).length, savedCount: inside.filter(p => p.source !== 'scanned').length, pinnedCount: inside.filter(p => p.pinned).length, projects: inside.filter(p => p.source !== 'scanned' && !p.pinned), discovered: inside.filter(p => p.source === 'scanned') });
     }
     const other = live.filter(p => !p.rootPath && !p.pinned);
     if (other.length) groups.push({ key: 'registered', title: 'Other projects', description: 'Individual folders outside configured roots.', projects: other });

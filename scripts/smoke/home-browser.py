@@ -26,6 +26,7 @@ Scenarios:
      "No saved sessions"
 """
 import asyncio
+from home_controls import open_saved_project_form
 import importlib.util
 import json
 import re
@@ -305,16 +306,16 @@ async def scenario_keyboard(playwright, server):
         await page.wait_for_function("document.activeElement?.id === 'home-title'", timeout=5000)
         focus = await page.evaluate('document.activeElement && document.activeElement.id')
         assert focus == 'home-title', f'Home did not move focus to its heading: {focus!r}'
-        await page.get_by_role('heading', name=re.compile(r'^Projects')).wait_for(timeout=10000)  # the list has loaded
+        await page.get_by_role('heading', name='Project locations',exact=True).wait_for(timeout=10000)  # the list has loaded
         await page.keyboard.press('/')
         assert await page.evaluate('document.activeElement && document.activeElement.id') == 'home-search', '"/" did not focus search'
         await page.keyboard.type('zzz-no-such-project')
-        await page.wait_for_function("document.querySelector('main').innerText.includes('No project matches')", timeout=5000)
+        await page.wait_for_function("document.querySelector('main').innerText.includes('No folder matches')", timeout=5000)
         await page.keyboard.press('Escape')
         assert await page.locator('#home-search').input_value() == '', 'Escape did not clear the search'
         await page.keyboard.type('app')
-        await page.wait_for_function("document.querySelector('main').innerText.includes('projects match')", timeout=5000)
-        assert 'No project matches' not in await main_text(page)
+        await page.wait_for_function("document.querySelector('main').innerText.includes('folders match')", timeout=5000)
+        assert 'No folder matches' not in await main_text(page)
         await page.keyboard.press('Escape')
         # Every action is a native button with a name; project actions carry the project's name.
         buttons = await page.evaluate("""() => [...document.querySelectorAll('main button')].filter(b=>b.getClientRects().length).map((b) => ({
@@ -384,7 +385,7 @@ async def scenario_project_list_is_projects(playwright, server):
         incog_ids = json.loads(await page.evaluate("sessionStorage.getItem('__incogIds') || '[]'"))
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
-        await page.get_by_role('heading', name=re.compile(r'^Projects')).wait_for(timeout=10000)
+        await page.get_by_role('heading', name='Project locations',exact=True).wait_for(timeout=10000)
         await page.wait_for_timeout(500)
         paths = await page.evaluate("[...document.querySelectorAll('main h4 + div')].map((d) => d.textContent)")
         assert paths, 'no projects listed'
@@ -587,16 +588,16 @@ async def scenario_missing_and_add(playwright, server, scratch):
         await home_button(page).click()
         await page.get_by_role('heading', name='HOME', exact=True).wait_for(timeout=5000)
         # Add through Home's own form.
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(gone))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.get_by_text(f'Added {gone}.').wait_for(timeout=10000)
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(beta))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.get_by_text(f'Added {beta}.').wait_for(timeout=10000)
         gone.rmdir()
-        await page.get_by_role('button', name='Close Add project', exact=True).click()
+        await page.get_by_role('button', name='Close folder browser', exact=True).click()
         await page.get_by_role('button', name='Reload list').click()
         card = page.locator('li', has=page.get_by_role('heading', name='gone', exact=True))
         await card.get_by_text('Folder not found').wait_for(timeout=10000)
@@ -604,26 +605,26 @@ async def scenario_missing_and_add(playwright, server, scratch):
             assert await page.get_by_role('button', name=name).is_disabled(), f'{name} is enabled for a missing folder'
         assert await page.get_by_role('button', name='New session in beta').is_enabled()
         # A bad path says why and adds nothing.
-        before = (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text())
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        before = (await (await page.request.get(server.base + '/api/projects')).json())['projects']
+        await open_saved_project_form(page)
         await page.locator('#home-add').fill('relative/not-absolute')
         await page.get_by_role('button', name='Add', exact=True).click()
         status = page.locator('#home-add-status')
         await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
         message = await status.inner_text()
         assert len(message) > len('Not added: ') + 3, f'the refusal gives no reason: {message!r}'
-        assert (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text()) == before
-        if not await page.locator('#home-add').is_visible(): await page.get_by_role('button', name='Add project', exact=True).click()
+        assert (await (await page.request.get(server.base + '/api/projects')).json())['projects'] == before
+        await open_saved_project_form(page)
         await page.locator('#home-add').fill(str(scratch / 'never-created'))
         await page.get_by_role('button', name='Add', exact=True).click()
         await page.wait_for_function("document.querySelector('#home-add-status').innerText.startsWith('Not added: ')", timeout=10000)
-        assert (await page.get_by_role('heading', name=re.compile(r'^Projects')).inner_text()) == before
+        assert (await (await page.request.get(server.base + '/api/projects')).json())['projects'] == before
         assert (await status.inner_text()).startswith('Not added: ')
     finally:
         await b.close()
     # Documented states for an empty registry and an unreachable list (client fixtures).
     for label, fulfil, expect in (
-        ('empty', {'status': 200, 'json': {'projects': [], 'scanFolder': ''}}, 'No saved projects yet'),
+        ('empty', {'status': 200, 'json': {'projects': [], 'scanFolder': ''}}, 'Add a location containing your projects'),
         ('failing', {'status': 500, 'json': {'error': 'boom'}}, 'The project list could not be loaded'),
     ):
         b = h.Browser(playwright, server)
@@ -641,8 +642,8 @@ async def scenario_missing_and_add(playwright, server, scratch):
             await home_button(page).click()
             await page.get_by_text(re.compile(expect)).first.wait_for(timeout=10000)
             if label == 'empty':
-                assert 'mounted' in await main_text(page), 'the empty state lost its mount hint'
-                assert await page.get_by_role('button', name='Add project', exact=True).count() == 1
+                assert 'mount' in await main_text(page), 'the empty state lost its mount hint'
+                assert await page.get_by_role('button', name='Add project location', exact=True).count() == 1
             else:
                 assert await page.get_by_role('alert').filter(has_text=expect).count() == 1
                 assert await page.get_by_role('button', name='Reload list').is_enabled()

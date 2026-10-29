@@ -4,13 +4,13 @@ import type { HelpEntry } from './shared';
 export const settingsHelp: Record<string, HelpEntry> = {
   'settings.first-run': {
     title: 'Run setup again',
-    body: <p>Reopens welcome, multi-folder setup, Connections and completion. Existing roots and individual projects appear in the summary and remain unless explicitly removed. Add several choices with Add another, then Continue. The final screen summarizes folders and provider, with Go to Home and Start a chat in the normal creator. Either saves completion without launching work. Existing chats and settings remain intact.</p>,
+    body: <p>Reopens welcome, multi-folder setup, Connections and completion. Existing project locations and saved folders appear in the summary and remain unless explicitly removed. Add several choices with Add another, then Continue. The final screen summarizes folders and provider, with Go to Home and Start a chat in the normal creator. Either saves completion without launching work. Existing chats and settings remain intact.</p>,
   },
   'settings.projects': {
     title: 'Projects',
     body: (
       <p>
-        A root is a named folder containing projects; a project is one working folder and may live anywhere. Project roots supports Add, Browse, Edit and Remove with availability status. Removing a root stops its discovery and grouping; it never deletes folders, sessions or registered projects. Individual projects stay separate. Legacy single-root settings migrate once; explicitly removing all roots keeps discovery off. Home groups roots separately, keeps pinned shortcuts and Other projects, and does not count discovered folders as saved projects. In Docker, folders must be mounted first.
+        Project locations are named parent folders, such as Work or Personal. Add location and Edit open their forms only when requested. Adding an existing path or alias keeps the typed name and offers explicit rename; an edit collision changes neither location. Removing a location never deletes files or saved work. Manage saved project folders holds individual-folder controls. Advanced folder options contains the independent Default browsing location. Setup uses the same locations and allows a secondary single-folder choice. Home shows folder counts and useful first choices without requiring setup to run again.
       </p>
     ),
   },
@@ -145,7 +145,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.default-working-dir': {
     title: 'Default browsing location',
-    body: <p>The starting location for folder navigation. Type an absolute path or Browse location, then Save browsing location. This does not add discovery roots or register projects. Named roots are managed separately. Leave blank to use the server default, then the home folder if unavailable.</p>,
+    body: <p>The starting location for folder navigation. Type an absolute path or Browse location, then Save browsing location. This does not add project locations or save folders. Project locations are managed separately. Leave blank to use the server default, then the home folder if unavailable.</p>,
   },
   'settings.media-unconfined': {
     title: 'Media access',
