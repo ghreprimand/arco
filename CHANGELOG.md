@@ -32,6 +32,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Restore switching from the shipped Phosphor default to Arco Classic themes in Settings.
+
 - Correct provider, transport, instruction-file, and Docker guidance in the in-app manual and reference docs.
 
 - Restore retained-provider routing and HTTP API guidance after provider removal.

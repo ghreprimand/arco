@@ -4,7 +4,7 @@ No workflow server, production preferences or real WebSocket are accessed.
 import asyncio, json, os
 from pathlib import Path
 from urllib.parse import urlparse
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 
 ART = Path('/tmp/arco-phosphor-production'); ART.mkdir(exist_ok=True)
 CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
@@ -14,7 +14,7 @@ async def main():
   context = await browser.new_context(viewport={'width':1536,'height':1080})
   initial_scale = os.environ.get('ARCO_TEST_UI_SCALE', '1.1')
   await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{initial_scale}')")
-  settings = {'themeId':'arch','enabledProviders':{'claude':True},'fontPackOverride':'jetbrains-uniform','uiScale':float(initial_scale)}
+  settings = {'themeId':'phosphor:arco:electric','enabledProviders':{'claude':True},'fontPackOverride':'jetbrains-uniform','uiScale':float(initial_scale)}
   errors, writes, messages = [], [], []
   async def api(route):
    nonlocal settings
@@ -48,6 +48,74 @@ async def main():
   page.on('console',lambda msg: print(msg.text) if msg.type=='error' and 'Error' in msg.text else None)
   await page.goto(f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
   await page.wait_for_timeout(1000)
+  await page.evaluate("""async () => {window.testStore=(await import('/src/stores/appStore.ts')).useAppStore;}""")
+  appearance_before = {key:value for key,value in settings.items() if key != 'themeId'}
+
+  async def open_themes():
+   await page.evaluate("testStore.setState({connected:true,connectionState:'connected'})")
+   await page.wait_for_function('() => testStore.getState().settings !== null')
+   await page.evaluate('testStore.getState().setShowSettings(true)')
+   await page.get_by_role('button',name='THEME · ARCO',exact=False).click()
+   return page.get_by_label('Theme family',exact=True)
+
+  async def check_choice(theme_id, family):
+   await page.wait_for_function('(id) => testStore.getState().settings?.themeId === id',arg=theme_id)
+   await expect(page.get_by_label('Theme family',exact=True)).to_have_value(family)
+   await page.wait_for_function('(id) => localStorage.getItem(\'arco_theme_id\') === id',arg=theme_id)
+   await expect(page.locator('html')).to_have_attribute('data-theme-family',family)
+   assert settings['themeId'] == theme_id
+   assert {key:value for key,value in settings.items() if key != 'themeId'} == appearance_before
+   assert await page.evaluate('Number(document.documentElement.style.zoom)') == float(initial_scale)
+
+  # Start with the shipped Phosphor default, before any Classic selection has
+  # seeded the picker's family memory. This is the first-switch regression.
+  family = await open_themes()
+  await expect(family).to_have_value('phosphor')
+  await family.select_option('classic')
+  await expect(family).to_have_value('classic')
+  await check_choice('matrix','classic')
+  assert await page.locator('[data-theme-choice]').count() == 43
+  await page.locator('[data-theme-choice="everforest"]').click()
+  await check_choice('everforest','classic')
+  writes_before = len(writes)
+  await page.locator('[data-theme-choice="matrix"]').hover()
+  await page.mouse.move(0,0)
+  await check_choice('everforest','classic')
+  assert len(writes) == writes_before
+  await family.select_option('phosphor')
+  await check_choice('phosphor:arco:electric','phosphor')
+  assert await page.locator('[data-theme-choice]').count() == 68
+  await family.select_option('classic')
+  await check_choice('everforest','classic')
+  # Keyboard family selection follows the same native selector path.
+  await family.focus(); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await check_choice('phosphor:arco:electric','phosphor')
+  await family.focus(); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await check_choice('everforest','classic')
+  await page.get_by_role('button',name='Close settings',exact=True).click()
+  family = await open_themes()
+  await check_choice('everforest','classic')
+  await page.get_by_role('button',name='Close settings',exact=True).click()
+  await page.reload(); await page.wait_for_timeout(600)
+  await page.evaluate("""async () => {window.testStore=(await import('/src/stores/appStore.ts')).useAppStore;}""")
+  family = await open_themes()
+  await check_choice('everforest','classic')
+  # Repeat at a constrained viewport with the saved manual scale intact.
+  await page.set_viewport_size({'width':768,'height':540})
+  await family.select_option('phosphor')
+  await check_choice('phosphor:arco:arco-crt','phosphor')
+  writes_before = len(writes)
+  await page.locator('[data-theme-choice="phosphor:arco:amber"]').hover()
+  await page.mouse.move(0,0)
+  await check_choice('phosphor:arco:arco-crt','phosphor')
+  assert len(writes) == writes_before
+  await family.focus(); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await check_choice('everforest','classic')
+  await family.focus(); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await check_choice('phosphor:arco:arco-crt','phosphor')
+  await page.get_by_role('button',name='Close settings',exact=True).click()
+  await page.set_viewport_size({'width':1536,'height':1080})
+  print('PASS: Classic/Phosphor selection, remembered themes, hover, keyboard, reopen/reload, preserved appearance and manual scale')
   await page.evaluate('''async () => {
     const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
     const fixtures=await import('/src/phosphor-demo/fixtures.ts');
@@ -216,7 +284,7 @@ async def main():
    assert abs(after['x']-before['x']-60)<3
    await page.evaluate("scaleEditor.closeEditor(); document.getElementById('gallery-editor-container').remove()")
   assert not errors,errors
-  result={'errors':errors,'settingsWrites':writes,'interceptedWsMessages':len(messages),'checks':['Real App/SettingsPanel, no demo layout','Six palettes preserve workflow data, transcript DOM and action labels','Family/category/search picker','Softness save, effects override, reduced motion, crisp wordmark','Classic cleanup','Cached startup restores family and softness']}
+  result={'errors':errors,'settingsWrites':writes,'interceptedWsMessages':len(messages),'checks':['Real App/SettingsPanel, no demo layout','Six palettes preserve workflow data, transcript DOM and action labels','Family switch from shipped default, remembered Classic/Phosphor selection, keyboard, hover, reopen/reload, preserved appearance and manual scale; category/search picker','Softness save, effects override, reduced motion, crisp wordmark','Classic cleanup','Cached startup restores family and softness']}
   (ART/'results.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
   await browser.close()
 asyncio.run(main())

@@ -2621,7 +2621,7 @@ function ThemePicker({ activeThemeId, onSelect }: { activeThemeId: string; onSel
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const family = THEME_REGISTRY[activeThemeId]?.family ?? 'classic';
-  const remembered = useRef({ classic: DEFAULT_THEME_ID, phosphor: 'phosphor:arco:arco-crt' });
+  const remembered = useRef({ classic: 'matrix', phosphor: 'phosphor:arco:arco-crt' });
   useEffect(() => { remembered.current[family] = activeThemeId; }, [family, activeThemeId]);
   const themes = Object.values(THEME_REGISTRY).filter(t => (t.family ?? 'classic') === family);
   const filtered = themes.filter(t => `${t.name} ${t.id}`.toLowerCase().includes(search.toLowerCase()) && (category === 'All' || t.category === category));
