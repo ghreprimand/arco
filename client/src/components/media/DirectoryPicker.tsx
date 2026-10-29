@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 
 // A reusable click-through folder picker — the "Save As" surface for the media
 // studio's server-side ops (no native OS dialog exists for a server file, and
@@ -28,11 +29,13 @@ export interface PickOptions {
   inline?: boolean;
   confirmLabel?: string;
   roots?: Array<{ name: string; path: string }>;
+  compactCreate?: boolean;
 }
 
 interface DirEntry { name: string; path: string; }
 
-export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', roots = [], onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', roots = [], compactCreate = false, onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   const request = useRef(0);
   const pathEdits = useRef(0);
   const pathId = useId();
@@ -41,6 +44,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
   const [dirs, setDirs] = useState<DirEntry[]>([]);
   const [name, setName] = useState(defaultName || '');
   const [newFolder, setNewFolder] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
@@ -100,17 +104,20 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
   const confirm = () => onDone({ dir: cwd, basename: name.trim() });
 
   const content = <div
+      className={inline ? 'directory-browser-host' : undefined}
       onClick={() => onDone(null)}
       style={inline ? {} : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9700, padding: '40px' }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        ref={surface}
         className={inline ? 'first-run-browser' : 'glow-border'}
-        style={{ width: '100%', maxWidth: inline ? undefined : '560px', height: inline ? '340px' : undefined, maxHeight: inline ? undefined : 'calc(80vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
+        style={{ width: inline ? '100%' : 'min(1200px, calc(90vw / var(--ui-scale, 1)))', maxWidth: inline ? undefined : 'calc(94vw / var(--ui-scale, 1))', height: inline ? '340px' : 'calc(80vh / var(--ui-scale, 1))', maxHeight: inline ? undefined : 'calc(90vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
       >
         {/* Header */}
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <span className="display-font glow-text-cyan" style={{ fontSize: '12px', letterSpacing: '1.5px' }}>{title.toUpperCase()}</span>
+          {!inline && <WorkSurfaceControls surface={surface} />}
           {!inline && <button onClick={() => onDone(null)} className="display-font" title="Cancel (Esc)" style={{ ...btn, width: '26px' }}>×</button>}
         </div>
 
@@ -124,7 +131,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         {roots.length > 0 && <div aria-label="Location shortcuts" style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 64, overflowY: 'auto' }}>{roots.map(root => <button type="button" key={root.path} style={btn} title={root.path} onClick={() => void load(root.path)}>{root.name}</button>)}</div>}
 
         {/* Folder list */}
-        <div role={inline ? 'region' : undefined} aria-label={inline ? 'Project folders' : undefined} style={{ flex: 1, minHeight: inline ? 0 : '160px', overflowY: 'auto' }}>
+        <div role={inline ? 'region' : undefined} aria-label={inline ? 'Project folders' : undefined} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {loading ? (
             <div style={{ padding: '16px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>loading…</div>
           ) : dirs.length === 0 ? (
@@ -143,7 +150,8 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
           )}
         </div>
 
-        <small style={{ padding: '4px 14px', overflowWrap: 'anywhere' }}>Create folder inside: {cwd || 'choose a parent first'}</small>
+        {compactCreate && <button type="button" style={{ ...btn, margin: '4px 14px', textAlign: 'left' }} aria-expanded={creatingFolder} onClick={() => setCreatingFolder(value => !value)}>{creatingFolder ? 'Hide create folder' : 'Create folder'}</button>}
+        {(!compactCreate || creatingFolder) && <><small style={{ padding: '4px 14px', overflowWrap: 'anywhere' }}>Create folder inside: {cwd || 'choose a parent first'}</small>
         {/* New folder */}
         <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', gap: '8px' }}>
           <input
@@ -158,6 +166,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
           <button onClick={() => void makeFolder()} className="display-font" style={btn} disabled={!newFolder.trim()}>+ FOLDER</button>
         </div>
 
+        </>}
         {/* Filename + confirm */}
         {withFilename && (
           <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)' }}>
@@ -201,7 +210,7 @@ const btn: React.CSSProperties = {
   borderRadius: '3px',
   color: 'var(--color-accent-primary-dim)',
   cursor: 'pointer',
-  fontSize: '11px',
+  fontSize: '13px',
   letterSpacing: '1px',
   padding: '4px 10px',
 };
@@ -211,7 +220,7 @@ const input: React.CSSProperties = {
   border: '1px solid var(--color-border-hairline)',
   borderRadius: '3px',
   color: 'var(--color-fg)',
-  fontSize: '11px',
+  fontSize: '13px',
   fontFamily: 'var(--font-code, monospace)',
   padding: '5px 8px',
 };

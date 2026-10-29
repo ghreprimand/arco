@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useRecallStore, EMPTY_FILTERS, type RecallSearchFilters } from '../../stores/recallStore';
 import { RecallResultRow } from './RecallResultRow';
 import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@arco/shared';
+import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 
 // Workbench Expansion §F3 — top-level Recall search view.
 //
@@ -50,6 +51,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
 
   const allHits = useRecallStore((s) => s.hits);
   // §F4 — apply the client-side "pinned only" filter. The store already sorts
@@ -94,7 +96,11 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
     return [...set].sort();
   }, [hits, filters.project]);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, []);
 
   // Debounced search on any filter change. 180ms mirrors the command palette.
   useEffect(() => {
@@ -220,27 +226,38 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 'calc(8vh / var(--ui-scale, 1))',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        ref={surface}
+        role="dialog" aria-modal="true" aria-label="Recall"
+        onKeyDown={e => {
+          if (e.defaultPrevented) return;
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+          if (e.key !== 'Tab') return;
+          const items = [...(surface.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]') ?? [])].filter(el => el.getClientRects().length > 0);
+          if (e.shiftKey && document.activeElement === items[0]) { e.preventDefault(); items.at(-1)?.focus(); }
+          else if (!e.shiftKey && document.activeElement === items.at(-1)) { e.preventDefault(); items[0]?.focus(); }
+        }}
         data-help="recall.view"
         style={{
-          width: 'min(820px, calc(92vw / var(--ui-scale, 1)))', maxHeight: 'calc(82vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
+          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))', height: 'calc(88vh / var(--ui-scale, 1))', maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
           background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-bright)',
           borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
           fontFamily: 'var(--font-body)',
         }}
       >
-        <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: '12px 16px 8px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <span className="display-font" style={{ fontSize: 12, letterSpacing: 2, color: 'var(--color-accent-primary)' }}>
             RECALL
           </span>
           <span style={{ fontSize: 11, color: 'var(--color-fg-muted)' }}>
             search every conversation Arco has run
           </span>
-          <button type="button" onClick={onClose} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: 16 }}>
+          <span style={{ marginLeft: 'auto' }}><WorkSurfaceControls surface={surface} /></span>
+          <button type="button" aria-label="Close Recall" onClick={onClose} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: 16 }}>
             ✕
           </button>
         </div>
@@ -292,7 +309,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
         </div>
 
         {/* Results */}
-        <div ref={listRef} style={{ overflowY: 'auto', flex: 1 }}>
+        <div ref={listRef} role="region" aria-label="Recall results" style={{ overflowY: 'auto', flex: '1 0 60px', minHeight: 60 }}>
           {searchError && (
             <div style={{ padding: '12px 16px', color: 'var(--color-danger, #c33)', fontSize: 13 }}>{searchError}</div>
           )}
@@ -326,7 +343,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             data-help="recall.summary-viewer"
             style={{
               borderTop: '1px solid var(--color-border-bright)', background: 'var(--color-bg)',
-              maxHeight: 'calc(40vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
+              maxHeight: '30%', flex: '0 1 30%', minHeight: 0, display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--color-border-hairline)' }}>
@@ -336,7 +353,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
               </span>
               <button type="button" onClick={() => setOpenSummaryView(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
-            <pre style={{ margin: 0, padding: '10px 16px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-code)', fontSize: 12, lineHeight: 1.5, color: 'var(--color-fg-dim)' }}>
+            <pre style={{ margin: 0, padding: '10px 16px', overflowY: 'auto', minHeight: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-code)', fontSize: 12, lineHeight: 1.5, color: 'var(--color-fg-dim)' }}>
               {openSummaryView.body}
             </pre>
           </div>
@@ -350,7 +367,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             data-help="recall.distill-kb"
             style={{
               borderTop: '1px solid var(--color-border-bright)', background: 'var(--color-bg)',
-              maxHeight: 'calc(46vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
+              maxHeight: '35%', flex: '0 1 35%', minHeight: 0, display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--color-border-hairline)' }}>
@@ -360,7 +377,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
               </span>
               <button type="button" onClick={() => setDistillDraft(null)} style={{ background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: 14 }}>✕</button>
             </div>
-            <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
+            <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1, minHeight: 0 }}>
               <input
                 data-help="recall.distill-kb.title"
                 value={distillDraft.title}
@@ -375,7 +392,8 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
                 placeholder="Markdown body"
                 style={{ ...selStyle, minHeight: 160, resize: 'vertical', fontFamily: 'var(--font-code)', fontSize: 12 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '6px 16px', flexShrink: 0 }}>
                 <button type="button" onClick={() => setDistillDraft(null)} style={{ ...selStyle, cursor: 'pointer' }}>CANCEL</button>
                 <button
                   type="button"
@@ -387,7 +405,6 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
                   {savingDistill ? 'SAVING…' : 'SAVE TO KB'}
                 </button>
               </div>
-            </div>
           </div>
         )}
 

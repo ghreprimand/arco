@@ -1,6 +1,7 @@
 import './components/Home/home.css';
 import { HomeView } from './components/Home/HomeView';
 import './components/Connections/connections.css';
+import './components/workSurface/workSurface.css';
 import { parseConnectionStatus } from './components/Connections/model';
 import { useConnectionsDeepLinks } from './components/Connections/Connections';
 import { useSettingsDeepLinks } from './components/settings/SettingsLayout';

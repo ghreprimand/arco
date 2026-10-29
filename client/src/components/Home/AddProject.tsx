@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
+import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { addFolder, createFolder } from './projectApi';
 
 export function AddProject({ initialPath, scanFolder, roots, onList, onClose, announce, onChoose }: {
@@ -46,8 +47,9 @@ export function AddProject({ initialPath, scanFolder, roots, onList, onClose, an
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
       if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     }}>
-      <header><div><span className="home-eyebrow">PROJECT FOLDERS</span><h2 id="home-add-title">Open another folder</h2><p>Choose a folder for this session. Bookmark it only if wanted.</p></div><button type="button" aria-label="Close folder browser" onClick={onClose}>Done</button></header>
-      <DirectoryBrowser roots={roots} key={browseKey} initialPath={root} inline withFilename={false} title="Browse project folders" confirmLabel={onChoose ? 'Use this folder' : adding ? 'Bookmarking...' : 'Bookmark folder'} onDone={result => { if (result) { if (onChoose) onChoose(result.dir); else void add(result.dir); } }} />
+      <header><div><span className="home-eyebrow">PROJECT FOLDERS</span><h2 id="home-add-title">Open another folder</h2><p>Choose a folder for this session. Bookmark it only if wanted.</p></div><WorkSurfaceControls surface={dialog} /><button type="button" aria-label="Close folder browser" onClick={onClose}>Done</button></header>
+      <div className="home-add-body">
+      <DirectoryBrowser compactCreate roots={roots} key={browseKey} initialPath={root} inline withFilename={false} title="Browse project folders" confirmLabel={onChoose ? 'Use this folder' : adding ? 'Bookmarking...' : 'Bookmark folder'} onDone={result => { if (result) { if (onChoose) onChoose(result.dir); else void add(result.dir); } }} />
       <details className="home-save-project"><summary>Bookmark a folder</summary>
       <form onSubmit={e => { e.preventDefault(); void add(path); }} data-help="home.add-folder">
         <label htmlFor="home-add">Folder path</label>
@@ -67,6 +69,7 @@ export function AddProject({ initialPath, scanFolder, roots, onList, onClose, an
       </details>
       </details>
       <p className="home-fine-print">In Docker, folders must be mounted first. Project locations are managed in Settings &gt; Projects.</p>
+      </div>
     </div>
   </div>;
 }

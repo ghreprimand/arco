@@ -19,7 +19,7 @@ def project(name, folder, index, **extra):
 async def check(browser, scale, scenario):
     populated = scenario == 'populated'
     discovery = scenario in ['discovery', 'multiple']
-    context = await browser.new_context(viewport={'width': 1280, 'height': 720})
+    context = await browser.new_context(viewport={'width': 1280, 'height': 720}, device_scale_factor=2 if scale == 1.0 else 1)
     await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{scale}');")
     state = {'projects': [project('Harbor', '/projects/harbor', 1, pinned=True), project('Field notes', '/work/field-notes', 2), project('Moved project', '/work/old-location', 3, exists=False), project('Archived toolkit', '/work/toolkit', 4, archived=True)] if populated else [], 'messages': []}
     state['projects'] += [{'name': 'discovered', 'path': '/projects/discovered/sample', 'source': 'scanned', 'exists': True}] if populated else []
@@ -114,8 +114,79 @@ async def check(browser, scale, scenario):
         await group.get_by_role('button',name='Browse Work',exact=True).click()
         dialog=page.get_by_role('dialog',name='Open another folder',exact=True)
         await expect(dialog.get_by_label('Browse folder path',exact=True)).to_have_value('/projects')
+        for width,height in [(1280,720),(1920,1080),(1920,1200),(2560,1440),(3840,2160)]:
+            await page.set_viewport_size({'width':width,'height':height})
+            await expect(dialog.get_by_role('button',name='Close folder browser')).to_be_in_viewport()
+            await expect(dialog.get_by_role('button',name='Use this folder')).to_be_in_viewport()
+            assert await dialog.evaluate('(el) => {const r=el.getBoundingClientRect(); return r.top>=0 && r.left>=0 && r.bottom<=innerHeight+1 && r.right<=innerWidth+1}')
+            await page.screenshot(animations='disabled',scale='css',path=str(ART / f'folder-{width}x{height}-{round(scale*100)}.png'))
+        await dialog.get_by_role('button',name='Maximize dialog').click()
+        await expect(dialog.get_by_role('button',name='Restore dialog size')).to_be_visible()
+        await dialog.get_by_role('button',name='Restore dialog size').click()
+        resize=dialog.get_by_role('button',name='Resize dialog')
+        before=await dialog.bounding_box()
+        await resize.focus(); await page.keyboard.press('ArrowRight')
+        after=await dialog.bounding_box()
+        assert after['width'] > before['width'], (before,after)
+        await page.keyboard.press('Home')
+        before=await dialog.bounding_box(); handle=await resize.bounding_box()
+        await page.mouse.move(handle['x']+handle['width']/2,handle['y']+handle['height']/2)
+        await page.mouse.down(); await page.mouse.move(handle['x']+handle['width']/2+30,handle['y']+handle['height']/2+20,steps=4); await page.mouse.up()
+        after=await dialog.bounding_box()
+        assert after['width'] > before['width'], (before,after)
+        await resize.focus(); await page.keyboard.press('Home')
+        await dialog.get_by_role('button',name='Maximize dialog').click()
+        await page.set_viewport_size({'width':1280,'height':720})
+        await expect(dialog.get_by_role('button',name='Close folder browser')).to_be_in_viewport()
+        await dialog.get_by_role('button',name='Restore dialog size').click()
+        await expect(dialog.get_by_role('button',name='Use this folder')).to_be_in_viewport()
         await page.keyboard.press('Escape')
         await expect(dialog).to_have_count(0)
+        # Exercise the standalone media picker, which renders outside the Home dialog.
+        await page.set_viewport_size({'width':800,'height':600})
+        await page.evaluate("""async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+          const { DirectoryBrowser } = await import('/src/components/media/DirectoryPicker.tsx');
+          const host = document.createElement('div'); host.id = 'standalone-picker-test'; document.body.appendChild(host);
+          window.__pickerRoot = createRoot(host);
+          window.__pickerRoot.render(React.createElement(DirectoryBrowser, {title:'Fixture picker', onDone:()=>{}}));
+        }""")
+        picker = page.locator('.glow-border').filter(has=page.get_by_text('FIXTURE PICKER',exact=True))
+        await expect(picker).to_be_visible()
+        assert await picker.get_by_role('button',name='Maximize dialog').count() == 1
+        await picker.get_by_role('button',name='Maximize dialog').click()
+        await expect(picker.get_by_role('button',name='Restore dialog size')).to_be_in_viewport()
+        await picker.get_by_role('button',name='Restore dialog size').click()
+        await expect(picker.get_by_role('button',name='Maximize dialog')).to_be_in_viewport()
+        await expect(picker.get_by_role('button',name='SAVE HERE ↵')).to_be_in_viewport()
+        resize = picker.get_by_role('button',name='Resize dialog')
+        before = await picker.bounding_box()
+        await resize.focus(); await page.keyboard.press('ArrowLeft')
+        after = await picker.bounding_box()
+        assert after['width'] < before['width'], (before, after)
+        await page.keyboard.press('Home')
+        await page.evaluate("window.__pickerRoot.unmount(); document.getElementById('standalone-picker-test').remove()")
+        await page.set_viewport_size({'width':1280,'height':720})
+        await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setShowRecall(true)}")
+        recall=page.get_by_role('dialog',name='Recall')
+        await expect(recall).to_be_visible()
+        await page.wait_for_timeout(300)
+        await page.evaluate("""async()=>{const{useRecallStore:s}=await import('/src/stores/recallStore.ts');s.setState({hits:[{wfid:'fixture',title:'Synthetic conversation',project:'Work',provider:'codex',cwd:'/projects',lastActiveAt:1,summaryRef:'summary',snippet:'',matchedIn:'title',tags:[],pinned:false,links:[]}],summaryBodies:{fixture:'Synthetic summary '.repeat(50)}})}""")
+        await recall.get_by_role('button',name='OPEN SUMMARY').click()
+        await recall.get_by_role('button',name='DISTILL TO KB').click()
+        await expect(recall.locator('[data-help="recall.summary-viewer"]')).to_be_visible()
+        await expect(recall.locator('[data-help="recall.distill-kb"]')).to_be_visible()
+        assert await recall.get_by_role('region',name='Recall results').evaluate('el => el.getBoundingClientRect().height >= 50')
+        await expect(recall.get_by_role('button',name='SAVE TO KB')).to_be_in_viewport()
+        assert await recall.get_by_role('button',name='SAVE TO KB').evaluate("el => {const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}")
+        await recall.get_by_role('button',name='Maximize dialog').click()
+        await expect(recall.get_by_role('button',name='Restore dialog size')).to_be_visible()
+        await recall.get_by_role('button',name='Restore dialog size').click()
+        await page.screenshot(animations='disabled',path=str(ART / f'recall-{round(scale*100)}.png'))
+        await recall.get_by_role('button',name='Resize dialog').focus()
+        await page.keyboard.press('Escape')
+        await expect(recall).to_have_count(0)
         assert not [path for path in writes if path != '/api/session'], writes
     assert await page.locator('#home-add').count() == 0
     await expect(page.get_by_role('button', name='Arco v0.1.0', exact=True)).to_be_visible()
@@ -164,8 +235,10 @@ async def main():
     ART.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        await check(browser, 1.0, 'discovery')
+        scenarios = ['discovery'] if os.environ.get('ARCO_HOME_DISCOVERY_ONLY') == '1' else ['empty', 'discovery', 'multiple', 'populated']
         for scale in [1.1, 1.5]:
-            for scenario in ['empty', 'discovery', 'multiple', 'populated']:
+            for scenario in scenarios:
                 await check(browser, scale, scenario)
         await browser.close()
 

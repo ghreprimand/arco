@@ -2,6 +2,7 @@ import { layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalHelpButton } from '../help/ModalHelpButton';
+import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AudioEditor, AudioOpsPanel } from './AudioEditor';
 import { VideoEditor, VideoOpsPanel } from './VideoEditor';
 import { ImageEditor } from './ImageEditor';
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export function MediaModalHost({ initialPath, initialMode = 'image', initialEditing = false, onClose, fileContext, onRevealInFiles }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   // Mode is operator-switchable in-modal (the header IMAGE/AUDIO/VIDEO toggle),
   // seeded from how the studio was opened. Previously this was a fixed `const`
   // from initialMode, which stranded anyone who opened via the header MEDIA
@@ -344,8 +346,9 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
       <div
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
+        ref={surface}
         style={{
-          width: '100%', maxWidth: '1100px', maxHeight: '100%',
+          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))', maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))',
           // The viewer sizes to its content (the <img> gives the body intrinsic
           // height). The EDITOR's body is `flex: 1` with NO intrinsic height, so
           // without a definite modal height it collapses to zero and only the
@@ -388,6 +391,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
             </span>
           </div>
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+            <WorkSurfaceControls surface={surface} />
             {mode === 'image' && hasImage && !editing && (
               <>
                 <button data-help="media.zoom-out" onClick={() => zoomBy(1 / 1.2)} className="display-font" title="Zoom out" style={ctrlBtn}>−</button>

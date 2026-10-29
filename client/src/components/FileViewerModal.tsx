@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -75,6 +76,7 @@ function classifyFile(path: string, content: string): { kind: RenderKind; lang?:
 }
 
 export function FileViewerModal({ path, onClose, fallback, editContext, startLine, readUrl, saveRequest, initialEditing = false }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [payload, setPayload] = useState<FilePayload | null>(null);
   const [rawMode, setRawMode] = useState(false);
   // A6 editing state. `editing` flips the buffer writable + reveals Save;
@@ -229,10 +231,12 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
       <div
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
+        ref={surface}
         style={{
-          width: '100%',
-          maxWidth: '1100px',
-          maxHeight: '100%',
+          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))',
+          height: 'calc(88vh / var(--ui-scale, 1))',
+          maxWidth: 'calc(96vw / var(--ui-scale, 1))',
+          maxHeight: 'calc(94vh / var(--ui-scale, 1))',
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '6px',
@@ -274,6 +278,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+            <WorkSurfaceControls surface={surface} />
             {dirty && (
               <span
                 title="Unsaved edits"

@@ -1,5 +1,6 @@
 import { requestOutputs } from '../utils/outputNavigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -17,6 +18,7 @@ interface Props {
 // user message (`[artifact:<id>] <answer>`) that the orchestrator picks up
 // on its next turn.
 export function ArtifactModal({ onRespond }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const queue = useAppStore((s) => s.artifactQueue);
   const dequeue = useAppStore((s) => s.dequeueArtifact);
   const artifact = queue[0];
@@ -67,14 +69,16 @@ export function ArtifactModal({ onRespond }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
+        ref={surface}
         style={{
           // Frosted token (not a hardcoded opaque rgba) so frosted mode + the
           // CONFIG opacity slider affect this modal like the dropdowns.
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-accent-secondary)',
           borderRadius: '6px',
-          width: 'min(820px, calc(92vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
+          width: isAsk ? 'min(820px, calc(92vw / var(--ui-scale, 1)))' : 'min(1440px, calc(92vw / var(--ui-scale, 1)))',
+          height: isAsk ? undefined : 'calc(88vh / var(--ui-scale, 1))',
+          maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 36px var(--color-accent-secondary-a30)',
@@ -99,6 +103,7 @@ export function ArtifactModal({ onRespond }: Props) {
               style={{ background: 'var(--color-accent-secondary-a10)', border: '1px solid var(--color-accent-secondary)', borderRadius: '3px', color: 'var(--color-accent-secondary)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', padding: '3px 10px', lineHeight: '16px' }}
             >OPEN IN EDITOR</button>
           )}
+          {!isAsk && <WorkSurfaceControls surface={surface} />}
           {!isAsk && (artifact.path || artifact.content) && <button type="button" onClick={() => { useAppStore.getState().setActiveJob(artifact.workflowId); requestOutputs(artifact.workflowId); dismiss(); }} style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>View in Outputs</button>}
           {!isAsk && (
             <button

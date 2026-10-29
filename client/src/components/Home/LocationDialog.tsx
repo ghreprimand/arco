@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ProjectLocationForm } from '../ProjectLocationForm';
+import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import type { LocationSaved } from '../../utils/projectLocations';
 export function LocationDialog({ initialPath, onSaved, onClose }: { initialPath: string; onSaved: (saved: LocationSaved) => void; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -20,7 +21,7 @@ export function LocationDialog({ initialPath, onSaved, onClose }: { initialPath:
     if (!controls.length) { event.preventDefault(); dialog.current?.focus(); return; }
     if (event.shiftKey && (document.activeElement === controls[0] || document.activeElement === dialog.current)) { event.preventDefault(); controls.at(-1)?.focus(); }
     else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
-  }}><header><div><h2 id="location-dialog-title">Add project location</h2><p>Choose a folder containing projects, such as Work or Personal.</p></div><button type="button" aria-label="Close location dialog" disabled={busy} onClick={onClose}>Done</button></header>
-    <ProjectLocationForm onBusyChange={setBusy} initialPath={initialPath} onSaved={onSaved} />
+  }}><header><div><h2 id="location-dialog-title">Add project location</h2><p>Choose a folder containing projects, such as Work or Personal.</p></div><WorkSurfaceControls surface={dialog} /><button type="button" aria-label="Close location dialog" disabled={busy} onClick={onClose}>Done</button></header>
+    <div className="home-add-body"><ProjectLocationForm onBusyChange={setBusy} initialPath={initialPath} onSaved={onSaved} /></div>
   </div></div>;
 }

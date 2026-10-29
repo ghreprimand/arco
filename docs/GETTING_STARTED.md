@@ -44,6 +44,8 @@ area links to Connections and the installed Arco version/update controls.
 
 ## Manage locations and one-off folders
 
+Larger browsing and work dialogs offer **Maximize** and **Restore**. Drag **Resize**, or focus it and use arrow keys to adjust the dialog (Shift makes larger steps; Home resets its size). These adjustments are temporary and do not change the saved interface text size.
+
 Settings > Projects starts with the compact **Project locations** list. **Add
 location** opens its form; **Edit** changes a name or path. Adding an existing path
 or an alias explains which location already uses it, keeps the submitted name,
