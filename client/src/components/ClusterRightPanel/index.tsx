@@ -1,3 +1,4 @@
+import { useOutputNavigation } from '../../utils/outputNavigation';
 import { useVoicePanelRequest } from '../../voice/panels';
 // docs/PROTOCOL_CLUSTER.md - replaces the per-member RightPanel for
 // cluster tabs. Later phases added shared-cwd mirrors and a member-scoped
@@ -145,6 +146,7 @@ export function ClusterRightPanel({ cluster, onFocusMember, onRename, onAddFresh
   const [mailboxLoading, setMailboxLoading] = useState(false);
   const [mailboxError, setMailboxError] = useState<string | null>(null);
   const [filesSubTab, setFilesSubTab] = useState<ClusterFilesSubTab>('files');
+  useOutputNavigation(cluster.members.map(member => member.workflowId), () => { setTab('files'); setFilesSubTab('outputs'); });
   const selectedDepth = mailboxWfid ? (cluster.mailboxDepth[mailboxWfid] ?? 0) : 0;
   useEffect(() => {
     if (!mailboxWfid) return;

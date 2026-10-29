@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { CSSProperties } from 'react';
+import { OutputsPanel } from './OutputsPanel';
 import { FileExplorer } from '../FileExplorer';
 import { BlastRadiusTab } from './BlastRadiusTab';
 import { ChangesPanel } from '../diff/ChangesPanel';
@@ -10,8 +11,8 @@ import { useAppStore } from '../../stores/appStore';
 import type { JobState } from '../../stores/appStore';
 import type { ClusterStatePayload, WorktreeInfo, WorktreeListResponse } from '@arco/shared';
 
-export type FilesSubTab = 'files' | 'live' | 'changes' | 'source' | 'remote' | 'blast-radius' | 'sandbox';
-export type ClusterFilesSubTab = 'files' | 'live' | 'changes' | 'source' | 'remote';
+export type FilesSubTab = 'outputs' | 'files' | 'live' | 'changes' | 'source' | 'remote' | 'blast-radius' | 'sandbox';
+export type ClusterFilesSubTab = 'outputs' | 'files' | 'live' | 'changes' | 'source' | 'remote';
 
 // Phase F + Workbench A3/I1/I2 — Files-tab body. FILES (the explorer), CHANGES
 // (whole working-tree-vs-HEAD diff, A3), SOURCE (per-file changes grouped
@@ -50,6 +51,7 @@ export function FilesTabBody({
   const sandboxOn = (job.config.efficiencySandbox ?? 'off') === 'on';
   const tabs: Array<{ id: FilesSubTab; label: string; show: boolean; help?: string }> = [
     { id: 'files', label: 'FILES', show: true },
+    { id: 'outputs', label: 'OUTPUTS', show: !job.config.incognito, help: 'rightpanel.outputs' },
     { id: 'live', label: 'LIVE', show: true, help: 'rightpanel.files.live' },
     { id: 'changes', label: 'CHANGES', show: true, help: 'rightpanel.files.changes' },
     { id: 'source', label: 'SOURCE', show: true, help: 'rightpanel.files.source' },
@@ -66,6 +68,7 @@ export function FilesTabBody({
         style={{
           display: 'flex',
           gap: '2px',
+          overflowX: 'auto',
           borderBottom: '1px solid var(--color-border-hairline)',
           padding: '4px 6px 0',
           flexShrink: 0,
@@ -109,6 +112,7 @@ export function FilesTabBody({
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {effectiveSub === 'files' && <FileExplorer cwd={cwd} workflowId={job.id} />}
+        {effectiveSub === 'outputs' && <OutputsPanel cwd={cwd} workflowId={job.id} />}
         {effectiveSub === 'live' && (
           <LiveChangesPanel
             wfid={job.id}
@@ -143,13 +147,14 @@ export function ClusterFilesTabBody({
   const selectedMember = members.find((m) => m.workflowId === effectiveWfid);
   const tabs: Array<{ id: ClusterFilesSubTab; label: string; help?: string }> = [
     { id: 'files', label: 'FILES' },
+    { id: 'outputs', label: 'OUTPUTS', help: 'rightpanel.outputs' },
     { id: 'live', label: 'LIVE', help: 'rightpanel.files.live' },
     { id: 'changes', label: 'CHANGES', help: 'rightpanel.files.changes' },
     { id: 'source', label: 'SOURCE', help: 'rightpanel.files.source' },
     { id: 'remote', label: 'REMOTE', help: 'rightpanel.files.remote' },
   ];
   const effectiveSub = tabs.some((t) => t.id === subTab) ? subTab : 'files';
-  const needsMember = effectiveSub !== 'files';
+  const needsMember = effectiveSub !== 'files' && effectiveSub !== 'outputs';
 
   const {
     effectiveCwd, watchingBranch, showPicker: showWorktreePicker, autoLabel, worktrees,
@@ -173,6 +178,7 @@ export function ClusterFilesTabBody({
         style={{
           display: 'flex',
           gap: '2px',
+          overflowX: 'auto',
           borderBottom: '1px solid var(--color-border-hairline)',
           padding: '4px 6px 0',
           flexShrink: 0,
@@ -233,6 +239,7 @@ export function ClusterFilesTabBody({
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {effectiveSub === 'files' && <FileExplorer cwd={cluster.cwd} />}
+        {effectiveSub === 'outputs' && <OutputsPanel cwd={cluster.cwd} clusterId={cluster.clusterId} />}
         {needsMember && !effectiveWfid && <EmptyState text="No cluster member is available for workspace git views." />}
         {effectiveSub === 'live' && effectiveWfid && (
           <LiveChangesPanel

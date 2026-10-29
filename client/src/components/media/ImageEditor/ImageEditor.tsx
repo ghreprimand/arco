@@ -132,6 +132,7 @@ export function ImageEditor({ src, filename, diskPath, fileContext, onRevealInFi
         body: JSON.stringify({
           cwd: fileContext?.cwd,
           workflowId: fileContext?.workflowId,
+          sourcePath: diskPath || undefined,
           path,
           dataUrl,
           overwrite,
@@ -139,7 +140,7 @@ export function ImageEditor({ src, filename, diskPath, fileContext, onRevealInFi
       });
       return (await resp.json()) as WriteResult;
     },
-    [fileContext?.cwd, fileContext?.workflowId],
+    [fileContext?.cwd, fileContext?.workflowId, diskPath],
   );
 
   const handleSave = useCallback(async () => {

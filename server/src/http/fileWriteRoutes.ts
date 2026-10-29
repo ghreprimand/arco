@@ -4,6 +4,8 @@ import { basename, dirname, relative, resolve } from 'path';
 import { boundCwdError, confineRealPath, resolveBoundCwd } from './writeConfinement.js';
 import { PORT } from '../server/constants.js';
 import { workflows } from '../server/state.js';
+import { broadcastWorkflow } from '../server/broadcast.js';
+import { trackEditorOutput } from '../outputs.js';
 import { appendRecord } from '../recentFilesLedger.js';
 
 // Workbench Expansion A6 — Manual file-write endpoint.
@@ -130,6 +132,10 @@ export async function tryHandleFileWriteRoutes(
     // cwd-relative and already path-escape-verified; resolve to absolute.
     if (result.ok && result.relPath) {
       const wf = wfid ? workflows.get(wfid) : undefined;
+      if (wfid) {
+        broadcastWorkflow(wfid, { type: 'output_saved', workflowId: wfid, path: resolve(cwd, result.relPath), ts: Date.now() });
+        await trackEditorOutput(cwd, wfid, resolve(cwd, result.relPath)).catch(() => { /* persisted event reconciles on refresh */ });
+      }
       void appendRecord({
         ts: Date.now(),
         path: resolve(cwd, result.relPath),

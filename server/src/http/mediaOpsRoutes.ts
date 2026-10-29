@@ -2,7 +2,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { createReadStream, constants } from 'fs';
 import { pipeline } from 'stream/promises';
 import { open } from 'fs/promises';
-import { extname } from 'path';
+import { extname, resolve } from 'path';
 import type {
   MediaOpRequest,
   MediaOpResult,
@@ -18,6 +18,8 @@ import type {
 import { runMediaOp, MediaOpError, resolveMediaInput, inspectMedia, type MediaAccess } from '../media/ffmpeg.js';
 import { runDemucsStems, DemucsError } from '../media/demucs.js';
 import { saveScratchUpload, ScratchError } from '../media/scratch.js';
+import { assertSafePath } from '../fileAccessPolicy.js';
+import { outputRoots, resolveTrackedOutput, trackEditorOutput } from '../outputs.js';
 import { readSettings } from '../settings.js';
 import { broadcastWorkflow } from '../server/broadcast.js';
 import { PORT } from '../server/constants.js';
@@ -118,16 +120,18 @@ export async function tryHandleMediaOpsRoutes(
     req.on('close', () => ac.abort());
 
     try {
-      const result = await runMediaOp(cwd, body.path, spec, {
+      const tracked = body.workflowId && cwd ? await resolveTrackedOutput(cwd, body.workflowId, body.path).catch(() => null) : null;
+      const result = await runMediaOp(cwd, tracked || body.path, spec, {
         signal: ac.signal,
-        unconfined,
-        allowedRoots,
+        unconfined: tracked ? true : unconfined,
+        allowedRoots: tracked ? await outputRoots(cwd) : allowedRoots,
         output: body.output,
       });
       // relPath is set only for an output inside the workflow cwd; otherwise the
       // absolute outputPath is the operator-facing location.
       const where = result.relPath || result.outputPath;
-      broadcastResult(body.workflowId, spec.op, true, `${spec.op} → ${where}`, result.relPath || undefined);
+      broadcastResult(body.workflowId, spec.op, true, `${spec.op} → ${where}`, result.relPath || undefined, result.outputPath, body.path);
+      if (body.workflowId) await trackEditorOutput(cwd, body.workflowId, result.outputPath, body.path).catch(() => {});
       return send(res, 200, {
         ok: true,
         outputPath: result.outputPath,
@@ -203,16 +207,17 @@ export async function tryHandleMediaOpsRoutes(
     req.on('close', () => ac.abort());
 
     try {
-      const result = await runDemucsStems(cwd, body.path, {
+      const tracked = body.workflowId && cwd ? await resolveTrackedOutput(cwd, body.workflowId, body.path).catch(() => null) : null;
+      const result = await runDemucsStems(cwd, tracked || body.path, {
         signal: ac.signal,
-        unconfined,
-        allowedRoots,
+        unconfined: tracked ? true : unconfined,
+        allowedRoots: tracked ? await outputRoots(cwd) : allowedRoots,
         model: body.model,
         twoStems: body.twoStems,
         format: body.format,
         output: body.output,
       });
-      broadcastStems(body.workflowId, result.model ?? 'demucs', true, `stems → ${result.relDir || result.dir} (${result.stems?.length ?? 0})`, result.stems?.length ?? 0, result.relDir);
+      broadcastStems(body.workflowId, result.model ?? 'demucs', true, `stems → ${result.relDir || result.dir} (${result.stems?.length ?? 0})`, result.stems?.length ?? 0, result.relDir, result.stems?.map(stem => stem.path), body.path);
       return send(res, 200, result);
     } catch (err) {
       if (err instanceof DemucsError) {
@@ -249,7 +254,8 @@ export async function tryHandleMediaOpsRoutes(
     const unconfined = mediaSettings.mediaUnconfined === true;
     const allowedRoots = mediaSettings.mediaAllowedRoots ?? [];
     const access: MediaAccess = { cwd: cwd || undefined, unconfined, allowedRoots };
-    const result = await inspectMedia(access, body.path);
+    const tracked = body.workflowId && cwd ? await resolveTrackedOutput(cwd, body.workflowId, body.path).catch(() => null) : null;
+    const result = await inspectMedia(tracked ? { cwd, unconfined: true, allowedRoots: await outputRoots(cwd) } : access, tracked || body.path);
     return send(res, 200, result);
   }
 
@@ -277,7 +283,10 @@ export async function tryHandleMediaOpsRoutes(
       const access: MediaAccess = { cwd: cwd || undefined, unconfined, allowedRoots };
       let abs: string;
       try {
-        abs = resolveMediaInput(access, rel);
+        assertSafePath(resolve(cwd || '.', rel));
+        const workflowId = parsed.searchParams.get('workflowId');
+        const tracked = workflowId && cwd ? await resolveTrackedOutput(cwd, workflowId, rel).catch(() => null) : null;
+        abs = tracked || resolveMediaInput(access, rel);
       } catch {
         res.writeHead(403, { 'Content-Type': 'text/plain' });
         res.end('media path is unavailable or outside permitted folders; configure allowed media folders in Settings');
@@ -369,6 +378,8 @@ function broadcastResult(
   ok: boolean,
   summary: string,
   relPath?: string,
+  outputPath?: string,
+  sourcePath?: string,
 ): void {
   if (!workflowId || !op) return;
   const event: MediaOpResultMessage = {
@@ -378,6 +389,8 @@ function broadcastResult(
     ok,
     summary,
     ...(relPath ? { relPath } : {}),
+    ...(outputPath ? { outputPath } : {}),
+    ...(sourcePath ? { sourcePath } : {}),
     ts: Date.now(),
   };
   broadcastWorkflow(workflowId, event);
@@ -392,6 +405,8 @@ function broadcastStems(
   summary: string,
   count: number,
   relDir?: string,
+  outputPaths?: string[],
+  sourcePath?: string,
 ): void {
   if (!workflowId) return;
   const event: MediaStemsResultMessage = {
@@ -402,6 +417,8 @@ function broadcastStems(
     count,
     summary,
     ...(relDir ? { relDir } : {}),
+    ...(outputPaths ? { outputPaths } : {}),
+    ...(sourcePath ? { sourcePath } : {}),
     ts: Date.now(),
   };
   broadcastWorkflow(workflowId, event);

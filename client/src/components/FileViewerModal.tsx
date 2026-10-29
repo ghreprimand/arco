@@ -15,6 +15,9 @@ type FilePayload =
   | { type: 'error'; error: string };
 
 interface Props {
+  readUrl?: string;
+  initialEditing?: boolean;
+  saveRequest?: { url: string; body: Record<string, unknown> };
   path: string;
   onClose: () => void;
   // When the literal path 404s, the server retries inside the workflow's
@@ -71,7 +74,7 @@ function classifyFile(path: string, content: string): { kind: RenderKind; lang?:
   return { kind: 'plain' };
 }
 
-export function FileViewerModal({ path, onClose, fallback, editContext, startLine }: Props) {
+export function FileViewerModal({ path, onClose, fallback, editContext, startLine, readUrl, saveRequest, initialEditing = false }: Props) {
   const [payload, setPayload] = useState<FilePayload | null>(null);
   const [rawMode, setRawMode] = useState(false);
   // A6 editing state. `editing` flips the buffer writable + reveals Save;
@@ -97,19 +100,19 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
       params.set('cwd', fallback.cwd);
       params.set('workflowId', fallback.workflowId);
     }
-    fetch(`/api/file-content?${params.toString()}`)
+    fetch(readUrl || `/api/file-content?${params.toString()}`)
       .then((r) => r.json() as Promise<FilePayload>)
       .then((p) => {
         if (cancelled) return;
         setPayload(p);
         // Seed the edit baseline from text payloads; reset edit UI on (re)load.
         if (p.type === 'text') { setBuffer(p.content); setLoadedText(p.content); }
-        setEditing(false);
+        setEditing(initialEditing && p.type === 'text');
         setSaveError(null);
       })
       .catch((e) => { if (!cancelled) setPayload({ type: 'error', error: String(e) }); });
     return () => { cancelled = true; };
-  }, [path, fallback?.cwd, fallback?.workflowId]);
+  }, [path, fallback?.cwd, fallback?.workflowId, readUrl, initialEditing]);
 
   const dirty = editing && buffer !== loadedText;
 
@@ -160,7 +163,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
     setSaving(true);
     setSaveError(null);
     try {
-      const r = await fetch('/api/files/write', {
+      const r = await fetch(saveRequest?.url || '/api/files/write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -168,6 +171,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
           ...(editContext.workflowId ? { wfid: editContext.workflowId } : {}),
           path,
           content: buffer,
+          ...(saveRequest?.body ?? {}),
         }),
       });
       const body = (await r.json()) as { ok?: boolean; error?: string };

@@ -1,3 +1,4 @@
+import { requestOutputs } from '../utils/outputNavigation';
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -98,6 +99,7 @@ export function ArtifactModal({ onRespond }: Props) {
               style={{ background: 'var(--color-accent-secondary-a10)', border: '1px solid var(--color-accent-secondary)', borderRadius: '3px', color: 'var(--color-accent-secondary)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', padding: '3px 10px', lineHeight: '16px' }}
             >OPEN IN EDITOR</button>
           )}
+          {!isAsk && (artifact.path || artifact.content) && <button type="button" onClick={() => { useAppStore.getState().setActiveJob(artifact.workflowId); requestOutputs(artifact.workflowId); dismiss(); }} style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>View in Outputs</button>}
           {!isAsk && (
             <button
               onClick={dismiss}

@@ -134,6 +134,7 @@ import { tryHandleServicesRoutes } from './servicesRoutes.js';
 import { tryHandleCookbookRoutes } from './cookbookRoutes.js';
 import { tryHandleMediaOpsRoutes } from './mediaOpsRoutes.js';
 import { tryHandleImageWriteRoutes } from './imageWriteRoutes.js';
+import { tryHandleOutputRoutes } from './outputRoutes.js';
 import { tryHandleWorkflowDataRoutes } from './workflowDataRoutes.js';
 import { tryHandleKnowledgeRoutes } from './knowledgeRoutes.js';
 import { tryHandleExplorerRoutes } from './explorerRoutes.js';
@@ -412,6 +413,7 @@ export async function handleHttpRequest(
 
   if (await tryHandleClusterRoutes(req, res, deps)) return;
 
+  if (await tryHandleOutputRoutes(req, res)) return;
   if (await tryHandleWorkflowDataRoutes(req, res, deps)) return;
 
   if (await tryHandleDiffRoutes(req, res)) return;

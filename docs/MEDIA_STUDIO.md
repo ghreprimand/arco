@@ -1,5 +1,7 @@
 # Media studio
 
+Generated files and scoped editor exports remain available in [Workspace Outputs](OUTPUTS.md), including after their preview closes.
+
 Modal media tools include an image viewer and editor, audio editor, and video
 converter and clipper. This document describes the current implementation.
 

@@ -1199,3 +1199,13 @@ never puts the private ledger/inbox in localStorage. Computer readback waits for
 `computer_context_updated settled` so background acknowledgements and partial
 queue ends cannot swallow an operator answer. Switching agents disables the old
 feed before opening the new context; it does not copy events or preferences.
+
+## Workspace Outputs
+
+`RightPanel/OutputsPanel.tsx` is shared by individual and cluster Files views.
+It uses the workflow/cluster-scoped `/api/outputs` API rather than the global
+Archive listing. Rows preserve producing workflow context for existing file and
+media viewers. The durable projection and copy/move metadata are maintained by
+`server/src/outputs.ts` and `outputStore.ts`; editor writes emit `output_saved`
+and media result events include exact exported paths. Public behavior, limits and
+recovery are described in [Workspace Outputs](OUTPUTS.md).

@@ -1,3 +1,4 @@
+import { useOutputNavigation } from '../../utils/outputNavigation';
 import { useVoicePanelRequest } from '../../voice/panels';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import type { TaskLink } from '@arco/shared';
@@ -212,6 +213,7 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
   // when codebase memory is attached. Local state, not persisted; flipping
   // back to plain FileExplorer is one click.
   const [filesSubTab, setFilesSubTab] = useState<FilesSubTab>('files');
+  useOutputNavigation([job.id], () => { setTab('files'); setFilesSubTab('outputs'); });
   const hasTaskChildren = !!(job.taskChildren && Object.keys(job.taskChildren).length > 0);
   // docs/ARCHITECTURE.md - GENESIS tab visibility.
   //  • M2 from-nothing: this is a genesis workflow still in its scratch ideation dir.

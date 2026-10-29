@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { readdir } from 'node:fs/promises';
-import { FileAccessError, confinedPath, safeDirectory } from '../fileAccessPolicy.js';
+import { FileAccessError, assertSafePath, confinedPath, safeDirectory } from '../fileAccessPolicy.js';
 import { knownRoots, resolveBoundCwd } from './writeConfinement.js';
 import { UPLOADS_DIR } from '../server/constants.js';
 import { SCRATCH_ROOT } from '../media/scratch.js';
@@ -14,10 +14,20 @@ export async function readRoots(cwd?: string | null, workflowId?: string | null)
 
 export async function resolveBrowserRead(p: string, cwd?: string | null, workflowId?: string | null, kind: 'file' | 'directory' = 'file'): Promise<string> {
   if (!p || p.includes('\0')) throw new FileAccessError();
+  if (workflowId && cwd && kind === 'file') {
+    assertSafePath(path.resolve(cwd, p));
+    const tracked = await import('../outputs.js').then(m => m.resolveTrackedOutput(cwd, workflowId, p)).catch(() => null);
+    if (tracked) return tracked;
+  }
   const roots = await readRoots(cwd, workflowId);
   const bound = await resolveBoundCwd(cwd, workflowId);
   if (!path.isAbsolute(p) && !bound.ok) throw new FileAccessError();
   const target = path.isAbsolute(p) ? path.resolve(p) : path.resolve(bound.ok ? bound.cwd : '', p);
+  assertSafePath(target);
+  if (workflowId && bound.ok && kind === 'file') {
+    const tracked = await import('../outputs.js').then(m => m.resolveTrackedOutput(bound.cwd, workflowId, target)).catch(() => null);
+    if (tracked) return tracked;
+  }
   try { return confinedPath(target, roots, kind); } catch (err) {
     // Only a missing bare filename can fall back to this bound workflow's
     // artifacts. Traversal, denied paths and unknown bindings never fall back.
@@ -59,6 +69,8 @@ export async function resolveWorkflowDocument(cwd: string, workflowId: string, k
   if (!bound.ok) throw new FileAccessError();
   const root = path.join(bound.cwd, '.arco', 'workflows', workflowId, kind);
   const target = path.join(root, name);
+  const tracked = kind === 'artifacts' ? await import('../outputs.js').then(m => m.resolveTrackedOutput(bound.cwd, workflowId, target)).catch(() => null) : null;
+  if (tracked) return tracked;
   confinedPath(target, [bound.cwd]);
   return confinedPath(target, [root]);
 }

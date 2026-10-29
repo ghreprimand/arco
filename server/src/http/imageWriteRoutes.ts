@@ -2,6 +2,8 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { writeFile, stat, mkdir } from 'fs/promises';
 import { dirname, extname, relative } from 'path';
 import type { ImageWriteRequest, ImageWriteResult } from '@arco/shared';
+import { broadcastWorkflow } from '../server/broadcast.js';
+import { outputContext, outputDestination, resolveTrackedOutput, trackEditorOutput } from '../outputs.js';
 import { boundCwdError, confineRealPath, resolveBoundCwd } from './writeConfinement.js';
 
 // ── Guarded raster-image WRITE endpoint (Workbench Expansion §H2 part 1) ──────
@@ -106,7 +108,8 @@ export async function tryHandleImageWriteRoutes(
   // write touches disk.
   let abs: string;
   try {
-    abs = await confineRealPath(cwd, body.path);
+    const tracked = body.workflowId && body.sourcePath ? await resolveTrackedOutput(cwd, body.workflowId, body.sourcePath).catch(() => null) : null;
+    abs = tracked ? await outputDestination(await outputContext(cwd, body.workflowId!), body.path) : await confineRealPath(cwd, body.path);
   } catch (err) {
     return send(res, 200, { ok: false, code: 'path-escape', error: err instanceof Error ? err.message : String(err) } satisfies ImageWriteResult);
   }
@@ -153,6 +156,10 @@ export async function tryHandleImageWriteRoutes(
     return send(res, 200, { ok: false, code: 'write-failed', error: err instanceof Error ? err.message : String(err) } satisfies ImageWriteResult);
   }
 
+  if (body.workflowId) {
+    broadcastWorkflow(body.workflowId, { type: 'output_saved', workflowId: body.workflowId, path: abs, sourcePath: body.sourcePath, ts: Date.now() });
+    await trackEditorOutput(cwd, body.workflowId, abs, body.sourcePath).catch(() => { /* persisted event reconciles on refresh */ });
+  }
   const relPath = relative(cwd, abs);
   return send(res, 200, { ok: true, relPath, bytes: parsed.buf.length } satisfies ImageWriteResult);
 }

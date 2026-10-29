@@ -21,6 +21,7 @@
 - [Git workbench](GIT_WORKBENCH.md): diffs, remote comparison, and Git operations.
 - [Knowledge](KNOWLEDGE.md): user-managed project notes and bounded context injection.
 - [Recall](RECALL.md): session index, summaries, and conversation search.
+- [Workspace Outputs](OUTPUTS.md): durable generated-file discovery, preview/edit and safe copy/move.
 - [Media studio](MEDIA_STUDIO.md): image, audio, and video editing.
 - [Preview verification](PREVIEW_VERIFY.md): capture and inspect a local preview.
 - [Notifications](NOTIFICATIONS.md): in-app notices, category mutes, and optional ntfy transport.

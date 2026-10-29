@@ -1,3 +1,4 @@
+import type { OutputSavedMessage } from '../outputs.js';
 // ── Server → Client messages ──
 
 import type { OperatorQuestionMessage, OperatorQuestionReplyResultMessage, OperatorQuestionState } from './operatorQuestions.js';
@@ -1489,6 +1490,7 @@ export type ServerMessage =
   | BakeoffStateMessage
   | BakeoffErrorMessage
   | BakeoffAttemptsRemovedMessage
+  | OutputSavedMessage
   | MediaOpResultMessage
   | MediaStemsResultMessage
   | SessionEntryMessage

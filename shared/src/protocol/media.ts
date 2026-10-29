@@ -303,6 +303,7 @@ export interface MediaOpResult {
 // resolved + confined to `cwd` (or the workflow's bound cwd) server-side. `dataUrl`
 // is a `data:image/png|jpeg|webp;base64,…` URL — the only image source.
 export interface ImageWriteRequest {
+  sourcePath?: string;
   cwd?: string;
   workflowId?: string;
   // Repo-relative (or absolute-within-cwd) target path. Must carry an image
@@ -507,6 +508,8 @@ export interface MediaStemsResultMessage {
   summary: string;
   // cwd-relative stems dir on success.
   relDir?: string;
+  outputPaths?: string[];
+  sourcePath?: string;
   error?: string;
   // Epoch ms.
   ts: number;
@@ -525,6 +528,8 @@ export interface MediaOpResultMessage {
   summary: string;
   // Repo-relative output path on success.
   relPath?: string;
+  outputPath?: string;
+  sourcePath?: string;
   error?: string;
   // Epoch ms.
   ts: number;
