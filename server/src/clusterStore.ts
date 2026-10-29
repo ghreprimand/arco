@@ -18,6 +18,8 @@ import { randomUUID } from 'node:crypto';
 import lockfile from 'proper-lockfile';
 import { dropCache as dropPlanCache } from './clusterPlanStore.js';
 import {
+  isAutoCompactionPolicy,
+  type AutoCompactionPolicy,
   MEMBER_TIERS,
   MEMBER_FOCUS_MAX,
   CLUSTER_EFFICIENCY_ADDENDUM_MAX,
@@ -43,6 +45,7 @@ const ARCO_HOME = arcoHome();
 const CLUSTERS_DIR = join(ARCO_HOME, 'clusters');
 
 export interface ClusterState {
+  autoCompaction?: AutoCompactionPolicy;
   clusterId: string;
   cwd: string;
   members: string[]; // member workflowIds
@@ -837,6 +840,23 @@ export function getEfficiencyLevel(clusterId: string): ClusterEfficiencyLevel {
 export function getEfficiencyAddendum(clusterId: string): string | undefined {
   const note = cache.get(clusterId)?.efficiencyAddendum;
   return note && note.length > 0 ? note : undefined;
+}
+
+export function getAutoCompaction(clusterId: string): AutoCompactionPolicy | undefined {
+  const policy = cache.get(clusterId)?.autoCompaction;
+  return policy === undefined ? undefined : isAutoCompactionPolicy(policy) ? policy : { enabled: false, thresholdPercent: 80 };
+}
+
+export async function setAutoCompaction(clusterId: string, policy: AutoCompactionPolicy | null): Promise<ClusterState | null> {
+  if (policy !== null && !isAutoCompactionPolicy(policy)) return null;
+  return withClusterMetaLock(clusterId, async () => {
+    const state = await readCluster(clusterId);
+    if (!state) return null;
+    const next = { ...state, autoCompaction: policy === null ? undefined : { ...policy } };
+    await writeMetaAtomic(next);
+    rebuildIndexFor(next);
+    return next;
+  });
 }
 
 // 2026-06-15 — operator set the cluster's efficiency level (and optional

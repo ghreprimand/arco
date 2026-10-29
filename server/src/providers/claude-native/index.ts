@@ -316,6 +316,10 @@ export function disposeClaudeNativeWorker(workflowId: string): void {
   });
 }
 
+export function cancelClaudeNativeCompaction(workflowId: string): void {
+  workersByWorkflow.get(workflowId)?.cancelCompaction();
+}
+
 // Operator-triggered in-place compaction (the in-Arco `/compact` for the
 // native transport). Runs against the long-lived per-workflow worker. If the
 // worker was disposed/restarted but the workflow has persisted events, callers
@@ -324,13 +328,14 @@ export function disposeClaudeNativeWorker(workflowId: string): void {
 export async function compactClaudeNativeWorker(
   workflowId: string,
   config?: WorkerConfig,
+  stillOwner?: () => boolean,
 ): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
   const worker = workersByWorkflow.get(workflowId) ?? (config ? acquireWorker(workflowId, config) : undefined);
   if (!worker) {
     return { ok: false, error: 'no active Claude Native worker for this workflow — run a turn first' };
   }
   if (config) worker.updateConfig(config);
-  return worker.compactInPlace();
+  return worker.compactInPlace(stillOwner);
 }
 
 // §2.1 — operator/auto Fold. Same acquire-or-reuse contract as

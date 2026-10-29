@@ -1,5 +1,7 @@
 // ── Clusters + peer messaging ──
 
+import type { AutoCompactionPolicy } from './workflows.js';
+
 // Providers that can participate in cluster peer-mode. Claude/Codex wire peer
 // tools through Native/stdio-MCP. Cursor wires them through an in-process
 // loopback HTTP MCP server (docs/PROVIDERS.md - Cursor ACP honors
@@ -223,6 +225,7 @@ export const CLUSTER_PROGRESS_LABELS: Record<ClusterProgressMode, { label: strin
 };
 
 export interface ClusterStatePayload {
+  autoCompaction?: AutoCompactionPolicy;
   clusterId: string;
   cwd: string;
   members: ClusterMember[];
@@ -973,6 +976,12 @@ export interface ClusterIdleNudgerToggleMessage {
 // The new level takes effect on each member's NEXT turn (in-flight turns
 // are untouched, same as role/plan edits). Four-question test: operator-set,
 // deterministic preset bundle, logged via cluster_state, reversible.
+export interface ClusterAutoCompactionSetMessage {
+  type: 'cluster_auto_compaction_set';
+  clusterId: string;
+  policy: AutoCompactionPolicy | null;
+}
+
 export interface ClusterEfficiencySetMessage {
   type: 'cluster_efficiency_set';
   clusterId: string;

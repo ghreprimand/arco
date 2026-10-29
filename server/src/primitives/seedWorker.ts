@@ -70,7 +70,7 @@ export interface TurnHandle {
   // Claude CLI receives a UUID on its first turn. Codex and Cursor report
   // their provider-owned session id through the init event instead.
   initialSessionId: string;
-  settled: Promise<{ error?: string; lastPromptTokens?: number; modelContextWindow?: number }>;
+  settled: Promise<{ error?: string; lastPromptTokens?: number; modelContextWindow?: number; freshContextWindow?: number }>;
   // Fires once when a provider reports its authoritative resumable session id.
   onSessionDiscovered: (cb: (sessionId: string) => void) => void;
 }
@@ -768,6 +768,7 @@ export function runPrimaryTurn(
       ...(r.error ? { error: r.error } : {}),
       ...(typeof turnLastPromptTokens === 'number' ? { lastPromptTokens: turnLastPromptTokens } : {}),
       ...(typeof turnModelContextWindow === 'number' ? { modelContextWindow: turnModelContextWindow } : {}),
+      ...(typeof r.freshContextWindow === 'number' ? { freshContextWindow: r.freshContextWindow } : {}),
     })),
     onSessionDiscovered: (cb) => {
       // Late subscribers still get the fire-once signal if init already arrived.

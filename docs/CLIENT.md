@@ -371,7 +371,7 @@ App
 │           ├── HistoryTab (HISTORY tab; read-only timeline + LABEL / REVIEW-FROM-HERE / SPAWN-FROM-HERE)
 │           ├── UsageTab           (USAGE tab - Workbench; per-provider/per-day token + cache-ratio trends, hand-rolled SVG)
 │           ├── PreviewTab         (PREVIEW tab - per-workflow dev-server iframe with auto-detect + aspect toggle)
-│           ├── ConfigTab          (CONFIG tab - `RightPanel/ConfigTab.tsx`: transport sections (Claude + sticky ULTRACODE / Codex + MAX/STANDARD context), auto-handoff + auto-fold, Claude Native knobs (compact, auto-continue, thinking display, interleaved beta, tool filter, web budget, fact-force, config protection, review safe-mode, sandbox), OUTPUT STYLE, NORTH STAR + goal-run control, PROJECT TRUST, Ollama lifecycle/params/VRAM/compaction session, then CodebaseMemorySection + McpRegistrySection)
+│           ├── ConfigTab          (CONFIG tab - `RightPanel/ConfigTab.tsx`: transport sections (Claude + sticky ULTRACODE / Codex + MAX/STANDARD context), auto-compaction, auto-handoff + auto-fold, Claude Native knobs (compact, auto-continue, thinking display, interleaved beta, tool filter, web budget, fact-force, config protection, review safe-mode, sandbox), OUTPUT STYLE, NORTH STAR + goal-run control, PROJECT TRUST, Ollama lifecycle/params/VRAM/compaction session, then CodebaseMemorySection + McpRegistrySection)
 │           └── GitHubPanel        (GITHUB tab)
 └── Modals & overlays
     ├── SettingsPanel

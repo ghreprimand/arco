@@ -11,6 +11,7 @@ SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
 } from '@arco/shared';
+import { isAutoCompactionPolicy, resolveAutoCompactionPolicy } from '@arco/shared';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
@@ -127,6 +128,7 @@ export interface TurnEngineDeps {
   previewAutoDetect: PreviewAutoDetect;
   handleCreateWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<void>;
   handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@arco/shared').HandoffRequestMessage) => Promise<void>;
+  handleCompactWorkflow?: (ws: WebSocket, session: Session, msg: import('@arco/shared').CompactWorkflowMessage, guard?: (claim: () => number) => Promise<number | false>, autoDetail?: string) => Promise<void>;
 }
 let deps: TurnEngineDeps;
 export function initTurnEngine(d: TurnEngineDeps): void { deps = d; }
@@ -529,6 +531,7 @@ export function anyObserver(workflowId: string): WebSocket | null {
 // no-op. Keyed on the WorkflowState object so a removed tab's entry is GC'd.
 let busyClaimSeq = 0;
 const busyOwners = new WeakMap<WorkflowState, number>();
+const lastBusyClaim = new WeakMap<WorkflowState, number>();
 const busyRevocations = new WeakMap<WorkflowState, number>();
 
 export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' | 'worker_finished' | 'worker_failed' | 'worker_interrupted' | 'worker_removed' | 'queue_changed') {
@@ -541,6 +544,7 @@ export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' 
 export function claimBusy(wf: WorkflowState): number {
   const token = ++busyClaimSeq;
   busyOwners.set(wf, token);
+  lastBusyClaim.set(wf, token);
   watchClaimed(wf, token);
   wf.busy = true;
   if(wf.config?.voiceOperator)wf.computerSettled=false;
@@ -568,6 +572,7 @@ export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished
 }
 
 export function revokeBusy(wf: WorkflowState): void {
+  lastBusyClaim.set(wf, ++busyClaimSeq);
   busyRevocations.set(wf, (busyRevocations.get(wf) ?? 0) + 1);
   const token = busyOwners.get(wf);
   watchSettled(wf, busyOwners.get(wf), 'interrupted');
@@ -639,7 +644,7 @@ const MAX_INEFFECTIVE_FOLDS = 2;
 // must have armed wf.config.autoFold. Returns true when a fold actually fired,
 // so the caller can skip the (now-stale) handoff check this round. Called
 // post-turn with wf.busy already false.
-export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: string | undefined): Promise<boolean> {
+export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: string | undefined, onAttempt?: (token: number) => void, canAttempt?: () => boolean): Promise<boolean> {
   // Chat tabs never reshape history behind the operator's back.
   if (isChatWorkflow(wf.config)) return false;
   if (wf.primary.provider !== 'claude') return false;
@@ -652,7 +657,7 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   if (!st) return false;
 
   const pct = wf.lastContextBudgetPct;
-  if (typeof pct !== 'number' || pct <= 0) return false;
+  if (typeof pct !== 'number' || !Number.isFinite(pct) || pct <= 0) return false;
   // Re-arm once the budget drops back below the threshold (post-fold the seed +
   // tail starts well under foldAt) — mirrors autoHandoff.warnFired reset.
   if (pct < Math.max(0, st.foldAt - 5)) st.foldFired = false;
@@ -665,11 +670,12 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   if (transport !== 'native') return false;
   // Re-check after the settings await: an operator message can have claimed
   // the tab meanwhile, and folding under a live turn corrupts its history.
-  if (wf.busy) return false;
+  if (wf.busy || (canAttempt && !canAttempt())) return false;
 
   st.foldFired = true;
   const startedAt = Date.now();
   const busyToken = claimBusy(wf);
+  onAttempt?.(busyToken);
   broadcastTransient(workflowId, { type: 'primary_turn_started', workflowId, startedAt });
   let res: { ok: boolean; error?: string; foldedTurns?: number; byteDelta?: number };
   try {
@@ -843,6 +849,68 @@ function clampCompactThreshold(n: number): number {
   return Math.max(AUTO_COMPACT_CLAMP_LOW, Math.min(AUTO_COMPACT_CLAMP_HIGH, n));
 }
 
+export function freshAutoCompactionPercent(provider: string, transport: string, outcome: { error?: string; lastPromptTokens?: number; modelContextWindow?: number; freshContextWindow?: number }): number | undefined {
+  if (outcome.error || !((provider === 'claude' && transport === 'native') || (provider === 'codex' && transport === 'appserver'))) return undefined;
+  const numerator = outcome.lastPromptTokens;
+  const denominator = provider === 'codex' ? outcome.freshContextWindow : outcome.modelContextWindow;
+  if (typeof numerator !== 'number' || !Number.isFinite(numerator) || numerator <= 0 || typeof denominator !== 'number' || !Number.isFinite(denominator) || denominator <= 0) return undefined;
+  const ratio = numerator / denominator;
+  return Number.isFinite(ratio) ? Math.min(100, Math.round(ratio * 100)) : undefined;
+}
+
+type PolicyReading = { percent: number; sessionId: string | undefined; provider: string };
+const policyAttempts = new WeakMap<WorkflowState, { sessionId: string | undefined; provider: string; fired: boolean }>();
+export function resetAutoCompactionCycle(wf: WorkflowState): void { policyAttempts.delete(wf); }
+
+export async function maybeAutoCompactPolicy(
+  workflowId: string, wf: WorkflowState, cwd: string, policy: import('@arco/shared').AutoCompactionPolicy,
+  reading: PolicyReading | undefined, expectedClaim: number, ws?: WebSocket, session?: Session,
+): Promise<boolean> {
+  if (lastBusyClaim.get(wf) !== expectedClaim) return true;
+  if (!policy.enabled || !reading || !Number.isFinite(reading.percent) || reading.percent < 0 || wf.busy || isChatWorkflow(wf.config)) return false;
+  if (reading.provider !== wf.primary.provider || reading.sessionId !== wf.primarySessionId) return false;
+  if (reading.provider !== 'claude' && reading.provider !== 'codex') return false;
+  if (reading.provider === 'codex' && !reading.sessionId) return false;
+  let state = policyAttempts.get(wf);
+  if (!state || state.sessionId !== reading.sessionId || state.provider !== reading.provider) {
+    state = { sessionId: reading.sessionId, provider: reading.provider, fired: false };
+    policyAttempts.set(wf, state);
+  }
+  if (reading.percent < policy.thresholdPercent - 5) state.fired = false;
+  if (reading.percent < policy.thresholdPercent || state.fired) return false;
+  // Prevent retries of an unsuccessful or ineffective compact until a later
+  // valid reading confirms a drop. Mark before awaiting any external work.
+  state.fired = true;
+  const observedClaim = expectedClaim;
+  const obs = ws ?? anyObserver(workflowId);
+  if (!obs || !deps.handleCompactWorkflow) return true;
+  const activeSession = session ?? sessions.get(obs) ?? { id: 'auto', workflowIds: new Set([workflowId]), clusterIds: new Set(), clusterObserved: new Map() };
+  await deps.handleCompactWorkflow(obs, activeSession, { type: 'compact_workflow', workflowId }, async (claim) => {
+    const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+    const current = resolveAutoCompactionPolicy(wf.config.autoCompaction, clusterId ? clusterStore.getAutoCompaction(clusterId) : undefined);
+    if (wf.busy || lastBusyClaim.get(wf) !== observedClaim || wf.primarySessionId !== reading.sessionId || wf.primary.provider !== reading.provider || !current?.enabled || current.thresholdPercent !== policy.thresholdPercent) return false;
+    return claim();
+  }, `context ${reading.percent}% >= ${policy.thresholdPercent}%`);
+  return true;
+}
+
+export async function runExplicitContextActions(
+  workflowId: string, wf: WorkflowState, cwd: string,
+  policy: import('@arco/shared').AutoCompactionPolicy, reading: PolicyReading | undefined,
+  busyToken: number, ws?: WebSocket, session?: Session,
+): Promise<'stale' | 'compact-attempted' | 'done'> {
+  if (lastBusyClaim.get(wf) !== busyToken) return 'stale';
+  let foldClaim: number | undefined;
+  const folded = await maybeAutoFold(workflowId, wf, cwd, (token) => { foldClaim = token; }, () => lastBusyClaim.get(wf) === busyToken);
+  if (lastBusyClaim.get(wf) !== (foldClaim ?? busyToken)) return 'stale';
+  // Failed or cancelled folds also consume this measurement.
+  if (folded) { wf.lastContextPercent = 0; wf.lastContextBudgetPct = undefined; }
+  if (foldClaim !== undefined) return 'done';
+  if (await maybeAutoCompactPolicy(workflowId, wf, cwd, policy, reading, busyToken, ws, session)) return 'compact-attempted';
+  await maybeAutoHandoff(workflowId, wf, cwd);
+  return 'done';
+}
+
 // NATIVE_COMPACTION_PLAN Phase 3 — the continuance prompt the opt-in auto-continue
 // sends to resume work from the compacted seed. Mirrors the client-side
 // COMPACT_CONTINUE_PROMPT (TerminalInput) so manual-Continue and auto-continue
@@ -860,12 +928,15 @@ export async function maybeAutoCompactNative(
   if (wf.busy) return; // settled-turn only
   if (isChatWorkflow(wf.config)) return; // chat tabs: operator-driven only (see maybeAutoHandoff)
   if (wf.primary.provider !== 'claude') return;
+  const observedClaim = lastBusyClaim.get(wf);
+  const observedSession = wf.primarySessionId;
 
   const mode = wf.config.efficiencyAutoCompact ?? 'off';
   if (mode !== 'conservative' && mode !== 'aggressive') return; // 'off' ⇒ no-op
 
   // Native transport only — same precedence as the turn dispatcher.
   if (await resolveClaudeTransport(wf, cwd) !== 'native') return;
+  if (wf.busy || lastBusyClaim.get(wf) !== observedClaim || wf.primarySessionId !== observedSession) return;
 
   const percent = wf.lastContextPercent;
   if (typeof percent !== 'number' || percent <= 0) return;
@@ -949,7 +1020,7 @@ export async function maybeAutoCompactNative(
         codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
           ? (wf.config.codebaseMemory.indexPath || cwd)
           : undefined,
-      });
+      }, () => !wf.busy && lastBusyClaim.get(wf) === observedClaim && wf.primary.provider === 'claude' && wf.primarySessionId === observedSession);
     } catch (err) {
       result = { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
@@ -1422,6 +1493,7 @@ export async function persistInitialMeta(
     // server restart before the operator's first turn keeps the global
     // default (handleCreateWorkflow bakes it into config for new tabs). The
     // savedMeta restore in handleCreateWorkflow reads this back.
+    ...(isAutoCompactionPolicy(config.autoCompaction) ? { autoCompaction: { ...config.autoCompaction } } : {}),
     ...(config.autoHandoff ? { autoHandoff: { ...config.autoHandoff } } : {}),
     // docs/PROVIDERS.md - persist the sandbox toggle on the
     // first meta-write when the cascade default supplied a non-undefined
@@ -1759,6 +1831,7 @@ export async function handleUserMessage(
   // An armed goal run stops on an errored turn rather than looping on the same
   // failure; the flag has to outlive the loop body to reach `maybeGoalRun`.
   let lastTurnErrored = false;
+  let policyReading: { percent: number; sessionId: string | undefined; provider: string } | undefined;
   let staleLoop = false;
   let watchLoopFinished = false;
   let watchHadError = false;
@@ -2633,6 +2706,7 @@ export async function handleUserMessage(
           });
       }
 
+      const policyTurnProvider = wf.primary.provider;
       const turn = runPrimaryTurn(
         {
           workflowId,
@@ -2752,6 +2826,7 @@ export async function handleUserMessage(
         });
       }
 
+      policyReading = undefined;
       let outcome: Awaited<typeof turn.settled>;
       let carryInterruptedPrompt = false;
       try {
@@ -2888,6 +2963,13 @@ export async function handleUserMessage(
         }
       }
 
+      // This policy uses only this settled turn's own measurement, never the
+      // rollout fallback or a previous turn's display snapshot.
+      if (wf.primary.provider === policyTurnProvider) {
+        const percent = freshAutoCompactionPercent(policyTurnProvider, policyTurnProvider === 'claude' ? claudeTransport : codexTransport, outcome);
+        if (percent !== undefined) policyReading = { percent, sessionId: wf.primarySessionId, provider: policyTurnProvider };
+      }
+
       // Codex app-server equivalent — provider turn usage can be the SUM across all
       // internal LLM calls within this operator turn. That's right for billing
       // but wrong for context-window-fill display; the live context is the LAST
@@ -2971,20 +3053,18 @@ export async function handleUserMessage(
   // cheap deterministic in-place Fold is tried before recommending a handoff. A
   // successful fold reseeds the session, so skip the (now-stale) handoff check
   // this round — the next turn's meter re-evaluates against the reduced context.
-  const folded = await maybeAutoFold(workflowId, wf, cwd);
-
-  // Phase 3 — after the turn loop settles, check context thresholds for
-  // warning / auto-handoff. Runs only when wf.busy is false (turn complete).
-  if (!folded) await maybeAutoHandoff(workflowId, wf, cwd);
-
-  // NATIVE_COMPACTION_PLAN Phase 2 — between-turn auto context-fill compaction
-  // for Native (operator-armed via efficiencyAutoCompact, default off). Runs
-  // AFTER auto-handoff: a successful auto-handoff resets lastContextPercent to 0,
-  // so this no-ops when handoff already rotated the session — handoff (the heavy
-  // rung) wins, compaction (the light rung) only fires when handoff didn't.
-  // Phase 3 — pass ws/session so the opt-in auto-continue can dispatch a
-  // continuance turn through the normal operator path.
-  await maybeAutoCompactNative(workflowId, wf, cwd, ws, session);
+  const clusterIdForPolicy = clusterStore.getClusterIdForWorkflow(workflowId);
+  const explicitPolicy = resolveAutoCompactionPolicy(wf.config.autoCompaction, clusterIdForPolicy ? clusterStore.getAutoCompaction(clusterIdForPolicy) : undefined);
+  if (explicitPolicy) {
+    const action = await runExplicitContextActions(workflowId, wf, cwd, explicitPolicy, policyReading, busyToken, ws, session);
+    if (action === 'stale') return;
+    if (action === 'compact-attempted') { await drainQueueIfIdle(workflowId); return; }
+  } else {
+    // Preserve existing behavior for work without the new policy.
+    const folded = await maybeAutoFold(workflowId, wf, cwd);
+    if (!folded) await maybeAutoHandoff(workflowId, wf, cwd);
+    await maybeAutoCompactNative(workflowId, wf, cwd, ws, session);
+  }
 
   // Messages typed while auto-fold / auto-handoff held the tab are still
   // queued. Flush them first; that turn runs its own post-settle chain (goal

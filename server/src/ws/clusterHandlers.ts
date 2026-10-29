@@ -1529,6 +1529,7 @@ export async function handleClusterCreateWithFreshWorkers(
     const baseName = source.config.name || 'Worker';
     const childConfig: WorkflowConfig = {
       ...source.config,
+      autoCompaction: undefined,
       name: `${baseName} #${i + 2}`,
       workingDirectory: sourceCwd,
       resumeSessionId: undefined,
@@ -1824,6 +1825,7 @@ export async function handleClusterAddFreshWorkers(
     usedNumbers.add(k);
     const childConfig: WorkflowConfig = {
       ...template.config,
+      autoCompaction: undefined,
       name: `${baseName.replace(/\s*#\d+$/, '')} #${k}`,
       workingDirectory: cluster.cwd,
       resumeSessionId: undefined,
@@ -2308,6 +2310,16 @@ export async function handleClusterIdleNudgerToggle(
 // handler: persist to meta.json, then push a fresh cluster_state so every
 // subscriber sees the new level inline. The new level takes effect on each
 // member's NEXT turn (in-flight turns untouched). Rejects unknown levels.
+export async function handleClusterAutoCompactionSet(
+  ws: WebSocket, clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null,
+): Promise<void> {
+  const updated = await clusterStore.setAutoCompaction(clusterId, policy).catch(() => null);
+  if (!updated) { send(ws, { type: 'error', message: 'Invalid auto-compaction policy or unknown cluster.' }); return; }
+  const payload = await buildClusterStatePayload(clusterId);
+  if (payload) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
+  for (const workflowId of updated.members) broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: policy ? `[AUTO-COMPACT] Cluster default ${policy.enabled ? `enabled at ${policy.thresholdPercent}%` : 'disabled'}; worker overrides remain in effect.` : '[AUTO-COMPACT] Cluster default cleared; worker overrides or legacy behavior apply.' });
+}
+
 export async function handleClusterEfficiencySet(
   ws: WebSocket,
   clusterId: string,

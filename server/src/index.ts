@@ -149,6 +149,7 @@ handleClusterOrchestrationProposalList,
 handleClusterOrchestrationProposalReject,
 handleClusterIdleNudgerToggle,
 handleClusterEfficiencySet,
+handleClusterAutoCompactionSet,
 handleClusterRemoteSet,
 handleClusterGatesSet,
 handleClusterMemberReorder,
@@ -597,7 +598,7 @@ const previewAutoDetect = new PreviewAutoDetect({
   listeningPortsForPidFamily,
 });
 
-initTurnEngine({ previewAutoDetect, handleCreateWorkflow, handleHandoffRequest });
+initTurnEngine({ previewAutoDetect, handleCreateWorkflow, handleHandoffRequest, handleCompactWorkflow });
 initWorkflowHandlers({ previewAutoDetect, handleRehydrateWorkflows });
 setStrataSwitchActivityCheck(() => [...workflows.values()].some((wf) =>
   (wf.busy && ['ollama', 'llamacpp', 'lmstudio', 'deepseek'].includes(wf.primary.provider)) ||
@@ -1265,6 +1266,9 @@ wss.on('connection', (ws: WebSocket) => {
         handleClusterIdleNudgerToggle(ws, msg.clusterId, msg.enabled).catch((err) => {
           console.error('[arco] cluster_idle_nudger_toggle handler failed:', err);
         });
+        break;
+      case 'cluster_auto_compaction_set':
+        handleClusterAutoCompactionSet(ws, msg.clusterId, msg.policy).catch((err) => console.error('[arco] cluster auto-compaction update failed:', err));
         break;
       case 'cluster_efficiency_set':
         handleClusterEfficiencySet(ws, msg.clusterId, msg.level, msg.addendum).catch((err) => {

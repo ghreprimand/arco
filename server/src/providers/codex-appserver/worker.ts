@@ -277,6 +277,7 @@ export interface TurnSettleData {
   durationMs: number;
   usage?: Record<string, number>;
   modelContextWindow?: number;
+  freshContextWindow?: number;
   lastPromptTokens?: number;
 }
 
@@ -394,6 +395,7 @@ export function isCodexQuotaInfo(info: CodexErrorInfo, fallbackMsg: string): boo
 export class CodexAppServerWorker extends EventEmitter {
   readonly workflowId: string;
   private proc: ChildProcess | null = null;
+  private retiredProcessExit?: Promise<void>;
   private rpc: JsonRpcClient | null = null;
   private threadId: string | null = null;
   private resolvedModel: string | null = null;
@@ -885,6 +887,13 @@ export class CodexAppServerWorker extends EventEmitter {
       // active Compact turn. Terminate the transport and make the dispatcher
       // drop this worker; the next operator turn resumes the durable thread in
       // a fresh app-server process.
+      const retiring = this.proc;
+      if (retiring && retiring.exitCode === null && retiring.signalCode === null) {
+        this.retiredProcessExit = new Promise<void>((resolve) => {
+          retiring.once('exit', () => resolve());
+          setTimeout(resolve, 3000).unref();
+        });
+      }
       this.hardKill();
       this.teardownProcess();
       return {
@@ -898,6 +907,16 @@ export class CodexAppServerWorker extends EventEmitter {
       recycle: true,
       error: 'Codex app-server ended before compaction completed; the next turn will resume the durable thread in a fresh process.',
     };
+  }
+
+  cancelCompaction(): boolean {
+    if (!this.compacting) return false;
+    this.hardKill();
+    this.compacting = false;
+    this.compactTurnId = null;
+    this.resolveCompaction('transport-ended');
+    // The owner retires this worker so dispose can wait for process exit.
+    return true;
   }
 
   // Drain the compactThread() waiters. Idempotent — safe to call from compact
@@ -1008,7 +1027,7 @@ export class CodexAppServerWorker extends EventEmitter {
       }, 500);
     }
     this.teardownProcess();
-    await exited;
+    await Promise.all([exited, this.retiredProcessExit]);
   }
 
   // Wire the SandboxPolicy field on `turn/start`. Defaults to the same
@@ -1477,6 +1496,7 @@ export class CodexAppServerWorker extends EventEmitter {
       costUsd: 0,
       durationMs: typeof p.turn.durationMs === 'number' ? p.turn.durationMs : Date.now() - this.current.startedAt,
       ...(typeof modelContextWindow === 'number' && modelContextWindow > 0 ? { modelContextWindow } : {}),
+      ...(typeof usageSnapshot?.tokenUsage.modelContextWindow === 'number' && usageSnapshot.tokenUsage.modelContextWindow > 0 ? { freshContextWindow: usageSnapshot.tokenUsage.modelContextWindow } : {}),
       // Live scripts need the last request's prompt, never a sum of tool rounds
       // or a rollout that may not yet have flushed to disk.
       ...(usage ? { lastPromptTokens: usage.inputTokens } : {}),
@@ -1619,9 +1639,8 @@ export class CodexAppServerWorker extends EventEmitter {
     this.bootstrapped = false;
     // A compact in flight when the child goes down can never get its
     // completion signal — drain the waiters so compactThread() resolves
-    // instead of waiting out the full timeout. The result is still reported
-    // ok:true (Codex may have compacted before dying; the next resume picks
-    // up whatever landed on disk).
+    // instead of waiting out the full timeout. Report failure; the next
+    // resume picks up whatever landed on disk.
     this.compacting = false;
     this.compactTurnId = null;
     this.resolveCompaction('transport-ended');

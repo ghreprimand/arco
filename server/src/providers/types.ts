@@ -25,6 +25,7 @@ export interface ProviderEvents {
     usage?: Record<string, number>;
     genSpeed?: GenerationSpeed;
     modelContextWindow?: number;
+    freshContextWindow?: number;
     // Last call's prompt-token count = the context-fill numerator (resident
     // tokens), distinct from `usage.input_tokens` (which providers sum across
     // internal calls for billing). Native Claude and Ollama (M6) both fill it;

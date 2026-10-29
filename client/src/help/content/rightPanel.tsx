@@ -365,6 +365,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'live-config-swap',
   },
+  'rightpanel.config.auto-compaction': {
+    title: 'Auto-compaction',
+    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 50-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Other transports are unavailable for this policy. Ollama retains its existing global compaction settings. With no policy, existing provider behavior remains. Fold is deterministic, while handoff starts a fresh session.</p>,
+    manualSection: 'auto-handoff',
+  },
   'rightpanel.config.auto-handoff': {
     title: 'Auto-handoff',
     body: (

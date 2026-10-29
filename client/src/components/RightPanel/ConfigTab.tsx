@@ -19,7 +19,7 @@ export function ConfigTab({
   mcp,
 }: {
   job: JobState;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   mcp?: McpSenders;
@@ -266,6 +266,8 @@ export function ConfigTab({
       >
         Model and effort take effect on the next turn — no session rotation needed. To change provider, use Handoff (same tab) or Spawn (new tab).
       </div>
+
+      {canEdit && <AutoCompactionSection job={job} onUpdatePrimary={onUpdatePrimary!} />}
 
       {/* Phase 3 — auto-handoff config. WP1: generalized beyond Claude to the
           providers that now keep wf.lastContextPercent fresh per turn
@@ -545,6 +547,31 @@ const miniBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'var(--font-display)',
 };
+
+function AutoCompactionSection({ job, onUpdatePrimary }: {
+  job: JobState;
+  onUpdatePrimary: (update: { autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null }) => void;
+}) {
+  const settings = useAppStore((s) => s.settings);
+  const clusters = useAppStore((s) => s.clusters);
+  const cluster = Object.values(clusters).find((c) => c.members.some((m) => m.workflowId === job.id));
+  const own = job.config.autoCompaction;
+  const effective = own ?? cluster?.autoCompaction;
+  const provider = job.config.primaryProvider ?? 'claude';
+  const supported = (provider === 'claude' && (job.config.claudeTransport ?? settings?.claude?.transport) === 'native')
+    || (provider === 'codex' && (job.config.codexTransport ?? settings?.codex?.transport) === 'appserver');
+  return <section data-help="rightpanel.config.auto-compaction" style={{ marginTop: 18, fontSize: 11 }}>
+    <div className="display-font">AUTO-COMPACTION</div>
+    <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama retains its existing global compaction settings. Unknown usage does not trigger this policy.</p>
+    {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}
+    <label>Policy <select aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
+      <option value="inherit">{cluster ? 'Inherit cluster default' : 'Legacy provider behavior'}</option>
+      <option value="off">Off</option><option value="on" disabled={!supported}>On</option>
+    </select></label>
+    {own && <label> Threshold {own.thresholdPercent}% <input type="range" aria-label="Worker auto-compaction threshold percent" min={50} max={95} value={own.thresholdPercent} onChange={(e) => onUpdatePrimary({ autoCompaction: { ...own, thresholdPercent: Number(e.target.value) } })} /></label>}
+    {!own && cluster && <p>{effective ? `Cluster default: ${effective.enabled ? `on at ${effective.thresholdPercent}%` : 'off'}.` : 'Cluster uses legacy provider behavior.'}</p>}
+  </section>;
+}
 
 function AutoHandoffSection({
   job,

@@ -30,6 +30,7 @@ export interface ClusterDispatcherSettingsPatch {
 }
 
 export type ClusterMemberPrimaryUpdate = {
+  autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null;
   model?: ModelName;
   effort?: EffortLevel;
   autoHandoff?: {
@@ -143,6 +144,7 @@ export interface Props {
   // doctrine addendum). Sits in the header chip bar next to NUDGES. Drives
   // the doctrine block, peer-send budget, and mailbox-notice variant.
   // `addendum === undefined` keeps the current note; '' clears it.
+  onSetAutoCompaction?: (clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => void;
   onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => void;
   // R3 — cluster-level remote opt-in chip (one switch covers all members).
   onSetRemote?: (clusterId: string, enabled: boolean) => void;

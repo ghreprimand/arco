@@ -517,6 +517,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
   plan?: { id: string; title: string; body: string; updatedAt: number };
   idleNudgerEnabled?: boolean;
   autoTurnOnMailboxEnabled?: boolean;
+  autoCompaction?: import('@arco/shared').AutoCompactionPolicy;
   efficiencyLevel?: clusterStore.ClusterEfficiencyLevel;
   efficiencyAddendum?: string;
   progressTracking?: clusterStore.ClusterProgressMode;
@@ -585,6 +586,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     ...(state.autoTurnOnMailboxEnabled ? { autoTurnOnMailboxEnabled: true } : {}),
     // 2026-06-15 — efficiency level echo. Absent ≡ thorough (default); only
     // emitted when non-default so pre-feature clients/snapshots stay clean.
+    ...(state.autoCompaction ? { autoCompaction: state.autoCompaction } : {}),
     ...(state.efficiencyLevel && state.efficiencyLevel !== 'thorough' ? { efficiencyLevel: state.efficiencyLevel } : {}),
     ...(state.efficiencyAddendum && state.efficiencyAddendum.length > 0 ? { efficiencyAddendum: state.efficiencyAddendum } : {}),
     // 2026-06-29 — progress-tracking echo. Absent ≡ 'both' (default); only

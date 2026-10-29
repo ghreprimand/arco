@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Configure per-worker and cluster auto-compaction thresholds for Claude Native and Codex app-server.
+
 - Show a provider throttling warning in the header only while a provider is throttled.
 
 - Hide the duplicate header wordmark on Home while keeping it in other views.

@@ -113,6 +113,7 @@ interface Props {
   // Back-compat project attach/detach callback.
   onSetTaskBoardAttached?: (clusterId: string, attached: boolean) => void;
   // 2026-06-15 — per-cluster efficiency level (+ optional doctrine addendum).
+  onSetAutoCompaction?: (clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => void;
   onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => void;
   onSetRemote?: (clusterId: string, enabled: boolean) => void;
   onSetGates?: (clusterId: string, enabled: boolean) => void;
@@ -231,6 +232,7 @@ export function ClusterTab({
   onSetTaskBoardMode,
   onSetTaskBoardAttached,
   onSetEfficiency,
+  onSetAutoCompaction,
   onSetRemote,
   onSetGates,
   onReorderMembers,
@@ -966,6 +968,7 @@ export function ClusterTab({
           onSetTaskBoardMode={onSetTaskBoardMode}
           onSetTaskBoardAttached={onSetTaskBoardAttached}
           onSetEfficiency={onSetEfficiency}
+          onSetAutoCompaction={onSetAutoCompaction}
           onSetRemote={onSetRemote}
           onSetGates={onSetGates}
           onSetProgress={onSetProgress}

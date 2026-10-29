@@ -1,4 +1,4 @@
-import { retiredProviderReason } from '@arco/shared';
+import { retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
 // Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
@@ -91,6 +91,7 @@ export interface WorkflowMeta {
   autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } };
   // §2.1 — per-tab auto-fold config (Claude Native). Persisted so the operator's
   // arming survives a server restart.
+  autoCompaction?: WorkflowConfig['autoCompaction'];
   autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number };
   // Phase 6e — per-tab Codex transport override, persisted so a server
   // restart restores the operator's chosen transport. Falls through to the
@@ -325,6 +326,7 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     ...(meta.efficiencyConfigProtection ? { efficiencyConfigProtection: meta.efficiencyConfigProtection } : {}),
     ...(meta.efficiencySandbox ? { efficiencySandbox: meta.efficiencySandbox } : {}),
     ...(meta.reviewSafeMode ? { reviewSafeMode: meta.reviewSafeMode } : {}),
+    ...(meta.autoCompaction !== undefined ? { autoCompaction: resolveAutoCompactionPolicy(meta.autoCompaction, undefined) } : {}),
     ...(meta.autoFold ? { autoFold: meta.autoFold } : {}),
     ...(meta.autoHandoff ? { autoHandoff: meta.autoHandoff } : {}),
   };

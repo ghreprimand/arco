@@ -49,6 +49,7 @@ export interface WorkerResult {
   error?: string;
   permissionDenials?: Array<{ tool: string; input: string }>;
   modelContextWindow?: number;
+  freshContextWindow?: number;
   // Claude Native primary turns only — last round's prompt size. See
   // PrimaryCompleteMessage.lastPromptTokens.
   lastPromptTokens?: number;
@@ -454,7 +455,7 @@ export class WorkerManager {
           this.workerMeta.delete(spec.id);
         }
       };
-      worker.on('result', (data: { text: string; costUsd: number; durationMs: number; usage?: Record<string, number>; permissionDenials?: Array<{ tool: string; input: string }>; modelContextWindow?: number; lastPromptTokens?: number; thinkingBytes?: number; toolResultBytes?: number; toolResultBytesRaw?: number; serverToolResultBytes?: number; genSpeed?: GenerationSpeed }) => {
+      worker.on('result', (data: { text: string; costUsd: number; durationMs: number; usage?: Record<string, number>; permissionDenials?: Array<{ tool: string; input: string }>; modelContextWindow?: number; freshContextWindow?: number; lastPromptTokens?: number; thinkingBytes?: number; toolResultBytes?: number; toolResultBytesRaw?: number; serverToolResultBytes?: number; genSpeed?: GenerationSpeed }) => {
         if (settled) return;
         markSettled();
         const tokens = usageToTokens(data.usage);
@@ -482,6 +483,7 @@ export class WorkerManager {
           tokens,
           ...(data.permissionDenials && data.permissionDenials.length > 0 && { permissionDenials: data.permissionDenials }),
           ...(typeof data.modelContextWindow === 'number' ? { modelContextWindow: data.modelContextWindow } : {}),
+          ...(typeof data.freshContextWindow === 'number' ? { freshContextWindow: data.freshContextWindow } : {}),
           ...(typeof data.lastPromptTokens === 'number' ? { lastPromptTokens: data.lastPromptTokens } : {}),
         });
       });

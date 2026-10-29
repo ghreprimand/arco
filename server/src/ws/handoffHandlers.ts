@@ -11,7 +11,7 @@ import type {
   ServerMessage,
   WorkflowConfig,
 } from '@arco/shared';
-import {} from '@arco/shared';
+import { resolveAutoCompactionPolicy } from '@arco/shared';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterStore from '../clusterStore.js';
@@ -96,6 +96,7 @@ import {
   drainQueueIfIdle,
   persistInitialMeta,
   releaseBusy,
+  resetAutoCompactionCycle,
   startSessionWatcher,
 } from './turnEngine.js';
 
@@ -676,6 +677,7 @@ export async function handleHandoffRequest(
   // Reset calibration state — new session starts uncalibrated.
   wf.calibration = undefined;
   wf.lastContextPercent = 0;
+  resetAutoCompactionCycle(wf);
 
   // Emit context estimate for the new (near-empty) session so the footer
   // reflects the reset without waiting for the first operator turn.
@@ -1321,6 +1323,7 @@ export async function handleRehydrateWorkflows(
           if (latestForProvider && !wf.primarySessionId) {
             wf.primarySessionId = latestForProvider.sessionId;
           }
+          wf.config.autoCompaction = resolveAutoCompactionPolicy(meta.autoCompaction, undefined);
           if (meta.autoHandoff) {
             wf.autoHandoff.enabled = meta.autoHandoff.enabled;
             wf.autoHandoff.warnAt = meta.autoHandoff.warnAt;

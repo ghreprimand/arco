@@ -22,6 +22,7 @@ import type { CompactWorkflowMessage, FoldWorkflowMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import {
   claimBusy,
+  ownsBusy,
   drainQueueIfIdle,
   maybeAutoContinueAfterCompact,
   releaseBusy,
@@ -40,7 +41,7 @@ import { readSettings } from '../settings.js';
 import * as clusterStore from '../clusterStore.js';
 
 export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg: CompactWorkflowMessage,
-  claimGuard?: (claim: () => number) => Promise<number | false>): Promise<void> {
+  claimGuard?: (claim: () => number) => Promise<number | false>, autoDetail?: string): Promise<void> {
   const workflowId = msg.workflowId;
   const wf = workflows.get(workflowId);
   if (!wf) {
@@ -112,6 +113,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     send(ws, { type: 'error', message: 'Agent is busy — wait for the turn to finish, then compact.' });
     return;
   }
+  const expectedSessionId = wf.primarySessionId;
   const startedAt = Date.now();
   const busyToken = claimGuard ? await claimGuard(() => claimBusy(wf)) : claimBusy(wf);
   if (busyToken === false) return;
@@ -129,8 +131,8 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     type: 'ctx_action',
     workflowId,
     action: 'compact',
-    trigger: 'operator',
-    detail: provider === 'codex'
+    trigger: autoDetail ? 'auto-threshold' : 'operator',
+    detail: autoDetail ? `${autoDetail} - in-place auto-compaction` : provider === 'codex'
       ? 'Codex app-server thread/compact/start'
       : provider === 'cursor'
           ? 'Cursor ACP native /compress'
@@ -153,7 +155,8 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
       } else {
         const account = await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null);
         const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-        result = await compactCodexAppServerThread(workflowId, {
+        if (!ownsBusy(wf, busyToken) || wf.primarySessionId !== expectedSessionId || wf.primary.provider !== provider) result = { ok: false, error: 'compaction cancelled before dispatch' };
+        else result = await compactCodexAppServerThread(workflowId, {
           model: wf.primary.model,
           effort: wf.primary.effort,
           provider,
@@ -167,13 +170,13 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
           codexContextPolicy: wf.config.codexContextPolicy,
           providerAccountRef: account?.profile.id,
           codexHome: account?.codexHome,
-          resumeSessionId: wf.primarySessionId,
+          resumeSessionId: expectedSessionId,
           clusterId: turnClusterId,
           codebaseMemoryAttached: wf.config.codebaseMemory?.attached === true,
           codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
             ? (wf.config.codebaseMemory.indexPath || cwd)
             : undefined,
-        }, wf.primarySessionId);
+        }, expectedSessionId, () => ownsBusy(wf, busyToken) && wf.primary.provider === provider && wf.primarySessionId === expectedSessionId);
       }
     } else if (provider === 'cursor') {
       compactedVia = 'cursor-acp';
@@ -227,7 +230,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
         codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
           ? (wf.config.codebaseMemory.indexPath || cwd)
           : undefined,
-      });
+      }, () => ownsBusy(wf, busyToken) && wf.primary.provider === provider && wf.primarySessionId === expectedSessionId);
     }
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -237,6 +240,11 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   // busy now) — report the outcome but leave busy + the queue alone.
   const owned = releaseBusy(wf, busyToken, 'interrupted', false);
 
+  if (result.ok && owned && autoDetail) {
+    if (provider === 'codex') resetCodexContextAfterCompact(workflowId, wf);
+    else wf.lastContextPercent = 0;
+    wf.lastContextBudgetPct = undefined;
+  }
   if (result.ok) {
     const foldedNote = typeof result.foldedTurns === 'number' ? ` (${result.foldedTurns} turn(s) folded)` : '';
     broadcastWorkflow(workflowId, {
@@ -273,7 +281,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   // their existing manual-resume behavior. Kept behind the per-tab flag because
   // auto-continuing after a between-turn compaction is autonomous continuation
   // (CLAUDE.md autonomy fence).
-  if (!claimGuard && owned && result.ok && provider === 'claude' && wf.config.nativeCompactAutoContinue === true) {
+  if ((!claimGuard || autoDetail) && owned && result.ok && provider === 'claude' && wf.config.nativeCompactAutoContinue === true) {
     await maybeAutoContinueAfterCompact(workflowId, ws, session);
   }
   // Messages typed during the compaction queued behind busy; nothing else

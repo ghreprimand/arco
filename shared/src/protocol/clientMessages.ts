@@ -11,7 +11,7 @@ import type {
   BakeoffStartMessage,
 } from './bakeoffs.js';
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
-import type { WorkflowConfig, ToolPosture, ArcoSkillRef } from './workflows.js';
+import type { WorkflowConfig, ToolPosture, ArcoSkillRef, AutoCompactionPolicy } from './workflows.js';
 import type { ReviewRequestMessage, CancelReviewMessage } from './reviews.js';
 import type { ResearchRequestMessage, CancelResearchMessage } from './research.js';
 import type {
@@ -95,6 +95,7 @@ import type {
   ClusterMemberFocusSetMessage,
   ClusterIdleNudgerToggleMessage,
   ClusterEfficiencySetMessage,
+  ClusterAutoCompactionSetMessage,
   ClusterRemoteSetMessage,
   ClusterGatesSetMessage,
   ClusterMemberReorderMessage,
@@ -260,6 +261,8 @@ export interface UpdatePrimaryConfigMessage {
   // Codex; Claude keeps the field reserved until its native auth store is
   // made profile-aware.
   providerAccountRef?: string;
+  // null clears the worker override and restores inheritance.
+  autoCompaction?: AutoCompactionPolicy | null;
   // Phase 3 — update auto-handoff config without a provider/model change.
   // WP5 — `mode` + `summarizer` carry the operator's per-tab handoff-mode and
   // fresh-summarizer model choices (see WorkflowConfig.autoHandoff).
@@ -590,6 +593,7 @@ export type ClientMessage =
   | ClusterMemberTierSetMessage
   | ClusterMemberFocusSetMessage
   | ClusterIdleNudgerToggleMessage
+  | ClusterAutoCompactionSetMessage
   | ClusterEfficiencySetMessage
   | ClusterRemoteSetMessage
   | ClusterGatesSetMessage

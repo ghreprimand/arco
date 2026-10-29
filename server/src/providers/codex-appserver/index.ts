@@ -18,6 +18,7 @@ import { allowVoiceTools, blockVoiceTools, observeVoiceTools } from '../../voice
 import { ComputerTurnWatchdog } from '../../voice/turnWatchdog.js';
 
 const workersByWorkflow = new Map<string, CodexAppServerWorker>();
+const compactReservations = new Map<string, CodexAppServerWorker>();
 
 // Children being torn down for a recycle (bootstrap-signature change,
 // post-compact). Codex holds a single-writer lock on the thread until the old
@@ -228,6 +229,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
         durationMs: r.durationMs,
         ...(r.usage ? { usage: r.usage } : {}),
         ...(typeof r.modelContextWindow === 'number' ? { modelContextWindow: r.modelContextWindow } : {}),
+        ...(typeof r.freshContextWindow === 'number' ? { freshContextWindow: r.freshContextWindow } : {}),
         ...(typeof r.lastPromptTokens === 'number' ? { lastPromptTokens: r.lastPromptTokens } : {}),
         // docs/PROVIDERS.md - Codex doesn't expose tool_result bytes
         // through the app-server JSON-RPC surface. Sentinel: -1 = unknown.
@@ -354,27 +356,50 @@ export async function compactCodexAppServerThread(
   workflowId: string,
   config?: WorkerConfig,
   resumeSessionId?: string,
+  stillOwner?: () => boolean,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (stillOwner && !stillOwner()) return { ok: false, error: 'compaction cancelled before dispatch' };
+  if (compactReservations.has(workflowId)) return { ok: false, error: 'a compaction is already running' };
   let worker = workersByWorkflow.get(workflowId);
+  const mustStart = !worker;
   if (!worker) {
-    if (!config || !resumeSessionId) {
-      return { ok: false, error: 'no active Codex thread for this workflow — run a turn first' };
-    }
+    if (!config || !resumeSessionId) return { ok: false, error: 'no active Codex thread for this workflow - run a turn first' };
     worker = acquireWorker(workflowId, config, resumeSessionId);
-    try {
-      await awaitRetired(workflowId);
-      await worker.ensureStarted();
-    } catch (err) {
-      return { ok: false, error: `failed to resume Codex thread for compact: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  compactReservations.set(workflowId, worker);
+  try {
+    if (mustStart) {
+      try {
+        await awaitRetired(workflowId);
+        await worker.ensureStarted();
+      } catch (err) {
+        if (workersByWorkflow.get(workflowId) === worker) { workersByWorkflow.delete(workflowId); retireWorker(workflowId, worker, 'failed compact startup'); }
+        return { ok: false, error: `failed to resume Codex thread for compact: ${err instanceof Error ? err.message : String(err)}` };
+      }
     }
+    if ((stillOwner && !stillOwner()) || compactReservations.get(workflowId) !== worker) {
+      if (workersByWorkflow.get(workflowId) === worker) { workersByWorkflow.delete(workflowId); retireWorker(workflowId, worker, 'cancelled compact'); }
+      return { ok: false, error: 'compaction cancelled before dispatch' };
+    }
+    const result = await worker.compactThread();
+    if (result.recycle) {
+      if (workersByWorkflow.get(workflowId) === worker) workersByWorkflow.delete(workflowId);
+      resetFailureCount(workflowId);
+      retireWorker(workflowId, worker, 'post-compact recycle');
+    }
+    return { ok: result.ok, ...(result.error ? { error: result.error } : {}) };
+  } finally {
+    if (compactReservations.get(workflowId) === worker) compactReservations.delete(workflowId);
   }
-  const result = await worker.compactThread();
-  if (result.recycle) {
-    if (workersByWorkflow.get(workflowId) === worker) workersByWorkflow.delete(workflowId);
-    resetFailureCount(workflowId);
-    retireWorker(workflowId, worker, 'post-compact recycle');
-  }
-  return { ok: result.ok, ...(result.error ? { error: result.error } : {}) };
+}
+
+export function cancelCodexAppServerCompaction(workflowId: string): void {
+  const worker = compactReservations.get(workflowId);
+  if (!worker) return;
+  compactReservations.delete(workflowId);
+  worker.cancelCompaction();
+  if (workersByWorkflow.get(workflowId) === worker) workersByWorkflow.delete(workflowId);
+  retireWorker(workflowId, worker, 'cancelled compact');
 }
 
 export function disposeCodexAppServerWorker(workflowId: string): void {

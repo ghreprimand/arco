@@ -868,6 +868,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       if (update.providerAccountRef !== undefined) nextConfig.providerAccountRef = update.providerAccountRef || undefined;
       if (update.autoHandoff !== undefined) nextConfig.autoHandoff = { ...update.autoHandoff };
       if (update.autoFold !== undefined) nextConfig.autoFold = { ...update.autoFold };
+      if (update.autoCompaction !== undefined) nextConfig.autoCompaction = update.autoCompaction ?? undefined;
       if (update.codexTransport !== undefined) nextConfig.codexTransport = update.codexTransport;
       if (update.codexContextPolicy !== undefined) nextConfig.codexContextPolicy = update.codexContextPolicy;
       if (update.claudeTransport !== undefined) nextConfig.claudeTransport = update.claudeTransport;

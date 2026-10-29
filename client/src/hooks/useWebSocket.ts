@@ -750,7 +750,7 @@ export function useWebSocket() {
 
   const updatePrimaryConfig = useCallback((
     workflowId: string,
-    update: { model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> },
+    update: { model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> },
   ) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
@@ -762,6 +762,7 @@ export function useWebSocket() {
       ...(update.providerAccountRef !== undefined ? { providerAccountRef: update.providerAccountRef } : {}),
       ...(update.autoHandoff !== undefined ? { autoHandoff: update.autoHandoff } : {}),
       ...(update.autoFold !== undefined ? { autoFold: update.autoFold } : {}),
+      ...(update.autoCompaction !== undefined ? { autoCompaction: update.autoCompaction } : {}),
       ...(update.codexTransport !== undefined ? { codexTransport: update.codexTransport } : {}),
       ...(update.codexContextPolicy !== undefined ? { codexContextPolicy: update.codexContextPolicy } : {}),
       ...(update.claudeTransport !== undefined ? { claudeTransport: update.claudeTransport } : {}),
@@ -1277,6 +1278,11 @@ export function useWebSocket() {
   // R3 (docs/REMOTE_MANAGEMENT.md) - operator flipped the cluster's
   // ◉ REMOTE chip. One switch shares the whole cluster (all members) with the
   // management hub; server persists + rebroadcasts + re-pushes the hub snapshot.
+  const setClusterAutoCompaction = useCallback((clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'cluster_auto_compaction_set', clusterId, policy }));
+  }, []);
+
   const setClusterRemote = useCallback((clusterId: string, enabled: boolean) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({ type: 'cluster_remote_set', clusterId, enabled }));
@@ -1513,6 +1519,7 @@ export function useWebSocket() {
     setClusterMemberFocus,
     toggleClusterIdleNudger,
     setClusterEfficiency,
+    setClusterAutoCompaction,
     setClusterRemote,
     setClusterGates,
     reorderClusterMembers,

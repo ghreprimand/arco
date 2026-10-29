@@ -5,6 +5,29 @@ import type { AdvancedOptions } from './settings.js';
 import type { ResolvedMcpServer } from './mcp.js';
 import type { GenesisSeed } from './genesis.js';
 
+// An absent worker policy inherits the cluster policy, or retains legacy behavior.
+export interface AutoCompactionPolicy {
+  enabled: boolean;
+  thresholdPercent: number;
+}
+
+export function isAutoCompactionPolicy(value: unknown): value is AutoCompactionPolicy {
+  if (!value || typeof value !== 'object') return false;
+  const policy = value as Record<string, unknown>;
+  return typeof policy.enabled === 'boolean' && typeof policy.thresholdPercent === 'number'
+    && Number.isInteger(policy.thresholdPercent) && policy.thresholdPercent >= 50 && policy.thresholdPercent <= 95;
+}
+
+export function resolveAutoCompactionPolicy(
+  worker: AutoCompactionPolicy | undefined,
+  cluster: AutoCompactionPolicy | undefined,
+): AutoCompactionPolicy | undefined {
+  const selected = worker !== undefined ? worker : cluster;
+  if (selected === undefined) return undefined;
+  // Malformed saved or wire data must not fall back to a legacy auto-on path.
+  return isAutoCompactionPolicy(selected) ? selected : { enabled: false, thresholdPercent: 80 };
+}
+
 export interface WorkflowSessionMetadata {
   // Read-only historical continuation metadata; no active provider uses this kind.
   sessionKind?: 'antigravity-cascade';
@@ -42,6 +65,7 @@ export interface ArcoSkillRef {
 // shape is flat; nested `primary: PrimaryWorkerConfig` (plan §7) can land
 // later as another mechanical rename if the surface gets big.
 export interface WorkflowConfig {
+  autoCompaction?: AutoCompactionPolicy;
   name: string;
   // docs/PROTOCOL_CLUSTER.md - tab kind discriminator. Absent or
   // 'workflow' = the existing single-primary tab shape (every persisted

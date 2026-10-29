@@ -1,4 +1,4 @@
-import { retiredProviderReason } from '@arco/shared';
+import { isAutoCompactionPolicy, resolveAutoCompactionPolicy, retiredProviderReason } from '@arco/shared';
 import { isKnownProvider } from '../providers/index.js';
 import { publishWorkerActivity } from './turnEngine.js';
 import { clearPrivateWatches } from '../voice/watches.js';
@@ -52,6 +52,8 @@ import { artifactsDir } from '../workers/limits.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
 import { destroySandbox } from '../providers/claude-native/sandboxStore.js';
 import { disposeProviderResources } from '../providers/index.js';
+import { cancelClaudeNativeCompaction } from '../providers/claude-native/index.js';
+import { cancelCodexAppServerCompaction } from '../providers/codex-appserver/index.js';
 import { ptyManager } from '../terminal/ptyManager.js';
 import { recordContextUsage,
   acquirePlansWatcher,
@@ -182,6 +184,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       primaryProvider: saved.primaryProvider,
       primaryModel: saved.primaryModel,
       primaryEffort: saved.primaryEffort,
+      autoCompaction: resolveAutoCompactionPolicy(saved.autoCompaction, undefined),
       ...(saved.providerAccountRef ? { providerAccountRef: saved.providerAccountRef } : {}),
       ...(saved.claudeTransport
         ? { claudeTransport: saved.claudeTransport }
@@ -216,6 +219,10 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     };
   }
 
+  if (config.autoCompaction !== undefined && !isAutoCompactionPolicy(config.autoCompaction)) {
+    send(ws, { type: 'error', message: 'Invalid auto-compaction policy.' });
+    return;
+  }
   const provider = config.primaryProvider ?? 'claude';
   if (!isKnownProvider(provider)) {
     send(ws, { type: 'error', message: retiredProviderReason(provider) ?? `Unsupported provider: ${provider}` });
@@ -420,6 +427,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       // §2.1 — restore persisted auto-fold config (survives restart). Separate
       // from the autoHandoff if/else below so it applies regardless of whether
       // autoHandoff was persisted.
+      if (wf && savedMeta) wf.config.autoCompaction = resolveAutoCompactionPolicy(savedMeta.autoCompaction, undefined);
       if (savedMeta?.autoFold && wf) {
         wf.config.autoFold = { ...savedMeta.autoFold };
         wf.autoFold = deriveAutoFold(wf.config);
@@ -860,6 +868,8 @@ export function handleCancel(ws: WebSocket, workflowId: string): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
   wf.manager.killAll();
+  cancelClaudeNativeCompaction(workflowId);
+  cancelCodexAppServerCompaction(workflowId);
   // Revoke (not just clear) the busy claim: the killed turn's loop is still
   // unwinding post-settle awaits, and without the revoke its finally cleared
   // the busy flag of a turn the operator resent right after STOP.

@@ -14,7 +14,7 @@ same contextual help as the `?` mode.
   not change existing workflows.
 - **Project**: applies to one project folder.
 - **Workflow**: per-workflow choices (provider, model, effort, permissions,
-  transport, auto-handoff, north star and the rest) stay in the workflow
+  transport, auto-compaction, auto-handoff, north star and the rest) stay in the workflow
   creator and the workflow's CONFIG tab. They are not part of this dialog.
 
 ## Addresses
@@ -89,3 +89,7 @@ Location paths are normalized and deduplicated, including existing aliases. Proj
 under overlapping locations belong to the longest matching location; bookmarked folder paths
 and session identity remain unchanged. Removing a location never removes bookmarked
 folders, files, saved sessions or trust decisions. Missing locations stay listed. Duplicate canonical paths are refused during edits; adding an existing path offers explicit rename feedback rather than discarding the name.
+
+## Auto-compaction policy
+
+The workflow CONFIG panel has a worker auto-compaction policy and the cluster panel has a cluster default. Choose an explicit on or off override or inherit the cluster default; absent policies retain the existing provider behavior. The threshold is an integer from 50% through 95%, evaluated for each worker independently. Claude Native and Codex app-server use a fresh completed-turn reading; Codex also needs an existing thread. Other transports cannot use this policy; Ollama retains its existing global compaction settings. Raw events remain available. Automatic Fold is a deterministic digest, while Handoff starts a fresh session. Provider-managed compaction is separate.

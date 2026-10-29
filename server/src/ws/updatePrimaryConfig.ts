@@ -8,7 +8,7 @@
 // (read on rehydrate). Keep the two blocks below in sync when adding a field.
 
 import { WebSocket } from 'ws';
-import type { UpdatePrimaryConfigMessage } from '@arco/shared';
+import { isAutoCompactionPolicy, type UpdatePrimaryConfigMessage } from '@arco/shared';
 import { send, broadcastWorkflow, broadcastTransient } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { capGoal } from '../providers/goalBlock.js';
@@ -31,6 +31,28 @@ export async function handleUpdatePrimaryConfig(
     return;
   }
 
+
+  if (msg.autoCompaction !== undefined && msg.autoCompaction !== null && !isAutoCompactionPolicy(msg.autoCompaction)) {
+    send(ws, { type: 'error', message: 'Auto-compaction requires a boolean and an integer threshold from 50 to 95.' });
+    if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
+    return;
+  }
+  if (msg.autoCompaction !== undefined) {
+    const next = msg.autoCompaction === null ? undefined : { ...msg.autoCompaction };
+    if (wf.config.workingDirectory && !wf.config.incognito) {
+      try {
+        const updated = await updateMeta(wf.config.workingDirectory, msg.workflowId, (meta) => { meta.autoCompaction = next; });
+        if (!updated) throw new Error('workflow metadata unavailable');
+      } catch {
+        send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Could not save auto-compaction policy; the previous policy remains active.' });
+        if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
+        return;
+      }
+    }
+    wf.config.autoCompaction = next;
+    broadcastWorkflow(msg.workflowId, { type: 'system_notice', workflowId: msg.workflowId,
+      content: next ? `[AUTO-COMPACT] Worker policy ${next.enabled ? `enabled at ${next.thresholdPercent}%` : 'disabled'}.` : '[AUTO-COMPACT] Worker policy cleared; cluster or legacy behavior applies.' });
+  }
 
   if (msg.model !== undefined) wf.primary.model = msg.model;
   if (msg.effort !== undefined) wf.primary.effort = msg.effort;

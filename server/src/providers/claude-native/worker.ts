@@ -300,6 +300,8 @@ export class ClaudeNativeWorker extends EventEmitter {
   readonly workflowId: string;
   private config: WorkerConfig;
   private client: Anthropic | null = null;
+  private compactAbort?: AbortController;
+  private compactInProgress = false;
   // The Anthropic SDK pins the OAuth token at construction time. When the
   // operator runs RE-LOGIN against a long-lived tab, new tokens land on
   // disk but the cached client still holds the stale token, so every
@@ -780,13 +782,21 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Idle-only (the WS handler gates on !wf.busy). Operator-initiated and
   // context-REPLACING (not an autonomous in-loop second summarizer), so it sits
   // in the same eligibility class as Handoff under the four-question test.
-  async compactInPlace(): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
+  async compactInPlace(stillOwner?: () => boolean): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
+    if (this.compactInProgress) return { ok: false, error: 'a compaction is already running' };
+    this.compactInProgress = true;
+    try { return await this.compactInPlaceLocked(stillOwner); }
+    finally { this.compactInProgress = false; }
+  }
+
+  private async compactInPlaceLocked(stillOwner?: () => boolean): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
     try {
       await this.ensureStarted();
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     if (!this.client) return { ok: false, error: 'worker not started' };
+    if (stillOwner && !stillOwner()) return { ok: false, error: 'compaction cancelled before it began' };
     if (this.inFlight && !this.inFlight.signal.aborted) {
       return { ok: false, error: 'a turn is in flight — wait for it to finish' };
     }
@@ -795,44 +805,28 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (this.messages.length === 0) {
       return { ok: false, error: 'nothing to compact yet' };
     }
-    // A prior server Fold's signed block → plain summary text (history is
-    // being replaced anyway; the prefix freeze resets below).
-    demoteLeadingServerFoldBlock(this.messages, (t) => compactSummarySeed(t) as MessageParam[]);
-    const foldedTurns = this.messages.filter((m) => m.role === 'user').length;
-    // Defense-in-depth: compact rides the same Anthropic constraints as a
-    // normal round. A cancelled/interrupted tool loop can leave a trailing
-    // assistant(tool_use) with no user(tool_result); normal turns repair that
-    // before appending the operator prompt, and compact must do the same before
-    // it asks the summarizer to read history.
-    const pruned = this.pruneOrphanToolUse();
-    if (pruned.droppedAssistantMessages > 0) {
-      this.workflowEventBroadcast({
-        type: 'ctx_action',
-        workflowId: this.workflowId,
-        action: 'prune_orphan_tool_use',
-        trigger: 'recovery',
-        detail: `dropped ${pruned.droppedAssistantMessages} orphan assistant message(s) before compact; unpaired tool_use ids: ${pruned.droppedIds.join(', ')}`,
-      });
+    // Prepare against a private copy. A failed or cancelled summary must not
+    // prune, demote or scrub the live history that a later turn will use.
+    const originalMessages = this.messages;
+    let foldedTurns: number;
+    let pruned: { droppedAssistantMessages: number; droppedIds: string[] };
+    let prefix: MessageParam[];
+    let tailForSeed: ReturnType<typeof projectKeptTail>;
+    try {
+      this.messages = structuredClone(originalMessages);
+      demoteLeadingServerFoldBlock(this.messages, (t) => compactSummarySeed(t) as MessageParam[]);
+      foldedTurns = this.messages.filter((m) => m.role === 'user').length;
+      pruned = this.pruneOrphanToolUse();
+      this.scrubEmptyTextContent();
+      this.stripTrailingThinkingBlocks();
+      const keptTail = projectKeptTail(this.messages, COMPACT_KEEP_LAST_MESSAGES);
+      const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
+        ? this.messages.slice(0, this.messages.length - keptTail.length) : this.messages;
+      prefix = projectCompactSummaryMessages(rawPrefix) as MessageParam[];
+      tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
+    } finally {
+      this.messages = originalMessages;
     }
-    // The summarization request also rides the same Anthropic constraints as a
-    // normal round (no assistant message ending in a thinking block, no empty
-    // text blocks).
-    this.scrubEmptyTextContent();
-    this.stripTrailingThinkingBlocks();
-
-    // NATIVE_COMPACTION_PLAN Phase 2 — keep the last-N messages verbatim. Project
-    // the tail to the clean resume shape (so replay round-trips it byte-for-byte
-    // via the SAME compactSummarySeed) and summarize only the OLDER prefix. The
-    // prefix is everything before the projected tail; if the projection kept K
-    // messages, summarize messages[0 .. len-K). When the whole history fits in
-    // the keep-tail there is no older prefix to summarize — fall back to
-    // summarizing everything so we still produce a marker (keptTail then empty).
-    const keptTail = projectKeptTail(this.messages, COMPACT_KEEP_LAST_MESSAGES);
-    const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
-      ? this.messages.slice(0, this.messages.length - keptTail.length)
-      : this.messages;
-    const prefix = projectCompactSummaryMessages(rawPrefix) as MessageParam[];
-    const tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
     // NATIVE_COMPACTION_PLAN Phase 3 — fire the pre-compaction marker BEFORE the
     // slow summarization round so the client can flip its "Compacting…" takeover
     // immediately. Fires once here for BOTH the manual COMPACT button and the
@@ -851,6 +845,10 @@ export class ClaudeNativeWorker extends EventEmitter {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     if (!summary.trim()) return { ok: false, error: 'summary came back empty' };
+    if (stillOwner && !stillOwner()) return { ok: false, error: 'compaction cancelled before history replacement' };
+    if (pruned.droppedAssistantMessages > 0) {
+      this.workflowEventBroadcast({ type: 'ctx_action', workflowId: this.workflowId, action: 'prune_orphan_tool_use', trigger: 'recovery', detail: `dropped ${pruned.droppedAssistantMessages} orphan assistant message(s) before compact; unpaired tool_use ids: ${pruned.droppedIds.join(', ')}` });
+    }
     // Replace history with the summary seed + kept tail (same shape + same helper
     // resume uses, so a replayed worker lands byte-identical) and reset the
     // auto-compact tool counter — the slate is clean.
@@ -891,6 +889,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // reversible (events.jsonl retains the full transcript) ⇒ passes the
   // four-question test, same eligibility class as Handoff/compact.
   async foldInPlace(opts?: { tailTokenBudget?: number; trigger?: 'operator' | 'auto' }): Promise<{ ok: boolean; error?: string; foldedTurns?: number; byteDelta?: number }> {
+    if (this.compactInProgress) return { ok: false, error: 'a compaction is already running' };
     if (this.inFlight && !this.inFlight.signal.aborted) {
       return { ok: false, error: 'a turn is in flight — wait for it to finish' };
     }
@@ -1001,6 +1000,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return { ok: false, error: err instanceof Error ? err.message : String(err), fallback: 'failed' };
     }
     if (!this.client) return { ok: false, error: 'worker not started', fallback: 'failed' };
+    if (this.compactInProgress) return { ok: false, error: 'a compaction is already running' };
     if (this.inFlight && !this.inFlight.signal.aborted) {
       return { ok: false, error: 'a turn is in flight — wait for it to finish' };
     }
@@ -1139,24 +1139,29 @@ export class ClaudeNativeWorker extends EventEmitter {
       { role: 'user' as const, content: COMPACT_SUMMARIZER_PROMPT },
     ];
     const controller = new AbortController();
-    const resp = await this.client!.messages.create({
-      model: this.requestModel(),
-      max_tokens: COMPACT_SUMMARY_MAX_TOKENS,
-      system: system as unknown as string,
-      messages: messages as unknown as Parameters<Anthropic['messages']['create']>[0]['messages'],
-      stream: true,
-    } as Parameters<Anthropic['messages']['create']>[0], {
-      signal: controller.signal,
-      headers: { 'anthropic-beta': this.buildBetaHeader() },
-    });
-    let text = '';
-    for await (const ev of resp as AsyncIterable<{ type?: string; delta?: { type?: string; text?: string } }>) {
-      if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
-        text += ev.delta.text;
+    this.compactAbort = controller;
+    try {
+      const resp = await this.client!.messages.create({
+        model: this.requestModel(),
+        max_tokens: COMPACT_SUMMARY_MAX_TOKENS,
+        system: system as unknown as string,
+        messages: messages as unknown as Parameters<Anthropic['messages']['create']>[0]['messages'],
+        stream: true,
+      } as Parameters<Anthropic['messages']['create']>[0], {
+        signal: controller.signal,
+        headers: { 'anthropic-beta': this.buildBetaHeader() },
+      });
+      let text = '';
+      for await (const ev of resp as AsyncIterable<{ type?: string; delta?: { type?: string; text?: string } }>) {
+        if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
+          text += ev.delta.text;
+        }
       }
-    }
-    return text;
+      return text;
+    } finally { if (this.compactAbort === controller) this.compactAbort = undefined; }
   }
+
+  cancelCompaction(): void { this.compactAbort?.abort(); }
 
   async ensureStarted(): Promise<void> {
     // ARCO_TEST compact-probe: history is pre-seeded and the summary is
@@ -1860,6 +1865,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   // Operator clicks CANCEL / RSS guard / tab close.
   cancel(): void {
+    this.cancelCompaction();
     this.cancelRequested = true;
     try { this.inFlight?.abort(); } catch { /* already aborted */ }
     try { this.toolAbort?.abort(); } catch { /* already aborted */ }
