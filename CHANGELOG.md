@@ -21,6 +21,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Allow worker and cluster auto-compaction thresholds as low as 30%.
+
 - Clarify message submission, queue replay, and approval behavior across browser reconnects and server restarts, with operator review guidance for uncertain work.
 
 - Show pending peer-mail counts on cluster member cards and the NUDGE control; label operator-only notifications MAIL ALERTS.

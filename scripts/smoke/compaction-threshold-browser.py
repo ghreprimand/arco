@@ -91,7 +91,7 @@ async def main():
             await slider.focus()
             await page.keyboard.press('Home')
             await page.keyboard.press('End')
-            assert await page.evaluate('commits.slice(-2).map(x=>x[1])') == [50, 95]
+            assert await page.evaluate('commits.slice(-2).map(x=>x[1])') == [30, 95]
             before = await page.evaluate('commits.length')
             await page.mouse.move(box['x'] + box['width']*.5, y)
             await page.mouse.down()

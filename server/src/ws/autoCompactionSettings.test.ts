@@ -14,7 +14,7 @@ installIsolatedTestHome(temp);
 const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
 const closeRecall = trackRecallFixture();
 const { workflows } = await import('../server/state.js');
-const { writeMeta, readMeta } = await import('../workflowMeta.js');
+const { writeMeta, readMeta, workflowConfigFromMeta } = await import('../workflowMeta.js');
 const { handleUpdatePrimaryConfig } = await import('./updatePrimaryConfig.js');
 
 test('worker policy persists on/off/inherit and rejects invalid values without changing other settings', async () => {
@@ -39,6 +39,18 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     await update({enabled:true,thresholdPercent:99});
     assert.deepEqual(wf.config.autoCompaction,{enabled:true,thresholdPercent:85});
     assert.ok(sent.some(m=>m.type==='error'));
+    for (const thresholdPercent of [29, 30.5, 96]) {
+      await update({enabled:true,thresholdPercent});
+      assert.deepEqual(wf.config.autoCompaction,{enabled:true,thresholdPercent:85});
+    }
+    for (const thresholdPercent of [30, 95]) {
+      await update({enabled:true,thresholdPercent});
+      assert.deepEqual((await readMeta(cwd,id))?.autoCompaction,{enabled:true,thresholdPercent});
+    }
+    await update({enabled:true,thresholdPercent:30});
+    const reloaded = await readMeta(cwd,id);
+    assert.deepEqual(reloaded?.autoCompaction,{enabled:true,thresholdPercent:30});
+    assert.deepEqual(workflowConfigFromMeta(reloaded!,cwd).autoCompaction,{enabled:true,thresholdPercent:30});
     await update({enabled:false,thresholdPercent:65});
     assert.deepEqual((await readMeta(cwd,id))?.autoCompaction,{enabled:false,thresholdPercent:65});
     await update(null);

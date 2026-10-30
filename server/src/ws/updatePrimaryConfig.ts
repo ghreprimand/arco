@@ -34,7 +34,7 @@ export async function handleUpdatePrimaryConfig(
 
 
   if (msg.autoCompaction !== undefined && msg.autoCompaction !== null && !isAutoCompactionPolicy(msg.autoCompaction)) {
-    send(ws, { type: 'error', message: 'Auto-compaction requires a boolean and an integer threshold from 50 to 95.' });
+    send(ws, { type: 'error', message: 'Auto-compaction requires a boolean and an integer threshold from 30 to 95.' });
     if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
     return;
   }

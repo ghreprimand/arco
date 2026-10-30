@@ -16,8 +16,8 @@ export function AutoCompactionThreshold({ label, value, onCommit }: {
     if (next !== null && next !== value) onCommit(next);
   };
   return <>
-    {draft ?? value}% <input type="range" aria-label={label} min={50} max={95} value={draft ?? value}
-      onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 50 && next <= 95) { pending.current = next; setDraft(next); } }}
+    {draft ?? value}% <input type="range" aria-label={label} min={30} max={95} value={draft ?? value}
+      onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 30 && next <= 95) { pending.current = next; setDraft(next); } }}
       onPointerUp={commit} onPointerCancel={cancel} onBlur={commit}
       onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); cancel(); } }}
       onKeyUp={(event) => { if (event.key !== 'Escape') commit(); }} />

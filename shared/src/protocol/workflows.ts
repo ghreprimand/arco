@@ -15,7 +15,7 @@ export function isAutoCompactionPolicy(value: unknown): value is AutoCompactionP
   if (!value || typeof value !== 'object') return false;
   const policy = value as Record<string, unknown>;
   return typeof policy.enabled === 'boolean' && typeof policy.thresholdPercent === 'number'
-    && Number.isInteger(policy.thresholdPercent) && policy.thresholdPercent >= 50 && policy.thresholdPercent <= 95;
+    && Number.isInteger(policy.thresholdPercent) && policy.thresholdPercent >= 30 && policy.thresholdPercent <= 95;
 }
 
 export function resolveAutoCompactionPolicy(
