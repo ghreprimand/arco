@@ -31,6 +31,7 @@ const SUITES = [
   { name: 'operator-questions', script: 'operator-questions-browser.py', port: 5187 },
   { name: 'voice-scroll', script: 'voice-scroll-browser.py', port: 5195 },
   { name: 'help-docs', script: 'help-docs-browser.py', port: 5179 },
+  { name: 'selected-control-contrast', script: 'selected-control-contrast-browser.py', port: 5205 },
   { name: 'phosphor-production', script: 'phosphor-production-browser.py', port: 5179 },
   { name: 'voice', script: 'voice-browser.py', port: 5193 },
   { name: 'interrupt-send', script: 'interrupt-send-browser.py', port: 5194 },

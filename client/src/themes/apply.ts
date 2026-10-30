@@ -53,6 +53,26 @@ function formatRgb(r: number, g: number, b: number, a: number): string {
   return a < 1 ? `rgba(${R}, ${G}, ${B}, ${a})` : `rgb(${R}, ${G}, ${B})`;
 }
 
+// Filled controls need ink paired with their final paint, including brightness.
+// Prefer existing theme ink; black/white are the bounded fallback for a fill
+// whose luminance falls between the theme's own foreground and background.
+function controlInk(background: string, candidates: string[]): string {
+  const bg = parseRgb(background);
+  if (!bg) return candidates[0];
+  const luminance = ({ r, g, b }: { r: number; g: number; b: number }): number =>
+    [r, g, b].map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)
+      .reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+  const ratio = (ink: string): number => {
+    const fg = parseRgb(ink);
+    if (!fg) return 0;
+    const a = luminance({ r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a) });
+    const b = luminance(bg);
+    return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+  };
+  return candidates.find(ink => ratio(ink) >= 4.6)
+    ?? (ratio('#000000') >= ratio('#ffffff') ? '#000000' : '#ffffff');
+}
+
 // Background shift — adds `amount` signed HSL *lightness* points (−30…+30,
 // clamped [0,100]) to a token. For near-black surfaces this raises/lowers the
 // "how light is this surface" level, which is the intuitive background dimmer.
@@ -219,6 +239,13 @@ export function applyTheme(
     root.style.setProperty('--color-bg-input', withAlpha(tok('color-bg-input', theme.tokens['color-bg-input'] ?? ''), Math.min(1, base + 0.12)));
     root.style.setProperty('--color-bg-elevated', withAlpha(tok('color-bg-elevated', theme.tokens['color-bg-elevated'] ?? ''), Math.min(1, base + 0.06)));
   }
+
+  const base = parseRgb(root.style.getPropertyValue('--color-bg')) ?? { r: 0, g: 0, b: 0, a: 1 };
+  const panel = parseRgb(root.style.getPropertyValue('--color-bg-panel')) ?? base;
+  const surface = formatRgb(panel.r * panel.a + base.r * (1 - panel.a), panel.g * panel.a + base.g * (1 - panel.a), panel.b * panel.a + base.b * (1 - panel.a), 1);
+  const fg = root.style.getPropertyValue('--color-fg');
+  root.style.setProperty('--color-control-fg', controlInk(surface, [root.style.getPropertyValue('--color-fg-muted'), fg]));
+  root.style.setProperty('--color-control-selected-fg', controlInk(root.style.getPropertyValue('--color-accent-primary-dim'), [root.style.getPropertyValue('--color-bg'), fg]));
 
   // Fixed background image (opt-in via theme.background) — Arco's first
   // image-backed theme. Painted on <body> as a scrim-over-image so it sits

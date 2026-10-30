@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep filled Config control labels and keyboard focus readable across themes and brightness settings while preserving selected values and appearance choices.
+
 - Keep reauthentication bound to its originating workflow and credential source, detect Native callback completion with present credentials, and retain drafts with explicit review before continuing.
 
 - Keep the Claude allowance popover open and focused during a manual check, including when the pointer leaves it.

@@ -1,5 +1,5 @@
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, type CSSProperties } from 'react';
 import { CLAUDE_MODEL_LABELS } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
@@ -11,6 +11,14 @@ import { CursorModelSelect } from '../CursorModelSelect';
 import { McpRegistrySection, type McpSenders } from './McpRegistrySection';
 import { useProjectTrust, type TrustStatus } from '../../hooks/useProjectTrust';
 import { modelsFor } from './format';
+
+function filledControlStyle(active: boolean): CSSProperties {
+  return {
+    background: active ? 'var(--color-accent-primary-dim)' : 'transparent',
+    color: active ? 'var(--color-control-selected-fg)' : 'var(--color-control-fg)',
+    ...(active ? { textShadow: 'none' } : {}),
+  };
+}
 
 export function ConfigTab({
   job,
@@ -1009,13 +1017,14 @@ function CodexContextWindowSection({
           <button
             key={policy}
             type="button"
+            className="filled-control"
+            aria-pressed={policy === current}
             onClick={() => policy !== current && onUpdatePrimary({ codexContextPolicy: policy })}
             style={{
               flex: 1,
               padding: '7px 8px',
               border: `1px solid ${policy === current ? 'var(--color-accent-primary)' : 'var(--color-border)'}`,
-              background: policy === current ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: policy === current ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(policy === current),
               cursor: policy === current ? 'default' : 'pointer',
               fontFamily: 'var(--font-display)',
               fontSize: '10px',
@@ -1319,14 +1328,15 @@ function ClaudeNativeThinkingDisplaySection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ claudeNativeThinkingDisplay: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1417,14 +1427,15 @@ function ClaudeNativeToolFilterSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ efficiencyToolFilter: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1471,14 +1482,15 @@ function ClaudeNativeWebBudgetSection({
           <button
             key={n}
             type="button"
+            className="filled-control"
+            aria-pressed={n === current}
             onClick={() => onUpdatePrimary({ webSearchMaxUses: n })}
             style={{
               padding: '4px 12px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (n === current ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: n === current ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: n === current ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(n === current),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1522,14 +1534,15 @@ function ClaudeNativeFactForceSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ efficiencyFactForce: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1575,14 +1588,15 @@ function ClaudeNativeConfigProtectionSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ efficiencyConfigProtection: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1628,14 +1642,15 @@ function ClaudeNativeReviewSafeModeSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ reviewSafeMode: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1743,14 +1758,15 @@ function ClaudeNativeSandboxSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ efficiencySandbox: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}
@@ -1835,6 +1851,8 @@ function ProjectTrustSection({ cwd }: { cwd: string }) {
           <button
             key={o.key}
             type="button"
+            className="filled-control"
+            aria-pressed={o.key === status}
             disabled={busy}
             onClick={() => { void setTrust(cwd, o.write); }}
             style={{
@@ -1842,8 +1860,7 @@ function ProjectTrustSection({ cwd }: { cwd: string }) {
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (o.key === status ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: o.key === status ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: o.key === status ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(o.key === status),
               cursor: busy ? 'default' : 'pointer',
               borderRadius: '2px',
             }}
@@ -1935,6 +1952,7 @@ function NorthStarSection({
           )}
           <button
             type="button"
+            className="filled-control"
             disabled={!dirty}
             onClick={() => onUpdatePrimary({ goal: draft })}
             style={{
@@ -1942,8 +1960,7 @@ function NorthStarSection({
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (dirty ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: dirty ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: dirty ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(dirty),
               cursor: dirty ? 'pointer' : 'default',
               borderRadius: '2px',
             }}
@@ -2061,6 +2078,7 @@ function GoalRunControl({
           </label>
           <button
             type="button"
+            className="filled-control"
             disabled={!canArm}
             title={hasNorthStar ? undefined : 'Set a north star first — a goal run continues toward it.'}
             onClick={() => onUpdatePrimary({
@@ -2076,8 +2094,7 @@ function GoalRunControl({
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (canArm ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: canArm ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: canArm ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(canArm),
               cursor: canArm ? 'pointer' : 'default',
               borderRadius: '2px',
             }}
@@ -2129,14 +2146,15 @@ function OutputStyleSection({
           <button
             key={m}
             type="button"
+            className="filled-control"
+            aria-pressed={m === mode}
             onClick={() => onUpdatePrimary({ outputStyle: m })}
             style={{
               padding: '4px 10px',
               fontSize: '11px',
               fontFamily: 'var(--font-body)',
               border: '1px solid ' + (m === mode ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-              background: m === mode ? 'var(--color-accent-primary-dim)' : 'transparent',
-              color: m === mode ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+              ...filledControlStyle(m === mode),
               cursor: 'pointer',
               borderRadius: '2px',
             }}

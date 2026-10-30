@@ -12,6 +12,11 @@
   font-family: var(--font-display);
 }
 
+.filled-control:focus-visible {
+  outline: 2px solid var(--color-control-fg);
+  outline-offset: 2px;
+}
+
 :where(input, textarea, option, optgroup) {
   font-family: inherit;
 }
