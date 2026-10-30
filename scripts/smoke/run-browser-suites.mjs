@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SUITES = [
+  { name: 'compaction-threshold', script: 'compaction-threshold-browser.py', port: 5203 },
   { name: 'peer-ordering', script: 'peer-ordering-browser.py', port: 5203 },
   { name: 'bakeoff', script: 'bakeoff-browser.py', port: 5202 },
   { name: 'location-clarity', script: 'location-clarity-browser.py', isolatedServer: true },

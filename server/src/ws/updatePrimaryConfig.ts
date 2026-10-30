@@ -15,6 +15,7 @@ import { capGoal } from '../providers/goalBlock.js';
 import { normalizeGoalRunArm } from '../goalRun.js';
 import { deriveAutoFold, startSessionWatcher } from './turnEngine.js';
 import { updateMeta } from '../workflowMeta.js';
+import { withFileLock } from '../atomicFile.js';
 import { disposeProviderResources } from '../providers/index.js';
 import { refreshHubReporting } from '../management/initHubLink.js';
 import { buildPinnedSkillsBlock, resolvePinnedSkills } from '../skills.js';
@@ -38,20 +39,27 @@ export async function handleUpdatePrimaryConfig(
     return;
   }
   if (msg.autoCompaction !== undefined) {
-    const next = msg.autoCompaction === null ? undefined : { ...msg.autoCompaction };
-    if (wf.config.workingDirectory && !wf.config.incognito) {
-      try {
-        const updated = await updateMeta(wf.config.workingDirectory, msg.workflowId, (meta) => { meta.autoCompaction = next; });
-        if (!updated) throw new Error('workflow metadata unavailable');
-      } catch {
-        send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Could not save auto-compaction policy; the previous policy remains active.' });
-        if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
-        return;
+    const saved = await withFileLock(`auto-compaction:${msg.workflowId}`, async () => {
+      const next = msg.autoCompaction === null ? undefined : { ...msg.autoCompaction! };
+      const previous = wf.config.autoCompaction;
+      const changed = next?.enabled !== previous?.enabled || next?.thresholdPercent !== previous?.thresholdPercent;
+      if (!changed) return true;
+      if (wf.config.workingDirectory && !wf.config.incognito) {
+        try {
+          const updated = await updateMeta(wf.config.workingDirectory, msg.workflowId, (meta) => { meta.autoCompaction = next; });
+          if (!updated) throw new Error('workflow metadata unavailable');
+        } catch {
+          send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Could not save auto-compaction policy; the previous policy remains active.' });
+          if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
+          return false;
+        }
       }
-    }
-    wf.config.autoCompaction = next;
-    broadcastWorkflow(msg.workflowId, { type: 'system_notice', workflowId: msg.workflowId,
-      content: next ? `[AUTO-COMPACT] Worker policy ${next.enabled ? `enabled at ${next.thresholdPercent}%` : 'disabled'}.` : '[AUTO-COMPACT] Worker policy cleared; cluster or legacy behavior applies.' });
+      wf.config.autoCompaction = next;
+      broadcastWorkflow(msg.workflowId, { type: 'system_notice', workflowId: msg.workflowId,
+        content: next ? `[AUTO-COMPACT] Worker policy ${next.enabled ? `enabled at ${next.thresholdPercent}%` : 'disabled'}.` : '[AUTO-COMPACT] Worker policy cleared; cluster or legacy behavior applies.' });
+      return true;
+    });
+    if (!saved) return;
   }
 
   if (msg.model !== undefined) wf.primary.model = msg.model;
@@ -314,7 +322,8 @@ export async function handleUpdatePrimaryConfig(
   if (msg.effort !== undefined) wf.config.primaryEffort = msg.effort;
 
   const cwd = wf.config.workingDirectory;
-  if (cwd) {
+  const hasOtherConfig = Object.keys(msg).some((key) => key !== 'type' && key !== 'workflowId' && key !== 'autoCompaction');
+  if (cwd && hasOtherConfig) {
     try {
       await updateMeta(cwd, msg.workflowId, (meta) => {
         if (msg.model !== undefined) meta.primaryModel = msg.model;

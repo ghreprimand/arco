@@ -28,6 +28,14 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     const update=async (policy: unknown) => handleUpdatePrimaryConfig(ws,{} as Session,{type:'update_primary_config',workflowId:id,autoCompaction:policy} as never);
     await update({enabled:true,thresholdPercent:85});
     assert.deepEqual((await readMeta(cwd,id))?.autoCompaction,{enabled:true,thresholdPercent:85});
+    const savedBeforeDuplicate = await readMeta(cwd,id);
+    const notices = sent.filter(m => m.type === 'system_notice').length;
+    await Promise.all([update({enabled:true,thresholdPercent:85}), update({enabled:true,thresholdPercent:85})]);
+    assert.equal(sent.filter(m => m.type === 'system_notice').length, notices);
+    assert.deepEqual(await readMeta(cwd,id), savedBeforeDuplicate);
+    await handleUpdatePrimaryConfig(ws,{} as Session,{type:'update_primary_config',workflowId:id,autoCompaction:{enabled:true,thresholdPercent:85},model:'opus'} as never);
+    assert.equal((await readMeta(cwd,id))?.primaryModel,'opus');
+    assert.equal(sent.filter(m => m.type === 'system_notice').length, notices);
     await update({enabled:true,thresholdPercent:99});
     assert.deepEqual(wf.config.autoCompaction,{enabled:true,thresholdPercent:85});
     assert.ok(sent.some(m=>m.type==='error'));
@@ -36,7 +44,7 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     await update(null);
     assert.equal((await readMeta(cwd,id))?.autoCompaction,undefined);
     assert.equal(wf.config.autoCompaction,undefined);
-    assert.equal((await readMeta(cwd,id))?.primaryModel,'sonnet');
+    assert.equal((await readMeta(cwd,id))?.primaryModel,'opus');
     wf.config.workingDirectory = join(temp,'missing-project');
     await update({enabled:true,thresholdPercent:80});
     assert.equal(wf.config.autoCompaction,undefined);

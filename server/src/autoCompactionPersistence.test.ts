@@ -24,6 +24,7 @@ test('cluster inheritance survives member changes and snapshot restore with work
     const cluster = await store.createCluster({cwd,memberWorkflowIds:ids.slice(0,2)}); clusterId=cluster.clusterId;
     assert.equal(store.getAutoCompaction(clusterId), undefined);
     assert.ok(await store.setAutoCompaction(clusterId,{enabled:true,thresholdPercent:82}));
+    assert.equal((await store.setAutoCompactionWithChange(clusterId,{enabled:true,thresholdPercent:82}))?.changed,false);
     assert.equal(await store.setAutoCompaction(clusterId,{enabled:true,thresholdPercent:96}),null);
     await store.addMember(clusterId,ids[2]);
     assert.deepEqual(store.getAutoCompaction(clusterId),{enabled:true,thresholdPercent:82});

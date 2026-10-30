@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Fixed
+
+- Save worker and cluster auto-compaction thresholds once per completed adjustment and avoid duplicate policy notices.
+
 ### Added
 
 - Ollama worker and cluster auto-compaction policies now reuse durable summaries of verified completed turns while preserving queued input and original events.

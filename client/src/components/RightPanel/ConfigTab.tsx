@@ -1,3 +1,4 @@
+import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useCallback, useState, useEffect } from 'react';
 import { CLAUDE_MODEL_LABELS } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
@@ -569,7 +570,7 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
       <option value="inherit">{cluster ? 'Inherit cluster default' : 'Legacy provider behavior'}</option>
       <option value="off">Off</option><option value="on" disabled={!supported}>On</option>
     </select></label>
-    {own && <label> Threshold {own.thresholdPercent}% <input type="range" aria-label="Worker auto-compaction threshold percent" min={50} max={95} value={own.thresholdPercent} onChange={(e) => onUpdatePrimary({ autoCompaction: { ...own, thresholdPercent: Number(e.target.value) } })} /></label>}
+    {own && <label> Threshold <AutoCompactionThreshold key={`${job.id}:${own.enabled}`} label="Worker auto-compaction threshold percent" value={own.thresholdPercent} onCommit={(thresholdPercent) => onUpdatePrimary({ autoCompaction: { ...own, thresholdPercent } })} /></label>}
     {!own && cluster && <p>{effective ? `Cluster default: ${effective.enabled ? `on at ${effective.thresholdPercent}%` : 'off'}.` : 'Cluster uses legacy provider behavior.'}</p>}
   </section>;
 }

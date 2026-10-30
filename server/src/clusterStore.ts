@@ -848,14 +848,20 @@ export function getAutoCompaction(clusterId: string): AutoCompactionPolicy | und
 }
 
 export async function setAutoCompaction(clusterId: string, policy: AutoCompactionPolicy | null): Promise<ClusterState | null> {
+  return (await setAutoCompactionWithChange(clusterId, policy))?.state ?? null;
+}
+
+export async function setAutoCompactionWithChange(clusterId: string, policy: AutoCompactionPolicy | null): Promise<{ state: ClusterState; changed: boolean } | null> {
   if (policy !== null && !isAutoCompactionPolicy(policy)) return null;
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
     if (!state) return null;
+    const current = state.autoCompaction;
+    if (current?.enabled === policy?.enabled && current?.thresholdPercent === policy?.thresholdPercent) return { state, changed: false };
     const next = { ...state, autoCompaction: policy === null ? undefined : { ...policy } };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
-    return next;
+    return { state: next, changed: true };
   });
 }
 

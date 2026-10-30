@@ -2313,8 +2313,10 @@ export async function handleClusterIdleNudgerToggle(
 export async function handleClusterAutoCompactionSet(
   ws: WebSocket, clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null,
 ): Promise<void> {
-  const updated = await clusterStore.setAutoCompaction(clusterId, policy).catch(() => null);
-  if (!updated) { send(ws, { type: 'error', message: 'Invalid auto-compaction policy or unknown cluster.' }); return; }
+  const result = await clusterStore.setAutoCompactionWithChange(clusterId, policy).catch(() => null);
+  if (!result) { send(ws, { type: 'error', message: 'Invalid auto-compaction policy or unknown cluster.' }); return; }
+  if (!result.changed) return;
+  const updated = result.state;
   const payload = await buildClusterStatePayload(clusterId);
   if (payload) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   for (const workflowId of updated.members) broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: policy ? `[AUTO-COMPACT] Cluster default ${policy.enabled ? `enabled at ${policy.thresholdPercent}%` : 'disabled'}; worker overrides remain in effect.` : '[AUTO-COMPACT] Cluster default cleared; worker overrides or legacy behavior apply.' });
