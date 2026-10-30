@@ -102,7 +102,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
       ) : resumable ? (
         <button type="button" style={action} onClick={() => { const session = raw.current.find(s => s.sessionId === row.sessionId); if (session && onResume) onResume(session); else onStart({ mode: 'single', workDir: project.path, resumeSessionId: row.sessionId }); }} aria-label={`Resume ${row.title}`}>Resume</button>
       ) : null}
-      <span>{row.title}</span>
+      <span>{row.title}{row.workspaceName && row.workspaceName !== row.title && <small style={muted}> / Workspace: {row.workspaceName}</small>}</span>
       <span style={muted}>{row.provider}{row.account ? `  /  ${row.account}` : ''}{row.startedAt ? `  /  ${when(row.startedAt)}` : ''}</span>
     </li>
   );

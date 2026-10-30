@@ -87,6 +87,7 @@ import {
   latestCliSessionFor,
   listWorkflowMetas,
   readMeta,
+  updateMeta,
   reconcileLatestCliSession,
   writeMeta,
   type WorkflowMeta,
@@ -1439,38 +1440,35 @@ async function restoreAdmittedCheckpoint(
 // to meta.json, broadcasts `workflow_renamed` to observers, and re-emits
 // `cluster_state` to every cluster subscriber so the member list /
 // MemberCard grid pick up the new label without a full reload.
-export async function handleRenameWorkflow(ws: WebSocket, workflowId: string, name: string): Promise<void> {
-  if (typeof name !== 'string') {
-    send(ws, { type: 'error', message: 'rename_workflow requires a string name' });
-    return;
-  }
+export async function handleRenameWorkflow(ws: WebSocket, workflowId: string, name: string, requestId?: string): Promise<void> {
+  const reply = (error?: string) => {
+    if (requestId && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'workflow_rename_result', workflowId, requestId, ...(error ? { error } : {}) }));
+  };
+  const fail = (message: string) => {
+    if (requestId) reply(message);
+    else send(ws, { type: 'error', message });
+  };
+  if (typeof name !== 'string') { fail('Name must be text.'); return; }
   const wf = workflows.get(workflowId);
-  if (!wf) {
-    send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
-    return;
-  }
-  const trimmed = name.trim();
-  if (trimmed.length > 64) {
-    send(ws, { type: 'error', message: `rename_workflow rejected: name_too_long (${trimmed.length} > 64)` });
-    return;
-  }
-  const nextName = trimmed.length === 0 ? '' : trimmed;
-  wf.config.name = nextName;
-  const cwd = wf.config.workingDirectory;
-  if (cwd) {
+  if (!wf) { fail('Workspace is no longer available.'); return; }
+  const nextName = name.trim();
+  if (nextName.length > 64) { fail('Name must be at most 64 characters.'); return; }
+  if (!wf.config.incognito) {
     try {
-      const meta = await readMeta(cwd, workflowId);
-      if (meta) {
-        meta.name = nextName;
-        meta.lastActiveAt = Date.now();
-        await writeMeta(cwd, meta);
-      }
-    } catch (err) {
-      console.error(`[arco] [${workflowId.slice(0, 8)}] rename_workflow meta write failed:`, err);
+      const meta = await updateMeta(wf.config.workingDirectory, workflowId, (current) => {
+        current.name = nextName;
+        current.lastActiveAt = Date.now();
+      });
+      if (!meta) { fail('Workspace metadata is unavailable; name was not saved.'); return; }
+    } catch {
+      fail('Could not save the workspace name.'); return;
     }
+    if (workflows.get(workflowId) !== wf) { fail('Workspace is no longer available.'); return; }
   }
+  wf.config.name = nextName;
   const broadcastName: string | null = nextName.length === 0 ? null : nextName;
   broadcastWorkflow(workflowId, { type: 'workflow_renamed', workflowId, name: broadcastName });
+  reply();
   // If the workflow is in a cluster, re-emit cluster_state so every
   // subscribed UI picks up the new ClusterMember.displayName immediately.
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);

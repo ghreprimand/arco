@@ -1160,6 +1160,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                       <div style={{ fontWeight: 'bold' }}>
                         [{providerTag}]{arco ? ' ★' : ''} {title}
                       </div>
+                      {s.arcoName && s.arcoName !== title && <div style={{ fontSize: '10px', opacity: 0.8 }}>Workspace: {s.arcoName}</div>}
                       {subtitle && (
                         <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px', fontStyle: 'italic' }}>
                           {subtitle}

@@ -700,6 +700,14 @@ export interface RenameWorkflowMessage {
   type: 'rename_workflow';
   workflowId: string;
   name: string;
+  requestId?: string;
+}
+
+export interface WorkflowRenameResultMessage {
+  type: 'workflow_rename_result';
+  workflowId: string;
+  requestId: string;
+  error?: string;
 }
 
 // MASTER_REFACTOR §3.3 F5 — server → all observers when a workflow's name

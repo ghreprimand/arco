@@ -2150,6 +2150,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             fileCount: msg.fileCount,
           });
           break;
+        case 'workflow_rename_result':
+          window.dispatchEvent(new CustomEvent('arco:workflow-rename-result', { detail: msg }));
+          break;
         case 'workflow_renamed':
           // MASTER_REFACTOR §3.3 F5 — update jobs[wfid].config.name. The
           // server re-emits cluster_state separately so members[].displayName

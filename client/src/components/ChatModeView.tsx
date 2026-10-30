@@ -169,7 +169,7 @@ export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, o
   return (
     <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <header data-help="chat.mode-status" style={{ padding: '14px 24px 10px', borderBottom: '1px solid var(--color-border-hairline)', textAlign: 'center' }}>
-        <div className="display-font" style={{ color: 'var(--color-fg-primary)', fontSize: '14px', letterSpacing: '1.8px' }}>{job.config.name}</div>
+        <div className="display-font" style={{ color: 'var(--color-fg-primary)', fontSize: '14px', letterSpacing: '1.8px' }}>{job.config.name || job.id.slice(0, 8)}</div>
         <div
           className="display-font"
           style={{

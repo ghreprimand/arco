@@ -1397,9 +1397,10 @@ export function useWebSocket() {
   // the per-member pencil-edit in ClusterRightPanel. Empty string clears
   // back to the wfid-prefix default. Server caps at 64 chars (mirrors
   // cluster_rename).
-  const renameWorkflow = useCallback((workflowId: string, name: string) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ type: 'rename_workflow', workflowId, name }));
+  const renameWorkflow = useCallback((workflowId: string, name: string, requestId?: string): boolean => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
+    try { wsRef.current.send(JSON.stringify({ type: 'rename_workflow', workflowId, name, requestId })); return true; }
+    catch { return false; }
   }, []);
 
   // docs/ARCHITECTURE.md - MCP registry. The registry is machine-global;

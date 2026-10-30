@@ -1342,7 +1342,7 @@ wss.on('connection', (ws: WebSocket) => {
         break;
       case 'rename_workflow':
         (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
-          handleRenameWorkflow(ws, msg.workflowId, msg.name).catch((err) => {
+          handleRenameWorkflow(ws, msg.workflowId, msg.name, msg.requestId).catch((err) => {
             console.error('[arco] rename_workflow handler failed:', err);
           }),
         );

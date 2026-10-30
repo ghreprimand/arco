@@ -92,6 +92,7 @@ import type {
   ClusterPlanChangedMessage,
   ClusterMemberNudgedMessage,
   WorkflowRenamedMessage,
+  WorkflowRenameResultMessage,
   CodebaseMemoryStateMessage,
   ClusterAutoTurnFiredMessage,
   ClusterSnapshotListResultMessage,
@@ -1553,6 +1554,7 @@ export type ServerMessage =
   | ClusterPlanChangedMessage
   | ClusterMemberNudgedMessage
   | WorkflowRenamedMessage
+  | WorkflowRenameResultMessage
   | CodebaseMemoryStateMessage
   | ClusterAutoTurnFiredMessage
   | ClusterSnapshotListResultMessage

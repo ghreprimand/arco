@@ -220,6 +220,7 @@ export interface SavedSessionRow {
   account?: string;
   startedAt: number;
   openWorkflowId?: string;
+  workspaceName?: string;
 }
 
 // Saved sessions for one project (the creator's RESUME source). A session
@@ -237,6 +238,7 @@ export function savedSessionRows(sessions: SessionInfo[], jobs: Record<string, J
         ...(s.providerAccountShortLabel || s.providerAccountLabel ? { account: s.providerAccountShortLabel || s.providerAccountLabel } : {}),
         startedAt: typeof s.startedAt === 'number' ? s.startedAt : 0,
         ...(open ? { openWorkflowId: open } : {}),
+        ...((open ? jobs[open].config.name : s.arcoName) ? { workspaceName: open ? jobs[open].config.name : s.arcoName } : {}),
       };
     })
     .sort((a, b) => b.startedAt - a.startedAt);

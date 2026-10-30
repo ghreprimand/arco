@@ -82,6 +82,8 @@ test('saved sessions offer Open for a tab already open and never treat Incognito
     { sessionId: 's3', cwd: '/projects/app', name: '', arcoName: 'hidden', startedAt: 2, provider: 'claude', arcoWorkflowId: 'secret' },
   ] as SessionInfo[];
   const rows = savedSessionRows(sessions, { a: job('a', {}), secret: job('secret', { incognito: true }) });
+  assert.equal(savedSessionRows(sessions, { a: job('a', { name: 'Renamed' }) }).find(r => r.sessionId === 's1')?.workspaceName, 'Renamed');
+  assert.equal(savedSessionRows(sessions, {}).find(r => r.sessionId === 's1')?.workspaceName, 'Refactor');
   assert.deepEqual(rows.map((r) => [r.sessionId, r.title, r.openWorkflowId ?? null, r.account ?? null]), [
     ['s2', 'other', null, 'work'],
     ['s3', 'hidden', null, null],
