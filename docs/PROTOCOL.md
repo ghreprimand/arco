@@ -1920,6 +1920,12 @@ Emitted once per checkpoint. Persisted to `events.jsonl` so HISTORY/Activity ren
 
 Operator clicked "Revert to here". The server first takes a safety snapshot (so the revert is itself undoable), then restores the working tree to the chosen checkpoint. HEAD / branch / real index are never moved.
 
+Before capture, the handler reserves the resolved restore scope against overlapping managed turns,
+auxiliary workers, captures and restores in this server. New managed work is refused until the safety
+snapshot and restore finish. A conflict returns `error` before capture or file mutation. Separate linked
+worktrees remain independent. This is process-local admission, with the external-writer limits described
+in [`CHECKPOINTS.md`](CHECKPOINTS.md).
+
 ```ts
 { type: 'revert_to_checkpoint', workflowId: string, seq: number }
 ```

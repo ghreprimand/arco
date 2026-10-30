@@ -1,3 +1,4 @@
+import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
 import { projectOllamaHistory, stampOllamaExecution } from '../providers/ollamaExecutionHistory.js';
 import { publishActivity, computerProjectionChanged } from '../voice/activityBus.js';
@@ -532,6 +533,7 @@ export function anyObserver(workflowId: string): WebSocket | null {
 // tab close) orphans whatever claim is in flight so its late release is a
 // no-op. Keyed on the WorkflowState object so a removed tab's entry is GC'd.
 let busyClaimSeq = 0;
+const busyCheckoutLeases = new WeakMap<WorkflowState, () => void>();
 const busyOwners = new WeakMap<WorkflowState, number>();
 const lastBusyClaim = new WeakMap<WorkflowState, number>();
 const busyRevocations = new WeakMap<WorkflowState, number>();
@@ -544,6 +546,9 @@ export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' 
 }
 
 export function claimBusy(wf: WorkflowState): number {
+  const release = acquireCheckoutWriter(workflowWritePaths(wf));
+  busyCheckoutLeases.get(wf)?.();
+  busyCheckoutLeases.set(wf, release);
   const token = ++busyClaimSeq;
   busyOwners.set(wf, token);
   lastBusyClaim.set(wf, token);
@@ -564,6 +569,7 @@ export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished
   if (busyOwners.get(wf) !== token) return false;
   watchSettled(wf, busyOwners.get(wf), outcome);
   busyOwners.delete(wf);
+  busyCheckoutLeases.get(wf)?.(); busyCheckoutLeases.delete(wf);
   wf.busy = false;
   clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
@@ -579,6 +585,7 @@ export function revokeBusy(wf: WorkflowState): void {
   const token = busyOwners.get(wf);
   watchSettled(wf, busyOwners.get(wf), 'interrupted');
   busyOwners.delete(wf);
+  busyCheckoutLeases.get(wf)?.(); busyCheckoutLeases.delete(wf);
   wf.busy = false;
   if (token !== undefined) clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
@@ -674,9 +681,9 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   // the tab meanwhile, and folding under a live turn corrupts its history.
   if (wf.busy || (canAttempt && !canAttempt())) return false;
 
-  st.foldFired = true;
   const startedAt = Date.now();
   const busyToken = claimBusy(wf);
+  st.foldFired = true;
   onAttempt?.(busyToken);
   broadcastTransient(workflowId, { type: 'primary_turn_started', workflowId, startedAt });
   let res: { ok: boolean; error?: string; foldedTurns?: number; byteDelta?: number };
@@ -1780,6 +1787,9 @@ export async function handleUserMessage(
   // Drain path: splice the queue in the same synchronous span as the busy
   // claim below, so nothing can slip in between the idle check and the take.
   let initialInterrupt = false;
+  // Refuse before taking queued input: a restore admitted during preflight
+  // must leave the queue available for an explicit later attempt.
+  assertCheckoutAvailable(workflowWritePaths(wf));
   let activeOllamaInputSeqs: number[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);

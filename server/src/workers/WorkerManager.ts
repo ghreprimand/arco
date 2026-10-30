@@ -3,6 +3,7 @@ import { probeProcessActivity } from './processActivity.js';
 import { RSS_KILL_BYTES, buildWorkerSafetyFooter } from './limits.js';
 import { registerWorkerPid, unregisterWorkerPid } from './pidRegistry.js';
 import { registerPrivateLogToken } from '../server/logger.js';
+import { acquireCheckoutWriter, checkoutWritePaths } from '../checkoutOwnership.js';
 import type {
   ModelName,
   EffortLevel,
@@ -240,6 +241,20 @@ export class WorkerManager {
       // it. Mutually exclusive with tools on the wire — see ollama.ts.
       ollamaFormat?: WorkerConfig['ollamaFormat'];
     },
+  ): Promise<WorkerResult> {
+    const cwd = options?.cwd ?? process.cwd();
+    const release = acquireCheckoutWriter(checkoutWritePaths(cwd, options?.additionalDirectories));
+    try {
+      return await this.spawnAdmitted(spec, onEvent, options);
+    } finally {
+      release();
+    }
+  }
+
+  private async spawnAdmitted(
+    spec: WorkerSpawnSpec,
+    onEvent: (msg: WorkerManagerEvent) => void,
+    options?: Parameters<WorkerManager['spawn']>[2],
   ): Promise<WorkerResult> {
     const config: WorkerConfig = {
       model: spec.model,

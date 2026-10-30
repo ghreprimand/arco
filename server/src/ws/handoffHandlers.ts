@@ -88,6 +88,7 @@ import type {
   WorkflowState,
 } from '../workflows/types.js';
 import { WorkerManager } from '../workers/WorkerManager.js';
+import { assertCheckoutAvailable, checkoutWritePaths, CheckoutInUseError } from '../checkoutOwnership.js';
 import {
   applyAutoHandoffDefault,
   deriveAutoHandoff,
@@ -808,6 +809,9 @@ export async function handleSpawnFromHere(
     msg.newConfig.goal = parent.config.goal;
   }
 
+  // Admission can now fail. Check before publishing a busy workflow, with no
+  // await between this check, registration and its busy claim.
+  assertCheckoutAvailable(checkoutWritePaths(newCwd, newPrimary.additionalDirectories));
   workflows.set(newWorkflowId, {
     config: msg.newConfig,
     busy: true, // stay busy through summarize + pre-warm
@@ -1002,7 +1006,19 @@ export async function handleSpawnFromHere(
   // and hard-setting busy=false there cleared a live parent turn's flag.
   // Token-scoped so a parent STOP (revokeBusy) + resend during the reflection
   // isn't clobbered when the reflection settles.
-  const parentBusyToken = effectiveMode === 'original-worker' ? claimBusy(parent) : null;
+  let parentBusyToken: number | null;
+  try {
+    parentBusyToken = effectiveMode === 'original-worker' ? claimBusy(parent) : null;
+  } catch (error) {
+    const wf = workflows.get(newWorkflowId);
+    if (wf) releaseBusy(wf, newBusyToken);
+    send(ws, {
+      type: 'spawn_from_here_complete', parentWorkflowId: msg.parentWorkflowId, newWorkflowId,
+      error: error instanceof CheckoutInUseError ? error.message : 'Could not admit the parent reflection.',
+      completedAt: Date.now(),
+    });
+    return;
+  }
   const releaseParent = () => {
     if (parentBusyToken === null) return;
     if (!releaseBusy(parent, parentBusyToken)) return;

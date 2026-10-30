@@ -32,6 +32,7 @@ import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
+import { acquireCheckoutWriter } from './checkoutOwnership.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +50,8 @@ export interface CreateCheckpointArgs {
   seq: number;
   // Optional operator-facing label. Defaults to `before turn <seq>`.
   label?: string;
+  // Internal admission token for the restore's own safety snapshot.
+  restoreOwner?: symbol;
 }
 
 export interface CheckpointResult {
@@ -559,16 +562,41 @@ export async function createCheckpoint(args: CreateCheckpointArgs): Promise<Chec
   if (!cwd) return null;
   validateWfid(workflowId);
 
+  let release: (() => void) | undefined;
+  let releaseGitScope: (() => void) | undefined;
   try {
+    release = acquireCheckoutWriter([cwd], args.restoreOwner);
     const { isRepo, gitDir } = await isGitRepo(cwd);
     if (isRepo && gitDir) {
+      releaseGitScope = acquireCheckoutWriter([await gitCheckpointWorkTree(cwd, gitDir)], args.restoreOwner);
       return await createGitCheckpoint(args, gitDir);
     }
     return await createShadowGitCheckpoint(args);
   } catch (err) {
     console.error(`[arco] [${workflowId.slice(0, 8)}] createCheckpoint failed:`, err);
     return null;
+  } finally {
+    releaseGitScope?.();
+    release?.();
   }
+}
+
+// Mirror the explicit --git-dir invocation used by the snapshot/restore
+// primitives. Git can select a different work-tree root through core.worktree
+// or its environment; an ordinary rev-parse without --git-dir is insufficient.
+export async function checkpointRestoreScopes(cwd: string): Promise<string[]> {
+  const scopes = [await fs.realpath(cwd)];
+  const { isRepo, gitDir } = await isGitRepo(cwd);
+  if (isRepo && gitDir) {
+    scopes.push(await gitCheckpointWorkTree(cwd, gitDir));
+  }
+  return scopes;
+}
+
+async function gitCheckpointWorkTree(cwd: string, gitDir: string): Promise<string> {
+  const scope = await runGit(cwd, ['--git-dir', gitDir, 'rev-parse', '--show-toplevel']);
+  if (scope.code !== 0 || !scope.stdout.trim()) throw new Error('Cannot determine checkpoint restore scope.');
+  return fs.realpath(scope.stdout.trim());
 }
 
 // ── Revert (Workbench Expansion A4) ──

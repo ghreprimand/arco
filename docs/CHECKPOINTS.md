@@ -87,6 +87,26 @@ the unique-scratch-file rule.
 A4 surfaces checkpoint markers on the HISTORY timeline (and a compact list in ACTIVITY) and adds one-click
 revert. Flow (`server/src/ws/workflowHandlers.ts handleRevertToCheckpoint`):
 
+Before the safety snapshot, the handler reserves the actual restore scope against managed work in
+this server. It resolves filesystem aliases and checks segment-aware parent/child overlaps, including
+declared additional directories. An idle requesting workflow cannot restore over another workflow's
+turn, reset, or auxiliary worker. New busy claims and worker starts cannot enter a reserved scope;
+background checkpoint captures also retain ownership until they finish. An overlapping restore is
+refused while the reservation is held. The reservation lasts through both safety capture and restore,
+and is released on success or failure. Independent linked worktrees remain usable.
+
+The scope includes the configured directory and the effective work tree selected by the backend's
+explicit `--git-dir` invocation. With ordinary Git configuration, a configured subdirectory is the
+backend's work tree; ordinary Git-root discovery alone does not describe that invocation. Git
+`core.worktree` and environment overrides can select a wider tree, which is reserved too. The existing
+snapshot and restore layout is preserved.
+
+Protection is local to managed busy claims, WorkerManager workers, and checkpoint captures in one
+server process. It does not coordinate external terminals, integrated terminal shells, other Arco
+processes, or unrelated file, Git, and media endpoints. Stop those writers before restoring. Arbitrary
+provider writes outside the configured and declared additional directories are not tracked. This
+reservation does not replace isolation through a separate worktree.
+
 1. **Safety snapshot FIRST.** Always take a fresh `createCheckpoint` of the live working tree (label
    `pre-revert <iso-ts>`, anchored to the workflow head seq) so the revert is itself undoable. **If the
    safety snapshot returns null the revert is ABORTED**, we never restore without a way back. The safety
@@ -129,8 +149,8 @@ guard seq from the **ref** (`refs/arco/<wfid>/<seq>` or `<wfid>.<seq>.tar`), not
 `client/src/utils/historyEvents.ts guardSeqFromRef`. The revert handler rebuilds the ref from the seq the
 client sends, so the round-trip is consistent.
 
-**Other invariants:** revert is rejected while a turn is in flight (`wf.busy`), restoring under the agent's
-feet would race the turn. The confirm dialog (`CheckpointActions.tsx`) shows the file count + the
+**Other invariants:** revert is rejected while conflicting managed work is in flight, including a busy
+requester (`wf.busy`). The confirm dialog (`CheckpointActions.tsx`) shows the file count + the
 safety-snapshot note before sending. execFile argv only; wfid/seq validated like A2/A3.
 
 ## Downstream

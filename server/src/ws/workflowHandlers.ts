@@ -19,7 +19,8 @@ import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterStore from '../clusterStore.js';
 import { estimateContextFill, nativeContextEstimate, promptContextEstimate } from '../contextEstimator.js';
-import { createCheckpoint, revertToCheckpoint } from '../gitSnapshots.js';
+import { checkpointRestoreScopes, createCheckpoint, revertToCheckpoint } from '../gitSnapshots.js';
+import { acquireCheckoutRestore, CheckoutInUseError, workflowWritePaths } from '../checkoutOwnership.js';
 import { rememberCwd } from '../crashRecovery.js';
 import { genesisScratchDir } from '../genesis/scaffold.js';
 import { CHAT_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, incognitoChatCwd, isChatWorkflow } from '../chatMode.js';
@@ -1340,6 +1341,34 @@ export async function handleRevertToCheckpoint(
     return;
   }
 
+  let lease: ReturnType<typeof acquireCheckoutRestore> | undefined;
+  try {
+    const scopes = await checkpointRestoreScopes(cwd);
+    if (workflows.get(msg.workflowId) !== wf || wf.config.workingDirectory !== cwd) {
+      send(ws, { type: 'error', message: 'Revert aborted: workflow changed during checkout admission.' });
+      return;
+    }
+    const activePaths = [...workflows.values()]
+      .filter(current => current.busy || current.computerResetting || (current.manager?.workerCount ?? 0) > 0)
+      .map(workflowWritePaths);
+    lease = acquireCheckoutRestore(scopes, activePaths);
+    await restoreAdmittedCheckpoint(ws, msg, cwd, lease.owner);
+  } catch (error) {
+    send(ws, { type: 'error', message: error instanceof CheckoutInUseError
+      ? `Cannot revert: ${error.message}`
+      : 'Revert could not complete: checkout admission or checkpoint operation failed.' });
+    if (!(error instanceof CheckoutInUseError)) console.error('[arco] checkpoint restore failed:', error);
+  } finally {
+    lease?.release();
+  }
+}
+
+async function restoreAdmittedCheckpoint(
+  ws: WebSocket,
+  msg: import('@arco/shared').RevertToCheckpointMessage,
+  cwd: string,
+  restoreOwner: symbol,
+): Promise<void> {
   // 1) Safety snapshot FIRST. Anchor it to the live head seq so it slots into
   // the same per-workflow checkpoint series. Abort the whole revert if it fails.
   const safetyGuardSeq = await getWorkflowHeadSeq(cwd, msg.workflowId);
@@ -1348,6 +1377,7 @@ export async function handleRevertToCheckpoint(
     workflowId: msg.workflowId,
     seq: safetyGuardSeq,
     label: `pre-revert ${new Date().toISOString()}`,
+    restoreOwner,
   });
   if (!safety) {
     send(ws, {

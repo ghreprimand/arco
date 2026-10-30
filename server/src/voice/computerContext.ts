@@ -44,8 +44,8 @@ export async function maybeFreshComputerContext(workflowId: string, allowAutomat
     const boundaryAt = Date.now();
     // STOP may release busy during a disk write. This separate flag keeps a
     // new prompt queued until the durable session boundary is installed.
-    wf.computerResetting = true;
     const token = claimBusy(wf);
+    wf.computerResetting = true;
     broadcastTransient(workflowId, { type: 'primary_turn_started', workflowId, startedAt: Date.now() });
     try {
       await releaseCodexAppServerWorker(workflowId);
