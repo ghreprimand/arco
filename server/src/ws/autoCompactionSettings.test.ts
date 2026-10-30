@@ -1,3 +1,4 @@
+import { reportCleanupFailure } from '../testSupport/cleanupDiagnostics.test-support.js';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
@@ -39,5 +40,5 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     assert.equal(wf.config.autoCompaction,undefined);
     assert.ok(sent.some(m=>m.type==='error' && String(m.message).includes('Could not save')));
     assert.equal((await readMeta(cwd,id))?.autoCompaction,undefined);
-  } finally {workflows.delete(id); rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+  } finally {workflows.delete(id); try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch (error) { try { reportCleanupFailure(temp); } catch { console.error('fixture diagnostics failed'); } throw error; }}
 });
