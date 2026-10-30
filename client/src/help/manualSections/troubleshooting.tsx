@@ -3,6 +3,42 @@ import { Code, Pre, Note } from '../../components/UserManual/components';
 
 export const troubleshooting: Section[] = [
   {
+    id: 'browser-rendering-gpu-activity',
+    group: 'Troubleshooting',
+    title: 'Browser rendering and GPU activity',
+    body: (
+      <>
+        <p>
+          If GPU activity changes between views or browsers, compare the same
+          Arco instance and view in one browser first. Keep the theme, viewport,
+          browser zoom, interface scale, and other visible effects the same.
+          Change one condition at a time and let pointer-driven effects settle
+          before comparing. If needed, repeat the same comparison in another
+          browser.
+        </p>
+        <p>
+          To check Phosphor decoration, temporarily turn off{' '}
+          <strong>Phosphor effects</strong> in Settings &gt; Appearance, then
+          restore the previous choice after the comparison. This is reversible
+          and does not require changing other appearance choices.
+        </p>
+        <p>
+          When Phosphor effects are enabled, Arco may show a short in-app hint
+          for recognized non-Chromium browser identities. Detection is
+          best-effort; on iOS, differently branded browser apps may use the same
+          WebKit engine.
+        </p>
+        <Note>
+          Browser compositing draws the workbench and its visual effects. Local
+          model inference is separate and occurs while a local model is
+          processing a request. GPU activity by itself does not identify which
+          work is responsible, and an effects-off comparison is a
+          troubleshooting clue rather than proof of a browser or Arco defect.
+        </Note>
+      </>
+    ),
+  },
+  {
     id: 'diagnostics',
     group: 'Troubleshooting',
     title: 'Diagnostics tab',

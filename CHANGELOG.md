@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show a qualified GPU-use hint for Phosphor effects in recognized non-Chromium browsers.
+
 - Configure per-worker and cluster auto-compaction thresholds for Claude Native and Codex app-server.
 
 - Show a provider throttling warning in the header only while a provider is throttled.

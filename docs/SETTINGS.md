@@ -58,6 +58,27 @@ Sections: 22.
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
 | `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions |
 
+## Appearance and browser rendering
+
+If GPU activity changes between views or browsers, compare the same Arco
+instance and view in one browser first. Keep the theme, viewport, browser zoom,
+interface scale, and other visible effects the same. Change one condition at a
+time and let pointer-driven effects settle before comparing. If needed, repeat
+the same comparison in another browser. To check Phosphor decoration,
+temporarily turn off **Phosphor effects** in Settings > Appearance, then restore
+the previous choice after the comparison. This is reversible and does not
+require changing other appearance choices.
+
+When Phosphor effects are enabled, Arco may show a short in-app hint for
+recognized non-Chromium browser identities. Browser detection is best-effort;
+on iOS, differently branded browser apps may use the same WebKit engine.
+
+Browser compositing draws the workbench and its visual effects. Local model
+inference is separate and occurs while a local model is processing a request.
+GPU activity by itself does not identify which work is responsible, and an
+effects-off comparison is a troubleshooting clue rather than proof of a browser
+or Arco defect.
+
 Requests that name a control inside a section open that section and focus the
 control: `endpoint-discovery`, `ollama`, `lmstudio`, `strata-endpoint`,
 `deepseek`, `codex-profiles`, `native-auth` open

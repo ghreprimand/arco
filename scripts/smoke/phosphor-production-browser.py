@@ -71,6 +71,15 @@ async def main():
   # seeded the picker's family memory. This is the first-switch regression.
   family = await open_themes()
   await expect(family).to_have_value('phosphor')
+  note = page.locator('[data-browser-effects-note]')
+  await page.evaluate("Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0'})")
+  await page.evaluate("testStore.getState().setThemeId('phosphor:arco:amber')")
+  await expect(note).to_be_visible()
+  await page.evaluate("testStore.getState().setThemeId('phosphor:arco:electric')")
+  await family.select_option('classic')
+  assert await note.count() == 0, 'Classic family should not show the advisory'
+  await family.select_option('phosphor')
+  await expect(note).to_be_visible()
   await family.select_option('classic')
   await expect(family).to_have_value('classic')
   await check_choice('matrix','classic')
@@ -210,6 +219,25 @@ async def main():
   assert await page.evaluate("document.documentElement.style.getPropertyValue('--font-body')") == theme_font
   await page.get_by_role('button',name='THEME · ARCO PHOSPHOR',exact=False).click()
   assert await page.get_by_label('Theme family').input_value()=='phosphor'
+  note = page.locator('[data-browser-effects-note]')
+  assert await note.count() == 0, 'Chromium browser should not show the advisory'
+  await page.evaluate("Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0'})")
+  await page.evaluate('testStore.getState().setCrispText(true)')
+  await page.evaluate('testStore.getState().setCrispText(false)')
+  await expect(note).to_be_visible()
+  await page.get_by_label('PHOSPHOR EFFECTS',exact=True).uncheck()
+  assert await note.count() == 0, 'Effects off should hide the advisory'
+  await page.get_by_label('PHOSPHOR EFFECTS',exact=True).check()
+  await expect(note).to_be_visible()
+  for user_agent in ['', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1']:
+   await page.evaluate('(ua) => Object.defineProperty(navigator,"userAgent",{configurable:true,value:ua})',user_agent)
+   await page.evaluate('testStore.getState().setCrispText(true)')
+   await page.evaluate('testStore.getState().setCrispText(false)')
+   assert await note.count() == 0, 'Unknown and iOS browser identities should hide the advisory'
+  await page.evaluate("Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0'})")
+  await page.evaluate('testStore.getState().setCrispText(true)')
+  await page.evaluate('testStore.getState().setCrispText(false)')
+  await expect(note).to_be_visible()
   await page.get_by_label('Palette category').select_option('Terminal')
   assert await page.locator('[data-theme-choice]').count()==16
   await page.get_by_label('Palette category').select_option('All')
