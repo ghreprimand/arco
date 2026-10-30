@@ -153,9 +153,11 @@ async def check(browser, scale, scenario):
             threshold = page.get_by_label('Worker auto-compaction threshold percent')
             await threshold.focus()
             await threshold.press('Home')
+            await expect(threshold).to_have_value('30')
             for _ in range(15):
                 await threshold.press('ArrowRight')
-            assert await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().jobs['open-fixture'].config.autoCompaction.thresholdPercent;}") == 65
+            await expect(threshold).to_have_value('45')
+            assert await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().jobs['open-fixture'].config.autoCompaction.thresholdPercent;}") == 45
             await control.select_option('off')
             await expect(control).to_have_value('off')
             await control.select_option('inherit')
