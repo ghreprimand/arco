@@ -152,7 +152,7 @@ async def open_connections(page):
     return dialog
 
 async def choose(dialog,label):
-    await dialog.get_by_role('navigation',name='Connections').get_by_role('button',name=re.compile('^'+re.escape(label)+r'\b')).click()
+    await dialog.get_by_role('navigation',name='Connections').get_by_role('button',name=re.compile('^'+re.escape(label)+r'(?:\s|$)')).click()
     return dialog.get_by_role('region',name=label+' connection')
 
 async def no_launch(page):
@@ -267,8 +267,8 @@ async def login_and_deep_links(playwright,server):
     b,page,state=await browser(playwright,server)
     try:
         dialog=await open_connections(page)
-        claude=await choose(dialog,'Claude Code')
-        await claude.get_by_role('button',name='Sign in to Claude Code',exact=True).click()
+        claude=await choose(dialog,'Claude (Anthropic)')
+        await claude.get_by_role('button',name='Sign in to Claude CLI',exact=True).click()
         await dialog.get_by_text('Sign-in could not be started.',exact=False).wait_for()
         assert state['logins']==['claude']
         async def command(route):
@@ -298,7 +298,7 @@ async def scoped_login(playwright,server):
     b,page,state=await browser(playwright,server)
     try:
         dialog=await open_connections(page)
-        claude=await choose(dialog,'Claude Code')
+        claude=await choose(dialog,'Claude (Anthropic)')
         session={'provider':'claude','status':'pending','needsCode':True,'awaitingCode':True,'url':'https://login.example.invalid/fixture','startedAt':1}
         async def sign_in(route):
             await route.fulfill(status=200,json={'started':True,'command':'claude auth login --claudeai','session':session})
@@ -311,12 +311,12 @@ async def scoped_login(playwright,server):
             state['status']['claude']={'loggedIn':True,'email':'fixture@example.invalid'}
             await route.fulfill(status=200,json={'session':session})
         await b.context.route('**/api/auth-login/code',code)
-        await claude.get_by_role('button',name='Sign in to Claude Code',exact=True).click()
+        await claude.get_by_role('button',name='Sign in to Claude CLI',exact=True).click()
         await claude.get_by_label('Sign-in code',exact=True).fill('SYNTHETIC-CODE')
         await claude.get_by_role('button',name='SUBMIT CODE',exact=True).click()
         await claude.get_by_text('Signed in to Claude.',exact=False).wait_for()
         await claude.get_by_role('button',name='Check connection',exact=True).click()
-        await claude.get_by_text('Reported account: fixture@example.invalid',exact=True).wait_for()
+        await claude.get_by_text('Reported CLI account: fixture@example.invalid',exact=True).wait_for()
         assert await dialog.count()==1,'a successful provider does not close a manually opened Connections screen'
         state['status']['codex']={'loggedIn':True,'accountStatuses':[{'id':'fixture','label':'Fixture account','email':'profile@example.invalid','loggedIn':True}]}
         codex=await choose(dialog,'Codex')

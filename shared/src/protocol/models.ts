@@ -664,11 +664,50 @@ export interface Capabilities {
   };
 }
 
+// Identifies a credential store, not an account or a named profile. Revision
+// is an opaque change stamp, never a token. Native has one store per Arco home.
+export interface ClaudeCredentialBinding {
+  source: 'claude-native' | 'claude-cli';
+  storeId: 'claude.native' | 'claude-cli-default';
+  revision?: string;
+}
+
+export interface ClaudeCliAuthStatus {
+  loggedIn: boolean;
+  probeFailed?: boolean;
+  stale?: boolean;
+  checkedAt?: number;
+  binding: ClaudeCredentialBinding;
+  email?: string;
+  subscriptionType?: string;
+  orgName?: string;
+  apiProvider?: string;
+  error?: string;
+}
+
+export interface ClaudeNativeAuthStatus {
+  state: 'missing' | 'present' | 'refresh-needed' | 'needs-attention' | 'unknown';
+  credentialsPresent: boolean;
+  // A local status read never verifies an execution request.
+  execution: 'unverified';
+  binding: ClaudeCredentialBinding;
+  checkedAt: number;
+  expiresAt?: number;
+  scopes?: string[];
+  problemSince?: number;
+  probeFailed?: boolean;
+  stale?: boolean;
+  error?: string;
+}
+
 export interface AuthStatus {
   loggedIn: boolean;
-  // Claude-only: the status probe itself failed (timeout / non-JSON), so
-  // `loggedIn` is the last known answer, not a fresh one. The header chip
-  // ignores these — a flaky probe must never read as "logged out".
+  // Claude-only: loggedIn means at least one local credential path is
+  // available. Transport-specific status and recovery use these fields.
+  native?: ClaudeNativeAuthStatus;
+  cli?: ClaudeCliAuthStatus;
+  // Claude-only: a required status read failed. Transport-specific freshness
+  // stays in native/cli; a failed probe must never read as a new logout.
   probeFailed?: boolean;
   email?: string;
   subscriptionType?: string;

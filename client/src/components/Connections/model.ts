@@ -1,4 +1,5 @@
 import type { AuthStatus, AuthStatusByProvider, ConnectionCatalog, ConnectionDefinition } from '@arco/shared';
+import { claudeAuthPresentation } from '../../utils/claudeAuth';
 
 export const KINDS = [
   { id:'plan', label:'Provider sign-in', description:'Use a provider-owned tool and an eligible account. A subscription is not an API key.' },
@@ -29,6 +30,16 @@ export function parseConnectionStatus(ok: boolean, body: unknown): AuthStatusByP
       result[id] = unavailable;
     } else {
       if (!status || typeof status !== 'object' || typeof (status as AuthStatus).loggedIn !== 'boolean') return null;
+      if (id === 'claude') {
+        const { native, cli } = status as AuthStatus;
+        if (native !== undefined && (!native || typeof native !== 'object'
+          || !['missing', 'present', 'refresh-needed', 'needs-attention', 'unknown'].includes(native.state)
+          || typeof native.credentialsPresent !== 'boolean' || native.execution !== 'unverified' || !Number.isFinite(native.checkedAt)
+          || native.binding?.source !== 'claude-native' || native.binding.storeId !== 'claude.native')) return null;
+        if (cli !== undefined && (!cli || typeof cli !== 'object' || typeof cli.loggedIn !== 'boolean'
+          || cli.binding?.source !== 'claude-cli' || cli.binding.storeId !== 'claude-cli-default'
+          || (cli.checkedAt !== undefined && !Number.isFinite(cli.checkedAt)))) return null;
+      }
       result[id] = status as AuthStatus;
       reported = true;
     }
@@ -38,6 +49,12 @@ export function parseConnectionStatus(ok: boolean, body: unknown): AuthStatusByP
 export function connectionState(p: ConnectionDefinition, status: AuthStatus | undefined, enabled: boolean, docker: boolean): string {
   if (docker && p.kind === 'desktop') return 'Unavailable here';
   if (!enabled) return 'Disabled';
+  if (p.id === 'claude' && status?.native) {
+    const view = claudeAuthPresentation(status, 'native');
+    if (view.nativeAvailable) return 'Native credentials detected';
+    if (status.cli?.loggedIn && !status.cli.probeFailed && !status.cli.stale) return 'CLI connected';
+    if (status.native.state === 'needs-attention') return 'Native needs attention';
+  }
   if (!status || status.probeFailed) return 'Status unknown';
   if (p.id==='deepseek' && !status.loggedIn && !status.apiProvider) return 'Not set up';
   if (status.loggedIn) return p.kind === 'local' ? 'Runtime detected' : p.kind === 'desktop' ? 'Desktop detected' : 'Connected';
@@ -51,7 +68,10 @@ export function safeEndpoint(raw: string | undefined): string {
   } catch { return ''; }
 }
 export function credentialSource(p: ConnectionDefinition, status: AuthStatus | undefined, catalog: ConnectionCatalog): string {
-
+  if (p.id === 'claude' && status?.native) {
+    const view = claudeAuthPresentation(status, 'native');
+    return `Native: ${view.nativeText}. CLI: ${view.cliText}. Native uses one credential store per Arco home, independently of CLI sign-in.`;
+  }
   if (status?.accountStatuses?.length) return 'Configured account profiles; individual status is listed below.';
   if (p.kind === 'local') return 'Service availability; no account identity is reported.';
   if (p.kind === 'desktop') return 'Desktop detection only; account access is not verified.';

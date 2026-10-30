@@ -53,7 +53,8 @@ import type { LlamacppCatalog } from '../llamacppCatalog.js';
 import { readCatalog as readLlamacppCatalog,writeCatalog as writeLlamacppCatalog } from '../llamacppCatalog.js';
 import { probeOnce as probePreviewPort } from '../previewAutoDetect.js';
 import { tryHandlePreviewRequest } from '../previewProxy.js';
-import { clearTokens as clearClaudeNativeTokens,loadTokens as loadClaudeNativeTokens } from '../providers/claude-native/auth.js';
+import { clearTokens as clearClaudeNativeTokens } from '../providers/claude-native/auth.js';
+import { getClaudeNativeAuthStatus } from '../providers/claude-native/authStatus.js';
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
 import { CLAUDE_CLI_USER_AGENT } from '../providers/claude-native/wireFingerprint.js';
 import {
@@ -1456,10 +1457,8 @@ export async function handleHttpRequest(
   // manual-paste flag and accept the redirect URL via /callback.
   if (req.url === '/api/auth/claude-native' && req.method === 'GET') {
     try {
-      const tokens = await loadClaudeNativeTokens();
-      const body = tokens
-        ? { loggedIn: true, expiresAt: tokens.expiresAt, scopes: tokens.scope ? tokens.scope.split(/\s+/) : undefined }
-        : { loggedIn: false };
+      const status = await getClaudeNativeAuthStatus();
+      const body = { ...status, loggedIn: status.credentialsPresent };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
     } catch (err) {

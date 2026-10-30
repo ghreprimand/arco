@@ -76,7 +76,7 @@ export const miscHelp: Record<string, HelpEntry> = {
 
   'auth.connections': {
     title: 'Connections', manualSection: 'settings-providers',
-    body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
+    body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. Claude Native credentials and CLI sign-in have separate status and recovery controls; local credential presence does not verify execution or allowance access. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
   },
   'auth.login-flow': {
     title: 'Provider sign-in', manualSection: 'settings-providers',

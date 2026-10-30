@@ -160,6 +160,15 @@ remains governed by that service, not Arco's disk policy.
 
 Two transports ship side-by-side, selected per-tab via `claude.transport`. New Arco homes use `native`; the home and project settings cascade can select either transport, and a per-tab choice takes precedence. Existing cascade and per-tab choices remain unchanged. Per-tab override lives on `WorkflowConfig.claudeTransport` and is editable from the CONFIG tab without a server restart.
 
+Authentication status distinguishes Native credentials, CLI login and allowance availability. Stored
+Native credentials remain visible when the CLI is signed out. The Native indicator reports local
+presence, refresh needs, read failures or an authentication problem; an unexpired local grant is
+explicitly unverified for execution. CLI warnings name the CLI and use its sign-in command. Native
+warnings open Native sign-in settings. Neither status recovery nor an allowance-meter failure switches
+the selected transport. An unavailable allowance meter does not invalidate execution credentials.
+Native uses one credential store per Arco home; named account/profile labels do not create separate
+Native credentials. Connection checks remain metadata checks without a model turn.
+
 Reviewers and handoff seed turns always run on `cli` regardless of the tab's transport — Native is per-workflow long-lived and Arco-internal-only, so any path that needs a `~/.claude/projects/<sid>.jsonl` rollout (handoff destinations, reviewer recovery) goes through the CLI provider. After `handoff_complete`, the dispatcher disposes the cached Native worker so the next operator turn rebuilds the messages array from the post-handoff transcript.
 
 ### Native transport — append-only prefix (2026-09-01)

@@ -1496,6 +1496,8 @@ Returns the per-provider auth snapshot:
 
 interface AuthStatus {
   loggedIn: boolean,
+  native?: ClaudeNativeAuthStatus,  // Claude only; local credential metadata, not execution verification
+  cli?: ClaudeCliAuthStatus,        // Claude only; independent CLI verdict and freshness
   email?: string,
   subscriptionType?: string,        // 'local' for ollama / llamacpp / lmstudio
   orgName?: string,
@@ -1505,6 +1507,25 @@ interface AuthStatus {
   error?: string,
 }
 ```
+
+Claude's top-level `loggedIn` indicates an available local credential path, including stored Native
+credentials when CLI sign-in is absent. It does not establish execution health, model access or billing.
+The `native` and `cli` records retain independent status. CLI account metadata on the top-level record
+still belongs to the CLI; it does not identify the Native account.
+
+`native.state` is `missing`, `present`, `refresh-needed`, `needs-attention` or `unknown`, with
+`credentialsPresent`, `execution: 'unverified'`, `checkedAt`, optional `expiresAt`, `scopes`,
+`problemSince`, `probeFailed`, `stale` and a sanitized `error`. Status reads do not refresh tokens or
+make an inference or allowance request. A failed read retains an explicitly stale result when available.
+`cli` carries its own `loggedIn`, `probeFailed`, `stale`, last successful `checkedAt` and CLI account
+metadata; malformed or failed probes do not invent a logout verdict.
+
+Both records expose a non-secret `binding`: `{ source, storeId, revision? }`. `source` is
+`claude-native` or `claude-cli`; `storeId` is `claude.native` or `claude-cli-default`. Native has one
+store per Arco home, independent of profile labels. Its opaque revision changes with credential
+material; it contains no token bytes and proves no account identity. The CLI metadata probe leaves
+revision absent. These bindings identify credential sources, not allowance accounts or completed OAuth
+flows. Meter attribution and reauthentication completion remain separate contracts.
 
 `strata` has no login. Its base cascade is `settings.strata.baseUrl` ->
 `STRATA_URL_BASE` -> `http://127.0.0.1:8081/v1`; `POST /api/settings` patches
@@ -1542,14 +1563,16 @@ OAuth bootstrap for the in-process Claude Native transport. Tokens persist to `~
 
 ### `GET /api/auth/claude-native`
 
-Status of the persisted OAuth tokens.
+Local credential metadata from the same Native status reader used by `/api/auth-status`.
 
 **Response:**
 ```ts
-{ loggedIn: false }
-// or
-{ loggedIn: true, expiresAt: number, scopes?: string[] }
+ClaudeNativeAuthStatus & { loggedIn: boolean }
 ```
+
+The legacy `loggedIn` field means credentials are present, including a grant that needs refresh or
+has a reported authentication problem. Use `state`, `probeFailed` and `stale` for the detailed result.
+Local expiry metadata is not verified execution health. This GET never starts sign-in or token refresh.
 
 ### `POST /api/auth/claude-native/login`
 

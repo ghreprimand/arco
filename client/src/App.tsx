@@ -188,7 +188,8 @@ function AppBody() {
     if (gate === 'setup') useStartupStore.getState().setFirstRunOpen(true);
   }, [gate]);
 
-  const claudeLoggedIn = authStatus?.claude?.loggedIn ?? null;
+  // Preserve the CLI recovery polling cadence independently of Native presence.
+  const claudeLoggedIn = authStatus?.claude?.cli?.loggedIn ?? authStatus?.claude?.loggedIn ?? null;
   useEffect(() => {
     let cancelled = false;
     const run = () => {

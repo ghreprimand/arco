@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
 import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
+import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 
 interface Props {
   usage: UsageInfo | null;
@@ -22,7 +23,7 @@ export function UsageBar({ usage }: Props) {
   const ollamaLive = useAppStore((s) => s.ollamaLive);
   const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
   const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
-  const claudeAuthed = authStatus?.claude.loggedIn ?? false;
+  const claudeAuthed = !!(authStatus?.claude.loggedIn || authStatus?.claude.native?.credentialsPresent || authStatus?.claude.cli?.loggedIn);
   const codexAuthed = authStatus?.codex.loggedIn ?? false;
   const cursorAuthed = authStatus?.cursor?.loggedIn ?? false;
   // Ollama dot appears whenever the provider is enabled — even if the daemon is
@@ -378,6 +379,15 @@ function parseCodexUsageValue(value: string): { usedPercent: number | null; rese
 // hover — same content the old boxed pill carried, now behind the compact dot.
 function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const auth = useAppStore(s => s.authStatus?.claude);
+  const tabTransport = useAppStore(s => s.activeJobId ? s.jobs[s.activeJobId]?.config.claudeTransport : undefined);
+  const settingTransport = useAppStore(s => s.settings?.claude?.transport);
+  const forceCli = useAppStore(s => {
+    const config = s.activeJobId ? s.jobs[s.activeJobId]?.config : undefined;
+    return (config?.primaryProvider ?? 'claude') === 'claude' && config?.ultracode === true;
+  });
+  const transport = selectedClaudeTransport(tabTransport, settingTransport, forceCli);
+  const status = claudeAuthPresentation(auth, transport);
   const showUsage = !!(usage && !usage.error && (usage.session || usage.weekly));
   const sessionPct = usage?.session ? Math.round(Math.min(Math.max(usage.session.utilization, 0), 100)) : null;
   return (
@@ -390,8 +400,8 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
     >
       <StatusDot
         letter="C"
-        state="live"
-        title={sessionPct !== null ? `Claude — LIVE · session ${sessionPct}% (hover for usage, click for usage page)` : 'Claude — LIVE (hover for usage, click for usage page)'}
+        state={status.dotState}
+        title={`${status.label}: ${transport === 'native' ? status.nativeText : status.cliText}${sessionPct !== null ? `; allowance session ${sessionPct}%` : ''} (hover for status and allowance)`}
         href={CLAUDE_USAGE_URL}
       />
       {open && (
@@ -411,6 +421,11 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
             zIndex: 30,
           }}
         >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+            <span>Native: {status.nativeText}</span>
+            <span>CLI: {status.cliText}</span>
+            <span>Allowance meter: {usage?.error ? 'unavailable' : showUsage ? 'available' : 'waiting for data'}</span>
+            <span style={{ color: 'var(--color-fg-muted)' }}>Allowance availability is separate from execution authentication.</span>
           {showUsage && usage ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {usage.session && (
@@ -422,9 +437,10 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
             </div>
           ) : (
             <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>
-              {usage?.error ?? 'Loading usage…'}
+              {usage?.error ? `Allowance unavailable: ${usage.error}` : 'Waiting for allowance data...'}
             </span>
           )}
+          </div>
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { connectionCatalog } from '../../../../server/src/connectionCatalog.js';
 import { connectionState,credentialSource,parseConnectionCatalog,parseConnectionStatus,safeEndpoint } from './model.js';
 const catalog=connectionCatalog({});
 const codex=catalog.providers.find(p=>p.id==='codex')!;
+const claude=catalog.providers.find(p=>p.id==='claude')!;
 test('a failed or stale check never turns into an instruction to sign in again',()=>{
   assert.equal(connectionState(codex,{loggedIn:true,probeFailed:true},true,false),'Status unknown');
   assert.equal(connectionState(codex,{loggedIn:true},false,false),'Disabled');
@@ -30,4 +31,17 @@ test('older provider payloads keep known status and default missing integrations
   for(const provider of ['codex','deepseek','strata','github'] as const) {
     assert.deepEqual(parsed[provider],{loggedIn:false,installed:false,cliInstalled:false});
   }
+});
+
+test('Native credentials and CLI sign-in have separate evidence without inferred Native account identity', () => {
+  const status = { loggedIn: true, email: 'fixture@example.invalid',
+    native: { state: 'present' as const, credentialsPresent: true, execution: 'unverified' as const, checkedAt: Date.now(), binding: { source: 'claude-native' as const, storeId: 'claude.native' as const } },
+    cli: { loggedIn: false, binding: { source: 'claude-cli' as const, storeId: 'claude-cli-default' as const } } };
+  assert.equal(connectionState(claude, status, true, false), 'Native credentials detected');
+  assert.match(credentialSource(claude, status, catalog), /Native: Credentials present; execution unverified.*CLI: Signed out/);
+  assert.doesNotMatch(credentialSource(claude, status, catalog), /fixture@example/);
+  assert.equal(connectionState(claude, status, false, false), 'Disabled');
+  assert.ok(parseConnectionStatus(true, { claude: status }));
+  assert.equal(parseConnectionStatus(true, { claude: { ...status, native: { ...status.native, state: 'healthy' } } }), null);
+  assert.equal(parseConnectionStatus(true, { claude: { ...status, cli: { ...status.cli, loggedIn: 'unknown' } } }), null);
 });

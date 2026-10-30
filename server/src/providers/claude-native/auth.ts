@@ -5,6 +5,8 @@ import { homedir } from 'node:os';
 import * as lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../../atomicFile.js';
 import { arcoHome } from '../../arcoHome.js';
+import { createHash } from 'node:crypto';
+import type { ClaudeCredentialBinding } from '@arco/shared';
 
 // Store Native OAuth credentials in the `claude.native` namespace so other
 // authentication modes can coexist without overwriting them. Restrictive file
@@ -18,6 +20,17 @@ export interface ClaudeNativeTokens {
   tokenType: string;
   scope: string;
   obtainedAt: number;
+}
+
+// The stamp changes with the actual credential material, including rotations.
+// It exposes no token bytes and is not proof of account identity or execution.
+export function nativeCredentialBinding(tokens?: ClaudeNativeTokens | null): ClaudeCredentialBinding {
+  return {
+    source: 'claude-native', storeId: 'claude.native',
+    ...(tokens ? { revision: createHash('sha256').update(JSON.stringify([
+      tokens.accessToken, tokens.refreshToken, tokens.expiresAt, tokens.obtainedAt, tokens.tokenType, tokens.scope,
+    ])).digest('hex') } : {}),
+  };
 }
 
 interface AuthFileShape {

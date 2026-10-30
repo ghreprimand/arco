@@ -345,9 +345,9 @@ async function refreshUnlocked(seed: ClaudeNativeTokens): Promise<ClaudeNativeTo
 }
 
 // -- A2 (docs/REMOTE_MANAGEMENT.md) - live auth-problem state -----
-// The /api/auth-status probe checks the CLAUDE CLI, not these native tokens,
-// so the phone console needs its own signal for "the native transport can't
-// authenticate". Set when a worker hits a fatal auth failure (401 after the
+// Native and CLI credential status are separate in /api/auth-status. This
+// signal also tells the phone console when Native reports an auth problem.
+// Set when a worker hits a fatal auth failure (401 after the
 // A1 forced refresh, or NO_AUTH); cleared when tokens are provably good again
 // (successful refresh or a completed bootstrap). In-memory only — a restart
 // clears it until the next failed turn re-reports, which is the honest state.

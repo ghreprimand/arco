@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { delimiter, join } from 'path';
-import { getClaudeAuthStatus, triggerAuthLogin } from './auth.js';
+import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 
 // A fake `claude` on PATH whose `auth status --json` behavior is picked by the
 // FAKE_CLAUDE_MODE env var at call time (execFile inherits process.env). The
@@ -11,11 +11,15 @@ import { getClaudeAuthStatus, triggerAuthLogin } from './auth.js';
 // sits behind an npm-style `claude.cmd` shim, which Arco resolves to the
 // script (server/src/windowsCommand.ts), as for a real npm-installed CLI.
 const binDir = mkdtempSync(join(tmpdir(), 'arco-auth-test-'));
+installIsolatedTestHome(binDir);
+const { getClaudeAuthStatus, triggerAuthLogin } = await import('./auth.js');
+const { saveTokens, clearTokens } = await import('./providers/claude-native/auth.js');
 const fixture = `#!/usr/bin/env node
 switch (process.env.FAKE_CLAUDE_MODE) {
   case 'in': console.log(JSON.stringify({ loggedIn: true, email: 'a@b.c' })); break;
   case 'out': console.log(JSON.stringify({ loggedIn: false })); process.exitCode = 1; break;
   case 'garbage': console.log('not json'); break;
+  case 'unknown': console.log(JSON.stringify({ error: 'fixture probe unavailable' })); break;
   case 'crash': process.exitCode = 2; break;
 }
 `;
@@ -65,6 +69,44 @@ test('a non-zero exit carrying loggedIn:false JSON is a real logged-out verdict'
   const s = await getClaudeAuthStatus();
   assert.equal(s.loggedIn, false);
   assert.equal(s.probeFailed, undefined);
+});
+
+test('Native credentials remain available when the independent CLI is signed out', async () => {
+  process.env.FAKE_CLAUDE_MODE = 'out';
+  await saveTokens({ accessToken: 'fixture-access', refreshToken: 'fixture-refresh', expiresAt: Date.now() + 3_600_000, obtainedAt: Date.now(), tokenType: 'Bearer', scope: 'fixture' });
+  try {
+    const status = await getClaudeAuthStatus();
+    assert.equal(status.loggedIn, true, 'CLI sign-out must not hide Native credentials');
+    assert.equal(status.cli?.loggedIn, false);
+    assert.equal(status.native?.state, 'present');
+    assert.equal(status.native?.execution, 'unverified');
+  } finally { await clearTokens(); }
+});
+
+test('a JSON object without a Boolean CLI verdict remains unknown', async () => {
+  process.env.FAKE_CLAUDE_MODE = 'in';
+  const known = await getClaudeAuthStatus();
+  process.env.FAKE_CLAUDE_MODE = 'unknown';
+  const status = await getClaudeAuthStatus();
+  assert.equal(status.loggedIn, true);
+  assert.equal(status.cli?.loggedIn, true);
+  assert.equal(status.cli?.probeFailed, true);
+  assert.equal(status.cli?.stale, true);
+  assert.equal(status.cli?.checkedAt, known.cli?.checkedAt);
+});
+
+test('CLI probe failure does not make present Native credentials unavailable', async () => {
+  await saveTokens({ accessToken: 'fixture-access', refreshToken: 'fixture-refresh', expiresAt: Date.now() + 3_600_000, obtainedAt: Date.now(), tokenType: 'Bearer', scope: 'fixture' });
+  process.env.FAKE_CLAUDE_MODE = 'out'; await getClaudeAuthStatus();
+  process.env.FAKE_CLAUDE_MODE = 'crash';
+  try {
+    const status = await getClaudeAuthStatus();
+    assert.equal(status.loggedIn, true);
+    assert.equal(status.probeFailed, undefined);
+    assert.equal(status.cli?.probeFailed, true);
+    assert.equal(status.native?.probeFailed, undefined);
+    assert.equal(status.native?.execution, 'unverified');
+  } finally { await clearTokens(); }
 });
 
 test('CLI logins return a headless terminal command and never spawn', async () => {

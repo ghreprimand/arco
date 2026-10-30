@@ -156,10 +156,11 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
           {!enabled && <p>This provider is disabled. Enable it before starting new work.</p>}
           {selected!=='github' && <button type="button" onClick={()=>void toggleEnabled()} disabled={enabling || !settings}>{enabled?'Disable provider':'Enable provider'}</button>}
           <h3>2. Connect</h3><p>{credentialSource(provider,status,catalog)}</p>
-          {status?.email && <p>Reported account: {status.email}{status.orgName ? ` - ${status.orgName}`:''}</p>}
+          {status?.email && <p>{selected === 'claude' ? 'Reported CLI account' : 'Reported account'}: {status.email}{status.orgName ? ` - ${status.orgName}`:''}</p>}
+          {selected === 'claude' && <button type="button" onClick={()=>advanced('authentication')}>Native sign-in settings</button>}
           {status?.accountStatuses?.length ? <ul aria-label="Configured account statuses">{status.accountStatuses.map(a=><li key={a.id}>{a.label}: {a.loggedIn?'connected':'not connected'}{a.email ? ` - ${a.email}`:''}</li>)}</ul>:null}
           {provider.environmentKey && catalog.environmentKeys.includes(provider.environmentKey) && <p role="note">{provider.environmentKey} is present in the server environment. It can change credential selection for some transports. Review the provider-reported source above; billing is not inferred.</p>}
-          {provider.login && !status?.accountStatuses?.length && <button type="button" disabled={!enabled || unavailable || starting} onClick={()=>void startLogin()}>{starting?'Starting sign-in...':status?.loggedIn?'Sign in again':`Sign in to ${provider.label}`}</button>}
+          {provider.login && !status?.accountStatuses?.length && <button type="button" disabled={!enabled || unavailable || starting} onClick={()=>void startLogin()}>{starting?'Starting sign-in...':selected === 'claude' ? 'Sign in to Claude CLI' : status?.loggedIn?'Sign in again':`Sign in to ${provider.label}`}</button>}
           {status?.accountStatuses?.length ? <p>Sign in to a specific configured profile in Accounts and profiles. Its credentials stay separate from the default account.</p>:null}
           {login && <div className="connection-login">{login.session ? <LoginFlow result={login} onRestart={()=>void startLogin()} />:login.command ? <LoginCommand command={login.command} hostCommand={login.hostCommand}/>:null}</div>}
 

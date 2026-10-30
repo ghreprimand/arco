@@ -5,7 +5,8 @@ import { access, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import {} from '@arco/shared';
-import type { ProviderName, AuthLoginTarget, AuthLoginResult } from '@arco/shared';
+import type { ProviderName, AuthLoginTarget, AuthLoginResult, ClaudeCliAuthStatus, ClaudeNativeAuthStatus } from '@arco/shared';
+import { getClaudeNativeAuthStatus } from './providers/claude-native/authStatus.js';
 import { getOllamaBase, probeOllama } from './providers/ollama.js';
 import { probeCodexLoggedIn } from './providers/codex.js';
 import { probeLlamacpp } from './providers/llamacpp.js';
@@ -20,6 +21,8 @@ const execFileAsync = promisify(execFile);
 
 export interface AuthStatus {
   loggedIn: boolean;
+  native?: ClaudeNativeAuthStatus;
+  cli?: ClaudeCliAuthStatus;
   probeFailed?: boolean;
   email?: string;
   subscriptionType?: string;
@@ -81,7 +84,7 @@ export interface AuthStatusByProvider {
 // the near-daily false "re-login" prompt. Now only a parsed `loggedIn:false`
 // counts; a failed probe retries once, then reports the last known answer
 // flagged `probeFailed`.
-let lastClaudeStatus: AuthStatus | null = null;
+let lastClaudeStatus: ClaudeCliAuthStatus | null = null;
 
 async function probeClaudeAuthStatus(): Promise<AuthStatus | null> {
   let stdout: string;
@@ -98,6 +101,7 @@ async function probeClaudeAuthStatus(): Promise<AuthStatus | null> {
   }
   try {
     const parsed = JSON.parse(stdout);
+    if (typeof parsed.loggedIn !== 'boolean') return null;
     return {
       loggedIn: Boolean(parsed.loggedIn),
       email: parsed.email,
@@ -111,14 +115,24 @@ async function probeClaudeAuthStatus(): Promise<AuthStatus | null> {
 }
 
 export async function getClaudeAuthStatus(): Promise<AuthStatus> {
-  const status = (await probeClaudeAuthStatus()) ?? (await probeClaudeAuthStatus());
-  if (status) {
-    lastClaudeStatus = status;
-    return status;
-  }
-  const error = 'claude auth status probe failed (timeout or unparseable output)';
-  if (lastClaudeStatus) return { ...lastClaudeStatus, probeFailed: true, error };
-  return { loggedIn: false, probeFailed: true, error };
+  const [status, native] = await Promise.all([
+    probeClaudeAuthStatus().then(async result => result ?? await probeClaudeAuthStatus()),
+    getClaudeNativeAuthStatus(),
+  ]);
+  const binding = { source: 'claude-cli', storeId: 'claude-cli-default' } as const;
+  const cli: ClaudeCliAuthStatus = status
+    ? { ...status, binding, checkedAt: Date.now() }
+    : { ...(lastClaudeStatus ?? { loggedIn: false, binding }), probeFailed: true, stale: !!lastClaudeStatus, error: 'claude auth status probe failed (timeout or unparseable output)' };
+  if (status) lastClaudeStatus = cli;
+  const nativeAvailable = native.credentialsPresent && native.state !== 'needs-attention';
+  const probeFailed = (cli.probeFailed && !nativeAvailable) || (native.probeFailed && !cli.loggedIn);
+  return {
+    native, cli,
+    email: cli.email, subscriptionType: cli.subscriptionType, orgName: cli.orgName, apiProvider: cli.apiProvider,
+    loggedIn: cli.loggedIn || nativeAvailable,
+    probeFailed: probeFailed || undefined,
+    error: nativeAvailable ? undefined : cli.error ?? native.error,
+  };
 }
 
 // `gh auth status` exits non-zero when not logged in and prints to stderr.

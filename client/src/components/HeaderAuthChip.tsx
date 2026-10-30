@@ -2,20 +2,25 @@ import { useEffect, useRef, useState } from 'react';
 import type { AuthLoginResult, AuthStatusByProvider } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { LoginCommand } from './LoginCommand';
+import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
+import { useStartupStore } from '../stores/startupStore';
 
-// Header-mounted companion to AuthReloginNotice, driven by the CLI login
-// (`claude auth status`). Shows only on a PARSED loggedIn=false — a failed
-// probe (probeFailed) is "unknown", never "logged out"; that distinction is
-// what stopped the near-daily false re-login prompt. App.tsx keeps polling
-// while this is up, so a recovered login clears the chip by itself. RE-LOGIN
-// fetches the headless login command and hands it to LoginCommand (run in
-// Arco's terminal), then fast-polls /api/auth-status until Claude is back.
+// Recovery follows the selected Claude transport. Unknown/stale probes never
+// become logout warnings. Native opens its existing settings; CLI sign-in uses
+// the headless command and the existing bounded status poll.
 const FAST_POLL_MS = 1500;
 const FAST_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function HeaderAuthChip() {
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
+  const enabled = useAppStore((s) => s.settings?.enabledProviders?.claude !== false);
+  const tabTransport = useAppStore(s => s.activeJobId ? s.jobs[s.activeJobId]?.config.claudeTransport : undefined);
+  const settingTransport = useAppStore(s => s.settings?.claude?.transport);
+  const forceCli = useAppStore(s => {
+    const config = s.activeJobId ? s.jobs[s.activeJobId]?.config : undefined;
+    return (config?.primaryProvider ?? 'claude') === 'claude' && config?.ultracode === true;
+  });
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
@@ -23,11 +28,11 @@ export function HeaderAuthChip() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartedAtRef = useRef<number | null>(null);
 
-  const claudeLoggedOut = authStatus ? !authStatus.claude.loggedIn && !authStatus.claude.probeFailed : false;
+  const attention = enabled ? claudeAuthPresentation(authStatus?.claude, selectedClaudeTransport(tabTransport, settingTransport, forceCli)).attention : undefined;
 
   // Stop fast-poll once Claude flips back to loggedIn.
   useEffect(() => {
-    if (!claudeLoggedOut) {
+    if (attention !== 'cli') {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
       pollStartedAtRef.current = null;
@@ -36,13 +41,13 @@ export function HeaderAuthChip() {
       setHint(null);
       setCommand(null);
     }
-  }, [claudeLoggedOut]);
+  }, [attention]);
 
   useEffect(() => () => {
     if (pollRef.current) clearInterval(pollRef.current);
   }, []);
 
-  if (!claudeLoggedOut) return null;
+  if (!attention) return null;
 
   const startLogin = async () => {
     setState('pending');
@@ -89,7 +94,7 @@ export function HeaderAuthChip() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="display-font"
-        title="Claude authentication expired — click to re-login"
+        title={attention === 'native' ? 'Claude Native credentials need attention' : 'Claude CLI is signed out'}
         style={{
           background: open ? 'var(--color-warning-a10, rgba(255,170,0,0.1))' : 'transparent',
           border: '1px solid var(--color-warning)',
@@ -108,7 +113,7 @@ export function HeaderAuthChip() {
           className="status-dot status-dot--failed"
           style={{ width: '6px', height: '6px' }}
         />
-        [AUTH: CLAUDE]
+        {attention === 'native' ? '[AUTH: CLAUDE NATIVE]' : '[AUTH: CLAUDE CLI]'}
       </button>
       {open && (
         <div
@@ -138,10 +143,12 @@ export function HeaderAuthChip() {
               color: 'var(--color-warning-dim)',
             }}
           >
-            Claude CLI is not authenticated. Re-login to continue.
+            {attention === 'native'
+              ? 'Claude Native credentials need attention. Review Native sign-in in provider settings.'
+              : 'Claude CLI is signed out. CLI sign-in is separate from Native execution credentials.'}
           </div>
           <button
-            onClick={startLogin}
+            onClick={attention === 'native' ? () => { useStartupStore.getState().setSettingsSection('authentication'); useAppStore.getState().setShowSettings(true); } : startLogin}
             disabled={state === 'pending' || state === 'sent'}
             className="display-font glow-border"
             style={{
@@ -157,7 +164,7 @@ export function HeaderAuthChip() {
               alignSelf: 'flex-start',
             }}
           >
-            {state === 'pending' ? 'STARTING…' : state === 'sent' ? 'WAITING FOR LOGIN…' : 'RE-LOGIN CLAUDE ↻'}
+            {attention === 'native' ? 'OPEN NATIVE SIGN-IN SETTINGS' : state === 'pending' ? 'STARTING...' : state === 'sent' ? 'WAITING FOR CLI LOGIN...' : 'SIGN IN TO CLAUDE CLI'}
           </button>
           {command && <LoginCommand command={command} />}
           {hint && (

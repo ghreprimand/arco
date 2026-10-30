@@ -8,6 +8,7 @@ import { DeepSeekControls } from './DeepSeekControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
+import { nativeAuthText } from '../utils/claudeAuth';
 import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
@@ -1097,9 +1098,9 @@ export function SettingsPanel({ onClose }: Props) {
               </span>
             </div>
             <ProviderRow
-              label="CLAUDE (ANTHROPIC)"
+              label="CLAUDE CLI (ANTHROPIC)"
               provider="claude"
-              status={authStatus?.claude}
+              status={authStatus?.claude.cli ?? authStatus?.claude}
               loginPending={loginPending === 'claude'}
               onLogin={() => startLogin('claude')}
             />
@@ -2828,7 +2829,7 @@ function ThemeCard({ theme, active, onSelect }: { theme: Theme; active: boolean;
 // surface a manual-paste field so the operator can hand back the
 // redirected URL.
 function ClaudeNativeAuthRow() {
-  const [status, setStatus] = useState<{ loggedIn: boolean; expiresAt?: number } | null>(null);
+  const [status, setStatus] = useState<(import('@arco/shared').ClaudeNativeAuthStatus & { loggedIn: boolean }) | null>(null);
   const [busy, setBusy] = useState<'login' | 'logout' | null>(null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [manualMode, setManualMode] = useState(false);
@@ -2839,7 +2840,7 @@ function ClaudeNativeAuthRow() {
     try {
       const res = await fetch('/api/auth/claude-native');
       if (!res.ok) return;
-      const data = (await res.json()) as { loggedIn: boolean; expiresAt?: number };
+      const data = (await res.json()) as import('@arco/shared').ClaudeNativeAuthStatus & { loggedIn: boolean };
       setStatus(data);
     } catch { /* leave stale */ }
   };
@@ -2913,11 +2914,8 @@ function ClaudeNativeAuthRow() {
     } finally { setBusy(null); }
   };
 
-  const subline = !status
-    ? 'checking…'
-    : status.loggedIn
-      ? `tokens valid until ${new Date(status.expiresAt ?? 0).toLocaleString()}`
-      : 'not authenticated';
+  const nativeNeedsAttention = status?.state === 'needs-attention';
+  const subline = !status ? 'Checking Native credentials...' : nativeAuthText(status);
 
   return (
     <div style={{ padding: '8px 10px', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2929,25 +2927,28 @@ function ClaudeNativeAuthRow() {
           <span style={{ fontSize: '10px', color: status?.loggedIn ? 'var(--color-accent-primary-dim)' : 'var(--color-warning-dim)', fontFamily: 'var(--font-body)' }}>
             {subline}
           </span>
+          <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>One Native credential store per Arco home. Profile names do not select separate Native credentials.</span>
+          {status?.expiresAt && <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>Local expiry metadata: {new Date(status.expiresAt).toLocaleString()}</span>}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          {status?.loggedIn ? (
+          {status?.loggedIn && (
             <button onClick={logout} disabled={!!busy} className="display-font" style={{ padding: '4px 10px', fontSize: '10px', letterSpacing: '1px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', borderRadius: '3px', cursor: busy ? 'default' : 'pointer' }}>
               {busy === 'logout' ? '…' : 'LOGOUT'}
             </button>
-          ) : (
+          )}
+          {(!status?.loggedIn || nativeNeedsAttention) && (
             <button onClick={startLogin} disabled={!!busy} className="display-font" style={{ padding: '4px 10px', fontSize: '10px', letterSpacing: '1px', background: 'transparent', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', borderRadius: '3px', cursor: busy ? 'default' : 'pointer' }}>
               {busy === 'login' ? '…' : 'LOGIN'}
             </button>
           )}
         </div>
       </div>
-      {authUrl && !status?.loggedIn && (
+      {authUrl && (!status?.loggedIn || nativeNeedsAttention) && (
         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', wordBreak: 'break-all' }}>
           If a browser didn't open: <a href={authUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-primary)' }}>{authUrl}</a>
         </div>
       )}
-      {manualMode && !status?.loggedIn && (
+      {manualMode && (!status?.loggedIn || nativeNeedsAttention) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
             On another device the approval ends on a "can't connect" localhost page — paste that page's URL (starts with http://localhost:53692/callback?…):

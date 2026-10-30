@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Distinguish Claude Native credential state, CLI login and allowance availability, with transport-specific recovery and preserved saved choices.
+
 - Refuse checkpoint restores that overlap active managed work, and block conflicting turns and workers through the safety snapshot and restore while preserving isolated worktree recovery.
 
 - Save worker and cluster auto-compaction thresholds once per completed adjustment and avoid duplicate policy notices.
