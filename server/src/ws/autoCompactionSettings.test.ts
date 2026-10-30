@@ -39,5 +39,5 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     assert.equal(wf.config.autoCompaction,undefined);
     assert.ok(sent.some(m=>m.type==='error' && String(m.message).includes('Could not save')));
     assert.equal((await readMeta(cwd,id))?.autoCompaction,undefined);
-  } finally {workflows.delete(id); rmSync(temp,{recursive:true,force:true});}
+  } finally {workflows.delete(id); rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });

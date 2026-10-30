@@ -40,5 +40,5 @@ test('cluster inheritance survives member changes and snapshot restore with work
     await store.deleteCluster(restored.cluster.clusterId);
     await store.setAutoCompaction(clusterId,null);
     assert.equal(store.getAutoCompaction(clusterId),undefined);
-  } finally { if (clusterId) await store.deleteCluster(clusterId); rmSync(temp,{recursive:true,force:true}); }
+  } finally { if (clusterId) await store.deleteCluster(clusterId); rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); }
 });
