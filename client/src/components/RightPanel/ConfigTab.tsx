@@ -277,7 +277,7 @@ export function ConfigTab({
       )}
 
       {/* WP3 — Ollama M8 auto-compaction (GLOBAL settings.ollama.compaction,
-          not per-tab — compaction config isn't tab-scoped today). Ollama tabs
+          used when no worker or cluster threshold policy is set). Ollama tabs
           only; writes via POST /api/settings like the Codex transport section. */}
       {provider === 'ollama' && canEdit && (
         <OllamaCompactionSection />
@@ -559,10 +559,11 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
   const effective = own ?? cluster?.autoCompaction;
   const provider = job.config.primaryProvider ?? 'claude';
   const supported = (provider === 'claude' && (job.config.claudeTransport ?? settings?.claude?.transport) === 'native')
-    || (provider === 'codex' && (job.config.codexTransport ?? settings?.codex?.transport) === 'appserver');
+    || (provider === 'codex' && (job.config.codexTransport ?? settings?.codex?.transport) === 'appserver')
+    || (provider === 'ollama' && job.config.kind !== 'chat');
   return <section data-help="rightpanel.config.auto-compaction" style={{ marginTop: 18, fontSize: 11 }}>
     <div className="display-font">AUTO-COMPACTION</div>
-    <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama retains its existing global compaction settings. Unknown usage does not trigger this policy.</p>
+    <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. While enabled, automatic handoff waits for this policy; manual handoff remains available. Unknown usage does not trigger this policy.</p>
     {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}
     <label>Policy <select aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
       <option value="inherit">{cluster ? 'Inherit cluster default' : 'Legacy provider behavior'}</option>

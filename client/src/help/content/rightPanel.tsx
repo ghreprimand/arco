@@ -367,7 +367,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.config.auto-compaction': {
     title: 'Auto-compaction',
-    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 50-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Other transports are unavailable for this policy. Ollama retains its existing global compaction settings. With no policy, existing provider behavior remains. Fold is deterministic, while handoff starts a fresh session.</p>,
+    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 50-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Ollama compacts before dispatch. Other transports are unavailable for this policy. Ollama summarizes verified completed executions before the next turn and reuses saved summaries. Legacy or partial history defers safely; raw events remain available. An enabled Ollama policy defers automatic handoff; manual handoff remains available. Explicit Off stops automatic compaction. With no policy, existing provider behavior and the Ollama global settings remain. Fold is deterministic, while handoff starts a fresh session.</p>,
     manualSection: 'auto-handoff',
   },
   'rightpanel.config.auto-handoff': {

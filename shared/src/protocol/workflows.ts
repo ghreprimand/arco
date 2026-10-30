@@ -422,6 +422,13 @@ export interface SteerItem {
 }
 
 export interface WorkerConfig {
+  // Server-local replay context; never persisted in worker settings.
+  ollamaReplay?: {
+    events: import('./serverMessages.js').ServerMessage[];
+    activeInputSeqs: number[];
+    policy: AutoCompactionPolicy;
+    stillOwner: () => boolean;
+  };
   model: ModelName;
   effort: EffortLevel;
   provider?: ProviderName;

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { projectOllamaHistory, stampOllamaExecution } from '../providers/ollamaExecutionHistory.js';
 import { publishActivity, computerProjectionChanged } from '../voice/activityBus.js';
 import { setComputerBackgroundClaim, clearComputerBackgroundClaim, isComputerBackgroundClaim } from '../voice/operatorTools.js';
 import { watchClaimed, watchSettled } from '../voice/watches.js';
@@ -900,6 +902,9 @@ export async function runExplicitContextActions(
   busyToken: number, ws?: WebSocket, session?: Session,
 ): Promise<'stale' | 'compact-attempted' | 'done'> {
   if (lastBusyClaim.get(wf) !== busyToken) return 'stale';
+  // Ollama compacts at the next pre-dispatch boundary. Do not start an
+  // automatic fresh-session handoff ahead of that explicitly chosen policy.
+  if (wf.primary.provider === 'ollama' && policy.enabled) return 'done';
   let foldClaim: number | undefined;
   const folded = await maybeAutoFold(workflowId, wf, cwd, (token) => { foldClaim = token; }, () => lastBusyClaim.get(wf) === busyToken);
   if (lastBusyClaim.get(wf) !== (foldClaim ?? busyToken)) return 'stale';
@@ -1576,6 +1581,8 @@ export async function handleUserMessage(
   const memberClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
   const chatMode = isChatWorkflow(wf.config);
   const incognito = chatMode && wf.config.incognito === true;
+  const trackOllama = wf.primary.provider === 'ollama' && !chatMode;
+  if (trackOllama && !clientMessageId) clientMessageId = randomUUID();
   // Chat tabs expose no project tools; web_search/web_fetch is the one
   // exception the operator can arm (default on for a saved Chat). Computed per
   // turn so the header toggle takes effect on the next message, and passed
@@ -1701,7 +1708,8 @@ export async function handleUserMessage(
       content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
     });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
-    arr.push({ content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ...(interrupt ? { interrupt: true } : {}) });
+    const queuedItem = { content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    arr.push(queuedItem);
     send(ws, {
       type: 'user_message_echo',
       workflowId,
@@ -1710,7 +1718,9 @@ export async function handleUserMessage(
       clientMessageId,
       timestamp: Date.now(),
       kind: interrupt ? 'interrupt' : bucket,
+      ...(trackOllama ? { ollamaReplayInput: true } : {}),
     });
+    if (trackOllama) queuedItem.ollamaInputSeq = currentWorkflowSeq(cwd, workflowId);
     broadcastQueueUpdate(workflowId);
     if (interrupt) {
       disarmGoalRun(workflowId, wf, 'the operator interrupted with a new instruction');
@@ -1770,6 +1780,7 @@ export async function handleUserMessage(
   // Drain path: splice the queue in the same synchronous span as the busy
   // claim below, so nothing can slip in between the idle check and the take.
   let initialInterrupt = false;
+  let activeOllamaInputSeqs: number[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
@@ -1781,6 +1792,7 @@ export async function handleUserMessage(
     if (drainedClientIds.length > 0) {
       send(ws, { type: 'queued_messages_drained', workflowId, clientMessageIds: drainedClientIds, drainedAt: Date.now() });
     }
+    activeOllamaInputSeqs = drained.every(d => d.ollamaInputSeq) ? drained.map(d => d.ollamaInputSeq!) : [];
     content = drained.map((d) => d.content).join('\n\n');
     const mergedAttachments = drained.flatMap((d) => d.attachments ?? []);
     attachments = mergedAttachments.length > 0 ? mergedAttachments : undefined;
@@ -1843,6 +1855,7 @@ export async function handleUserMessage(
     const ids = drained.flatMap((d) => d.clientMessageId ? [d.clientMessageId] : []);
     if (ids.length) send(ws, { type: 'queued_messages_drained', workflowId,
       clientMessageIds: ids, drainedAt: Date.now() });
+    activeOllamaInputSeqs = drained.every(d => d.ollamaInputSeq) ? [...(append ? activeOllamaInputSeqs : []), ...drained.map(d => d.ollamaInputSeq!)] : [];
     prompt = [...(append ? [prompt] : []), ...drained.map((d) => d.content)].join('\n\n');
     const files = [...(append ? promptAttachments ?? [] : []), ...drained.flatMap((d) => d.attachments ?? [])];
     promptAttachments = files.length ? files : undefined;
@@ -2123,7 +2136,9 @@ export async function handleUserMessage(
           attachments: promptAttachments,
           clientMessageId: promptClientMessageId,
           timestamp: Date.now(),
+          ...(trackOllama ? { ollamaReplayInput: true } : {}),
         });
+        if (!fromQueue && trackOllama) activeOllamaInputSeqs = [currentWorkflowSeq(cwd, workflowId)];
         if (chatMode && !incognito) {
           // Keep the global Past Chats list useful without rescanning a growing
           // events.jsonl for every creator render.
@@ -2177,6 +2192,7 @@ export async function handleUserMessage(
       // hallucinating about files when no tools are wired (§5.4 still
       // pending). Static text — no timestamps or random ids — so the prefix
       // cache hits cleanly across turns.
+      let ollamaReplay: import('@arco/shared').WorkerConfig['ollamaReplay'];
       let primaryAppendSystemPrompt: string | undefined;
       let primarySystemPrompt: string | undefined;
       // The current user echo was just recorded above. Stateless providers
@@ -2227,7 +2243,19 @@ export async function handleUserMessage(
           // saved offline turn can contain the old system restriction verbatim;
           // replaying that reasoning after web is armed makes local models obey
           // the stale state instead of the current system block + tools[].
-          const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: !chatMode })).trim();
+          const clusterForReplay = clusterStore.getClusterIdForWorkflow(workflowId);
+          const policy = trackOllama ? resolveAutoCompactionPolicy(wf.config.autoCompaction, clusterForReplay ? clusterStore.getAutoCompaction(clusterForReplay) : undefined) : undefined;
+          let replayEvents = events;
+          if (policy) {
+            const policyKey = JSON.stringify(policy);
+            ollamaReplay = { events, activeInputSeqs: [...activeOllamaInputSeqs], policy, stillOwner: () => {
+              const cluster = clusterStore.getClusterIdForWorkflow(workflowId);
+              const current = resolveAutoCompactionPolicy(wf.config.autoCompaction, cluster ? clusterStore.getAutoCompaction(cluster) : undefined);
+              return workflows.get(workflowId) === wf && ownsBusy(wf, busyToken) && wf.primary.provider === 'ollama' && JSON.stringify(current) === policyKey;
+            } };
+            replayEvents = projectOllamaHistory(events, workflowId, activeOllamaInputSeqs).events;
+          }
+          const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode })).trim();
           if (rendered) primaryAppendSystemPrompt = rendered;
         } catch (err) {
           console.error(`[arco] [${workflowId.slice(0, 8)}] ollama transcript build failed:`, err);
@@ -2707,12 +2735,14 @@ export async function handleUserMessage(
       }
 
       const policyTurnProvider = wf.primary.provider;
+      const ollamaExecutionId = trackOllama ? randomUUID() : undefined;
+      const executionInputSeqs = [...activeOllamaInputSeqs];
       const turn = runPrimaryTurn(
         {
           workflowId,
           cwd,
           manager: wf.manager,
-          broadcast: (msg) => send(ws, msg),
+          broadcast: (msg) => send(ws, ollamaExecutionId ? stampOllamaExecution(msg, ollamaExecutionId, executionInputSeqs) : msg),
           bgTracker: chatMode ? undefined : wf.bgTracker,
           notePotentialDevServerStart: chatMode ? undefined : (cmd, toolUseId) => deps.previewAutoDetect.notePotentialDevServerStart(workflowId, cmd, toolUseId),
           noteAgentText: chatMode ? undefined : (text) => deps.previewAutoDetect.noteAgentText(workflowId, text),
@@ -2776,6 +2806,7 @@ export async function handleUserMessage(
           mcpRegistryServers: turnRegistryServers,
           mcpDisallowedTools: turnMcpDisallowedTools,
           ollamaParams,
+          ollamaReplay,
           // Per-tab Claude Native web budget (Anthropic server-tool max_uses).
           // Native-only; the worker falls back to the server default when unset.
           webSearchMaxUses: wf.config.webSearchMaxUses,

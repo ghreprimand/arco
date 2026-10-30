@@ -153,6 +153,8 @@ export interface WorkflowCreatedMessage {
 // seq-stamped and appended to events.jsonl. Makes user prompts durable on
 // reconnect / replay.
 export interface UserMessageEchoMessage {
+  // Server-owned input identity is this echo's stamped workflow sequence.
+  ollamaReplayInput?: boolean;
   type: 'user_message_echo';
   workflowId: string;
   content: string;
@@ -166,6 +168,7 @@ export interface UserMessageEchoMessage {
 }
 
 export interface PrimaryTextMessage {
+  ollamaExecutionId?: string;
   type: 'primary_text';
   workflowId: string;
   text: string;
@@ -173,6 +176,7 @@ export interface PrimaryTextMessage {
 }
 
 export interface PrimaryCompleteMessage {
+  ollamaExecutionId?: string;
   type: 'primary_complete';
   workflowId: string;
   phase: PrimaryPhase;
@@ -667,6 +671,7 @@ export interface PrimaryModelMessage {
 // as multiple messages for one reasoning block). Drives the ACTIVITY tab
 // "Thinking" pill.
 export interface PrimaryThinkingMessage {
+  ollamaExecutionId?: string;
   type: 'primary_thinking';
   workflowId: string;
   text: string;
@@ -676,6 +681,7 @@ export interface PrimaryThinkingMessage {
 // render an abbreviated summary (e.g. "Read server/src/index.ts",
 // "Grep primary_thinking"). One event per tool call.
 export interface PrimaryToolUseMessage {
+  ollamaExecutionId?: string;
   type: 'primary_tool_use';
   workflowId: string;
   tool: string;
@@ -710,12 +716,15 @@ export interface PrimaryActivityMessage {
 // runPrimaryTurn. Client uses this to drive the composer status indicator
 // (animated verb + elapsed timer) instead of inferring from streaming text.
 export interface PrimaryTurnStartedMessage {
+  ollamaInputSeqs?: number[];
+  ollamaExecutionId?: string;
   type: 'primary_turn_started';
   workflowId: string;
   startedAt: number;
 }
 
 export interface PrimaryTurnEndedMessage {
+  ollamaExecutionId?: string;
   type: 'primary_turn_ended';
   workflowId: string;
   endedAt: number;

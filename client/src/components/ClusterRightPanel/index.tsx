@@ -315,7 +315,7 @@ export function ClusterRightPanel({ cluster, onFocusMember, onRename, onAddFresh
             </>
           )}
           {onSetAutoCompaction && (
-            <label title="Applied separately to inheriting members on Claude Native or Codex app-server. Other transports cannot use the policy.">Auto-compaction: <select aria-label="Cluster auto-compaction" value={cluster.autoCompaction ? (cluster.autoCompaction.enabled ? 'on' : 'off') : 'legacy'} onChange={(e) => onSetAutoCompaction(cluster.clusterId, e.target.value === 'legacy' ? null : { enabled: e.target.value === 'on', thresholdPercent: cluster.autoCompaction?.thresholdPercent ?? 80 })}>
+            <label title="Applied separately to inheriting members on Claude Native, Codex app-server or Ollama. Other transports cannot use the policy.">Auto-compaction: <select aria-label="Cluster auto-compaction" value={cluster.autoCompaction ? (cluster.autoCompaction.enabled ? 'on' : 'off') : 'legacy'} onChange={(e) => onSetAutoCompaction(cluster.clusterId, e.target.value === 'legacy' ? null : { enabled: e.target.value === 'on', thresholdPercent: cluster.autoCompaction?.thresholdPercent ?? 80 })}>
               <option value="legacy">Legacy behavior</option><option value="off">Off</option><option value="on">On</option>
             </select>{cluster.autoCompaction && <input aria-label="Cluster auto-compaction threshold percent" type="range" min={50} max={95} value={cluster.autoCompaction.thresholdPercent} onChange={(e) => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 50 && n <= 95) onSetAutoCompaction(cluster.clusterId, { ...cluster.autoCompaction!, thresholdPercent: n }); }} />} {cluster.autoCompaction && `${cluster.autoCompaction.thresholdPercent}%`} </label>
           )}

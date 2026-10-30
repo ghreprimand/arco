@@ -233,6 +233,7 @@ export class WorkerManager {
       // through the typed allowlist by the Ollama provider; other providers
       // ignore it.
       ollamaParams?: WorkerConfig['ollamaParams'];
+      ollamaReplay?: WorkerConfig['ollamaReplay'];
       // docs/PROVIDERS.md - Ollama top-level `format` (structured
       // output). Set by structured primitives (Review verdict) so the Ollama
       // model is grammar-constrained to a JSON schema. Other providers ignore
@@ -301,6 +302,7 @@ export class WorkerManager {
       mcpRegistryServers: options?.mcpRegistryServers,
       webSearchMaxUses: options?.webSearchMaxUses,
       ollamaParams: options?.ollamaParams,
+      ollamaReplay: options?.ollamaReplay,
       ollamaFormat: options?.ollamaFormat,
     };
 

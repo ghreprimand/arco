@@ -1,3 +1,4 @@
+import { compactDurableOllama } from './ollamaDurableCompaction.js';
 import { parseComputerHistory } from '../voice/history.js';
 import { computerToolDefinitions, executeComputerTool } from '../voice/toolDefinitions.js';
 import { EventEmitter } from 'events';
@@ -1678,7 +1679,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     const config = resolveCompactionConfig(overlay);
     // A forced compaction still runs even when auto-compaction is disabled — the
     // operator asked for it explicitly. Auto-only runs gate on `enabled`.
-    if (!config.enabled && !forced) return;
+    if (!forced && this.config.ollamaReplay && !this.config.ollamaReplay.policy.enabled) return;
+    if (!config.enabled && !forced && !this.config.ollamaReplay?.policy.enabled) return;
 
     // M5 scoping — a one-shot structured primitive (Review verdict, etc.) sets
     // ollamaFormat; a no-cwd one-shot has no tools. Both are single short calls
@@ -1712,7 +1714,15 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     // after the clamp, else Modelfile) — not the Modelfile value alone, which
     // over-states the room when the operator set a smaller num_ctx.
     const window = effectiveNumCtx(this.config.ollamaParams, showMeta);
-
+    if (!forced && this.config.ollamaReplay && this.config.workflowId) {
+      await compactDurableOllama({ messages: messages as CompactMessage[], context: this.config.ollamaReplay,
+        cwd: this.config.cwd, workflowId: this.config.workflowId, config, window,
+        parse: (text) => parseRenderedTranscript(text) as CompactMessage[],
+        estimate: (stack) => estimatePromptTokens({ messages: stack as OllamaChatMessage[], tools }),
+        summarize: (older) => this.produceCompactionSummary(older, config),
+        emit: (notice) => this.emit('system_notice', notice), signal: this.abortController?.signal });
+      return;
+    }
     const estTokens = estimatePromptTokens({ messages, tools });
 
     // WP3 — the forced (manual-button) path bypasses BOTH gates below: the

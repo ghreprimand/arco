@@ -202,6 +202,7 @@ export function runPrimaryTurn(
     // Additional stable context for the selected transport. Local providers
     // can also use this field to carry the rendered workflow transcript.
     appendSystemPrompt?: string;
+    ollamaReplay?: WorkerConfig['ollamaReplay'];
     // Provider-side system prompt. Today only the Ollama path consumes it
     // (sets behavior + tool-availability framing for local models). Pass
     // byte-stable text — anything dynamic invalidates the prefix cache.
@@ -428,6 +429,7 @@ export function runPrimaryTurn(
     mcpRegistryServers,
     mcpDisallowedTools,
     ollamaParams,
+    ollamaReplay: args.ollamaReplay,
     webSearchMaxUses,
   };
   if (primary.provider === 'claude' && !incognito) {
