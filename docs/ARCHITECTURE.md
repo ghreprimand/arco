@@ -776,7 +776,7 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 - `DETACH` button per member (wires `cluster_member_remove`; same wire as the bottom-row ×).
 - `RENAME` + per-member `ROLE` pencil edits.
 - Sticky broadcast composer fans out via `cluster_broadcast` - idle members start a fresh turn now, busy members enqueue as follow-up.
-- `NUDGES` chip in the header toggles the operator-armed idle nudger.
+- `MAIL ALERTS` chip in the header toggles the operator-armed idle nudger.
 
 **Board overhaul (client-only).** New clusters default-attach a **project board** (cluster meta `taskBoardMode: 'project'`; modes `none` / `project` / `cluster`; `cluster_task_board_attach_set` / `cluster_task_board_mode_set` WS msgs; `cluster_state` carries `taskBoardMode` / `taskBoardKey` / `taskBoardAttached`). The BOARD tab (`ClusterTaskBoardTab.tsx`) renders the cwd task ledger as horizontal kanban columns by status, with dnd-kit drag-to-restatus (4 px activation; touch-drag via TouchSensor; `done` / `archived` moves confirm), a create-task composer (always `todo`), and an editable card drawer (title / notes / priority / deps / delete). A plan->task bridge (`PlanBodyRenderer` onPromoteTask "-> TASK") and a peer->task bridge (`MailboxModal` onMakeTask, board-attached clusters only) seed tasks; a delivered peer message in the transcript can be promoted to a board task. The dispatcher, swarm, and orchestration-assist controls collapse under a closed AUTOMATION header. See [task ledger](TASK_LEDGER.md) for task behavior and [cluster protocol](PROTOCOL_CLUSTER.md) for the message flow.
 

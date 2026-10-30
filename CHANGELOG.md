@@ -15,6 +15,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Show pending peer-mail counts on cluster member cards and the NUDGE control; label operator-only notifications MAIL ALERTS.
+
 - Ollama worker and cluster auto-compaction policies now reuse durable summaries of verified completed turns while preserving queued input and original events.
 
 - Show a qualified GPU-use hint for Phosphor effects in recognized non-Chromium browsers.

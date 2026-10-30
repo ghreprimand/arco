@@ -215,7 +215,7 @@ export const clusters: Section[] = [
           </li>
           <li>
             <strong>Friendly name</strong> in bold (operator-set rename, or
-            <Code>wfid</Code> prefix as fallback) plus IDLE/BUSY tag.
+            <Code>wfid</Code> prefix as fallback) plus IDLE/BUSY tag. A <Code>NUDGE N</Code> badge shows the number of pending messages without sending a nudge.
           </li>
           <li>
             <strong>Second line</strong> — 8-char workflowId prefix and, if
@@ -777,11 +777,11 @@ export const clusters: Section[] = [
   {
     id: 'cluster-nudger',
     group: 'Clusters',
-    title: 'The idle nudger',
+    title: 'MAIL ALERTS',
     body: (
       <>
         <p>
-          An operator-armed (default <strong>OFF</strong>) per-cluster toggle
+          MAIL ALERTS is an operator-armed (default <strong>OFF</strong>) per-cluster toggle
           in the right panel. The chip at the top of the cluster right panel
           shows the armed state at all times — there is no invisible
           configuration.
@@ -811,7 +811,7 @@ export const clusters: Section[] = [
       <>
         <p>
           A second operator-armed (default <strong>OFF</strong>) per-cluster
-          toggle in the right panel, next to the NUDGES chip. <strong>Unlike
+          toggle in the right panel, next to the MAIL ALERTS chip. <strong>Unlike
           the idle nudger</strong>, AUTO-PICKUP actually <em>dispatches
           turns</em>: when ON, a <Code>peer_message_sent</Code> arriving at
           a currently-idle recipient fires a single primary turn on the
@@ -874,7 +874,7 @@ export const clusters: Section[] = [
     body: (
       <>
         <p>
-          Sits next to BROADCAST in the cluster composer. Use it when
+          Sits next to BROADCAST in the cluster composer and shows the total pending mail for current members. Use it when
           members already have work waiting in their mailboxes (e.g. a
           director hand-distributed via <Code>peer_send</Code>) and you
           just want them to wake up and process it — no typed prompt

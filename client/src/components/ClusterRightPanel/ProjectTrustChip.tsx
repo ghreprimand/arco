@@ -1,5 +1,5 @@
 // DD7 — cluster-scoped project-trust chip. Lives in the header chip bar next to
-// NUDGES / AUTO-PICKUP / EFFICIENCY.
+// MAIL ALERTS / AUTO-PICKUP / EFFICIENCY.
 //
 // A cluster pins all its members to one cwd, so trust is a cluster-wide fact —
 // but the gate's one-shot prompt renders in a member tab's composer, and the

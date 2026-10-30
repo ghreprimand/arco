@@ -175,7 +175,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>
           One cluster member at a glance: status dot, friendly name, IDLE/BUSY
-          tag, wfid prefix, optional role chip, and the latest assistant text
+          tag, wfid prefix, optional role chip, pending-mail count, and the latest assistant text
           (or live activity while busy). Click to focus.
         </p>
       </>
@@ -212,7 +212,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Opens the NUDGE modal — a per-member checkbox list with each
+          Pending mail is shown on member cards and the NUDGE button. Opens the NUDGE modal — a per-member checkbox list with each
           member&apos;s role chip, mailbox depth (e.g. <C>3 MAIL</C>),
           and a BUSY badge when applicable. Default selection is{' '}
           <strong>empty</strong>; you pick recipients explicitly. SEND
@@ -1293,11 +1293,11 @@ export const clusterHelp: Record<string, HelpEntry> = {
     manualSection: 'cluster-activity',
   },
   'cluster.nudger': {
-    title: 'Idle nudger',
+    title: 'MAIL ALERTS',
     body: (
       <>
         <p>
-          Operator-armed (default OFF). Toasts when a member has been idle
+          MAIL ALERTS is operator-armed (default OFF). It alerts the operator when a member has been idle
           ≥10s with ≥1 pending peer message. Capped at 3 toasts per operator
           turn per member.
         </p>

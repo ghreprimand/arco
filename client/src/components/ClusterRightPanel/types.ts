@@ -133,7 +133,7 @@ export interface Props {
   // invisible (autonomy-test answer #4: reversibility surfaced).
   onToggleIdleNudger?: (clusterId: string, enabled: boolean) => void;
   // Phase 5b — operator-armed auto-turn-on-mailbox toggle. Same visibility
-  // requirement as nudges; sits next to the NUDGES chip in the header.
+  // requirement as nudges; sits next to the MAIL ALERTS chip in the header.
   onToggleAutoTurn?: (clusterId: string, enabled: boolean) => void;
   // Explicitly choose whether this cluster uses no board, the cwd project
   // board, or its own fresh cluster board.
@@ -141,7 +141,7 @@ export interface Props {
   // Back-compat project attach/detach callback. New UI uses mode.
   onSetTaskBoardAttached?: (clusterId: string, attached: boolean) => void;
   // 2026-06-15 — operator set the cluster's efficiency level (+ optional
-  // doctrine addendum). Sits in the header chip bar next to NUDGES. Drives
+  // doctrine addendum). Sits in the header chip bar next to MAIL ALERTS. Drives
   // the doctrine block, peer-send budget, and mailbox-notice variant.
   // `addendum === undefined` keeps the current note; '' clears it.
   onSetAutoCompaction?: (clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => void;

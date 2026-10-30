@@ -50,7 +50,9 @@ mailbox only). Isolated workers can return bounded scratch artifacts through
 
 **Sub-tabs in the right panel.** MEMBERS (roster + Detach + role hints) / ACTIVITY (unified feed) / REVIEWS (aggregated reviewer queue) / HANDOFFS / PLAN (shared markdown) / **BOARD** (kanban task board) / MAILBOX (live pending depth) - plus FILES / HISTORY / PREVIEW / CONFIG / GITHUB mirrors so routine work doesn't leave the cluster tab.
 
-**Operator-armed idle nudger.** Default OFF; the NUDGES chip arms it. When ON, the server alerts the *operator* (toast + ACTIVITY row) if a member is idle >=10s with pending mail - capped at 3 nudges per operator turn, suppressed during busy state. It NEVER sends prompts to workers.
+**Pending mail.** Member cards show `NUDGE N` when messages are waiting. The cluster NUDGE button shows the total and opens an empty recipient picker; only an explicit selection and send starts a reminder.
+
+**Operator-armed idle nudger.** Default OFF; the MAIL ALERTS chip arms it. When ON, the server alerts the *operator* (toast + ACTIVITY row) if a member is idle >=10s with pending mail - capped at 3 nudges per operator turn, suppressed during busy state. It NEVER sends prompts to workers.
 
 **Operator-armed auto-turn.** Default OFF (per-cluster toggle). When ON, the server dispatches a synthetic primary turn on a recipient that has pending mail - fenced by a cooldown (default 20s/recipient), a rate cap (default 10 fires/60s/cluster), and a chain-depth cap (default 3), all env-overridable. Every fire and every guard refusal lands in `events.jsonl` as `cluster_auto_turn_fired`. Toggling OFF stops further fires; the in-flight turn finishes normally.
 

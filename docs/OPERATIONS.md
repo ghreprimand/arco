@@ -705,7 +705,7 @@ Clusters don't have their own boot sequence  - they're recovered alongside regul
 - No explicit mailbox cleanup happens on shutdown; operators can manually remove `~/.arco/clusters/<clusterId>/mailbox/` if they want a clean slate.
 
 **Idle nudger (default OFF):**
-The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the Arco UI when a cluster member has been idle longer than the configured floor (default 10s, test override via `ARCO_CLUSTER_IDLE_FLOOR_SECONDS`). It is **operator-armed per cluster** in the NUDGES toggle and is **toast-only**  - it never sends a prompt to any worker automatically. The toggle survives server restarts because the armed state is part of the cluster record.
+The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the Arco UI when a cluster member has been idle longer than the configured floor (default 10s, test override via `ARCO_CLUSTER_IDLE_FLOOR_SECONDS`). It is **operator-armed per cluster** in the MAIL ALERTS toggle and is **toast-only**  - it never sends a prompt to any worker automatically. The toggle survives server restarts because the armed state is part of the cluster record.
 
 **AUTO-PICKUP** (distinct from nudger) is also operator-armed per cluster (OFF by default). When ON, a `peer_message_sent` event that arrives while the recipient is idle fires a synthetic turn on the recipient. Guards: 20s cooldown per recipient, 10/min rate cap per cluster, max chain depth 3. Chain depth resets on `primary_turn_ended`. Env overrides: `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS`, `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE`, `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH`.
 

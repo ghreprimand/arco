@@ -22,6 +22,7 @@ interface Props {
   // any other non-empty value falls back to "CUSTOM" so the chip never blows
   // out the card width. Empty / missing → no chip at all.
   role?: string;
+  pendingMail?: number;
   focused: boolean;
   onClick: () => void;
   // 2026-07-17 — drag-to-reorder: the ClusterTab grid wires HTML5 drag
@@ -55,7 +56,7 @@ function activitySummary(job: JobState | undefined): string {
   return 'running…';
 }
 
-export function MemberCard({ job, displayName, status, role, focused, onClick, dragProps, dragOver }: Props) {
+export function MemberCard({ job, displayName, status, role, pendingMail = 0, focused, onClick, dragProps, dragOver }: Props) {
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';
@@ -142,14 +143,20 @@ export function MemberCard({ job, displayName, status, role, focused, onClick, d
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            flex: 1,
+            flex: '0 1 auto',
             minWidth: 0,
           }}
           title={displayName}
         >
           {displayName.toUpperCase()}
         </span>
-        <span style={{ color: busy ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', fontSize: '10px', flexShrink: 0 }}>
+        {pendingMail > 0 && <span
+          role="status" aria-live="off"
+          aria-label={`${pendingMail} pending ${pendingMail === 1 ? 'message' : 'messages'}; informational`}
+          title={`${pendingMail} pending ${pendingMail === 1 ? 'message' : 'messages'}`}
+          style={{ flexShrink: 0, color: 'var(--color-accent-secondary)', border: '1px solid var(--color-accent-secondary)', background: 'var(--color-accent-primary-a06)', padding: '1px 3px', fontSize: '9px', letterSpacing: 0, whiteSpace: 'nowrap' }}
+        >NUDGE {pendingMail}</span>}
+        <span style={{ marginLeft: 'auto', color: busy ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', fontSize: '10px', flexShrink: 0 }}>
           {status.toUpperCase()}
         </span>
       </div>

@@ -244,10 +244,12 @@ export function ClusterRightPanel({ cluster, onFocusMember, onRename, onAddFresh
             data-help="cluster.nudger"
             style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }}
           >
-            NUDGES
+            MAIL ALERTS
           </span>
           <button
             onClick={() => onToggleIdleNudger(cluster.clusterId, !cluster.idleNudgerEnabled)}
+            aria-label={`Mail alerts ${cluster.idleNudgerEnabled ? 'enabled' : 'off'}`}
+            aria-pressed={!!cluster.idleNudgerEnabled}
             data-help="cluster.nudger"
             className="display-font"
             style={{
@@ -266,14 +268,14 @@ export function ClusterRightPanel({ cluster, onFocusMember, onRename, onAddFresh
               letterSpacing: '1px',
             }}
             title={cluster.idleNudgerEnabled
-              ? 'Server will toast when a member is idle ≥ 10s with pending peer mail (cap 3 / turn)'
-              : 'Off — no nudges fire. Click to arm.'}
+              ? 'Alerts the operator when an idle worker has pending mail. Does not start worker turns. Click to turn off.'
+              : 'Mail alerts are off. Enable operator alerts for idle workers with pending mail. Does not start worker turns.'}
           >
             {cluster.idleNudgerEnabled ? 'ENABLED' : 'OFF'}
           </button>
           </>
           )}
-          {/* Phase 5b — auto-turn-on-mailbox toggle. Sits next to NUDGES with
+          {/* Phase 5b — auto-turn-on-mailbox toggle. Sits next to MAIL ALERTS with
               the same pill style so the operator sees both arming surfaces at
               once. Unlike nudges (toast-only), this one DOES send synthetic
               turns to recipients — the three guards (cooldown / rate cap /

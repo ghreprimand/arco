@@ -1,5 +1,5 @@
 // 2026-06-15 — per-cluster efficiency selector. Lives in the ClusterRightPanel
-// header chip bar next to NUDGES / AUTO-PICKUP. One operator-set knob with
+// header chip bar next to MAIL ALERTS / AUTO-PICKUP. One operator-set knob with
 // three levels (thorough / balanced / lean) that dials how thorough vs. lean
 // the whole cluster behaves: chunk size, cross-review restraint, peer-message
 // chattiness. The server (clusterEfficiency.ts) owns the deterministic bundle;

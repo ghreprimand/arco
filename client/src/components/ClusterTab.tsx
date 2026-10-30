@@ -506,6 +506,16 @@ export function ClusterTab({
     );
   }
 
+  const pendingByMember = cluster.members.map((member) => {
+    const depth = cluster.mailboxDepth?.[member.workflowId];
+    return Number.isSafeInteger(depth) && depth > 0 ? depth : 0;
+  });
+  const pendingTotal = pendingByMember.reduce((sum, depth) => sum + depth, 0);
+  const pendingMembers = pendingByMember.filter((depth) => depth > 0).length;
+  const nudgeLabel = pendingTotal > 0
+    ? `NUDGE: ${pendingTotal} pending ${pendingTotal === 1 ? 'message' : 'messages'} across ${pendingMembers} ${pendingMembers === 1 ? 'member' : 'members'}`
+    : 'NUDGE: no pending messages';
+
   // Canned nudge: uses the per-member composer path so active members
   // receive steer input at their next supported delivery point.
   // Idle members start a normal turn, with the existing wake-up prompt, so
@@ -764,13 +774,14 @@ export function ClusterTab({
                       ...layoutCss,
                     }}
                   >
-                    {cluster.members.map((m) => (
+                    {cluster.members.map((m, index) => (
                       <MemberCard
                         key={m.workflowId}
                         job={jobs[m.workflowId]}
                         displayName={m.displayName}
                         status={m.status}
                         role={m.role}
+                        pendingMail={pendingByMember[index]}
                         focused={focusedMemberId === m.workflowId}
                         onClick={() => setClusterFocusedMember(clusterId, m.workflowId)}
                         dragOver={dragOverId === m.workflowId && dragId !== null && dragId !== m.workflowId}
@@ -1061,20 +1072,21 @@ export function ClusterTab({
               <button
                 onClick={openNudgeModal}
                 data-help="cluster.broadcast.nudge"
+                aria-label={nudgeLabel}
                 title="Remind selected members to check their mail. Active members pick it up when able; idle members start a turn."
                 className="display-font"
                 style={{
                   padding: '2px 8px',
-                  background: 'transparent',
+                  background: pendingTotal > 0 ? 'var(--color-accent-primary-a06)' : 'transparent',
                   color: 'var(--color-accent-secondary)',
-                  border: '1px solid var(--color-accent-secondary-dim, var(--color-accent-secondary))',
+                  border: pendingTotal > 0 ? '1px solid var(--color-accent-secondary)' : '1px solid var(--color-accent-secondary-dim, var(--color-accent-secondary))',
                   cursor: 'pointer',
                   fontSize: '9px',
                   letterSpacing: '1px',
                   flexShrink: 0,
                 }}
               >
-                NUDGE
+                NUDGE{pendingTotal > 0 ? ` ${pendingTotal}` : ''}
               </button>
             </div>
           );
@@ -1213,19 +1225,20 @@ export function ClusterTab({
               <button
                 onClick={openNudgeModal}
                 data-help="cluster.broadcast.nudge"
+                aria-label={nudgeLabel}
                 title="Remind selected members to check their mail. Active members pick it up when able; idle members start a turn."
                 className="display-font"
                 style={{
                   padding: '10px 16px',
-                  background: 'transparent',
+                  background: pendingTotal > 0 ? 'var(--color-accent-primary-a06)' : 'transparent',
                   color: 'var(--color-accent-secondary)',
-                  border: '1px solid var(--color-accent-secondary-dim, var(--color-accent-secondary))',
+                  border: pendingTotal > 0 ? '1px solid var(--color-accent-secondary)' : '1px solid var(--color-accent-secondary-dim, var(--color-accent-secondary))',
                   cursor: 'pointer',
                   fontSize: '11px',
                   letterSpacing: '1px',
                 }}
               >
-                NUDGE
+                NUDGE{pendingTotal > 0 ? ` ${pendingTotal}` : ''}
               </button>
               <button
                 onClick={submitBroadcast}
