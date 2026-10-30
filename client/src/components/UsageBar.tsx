@@ -4,6 +4,7 @@ import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
 import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
+import { allowanceFreshness, allowanceSource, refreshClaudeAllowance } from '../utils/claudeAllowance';
 
 interface Props {
   usage: UsageInfo | null;
@@ -379,6 +380,15 @@ function parseCodexUsageValue(value: string): { usedPercent: number | null; rese
 // hover — same content the old boxed pill carried, now behind the compact dot.
 function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState(false);
+  const setUsage = useAppStore(s => s.setUsage);
+  const refresh = async () => {
+    setChecking(true); setCheckError(false);
+    try { const next = await refreshClaudeAllowance(true); if (next) setUsage(next); }
+    catch { setCheckError(true); }
+    finally { setChecking(false); }
+  };
   const auth = useAppStore(s => s.authStatus?.claude);
   const tabTransport = useAppStore(s => s.activeJobId ? s.jobs[s.activeJobId]?.config.claudeTransport : undefined);
   const settingTransport = useAppStore(s => s.settings?.claude?.transport);
@@ -388,7 +398,8 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   });
   const transport = selectedClaudeTransport(tabTransport, settingTransport, forceCli);
   const status = claudeAuthPresentation(auth, transport);
-  const showUsage = !!(usage && !usage.error && (usage.session || usage.weekly));
+  const showUsage = !!(usage && (!usage.error || usage.stale) && (usage.session || usage.weekly));
+  const staleSnapshot = !!(usage?.stale && (usage.session || usage.weekly));
   const sessionPct = usage?.session ? Math.round(Math.min(Math.max(usage.session.utilization, 0), 100)) : null;
   return (
     <div
@@ -396,7 +407,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
     >
       <StatusDot
         letter="C"
@@ -409,7 +420,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
           role="tooltip"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+            top: '100%',
             right: 0,
             minWidth: '340px',
             padding: '10px 14px',
@@ -424,8 +435,18 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
             <span>Native: {status.nativeText}</span>
             <span>CLI: {status.cliText}</span>
-            <span>Allowance meter: {usage?.error ? 'unavailable' : showUsage ? 'available' : 'waiting for data'}</span>
+            <span>Allowance meter: {usage?.available === false || usage?.error ? 'unavailable' : showUsage ? 'available' : 'waiting for data'}</span>
+            <span>Allowance source: {allowanceSource(usage)}</span>
+            <span>Allowance account: {usage?.identity?.state === 'verified' ? usage.identity.label ?? usage.identity.id : 'unknown'}</span>
+            <span>Allowance freshness: {allowanceFreshness(usage)}</span>
+            {usage?.checkedAt && <span>Checked: {new Date(usage.checkedAt).toLocaleString()}</span>}
+            {staleSnapshot && usage && <span>Snapshot: {new Date(usage.fetchedAt).toLocaleString()}</span>}
+            {staleSnapshot && <span>Showing an older allowance snapshot for the same credential binding.</span>}
+            {usage?.fallback && <span>Native allowance was unavailable. This snapshot uses CLI credentials and does not establish Native account identity.</span>}
             <span style={{ color: 'var(--color-fg-muted)' }}>Allowance availability is separate from execution authentication.</span>
+            {checkError && <span>Allowance check failed. The previous snapshot may be stale.</span>}
+            {usage?.error && <span>Allowance check: {usage.error}</span>}
+            <button type="button" onClick={refresh} disabled={checking}>{checking ? 'CHECKING ALLOWANCE...' : 'CHECK ALLOWANCE NOW'}</button>
           {showUsage && usage ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {usage.session && (
@@ -437,7 +458,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
             </div>
           ) : (
             <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>
-              {usage?.error ? `Allowance unavailable: ${usage.error}` : 'Waiting for allowance data...'}
+              {usage?.error ? '' : 'Waiting for allowance data...'}
             </span>
           )}
           </div>

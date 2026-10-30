@@ -7,6 +7,7 @@ import { homedir } from 'os';
 import {} from '@arco/shared';
 import type { ProviderName, AuthLoginTarget, AuthLoginResult, ClaudeCliAuthStatus, ClaudeNativeAuthStatus } from '@arco/shared';
 import { getClaudeNativeAuthStatus } from './providers/claude-native/authStatus.js';
+import { getCliUsageBinding } from './usage.js';
 import { getOllamaBase, probeOllama } from './providers/ollama.js';
 import { probeCodexLoggedIn } from './providers/codex.js';
 import { probeLlamacpp } from './providers/llamacpp.js';
@@ -119,10 +120,12 @@ export async function getClaudeAuthStatus(): Promise<AuthStatus> {
     probeClaudeAuthStatus().then(async result => result ?? await probeClaudeAuthStatus()),
     getClaudeNativeAuthStatus(),
   ]);
-  const binding = { source: 'claude-cli', storeId: 'claude-cli-default' } as const;
+  const binding = await getCliUsageBinding();
   const cli: ClaudeCliAuthStatus = status
     ? { ...status, binding, checkedAt: Date.now() }
     : { ...(lastClaudeStatus ?? { loggedIn: false, binding }), probeFailed: true, stale: !!lastClaudeStatus, error: 'claude auth status probe failed (timeout or unparseable output)' };
+  cli.binding = binding;
+  cli.bindingCheckedAt = Date.now();
   if (status) lastClaudeStatus = cli;
   const nativeAvailable = native.credentialsPresent && native.state !== 'needs-attention';
   const probeFailed = (cli.probeFailed && !nativeAvailable) || (native.probeFailed && !cli.loggedIn);

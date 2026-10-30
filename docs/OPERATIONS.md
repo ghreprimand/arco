@@ -413,6 +413,25 @@ On every stop the server logs one **shutdown forensics** line (H42, `server/src/
 
 ---
 
+## Claude allowance
+
+Hover the Claude status dot to read the allowance source, unknown or verified account state, freshness
+and check time. The current meter reports account identity as unknown. Native OAuth credentials are
+preferred; a CLI fallback is labeled explicitly and does not establish the Native account's allowance.
+Use **CHECK ALLOWANCE NOW** to request a fresh check. An unavailable meter does not invalidate
+execution credentials or change the selected workflow transport.
+
+Cached snapshots are scoped to the current Native and CLI credential revisions. Reauthentication,
+account replacement or a newly available Native grant invalidates the old selection context. A failed
+check can retain an explicitly stale snapshot for unchanged credentials; an older binding's quota
+cannot replace the current source. The popover keeps snapshot time separate from check time.
+
+Claude CLI owns its credential refresh chain. Arco reads the current access grant from
+`CLAUDE_CONFIG_DIR` or the default CLI directory and never refreshes or writes that chain for the meter.
+If CLI allowance access expires or is rejected, recover through Claude CLI or its Connections sign-in
+control, then check allowance again. CLI execution may still be available while metering is unavailable.
+Native refresh continues through Arco's existing Native credential owner and lock.
+
 ## Codex usage
 
 The Codex status dot reads ChatGPT subscription quota through the installed Codex CLI app-server. Its account selector uses the configured Codex profiles; the default is the first profile or the default CLI account. Update the CLI or connect a ChatGPT account in Connections when the read is unavailable. API-key accounts do not expose subscription quota. The usage page link opens the official dashboard. The displayed timestamp is the time the snapshot was fetched; a failed refresh can show an explicitly stale snapshot only when the account and credential file remain unchanged.

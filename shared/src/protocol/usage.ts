@@ -1,4 +1,5 @@
 // ── Token usage + provider live-status / usage shapes ──
+import type { ClaudeCredentialBinding } from './models.js';
 
 // Per-turn token accounting. Field semantics differ by provider — see
 // docs/GOTCHAS.md "Codex" + client/src/utils/format.ts:contextTokens for the
@@ -46,6 +47,15 @@ export interface UsageInfo {
   weekly: { utilization: number; resetsAt: string | null } | null;
   subscriptionType: string | null;
   fetchedAt: number;
+  checkedAt?: number;
+  available?: boolean;
+  source?: 'claude-native' | 'claude-cli' | 'unavailable';
+  binding?: ClaudeCredentialBinding;
+  credentialContext?: { native: ClaudeCredentialBinding; cli: ClaudeCredentialBinding };
+  identity?: { state: 'unknown' } | { state: 'verified'; id: string; label?: string };
+  freshness?: 'fresh' | 'cached' | 'stale' | 'unavailable';
+  stale?: boolean;
+  fallback?: boolean;
   error?: string;
 }
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { allowanceBindingChanged, invalidateClaudeAllowanceRequests } from '../utils/claudeAllowance';
 import { useDraftStore, dropDraftForJob } from './draftStore';
 import { useComputerStore } from './computerStore';
 import { persist } from 'zustand/middleware';
@@ -276,7 +277,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setCapabilities: (capabilities) => set({ capabilities }),
 
-  setUsage: (usage) => set({ usage }),
+  setUsage: (usage) => set(state => allowanceBindingChanged(usage, state.authStatus) ? {} : { usage }),
 
   setCodexUsage: (codexUsage) => set({ codexUsage }),
   setCursorUsage: (cursorUsage) => set({ cursorUsage }),
@@ -285,7 +286,12 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setAuthStatus: (authStatus) => {
     setOllamaThinkingCatalog(authStatus?.ollama?.installedModelCapabilities);
-    set({ authStatus });
+    set((state) => {
+      if (state.authStatus && JSON.stringify([state.authStatus.claude?.native?.binding, state.authStatus.claude?.cli?.binding])
+        !== JSON.stringify([authStatus.claude?.native?.binding, authStatus.claude?.cli?.binding])) invalidateClaudeAllowanceRequests();
+      const changed = allowanceBindingChanged(state.usage, authStatus);
+      return { authStatus, ...(changed ? { usage: null } : {}) };
+    });
   },
 
   setOllamaLive: (ollamaLive) => set({ ollamaLive }),

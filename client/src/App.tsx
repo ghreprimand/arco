@@ -54,6 +54,7 @@ import { installThemeScramble } from './utils/themeScramble';
 import { useAppStore } from './stores/appStore';
 import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
 import { RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
+import { refreshClaudeAllowance } from './utils/claudeAllowance';
 
 const HISTORY_RETRY_MS = 15_000;
 const USAGE_POLL_MS = 3 * 60 * 1000;
@@ -344,18 +345,18 @@ function AppBody() {
     return () => clearInterval(id);
   }, [setCursorCatalog, connected]);
 
+  const claudeCredentialKey = JSON.stringify([authStatus?.claude?.native?.binding, authStatus?.claude?.cli?.binding]);
   useEffect(() => {
     if (!connected) return;
     const load = () => {
-      fetch('/api/usage')
-        .then((r) => r.json() as Promise<UsageInfo>)
-        .then(setUsage)
+      refreshClaudeAllowance()
+        .then((usage) => { if (usage) setUsage(usage); })
         .catch(() => { /* leave previous value */ });
     };
     load();
     const id = setInterval(load, USAGE_POLL_MS);
     return () => clearInterval(id);
-  }, [setUsage, connected]);
+  }, [setUsage, connected, claudeCredentialKey]);
 
   useEffect(() => {
     if (!codexEnabled || !codexLoggedIn) {

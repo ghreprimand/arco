@@ -1523,9 +1523,10 @@ metadata; malformed or failed probes do not invent a logout verdict.
 Both records expose a non-secret `binding`: `{ source, storeId, revision? }`. `source` is
 `claude-native` or `claude-cli`; `storeId` is `claude.native` or `claude-cli-default`. Native has one
 store per Arco home, independent of profile labels. Its opaque revision changes with credential
-material; it contains no token bytes and proves no account identity. The CLI metadata probe leaves
-revision absent. These bindings identify credential sources, not allowance accounts or completed OAuth
-flows. Meter attribution and reauthentication completion remain separate contracts.
+material; it contains no token bytes and proves no account identity. CLI status also exposes the
+current allowance credential revision when its owner file is readable, with `bindingCheckedAt`
+separate from the last successful CLI login probe. These bindings identify credential sources, not
+verified allowance accounts or completed OAuth flows.
 
 `strata` has no login. Its base cascade is `settings.strata.baseUrl` ->
 `STRATA_URL_BASE` -> `http://127.0.0.1:8081/v1`; `POST /api/settings` patches
@@ -1716,7 +1717,11 @@ Cursor bakes reasoning effort into the model id (`-low`/`-high`/`-xhigh`/`-max`)
 
 ### `GET /api/usage[?force=1]`
 
-Probes Claude's 5-hour and weekly usage from the OAuth API at `https://api.anthropic.com/api/oauth/usage` (token from Claude Native's OAuth store, else `~/.claude/.credentials.json`; never written back). Cached at 2-minute TTL; `?force=1` bypasses the cache. Always 200.
+Reads Claude's 5-hour and weekly allowance from `https://api.anthropic.com/api/oauth/usage`, preferring
+Native credentials and retaining an explicitly attributed CLI fallback. Current credential revisions
+are read before cache lookup. Results have a two-minute TTL, partitioned by the actual Native and CLI
+credential context; `?force=1` bypasses cached values and joins an existing check for that context.
+The response is always 200 with `Cache-Control: no-store`; availability belongs to the result body.
 
 **Response** - `UsageInfo` (`shared/src/protocol/usage.ts`):
 ```ts
@@ -1725,11 +1730,40 @@ Probes Claude's 5-hour and weekly usage from the OAuth API at `https://api.anthr
   weekly:  { utilization: number, resetsAt: string | null } | null,
   subscriptionType: string | null,
   fetchedAt: number,
+  checkedAt?: number,              // start of the last provider check
+  available?: boolean,
+  source?: 'claude-native' | 'claude-cli' | 'unavailable',
+  binding?: ClaudeCredentialBinding,
+  credentialContext?: { native: ClaudeCredentialBinding, cli: ClaudeCredentialBinding },
+  identity?: { state: 'unknown' } | { state: 'verified', id: string, label?: string },
+  freshness?: 'fresh' | 'cached' | 'stale' | 'unavailable',
+  stale?: boolean,
+  fallback?: boolean,
   error?: string,
 }
 ```
 
-Drives the Claude usage bars exposed via the `CLAUDE [LIVE]` pill's hover popover in `UsageBar`.
+The current quota reader reports account identity as unknown. A credential revision, profile label or
+CLI login identity does not verify the allowance account. `source` and `binding` identify the credential
+used for the snapshot, while `credentialContext` records the revisions used for Native-first selection.
+Adding, removing or rotating either source invalidates that selection context. Responses are checked
+against current revisions after their bodies are parsed; an old-binding response cannot publish quota
+or overwrite the replacement context's cache. The in-memory cache holds at most sixteen contexts.
+
+A failed check may retain an explicitly stale snapshot only for the unchanged credential context.
+Its `fetchedAt` remains the previous snapshot time, `checkedAt` advances to the failed attempt, and
+`available` is false. No older account's windows are reused after credential changes. Concurrent callers
+share checks, including forced refreshes. Meter failures do not mark execution authentication failed.
+
+CLI access credentials are read fresh from the configured `CLAUDE_CONFIG_DIR` or default CLI directory.
+The meter never rotates or writes the external CLI owner's refresh chain. Expired or rejected CLI
+access requires recovery through Claude CLI. Native expiry refresh continues through its existing
+credential owner and lock; the inference worker's bounded forced-refresh behavior is unchanged.
+
+Drives the Claude dot's allowance popover in `UsageBar`, including source, account uncertainty,
+freshness, timestamps and **CHECK ALLOWANCE NOW**. Browser polling and manual checks share response
+ordering; newer auth binding observations invalidate obsolete displayed snapshots. Subscription
+allowance remains separate from request-token usage and context occupancy.
 
 ### `POST /api/debug/throttle?provider=<claude|codex|ollama>[&resets=<epochMs>][&clear=1]`
 

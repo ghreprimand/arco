@@ -1910,7 +1910,7 @@ export async function handleHttpRequest(
   if (req.url?.startsWith('/api/usage') && req.method === 'GET') {
     const force = new URL(req.url, `http://localhost:${PORT}`).searchParams.get('force') === '1';
     const usage = await getUsage(force);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(usage));
     return;
   }

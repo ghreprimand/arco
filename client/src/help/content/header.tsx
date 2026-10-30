@@ -463,6 +463,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           enabled provider is signed in. Providers disabled in Settings show no dot or popover.
         </p>
         <p>Claude shows Native credential state and CLI login separately. Stored Native credentials have unverified execution health. Allowance-meter errors describe the meter and do not invalidate execution authentication. Recovery follows the selected Claude transport.</p>
+        <p>The Claude allowance snapshot names its Native or CLI credential source, account uncertainty, freshness and check time. A CLI fallback does not establish Native account identity. CHECK ALLOWANCE NOW refreshes the meter; stale data is retained only for unchanged credentials. CLI refresh remains owned by Claude CLI.</p>
       </>
     ),
   },

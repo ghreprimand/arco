@@ -678,6 +678,7 @@ export interface ClaudeCliAuthStatus {
   stale?: boolean;
   checkedAt?: number;
   binding: ClaudeCredentialBinding;
+  bindingCheckedAt?: number;
   email?: string;
   subscriptionType?: string;
   orgName?: string;
