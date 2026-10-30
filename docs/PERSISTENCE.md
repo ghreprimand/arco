@@ -201,6 +201,8 @@ See [`PROTOCOL.md`](PROTOCOL.md) for the full breakdown. Briefly:
 
 The transient set is derived state; if the client disconnects and reconnects, the snapshot reconstructs them.
 
+**Queue replay is not queue recovery.** `user_message_echo` and `queue_update` are buffered event-log records, not an acknowledgment that the event reached durable storage. Queue items and their expanded context, attachments and picked skills live in workflow memory. A browser reconnect to the same server process can reattach to that queue; a cold server restart creates a new workflow state with an empty executable queue. Historical replay can still show a queue snapshot from before the restart. A displayed pending item therefore may not be executable, while an absent completion event does not prove that a provider or tool had no effect. See [Operations](OPERATIONS.md#recovering-a-submitted-turn) and the [WebSocket protocol](PROTOCOL.md).
+
 ### Task children (special replay rule)
 
 Task lifecycle events are persisted on the parent workflow but the **client-side `taskChildren` map is rebuilt from those events**, not loaded from disk. To make refresh-after-settle work, the server re-broadcasts `task_started` and `task_status` events on rehydrate **regardless of `clientLastSeq`** - without that, a workflow whose only Task fan-out happened pre-refresh would come up showing `0s · RUNNING` forever (the lifecycle events sit below the seq cutoff). The client's `recordTaskStarted` / `recordTaskStatus` actions are idempotent so re-broadcast is safe; the same `taskChildren` map is also added to the Zustand store's `partialize` allow-list so settled state survives reload without depending on the replay path.

@@ -170,6 +170,40 @@ Changing a shell variable does not change an already-running service. A
 release announcement is recorded in the server log, never in a workflow's
 `events.jsonl`.
 
+## Recovering a submitted turn
+
+A composer draft that was not sent over an open WebSocket stays in the browser.
+Once sent, an echo shows that the server emitted a response, not that the event
+was flushed to disk, the provider accepted the request, or the requested work
+completed. While the original server process is running, queued items are held
+in its memory. A browser reconnect to that same process can reattach to the live
+queue; a cold server restart cannot restore its executable queue. Event replay
+can still show an older pending-looking queue snapshot after restart. Do not
+treat that display as proof the item will run or that a missing item was never
+submitted.
+
+After a disconnect or restart, inspect the conversation and current project
+state before retrying. A queued item may have been removed for a turn before the
+connection failed, and absence of a completion event does not prove that a
+provider or tool had no effect. Arco does not automatically replay uncertain
+queued work. Confirm the intended action and its current state before manually
+submitting it again. Duplicate submissions are not deduplicated by their client
+message IDs.
+
+Attachments and context references in replay are the submitted references, not
+a saved copy of the expanded context. Expanded references, attachments and
+one-turn skill selections are carried by the in-memory queue item and are not
+reconstructed as executable work after a cold restart. A referenced file or
+attachment may have changed or become unavailable; review it before resubmitting.
+
+Pending approval gates can be shown again after restart, but their original
+in-process callback no longer exists. Rejecting a pending gate clears it. An
+explicit approval reissues the approved call as a new turn; it does not resume
+the old call, and the new call may require review again. Review current state
+before approving or retrying because a missing completion record cannot rule
+out earlier provider-side effects. See [Persistence](PERSISTENCE.md) and the
+[WebSocket protocol](PROTOCOL.md) for the event and queue details.
+
 ## Ports
 
 | Port | Service | Notes |

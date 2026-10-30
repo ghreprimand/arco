@@ -331,9 +331,11 @@ A user message. It may arrive while another turn is in flight; the server queues
 
 `kind` selects steering at a provider boundary, a follow-up after completion, or **interrupt and send**. For a busy Claude/Codex primary, `interrupt` cancels that worker, waits for teardown, and runs the instruction as the next turn in the same conversation. Older steers and follow-ups stay queued until the correction completes. Several interrupts awaiting cancellation are merged FIFO; attachments, context refs and picked skills follow their owning prompt. STOP still drops the queue and prevents the pending redirect. Interrupt disarms Goal Run. With no interruptible primary (another provider, Computer, compact/handoff busy holder), it visibly falls back to follow-up. Idle sends start normally. Omitted busy kinds default to follow-up for older clients.
 
+The browser submits only while the WebSocket is open. A locally retained composer draft is not a server submission. A successful local send call means the browser passed the message to `WebSocket.send`; it does not mean the server accepted, persisted, dispatched, or completed the turn. A server echo means the server emitted an echo, not that the event log has been flushed or the provider has run. Echoes are also emitted for some refused idle sends, such as a temporary external-writer block. `clientMessageId` correlates UI entries; it is not a server-side idempotency key, so repeated submissions can create multiple queue entries.
+
 ### `user_message_echo` <-
 
-Server echoes the message back, stamped with `seq` and `timestamp`. Optimistic-add path correlates by `clientMessageId`. **Persisted** - survives restart.
+Server echoes the message back, stamped with `seq` and `timestamp`. The optimistic-add path correlates by `clientMessageId`. The event is written through the normal buffered workflow event log, but the echo is not a durable-write acknowledgment: a crash or append failure can lose a recently emitted event. An echo is also not proof of provider admission or completion. See [Operations](OPERATIONS.md#recovering-a-submitted-turn) for recovery guidance.
 
 ```ts
 {
@@ -1569,7 +1571,7 @@ Persisted.
 
 ### `queue_update` <-
 
-Snapshot of the visible message queue. Arco emits on every queue mutation (enqueue, drain, cancel-one, cancel-all) so replay reconstructs the composer's queue strip on reconnect - the latest `queue_update` in events.jsonl is the authoritative state.
+Snapshot of the visible message queue. Arco emits on every queue mutation (enqueue, drain, cancel-one, cancel-all). Replay can reconstruct the queue strip from the latest `queue_update`, but it is a historical projection, not a durable executable queue. A browser reconnect to the same server process attaches to the existing in-memory workflow. After a cold server restart, the workflow is rehydrated with an empty executable queue; replay can still display an older queue snapshot as pending-looking work. Do not infer that displayed entries will run or that absent entries were never submitted.
 
 ```ts
 {
@@ -1580,9 +1582,15 @@ Snapshot of the visible message queue. Arco emits on every queue mutation (enque
 }
 ```
 
-`clientMessageId` survives in the snapshot so the queue-strip `[×]` button can target individual items by stable id after a reload (the optimistic chat message that originally minted the id may have been pruned by the client's 30 s `onRehydrateStorage` rule).
+`clientMessageId` survives in the snapshot so the queue-strip `[×]` button can target individual items by id after a reload (the optimistic chat message that originally minted the id may have been pruned by the client's 30 s `onRehydrateStorage` rule). IDs correlate entries; duplicate submissions are not deduplicated. After a cold restart, an old displayed ID may no longer refer to an executable item.
 
-Steering hooks deliver at supported provider boundaries; follow-ups wait for completion. `interrupt:true` entries live in `steering` for backward-compatible queue snapshots but are excluded from provider steer drains. `takeQueuedTurn` selects pending interrupts first as their own turn, then merges the remaining steering and follow-up buckets. User echoes, queue snapshots and interruption notices persist through the normal workflow broadcast path (memory-only for Incognito).
+Steering hooks deliver at supported provider boundaries; follow-ups wait for completion. `interrupt:true` entries live in `steering` for backward-compatible queue snapshots but are excluded from provider steer drains. `takeQueuedTurn` selects pending interrupts first as their own turn, then merges the remaining steering and follow-up buckets. Queue entries, including their attachments, expanded context and picked skills, are held in workflow memory. The replayed echo and queue snapshot do not reconstruct that executable payload after a cold restart. Echoes, queue snapshots and interruption notices are written through the buffered workflow event path (memory-only for Incognito); they do not provide a durable queue or exactly-once delivery guarantee.
+
+`queued_messages_drained` reports that queued input was removed from the in-memory queue for a turn. It does not confirm that a provider accepted the request or that any requested effects completed. A cancel request only removes a matching item that is still queued; after dequeue it cannot retract the turn. STOP clears queued interjections and stops active work, but cannot undo effects already performed by a provider or tool.
+
+The echo contains the raw message text and attachment references, not the server-expanded context-ref contents or one-turn skill selections. Those expanded values are carried by the in-memory queue item. After a cold restart, replay may show a raw reference or attachment reference without restoring the expanded contents or file availability. Review the prompt and current files before submitting a replacement.
+
+Pending approval gates are a separate durable record. After restart an orphaned approval cannot resume its old in-process callback. An explicit approval reissues the approved call as a new turn; rejection clears the pending gate. The reissued call can require review again, and a missing completion event cannot establish whether an earlier provider-side effect occurred. See [Operations](OPERATIONS.md#recovering-a-submitted-turn) before retrying uncertain work.
 
 Persisted.
 

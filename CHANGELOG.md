@@ -19,6 +19,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Clarify message submission, queue replay, and approval behavior across browser reconnects and server restarts, with operator review guidance for uncertain work.
+
 - Show pending peer-mail counts on cluster member cards and the NUDGE control; label operator-only notifications MAIL ALERTS.
 
 - Ollama worker and cluster auto-compaction policies now reuse durable summaries of verified completed turns while preserving queued input and original events.
