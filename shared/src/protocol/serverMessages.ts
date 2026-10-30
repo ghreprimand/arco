@@ -13,7 +13,7 @@ import type {
 } from './bakeoffs.js';
 import type { PrimaryPhase, ProviderName } from './providers.js';
 import type { GenerationSpeed, TokenUsage } from './usage.js';
-import type { Capabilities, CliChangeEntry } from './models.js';
+import type { AuthRecoveryContext, Capabilities, CliChangeEntry } from './models.js';
 import type { ChatMessage } from './chat.js';
 import type { WorkflowConfig, WorkflowSessionMetadata, WorkspaceSnapshotPayload } from './workflows.js';
 import type { PermissionDenial, PrimaryBackgroundJob, WorkerState } from './workers.js';
@@ -836,6 +836,7 @@ export interface WorkerErrorMessage {
 // overloaded — CLI is continuing"), retry backoff notifications, and anything
 // else the provider needs to tell the operator during a turn.
 export interface WorkerSystemNoticeMessage {
+  authRecovery?: AuthRecoveryContext;
   type: 'worker_system_notice';
   workflowId: string;
   workerId: string;
@@ -1029,6 +1030,7 @@ export interface QueuedMessagesDrainedMessage {
 // (context warnings, auto-handoff status). Persisted to events.jsonl so
 // the notice appears on replay/resume.
 export interface SystemNoticeMessage {
+  authRecovery?: AuthRecoveryContext;
   type: 'system_notice';
   workflowId: string;
   content: string;

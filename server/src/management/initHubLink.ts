@@ -775,13 +775,14 @@ async function applyInstanceAction(
         ok: true,
         authorizationUrl: r.authorizationUrl,
         manualFallback: r.manualFallback,
+        flow: r.flow,
       };
     }
     case 'complete_reauth': {
       try {
-        await claudeNativeCompleteBootstrap(action.url);
+        const completed = await claudeNativeCompleteBootstrap(action.url, action.flowId);
         console.log('[hub-link] remote re-auth completed (phone console)');
-        return { ...base, ok: true };
+        return { ...base, ok: true, flow: completed.flow };
       } catch (err) {
         return { ...base, ok: false, error: err instanceof Error ? err.message : String(err) };
       }

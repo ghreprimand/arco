@@ -1,5 +1,5 @@
 import type { EventEmitter } from 'events';
-import type { GenerationSpeed, WorkerConfig } from '@arco/shared';
+import type { AuthRecoveryContext, GenerationSpeed, WorkerConfig } from '@arco/shared';
 
 // Events a provider process emits. Matches the shape our StreamParser and
 // WorkerManager already expect — so swapping providers is invisible upstream.
@@ -45,7 +45,7 @@ export interface ProviderEvents {
   // Not part of the assistant text stream — WorkerManager wraps this in a
   // `worker_system_notice` event that seedWorker translates into a chat-level
   // `system_notice` broadcast.
-  system_notice: (notice: string) => void;
+  system_notice: (notice: string, authRecovery?: AuthRecoveryContext) => void;
 }
 
 export interface ProviderProcess extends EventEmitter {

@@ -1577,7 +1577,10 @@ Local expiry metadata is not verified execution health. This GET never starts si
 
 ### `POST /api/auth/claude-native/login`
 
-Start the PKCE bootstrap. Server returns the URL the operator should open in a browser.
+Start the existing PKCE bootstrap. The optional body is
+`{ binding?: ClaudeCredentialBinding, workflowId?: string }`. A changed expected Native binding
+refuses a stale recovery action. The returned URL opens the provider's consent/MFA/account flow.
+One pending flow serves the single Native store; a new start supersedes the previous flow.
 
 **Response** - `BootstrapStartResult` (`claude-native/oauth.ts`):
 ```ts
@@ -1586,8 +1589,23 @@ Start the PKCE bootstrap. Server returns the URL the operator should open in a b
   state: string,
   manualFallback: boolean,         // true when the local callback can't bind; operator pastes the redirect URL into /callback
   manualReason?: string,
+  flow: ClaudeNativeAuthFlow,       // opaque id, status, bindingBefore, optional workflowId
 }
 ```
+
+### `GET /api/auth/claude-native/flow?id=<flowId>`
+
+Returns `{ flow: ClaudeNativeAuthFlow }` or HTTP 404 after restart, eviction or an unknown id.
+The id is independent of the OAuth state/verifier. Metadata contains `startedAt`, `expiresAt`,
+`bindingBefore`, optional `workflowId`, and the resulting `binding` only after successful completion.
+Statuses are `pending`, `exchanging`, `complete`, `cancelled`, `expired`, `superseded` and `failed`.
+Pending flows expire after ten minutes; at most 32 in-memory records are retained. No provider call
+is made by a status read, and responses use `Cache-Control: no-store`.
+
+### `DELETE /api/auth/claude-native/flow?id=<flowId>`
+
+Cancel that pending/exchanging flow only. Returns its `{ flow }` metadata; terminal flows remain
+terminal. A late exchange cannot persist credentials after cancellation or supersession.
 
 ### `POST /api/auth/claude-native/callback`
 
@@ -1595,14 +1613,19 @@ Complete the OAuth bootstrap. In the paste-fallback flow the operator submits th
 
 **Body:**
 ```ts
-{ url: string }     // the full redirect URL, query string included
+{ url: string; flowId?: string } // full redirected localhost callback URL, query string included
 ```
 
-**Response:** `{ ok: true }` on success; `{ error: <message> }` with HTTP 400 on validation failure.
+**Response:** `{ ok: true, flow: ClaudeNativeAuthFlow }` on success; `{ error: <message> }`
+with HTTP 400 on validation failure. Omitting `flowId` preserves existing management/manual callers;
+the callback state still must match the pending flow. Local listener and manual paste use the same
+single exchange and guarded credential commit. Duplicate concurrent callbacks share one exchange;
+a finished or obsolete callback cannot resolve another flow. Completion verifies the new grant,
+not a successful workflow execution. The existing Native credential-owner lock also protects commit.
 
 ### `POST /api/auth/claude-native/logout`
 
-Clears the persisted tokens. **Response:** `{ ok: true }`.
+Cancels the pending Native bootstrap and clears the persisted tokens. **Response:** `{ ok: true }`.
 
 ### `POST /api/auth/claude-native/probe`
 

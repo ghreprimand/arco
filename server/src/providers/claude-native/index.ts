@@ -12,7 +12,7 @@
 // handoff transcript.
 
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus, ServerMessage } from '@arco/shared';
+import type { AuthRecoveryContext, WorkerConfig, WorkerStatus, ServerMessage } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { ClaudeNativeWorker, replayMessagesFromEvents, type PlanBroadcast, type TaskSpawnHandler } from './worker.js';
 import type { Todo } from './tools.js';
@@ -174,9 +174,9 @@ class ClaudeNativeTurn extends EventEmitter implements ProviderProcess {
       if (this.settled) return;
       this.emit('tool_use', data);
     };
-    const onSystemNotice = (notice: string) => {
+    const onSystemNotice = (notice: string, authRecovery?: AuthRecoveryContext) => {
       if (this.settled) return;
-      this.emit('system_notice', notice);
+      this.emit('system_notice', notice, authRecovery);
     };
     // Phase 7b — Task lifecycle. Forwarded as opaque payloads so the
     // WorkerManager → seedWorker layer above stays in sole charge of

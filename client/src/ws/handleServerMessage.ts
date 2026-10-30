@@ -1899,6 +1899,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             id: crypto.randomUUID(),
             role: 'system',
             content: msg.content,
+            authRecovery: msg.authRecovery,
             isStreaming: false,
             timestamp: Date.now(),
           });

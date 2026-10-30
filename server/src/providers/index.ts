@@ -91,7 +91,7 @@ class QueuedLocalProcess extends EventEmitter implements ProviderProcess {
       inner.on('text', (text) => { this._output += text; this.emit('text', text); });
       inner.on('thinking', (text) => this.emit('thinking', text));
       inner.on('tool_use', (data) => this.emit('tool_use', data));
-      inner.on('system_notice', (notice) => this.emit('system_notice', notice));
+      inner.on('system_notice', (notice, authRecovery) => this.emit('system_notice', notice, authRecovery));
       await new Promise<void>((resolve) => {
         inner.once('result', (data) => { this._status = 'completed'; this.emit('result', data); resolve(); });
         inner.once('error', (error) => { this._status = 'failed'; this.emit('error', error); resolve(); });

@@ -1,6 +1,7 @@
 // ── Chat row types ──
 
 import type { OperatorQuestionState } from './operatorQuestions.js';
+import type { AuthRecoveryContext } from './models.js';
 import type { PrimaryPhase } from './providers.js';
 
 export interface ChatMessage {
@@ -13,6 +14,7 @@ export interface ChatMessage {
   // chat row, so a reload preserves the visual peer-message timeline.
   role: 'user' | 'assistant' | 'system' | 'peer-sent' | 'peer-received' | 'ctx-divider';
   content: string;
+  authRecovery?: AuthRecoveryContext;
   operatorQuestion?: OperatorQuestionState;
   operatorQuestionError?: string;
   isStreaming: boolean;

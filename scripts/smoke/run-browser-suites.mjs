@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SUITES = [
+  { name: 'reauth-continuity', script: 'reauth-continuity-browser.py', port: 5203 },
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },
   { name: 'claude-allowance', script: 'claude-allowance-browser.py', port: 5203 },
   { name: 'claude-auth-status', script: 'claude-auth-status-browser.py', port: 5203 },

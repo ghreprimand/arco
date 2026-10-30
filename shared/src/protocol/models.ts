@@ -783,3 +783,20 @@ export interface CliChangeEntry {
   removedFlags: string[];
   diffFileName: string;
 }
+
+// A recovery flow identifies a single Native bootstrap, not execution health.
+export interface ClaudeNativeAuthFlow {
+  id: string;
+  status: 'pending' | 'exchanging' | 'complete' | 'cancelled' | 'expired' | 'superseded' | 'failed';
+  startedAt: number;
+  expiresAt: number;
+  bindingBefore: ClaudeCredentialBinding;
+  binding?: ClaudeCredentialBinding;
+  workflowId?: string;
+  error?: string;
+}
+
+export interface AuthRecoveryContext {
+  transport: 'native' | 'cli';
+  binding?: ClaudeCredentialBinding;
+}

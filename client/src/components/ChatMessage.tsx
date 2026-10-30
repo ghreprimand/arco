@@ -417,7 +417,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
     if (message.operatorQuestion && jobId) return <OperatorQuestionNotice workflowId={jobId} question={message.operatorQuestion} error={message.operatorQuestionError} />;
     const authNotice = parseAuthNotice(message.content);
     if (authNotice) {
-      return <AuthReloginNotice provider={authNotice.provider} body={authNotice.body} />;
+      return <AuthReloginNotice key={message.id} provider={authNotice.provider} body={authNotice.body} workflowId={jobId} messageId={message.id} authRecovery={message.authRecovery} />;
     }
     const askNotice = parseAskNotice(message.content);
     if (askNotice && jobId) {

@@ -426,7 +426,7 @@ export async function handleGenesisAssistRequest(ws: WebSocket, msg: GenesisAssi
     (ev) => {
       if (ev.type === 'worker_text') collected += ev.text;
       else if (ev.type === 'worker_system_notice') {
-        send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: ev.notice });
+        send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: ev.notice, authRecovery: ev.authRecovery });
       }
     },
     {

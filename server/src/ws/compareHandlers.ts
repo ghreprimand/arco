@@ -170,7 +170,7 @@ export async function handleCompareSynthesize(
         collected += ev.text;
         send(ws, { type: 'compare_leg_delta', workflowId: msg.workflowId, compareId: msg.compareId, legIndex: synthLegIndex, text: ev.text });
       } else if (ev.type === 'worker_system_notice') {
-        send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: ev.notice });
+        send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: ev.notice, authRecovery: ev.authRecovery });
       }
     },
     {

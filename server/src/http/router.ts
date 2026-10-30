@@ -60,6 +60,9 @@ import { CLAUDE_CLI_USER_AGENT } from '../providers/claude-native/wireFingerprin
 import {
 completeBootstrap as claudeNativeCompleteBootstrap,
 startBootstrap as claudeNativeStartBootstrap,
+getBootstrapFlow as claudeNativeGetFlow,
+cancelBootstrap as claudeNativeCancelFlow,
+cancelActiveBootstrap as claudeNativeCancelActiveFlow,
 ensureLiveTokens as ensureClaudeNativeTokens,
 } from '../providers/claude-native/oauth.js';
 import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
@@ -1468,9 +1471,21 @@ export async function handleHttpRequest(
     }
     return;
   }
+  if (req.url?.startsWith('/api/auth/claude-native/flow?') && (req.method === 'GET' || req.method === 'DELETE')) {
+    const id = new URL(req.url, 'http://localhost').searchParams.get('id') || '';
+    const flow = req.method === 'DELETE' ? await claudeNativeCancelFlow(id) : await claudeNativeGetFlow(id);
+    res.writeHead(flow ? 200 : 404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(flow ? { flow } : { error: 'Sign-in flow unavailable. Start again.' }));
+    return;
+  }
   if (req.url === '/api/auth/claude-native/login' && req.method === 'POST') {
     try {
-      const result = await claudeNativeStartBootstrap();
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw || '{}') as { binding?: import('@arco/shared').ClaudeCredentialBinding; workflowId?: string };
+      if (body.workflowId !== undefined && (typeof body.workflowId !== 'string' || body.workflowId.length > 128)) throw new Error('Invalid originating workflow id.');
+      const result = await claudeNativeStartBootstrap(body.binding, body.workflowId);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
@@ -1484,15 +1499,15 @@ export async function handleHttpRequest(
     try {
       let body = '';
       for await (const chunk of req) body += chunk;
-      const parsed = JSON.parse(body || '{}') as { url?: string };
+      const parsed = JSON.parse(body || '{}') as { url?: string; flowId?: string };
       if (typeof parsed.url !== 'string' || !parsed.url) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'expected { url: <localhost callback URL> }' }));
         return;
       }
-      await claudeNativeCompleteBootstrap(parsed.url);
+      const result = await claudeNativeCompleteBootstrap(parsed.url, parsed.flowId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
+      res.end(JSON.stringify(result));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1502,6 +1517,7 @@ export async function handleHttpRequest(
   }
   if (req.url === '/api/auth/claude-native/logout' && req.method === 'POST') {
     try {
+      await claudeNativeCancelActiveFlow();
       await clearClaudeNativeTokens();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));

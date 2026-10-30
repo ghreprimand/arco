@@ -16,6 +16,8 @@ import { join, extname } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import type { WorkerConfig, ServerMessage } from '@arco/shared';
 import { supportsClaudeAdaptiveThinking, isClaudeModelAlias, enforcesPreservedThinking, supportsMidConversationSystemMessages, supportsMidConversationToolChanges } from '@arco/shared';
+import { loadTokens, nativeCredentialBinding } from './auth.js';
+import type { AuthRecoveryContext } from '@arco/shared';
 import { ensureLiveTokens, forceRefreshTokens, markClaudeAuthProblem, ClaudeNativeNoAuthError } from './oauth.js';
 import { resolveTrustStatus } from '../../projectTrust.js';
 import { discoverHooks, fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
@@ -308,6 +310,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // subsequent API call 401s. Tracking the obtainedAt of the tokens used
   // to build the current client lets ensureStarted() detect a mismatch
   // against on-disk tokens and rebuild the client transparently.
+  private authRecovery: AuthRecoveryContext = { transport: 'native', binding: nativeCredentialBinding() };
   private clientTokenObtainedAt: number | null = null;
   private messages: MessageParam[] = [];
   private hooks: HookConfig = { byEvent: {} };
@@ -1172,6 +1175,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // and the obtainedAt mismatch below forces a client rebuild. Cheap:
     // ensureLiveTokens is a single disk read on the happy path.
     const tokens = await ensureLiveTokens();
+    this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(tokens) };
     // An alias tab can't be dispatched until the alias resolves to a concrete
     // id. Warm the catalog once per worker so the resolution is catalog-backed
     // (newest family member) rather than the static CLAUDE_ALIAS_FALLBACK.
@@ -2131,17 +2135,18 @@ export class ClaudeNativeWorker extends EventEmitter {
     try {
       await this.ensureStarted();
     } catch (err) {
+      try { this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(await loadTokens()) }; } catch { this.authRecovery = { transport: 'native' }; }
       // Pre-flight auth surface: emit the [AUTH:claude] sentinel so the
       // chat renderer offers RE-LOGIN instead of a raw error string.
       if (err instanceof ClaudeNativeNoAuthError) {
         markClaudeAuthProblem('not authenticated'); // A2 — phone banner + notice
-        this.emit('system_notice', '[AUTH:claude] Claude Native is not authenticated. Re-login to continue.');
+        this.emit('system_notice', '[AUTH:claude] Claude Native is not authenticated. Re-login to continue.', this.authRecovery);
         this.emit('error', 'claude auth required');
         return;
       }
       const detail = err instanceof Error ? err.message : String(err);
       markClaudeAuthProblem(detail); // A2 — pre-flight refresh failure
-      this.emit('system_notice', `[AUTH:claude] Claude Native auth failed: ${detail}. Re-login to continue.`);
+      this.emit('system_notice', `[AUTH:claude] Claude Native auth failed: ${detail}. Re-login to continue.`, this.authRecovery);
       this.emit('error', 'claude auth failed');
       return;
     }
@@ -3616,7 +3621,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       const prefix = loud
         ? `[AUTH:claude] Repeated Claude auth failures (${this.authFailureCount}). Re-login required to continue.`
         : `[AUTH:claude] Claude authentication failed: ${detail}. Re-login to continue.`;
-      this.emit('system_notice', prefix);
+      this.emit('system_notice', prefix, this.authRecovery);
       this.emit('error', `claude auth failed (${status})`);
       return 'fatal';
     }

@@ -1,3 +1,4 @@
+import type { ClaudeNativeAuthFlow } from './models.js';
 // Remote Management (Arco Ops Part K + J2) — the typed contract for the whole
 // tier. See docs/REMOTE_MANAGEMENT.md §12.
 //
@@ -124,10 +125,11 @@ export interface InstanceRollup {
 // operator pastes the failed localhost callback URL from the phone browser).
 export type InstanceActionRequest =
   | { type: 'start_reauth'; provider: 'claude' }
-  | { type: 'complete_reauth'; provider: 'claude'; url: string };
+  | { type: 'complete_reauth'; provider: 'claude'; url: string; flowId?: string };
 export interface InstanceActionResult {
   actionId: string;
   ok: boolean;
+  flow?: ClaudeNativeAuthFlow;
   authorizationUrl?: string; // start_reauth success
   manualFallback?: boolean; // callback server couldn't bind — paste required
   error?: string;

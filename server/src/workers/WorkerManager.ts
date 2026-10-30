@@ -5,6 +5,7 @@ import { registerWorkerPid, unregisterWorkerPid } from './pidRegistry.js';
 import { registerPrivateLogToken } from '../server/logger.js';
 import { acquireCheckoutWriter, checkoutWritePaths } from '../checkoutOwnership.js';
 import type {
+  AuthRecoveryContext,
   ModelName,
   EffortLevel,
   ProviderName,
@@ -392,9 +393,9 @@ export class WorkerManager {
         ...(data.outputHash ? { outputHash: data.outputHash } : {}),
       });
     });
-    worker.on('system_notice', (notice: string) => {
+    worker.on('system_notice', (notice: string, authRecovery?: AuthRecoveryContext) => {
       bump();
-      onEvent({ type: 'worker_system_notice', workerId: spec.id, notice });
+      onEvent({ type: 'worker_system_notice', workerId: spec.id, notice, ...(authRecovery ? { authRecovery } : notice.startsWith('[AUTH:claude]') ? { authRecovery: { transport: 'cli' } } : {}) });
     });
     // §H4 — a generated image (Codex image_generation_call) was persisted into
     // cwd. Forward as a workflowId-less primary_artifact; seedWorker stamps the

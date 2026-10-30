@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import type { AuthLoginResult, ProviderName } from '@arco/shared';
+import type { AuthLoginResult, AuthRecoveryContext, ProviderName } from '@arco/shared';
 import { LoginCommand } from './LoginCommand';
+import { NativeLoginControls } from './NativeLoginControls';
+import { sameRecoveryBinding, useClaudeNativeLogin } from '../hooks/useClaudeNativeLogin';
+import { selectedClaudeTransport } from '../utils/claudeAuth';
 import { useAppStore } from '../stores/appStore';
 
 // Recognize `[AUTH:<provider>] <body>` sentinel lines produced by:
@@ -24,69 +27,53 @@ export function parseAuthNotice(content: string): { provider: ProviderName; body
 interface Props {
   provider: ProviderName;
   body: string;
+  workflowId?: string;
+  messageId?: string;
+  authRecovery?: AuthRecoveryContext;
 }
 
-export function AuthReloginNotice({ provider, body }: Props) {
+export function AuthReloginNotice({ provider, body, workflowId, messageId, authRecovery }: Props) {
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualValue, setManualValue] = useState('');
   const [command, setCommand] = useState<string | null>(null);
-
-  // Resolve the active workflow's Claude transport so RE-LOGIN routes to
-  // the right OAuth path. Native uses PKCE bootstrap (Phase 7); CLI uses
-  // the legacy `claude auth login` shell-out. Cascade default: per-tab >
-  // global setting > 'cli'.
-  const claudeNative = useAppStore((s) => {
-    if (provider !== 'claude') return false;
-    const job = s.activeJobId ? s.jobs[s.activeJobId] : undefined;
-    const tabPick = job?.config.claudeTransport;
-    if (tabPick) return tabPick === 'native';
-    return s.settings?.claude?.transport === 'native';
+  // Capture the notice's origin, never whichever tab is active at click time.
+  const [origin] = useState(() => {
+    const store = useAppStore.getState(), job = workflowId ? store.jobs[workflowId] : undefined;
+    const transport = authRecovery?.transport ?? selectedClaudeTransport(job?.config.claudeTransport, store.settings?.claude?.transport, !!job?.config.ultracode);
+    return { transport, accountRef: job?.config.providerAccountRef, binding: authRecovery?.binding ?? (transport === 'native' ? store.authStatus?.claude?.native?.binding : store.authStatus?.claude?.cli?.binding) };
   });
+  const job = useAppStore(s => workflowId ? s.jobs[workflowId] : undefined);
+  const currentNative = useAppStore(s => s.authStatus?.claude?.native);
+  const nativeLogin = useClaudeNativeLogin(`notice:${workflowId ?? 'unknown'}:${messageId ?? body}`, workflowId, origin.binding);
+  const claudeNative = provider === 'claude' && origin.transport === 'native';
+  const complete = claudeNative && nativeLogin.session?.flow?.status === 'complete'
+    && nativeLogin.session.flow.workflowId === workflowId
+    && (!origin.binding || sameRecoveryBinding(origin.binding, nativeLogin.session.flow.bindingBefore))
+    && sameRecoveryBinding(currentNative?.binding, nativeLogin.session.flow.binding)
+    && currentNative?.state !== 'needs-attention';
 
   const label = provider === 'claude'
     ? (claudeNative ? 'CLAUDE NATIVE' : 'CLAUDE')
     : provider === 'codex' ? 'CODEX'
     : provider.toUpperCase();
 
-  const startLoginNative = async () => {
-    const res = await fetch('/api/auth/claude-native/login', { method: 'POST' });
-    const data = (await res.json()) as { authorizationUrl?: string; manualFallback?: boolean; manualReason?: string; error?: string };
-    if (!res.ok || !data.authorizationUrl) {
-      setState('error');
-      setHint(data.error || 'Could not start Native login.');
-      return;
-    }
-    try { window.open(data.authorizationUrl, '_blank', 'noopener'); } catch { /* user can copy below */ }
-    setState('sent');
-    // The paste box is ALWAYS offered. The redirect targets localhost:53692,
-    // which only resolves to the Arco server when the browser runs on that
-    // same machine — from a laptop/phone over the tailnet it lands on a
-    // "can't connect" page whose URL still carries the code. Gating the box on
-    // manualFallback (server couldn't bind) left remote logins stuck.
-    setManualMode(true);
-    setHint(data.manualFallback
-      ? `${data.manualReason ?? 'Local callback unavailable.'} Approve in the tab that opened, then paste the redirected localhost URL below. If it didn't open: ${data.authorizationUrl}`
-      : `Approve in the tab that opened. If it finishes on a "can't connect" localhost page (you're on another device), paste that page's URL below. If it didn't open: ${data.authorizationUrl}`);
-  };
-
   const startLogin = async () => {
     setState('pending');
     setHint(null);
-    setManualMode(false);
     setCommand(null);
     try {
       if (claudeNative) {
-        await startLoginNative();
+        await nativeLogin.start();
+        setState('idle');
         return;
       }
-      const res = await fetch(`/api/auth-login?provider=${provider}`, { method: 'POST' });
+      const account = provider === 'codex' && origin.accountRef ? `&account=${encodeURIComponent(origin.accountRef)}` : '';
+      const res = await fetch(`/api/auth-login?provider=${provider}${account}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
       if (data.command) {
         setState('sent');
         setCommand(data.command);
-        setHint('Finish the login in the terminal, then re-send your prompt.');
+        setHint('Finish the login in the terminal, then review the original workflow before sending explicitly.');
       } else if (data.started) {
         setState('sent');
         setHint('Complete the OAuth flow in the browser tab that just opened, then try again.');
@@ -100,31 +87,6 @@ export function AuthReloginNotice({ provider, body }: Props) {
     } catch {
       setState('error');
       setHint('Could not start login. Try the AUTH button in the header.');
-    }
-  };
-
-  const submitManual = async () => {
-    if (!manualValue.trim()) return;
-    setState('pending');
-    try {
-      const res = await fetch('/api/auth/claude-native/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: manualValue.trim() }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) {
-        setState('error');
-        setHint(data.error || 'Manual paste failed.');
-        return;
-      }
-      setState('sent');
-      setManualMode(false);
-      setManualValue('');
-      setHint('Authenticated. Re-send your prompt to continue.');
-    } catch (err) {
-      setState('error');
-      setHint(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -172,11 +134,11 @@ export function AuthReloginNotice({ provider, body }: Props) {
             lineHeight: '1.5',
           }}
         >
-          {body}
+          {complete ? 'Native sign-in completed for this recovery. Review the original workflow before continuing; earlier actions may already have run.' : body}
         </span>
         <button
-          onClick={startLogin}
-          disabled={state === 'pending'}
+          onClick={complete ? () => { if (workflowId && useAppStore.getState().jobs[workflowId]) useAppStore.getState().setActiveJob(workflowId); } : startLogin}
+          disabled={state === 'pending' || nativeLogin.session?.busy || (complete && !job)}
           className="display-font glow-border"
           style={{
             padding: '6px 14px',
@@ -191,7 +153,7 @@ export function AuthReloginNotice({ provider, body }: Props) {
             whiteSpace: 'nowrap',
           }}
         >
-          {state === 'pending' ? 'STARTING…' : state === 'sent' ? `RE-LOGIN ${label} ↻` : `RE-LOGIN ${label}`}
+          {complete ? 'REVIEW ORIGINAL WORKFLOW' : state === 'pending' ? 'STARTING...' : state === 'sent' ? `RE-LOGIN ${label}` : `RE-LOGIN ${label}`}
         </button>
       </div>
       {hint && (
@@ -215,25 +177,9 @@ export function AuthReloginNotice({ provider, body }: Props) {
           <LoginCommand command={command} />
         </div>
       )}
-      {manualMode && (
-        <div style={{ marginLeft: '4px', marginTop: '6px', padding: '0 12px', display: 'flex', gap: '6px' }}>
-          <input
-            type="text"
-            value={manualValue}
-            onChange={(e) => setManualValue(e.target.value)}
-            placeholder="http://localhost:53692/callback?code=…&state=…"
-            style={{ flex: 1, padding: '4px 6px', fontSize: '11px', fontFamily: 'var(--font-code)', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', borderRadius: '3px', outline: 'none' }}
-          />
-          <button
-            onClick={submitManual}
-            disabled={!manualValue.trim() || state === 'pending'}
-            className="display-font"
-            style={{ padding: '4px 10px', fontSize: '10px', letterSpacing: '1px', background: 'transparent', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', borderRadius: '3px', cursor: state === 'pending' || !manualValue.trim() ? 'default' : 'pointer' }}
-          >
-            SUBMIT
-          </button>
-        </div>
-      )}
+      {!claudeNative && state === 'sent' && workflowId && job && <p>Original workflow execution: {job.busy ? 'running' : job.lastTurnCancelledAt ? 'interrupted' : 'idle'}. Sign-in completion is not verified here. <button onClick={() => useAppStore.getState().setActiveJob(workflowId)}>REVIEW ORIGINAL WORKFLOW</button></p>}
+      {claudeNative && <NativeLoginControls key={nativeLogin.session?.flow?.id} login={nativeLogin} />}
+      {complete && <p>Original workflow: {job?.config.name ?? workflowId ?? 'unavailable'}. Execution: {!job ? 'workflow unavailable' : job.busy ? 'running' : job.lastTurnCancelledAt ? 'interrupted' : 'idle'}. Draft retained. Review the transcript and send explicitly from the composer; nothing was replayed.</p>}
     </div>
   );
 }

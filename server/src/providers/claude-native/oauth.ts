@@ -15,11 +15,12 @@
 // `state`. The operator's remote-access setup only forwards port 5173 so this
 // path is the common case for him.
 
+import type { ClaudeCredentialBinding, ClaudeNativeAuthFlow } from '@arco/shared';
 import { createServer, type Server } from 'node:http';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import {
   loadTokens,
-  saveTokens,
+  nativeCredentialBinding,
   withAuthLock,
   writeTokensUnlocked,
   readTokensUnlocked,
@@ -49,29 +50,29 @@ const SCOPES = [
 // boundary. 30s mirrors the plan-doc value.
 const REFRESH_LEAD_MS = 30_000;
 
+const FLOW_TTL_MS = 10 * 60_000;
 interface PendingFlow {
   state: string;
   codeVerifier: string;
   server: Server | null;
-  resolveCode: (params: { code: string; state: string }) => void;
-  rejectCode: (err: Error) => void;
-  startedAt: number;
+  timer?: ReturnType<typeof setTimeout>;
+  result: ClaudeNativeAuthFlow;
+  completion?: Promise<{ ok: true; flow: ClaudeNativeAuthFlow }>;
 }
-
-// At most one bootstrap can be pending at a time on a single machine —
-// the callback port is hardcoded.
 let pendingFlow: PendingFlow | null = null;
+const flows = new Map<string, PendingFlow>();
 
-function base64UrlEncode(buf: Buffer): string {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function finishFlow(flow: PendingFlow, status: ClaudeNativeAuthFlow['status'], error?: string): void {
+  flow.result = { ...flow.result, status, ...(error ? { error } : {}) };
+  if (flow.timer) clearTimeout(flow.timer);
+  if (flow.server) { try { flow.server.close(); } catch { /* already closed */ } }
+  if (pendingFlow === flow) pendingFlow = null;
 }
-
-function genVerifier(): string {
-  return base64UrlEncode(randomBytes(32));
+function currentFlow(flow: PendingFlow): boolean {
+  return pendingFlow === flow && ['pending', 'exchanging'].includes(flow.result.status) && Date.now() < flow.result.expiresAt;
 }
-
-function challengeOf(verifier: string): string {
-  return base64UrlEncode(createHash('sha256').update(verifier).digest());
+function sameBinding(a: ClaudeCredentialBinding, b: ClaudeCredentialBinding): boolean {
+  return a.source === b.source && a.storeId === b.storeId && a.revision === b.revision;
 }
 
 export interface BootstrapStartResult {
@@ -79,160 +80,112 @@ export interface BootstrapStartResult {
   state: string;
   manualFallback: boolean;
   manualReason?: string;
+  flow: ClaudeNativeAuthFlow;
 }
 
-// Begin a PKCE bootstrap. Returns the URL the operator opens in a
-// browser. Tries to spawn a local callback server; on EADDRINUSE (or
-// any bind failure) falls back to manual-paste mode.
-export async function startBootstrap(): Promise<BootstrapStartResult> {
-  if (pendingFlow) {
-    cancelPendingFlow('superseded');
-  }
-  const codeVerifier = genVerifier();
-  const codeChallenge = challengeOf(codeVerifier);
-  // Pi-parity: state IS the verifier. The challenge round-trips on the
-  // callback; the verifier round-trips on the token exchange. Anthropic
-  // validates the PKCE pair, and Pi has confirmed state-as-verifier is
-  // the supported shape.
-  const state = codeVerifier;
-
-  let server: Server | null = null;
-  let manualReason: string | undefined;
-  try {
-    server = await new Promise<Server>((resolve, reject) => {
-      const s = createServer((req, res) => {
-        const url = req.url || '';
-        if (!url.startsWith(CALLBACK_PATH)) {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('not found');
-          return;
-        }
-        try {
-          const u = new URL(url, `http://${CALLBACK_HOST}:${CALLBACK_PORT}`);
-          const code = u.searchParams.get('code') || '';
-          const recvState = u.searchParams.get('state') || '';
-          const error = u.searchParams.get('error');
-          if (error) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end(`OAuth error: ${error}`);
-            if (pendingFlow) pendingFlow.rejectCode(new Error(`OAuth: ${error}`));
-            return;
-          }
-          if (!code || !recvState) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('missing code/state');
-            return;
-          }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(`<!doctype html><meta charset="utf-8"><title>Arco — Claude Native auth</title>
-<style>body{font-family:ui-monospace,Menlo,monospace;background:#0b0b0b;color:#cfcfcf;padding:2rem}</style>
-<h1>Arco: Claude Native auth complete.</h1>
-<p>You can close this tab and return to Arco.</p>`);
-          if (pendingFlow) pendingFlow.resolveCode({ code, state: recvState });
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.end(`callback error: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      });
-      s.once('error', (err) => reject(err));
-      s.listen(CALLBACK_PORT, CALLBACK_HOST, () => resolve(s));
-    });
-  } catch (err) {
-    server = null;
-    const msg = err instanceof Error ? err.message : String(err);
-    manualReason = msg.includes('EADDRINUSE')
-      ? `port ${CALLBACK_PORT} in use — falling back to manual-paste`
-      : `local callback unavailable (${msg}) — falling back to manual-paste`;
-    console.warn(`[claude-native] OAuth bootstrap: ${manualReason}`);
-  }
-
-  pendingFlow = {
-    state,
-    codeVerifier,
-    server,
-    startedAt: Date.now(),
-    // Set when settleBootstrap or completeBootstrap fires. Rejected on
-    // cancelPendingFlow.
-    resolveCode: () => { /* replaced below */ },
-    rejectCode: () => { /* replaced below */ },
-  };
-
-  // Wire the resolve/reject *after* construction so the callback server's
-  // closure (created above) can see the slot.
-  const codePromise = new Promise<{ code: string; state: string }>((resolve, reject) => {
-    if (!pendingFlow) { reject(new Error('flow lost')); return; }
-    pendingFlow.resolveCode = resolve;
-    pendingFlow.rejectCode = reject;
-  });
-
-  // Background — when a code arrives, exchange it. Errors land in the
-  // pending-flow store.
-  void codePromise.then(async ({ code, state: recvState }) => {
-    if (recvState !== state) {
-      console.error('[claude-native] OAuth state mismatch — dropping callback');
-      return;
-    }
+// One credential owner and one callback listener. Flow ids are independent of
+// the provider's state/verifier and contain no authorization material.
+export async function startBootstrap(expectedBinding?: ClaudeCredentialBinding, workflowId?: string): Promise<BootstrapStartResult> {
+  return withAuthLock(async () => {
+    const binding = nativeCredentialBinding(await readTokensUnlocked());
+    if (expectedBinding && !sameBinding(expectedBinding, binding)) throw new Error('Native credentials changed. Review sign-in status before starting again.');
+    if (pendingFlow) finishFlow(pendingFlow, 'superseded');
+    const verifier = randomBytes(32).toString('base64url');
+    const flow: PendingFlow = { state: verifier, codeVerifier: verifier, server: null, result: {
+      id: randomUUID(), status: 'pending', startedAt: Date.now(), expiresAt: Date.now() + FLOW_TTL_MS,
+      bindingBefore: binding, ...(workflowId ? { workflowId } : {}),
+    } };
+    pendingFlow = flow;
+    flows.set(flow.result.id, flow);
+    while (flows.size > 32) flows.delete(flows.keys().next().value!);
+    let manualReason: string | undefined;
     try {
-      const tokens = await exchangeCode(code, codeVerifier);
-      await saveTokens(tokens);
-      clearClaudeAuthProblem();
-      console.log('[claude-native] OAuth bootstrap complete');
-    } catch (err) {
-      console.error('[claude-native] OAuth code exchange failed:', err);
-    } finally {
-      cancelPendingFlow('completed');
+      flow.server = await new Promise<Server>((resolve, reject) => {
+        const server = createServer((req, res) => {
+          let url: URL;
+          try { url = new URL(req.url || '/', REDIRECT_URI); }
+          catch { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('Invalid callback request.'); return; }
+          if (url.pathname !== CALLBACK_PATH) { res.writeHead(404); res.end('not found'); return; }
+          void completeFlow(flow, url).then(() => {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end('<!doctype html><meta charset="utf-8"><title>Arco Native sign-in</title><h1>Native sign-in completed.</h1><p>Return to Arco and review the originating workflow. No work was replayed.</p>');
+          }, () => { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('Sign-in did not complete. Return to Arco to review this flow.'); });
+        });
+        server.once('error', reject);
+        server.listen(CALLBACK_PORT, CALLBACK_HOST, () => resolve(server));
+      });
+    } catch {
+      manualReason = 'Local callback unavailable. Approve in the browser, then paste the redirected localhost URL.';
     }
-  }).catch((err) => {
-    console.error('[claude-native] OAuth flow rejected:', err);
-    cancelPendingFlow('rejected');
+    flow.timer = setTimeout(() => { void cancelBootstrap(flow.result.id, 'expired'); }, FLOW_TTL_MS);
+    flow.timer.unref?.();
+    const params = new URLSearchParams({ code: 'true', client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI,
+      scope: SCOPES, code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256', state: verifier });
+    return { authorizationUrl: `${AUTHORIZE_URL}?${params}`, state: verifier, manualFallback: !flow.server, manualReason, flow: { ...flow.result } };
   });
-
-  // `code: 'true'` is required by Anthropic — Pi sends it; without it
-  // claude.ai/oauth/authorize returns "Invalid request format" before
-  // rendering consent.
-  const params = new URLSearchParams({
-    code: 'true',
-    client_id: CLIENT_ID,
-    response_type: 'code',
-    redirect_uri: REDIRECT_URI,
-    scope: SCOPES,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    state,
-  });
-
-  return {
-    authorizationUrl: `${AUTHORIZE_URL}?${params.toString()}`,
-    state,
-    manualFallback: !server,
-    manualReason,
-  };
 }
 
-// Manual-paste path. Operator pastes the localhost:53692/callback?code=…
-// URL into the UI; we extract code + state and exchange synchronously.
-export async function completeBootstrap(rawUrl: string): Promise<{ ok: true }> {
-  if (!pendingFlow) throw new Error('no pending OAuth flow — start one first');
-  const u = new URL(rawUrl);
-  const code = u.searchParams.get('code') || '';
-  const recvState = u.searchParams.get('state') || '';
-  if (!code) throw new Error('no `code` in URL');
-  if (recvState !== pendingFlow.state) throw new Error('state mismatch');
-  const tokens = await exchangeCode(code, pendingFlow.codeVerifier);
-  await saveTokens(tokens);
-  clearClaudeAuthProblem();
-  cancelPendingFlow('completed');
-  return { ok: true };
+export async function getBootstrapFlow(id: string): Promise<ClaudeNativeAuthFlow | null> {
+  const flow = flows.get(id);
+  if (!flow) return null;
+  if (['pending', 'exchanging'].includes(flow.result.status) && Date.now() >= flow.result.expiresAt) await cancelBootstrap(id, 'expired');
+  return { ...flow.result };
 }
 
-function cancelPendingFlow(reason: string): void {
-  if (!pendingFlow) return;
-  const { server } = pendingFlow;
-  pendingFlow = null;
-  if (server) {
-    try { server.close(); } catch { /* already closing */ }
+export async function cancelBootstrap(id: string, reason: 'cancelled' | 'expired' = 'cancelled'): Promise<ClaudeNativeAuthFlow | null> {
+  return withAuthLock(async () => {
+    const flow = flows.get(id);
+    if (!flow) return null;
+    if (['pending', 'exchanging'].includes(flow.result.status)) finishFlow(flow, reason);
+    return { ...flow.result };
+  });
+}
+
+export async function cancelActiveBootstrap(): Promise<void> {
+  await withAuthLock(async () => { if (pendingFlow) finishFlow(pendingFlow, 'cancelled'); });
+}
+
+// Local callback and remote manual paste share the same validation, single
+// exchange and guarded commit. A superseded response cannot replace tokens.
+function completeFlow(flow: PendingFlow, url: URL): Promise<{ ok: true; flow: ClaudeNativeAuthFlow }> {
+  if (url.searchParams.get('state') !== flow.state) return Promise.reject(new Error('state mismatch'));
+  if (!currentFlow(flow)) return Promise.reject(new Error('Sign-in flow is no longer pending. Start again.'));
+  if (url.searchParams.has('error')) {
+    return cancelBootstrap(flow.result.id).then(() => { throw new Error('Sign-in was declined. Start again when ready.'); });
   }
-  void reason; // for grep
+  const code = url.searchParams.get('code');
+  if (!code) return Promise.reject(new Error('no `code` in URL'));
+  if (flow.completion) return flow.completion;
+  flow.result = { ...flow.result, status: 'exchanging' };
+  flow.completion = (async () => {
+    try {
+      const tokens = await exchangeCode(code, flow.codeVerifier);
+      await withAuthLock(async () => {
+        if (!currentFlow(flow)) throw new Error('Sign-in flow is no longer pending. Start again.');
+        if (!sameBinding(flow.result.bindingBefore, nativeCredentialBinding(await readTokensUnlocked()))) {
+          finishFlow(flow, 'superseded');
+          throw new Error('Native credentials changed during sign-in. Review the current credentials.');
+        }
+        await writeTokensUnlocked(tokens);
+        flow.result = { ...flow.result, binding: nativeCredentialBinding(tokens) };
+        clearClaudeAuthProblem();
+        finishFlow(flow, 'complete');
+      });
+      return { ok: true as const, flow: { ...flow.result } };
+    } catch (err) {
+      if (currentFlow(flow)) finishFlow(flow, 'failed', 'Native sign-in failed. Start a new flow to try again.');
+      throw err;
+    }
+  })();
+  return flow.completion;
+}
+
+export async function completeBootstrap(rawUrl: string, flowId?: string): Promise<{ ok: true; flow: ClaudeNativeAuthFlow }> {
+  const url = new URL(rawUrl);
+  const flow = flowId ? flows.get(flowId) : pendingFlow;
+  if (!flow) throw new Error('no pending OAuth flow - start one first');
+  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || url.port !== String(CALLBACK_PORT) || url.pathname !== CALLBACK_PATH) throw new Error('Expected the redirected localhost callback URL.');
+  return completeFlow(flow, url);
 }
 
 async function exchangeCode(code: string, codeVerifier: string): Promise<ClaudeNativeTokens> {
@@ -261,6 +214,8 @@ async function exchangeCode(code: string, codeVerifier: string): Promise<ClaudeN
     token_type?: string;
     scope?: string;
   };
+  if (typeof data.access_token !== 'string' || !data.access_token || typeof data.refresh_token !== 'string' || !data.refresh_token
+    || !Number.isFinite(data.expires_in) || data.expires_in <= 0) throw new Error('Invalid Native token exchange response.');
   const now = Date.now();
   return {
     accessToken: data.access_token,

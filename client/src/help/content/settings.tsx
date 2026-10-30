@@ -219,6 +219,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Authentication',
     body: (
       <>
+        <p>Native sign-in in Settings and inline recovery tracks a specific flow, even while rejected credentials remain present. Local callbacks complete automatically when reachable; another device can paste the redirected localhost URL. CANCEL SIGN-IN cancels that flow. After matching recovery, review the original workflow and send explicitly. Drafts are retained and work is never replayed automatically.</p>
         <p>
           Per-provider auth state + login button. Each provider authenticates
           independently. <C>LIVE</C> chip = authed; <C>LOG IN</C> button

@@ -499,6 +499,31 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 
 CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Native uses a separate set of `/api/auth/claude-native/*` endpoints (see [`HTTP_API.md`](HTTP_API.md) section Claude Native auth). The auth-status endpoint is `GET /api/auth-status`. Polled every 2 minutes by the client. Native tokens persist to `~/.arco/auth.json`; refresh races serialize via `proper-lockfile`.
 
+### Recovering Native sign-in
+
+An inline RE-LOGIN action uses that notice's originating workflow, transport and Native credential
+revision, even when another tab is active. New notices retain the actual Native binding in saved
+transcript events. Older notices without that metadata use their saved workflow configuration;
+they do not establish the historical credential revision. CLI notices keep the CLI login path. Codex recovery retains the originating account profile without changing its app-server transport.
+
+Settings and inline Native recovery share the same flow completion, error and manual-paste handling.
+A flow id, rather than stored-token presence, tracks local callback completion even when rejected
+credentials remain on disk. One Native store serves the home; a new flow supersedes an older one.
+Pending flows expire after ten minutes and disappear on server restart. CANCEL SIGN-IN cancels
+that flow. A stale, failed, cancelled or expired flow cannot clear another recovery notice or replace
+a newer grant. Native refresh and inference retry limits are unchanged.
+
+The callback at `localhost:53692` reaches Arco only from a browser on the server host with that port
+reachable. Successful listener binding does not prove a remote browser can reach it. If approval
+ends on an unreachable localhost page, paste its redirected URL into the provided field. Consent,
+MFA and account selection remain provider-controlled; no remote OAuth return bridge is provided.
+The management reauthentication actions use the same bootstrap and manual completion path.
+
+After a matching completion, REVIEW ORIGINAL WORKFLOW opens that workflow and shows its current
+execution state. Composer drafts, attachments, settings and transcripts are preserved. Review prior
+actions and send explicitly from the composer; sign-in never replays a provider turn or tool mutation.
+A different source or notice remains separate, and an already running workflow is not resumed again.
+
 ### Strata and large MoE operation
 
 See [STRATA.md](STRATA.md) for profile selection, memory limits, profile

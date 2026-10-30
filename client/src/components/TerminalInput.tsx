@@ -641,6 +641,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         id: crypto.randomUUID(),
         role: 'system',
         content,
+        ...(cmd === 'login' || cmd === 'logout' ? { authRecovery: { transport: 'cli' as const } } : {}),
         isStreaming: false,
         timestamp: Date.now(),
       });

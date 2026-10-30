@@ -684,6 +684,7 @@ export function runPrimaryTurn(
           type: 'system_notice',
           workflowId: ctx.workflowId,
           content: ev.notice,
+          authRecovery: ev.authRecovery,
         });
         return;
       case 'primary_artifact':
