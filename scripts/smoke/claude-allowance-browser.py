@@ -39,6 +39,7 @@ async def main():
         blocked, errors, requests = [], [], []
         mode = 'cli'
         started, release = asyncio.Event(), asyncio.Event()
+        manual_started, manual_release = asyncio.Event(), asyncio.Event()
 
         async def isolate(route):
             nonlocal mode
@@ -51,7 +52,10 @@ async def main():
                 if path == '/api/usage' and route.request.method == 'GET':
                     selected = mode
                     requests.append(url.query)
-                    body = snapshot('native' if selected == 'delayed' else selected)
+                    body = snapshot('native' if selected == 'delayed' else 'cli' if selected == 'manual_hold' else selected)
+                    if selected == 'manual_hold':
+                        manual_started.set()
+                        await manual_release.wait()
                     if selected == 'delayed':
                         started.set()
                         await release.wait()
@@ -90,8 +94,20 @@ async def main():
         dot = page.get_by_role('link', name='C usage page', exact=True)
         await dot.hover()
         tooltip = page.get_by_role('tooltip')
+        mode = 'manual_hold'
         await page.get_by_role('button', name='CHECK ALLOWANCE NOW', exact=True).click()
+        await asyncio.wait_for(manual_started.wait(), timeout=5)
+        checking = page.get_by_role('button', name='CHECKING ALLOWANCE...', exact=True)
+        await expect(checking).to_be_focused()
+        await expect(checking).to_have_attribute('aria-disabled', 'true')
+        await page.mouse.move(0, 0)
+        await expect(tooltip).to_be_visible()
+        await checking.press('Enter')
+        assert len(requests) == 1, requests
+        manual_release.set()
         await expect(tooltip).to_contain_text('Allowance source: CLI OAuth credentials')
+        await expect(page.get_by_role('button', name='CHECK ALLOWANCE NOW', exact=True)).to_be_focused()
+        mode = 'cli'
         await expect(tooltip).to_contain_text('Allowance account: unknown')
         await expect(tooltip).to_contain_text('does not establish Native account identity')
         assert await page.evaluate('store.getState().usage.session.utilization') == 55
@@ -121,6 +137,19 @@ async def main():
         assert await page.evaluate('store.getState().usage') is None
         assert await page.evaluate('JSON.stringify(store.getState().jobs.fixture)===savedJob')
         assert await page.locator('button[title*="credentials need attention"]').count() == 0
+        await page.mouse.move(0, 0)
+        await page.evaluate('document.activeElement.blur()')
+        await expect(tooltip).to_have_count(0)
+        await dot.focus()
+        await expect(tooltip).to_be_visible()
+        await page.keyboard.press('Tab')
+        await expect(page.get_by_role('button', name='CHECK ALLOWANCE NOW', exact=True)).to_be_focused()
+        await page.keyboard.press('Tab')
+        await expect(tooltip).to_have_count(0)
+        await dot.hover()
+        await expect(tooltip).to_be_visible()
+        await page.mouse.move(0, 0)
+        await expect(tooltip).to_have_count(0)
         assert requests == ['force=1', 'force=1', '', 'force=1'], requests
         assert not blocked, blocked
         assert not errors, errors

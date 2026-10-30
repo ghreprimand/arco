@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep the Claude allowance popover open and focused during a manual check, including when the pointer leaves it.
+
 - Attribute Claude allowance snapshots to their actual credential source, invalidate changed bindings, fence late responses and keep CLI refresh ownership and execution authentication separate.
 
 - Distinguish Claude Native credential state, CLI login and allowance availability, with transport-specific recovery and preserved saved choices.

@@ -381,13 +381,16 @@ function parseCodexUsageValue(value: string): { usedPercent: number | null; rese
 function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   const [open, setOpen] = useState(false);
   const [checking, setChecking] = useState(false);
+  const checkingRef = useRef(false);
   const [checkError, setCheckError] = useState(false);
   const setUsage = useAppStore(s => s.setUsage);
   const refresh = async () => {
+    if (checkingRef.current) return;
+    checkingRef.current = true;
     setChecking(true); setCheckError(false);
     try { const next = await refreshClaudeAllowance(true); if (next) setUsage(next); }
     catch { setCheckError(true); }
-    finally { setChecking(false); }
+    finally { checkingRef.current = false; setChecking(false); }
   };
   const auth = useAppStore(s => s.authStatus?.claude);
   const tabTransport = useAppStore(s => s.activeJobId ? s.jobs[s.activeJobId]?.config.claudeTransport : undefined);
@@ -405,9 +408,9 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
     <div
       style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
       onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseLeave={(e) => { if (!e.currentTarget.contains(document.activeElement)) setOpen(false); }}
       onFocus={() => setOpen(true)}
-      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget) && !e.currentTarget.matches(':hover')) setOpen(false); }}
     >
       <StatusDot
         letter="C"
@@ -446,7 +449,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
             <span style={{ color: 'var(--color-fg-muted)' }}>Allowance availability is separate from execution authentication.</span>
             {checkError && <span>Allowance check failed. The previous snapshot may be stale.</span>}
             {usage?.error && <span>Allowance check: {usage.error}</span>}
-            <button type="button" onClick={refresh} disabled={checking}>{checking ? 'CHECKING ALLOWANCE...' : 'CHECK ALLOWANCE NOW'}</button>
+            <button type="button" onClick={refresh} aria-disabled={checking}>{checking ? 'CHECKING ALLOWANCE...' : 'CHECK ALLOWANCE NOW'}</button>
           {showUsage && usage ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {usage.session && (
