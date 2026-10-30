@@ -351,8 +351,21 @@ async function collectSnapshotFiles(
 
 // Init the shadow repo on first use. Bare — it must never have its own
 // checkout; every worktree op passes --work-tree=<cwd> explicitly.
+// Share only the in-flight initialization: concurrent turns must not run
+// git init against the same empty directory, and failed initialization can
+// be retried by a later checkpoint.
+const shadowInitializations = new Map<string, Promise<string | null>>();
 async function ensureShadowRepo(cwd: string): Promise<string | null> {
   const gitDir = shadowGitDir(cwd);
+  const existing = shadowInitializations.get(gitDir);
+  if (existing) return existing;
+  const initializing = initializeShadowRepo(cwd, gitDir);
+  shadowInitializations.set(gitDir, initializing);
+  try { return await initializing; }
+  finally { if (shadowInitializations.get(gitDir) === initializing) shadowInitializations.delete(gitDir); }
+}
+
+async function initializeShadowRepo(cwd: string, gitDir: string): Promise<string | null> {
   const exists = await fs.access(path.join(gitDir, 'HEAD')).then(() => true, () => false);
   if (exists) return gitDir;
   await fs.mkdir(gitDir, { recursive: true });

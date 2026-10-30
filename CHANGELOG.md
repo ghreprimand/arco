@@ -40,6 +40,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Preserve concurrent first checkpoints for projects without a Git repository.
+
 - Keep Bakeoff usable before its comparison list arrives, including navigation and reload.
 
 - Restore switching from the shipped Phosphor default to Arco Classic themes in Settings.

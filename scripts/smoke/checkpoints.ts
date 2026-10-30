@@ -189,6 +189,21 @@ async function main() {
     assertEq(scratch.length, 0, `shadow scratch files should be cleaned up, found: ${scratch.join(', ')}`);
   });
 
+  await step('non-git: concurrent first checkpoints initialize one shadow store', async () => {
+    const fresh = mkdtempSync(join(tmpdir(), 'arco-ckpt-cold-'));
+    cleanups.push(fresh);
+    tarRoots.push(checkpointStoreRoot(fresh));
+    writeFileSync(join(fresh, 'fixture.txt'), 'cold start\n');
+    const [first, second] = await Promise.all([
+      createCheckpoint({ cwd: fresh, workflowId: plainWfid, seq: 10 }),
+      createCheckpoint({ cwd: fresh, workflowId: plainWfid, seq: 11 }),
+    ]);
+    assert(first !== null && second !== null, 'both first-use checkpoints should succeed');
+    const refs = execFileSync('git', ['--git-dir', join(checkpointStoreRoot(fresh), 'git'), 'show-ref'], { encoding: 'utf8' });
+    assert(refs.includes(`refs/arco/${plainWfid}/10`), 'first ref should exist');
+    assert(refs.includes(`refs/arco/${plainWfid}/11`), 'second ref should exist');
+  });
+
   // Cleanup
   for (const dir of cleanups) {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }

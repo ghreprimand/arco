@@ -15,7 +15,9 @@ const { projectOllamaHistory }=await import('../providers/ollamaExecutionHistory
 
 test('real turn loop persists exact queued input identities and scopes each provider execution',async()=>{
  const cwd=join(temp,'project'),id='ollama-execution';mkdirSync(cwd,{recursive:true});
- const messages:ServerMessage[]=[];const ws={readyState:1,send:(s:string)=>messages.push(JSON.parse(s))} as unknown as WebSocket;
+ const messages:ServerMessage[]=[];let checkpointsComplete!:()=>void;
+ const checkpoints=new Promise<void>(resolve=>{checkpointsComplete=resolve;});
+ const ws={readyState:1,send:(s:string)=>{messages.push(JSON.parse(s));if(messages.filter(e=>e.type==='checkpoint_created').length===2)checkpointsComplete();}} as unknown as WebSocket;
  const session={id:'fixture',workflowIds:new Set([id]),clusterIds:new Set(),clusterObserved:new Map()} as Session;
  const pending:Array<{options:WorkerConfig;reply:()=>void;task:string}>=[];
  const manager={
@@ -36,7 +38,9 @@ test('real turn loop persists exact queued input identities and scopes each prov
   assert.equal((pending[1].task.match(/steer/g) ?? []).length, 1);
   assert.ok(pending[1].options.ollamaReplay);assert.equal(pending[1].options.ollamaReplay?.activeInputSeqs.length,2);
   pending[1].reply();await run;
-  for(let i=0;i<400&&messages.filter(e=>e.type==='checkpoint_created').length<2;i++)await new Promise(r=>setTimeout(r,5));
+  let timeout:ReturnType<typeof setTimeout>|undefined;
+  try { await Promise.race([checkpoints,new Promise<never>((_,reject)=>{timeout=setTimeout(()=>reject(Error('Two checkpoint events did not arrive')),15000);})]); }
+  finally {if(timeout)clearTimeout(timeout);}
   assert.equal(messages.filter(e=>e.type==='checkpoint_created').length,2);
   const events=await replayEvents(cwd,id,0);const starts=events.filter(e=>e.type==='primary_turn_started');
   assert.equal(starts.length,2);assert.ok(starts[0].ollamaExecutionId);assert.notEqual(starts[0].ollamaExecutionId,starts[1].ollamaExecutionId);

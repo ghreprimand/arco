@@ -42,10 +42,11 @@ test('summary survives a fresh process and raw events remain unchanged',async()=
  const saved=readOllamaBoundary(f.args.cwd,'fixture');assert.ok(saved);assert.equal(f.summaries(),1);
  assert.equal(messages.filter(m=>m.content.includes('synthetic summary')).length,1);assert.equal(messages.at(-1)?.content,'current input');assert.equal(JSON.stringify(f.events),raw);
  const restarted=f.prepare();await compactDurableOllama({...f.args,messages:restarted});assert.deepEqual(restarted,messages);assert.equal(f.summaries(),1);
- const code=`const input=JSON.parse(process.argv[1]);const {compactDurableOllama}=await import('./server/src/providers/ollamaDurableCompaction.ts');const {parseRenderedTranscript}=await import('./server/src/providers/ollama.ts');await compactDurableOllama({...input,parse:parseRenderedTranscript,estimate:messages=>messages.reduce((n,m)=>n+(m.content?.length??0)/4,0),summarize:()=>{throw Error('restart must reuse the saved summary');},emit:()=>{},context:{...input.context,stillOwner:()=>true}});process.stdout.write(JSON.stringify(input.messages));`;
+ const code=`const {readFileSync}=await import('node:fs');const input=JSON.parse(readFileSync(0,'utf8'));const {compactDurableOllama}=await import('./server/src/providers/ollamaDurableCompaction.ts');const {parseRenderedTranscript}=await import('./server/src/providers/ollama.ts');await compactDurableOllama({...input,parse:parseRenderedTranscript,estimate:messages=>messages.reduce((n,m)=>n+(m.content?.length??0)/4,0),summarize:()=>{throw Error('restart must reuse the saved summary');},emit:()=>{},context:{...input.context,stillOwner:()=>true}});process.stdout.write(JSON.stringify(input.messages));`;
  const input={cwd:f.args.cwd,workflowId:'fixture',context:f.args.context,messages:f.prepare(),config:f.args.config,window:4000};
- const child=spawnSync(process.execPath,['--conditions','development','--import','tsx','--input-type=module','-e',code,JSON.stringify(input)],{cwd:process.cwd(),env:process.env,encoding:'utf8'});
- assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),messages);
+ const payload=JSON.stringify(input);assert.ok(payload.length>32767,'fixture must exercise input larger than the Windows command-line limit');
+ const child=spawnSync(process.execPath,['--conditions','development','--import','tsx','--input-type=module','-e',code],{cwd:process.cwd(),env:process.env,input:payload,encoding:'utf8'});
+ assert.ifError(child.error);assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),messages);
 });
 test('legacy identity, changed source and unknown context never publish guessed summaries',async()=>{
  for(const mode of ['legacy','unknown','changed']) {
