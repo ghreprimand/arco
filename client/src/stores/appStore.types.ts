@@ -120,6 +120,7 @@ export interface ResearchEntry {
 // tab is a live readout, not a durable log. Replay from events.jsonl is
 // where historical tool use lives if we ever want it.
 export interface ActivityEntry {
+  eventSeq?: number;
   id: string;
   kind: 'tool_use' | 'thinking' | 'native_event';
   tool?: string;         // set when kind === 'tool_use'
@@ -879,7 +880,7 @@ export interface AppState {
   // snapshot from a `gate_standing` broadcast).
   setStandingGateApprovals: (jobId: string, approvals: GateStandingApprovalView[]) => void;
   prependMessages: (jobId: string, msgs: ChatMessage[]) => void;
-  appendToStreamingMessage: (jobId: string, messageId: string, text: string) => void;
+  appendToStreamingMessage: (jobId: string, messageId: string, text: string, eventSeq?: number) => void;
   finalizeMessage: (jobId: string, messageId: string) => void;
   addCost: (jobId: string, amount: number) => void;
   addTokens: (jobId: string, tokens: TokenUsage) => void;

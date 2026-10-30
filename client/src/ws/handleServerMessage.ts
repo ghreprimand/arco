@@ -56,22 +56,23 @@ const pendingGenSpeed = new Map<string, GenerationSpeed>();
 // Chat mode receives very small provider deltas. Coalesce them to one store
 // update per animation frame so Markdown/layout work tracks the display rate
 // instead of token rate. Agent tabs keep their existing immediate semantics.
-const chatDeltaBatches = new Map<string, { workflowId: string; messageId: string; text: string; frame: number }>();
-function queueChatDelta(workflowId: string, phase: string, messageId: string, text: string): void {
+const chatDeltaBatches = new Map<string, { workflowId: string; messageId: string; text: string; frame: number; eventSeq?: number }>();
+function queueChatDelta(workflowId: string, phase: string, messageId: string, text: string, eventSeq?: number): void {
   if (typeof requestAnimationFrame !== 'function') {
-    useAppStore.getState().appendToStreamingMessage(workflowId, messageId, text);
+    useAppStore.getState().appendToStreamingMessage(workflowId, messageId, text, eventSeq);
     return;
   }
   const key = `${workflowId}:${phase}`;
   const prior = chatDeltaBatches.get(key);
   if (prior) {
     prior.text += text;
+    prior.eventSeq = eventSeq;
     return;
   }
-  const entry = { workflowId, messageId, text, frame: 0 };
+  const entry = { workflowId, messageId, text, frame: 0, eventSeq };
   entry.frame = requestAnimationFrame(() => {
     chatDeltaBatches.delete(key);
-    useAppStore.getState().appendToStreamingMessage(entry.workflowId, entry.messageId, entry.text);
+    useAppStore.getState().appendToStreamingMessage(entry.workflowId, entry.messageId, entry.text, entry.eventSeq);
   });
   chatDeltaBatches.set(key, entry);
 }
@@ -81,7 +82,25 @@ function flushChatDelta(workflowId: string, phase: string): void {
   if (!entry) return;
   cancelAnimationFrame(entry.frame);
   chatDeltaBatches.delete(key);
-  useAppStore.getState().appendToStreamingMessage(entry.workflowId, entry.messageId, entry.text);
+  useAppStore.getState().appendToStreamingMessage(entry.workflowId, entry.messageId, entry.text, entry.eventSeq);
+}
+
+// Close text at a causal boundary after flushing any frame-batched deltas.
+function splitPrimaryText(workflowId: string): void {
+  const ref = getStreamRef(workflowId);
+  for (const phase of ['planning', 'synthesis', 'passthrough'] as const) {
+    flushChatDelta(workflowId, phase);
+    const id = ref[phase];
+    if (!id) continue;
+    ref.parentTurnId ??= `turn-${id}`;
+    useAppStore.getState().updateMessage(workflowId, id, { isStreaming: false, parentTurnId: ref.parentTurnId });
+    ref[phase] = null;
+  }
+}
+function turnReply(workflowId: string, turnId: string | null): string {
+  const rows = useAppStore.getState().jobs[workflowId]?.messages ?? [];
+  if (turnId) return rows.filter(m => m.role === 'assistant' && m.phase === 'passthrough' && m.parentTurnId === turnId && !m.toolUse).map(m => m.content).join('');
+  return [...rows].reverse().find(m => m.role === 'assistant' && !m.toolUse)?.content ?? '';
 }
 
 // A cluster member the client renders (roster from cluster_state) but has no
@@ -146,18 +165,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             // streamRef so the timeline row shows a meaningful summary
             // and selecting it can scroll/flash the matching bubble.
             if (msg.type === 'primary_complete' && msg.phase === 'passthrough') {
+              flushChatDelta(wfid, 'passthrough');
               const ref = streamingMsgs.get(wfid);
-              const passthroughId = ref?.passthrough ?? null;
-              if (passthroughId) {
-                const job = store.jobs[wfid];
-                const m = job?.messages.find((x) => x.id === passthroughId);
-                if (m && m.content.trim().length > 0) {
-                  histEntry.summary = trim80(m.content);
-                  histEntry.chatMessageId = passthroughId;
-                } else {
-                  histEntry.summary = '(no text)';
-                }
-              }
+              const rows = useAppStore.getState().jobs[wfid]?.messages ?? [];
+              const m = rows.find(x => x.id === ref?.passthrough)
+                ?? [...rows].reverse().find(x => x.role === 'assistant' && x.phase === 'passthrough' && ref?.parentTurnId && x.parentTurnId === ref.parentTurnId);
+              const body = turnReply(wfid, ref?.parentTurnId ?? null);
+              histEntry.summary = body.trim() ? trim80(body) : '(no text)';
+              if (m) histEntry.chatMessageId = m.id;
             }
             store.appendHistoryEvent(wfid, histEntry);
           }
@@ -486,6 +501,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           const splitTimestamp = Date.now();
           if (splitFromStreaming) {
             const oldId = ref.passthrough!;
+            flushChatDelta(msg.workflowId, 'passthrough');
             // First split of this turn mints a stable parentTurnId derived
             // from the steer's seq (replay-deterministic). Subsequent splits
             // in the same turn keep the same id so all halves stay grouped.
@@ -504,12 +520,15 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             if (splitFromStreaming) {
               store.updateMessage(msg.workflowId, msg.clientMessageId, {
                 queued: false,
+                eventSeq: echoSeq,
                 timestamp: splitTimestamp,
               });
             }
+            store.updateMessage(msg.workflowId, msg.clientMessageId, { eventSeq: echoSeq });
             break;
           }
           store.addMessage(msg.workflowId, {
+            eventSeq: echoSeq,
             id: msg.clientMessageId ?? crypto.randomUUID(),
             role: 'user',
             content: msg.content,
@@ -563,10 +582,24 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // cleared on the (eventual / replayed) primary_complete or
           // primary_turn_ended, so the next turn starts clean.
           const job = useAppStore.getState().jobs[msg.workflowId];
+          const primarySeq = (msg as { seq?: number }).seq;
+          if (typeof primarySeq === 'number' && job?.messages.some(m => m.role === 'assistant' && m.phase === key && m.eventSeq !== undefined && m.eventSeq <= primarySeq && m.eventEndSeq !== undefined && m.eventEndSeq >= primarySeq)) break;
           const turnInProgress = job?.busy === true || job?.turnStartedAt !== undefined;
+          if (!ref.parentTurnId && job?.turnStartedAt !== undefined) {
+            ref.parentTurnId = [...job.messages].reverse().find(m => m.turnStartedAt === job.turnStartedAt && m.parentTurnId)?.parentTurnId ?? `turn-${msg.workflowId}-${job.turnStartedAt}`;
+          }
+          if (!ref[key] && turnInProgress && ref.parentTurnId && primarySeq !== undefined) {
+            const prior = [...(job?.messages ?? [])].reverse().find(m => m.role === 'assistant' && m.phase === key && m.parentTurnId === ref.parentTurnId);
+            const boundary = Math.max(0, ...(job?.messages ?? []).filter(m => m.role.startsWith('peer-') || (m.role === 'user' && m.queueKind === 'steer')).map(m => m.eventSeq ?? 0), ...(job?.activity ?? []).filter(a => a.kind === 'tool_use').map(a => a.eventSeq ?? 0));
+            if (prior?.eventEndSeq !== undefined && prior.eventEndSeq > boundary && prior.eventEndSeq < primarySeq) {
+              ref[key] = prior.id;
+              store.updateMessage(msg.workflowId, prior.id, { isStreaming: true });
+            }
+          }
+          const segmentId = () => typeof primarySeq === 'number' ? `primary-${msg.workflowId}-${key}-${primarySeq}` : crypto.randomUUID();
           if (!turnInProgress) {
             if (!ref[key]) {
-              const id = crypto.randomUUID();
+              const id = segmentId();
               ref[key] = id;
               store.addMessage(msg.workflowId, {
                 id,
@@ -578,11 +611,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 // finalize it.
                 isStreaming: false,
                 phase: msg.phase,
-                timestamp: Date.now(),
+                timestamp: job?.turnStartedAt ?? Date.now(),
+                eventSeq: primarySeq, eventEndSeq: primarySeq,
+                parentTurnId: ref.parentTurnId ?? undefined,
+                turnStartedAt: job?.turnStartedAt,
               });
             } else {
-              if (job?.config.kind === 'chat') queueChatDelta(msg.workflowId, key, ref[key]!, msg.text);
-              else store.appendToStreamingMessage(msg.workflowId, ref[key]!, msg.text);
+              if (job?.config.kind === 'chat') queueChatDelta(msg.workflowId, key, ref[key]!, msg.text, primarySeq);
+              else store.appendToStreamingMessage(msg.workflowId, ref[key]!, msg.text, primarySeq);
             }
             break;
           }
@@ -592,10 +628,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             // row instead of minting a fresh random id each time. Tag with
             // parentTurnId so the before/after halves of the split turn can
             // be regrouped by future code (Review, HISTORY, etc.).
-            const primarySeq = (msg as { seq?: number }).seq;
-            const id = ref.parentTurnId
-              ? `${ref.parentTurnId}::cont-${primarySeq ?? Date.now()}`
-              : crypto.randomUUID();
+            const id = segmentId();
             ref[key] = id;
             store.addMessage(msg.workflowId, {
               id,
@@ -603,12 +636,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               content: '',
               isStreaming: true,
               phase: msg.phase,
-              timestamp: Date.now(),
+              timestamp: job?.turnStartedAt ?? Date.now(),
+              eventSeq: primarySeq,
+              turnStartedAt: job?.turnStartedAt,
               ...(ref.parentTurnId ? { parentTurnId: ref.parentTurnId } : {}),
             });
           }
-          if (job?.config.kind === 'chat') queueChatDelta(msg.workflowId, key, ref[key]!, msg.text);
-          else store.appendToStreamingMessage(msg.workflowId, ref[key]!, msg.text);
+          if (job?.config.kind === 'chat') queueChatDelta(msg.workflowId, key, ref[key]!, msg.text, primarySeq);
+          else store.appendToStreamingMessage(msg.workflowId, ref[key]!, msg.text, primarySeq);
           break;
         }
 
@@ -660,10 +695,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           if (msg.phase === 'passthrough') {
             const job = useAppStore.getState().jobs[msg.workflowId];
             const pending = job?.pendingPlanCapture;
-            const lastAssistant = [...(job?.messages ?? [])]
-              .reverse()
-              .find((m) => m.role === 'assistant' && !m.toolUse && !m.isStreaming);
-            const body = lastAssistant?.content?.trim() ?? '';
+            const body = turnReply(msg.workflowId, ref.parentTurnId).trim();
             const memberClusterId = Object.values(store.clusters)
               .find((cluster) => cluster.members.some((m) => m.workflowId === msg.workflowId))
               ?.clusterId;
@@ -978,6 +1010,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           ref.planning = null;
           ref.synthesis = null;
           ref.passthrough = null;
+          ref.parentTurnId = `turn-${msg.workflowId}-${(msg as { seq?: number }).seq ?? msg.startedAt}`;
           break;
         }
 
@@ -1029,6 +1062,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'primary_tool_use':
+          splitPrimaryText(msg.workflowId);
           // §C1 — tool activity is a primary signal; refresh the stuck clock.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
           // docs/PROVIDERS.md - count only settled tool calls.
@@ -1042,6 +1076,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.appendActivity(msg.workflowId, {
             id: crypto.randomUUID(),
             kind: 'tool_use',
+            eventSeq: (msg as { seq?: number }).seq,
             tool: msg.tool,
             input: msg.input,
             status: msg.status,
@@ -1955,9 +1990,12 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // every restart.
           const existing = store.jobs[msg.workflowId]?.messages.some((m) => m.id === id);
           if (existing) break;
+          splitPrimaryText(msg.workflowId);
           const sentEntry: ChatMessage = {
             id,
             role: 'peer-sent',
+            turnStartedAt: store.jobs[msg.workflowId]?.turnStartedAt,
+            eventSeq: (msg as { seq?: number }).seq,
             content: msg.contentPreview,
             isStreaming: false,
             timestamp: 'ts' in msg && typeof (msg as { ts?: number }).ts === 'number' ? (msg as { ts: number }).ts : Date.now(),
@@ -1972,9 +2010,12 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           const id = `peer-recv-${msg.msgId}`;
           const existing = store.jobs[msg.workflowId]?.messages.some((m) => m.id === id);
           if (existing) break;
+          splitPrimaryText(msg.workflowId);
           const recvEntry: ChatMessage = {
             id,
             role: 'peer-received',
+            turnStartedAt: store.jobs[msg.workflowId]?.turnStartedAt,
+            eventSeq: (msg as { seq?: number }).seq,
             content: msg.content,
             isStreaming: false,
             timestamp: 'ts' in msg && typeof (msg as { ts?: number }).ts === 'number' ? (msg as { ts: number }).ts : Date.now(),

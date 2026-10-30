@@ -1054,14 +1054,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       };
     })),
 
-  appendToStreamingMessage: (jobId, messageId, text) =>
+  appendToStreamingMessage: (jobId, messageId, text, eventSeq) =>
     set((s) => {
       const job = s.jobs[jobId];
       if (!job) return {};
       const messages = [...job.messages];
       const idx = messages.findIndex((m) => m.id === messageId);
       if (idx !== -1) {
-        messages[idx] = { ...messages[idx], content: messages[idx].content + text };
+        messages[idx] = { ...messages[idx], content: messages[idx].content + text, ...(eventSeq !== undefined ? { eventEndSeq: eventSeq } : {}) };
       }
       return { jobs: { ...s.jobs, [jobId]: { ...job, messages: capMessages(messages) } } };
     }),

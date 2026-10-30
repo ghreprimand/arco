@@ -7,10 +7,8 @@ import { useAppStore } from '../stores/appStore';
 // is removed from the store (via the subscription below) so long-lived
 // sessions with many workflow churn don't leak entries forever.
 //
-// `parentTurnId` is set on the first mid-turn steer split (Phase 4 follow-up)
-// and stays set until the turn ends, so every after-half bubble created in
-// the same turn shares the same tag. Cleared in primary_turn_ended /
-// turn_cancelled.
+// `parentTurnId` identifies the underlying turn across peer, tool and steer
+// boundaries. Persisted segment anchors allow reconnect to resume that group.
 export type StreamRef = {
   planning: string | null;
   synthesis: string | null;

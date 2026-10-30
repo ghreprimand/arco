@@ -36,7 +36,7 @@ Persisted.
 
 #### `peer_message_received` <-
 
-Emitted on the recipient's workflow at injection time (pre-turn drain or mid-turn `peer_read`). Replay reproduces the system-block injection. Ordering invariant: always lands BEFORE the operator's `user_message_echo` on the same turn.
+Emitted on the recipient's workflow at injection time (pre-turn drain or mid-turn `peer_read`). Replay reproduces the system-block injection. A pre-turn drain precedes that turn's `user_message_echo`; a mid-turn read retains its position among that turn's streamed events.
 
 ```ts
 {
@@ -46,11 +46,13 @@ Emitted on the recipient's workflow at injection time (pre-turn drain or mid-tur
   from: string,                        // sender workflowId
   fromName: string, // sender display name (8-char workflowId prefix by default)
   content: string,                     // full body - durable record; the mailbox file is removed on drain
-  ts?: number,                         // 2026-05-12 - original send time (ms epoch). When set, the client uses this as the chat-row timestamp so peer rows sort at the moment they were sent, not when the recipient drained them.
+  ts?: number,                         // Original send time (ms epoch); workflow event sequence governs receive/reply placement.
 }
 ```
 
 Persisted.
+
+Incoming and outgoing peer rows close the active assistant text segment before later text is appended. Persisted event sequence anchors keep earlier text, peer entries and subsequent replies in the same causal order on workflow and focused cluster panes. Sender creation times remain metadata and do not move received messages ahead of earlier output. Claude session JSONL is reconciled with those text segments without duplicating their content or dropping peer and tool rows; plan capture reassembles the assistant segments from the same turn. This presentation does not rewrite saved event logs or provider transcripts.
 
 #### `peer_send_rejected` <-
 

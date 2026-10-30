@@ -50,11 +50,13 @@ export interface ChatMessage {
     filePath?: string;
     toolUseId: string;
   };
-  // Render-layer marker tying together the assistant chat messages produced
-  // by one underlying turn whose visible output got split by a mid-turn steer.
-  // Set on the "before" half (finalized at split time) and the "after" half
-  // (new streaming bubble for incoming deltas) so future logic that needs
-  // "all chat messages from one assistant turn" can reconstitute them.
-  // Client-only: server never reads this. Absent on un-split bubbles.
+  // Client render marker grouping all text from one primary turn, including
+  // segments separated by peer messages, tools or steering. Plan capture can
+  // reassemble the reply without including the intervening peer content.
   parentTurnId?: string;
+  // Persisted render anchors from the workflow event log. Sequence orders
+  // local events; sender timestamps do not establish receive order.
+  eventSeq?: number;
+  eventEndSeq?: number;
+  turnStartedAt?: number;
 }

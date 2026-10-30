@@ -40,6 +40,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep streamed worker replies after the peer messages they follow, including cluster panes, session overlays and replay.
+
 - Preserve concurrent first checkpoints for projects without a Git repository.
 
 - Keep Bakeoff usable before its comparison list arrives, including navigation and reload.
