@@ -11,6 +11,8 @@ import type { WebSocket } from 'ws';
 
 const temp = mkdtempSync(join(tmpdir(),'arco-policy-settings-'));
 installIsolatedTestHome(temp);
+const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 const { workflows } = await import('../server/state.js');
 const { writeMeta, readMeta } = await import('../workflowMeta.js');
 const { handleUpdatePrimaryConfig } = await import('./updatePrimaryConfig.js');
@@ -40,5 +42,5 @@ test('worker policy persists on/off/inherit and rejects invalid values without c
     assert.equal(wf.config.autoCompaction,undefined);
     assert.ok(sent.some(m=>m.type==='error' && String(m.message).includes('Could not save')));
     assert.equal((await readMeta(cwd,id))?.autoCompaction,undefined);
-  } finally {workflows.delete(id); try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch (error) { try { reportCleanupFailure(temp); } catch { console.error('fixture diagnostics failed'); } throw error; }}
+  } finally {workflows.delete(id); await closeRecall(); try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch (error) { try { reportCleanupFailure(temp); } catch { console.error('fixture diagnostics failed'); } throw error; }}
 });

@@ -10,6 +10,8 @@ import { spawnSync } from 'node:child_process';
 
 const temp = mkdtempSync(join(tmpdir(), 'arco-policy-persistence-'));
 installIsolatedTestHome(temp);
+const { trackRecallFixture } = await import('./testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 const store = await import('./clusterStore.js');
 const meta = await import('./workflowMeta.js');
 const snapshots = await import('./clusterSnapshots.js');
@@ -41,5 +43,5 @@ test('cluster inheritance survives member changes and snapshot restore with work
     await store.deleteCluster(restored.cluster.clusterId);
     await store.setAutoCompaction(clusterId,null);
     assert.equal(store.getAutoCompaction(clusterId),undefined);
-  } finally { if (clusterId) await store.deleteCluster(clusterId); try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch (error) { try { reportCleanupFailure(temp); } catch { console.error('fixture diagnostics failed'); } throw error; } }
+  } finally { if (clusterId) await store.deleteCluster(clusterId); await closeRecall(); try { rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100}); } catch (error) { try { reportCleanupFailure(temp); } catch { console.error('fixture diagnostics failed'); } throw error; } }
 });
