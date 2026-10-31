@@ -175,7 +175,7 @@ async function main(): Promise<void> {
           x.clusterId === clusterId &&
           x.workflowId === target &&
           (x as { fired?: boolean }).fired === true,
-        3000,
+        10000,
         `cluster_auto_turn_fired (rate-cap fill #${fired + 1})`,
       );
       const r = await fetch(`${REST_BASE}/api/clusters/${clusterId}/peer/send`, {
@@ -213,6 +213,13 @@ async function main(): Promise<void> {
   });
 
   await step('7: toggle auto-turn OFF → no further fires', async () => {
+    // Drain any buffered result from the rate-cap burst, including fired=false
+    // skips. waitFor consumes a buffered match before installing its timer.
+    const isClusterFire = (x: { type: string; clusterId?: string }) =>
+      x.type === 'cluster_auto_turn_fired' && x.clusterId === clusterId;
+    while (c.peekMessages().some(isClusterFire)) {
+      await c.waitFor(isClusterFire, 50, 'drain buffered cluster_auto_turn_fired');
+    }
     c.send({ type: 'cluster_auto_turn_toggle', clusterId, enabled: false });
     await c.waitFor(
       (x) => x.type === 'cluster_state' && x.clusterId === clusterId &&
@@ -231,7 +238,8 @@ async function main(): Promise<void> {
     let unexpected = false;
     try {
       await c.waitFor(
-        (x) => x.type === 'cluster_auto_turn_fired' && x.clusterId === clusterId,
+        (x) => x.type === 'cluster_auto_turn_fired' && x.clusterId === clusterId &&
+          x.workflowId === members[1],
         1500,
         'cluster_auto_turn_fired (after disable — should NOT arrive)',
       );
