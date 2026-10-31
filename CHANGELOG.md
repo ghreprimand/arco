@@ -21,6 +21,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Show "Z.ai support has been removed" wherever a removed Z.ai provider is still named (creator, workflow create, provider start, sign-in and update-check requests) instead of a generic unsupported or unknown provider error; Z.ai settings stay discarded.
+
 - Start the New workflow page on the first enabled, connected provider when no default is saved, keep a saved default that is not connected selected and marked "not connected" with an Open Connections link, and disable launch with a plain reason until a connected provider is chosen; the provider picker lists only enabled, connected providers. Repeated roles are numbered the same way ("Builder #2") in the template review and the member list.
 
 - Give the cluster creator's Message guard, Warn after, Task board and Keep current controls, the cluster and worker Auto-compaction selects, Computer activity and fresh-context selects, the Codex usage account and source selects, speech sensitivity and the workspace name field the theme's form-control style; wrap the message guard help and use plain wording for cluster notes.

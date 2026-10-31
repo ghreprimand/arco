@@ -25,7 +25,7 @@ test('a home with retired provider fields preserves unrelated settings across re
     const { isKnownProvider, createProviderProcess } = await import('./providers/index.js');
     assert.equal((PRIMARY_PROVIDERS as string[]).includes('zai'), false);
     assert.equal(isKnownProvider('zai'), false);
-    assert.throws(() => createProviderProcess('retired', { provider: 'zai' } as never), /Unknown provider/);
+    assert.throws(() => createProviderProcess('retired', { provider: 'zai' } as never), /Z\.ai support has been removed/);
     const { readSettings, patchSettings } = await import('./settings.js');
     const settings = await readSettings();
     assert.equal('zai' in settings, false);

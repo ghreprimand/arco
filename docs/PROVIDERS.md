@@ -1903,3 +1903,11 @@ A retired provider cannot start or resume work; choose a supported provider
 explicitly for new work. Updating unrelated settings preserves retired defaults
 until they are explicitly changed. Arco does not uninstall external applications
 or delete their profiles or credentials.
+
+Z.ai support has also been removed, but its saved settings are not retained:
+legacy Z.ai settings, including a Z.ai default provider and its model, are
+ignored when settings are read. Existing secret files are left in place.
+Anything that still names Z.ai (a saved template, a create request, a login or
+update-check request) gets the notice "Z.ai support has been removed. Choose a
+supported provider explicitly for new work." rather than a generic unsupported
+provider error.

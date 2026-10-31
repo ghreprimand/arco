@@ -1,4 +1,4 @@
-import { retiredProviderReason } from '@arco/shared';
+import { removedProviderReason } from '@arco/shared';
 import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
@@ -155,7 +155,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   }
   const provider = PROVIDERS[name];
   if (!provider) {
-    throw new Error(retiredProviderReason(name) ?? `Unknown provider: ${name}`);
+    throw new Error(removedProviderReason(name) ?? `Unknown provider: ${name}`);
   }
   return provider.create(id, config);
 }

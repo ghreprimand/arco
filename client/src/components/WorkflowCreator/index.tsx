@@ -3,7 +3,7 @@ import { CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, retiredProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, removedProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
 import { localCapacityProblem, localCapacityUsage, LOCAL_RUNTIME_LABELS } from '@arco/shared';
@@ -1194,7 +1194,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           </div>
         </div>
 
-        {!supportedProvider && <p role="alert">{retiredProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
+        {!supportedProvider && <p role="alert">{removedProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
 
         {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
         {mode === 'cluster' && (

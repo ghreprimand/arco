@@ -1,4 +1,4 @@
-import { retiredProviderReason } from '@arco/shared';
+import { removedProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { updateChecker } from '../server/updateCheck.js';
 import { tryHandleConnectionsRoutes } from './connectionsRoutes.js';
@@ -1691,7 +1691,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://localhost:${PORT}`);
       const raw = url.searchParams.get('provider') || 'claude';
-      const retired = retiredProviderReason(raw);
+      const retired = removedProviderReason(raw);
       if (retired) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: retired }));
@@ -1731,7 +1731,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, 'http://localhost');
       const providerParam = url.searchParams.get('provider');
-      const retired = retiredProviderReason(providerParam);
+      const retired = removedProviderReason(providerParam);
       if (retired) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: retired }));

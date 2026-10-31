@@ -67,10 +67,25 @@ export const EFFORT_RANK: Record<EffortLevel, number> = {
   ultra: 5,
 };
 
-// Historical configurations retain their provider identity until explicitly changed.
+// Historical configurations retain their provider identity until explicitly
+// changed. Settings and workflow metadata use this to decide what to keep, so
+// it covers only providers whose saved identity is retained (Gemini,
+// Antigravity). For user-facing messages use removedProviderReason.
 export function retiredProviderReason(provider: unknown): string | undefined {
   if (provider === 'gemini') return 'Gemini support has been removed. Saved work is preserved; choose a supported provider explicitly for new work.';
   return provider === 'antigravity'
     ? 'Antigravity support has been removed. Saved work is preserved; choose a supported provider explicitly for new work.'
     : undefined;
+}
+
+// Z.ai was removed with its saved settings discarded (legacy defaults are
+// ignored rather than retained), so it is not a retained retired provider,
+// but anything that still names it gets a removal notice instead of a generic
+// "unsupported provider" error.
+const ZAI_REMOVED_REASON = 'Z.ai support has been removed. Choose a supported provider explicitly for new work.';
+
+// The notice shown wherever a removed provider is named: retained retired
+// providers (Gemini, Antigravity) and Z.ai. Undefined for anything else.
+export function removedProviderReason(provider: unknown): string | undefined {
+  return retiredProviderReason(provider) ?? (provider === 'zai' ? ZAI_REMOVED_REASON : undefined);
 }

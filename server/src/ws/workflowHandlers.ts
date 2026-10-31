@@ -1,4 +1,4 @@
-import { isAutoCompactionPolicy, resolveAutoCompactionPolicy, retiredProviderReason } from '@arco/shared';
+import { isAutoCompactionPolicy, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 import { isKnownProvider } from '../providers/index.js';
 import { publishWorkerActivity } from './turnEngine.js';
 import { clearPrivateWatches } from '../voice/watches.js';
@@ -227,7 +227,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
   }
   const provider = config.primaryProvider ?? 'claude';
   if (!isKnownProvider(provider)) {
-    send(ws, { type: 'error', message: retiredProviderReason(provider) ?? `Unsupported provider: ${provider}` });
+    send(ws, { type: 'error', message: removedProviderReason(provider) ?? `Unsupported provider: ${provider}` });
     return;
   }
   const primary = derivePrimaryConfig(config);
