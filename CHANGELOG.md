@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Start new work at HIGH effort at most: a fresh home, saved defaults, templates, saved cluster presets, new cluster members, Add worker and Replace member are capped at HIGH, an explicit XHIGH or MAX resets to HIGH with a note when the model or provider changes, and SAVE AS DEFAULTS stores at most HIGH. A new home also starts single workers and new members with the Conservative tool-result filter and Lite output style; saved choices, including Off and Normal, are kept.
+
 - Bound Home: open work shows two rows of cards with Show all, and every project group, including pinned and bookmarked folders, shows six entries before expanding into a bounded scrolling list.
 
 - Separate cluster coordination style from Warn only, Hard limit and No limit message guards; align role and mailbox guidance; default new clusters to Balanced, a cluster-local board and Keep current Both while preserving saved settings.

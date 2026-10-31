@@ -7,10 +7,12 @@ import {
   type ClusterMemberProvider,
   type ClusterStatePayload,
   type EffortLevel,
+  type ModelName,
 } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { effortsForModel } from '../../utils/format';
+import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 
 const menuStyle: CSSProperties = {
@@ -48,7 +50,8 @@ export function ReplaceMemberDialog({
   const originalAccount = job?.config.providerAccountRef;
   const [provider, setProvider] = useState<ClusterMemberProvider>(originalProvider);
   const [model, setModel] = useState(originalModel);
-  const [effort, setEffort] = useState<EffortLevel>(originalEffort as EffortLevel);
+  // The replacement is new work: its default effort never starts above HIGH.
+  const [effort, setEffort] = useState<EffortLevel>(capDefaultEffort(originalEffort as EffortLevel));
   const [account, setAccount] = useState<string | undefined>(originalAccount);
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>(member.accessMode ?? 'standard');
   const [includeHistory, setIncludeHistory] = useState(false);
@@ -69,7 +72,7 @@ export function ReplaceMemberDialog({
 
   useEffect(() => {
     if (effortOptions.length > 0 && !effortOptions.includes(effort)) {
-      setEffort(effortOptions[effortOptions.length - 1]);
+      setEffort(capDefaultEffort(effort, provider, model as ModelName, claudeCatalog, codexCatalog));
     }
   }, [effortOptions, effort]);
 
@@ -78,7 +81,7 @@ export function ReplaceMemberDialog({
     setProvider(next);
     if (next === originalProvider) {
       setModel(originalModel);
-      setEffort(originalEffort as EffortLevel);
+      setEffort(capDefaultEffort(originalEffort as EffortLevel));
       setAccount(next === 'codex' ? originalAccount : undefined);
       return;
     }

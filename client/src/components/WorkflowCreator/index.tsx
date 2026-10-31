@@ -6,6 +6,7 @@ import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, retiredProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
+import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, isAboveDefaultCap, EFFORT_SAVE_NOTE } from '../../utils/effortDefaults';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { useTemplates } from '../../hooks/useTemplates';
 import { ClusterMembersSection } from './ClusterMembersSection';
@@ -112,7 +113,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [name, setName] = useState('');
   const [primaryProvider, setPrimaryProvider] = useState<ProviderName>(initialProvider ?? wd?.primaryProvider ?? 'claude');
   const [model, setModel] = useState<ModelName>(wd?.primaryModel ?? 'opus');
-  const [effort, setEffort] = useState<EffortLevel>(wd?.primaryEffort ?? 'max');
+  // New work never starts above HIGH; XHIGH/MAX only by an explicit click.
+  const [effort, setEffort] = useState<EffortLevel>(() => initialCreatorDefaults(wd).effort);
+  const effortExplicitRef = useRef(false);
+  const [effortNote, setEffortNote] = useState<string | null>(null);
+  const [memberEffortNote, setMemberEffortNote] = useState<string | null>(null);
   const [skipPermissions, setSkipPermissions] = useState(wd?.skipPermissions ?? true);
   const [fastMode, setFastMode] = useState(wd?.fastMode ?? false);
   // Efficiency/style defaults surfaced on the New-tab so the operator can
@@ -121,8 +126,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // workflowDefaults regardless of the active provider so a transport flip
   // mid-tab picks supported values up automatically. Renamed `caveman` →
   // `terse` 2026-05-10 (see docs/PROVIDERS.md).
-  const [efficiencyToolFilter, setEfficiencyToolFilter] = useState<'off' | 'conservative' | 'aggressive'>(wd?.efficiencyToolFilter ?? 'off');
-  const [outputStyle, setOutputStyle] = useState<'normal' | 'lite' | 'terse'>(wd?.outputStyle ?? 'normal');
+  const [efficiencyToolFilter, setEfficiencyToolFilter] = useState<'off' | 'conservative' | 'aggressive'>(() => initialCreatorDefaults(wd).efficiencyToolFilter);
+  const [outputStyle, setOutputStyle] = useState<'normal' | 'lite' | 'terse'>(() => initialCreatorDefaults(wd).outputStyle);
   // docs/PROVIDERS.md - start a tab already in sticky ultracode. Enabling it
   // auto-sets xhigh (mirrors `/effort ultracode`) and forces CLI at turn time.
   const [ultracode, setUltracode] = useState(false);
@@ -131,8 +136,20 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // opus-4-6, then switching to sonnet (no max), would otherwise leave
   // effort=max with the picker hiding it. clampEffortForModel walks down to
   // the highest honored level for the new model.
+  // An explicit XHIGH/MAX does not carry over to another model or provider:
+  // it resets to HIGH with a one-line note. Catalog arrival alone only fits.
+  const lastModelRef = useRef(`${primaryProvider}:${String(model)}`);
   useEffect(() => {
-    setEffort((prev) => clampEffortForModel(prev, primaryProvider, model, claudeNativeCatalog, codexCatalog));
+    const key = `${primaryProvider}:${String(model)}`;
+    const changed = key !== lastModelRef.current;
+    lastModelRef.current = key;
+    setEffort((prev) => {
+      if (!changed) return clampEffortForModel(prev, primaryProvider, model, claudeNativeCatalog, codexCatalog);
+      const result = effortAfterModelChange(prev, { explicit: effortExplicitRef.current, ultracode, provider: primaryProvider, model, claudeCatalog: claudeNativeCatalog, codexCatalog });
+      if (result.note) setEffortNote(result.note);
+      if (isAboveDefaultCap(prev) && !isAboveDefaultCap(result.effort)) effortExplicitRef.current = false;
+      return result.effort;
+    });
   }, [primaryProvider, model, claudeNativeCatalog]);
 
   const providerAccounts = settings?.providerAccounts?.[primaryProvider === 'codex' ? 'codex' : primaryProvider === 'claude' ? 'claude' : 'codex'] ?? [];
@@ -161,7 +178,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const d = settings.workflowDefaults;
     if (d.primaryProvider && !initialProvider) setPrimaryProvider(d.primaryProvider);
     if (d.primaryModel) setModel(d.primaryModel);
-    if (d.primaryEffort) setEffort(d.primaryEffort);
+    if (d.primaryEffort) setEffort(capDefaultEffort(d.primaryEffort));
     if (d.providerAccountRef) setProviderAccountRef(d.providerAccountRef);
     if (d.skipPermissions !== undefined) setSkipPermissions(d.skipPermissions);
     if (d.fastMode !== undefined) setFastMode(d.fastMode);
@@ -207,11 +224,13 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const saveAsDefaults = async () => {
     if (savingDefaults) return;
     setSavingDefaults(true);
+    const savedEffort = capDefaultEffort(effort, primaryProvider, model, claudeNativeCatalog, codexCatalog);
+    setEffortNote(savedEffort !== effort ? EFFORT_SAVE_NOTE : null);
     const patch: Partial<ArcoSettings> = {
       workflowDefaults: {
         primaryProvider,
         primaryModel: model,
-        primaryEffort: effort,
+        primaryEffort: savedEffort,
         ...(primaryProvider === 'codex' && providerAccountRef ? { providerAccountRef } : {}),
         skipPermissions,
         fastMode,
@@ -402,7 +421,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const fallbackModel: ModelName = defaultClusterModelForProvider(provider);
     const isFencedModel = provider === primaryProvider;
     const m: ModelName = isFencedModel ? model : fallbackModel;
-    const effortClamped = clampEffortForModel(effort, provider, m, claudeNativeCatalog, codexCatalog);
+    const effortClamped = capDefaultEffort(effort, provider, m, claudeNativeCatalog, codexCatalog);
     return {
       key: crypto.randomUUID(),
       provider,
@@ -443,7 +462,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       const next = { ...m, ...patch };
       // Re-clamp effort whenever provider or model changes from inside the
       // row editor (mirrors the top-level useEffect on primaryProvider/model).
-      if (patch.provider !== undefined || patch.model !== undefined) {
+      if ((patch.provider !== undefined && patch.provider !== m.provider) || (patch.model !== undefined && patch.model !== m.model)) {
+        const result = effortAfterModelChange(next.effort, { explicit: true, ultracode: false, provider: next.provider, model: next.model, claudeCatalog: claudeNativeCatalog, codexCatalog });
+        if (result.note) setMemberEffortNote(`Member ${m.displayName || '#' + (prev.indexOf(m) + 1)}: ${result.note}`);
+        next.effort = result.effort;
+      } else if (patch.provider !== undefined || patch.model !== undefined) {
         next.effort = clampEffortForModel(next.effort, next.provider, next.model, claudeNativeCatalog, codexCatalog);
       }
       return next;
@@ -484,7 +507,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       key: crypto.randomUUID(),
       provider: m.provider,
       model: m.model as ModelName,
-      effort: (m.effort as EffortLevel) ?? 'medium',
+      effort: capDefaultEffort((m.effort as EffortLevel | undefined) ?? 'medium', m.provider, m.model as ModelName, claudeNativeCatalog, codexCatalog),
       providerAccountRef: m.provider === 'codex' ? m.providerAccountRef : undefined,
       displayName: m.displayName ?? '',
       role: m.role ?? '',
@@ -570,7 +593,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const provider: ProviderName = c.primaryProvider ?? 'claude';
     setPrimaryProvider(provider);
     setModel(c.primaryModel);
-    setEffort(clampEffortForModel(c.primaryEffort, provider, c.primaryModel, claudeNativeCatalog, codexCatalog));
+    effortExplicitRef.current = false;
+    setEffort(capDefaultEffort(c.primaryEffort, provider, c.primaryModel, claudeNativeCatalog, codexCatalog));
     setProviderAccountRef(provider === 'codex' ? c.providerAccountRef : undefined);
     setSkipPermissions(c.skipPermissions);
     setFastMode(c.fastMode ?? false);
@@ -1389,7 +1413,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                     {honored.map((e) => (
                       <button
                         key={e}
-                        onClick={() => setEffort(e)}
+                        onClick={() => { setEffort(e); effortExplicitRef.current = isAboveDefaultCap(e); setEffortNote(null); }}
                         style={{ ...selectStyle(effort === e), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                       >
                         {EFFORT_LABELS[e] ?? e.toUpperCase()}
@@ -1398,6 +1422,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                   </div>
                 );
               })()}
+              {effortNote && <div role="status" style={{ marginTop: '4px', fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{effortNote}</div>}
             </div>
         )}
 
@@ -1441,6 +1466,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               onClick={() => {
                 const next = !ultracode;
                 setUltracode(next);
+                setEffortNote(null);
+                if (next) effortExplicitRef.current = true;
                 if (next) setEffort(clampEffortForModel('xhigh' as EffortLevel, primaryProvider, model, claudeNativeCatalog, codexCatalog));
               }}
               style={{ ...selectStyle(ultracode), padding: '6px 18px', textAlign: 'center' }}
@@ -1609,6 +1636,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* ── END BANDED LAYOUT ── */}
 
         {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
+        {mode === 'cluster' && memberEffortNote && <div role="status" style={{ fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{memberEffortNote}</div>}
         {mode === 'cluster' && (
           <ClusterMembersSection
             members={members}

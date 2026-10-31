@@ -173,7 +173,8 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Claude Native efficiency control. Conservative filters trim noisy tool
         output before it enters the next model call; reductions are logged so
-        transcript review can see what changed.
+        transcript review can see what changed. A new home starts at{' '}
+        <C>conservative</C>; a saved default, including <C>off</C>, is kept.
       </p>
     ),
     manualSection: 'config-tab',
@@ -184,7 +185,8 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Default response style for new Claude Native, Codex app-server, and
         Codex app-server tabs: <C>normal</C>, <C>lite</C>, or <C>terse</C>. Applies to
-        primary turns; Review / Handoff / DOCS / GIT stay normal.
+        primary turns; Review / Handoff / DOCS / GIT stay normal. A new home
+        starts at <C>lite</C>; a saved default, including <C>normal</C>, is kept.
       </p>
     ),
     manualSection: 'config-tab',
@@ -568,6 +570,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         permissions, fast mode, fallback — to{' '}
         <C>~/.arco/settings.json</C> so the next workflow pre-selects the
         same. The cwd is <em>not</em> saved (each workflow has its own).
+        Effort is saved as at most HIGH.
       </p>
     ),
   },
@@ -625,7 +628,11 @@ export const miscHelp: Record<string, HelpEntry> = {
         disables reasoning; high maps to Qwen xhigh), other local models expose low/high as a thinking toggle, and
         Higher effort = more thinking tokens = more cost /
         more time. <b>Cursor</b> has no separate effort here — it's baked into
-        the model id, so set it in the MODEL picker above.
+        the model id, so set it in the MODEL picker above. New work starts at
+        <C>high</C> at most: saved defaults, templates, presets, new members and
+        replacements are capped there. XHIGH and MAX apply only when clicked
+        (or by Ultracode), and reset to HIGH with a note when the model or
+        provider changes. Resumed and restored work keeps its effort.
       </p>
     ),
   },

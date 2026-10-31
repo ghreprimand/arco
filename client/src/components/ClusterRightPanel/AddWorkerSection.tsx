@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL} from '@arco/shared';
-import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload } from '@arco/shared';
+import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload, EffortLevel, ModelName, ProviderName } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
+import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { CursorModelSelect } from '../CursorModelSelect';
 
@@ -47,7 +48,8 @@ export function AddWorkerSection({
     return p === 'codex' || p === 'ollama' || p === 'llamacpp' || p === 'cursor' ? p : 'claude';
   })();
   const templateModel = templateJob?.config.primaryModel ?? '';
-  const templateEffort = templateJob?.config.primaryEffort ?? 'medium';
+  // A new worker never inherits an effort above HIGH; XHIGH/MAX stay an explicit pick.
+  const templateEffort = capDefaultEffort(templateJob?.config.primaryEffort ?? 'medium');
   const templateAccountRef = templateJob?.config.providerAccountRef;
   const codexAccounts = settings?.providerAccounts?.codex ?? [];
   const [provider, setProvider] = useState<ClusterMemberProvider>(templateProvider);
@@ -116,7 +118,7 @@ export function AddWorkerSection({
   useEffect(() => {
     if (effortOptions.length === 0) return;
     if (!effortOptions.includes(effort)) {
-      setEffort(effortOptions[effortOptions.length - 1]);
+      setEffort(capDefaultEffort(effort as EffortLevel, provider as ProviderName, model as ModelName, claudeNativeCatalog, codexCatalog));
     }
   }, [effortOptions, effort]);
 
