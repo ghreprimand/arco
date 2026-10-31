@@ -126,7 +126,7 @@ making it reachable elsewhere.
 
 ## Highlights
 
-- **Project Home:** open arbitrary folders, pin or archive projects, recover moved folders, and resume saved work. [Getting started](docs/GETTING_STARTED.md)
+- **Home:** the start page for project locations, bookmarks, open work, and saved sessions. Pin or archive projects, recover moved folders, and resume work. [Getting started](docs/GETTING_STARTED.md)
 - **Provider choice:** Claude, Codex, Cursor, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
 - **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)

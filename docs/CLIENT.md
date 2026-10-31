@@ -12,7 +12,7 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 
 `client/src/main.tsx` is tiny:
 
-1. **`bootstrapCachedTheme`** - synchronous. Reads the cached `themeId` from localStorage and applies CSS vars to `:root` before React mounts. This avoids the 100-500 ms flash of default `matrix` colors that was happening when theme apply ran post-mount.
+1. **`bootstrapCachedTheme`** - synchronous. Reads the cached `themeId` from localStorage and applies CSS vars to `:root` before React mounts. This avoids the 100-500 ms flash of default Phosphor Electric Blue (`phosphor:arco:electric`) colors that was happening when theme apply ran post-mount.
 2. **Terminal pop-out branch** - there is no router. `main.tsx` reads `?popoutTerminal=<sessionId>` from `window.location.search`; if present it renders a standalone `<TerminalPopout/>` (no app stores, no `/ws`) **instead of** `<App/>`. The bootstrap above still runs first, so the pop-out inherits the operator's theme. See [`TERMINAL.md`](TERMINAL.md).
 3. **ARCHIVE explorer branch** - `main.tsx` also reads `?app=explorer`; when set it renders the standalone chromeless `<ExplorerApp/>` (the read-only project-artifact window) instead of `<App/>`, parallel to the terminal pop-out. Theme bootstrap still runs first so the window inherits the operator's theme.
 4. **`createRoot(...).render(<App />)`** - mount the app (or the pop-out / explorer, per the branches above). The two standalone entries mount no workflow store; when the Phosphor family is active with effects on they share only a lazy `PhosphorBackdrop`.
@@ -23,8 +23,8 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 2. **`useWebSocket`** - opens the persistent WS, returns the outbound action helpers plus `{ reconnect, reconnectState }`.
 3. **Auth poll** - `GET /api/auth-status` on mount, then every 2 minutes **only while Claude is logged in**; a `loggedIn:false` pauses the loop until `HeaderAuthChip`'s re-login flow flips it back.
 4. **Fetches keyed on `connected`** - `/api/settings` and `/api/capabilities` re-run on every WS reconnect (the page may load while the server is still starting; re-keying avoids a manual refresh after each restart). Pollers: `/api/usage`, `/api/codex-usage`, `/api/cursor-usage` (`USAGE_POLL_MS` = 3 min); `/api/claude-native/catalog`, `/api/codex/catalog` (+ `?account=` per Codex profile), `/api/cursor/catalog` (30 min); `/api/ollama-live` + `/api/llamacpp-live` (15 s, only while enabled + reachable). `/api/toolbox` is workflow-specific and fetched lazily when that workflow's `/SKILLS` menu opens.
-5. **Gates, in order** - `ShutdownOverlay` replaces the tree on `shutdown`; `AuthOverlay` replaces it when no primary-capable provider (Claude / Codex) is both enabled and authed (Settings + Manual stay mountable above it).
-6. **Main-view routing** - `showGithub` -> `GitHubPanel`; `activeClusterId` -> `ClusterTab`; `showCreator || !activeJob` -> `WorkflowCreator`; `activeJob.config.kind === 'chat'` -> `ChatModeView`; else `WorkflowView`. The routed view sits inside an `ErrorBoundary` keyed on the active id so one tab's render crash doesn't blank the shell.
+5. **Gates, in order** - `ShutdownOverlay` replaces the tree on `shutdown`; when `firstRunOpen` or the unused-home setup gate is active, `FirstRun` mounts (local providers count as primary-capable; Settings + Manual stay mountable above it). `AuthOverlay` is the Connections dialog used during setup / CONNECT A PROVIDER, not a Claude/Codex-only fullscreen gate.
+6. **Main-view routing** - `showGithub` -> `GitHubPanel`; `showHome` -> `HomeView` (default start surface); `activeClusterId` -> `ClusterTab`; `showCreator || !activeJob` -> `WorkflowCreator`; `activeJob.config.kind === 'chat'` -> `ChatModeView`; else `WorkflowView`. The routed view sits inside an `ErrorBoundary` keyed on the active id so one tab's render crash doesn't blank the shell.
 7. **SYNCING overlay** - fires when the WS is up but persisted jobs haven't received their `workflow_state_snapshot` yet. Cleared per-job on snapshot arrival. Fresh workflows skip this entirely (set `snapshotReceived: true` at create time).
 
 ---
@@ -319,13 +319,13 @@ Module-level streaming state (`streamingMsgs: Map<workflowId, StreamRef>`, in `w
 
 ## Component tree
 
-Top-level structure rooted at `App.tsx`. The main view branches five ways (see Boot sequence): `GitHubPanel`, `ClusterTab`, `WorkflowCreator`, `ChatModeView` (`kind:'chat'`), or `WorkflowView`.
+Top-level structure rooted at `App.tsx`. `FirstRun` can replace the workspace during welcome/setup. The main view otherwise branches: `GitHubPanel`, `HomeView` (default when `showHome`), `ClusterTab`, `WorkflowCreator`, `ChatModeView` (`kind:'chat'`), or `WorkflowView`.
 
 ```
 App
 ├── SystemHeader            (title, Providers popover, provider-throttling warning, auth chip, grouped action rows, UsageBar pills)
 ├── TabBar                  (job tabs + cluster tabs; "+" for new; two-row layout when a cluster is active)
-├── GitHubPanel | ClusterTab | WorkflowCreator | ChatModeView | WorkflowView   (inside an ErrorBoundary)
+├── GitHubPanel | HomeView | ClusterTab | WorkflowCreator | ChatModeView | WorkflowView   (inside an ErrorBoundary)
 │   └── WorkflowView (agent workflow tab)
 │       ├── ChatPanel       (left 2/3 - virtualized chat log)
 │       │   └── ChatRow (one of:)
@@ -357,7 +357,7 @@ App
 │       │   ├── ResearchDialog        (RESEARCH - deep-research run)
 │       │   └── TranscriptSendDialog  (cluster-member tabs only)
 │       └── RightPanel      (right 1/3 - `RightPanel/index.tsx`; two-level grouped tabs: Workspace/Agent/Memory/Runtime)
-│           ├── FileExplorer       (FILES tab)
+│           ├── FileExplorer       (FILES tab - LIVE / CHANGES / SOURCE / REMOTE / …; OUTPUTS sub-tab mounts `OutputsPanel`)
 │           ├── GenesisTab         (GENESIS tab - Creative-mode integration; scratch ideation workflows, any real-cwd workflow (to arm Creative mode), or once Creative is armed)
 │           ├── ActivityTab        (ACTIVITY tab - inline in RightPanel)
 │           ├── ReviewTab          (REVIEW tab - inline)
@@ -426,7 +426,7 @@ The 2/3 - 1/3 splitter width and active right-tab key persist to localStorage in
   removes Cursor and llama.cpp while strict incognito is armed because neither
   can meet its no-local-log contract.
 
-- **`SystemHeader`** (I1 - information architecture) - a single Row 1 with the wordmark on the left and, on the right, a **status cluster** followed by **three grouped action rows** separated by thin `GroupDivider` rules. Status cluster (urgent, always visible): `ProvidersPopover` · `WorkflowStatusChip` · `HeaderAuthChip`. Action groups: **Models** (`⌕ RECALL`, `⚙ COOKBOOK`) · **Tools** (`⌗ MEDIA`, `⌸ ARCHIVE` - calls `openArchive`, a same-browser popup falling back to `POST /api/explorer/open`, launching the standalone explorer window; `◆ GITHUB`, `>_ TERMINAL`) · **System** (`⚙ SETTINGS`, `ⓘ MANUAL`, connection LED + RECONNECT/RESTART, `⏻` power -> `SystemModal` whose Diagnostics tab is the group's third member). Every button shares the `actionBtn` style constant so the grouping reads off spacing, not per-button drift. Below Row 1 sits `UsageBar`, a uniform row of `LIVE` pills - one per authed provider plus an `OLLAMA [LIVE/READY/DOWN]` pill when ollama is enabled; hovering the Claude pill pops Session/Weekly usage bars + reset times, hovering Ollama pops the loaded-model list with VRAM-unload countdown. Stays at the top across all views. **Focus mode:** the `◳ FOCUS` toggle (always visible, between connection health and ⏻) flips `appStore.focusMode`; when armed the header collapses to wordmark + `WorkflowStatusChip` + connection health + `◳ EXIT FOCUS` + ⏻, hiding the Providers popover, auth chip, both action groups, Settings/Manual, and the UsageBar row. Also reachable from the command palette (`Enter/Exit focus mode`). Reversible + persisted (`arco.focusMode`).
+- **`SystemHeader`** (I1 - information architecture) - a single Row 1 with the wordmark on the left and, on the right, a **status cluster** followed by **three grouped action rows** separated by thin `GroupDivider` rules. Status cluster (urgent, always visible): `ProvidersPopover` · `WorkflowStatusChip` · `HeaderAuthChip`. Action groups: **Models** (`⌕ RECALL`, `⚙ COOKBOOK`) · **Tools** (`⌗ MEDIA`, `⌸ ARCHIVE` - calls `openArchive`, a same-browser popup falling back to `POST /api/explorer/open`, launching the standalone explorer window; `◆ GITHUB`, `>_ TERMINAL`) · **System** (`⚙ SETTINGS`, `ⓘ MANUAL`, connection LED + RECONNECT/RESTART, `⏻` power -> `SystemModal` whose Diagnostics tab is the group's third member). Every button shares the `actionBtn` style constant so the grouping reads off spacing, not per-button drift. `UsageBar` sits inline in Row 1 as a uniform strip of `LIVE` pills - one per authed provider plus an `OLLAMA [LIVE/READY/DOWN]` pill when ollama is enabled; hovering the Claude pill pops Session/Weekly usage bars + reset times, hovering Ollama pops the loaded-model list with VRAM-unload countdown. On Home the header ARCO wordmark is `visibility: hidden` while Home shows its own centered wordmark; geometry and the rest of the header stay. **Focus mode:** the `◳ FOCUS` toggle (always visible, between connection health and ⏻) flips `appStore.focusMode`; when armed the header collapses to wordmark + `WorkflowStatusChip` + connection health + `◳ EXIT FOCUS` + ⏻, hiding the Providers popover, auth chip, both action groups, Settings/Manual, and the UsageBar row. Also reachable from the command palette (`Enter/Exit focus mode`). Reversible + persisted (`arco.focusMode`).
   - **`ProvidersPopover`** - folds the former inline per-provider version-chip strip behind one `▼ PROVIDERS` trigger (click-outside to close, like `ConversationMenu`). The trigger carries a health dot (warning-color when any provider is outdated); the popover lists the chips. Chips are gated on `settings.enabledProviders` (disabled providers don't show) and un-installed CLIs, include an Ollama/llama.cpp row when reachable, and paint warning-color when the installed version is older than `capabilities.latestVersions.<p>`. Click on Claude/Codex runs the upstream installer via `POST /api/check-updates`; Ollama, Strata and Xolotl open `ProviderReleasesModal`; llama.cpp opens GitHub releases. Strata remains visible while stopped using the prepared engine's `BUILD.json`; update comparison uses engine package metadata, separately from the 0.2 app/Terminal release tag. Xolotl displays checkout HEAD as a single-line `XOLOTL` row. Its modal uses recent commits when upstream has no tagged releases, displays matching HEADs as UP TO DATE without a self-comparison request, and compares distinct revisions for source changes. External GitHub links are explicit; these three rows never open a browser or install an update themselves. Self-contained - owns the update-check + modal state that used to live in `SystemHeader`.
   - **`WorkflowStatusChip`** - a provider-throttling warning shown only when quota state reports a throttle. Click for affected providers and known reset times. Context usage remains beside the worker composer.
   - **`NotificationCenter`** - the header bell (`◔ BELL`) with an unread badge. Dropdown shows the workbench-notice history + a per-category MUTE grid (checkbox -> `set_notification_mutes` via `onSetNotificationMutes`, threaded App -> SystemHeader -> `useWebSocket`). Backed by the standalone `notificationStore` (notices history + server-authoritative `muted` set + `lastSeenTs` unread marker). Always visible - even in I3 focus mode - since notices are the "agent finished / something broke" signal. Incoming `workbench_notice` also raises a transient toast via the existing top-right strip (`NotificationToasts` / `appStore.pushNotification`), not a second stack. See [`NOTIFICATIONS.md`](NOTIFICATIONS.md).
@@ -701,7 +701,7 @@ Smoke: `npm run smoke:context-refs` (`scripts/smoke/context-refs.ts`) - unit-tes
 
 ## Theme + shader system
 
-`client/src/themes/`. 42 named themes total (one `definitions/<id>.ts` file each), plus the `provider-auto` sentinel. The default is `matrix`.
+`client/src/themes/`. Classic themes: 42 named palettes (one `definitions/<id>.ts` file each), plus the `provider-auto` sentinel. Phosphor palettes are registered beside them. The shipped default is Phosphor Electric Blue (`phosphor:arco:electric`).
 
 ### Theme structure
 
@@ -757,7 +757,7 @@ Two display tweaks post-process the color tokens before they hit `:root`:
 
 ### Registry
 
-`client/src/themes/registry.ts` exports `THEME_REGISTRY: Record<ThemeId, Theme>` and `DEFAULT_THEME_ID = 'matrix'`. Adding a theme requires updating this file.
+`client/src/themes/registry.ts` exports `THEME_REGISTRY: Record<ThemeId, Theme>` and `DEFAULT_THEME_ID = 'phosphor:arco:electric'`. Adding a theme requires updating this file.
 
 ### Font pack overrides
 

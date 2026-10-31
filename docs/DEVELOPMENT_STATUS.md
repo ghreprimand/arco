@@ -8,7 +8,7 @@ Upstream changes continue to be tracked while Arco is evaluated as the primary w
 
 ## Onboarding
 
-The welcome flow, provider Connections setup, Project Home, task-organized settings, guided voice setup, and file/media access controls are implemented. The [Getting started guide](GETTING_STARTED.md), [Providers](PROVIDERS.md), [Settings](SETTINGS.md), [Voice](VOICE.md), and [Security](../SECURITY.md) describe the user paths.
+The welcome flow, provider Connections setup, Home, task-organized settings, guided voice setup, and file/media access controls are implemented. The [Getting started guide](GETTING_STARTED.md), [Providers](PROVIDERS.md), [Settings](SETTINGS.md), [Voice](VOICE.md), and [Security](../SECURITY.md) describe the user paths.
 
 ## Portability
 

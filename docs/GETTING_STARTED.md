@@ -160,8 +160,9 @@ limitations.
 
 The provider step opens **Welcome - Connections**. Choose a provider, follow
 its sign-in or API-key steps, check the connection, then select **Continue to
-chat**. **Skip for now** advances to the creator without connecting a provider.
-In the workspace, **CONNECT A PROVIDER** opens Connections later.
+chat**. **Skip for now** marks setup complete without connecting a provider and
+opens the Setup complete screen. In the workspace, **CONNECT A PROVIDER** opens
+Connections later.
 Settings retains the controls under **Providers and models > Sign-in, accounts
 and local endpoints**. CLI-based providers may show a command to run in a
 terminal. Search the task-based Settings categories for controls; see
@@ -177,17 +178,19 @@ provider account has quota.
 
 ## Add a project and start a chat
 
-Use **HOME** to find or add a project. Add an existing folder with **Add a
-project folder**, or create one with **Create a new project folder**. In Docker,
-only mounted folders are visible and they appear under `/projects`. Select
-**New session** on a project card to open the workflow creator with its folder
-prefilled. Use **Saved sessions** to resume prior work, and **Manage...** to pin,
-rename, archive, relocate, or remove a project registration. These actions do
-not move or delete project files. A missing folder offers **Relocate...**. When
-opening the creator directly, the folder control is **PROJECT FOLDER**;
-**BROWSE FOLDERS +** opens the folder picker.
+Use **HOME** to find or add work. Add a named parent with **Add project
+location**, or open a one-off folder with **Open another folder** (create a new
+folder from inside the folder browser when needed). In Docker, only mounted
+folders are visible and they appear under `/projects`. Select **New session** on
+a project card to open the workflow creator with its folder prefilled. Use
+**Saved sessions** to resume prior work, and **Manage...** to pin, rename,
+archive, relocate, or remove a project registration. These actions do not move
+or delete project files. A missing folder offers **Relocate...**. When opening
+the creator directly, the folder control is **PROJECT FOLDER** or **SHARED
+PROJECT FOLDER**; **Browse another folder** opens the folder picker, and
+**Project location** filters the list.
 
-For registration, scanned and recent folders, the default working folder, or
+For registration, scanned and recent folders, the default browsing location, or
 project trust, open **Settings > Projects**. Home is the place to find and resume
 work or start a session from a project card. The full control map is in
 [`SETTINGS.md`](SETTINGS.md).

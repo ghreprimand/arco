@@ -491,7 +491,7 @@ When the filter actually shrinks output, the worker writes the pre-filter raw by
 
 **Adding a new filter pack.** (1) Drop a file under `filterConfigs/` returning a `FilterPack`. (2) Wire its classifier into `filterConfigs/index.ts`'s `classifyBashCommand`. (3) Add a round-trip test to `filterToolResult.test.ts` (golden green input → expected line count drop; golden red input → asserted preserved markers). (4) Ship as `conservative` only after a week of operator data; promote to `aggressive` in a follow-up phase.
 
-**Auto-threshold ctx_action emission.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, the worker counts dispatched tool calls and emits `ctx_action {action: "compact", trigger: "auto-threshold"}` at thresholds (conservative: 75 then every 50; aggressive: 50 then every 25). Today the event is informational — the operator-facing signal lives in the composer chip (`toolCallsSinceHandoff`) and the eventual chat divider. No automated context mutation; the autonomy test is preserved (operator-opted-in, deterministic threshold, event-logged, reversible).
+**Auto-compaction and the tool-count nudge.** When `WorkflowConfig.efficiencyAutoCompact` is `"conservative"` or `"aggressive"`, two related paths apply. (1) Between settled turns, `maybeAutoCompactNative` runs the same Claude Native COMPACT path as the manual button at window-relative thresholds (conservative about 80%, aggressive about 70%, clamped [50,95]); Codex app-server and Ollama have their own CONFIG/cluster auto-compaction policies. (2) Separately, the worker still counts dispatched tool calls and may emit `ctx_action {action: "compact", trigger: "auto-threshold"}` (conservative: 75 then every 50; aggressive: 50 then every 25) as an operator-facing nudge in the composer chip (`toolCallsSinceHandoff`). Compaction itself is operator-armed, deterministic, event-logged, and reversible; `off` disables both the between-turn compact and the tool-count arming beyond the default.
 
 **Output style.** Operator-armed terseness picker on the CONFIG tab and New Workflow / Cluster creator. Three discrete levels - `normal` (default; no addendum), `lite` (drop fillers / hedging / pleasantries; keep grammar), `terse` (also drop articles, fragments OK, short synonyms; named `caveman` before 2026-05-10). `outputStyleAddendum(level)` (`server/src/providers/outputStyle.ts`) returns the provider prompt text. Claude Native appends it as a system block after existing project-context blocks, with `cache_control: ephemeral` so it participates in the prefix cache. Codex app-server folds the same addendum into its stable prompt prefix before the `---` separator. `normal` returns null and emits no extra block. Switching takes effect on the next turn. Claude CLI, Codex exec, local transports ignore it because Arco has no equivalent stable request-shaping point there. Each level's text leads with explicit "auto-clarity" rules (security warnings, irreversible operations, multi-step sequences -> full prose) and a verbatim-preserve list (code blocks, error strings, file paths, function names, API identifiers, command flags, regex patterns). Cuts *output* tokens, not input - measure via the `primary_turn_token_usage` event.
 
@@ -1746,13 +1746,13 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 | Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a |
 | Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | yes | no — in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
 | Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default — CONFIG SERVER-SIDE COMPACTION toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a |
-| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | in-process tool registry (one local member per cluster) | in-process tool registry (one local member per cluster) | no |
+| Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | in-process tool registry (`localClusterCapacity`, default 1) | in-process tool registry (`localClusterCapacity`, default 1) | no |
 | Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (not Incognito) | yes |
 | Single-consumer | no | no | no | no | no | one model at a time per Arco (manager-owned) | no |
 | Best at | long sessions, terminal interop, reviewers, handoff destinations | low-latency tool-loop work, server-side context mgmt, plan-mode + sandbox tools, Task fan-out | second-opinion review, primary work | primary work with mid-turn steer + structured cancel | local single-shot, sub-tasks | local multimodal, architectures Ollama hasn't shipped yet | local models via the LM Studio runtime (OpenAI-compat) |
 
 
-**Cursor** (the 9th first-class provider) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
+**Cursor** (one of the eight primary providers) is likewise not a matrix column: a long-lived per-workflow ACP worker (`server/src/providers/cursor/`) driving `cursor-agent acp` — subprocess long-lived, JSON-RPC/ACP stream, `session/load` resume, `session/set_model` live swap, `session/cancel` + 5s hard-kill, post-turn steer drain, no per-turn tokens on the wire (Usage tab is authoritative). It IS a cluster member (`cursor` ∈ `ClusterMemberProvider`) — **cluster peer tools: in-process loopback StreamableHTTP MCP server** (Cursor ACP honors http/sse only, not stdio; fresh-only membership). See the [Cursor](#cursor) section above.
 
 ---
 
@@ -1897,17 +1897,16 @@ not the app tag; current details are in [STRATA.md](STRATA.md#engine-and-compone
 
 ## Retired provider history
 
-Antigravity and Gemini support have been removed. Existing workflow metadata, transcripts,
-artifacts and provider identity remain readable through the normal history tools.
-A retired provider cannot start or resume work; choose a supported provider
-explicitly for new work. Updating unrelated settings preserves retired defaults
-until they are explicitly changed. Arco does not uninstall external applications
-or delete their profiles or credentials.
+Z.ai, Antigravity, and Gemini support have been removed. Existing workflow
+metadata, transcripts, artifacts and provider identity remain readable through
+the normal history tools. A retired provider cannot start or resume work; choose
+a supported provider explicitly for new work. Arco does not uninstall external
+applications or delete their profiles or credentials.
 
-Z.ai support has also been removed, but its saved settings are not retained:
-legacy Z.ai settings, including a Z.ai default provider and its model, are
-ignored when settings are read. Existing secret files are left in place.
-Anything that still names Z.ai (a saved template, a create request, a login or
-update-check request) gets the notice "Z.ai support has been removed. Choose a
-supported provider explicitly for new work." rather than a generic unsupported
-provider error.
+For Antigravity and Gemini, updating unrelated settings preserves retired
+defaults until they are explicitly changed. Z.ai is different: legacy Z.ai
+settings, including a Z.ai default provider and its model, are ignored when
+settings are read, while existing secret files are left in place. Anything that
+still names Z.ai (a saved template, a create request, a login or update-check
+request) gets the Z.ai removal notice rather than a generic unsupported-provider
+error.
