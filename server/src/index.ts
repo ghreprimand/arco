@@ -1123,7 +1123,7 @@ wss.on('connection', (ws: WebSocket) => {
         detachClusterObservers(ws, session, msg.clusterId);
         break;
       case 'cluster_create':
-        handleClusterCreate(ws, session, msg.cwd, msg.memberWorkflowIds).catch((err) => {
+        handleClusterCreate(ws, session, msg.cwd, msg.memberWorkflowIds, msg).catch((err) => {
           console.error('[arco] cluster_create handler failed:', err);
         });
         break;
@@ -1271,7 +1271,7 @@ wss.on('connection', (ws: WebSocket) => {
         handleClusterAutoCompactionSet(ws, msg.clusterId, msg.policy).catch((err) => console.error('[arco] cluster auto-compaction update failed:', err));
         break;
       case 'cluster_efficiency_set':
-        handleClusterEfficiencySet(ws, msg.clusterId, msg.level, msg.addendum).catch((err) => {
+        handleClusterEfficiencySet(ws, msg.clusterId, msg.level, msg.addendum, msg.messageGuard).catch((err) => {
           console.error('[arco] cluster_efficiency_set handler failed:', err);
         });
         break;

@@ -201,7 +201,7 @@ export async function tryHandleClusterRoutes(
             return true;
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately }));
+          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.guard ? { guard: result.guard } : {}) }));
           return true;
         }
         if (op === 'read' && req.method === 'POST') {

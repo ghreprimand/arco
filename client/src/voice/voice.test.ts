@@ -836,9 +836,9 @@ test('disconnect, target mismatch and removed recipients preserve the draft with
 test('active nudges use gentle steer wording; idle nudges use wake-up wording', async () => {
   const { executor, sent } = fixture();
   await executor.execute(cmd('nudge', 'member two'));
-  assert.match(String(sent[0][1]), /convenient point in your current work/); assert.equal(sent[0][3], 'steer');
+  assert.match(String(sent[0][1]), /At a convenient point, check pending peer mail without interrupting current work/); assert.equal(sent[0][3], 'steer');
   await executor.execute(cmd('nudge', 'member one'));
-  assert.match(String(sent[1][1]), /peer mail waiting/);
+  assert.match(String(sent[1][1]), /Read pending peer messages and act on their contents/);
 });
 test('an ambiguous name comes back to Computer as a question and nothing is sent', async () => {
   const { executor, sent } = fixture();

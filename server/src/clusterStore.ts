@@ -28,6 +28,12 @@ import {
   isClusterTaskBoardMode,
   isClusterProgressMode,
   CLUSTER_PROGRESS_DEFAULT,
+  CLUSTER_EFFICIENCY_CREATE_DEFAULT,
+  CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT,
+  isClusterMessageGuard,
+  resolveClusterMessageGuard,
+  type ClusterMessageGuard,
+  type ClusterCreationSettings,
   type ClusterDispatcherSettingsPatch,
   type ClusterDispatcherState,
   type ClusterEfficiencyLevel,
@@ -103,13 +109,11 @@ export interface ClusterState {
   // workflows. Older clusters may still have ~/.arco/clusters/<id>/plan.md;
   // the bridge layer migrates that file and sets this field lazily.
   planId?: string;
-  // 2026-06-15 — per-cluster efficiency level. Absent ≡ 'thorough' (default;
-  // today's behaviour, so pre-feature meta.json loads unchanged). Drives the
-  // doctrine block, peer-send budget, and mailbox-notice variant via
-  // clusterEfficiency.ts. `efficiencyAddendum` is optional operator free-text
-  // appended to the canned doctrine, clamped to CLUSTER_EFFICIENCY_ADDENDUM_MAX.
+  // Omitted stored style retains Thorough. Missing guards retain the legacy
+  // effective hard cap until an edit pins it independently of the style.
   efficiencyLevel?: ClusterEfficiencyLevel;
   efficiencyAddendum?: string;
+  messageGuard?: ClusterMessageGuard;
   // 2026-06-29 — per-cluster progress-tracking mode (plan / board / both).
   // Absent ≡ 'both' (default; members nudged to keep BOTH surfaces current,
   // each half gated on whether the surface exists). Drives the doctrine block
@@ -176,7 +180,7 @@ export class ClusterValidationError extends Error {
 export async function createCluster(opts: {
   cwd: string;
   memberWorkflowIds: string[];
-}): Promise<ClusterState> {
+} & ClusterCreationSettings): Promise<ClusterState> {
   const cwd = opts.cwd;
   const members = [...new Set(opts.memberWorkflowIds)];
   if (!cwd || typeof cwd !== 'string') {
@@ -195,6 +199,13 @@ export async function createCluster(opts: {
       );
     }
   }
+  if ((opts.efficiencyAddendum !== undefined && typeof opts.efficiencyAddendum !== 'string') ||
+      (opts.efficiencyLevel !== undefined && !isClusterEfficiencyLevel(opts.efficiencyLevel)) ||
+      (opts.messageGuard !== undefined && !isClusterMessageGuard(opts.messageGuard)) ||
+      (opts.taskBoardMode !== undefined && !isClusterTaskBoardMode(opts.taskBoardMode)) ||
+      (opts.progressTracking !== undefined && !isClusterProgressMode(opts.progressTracking))) {
+    throw new ClusterValidationError('invalid_settings', 'Invalid cluster creation settings');
+  }
   await ensureClustersDir();
   const clusterId = randomUUID();
   const state: ClusterState = {
@@ -203,13 +214,12 @@ export async function createCluster(opts: {
     members,
     createdAt: new Date().toISOString(),
     schemaVersion: 1,
-    // §10.7 P12.1 — surface the board by default. New clusters attach the cwd's
-    // normal task ledger (`project`) so the BOARD sub-tab is live on arrival
-    // instead of dead until an explicit ATTACH. Reversible: the operator can
-    // detach (→ 'none') or switch to a cluster-private board any time. Existing
-    // clusters persisted as 'none' stay 'none' (normalizeTaskBoardMode).
-    taskBoardMode: 'project',
-    taskBoardAttached: true,
+    efficiencyLevel: opts.efficiencyLevel ?? CLUSTER_EFFICIENCY_CREATE_DEFAULT,
+    efficiencyAddendum: opts.efficiencyAddendum?.trim().slice(0, CLUSTER_EFFICIENCY_ADDENDUM_MAX) || undefined,
+    messageGuard: { ...(opts.messageGuard ?? CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT) },
+    progressTracking: opts.progressTracking ?? 'both',
+    taskBoardMode: opts.taskBoardMode ?? 'cluster',
+    taskBoardAttached: opts.taskBoardMode !== 'none',
   };
   await fs.mkdir(clusterDir(clusterId), { recursive: true });
   await fs.mkdir(clusterMailboxRoot(clusterId), { recursive: true });
@@ -837,6 +847,10 @@ export function getEfficiencyLevel(clusterId: string): ClusterEfficiencyLevel {
   return level && isClusterEfficiencyLevel(level) ? level : 'thorough';
 }
 
+export function getMessageGuard(clusterId: string): ClusterMessageGuard {
+  return resolveClusterMessageGuard(cache.get(clusterId) ?? {});
+}
+
 export function getEfficiencyAddendum(clusterId: string): string | undefined {
   const note = cache.get(clusterId)?.efficiencyAddendum;
   return note && note.length > 0 ? note : undefined;
@@ -874,9 +888,10 @@ export async function setEfficiency(
   clusterId: string,
   level: ClusterEfficiencyLevel,
   addendum?: string,
+  messageGuard?: ClusterMessageGuard,
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
-    if (!isClusterEfficiencyLevel(level)) return null;
+    if (!isClusterEfficiencyLevel(level) || (messageGuard !== undefined && !isClusterMessageGuard(messageGuard))) return null;
     const state = await readCluster(clusterId);
     if (!state) return null;
     const nextAddendum =
@@ -885,6 +900,8 @@ export async function setEfficiency(
         : addendum.trim().slice(0, CLUSTER_EFFICIENCY_ADDENDUM_MAX) || undefined;
     const next: ClusterState = {
       ...state,
+      // Pin a legacy cap before changing its style or NOTE.
+      messageGuard: messageGuard ? { ...messageGuard } : resolveClusterMessageGuard(state),
       efficiencyLevel: level === 'thorough' ? undefined : level,
       efficiencyAddendum: nextAddendum,
     };

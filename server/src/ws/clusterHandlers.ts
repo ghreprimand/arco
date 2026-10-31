@@ -1,3 +1,4 @@
+import { isClusterCreationSettings, isClusterMessageGuard } from '@arco/shared';
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
 // index.ts (docs/ARCHITECTURE.md). Behavior-preserving, move-only.
 // The four index.ts-local back-edges (handleUserMessage / handleRemoveWorkflow /
@@ -196,6 +197,7 @@ export async function handleClusterCreate(
   session: Session,
   cwd: string,
   memberIds: string[],
+  settings: import('@arco/shared').ClusterCreationSettings = {},
 ): Promise<void> {
   if (!cwd || memberIds.length < 2) {
     send(ws, { type: 'error', message: 'cwd and memberWorkflowIds (≥2) are required' });
@@ -208,7 +210,7 @@ export async function handleClusterCreate(
   }
   let cluster: clusterStore.ClusterState;
   try {
-    cluster = await clusterStore.createCluster({ cwd, memberWorkflowIds: memberIds });
+    cluster = await clusterStore.createCluster({ ...settings, cwd, memberWorkflowIds: memberIds });
   } catch (err) {
     const code = (err as { code?: string })?.code ?? 'create_failed';
     send(ws, { type: 'error', message: `cluster_create rejected: ${code}` });
@@ -1477,6 +1479,7 @@ export async function handleClusterCreateWithFreshWorkers(
   session: Session,
   msg: import('@arco/shared').ClusterCreateWithFreshWorkersMessage,
 ): Promise<void> {
+  if (!isClusterCreationSettings(msg)) { send(ws, { type: 'error', message: 'Invalid cluster creation settings' }); return; }
   const source = workflows.get(msg.sourceWorkflowId);
   if (!source) {
     send(ws, { type: 'error', message: `Unknown source workflow ${msg.sourceWorkflowId.slice(0, 8)}` });
@@ -1562,6 +1565,7 @@ export async function handleClusterCreateWithFreshWorkers(
   let cluster: clusterStore.ClusterState;
   try {
     cluster = await clusterStore.createCluster({
+      ...msg,
       cwd: sourceCwd,
       memberWorkflowIds: [msg.sourceWorkflowId, ...newWorkflowIds],
     });
@@ -1611,6 +1615,7 @@ export async function handleClusterCreateFromScratch(
   session: Session,
   msg: import('@arco/shared').ClusterCreateFromScratchMessage,
 ): Promise<void> {
+  if (!isClusterCreationSettings(msg)) { send(ws, { type: 'error', message: 'Invalid cluster creation settings' }); return; }
   if (typeof msg.cwd !== 'string' || msg.cwd.trim().length === 0) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_cwd' });
     return;
@@ -1695,6 +1700,7 @@ export async function handleClusterCreateFromScratch(
   let cluster: clusterStore.ClusterState;
   try {
     cluster = await clusterStore.createCluster({
+      ...msg,
       cwd: msg.cwd,
       memberWorkflowIds: newWorkflowIds,
     });
@@ -1724,16 +1730,6 @@ export async function handleClusterCreateFromScratch(
   }
   if (msg.name && msg.name.trim().length > 0) {
     await clusterStore.renameCluster(cluster.clusterId, msg.name).catch(() => { /* best-effort */ });
-  }
-  // 2026-06-15 — operator-picked efficiency level (+ optional addendum) at
-  // create time. Only persist when non-default so a 'thorough' create stays
-  // byte-identical to the pre-feature path. Best-effort like role/tier.
-  if (
-    (msg.efficiencyLevel && msg.efficiencyLevel !== 'thorough') ||
-    (msg.efficiencyAddendum && msg.efficiencyAddendum.trim().length > 0)
-  ) {
-    const level = isClusterEfficiencyLevel(msg.efficiencyLevel) ? msg.efficiencyLevel : 'thorough';
-    await clusterStore.setEfficiency(cluster.clusterId, level, msg.efficiencyAddendum).catch(() => { /* best-effort */ });
   }
   session.clusterIds.add(cluster.clusterId);
   attachClusterObservers(ws, session, cluster.clusterId, cluster.members);
@@ -2327,12 +2323,17 @@ export async function handleClusterEfficiencySet(
   clusterId: string,
   level: ClusterEfficiencyLevel,
   addendum?: string,
+  messageGuard?: import('@arco/shared').ClusterMessageGuard,
 ): Promise<void> {
   if (!isClusterEfficiencyLevel(level)) {
     send(ws, { type: 'error', message: `cluster_efficiency_set rejected: unknown_level` });
     return;
   }
-  const updated = await clusterStore.setEfficiency(clusterId, level, addendum).catch(() => null);
+  if (messageGuard !== undefined && !isClusterMessageGuard(messageGuard)) {
+    send(ws, { type: 'error', message: 'cluster_efficiency_set rejected: invalid_message_guard' });
+    return;
+  }
+  const updated = await clusterStore.setEfficiency(clusterId, level, addendum, messageGuard).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_efficiency_set rejected: unknown_cluster` });
     return;

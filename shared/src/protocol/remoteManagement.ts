@@ -316,6 +316,7 @@ export interface ClusterSummary {
   cwd: string;
   memberIds: string[]; // display order = members[] order (operator-arranged)
   efficiencyLevel: 'thorough' | 'balanced' | 'lean';
+  messageGuard?: import('./clusters.js').ClusterMessageGuard;
   autoTurnOnMailbox: boolean;
   idleNudgerEnabled: boolean;
   taskBoardMode: 'none' | 'project' | 'cluster';

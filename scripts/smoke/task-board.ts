@@ -96,16 +96,12 @@ async function main(): Promise<void> {
       broadcastRecipient: () => undefined,
     });
 
-    await step('setup: new clusters attach a project board by default (P12.1)', async () => {
-      // §10.7 P12.1 — createCluster now defaults taskBoardMode to 'project', so
-      // the board is live on arrival (no board_detached rejection). The project
-      // board reads the cwd's normal ledger, which is empty here.
-      assertEq(cluster.taskBoardMode, 'project', 'new cluster defaults to project board');
+    await step('setup: new clusters attach an isolated cluster board by default', async () => {
+      assertEq(cluster.taskBoardMode, 'cluster', 'new cluster defaults to cluster board');
       const r = await peerOps.peerTaskList(ctx(wfA));
       assert(r.ok, 'attached board accepts task list');
-      assertEq(r.ok && r.tasks.length, 0, 'project board starts empty');
-      // The rest of the suite exercises the cluster-private board.
-      await clusterStore.setTaskBoardMode(cluster.clusterId, 'cluster');
+      assertEq(r.ok && r.tasks.length, 0, 'cluster board starts empty');
+      assertEq((await taskLedger.load(cwd)).length, 0, 'project board remains separate');
     });
 
     // Seed two tasks via the module (the operator-create path: never assigned,

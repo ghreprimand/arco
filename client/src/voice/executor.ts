@@ -12,7 +12,7 @@ import { readDraft, useDraftStore } from '../stores/draftStore';
 import { normaliseVoiceName, resolveVoiceTarget, VOICE_PANELS } from './commands';
 import { useVoiceStore } from './store';
 import { requestVoicePanel } from './panels';
-import { NUDGE_PROMPT, ACTIVE_NUDGE_PROMPT } from '../utils/clusterNudge';
+import { buildClusterNudge } from '../utils/clusterNudge';
 import { ComputerConversation } from './conversation';
 import { requestVoiceDialog, VOICE_DIALOGS, type VoiceDialog } from './dialogs';
 import { actOnScreen, readScreen, readText } from './screen';
@@ -295,7 +295,7 @@ export class VoiceExecutor {
         const member = s.clusters[t.clusterId]?.members.find((m) => m.workflowId === t.id);
         const active = member?.status === 'busy' || job.busy || job.messages.some((m) => m.isStreaming)
           || Object.values(job.workers).some((w) => w.status === 'running' || w.status === 'spawning');
-        return this.sendMessage(t.id, active ? ACTIVE_NUDGE_PROMPT : NUDGE_PROMPT, undefined, 'steer') ? `Nudged ${t.name}.` : 'Disconnected. No nudge was sent.';
+        return this.sendMessage(t.id, buildClusterNudge(s.clusters[t.clusterId]?.efficiencyLevel, active, member?.role), undefined, 'steer') ? `Nudged ${t.name}.` : 'Disconnected. No nudge was sent.';
       }
       case 'cancel-turn': {
         if (!s.connected) return 'Disconnected. Cannot cancel the worker.';

@@ -711,66 +711,14 @@ export const clusters: Section[] = [
   {
     id: 'cluster-efficiency',
     group: 'Clusters',
-    title: 'Efficiency level',
+    title: 'Coordination style and message guard',
     body: (
       <>
-        <p>
-          Clusters can fall into an over-review loop: members ping each other
-          constantly, re-verify already-finished work, and chop plans into
-          tiny one-step assignments. The <strong>efficiency level</strong> is
-          one operator-set knob — a selector in the cluster right-panel header
-          (and a picker in the <Code>+ NEW</Code> creator) — that dials how
-          thorough vs. lean the whole cluster behaves.
-        </p>
-        <p>Three levels:</p>
-        <ul>
-          <li>
-            <strong>Thorough</strong> (default) — today's behaviour. Full
-            cross-review, generous peer messaging, no extra restraint.
-          </li>
-          <li>
-            <strong>Balanced</strong> — members work in substantial chunks,
-            trust completed peer work, and re-review only on the operator's
-            request or concrete evidence of breakage. One concise PASS/FAIL
-            report per assignment.
-          </li>
-          <li>
-            <strong>Lean</strong> — maximum chunk size, no peer review unless
-            the operator explicitly asks, no status pings, and a single
-            DONE/BLOCKED line per assignment.
-          </li>
-        </ul>
-        <p>
-          Each level is a <strong>deterministic bundle</strong> of three
-          effects, all server-side:
-        </p>
-        <ul>
-          <li>
-            A restraint <strong>doctrine</strong> injected into every member's
-            system prompt (alongside the shared plan + role blocks).
-          </li>
-          <li>
-            A smaller per-turn peer-send <strong>budget</strong> —{' '}
-            <Code>15 → 8 → 4</Code> sends/sender/turn — so a chatty cluster
-            hits a hard cap, not just advisory text.
-          </li>
-          <li>
-            A softer pre-turn <strong>mailbox notice</strong>: at Balanced/Lean
-            the "re-engage on every inbound message" language is dialled back
-            so it stops contradicting the "don't over-review" doctrine.
-          </li>
-        </ul>
-        <p>
-          The <Code>NOTE</Code> field appends a cluster-specific line to the
-          canned doctrine — handy for project-specific restraint rules without
-          hand-writing the whole thing into the plan.
-        </p>
-        <Note>
-          The level takes effect on each member's <strong>next</strong> turn;
-          in-flight turns are untouched. The presets are static, operator-
-          selected text — this is not the cluster editing its own instructions.
-          Reversible at any time by flipping back to Thorough.
-        </Note>
+        <p>Efficiency selects coordination style. New clusters start Balanced: complete outcomes, exact placement and affected surfaces, builder-owned routine compatible decisions, and one actionable blocker or final evidence packet. Thorough permits useful explanation; Lean reduces optional narration and handoffs. All styles preserve required tests, safety checks, operator-requested review and landing review.</p>
+        <p>Message guard is independent: Warn only (new default, threshold 15) accepts further sends with one warning per primary turn; Hard limit refuses mail at the cap; No limit removes only the peer-send quota. Thresholds are whole numbers from 1 to 1000. Successful send results report counts and remaining allowance where applicable. Rejected mail was not delivered.</p>
+        <p>Counts span all recipients, reset when that sender starts a primary turn, and are not persisted across server restart. Failed sends refund their reservation. Consolidate related same-recipient information; do not start turns to evade a cap. Automatic-execution and provider limits remain independent.</p>
+        <p>NOTE appends an operator instruction, not a mode or budget. Style and NOTE apply next turn; guard edits apply on the next send without resetting the count. Existing clusters without guard fields keep their legacy hard cap, pinned before a style change.</p>
+        <p>New clusters use a cluster-local board and Keep current Both. Saved choices and old-format snapshot fallbacks are preserved; existing boards are not moved or merged. Manual NUDGE requires explicit recipients, MAIL ALERTS only alerts the operator, and AUTO-PICKUP remains separately opt-in with its existing limits.</p>
       </>
     ),
   },
@@ -1057,10 +1005,9 @@ export const clusters: Section[] = [
           selector in the cluster right-panel header: <Code>none</Code> disables
           the board, the{' '}
           <Code>cluster_task_*</Code> tools, and the dispatcher;{' '}
-          <Code>project</Code> — the default, since new clusters default-attach a
-          project board — uses the cwd&apos;s normal project task ledger, the same
+          <Code>project</Code> uses the cwd&apos;s normal project task ledger, the same
           one standalone workflow tabs and the per-member LEDGER tab show;{' '}
-          <Code>cluster</Code> uses a private fresh board scoped to the same cwd,
+          <Code>cluster</Code> (new-cluster default) uses a private fresh board scoped to the same cwd,
           keyed by <Code>taskBoardKey</Code>, isolated from the project ledger. In{' '}
           <Code>none</Code> mode the BOARD sub-tab shows a{' '}
           <Code>BOARD DETACHED</Code> placeholder with{' '}

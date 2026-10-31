@@ -1142,6 +1142,9 @@ export function useWebSocket() {
     name?: string;
     efficiencyLevel?: ClusterEfficiencyLevel;
     efficiencyAddendum?: string;
+    messageGuard?: import('@arco/shared').ClusterMessageGuard;
+    taskBoardMode?: import('@arco/shared').ClusterTaskBoardMode;
+    progressTracking?: import('@arco/shared').ClusterProgressMode;
     members: Array<{
       provider: ClusterMemberProvider;
       model: string;
@@ -1162,7 +1165,10 @@ export function useWebSocket() {
       type: 'cluster_create_from_scratch',
       cwd: payload.cwd,
       ...(payload.name && payload.name.trim().length > 0 ? { name: payload.name.trim() } : {}),
-      ...(payload.efficiencyLevel && payload.efficiencyLevel !== 'thorough' ? { efficiencyLevel: payload.efficiencyLevel } : {}),
+      ...(payload.efficiencyLevel ? { efficiencyLevel: payload.efficiencyLevel } : {}),
+      ...(payload.messageGuard ? { messageGuard: payload.messageGuard } : {}),
+      ...(payload.taskBoardMode ? { taskBoardMode: payload.taskBoardMode } : {}),
+      ...(payload.progressTracking ? { progressTracking: payload.progressTracking } : {}),
       ...(payload.efficiencyAddendum && payload.efficiencyAddendum.trim().length > 0 ? { efficiencyAddendum: payload.efficiencyAddendum.trim() } : {}),
       members: payload.members,
     }));
@@ -1292,7 +1298,7 @@ export function useWebSocket() {
   // doctrine addendum) from the cluster-header chip. Server persists +
   // pushes cluster_state. `addendum === undefined` keeps the current note.
   const setClusterEfficiency = useCallback(
-    (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => {
+    (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string, messageGuard?: import('@arco/shared').ClusterMessageGuard) => {
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
       wsRef.current.send(
         JSON.stringify({
@@ -1300,6 +1306,7 @@ export function useWebSocket() {
           clusterId,
           level,
           ...(addendum !== undefined ? { addendum } : {}),
+          ...(messageGuard ? { messageGuard } : {}),
         }),
       );
     },

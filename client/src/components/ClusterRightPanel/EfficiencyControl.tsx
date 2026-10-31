@@ -1,11 +1,6 @@
-// 2026-06-15 — per-cluster efficiency selector. Lives in the ClusterRightPanel
-// header chip bar next to MAIL ALERTS / AUTO-PICKUP. One operator-set knob with
-// three levels (thorough / balanced / lean) that dials how thorough vs. lean
-// the whole cluster behaves: chunk size, cross-review restraint, peer-message
-// chattiness. The server (clusterEfficiency.ts) owns the deterministic bundle;
-// this just picks the level + optional doctrine addendum and ships it via
-// cluster_efficiency_set. The new level takes effect on each member's NEXT
-// turn.
+import { MessageGuardControl } from './MessageGuardControl';
+import { resolveClusterMessageGuard, type ClusterMessageGuard } from '@arco/shared';
+// Style, appended NOTE and independent message guard in the existing control bar.
 
 import { useEffect, useState } from 'react';
 import {
@@ -19,12 +14,14 @@ export function EfficiencyControl({
   clusterId,
   level,
   addendum,
+  messageGuard,
   onSetEfficiency,
 }: {
   clusterId: string;
   level: ClusterEfficiencyLevel;
   addendum?: string;
-  onSetEfficiency: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => void;
+  messageGuard?: ClusterMessageGuard;
+  onSetEfficiency: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string, messageGuard?: ClusterMessageGuard) => void;
 }) {
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState(addendum ?? '');
@@ -56,6 +53,7 @@ export function EfficiencyControl({
           return (
             <button
               key={lvl}
+              aria-pressed={active}
               onClick={() => onSetEfficiency(clusterId, lvl)}
               className="display-font"
               title={CLUSTER_EFFICIENCY_LABELS[lvl].blurb}
@@ -120,6 +118,7 @@ export function EfficiencyControl({
           }}
         />
       )}
+      <MessageGuardControl value={resolveClusterMessageGuard({ efficiencyLevel: level, messageGuard })} onChange={guard => onSetEfficiency(clusterId, level, undefined, guard)} />
     </>
   );
 }

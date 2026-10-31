@@ -1,3 +1,4 @@
+import { PEER_SEND_GUARD_DESCRIPTION } from '@arco/shared';
 // docs/PROTOCOL_CLUSTER.md / docs/PROVIDERS.md - the shared
 // arco-cluster tool registration, transport-agnostic.
 //
@@ -298,7 +299,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'peer_send',
     {
       description:
-        'Send a short note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. `content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. There is a hard per-sender per-turn send cap (it tightens at higher cluster efficiency levels); the budget resets each time the operator advances your turn, and a rejected send returns budget_exhausted with the current count and cap.',
+        'Send a short note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. `content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. ' + PEER_SEND_GUARD_DESCRIPTION,
       inputSchema: {
         to: z.string().describe('Peer full workflowId, unique 8-char prefix, unique displayName, or unique role text.'),
         content: z.string().describe('Message body (≤ 16 KB UTF-8).'),

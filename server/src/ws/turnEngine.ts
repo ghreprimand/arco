@@ -1,3 +1,4 @@
+import { buildMessageGuardPolicy } from '@arco/shared';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
 import { projectOllamaHistory, stampOllamaExecution } from '../providers/ollamaExecutionHistory.js';
@@ -2128,7 +2129,7 @@ export async function handleUserMessage(
             ? clusterStore.getMemberAccessMode(noticeClusterId, workflowId)
             : 'standard';
           peerMessagesPrologue = noticeAccess === 'standard'
-            ? clusterEfficiency.buildPeerMailboxNotice(noticeLevel, pendingDepth)
+            ? clusterEfficiency.buildPeerMailboxNotice(noticeLevel, pendingDepth, noticeClusterId ? clusterStore.getMemberRole(noticeClusterId, workflowId) : undefined)
             : `You have ${pendingDepth} pending peer message${pendingDepth === 1 ? '' : 's'}. Read them with peer_read; no other cluster context is available.`;
         }
       }
@@ -2443,9 +2444,9 @@ export async function handleUserMessage(
       // injects alongside plan/role; the level itself also drives the
       // peer-mailbox notice variant below. Resolved at turn start so an
       // operator level-change lands on the NEXT turn (in-flight turns are
-      // untouched). The 'thorough' default yields an undefined doctrine ⇒ no
-      // block ⇒ byte-identical to pre-feature behaviour.
-      let turnClusterEfficiencyDoctrine: string | undefined;
+      // untouched). Legacy omitted styles remain Thorough; guards resolve
+      // independently and are included even for mailbox-only members.
+      let turnClusterEfficiencyDoctrine: string | undefined = turnClusterId ? buildMessageGuardPolicy(clusterStore.getMessageGuard(turnClusterId)) : undefined;
       let turnClusterEfficiencyLevel: ClusterEfficiencyLevel = 'thorough';
       let turnClusterTaskBoardAttached = false;
       // 2026-06-29 — per-cluster progress-tracking doctrine. Built from the
@@ -2475,6 +2476,8 @@ export async function handleUserMessage(
         turnClusterEfficiencyDoctrine = clusterEfficiency.buildDoctrine(
           turnClusterEfficiencyLevel,
           clusterStore.getEfficiencyAddendum(turnClusterId),
+          turnClusterRole,
+          clusterStore.getMessageGuard(turnClusterId),
         );
         turnClusterProgressDoctrine = joinClusterDoctrines(
           buildClusterDirectorDoctrine(turnClusterRole),
@@ -2497,8 +2500,8 @@ export async function handleUserMessage(
           });
         } else {
           finalSystemPrompt = finalSystemPrompt
-            ? `${BLIND_CLUSTER_DOCTRINE}\n\n${finalSystemPrompt}`
-            : BLIND_CLUSTER_DOCTRINE;
+            ? `${BLIND_CLUSTER_DOCTRINE}\n\n${turnClusterEfficiencyDoctrine}\n\n${finalSystemPrompt}`
+            : `${BLIND_CLUSTER_DOCTRINE}\n\n${turnClusterEfficiencyDoctrine}`;
         }
       }
 

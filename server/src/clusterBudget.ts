@@ -1,54 +1,41 @@
-// docs/PROTOCOL_CLUSTER.md - per-sender-per-turn send budget.
-//
-// Counts outbound peer.send calls from each member during the current
-// operator turn. Reset on `primary_turn_started` for that member (called
-// from seedWorker.runPrimaryTurn). Default hard cap matches plan §4 — 15
-// sends per sender per turn. Violations emit a tool error visible to the
-// model AND a peer_send_rejected event in events.jsonl (plan §6.2 — no
-// silent budget violations).
-//
-// 2026-06-15 — the cap is now a per-call argument so the per-cluster
-// efficiency level can tighten it (clusterEfficiency.sendBudgetFor: thorough
-// 15 / balanced 8 / lean 4). The caller (clusterPeerOps.peerSend) resolves
-// the sender's cluster level and passes the cap; the default keeps the
-// historical 15 for any caller that doesn't (and for non-cluster paths).
-
+// Process-local per-sender counts. The existing primary-turn lifecycle resets
+// these counters; failed/refused sends refund their reservation.
+import type { ClusterMessageGuard } from '@arco/shared';
 export const SEND_BUDGET_PER_TURN = 15;
-
 const counters = new Map<string, number>();
-
+const warned = new Set<string>();
 export interface BudgetDecision {
   allowed: boolean;
   count: number;
-  cap: number;
+  cap: number | null;
+  mode: ClusterMessageGuard['mode'];
+  threshold: number | null;
+  remaining: number | null;
 }
-
-export function recordSend(senderWfId: string, cap: number = SEND_BUDGET_PER_TURN): BudgetDecision {
-  const next = (counters.get(senderWfId) ?? 0) + 1;
-  counters.set(senderWfId, next);
-  return { allowed: next <= cap, count: next, cap };
+function decision(count: number, value: number | ClusterMessageGuard): BudgetDecision {
+  const g = typeof value === 'number' ? { mode: 'hard' as const, threshold: value } : value;
+  const cap = g.mode === 'hard' ? g.threshold : null;
+  return { allowed: cap === null || count <= cap, count, cap, mode: g.mode,
+    threshold: g.mode === 'none' ? null : g.threshold, remaining: cap === null ? null : Math.max(0, cap - count) };
 }
-
-// Undo one recordSend — peerSend charges up front (so concurrent sends can't
-// overshoot the cap) and refunds when the send then fails or is refused, so a
-// failed send never burns budget. Floors at zero.
-export function refund(senderWfId: string): void {
-  const n = counters.get(senderWfId) ?? 0;
-  if (n <= 1) counters.delete(senderWfId);
-  else counters.set(senderWfId, n - 1);
+export function recordSend(sender: string, guard: number | ClusterMessageGuard = SEND_BUDGET_PER_TURN): BudgetDecision {
+  const count = (counters.get(sender) ?? 0) + 1;
+  counters.set(sender, count);
+  return decision(count, guard);
 }
-
-export function reset(senderWfId: string): void {
-  counters.delete(senderWfId);
+// Only claim a warning after enqueue succeeds. Failed sends cannot consume it.
+export function takeWarning(sender: string, guard: ClusterMessageGuard, sentCount = counters.get(sender) ?? 0): boolean {
+  if (guard.mode !== 'warn' || sentCount <= guard.threshold || warned.has(sender)) return false;
+  warned.add(sender);
+  return true;
 }
-
-// Drop all per-workflow state for a removed workflow (the counter otherwise
-// lives until the next primary_turn_started, which a closed tab never has).
-export function dropMember(workflowId: string): void {
-  counters.delete(workflowId);
+export function refund(sender: string): void {
+  const count = counters.get(sender) ?? 0;
+  if (count <= 1) counters.delete(sender); else counters.set(sender, count - 1);
 }
-
-export function peek(senderWfId: string, cap: number = SEND_BUDGET_PER_TURN): BudgetDecision {
-  const count = counters.get(senderWfId) ?? 0;
-  return { allowed: count < cap, count, cap };
+export function reset(sender: string): void { counters.delete(sender); warned.delete(sender); }
+export const dropMember = reset;
+export function peek(sender: string, guard: number | ClusterMessageGuard = SEND_BUDGET_PER_TURN): BudgetDecision {
+  const result = decision(counters.get(sender) ?? 0, guard);
+  return { ...result, allowed: result.cap === null || result.count < result.cap };
 }

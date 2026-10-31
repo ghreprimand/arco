@@ -156,7 +156,7 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
     }>,
     mailboxDepth: Record<string, number>,
     createdAt: string,
-    taskBoardMode: 'none' | 'project' | 'cluster',  // board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'project' (default-attach).
+    taskBoardMode: 'none' | 'project' | 'cluster',  // board mode. `project` = the cwd's normal task ledger; `cluster` = a private board under the same cwd keyed by taskBoardKey; `none` disables BOARD/tool/dispatcher use. New clusters default to 'cluster'; existing omitted board fields retain their legacy project/disabled interpretation.
     taskBoardKey?: string,           // set for `cluster` mode only - `cluster:<clusterId>`, the namespace key for the private board
     taskBoardAttached: boolean,      // back-compat derived flag for older clients: true for project|cluster, false for none
     name?: string,                   // slice 6a - operator-set display name; client falls back to `<basename(cwd)> · <short-id>` when absent
@@ -169,6 +169,7 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
     idleNudgerEnabled?: boolean,     // operator-armed idle nudger toggle. Default OFF (absent ≡ false). See cluster_member_nudged.
     autoTurnOnMailboxEnabled?: boolean, // operator-armed AUTO-PICKUP toggle. Default OFF (absent ≡ false). When true, a peer_message_sent to a currently-idle recipient fires a single primary turn on the recipient with the synthetic prompt "(auto-pickup) New peer message arrived while you were idle - process your mailbox." Guarded by 20s per-recipient cooldown, 10/min per-cluster rate cap, and a chain-depth cap of 3. See cluster_auto_turn_fired.
     efficiencyLevel?: 'thorough' | 'balanced' | 'lean', // 2026-06-15 - per-cluster efficiency level. Emitted only when non-default (absent ≡ 'thorough'). See cluster_efficiency_set.
+    messageGuard?: { mode: 'warn' | 'hard' | 'none', threshold: number }, // effective guard, including legacy fallback
     efficiencyAddendum?: string,    // 2026-06-15 - optional free-text appended to the canned restraint doctrine; emitted only when non-empty.
     progressTracking?: 'plan' | 'board' | 'both', // 2026-06-29 - per-cluster progress-tracking mode. Emitted only when non-default (absent ≡ 'both'). See cluster_progress_set.
     dispatcher?: {                  // Director/workers Stage G - operator-armed task dispatcher daemon. Default OFF when absent or enabled=false. Settings persist in cluster meta and mirror on every cluster_state.
@@ -301,7 +302,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
   type: 'cluster_create_from_scratch',
   cwd: string,
   name?: string,
-  efficiencyLevel?: 'thorough' | 'balanced' | 'lean',  // 2026-06-15 - cluster-wide, operator-picked at create. Omitted ≡ 'thorough'.
+  efficiencyLevel?: 'thorough' | 'balanced' | 'lean',  // 2026-06-15 - cluster-wide, operator-picked at create. Omitted at new creation selects 'balanced'; omitted stored metadata still reads as 'thorough'.
   efficiencyAddendum?: string,                          // optional free-text appended to the canned doctrine; clamped to CLUSTER_EFFICIENCY_ADDENDUM_MAX
   members: Array<{
     provider: ClusterMemberProvider,   // 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor' (max 1 local; cursor uncapped)
@@ -415,15 +416,25 @@ The operator picked a role for a member via the `SET` popover in `ClusterRightPa
 
 ### `cluster_efficiency_set` ->
 
-2026-06-15 - operator set the cluster's efficiency level (and optional doctrine addendum) from the ClusterRightPanel header chip or the `+ NEW` cluster creator. `level` is one of `CLUSTER_EFFICIENCY_LEVELS` (`thorough` / `balanced` / `lean`; server rejects unknown strings). `addendum` is optional: omitted ⇒ keep the current note, empty string ⇒ clear it, non-empty ⇒ replace it (clamped to `CLUSTER_EFFICIENCY_ADDENDUM_MAX`). Each level is a deterministic bundle resolved server-side in `clusterEfficiency.ts`: a restraint doctrine block injected into every member's system prompt, a smaller per-turn peer-send budget (15 -> 8 -> 4), and a softer pre-turn mailbox notice. The new level takes effect on each member's **next** turn (in-flight turns untouched). Server persists to cluster `meta.json` and rebroadcasts `cluster_state`. Passes the four-question test: operator-set, deterministic readable presets, events.jsonl-visible via `cluster_state`, reversible (flip back to `thorough`). `cluster_state.efficiencyLevel` / `efficiencyAddendum` are emitted only when non-default (absent ≡ `thorough`).
+The Efficiency control selects deterministic coordination instructions: Thorough permits useful explanatory context, Balanced assigns complete outcomes with routine compatible decisions owned by builders, and Lean reduces optional narration and handoffs. All levels preserve required tests, safety checks, operator-requested review and the Director's final landing review. Directors reconcile relevant tasks and new evidence, assign exact placement, surfaces, invariants, dependencies and acceptance checks, then review the final diff and evidence once. Builders raise an actionable unresolved blocker before the expensive gate or return one final evidence packet. Manual idle/busy nudges, pending-mail notices and auto-pickup use the same level-aware, role-aware wording. Busy nudges remain non-interrupting; explicit recipient selection is unchanged.
+
+Message guard is a separate control beside Efficiency and in cluster creation. `messageGuard` has `{ mode: 'warn' | 'hard' | 'none', threshold: number }`; thresholds are integers from 1 through 1000. Warn only accepts legitimate sends above the threshold and adds one warning to a successful send result per sender per primary turn. Hard limit refuses mail at the cap; refused mail is not delivered. No limit removes the peer-send quota only, retaining automatic-execution, provider, permission, size and deduplication limits. Its retained threshold is used if a bounded mode is selected later.
+
+Successful model send results include `guard` with `mode`, `count`, `cap`, `threshold`, `remaining` and an optional `warning`. Cap/remaining are null outside Hard limit; threshold is null for No limit. Counts span all recipients and reserve capacity before enqueue to fence concurrent sends. Failed/refused sends refund their reservation. The existing `primary_turn_started` boundary resets counts and warning state for that sender; these counters are process-local and are not restored after server restart. Consolidate related information for the same recipient; do not start turns to evade a cap. Operator-driven transcript sends keep their existing explicit bypass.
 
 ```ts
-{ type: 'cluster_efficiency_set', clusterId: string, level: 'thorough' | 'balanced' | 'lean', addendum?: string }
+{ type: 'cluster_efficiency_set', clusterId: string,
+  level: 'thorough' | 'balanced' | 'lean', addendum?: string,
+  messageGuard?: { mode: 'warn' | 'hard' | 'none', threshold: number } }
 ```
+
+Omitted `addendum` keeps NOTE; empty clears it; non-empty replaces it, trimmed to 1000 characters. NOTE is an appended operator instruction, not a mode or budget. Omitted `messageGuard` preserves the effective guard. A legacy cluster with no guard retains a hard cap of 15/8/4 for its saved Thorough/Balanced/Lean style; that effective cap is pinned before a style or NOTE edit. Style changes therefore do not change the guard. Settings persist atomically and broadcast `cluster_state`. Style instructions apply next turn; guard changes apply on the next send, without resetting the existing counter.
+
+All new creation paths use explicit Balanced, Warn only at 15, a cluster-local board and Keep current Both. Explicit creation settings override those defaults. Stored omitted style fields still mean Thorough; old omitted board fields keep the existing interpretation. Snapshot restore uses saved settings and old-format fallbacks rather than creation defaults. No existing board is moved, merged or copied by the new default. Guard state rides in cluster state and snapshot metadata; automatic-execution arming remains off on restore.
 
 ### `cluster_progress_set` ->
 
-2026-06-29 - operator picked which surface(s) the cluster keeps current, from the ClusterRightPanel progress chip or the `+ NEW` cluster creator. `mode` is one of `CLUSTER_PROGRESS_MODES` (`plan` / `board` / `both`; server rejects unknown strings with `cluster_progress_set rejected: unknown_mode`, unknown cluster with `unknown_cluster`). Each mode resolves server-side (`clusterProgress.ts` `buildProgressDoctrine(mode, hasPlan, hasBoard)`) to a deterministic system-prompt doctrine block injected into every member's next turn - a plan-upkeep clause (keep the shared plan's `[ ]`/`[x]` current via `cluster_plan_tick`), a board-upkeep clause (move tasks through their statuses as work progresses), plus a reconcile line when BOTH surfaces are live. Each clause is gated on the surface actually existing (`hasPlan` / `hasBoard`), so a mode with no matching surface injects nothing. Unlike the efficiency `thorough` default, the progress default `both` is INTENTIONALLY non-empty: pre-feature clusters with a plan start getting the upkeep nudge. Takes effect on each member's **next** turn (in-flight untouched). Server persists to cluster `meta.json` and rebroadcasts `cluster_state`; `cluster_state.progressTracking` is echoed only when non-default (absent ≡ `both`). Passes the four-question test: operator-set, deterministic doctrine, logged via `cluster_state`, reversible by flipping the chip.
+2026-06-29 - operator picked which surface(s) the cluster keeps current, from the ClusterRightPanel progress chip or the `+ NEW` cluster creator. `mode` is one of `CLUSTER_PROGRESS_MODES` (`plan` / `board` / `both`; server rejects unknown strings with `cluster_progress_set rejected: unknown_mode`, unknown cluster with `unknown_cluster`). Each mode resolves server-side (`clusterProgress.ts` `buildProgressDoctrine(mode, hasPlan, hasBoard)`) to a deterministic system-prompt doctrine block injected into every member's next turn - a plan-upkeep clause (keep the shared plan's `[ ]`/`[x]` current via `cluster_plan_tick`), a board-upkeep clause (move tasks through their statuses as work progresses), plus a reconcile line when BOTH surfaces are live. Each clause is gated on the surface actually existing (`hasPlan` / `hasBoard`), so a mode with no matching surface injects nothing. The progress default `both` is non-empty: pre-feature clusters with a plan start getting the upkeep nudge. Takes effect on each member's **next** turn (in-flight untouched). Server persists to cluster `meta.json` and rebroadcasts `cluster_state`; `cluster_state.progressTracking` is echoed only when non-default (absent ≡ `both`). Passes the four-question test: operator-set, deterministic doctrine, logged via `cluster_state`, reversible by flipping the chip.
 
 ```ts
 { type: 'cluster_progress_set', clusterId: string, mode: 'plan' | 'board' | 'both' }
@@ -612,7 +623,7 @@ and should never silently enable it when tasks are created.
 
 ### Cluster task board
 
-Two operator-driven board-control messages. New clusters default-attach a project board (`clusterStore.createCluster` stamps `taskBoardMode: 'project'`, `taskBoardAttached: true`), so most clusters never need these - they exist to switch a cluster's board between the shared project ledger, a private cluster board, and off. Both handlers re-sync every member's MCP config (the BOARD peer-tools register/unregister with mode), drop the cluster from the dispatcher when the board goes to `none`, then push a fresh `cluster_state` (plus a `task_ledger_snapshot` seeded from the active board whenever the board is enabled).
+Two operator-driven board-control messages. New clusters default-attach a cluster-local board (`clusterStore.createCluster` stamps `taskBoardMode: 'cluster'`, `taskBoardAttached: true`), so most clusters never need these - they exist to switch a cluster's board between the shared project ledger, a private cluster board, and off. Both handlers re-sync every member's MCP config (the BOARD peer-tools register/unregister with mode), drop the cluster from the dispatcher when the board goes to `none`, then push a fresh `cluster_state` (plus a `task_ledger_snapshot` seeded from the active board whenever the board is enabled).
 
 #### `cluster_task_board_attach_set` ->
 
@@ -856,7 +867,7 @@ Model-facing tools registered on every cluster member (Native: in-process `serve
 
 | Tool | REST op | Notes |
 |---|---|---|
-| `peer_list` / `peer_send` / `peer_read` | `list` / `send` / `read` | Mailbox substrate. `peer_send` pays the per-turn budget (efficiency level: 15 -> 8 -> 4) + 60 s dedupe; rejections emit `peer_send_rejected`. |
+| `peer_list` / `peer_send` / `peer_read` | `list` / `send` / `read` | Mailbox substrate. `peer_send` uses the independent per-primary-turn message guard + 60 s dedupe; rejections emit `peer_send_rejected`. |
 | `cluster_plan_read` / `cluster_plan_write` / `cluster_plan_tick` | `plan-read` / `plan-write` / `plan-tick` | See below. |
 | `cluster_task_list` / `_show` / `_create` / `_claim` / `_heartbeat` / `_comment` / `_link` / `_unlink` / `_block` / `_update` / `_complete` | `task-list` ... `task-complete` | Board tools; absent (REST: rejected) when board mode is `none`. `cluster_task_complete` only works on a task the caller owns (`not_found` / `not_owner` otherwise), moves it to `review`, and appends a durable COMPLETION REPORT comment - it never marks `done` (operator-only). |
 

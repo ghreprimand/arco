@@ -15,7 +15,7 @@
 // /api/clusters/:id parity).
 
 import { useEffect, useRef, useState } from 'react';
-import { NUDGE_PROMPT, ACTIVE_NUDGE_PROMPT } from '../utils/clusterNudge';
+import { buildClusterNudge } from '../utils/clusterNudge';
 import { onVoiceDialog } from '../voice/dialogs';
 import { useAppStore, type ClusterCardLayout } from '../stores/appStore';
 import { MemberPane } from './MemberPane';
@@ -114,7 +114,7 @@ interface Props {
   onSetTaskBoardAttached?: (clusterId: string, attached: boolean) => void;
   // 2026-06-15 — per-cluster efficiency level (+ optional doctrine addendum).
   onSetAutoCompaction?: (clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => void;
-  onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => void;
+  onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string, messageGuard?: import('@arco/shared').ClusterMessageGuard) => void;
   onSetRemote?: (clusterId: string, enabled: boolean) => void;
   onSetGates?: (clusterId: string, enabled: boolean) => void;
   // 2026-07-17 — drag-to-reorder the member grid; full permutation sent.
@@ -590,7 +590,7 @@ export function ClusterTab({
         || (job?.messages.some((m) => m.isStreaming) ?? false);
       const result = onSendToMember(
         member.workflowId,
-        active ? ACTIVE_NUDGE_PROMPT : NUDGE_PROMPT,
+        buildClusterNudge(cluster.efficiencyLevel, active, member.role),
         undefined,
         'steer',
       );

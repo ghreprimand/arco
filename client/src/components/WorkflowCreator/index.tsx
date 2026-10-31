@@ -1,3 +1,5 @@
+import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
+import { CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -246,10 +248,13 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // 2026-05-11 — cluster-only optional name (≤64; empty = derived default).
   const [clusterName, setClusterName] = useState('');
   // 2026-06-15 — per-cluster efficiency level chosen at create time (cluster-
-  // wide, not per-member). Default 'thorough' = today's behaviour. The
-  // optional addendum appends to the canned doctrine.
-  const [clusterEfficiency, setClusterEfficiency] = useState<ClusterEfficiencyLevel>('thorough');
+  // wide, not per-member). New creation uses Balanced independently of the
+  // message guard; the optional NOTE appends to the generated policy.
+  const [clusterEfficiency, setClusterEfficiency] = useState<ClusterEfficiencyLevel>(CLUSTER_EFFICIENCY_CREATE_DEFAULT);
   const [clusterEfficiencyNote, setClusterEfficiencyNote] = useState('');
+  const [messageGuard, setMessageGuard] = useState<ClusterMessageGuard>({ ...CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT });
+  const [clusterBoard, setClusterBoard] = useState<ClusterTaskBoardMode>('cluster');
+  const [clusterProgress, setClusterProgress] = useState<ClusterProgressMode>('both');
   // 2026-05-11 — cluster member draft list. Lazy-initialized to 2 rows
   // (the minimum to submit) the first time CLUSTER mode is opened.
   const [members, setMembers] = useState<MemberDraft[]>([]);
@@ -627,7 +632,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       onCreateCluster({
         cwd: workDir,
         ...(clusterName.trim().length > 0 ? { name: clusterName.trim() } : {}),
-        ...(clusterEfficiency !== 'thorough' ? { efficiencyLevel: clusterEfficiency } : {}),
+        efficiencyLevel: clusterEfficiency,
+        messageGuard,
+        taskBoardMode: clusterBoard,
+        progressTracking: clusterProgress,
         ...(clusterEfficiencyNote.trim().length > 0 ? { efficiencyAddendum: clusterEfficiencyNote.trim() } : {}),
         members: members.map((m, i) => ({
           provider: m.provider,
@@ -1029,6 +1037,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                   <button
                     key={lvl}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setClusterEfficiency(lvl)}
                     className="display-font"
                     title={CLUSTER_EFFICIENCY_LABELS[lvl].blurb}
@@ -1050,8 +1059,16 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginTop: '4px' }}>
               {CLUSTER_EFFICIENCY_LABELS[clusterEfficiency].blurb}
             </div>
+            <MessageGuardControl value={messageGuard} onChange={setMessageGuard} />
+            <label>Task board <select aria-label="Cluster task board" value={clusterBoard} onChange={e => setClusterBoard(e.target.value as ClusterTaskBoardMode)}>
+              <option value="cluster">Cluster-local</option><option value="project">Project</option><option value="none">None</option>
+            </select></label>
+            <label>Keep current <select aria-label="Keep current" value={clusterProgress} onChange={e => setClusterProgress(e.target.value as ClusterProgressMode)}>
+              <option value="both">Both</option><option value="plan">Plan</option><option value="board">Board</option>
+            </select></label>
             <input
               type="text"
+              aria-label="Cluster NOTE"
               value={clusterEfficiencyNote}
               maxLength={CLUSTER_EFFICIENCY_ADDENDUM_MAX}
               onChange={(e) => setClusterEfficiencyNote(e.target.value)}

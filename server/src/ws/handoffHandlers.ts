@@ -1,3 +1,4 @@
+import { buildMessageGuardPolicy } from '@arco/shared';
 import { pendingOperatorQuestions } from '../providers/codex-appserver/operatorQuestions.js';
 import { computerContextState, isComputer } from '../voice/computerContext.js';
 // server/src/ws/handoffHandlers.ts — handoff / spawn / rehydrate WS handler
@@ -528,9 +529,13 @@ export async function handleHandoffRequest(
     prewarmClusterPlan = planRec?.body;
     prewarmClusterRole = clusterStore.getMemberRole(prewarmClusterId, msg.workflowId);
     prewarmClusterTaskBoardAttached = clusterStore.isTaskBoardAttached(prewarmClusterId);
-    prewarmClusterEfficiencyDoctrine = clusterEfficiency.buildDoctrine(
+    prewarmClusterEfficiencyDoctrine = clusterStore.getMemberAccessMode(prewarmClusterId, msg.workflowId) !== 'standard'
+      ? buildMessageGuardPolicy(clusterStore.getMessageGuard(prewarmClusterId))
+      : clusterEfficiency.buildDoctrine(
       clusterStore.getEfficiencyLevel(prewarmClusterId),
       clusterStore.getEfficiencyAddendum(prewarmClusterId),
+      prewarmClusterRole,
+      clusterStore.getMessageGuard(prewarmClusterId),
     );
     prewarmClusterProgressDoctrine = joinClusterDoctrines(
       buildClusterDirectorDoctrine(prewarmClusterRole),

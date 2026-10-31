@@ -520,6 +520,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
   autoCompaction?: import('@arco/shared').AutoCompactionPolicy;
   efficiencyLevel?: clusterStore.ClusterEfficiencyLevel;
   efficiencyAddendum?: string;
+  messageGuard?: import('@arco/shared').ClusterMessageGuard;
   progressTracking?: clusterStore.ClusterProgressMode;
   dispatcher?: ReturnType<typeof clusterStore.normalizeTaskDispatcherSettings>;
 } | null> {
@@ -588,6 +589,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     // emitted when non-default so pre-feature clients/snapshots stay clean.
     ...(state.autoCompaction ? { autoCompaction: state.autoCompaction } : {}),
     ...(state.efficiencyLevel && state.efficiencyLevel !== 'thorough' ? { efficiencyLevel: state.efficiencyLevel } : {}),
+    messageGuard: clusterStore.getMessageGuard(clusterId),
     ...(state.efficiencyAddendum && state.efficiencyAddendum.length > 0 ? { efficiencyAddendum: state.efficiencyAddendum } : {}),
     // 2026-06-29 — progress-tracking echo. Absent ≡ 'both' (default); only
     // emitted when non-default so pre-feature clients/snapshots stay clean.

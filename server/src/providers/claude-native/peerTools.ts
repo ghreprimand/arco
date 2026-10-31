@@ -1,3 +1,4 @@
+import { PEER_SEND_GUARD_DESCRIPTION } from '@arco/shared';
 // docs/PROTOCOL_CLUSTER.md - Native peer tools.
 //
 // Three tools registered into the worker's tool list ONLY when
@@ -97,7 +98,7 @@ export function getPeerToolDefinitions(opts?: {
     {
       name: 'peer_send',
       description:
-        'Send a note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. `content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. There is a hard per-sender per-turn send cap (it tightens at higher cluster efficiency levels); the budget resets each time the operator advances your turn, and a rejected send returns budget_exhausted with the current count and cap.\n\nWhen the operator asks you to "send" / "share" / "deliver" a document, review, plan, or other artifact to a peer, paste the FULL body inline as `content` — do not summarize unless the operator explicitly asked for a summary. Up to 16 KB fits a typical review or plan. If the content exceeds 16 KB, split it across multiple peer_send calls in order (e.g. "Part 1/3", "Part 2/3").',
+        'Send a note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. `content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. ' + PEER_SEND_GUARD_DESCRIPTION + '\n\nWhen the operator asks you to "send" / "share" / "deliver" a document, review, plan, or other artifact to a peer, paste the FULL body inline as `content` — do not summarize unless the operator explicitly asked for a summary. Up to 16 KB fits a typical review or plan. If the content exceeds 16 KB, split it across multiple peer_send calls in order (e.g. "Part 1/3", "Part 2/3").',
       input_schema: {
         type: 'object',
         properties: {
@@ -382,7 +383,7 @@ export async function executePeerTool(
       });
       if (!result.ok) return `[error] ${result.message}`;
       return JSON.stringify(
-        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately },
+        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.guard ? { guard: result.guard } : {}) },
         null,
         2,
       );

@@ -301,6 +301,7 @@ async function snapshotClusters(): Promise<ClusterSummary[]> {
       cwd: payload.cwd,
       memberIds: payload.members.map((m) => m.workflowId),
       efficiencyLevel: payload.efficiencyLevel ?? 'thorough',
+      messageGuard: payload.messageGuard,
       autoTurnOnMailbox: payload.autoTurnOnMailboxEnabled === true,
       idleNudgerEnabled: payload.idleNudgerEnabled === true,
       taskBoardMode: payload.taskBoardMode,

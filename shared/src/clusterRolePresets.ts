@@ -15,6 +15,9 @@ const OUTCOME_DIRECTOR_TEXT = "Director role. Own outcome; plan/delegate via pee
 // guard and read as "own everything", so directors implemented and turned the
 // plan into a status ledger. Still normalized forward so stored roles upgrade.
 const OWN_OUTCOME_DIRECTOR_TEXT = 'Director role. Own outcome; delegate only via peer_send, never Task; keep plan current; verify claims; fold feedback.';
+// The previous unedited Builder preset; normalized forward like the Director
+// texts so stored members keep the BUILDER preset, label and voice aliases.
+const LEGACY_BUILDER_TEXT = 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.';
 
 export const ROLE_PRESETS: RolePreset[] = [
   {
@@ -25,7 +28,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'builder',
     label: 'BUILDER',
-    text: 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.',
+    text: 'Implementer role. Finish assigned work and routine compatible choices; send one blocker or final evidence via peer_send.',
   },
   {
     key: 'reviewer',
@@ -54,6 +57,7 @@ export function normalizeClusterRoleText(text: string): string {
   if (trimmed === LEGACY_DIRECTOR_TEXT || trimmed === OUTCOME_DIRECTOR_TEXT || trimmed === OWN_OUTCOME_DIRECTOR_TEXT) {
     return ROLE_PRESETS.find((p) => p.key === 'director')?.text ?? trimmed;
   }
+  if (trimmed === LEGACY_BUILDER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'builder')?.text ?? trimmed;
   return trimmed;
 }
 

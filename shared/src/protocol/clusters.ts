@@ -148,48 +148,68 @@ export function isMemberTier(v: unknown): v is MemberTier {
   return typeof v === 'string' && (MEMBER_TIERS as readonly string[]).includes(v);
 }
 
-// 2026-06-15 — per-cluster efficiency level. One operator-set knob that
-// dials how thorough vs. lean the whole cluster behaves: how large members
-// chunk work, how much they cross-review each other, and how chatty the
-// peer-mailbox substrate is. Each level is a DETERMINISTIC bundle resolved
-// server-side in clusterEfficiency.ts (doctrine text + peer-send budget +
-// mailbox-notice variant) — the values here are just the enum + UI labels.
-//
-// `thorough` is the default (absent ≡ thorough) so existing clusters and
-// pre-feature meta.json files keep today's exact behaviour. `balanced` and
-// `lean` progressively inject a restraint doctrine, shrink the per-turn
-// peer-send budget, and soften the aggressive "re-engage on every inbound"
-// mailbox notice. Four-question test (CLAUDE.md / plan §2): operator-set,
-// deterministic + readable presets, logged via cluster_state + the
-// efficiency-set event, reversible by flipping back to thorough. NOT
-// LLM-mutated instructions — the doctrine strings are static and
-// operator-selected, the opposite of the headroom-learn anti-pattern.
+// Coordination style controls generated instructions. Omitted stored styles keep
+// the legacy Thorough interpretation; only new creation uses Balanced.
 export const CLUSTER_EFFICIENCY_LEVELS = ['thorough', 'balanced', 'lean'] as const;
 export type ClusterEfficiencyLevel = (typeof CLUSTER_EFFICIENCY_LEVELS)[number];
 export function isClusterEfficiencyLevel(v: unknown): v is ClusterEfficiencyLevel {
   return typeof v === 'string' && (CLUSTER_EFFICIENCY_LEVELS as readonly string[]).includes(v);
 }
 export const CLUSTER_EFFICIENCY_DEFAULT: ClusterEfficiencyLevel = 'thorough';
+export const CLUSTER_EFFICIENCY_CREATE_DEFAULT: ClusterEfficiencyLevel = 'balanced';
 
 // Short UI label + one-line operator description per level. Single source of
 // truth for the picker pills (WorkflowCreator + ClusterRightPanel chip) so
 // the client never hard-codes the copy. The server's clusterEfficiency.ts
-// owns the actual doctrine/budget bundle; this is operator-facing summary
+// owns the generated coordination policy; this is operator-facing summary
 // only.
 export const CLUSTER_EFFICIENCY_LABELS: Record<ClusterEfficiencyLevel, { label: string; blurb: string }> = {
-  thorough: { label: 'Thorough', blurb: 'Full cross-review, generous peer messaging (default).' },
-  balanced: { label: 'Balanced', blurb: 'Substantial chunks, review on signal, trimmed messaging.' },
-  lean: { label: 'Lean', blurb: 'Max chunks, no unprompted review, terse end-of-task reports.' },
+  thorough: { label: 'Thorough', blurb: 'Explanatory coordination; required review and checks remain.' },
+  balanced: { label: 'Balanced', blurb: 'Complete outcomes, routine decisions owned by builders, one final evidence packet (new-cluster default).' },
+  lean: { label: 'Lean', blurb: 'Brief coordination and fewer optional handoffs; required review and checks remain.' },
 };
 
 // Optional free-text the operator appends to the canned doctrine for a
 // cluster (e.g. project-specific restraint notes). Clamped server-side.
 export const CLUSTER_EFFICIENCY_ADDENDUM_MAX = 1000;
 
+// Message quota is independent of coordination style. Thresholds are whole
+// numbers from 1 through 1000; No limit retains the value for later mode edits.
+export interface ClusterMessageGuard {
+  mode: 'warn' | 'hard' | 'none';
+  threshold: number;
+}
+export const CLUSTER_MESSAGE_GUARD_MAX = 1000;
+export const CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT: ClusterMessageGuard = { mode: 'warn', threshold: 15 };
+export function isClusterMessageGuard(v: unknown): v is ClusterMessageGuard {
+  if (!v || typeof v !== 'object') return false;
+  const g = v as ClusterMessageGuard;
+  return ['warn', 'hard', 'none'].includes(g.mode) && Number.isInteger(g.threshold) && g.threshold >= 1 && g.threshold <= CLUSTER_MESSAGE_GUARD_MAX;
+}
+export function resolveClusterMessageGuard(state: { messageGuard?: ClusterMessageGuard; efficiencyLevel?: ClusterEfficiencyLevel }): ClusterMessageGuard {
+  if (isClusterMessageGuard(state.messageGuard)) return { ...state.messageGuard };
+  return { mode: 'hard', threshold: state.efficiencyLevel === 'lean' ? 4 : state.efficiencyLevel === 'balanced' ? 8 : 15 };
+}
+export interface ClusterCreationSettings {
+  efficiencyLevel?: ClusterEfficiencyLevel;
+  efficiencyAddendum?: string;
+  messageGuard?: ClusterMessageGuard;
+  taskBoardMode?: ClusterTaskBoardMode;
+  progressTracking?: ClusterProgressMode;
+}
+
 export const CLUSTER_TASK_BOARD_MODES = ['none', 'project', 'cluster'] as const;
 export type ClusterTaskBoardMode = (typeof CLUSTER_TASK_BOARD_MODES)[number];
 export function isClusterTaskBoardMode(v: unknown): v is ClusterTaskBoardMode {
   return typeof v === 'string' && (CLUSTER_TASK_BOARD_MODES as readonly string[]).includes(v);
+}
+
+export function isClusterCreationSettings(v: ClusterCreationSettings): boolean {
+  return (v.efficiencyLevel === undefined || isClusterEfficiencyLevel(v.efficiencyLevel)) &&
+    (v.efficiencyAddendum === undefined || typeof v.efficiencyAddendum === 'string') &&
+    (v.messageGuard === undefined || isClusterMessageGuard(v.messageGuard)) &&
+    (v.taskBoardMode === undefined || isClusterTaskBoardMode(v.taskBoardMode)) &&
+    (v.progressTracking === undefined || isClusterProgressMode(v.progressTracking));
 }
 
 // 2026-06-29 — per-cluster progress-tracking mode. Which standing surface(s)
@@ -204,7 +224,7 @@ export function isClusterTaskBoardMode(v: unknown): v is ClusterTaskBoardMode {
 // is the operator knob that turns plan-upkeep into a standing instruction. The
 // server (clusterProgress.ts) owns the deterministic doctrine bundle.
 //
-// Default is 'both' (NOT a no-op, unlike the efficiency 'thorough' default):
+// Default is 'both':
 // pre-feature clusters with a plan SHOULD start getting the upkeep nudge — that
 // is the fix. The text is deterministic + reversible (flip the chip), so it
 // passes the §2 four-question test.
@@ -264,15 +284,13 @@ export interface ClusterStatePayload {
   // the same deterministic ready-task sweep as `cluster_dispatch_once`, with
   // server-side caps. All fields are state echoes from cluster meta.
   dispatcher?: ClusterDispatcherState;
-  // 2026-06-15 — per-cluster efficiency level (see CLUSTER_EFFICIENCY_LEVELS).
-  // Absent ≡ 'thorough' (default; today's behaviour). When 'balanced' / 'lean'
-  // the server injects a restraint doctrine into every member's system prompt,
-  // shrinks the per-turn peer-send budget, and softens the mailbox re-engage
-  // notice. State echo from cluster meta.
+  // Stored omitted styles retain Thorough. New clusters explicitly use Balanced.
+  // The independent guard is echoed with its resolved legacy fallback.
   efficiencyLevel?: ClusterEfficiencyLevel;
   // Optional operator free-text appended to the canned doctrine for this
   // cluster. Clamped to CLUSTER_EFFICIENCY_ADDENDUM_MAX. Absent ≡ none.
   efficiencyAddendum?: string;
+  messageGuard?: ClusterMessageGuard;
   // 2026-06-29 — per-cluster progress-tracking mode (see CLUSTER_PROGRESS_MODES).
   // Absent ≡ 'both' (default; members are nudged to keep BOTH the plan and the
   // board current — the missing-surface halves are gated off server-side). Only
@@ -340,7 +358,7 @@ export interface ClusterMemberRehydrateMessage {
   workflowId: string;
 }
 
-export interface ClusterCreateMessage {
+export interface ClusterCreateMessage extends ClusterCreationSettings {
   type: 'cluster_create';
   cwd: string;
   memberWorkflowIds: string[];
@@ -385,7 +403,7 @@ export interface ClusterMemberAddMessage {
 // sharing the source tab's cwd + primary), then creates the cluster with
 // source + N new members. The Native-only fence applies. `additionalCount`
 // is 1–4 (server clamps).
-export interface ClusterCreateWithFreshWorkersMessage {
+export interface ClusterCreateWithFreshWorkersMessage extends ClusterCreationSettings {
   type: 'cluster_create_with_fresh_workers';
   sourceWorkflowId: string;
   additionalCount: number;
@@ -416,15 +434,14 @@ export interface ClusterCreateWithFreshWorkersMessage {
 // empty = derived default per the cluster-rename rule. Per-member optional
 // fields (displayName/role/tier) are written after the cluster is created
 // via the existing setMemberRole / setMemberTier / rename_workflow paths.
-export interface ClusterCreateFromScratchMessage {
+export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings {
   type: 'cluster_create_from_scratch';
   cwd: string;
   name?: string;
-  // 2026-06-15 — operator-picked efficiency level for the whole cluster at
-  // create time. Cluster-wide (not per-member). Omitted ≡ 'thorough'. The
-  // optional addendum is appended to the canned doctrine; clamped server-side.
+  // New creation defaults apply only here, never when reading saved metadata.
   efficiencyLevel?: ClusterEfficiencyLevel;
   efficiencyAddendum?: string;
+  messageGuard?: ClusterMessageGuard;
   members: Array<{
     provider: ClusterMemberProvider;
     model: string;
@@ -995,6 +1012,7 @@ export interface ClusterEfficiencySetMessage {
   clusterId: string;
   level: ClusterEfficiencyLevel;
   addendum?: string;
+  messageGuard?: ClusterMessageGuard;
 }
 
 // 2026-07-17 — operator drag-reordered the member grid. `memberIds` is the

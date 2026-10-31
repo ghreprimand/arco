@@ -1331,28 +1331,14 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
   },
   'cluster.efficiency': {
-    title: 'Efficiency level',
+    title: 'Coordination style and message guard',
     body: (
       <>
-        <p>
-          One per-cluster knob that dials how thorough vs. lean the whole
-          cluster behaves — how large members chunk work, how much they
-          re-review each other, and how chatty the peer mailbox is.
-        </p>
-        <p>
-          <C>THOROUGH</C> (default) = today's behaviour: full cross-review,
-          generous peer messaging. <C>BALANCED</C> = substantial chunks,
-          review only on signal, trimmed messaging. <C>LEAN</C> = max chunks,
-          no unprompted review, terse end-of-task reports.
-        </p>
-        <p>
-          Each level is a deterministic bundle: a restraint <em>doctrine</em>{' '}
-          injected into every member's system prompt, a smaller peer-send{' '}
-          <em>budget</em> (15 → 8 → 4 sends/turn), and a softer pre-turn
-          mailbox notice. <C>NOTE</C> adds a cluster-specific line appended to
-          the canned doctrine. Takes effect on each member's next turn;
-          reversible by flipping back to THOROUGH.
-        </p>
+        <p>Efficiency selects coordination style. New clusters start Balanced: complete outcomes, exact placement and affected surfaces, builder-owned routine compatible decisions, and one actionable blocker or final evidence packet. Thorough permits useful explanation; Lean reduces optional narration and handoffs. All styles preserve required tests, safety checks, operator-requested review and landing review.</p>
+        <p>Message guard is independent: Warn only (new default, threshold 15) accepts further sends with one warning per primary turn; Hard limit refuses mail at the cap; No limit removes only the peer-send quota. Thresholds are whole numbers from 1 to 1000. Successful send results report counts and remaining allowance where applicable. Rejected mail was not delivered.</p>
+        <p>Counts span all recipients, reset when that sender starts a primary turn, and are not persisted across server restart. Failed sends refund their reservation. Consolidate related same-recipient information; do not start turns to evade a cap. Automatic-execution and provider limits remain independent.</p>
+        <p>NOTE appends an operator instruction, not a mode or budget. Style and NOTE apply next turn; guard edits apply on the next send without resetting the count. Existing clusters without guard fields keep their legacy hard cap, pinned before a style change.</p>
+        <p>New clusters use a cluster-local board and Keep current Both. Saved choices and old-format snapshot fallbacks are preserved; existing boards are not moved or merged. Manual NUDGE requires explicit recipients, MAIL ALERTS only alerts the operator, and AUTO-PICKUP remains separately opt-in with its existing limits.</p>
       </>
     ),
     manualSection: 'cluster-efficiency',

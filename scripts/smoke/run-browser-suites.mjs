@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SUITES = [
+  { name: 'cluster-coordination-wire', script: 'cluster-coordination-server.py', isolatedServer: true },
+  { name: 'cluster-coordination', script: 'cluster-coordination-browser.py', port: 5206 },
   { name: 'reauth-continuity', script: 'reauth-continuity-browser.py', port: 5203 },
   { name: 'workspace-rename', script: 'workspace-rename-browser.py', port: 5203 },
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },

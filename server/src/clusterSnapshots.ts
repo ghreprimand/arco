@@ -1,3 +1,4 @@
+import { resolveClusterMessageGuard } from '@arco/shared';
 // Cluster snapshots — full, restorable captures of a LIVE cluster.
 //
 // A snapshot is heavier than a preset (clusterPresets.ts): where a preset
@@ -862,6 +863,7 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
     cluster.clusterId,
     src.efficiencyLevel ?? 'thorough',
     src.efficiencyAddendum ?? '',
+    resolveClusterMessageGuard(src),
   ).catch(() => { /* best-effort */ });
   await clusterStore.setProgressTracking(
     cluster.clusterId,

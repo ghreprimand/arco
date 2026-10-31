@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Changed
+
+- Separate cluster coordination style from Warn only, Hard limit and No limit message guards; align role and mailbox guidance; default new clusters to Balanced, a cluster-local board and Keep current Both while preserving saved settings.
+
 ### Fixed
 
 - Keep filled Config control labels and keyboard focus readable across themes and brightness settings while preserving selected values and appearance choices.

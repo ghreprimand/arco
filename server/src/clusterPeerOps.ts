@@ -39,7 +39,6 @@ import { resolveLinkedRefs, planItemContextFor } from './planRefContext.js';
 import { parsePlan } from './primitives/reviewContent.js';
 import * as clusterMailbox from './clusterMailbox.js';
 import * as clusterBudget from './clusterBudget.js';
-import * as clusterEfficiency from './clusterEfficiency.js';
 import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
@@ -109,6 +108,7 @@ export interface PeerSendResult {
   msgId: string;
   to: string;
   deliveredImmediately: false;
+  guard?: clusterBudget.BudgetDecision & { warning?: string };
 }
 
 export interface PeerSendRejection {
@@ -247,6 +247,8 @@ export async function peerSend(
   let stampedKey: string | undefined;
   let stampedAt = 0;
   let charged = false;
+  let guard: import('@arco/shared').ClusterMessageGuard | undefined;
+  let guardDecision: clusterBudget.BudgetDecision | undefined;
   const rollback = (): void => {
     if (stampedKey !== undefined && peerSendDedupeCache.get(stampedKey) === stampedAt) {
       peerSendDedupeCache.delete(stampedKey);
@@ -287,11 +289,9 @@ export async function peerSend(
   // direct control, and a stuck "budget_exhausted" would silently block a
   // deliberate UI action. Model-driven sends still count.
   if (!opts?.bypassBudget) {
-    // 2026-06-15 — per-cluster efficiency level tightens the send cap
-    // (thorough 15 / balanced 8 / lean 4). Resolved per-send from the
-    // sender's cluster so an operator level-change takes effect immediately.
-    const cap = clusterEfficiency.sendBudgetFor(clusterStore.getEfficiencyLevel(ctx.clusterId));
-    const decision = clusterBudget.recordSend(ctx.workflowId, cap);
+    guard = clusterStore.getMessageGuard(ctx.clusterId);
+    const decision = clusterBudget.recordSend(ctx.workflowId, guard);
+    guardDecision = decision;
     charged = true;
     if (!decision.allowed) {
       rollback();
@@ -300,15 +300,15 @@ export async function peerSend(
         workflowId: ctx.workflowId,
         reason: 'budget_exhausted',
         targetRef: resolved,
-        count: decision.count,
-        cap: decision.cap,
+        count: decision.count - 1,
+        cap: decision.cap!,
       });
       return {
         ok: false,
         code: 'budget_exhausted',
-        message: `budget_exhausted — you have already sent ${decision.cap} peer messages this turn. The cap resets when the operator advances your next turn.`,
-        count: decision.count,
-        cap: decision.cap,
+        message: `budget_exhausted: this mail was not delivered. ${decision.count - 1}/${decision.cap} accepted peer messages; 0 remaining. Counts reset at primary_turn_started and are not persisted across server restart. Consolidate same-recipient information; do not start turns to evade the guard.`,
+        count: decision.count - 1,
+        cap: decision.cap!,
       };
     }
   }
@@ -378,7 +378,12 @@ export async function peerSend(
     to: resolved,
     contentPreview: args.content.length > 200 ? `${args.content.slice(0, 200)}…` : args.content,
   });
-  return { ok: true, msgId, to: resolved, deliveredImmediately: false };
+  const warning = guard && clusterBudget.takeWarning(ctx.workflowId, guard, guardDecision!.count)
+    ? `Warn-only threshold exceeded: ${guardDecision!.count}/${guard.threshold} peer messages this primary turn. Mail accepted. Consolidate related same-recipient information; required work and review still apply.`
+    : undefined;
+  return { ok: true, msgId, to: resolved, deliveredImmediately: false,
+    ...(guardDecision ? { guard: { ...guardDecision, ...(warning ? { warning } : {}) } } : {}),
+  };
 }
 
 // Peer-tool plan-read. Returns the full canonical plan body on demand.

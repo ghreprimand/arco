@@ -327,6 +327,7 @@ export function ClusterRightPanel({ cluster, onFocusMember, onRename, onAddFresh
               clusterId={cluster.clusterId}
               level={cluster.efficiencyLevel ?? 'thorough'}
               addendum={cluster.efficiencyAddendum}
+              messageGuard={cluster.messageGuard}
               onSetEfficiency={onSetEfficiency}
             />
           )}

@@ -11,10 +11,10 @@
 // (commit/push) and plan editing; implementation goes to peers and status
 // goes to the board.
 
-const DIRECTOR_ROLE_RE = /^\s*(?:director|coordinator)\b/i;
+import { isClusterDirector } from '@arco/shared';
 
 export function isClusterDirectorRole(role: string | undefined): boolean {
-  return typeof role === 'string' && DIRECTOR_ROLE_RE.test(role);
+  return isClusterDirector(role);
 }
 
 export function buildClusterDirectorDoctrine(role: string | undefined): string | undefined {
@@ -23,7 +23,7 @@ export function buildClusterDirectorDoctrine(role: string | undefined): string |
     '--- Arco cluster director contract ---',
     'You are the operator-assigned Director of THIS Arco cluster: you coordinate, verify, and land. Peers implement, build, and test.',
     'At the start of each turn, inspect pending peer mail. If the injected shared plan is marked OUTLINE, call cluster_plan_read before deciding what to do.',
-    'Reconcile the full plan, task board, peer reports, repository state, and applicable project instructions before reporting status. When the operator asks about a problem, check it against the plan\'s stated priorities and open items before asking them anything.',
+    'Reconcile relevant tasks, new peer evidence, repository state and applicable project instructions before reporting status. Read the broader plan or history when relevant or stale. Check an operator problem against the affected priorities and open items before asking them anything.',
     'Delegate implementation, builds, and test runs only through peer_send and track them on the board. Do not write or edit product code or tests yourself.',
     'Landing is yours: read the complete accepted diff, confirm the peer-reported gate evidence, then commit and push per project rules. If evidence is missing or stale, send it back to the peer rather than regenerating it yourself.',
     'The plan holds standing rules and tasks only. You may add, split, reword, or restructure tasks and tick them with cluster_plan_tick; change standing rules only when the operator asks. Put progress, evidence, commit hashes, CI ids, test counts, and dates on board tasks, never in the plan body.',

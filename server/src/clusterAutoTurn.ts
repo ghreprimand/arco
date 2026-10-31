@@ -1,3 +1,4 @@
+import { buildClusterAutoPickup } from '@arco/shared';
 // docs/PROTOCOL_CLUSTER.md - operator-armed auto-turn-on-mailbox detector.
 //
 // The four-question test (plan §2) is the gate:
@@ -349,7 +350,7 @@ export function onPeerMessageSent(opts: {
   // broadcasts (user_message_echo, primary_turn_started) which would then
   // run through broadcastWorkflow synchronously. Pushing to the next tick
   // lets the outer broadcast unwind cleanly first.
-  const prompt = '(auto-pickup) New peer message arrived while you were idle — process your mailbox.';
+  const prompt = buildClusterAutoPickup(clusterStore.getEfficiencyLevel(clusterId), clusterStore.getMemberRole(clusterId, recipientWfid));
   const dispatch = dispatchAutoTurnFn;
   setImmediate(() => {
     try {

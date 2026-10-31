@@ -1,7 +1,8 @@
+import type { ClusterCreationSettings } from '@arco/shared';
 import type { useAppStore } from '../../stores/appStore';
 import type { WorkflowConfig, ModelName, EffortLevel, ProviderName, ArcoSettings, MemberTier, ClusterPreset, ClusterMemberProvider, WorkflowTemplate } from '@arco/shared';
 
-export interface ClusterCreatePayload {
+export interface ClusterCreatePayload extends ClusterCreationSettings {
   cwd: string;
   name?: string;
   members: Array<{

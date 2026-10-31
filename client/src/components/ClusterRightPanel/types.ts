@@ -145,7 +145,7 @@ export interface Props {
   // the doctrine block, peer-send budget, and mailbox-notice variant.
   // `addendum === undefined` keeps the current note; '' clears it.
   onSetAutoCompaction?: (clusterId: string, policy: import('@arco/shared').AutoCompactionPolicy | null) => void;
-  onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string) => void;
+  onSetEfficiency?: (clusterId: string, level: ClusterEfficiencyLevel, addendum?: string, messageGuard?: import('@arco/shared').ClusterMessageGuard) => void;
   // R3 — cluster-level remote opt-in chip (one switch covers all members).
   onSetRemote?: (clusterId: string, enabled: boolean) => void;
   // 2026-07-18 — cluster-level remote gates arming chip (⛨ GATES).

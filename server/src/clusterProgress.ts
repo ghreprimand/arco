@@ -18,11 +18,8 @@
 // (hasPlan / hasBoard), so a 'both' cluster with no plan never gets dangling
 // plan instructions, and a cluster with no board never gets board instructions.
 //
-// Unlike clusterEfficiency's 'thorough' default (a deliberate no-op so
-// pre-feature meta.json is byte-identical), the 'both' default here is
-// INTENTIONALLY non-empty: existing clusters with a plan SHOULD start getting
-// the upkeep nudge — that is the fix. The text is deterministic + reversible
-// (flip the chip), satisfying the §2 four-question test.
+// Both remains the default for new and legacy clusters. Its clauses are gated
+// on attached surfaces; saved Plan-only and Board-only choices are preserved.
 
 import {
   CLUSTER_PROGRESS_DEFAULT,
