@@ -193,9 +193,11 @@ work or start a session from a project card. The full control map is in
 [`SETTINGS.md`](SETTINGS.md).
 
 For a project chat, select **New session** on its card or choose **Start > New
-session** on HOME and choose a folder in the creator. The creator starts with
-Claude selected, which may show as not authenticated. Choose an enabled,
-connected provider and an available model. Select **SAFE** or **AUTO**
+session** on HOME and choose a folder in the creator. Without a saved default,
+the creator starts on the first enabled, connected provider. A saved default
+that is not connected stays selected and is marked not connected; launch stays
+disabled until you choose a connected provider or sign in from **Connections**.
+Choose an available model. Select **SAFE** or **AUTO**
 permissions according to the project's trust level. Use **SAFE** for an
 unfamiliar repository. Select **LAUNCH WORKFLOW**, wait for the provider to
 connect, then send a small request in the composer.

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ClusterMemberProvider, EffortLevel, MemberTier, ModelName } from '@arco/shared';
+import { numberedName } from './modelOptions';
 import { CLUSTER_TEMPLATES, ROLE_GUIDANCE, roleLabel, roleText, type ClusterTemplate } from './clusterTemplates';
 import { MEMBER_PROVIDER_NAMES } from './memberProviders';
 
@@ -56,8 +57,7 @@ export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEff
   }));
 
   const labels = template ? template.roles.map((r, i, all) => {
-    const same = all.filter((x) => x === r).length;
-    return same > 1 ? `${roleLabel(r)} ${all.slice(0, i + 1).filter((x) => x === r).length}` : roleLabel(r);
+    return numberedName(roleLabel(r), all.slice(0, i + 1).filter((x) => x === r).length, all.filter((x) => x === r).length);
   }) : [];
   const ready = choices.length > 0 && choices.every((c) => c.provider && c.model);
   const capacityProblem = localProblem(choices.flatMap((c) => (c.provider ? [c.provider as ClusterMemberProvider] : [])));

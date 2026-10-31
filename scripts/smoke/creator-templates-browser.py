@@ -13,8 +13,8 @@ TEMPLATES = {
     'PAIR': ['Builder', 'Reviewer'],
     'SMALL TEAM': ['Director', 'Builder', 'Tester'],
     'FULL TEAM': ['Director', 'Builder', 'Tester', 'Documenter'],
-    'PARALLEL BUILD': ['Director', 'Builder 1', 'Builder 2', 'Tester', 'Documenter'],
-    'RESEARCH': ['Director', 'Researcher 1', 'Researcher 2'],
+    'PARALLEL BUILD': ['Director', 'Builder #1', 'Builder #2', 'Tester', 'Documenter'],
+    'RESEARCH': ['Director', 'Researcher #1', 'Researcher #2'],
 }
 ROLE_TIER = {'Director': 'heavy', 'Builder': 'heavy', 'Reviewer': 'standard', 'Tester': 'standard', 'Documenter': 'light', 'Researcher': 'light'}
 ROLE_EFFORT = {'Director': 'high', 'Builder': 'high', 'Reviewer': 'high', 'Tester': 'medium', 'Documenter': 'low', 'Researcher': 'medium'}

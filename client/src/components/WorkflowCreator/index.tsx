@@ -26,8 +26,11 @@ import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingT
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
 import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
-import { availableMemberProviders } from './memberProviders';
+import { availableMemberProviders, firstAvailablePrimaryProvider, primaryProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders';
 
+const PRIMARY_PROVIDER_LABELS: Partial<Record<ProviderName, string>> = {
+  claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'Xolotl',
+};
 const BOARD_LABELS: Record<ClusterTaskBoardMode, string> = { cluster: 'Cluster-local board', project: 'Project board', none: 'No task board' };
 const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan and board current', plan: 'Keep plan current', board: 'Keep board current' };
 
@@ -121,6 +124,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // providerAccountRef are hoisted above, near the catalog reads.)
   const [name, setName] = useState('');
   const [primaryProvider, setPrimaryProvider] = useState<ProviderName>(initialProvider ?? wd?.primaryProvider ?? 'claude');
+  // True once the provider comes from an explicit request, a saved default,
+  // a template, a resumed session or the operator's own pick. Until then the
+  // creator follows the first enabled and connected provider; a chosen
+  // provider is never replaced, even when it is not connected.
+  const providerChosenRef = useRef(Boolean(initialProvider ?? wd?.primaryProvider));
   const [model, setModel] = useState<ModelName>(wd?.primaryModel ?? 'opus');
   // New work never starts above HIGH; XHIGH/MAX only by an explicit click.
   const [effort, setEffort] = useState<EffortLevel>(() => initialCreatorDefaults(wd).effort);
@@ -185,7 +193,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (appliedDefaultsRef.current) return;
     if (!settings?.workflowDefaults) return;
     const d = settings.workflowDefaults;
-    if (d.primaryProvider && !initialProvider) setPrimaryProvider(d.primaryProvider);
+    if (d.primaryProvider && !initialProvider) { setPrimaryProvider(d.primaryProvider); providerChosenRef.current = true; }
     if (d.primaryModel) setModel(d.primaryModel);
     if (d.primaryEffort) setEffort(capDefaultEffort(d.primaryEffort));
     if (d.providerAccountRef) setProviderAccountRef(d.providerAccountRef);
@@ -195,6 +203,17 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (d.outputStyle !== undefined) setOutputStyle(d.outputStyle);
     appliedDefaultsRef.current = true;
   }, [settings]);
+
+  // No saved or explicit provider: start on the first enabled and connected
+  // one once Settings and the connection check have answered. Runs until it
+  // has picked once, so a later sign-in never switches a form mid-edit.
+  useEffect(() => {
+    if (providerChosenRef.current || !settings || !authStatus) return;
+    const first = firstAvailablePrimaryProvider(authStatus, isProviderEnabled);
+    if (!first) return;
+    providerChosenRef.current = true;
+    if (first !== primaryProvider) selectPrimaryProvider(first);
+  }, [settings, authStatus]);
 
   const activeModelOptions: { value: ModelName; label: string; subline?: string }[] | null = (() => {
     if (!PRIMARY_PROVIDERS.includes(primaryProvider) || primaryProvider === 'cursor') return null;
@@ -396,6 +415,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     setSelectedSessionId(s.sessionId);
     if (s.providerAccountRef) setProviderAccountRef(s.providerAccountRef);
     if (s.provider !== primaryProvider) {
+      providerChosenRef.current = true;
       setPrimaryProvider(s.provider);
       if (s.provider === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
       if (s.provider === 'codex') setModel(DEFAULT_CODEX_MODEL);
@@ -510,9 +530,40 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }));
   };
 
+  // Switch the primary provider and reset model and effort to what it offers.
+  function selectPrimaryProvider(p: ProviderName) {
+    setPrimaryProvider(p);
+    // Newest catalog model, not the `opus` family alias: the alias
+    // isn't in the picker's option list, so hard-coding it here
+    // left the select displaying a model the tab wasn't on (and
+    // 404'd on Native). Cold catalog still falls back to the alias.
+    if (p === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
+
+    if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
+
+    if (p === 'cursor') setModel('auto');
+
+    // Default to the first installed local model so single-model
+    // setups need no second pick; fall back to the historical
+    // reviewer slot for Ollama, leave as-is for llama.cpp if empty.
+    if (p === 'ollama') { const tags = authStatus?.ollama?.installedModels ?? []; setModel(tags[0] ?? 'heretic'); }
+    if (p === 'llamacpp') { const aliases = authStatus?.llamacpp?.installedModels ?? []; if (aliases[0]) setModel(aliases[0]); }
+    if (p === 'deepseek') { const ids = authStatus?.deepseek?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
+    if (p === 'strata') { const ids = authStatus?.strata?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
+    if (p === 'lmstudio') { const ids = authStatus?.lmstudio?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
+    // Re-normalize effort to what the new provider honors.
+    setEffort(clampEffortForProvider(effort, p));
+  }
+
   const supportedProvider = PRIMARY_PROVIDERS.includes(primaryProvider);
-  const canLaunch = supportedProvider && connected && workDir && (conversationMode !== 'resume' || Boolean(selectedSessionId));
-  const canLaunchChat = supportedProvider && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
+  // Single, chat and genesis launch on the primary provider; it must be
+  // enabled and connected. The reason is shown beside the launch button.
+  const providerProblem = supportedProvider && mode !== 'cluster'
+    ? primaryProviderProblem(primaryProvider, authStatus, isProviderEnabled, PRIMARY_PROVIDER_LABELS[primaryProvider] ?? primaryProvider)
+    : null;
+  const providerReady = providerProblem === null;
+  const canLaunch = supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || Boolean(selectedSessionId));
+  const canLaunchChat = supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const clusterSubmitProblems = (() => {
     if (mode !== 'cluster') return [] as string[];
     const problems: string[] = [];
@@ -531,7 +582,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   })();
   const canLaunchCluster = connected && clusterSubmitProblems.length === 0;
   // Genesis launches with no cwd — gate on a working name + a Spark instead.
-  const canLaunchGenesis = supportedProvider && connected && name.trim().length > 0 && spark.trim().length > 0;
+  const canLaunchGenesis = supportedProvider && providerReady && connected && name.trim().length > 0 && spark.trim().length > 0;
 
   // 2026-05-11 — apply a saved preset: overwrite the MEMBERS list and
   // (if the operator hasn't typed a cluster name yet) seed clusterName from
@@ -629,6 +680,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const applyTemplate = (t: WorkflowTemplate) => {
     const c = t.config;
     const provider: ProviderName = c.primaryProvider ?? 'claude';
+    providerChosenRef.current = true;
     setPrimaryProvider(provider);
     setModel(c.primaryModel);
     effortExplicitRef.current = false;
@@ -1211,47 +1263,28 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             <div style={bandHalf}>
 
 
-        {authStatus && ((isProviderEnabled('claude') && authStatus.claude.loggedIn) || (isProviderEnabled('codex') && authStatus.codex.loggedIn) || (isProviderEnabled('cursor') && authStatus.cursor?.loggedIn)  || (isProviderEnabled('ollama') && authStatus.ollama.loggedIn) || (isProviderEnabled('llamacpp') && authStatus.llamacpp?.loggedIn) || (isProviderEnabled('deepseek') && authStatus.deepseek?.loggedIn) || (isProviderEnabled('strata') && authStatus.strata?.loggedIn) || (isProviderEnabled('lmstudio') && authStatus.lmstudio?.loggedIn)) && (
+        {authStatus && (
           <div data-help="creator.provider">
             <label className="display-font" style={labelStyle}>PRIMARY AGENT</label>
             <select
               value={primaryProvider}
-              onChange={(e) => {
-                const p = e.target.value as ProviderName;
-                setPrimaryProvider(p);
-                // Newest catalog model, not the `opus` family alias: the alias
-                // isn't in the picker's option list, so hard-coding it here
-                // left the select displaying a model the tab wasn't on (and
-                // 404'd on Native). Cold catalog still falls back to the alias.
-                if (p === 'claude') setModel(claudeModelsForPicker[0]?.value ?? 'opus');
-
-                if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
-
-                if (p === 'cursor') setModel('auto');
-
-                // Default to the first installed local model so single-model
-                // setups need no second pick; fall back to the historical
-                // reviewer slot for Ollama, leave as-is for llama.cpp if empty.
-                if (p === 'ollama') { const tags = authStatus.ollama?.installedModels ?? []; setModel(tags[0] ?? 'heretic'); }
-                if (p === 'llamacpp') { const aliases = authStatus.llamacpp?.installedModels ?? []; if (aliases[0]) setModel(aliases[0]); }
-                if (p === 'deepseek') { const ids = authStatus.deepseek?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
-                if (p === 'strata') { const ids = authStatus.strata?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
-                if (p === 'lmstudio') { const ids = authStatus.lmstudio?.installedModels ?? []; setModel((ids[0] ?? '') as ModelName); }
-                // Re-normalize effort to what the new provider honors.
-                setEffort(clampEffortForProvider(effort, p));
-              }}
+              onChange={(e) => { providerChosenRef.current = true; selectPrimaryProvider(e.target.value as ProviderName); }}
               style={{ ...inputStyle, cursor: 'pointer' }}
             >
               {!supportedProvider && <option value={primaryProvider} disabled>Unavailable: {primaryProvider}</option>}
-              {(['claude',  'codex', 'cursor',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[])
-                .filter((p) => !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
-                .filter(isProviderEnabled).map((p) => {
-                const authed = authStatus[p]?.loggedIn;
+              {/* Enabled and connected providers, plus the current one when it
+                  is not, so a saved choice stays visible instead of being
+                  replaced. */}
+              {primaryProviderOptions(primaryProvider, authStatus, isProviderEnabled)
+                .filter((p) => PRIMARY_PROVIDERS.includes(p))
+                .filter((p) => p === primaryProvider || !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
+                .map((p) => {
+                const authed = primaryProviderAvailable(p, authStatus, isProviderEnabled);
                 const label = p === 'claude' ? 'CLAUDE' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
                 const sub = p === 'claude' ? 'default' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
                 return (
-                  <option key={p} value={p} disabled={!authed}>
-                    {label} — {sub}{authed ? '' : ' (not authenticated)'}
+                  <option key={p} value={p}>
+                    {label} — {sub}{authed ? '' : ' (not connected)'}
                   </option>
                 );
               })}
@@ -1773,6 +1806,14 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             flex-column; without flex on the wrapper the inline-default
             button would shrink to content width). */}
         <div data-help="creator.launch" style={{ display: 'flex', flexDirection: 'column' }}>
+        {providerProblem && (
+          <p role="status" data-testid="creator-provider-problem" style={{ margin: '0 0 8px', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-accent-secondary-dim)', overflowWrap: 'anywhere' }}>
+            {providerProblem}{' '}
+            {authStatus && (
+              <button type="button" onClick={() => useStartupStore.getState().openConnections()} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>Open Connections</button>
+            )}
+          </p>
+        )}
         {mode === 'cluster' ? (
           <button
             onClick={handleCreate}

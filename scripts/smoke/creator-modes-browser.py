@@ -58,10 +58,11 @@ async def main():
           const {useStartupStore:st}=await import('/src/stores/startupStore.ts');
           window.s=s; window.st=st; window.created=[]; window.clusters=[];
           const root=createRoot(document.getElementById('fixture')); let gen=0;
-          window.show=(mode)=>{
+          const fullAuth={claude:{loggedIn:true},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:true},llamacpp:{loggedIn:false}};
+          window.show=(mode,opt={})=>{
             s.setState({connected:true,creatorPrefill:{mode,...(mode==='single'||mode==='cluster'?{workDir:'/projects/fixture'}:{})},
-              settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false},workflowDefaults:{primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'medium'},projectRoots:[]},
-              authStatus:{claude:{loggedIn:true},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:true},llamacpp:{loggedIn:false}}});
+              settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false},workflowDefaults:opt.defaults??{primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'medium'},projectRoots:[]},
+              authStatus:opt.auth??fullAuth});
             root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:c=>created.push(c),onCreateCluster:c=>clusters.push(c)}));
           };
         }''')
@@ -164,10 +165,61 @@ async def main():
         assert members[0]['role'] == 'Reviewer role.' and all('ultracode' not in m for m in members), members
         assert 'advanced' not in cluster and 'resumeSessionId' not in cluster, cluster
 
+        # Codex-only home, no saved provider: single and chat start on Codex.
+        codex_only = "{claude:{loggedIn:false},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:false},llamacpp:{loggedIn:false}}"
+        picker = page.locator('[data-help="creator.provider"] select')
+        problem = page.get_by_test_id('creator-provider-problem')
+        for mode, button in [('single', 'LAUNCH WORKFLOW'), ('chat', 'START CHAT')]:
+            await page.evaluate(f"show('{mode}', {{defaults:{{}}, auth:{codex_only}}})")
+            await expect(picker).to_have_value('codex')
+            assert await picker.locator('option').all_inner_texts() == ['CODEX — GPT'], 'only the connected provider is offered'
+            await expect(problem).to_have_count(0)
+            await expect(page.get_by_role('button', name=button, exact=True)).to_be_enabled()
+            before = await page.evaluate('created.length')
+            await page.get_by_role('button', name=button, exact=True).click()
+            await page.wait_for_function(f'created.length==={before + 1}')
+            sent = await page.evaluate('created[created.length-1]')
+            assert sent['primaryProvider'] == 'codex', (mode, sent)
+            assert sent['primaryModel'] and 'claude' not in str(sent['primaryModel']), (mode, sent)
+
+        # Codex-only home with a saved Claude default: Claude stays selected,
+        # marked not connected, launch is disabled with a reason and a link.
+        await page.evaluate(f"show('single', {{auth:{codex_only}}})")
+        await expect(picker).to_have_value('claude')
+        assert await picker.locator('option').all_inner_texts() == ['CLAUDE — default (not connected)', 'CODEX — GPT']
+        await expect(problem).to_contain_text('Claude is not connected. Choose a connected provider or sign in from Connections.')
+        await expect(page.get_by_role('button', name='LAUNCH WORKFLOW', exact=True)).to_be_disabled()
+        assert await page.evaluate("s.getState().settings.workflowDefaults.primaryProvider") == 'claude', 'saved default untouched'
+        await problem.get_by_role('button', name='Open Connections', exact=True).click()
+        assert await page.evaluate('st.getState().setupOpen') is True
+        await page.evaluate('st.setState({setupOpen:false})')
+        await picker.select_option('codex')
+        await expect(problem).to_have_count(0)
+        await expect(page.get_by_role('button', name='LAUNCH WORKFLOW', exact=True)).to_be_enabled()
+        before = await page.evaluate('created.length')
+        await page.get_by_role('button', name='LAUNCH WORKFLOW', exact=True).click()
+        await page.wait_for_function(f'created.length==={before + 1}')
+        assert (await page.evaluate('created[created.length-1]'))['primaryProvider'] == 'codex'
+
+        # No provider connected: nothing to pick, every primary launch is disabled.
+        none = "{claude:{loggedIn:false},codex:{loggedIn:false},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:false},llamacpp:{loggedIn:false}}"
+        for mode, button in [('single', 'LAUNCH WORKFLOW'), ('chat', 'START CHAT')]:
+            await page.evaluate(f"show('{mode}', {{defaults:{{}}, auth:{none}}})")
+            await expect(problem).to_contain_text('No provider is connected. Connect one in Connections to launch.')
+            await expect(problem.get_by_role('button', name='Open Connections', exact=True)).to_be_visible()
+            await expect(page.get_by_role('button', name=button, exact=True)).to_be_disabled()
+            await page.get_by_role('button', name=button, exact=True).click(force=True)
+        await page.wait_for_timeout(200)
+        await page.evaluate("show('genesis', {defaults:{}, auth:%s})" % none)
+        await page.locator('[data-help="creator.name"]').locator('xpath=..').locator('input').fill('Harbor idea')
+        await page.locator('[data-help="creator.genesis-spark"] textarea').fill('A small synthetic idea.')
+        await expect(page.get_by_role('button', name='START GENESIS', exact=True)).to_be_disabled()
+        assert await page.evaluate('created.length') == before + 1, 'nothing launched without a connected provider'
+
         assert writes == [], writes
         assert not blocked, blocked
         assert not errors, errors
         await browser.close()
-        print('PASS creator modes: single sends Ultracode/advanced; chat hides unsent Claude tuning; Genesis and cluster hide Ultracode, Advanced and Resume; cluster order, words, connected providers, permission notes and preset fallback')
+        print('PASS creator modes: single sends Ultracode/advanced; chat hides unsent Claude tuning; Genesis and cluster hide Ultracode, Advanced and Resume; cluster order, words, connected providers, permission notes and preset fallback; Codex-only and no-provider homes pick or block the primary provider')
 
 asyncio.run(main())

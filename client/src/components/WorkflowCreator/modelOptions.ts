@@ -8,6 +8,12 @@ import type { MemberDraft } from './types';
 // #i". Keeps the member-row UX from forcing operators to retype their role
 // in two places (DISPLAY NAME and ROLE), since for preset-driven workflows
 // the role IS the natural identity.
+// One numbering style for repeated roles everywhere the creator shows a
+// member name (template review, member list, submitted names): "Builder #2".
+export function numberedName(label: string, index: number, count: number): string {
+  return count > 1 ? `${label} #${index}` : label;
+}
+
 export function deriveDisplayNames(members: MemberDraft[]): string[] {
   const presetCounts: Record<string, number> = {};
   const presetSeen: Record<string, number> = {};
@@ -24,7 +30,7 @@ export function deriveDisplayNames(members: MemberDraft[]): string[] {
       const idx = (presetSeen[preset.key] ?? 0) + 1;
       presetSeen[preset.key] = idx;
       const label = preset.label.charAt(0) + preset.label.slice(1).toLowerCase();
-      return presetCounts[preset.key]! > 1 ? `${label} #${idx}` : label;
+      return numberedName(label, idx, presetCounts[preset.key]!);
     }
     const role = m.role.trim();
     if (role.length > 0) return role.length > 24 ? `${role.slice(0, 24)}…` : role;

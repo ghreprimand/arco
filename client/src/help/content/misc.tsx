@@ -626,7 +626,9 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Creates the tab and starts the workflow with the picker state above.
-        Requires a connection and model. A project workflow also needs a working
+        Requires a connection, a model and an enabled, connected provider; when
+        the provider is not connected, the reason and an Open Connections link
+        appear above the button. A project workflow also needs a working
         directory; Chat does not. Chat launches a saved or Incognito conversation
         according to the checkbox. Genesis and Cluster have their own form gates.
       </p>
@@ -638,8 +640,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Pick which AI back-end runs this tab. Providers (Claude / Codex /
-        Cursor / Ollama / llama.cpp / LM Studio / Strata); the picker hides ones disabled
-        in Settings or without auth. Local providers (Ollama, llama.cpp) require
+        Cursor / Ollama / llama.cpp / LM Studio / Strata); the picker lists only
+        providers enabled in Settings and connected. Without a saved default the
+        creator starts on the first of those. A saved default that is not
+        connected stays selected, marked not connected, and launch waits until
+        you pick a connected provider. Local providers (Ollama, llama.cpp) require
         installed models — empty catalogs hide the option. In cluster creation,
         only providers with peer-tool wiring are eligible. Incognito additionally excludes Cursor, llama.cpp and Strata.
       </p>
