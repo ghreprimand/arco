@@ -425,6 +425,31 @@ export const miscHelp: Record<string, HelpEntry> = {
       </>
     ),
   },
+  'creator.cluster-templates': {
+    title: 'Start from a template',
+    body: (
+      <>
+        <p>
+          Built-in cluster shapes: <strong>Pair</strong> (builder and
+          reviewer), <strong>Small team</strong> (director, builder, tester),{' '}
+          <strong>Full team</strong> (adds a documenter),{' '}
+          <strong>Parallel build</strong> (two builders) and{' '}
+          <strong>Research</strong> (director and two researchers).{' '}
+          <strong>Build my own</strong> keeps the member list as it is.
+        </p>
+        <p>
+          Choosing a shape opens a review. Each member shows its role, the
+          recommended model tier (Heavy, Standard or Light) and effort in words,
+          and why. Arco does not choose models: you pick a provider and model
+          for each member from enabled, connected providers (a single connected
+          provider is filled in). Effort starts at the role's level, never above
+          HIGH. The member list is replaced only by <C>USE THESE MEMBERS</C>;{' '}
+          <C>CANCEL</C> leaves it unchanged. Members get the role, tier and the
+          page's current permissions and tuning.
+        </p>
+      </>
+    ),
+  },
   'creator.member-defaults': {
     title: 'Defaults for new members',
     body: (

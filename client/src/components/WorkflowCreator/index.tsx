@@ -10,6 +10,8 @@ import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, isAbo
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { useTemplates } from '../../hooks/useTemplates';
 import { ClusterMembersSection } from './ClusterMembersSection';
+import { ClusterTemplatePicker, type TemplateMemberChoice } from './ClusterTemplatePicker';
+import { useStartupStore } from '../../stores/startupStore';
 import { CursorModelSelect } from '../CursorModelSelect';
 import { LoginCommand } from '../LoginCommand';
 import { ClusterPresetsRow } from './ClusterPresetsRow';
@@ -100,6 +102,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
     if (provider === 'ollama') return ollamaModelsForPicker;
     if (provider === 'llamacpp') return llamacppModelsForPicker;
+    if (provider === 'cursor') return cursorModelsForPicker;
     return claudeModelsForPicker;
   };
   const defaultClusterModelForProvider = (provider: ClusterMemberProvider): ModelName => {
@@ -461,6 +464,27 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  // Built-in templates replace the member list only after the review step.
+  // Tuning and permissions follow the current page defaults, like + ADD MEMBER.
+  const applyClusterTemplate = (chosen: TemplateMemberChoice[]) => {
+    setMembers(chosen.map((c) => ({
+      key: crypto.randomUUID(),
+      provider: c.provider,
+      model: c.model,
+      effort: c.effort,
+      providerAccountRef: c.provider === 'codex' ? (providerAccountRef ?? codexAccounts[0]?.id) : undefined,
+      displayName: '',
+      role: c.role,
+      tier: c.tier,
+      focus: '',
+      skipPermissions,
+      fastMode: c.provider === 'claude' ? fastMode : false,
+      efficiencyToolFilter,
+      outputStyle,
+      expanded: false,
+    })));
+  };
 
   const addMember = () => {
     setMembers((prev) => [...prev, draftFromDefaults()]);
@@ -1119,6 +1143,20 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {!supportedProvider && <p role="alert">{retiredProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
 
         {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
+        {mode === 'cluster' && (
+          <ClusterTemplatePicker
+            providers={availableMemberProviders(authStatus, isProviderEnabled)}
+            modelsFor={clusterModelsForProvider}
+            effortsFor={(p, m) => effortsForModel(p, m, claudeNativeCatalog, codexCatalog)}
+            capEffort={(e, p, m) => capDefaultEffort(e, p, m, claudeNativeCatalog, codexCatalog)}
+            isLocal={(p) => p === 'ollama' || p === 'llamacpp'}
+            onApply={applyClusterTemplate}
+            onOpenConnections={() => useStartupStore.getState().openConnections()}
+            selectStyle={selectStyle}
+            labelStyle={labelStyle}
+            hintStyle={hintStyle}
+          />
+        )}
         {mode === 'cluster' && memberEffortNote && <div role="status" style={{ fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{memberEffortNote}</div>}
         {mode === 'cluster' && (
           <ClusterMembersSection

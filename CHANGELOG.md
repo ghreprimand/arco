@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Add built-in cluster templates (Pair, Small team, Full team, Parallel build, Research) with a review step that explains each member's recommended tier and effort in words and lets you choose provider and model from connected providers; effort starts at most at HIGH.
+
 - Simplify the New workflow page: each mode shows only the controls it uses, cluster mode leads with the shared folder and members, keeps member defaults and coordination settings collapsed, lists only connected member providers, and describes members, permissions and saved presets in plain words.
 
 - Start new work at HIGH effort at most: a fresh home, saved defaults, templates, saved cluster presets, new cluster members, Add worker and Replace member are capped at HIGH, an explicit XHIGH or MAX resets to HIGH with a note when the model or provider changes, and SAVE AS DEFAULTS stores at most HIGH. A new home also starts single workers and new members with the Conservative tool-result filter and Lite output style; saved choices, including Off and Normal, are kept.

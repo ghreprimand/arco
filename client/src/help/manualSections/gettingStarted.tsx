@@ -229,6 +229,15 @@ export const gettingStarted: Section[] = [
             <Code>&lt;basename(cwd)&gt; · &lt;short-id&gt;</Code> default.
           </li>
           <li>
+            <strong>Start from a template</strong> - Pair, Small team, Full
+            team, Parallel build or Research, or Build my own. A template opens
+            a review listing each member's role, recommended tier and effort in
+            words with a short reason; you choose provider and model for each
+            member from connected providers (Arco never picks a model), and{' '}
+            <Code>USE THESE MEMBERS</Code> replaces the list. Effort starts at
+            most at HIGH.
+          </li>
+          <li>
             <strong>MEMBERS list</strong> - at least 2 rows. Each row is
             collapsed with a one-line summary in words; an empty role or tier
             reads <em>Role not set</em> or <em>Tier not set</em>. Click{' '}
