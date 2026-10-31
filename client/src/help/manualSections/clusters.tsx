@@ -144,8 +144,8 @@ export const clusters: Section[] = [
           <li>
             Providers without a peer-tool path remain ineligible. The cluster
             member fence is{' '}
-            <strong>Claude / Codex / Ollama / llama.cpp / Cursor</strong>;
-            LM Studio are not cluster members. Cursor
+            <strong>Claude / Codex / Ollama / llama.cpp / Cursor</strong>.
+            LM Studio, Strata and DeepSeek are not cluster members. Cursor
             is fresh-spawn membership only, wired via a loopback StreamableHTTP
             MCP server for peer tools.
           </li>
@@ -331,10 +331,11 @@ export const clusters: Section[] = [
           preset when reopened.
         </p>
         <Note>
-          Role hints are advisory, not gate-keeping. A member with{' '}
-          <Code>REVIEWER</Code> set can still edit files; the worker just
-          reads the hint and is more likely to behave accordingly. Combine
-          with the cluster plan for harder structure.
+          Director uniqueness is enforced (at most one). Other role hints are
+          advisory, not gate-keeping: a member with <Code>REVIEWER</Code> set
+          can still edit files; the worker just reads the hint and is more
+          likely to behave accordingly. Combine with the cluster plan for harder
+          structure.
         </Note>
       </>
     ),
@@ -347,11 +348,10 @@ export const clusters: Section[] = [
       <>
         <p>Work size guides which tasks the director gives a member. It does not change the member's model or effort and matters most when several members can take the same work. Director rows do not need a work-size hint.</p>
         <p>
-          A <strong>builder-tier hint</strong> is an operator-set capability
-          label on each cluster member. The director (an LLM running on one
-          of the members) reads the tier from <Code>peer_list</Code> and
-          uses it to match task complexity to builder capability. Three
-          values:
+          A <strong>work-size hint</strong> is an operator-set label on each
+          cluster member. The director (an LLM running on one of the members)
+          reads it from <Code>peer_list</Code> and uses it to match task
+          complexity to member capacity. Three values:
         </p>
         <ul>
           <li>

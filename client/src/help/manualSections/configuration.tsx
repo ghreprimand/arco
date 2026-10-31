@@ -58,6 +58,12 @@ export const configuration: Section[] = [
         </ul>
         <p>Switching themes is instant; no reload needed. All components re-render with the new tokens.</p>
         <p>
+          New homes ship Phosphor <strong>Electric Blue</strong> and the{' '}
+          <strong>Victor Mono</strong> font pack at 110% interface scale; a saved
+          theme or font pack is left alone. An upstream theme-id alias is accepted
+          so a copied home keeps its Classic theme.
+        </p>
+        <p>
           Arco Classic retains 43 selections, including provider-auto. Arco
           Phosphor adds 68 namespaced Phosphor palettes under a separate family,
           with category/search navigation. The separate <strong>font-pack override</strong> (29 packs) lets you
@@ -94,9 +100,8 @@ export const configuration: Section[] = [
             <dd>
               The Wachowskis' falling-glyph cascade reframed as a working register.
               Green CRT phosphor on pitch black, scanlines, tube vignette, a per-column
-              glitch-flash to keep the field alive. The default theme because it's the
-              one that still says "the machine is doing something" without being
-              ambient.
+              glitch-flash to keep the field alive. A Classic theme that still says
+              "the machine is doing something" without being ambient.
             </dd>
           </div>
           <div>

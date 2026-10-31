@@ -11,7 +11,8 @@ export const workspace: Section[] = [
         <p>The header sits at the top of every screen. Left-to-right:</p>
         <ul>
           <li>
-            <strong>ARCO</strong> — the wordmark. Click it does nothing — it's
+            <strong>ARCO</strong> - the wordmark. On Home it is hidden in the
+            header while Home shows its own centered wordmark; elsewhere it is
             decoration. When a hub is configured, a <strong>hub-link chip</strong>{' '}
             sits beside it.
           </li>
@@ -22,14 +23,16 @@ export const workspace: Section[] = [
             each worker composer.
           </li>
           <li>
-            <strong>Providers popover</strong> — folds the per-provider version
-            chips (Claude / Codex, plus Ollama when the daemon is
-            reachable, a llama.cpp build chip and a Cursor chip) behind one trigger whose dot turns warning-color when any
-            provider has an update. Open it to see the grid; each chip compares
-            against the upstream latest — npm registry for the three CLIs, GitHub
-            Releases for Ollama, refreshed every 4 hours. When the installed
-            version is older than the upstream latest, the chip turns
-            warning-color and the tooltip reads <Code>outdated: vX → vY</Code>.
+            <strong>Providers popover</strong> - folds the per-provider version
+            chips (Claude / Codex, plus Ollama when the daemon is reachable, a
+            llama.cpp build chip, a Cursor chip, and XOLOTL / STRATA when
+            installed or enabled) behind one trigger whose dot turns warning-color
+            when any provider has an update. Open it to see the grid; each chip
+            compares against the upstream latest - npm registry for the Claude and
+            Codex CLIs, GitHub Releases for Ollama and Strata, refreshed every 4
+            hours. When the installed version is older than the upstream latest,
+            the chip turns warning-color and the tooltip reads{' '}
+            <Code>outdated: vX → vY</Code>.
             <br />
             Clicking a Claude / Codex chip runs the upstream installer
             (<Code>claude update</Code> or a resolved npm package version) and
@@ -37,11 +40,8 @@ export const workspace: Section[] = [
             If an npm platform binary is not yet published, an older installable
             version can be retained/selected with a <Code>v… (!)</Code> notice.
             See Provider updates for broken-versus-missing status and recovery.
-            Clicking Ollama opens an in-app modal listing the last ~10 GitHub
-            releases (themed; markdown-rendered notes; your installed version is
-            highlighted) — Arco can't auto-update Ollama because the install
-            path varies by OS (Linux <Code>install.sh</Code>, macOS{' '}
-            <Code>.dmg</Code>, etc.).
+            Clicking Ollama, Strata or Xolotl opens an in-app releases modal;
+            Arco does not auto-update those runtimes.
             <br />
             Chips are hidden for providers you've disabled in Settings or for
             CLIs that aren't installed.
@@ -164,18 +164,19 @@ export const workspace: Section[] = [
           project search.
         </p>
         <p>
-          Add an existing folder or create a project folder from Home. A project
-          card can start a new session or cluster with its folder prefilled, open
-          saved sessions, and manage its display name, pin, archive state, or
-          location. Relocation updates the folder reference; it does not move the
-          folder. Removing a project from the list does not delete its files.
+          Add a project location or open another folder from Home (create a new
+          folder from inside the folder browser when needed). A project card can
+          start a new session or cluster with its folder prefilled, open saved
+          sessions, and manage its display name, pin, archive state, or location.
+          Relocation updates the folder reference; it does not move the folder.
+          Removing a project from the list does not delete its files.
         </p>
         <p>
           Use <Code>Settings &gt; Projects</Code> to manage registered, scanned,
-          and recent folders, choose the default working folder for new workflows,
-          and configure project trust. Home is for resuming work and starting from
-          a project card. The full category and control map is in{' '}
-          <Code>docs/SETTINGS.md</Code>.
+          and recent folders, choose the <strong>Default browsing location</strong>{' '}
+          (where folder navigation starts), and configure project trust. Home is
+          for resuming work and starting from a project card. The full category
+          and control map is in <Code>docs/SETTINGS.md</Code>.
         </p>
         <Note kind="tip">
           If a folder is missing, its project card offers <Code>Relocate...</Code>.
@@ -363,7 +364,7 @@ export const workspace: Section[] = [
         </p>
         <p>
           The tabs are grouped by purpose into four families so the strip stays
-          scannable: <strong>WORKSPACE</strong> (Files, Genesis),{' '}
+          scannable: <strong>WORKSPACE</strong> (Files including Outputs, Genesis),{' '}
           <strong>AGENT</strong> (Activity, Review, Research, Handoffs, Plan, Bake-off, Tasks),{' '}
           <strong>MEMORY</strong> (Knowledge, Ledger, History, Usage), and{' '}
           <strong>RUNTIME</strong> (Preview, Config, GitHub). On a narrow split the
@@ -375,7 +376,7 @@ export const workspace: Section[] = [
           rows={[
             [
               <strong key="f">FILES</strong>,
-              <>File explorer for the workflow's cwd, with LIVE / CHANGES / SOURCE / REMOTE sub-tabs (plus BLAST RADIUS when codebase memory is attached, SANDBOX when on). Click to open in a viewer modal. Honors <Code>.gitignore</Code>.</>,
+              <>File explorer for the workflow's cwd, with <strong>OUTPUTS</strong> (artifacts, generated-file events and scoped exports; hidden in Incognito), LIVE / CHANGES / SOURCE / REMOTE sub-tabs (plus BLAST RADIUS when codebase memory is attached, SANDBOX when on). Click to open in a viewer modal. Honors <Code>.gitignore</Code>.</>,
             ],
             [
               <strong key="gen">GENESIS</strong>,
@@ -431,7 +432,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="c">CONFIG</strong>,
-              <>Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-handoff and auto-fold thresholds, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn — no rotation needed for same-provider swaps.</>,
+              <>Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-compaction, auto-handoff and auto-fold thresholds, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn - no rotation needed for same-provider swaps.</>,
             ],
             [
               <strong key="g">GITHUB</strong>,

@@ -42,12 +42,13 @@ export const providers: Section[] = [
     body: (
       <>
         <p>
-          Claude ships with two transports. <Code>cli</Code> is the default
+          Claude ships with two transports. New homes default to{' '}
+          <Code>native</Code>, a long-lived in-process worker using{' '}
+          <Code>@anthropic-ai/sdk</Code> with Claude-Code-compatible OAuth
+          headers, Arco-owned tools, mid-turn steer, hooks, plan-mode, Task
+          fan-out, and context-management controls. <Code>cli</Code> is the
           per-turn <Code>claude</Code> subprocess with full Claude Code feature
-          surface and two-way terminal interop. <Code>native</Code> is a
-          long-lived in-process worker using <Code>@anthropic-ai/sdk</Code> with
-          Claude-Code-compatible OAuth headers, Arco-owned tools, mid-turn
-          steer, hooks, plan-mode, Task fan-out, and context-management controls.
+          surface and two-way terminal interop. Saved transport choices are kept.
         </p>
         <p>
           <strong>Models.</strong> The picker carries the family aliases (<Code>haiku</Code>,{' '}

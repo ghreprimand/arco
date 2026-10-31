@@ -51,6 +51,29 @@ export const maintenance: Section[] = [
     </>,
   },
   {
+    id: 'arco-updates',
+    group: 'The workspace',
+    title: 'Arco releases — check for a newer build',
+    body: <>
+      <p>
+        Settings &gt; Advanced &gt; CLI and runtime versions includes an{' '}
+        <strong>Arco</strong> row with the running version, the latest known
+        numbered release, <strong>CHECK NOW</strong>, and{' '}
+        <strong>Check for new releases</strong>. Automatic checks start shortly
+        after boot and repeat every six hours unless the preference is off or{' '}
+        <Code>ARCO_UPDATE_CHECK=0</Code> is set in the server environment. Nothing is
+        downloaded or installed automatically; follow{' '}
+        <Code>docs/OPERATIONS.md#updating-arco</Code> to update.
+      </p>
+      <p>
+        When a newer release is found, a toast offers{' '}
+        <strong>OPEN RELEASE</strong> (release notes in the browser) and{' '}
+        <strong>DISMISS</strong> (remembers that version across reloads). Those
+        toast actions are separate from the Settings row.
+      </p>
+    </>,
+  },
+  {
     id: 'provider-recovery', group: 'Troubleshooting', title: 'Compaction, sign-in and quiet thinking',
     body: <>
       <p><strong>Codex compaction:</strong> a large thread can take several minutes.

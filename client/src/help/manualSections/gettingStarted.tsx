@@ -13,7 +13,8 @@ export const gettingStarted: Section[] = [
           pair a primary agent with a project directory. <strong>Chat</strong> tabs
           offer general conversation without a project; clusters group project
           agents. Providers include Claude, Codex, Cursor, Ollama,
-          llama.cpp and LM Studio, with mode-specific capabilities.
+          llama.cpp, LM Studio, Strata and DeepSeek via Xolotl, with
+          mode-specific capabilities.
         </p>
         <p>
           The whole point is that <em>you</em> drive. Arco does not give models hidden
@@ -159,13 +160,13 @@ export const gettingStarted: Section[] = [
         <ul>
           <li>
             <strong>Project folder</strong> — the root the agent will operate against.
-            Choose <strong>BROWSE FOLDERS +</strong> or paste an absolute path. Starting
-            from a Home project card pre-fills its folder.
+            Choose <strong>Browse another folder</strong> or paste an absolute path.
+            Starting from a Home project card pre-fills its folder.
           </li>
           <li>
             <strong>Provider</strong> — Claude / Codex / Cursor / Ollama /
-            llama.cpp / LM Studio / Strata. Disabled providers (or providers
-            without auth) are greyed out.
+            llama.cpp / LM Studio / Strata / DeepSeek. Disabled providers (or
+            providers without auth) are greyed out.
           </li>
           <li>
             <strong>Model</strong> — populated from the selected provider's capability
@@ -230,24 +231,26 @@ export const gettingStarted: Section[] = [
           </li>
           <li>
             <strong>Start from a template</strong> - Pair, Small team, Full
-            team, Parallel build or Research, or Build my own. A template opens
-            a review listing each member's role, recommended tier and effort in
-            words with a short reason; you choose provider and model for each
-            member from connected providers (Arco never picks a model), and{' '}
+            team, Parallel build or Research, or Build my own. Parallel build is
+            a director, two builders, a tester and a documenter. A template opens
+            a review listing each member's role, work-size guidance and effort in
+            words with a short reason; director rows do not need a work-size hint.
+            You choose provider and model for each member from connected providers
+            (Arco never picks a model), and{' '}
             <Code>USE THESE MEMBERS</Code> replaces the list. Effort starts at
-            most at HIGH.
+            most at HIGH. A cluster may have at most one director.
           </li>
           <li>
             <strong>MEMBERS list</strong> - at least 2 rows. Each row is
-            collapsed with a one-line summary in words; an empty role or tier
-            reads <em>Role not set</em> or <em>Tier not set</em>. Click{' '}
+            collapsed with a one-line summary in words; an empty role or work size
+            reads <em>Role not set</em> or <em>Work size not set</em>. Click{' '}
             <Code>↓ EDIT</Code> to expand and set per member:
             <ul>
               <li>Display name (optional)</li>
               <li>Provider - only enabled, connected Claude, Codex, Cursor, Ollama or llama.cpp; a saved provider that is no longer connected stays visible and marked</li>
               <li>Model + effort (per-provider pickers)</li>
-              <li>Role - free-form, up to 120 characters (e.g. "director", "tester")</li>
-              <li>Tier - light / standard / heavy / unset</li>
+              <li>Role - free-form, up to 120 characters (e.g. "director", "tester"); at most one director</li>
+              <li>Work size - light / standard / heavy / unset (a hint for the director; does not change model or effort)</li>
               <li>Permissions (with the AUTO / SAFE explanation), fast mode, filter, output style (provider-supported controls only)</li>
             </ul>
           </li>
@@ -274,9 +277,10 @@ export const gettingStarted: Section[] = [
           </li>
         </ul>
         <Note kind="tip">
-          Roles and tiers are pure <em>metadata</em>. The cluster director
-          (an LLM reading <Code>peer_list</Code>) decides how to use them —
-          Arco never auto-routes work.
+          A cluster can have at most one director (roles beginning with Director
+          or Coordinator count). Work size guides which tasks the director gives
+          a member; it does not change model or effort. Arco does not auto-route
+          work from role or work size beyond that director limit.
         </Note>
         <Note>
           Want to add more members later? Right-click the cluster tab and
@@ -295,10 +299,11 @@ export const gettingStarted: Section[] = [
       <>
         <p>
           A <strong>cluster preset</strong> captures the per-member configs
-          (provider, model, effort, role, tier, display name, permissions, fast
+          (provider, model, effort, role, work size, display name, permissions, fast
           mode, tool-result filter, output style) plus an optional CLUSTER NAME
-          template — saved under a name you pick so you can rebuild the same
-          shape later against a different working directory.
+          template - saved under a name you pick so you can rebuild the same
+          shape later against a different working directory. Saving a preset that
+          would give the cluster a second director is refused.
         </p>
         <p>The SAVED CLUSTER PRESETS row sits after the member list and coordination settings in the workflow creator's CLUSTER mode.</p>
         <ul>

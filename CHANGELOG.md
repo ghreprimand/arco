@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- In-app manual sections now match Home actions, Electric Blue and Victor Mono defaults, Claude Native as the new-home transport, DeepSeek in provider lists, FILES Outputs and CONFIG auto-compaction, Arco release checks, and at-most-one director with work-size hints.
+
 - Allow a director to be replaced in an existing cluster with multiple directors while preserving its roles.
 
 - Limit new clusters and director assignments to one director, and describe member work size as a hint for the director rather than a model or effort setting. Existing clusters and snapshots retain their roles.
