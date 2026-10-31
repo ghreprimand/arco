@@ -111,7 +111,13 @@ async def main():
         await expect(page.locator('#native [data-help="rightpanel.config.project-trust"]')).to_be_visible()
         await page.evaluate('document.fonts.ready')
         await page.keyboard.press('Tab')
+        # The store's periodic memory trim materializes empty history arrays.
+        # Normalize before the whole-state baseline and verify another trim is
+        # stable, so the matrix still detects any substantive job mutation.
+        await page.evaluate('window.__ARCO_TRIM_MEMORY__()')
         baseline = await page.evaluate('snapshot()')
+        await page.evaluate('window.__ARCO_TRIM_MEMORY__()')
+        assert await page.evaluate('snapshot()') == baseline
         save = page.locator('#native [data-help="rightpanel.config.north-star"]').get_by_role('button',name='Save',exact=True)
         arm = page.locator('#native [data-help="rightpanel.config.goal-run"]').get_by_role('button',name='Arm',exact=True)
         await expect(save).to_be_disabled()
