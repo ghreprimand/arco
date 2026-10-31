@@ -17,7 +17,9 @@ const ledger = await import('./project/taskLedger.js');
 const snapshots = await import('./clusterSnapshots.js');
 const { writeMeta } = await import('./workflowMeta.js');
 const { flushAll } = await import('./workflowStore.js');
-after(async () => { await flushAll(); await fs.rm(sandbox, { recursive: true, force: true }); });
+const { trackRecallFixture } = await import('./testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
+after(async () => { await flushAll(); await closeRecall(); await fs.rm(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 const make = async (settings = {}) => store.createCluster({ cwd: await fs.mkdtemp(join(sandbox, 'project-')), memberWorkflowIds: [randomUUID(), randomUUID()], ...settings });
 const context = (c: ClusterState, sender = c.members[0]) => ({ workflowId: sender, clusterId: c.clusterId, broadcastSender: () => {}, broadcastRecipient: () => {} });
 const guard = (mode: ClusterMessageGuard['mode'], threshold = 2): ClusterMessageGuard => ({ mode, threshold });
@@ -183,4 +185,27 @@ test('the previous unedited Builder preset keeps its preset, label and normalize
   assert.equal(presetForText(legacy)?.label, 'BUILDER'); assert.equal(presetForText(current)?.label, 'BUILDER');
   assert.equal(normalizeClusterRoleText(`  ${legacy} `), current);
   assert.equal(presetForText(`${legacy} Custom.`), undefined, 'an edited role stays custom');
+});
+
+test('cluster board directories are portable and an existing colon-named board keeps its tasks', async () => {
+  const c = await make();
+  const key = store.taskBoardKeyForState(c)!;
+  assert.match(key, /:/);
+  const created = ledger.newTask({ title: 'portable board task' });
+  await ledger.save(c.cwd, [created], key);
+  const boards = join(c.cwd, '.arco', 'project', 'boards');
+  const names = await fs.readdir(boards);
+  assert.deepEqual(names, [ledger.taskBoardDirName(key)]); assert(!names[0].includes(':'), names[0]);
+  assert.equal((await ledger.load(c.cwd, key))[0]?.title, 'portable board task');
+  assert.equal((await ledger.load(c.cwd)).length, 0, 'the project board stays separate');
+  if (process.platform === 'win32') return;
+  const legacyCwd = await fs.mkdtemp(join(sandbox, 'legacy-'));
+  const legacyDir = join(legacyCwd, '.arco', 'project', 'boards', key);
+  await fs.mkdir(legacyDir, { recursive: true });
+  const kept = ledger.newTask({ title: 'written before the mapping' });
+  await fs.writeFile(join(legacyDir, 'tasks.json'), JSON.stringify({ version: 1, tasks: [kept] }));
+  assert.equal((await ledger.load(legacyCwd, key))[0]?.title, 'written before the mapping');
+  await ledger.save(legacyCwd, [kept, ledger.newTask({ title: 'added later' })], key);
+  assert.deepEqual(await fs.readdir(join(legacyCwd, '.arco', 'project', 'boards')), [key], 'no second directory for the same board');
+  assert.equal((await ledger.load(legacyCwd, key)).length, 2);
 });

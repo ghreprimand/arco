@@ -18,7 +18,7 @@
 // below). create() never accepts a status; rebuildFromEvents only replays
 // recorded operator events; there is no auto-done / no inference anywhere.
 
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type {
@@ -70,10 +70,25 @@ export function taskBoardStoreKey(cwd: string, boardKey?: TaskBoardKey): string 
   return key ? `${cwd}::${key}` : cwd;
 }
 
+// Board directory names must be valid on every platform. A sanitized key may
+// contain ':' (cluster boards use `cluster:<id>`), which Windows rejects in a
+// path segment, so ':' maps to '~' (never present in a sanitized key, so the
+// mapping stays one-to-one). A board written before this mapping on Linux or
+// macOS keeps its existing `boards/<key>` directory instead of being orphaned.
+export function taskBoardDirName(key: string): string {
+  return key.replace(/:/g, '~');
+}
+
 function tasksPath(cwd: string, boardKey?: TaskBoardKey): string {
   const key = sanitizeBoardKey(boardKey);
-  if (key) return path.join(projectDir(cwd), 'boards', key, 'tasks.json');
-  return path.join(projectDir(cwd), 'tasks.json');
+  if (!key) return path.join(projectDir(cwd), 'tasks.json');
+  const boards = path.join(projectDir(cwd), 'boards');
+  const portable = path.join(boards, taskBoardDirName(key), 'tasks.json');
+  if (process.platform !== 'win32' && key.includes(':') && !existsSync(portable)) {
+    const legacy = path.join(boards, key, 'tasks.json');
+    if (existsSync(legacy)) return legacy;
+  }
+  return portable;
 }
 
 type LegacyTasksFile = { tasks: unknown[] };

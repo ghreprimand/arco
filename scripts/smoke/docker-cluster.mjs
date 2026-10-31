@@ -14,7 +14,8 @@ export async function clusterSmoke({ connect, disconnect, send, api, hostModel }
   const id = cluster.clusterId;
   const worker = cluster.state.members.find(member => member.workflowId !== coordinator).workflowId;
   assert.equal(cluster.state.members.length, 2);
-  assert.equal(cluster.state.taskBoardMode, 'project');
+  // New clusters default to a cluster-local board; the task tools below use it.
+  assert.equal(cluster.state.taskBoardMode, 'cluster');
   send({ type: 'cluster_plan_set', clusterId: id, body: '# ARCO_FIXTURE_PLAN\n\n- [ ] Edit the synthetic project file.\n' });
   await waitFor(message => message.type === 'cluster_plan_changed' && message.clusterId === id);
   send({ type: 'cluster_member_role_set', clusterId: id, workflowId: coordinator, role: 'Coordinator' });
@@ -78,8 +79,9 @@ export async function clusterSmoke({ connect, disconnect, send, api, hostModel }
   const review = await waitFor(message => message.type === 'review_artifact_ready' && message.reviewId === started.reviewId);
   assert.ok(!review.error, review.error);
   assert.ok(review.artifactName);
-  send({ type: 'task_ledger_update', workflowId: coordinator, id: task.id, status: 'done' });
-  await waitFor(message => message.type === 'task_ledger_snapshot' && message.tasks?.some(item => item.id === task.id && item.status === 'done'));
+  // The operator board control addresses the cluster-local board by its key.
+  send({ type: 'task_ledger_update', workflowId: coordinator, boardKey: `cluster:${id}`, id: task.id, status: 'done' });
+  await waitFor(message => message.type === 'task_ledger_snapshot' && message.boardKey === `cluster:${id}` && message.tasks?.some(item => item.id === task.id && item.status === 'done'));
   console.log('PASS: peer delivery, isolated review artifact and operator task acceptance');
 
   send({ type: 'user_message', workflowId: worker, content: 'ARCO_SMOKE_CANCEL' });

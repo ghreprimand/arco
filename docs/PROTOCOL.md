@@ -2379,7 +2379,7 @@ A cwd-less genesis workflow's working directory was bound after scaffold. The cl
 
 A durable, cwd-scoped task-kernel snapshot that is a rebuildable projection over `events.jsonl` (distinct from the Plan tab and the Native Task subagent panel). Every mutation appends a `task_ledger_event` and re-snapshots `<cwd>/.arco/project/tasks.json` as `{ version, tasks, comments?, runs? }` while preserving legacy `{ tasks }` reads. Shapes: [`shared/src/protocol/tasks.ts`](../shared/src/protocol/tasks.ts).
 
-Every message in this family carries an optional `boardKey?: TaskBoardKey`. Absent = the normal project board (`<cwd>/.arco/project/tasks.json`); a key (sanitized to `[A-Za-z0-9_.:-]`, ≤160 chars) selects a private board at `<cwd>/.arco/project/boards/<key>/tasks.json` - how `taskBoardMode:'cluster'` keeps cluster work off the project board without a fake cwd. Clients key snapshots by `cwd` + `boardKey`.
+Every message in this family carries an optional `boardKey?: TaskBoardKey`. Absent = the normal project board (`<cwd>/.arco/project/tasks.json`); a key (sanitized to `[A-Za-z0-9_.:-]`, ≤160 chars) selects a private board at `<cwd>/.arco/project/boards/<dir>/tasks.json`, where `<dir>` is the key with `:` written as `~` so the name is valid on Windows (a board created earlier on Linux or macOS under the unmapped `<key>` directory keeps using it) - how `taskBoardMode:'cluster'` keeps cluster work off the project board without a fake cwd. Clients key snapshots by `cwd` + `boardKey`.
 
 ### `task_ledger_create` -> / `task_ledger_update` -> / `task_ledger_delete` ->
 

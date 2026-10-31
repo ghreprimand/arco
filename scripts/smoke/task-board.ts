@@ -277,7 +277,7 @@ async function main(): Promise<void> {
       // Destroy the snapshot → rebuildFromEvents must also carry assignee
       // (claims emit durable task_ledger_event through persistLedgerMutation).
       await flushAll();
-      await fs.rm(path.join(cwd, '.arco', 'project', 'boards', boardKey, 'tasks.json'), { force: true });
+      await fs.rm(path.join(cwd, '.arco', 'project', 'boards', taskLedger.taskBoardDirName(boardKey), 'tasks.json'), { force: true });
       const rebuilt = (await taskLedger.load(cwd, boardKey)).find((t) => t.id === secondId);
       assertEq(rebuilt?.assignee, wfB, 'assignee replays from events.jsonl (rebuild)');
     });

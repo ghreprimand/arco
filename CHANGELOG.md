@@ -11,6 +11,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Store cluster-local task boards under folder names that are valid on Windows, keeping boards already created on Linux or macOS in place.
+
 - Keep filled Config control labels and keyboard focus readable across themes and brightness settings while preserving selected values and appearance choices.
 
 - Keep reauthentication bound to its originating workflow and credential source, detect Native callback completion with present credentials, and retain drafts with explicit review before continuing.
