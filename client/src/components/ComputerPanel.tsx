@@ -103,7 +103,7 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
               <strong>CONTEXT {percent === undefined ? '—' : `${percent.toFixed(1)}%`}</strong>
               {used !== undefined && windowSize && <span>{used.toLocaleString()} / {windowSize.toLocaleString()} tokens</span>}
               <meter aria-label="Computer context fullness" min={0} max={100} value={Math.min(percent ?? 0, 100)} style={{ width: 120 }} />
-              <label>Auto fresh at <select aria-label="Computer fresh-context threshold" value={threshold ?? 'off'} disabled={!connected}
+              <label className="arco-field-label">Auto fresh at <select className="arco-field" aria-label="Computer fresh-context threshold" value={threshold ?? 'off'} disabled={!connected}
                 onChange={(event) => control({ action: 'configure', resetAtPercent: event.target.value === 'off' ? null : Number(event.target.value) })}>
                 <option value="off">OFF</option>{[25, 50, 75].map((value) => <option key={value} value={value}>{value}%</option>)}
               </select></label>

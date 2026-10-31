@@ -574,7 +574,7 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
     <div className="display-font">AUTO-COMPACTION</div>
     <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. While enabled, automatic handoff waits for this policy; manual handoff remains available. Unknown usage does not trigger this policy.</p>
     {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}
-    <label>Policy <select aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
+    <label className="arco-field-label">Policy <select className="arco-field" aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
       <option value="inherit">{cluster ? 'Inherit cluster default' : 'Legacy provider behavior'}</option>
       <option value="off">Off</option><option value="on" disabled={!supported}>On</option>
     </select></label>

@@ -38,7 +38,7 @@ export function WorkspaceRename({ workflowId, name, onRename }: Props) {
     </div>
     {open && <div role="dialog" aria-modal="true" aria-label="Rename workspace" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.65)',display:'grid',placeItems:'center'}} onPointerDown={e => e.stopPropagation()}>
       <form onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); cancel(); } }} style={{background:'var(--color-bg-panel)',border:'1px solid var(--color-border-hairline)',padding:20,display:'grid',gap:10,minWidth:280}}>
-        <label>Workspace name <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} aria-label="Workspace name" /></label>
+        <label className="arco-field-label">Workspace name <input className="arco-field" autoFocus value={draft} onChange={e => setDraft(e.target.value)} aria-label="Workspace name" /></label>
         <span>Up to 64 characters. Leave blank to reset the name.</span>
         {error && <span role="alert">{error}</span>}
         <div><button type="submit" disabled={pending}>{pending ? 'SAVING...' : 'SAVE'}</button> <button type="button" disabled={pending} onClick={cancel}>CANCEL</button></div>

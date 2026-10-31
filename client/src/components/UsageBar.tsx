@@ -259,8 +259,8 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', lineHeight: 1.45 }}>
-            <label>Account <select value={account} onChange={e => setAccount(e.target.value)}><option value="">Default Codex account</option>{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-            <label>Source <select value={source} onChange={e => setSource(e.target.value as 'appserver' | 'camoufox')}><option value="appserver">Codex app-server</option><option value="camoufox">Legacy browser profile</option></select></label>
+            <label className="arco-field-label">Account <select className="arco-field" value={account} onChange={e => setAccount(e.target.value)}><option value="">Default Codex account</option>{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+            <label className="arco-field-label">Source <select className="arco-field" value={source} onChange={e => setSource(e.target.value as 'appserver' | 'camoufox')}><option value="appserver">Codex app-server</option><option value="camoufox">Legacy browser profile</option></select></label>
             {source === 'camoufox' && <span>Browser profile is separate from Codex account selection. <a href="https://github.com/ghreprimand/arco/blob/main/docs/OPERATIONS.md#codex-usage" target="_blank" rel="noopener noreferrer">Setup and login guidance</a></span>}
             {displayed && <span>{displayed.accountLabel ?? (source === 'camoufox' ? 'Browser profile' : 'Codex account')} · {displayed.source} · {displayed.stale ? 'stale · ' : ''}checked {new Date(displayed.fetchedAt).toLocaleString()}</span>}
             {source === 'camoufox' && loginError && <span style={{color:'var(--color-warning)'}}>{loginError}</span>}

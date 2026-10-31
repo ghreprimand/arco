@@ -166,7 +166,7 @@ export function VoiceControl({ sendMessage, cancel, createWorkflow }: VoiceSende
       {state.enabled && <p style={{ color: 'var(--color-fg-muted)' }}>{state.recognizer || 'Local CPU'} · Last segment: {state.endpointMs ?? '—'} ms silence + {state.recognitionMs ?? '—'} ms recognition · Interpretation: {state.interpretationMs === 0 ? 'direct · no model call' : `${state.interpretationMs ?? '—'} ms`} · First speech audio: {state.speechMs ?? '—'} ms</p>}
       {state.enabled && <p style={{ color: 'var(--color-fg-muted)' }}>Input peak {permille(state.inputLevel)} · room floor {permille(state.noiseFloor)} · speech onset {permille(state.speechOnset)} (‰ of full scale). A word whose peak stays under the onset is not heard.</p>}
       {state.commandText !== null && <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{state.commandText || 'Take your time. Up to two minutes between phrases.'}</p>}
-      <label data-help="voice.sensitivity">Speech sensitivity <select aria-label="Speech sensitivity" value={state.speechThreshold}
+      <label data-help="voice.sensitivity" className="arco-field-label">Speech sensitivity <select className="arco-field" aria-label="Speech sensitivity" value={state.speechThreshold}
         onChange={(e) => state.setSpeechThreshold(Number(e.target.value))}>
         <option value={.001}>Very high · quiet room</option><option value={.002}>High</option>
         <option value={.0035}>Normal</option><option value={.006}>Low</option><option value={.01}>Very low · noisy room</option>

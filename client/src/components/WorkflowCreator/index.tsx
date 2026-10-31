@@ -1060,10 +1060,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               {CLUSTER_EFFICIENCY_LABELS[clusterEfficiency].blurb}
             </div>
             <MessageGuardControl value={messageGuard} onChange={setMessageGuard} />
-            <label>Task board <select aria-label="Cluster task board" value={clusterBoard} onChange={e => setClusterBoard(e.target.value as ClusterTaskBoardMode)}>
+            <label className="arco-field-label" style={{ marginTop: 6, marginRight: 12 }}>Task board <select className="arco-field" aria-label="Cluster task board" value={clusterBoard} onChange={e => setClusterBoard(e.target.value as ClusterTaskBoardMode)}>
               <option value="cluster">Cluster-local</option><option value="project">Project</option><option value="none">None</option>
             </select></label>
-            <label>Keep current <select aria-label="Keep current" value={clusterProgress} onChange={e => setClusterProgress(e.target.value as ClusterProgressMode)}>
+            <label className="arco-field-label" style={{ marginTop: 6 }}>Keep current <select className="arco-field" aria-label="Keep current" value={clusterProgress} onChange={e => setClusterProgress(e.target.value as ClusterProgressMode)}>
               <option value="both">Both</option><option value="plan">Plan</option><option value="board">Board</option>
             </select></label>
             <input
@@ -1072,7 +1072,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               value={clusterEfficiencyNote}
               maxLength={CLUSTER_EFFICIENCY_ADDENDUM_MAX}
               onChange={(e) => setClusterEfficiencyNote(e.target.value)}
-              placeholder="(optional) cluster-specific doctrine note appended to the canned text"
+              placeholder="Optional note added to this cluster's coordination instructions"
               style={{ ...inputStyle, marginTop: '6px' }}
             />
           </div>

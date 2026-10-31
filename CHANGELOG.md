@@ -13,6 +13,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Give the cluster creator's Message guard, Warn after, Task board and Keep current controls, the cluster and worker Auto-compaction selects, Computer activity and fresh-context selects, the Codex usage account and source selects, speech sensitivity and the workspace name field the theme's form-control style; wrap the message guard help and use plain wording for cluster notes.
+
 - Store cluster-local task boards under folder names that are valid on Windows, keeping boards already created on Linux or macOS in place.
 
 - Keep filled Config control labels and keyboard focus readable across themes and brightness settings while preserving selected values and appearance choices.

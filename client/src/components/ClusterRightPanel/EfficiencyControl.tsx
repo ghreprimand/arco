@@ -77,7 +77,7 @@ export function EfficiencyControl({
         <button
           onClick={() => setEditingNote((v) => !v)}
           className="display-font"
-          title={addendum ? `Doctrine note: ${addendum}` : 'Add a cluster-specific doctrine note'}
+          title={addendum ? `Coordination note: ${addendum}` : 'Optional note added to this cluster\'s coordination instructions'}
           style={{
             padding: '3px 6px',
             background: addendum ? 'var(--color-accent-primary-a06)' : 'transparent',
@@ -96,7 +96,7 @@ export function EfficiencyControl({
           autoFocus
           value={noteDraft}
           maxLength={CLUSTER_EFFICIENCY_ADDENDUM_MAX}
-          placeholder="Cluster-specific doctrine note (appended to the canned text)…"
+          placeholder="Optional note added to this cluster's coordination instructions"
           onChange={(e) => setNoteDraft(e.target.value)}
           onBlur={commitNote}
           onKeyDown={(e) => {

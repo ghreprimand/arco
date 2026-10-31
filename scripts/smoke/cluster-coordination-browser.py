@@ -96,7 +96,7 @@ async def main():
         assert await page.evaluate('s.getState().clusters["fixture-cluster"].efficiencyAddendum')=='Saved NOTE'
         assert await page.evaluate('s.getState().clusters["fixture-cluster"].progressTracking')=='board'
         await page.get_by_role('button',name='NOTE•',exact=True).click()
-        note=page.get_by_placeholder('Cluster-specific doctrine note (appended to the canned text)…')
+        note=page.get_by_placeholder("Optional note added to this cluster's coordination instructions")
         await note.fill('Updated NOTE')
         await note.press('Enter')
         assert await page.evaluate('s.getState().clusters["fixture-cluster"].efficiencyAddendum')=='Updated NOTE'

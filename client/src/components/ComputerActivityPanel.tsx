@@ -17,7 +17,7 @@ export function ComputerActivityPanel({ownerId}:{ownerId:string}) {
     <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',marginTop:5}}>
       <label><input type="checkbox" aria-label="Enable Computer event automations" checked={state?.policy.enabled??true} disabled={!connected||saving||!state}
         onChange={(e)=>{void change({action:'configure',enabled:e.target.checked});}}/> Enable event automations</label>
-      <label>Send activity to this Computer agent <select aria-label="Computer agent activity updates" value={state?.policy.agentUpdates??'off'} disabled={!connected||saving||!state}
+      <label className="arco-field-label">Send activity to this Computer agent <select className="arco-field" aria-label="Computer agent activity updates" value={state?.policy.agentUpdates??'off'} disabled={!connected||saving||!state}
         onChange={(e)=>{void change({action:'configure',agent_updates:e.target.value});}}>
         <option value="off">OFF</option><option value="matches">Matched conditions only</option><option value="workers">Worker completions + matched conditions</option>
       </select></label>
