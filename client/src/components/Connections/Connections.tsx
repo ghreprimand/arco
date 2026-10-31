@@ -6,6 +6,7 @@ import { LoginFlow } from '../LoginFlow';
 import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { LoginCommand } from '../LoginCommand';
 import { EndpointEditor } from './EndpointEditor';
+import { LocalCapacityEditor } from './LocalCapacityEditor';
 import { connectionState, credentialSource, KINDS, parseConnectionCatalog, parseConnectionStatus, safeEndpoint } from './model';
 
 export function useConnectionsDeepLinks() {
@@ -165,6 +166,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
           {login && <div className="connection-login">{login.session ? <LoginFlow result={login} onRestart={()=>void startLogin()} />:login.command ? <LoginCommand command={login.command} hostCommand={login.hostCommand}/>:null}</div>}
 
           {provider.endpointSetting && <EndpointEditor key={provider.id} provider={provider} docker={catalog.deployment==='docker'} onSaved={()=>setNote('Address saved. Use Test connection to check the service.')}/>}
+          {(selected === 'ollama' || selected === 'llamacpp') && <LocalCapacityEditor key={`capacity-${selected}`} runtime={selected}/>}
           {provider.kind==='local' && <p>{(status?.installedModels?.length ?? 0)} models reported by the current status check. Model availability and a successful turn require separate acceptance.</p>}
           {status?.apiProvider && provider.kind==='local' && <p>Configured address: {safeEndpoint(status.apiProvider.slice(status.apiProvider.indexOf(':')+1)) || 'See advanced runtime settings'} {status.loggedIn && (status.installedModels?.length ?? 0) > 0 ? `(reachable, ${status.installedModels!.length} models)` : '(not reachable)'}</p>}
           {provider.environmentKey && <details><summary>API credentials instead of sign-in</summary><p>Configure {provider.environmentKey} in the Arco server environment and restart the runtime. Keep the value out of project files. Environment credentials can take precedence over sign-in; consult the provider guide and check the reported source.</p><button type="button" onClick={()=>advanced('authentication')}>Advanced credential settings</button></details>}

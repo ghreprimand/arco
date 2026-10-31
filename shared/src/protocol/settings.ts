@@ -70,6 +70,8 @@ export interface ProviderAccountsConfig {
 }
 
 export interface ArcoSettings {
+  // Cluster members that may use each local model runtime at once (1-16, default 1).
+  localClusterCapacity?: import('../localCapacity.js').LocalClusterCapacity;
   // Global release notifications; the environment opt-out takes precedence.
   updateCheck?: boolean;
   updateCheckDismissed?: string;

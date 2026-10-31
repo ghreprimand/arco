@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { localCapacityRefusal, memberProvider } from '../localCapacity.js';
 import { promises as fs } from 'fs';
 import { isClusterOpen } from '../workspace.js';
 import { IncomingMessage, ServerResponse } from 'http';
@@ -93,6 +94,13 @@ export async function tryHandleClusterRoutes(
       if (fence) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: fence }));
+        return true;
+      }
+      const memberProviders = memberIds.map(memberProvider);
+      const capacity = await localCapacityRefusal(memberProviders, memberProviders);
+      if (capacity) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'local_capacity', message: capacity.replace(/^local_capacity: /, '') }));
         return true;
       }
       // Hard fence (plan §6.2): refuse if any candidate member is itself

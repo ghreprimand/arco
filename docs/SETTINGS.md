@@ -120,3 +120,17 @@ For Ollama, the new policy summarizes only verified completed executions outside
 ### Cluster coordination controls
 
 Cluster creation and the existing cluster control bar separate Efficiency (Thorough, Balanced, Lean) from Message guard (Warn only, Hard limit, No limit). New clusters use Balanced, Warn only at 15, a cluster-local board and Keep current Both. Thresholds are integers from 1 to 1000, per sender per primary turn; counts reset on primary turn start and server restart. NOTE appends an instruction and does not change the guard. Existing omitted fields and snapshot fallbacks retain their prior meaning. See [cluster protocol](PROTOCOL_CLUSTER.md) for persistence, warning and counter behavior.
+
+### Local runtime capacity
+
+`localClusterCapacity` (`{ ollama?, llamacpp? }`, integers 1 to 16, default 1) is
+set in Connections under Ollama or llama.cpp as "Cluster members that may use
+this runtime at once". The creator shows each runtime's use against its limit
+and disables CREATE CLUSTER when a runtime is over it; the server refuses a
+create, add or replace that would exceed it. Members on Ollama and llama.cpp
+together are limited by the larger setting. Different models each load their
+own copy into memory; members on the same model share it. Arco still runs local
+turns one at a time per runtime unless `ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0`, and
+Ollama's `OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_NUM_PARALLEL` decide what the
+runtime accepts. Saving one runtime keeps the other's value; invalid values are
+ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.

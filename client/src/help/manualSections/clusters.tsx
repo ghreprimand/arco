@@ -150,11 +150,15 @@ export const clusters: Section[] = [
             MCP server for peer tools.
           </li>
           <li>
-            <strong>One local member by default.</strong> A from-scratch cluster
-            accepts at most one local-runtime member (Ollama or llama.cpp) — two
-            local workers would contend on the same backend/GPU. Override the cap
-            with <Code>ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</Code> when you really
-            do have the hardware for it.
+            <strong>Local capacity.</strong> Each local runtime (Ollama,
+            llama.cpp) has a setting in Connections, "Cluster members that may
+            use this runtime at once" (default 1, range 1 to 16). The server
+            refuses a create, add or replace that would exceed it; Ollama and
+            llama.cpp members together are limited by the larger setting.
+            Different models each load their own copy into memory; members on
+            the same model share it. Local turns still run one at a time per
+            runtime unless <Code>ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0</Code>.{' '}
+            <Code>ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</Code> lifts the limit.
           </li>
         </ul>
         <p>

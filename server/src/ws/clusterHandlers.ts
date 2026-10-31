@@ -1,4 +1,5 @@
 import { isClusterCreationSettings, isClusterMessageGuard } from '@arco/shared';
+import { localCapacityRefusal, memberProvider } from '../localCapacity.js';
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
 // index.ts (docs/ARCHITECTURE.md). Behavior-preserving, move-only.
 // The four index.ts-local back-edges (handleUserMessage / handleRemoveWorkflow /
@@ -206,6 +207,12 @@ export async function handleClusterCreate(
   const fence = await deps.assertAllMembersClaudeOrCodex(memberIds);
   if (fence) {
     send(ws, { type: 'error', message: `cluster_create rejected: ${fence}` });
+    return;
+  }
+  const createProviders = memberIds.map(memberProvider);
+  const createCapacity = await localCapacityRefusal(createProviders, createProviders);
+  if (createCapacity) {
+    send(ws, { type: 'error', message: `cluster_create rejected: ${createCapacity}` });
     return;
   }
   let cluster: clusterStore.ClusterState;
@@ -1364,6 +1371,14 @@ export async function handleClusterMemberAdd(ws: WebSocket, clusterId: string, w
     send(ws, { type: 'error', message: `cluster_member_add rejected: ${fence}` });
     return;
   }
+  if (!cluster.members.includes(workflowId)) {
+    const added = [memberProvider(workflowId)];
+    const addCapacity = await localCapacityRefusal([...cluster.members.map(memberProvider), ...added], added);
+    if (addCapacity) {
+      send(ws, { type: 'error', message: `cluster_member_add rejected: ${addCapacity}` });
+      return;
+    }
+  }
   const existing = clusterStore.getClusterIdForWorkflow(workflowId);
   if (existing && existing !== clusterId) {
     send(ws, { type: 'error', message: `cluster_member_add rejected: member_already_in_cluster:${existing.slice(0, 8)}` });
@@ -1527,6 +1542,12 @@ export async function handleClusterCreateWithFreshWorkers(
     return;
   }
   const n = Math.max(1, Math.min(4, Math.floor(msg.additionalCount)));
+  const freshAdded = Array.from({ length: n }, () => providerResolution.provider as string);
+  const freshCapacity = await localCapacityRefusal([inheritedSourceProvider, ...freshAdded], freshAdded);
+  if (freshCapacity) {
+    send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: ${freshCapacity}` });
+    return;
+  }
   const newWorkflowIds: string[] = [];
   for (let i = 0; i < n; i++) {
     const baseName = source.config.name || 'Worker';
@@ -1624,9 +1645,10 @@ export async function handleClusterCreateFromScratch(
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: no_members' });
     return;
   }
-  const localMemberCount = msg.members.filter((m) => m.provider === 'ollama' || m.provider === 'llamacpp').length;
-  if (localMemberCount > 1 && process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL !== '1') {
-    send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: multiple_local_members (default max is 1)' });
+  const scratchProviders = msg.members.map((m) => String(m.provider));
+  const scratchCapacity = await localCapacityRefusal(scratchProviders, scratchProviders);
+  if (scratchCapacity) {
+    send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${scratchCapacity}` });
     return;
   }
   // Pre-flight validate every member before minting any workflow — we don't
@@ -1804,6 +1826,12 @@ export async function handleClusterAddFreshWorkers(
     return;
   }
   const n = Math.max(1, Math.min(4, Math.floor(msg.count)));
+  const addFreshProviders = Array.from({ length: n }, () => providerResolution.provider as string);
+  const addFreshCapacity = await localCapacityRefusal([...cluster.members.map(memberProvider), ...addFreshProviders], addFreshProviders);
+  if (addFreshCapacity) {
+    send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${addFreshCapacity}` });
+    return;
+  }
   const baseName = template.config.name || 'Worker';
   // Pick the next available "#k" suffix among current cluster members.
   const usedNumbers = new Set<number>();
@@ -1939,6 +1967,15 @@ export async function handleClusterMemberReplace(
   if (providerResolution.provider !== inheritedClusterProvider && msg.model === undefined) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: provider_changed_without_model' });
     return;
+  }
+  if (providerResolution.provider !== inheritedProvider) {
+    const replaced = [providerResolution.provider as string];
+    const others = cluster.members.filter((id) => id !== msg.workflowId).map(memberProvider);
+    const replaceCapacity = await localCapacityRefusal([...others, ...replaced], replaced);
+    if (replaceCapacity) {
+      send(ws, { type: 'error', message: `cluster_member_replace rejected: ${replaceCapacity}` });
+      return;
+    }
   }
 
   let historySeed = '';

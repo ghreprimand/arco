@@ -64,13 +64,13 @@ async def main():
           const {useAppStore:s}=await import('/src/stores/appStore.ts');
           window.s=s; window.clusters=[];
           const root=createRoot(document.getElementById('fixture')); let gen=0;
-          window.show=(connected)=>{
+          window.show=(connected,capacity)=>{
             const auth={claude:{loggedIn:!!connected.claude},codex:{loggedIn:!!connected.codex},cursor:{loggedIn:false},llamacpp:{loggedIn:false},
               ollama:{loggedIn:!!connected.ollama,installedModels:connected.ollama?['local-small','local-large']:[]}};
             // Cursor is connected but disabled in Settings, so it must never be offered.
             auth.cursor={loggedIn:true};
             s.setState({connected:true,creatorPrefill:{mode:'cluster',workDir:'/projects/fixture'},
-              settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false,llamacpp:true},projectRoots:[]},authStatus:auth});
+              settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false,llamacpp:true},projectRoots:[],...(capacity?{localClusterCapacity:capacity}:{})},authStatus:auth});
             root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:c=>clusters.push(c)}));
           };
         }''')
@@ -114,7 +114,9 @@ async def main():
                         chosen = await efforts.locator('button[aria-pressed="true"]').inner_text()
                         assert RANK[chosen.lower()] <= RANK['high'] and RANK[chosen.lower()] <= RANK[ROLE_EFFORT[role]], (home, label, chosen)
                 if home == 'ollama-only':
-                    await expect(review.get_by_role('status')).to_contain_text('at most one local member')
+                    # Default capacity is 1: the shared capacity check names Connections; USE stays enabled.
+                    await expect(review.get_by_test_id('template-local-capacity')).to_contain_text('Connections > Ollama')
+                    await expect(use).to_be_enabled()
                     await review.get_by_role('button', name='CANCEL', exact=True).click()
                     assert await member_rows.all_inner_texts() == before, ('cancel keeps the members unchanged', home, name)
                     continue
@@ -136,10 +138,29 @@ async def main():
             print(f'{home}: templates offer only {sorted(connected)}, models chosen by the operator, effort at most HIGH', flush=True)
 
         assert created == 15, created
+
+        # Ollama capacity raised to 3: Research (3 members) shows no capacity warning and creates 3 Ollama members.
+        await page.evaluate("show({ollama: true}, {ollama: 3})")
+        picker = page.locator('[data-help="creator.cluster-templates"]')
+        await picker.get_by_role('button', name='RESEARCH', exact=True).click()
+        review = picker.get_by_role('region', name='Review Research template')
+        for label in TEMPLATES['RESEARCH']:
+            row = review.locator(f'[data-template-member="{label}"]')
+            model = row.get_by_label(f'Model for {label}', exact=True)
+            options = [o for o in await model.evaluate('e => [...e.options].map(o => o.value)') if o]
+            await model.select_option(options[-1])
+        await expect(review.get_by_test_id('template-local-capacity')).to_have_count(0)
+        await review.get_by_role('button', name='USE THESE MEMBERS', exact=True).click()
+        await expect(page.get_by_role('status').filter(has_text='Local capacity: Ollama 3 of 3')).to_be_visible()
+        await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
+        await page.wait_for_function('clusters.length===16')
+        payload = await page.evaluate('clusters[15]')
+        assert [m['provider'] for m in payload['members']] == ['ollama'] * 3, payload['members']
+        print('ollama capacity 3: Research creates three Ollama members without a capacity warning', flush=True)
         assert writes == [], writes
         assert not blocked, blocked
         assert not errors, errors
         await browser.close()
-        print('PASS creator templates: five built-in shapes in four provider homes; guidance in words, connected providers only, no automatic model choice, effort capped, review before replacing members, local limit shown')
+        print('PASS creator templates: five built-in shapes in four provider homes; guidance in words, connected providers only, no automatic model choice, effort capped, review before replacing members, local capacity from Connections')
 
 asyncio.run(main())

@@ -240,6 +240,17 @@ async def checks_and_endpoints(playwright,server):
         await local.get_by_role('button',name='Save endpoint',exact=True).click()
         await local.get_by_text('Endpoint saved.',exact=False).wait_for()
         assert not state['checks'],'saving does not implicitly test the endpoint'
+        capacity=local.get_by_label('Cluster members that may use this runtime at once')
+        assert await capacity.input_value()=='1','a fresh home allows one Ollama member per cluster'
+        await capacity.fill('17')
+        await local.get_by_role('button',name='Save capacity',exact=True).click()
+        await local.get_by_text('Enter a whole number from 1 to 16.',exact=True).wait_for()
+        await capacity.fill('3')
+        await local.get_by_role('button',name='Save capacity',exact=True).click()
+        await local.get_by_text('Saved. New clusters may give 3 members Ollama at once.',exact=True).wait_for()
+        assert json.loads((server.home/'.arco'/'settings.json').read_text())['localClusterCapacity']=={'ollama':3}
+        assert 'OLLAMA_MAX_LOADED_MODELS' in await local.inner_text()
+        assert not state['checks'],'saving capacity does not test the endpoint'
         state['status']['ollama']={'loggedIn':False,'apiProvider':'ollama:http://host.docker.internal:11434','installedModels':[]}
         await local.get_by_role('button',name='Test connection',exact=True).click()
         await local.get_by_text('Configured address: http://host.docker.internal:11434 (not reachable)',exact=True).wait_for()

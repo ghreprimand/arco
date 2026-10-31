@@ -305,7 +305,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS` | `20000` | Per-recipient cooldown for AUTO-PICKUP turns |
 | `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE` | `10` | Cluster-wide rate cap for auto-turns |
 | `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH` | `3` | Maximum peer-message chain depth before auto-turn refuses to fire |
-| `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL` | unset | Set `1` to allow more than one local-provider member per cluster (normally refused) |
+| `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL` | unset | Set `1` to lift the local runtime capacity limit set in Connections ("Cluster members that may use this runtime at once", default 1 per runtime) |
 | `ARCO_PEER_SEND_DEDUPE_MS` | `60000` | Dedup window for `peer_send` (same from/to/content hash within window is rejected as `duplicate_send`) |
 
 Additional local-provider and cluster controls:

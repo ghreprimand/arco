@@ -4,3 +4,4 @@ export * from './voice.js';
 export * from './runtimeVersions.js';
 export * from './outputs.js';
 export * from './clusterCoordination.js';
+export * from './localCapacity.js';

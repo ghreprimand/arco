@@ -1385,7 +1385,7 @@ One streaming `POST ${baseUrl}/chat/completions` per turn (SSE `data:` lines, `[
 
 ### Not a cluster member
 
-LM Studio is **not** wired as a cluster member, unlike Ollama and llama.cpp (which run peer tools in-process, capped at one local member per cluster). Cluster peer tools are not registered for it. It is supported in Chat (including Incognito).
+LM Studio is **not** wired as a cluster member, unlike Ollama and llama.cpp (which run peer tools in-process, capped per cluster by the local runtime capacity setting in Connections, default one member). Cluster peer tools are not registered for it. It is supported in Chat (including Incognito).
 
 ---
 

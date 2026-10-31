@@ -1,4 +1,4 @@
-import { retiredProviderReason } from '@arco/shared';
+import { retiredProviderReason, sanitizeLocalClusterCapacity } from '@arco/shared';
 // Three-layer operator-settings cascade.
 //
 // Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
@@ -627,6 +627,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (wd) result.workflowDefaults = wd;
   const providerAccounts = sanitizeProviderAccounts(partial.providerAccounts);
   if (providerAccounts) result.providerAccounts = providerAccounts;
+  const localCapacity = sanitizeLocalClusterCapacity(partial.localClusterCapacity);
+  if (localCapacity) result.localClusterCapacity = localCapacity;
   const theme = sanitizeThemeId(partial.themeId);
   if (theme !== undefined) result.themeId = theme;
   const ack = sanitizeAcknowledgedCliVersions(partial.acknowledgedCliVersions);
@@ -791,6 +793,13 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     if (sanitized) merged.workflowDefaults = sanitized;
   } else if (current.workflowDefaults) {
     merged.workflowDefaults = current.workflowDefaults;
+  }
+  if ('localClusterCapacity' in patch) {
+    // Per-runtime keys merge; a runtime omitted from the patch keeps its value.
+    const next = { ...(current.localClusterCapacity ?? {}), ...(sanitizeLocalClusterCapacity(patch.localClusterCapacity) ?? {}) };
+    if (Object.keys(next).length > 0) merged.localClusterCapacity = next;
+  } else if (current.localClusterCapacity) {
+    merged.localClusterCapacity = current.localClusterCapacity;
   }
   if ('providerAccounts' in patch) {
     const sanitized = sanitizeProviderAccounts(patch.providerAccounts);

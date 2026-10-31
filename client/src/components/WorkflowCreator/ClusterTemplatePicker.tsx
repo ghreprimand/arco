@@ -18,7 +18,8 @@ interface Props {
   modelsFor: (provider: ClusterMemberProvider) => { value: ModelName; label: string; subline?: string }[];
   effortsFor: (provider: ClusterMemberProvider, model: ModelName) => EffortLevel[];
   capEffort: (effort: EffortLevel, provider: ClusterMemberProvider, model: ModelName) => EffortLevel;
-  isLocal: (provider: ClusterMemberProvider) => boolean;
+  /** Local runtime capacity check shared with the server; returns the problem text or null. */
+  localProblem: (providers: ClusterMemberProvider[]) => string | null;
   onApply: (members: TemplateMemberChoice[], template: ClusterTemplate) => void;
   onOpenConnections: () => void;
   selectStyle: (selected: boolean) => React.CSSProperties;
@@ -32,7 +33,7 @@ const linkStyle: React.CSSProperties = { background: 'none', border: 'none', pad
 // template never picks a model: each member shows its role, the recommended
 // model tier and effort in words, and the operator chooses provider and model
 // from connected providers. Nothing changes until "Use these members".
-export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEffort, isLocal, onApply, onOpenConnections, selectStyle, labelStyle, hintStyle }: Props) {
+export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEffort, localProblem, onApply, onOpenConnections, selectStyle, labelStyle, hintStyle }: Props) {
   const [template, setTemplate] = useState<ClusterTemplate | null>(null);
   const [choices, setChoices] = useState<Choice[]>([]);
   const [applied, setApplied] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEff
     return same > 1 ? `${roleLabel(r)} ${all.slice(0, i + 1).filter((x) => x === r).length}` : roleLabel(r);
   }) : [];
   const ready = choices.length > 0 && choices.every((c) => c.provider && c.model);
-  const localCount = choices.filter((c) => c.provider && isLocal(c.provider)).length;
+  const capacityProblem = localProblem(choices.flatMap((c) => (c.provider ? [c.provider as ClusterMemberProvider] : [])));
 
   return (
     <div data-help="creator.cluster-templates" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -122,7 +123,7 @@ export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEff
               </div>
             );
           })}
-          {localCount > 1 && <div role="status" style={{ ...hintStyle, fontSize: '11px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>Use at most one local member; local turns are serialized on this machine.</div>}
+          {capacityProblem && <div role="status" data-testid="template-local-capacity" style={{ ...hintStyle, fontSize: '11px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{capacityProblem}</div>}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" disabled={!ready} onClick={() => { onApply(template.roles.map((r, i) => ({ role: roleText(r), tier: ROLE_GUIDANCE[r].tier, provider: choices[i]!.provider as ClusterMemberProvider, model: choices[i]!.model as ModelName, effort: choices[i]!.effort })), template); setApplied(template.name); setTemplate(null); setChoices([]); }} className="display-font" style={{ ...selectStyle(ready), padding: '6px 14px', opacity: ready ? 1 : 0.6, cursor: ready ? 'pointer' : 'not-allowed' }}>
               USE THESE MEMBERS

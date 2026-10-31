@@ -6,6 +6,7 @@ import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, retiredProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
+import { localCapacityProblem, localCapacityUsage, LOCAL_RUNTIME_LABELS } from '@arco/shared';
 import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, isAboveDefaultCap, EFFORT_SAVE_NOTE } from '../../utils/effortDefaults';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { useTemplates } from '../../hooks/useTemplates';
@@ -517,8 +518,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const problems: string[] = [];
     if (!workDir) problems.push('Pick a shared project folder.');
     if (members.length < 2) problems.push('Cluster needs at least 2 members.');
-    const localCount = members.filter((m) => m.provider === 'ollama' || m.provider === 'llamacpp').length;
-    if (localCount > 1) problems.push('Use at most one local member; local turns are serialized on this machine.');
+    // Mirrors the server's local capacity check (Connections > Ollama / llama.cpp).
+    const localProblem = localCapacityProblem(members.map((m) => m.provider), settings?.localClusterCapacity);
+    if (localProblem) problems.push(localProblem);
     for (let i = 0; i < members.length; i++) {
       const m = members[i];
       if (!m.model || String(m.model).trim().length === 0) {
@@ -1149,7 +1151,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             modelsFor={clusterModelsForProvider}
             effortsFor={(p, m) => effortsForModel(p, m, claudeNativeCatalog, codexCatalog)}
             capEffort={(e, p, m) => capDefaultEffort(e, p, m, claudeNativeCatalog, codexCatalog)}
-            isLocal={(p) => p === 'ollama' || p === 'llamacpp'}
+            localProblem={(providers) => localCapacityProblem(providers, settings?.localClusterCapacity)}
             onApply={applyClusterTemplate}
             onOpenConnections={() => useStartupStore.getState().openConnections()}
             selectStyle={selectStyle}
@@ -1157,6 +1159,13 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             hintStyle={hintStyle}
           />
         )}
+        {mode === 'cluster' && (() => {
+          const usage = localCapacityUsage(members.map((m) => m.provider), settings?.localClusterCapacity);
+          const inUse = usage.runtimes.filter((r) => r.used > 0);
+          return inUse.length > 0 && <div role="status" data-help="creator.local-capacity" style={{ fontSize: '10px', color: 'var(--color-fg-muted)', overflowWrap: 'anywhere' }}>
+            Local capacity: {inUse.map((r) => `${LOCAL_RUNTIME_LABELS[r.runtime]} ${r.used} of ${r.limit}`).join(', ')}. Each different local model loads its own copy into memory; members on the same model share it. Local turns run one at a time per runtime by default. Change the limit in Connections.
+          </div>;
+        })()}
         {mode === 'cluster' && memberEffortNote && <div role="status" style={{ fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{memberEffortNote}</div>}
         {mode === 'cluster' && (
           <ClusterMembersSection

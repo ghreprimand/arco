@@ -664,6 +664,34 @@ export const miscHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
+  'creator.local-capacity': {
+    title: 'Local capacity',
+    body: (
+      <p>
+        Shows how many members use Ollama or llama.cpp against the limit set in
+        Connections (default 1 per runtime). Each different local model loads
+        its own copy into memory; members on the same model share it. Local
+        turns run one at a time per runtime unless the server sets{' '}
+        <C>ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0</C>. CREATE CLUSTER stays disabled
+        while a runtime is over its limit.
+      </p>
+    ),
+  },
+  'connections.local-capacity': {
+    title: 'Cluster members that may use this runtime at once',
+    body: (
+      <p>
+        How many members of one cluster may use this local runtime. Default 1,
+        range 1 to 16. More members on different models need memory for each
+        model; members on the same model share it. Ollama decides what it
+        accepts through <C>OLLAMA_MAX_LOADED_MODELS</C> and{' '}
+        <C>OLLAMA_NUM_PARALLEL</C>; llama.cpp through how its server was
+        started. Ollama and llama.cpp members together are limited by the
+        larger setting. The server enforces this on create, add and replace;
+        <C>ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</C> lifts it.
+      </p>
+    ),
+  },
   'creator.effort': {
     manualSection: 'live-config-swap',
     title: 'Effort',

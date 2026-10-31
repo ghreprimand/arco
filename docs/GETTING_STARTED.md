@@ -214,9 +214,10 @@ at least two members, each with a model selected.
    folder.
 3. Configure at least two member rows. Each member's provider is a button group.
    Provider defaults seed members added later; they do not replace the two
-   initial rows. Edit each initial row to choose its provider and model. A
-   cluster supports at most one local-model member, so a two-member fixture
-   cluster needs one local member and one non-local provider.
+   initial rows. Edit each initial row to choose its provider and model. By
+   default a cluster accepts one member per local runtime (Ollama, llama.cpp);
+   raise "Cluster members that may use this runtime at once" in Connections to
+   allow more.
 4. Select **CREATE CLUSTER**. The cluster tab opens with its members.
 
 Cluster roles are descriptive metadata. Arco does not automatically route work
