@@ -6,7 +6,7 @@ import { MEMBER_PROVIDER_NAMES } from './memberProviders';
 
 export interface TemplateMemberChoice {
   role: string;
-  tier: MemberTier;
+  tier?: MemberTier;
   provider: ClusterMemberProvider;
   model: ModelName;
   effort: EffortLevel;
@@ -101,8 +101,9 @@ export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEff
               <div key={i} data-template-member={name} style={{ borderTop: i ? '1px solid var(--color-border-hairline)' : 'none', paddingTop: i ? '10px' : 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div className="display-font" style={{ fontSize: '11px', letterSpacing: '1px', color: 'var(--color-accent-primary)' }}>{name}</div>
                 <div style={{ fontSize: '11px', lineHeight: 1.5, color: 'var(--color-fg-primary)', overflowWrap: 'anywhere' }}>
-                  <strong>Recommended:</strong> {guide.advice} {guide.reason}
+                  <strong>Recommended model:</strong> {guide.advice} {guide.reason}
                 </div>
+                {role !== 'director' && <div style={hintStyle}>Work size: {guide.tier}</div>}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <select className="arco-field" aria-label={`Provider for ${name}`} value={c.provider} onChange={(e) => update(i, { provider: e.target.value as ClusterMemberProvider })}>
                     {providers.length !== 1 && <option value="">Choose a provider</option>}
@@ -125,7 +126,7 @@ export function ClusterTemplatePicker({ providers, modelsFor, effortsFor, capEff
           })}
           {capacityProblem && <div role="status" data-testid="template-local-capacity" style={{ ...hintStyle, fontSize: '11px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{capacityProblem}</div>}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button type="button" disabled={!ready} onClick={() => { onApply(template.roles.map((r, i) => ({ role: roleText(r), tier: ROLE_GUIDANCE[r].tier, provider: choices[i]!.provider as ClusterMemberProvider, model: choices[i]!.model as ModelName, effort: choices[i]!.effort })), template); setApplied(template.name); setTemplate(null); setChoices([]); }} className="display-font" style={{ ...selectStyle(ready), padding: '6px 14px', opacity: ready ? 1 : 0.6, cursor: ready ? 'pointer' : 'not-allowed' }}>
+            <button type="button" disabled={!ready} onClick={() => { onApply(template.roles.map((r, i) => ({ role: roleText(r), ...(r !== 'director' ? { tier: ROLE_GUIDANCE[r].tier } : {}), provider: choices[i]!.provider as ClusterMemberProvider, model: choices[i]!.model as ModelName, effort: choices[i]!.effort })), template); setApplied(template.name); setTemplate(null); setChoices([]); }} className="display-font" style={{ ...selectStyle(ready), padding: '6px 14px', opacity: ready ? 1 : 0.6, cursor: ready ? 'pointer' : 'not-allowed' }}>
               USE THESE MEMBERS
             </button>
             <button type="button" onClick={() => { setTemplate(null); setChoices([]); }} className="display-font" style={{ ...selectStyle(false), padding: '6px 14px' }}>CANCEL</button>

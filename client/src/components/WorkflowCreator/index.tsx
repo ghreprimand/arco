@@ -6,7 +6,7 @@ import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, removedProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
-import { localCapacityProblem, localCapacityUsage, LOCAL_RUNTIME_LABELS } from '@arco/shared';
+import { localCapacityProblem, localCapacityUsage, LOCAL_RUNTIME_LABELS, clusterDirectorProblem } from '@arco/shared';
 import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, isAboveDefaultCap, EFFORT_SAVE_NOTE } from '../../utils/effortDefaults';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { useTemplates } from '../../hooks/useTemplates';
@@ -497,7 +497,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       providerAccountRef: c.provider === 'codex' ? (providerAccountRef ?? codexAccounts[0]?.id) : undefined,
       displayName: '',
       role: c.role,
-      tier: c.tier,
+      tier: c.tier ?? '',
       focus: '',
       skipPermissions,
       fastMode: c.provider === 'claude' ? fastMode : false,
@@ -569,6 +569,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const problems: string[] = [];
     if (!workDir) problems.push('Pick a shared project folder.');
     if (members.length < 2) problems.push('Cluster needs at least 2 members.');
+    const directorProblem = clusterDirectorProblem(members.map((m) => m.role));
+    if (directorProblem) problems.push(directorProblem);
     // Mirrors the server's local capacity check (Connections > Ollama / llama.cpp).
     const localProblem = localCapacityProblem(members.map((m) => m.provider), settings?.localClusterCapacity);
     if (localProblem) problems.push(localProblem);

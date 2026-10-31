@@ -409,8 +409,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         <p>
           One row per member. Rows are collapsed by default and show a
           one-line summary in words (display name, provider, model, effort,
-          role, tier); an empty role or tier reads <em>Role not set</em> or{' '}
-          <em>Tier not set</em>. The editor lists only enabled, connected
+          role, work size); an empty role or work size reads <em>Role not set</em> or{' '}
+          <em>Work size not set</em>. The editor lists only enabled, connected
           providers, keeps a saved provider that is no longer connected marked
           as such, explains AUTO and SAFE permissions, and holds this member's
           own tuning.
@@ -420,7 +420,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <p>
           <C>+ ADD MEMBER</C> appends a fresh row seeded from{' '}
           <strong>Defaults for new members</strong>. Cluster requires at least 2
-          members.
+          members. A cluster may have at most one director, including roles beginning with Director or Coordinator. Work size guides the director's task assignments without changing model or effort; it matters most when several members can take the same work.
         </p>
       </>
     ),
@@ -444,8 +444,8 @@ export const miscHelp: Record<string, HelpEntry> = {
           for each member from enabled, connected providers (a single connected
           provider is filled in). Effort starts at the role's level, never above
           HIGH. The member list is replaced only by <C>USE THESE MEMBERS</C>;{' '}
-          <C>CANCEL</C> leaves it unchanged. Members get the role, tier and the
-          page's current permissions and tuning.
+          <C>CANCEL</C> leaves it unchanged. Members get the role and the page's
+          current permissions and tuning; non-directors also get a work-size hint.
         </p>
       </>
     ),

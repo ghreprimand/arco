@@ -40,6 +40,7 @@ async def main():
           const {createRoot}=(await import('/node_modules/.vite/deps/react-dom_client.js')).default;
           const {WorkflowCreator}=await import('/src/components/WorkflowCreator/index.tsx');
           const {ClusterTab}=await import('/src/components/ClusterTab.tsx');
+          const {MemberRow}=await import('/src/components/ClusterRightPanel/MemberRow.tsx');
           const {useAppStore:s}=await import('/src/stores/appStore.ts');
           const {resolveClusterMessageGuard}=await import('/@fs/'''+str(ROOT)+'''/shared/src/index.ts');
           window.s=s;window.created=[];window.edits=[];window.sent=[];
@@ -55,6 +56,7 @@ async def main():
               edits.push({id,level,addendum,messageGuard});const c=s.getState().clusters[id];s.setState({clusters:{...s.getState().clusters,[id]:{...c,efficiencyLevel:level,efficiencyAddendum:addendum===undefined?c.efficiencyAddendum:addendum,messageGuard:messageGuard??resolveClusterMessageGuard(c)}}});
             },onSetProgress:(id,mode)=>{const c=s.getState().clusters[id];s.setState({clusters:{...s.getState().clusters,[id]:{...c,progressTracking:mode}}})}})));
           };
+          window.showRoleRow=()=>{const cluster=s.getState().clusters['fixture-cluster'];root.render(React.createElement(MemberRow,{cluster,member:cluster.members[0],memberName:'Alpha',onSetRole:(...x)=>edits.push(x),onSetTier:()=>{}}));};
           showCreator();
         }''')
         policy=page.locator('button[aria-controls="creator-cluster-policy"]')
@@ -124,6 +126,13 @@ async def main():
             assert ('without interrupting current work' in prompt)==active
             assert ('Delegate' in prompt)==active
             assert await page.evaluate('sent.at(-1)[3]')=='steer'
+        await page.evaluate('showRoleRow()')
+        await page.get_by_role('button',name='EDIT',exact=True).click()
+        await expect(page.get_by_role('button',name='DIRECTOR',exact=True)).to_be_disabled()
+        await page.get_by_role('button',name='CUSTOM…',exact=True).click()
+        await page.get_by_placeholder('free-form ≤120 chars').fill('Coordinator extra')
+        await expect(page.get_by_role('alert')).to_contain_text('at most one director')
+        await expect(page.get_by_role('button',name='SAVE',exact=True)).to_be_disabled()
         assert not blocked,blocked
         assert not errors,errors
         await browser.close()

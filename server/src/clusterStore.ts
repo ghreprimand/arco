@@ -18,6 +18,8 @@ import { randomUUID } from 'node:crypto';
 import lockfile from 'proper-lockfile';
 import { dropCache as dropPlanCache } from './clusterPlanStore.js';
 import {
+  clusterDirectorProblem,
+  isClusterDirector,
   isAutoCompactionPolicy,
   type AutoCompactionPolicy,
   MEMBER_TIERS,
@@ -627,12 +629,17 @@ export async function setMemberRole(
   clusterId: string,
   workflowId: string,
   role: string,
+  options: { restoringSnapshot?: boolean } = {},
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
     if (!state) return null;
     if (!state.members.includes(workflowId)) return null;
     const trimmed = normalizeClusterRoleText(role).slice(0, MEMBER_ROLE_MAX);
+    if (!options.restoringSnapshot && isClusterDirector(trimmed) && !isClusterDirector(state.memberRoles?.[workflowId])) {
+      const problem = clusterDirectorProblem([...state.members.filter((id) => id !== workflowId).map((id) => state.memberRoles?.[id]), trimmed]);
+      if (problem) throw new ClusterValidationError('multiple_directors', problem);
+    }
     const nextRoles: Record<string, string> = { ...(state.memberRoles ?? {}) };
     if (trimmed.length === 0) {
       delete nextRoles[workflowId];

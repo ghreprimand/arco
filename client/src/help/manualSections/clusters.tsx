@@ -274,6 +274,7 @@ export const clusters: Section[] = [
     title: 'Role presets',
     body: (
       <>
+        <p>A cluster can have at most one director. Roles beginning with Director or Coordinator count as director roles. Existing clusters with multiple directors remain intact and show a warning.</p>
         <p>
           A <strong>role hint</strong> tags one member with a short
           description of its job — e.g. "track the plan and assign slices" or
@@ -341,9 +342,10 @@ export const clusters: Section[] = [
   {
     id: 'cluster-tiers',
     group: 'Clusters',
-    title: 'Builder tiers',
+    title: 'Work size for the director',
     body: (
       <>
+        <p>Work size guides which tasks the director gives a member. It does not change the member's model or effort and matters most when several members can take the same work. Director rows do not need a work-size hint.</p>
         <p>
           A <strong>builder-tier hint</strong> is an operator-set capability
           label on each cluster member. The director (an LLM running on one
@@ -353,18 +355,13 @@ export const clusters: Section[] = [
         </p>
         <ul>
           <li>
-            <strong>LIGHT</strong> — quick edits, renames, simple commands.
-            Good fit for cheap / fast workers (codex-mini, local ollama,
-            haiku).
+            <strong>LIGHT</strong> — quick edits, renames and simple commands.
           </li>
           <li>
-            <strong>STANDARD</strong> — normal feature work. Default-ish
-            band — sonnet / gpt-5 / gpt-5.5 tier.
+            <strong>STANDARD</strong> — normal feature work.
           </li>
           <li>
-            <strong>HEAVY</strong> — architectural changes, complex
-            refactors, anything where the cost of a re-spin dwarfs the
-            cost of a smarter model. Opus / GPT-5.5-pro / etc.
+            <strong>HEAVY</strong> — large or architectural changes and complex refactors.
           </li>
         </ul>
         <p>
@@ -388,7 +385,7 @@ export const clusters: Section[] = [
         <Note>
           Tier complements <Code>role</Code> rather than replacing it. Role
           describes <em>what</em> a member does (DIRECTOR / BUILDER / etc.);
-          tier describes <em>how much horsepower</em> it has. A cluster with
+          work size describes the size of task it can take. A cluster with
           one DIRECTOR + two BUILDERs (one LIGHT, one HEAVY) gives the
           director a clean two-axis dispatch.
         </Note>

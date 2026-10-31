@@ -164,6 +164,20 @@ test('snapshot restore retains explicit choices and old-format omitted fallback 
   assert.notEqual(oldState.autoTurnOnMailboxEnabled, true);
 });
 
+test('snapshot restore preserves both historical director roles', async () => {
+  const c = await make();
+  const roles = ['Director role.', 'Coordinator role.'];
+  for (const [i, id] of c.members.entries()) {
+    await writeMeta(c.cwd, { workflowId: id, name: `Fixture ${i}`, cwd: c.cwd, createdAt: 1, lastActiveAt: 1, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', cliSessions: [], operator: 'fixture', lastEventSeq: null, lastTranscriptSeq: null, compactedAt: null });
+    await store.setMemberRole(c.clusterId, id, roles[i]!, { restoringSnapshot: true });
+  }
+  const snapshot = await snapshots.saveSnapshot({ clusterId: c.clusterId, name: 'Historical roles' });
+  const restored = await snapshots.restoreSnapshot(snapshot.id, c.cwd);
+  const state = await store.readCluster(restored.cluster.clusterId); assert.ok(state);
+  assert.equal(state.members.length, 2);
+  assert.deepEqual(state.members.map((id) => state.memberRoles?.[id]), roles);
+});
+
 test('role-aware coordination and all mail entry points preserve required review without status loops', () => {
   for (const level of ['thorough', 'balanced', 'lean'] as const) {
     const director = buildClusterCoordination(level, 'Operator instruction', 'Director role.');

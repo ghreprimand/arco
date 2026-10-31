@@ -970,3 +970,7 @@ intentionally reset: REMOTE, remote gates, idle nudger, auto-turn, and
 dispatcher execution remain OFF. The project tree, credentials, provider
 session stores/resume pointers, transient creation tokens, mailboxes, and
 task-board contents are not part of a cluster snapshot.
+
+## Director roles and work size
+
+A new cluster or preset may have at most one director. Role text beginning with Director or Coordinator identifies a director. Existing clusters and saved presets remain readable without rewriting their roles. Assigning a director to another member is rejected. The optional `tier` field is a work-size hint for the director: light for quick edits, standard for normal feature work, and heavy for large or architectural changes. It does not change model or effort and is most useful when several members can take the same work.

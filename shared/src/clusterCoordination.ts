@@ -3,6 +3,13 @@ import { CLUSTER_EFFICIENCY_ADDENDUM_MAX, type ClusterEfficiencyLevel, type Clus
 
 export const isClusterDirector = (role?: string): boolean => /^\s*(?:director|coordinator)\b/i.test(role ?? '');
 
+/** Explain why a role list cannot be used for a new cluster. */
+export function clusterDirectorProblem(roles: readonly (string | undefined)[]): string | null {
+  return roles.filter(isClusterDirector).length > 1
+    ? 'A cluster may have at most one director. Change one director\'s role.'
+    : null;
+}
+
 export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorough', note?: string, role?: string): string {
   const lines = [`--- Cluster efficiency: ${level.toUpperCase()} ---`];
   lines.push('Coordination style does not change message guards, required tests, safety checks, operator-requested review or landing review. Standing project rules still apply.');

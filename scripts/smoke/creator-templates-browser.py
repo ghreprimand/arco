@@ -95,7 +95,7 @@ async def main():
                 for label in members:
                     role = label.split(' ')[0]
                     row = review.locator(f'[data-template-member="{label}"]')
-                    await expect(row).to_contain_text('Recommended:')
+                    await expect(row).to_contain_text('Recommended model:')
                     provider = row.get_by_label(f'Provider for {label}', exact=True)
                     offered = [o for o in await provider.evaluate('e => [...e.options].map(o => o.value)') if o]
                     assert offered == [k for k in ['claude', 'codex', 'ollama'] if k in connected], (home, offered)
@@ -129,10 +129,10 @@ async def main():
                 created += 1
                 await page.wait_for_function(f'clusters.length==={created}')
                 payload = await page.evaluate(f'clusters[{created - 1}]')
-                got = [(m['displayName'], m['tier'], m['provider'], m['effort']) for m in payload['members']]
+                got = [(m['displayName'], m.get('tier'), m['provider'], m['effort']) for m in payload['members']]
                 for (display, tier, provider, effort), label in zip(got, members):
                     role = label.split(' ')[0]
-                    assert tier == ROLE_TIER[role] and provider in connected and RANK[effort] <= RANK['high'], (home, name, got)
+                    assert tier == (None if role == 'Director' else ROLE_TIER[role]) and provider in connected and RANK[effort] <= RANK['high'], (home, name, got)
                     assert display.startswith(role), (home, name, display)
                 assert all(m.get('outputStyle') == 'lite' and m.get('efficiencyToolFilter') == 'conservative' for m in payload['members']), ('template members use the new-home tuning defaults', payload)
             print(f'{home}: templates offer only {sorted(connected)}, models chosen by the operator, effort at most HIGH', flush=True)

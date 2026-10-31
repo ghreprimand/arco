@@ -835,7 +835,7 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
   }
   for (const member of manifest.members) {
     const newId = idMap.get(member.oldWorkflowId)!;
-    if (member.role) await clusterStore.setMemberRole(cluster.clusterId, newId, member.role).catch(() => { /* best-effort */ });
+    if (member.role) await clusterStore.setMemberRole(cluster.clusterId, newId, member.role, { restoringSnapshot: true }).catch(() => { /* best-effort */ });
     if (member.tier && clusterStore.isMemberTier(member.tier)) {
       await clusterStore.setMemberTier(cluster.clusterId, newId, member.tier).catch(() => { /* best-effort */ });
     }

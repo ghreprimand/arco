@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Limit new clusters and director assignments to one director, and describe member work size as a hint for the director rather than a model or effort setting. Existing clusters and snapshots retain their roles.
+
 - Repository docs (README, Getting started, Features, Client, Architecture, Providers, cluster protocol, operator actions, Gotchas, Development status, Persistence) now match Home naming, Electric Blue / Victor Mono defaults, local runtime capacity, removed Z.ai / Gemini / Antigravity providers (Z.ai settings discarded; Gemini and Antigravity defaults retained), and current auto-compaction behavior.
 
 - Add built-in cluster templates (Pair, Small team, Full team, Parallel build, Research) with a review step that explains each member's recommended tier and effort in words and lets you choose provider and model from connected providers; effort starts at most at HIGH.

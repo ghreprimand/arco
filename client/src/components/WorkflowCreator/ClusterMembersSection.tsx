@@ -1,4 +1,4 @@
-import { DEFAULT_CODEX_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ModelName, MemberTier, ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { deriveDisplayNames } from './modelOptions';
@@ -97,7 +97,9 @@ export function ClusterMembersSection({
       {members.map((m, i, all) => {
         const derived = deriveDisplayNames(all);
         const summaryName = derived[i]!;
-        const tierLabel = m.tier ? `${m.tier.charAt(0).toUpperCase()}${m.tier.slice(1)} tier` : 'Tier not set';
+        const tierLabel = m.tier ? `Work size: ${m.tier}` : 'Work size not set';
+        const otherDirector = all.some((other) => other.key !== m.key && isClusterDirector(other.role));
+        const directorProblem = clusterDirectorProblem(all.map((other) => other.role));
         const matchedPreset = presetForText(m.role);
         const roleLabel = matchedPreset
           ? matchedPreset.label
@@ -147,8 +149,7 @@ export function ClusterMembersSection({
                 <span style={{ color: 'var(--color-fg-muted)' }}>{effortLabel}</span>
                 {dotSep}
                 <span style={{ color: m.role.trim() ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary-dim)' }}>{roleLabel}</span>
-                {dotSep}
-                <span style={{ color: m.tier ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary-dim)' }}>{tierLabel}</span>
+                {!isClusterDirector(m.role) && <>{dotSep}<span style={{ color: m.tier ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary-dim)' }}>{tierLabel}</span></>}
                 <div style={{ flex: 1 }} />
                 <button
                   onClick={() => onUpdateMember(m.key, { expanded: true })}
@@ -371,8 +372,9 @@ export function ClusterMembersSection({
                       return (
                         <button
                           key={p.key}
+                          disabled={isClusterDirector(p.text) && otherDirector && !isClusterDirector(m.role)}
                           onClick={() => onUpdateMember(m.key, { role: active ? '' : p.text })}
-                          title={p.text}
+                          title={isClusterDirector(p.text) && otherDirector && !isClusterDirector(m.role) ? clusterDirectorProblem(['Director', 'Director'])! : p.text}
                           style={{ ...selectStyle(active), padding: '5px 10px', fontSize: '10px', letterSpacing: '1px' }}
                           className="display-font"
                         >
@@ -388,6 +390,7 @@ export function ClusterMembersSection({
                     placeholder="(optional — pick a preset above or type a custom role, ≤120 chars)"
                     style={inputStyle}
                   />
+                  {directorProblem && isClusterDirector(m.role) && <div role="alert" style={hintStyle}>{directorProblem}</div>}
                 </div>
 
                 {/* FOCUS — per-instance sub-specialty. Free-form text that
@@ -408,7 +411,8 @@ export function ClusterMembersSection({
 
                 {/* TIER */}
                 <div>
-                  <label className="display-font" style={labelStyle}>TIER</label>
+                  <label className="display-font" style={labelStyle} title="Light means quick edits, standard means normal feature work, and heavy means large or architectural changes. This guides the director's task assignments, does not change model or effort, and matters most when several members can take the same work.">WORK SIZE (FOR THE DIRECTOR)</label>
+                  <div style={hintStyle}>Light: quick edits. Standard: normal feature work. Heavy: large or architectural changes. This guides the director's assignments, does not change model or effort, and matters most when several members can take the same work.</div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {([...MEMBER_TIERS, ''] as const).map((t) => (
                       <button

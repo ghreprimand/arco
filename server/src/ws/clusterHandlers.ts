@@ -1,4 +1,4 @@
-import { isClusterCreationSettings, isClusterMessageGuard } from '@arco/shared';
+import { isClusterCreationSettings, isClusterMessageGuard, clusterDirectorProblem, isClusterDirector } from '@arco/shared';
 import { localCapacityRefusal, memberProvider } from '../localCapacity.js';
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
 // index.ts (docs/ARCHITECTURE.md). Behavior-preserving, move-only.
@@ -1645,6 +1645,11 @@ export async function handleClusterCreateFromScratch(
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: no_members' });
     return;
   }
+  const directorProblem = clusterDirectorProblem(msg.members.map((m) => m.role));
+  if (directorProblem) {
+    send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: multiple_directors: ${directorProblem}` });
+    return;
+  }
   const scratchProviders = msg.members.map((m) => String(m.provider));
   const scratchCapacity = await localCapacityRefusal(scratchProviders, scratchProviders);
   if (scratchCapacity) {
@@ -1932,6 +1937,13 @@ export async function handleClusterMemberReplace(
   if (!cluster || !source || !cluster.members.includes(msg.workflowId)) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: unknown_member' });
     return;
+  }
+  if (isClusterDirector(cluster.memberRoles?.[msg.workflowId])) {
+    const problem = clusterDirectorProblem(cluster.members.map((id) => cluster.memberRoles?.[id]));
+    if (problem) {
+      send(ws, { type: 'error', message: `cluster_member_replace rejected: multiple_directors: ${problem}` });
+      return;
+    }
   }
   if (source.busy) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: member_busy' });
@@ -2247,7 +2259,16 @@ export async function handleClusterMemberRoleSet(ws: WebSocket, clusterId: strin
     send(ws, { type: 'error', message: 'cluster_member_role_set requires a string role' });
     return;
   }
-  const updated = await clusterStore.setMemberRole(clusterId, workflowId, role).catch(() => null);
+  let updated: clusterStore.ClusterState | null;
+  try {
+    updated = await clusterStore.setMemberRole(clusterId, workflowId, role);
+  } catch (err) {
+    if (err instanceof clusterStore.ClusterValidationError && err.code === 'multiple_directors') {
+      send(ws, { type: 'error', message: `cluster_member_role_set rejected: multiple_directors: ${err.message}` });
+      return;
+    }
+    throw err;
+  }
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_member_role_set rejected: unknown_cluster_or_member` });
     return;

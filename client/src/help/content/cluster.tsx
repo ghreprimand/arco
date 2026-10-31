@@ -669,7 +669,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     manualSection: 'cluster-roles',
   },
   'cluster.right-panel.tier-pill': {
-    title: 'Builder tier',
+    title: 'Work size for the director',
     body: (
       <>
         <p>
@@ -678,8 +678,9 @@ export const clusterHelp: Record<string, HelpEntry> = {
           (architectural changes, complex refactors). Click again to unset.
         </p>
         <p>
-          Pure metadata — the director sees the tier in <C>peer_list</C> and
-          decides routing. No server-side routing.
+          This guides the director's task assignments and matters most when
+          several members can take the same work. It does not change the
+          member's model or effort. The director sees the value in <C>peer_list</C>.
         </p>
       </>
     ),

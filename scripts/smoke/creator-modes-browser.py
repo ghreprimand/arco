@@ -13,6 +13,10 @@ PRESET = {'id': 'preset-local', 'name': 'Local pair', 'createdAt': '2026-10-01T0
     {'provider': 'claude', 'model': 'sonnet', 'effort': 'medium', 'role': 'Reviewer role.'},
     {'provider': 'ollama', 'model': 'local-model', 'effort': 'low'},
 ]}
+LEGACY_PRESET = {'id': 'legacy-directors', 'name': 'Legacy directors', 'createdAt': '2026-10-01T00:00:00Z', 'members': [
+    {'provider': 'claude', 'model': 'sonnet', 'effort': 'medium', 'role': 'Director first'},
+    {'provider': 'claude', 'model': 'sonnet', 'effort': 'medium', 'role': 'Coordinator second'},
+]}
 SESSIONS = [{'sessionId': 'saved-session-1', 'provider': 'claude', 'name': 'Earlier work', 'startedAt': 1793210400000, 'cwd': '/projects/fixture'}]
 
 
@@ -34,7 +38,7 @@ async def main():
                         writes.append(u.path)
                     data = {'items': [], 'projects': [], 'roots': [], 'sessions': [], 'presets': [], 'templates': [], 'skills': [], 'models': [], 'clusters': [], 'chats': []}
                     if u.path == '/api/cluster-presets':
-                        data['presets'] = [PRESET]
+                        data['presets'] = [PRESET, LEGACY_PRESET]
                     if u.path == '/api/sessions':
                         data['sessions'] = SESSIONS
                     await route.fulfill(json=data); return
@@ -121,7 +125,7 @@ async def main():
         rows = page.locator('[data-help="creator.cluster-members"] > div[style*="border"]')
         await expect(rows).to_have_count(2)
         await expect(rows.first).to_contain_text('Role not set')
-        await expect(rows.first).to_contain_text('Tier not set')
+        await expect(rows.first).to_contain_text('Work size not set')
         await expect(rows.first).to_contain_text('medium effort')
         order = await page.evaluate('''() => { const pos=(sel)=>document.querySelector(sel); const before=(a,b)=>!!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
           const cwd=pos('[data-help="creator.cwd"]'), members=pos('[data-help="creator.cluster-members"]'), defaults=pos('[data-help="creator.member-defaults"]'),
@@ -143,7 +147,32 @@ async def main():
         await editor.get_by_role('button', name='HEAVY', exact=True).click()
         await editor.get_by_role('button', name='↑ COLLAPSE').click()
         await expect(rows.first).to_contain_text('Builder')
-        await expect(rows.first).to_contain_text('Heavy tier')
+        await expect(rows.first).to_contain_text('Work size: heavy')
+
+        # A second director is disabled, including typed coordinator text.
+        await rows.first.get_by_role('button', name='↓ EDIT').click()
+        await rows.first.get_by_role('button', name='DIRECTOR', exact=True).click()
+        await rows.nth(1).get_by_role('button', name='↓ EDIT').click()
+        await expect(rows.nth(1).get_by_role('button', name='DIRECTOR', exact=True)).to_be_disabled()
+        role_input = rows.nth(1).get_by_placeholder('(optional — pick a preset above or type a custom role, ≤120 chars)')
+        await role_input.fill('Coordinator custom')
+        await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_disabled()
+        await expect(rows.nth(1).get_by_role('alert')).to_contain_text('at most one director')
+        await role_input.fill('')
+        await rows.nth(1).get_by_role('button', name='↑ COLLAPSE').click()
+        await rows.first.get_by_role('button', name='↑ COLLAPSE').click()
+
+        # Historical presets load unchanged but require a role correction before launch.
+        await page.get_by_role('button', name='Legacy directors', exact=True).click()
+        await expect(rows.first).to_contain_text('Director first')
+        await expect(rows.nth(1)).to_contain_text('Coordinator second')
+        await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_disabled()
+        await expect(page.get_by_text("Change one director's role.", exact=False).first).to_be_visible()
+        await rows.nth(1).get_by_role('button', name='↓ EDIT').click()
+        await rows.nth(1).get_by_placeholder('(optional — pick a preset above or type a custom role, ≤120 chars)').fill('Builder')
+        await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_enabled()
+        await rows.nth(1).get_by_role('button', name='↑ COLLAPSE').click()
+        assert LEGACY_PRESET['members'][1]['role'] == 'Coordinator second'
 
         # A saved preset keeps an unavailable provider visible instead of dropping it.
         await page.get_by_role('button', name='Local pair', exact=True).click()

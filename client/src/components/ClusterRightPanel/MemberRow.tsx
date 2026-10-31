@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { ROLE_PRESETS, presetForText, MEMBER_TIERS } from '@arco/shared';
+import { ROLE_PRESETS, presetForText, MEMBER_TIERS, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ClusterStatePayload, MemberTier } from '@arco/shared';
 import { ReplaceMemberDialog } from './ReplaceMemberDialog';
 
@@ -100,7 +100,11 @@ export function MemberRow({
     };
   }, [popoverOpen]);
 
+  const otherDirector = cluster.members.some((m) => m.workflowId !== member.workflowId && isClusterDirector(m.role));
+  const draftProblem = !isClusterDirector(member.role) && isClusterDirector(roleDraft) && otherDirector
+    ? clusterDirectorProblem([roleDraft, 'Director']) : null;
   const commitCustom = () => {
+    if (draftProblem) return;
     onSetRole?.(cluster.clusterId, member.workflowId, roleDraft);
     setEditingCustom(false);
   };
@@ -185,7 +189,7 @@ export function MemberRow({
                 {member.status.toUpperCase()}
               </span>
             )}
-            {!renameOpen && member.tier && (
+            {!renameOpen && member.tier && !isClusterDirector(member.role) && (
               <span
                 className="display-font"
                 title={`Builder tier: ${member.tier}. Visible to peers via peer_list.`}
@@ -199,7 +203,7 @@ export function MemberRow({
                   background: 'transparent',
                 }}
               >
-                {member.tier.toUpperCase()}
+                Work size: {member.tier}
               </span>
             )}
             {!renameOpen && member.accessMode && member.accessMode !== 'standard' && (
@@ -335,6 +339,7 @@ export function MemberRow({
 
       {onSetRole && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', position: 'relative' }}>
+          {isClusterDirector(member.role) && otherDirector && <span role="alert">{clusterDirectorProblem(['Director', 'Director'])}</span>}
           <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }} className="display-font">
             ROLE
           </span>
@@ -362,6 +367,8 @@ export function MemberRow({
               />
               <button
                 onClick={commitCustom}
+                disabled={Boolean(draftProblem)}
+                title={draftProblem ?? undefined}
                 className="display-font"
                 style={{
                   padding: '3px 8px',
@@ -375,6 +382,7 @@ export function MemberRow({
               >
                 SAVE
               </button>
+              {draftProblem && <span role="alert">{draftProblem}</span>}
               <button
                 onClick={() => { setRoleDraft(member.role ?? ''); setEditingCustom(false); }}
                 className="display-font"
@@ -447,10 +455,11 @@ export function MemberRow({
                     return (
                       <button
                         key={p.key}
+                        disabled={isClusterDirector(p.text) && otherDirector && !isClusterDirector(member.role)}
                         onClick={() => commitPreset(p.text)}
                         data-help="cluster.right-panel.role-preset"
                         className="display-font"
-                        title={p.text}
+                        title={isClusterDirector(p.text) && otherDirector && !isClusterDirector(member.role) ? clusterDirectorProblem(['Director', 'Director'])! : p.text}
                         style={{
                           textAlign: 'left',
                           padding: '5px 8px',
@@ -512,14 +521,14 @@ export function MemberRow({
         </div>
       )}
 
-      {onSetTier && (
+      {onSetTier && !isClusterDirector(member.role) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
           <span
             className="display-font"
             style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }}
-            title="Builder tier — operator hint to the cluster director. light = quick edits; standard = normal feature work; heavy = architectural changes. Visible in peer_list. The director (an LLM) decides routing; no server-side routing."
+            title="Light means quick edits, standard means normal feature work, and heavy means large or architectural changes. This guides the director's task assignments, does not change model or effort, and matters most when several members can take the same work."
           >
-            TIER
+            WORK SIZE (FOR THE DIRECTOR)
           </span>
           {MEMBER_TIERS.map((t) => {
             const active = member.tier === t;

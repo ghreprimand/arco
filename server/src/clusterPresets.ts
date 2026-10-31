@@ -13,7 +13,7 @@ import path from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@arco/shared';
-import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode } from '@arco/shared';
+import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode, clusterDirectorProblem } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
@@ -173,6 +173,8 @@ export async function savePreset(input: PresetSaveInput): Promise<ClusterPreset>
     throw new PresetValidationError(400, `members exceeds ${MEMBER_MAX} entries`);
   }
   const normalized: ClusterPresetMember[] = input.members.map((m, i) => normalizeMember(m, i));
+  const directorProblem = clusterDirectorProblem(normalized.map((m) => m.role));
+  if (directorProblem) throw new PresetValidationError(400, `cluster_preset_save rejected: multiple_directors: ${directorProblem}`);
 
   const file = await readFileSafe();
 
