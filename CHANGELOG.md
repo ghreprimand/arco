@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Allow a director to be replaced in an existing cluster with multiple directors while preserving its roles.
+
 - Limit new clusters and director assignments to one director, and describe member work size as a hint for the director rather than a model or effort setting. Existing clusters and snapshots retain their roles.
 
 - Repository docs (README, Getting started, Features, Client, Architecture, Providers, cluster protocol, operator actions, Gotchas, Development status, Persistence) now match Home naming, Electric Blue / Victor Mono defaults, local runtime capacity, removed Z.ai / Gemini / Antigravity providers (Z.ai settings discarded; Gemini and Antigravity defaults retained), and current auto-compaction behavior.

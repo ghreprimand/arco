@@ -36,10 +36,21 @@ test('creation, preset save and concurrent role changes reject a second director
     assert.equal((await store.readCluster(cluster.clusterId))?.memberRoles?.[remaining], 'Coordinator revised');
     await handlers.handleClusterMemberRoleSet(ws, cluster.clusterId, ids[2]!, 'Builder');
     assert.equal(errors.length, oldErrors);
-    workflows.set(remaining, { config: { workingDirectory: home, primaryProvider: 'claude' }, busy: false } as never);
+    workflows.set(remaining, { config: { name: 'Director', workingDirectory: home, primaryProvider: 'claude', primaryModel: 'sonnet' }, busy: false, observers: new Set(), primary: { provider: 'claude' } } as never);
+    const replacementId = randomUUID();
+    handlers.initClusterHandlers({ handleUserMessage: async () => {}, handleRemoveWorkflow: () => {}, assertAllMembersClaudeOrCodex: async () => null, createBlankNativeWorkflow: async (_ws, _session, config) => {
+      workflows.set(replacementId, { config, busy: false, observers: new Set(), primary: { provider: 'claude' } } as never);
+      return replacementId;
+    } });
     await handlers.handleClusterMemberReplace(ws, session, { clusterId: cluster.clusterId, workflowId: remaining } as never);
-    assert.match(errors.at(-1) ?? '', /cluster_member_replace rejected: multiple_directors:/);
+    assert.equal(errors.length, oldErrors, errors.join('\n'));
+    const replaced = await store.readCluster(cluster.clusterId); assert.ok(replaced);
+    assert.ok(replaced.members.includes(replacementId));
+    assert.ok(!replaced.members.includes(remaining));
+    assert.equal(replaced.memberRoles?.[replacementId], 'Coordinator revised');
+    assert.equal(replaced.memberRoles?.[ids.find((id) => saved?.memberRoles?.[id] === 'Director')!], 'Director');
     workflows.delete(remaining);
+    workflows.delete(replacementId);
     await store.deleteCluster(cluster.clusterId);
   } finally { rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });

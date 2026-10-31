@@ -1,4 +1,4 @@
-import { isClusterCreationSettings, isClusterMessageGuard, clusterDirectorProblem, isClusterDirector } from '@arco/shared';
+import { isClusterCreationSettings, isClusterMessageGuard, clusterDirectorProblem } from '@arco/shared';
 import { localCapacityRefusal, memberProvider } from '../localCapacity.js';
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
 // index.ts (docs/ARCHITECTURE.md). Behavior-preserving, move-only.
@@ -1937,13 +1937,6 @@ export async function handleClusterMemberReplace(
   if (!cluster || !source || !cluster.members.includes(msg.workflowId)) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: unknown_member' });
     return;
-  }
-  if (isClusterDirector(cluster.memberRoles?.[msg.workflowId])) {
-    const problem = clusterDirectorProblem(cluster.members.map((id) => cluster.memberRoles?.[id]));
-    if (problem) {
-      send(ws, { type: 'error', message: `cluster_member_replace rejected: multiple_directors: ${problem}` });
-      return;
-    }
   }
   if (source.busy) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: member_busy' });
