@@ -20,13 +20,16 @@ preserves chats, settings, locations and bookmarked folders unless explicitly ed
 
 ## Home: project locations and recent work
 
-Home shows open work first. **Resume** returns to a tab without stopping its
-running turn. **Start a chat**, **New session**, and **More ways to start** retain
+Home shows open work first, as cards that share the row, most recent first.
+At most two rows show; **Show all N** opens the rest in a bounded scrolling
+area and **Show fewer** collapses it. **Resume** returns to a tab without
+stopping its running turn. **Start a chat**, **New session**, and **More ways to start** retain
 the normal chat, session, cluster and Genesis creators.
 
 Each **Project location** shows its name, path and available-folder count. The first
 few folders are visible immediately with their paths; long lists offer **Show all N folders** and
-**Show fewer**, with a bounded scrolling area. Search works across locations.
+**Show fewer**, with a bounded scrolling area. Pinned, bookmarked, available and
+archived groups follow the same six-entry limit. Search works across locations.
 Choose a folder to open the creator with that explicit path. **Browse Work**, for
 example, opens the folder browser at Work. Opening a folder never bookmarks it, trusts it, or launches work automatically.
 

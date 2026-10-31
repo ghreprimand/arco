@@ -15,6 +15,11 @@ import { defaultModelForProvider, useModelCatalogs } from '../../utils/modelCata
 import { clampEffortForModel } from '../../utils/format';
 import { KIND_LABEL, when } from './homeStyles';
 
+// Open work shows at most this many rows of cards; every project group shows
+// this many entries until Show all. Expanded lists scroll inside a bound.
+const WORK_ROWS = 2;
+const GROUP_LIMIT = 6;
+
 // Project-centered Home: open work, projects (search, groups, per-project open
 // and saved work) and explicit Start actions. Everything here only navigates
 // opens the existing creator, or explicitly resumes a saved session. Rendering
@@ -32,6 +37,9 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
   const [locationOpen, setLocationOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [workExpanded, setWorkExpanded] = useState(false);
+  const [workColumns, setWorkColumns] = useState(3);
+  const workProbe = useRef<HTMLDivElement>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [browserRoot, setBrowserRoot] = useState('');
   const [activity, setActivity] = useState<Record<string, number>>({});
@@ -89,6 +97,23 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   }, [addOpen, locationOpen]);
 
   const work = useMemo(() => openWork(jobs, clusters), [jobs, clusters]);
+  const hasWork = work.length > 0;
+  // Open work shows two rows of cards. An empty auto-fill probe with the same
+  // track sizing reports how many columns fit, independent of interface scale.
+  useEffect(() => {
+    const probe = workProbe.current;
+    if (!probe || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const tracks = getComputedStyle(probe).gridTemplateColumns.split(' ').filter(Boolean).length;
+      setWorkColumns(Math.max(1, tracks || 1));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(probe);
+    return () => observer.disconnect();
+  }, [hasWork]);
+  const workLimit = workColumns * WORK_ROWS;
+  const workShown = workExpanded ? work : work.slice(0, workLimit);
   const shown = useMemo(() => {
     const all = projects ?? [], found = searchProjects(all, query);
     const q = query.trim().toLowerCase();
@@ -144,10 +169,17 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
       {work.length > 0 && <section aria-labelledby="home-open" data-help="home.open-work">
         <div className="home-section-heading"><h2 id="home-open">Open work <span className="home-count">({work.length})</span></h2><span className="home-fine-print">Work keeps running while you are here.</span></div>
-        <ul className="home-work-grid">{work.map(item => <li key={`${item.kind}:${item.id}`}>
-          <div className="home-work-details"><strong>{item.name}</strong><small>{KIND_LABEL[item.kind]}{item.cwd ? ` / ${projectName(item)}` : ' / No project'}{item.lastActivity ? ` / ${when(item.lastActivity)}` : ''}</small></div>
-          <button type="button" className="home-primary" onClick={() => openItem(item)} aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} ${item.name}`}>Resume</button>
-        </li>)}</ul>
+        <div ref={workProbe} className="home-work-probe" aria-hidden="true" />
+        <div id="home-open-list" className={workExpanded && work.length > workLimit ? 'home-bounded expanded' : 'home-bounded'}>
+        <ul className="home-work-grid" aria-labelledby="home-open">{workShown.map(item => {
+          const detail = `${KIND_LABEL[item.kind]}${item.cwd ? ` / ${projectName(item)}` : ' / No project'}${item.lastActivity ? ` / ${when(item.lastActivity)}` : ''}`;
+          return <li key={`${item.kind}:${item.id}`}>
+            <div className="home-work-details"><strong title={item.name}>{item.name}</strong><small title={item.cwd ? `${detail}\n${item.cwd}` : detail}>{detail}</small></div>
+            <button type="button" className="home-primary" onClick={() => openItem(item)} aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} ${item.name}`}>Resume</button>
+          </li>;
+        })}</ul>
+        </div>
+        {work.length > workLimit && <button type="button" className="home-show-all" aria-expanded={workExpanded} aria-controls="home-open-list" onClick={() => setWorkExpanded(open => !open)}>{workExpanded ? 'Show fewer' : `Show all ${work.length}`}</button>}
       </section>}
 
       {(availableCount === 0 || work.length > 0) && startControls}
@@ -174,7 +206,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
           const more = group.discovered ?? [];
           const showAll = !!query.trim() || expanded.has(group.path || group.key);
           const totalChoices = group.projects.length + more.length;
-          const limit = group.path && !showAll ? 6 : Infinity;
+          const limit = showAll ? Infinity : GROUP_LIMIT;
           const cards = group.projects.slice(0, limit);
           const folderChoices = more.slice(0, Math.max(0, limit - cards.length));
           return <section key={group.key} className="home-project-group" aria-labelledby={`home-group-${group.key}`}>
@@ -185,7 +217,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
             </div>
             {group.exists === false && <p className="home-group-description">Location not reachable. Reconnect the drive or edit it in Settings &gt; Projects.</p>}
             {!!group.pinnedCount && <p className="home-fine-print">Pinned folders from this location appear above.</p>}
-            <div className={group.path && showAll && totalChoices > 6 ? 'home-location-folders expanded' : 'home-location-folders'}>
+            <div id={`home-group-list-${group.key}`} className={showAll && totalChoices > GROUP_LIMIT ? 'home-location-folders expanded' : 'home-location-folders'}>
             <ul className="home-project-grid">
               {cards.map((project, index) => <ProjectCard key={`${project.id ?? ''}|${project.path}`} project={project} label={labels.get(project.path) ?? project.name}
                 work={workForProject(project, projects ?? [], work)} organization={organization} preview={project.source !== 'scanned' && group.key !== 'archived' && project.exists && index < 12}
@@ -197,7 +229,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
               </ul>
             </div>}
             </div>
-            {group.path && totalChoices > 6 && !query.trim() && <button type="button" aria-expanded={showAll} onClick={() => setExpanded(old => { const next = new Set(old); const key = group.path || group.key; if (next.has(key)) next.delete(key); else next.add(key); return next; })}>{showAll ? 'Show fewer' : `Show all ${totalChoices} folders`}</button>}
+            {totalChoices > GROUP_LIMIT && !query.trim() && <button type="button" className="home-show-all" aria-expanded={showAll} aria-controls={`home-group-list-${group.key}`} onClick={() => setExpanded(old => { const next = new Set(old); const key = group.path || group.key; if (next.has(key)) next.delete(key); else next.add(key); return next; })}>{showAll ? 'Show fewer' : `Show all ${totalChoices} folders`}</button>}
           </section>;
         })}
         </div>

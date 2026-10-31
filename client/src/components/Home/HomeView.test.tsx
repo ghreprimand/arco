@@ -77,3 +77,24 @@ test('project cards offer organization only when the server can store it, and re
   assert.match(missing, /<button type="button"[^>]*disabled=""[^>]*aria-label="New session in app"/);
   assert.doesNotMatch(missing, /<div[^>]*onClick/);
 });
+
+test('open work renders two rows of cards with a Show all toggle that announces the total', async () => {
+  const { useAppStore } = await import('../../stores/appStore.js');
+  const { HomeView } = await import('./HomeView.js');
+  const render = (count: number) => {
+    useAppStore.setState({ jobs: {}, clusters: {} });
+    for (let i = 0; i < count; i++) useAppStore.getState().createJob(`work-${i}`, config(`Work ${i}`), undefined, undefined, true);
+    const initial = useAppStore.getInitialState();
+    const before = initial.jobs;
+    try { initial.jobs = useAppStore.getState().jobs; return renderToStaticMarkup(<HomeView />); } finally { initial.jobs = before; }
+  };
+  const many = render(20);
+  // Before layout measurement the grid assumes three columns: two rows of three.
+  assert.equal(many.split('aria-label="Open session Work ').length - 1, 6);
+  assert.match(many, /<h2 id="home-open">Open work <span class="home-count">\(20\)<\/span><\/h2>/);
+  assert.match(many, /<button type="button" class="home-show-all" aria-expanded="false" aria-controls="home-open-list">Show all 20<\/button>/);
+  assert.match(many, /<div class="home-work-probe" aria-hidden="true"><\/div>/);
+  const few = render(2);
+  assert.equal(few.split('aria-label="Open session Work ').length - 1, 2);
+  assert.doesNotMatch(few, /home-show-all/);
+});

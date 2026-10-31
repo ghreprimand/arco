@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Bound Home: open work shows two rows of cards with Show all, and every project group, including pinned and bookmarked folders, shows six entries before expanding into a bounded scrolling list.
+
 - Separate cluster coordination style from Warn only, Hard limit and No limit message guards; align role and mailbox guidance; default new clusters to Balanced, a cluster-local board and Keep current Both while preserving saved settings.
 
 ### Fixed

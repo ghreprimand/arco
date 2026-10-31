@@ -18,6 +18,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         Shows currently open work that can be resumed from Home. Incognito
         chats, cluster members and hidden task children are omitted. Open
         returns to that item in one click. Visiting Home does not stop a running turn.
+        Cards are ordered by most recent activity and show at most two rows;
+        Show all opens the rest in a bounded scrolling list.
       </p>
     ),
   },
@@ -26,7 +28,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Project locations show available-folder counts and a few folder choices with their paths immediately. Browse starts at that location. Show all and Show fewer control long lists; search works across locations. Choose a folder to open the creator without bookmarking it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards preview the latest saved session and offer Resume, Open, the full saved-session list, pin, archive and missing-folder recovery. Unavailable locations stay visible.
+        Project locations show available-folder counts and a few folder choices with their paths immediately. Browse starts at that location. Every group, including Pinned and bookmarked folders, shows six entries until Show all; expanded lists scroll within a bound, and search shows every match across locations. Choose a folder to open the creator without bookmarking it or starting work. Add project location adds a named parent such as Work or Personal; Open another folder supports one-off sessions. Cards preview the latest saved session and offer Resume, Open, the full saved-session list, pin, archive and missing-folder recovery. Unavailable locations stay visible.
       </p>
     ),
   },

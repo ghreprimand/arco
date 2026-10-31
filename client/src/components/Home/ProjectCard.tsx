@@ -102,7 +102,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
       ) : resumable ? (
         <button type="button" style={action} onClick={() => { const session = raw.current.find(s => s.sessionId === row.sessionId); if (session && onResume) onResume(session); else onStart({ mode: 'single', workDir: project.path, resumeSessionId: row.sessionId }); }} aria-label={`Resume ${row.title}`}>Resume</button>
       ) : null}
-      <span>{row.title}{row.workspaceName && row.workspaceName !== row.title && <small style={muted}> / Workspace: {row.workspaceName}</small>}</span>
+      <span title={row.workspaceName && row.workspaceName !== row.title ? `${row.title} / Workspace: ${row.workspaceName}` : row.title}>{row.title}{row.workspaceName && row.workspaceName !== row.title && <small style={muted}> / Workspace: {row.workspaceName}</small>}</span>
       <span style={muted}>{row.provider}{row.account ? `  /  ${row.account}` : ''}{row.startedAt ? `  /  ${when(row.startedAt)}` : ''}</span>
     </li>
   );
@@ -111,16 +111,16 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
     <li className="home-project-card" style={{ ...box, padding: '16px', opacity: missing ? 0.85 : 1 }} aria-label={`Project ${label}`}>
       <div className="home-card-header">
         <div className="home-card-summary" style={{ minWidth: 0 }}>
-          <h4 style={{ margin: 0, fontSize: '13px' }}>
-            {label}
+          <h4 className="home-card-title" style={{ margin: 0, fontSize: '13px' }}>
+            <span title={label}>{label}</span>
             {project.pinned && <span style={{ ...muted, marginLeft: 8 }}>Pinned</span>}
             {project.archived && <span style={{ ...muted, marginLeft: 8 }}>Archived</span>}
           </h4>
           <div style={{ ...muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={project.path}>{project.path}</div>
           {project.displayName && project.derivedName && project.derivedName !== project.displayName && (
-            <div style={muted}>Folder name: {project.derivedName}</div>
+            <div className="home-card-line" style={muted} title={project.derivedName}>Folder name: {project.derivedName}</div>
           )}
-          {project.previousPaths?.length ? <div style={muted}>Moved from {project.previousPaths[0]}</div> : null}
+          {project.previousPaths?.length ? <div className="home-card-line" style={muted} title={project.previousPaths[0]}>Moved from {project.previousPaths[0]}</div> : null}
           <div style={muted}>
             {missing
               ? `Folder not found. Its saved sessions stay on disk.${canOrganize ? ' If it moved, use Relocate...; otherwise archive it or remove its bookmark.' : ' Remove or add its bookmark in Settings.'}`
