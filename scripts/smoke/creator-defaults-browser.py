@@ -58,6 +58,17 @@ async def main():
           show();
         }''')
         effort = page.locator('[data-help="creator.effort"]')
+        defaults = page.locator('button[aria-controls="creator-member-defaults"]')
+
+        async def open_defaults():
+            # Cluster mode keeps the new-member defaults collapsed, with a note
+            # that existing members do not change.
+            await expect(defaults).to_have_attribute('aria-expanded', 'false')
+            await expect(page.get_by_text('Existing members do not change', exact=False)).to_be_visible()
+            await expect(effort).to_have_count(0)
+            await defaults.click()
+
+        await open_defaults()
         await expect(effort.get_by_role('button', name='HIGH', exact=True)).to_be_visible()
 
         async def pressed(label):
@@ -89,6 +100,7 @@ async def main():
 
         # Saved MAX default loads as HIGH; saved off/normal tuning is kept.
         await page.evaluate("show({primaryProvider:'claude',primaryModel:'opus',primaryEffort:'max',efficiencyToolFilter:'off',outputStyle:'normal'})")
+        await open_defaults()
         await expect(effort.get_by_role('button', name='HIGH', exact=True)).to_be_visible()
         assert await pressed('HIGH') and not await pressed('MAX')
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()

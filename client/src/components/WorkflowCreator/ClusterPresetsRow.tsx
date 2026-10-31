@@ -1,6 +1,6 @@
 import type { ClusterPresetsRowProps } from './types';
 
-// 2026-05-11 — PRESETS row above the DEFAULT FOR NEW MEMBERS banner. Pills
+// 2026-05-11 — SAVED CLUSTER PRESETS row, after the member list. Pills
 // display each saved preset by name; click to apply (overwrites MEMBERS list +
 // fills CLUSTER NAME when blank); × deletes after a window.confirm. The
 // [+ SAVE AS PRESET] button toggles an inline input that posts to
@@ -56,7 +56,7 @@ export function ClusterPresetsRow({
   };
   return (
     <div data-help="creator.cluster-presets">
-      <label className="display-font" style={labelStyle}>PRESETS</label>
+      <label className="display-font" style={labelStyle}>SAVED CLUSTER PRESETS</label>
       {error && (
         <div className="display-font" style={{ fontSize: '10px', color: 'var(--color-danger)', marginBottom: '6px' }}>
           {error}
@@ -122,7 +122,7 @@ export function ClusterPresetsRow({
           className="display-font"
           style={{ fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', marginTop: '6px', opacity: 0.7 }}
         >
-          No presets yet. Configure members below, then save the current shape.
+          No saved presets yet. Set up the members above, then save that shape here to reuse it.
         </div>
       )}
 

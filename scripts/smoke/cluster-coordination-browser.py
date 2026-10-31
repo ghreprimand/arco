@@ -57,6 +57,12 @@ async def main():
           };
           showCreator();
         }''')
+        policy=page.locator('button[aria-controls="creator-cluster-policy"]')
+        await expect(policy).to_have_attribute('aria-expanded','false')
+        await expect(policy).to_contain_text('Balanced')
+        await expect(page.get_by_label('Message guard',exact=True)).to_have_count(0)
+        await policy.click()
+        await expect(policy).to_have_attribute('aria-expanded','true')
         await expect(page.get_by_label('Message guard',exact=True)).to_have_value('warn')
         await expect(page.get_by_label('Message threshold',exact=True)).to_have_value('15')
         await expect(page.get_by_label('Cluster task board',exact=True)).to_have_value('cluster')

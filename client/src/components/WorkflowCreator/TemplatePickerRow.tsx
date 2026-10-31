@@ -64,7 +64,7 @@ export function TemplatePickerRow({
   };
   return (
     <div data-help="creator.templates">
-      <label className="display-font" style={labelStyle}>TEMPLATES</label>
+      <label className="display-font" style={labelStyle}>SAVED TEMPLATES</label>
       {error && (
         <div className="display-font" style={{ fontSize: '10px', color: 'var(--color-danger)', marginBottom: '6px' }}>
           {error}
@@ -130,7 +130,7 @@ export function TemplatePickerRow({
           className="display-font"
           style={{ fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', marginTop: '6px', opacity: 0.7 }}
         >
-          No templates yet. Configure the form below, then save the current config as a recipe.
+          No saved templates yet. Set up the form above, then save it here to reuse it.
         </div>
       )}
 

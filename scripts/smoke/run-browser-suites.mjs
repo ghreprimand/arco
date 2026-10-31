@@ -15,6 +15,7 @@ const SUITES = [
   { name: 'cluster-coordination', script: 'cluster-coordination-browser.py', port: 5206 },
   { name: 'form-controls', script: 'form-controls-browser.py', port: 5207 },
   { name: 'creator-defaults', script: 'creator-defaults-browser.py', port: 5208 },
+  { name: 'creator-modes', script: 'creator-modes-browser.py', port: 5209 },
   { name: 'reauth-continuity', script: 'reauth-continuity-browser.py', port: 5203 },
   { name: 'workspace-rename', script: 'workspace-rename-browser.py', port: 5203 },
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },

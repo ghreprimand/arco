@@ -4,6 +4,10 @@ import { effortsForModel } from '../../utils/format';
 import { deriveDisplayNames } from './modelOptions';
 import { useAppStore } from '../../stores/appStore';
 import { CursorModelSelect } from '../CursorModelSelect';
+import { useStartupStore } from '../../stores/startupStore';
+import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
+import { MEMBER_PROVIDER_NAMES, memberProviderAvailable } from './memberProviders';
+import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import type { ClusterMembersSectionProps } from './types';
 
 // 2026-05-11 — CLUSTER mode's per-member list. Collapsed-by-default summary
@@ -35,6 +39,10 @@ export function ClusterMembersSection({
   hintStyle,
 }: ClusterMembersSectionProps) {
   const cursorCatalog = useAppStore((s) => s.cursorCatalog);
+  const authStatus = useAppStore((s) => s.authStatus);
+  const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
+  const available = (p: ClusterMemberProvider) => memberProviderAvailable(p, authStatus, isProviderEnabled);
+  const openConnections = () => useStartupStore.getState().openConnections();
   const modelsFor = (provider: ClusterMemberProvider): { value: ModelName; label: string; subline?: string }[] => {
     if (provider === 'codex') return codexModelsForPicker;
 
@@ -80,7 +88,8 @@ export function ClusterMembersSection({
         className="display-font"
         style={{ fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', lineHeight: 1.4 }}
       >
-        Clusters support Claude, Codex, and local peer-tool members.
+        Members can use Claude, Codex, Cursor, Ollama or llama.cpp when the provider is enabled and connected. Other providers cannot join a cluster.{' '}
+        <button type="button" onClick={openConnections} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>Open Connections</button>
       </div>
 
       {/* Derived names threaded into each row so the collapsed summary
@@ -88,14 +97,16 @@ export function ClusterMembersSection({
       {members.map((m, i, all) => {
         const derived = deriveDisplayNames(all);
         const summaryName = derived[i]!;
-        const tierLabel = m.tier ? m.tier.toUpperCase() : '—';
+        const tierLabel = m.tier ? `${m.tier.charAt(0).toUpperCase()}${m.tier.slice(1)} tier` : 'Tier not set';
         const matchedPreset = presetForText(m.role);
         const roleLabel = matchedPreset
           ? matchedPreset.label
           : m.role.trim().length > 0
             ? (m.role.length > 28 ? `${m.role.slice(0, 28)}…` : m.role)
-            : '—';
-        const modelLabel = String(m.model).toUpperCase();
+            : 'Role not set';
+        const modelLabel = String(m.model).trim() ? String(m.model).toUpperCase() : 'No model chosen';
+        const effortLabel = m.effort ? `${m.effort} effort` : 'default effort';
+        const providerLabel = `${MEMBER_PROVIDER_NAMES[m.provider] ?? m.provider}${available(m.provider) ? '' : ' (not connected)'}`;
         const account = m.provider === 'codex' ? codexAccounts.find((a) => a.id === m.providerAccountRef) : undefined;
         const accountLabel = account ? (account.shortLabel || account.label || account.id).toUpperCase() : undefined;
         return (
@@ -112,6 +123,8 @@ export function ClusterMembersSection({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
+                  rowGap: '4px',
                   padding: '8px 12px',
                   fontFamily: 'var(--font-mono, monospace)',
                   fontSize: '11px',
@@ -121,7 +134,7 @@ export function ClusterMembersSection({
                   {summaryName}
                 </span>
                 {dotSep}
-                <span style={{ color: 'var(--color-fg-muted)' }}>{m.provider.toUpperCase()}</span>
+                <span style={{ color: available(m.provider) ? 'var(--color-fg-muted)' : 'var(--color-warning)' }}>{providerLabel}</span>
                 {accountLabel && (
                   <>
                     {dotSep}
@@ -131,11 +144,11 @@ export function ClusterMembersSection({
                 {dotSep}
                 <span style={{ color: 'var(--color-fg-muted)' }}>{modelLabel}</span>
                 {dotSep}
-                <span style={{ color: 'var(--color-fg-muted)' }}>{(m.effort ?? 'medium').toUpperCase()}</span>
+                <span style={{ color: 'var(--color-fg-muted)' }}>{effortLabel}</span>
                 {dotSep}
-                <span style={{ color: 'var(--color-fg-muted)' }}>{roleLabel}</span>
+                <span style={{ color: m.role.trim() ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary-dim)' }}>{roleLabel}</span>
                 {dotSep}
-                <span style={{ color: 'var(--color-fg-muted)' }}>{tierLabel}</span>
+                <span style={{ color: m.tier ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary-dim)' }}>{tierLabel}</span>
                 <div style={{ flex: 1 }} />
                 <button
                   onClick={() => onUpdateMember(m.key, { expanded: true })}
@@ -237,7 +250,7 @@ export function ClusterMembersSection({
                 <div>
                   <label className="display-font" style={labelStyle}>PROVIDER</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: '6px' }}>
-                    {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
+                    {CLUSTER_MEMBER_PROVIDERS.filter((p) => p === m.provider || available(p)).map((p) => (
                       <button
                         key={p}
                         onClick={() => {
@@ -252,9 +265,13 @@ export function ClusterMembersSection({
                         }}
                         style={{ ...selectStyle(m.provider === p), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                       >
-                        {p === 'llamacpp' ? 'LLAMA' : p.toUpperCase()}
+                        {p === 'llamacpp' ? 'LLAMA' : p.toUpperCase()}{available(p) ? '' : ' (NOT CONNECTED)'}
                       </button>
                     ))}
+                  </div>
+                  <div style={{ ...hintStyle, overflowWrap: 'anywhere' }}>
+                    Only enabled, connected providers are listed.{' '}
+                    <button type="button" onClick={openConnections} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>Connect another provider</button>
                   </div>
                 </div>
 
@@ -412,7 +429,12 @@ export function ClusterMembersSection({
                     <button onClick={() => onUpdateMember(m.key, { skipPermissions: true })} style={{ ...selectStyle(m.skipPermissions), flex: 1, textAlign: 'center', padding: '6px 8px' }}>AUTO</button>
                     <button onClick={() => onUpdateMember(m.key, { skipPermissions: false })} style={{ ...selectStyle(!m.skipPermissions), flex: 1, textAlign: 'center', padding: '6px 8px' }}>SAFE</button>
                   </div>
+                  <div style={{ marginTop: '4px', fontSize: '10px', lineHeight: 1.45, overflowWrap: 'anywhere', color: m.skipPermissions ? 'var(--color-warning)' : 'var(--color-fg-muted)' }}>
+                    {m.skipPermissions ? PERMISSION_AUTO_NOTE : PERMISSION_SAFE_NOTE}
+                  </div>
                 </div>
+
+                <div className="display-font" style={{ ...labelStyle, marginBottom: 0, borderTop: '1px solid var(--color-border-hairline)', paddingTop: '10px' }}>TUNING FOR THIS MEMBER</div>
 
                 {/* FAST MODE (claude only) */}
                 {m.provider === 'claude' && (

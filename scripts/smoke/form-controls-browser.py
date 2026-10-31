@@ -132,6 +132,9 @@ async def main():
             applyTheme(THEME_REGISTRY[id],'victor-mono-uniform',null,null,{bg:0,text:30});applyUiScale(scale);};
           chooseTheme('phosphor:arco:electric',1.1);
         }""", CWD)
+        # Coordination settings and member defaults are collapsed in cluster mode.
+        await page.locator('#creator button[aria-controls="creator-cluster-policy"]').click()
+        await page.locator('#creator button[aria-controls="creator-member-defaults"]').click()
         await expect(page.locator('#creator').get_by_label('Message guard', exact=True)).to_be_visible()
         await expect(page.locator('#outputs').get_by_label('Output type', exact=True)).to_be_visible()
         await page.locator('#rename').get_by_role('button', name='Rename workspace Fixture workspace').click()

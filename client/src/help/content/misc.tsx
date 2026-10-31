@@ -326,16 +326,19 @@ export const miscHelp: Record<string, HelpEntry> = {
           with one project agent. <strong>CHAT</strong> is a conversation with no
           project; <strong>GENESIS</strong> starts from an idea before scaffolding
           a project. <strong>CLUSTER</strong>{' '}
-          creates N member tabs pinned to the same working directory, each
-          configurable per-member (provider / model / effort / role / tier).
+          creates several member tabs that share one project folder, each
+          configured per member (provider, model, effort, role, tier,
+          permissions and tuning).
         </p>
         <p>
-          In CLUSTER mode the field stack above re-labels as{' '}
-          <strong>DEFAULT FOR NEW MEMBERS</strong> — those values seed any new
-          row you add. Expand a member row to override its individual settings.
-          Clusters require at least 2 members and only support providers with
-          peer-tool wiring. Claude/Codex are wired through native/MCP paths;
-          local providers use Arco's local tool registry when enabled.
+          In CLUSTER mode the order is: shared project folder, members, then the
+          collapsed <strong>Defaults for new members</strong> (used only by{' '}
+          <C>+ ADD MEMBER</C>; existing members do not change) and{' '}
+          <strong>Coordination settings</strong>. Saved cluster presets and
+          cluster restore come last. Ultracode, Resume and Advanced options are
+          single-workflow only and are not shown here. Clusters need at least 2
+          members; members can use enabled, connected Claude, Codex, Cursor,
+          Ollama or llama.cpp.
         </p>
         <p>
           Members can exchange notes between turns via the peer tool
@@ -405,15 +408,32 @@ export const miscHelp: Record<string, HelpEntry> = {
       <>
         <p>
           One row per member. Rows are collapsed by default and show a
-          one-line summary (display name, provider, model, effort, role, tier).
+          one-line summary in words (display name, provider, model, effort,
+          role, tier); an empty role or tier reads <em>Role not set</em> or{' '}
+          <em>Tier not set</em>. The editor lists only enabled, connected
+          providers, keeps a saved provider that is no longer connected marked
+          as such, explains AUTO and SAFE permissions, and holds this member's
+          own tuning.
           Click <C>↓ EDIT</C> to expand into the full editor; <C>↑ COLLAPSE</C>{' '}
           to fold back. <C>× REMOVE</C> drops the row.
         </p>
         <p>
-          <C>+ ADD MEMBER</C> appends a fresh row seeded from the
-          DEFAULT FOR NEW MEMBERS group above. Cluster requires ≥2 members.
+          <C>+ ADD MEMBER</C> appends a fresh row seeded from{' '}
+          <strong>Defaults for new members</strong>. Cluster requires at least 2
+          members.
         </p>
       </>
+    ),
+  },
+  'creator.member-defaults': {
+    title: 'Defaults for new members',
+    body: (
+      <p>
+        Cluster mode only. The agent, model, effort, permissions and tuning here
+        seed members added later with <C>+ ADD MEMBER</C>. Changing them does
+        not change members already in the list; open a member to edit it.{' '}
+        <C>SAVE AS DEFAULTS</C> stores them for future workflows.
+      </p>
     ),
   },
   'creator.cwd': {
@@ -437,12 +457,12 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
   },
   'creator.genesis-spark': {
-    title: 'The Spark',
+    title: 'Your idea',
     body: (
       <p>
-        Genesis mode starts a project from a raw idea instead of a folder. The
-        Spark is that raw idea in your own words — what sparked it, what it might
-        do, what's unresolved. No working directory yet: Genesis ideates in a
+        Genesis mode starts a project from a raw idea instead of a folder.
+        Describe the idea in your own words: what it might do, why it matters,
+        what is still unclear. No working directory yet: Genesis ideates in a
         scratch space, and <C>CREATE &amp; SCAFFOLD</C> (in the GENESIS tab) later
         creates the real project folder and binds it.
       </p>
@@ -500,7 +520,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Claude only. Starts the tab in <strong>sticky ultracode</strong> — the
+          Claude only, single workflow only (clusters and Genesis do not carry
+          it). Starts the tab in <strong>sticky ultracode</strong> — the
           same deep multi-agent mode as <C>ultracode</C> in the Claude CLI. Each
           turn, Claude authors a <C>Workflow</C> that fans out a fleet of
           subagents (find → verify → synthesize) and the harness runs it in the
@@ -524,9 +545,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Advanced options',
     body: (
       <p>
-        Collapsible section for less-common settings — additional directories
-        (cross-project tool access) and a fallback model that kicks in when
-        the primary is overloaded.
+        Single workflow only, for Claude and Codex. Additional directories
+        (cross-project tool access, used by the Claude CLI and Codex) and, for
+        Claude, a fallback model that the CLI transport uses when the primary is
+        overloaded; Claude Native ignores it.
       </p>
     ),
   },
@@ -640,7 +662,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Resume native session',
     body: (
       <p>
-        Lists CLI sessions already on disk for this cwd (
+        Single workflow only. Lists CLI sessions already on disk for this cwd (
         <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>). Pick one to continue inside Arco — the session
         remains a real native CLI session you can also resume from a terminal.
       </p>

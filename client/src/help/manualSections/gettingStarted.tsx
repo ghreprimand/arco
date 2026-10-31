@@ -220,43 +220,43 @@ export const gettingStarted: Section[] = [
         <p>The cluster creator flow:</p>
         <ul>
           <li>
-            <strong>Working directory</strong> — same picker as the single
-            workflow form. All cluster members share this cwd.
+            <strong>Shared project folder</strong> - same picker as the single
+            workflow form. All cluster members share this folder.
           </li>
           <li>
-            <strong>Cluster name</strong> (optional, ≤64) — empty falls back
-            to the derived <Code>&lt;basename(cwd)&gt; · &lt;short-id&gt;</Code>{' '}
-            default.
+            <strong>Cluster name</strong> (optional, up to 64 characters) -
+            empty falls back to the derived{' '}
+            <Code>&lt;basename(cwd)&gt; · &lt;short-id&gt;</Code> default.
           </li>
           <li>
-            <strong>EFFICIENCY</strong> — one cluster-wide level (thorough /
-            balanced / lean, default thorough) that dials how hard members
-            fight over-review loops. Each level is a deterministic bundle:
-            restraint doctrine injected into member system prompts, a smaller
-            peer-send budget, and a softer mailbox notice. An optional
-            free-text addendum refines the doctrine. Takes effect next turn
-            and is reversible from the cluster header chip.
-          </li>
-          <li>
-            <strong>DEFAULT FOR NEW MEMBERS</strong> — provider, model,
-            effort, permissions, fast mode, tool-result filter, output style.
-            Fast mode and tool-result filtering apply to Claude; output style
-            applies to Claude Native, Codex app-server.
-            New member rows are seeded from these values. Changing a default
-            after rows exist does not retro-update them.
-          </li>
-          <li>
-            <strong>MEMBERS list</strong> — at least 2 rows. Each row is
-            collapsed by default with a one-line summary. Click{' '}
-            <Code>↓ EDIT</Code> to expand and override per-row:
+            <strong>MEMBERS list</strong> - at least 2 rows. Each row is
+            collapsed with a one-line summary in words; an empty role or tier
+            reads <em>Role not set</em> or <em>Tier not set</em>. Click{' '}
+            <Code>↓ EDIT</Code> to expand and set per member:
             <ul>
               <li>Display name (optional)</li>
-              <li>Provider — Claude / Codex / Ollama / llama.cpp / Cursor (cluster fence; LM Studio is not a cluster member)</li>
+              <li>Provider - only enabled, connected Claude, Codex, Cursor, Ollama or llama.cpp; a saved provider that is no longer connected stays visible and marked</li>
               <li>Model + effort (per-provider pickers)</li>
-              <li>Role — free-form ≤120 chars (e.g. "director", "tester")</li>
-              <li>Tier — light / standard / heavy / unset</li>
-              <li>Permissions, fast mode, filter, output style (provider-supported controls only)</li>
+              <li>Role - free-form, up to 120 characters (e.g. "director", "tester")</li>
+              <li>Tier - light / standard / heavy / unset</li>
+              <li>Permissions (with the AUTO / SAFE explanation), fast mode, filter, output style (provider-supported controls only)</li>
             </ul>
+          </li>
+          <li>
+            <strong>Defaults for new members</strong> (collapsed) - provider,
+            model, effort, permissions, fast mode, tool-result filter, output
+            style. Only <Code>+ ADD MEMBER</Code> uses them; changing them
+            does not change members already listed.
+          </li>
+          <li>
+            <strong>Coordination settings</strong> (collapsed) - efficiency
+            (thorough / balanced / lean, default balanced), message guard, task
+            board, Keep current and an optional note. The collapsed header
+            summarizes the current choices.
+          </li>
+          <li>
+            <strong>Saved cluster presets</strong>, existing clusters and saved
+            cluster snapshots come after the required steps.
           </li>
           <li>
             <strong>CREATE CLUSTER</strong> mints every member as a fresh
@@ -291,7 +291,7 @@ export const gettingStarted: Section[] = [
           template — saved under a name you pick so you can rebuild the same
           shape later against a different working directory.
         </p>
-        <p>The PRESETS row sits above DEFAULT FOR NEW MEMBERS in the workflow creator's CLUSTER mode.</p>
+        <p>The SAVED CLUSTER PRESETS row sits after the member list and coordination settings in the workflow creator's CLUSTER mode.</p>
         <ul>
           <li>
             <strong>Apply</strong> — click a pill. The MEMBERS list is

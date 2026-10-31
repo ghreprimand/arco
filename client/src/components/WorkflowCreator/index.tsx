@@ -22,6 +22,11 @@ import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
+import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
+import { availableMemberProviders } from './memberProviders';
+
+const BOARD_LABELS: Record<ClusterTaskBoardMode, string> = { cluster: 'Cluster-local board', project: 'Project board', none: 'No task board' };
+const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan and board current', plan: 'Keep plan current', board: 'Keep board current' };
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
@@ -321,6 +326,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
   // Advanced options
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Cluster mode: member defaults and coordination policy stay collapsed so
+  // the required folder and member list come first.
+  const [memberDefaultsOpen, setMemberDefaultsOpen] = useState(false);
+  const [clusterPolicyOpen, setClusterPolicyOpen] = useState(false);
   // I5 — RUN OPTIONS band collapse (default expanded so nothing hides on first
   // paint) + working-directory tree collapse (Browse toggle, default open).
   const [showRunOptions, setShowRunOptions] = useState(true);
@@ -414,10 +423,13 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   }, []);
 
   const draftFromDefaults = (): MemberDraft => {
-    const provider: ClusterMemberProvider =
+    const preferred: ClusterMemberProvider =
       primaryProvider === 'codex' || primaryProvider === 'ollama' || primaryProvider === 'llamacpp'
         ? primaryProvider
         : 'claude';
+    // New members start on a connected, enabled provider when one exists.
+    const connectedProviders = availableMemberProviders(authStatus, isProviderEnabled);
+    const provider: ClusterMemberProvider = connectedProviders.length === 0 || connectedProviders.includes(preferred) ? preferred : connectedProviders[0]!;
     const fallbackModel: ModelName = defaultClusterModelForProvider(provider);
     const isFencedModel = provider === primaryProvider;
     const m: ModelName = isFencedModel ? model : fallbackModel;
@@ -479,7 +491,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const clusterSubmitProblems = (() => {
     if (mode !== 'cluster') return [] as string[];
     const problems: string[] = [];
-    if (!workDir) problems.push('Pick a working directory.');
+    if (!workDir) problems.push('Pick a shared project folder.');
     if (members.length < 2) problems.push('Cluster needs at least 2 members.');
     const localCount = members.filter((m) => m.provider === 'ollama' || m.provider === 'llamacpp').length;
     if (localCount > 1) problems.push('Use at most one local member; local turns are serialized on this machine.');
@@ -812,6 +824,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // (dir tree, model grid) sit inside a band half so neither column towers over
   // an empty void the way the old single tall left column did. The mode toggle,
   // MEMBERS section, save-defaults + submit stay full-width regardless.
+  const collapseHeaderStyle: React.CSSProperties = {
+    width: '100%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+    color: 'var(--color-accent-primary)', fontSize: '13px', letterSpacing: '3px', textAlign: 'left',
+  };
   const bandStyle: React.CSSProperties = {
     border: '1px solid var(--color-border-hairline)',
     borderRadius: '6px',
@@ -850,7 +867,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const outputStyleProvider = primaryProvider === 'claude' || primaryProvider === 'codex';
   // Collapsed tuning summary so the config stays visible but quiet.
   // Claude has fast/filter/style; Codex app-server honor style only.
-  const runOptionsSummary = primaryProvider === 'claude'
+  const runOptionsSummary = primaryProvider === 'claude' && mode !== 'chat'
     ? `Fast ${fastMode ? 'on' : 'off'} · ${efficiencyToolFilter} · ${outputStyle}`
     : `Output ${outputStyle}`;
 
@@ -896,85 +913,18 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </button>
             <button onClick={() => setMode('cluster')} style={modePill(mode === 'cluster')}>
               <div>CLUSTER</div>
-              <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>N members, shared cwd</div>
+              <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Several agents, one shared project folder</div>
             </button>
             <button onClick={() => setMode('genesis')} style={modePill(mode === 'genesis')}>
               <div>GENESIS</div>
-              <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Idea → scaffold, no folder yet</div>
+              <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Describe your idea; create files later</div>
             </button>
           </div>
         </div>
 
-        {mode === 'cluster' && (
-          <ClusterPresetsRow
-            presets={clusterPresets.presets}
-            isLoading={clusterPresets.isLoading}
-            error={clusterPresets.error}
-            onApply={applyPreset}
-            onDelete={deletePresetWithConfirm}
-            saveDisabled={members.length < 2 || members.some((m) => !m.model || String(m.model).trim().length === 0)}
-            saveOpen={presetSaveOpen}
-            saveName={presetSaveName}
-            saveError={presetSaveError}
-            saveBusy={presetSavingBusy}
-            onSaveOpen={() => { setPresetSaveOpen(true); setPresetSaveError(''); setPresetSaveName(''); }}
-            onSaveCancel={() => { setPresetSaveOpen(false); setPresetSaveError(''); setPresetSaveName(''); }}
-            onSaveNameChange={(v) => { setPresetSaveName(v.slice(0, 64)); if (presetSaveError) setPresetSaveError(''); }}
-            onSaveSubmit={saveCurrentAsPreset}
-          />
-        )}
 
         {mode === 'chat' && (
           <PastChatsList onReopen={(config) => onCreate(config)} />
-        )}
-
-        {/* SAVED CLUSTERS — restore a whole-cluster snapshot (config + members
-            + full history) as a fresh cluster. Unlike presets (which fill the
-            member form), restore mints the cluster server-side and it arrives
-            via cluster_created. Passes the picked cwd as the restore target so
-            the restored cluster lands where the operator is working (blank →
-            the snapshot's original cwd). */}
-        {mode === 'cluster' && (
-          <>
-            {onReopenCluster && <ExistingClustersList onReopen={onReopenCluster} />}
-            <SavedClustersList targetCwd={workDir} />
-          </>
-        )}
-
-        {mode === 'single' && (
-          <TemplatePickerRow
-            templates={templates.templates}
-            isLoading={templates.isLoading}
-            error={templates.error}
-            onApply={applyTemplate}
-            onDelete={deleteTemplateWithConfirm}
-            saveDisabled={!model || String(model).trim().length === 0}
-            saveOpen={tmplSaveOpen}
-            saveName={tmplSaveName}
-            saveError={tmplSaveError}
-            saveBusy={tmplSavingBusy}
-            onSaveOpen={() => { setTmplSaveOpen(true); setTmplSaveError(''); setTmplSaveName(''); }}
-            onSaveCancel={() => { setTmplSaveOpen(false); setTmplSaveError(''); setTmplSaveName(''); }}
-            onSaveNameChange={(v) => { setTmplSaveName(v.slice(0, 64)); if (tmplSaveError) setTmplSaveError(''); }}
-            onSaveSubmit={saveCurrentAsTemplate}
-          />
-        )}
-
-        {mode === 'cluster' && (
-          <div
-            className="display-font"
-            style={{
-              padding: '8px 12px',
-              border: '1px solid var(--color-accent-secondary-dim)',
-              borderRadius: '4px',
-              color: 'var(--color-accent-secondary)',
-              fontSize: '10px',
-              letterSpacing: '0.5px',
-              lineHeight: 1.5,
-            }}
-          >
-            DEFAULT FOR NEW MEMBERS — Adding a member inherits these settings; expand the member row to override per-member.
-          </div>
         )}
 
         {/* I5 Band 1 — WHERE & SESSION. Left half: working directory + tree.
@@ -990,7 +940,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {mode !== 'genesis' && mode !== 'chat' && (
         <div data-help="creator.cwd">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>PROJECT FOLDER</label>
+            <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>{mode === 'cluster' ? 'SHARED PROJECT FOLDER' : 'PROJECT FOLDER'}</label>
             <button onClick={() => setShowBrowser((v) => !v)} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>
               {showBrowser ? 'Close folder browser' : 'Browse another folder'}
             </button>
@@ -1039,7 +989,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               type="text"
               value={clusterName}
               onChange={(e) => setClusterName(e.target.value.slice(0, 64))}
-              placeholder="(optional, ≤64 chars — empty = derived default)"
+              placeholder="Optional. Leave empty to name it after the folder."
               style={inputStyle}
             />
           ) : (
@@ -1047,74 +997,19 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           )}
         </div>
 
-        {/* 2026-06-15 — cluster-wide efficiency level. One knob that dials how
-            thorough vs. lean the whole cluster behaves (chunk size, cross-
-            review restraint, peer chattiness). Changeable later from the
-            cluster header chip. */}
-        {mode === 'cluster' && (
-          <div data-help="cluster.efficiency" style={spanBoth}>
-            <label className="display-font" style={labelStyle}>EFFICIENCY</label>
-            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-              {CLUSTER_EFFICIENCY_LEVELS.map((lvl) => {
-                const active = lvl === clusterEfficiency;
-                return (
-                  <button
-                    key={lvl}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setClusterEfficiency(lvl)}
-                    className="display-font"
-                    title={CLUSTER_EFFICIENCY_LABELS[lvl].blurb}
-                    style={{
-                      padding: '5px 10px',
-                      background: active ? 'var(--color-accent-primary-a06)' : 'transparent',
-                      border: '1px solid ' + (active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
-                      color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                      cursor: 'pointer',
-                      fontSize: '10px',
-                      letterSpacing: '1px',
-                    }}
-                  >
-                    {CLUSTER_EFFICIENCY_LABELS[lvl].label.toUpperCase()}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginTop: '4px' }}>
-              {CLUSTER_EFFICIENCY_LABELS[clusterEfficiency].blurb}
-            </div>
-            <MessageGuardControl value={messageGuard} onChange={setMessageGuard} />
-            <label className="arco-field-label" style={{ marginTop: 6, marginRight: 12 }}>Task board <select className="arco-field" aria-label="Cluster task board" value={clusterBoard} onChange={e => setClusterBoard(e.target.value as ClusterTaskBoardMode)}>
-              <option value="cluster">Cluster-local</option><option value="project">Project</option><option value="none">None</option>
-            </select></label>
-            <label className="arco-field-label" style={{ marginTop: 6 }}>Keep current <select className="arco-field" aria-label="Keep current" value={clusterProgress} onChange={e => setClusterProgress(e.target.value as ClusterProgressMode)}>
-              <option value="both">Both</option><option value="plan">Plan</option><option value="board">Board</option>
-            </select></label>
-            <input
-              type="text"
-              aria-label="Cluster NOTE"
-              value={clusterEfficiencyNote}
-              maxLength={CLUSTER_EFFICIENCY_ADDENDUM_MAX}
-              onChange={(e) => setClusterEfficiencyNote(e.target.value)}
-              placeholder="Optional note added to this cluster's coordination instructions"
-              style={{ ...inputStyle, marginTop: '6px' }}
-            />
-          </div>
-        )}
-
         {/* GENESIS — the Spark. Spans both columns; the only seed field collected
             at creation. The staged conversation + the GENESIS tab fill the rest. */}
         {mode === 'genesis' && (
           <div data-help="creator.genesis-spark" style={spanBoth}>
-            <label className="display-font" style={labelStyle}>THE SPARK</label>
+            <label className="display-font" style={labelStyle}>YOUR IDEA</label>
             <textarea
               value={spark}
               onChange={(e) => setSpark(e.target.value)}
-              placeholder="The raw idea, in your own words — what sparked it, what it might do, what feels unresolved."
+              placeholder="In your own words: what it might do, why it matters, what is still unclear."
               rows={4}
               style={{ ...inputStyle, resize: 'vertical', minHeight: '88px', fontFamily: 'var(--font-body)' }}
             />
-            <div style={hintStyle}>No folder yet — Genesis ideates in a scratch space, then CREATE &amp; SCAFFOLD (in the GENESIS tab) builds the real project.</div>
+            <div style={{ ...hintStyle, overflowWrap: 'anywhere' }}>No project folder is needed yet. Genesis works in a scratch space; when the idea is ready, Create &amp; scaffold in the Genesis tab makes the project folder.</div>
           </div>
         )}
 
@@ -1130,7 +1025,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* Conversation mode — spans both columns. Unified resume picker:
             native providers resume by provider session id; Arco-managed
             providers (Ollama) resume by workflow id from events.jsonl. */}
-        {mode !== 'chat' && workDir && (
+        {mode === 'single' && workDir && (
           <div data-help="creator.resume" style={spanBoth}>
             <label className="display-font" style={labelStyle}>CONVERSATION</label>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
@@ -1223,8 +1118,48 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
         {!supportedProvider && <p role="alert">{retiredProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
 
+        {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
+        {mode === 'cluster' && memberEffortNote && <div role="status" style={{ fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{memberEffortNote}</div>}
+        {mode === 'cluster' && (
+          <ClusterMembersSection
+            members={members}
+            onAddMember={addMember}
+            onRemoveMember={removeMember}
+            onUpdateMember={updateMember}
+            claudeModelsForPicker={claudeModelsForPicker}
+            codexModelsForPicker={codexModelsForPicker}
+            ollamaModelsForPicker={ollamaModelsForPicker}
+            llamacppModelsForPicker={llamacppModelsForPicker}
+            cursorModelsForPicker={cursorModelsForPicker}
+            claudeNativeCatalog={claudeNativeCatalog}
+            codexCatalog={codexCatalog}
+            codexAccounts={codexAccounts}
+            selectStyle={selectStyle}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+            hintStyle={hintStyle}
+          />
+        )}
+
+        {mode === 'cluster' && clusterSubmitProblems.length > 0 && (
+          <div className="display-font" style={{ ...hintStyle, color: 'var(--color-warning)' }}>
+            {clusterSubmitProblems.join(' ')}
+          </div>
+        )}
+
+        {/* Cluster mode: the agent and tuning below only seed members added later. */}
+        <div data-help="creator.member-defaults" style={mode === 'cluster' ? { border: '1px solid var(--color-border-hairline)', borderRadius: '6px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '16px' } : { display: 'contents' }}>
+        {mode === 'cluster' && (
+          <div>
+            <button type="button" aria-expanded={memberDefaultsOpen} aria-controls="creator-member-defaults" onClick={() => setMemberDefaultsOpen((v) => !v)} className="display-font" style={collapseHeaderStyle}>
+              <span>DEFAULTS FOR NEW MEMBERS</span><span style={{ fontSize: '9px', color: 'var(--color-fg-muted)' }}>{memberDefaultsOpen ? '▼' : '▶'}</span>
+            </button>
+            <p style={{ ...hintStyle, fontSize: '10px', lineHeight: 1.5, overflowWrap: 'anywhere' }}>Used only when you add a member. Existing members do not change; open a member above to edit its agent, model, effort, permissions and tuning.</p>
+          </div>
+        )}
+        {(mode !== 'cluster' || memberDefaultsOpen) && (<div id="creator-member-defaults" style={{ display: 'contents' }}>
         <div style={bandStyle}>
-          <div className="display-font glow-text-bright" style={bandHeaderStyle}>{mode === 'cluster' ? 'MEMBER DEFAULTS' : mode === 'chat' ? 'CHAT MODEL' : 'AGENT'}</div>
+          <div className="display-font glow-text-bright" style={bandHeaderStyle}>{mode === 'cluster' ? 'NEW MEMBER AGENT' : mode === 'chat' ? 'CHAT MODEL' : 'AGENT'}</div>
           <div style={bandGrid}>
             <div style={bandHalf}>
 
@@ -1441,11 +1376,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               SAFE
             </button>
           </div>
-          {skipPermissions && (
-            <div style={{ marginTop: '4px', fontSize: '9px', color: 'var(--color-warning)', fontFamily: 'var(--font-display)' }}>
-              Full system access for workers
-            </div>
-          )}
+          <div style={{ marginTop: '4px', fontSize: '10px', lineHeight: 1.45, overflowWrap: 'anywhere', color: skipPermissions ? 'var(--color-warning)' : 'var(--color-fg-muted)' }}>
+            {skipPermissions ? PERMISSION_AUTO_NOTE : PERMISSION_SAFE_NOTE}
+          </div>
         </div>}
 
             </div>
@@ -1456,7 +1389,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             (Claude-only - the WorkflowTool lives only in the `claude` binary).
             Enabling pins effort to XHIGH (mirrors `/effort ultracode`); the
             server forces the CLI transport at turn time. */}
-        {mode !== 'chat' && primaryProvider === 'claude' && (
+        {mode === 'single' && primaryProvider === 'claude' && (
         <div style={bandStyle} data-help="creator.ultracode">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="display-font glow-text-bright" style={{ color: 'var(--color-accent-primary)', fontSize: '15px', letterSpacing: '4px' }}>
@@ -1496,7 +1429,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             className="display-font"
             style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: showRunOptions ? '1px solid var(--color-border-hairline)' : 'none', padding: 0, paddingBottom: showRunOptions ? '12px' : 0, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-accent-primary)', fontSize: '15px', letterSpacing: '4px' }}
           >
-            <span className="glow-text-bright">{primaryProvider === 'claude' ? 'CLAUDE TUNING' : 'OUTPUT TUNING'}</span>
+            <span className="glow-text-bright">{primaryProvider === 'claude' && mode !== 'chat' ? 'CLAUDE TUNING' : 'OUTPUT TUNING'}</span>
             <span style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               {!showRunOptions && <span style={{ fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px' }}>{runOptionsSummary}</span>}
               <span style={{ fontSize: '9px', color: 'var(--color-fg-muted)' }}>{showRunOptions ? '▼' : '▶'}</span>
@@ -1507,8 +1440,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             <div style={{ marginTop: '16px' }}>
               <div style={optionsGrid}>
 
-        {/* FAST MODE — Claude-only; spans the top of the tuning grid. */}
-        {primaryProvider === 'claude' && (
+        {/* FAST MODE — Claude-only; spans the top of the tuning grid. Chat does
+            not send it, so it is hidden there. */}
+        {primaryProvider === 'claude' && mode !== 'chat' && (
         <div data-help="creator.fast-mode" style={spanBoth}>
             <label className="display-font" style={labelStyle} title="Passes --fast to the Claude primary for faster streaming output.">
               FAST MODE
@@ -1523,8 +1457,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         </div>
         )}
 
-        {/* TOOL-RESULT FILTER — Claude Native-only efficiency knob. */}
-        {primaryProvider === 'claude' && (
+        {/* TOOL-RESULT FILTER — Claude Native-only efficiency knob; not sent for chat. */}
+        {primaryProvider === 'claude' && mode !== 'chat' && (
             <div data-help="creator.tool-filter">
               <label className="display-font" style={labelStyle} title="Trims noisy tool output (cargo/jest/pytest passing lines, find/grep/ls head-cap) before it enters context. Native-only.">
                 TOOL-RESULT FILTER
@@ -1570,10 +1504,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           )}
         </div>
         )}
+        </div>)}
+        </div>
 
         {/* ADVANCED OPTIONS — standalone full-width collapsible (all providers;
             additional dirs + fallback model are generic, not Claude tuning). */}
-        {mode !== 'chat' && <div data-help="creator.advanced" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
+        {mode === 'single' && (primaryProvider === 'claude' || primaryProvider === 'codex') && <div data-help="creator.advanced" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="display-font"
@@ -1611,10 +1547,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                   rows={2}
                   style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-body)' }}
                 />
-                <div style={hintStyle}>Passed to workers via <code>--add-dir</code>.</div>
+                <div style={{ ...hintStyle, overflowWrap: 'anywhere' }}>Used by the Claude CLI (<code>--add-dir</code>) and Codex transports.</div>
               </div>
 
-              <div data-help="creator.fallback-model">
+              {primaryProvider === 'claude' && <div data-help="creator.fallback-model">
                 <label className="display-font" style={labelStyle}>FALLBACK MODEL</label>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button onClick={() => setFallbackModel('')} style={{ ...selectStyle(fallbackModel === ''), flex: 1, textAlign: 'center', padding: '6px 8px' }}>NONE</button>
@@ -1628,40 +1564,129 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                     </button>
                   ))}
                 </div>
-                <div style={hintStyle}>Used when primary model is overloaded. <code>--fallback-model</code>.</div>
-              </div>
+                <div style={{ ...hintStyle, overflowWrap: 'anywhere' }}>Used when the primary model is overloaded. Applies only when Claude runs through the CLI transport (<code>--fallback-model</code>); Claude Native ignores it.</div>
+              </div>}
             </div>
           )}
         </div>}
-        {/* ── END BANDED LAYOUT ── */}
 
-        {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
-        {mode === 'cluster' && memberEffortNote && <div role="status" style={{ fontSize: '10px', color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>{memberEffortNote}</div>}
+        {/* Cluster-wide coordination policy: optional, collapsed by default. */}
         {mode === 'cluster' && (
-          <ClusterMembersSection
-            members={members}
-            onAddMember={addMember}
-            onRemoveMember={removeMember}
-            onUpdateMember={updateMember}
-            claudeModelsForPicker={claudeModelsForPicker}
-            codexModelsForPicker={codexModelsForPicker}
-            ollamaModelsForPicker={ollamaModelsForPicker}
-            llamacppModelsForPicker={llamacppModelsForPicker}
-            cursorModelsForPicker={cursorModelsForPicker}
-            claudeNativeCatalog={claudeNativeCatalog}
-            codexCatalog={codexCatalog}
-            codexAccounts={codexAccounts}
-            selectStyle={selectStyle}
-            labelStyle={labelStyle}
-            inputStyle={inputStyle}
-            hintStyle={hintStyle}
+          <div style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '6px', padding: '12px 14px' }}>
+            <button type="button" aria-expanded={clusterPolicyOpen} aria-controls="creator-cluster-policy" onClick={() => setClusterPolicyOpen((v) => !v)} className="display-font" style={collapseHeaderStyle}>
+              <span>COORDINATION SETTINGS</span>
+              <span style={{ fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', textAlign: 'right', overflowWrap: 'anywhere' }}>{clusterPolicyOpen ? '▼' : `${CLUSTER_EFFICIENCY_LABELS[clusterEfficiency].label} · ${messageGuard.mode === 'none' ? 'No message limit' : `${messageGuard.mode === 'hard' ? 'Hard limit' : 'Warn after'} ${messageGuard.threshold}`} · ${BOARD_LABELS[clusterBoard]} · ${PROGRESS_LABELS[clusterProgress]} ▶`}</span>
+            </button>
+            {clusterPolicyOpen && <div id="creator-cluster-policy" style={{ marginTop: '12px' }}>
+        {/* 2026-06-15 — cluster-wide efficiency level. One knob that dials how
+            thorough vs. lean the whole cluster behaves (chunk size, cross-
+            review restraint, peer chattiness). Changeable later from the
+            cluster header chip. */}
+        {mode === 'cluster' && (
+          <div data-help="cluster.efficiency" style={spanBoth}>
+            <label className="display-font" style={labelStyle}>EFFICIENCY</label>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {CLUSTER_EFFICIENCY_LEVELS.map((lvl) => {
+                const active = lvl === clusterEfficiency;
+                return (
+                  <button
+                    key={lvl}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setClusterEfficiency(lvl)}
+                    className="display-font"
+                    title={CLUSTER_EFFICIENCY_LABELS[lvl].blurb}
+                    style={{
+                      padding: '5px 10px',
+                      background: active ? 'var(--color-accent-primary-a06)' : 'transparent',
+                      border: '1px solid ' + (active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'),
+                      color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    {CLUSTER_EFFICIENCY_LABELS[lvl].label.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginTop: '4px' }}>
+              {CLUSTER_EFFICIENCY_LABELS[clusterEfficiency].blurb}
+            </div>
+            <MessageGuardControl value={messageGuard} onChange={setMessageGuard} />
+            <label className="arco-field-label" style={{ marginTop: 6, marginRight: 12 }}>Task board <select className="arco-field" aria-label="Cluster task board" value={clusterBoard} onChange={e => setClusterBoard(e.target.value as ClusterTaskBoardMode)}>
+              <option value="cluster">Cluster-local</option><option value="project">Project</option><option value="none">None</option>
+            </select></label>
+            <label className="arco-field-label" style={{ marginTop: 6 }}>Keep current <select className="arco-field" aria-label="Keep current" value={clusterProgress} onChange={e => setClusterProgress(e.target.value as ClusterProgressMode)}>
+              <option value="both">Both</option><option value="plan">Plan</option><option value="board">Board</option>
+            </select></label>
+            <input
+              type="text"
+              aria-label="Cluster NOTE"
+              value={clusterEfficiencyNote}
+              maxLength={CLUSTER_EFFICIENCY_ADDENDUM_MAX}
+              onChange={(e) => setClusterEfficiencyNote(e.target.value)}
+              placeholder="Optional note added to this cluster's coordination instructions"
+              style={{ ...inputStyle, marginTop: '6px' }}
+            />
+          </div>
+        )}
+            </div>}
+          </div>
+        )}
+
+        {/* Optional shortcuts after the required steps: saved templates (single),
+            saved cluster presets and cluster restore (cluster). */}
+        {mode === 'single' && (
+          <TemplatePickerRow
+            templates={templates.templates}
+            isLoading={templates.isLoading}
+            error={templates.error}
+            onApply={applyTemplate}
+            onDelete={deleteTemplateWithConfirm}
+            saveDisabled={!model || String(model).trim().length === 0}
+            saveOpen={tmplSaveOpen}
+            saveName={tmplSaveName}
+            saveError={tmplSaveError}
+            saveBusy={tmplSavingBusy}
+            onSaveOpen={() => { setTmplSaveOpen(true); setTmplSaveError(''); setTmplSaveName(''); }}
+            onSaveCancel={() => { setTmplSaveOpen(false); setTmplSaveError(''); setTmplSaveName(''); }}
+            onSaveNameChange={(v) => { setTmplSaveName(v.slice(0, 64)); if (tmplSaveError) setTmplSaveError(''); }}
+            onSaveSubmit={saveCurrentAsTemplate}
           />
         )}
 
-        {mode === 'cluster' && clusterSubmitProblems.length > 0 && (
-          <div className="display-font" style={{ ...hintStyle, color: 'var(--color-warning)' }}>
-            {clusterSubmitProblems.join(' ')}
-          </div>
+        {mode === 'cluster' && (
+          <ClusterPresetsRow
+            presets={clusterPresets.presets}
+            isLoading={clusterPresets.isLoading}
+            error={clusterPresets.error}
+            onApply={applyPreset}
+            onDelete={deletePresetWithConfirm}
+            saveDisabled={members.length < 2 || members.some((m) => !m.model || String(m.model).trim().length === 0)}
+            saveOpen={presetSaveOpen}
+            saveName={presetSaveName}
+            saveError={presetSaveError}
+            saveBusy={presetSavingBusy}
+            onSaveOpen={() => { setPresetSaveOpen(true); setPresetSaveError(''); setPresetSaveName(''); }}
+            onSaveCancel={() => { setPresetSaveOpen(false); setPresetSaveError(''); setPresetSaveName(''); }}
+            onSaveNameChange={(v) => { setPresetSaveName(v.slice(0, 64)); if (presetSaveError) setPresetSaveError(''); }}
+            onSaveSubmit={saveCurrentAsPreset}
+          />
+        )}
+
+        {/* SAVED CLUSTERS — restore a whole-cluster snapshot (config + members
+            + full history) as a fresh cluster. Unlike presets (which fill the
+            member form), restore mints the cluster server-side and it arrives
+            via cluster_created. Passes the picked cwd as the restore target so
+            the restored cluster lands where the operator is working (blank →
+            the snapshot's original cwd). */}
+        {mode === 'cluster' && (
+          <>
+            {onReopenCluster && <ExistingClustersList onReopen={onReopenCluster} />}
+            <SavedClustersList targetCwd={workDir} />
+          </>
         )}
 
         {/* Save-as-defaults — persists the current picker state to
