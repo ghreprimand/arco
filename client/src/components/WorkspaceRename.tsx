@@ -31,7 +31,11 @@ export function WorkspaceRename({ workflowId, name, onRename }: Props) {
     timer.current = setTimeout(() => { request.current = null; setPending(false); setError('No response received. Check the workspace name before trying again.'); }, 15000);
   };
   return <>
-    <button ref={trigger} type="button" aria-label={`Rename workspace ${name || workflowId.slice(0, 8)}`} title="Rename workspace" onPointerDown={e => e.stopPropagation()} onClick={() => { setDraft(name); setError(''); setOpen(true); }} style={{ background:'none', border:0, color:'var(--color-fg-muted)', cursor:'pointer', padding:'0 6px' }}>RENAME</button>
+    <div aria-label="Workspace name row" style={{ display:'flex', alignItems:'center', gap:6, margin:'12px 12px 6px', padding:'6px 8px', border:'1px solid var(--color-border-hairline)', background:'var(--color-bg)', fontSize:11 }}>
+      <span className="display-font" style={{ color:'var(--color-fg-muted)', fontSize:10, letterSpacing:'1px' }}>NAME</span>
+      <span style={{ color:'var(--color-fg)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name || workflowId.slice(0, 8)}</span>
+    <button ref={trigger} type="button" aria-label={`Rename workspace ${name || workflowId.slice(0, 8)}`} title="Rename workspace" onPointerDown={e => e.stopPropagation()} onClick={() => { setDraft(name); setError(''); setOpen(true); }} className="display-font" style={{ padding:'4px 10px', background:'transparent', border:'1px solid var(--color-border-hairline)', color:'var(--color-fg-muted)', cursor:'pointer', fontSize:10, letterSpacing:'1px' }}>RENAME</button>
+    </div>
     {open && <div role="dialog" aria-modal="true" aria-label="Rename workspace" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.65)',display:'grid',placeItems:'center'}} onPointerDown={e => e.stopPropagation()}>
       <form onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); cancel(); } }} style={{background:'var(--color-bg-panel)',border:'1px solid var(--color-border-hairline)',padding:20,display:'grid',gap:10,minWidth:280}}>
         <label>Workspace name <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} aria-label="Workspace name" /></label>

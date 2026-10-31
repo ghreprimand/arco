@@ -14,6 +14,7 @@ import type { TaskLedgerPatch } from './RightPanel/types';
 
 interface Props {
   job: JobState;
+  onRenameWorkflow?: (id: string, name: string, requestId: string) => boolean;
   onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>) => boolean | void;
   onCancel: () => void;
   onCompact?: () => void;
@@ -106,7 +107,7 @@ const MIN_FRACTION = 0.2;
 const MAX_FRACTION = 0.55;
 const DEFAULT_FRACTION = 0.34;
 
-export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onCancelQueued, onUpload, onReview, onCancelReview, onCancelHandoff, onClearHandoffLock, onHandoff, onSpawn, onUpdatePrimary, onLoadEarlier, onRecalibrate, onAttachPlan, onDetachPlan, onAttachPlanToCluster, onBackToCluster, onPromoteToCluster, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onArmPlanMode, onAttachCodebaseMemory, onDetachCodebaseMemory, onTranscriptSend, onResearch, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, mcp }: Props) {
+export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onCancelQueued, onUpload, onReview, onCancelReview, onCancelHandoff, onClearHandoffLock, onHandoff, onSpawn, onUpdatePrimary, onLoadEarlier, onRecalibrate, onAttachPlan, onDetachPlan, onAttachPlanToCluster, onBackToCluster, onPromoteToCluster, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onArmPlanMode, onAttachCodebaseMemory, onDetachCodebaseMemory, onTranscriptSend, onResearch, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, mcp }: Props) {
   // I3 — focus mode hides the right panel (+ splitter), giving the chat the
   // full width. Reversible: toggling off restores the persisted split fraction.
   const focusMode = useAppStore((s) => s.focusMode);
@@ -257,6 +258,7 @@ export function WorkflowView({ job, onSend, onCancel, onCompact, onFold, onSetTo
         >
           <RightPanel
             job={job}
+            onRenameWorkflow={onRenameWorkflow}
             onUpdatePrimary={onUpdatePrimary}
             onCancelReview={onCancelReview}
             onSend={onSend}

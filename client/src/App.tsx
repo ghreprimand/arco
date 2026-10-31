@@ -658,7 +658,6 @@ ${scopeBody}
         {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
         <SystemHeader isHome={showHome && !showGithub} onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
-          onRenameWorkflow={renameWorkflow}
           onRemoveWorkflow={removeWorkflow}
           onCreateCluster={createCluster}
           onDeleteCluster={deleteCluster}
@@ -790,6 +789,7 @@ ${scopeBody}
             />
           ) : activeJob.config.kind === 'chat' ? (
             <ChatModeView
+              onRenameWorkflow={renameWorkflow}
               key={activeJob.id}
               job={activeJob}
               onSend={(content, attachments) => sendMessage(activeJob.id, content, attachments)}
@@ -805,6 +805,7 @@ ${scopeBody}
             />
           ) : (
             <WorkflowView
+              onRenameWorkflow={renameWorkflow}
               key={activeJob.id}
               job={activeJob}
               onSend={(content, attachments, kind, primitive, pickedSkills) => sendMessage(activeJob.id, content, attachments, kind, primitive, pickedSkills)}

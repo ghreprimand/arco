@@ -1,7 +1,7 @@
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -49,5 +49,20 @@ test('workflow rename persists before acknowledgement and refuses missing metada
   assert.ok(sent.some(m=>m.type==='workflow_rename_result' && m.requestId==='broken' && m.error));
   await handleRenameWorkflow(ws,randomUUID(),'Lost','missing');
   assert.ok(sent.some(m=>m.type==='workflow_rename_result' && m.requestId==='missing' && m.error));
+ } finally { workflows.delete(id); }
+});
+
+test('incognito workspace rename stays in memory and acknowledges without metadata', async () => {
+ const id=randomUUID(), cwd=join(root,'private-project'), sent:Array<Record<string,unknown>>=[];
+ const ws={readyState:1,send:(s:string)=>sent.push(JSON.parse(s))} as unknown as WebSocket;
+ const wf={config:{name:'Private',workingDirectory:cwd,incognito:true},primary:{provider:'claude'},busy:true,observers:new Set([ws])} as unknown as WorkflowState;
+ workflows.set(id,wf);
+ try {
+  await handleRenameWorkflow(ws,id,'  Private revised  ','private-request');
+  assert.equal(wf.config.name,'Private revised');
+  assert.equal(wf.busy,true);
+  assert.ok(sent.some(m=>m.type==='workflow_renamed' && m.name==='Private revised'));
+  assert.ok(sent.some(m=>m.type==='workflow_rename_result' && m.requestId==='private-request' && !m.error));
+  assert.equal(existsSync(workflowDir(cwd,id)),false);
  } finally { workflows.delete(id); }
 });

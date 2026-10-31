@@ -16,11 +16,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, type JobState } from '../stores/appStore';
 import { TabContextMenu } from './TabContextMenu';
-import { WorkspaceRename } from './WorkspaceRename';
 import type { ClusterMemberProvider, ClusterStatePayload, ArcoSettings, ProviderName } from '@arco/shared';
 
 interface Props {
-  onRenameWorkflow: (id: string, name: string, requestId: string) => boolean;
   // Server-side lifecycle: tells the server to tear down the WorkflowState +
   // any in-flight worker for this workflow. Keeps `removeJob` local so the
   // UI stays responsive even if the socket is temporarily closed.
@@ -117,7 +115,7 @@ function applyTabOrder<T extends { id: string }>(items: T[], order: string[] | u
   return [...known, ...unknown];
 }
 
-export function TabBar({ onRenameWorkflow, onRemoveWorkflow, onCreateCluster, onDeleteCluster, onAddClusterMember, onCreateClusterWithFreshWorkers }: Props) {
+export function TabBar({ onRemoveWorkflow, onCreateCluster, onDeleteCluster, onAddClusterMember, onCreateClusterWithFreshWorkers }: Props) {
   const jobs = useAppStore((s) => s.jobs);
   const activeJobId = useAppStore((s) => s.activeJobId);
   const showCreator = useAppStore((s) => s.showCreator);
@@ -245,7 +243,6 @@ export function TabBar({ onRenameWorkflow, onRemoveWorkflow, onCreateCluster, on
                     <SortableWorkflowTab
                       key={item.id}
                       job={item.job}
-                      onRenameWorkflow={onRenameWorkflow}
                       isActive={item.id === activeJobId && !showCreator && !showHome && !activeClusterId}
                       onActivate={() => setActiveJob(item.id)}
                       // §F2 step 3 (DEFERRED — graceful TODO): when the recall
@@ -465,7 +462,6 @@ function ClusterCloseConfirm({
 
 // Slice 6a — sortable workflow tab. Whole tab is the drag handle.
 interface WorkflowTabProps {
-  onRenameWorkflow: (id: string, name: string, requestId: string) => boolean;
   job: JobState;
   isActive: boolean;
   onActivate: () => void;
@@ -473,7 +469,7 @@ interface WorkflowTabProps {
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu, onRenameWorkflow }: WorkflowTabProps) {
+function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu }: WorkflowTabProps) {
   const settings = useAppStore((s) => s.settings);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: job.id });
   const activeWorkers = Object.values(job.workers).filter(
@@ -534,7 +530,6 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
         {(job.config.name || job.id.slice(0, 8)).toUpperCase()}
         {accountBadge && <AccountBadge label={accountBadge} />}
       </button>
-      {isActive && <WorkspaceRename workflowId={job.id} name={job.config.name} onRename={onRenameWorkflow} />}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => {

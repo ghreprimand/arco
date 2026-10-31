@@ -7,10 +7,12 @@ import { useDraftStore } from '../stores/draftStore';
 import { claudeModelLabel, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 import { clampEffortForModel, effortsForModel } from '../utils/format';
 import { ChatPanel } from './ChatPanel';
+import { WorkspaceRename } from './WorkspaceRename';
 import { handleKillLine } from './composer/killLine';
 
 interface Props {
   job: JobState;
+  onRenameWorkflow?: (id: string, name: string, requestId: string) => boolean;
   onSend: (content: string, attachments?: string[]) => boolean | void; // false ⇒ socket down, nothing sent
   onCancel: () => void;
   onLoadEarlier?: () => void;
@@ -31,7 +33,7 @@ const WEB_CAPABLE: ReadonlySet<ProviderName> = new Set<ProviderName>(['claude', 
 // every store tick (Zustand compares with Object.is).
 const EMPTY_ATTS: DraftAttachment[] = [];
 
-export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, onUpdatePrimary }: Props) {
+export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEarlier, onUpload, onUpdatePrimary }: Props) {
   const draft = useDraftStore((s) => s.drafts[job.id] ?? '');
   const setDraft = useDraftStore((s) => s.setDraft);
   const attachments = useAppStore((s) => s.attachments[job.id] ?? EMPTY_ATTS);
@@ -237,6 +239,10 @@ export function ChatModeView({ job, onSend, onCancel, onLoadEarlier, onUpload, o
           )}
           <span>· {incognito ? 'INCOGNITO · NOT SAVED' : 'SAVED'} · NO PROJECT</span>
         </div>
+        {onRenameWorkflow && <details style={{ maxWidth: 480, margin: '8px auto 0', textAlign: 'left' }}>
+          <summary className="display-font" style={{ cursor: 'pointer', color: 'var(--color-fg-muted)', fontSize: 10, letterSpacing: '1px' }}>WORKSPACE</summary>
+          <WorkspaceRename key={job.id} workflowId={job.id} name={job.config.name} onRename={onRenameWorkflow} />
+        </details>}
       </header>
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <ChatPanel

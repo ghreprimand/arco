@@ -23,7 +23,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
-- Rename a single-worker workspace from its active tab, with saved-name feedback and preserved work.
+- Rename a single-worker workspace from its Workspace panel or a chat header disclosure, with saved-name feedback and preserved work.
 
 - Allow worker and cluster auto-compaction thresholds as low as 30%.
 

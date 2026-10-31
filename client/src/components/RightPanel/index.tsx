@@ -20,6 +20,7 @@ import { KnowledgeTab } from './KnowledgeTab';
 import { LedgerTab } from './LedgerTab';
 import { GenesisTab } from './GenesisTab';
 import { BakeoffTab } from './BakeoffTab';
+import { WorkspaceRename } from '../WorkspaceRename';
 
 // TASKS sits between PLAN and PREVIEW. Visibility is gated below on
 // `job.taskChildren` so workflows without Native Task fan-out don't see
@@ -96,7 +97,8 @@ function tabForWorkflow(map: Record<string, RightTab>, workflowId: string): Righ
 // Phase 4 Lite scaffolding. Content for REVIEW (Phase 5) and HANDOFFS
 // (Phase 6) lands in later phases; their tabs render empty-state markers
 // now so the shell is complete without shipping half-built features.
-export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, onCancelHandoff, onClearHandoffLock, onAttachPlan, onDetachPlan, onPromoteToCluster, onSpawn, onReview, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onAttachCodebaseMemory, onDetachCodebaseMemory, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, mcp }: Props) {
+export function RightPanel({ job, onRenameWorkflow, onUpdatePrimary, onCancelReview, onSend, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, onCancelHandoff, onClearHandoffLock, onAttachPlan, onDetachPlan, onPromoteToCluster, onSpawn, onReview, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onAttachCodebaseMemory, onDetachCodebaseMemory, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, mcp }: Props) {
+  const isClusterMember = useAppStore((s) => Object.values(s.clusters).some((cluster) => cluster.members.some((member) => member.workflowId === job.id)));
   const cliChanges = useAppStore((s) => s.cliChanges);
   const markPreviewSeen = useAppStore((s) => s.markPreviewSeen);
   const setActiveJob = useAppStore((s) => s.setActiveJob);
@@ -370,12 +372,15 @@ export function RightPanel({ job, onUpdatePrimary, onCancelReview, onSend, onGen
       {/* Tab body */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {effectiveTab === 'files' && (
+          <>
+          {!isClusterMember && onRenameWorkflow && <WorkspaceRename key={job.id} workflowId={job.id} name={job.config.name} onRename={onRenameWorkflow} />}
           <FilesTabBody
             job={job}
             cwd={cwd}
             subTab={filesSubTab}
             onSubTab={setFilesSubTab}
           />
+          </>
         )}
         {effectiveTab === 'activity' && <ActivityTab job={job} />}
         {effectiveTab === 'genesis' && <GenesisTab job={job} onSeedUpdate={onGenesisSeedUpdate} onScaffold={onGenesisScaffold} onCreativeArm={onGenesisCreativeArm} onAssistRequest={onGenesisAssistRequest} />}
