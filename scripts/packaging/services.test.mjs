@@ -23,6 +23,15 @@ test('service definitions quote metacharacters and pin the Node path', () => {
   assert.throws(() => renderService('linux', { ...args, node: 'bad\nvalue' }), /unsupported/);
 });
 
+test('Linux unit renders an absolute unquoted working directory', () => {
+  const args = { node: '/path & space/node', entry: '/app/arco', config: '/settings/config', home: '/data/arco%home' };
+  const unit = renderService('linux', args);
+  assert.match(unit, /^WorkingDirectory=\/data\/arco%%home$/m);
+  assert.match(unit, /^ExecStart="\/path & space\/node"/m);
+  assert.throws(() => renderService('linux', { ...args, home: '/data/with space' }), /unsupported/);
+  assert.throws(() => renderService('linux', { ...args, home: 'relative' }), /absolute/);
+});
+
 test('service installation uses injected managers and keeps prior configuration', async (t) => {
   const base = mkdtempSync(join(tmpdir(), 'arco-service-fixture-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
@@ -130,7 +139,33 @@ test('an older Arco-owned Windows definition is rewritten, and a current one is 
   f.calls.length = 0;
   assert.match(await refreshServiceDefinition({ platform: 'win32', paths: f.paths, env: f.env, run: f.run }), /current/);
   assert.equal(f.calls.length, 0);
-  assert.match(await refreshServiceDefinition({ platform: 'linux', paths: f.paths, env: f.env, run: f.run }), /Nothing to refresh/);
+});
+
+test('Linux refresh repairs an unmodified old unit and refuses an edited unit', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'arco-linux-refresh-')); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const paths = { home, config: join(home, 'service/config.json'), unit: join(home, 'unit') };
+  const calls = [];
+  const run = (cmd, args) => { calls.push([cmd, ...args]); return { status: args.includes('show') ? 1 : 0 }; };
+  await serviceAction('install', { platform: 'linux', paths, env: {}, run });
+  const old = readFileSync(paths.unit, 'utf8').replace(`WorkingDirectory=${home}`, `WorkingDirectory="${home}"`);
+  writeFileSync(paths.unit, old);
+  const saved = JSON.parse(readFileSync(paths.config, 'utf8'));
+  const { createHash } = await import('node:crypto');
+  saved.unitHash = createHash('sha256').update(old).digest('hex');
+  writeFileSync(paths.config, JSON.stringify(saved));
+  calls.length = 0;
+  const beforeConfig = readFileSync(paths.config);
+  await assert.rejects(refreshServiceDefinition({ platform: 'linux', paths, env: {}, run: () => ({ status: 1 }) }), /Could not reload/);
+  assert.equal(readFileSync(paths.unit, 'utf8'), old);
+  assert.deepEqual(readFileSync(paths.config), beforeConfig);
+  assert.match(await refreshServiceDefinition({ platform: 'linux', paths, env: {}, run }), /updated/);
+  const updated = readFileSync(paths.unit, 'utf8');
+  assert.match(updated, new RegExp(`WorkingDirectory=${home}\\n`));
+  assert.equal(JSON.parse(readFileSync(paths.config)).unitHash, createHash('sha256').update(updated).digest('hex'));
+  assert.deepEqual(calls, [['systemctl', '--user', 'daemon-reload']]);
+  writeFileSync(paths.unit, 'custom unit');
+  await assert.rejects(refreshServiceDefinition({ platform: 'linux', paths, env: {}, run }), /definition changed/);
+  assert.equal(readFileSync(paths.unit, 'utf8'), 'custom unit');
 });
 
 test('a modified definition is never replaced, and a failed registration keeps the old one', async (t) => {

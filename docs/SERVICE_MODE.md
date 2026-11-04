@@ -35,7 +35,7 @@ Direct service commands are:
 | `arco service restart` | Stop and start the service |
 | `arco service status` | Show supervisor status |
 | `arco service logs` | Print recent logs (on Windows also the raw output files) |
-| `arco service refresh` | Windows: move an older Arco-owned task definition to the current one |
+| `arco service refresh` | Linux and Windows: update an unmodified Arco-owned service definition |
 
 | Platform | Installed definition |
 | --- | --- |
@@ -47,6 +47,10 @@ Direct service commands are:
 environment values are saved at first install. Reinstalling an owned definition
 keeps that configuration. Arco refuses an existing definition it does not own
 and refuses to operate on an owned definition that was modified afterward.
+
+On Linux, the Arco home used as the service working directory must be an absolute path without whitespace, control characters, or quotes. `arco service refresh` updates an unmodified Arco-owned unit and reloads systemd. Future package updates refresh the unit before restarting it. An edited unit is left untouched.
+
+For an affected 0.1.3 Linux installation, its updater cannot refresh the older unit and may roll back when restarting fails. Install the newer package with `npm install -g arco-workbench`, then run `arco service refresh` and `arco service start`.
 
 The package uses port 3001 when available, then the next available port through
 3099, and finally an operating-system-assigned port. A selected port is saved

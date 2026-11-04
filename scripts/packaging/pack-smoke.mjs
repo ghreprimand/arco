@@ -134,6 +134,14 @@ try {
   const unitPaths = { home: env.ARCO_HOME, config: join(env.ARCO_HOME, 'service/config.json'), unit: join(home, 'unit') };
   const calls = [];
   await serviceModule.serviceAction('install', { platform: process.platform, paths: unitPaths, env: { ...env, USERNAME: 'Fixture', USERDOMAIN: 'LOCAL' }, uid: 1000, run: (cmd, args) => { calls.push([cmd, ...args]); return { status: args.includes('/Query') || args[0] === 'print' ? 1 : 0 }; } });
+  if (process.platform === 'linux' && process.env.GITHUB_ACTIONS === 'true') {
+    const verifyUnit = join(sandbox, 'arco.service');
+    cpSync(unitPaths.unit, verifyUnit);
+    const verify = spawnSync('systemd-analyze', ['--user', 'verify', verifyUnit], { encoding: 'utf8', env: process.env });
+    if (verify.error?.code === 'ENOENT') console.log('systemd-analyze unavailable; unit verification skipped.');
+    else if (verify.error || verify.status !== 0) throw new Error(`systemd unit verification failed: ${(verify.stderr || verify.error?.message || '').slice(0, 2000)}`);
+    else console.log('systemd user unit verified.');
+  }
   if (!calls.some((args) => args.includes('enable') || args.includes('bootstrap') || args.includes('/Create'))) throw new Error('Service manager did not receive the install request.');
   if (process.platform === 'win32') {
     // The service task starts node through wscript.exe and the JScript launcher written at install.
