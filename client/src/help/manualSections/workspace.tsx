@@ -67,8 +67,8 @@ export const workspace: Section[] = [
           <li>
             <strong>KNOWLEDGE dropdown</strong> - RECALL (search past
             conversations), PLANS (every plan across projects) and ARTIFACTS
-            (the standalone chromeless read-only file-explorer window: agent
-            artifacts, recents, tree).
+            (the standalone chromeless file-explorer window: agent
+            artifacts, recents, plans, storage, tree).
           </li>
           <li>
             <strong>TOOLS dropdown</strong> - TERMINAL (a PTY in the active

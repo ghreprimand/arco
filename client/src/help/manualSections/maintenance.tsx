@@ -3,11 +3,12 @@ import { Code, Note, Table, Sub} from '../../components/UserManual/components';
 
 export const maintenance: Section[] = [
   {
-  id: 'archive-explorer', group: 'The workspace', title: 'Artifacts - artifacts, recents, plans and file tree',
+  id: 'archive-explorer', group: 'The workspace', title: 'Artifacts - artifacts, recents, plans, storage and file tree',
   body: <>
   <p>
-  <strong>ARTIFACTS</strong> (in the KNOWLEDGE menu) is a read-only file browser for artifacts,
-  recents, plans and the raw tree - not a workflow or an agent.
+  <strong>ARTIFACTS</strong> (in the KNOWLEDGE menu) is a file browser for artifacts,
+  recents, plans, storage and the raw tree - not a workflow or an agent. Only PLANS
+  and STORAGE change anything; each STORAGE action asks first.
   </p>
   <ul>
   <li>
@@ -20,8 +21,12 @@ export const maintenance: Section[] = [
   </li>
   <li>
   <strong>PLANS</strong> is the plans library - every plan across projects,
-  reviewable and editable without attaching it to a workflow (the one lens
-  that writes, through the ordinary plan routes).
+  reviewable and editable without attaching it to a workflow (it writes
+  through the ordinary plan routes).
+  </li>
+  <li>
+  <strong>STORAGE</strong> shows disk use by project and offers clean-up
+  actions; see STORAGE - where disk space goes.
   </li>
   <li>
   <strong>TREE</strong> browses the raw file hierarchy.

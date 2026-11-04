@@ -288,7 +288,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       <p>
         Folds the knowledge surfaces behind one trigger: <C>Recall</C> (search
         every past conversation by keyword), <C>Plans</C> (every plan across
-        projects) and <C>Artifacts</C> (the read-only window of what agents produced).
+        projects) and <C>Artifacts</C> (the window of what agents produced, plans and disk use).
         Click to open; pick an item to launch it. See each item's own help for
         detail.
       </p>
@@ -459,12 +459,15 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Opens the standalone <strong>ARTIFACTS</strong> window: a chromeless,
-          read-only project-artifact explorer in its own browser window
-          (<C>?app=explorer</C>). Four lenses: <C>ARTIFACTS</C> (project cards +
+          Opens the standalone <strong>ARTIFACTS</strong> window: a chromeless
+          project-artifact explorer in its own browser window
+          (<C>?app=explorer</C>). Five lenses: <C>ARTIFACTS</C> (project cards +
           agent-produced artifacts, the landing home), <C>RECENTS</C> (recently
           written / changed files), <C>PLANS</C> (every plan across projects:
-          the plans library), and <C>TREE</C> (the raw file tree).
+          the plans library), <C>STORAGE</C> (disk use by project, with clean-up
+          actions that each ask first) and <C>TREE</C> (the raw file tree).
+          Only PLANS (plan edits, MARK DONE) and STORAGE change anything;
+          each STORAGE action asks first.
         </p>
         <p>
           Opens as a same-browser popup so it inherits the correct per-monitor
