@@ -19,7 +19,7 @@ export const UTILITY_AGENT_MODEL_MAX = 200;
 // Input beyond this many characters is cut before it is sent.
 export const UTILITY_JOB_INPUT_MAX_CHARS = 24_000;
 export const UTILITY_JOB_TIMEOUT_MS = 60_000;
-export const UTILITY_JOB_MAX_OUTPUT_TOKENS = 600;
+export const UTILITY_JOB_MAX_OUTPUT_TOKENS = 2048;
 
 export function sanitizeUtilityAgent(raw: unknown): UtilityAgent | null {
   if (!raw || typeof raw !== 'object') return null;

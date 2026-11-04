@@ -6,7 +6,9 @@ export function describeUtilityFailure(result: UtilityJobResult): string {
   if (result.status === 'cancelled') return 'Cancelled.';
   if (result.reason === 'not_signed_in') return 'Sign in to the utility agent provider and try again.';
   if (result.reason === 'empty_answer') return 'The utility agent returned an empty reply.';
-  if (result.reason === 'unreadable_answer' || result.reason === 'non_text_answer' || result.reason === 'output_too_long') return 'The utility agent returned an unreadable reply.';
+  if (result.reason === 'unreadable_answer') return 'The utility agent returned an unreadable reply.';
+  if (result.reason === 'non_text_answer') return 'The utility agent returned unsupported non-text content.';
+  if (result.reason === 'output_too_long') return 'The utility agent reply was too long or was cut off.';
   const status = /^(?:provider_http_|http_)([1-5][0-9]{2})$/.exec(result.reason ?? '');
   if (status) return `The utility agent provider returned an error (HTTP ${status[1]}).`;
   if (result.reason === 'unavailable') return 'This provider is unavailable for a utility request.';

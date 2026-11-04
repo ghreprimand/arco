@@ -934,7 +934,7 @@ export const configuration: Section[] = [
   <p>Models for each provider are chosen as buttons under MODEL; SAVE keeps the choice.</p>
   <ul>
   <li>Nothing is chosen for you. Arco only suggests a fast, low-cost model; it is used after you save it. CLEAR removes the choice.</li>
-  <li>A utility job starts from a button you click, has no tools, reads only facts Arco collects, stops after 60 seconds and can be cancelled. The answer shows which model gave it and the facts it was given. A failed request explains the cause when available and names the model tried.</li>
+  <li>A utility job starts from a button you click, has no tools, reads only facts Arco collects, stops after 60 seconds and can be cancelled. The answer shows which model gave it and the facts it was given. A failed request explains the cause when available and names the model tried. A reply that is too long or cut off is reported instead of used.</li>
   <li>TEST sends one fixed request to confirm the choice answers. It shows a still-working note while a cold agent starts.</li>
   <li>Where a feature has its own agent choice, USE UTILITY AGENT fills that choice in with your utility agent. It never changes a choice you saved earlier, and the feature still works with its own agent.</li>
   <li>The facts of each job are sent to the chosen provider. Any cost depends on that provider.</li>

@@ -168,15 +168,29 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
           system: [{ type: 'text', text: CLAUDE_IDENTITY }, { type: 'text', text: req.instructions }],
           messages: [{ role: 'user', content: req.prompt }],
         }, { signal });
-        if (!Array.isArray(resp.content)) throw new EvaluatorRefused('unreadable_answer');
-        if (resp.content.some((b) => b.type !== 'text')) throw new EvaluatorRefused('non_text_answer');
-        const text = resp.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-        if (text.length > outputCharCap(req.maxOutputTokens)) throw new EvaluatorRefused('output_too_long');
+        const blocks: unknown = resp.content;
+        const types = Array.isArray(blocks) ? blocks.map((block: unknown) => {
+          const type = block && typeof block === 'object' && 'type' in block ? (block as { type?: unknown }).type : undefined;
+          return typeof type === 'string' && ['text', 'thinking', 'redacted_thinking', 'tool_use'].includes(type) ? type : 'other';
+        }) : [];
+        const refuse = (reason: string): never => {
+          console.warn(`[arco] Claude evaluator refused: ${reason}; block types: ${types.slice(0, 20).join(',') || 'none'}`);
+          throw new EvaluatorRefused(reason);
+        };
+        if (!Array.isArray(blocks)) return refuse('unreadable_answer');
+        if (resp.stop_reason === 'tool_use' || types.includes('tool_use') || types.includes('other')) return refuse('non_text_answer');
+        if (blocks.some((b: unknown) => b && typeof b === 'object' && 'type' in b && b.type === 'text' && (!('text' in b) || typeof b.text !== 'string'))) return refuse('unreadable_answer');
+        const text = blocks.filter((b: { type?: string }) => b?.type === 'text').map((b: { text: string }) => b.text).join('');
+        if (resp.stop_reason === 'max_tokens' || text.length > outputCharCap(req.maxOutputTokens)) return refuse('output_too_long');
+        if (!text.trim()) return refuse('empty_answer');
         return text;
       } catch (error) {
         if (signal.aborted) throw signal.reason;
         if (error instanceof EvaluatorRefused) throw error;
-        if (error instanceof SyntaxError) throw new EvaluatorRefused('unreadable_answer');
+        if (error instanceof SyntaxError) {
+          console.warn('[arco] Claude evaluator refused: unreadable_answer; block types: none');
+          throw new EvaluatorRefused('unreadable_answer');
+        }
         if (error instanceof Anthropic.APIError) {
           if (error.status === 401) throw new EvaluatorRefused('not_signed_in');
           if (error.status) throw new EvaluatorRefused(`provider_http_${error.status}`);

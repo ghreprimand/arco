@@ -56,6 +56,27 @@ test('Claude: one Messages request without tools from Native credentials; non-te
   assert.match(cap.reason!, /Claude Native sign-in/);
 });
 
+test('Claude utility accepts thinking blocks, refuses other content and identifies oversized replies', async () => {
+  let content: unknown[] = [{ type: 'thinking', thinking: 'private thought' }, { type: 'text', text: 'Tidy proposal' }, { type: 'redacted_thinking', data: 'private data' }];
+  let stopReason = 'end_turn';
+  const fetchImpl = (async () => new Response(JSON.stringify({ id: 'msg', type: 'message', role: 'assistant', model: 'm', content, stop_reason: stopReason, usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  const a = claudeAdapter({ fetchImpl, tokens: async () => ({ accessToken: 'fixture' }) });
+  assert.equal(await a.evaluate({ ...req, freeText: true }), 'Tidy proposal');
+  content = [{ type: 'thinking', thinking: 'private thought' }];
+  await assert.rejects(a.evaluate({ ...req, freeText: true }), /empty_answer/);
+  content = [{ type: 'text', text: 'x'.repeat(513) }];
+  await assert.rejects(a.evaluate({ ...req, freeText: true }), /output_too_long/);
+  content = [{ type: 'text', text: 'unfinished' }]; stopReason = 'max_tokens';
+  await assert.rejects(a.evaluate({ ...req, freeText: true }), /output_too_long/);
+  stopReason = 'end_turn'; content = [{ type: 'thinking', thinking: 'private thought' }, { type: 'tool_use', name: 'secret name', input: {} }];
+  const logs: string[] = []; const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => logs.push(args.join(' '));
+  try { await assert.rejects(a.evaluate({ ...req, freeText: true }), /non_text_answer/); }
+  finally { console.warn = originalWarn; }
+  assert.match(logs.join(' '), /non_text_answer; block types: thinking,tool_use/);
+  assert.doesNotMatch(logs.join(' '), /private thought|secret name/);
+});
+
 test('Claude utility requests resolve aliases and identify provider, auth and timeout failures', async () => {
   let model = '';
   let status = 200;
