@@ -473,7 +473,8 @@ export const headerHelp: Record<string, HelpEntry> = {
           Opens as a same-browser popup so it inherits the correct per-monitor
           DPI; if the popup is refused it falls back to a server-spawned
           chromeless window, then a plain new tab. Read-only apart from plan
-          edits in PLANS: zero model authority.
+          edits and MARK DONE in PLANS and the confirmed STORAGE actions; zero
+          model authority.
         </p>
       </>
     ),
