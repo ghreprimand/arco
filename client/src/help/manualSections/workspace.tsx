@@ -248,7 +248,8 @@ export const workspace: Section[] = [
           After a file-changing turn, a changed-files line opens that turn's
           captured checkpoint diff. UNDO THIS TURN uses the existing restore
           confirmation and safety snapshot; restoring also reverts later work
-          in that folder.
+          in that folder. After it runs the line reads Undone and
+          UNDO THIS TURN stays disabled.
         </p>
         <h4 className="manual-sub">Chat controls</h4>
         <p>

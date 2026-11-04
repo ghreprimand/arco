@@ -154,6 +154,8 @@ safety-snapshot note before sending. execFile argv only; wfid/seq validated like
 
 ## Turn changes in chat
 
+After a restore, `checkpoint_reverted` carries `restoredSeq` (the restored checkpoint's seq, which the event envelope would otherwise replace); the turn line shows `Undone`, `UNDO THIS TURN` is disabled and the diff title reads `DIFF: UNDONE TURN CHANGES`.
+
 After a settled turn, an end checkpoint is compared with its pre-turn checkpoint using bounded `git diff --numstat`. A non-empty result is persisted in the workflow event log and appears under the reply as `Changed N files`; the line opens the captured ref-to-ref diff. `UNDO THIS TURN` uses the existing checkpoint revert and confirmation, including its safety snapshot. The confirmation makes clear that restoring a checkpoint also reverts later changes in that working tree.
 
 If another managed writer overlapped the same folder at any point, the line says other agents were working there and offers VIEW DIFF only, not undo. Capture is skipped when the pre-turn snapshot cannot finish in two seconds. Isolated cluster members use a separate scratch directory and do not produce this project-checkpoint line. The end capture must settle before the next queued turn starts. A missing or failed capture or oversized diff produces no summary, rather than a misleading partial one. Large files excluded from shadow checkpoints are noted. Git checkpoints follow Git ignore rules, so ignored files are outside the captured diff. Git and non-git folders use their respective checkpoint stores; both use immutable refs for the viewer.

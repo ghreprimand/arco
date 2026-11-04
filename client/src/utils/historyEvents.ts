@@ -203,6 +203,7 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
           + (msg.limitation ? ` · ${trim80(msg.limitation)}` : ''),
         at: msg.ts ?? fallbackAt,
         reverted: true,
+        ...(typeof msg.restoredSeq === 'number' ? { revertedCheckpointSeq: msg.restoredSeq } : {}),
       };
     default:
       return null;

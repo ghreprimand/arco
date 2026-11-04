@@ -32,10 +32,12 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
 
   const ref = entry.checkpointRef;
   const seq = entry.checkpointSeq;
+  // A turn whose checkpoint was restored shows as undone; a second undo cannot run.
+  const undone = useAppStore((s) => turn != null && seq != null && (s.jobs[workflowId]?.historyEvents ?? []).some((e) => e.reverted && e.revertedCheckpointSeq === seq));
   const fileLabel = entry.summary ?? '';
 
   const doRevert = () => {
-    if (wsSendRaw == null || seq == null) return;
+    if (wsSendRaw == null || seq == null || undone) return;
     setSubmitting(true);
     // Server takes the safety snapshot FIRST, then restores; it broadcasts
     // checkpoint_created (safety) + checkpoint_reverted (or an error) back.
@@ -55,13 +57,14 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
         {turn ? turn.otherWriters ? 'VIEW DIFF' : `Changed ${turn.fileCount} ${turn.fileCount === 1 ? 'file' : 'files'} (+${turn.added} -${turn.removed}${turn.binaryFiles ? `, ${turn.binaryFiles} binary` : ''})` : 'VIEW DIFF VS NOW'}
       </ActionBtn>
       {!turn?.otherWriters && <ActionBtn
-        disabled={seq == null || busy || submitting}
+        disabled={seq == null || busy || submitting || undone}
         onClick={() => setConfirmOpen(true)}
-        title={busy ? 'Cancel the in-flight turn before reverting' : undefined}
+        title={undone ? 'This turn has already been undone' : busy ? 'Cancel the in-flight turn before reverting' : undefined}
         dataHelp={turn ? 'chat.turn-changes' : 'rightpanel.history.checkpoint'}
       >
         {turn ? 'UNDO THIS TURN' : 'REVERT TO HERE'}
       </ActionBtn>}
+      {undone && <span data-testid="turn-undone" className="display-font" style={{ color: 'var(--color-accent-secondary)', fontSize: '10px', letterSpacing: '1.5px' }}>Undone</span>}
 
       {turn?.otherWriters && <span style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{turn.fileCount} {turn.fileCount === 1 ? 'file' : 'files'} changed in this folder during this turn (other agents were also working here).</span>}
       {turn && <span style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{turn.paths.join(', ')}{turn.pathsTruncated ? ' ...' : ''}{turn.skippedLargeFiles ? ` (at least ${turn.skippedLargeFiles} large ${turn.skippedLargeFiles === 1 ? 'file' : 'files'} skipped)` : ''}</span>}
@@ -117,7 +120,7 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
             }}
           >
             <div className="display-font glow-text-cyan" style={{ fontSize: '12px', letterSpacing: '1px' }}>
-              {turn ? 'DIFF: TURN CHANGES' : `DIFF: CHECKPOINT ${seq} VS NOW`}
+              {turn ? (undone ? 'DIFF: UNDONE TURN CHANGES' : 'DIFF: TURN CHANGES') : `DIFF: CHECKPOINT ${seq} VS NOW`}
             </div>
             <ActionBtn onClick={() => setDiffOpen(false)}>CLOSE</ActionBtn>
           </div>

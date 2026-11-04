@@ -63,6 +63,19 @@ async def main():
         await expect(page.get_by_text('pre-revert safety snapshot', exact=False)).to_be_visible()
         await page.get_by_role('button', name='REVERT', exact=True).click()
         assert await page.evaluate('sent') == [{'type':'revert_to_checkpoint','workflowId':'fixture','seq':8}]
+        # Once the server confirms the restore, the line reads Undone, undo is disabled, and the diff is labelled as the undone change.
+        await page.evaluate('''async () => {
+          const {useAppStore:s}=await import('/src/stores/appStore.ts');
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          s.getState().createJob('fixture',{name:'Demo',workingDirectory:'/projects/demo',primaryProvider:'codex',primaryModel:'fixture',primaryEffort:'low',skipPermissions:false});
+          receive({type:'checkpoint_reverted',workflowId:'fixture',seq:40,restoredSeq:8,fileCount:2,safetySnapshotRef:'refs/arco/fixture/39',safetySnapshotSeq:39,backend:'git',ts:Date.now()},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }''')
+        await expect(page.get_by_test_id('turn-undone')).to_have_text('Undone')
+        await expect(page.get_by_role('button', name='UNDO THIS TURN', exact=True)).to_be_disabled()
+        await page.get_by_role('button', name='Changed 2 files (+3 -1)').click()
+        await expect(page.get_by_text('DIFF: UNDONE TURN CHANGES')).to_be_visible()
+        await page.get_by_role('button', name='CLOSE', exact=True).click()
+        assert len(await page.evaluate('sent')) == 1
         await page.evaluate('''async () => {
           const React=(await import('/node_modules/.vite/deps/react.js')).default;
           const {CheckpointActions}=await import('/src/components/CheckpointActions.tsx');
