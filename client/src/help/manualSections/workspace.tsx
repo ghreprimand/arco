@@ -508,7 +508,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="us">USAGE</strong>,
-              <>Token usage trends for the project. STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked.</>,
+              <>Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked.</>,
             ],
             [
               <strong key="pv">PREVIEW</strong>,

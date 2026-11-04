@@ -9,6 +9,10 @@ This page explains where Arco's disk space goes, what Arco will change to use le
 - Old log pieces compress very well. P7.3 seals them into compressed files; nothing is deleted and every reader still sees the full history.
 - Artifacts get size warnings with a permanent approval (P7.4). Closed conversations can be archived or deleted on the operator's click (P7.5). Plans are never touched.
 
+## Plans are permanent
+
+Plans (`<project>/.arco/plans/<id>.md`, their `.refs/` folders and the plan history in `plans/.history/`) are stored apart from conversation folders. No sealing, archive, delete, scratch clean-up, size warning or disk-budget action in P7.2 to P7.5 touches them, and plans need no KEEP mark. Tests assert that sealing a log, and later archiving or deleting a conversation, leaves every plan and reference doc in place.
+
 ## Where the space goes
 
 ### How it was measured
