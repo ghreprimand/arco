@@ -28,6 +28,8 @@ interface Props {
   pendingMail?: number;
   // Click on the mail mark of an idle member with waiting mail: nudge that member.
   onNudge?: () => void;
+  // The member was nudged and has not started its turn yet.
+  nudged?: boolean;
   // Director card only: a finished reply the operator has not looked at yet.
   newReply?: boolean;
   focused: boolean;
@@ -53,7 +55,7 @@ function lastAssistantText(job: JobState | undefined): string | null {
   return null;
 }
 
-export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, newReply = false, focused, onClick, dragProps, dragOver }: Props) {
+export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver }: Props) {
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';
@@ -164,6 +166,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
           const label = `${pendingMail} ${noun} waiting; delivered at this worker's next turn${idle && onNudge ? '. Click to nudge.' : ''}`;
           const style: CSSProperties = { flexShrink: 0, color: idle ? 'var(--color-warning)' : 'var(--color-fg-muted)', border: `1px solid ${idle ? 'var(--color-warning)' : 'var(--color-border-hairline)'}`, background: 'transparent', padding: '2px 8px', fontSize: '12px', fontWeight: 600, letterSpacing: 0, whiteSpace: 'nowrap', opacity: idle ? 1 : 0.7, fontFamily: 'inherit' };
           const text = `\u2709 ${pendingMail}`;
+          if (idle && nudged) return <span data-help="cluster.member-mail" data-mail-state="nudged" role="status" aria-label={`${displayName} was nudged and will start its turn shortly`} title="Nudged: this member should start its turn shortly and read its mail." style={{ ...style, color: 'var(--color-accent-secondary)', borderColor: 'var(--color-accent-secondary)' }}>Nudged</span>;
           return idle && onNudge
             ? <button type="button" data-help="cluster.member-mail" data-mail-state="idle" aria-label={label} title={label} onClick={(e) => { e.stopPropagation(); onNudge(); }} style={{ ...style, cursor: 'pointer' }}>{text}</button>
             : <span data-help="cluster.member-mail" data-mail-state={idle ? 'idle' : 'busy'} role="status" aria-live="off" aria-label={label} title={label} style={style}>{text}</span>;

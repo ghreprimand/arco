@@ -1,5 +1,6 @@
 """Exercise cluster mail indicators with isolated snapshots and explicit sends."""
 import asyncio
+import re
 import os
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -91,8 +92,18 @@ async def main():
         assert await page.evaluate('sent.length') == 0
         await idle_mail.click()
         assert await page.evaluate('sent.map(x=>[x[0],x[3]])') == [['worker-a','steer']]
+        # The mark and the composer button confirm the nudge until the member starts its turn.
+        await expect(cards.nth(0).locator('[data-help="cluster.member-mail"]')).to_have_text('Nudged')
+        await expect(cards.nth(0).locator('[data-help="cluster.member-mail"]')).to_have_attribute('data-mail-state','nudged')
+        await expect(nudge).to_have_text('NUDGED 1')
+        assert await cards.nth(0).locator('button[data-help="cluster.member-mail"]').count() == 0
         await expect(page.get_by_text('Nudged 1 member')).to_have_count(0)
         assert await page.evaluate("s.getState().clusterFocusedMember['cluster-a']") != 'worker-a'
+        # Once the nudged member starts its turn, the confirmation clears.
+        await page.evaluate("snapshot('cluster-a', {'worker-a':1,'worker-b':3,'removed-worker':8}, [{workflowId:'worker-a',displayName:'Alpha',status:'busy'}, window.members[1]])")
+        await expect(cards.nth(0).locator('[data-help="cluster.member-mail"]')).not_to_have_text('Nudged')
+        await expect(nudge).not_to_have_text('NUDGED 1')
+        await page.evaluate("snapshot('cluster-a', {'worker-a':1,'worker-b':3,'removed-worker':8})")
         await page.evaluate('sent.length=0')
         await nudge.focus()
         await page.keyboard.press('Enter')
@@ -107,9 +118,9 @@ async def main():
         await dialog.get_by_text('Beta',exact=True).click()
         await dialog.get_by_role('button',name='SEND NUDGE (1)').click()
         assert await page.evaluate('sent.map(x=>[x[0],x[3]])') == [['worker-b','steer']]
-        await expect(nudge).to_have_accessible_name('NUDGE: 4 pending messages across 2 members')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ 4\ pending\ messages\ across\ 2\ members$'))
         await expect(page.get_by_label('SHOW BROADCAST')).to_have_count(0)
-        await expect(nudge).to_have_accessible_name('NUDGE: 4 pending messages across 2 members')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ 4\ pending\ messages\ across\ 2\ members$'))
         assert await nudge.evaluate('el=>getComputedStyle(el).backgroundColor') != empty_background
         await nudge.click()
         await expect(dialog.locator('input[type=checkbox]:checked')).to_have_count(0)
@@ -117,13 +128,13 @@ async def main():
         assert await page.evaluate('sent.length') == 1
         await page.evaluate("snapshot('cluster-a', {'worker-b':1}, [members[1]])")
         await expect(cards).to_have_count(1)
-        await expect(nudge).to_have_accessible_name('NUDGE: 1 pending message across 1 member')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ 1\ pending\ message\ across\ 1\ member$'))
         await page.evaluate("snapshot('cluster-a', {})")
-        await expect(nudge).to_have_accessible_name('NUDGE: no pending messages')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ no\ pending\ messages$'))
         await page.evaluate("snapshot('cluster-b', {'worker-a':2}); show('cluster-b')")
-        await expect(nudge).to_have_accessible_name('NUDGE: 2 pending messages across 1 member')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ 2\ pending\ messages\ across\ 1\ member$'))
         await page.evaluate("snapshot('cluster-b', {'worker-a':0,'worker-b':2}, members, true)")
-        await expect(nudge).to_have_accessible_name('NUDGE: 2 pending messages across 1 member')
+        await expect(nudge).to_have_accessible_name(re.compile(r'NUDGE:\ 2\ pending\ messages\ across\ 1\ member$'))
         alert=page.get_by_role('button',name='Mail alerts enabled')
         await expect(alert).to_have_attribute('aria-pressed','true')
         await alert.click()

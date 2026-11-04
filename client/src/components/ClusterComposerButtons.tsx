@@ -10,14 +10,17 @@ export interface ClusterComposerControls {
   onChooseRecipients: () => void;
   pendingTotal: number;
   pendingMembers: number;
+  // Members nudged that have not started their turn yet.
+  nudgedCount?: number;
   onNudge: () => void;
 }
 
 export function ClusterComposerButtons({ controls }: { controls: ClusterComposerControls }) {
-  const { recipientLabel, onChooseRecipients, pendingTotal, pendingMembers, onNudge } = controls;
+  const { recipientLabel, onChooseRecipients, pendingTotal, pendingMembers, nudgedCount = 0, onNudge } = controls;
   const nudgeLabel = pendingTotal > 0
     ? `NUDGE: ${pendingTotal} pending ${pendingTotal === 1 ? 'message' : 'messages'} across ${pendingMembers} ${pendingMembers === 1 ? 'member' : 'members'}`
     : 'NUDGE: no pending messages';
+  const nudgedNote = nudgedCount > 0 ? `${nudgedCount} ${nudgedCount === 1 ? 'member was' : 'members were'} nudged and ${nudgedCount === 1 ? 'has' : 'have'} not started yet. ` : '';
   return (
     <>
       <button
@@ -37,7 +40,7 @@ export function ClusterComposerButtons({ controls }: { controls: ClusterComposer
         className="display-font"
         data-help="cluster.broadcast.nudge"
         data-testid="cluster-nudge"
-        aria-label={nudgeLabel}
+        aria-label={`${nudgedNote}${nudgeLabel}`}
         title="Remind selected members to check their mail. Active members pick it up when able; idle members start a turn."
         onClick={onNudge}
         style={{
@@ -47,7 +50,7 @@ export function ClusterComposerButtons({ controls }: { controls: ClusterComposer
           border: pendingTotal > 0 ? '1px solid var(--color-warning)' : '1px solid var(--color-accent-secondary-dim, var(--color-accent-secondary))',
         }}
       >
-        NUDGE{pendingTotal > 0 ? ` ${pendingTotal}` : ''}
+        {nudgedCount > 0 ? `NUDGED ${nudgedCount}` : `NUDGE${pendingTotal > 0 ? ` ${pendingTotal}` : ''}`}
       </button>
     </>
   );

@@ -140,7 +140,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
         The number of messages waiting for this member. They are delivered at
         its next turn. While the member is busy the mark is muted. When the
         member is idle with mail it is highlighted like a question, counts the
-        tab as Needs you, and clicking it nudges that member. It makes no
+        tab as Needs you, and clicking it nudges that member. After a nudge the
+        mark reads Nudged until the member starts its turn. It makes no
         sound and shows no pop-up.
       </p>
     ),
