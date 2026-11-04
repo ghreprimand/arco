@@ -10,7 +10,7 @@ import type { WebSocket } from 'ws';
 const root = await mkdtemp(path.join(tmpdir(), 'arco-tuneup-safety-'));
 installIsolatedTestHome(root);
 after(async () => { await rm(root, { recursive: true, force: true }); });
-const { backupAndWriteInstructionFile, discoverInstructionFiles, instructionMetrics } = await import('./runMdTuneup.js');
+const { backupAndWriteInstructionFile, discoverInstructionFiles, discoverInstructionFilesWithLinks, instructionMetrics } = await import('./runMdTuneup.js');
 const { rememberTuneupUndo, undoTuneup } = await import('./mdTuneupUndo.js');
 
 test('candidate analysis reports lines, a byte-based token estimate and deterministic hints', async () => {
@@ -26,6 +26,29 @@ test('candidate analysis reports lines, a byte-based token estimate and determin
   const candidates = await discoverInstructionFiles(cwd);
   assert.equal(candidates[0]?.lines, 3);
   assert.equal(candidates[0]?.approximateTokens, metrics.approximateTokens);
+});
+
+test('discovery reports instruction links without ever treating them as write targets', async (t) => {
+  const cwd = path.join(root, 'linked-candidates'); await mkdir(cwd);
+  await mkdir(path.join(cwd, 'nested'));
+  await writeFile(path.join(cwd, 'CLAUDE.md'), 'candidate');
+  await writeFile(path.join(cwd, 'other.md'), 'not a candidate');
+  const outside = path.join(root, 'external-instruction'); await writeFile(outside, 'outside');
+  try {
+    await symlink('CLAUDE.md', path.join(cwd, 'AGENTS.md'));
+    await symlink('../other.md', path.join(cwd, 'nested', 'CLAUDE.md'));
+    await symlink(outside, path.join(cwd, 'CLAUDE.local.md'));
+    await symlink('missing', path.join(cwd, 'nested', 'AGENTS.md'));
+  } catch (error) { if (['EPERM', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) return t.skip('symlinks unavailable'); throw error; }
+  const result = await discoverInstructionFilesWithLinks(cwd);
+  assert.deepEqual(result.candidates.map((item) => item.path), ['CLAUDE.md']);
+  assert.deepEqual(result.candidates[0]?.alsoReadAs, ['AGENTS.md']);
+  assert.deepEqual(result.skippedLinks.map((item) => item.path).sort(), ['CLAUDE.local.md', path.join('nested', 'CLAUDE.md'), path.join('nested', 'AGENTS.md')].sort());
+  assert.match(result.skippedLinks.find((item) => item.path === 'CLAUDE.local.md')!.reason, /outside/);
+  assert.match(result.skippedLinks.find((item) => item.path === path.join('nested', 'CLAUDE.md'))!.reason, /not a discovered/);
+  assert.match(result.skippedLinks.find((item) => item.path === path.join('nested', 'AGENTS.md'))!.reason, /cannot be resolved/);
+  await assert.rejects(backupAndWriteInstructionFile(cwd, 'AGENTS.md', 'replacement', Date.now()));
+  assert.equal(await readFile(path.join(cwd, 'CLAUDE.md'), 'utf8'), 'candidate');
 });
 
 test('accept refuses a symlink that leaves the project', async (t) => {

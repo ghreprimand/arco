@@ -39,7 +39,7 @@ import { buildClusterPlanReviewContent, buildPlanReviewContent, buildPreviewCapt
 import { runReviewer } from '../primitives/runReviewer.js';
 import { runResearch } from '../primitives/runResearch.js';
 import { runDocEdit } from '../primitives/runDocEdit.js';
-import { runMdTuneup, backupAndWriteInstructionFile, discoverInstructionFiles } from '../primitives/runMdTuneup.js';
+import { runMdTuneup, backupAndWriteInstructionFile, discoverInstructionFilesWithLinks } from '../primitives/runMdTuneup.js';
 import { rememberTuneupUndo, undoTuneup } from '../primitives/mdTuneupUndo.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
 import { RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
@@ -2012,10 +2012,10 @@ export async function handleMdTuneupCandidatesRequest(
     send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates: [] });
     return;
   }
-  const candidates = await discoverInstructionFiles(cwd).catch(() => []);
+  const { candidates, skippedLinks } = await discoverInstructionFilesWithLinks(cwd).catch(() => ({ candidates: [], skippedLinks: [] }));
   const providerDefault = tuneupBaseNameForProvider(wf.primary.provider);
-  const defaultPath = candidates.find((c) => c.path === providerDefault)?.path;
-  send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates, defaultPath });
+  const defaultPath = candidates.find((c) => c.path === providerDefault || c.alsoReadAs?.includes(providerDefault))?.path;
+  send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates, skippedLinks, defaultPath });
 }
 
 export async function handleMdTuneupRequest(

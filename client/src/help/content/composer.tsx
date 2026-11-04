@@ -303,7 +303,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         Opens the agent-instruction tune-up flow for files like{' '}
         <C>CLAUDE.md</C>, <C>CLAUDE.local.md</C>, and <C>AGENTS.md</C>. Arco
         shows line counts, approximate tokens, deterministic hints and VIEW
-        before any model runs. Review the proposed diff before accepting. UNDO
+        before any model runs. Links to listed instruction files appear as other names on their target; links outside the project or to unlisted files are skipped. Review the proposed diff before accepting. UNDO
         restores the backup; a file changed since acceptance requires confirmation.
       </p>
     ),

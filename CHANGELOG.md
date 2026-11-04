@@ -9,6 +9,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Add REFINE to the plan draft banner: type a short note and the same agent revises the draft; the new draft replaces the old one, nothing is saved until you attach it, and it can be repeated. In a cluster tab the only save button is ATTACH TO CLUSTER (ATTACH TO WORKER is gone); a single workflow keeps SAVE & ATTACH.
 
+### Changed
+
+- Show linked instruction-file names on their target in TUNE UP AGENT FILES and explain skipped links.
+
 ## v0.1.3 - 2026-11-04
 
 ### Added

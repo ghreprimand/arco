@@ -1578,7 +1578,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           useMdTuneupStore.getState().onUndone(msg.workflowId, { undoId: msg.undoId, ok: msg.ok, conflictHash: msg.conflictHash, safetyBackupPath: msg.safetyBackupPath, error: msg.error });
           break;
         case 'md_tuneup_candidates':
-          useMdTuneupStore.getState().onCandidates(msg.workflowId, msg.candidates, msg.defaultPath);
+          useMdTuneupStore.getState().onCandidates(msg.workflowId, msg.candidates, msg.defaultPath, msg.skippedLinks);
           break;
 
         // Director/workers Stage K — operator-armed orchestration assist
