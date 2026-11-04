@@ -6,7 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import type { CreatorPrefill } from '../../stores/appStore.types';
 import {
-  openWork, organizationAvailable, parseProjects, projectLabels, scanFolderOf, rootsOf, searchProjects, workForProject,
+  openWork, boundProjects, conversationStarted, organizationAvailable, parseProjects, projectLabels, scanFolderOf, rootsOf, searchProjects, workForProject,
   type HomeProject, type HomeRoot, type OpenWorkItem,
 } from '../../utils/homeModel';
 import { ProjectCard } from './ProjectCard';
@@ -45,12 +45,20 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState('');
   const [hasChatted, setHasChatted] = useState(() => localStorage.getItem('arco-home-started-chat') === '1');
+  const [savedChats, setSavedChats] = useState(0);
+  const [savedClusters, setSavedClusters] = useState(0);
+  const [guideHidden, setGuideHidden] = useState(() => localStorage.getItem('arco-home-guide-hidden') === '1');
   useEffect(() => {
     let alive = true;
     void fetch('/api/chats').then(r => r.ok ? r.json() : null).then(body => {
-      if (alive && Array.isArray(body?.chats) && body.chats.some((chat: { config?: { voiceOperator?: boolean } }) => !chat.config?.voiceOperator)) {
-        localStorage.setItem('arco-home-started-chat', '1'); setHasChatted(true);
+      if (alive && Array.isArray(body?.chats)) {
+        const n = body.chats.filter((chat: { config?: { voiceOperator?: boolean } }) => !chat.config?.voiceOperator).length;
+        setSavedChats(n);
+        if (n > 0) { localStorage.setItem('arco-home-started-chat', '1'); setHasChatted(true); }
       }
+    }).catch(() => {});
+    void fetch('/api/clusters').then(r => r.ok ? r.json() : null).then(body => {
+      if (alive && Array.isArray(body?.clusters)) setSavedClusters(body.clusters.length);
     }).catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -59,6 +67,9 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const [workExpanded, setWorkExpanded] = useState(false);
   const [workColumns, setWorkColumns] = useState(3);
   const workProbe = useRef<HTMLDivElement>(null);
+  const projectProbe = useRef<HTMLDivElement>(null);
+  const [projectColumns, setProjectColumns] = useState(3);
+  const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [browserRoot, setBrowserRoot] = useState('');
   const [activity, setActivity] = useState<Record<string, number>>({});
@@ -122,8 +133,10 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const waiting = work.filter(waitingFor).length;
   const providerReady = anyPrimaryProviderConnected(auth, p => settings?.enabledProviders?.[p] !== false, settings?.claude?.transport);
   const chatOpen = work.some(item => item.kind === 'chat');
+  const savedSessions = Object.values(activity).filter(at => at > 0).length;
+  const started = conversationStarted({ openWork: work.length, savedChats, savedClusters, savedSessions, remembered: hasChatted });
   useEffect(() => { if (chatOpen && !hasChatted) { localStorage.setItem('arco-home-started-chat', '1'); setHasChatted(true); } }, [chatOpen, hasChatted]);
-  const gettingStarted = projects !== null && (!providerReady || availableProjects(projects) === 0 || !(hasChatted || chatOpen));
+  const gettingStarted = projects !== null && !guideHidden && (!providerReady || availableProjects(projects) === 0 || !started);
   const operatorName = settings?.operatorName?.trim();
   const hour = new Date().getHours();
   const greeting = operatorName ? `Good ${hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'}, ${operatorName}` : 'Welcome back';
@@ -160,6 +173,17 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const labels = useMemo(() => projectLabels(projects ?? []), [projects]);
   const availableCount = (projects ?? []).filter(p => p.exists && !p.archived).length;
   const archivedCount = (projects ?? []).filter((p) => p.archived).length;
+  const showProjects = availableCount > 0 || !gettingStarted || !!loadError || archivedCount > 0;
+  useEffect(() => {
+    const probe = projectProbe.current;
+    if (!probe || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setProjectColumns(Math.max(1, getComputedStyle(probe).gridTemplateColumns.split(' ').filter(Boolean).length || 1));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(probe);
+    return () => observer.disconnect();
+  }, [showProjects]);
+  const bound = boundProjects(filtered, projectColumns, projectsExpanded, query.trim().length > 0);
   const start = (prefill: CreatorPrefill) => openCreatorWith(prefill);
   const openItem = (item: OpenWorkItem) => (item.kind === 'cluster' ? setActiveCluster(item.id) : setActiveJob(item.id));
 
@@ -197,10 +221,10 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         <HomeStatus running={running} waiting={waiting} />
       </header>
       {startControls}
-      {gettingStarted && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
+      {gettingStarted && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><button type="button" className="home-guide-hide" aria-label="Hide the getting started guide" data-help="home.getting-started-hide" onClick={() => { localStorage.setItem('arco-home-guide-hidden', '1'); setGuideHidden(true); }}>HIDE</button><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
         <li><span>{providerReady ? '✓' : '1'}</span><a href="#connections">Connect a provider</a></li>
         <li><span>{availableCount ? '✓' : '2'}</span><button type="button" onClick={() => setLocationOpen(true)}>Add a project folder</button></li>
-        <li><span>{hasChatted || chatOpen ? '✓' : '3'}</span><button type="button" onClick={() => start({ mode: 'chat' })}>Start a chat</button></li>
+        <li><span>{started ? '✓' : '3'}</span><button type="button" onClick={() => start({ mode: 'chat' })}>Start a conversation</button></li>
       </ol>{availableCount === 0 && <button type="button" onClick={() => setAddOpen(true)}>Open another folder</button>}</section>}
 
       {work.length > 0 && <section aria-labelledby="home-open" data-help="home.open-work">
@@ -221,7 +245,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
       </section>}
 
 
-      {(availableCount > 0 || !gettingStarted || !!loadError || archivedCount > 0) && <section aria-labelledby="home-projects" data-help="home.projects">
+      {showProjects && <section aria-labelledby="home-projects" data-help="home.projects">
         <div className="home-project-tools"><h2 id="home-projects">Projects</h2>
           <label data-help="home.locations">Location <select aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); setBrowserRoot(e.target.value || scanFolder || ''); }}><option value="">All locations</option>{roots?.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (unavailable)'}</option>)}</select></label>
           <button type="button" className="home-primary" data-add-location onClick={() => setLocationOpen(true)}>Add project location</button>
@@ -239,12 +263,16 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         {projects && !organization && <p role="alert" className="home-feedback">Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Folders are still listed; nothing was changed.</p>}
         {projects && availableCount === 0 && projects.length > 0 && !query && <p className="home-feedback">No available folders. Reconnect a missing location or open another folder.</p>}
         {projects && projects.length > 0 && shown.length === 0 && <p className="home-feedback">No folder matches "{query}".</p>}
+        <div ref={projectProbe} className="home-project-probe" aria-hidden="true" />
+        <div id="home-project-list" className={bound.scrolls ? 'home-bounded expanded' : 'home-bounded'}>
         <ul className="home-project-grid">
-          {filtered.map(project => <ProjectCard key={`${project.id ?? ''}|${project.path}`} project={project} label={labels.get(project.path) ?? project.name}
+          {bound.shown.map(project => <ProjectCard key={`${project.id ?? ''}|${project.path}`} project={project} label={labels.get(project.path) ?? project.name}
             locationName={(roots?.length ?? 0) > 1 ? roots?.find(root => root.path === project.rootPath)?.name : undefined}
             work={workForProject(project, projects ?? [], work)} organization={organization} preview={project.exists}
             onActivity={noteActivity} onResume={session => resume(project, session)} onResumeTerminal={session => resume(project, session, true)} onOpen={openItem} onStart={start} onList={body => { if (!applyList(body)) void load(); }} announce={setListStatus} />)}
         </ul>
+        </div>
+        {bound.toggle && <button type="button" className="home-show-all" aria-expanded={projectsExpanded} aria-controls="home-project-list" onClick={() => setProjectsExpanded(open => !open)}>{projectsExpanded ? 'Show fewer' : `Show all ${filtered.length}`}</button>}
 
       </section>}
     </div>

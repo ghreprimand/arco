@@ -35,13 +35,13 @@ Home greets the operator by the optional Welcome name and shows connected
 providers, running work, waiting questions, and the installed version. The three
 start tiles open chat, session, and cluster creators. **More ways to start**
 offers Genesis. A new user sees a **Getting started** card until a provider,
-project folder, and first chat are available.
+project folder, and first conversation (any chat, session or cluster) are available; **HIDE** removes the card.
 
 **Continue** lists open work, with questions waiting for an answer first and the
 current step for running work. Each Continue card shows a status word: Working, Needs you, New reply (a turn finished while you were elsewhere) or Idle. Tabs show a status dot; hover over a tab for its status. Idle has no dot. **Resume** returns to a tab. Two rows show at
 first; **Show all** opens the rest in a bounded scrolling area.
 
-The project grid shows pinned folders first, then recent activity. Filter it by
+The project grid shows pinned folders first, then recent activity, in two rows; **Show all** opens the rest in a bounded scrolling area, and a search shows every match. Filter it by
 location or search names and paths (press `/` to focus search). A project card
 shows its folder, activity, and open tabs. **New session** opens the creator
 with that folder. The **...** menu offers **New cluster**, **Saved sessions**,

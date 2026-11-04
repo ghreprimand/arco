@@ -102,3 +102,10 @@
 .home-project-tools label{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--color-fg-muted)}.home-project-tools select{background:var(--color-bg-elevated);color:var(--color-fg);border:1px solid var(--color-border-hairline);border-radius:4px;padding:7px}.home-project-grid{margin-top:14px}.home-card-actions{justify-content:space-between}.home-card-menu{position:relative}.home-card-menu summary{cursor:pointer;list-style:none;border:1px solid var(--color-border-hairline);border-radius:4px;padding:4px 10px}.home-card-menu>div{position:absolute;right:0;top:100%;z-index:4;min-width:150px;background:var(--color-bg-panel);border:1px solid var(--color-border-hairline);padding:6px;display:flex;flex-direction:column;box-shadow:0 8px 24px #0005}.home-card-menu>div button{text-align:left!important;background:transparent!important;border:0!important}
 @media(max-width:650px){.home-start{grid-template-columns:1fr}.home-start button.home-start-tile{min-height:76px}.home-content{padding-top:24px}}
 .home-work-details [data-tab-status]{margin-top:4px}
+
+/* Project cards: same two-row bound as open work. The probe has the project
+   grid's track sizing, so its column count is the row capacity. */
+.home-project-probe{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));height:0;overflow:hidden;visibility:hidden;margin:0}
+@media(max-width:650px){.home-project-probe{grid-template-columns:1fr}}
+.home-getting-started{position:relative}
+.home-guide-hide{position:absolute;top:10px;right:10px;font-size:11px;letter-spacing:1px;padding:3px 8px;background:transparent;border:1px solid var(--color-border-hairline);color:var(--color-fg-muted);cursor:pointer}

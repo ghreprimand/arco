@@ -189,8 +189,11 @@ async def check(browser, scale, scenario):
         await expect(page.get_by_role('heading',name='No saved projects yet',exact=True)).to_have_count(0)
         await expect(page.get_by_text('No provider connected', exact=False)).to_be_visible()
     if scenario == 'multiple':
+        # The grid stops at two rows; a search lists every match.
+        await page.get_by_label('Search folders (press /)',exact=True).fill('api-service')
         await expect(page.get_by_role('listitem',name='Project api-service  /  projects')).to_be_attached()
         await expect(page.get_by_role('listitem',name='Project api-service  /  work')).to_be_attached()
+        await page.get_by_label('Search folders (press /)',exact=True).fill('')
     if discovery:
         await page.get_by_label('Location',exact=True).select_option('/projects')
         await page.get_by_label('Search folders (press /)',exact=True).fill('workspace-150')

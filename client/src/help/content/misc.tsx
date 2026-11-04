@@ -43,14 +43,19 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        The project grid puts pinned folders first and sorts others by recent activity. Search by name or path, or filter by location. Cards show their location when several locations are configured. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
+        The project grid puts pinned folders first and sorts others by recent activity. Search by name or path, or filter by location. Cards show their location when several locations are configured. Shows two rows of cards at first; Show all opens the rest in a bounded scrolling list, and a search shows every match. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
       </p>
     ),
   },
 
   'home.getting-started': {
     title: 'Getting started',
-    body: <p>Connect a provider, add a project folder and start a chat. Each step checks itself when completed. The card disappears once all three are complete. Open another folder is available for a one-off session.</p>,
+    body: <p>Connect a provider, add a project folder and start a conversation. Any chat, session or cluster counts, including saved ones. Each step checks itself when completed. The card disappears once all three are complete, or sooner with HIDE. Open another folder is available for a one-off session.</p>,
+    manualSection: 'home',
+  },
+  'home.getting-started-hide': {
+    title: 'Hide the getting started guide',
+    body: <p>Hides this card on this browser and keeps it hidden. Nothing else changes.</p>,
     manualSection: 'home',
   },
   'home.locations': {

@@ -199,10 +199,13 @@ export const workspace: Section[] = [
         </p>
         <h4 className="manual-sub">Continue and projects</h4>
         <p>
-          Getting started tracks provider connection, a project folder and a first chat.
+          Getting started tracks provider connection, a project folder and a first conversation (any chat, session or cluster), and HIDE removes it for good.
           Continue lists open work with waiting questions first and current steps for
           running work. Resume returns to a tab; Show all expands the two-row list.
+        </p>
+        <p>
           The project grid puts pins first and orders the rest by recent activity.
+          It shows two rows; Show all opens the rest, and a search lists every match.
         </p>
         <p>
           Filter by location or search by name or path (press <Kbd>/</Kbd>).
