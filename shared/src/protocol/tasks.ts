@@ -84,6 +84,9 @@ export interface LedgerTask {
   // Director/workers Stage J — task should run isolated. Dispatcher skips
   // until a worktree exists unless the operator armed autoWorktree.
   worktreeRequired?: boolean;
+  // Optional release label such as "0.1.4" so a board can answer what is in a
+  // release. Absent = unlabeled (the common case); older ledgers never carry it.
+  release?: string;
   // §D3 — the director's advisory sign-off verdict. See TaskSignoff. Absent =
   // not yet reviewed (the board renders PENDING). Additive + projection-safe.
   signoff?: TaskSignoff;
@@ -202,6 +205,7 @@ export interface TaskLedgerCreateMessage {
   goalMode?: boolean;
   goalMaxTurns?: number;
   worktreeRequired?: boolean;
+  release?: string;
 }
 
 // Patch an existing task. Any subset of fields. `status: 'done'` is honored
@@ -223,6 +227,8 @@ export interface TaskLedgerUpdateMessage {
   goalMode?: boolean;
   goalMaxTurns?: number | null;
   worktreeRequired?: boolean;
+  // Release label; an empty string clears it.
+  release?: string;
   // §D3 — operator-side (re)assignment from the LEDGER tab. Empty string
   // clears the claim (→ unassigned). Workers never reach this message; they
   // claim/release through the `cluster_task_*` peer-tools.

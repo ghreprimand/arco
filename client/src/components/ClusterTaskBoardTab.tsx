@@ -29,6 +29,9 @@ import {
   filterVisibleBoardTasks,
   readBoardShowDone,
   BOARD_SHOW_DONE_KEY,
+  releaseLabels,
+  releaseSummary,
+  NO_RELEASE,
   namedCommitsForTask,
   reviewTasksWithMetSignoff,
   splitRecentAndOlderReview,
@@ -216,7 +219,12 @@ export function ClusterTaskBoardTab({
   const [showDone, setShowDoneState] = useState(() => readBoardShowDone());
   const setShowDone = (next: boolean | ((v: boolean) => boolean)) => setShowDoneState((v) => { const value = typeof next === 'function' ? next(v) : next; try { localStorage.setItem(BOARD_SHOW_DONE_KEY, value ? '1' : '0'); } catch { /* storage unavailable */ } return value; });
   const [olderOpen, setOlderOpen] = useState(false);
-  const visibleTasks = filterVisibleBoardTasks(tasks, { showDone });
+  const [releaseFilter, setReleaseFilter] = useState<string | null>(null);
+  const labels = releaseLabels(tasks);
+  // A label that no longer exists (all its tasks changed) falls back to every task.
+  const activeRelease = releaseFilter === NO_RELEASE ? NO_RELEASE : releaseFilter && labels.includes(releaseFilter) ? releaseFilter : null;
+  const visibleTasks = filterVisibleBoardTasks(tasks, { showDone, release: activeRelease });
+  const summary = activeRelease && activeRelease !== NO_RELEASE ? releaseSummary(tasks, activeRelease) : null;
   const grouped = groupByStatus(visibleTasks);
   const { recent: recentReview, older: olderReview } = splitRecentAndOlderReview(grouped.review);
   // Bulk accept only touches review cards the operator can see: recent ones,
@@ -318,7 +326,7 @@ export function ClusterTaskBoardTab({
   // through the dedicated status controls, never these field edits.
   const editTask = (
     taskId: string,
-    patch: { title?: string; notes?: string; priority?: number; parentIds?: string[] },
+    patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string },
   ) => {
     if (!taskShowReader || !wsSendRaw) return;
     wsSendRaw({
@@ -580,6 +588,26 @@ export function ClusterTaskBoardTab({
           >
             SHOW DONE {showDone ? 'ON' : 'OFF'}
           </button>
+          {labels.length > 0 && (
+            <select
+              data-help="cluster.board-release-filter"
+              aria-label="Release filter"
+              value={activeRelease ?? ''}
+              onChange={(e) => setReleaseFilter(e.target.value === '' ? null : e.target.value)}
+              className="display-font"
+              style={{ border: '1px solid var(--color-border-hairline)', background: 'transparent', color: 'var(--color-fg-muted)', fontSize: '9px', letterSpacing: '0.8px', padding: '3px 6px' }}
+              title="Show only the tasks labeled for one release."
+            >
+              <option value="">ALL RELEASES</option>
+              {labels.map((label) => <option key={label} value={label}>{label}</option>)}
+              <option value={NO_RELEASE}>NO RELEASE</option>
+            </select>
+          )}
+          {summary && (
+            <span data-help="cluster.board-release-summary" data-testid="release-summary" className="display-font" style={{ fontSize: '9px', letterSpacing: '0.8px', color: summary.left === 0 ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)' }}>
+              {activeRelease}: {summary.total} IN, {summary.accepted} ACCEPTED, {summary.left} LEFT{summary.left === 0 && summary.total > 0 ? ' - READY TO RELEASE' : ''}
+            </span>
+          )}
           <button
             type="button"
             data-help="cluster.board-automation-toggle"
@@ -1687,7 +1715,7 @@ function TaskDetailDrawer({
   nameFor: (workflowId: string) => string;
   allTasks: WorktreeAwareLedgerTask[];
   canEdit: boolean;
-  onEditTask: (taskId: string, patch: { title?: string; notes?: string; priority?: number; parentIds?: string[] }) => void;
+  onEditTask: (taskId: string, patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string }) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskStatus?: (workflowId: string, taskId: string, status: LedgerTaskStatus, boardKey?: string) => void;
   onReassignTask?: (workflowId: string, taskId: string, assigneeWorkflowId: string | null, boardKey?: string) => void;
@@ -1704,6 +1732,7 @@ function TaskDetailDrawer({
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [notesDraft, setNotesDraft] = useState(task.notes ?? '');
   const [priorityDraft, setPriorityDraft] = useState(String(task.priority));
+  const [releaseDraft, setReleaseDraft] = useState(task.release ?? '');
   const [addParentId, setAddParentId] = useState('');
   const [now, setNow] = useState(Date.now());
 
@@ -1713,8 +1742,9 @@ function TaskDetailDrawer({
     setTitleDraft(task.title);
     setNotesDraft(task.notes ?? '');
     setPriorityDraft(String(task.priority));
+    setReleaseDraft(task.release ?? '');
     setAddParentId('');
-  }, [task.assignee, task.id, task.status, task.title, task.notes, task.priority]);
+  }, [task.assignee, task.id, task.status, task.title, task.notes, task.priority, task.release]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 15_000);
@@ -1746,14 +1776,16 @@ function TaskDetailDrawer({
   const fieldsDirty =
     titleDraft.trim() !== task.title ||
     notesDraft !== (task.notes ?? '') ||
-    (Number.isFinite(priorityNum) && priorityNum !== task.priority);
+    (Number.isFinite(priorityNum) && priorityNum !== task.priority) ||
+    releaseDraft.trim() !== (task.release ?? '');
   const saveFields = () => {
     if (!canEdit || !fieldsDirty) return;
-    const patch: { title?: string; notes?: string; priority?: number } = {};
+    const patch: { title?: string; notes?: string; priority?: number; release?: string } = {};
     const t = titleDraft.trim();
     if (t && t !== task.title) patch.title = t;
     if (notesDraft !== (task.notes ?? '')) patch.notes = notesDraft;
     if (Number.isFinite(priorityNum) && priorityNum !== task.priority) patch.priority = priorityNum;
+    if (releaseDraft.trim() !== (task.release ?? '')) patch.release = releaseDraft.trim();
     if (Object.keys(patch).length === 0) return;
     onEditTask(task.id, patch);
   };
@@ -1926,6 +1958,17 @@ function TaskDetailDrawer({
                   onChange={(e) => setPriorityDraft(e.target.value)}
                   style={{ ...editInputStyle, width: '80px' }}
                 />
+                <label style={editLabelStyle}>RELEASE</label>
+                <input
+                  type="text"
+                  aria-label="Release label"
+                  data-help="cluster.task-release"
+                  value={releaseDraft}
+                  maxLength={24}
+                  placeholder="e.g. 0.1.4"
+                  onChange={(e) => setReleaseDraft(e.target.value)}
+                  style={{ ...editInputStyle, width: '110px' }}
+                />
               </div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
@@ -2013,6 +2056,7 @@ function TaskDetailDrawer({
           <FieldGrid>
             <Field label="Assignee" value={task.assignee ? `@${nameFor(task.assignee)} (${shortId(task.assignee)})` : 'UNCLAIMED'} />
             <Field label="Priority" value={String(task.priority)} />
+            {task.release && <Field label="Release" value={task.release} />}
             <Field label="Review" value={task.reviewRequired ? 'required' : 'not required'} />
             <Field label="Goal mode" value={task.goalMode ? `on${task.goalMaxTurns ? ` · ${task.goalMaxTurns} turns` : ''}` : 'off'} />
             <Field label="Worktree required" value={task.worktreeRequired ? 'yes' : 'no'} />
@@ -2695,6 +2739,11 @@ function BoardCard({
             title={t.worktree.path}
           >
             WT
+          </span>
+        )}
+        {t.release && (
+          <span className="display-font" data-testid="card-release" title={`Release ${t.release}`} style={{ fontSize: '9px', letterSpacing: '0.5px', color: 'var(--color-fg-muted)', border: '1px solid var(--color-border-hairline)', padding: '1px 5px' }}>
+            {t.release}
           </span>
         )}
         {(t.parentIds?.length ?? 0) > 0 && (

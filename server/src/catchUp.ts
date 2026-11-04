@@ -7,7 +7,7 @@ const MAX_TAIL_BYTES = 1024 * 1024;
 const MAX_FACTS = 32;
 const TEXT_LIMIT = 350;
 const DAY_MS = 24 * 60 * 60 * 1000;
-export interface CatchUpEvent { ts?: number; type?: string; text?: unknown; content?: unknown; contentPreview?: unknown; op?: unknown; task?: { title?: unknown; status?: unknown }; }
+export interface CatchUpEvent { ts?: number; type?: string; text?: unknown; content?: unknown; contentPreview?: unknown; op?: unknown; task?: { title?: unknown; status?: unknown; release?: unknown }; }
 export interface CatchUpSource { id: string; label: string; events: CatchUpEvent[]; truncated?: boolean; unavailable?: boolean; }
 
 function catchUpValue(e: CatchUpEvent): { kind: string; value: string } | null {
@@ -18,10 +18,31 @@ function catchUpValue(e: CatchUpEvent): { kind: string; value: string } | null {
   if (e.type === 'task_ledger_event') {
     return {
       kind: 'Board',
-      value: `${String(e.op ?? 'changed')}: ${typeof e.task?.title === 'string' ? e.task.title : 'task'}${typeof e.task?.status === 'string' ? ` (${e.task.status})` : ''}`,
+      value: `${String(e.op ?? 'changed')}: ${typeof e.task?.title === 'string' ? e.task.title : 'task'}${typeof e.task?.status === 'string' ? ` (${e.task.status})` : ''}${typeof e.task?.release === 'string' && e.task.release ? ` [release ${e.task.release.slice(0, 24)}]` : ''}`,
     };
   }
   return null;
+}
+
+// Counts the board changes inside (from, to] by the status they left a task in
+// and, if labeled, by release. Deterministic; null when the board did not move.
+export function boardMovement(sources: CatchUpSource[], from: number, to: number): string | null {
+  const byStatus = new Map<string, number>();
+  const byRelease = new Map<string, number>();
+  let changes = 0;
+  for (const source of sources) {
+    for (const e of source.events) {
+      if (e.type !== 'task_ledger_event' || typeof e.ts !== 'number' || e.ts <= from || e.ts > to) continue;
+      changes++;
+      const status = typeof e.task?.status === 'string' ? e.task.status : 'changed';
+      byStatus.set(status, (byStatus.get(status) ?? 0) + 1);
+      if (typeof e.task?.release === 'string' && e.task.release) byRelease.set(e.task.release.slice(0, 24), (byRelease.get(e.task.release.slice(0, 24)) ?? 0) + 1);
+    }
+  }
+  if (changes === 0) return null;
+  const parts = [`${changes} board change${changes === 1 ? '' : 's'}`, [...byStatus].map(([s, n]) => `${n} ${s}`).join(', ')];
+  if (byRelease.size) parts.push(`by release: ${[...byRelease].map(([r, n]) => `${r} ${n}`).join(', ')}`);
+  return parts.join('; ');
 }
 
 /** When no visit marker exists: empty tab, or from = tab start / last 24 hours. */
@@ -65,6 +86,10 @@ export function collectCatchUpFacts(sources: CatchUpSource[], from: number, to: 
     if (row.value.length > TEXT_LIMIT) truncated = true;
     return { label: `${new Date(row.ts).toISOString()} ${row.label} ${row.kind}`, value: row.value.slice(0, TEXT_LIMIT) };
   });
+  // One line on how the board moved in the range: changes by resulting status,
+  // and by release label when any task carries one.
+  const movement = boardMovement(sources, from, to);
+  if (movement) facts.push({ label: 'Board movement in this range', value: movement });
   // A member that is not loaded or is incognito is skipped, and said so.
   for (const source of sources) if (source.unavailable) facts.push({ label: source.label.slice(0, 64), value: 'activity not available' });
   return { facts, truncated };

@@ -2362,8 +2362,8 @@ Every message in this family carries an optional `boardKey?: TaskBoardKey`. Abse
 ### `task_ledger_create` -> / `task_ledger_update` -> / `task_ledger_delete` ->
 
 ```ts
-{ type: 'task_ledger_create', workflowId: string, title: string, notes?, links?: TaskLink[], priority?, parentIds?, reviewRequired?, goalMode?, goalMaxTurns?, worktreeRequired? }  // always lands as 'todo'
-{ type: 'task_ledger_update', workflowId: string, id: string, title?, status?, notes?, links?, priority?, parentIds?, blockedReason?, reviewRequired?, goalMode?, goalMaxTurns?, assignee?, worktreeRequired? }  // only path that may set status: 'done' / 'archived'
+{ type: 'task_ledger_create', workflowId: string, title: string, notes?, links?: TaskLink[], priority?, parentIds?, reviewRequired?, goalMode?, goalMaxTurns?, worktreeRequired?, release? }  // always lands as 'todo'
+{ type: 'task_ledger_update', workflowId: string, id: string, title?, status?, notes?, links?, priority?, parentIds?, blockedReason?, reviewRequired?, goalMode?, goalMaxTurns?, assignee?, worktreeRequired?, release? }  // release '' clears the label; only path that may set status: 'done' / 'archived'
 { type: 'task_ledger_delete', workflowId: string, id: string }
 ```
 

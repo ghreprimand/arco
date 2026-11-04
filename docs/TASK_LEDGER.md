@@ -197,9 +197,9 @@ REST in `http/clusterRoutes.ts`), exactly like `cluster_plan_tick` /
 |---|---|---|
 | `cluster_task_list` | Read the cluster cwd's ledger (id, title, status, assignee, links, kernel metadata). Read-only. | `no_cwd` |
 | `cluster_task_show` | Read one task's details: task, parents, children, comments, runs. Read-only. | `no_cwd`, `not_found` |
-| `cluster_task_create` | Create a new non-terminal `todo` task in the cluster cwd, with optional notes/body, assignee, priority, parentIds, links, reviewRequired, goalMode, and goalMaxTurns. | `no_cwd`, `empty_title`, `invalid_link`, `not_found`, `operator_gated` for terminal status attempts |
+| `cluster_task_create` | Create a new non-terminal `todo` task in the cluster cwd, with optional notes/body, assignee, priority, parentIds, links, reviewRequired, goalMode, goalMaxTurns, and an optional release label. | `no_cwd`, `empty_title`, `invalid_link`, `not_found`, `operator_gated` for terminal status attempts |
 | `cluster_task_claim` | Set `assignee = caller`, `status = in_progress`. | `not_found`, `already_claimed` (a *different* member owns it, no stomp; re-claim by the owner is a no-op) |
-| `cluster_task_update` | Change worker-allowed `status` (`triage`/`todo`/`ready`/`in_progress`/`blocked`/`review`) and/or `notes`. | `not_found`, **`operator_gated`** when `status === 'done'` or `status === 'archived'` |
+| `cluster_task_update` | Change worker-allowed `status` (`triage`/`todo`/`ready`/`in_progress`/`blocked`/`review`) and/or `notes`, and set or clear the `release` label. | `not_found`, **`operator_gated`** when `status === 'done'` or `status === 'archived'` |
 | `cluster_task_heartbeat` | Create/update the caller's visible run heartbeat for a task; optional note is stored as run metadata and a durable heartbeat comment. | `no_cwd`, `not_found` |
 | `cluster_task_link` | Add a dependency: `childId` depends on `parentId`. Rejects self-links and cycles. | `no_cwd`, `not_found`, `invalid_link` |
 | `cluster_task_unlink` | Remove a dependency: `childId` no longer depends on `parentId`. | `no_cwd`, `not_found`, `invalid_link` |
@@ -388,6 +388,8 @@ members waiting on an answer; selecting an item opens the board or focuses that
 member. Settings > Agents and clusters **Board auto-done** (off by default)
 marks a met review task done without a separate ACCEPT click. The Board and Plan
 tabs each carry a one-line purpose label so the two stay distinct.
+
+**Release labels.** A task may carry an optional `release` label (for example `0.1.4`, at most 24 characters) set from the card drawer's RELEASE field or by the director through `cluster_task_create` / `cluster_task_update` (an empty string clears it). When any task is labeled, the board header offers a release filter (ALL RELEASES, each label, NO RELEASE); a chosen label shows how many tasks are in it, how many the operator accepted (done) and how many are left, and reads READY TO RELEASE when none are left. CATCH ME UP lists board changes in its range with their release label and adds a one-line movement summary; BRIEF on a cluster adds the board totals, release progress and the last day's movement. Boards with no labels, and ledgers written before labels existed, look and load as before. A **NEED YOU** badge above the member cards counts review
 
 Mutations also come from peer tools and the other explicit operator controls.
 The `DISPATCH ONCE` button performs one deterministic dispatcher sweep for

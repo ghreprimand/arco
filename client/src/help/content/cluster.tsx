@@ -896,6 +896,39 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'cluster-board',
   },
+  'cluster.board-release-filter': {
+    title: 'Release filter',
+    body: (
+      <p>
+        Appears once any task has a release label. Pick a label to show only the
+        tasks for that release, NO RELEASE for unlabeled tasks, or ALL RELEASES
+        for everything. Labels are set in a card&apos;s drawer or by the director.
+      </p>
+    ),
+    manualSection: 'cluster-board',
+  },
+  'cluster.board-release-summary': {
+    title: 'Ready to release',
+    body: (
+      <p>
+        For the chosen release: how many tasks are in it, how many you accepted
+        (done), and how many are left. It reads READY TO RELEASE when none are
+        left. Archived tasks are not counted.
+      </p>
+    ),
+    manualSection: 'cluster-board',
+  },
+  'cluster.task-release': {
+    title: 'Release label',
+    body: (
+      <p>
+        An optional label such as 0.1.4 that says which release this task
+        belongs to. Leave it empty for no label; saving an empty field removes
+        the label.
+      </p>
+    ),
+    manualSection: 'cluster-board',
+  },
   'cluster.board-older-review': {
     title: 'Older review tasks',
     body: (

@@ -211,6 +211,7 @@ export function getPeerToolDefinitions(opts?: {
           reviewRequired: { type: 'boolean' },
           goalMode: { type: 'boolean' },
           goalMaxTurns: { type: 'number' },
+          release: { type: 'string', description: 'Optional release label such as 0.1.4.' },
         },
         required: ['title'],
       },
@@ -237,6 +238,7 @@ export function getPeerToolDefinitions(opts?: {
           id: { type: 'string', description: 'Task id from cluster_task_list.' },
           status: { type: 'string', enum: ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'review'], description: "New status. 'done' and 'archived' are rejected — operator-only." },
           notes: { type: 'string', description: 'Replacement notes body for the task.' },
+          release: { type: 'string', description: 'Release label such as 0.1.4; an empty string clears it.' },
           signoff: {
             type: 'object',
             description: 'Advisory director verdict on whether the task met its target. Does NOT mark it done.',
@@ -466,6 +468,7 @@ export async function executePeerTool(
           ...(typeof args.reviewRequired === 'boolean' ? { reviewRequired: args.reviewRequired } : {}),
           ...(typeof args.goalMode === 'boolean' ? { goalMode: args.goalMode } : {}),
           ...(typeof args.goalMaxTurns === 'number' ? { goalMaxTurns: args.goalMaxTurns } : {}),
+          ...(typeof args.release === 'string' ? { release: args.release } : {}),
           ...(typeof args.status === 'string' ? { status: args.status as LedgerTaskStatus } : {}),
         },
         bcastCluster,
@@ -542,6 +545,7 @@ export async function executePeerTool(
           // non-status string falls through to applyUpdate's VALID_STATUS gate).
           ...(typeof args.status === 'string' ? { status: args.status as LedgerTaskStatus } : {}),
           ...(typeof args.notes === 'string' ? { notes: args.notes } : {}),
+          ...(typeof args.release === 'string' ? { release: args.release } : {}),
           // §D3 — advisory sign-off; peerTaskUpdate validates state + stamps author.
           ...(args.signoff !== undefined ? { signoff: args.signoff as { state?: string; summary?: string } | null } : {}),
         },

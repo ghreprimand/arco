@@ -101,3 +101,17 @@ test('SHOW DONE is on by default and remembers an explicit choice', async () => 
   assert.equal(readBoardShowDone(store('0')), false);
   assert.equal(readBoardShowDone({ getItem: () => { throw new Error('unavailable'); } }), true);
 });
+
+test('release labels filter the board and summarize what is in, accepted and left', async () => {
+  const { filterVisibleBoardTasks, releaseLabels, releaseSummary, NO_RELEASE } = await import('./clusterNeedsYou.js');
+  const t = (id: string, status: string, release?: string) => ({ id, title: id, status, release, links: [], notes: '', priority: 0, parentIds: [], blockedReason: '', reviewRequired: false, goalMode: false, createdAt: 1, updatedAt: 1 }) as never;
+  const tasks = [t('a', 'done', '0.1.4'), t('b', 'review', '0.1.4'), t('c', 'todo', '0.1.5'), t('d', 'todo'), t('e', 'archived', '0.1.4')];
+  assert.deepEqual(releaseLabels(tasks), ['0.1.5', '0.1.4']);
+  assert.equal(filterVisibleBoardTasks(tasks, { showDone: true }).length, 5, 'no release filter keeps every task');
+  assert.equal(filterVisibleBoardTasks(tasks, { showDone: true, release: null }).length, 5);
+  assert.deepEqual(filterVisibleBoardTasks(tasks, { showDone: true, release: '0.1.4' }).map((x) => x.id), ['a', 'b', 'e']);
+  assert.deepEqual(filterVisibleBoardTasks(tasks, { showDone: false, release: '0.1.4' }).map((x) => x.id), ['b']);
+  assert.deepEqual(filterVisibleBoardTasks(tasks, { showDone: true, release: NO_RELEASE }).map((x) => x.id), ['d']);
+  assert.deepEqual(releaseSummary(tasks, '0.1.4'), { total: 2, accepted: 1, left: 1 });
+  assert.deepEqual(releaseSummary(tasks, 'none'), { total: 0, accepted: 0, left: 0 });
+});

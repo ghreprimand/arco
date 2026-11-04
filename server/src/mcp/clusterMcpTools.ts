@@ -161,6 +161,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     reviewRequired?: boolean;
     goalMode?: boolean;
     goalMaxTurns?: number;
+    release?: string;
   }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
     const payload: Record<string, unknown> = { workflowId, title: args.title };
     if (typeof args.body === 'string') payload.body = args.body;
@@ -172,6 +173,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     if (typeof args.reviewRequired === 'boolean') payload.reviewRequired = args.reviewRequired;
     if (typeof args.goalMode === 'boolean') payload.goalMode = args.goalMode;
     if (typeof args.goalMaxTurns === 'number') payload.goalMaxTurns = args.goalMaxTurns;
+    if (typeof args.release === 'string') payload.release = args.release;
     const r = await fetch(`${BASE_URL}/task-create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -193,10 +195,11 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     return { ok: true, body };
   }
 
-  async function callTaskUpdate(args: { id: string; status?: string; notes?: string; signoff?: { state: string; summary?: string } }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
+  async function callTaskUpdate(args: { id: string; status?: string; notes?: string; release?: string; signoff?: { state: string; summary?: string } }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
     const payload: Record<string, unknown> = { workflowId, id: args.id };
     if (typeof args.status === 'string') payload.status = args.status;
     if (typeof args.notes === 'string') payload.notes = args.notes;
+    if (typeof args.release === 'string') payload.release = args.release;
     if (args.signoff && typeof args.signoff === 'object') payload.signoff = args.signoff;
     const r = await fetch(`${BASE_URL}/task-update`, {
       method: 'POST',
@@ -479,6 +482,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
         reviewRequired: z.boolean().optional(),
         goalMode: z.boolean().optional(),
         goalMaxTurns: z.number().optional(),
+        release: z.string().optional().describe('Optional release label such as 0.1.4.'),
       },
     },
     async (args) => {
@@ -494,6 +498,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
           reviewRequired: args.reviewRequired,
           goalMode: args.goalMode,
           goalMaxTurns: args.goalMaxTurns,
+          release: args.release,
         });
         if (!r.ok) {
           const detail = r.err.message ?? r.err.error ?? 'unknown_error';
@@ -564,6 +569,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
         id: z.string().min(1).describe('Task id from cluster_task_list.'),
         status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'review']).optional().describe("New status. 'done' and 'archived' are rejected — operator-only."),
         notes: z.string().optional().describe('Replacement notes body for the task.'),
+        release: z.string().optional().describe('Release label such as 0.1.4; an empty string clears it.'),
         signoff: z.object({
           state: z.enum(['met', 'not_met', 'partial']).describe('Your verdict: met / not_met / partial.'),
           summary: z.string().optional().describe('One-line reason shown on the board card.'),
@@ -572,7 +578,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
     async (args) => {
       try {
-        const r = await callTaskUpdate({ id: args.id, status: args.status, notes: args.notes, signoff: args.signoff });
+        const r = await callTaskUpdate({ id: args.id, status: args.status, notes: args.notes, release: args.release, signoff: args.signoff });
         if (!r.ok) {
           const detail = r.err.message ?? r.err.error ?? 'unknown_error';
           return textResult(`[error] ${r.err.error ?? 'task_update_failed'}: ${detail}`, true);

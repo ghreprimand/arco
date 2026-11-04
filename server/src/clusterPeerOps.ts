@@ -834,6 +834,7 @@ export async function peerTaskCreate(
     reviewRequired?: boolean;
     goalMode?: boolean;
     goalMaxTurns?: number;
+    release?: string;
     status?: LedgerTaskStatus;
   },
   broadcastCluster: (msg: ServerMessage) => void,
@@ -888,6 +889,7 @@ export async function peerTaskCreate(
       reviewRequired: args.reviewRequired,
       goalMode: args.goalMode,
       goalMaxTurns: args.goalMaxTurns,
+      release: args.release,
       createdBy: ctx.workflowId,
     });
     if (assignee) {
@@ -992,6 +994,8 @@ export async function peerTaskUpdate(
     id: string;
     status?: LedgerTaskStatus;
     notes?: string;
+    // Release label such as "0.1.4"; an empty string clears it.
+    release?: string;
     // §D3 — the director's advisory verdict. The model passes `{ state, summary }`;
     // the server stamps `byWorkflowId`/`at` so it's attributable and unspoofable.
     // `null` explicitly clears a prior sign-off (back to PENDING).
@@ -1045,6 +1049,7 @@ export async function peerTaskUpdate(
     const applied = taskLedger.applyUpdate(tasks, args.id, {
       ...(args.status ? { status: args.status } : {}),
       ...(typeof args.notes === 'string' ? { notes: args.notes } : {}),
+      ...(typeof args.release === 'string' ? { release: args.release } : {}),
       ...(signoffPatch !== undefined ? { signoff: signoffPatch } : {}),
     });
     if (!applied) {
