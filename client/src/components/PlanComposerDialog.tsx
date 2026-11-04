@@ -1,4 +1,5 @@
 import type { JobState } from '../stores/appStore';
+import { DialogShell } from './DialogShell';
 
 interface Props {
   job: JobState;
@@ -21,96 +22,61 @@ interface Props {
 export function PlanComposerDialog({ job, onConfirm, onCancel, isClusterMember }: Props) {
   const hasExistingPlan = Boolean(job.plan);
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Draft project plan"
+      dataHelp="composer.plan"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={460}
+      zIndex={50}
+      actions={(
+        <button onClick={onCancel} data-help="plan.composer-cancel" className="display-font" style={cancelBtn}>
+          CANCEL
+        </button>
+      )}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(460px, calc(92vw / var(--ui-scale, 1)))',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div
-          className="display-font"
-          style={{
-            fontSize: '12px',
-            letterSpacing: '3px',
-            color: 'var(--color-accent-primary)',
-            marginBottom: '6px',
-          }}
-        >
-          DRAFT PROJECT PLAN
-        </div>
-        <div
-          style={{
-            fontSize: '11px',
-            color: 'var(--color-fg-muted)',
-            lineHeight: 1.5,
-            marginBottom: '14px',
-          }}
-        >
-          Asks the agent to synthesize this conversation into a project plan,
-          then captures the reply as a new plan and attaches it to this workflow.
-          {hasExistingPlan && (
-            <span style={{ color: 'var(--color-warning)', display: 'block', marginTop: '6px' }}>
-              A plan is already attached: saving will replace it.
-            </span>
-          )}
-          {isClusterMember && (
-            <span
-              data-help="composer.plan-cluster-member"
-              style={{ color: 'var(--color-accent-secondary-dim)', display: 'block', marginTop: '6px' }}
-            >
-              This workflow is in a cluster: AUTOSAVE routes through the
-              choice banner so you can pick between attaching to the worker
-              or the cluster's shared PLAN.
-            </span>
-          )}
-        </div>
-
-        <button
-          onClick={() => onConfirm('review')}
-          data-help="plan.draft-review"
-          className="display-font"
-          style={primaryBtn}
-          title="Inject the prompt; you'll see the agent's draft and click to save"
-        >
-          DRAFT → I'LL REVIEW
-          <span style={hint}>see the draft, then click Save & Attach</span>
-        </button>
-
-        <button
-          onClick={() => onConfirm('autosave')}
-          data-help="plan.draft-autosave"
-          className="display-font"
-          style={secondaryBtn}
-          title="Inject the prompt; auto-save the agent's reply with no review step"
-        >
-          DRAFT &amp; AUTO-SAVE
-          <span style={hint}>save the reply immediately, no confirmation</span>
-        </button>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
-          <button onClick={onCancel} data-help="plan.composer-cancel" className="display-font" style={cancelBtn}>
-            CANCEL
-          </button>
-        </div>
+      <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
+        Asks the agent to synthesize this conversation into a project plan,
+        then captures the reply as a new plan and attaches it to this workflow.
+        {hasExistingPlan && (
+          <span style={{ color: 'var(--color-warning)', display: 'block', marginTop: '6px' }}>
+            A plan is already attached: saving will replace it.
+          </span>
+        )}
+        {isClusterMember && (
+          <span
+            data-help="composer.plan-cluster-member"
+            style={{ color: 'var(--color-accent-secondary-dim)', display: 'block', marginTop: '6px' }}
+          >
+            This workflow is in a cluster: AUTOSAVE routes through the
+            choice banner so you can pick between attaching to the worker
+            or the cluster's shared PLAN.
+          </span>
+        )}
       </div>
-    </div>
+
+      <button
+        onClick={() => onConfirm('review')}
+        data-help="plan.draft-review"
+        className="display-font"
+        style={primaryBtn}
+        title="Inject the prompt; you'll see the agent's draft and click to save"
+      >
+        DRAFT {'\u2192'} I'LL REVIEW
+        <span style={hint}>see the draft, then click Save & Attach</span>
+      </button>
+
+      <button
+        onClick={() => onConfirm('autosave')}
+        data-help="plan.draft-autosave"
+        className="display-font"
+        style={secondaryBtn}
+        title="Inject the prompt; auto-save the agent's reply with no review step"
+      >
+        DRAFT &amp; AUTO-SAVE
+        <span style={hint}>save the reply immediately, no confirmation</span>
+      </button>
+    </DialogShell>
   );
 }
 
@@ -118,7 +84,6 @@ const primaryBtn: React.CSSProperties = {
   display: 'block',
   width: '100%',
   padding: '12px 14px',
-  marginBottom: '8px',
   background: 'transparent',
   border: '1px solid var(--color-accent-primary)',
   color: 'var(--color-accent-primary)',

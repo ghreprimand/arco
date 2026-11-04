@@ -38,11 +38,14 @@ interface Props {
   closeLabel?: string;
   closeTestId?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void;
+  // Optional handle on the scrolling body (for dialogs that remember scroll).
+  bodyRef?: React.Ref<HTMLDivElement>;
+  onBodyScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary, a[href]';
 
-export function DialogShell({ title, onClose, children, actions, status, width = 680, ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown }: Props) {
+export function DialogShell({ title, onClose, children, actions, status, width = 680, ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -96,7 +99,7 @@ export function DialogShell({ title, onClose, children, actions, status, width =
               style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', padding: '2px 8px', cursor: 'pointer', fontSize: '12px', lineHeight: 1.2 }}
             >{'\u00D7'}</button>
           </div>
-          <div style={{ ...dialogBodyStyle, flex: '1 1 auto', minHeight: 0, overflow: 'auto', overflowWrap: 'anywhere', padding: '12px 14px', display: 'grid', gap: '10px', alignContent: 'start' }}>
+          <div ref={bodyRef} onScroll={onBodyScroll} style={{ ...dialogBodyStyle, flex: '1 1 auto', minHeight: 0, overflow: 'auto', overflowWrap: 'anywhere', padding: '12px 14px', display: 'grid', gap: '10px', alignContent: 'start' }}>
             {children}
           </div>
           {status && <div style={{ ...dialogBodyStyle, padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)', flexShrink: 0, overflowWrap: 'anywhere', maxHeight: '30%', overflow: 'auto' }}>{status}</div>}

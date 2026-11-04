@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
+import { DialogShell } from './DialogShell';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 
 // Composer-button sibling for REVIEW / HANDOFF / SPAWN / PLAN. One-click
@@ -58,52 +59,30 @@ export function DocsUpdateDialog({ parentConfig, onConfirm, onSpawn, onCancel }:
     }
   };
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Update repo docs"
+      dataHelp="composer.docs"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={520}
+      zIndex={50}
+      actions={(
+        <>
+          <Btn onClick={onCancel}>CANCEL</Btn>
+          <Btn primary onClick={send}>{isCurrentPrimary ? 'SEND TO AGENT' : 'SEND (NEW TAB)'}</Btn>
+        </>
+      )}
     >
-      <div
-        data-help="composer.docs"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(520px, calc(94vw / var(--ui-scale, 1)))',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div
-          className="display-font"
-          style={{
-            fontSize: '12px',
-            letterSpacing: '3px',
-            color: 'var(--color-accent-primary)',
-            marginBottom: '6px',
-          }}
-        >
-          UPDATE REPO DOCS
-        </div>
         <div
           style={{
             fontSize: '11px',
             color: 'var(--color-fg-muted)',
             lineHeight: 1.5,
-            marginBottom: '12px',
           }}
         >
           Sends the current agent a structured prompt to update README, DEVLOG, CLAUDE.md, and other markdown docs based on recent git activity. <strong style={{ color: 'var(--color-warning)' }}>Plan files under <code>.arco/plans/</code> are explicitly excluded.</strong>
         </div>
-        <div style={{ marginBottom: '12px' }}>
+        <div>
           <RunAsPicker current={currentPrimary} selection={runAs} onChange={setRunAs} />
         </div>
 
@@ -128,12 +107,7 @@ export function DocsUpdateDialog({ parentConfig, onConfirm, onSpawn, onCancel }:
             resize: 'vertical',
           }}
         />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px' }}>
-          <Btn onClick={onCancel}>CANCEL</Btn>
-          <Btn primary onClick={send}>{isCurrentPrimary ? 'SEND TO AGENT' : 'SEND (NEW TAB)'}</Btn>
-        </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

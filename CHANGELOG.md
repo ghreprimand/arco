@@ -7,6 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). The GIT, SPAWN, HANDOFF, REVIEW, PLAN, DOCS, TUNE UP, DEEP RESEARCH and SKILL editor dialogs use the same layout.
 - Fix the GIT dialog forgetting its state after VIEW CHANGES (or any close without sending): reopening it in the same tab restores the run-as choice, SHOW OTHER WORK, scroll position, branch, action, commit subject and scope notes, until a request is sent or the tab is closed.
 
 ### Added

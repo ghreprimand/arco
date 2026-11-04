@@ -273,7 +273,7 @@ async def main():
             assert len(dispatches) == before_dispatches and len(checkouts) == before_checkouts
             await page.evaluate('mountDialog()')
             await expect(page.get_by_role('button', name='CANCEL', exact=True)).to_have_count(1)
-            await page.locator('[data-help="composer.git"]').evaluate('(el) => el.parentElement.click()')
+            await page.locator('[data-help="composer.git"]').evaluate('(el) => el.click()')
             await page.wait_for_function(f'cancelCount === {before_cancel_count + 4}')
             assert len(dispatches) == before_dispatches and len(checkouts) == before_checkouts
             assert not errors, errors
