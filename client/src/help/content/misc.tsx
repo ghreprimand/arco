@@ -1375,7 +1375,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         <p>
           <C>VIEW CHANGES</C> closes this dialog and opens the FILES tab&apos;s
           CHANGES view on that worktree through the existing worktree picker.
-          Nothing here merges, deletes or switches anything.
+          Reopen GIT afterwards and your choices, notes and this section are
+          still there. Nothing here merges, deletes or switches anything.
         </p>
       </>
     ),

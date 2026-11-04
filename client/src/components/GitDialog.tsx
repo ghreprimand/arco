@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { forgetGitDialog, recallGitDialog, rememberGitDialog } from '../utils/gitDialogMemory';
 import { upstreamForFinalBranch } from '../utils/gitPushTarget';
 import { GitOtherWork } from './GitOtherWork';
 import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
@@ -106,29 +107,33 @@ function inferDefaultAction(status: GitStatus): Action {
 export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCancel }: Props) {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [action, setAction] = useState<Action>('commit-push');
+  // A dialog closed without sending (for example through VIEW CHANGES) reopens as it was.
+  const memo = useRef(recallGitDialog(wfid)).current;
+  const [action, setAction] = useState<Action>((memo?.action as Action | undefined) ?? 'commit-push');
   const currentPrimary: RunAsSelection = useMemo(() => ({
     provider: (parentConfig.primaryProvider ?? 'claude') as ProviderName,
     model: parentConfig.primaryModel as ModelName,
     effort: parentConfig.primaryEffort as EffortLevel,
     providerAccountRef: parentConfig.providerAccountRef,
   }), [parentConfig.primaryProvider, parentConfig.primaryModel, parentConfig.primaryEffort, parentConfig.providerAccountRef]);
-  const [runAs, setRunAs] = useState<RunAsSelection>(currentPrimary);
+  const [runAs, setRunAs] = useState<RunAsSelection>((memo?.runAs as RunAsSelection | undefined) ?? currentPrimary);
   const isCurrentPrimary = runAs.provider === currentPrimary.provider && runAs.model === currentPrimary.model && runAs.effort === currentPrimary.effort && runAs.providerAccountRef === currentPrimary.providerAccountRef;
-  const [saveAsDefault, setSaveAsDefault] = useState(false);
-  const [commitSubject, setCommitSubject] = useState('');
-  const [scopeNotes, setScopeNotes] = useState('');
+  const [saveAsDefault, setSaveAsDefault] = useState(memo?.saveAsDefault ?? false);
+  const [commitSubject, setCommitSubject] = useState(memo?.commitSubject ?? '');
+  const [scopeNotes, setScopeNotes] = useState(memo?.scopeNotes ?? '');
   // Branch dropdown / new-branch state.
-  const [pickedBranch, setPickedBranch] = useState<string>('');
-  const [creatingNew, setCreatingNew] = useState(false);
-  const [newBranchName, setNewBranchName] = useState('');
-  const [newBranchBase, setNewBranchBase] = useState<string>('');
+  const [pickedBranch, setPickedBranch] = useState<string>(memo?.pickedBranch ?? '');
+  const [creatingNew, setCreatingNew] = useState(memo?.creatingNew ?? false);
+  const [newBranchName, setNewBranchName] = useState(memo?.newBranchName ?? '');
+  const [newBranchBase, setNewBranchBase] = useState<string>(memo?.newBranchBase ?? '');
   const [switchPending, setSwitchPending] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
   // Pre-commit working-tree diff preview. Collapsed by default so the dialog
   // opens compact; the operator expands to confirm exactly what's about to be
   // committed before dispatching the prompt.
-  const [showDiff, setShowDiff] = useState(false);
+  const [showDiff, setShowDiff] = useState(memo?.showDiff ?? false);
+  const [otherOpen, setOtherOpen] = useState(memo?.otherOpen ?? false);
+  const scroller = useRef<HTMLDivElement>(null);
 
   // Initial load — fetch status, prime defaults from saved prefs + smart inference.
   useEffect(() => {
@@ -141,9 +146,11 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
         if (cancelled) return;
         setStatus(s);
         const saved = loadPrefs(cwd);
-        setAction(saved?.action ?? inferDefaultAction(s));
-        setPickedBranch(s.currentBranch ?? '');
-        setNewBranchBase(s.defaultBranch ?? s.currentBranch ?? '');
+        if (!memo) {
+          setAction(saved?.action ?? inferDefaultAction(s));
+          setPickedBranch(s.currentBranch ?? '');
+          setNewBranchBase(s.defaultBranch ?? s.currentBranch ?? '');
+        }
       } catch (err) {
         if (cancelled) return;
         setLoadError(err instanceof Error ? err.message : String(err));
@@ -151,6 +158,14 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
     })();
     return () => { cancelled = true; };
   }, [cwd]);
+
+  useEffect(() => {
+    rememberGitDialog(wfid, { action, runAs, saveAsDefault, commitSubject, scopeNotes, pickedBranch, creatingNew, newBranchName, newBranchBase, showDiff, otherOpen });
+  }, [wfid, action, runAs, saveAsDefault, commitSubject, scopeNotes, pickedBranch, creatingNew, newBranchName, newBranchBase, showDiff, otherOpen]);
+  // Restore the scroll position once the status has laid the dialog out.
+  useLayoutEffect(() => {
+    if (status && memo?.scrollTop && scroller.current) scroller.current.scrollTop = memo.scrollTop;
+  }, [status]);
 
   const isProtectedTarget = useMemo(() => {
     const target = creatingNew ? newBranchName : pickedBranch;
@@ -218,11 +233,13 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
     });
     if (isCurrentPrimary) {
       // Same-tab dispatch — drops into the existing chat as a regular turn.
+      forgetGitDialog(wfid);
       onConfirm(prompt);
     } else {
       // RUN AS override — spawn a new tab so the picked model handles
       // the git work without permanently switching this tab's primary.
       const newConfig = spawnConfigFromRunAs(parentConfig, runAs, 'git');
+      forgetGitDialog(wfid);
       onSpawn(newConfig, prompt, false);
     }
   };
@@ -242,6 +259,8 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
     >
       <div
         data-help="composer.git"
+        ref={scroller}
+        onScroll={(e) => rememberGitDialog(wfid, { scrollTop: e.currentTarget.scrollTop })}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)',
@@ -281,7 +300,7 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
           <>
             <RepoLine status={status} />
             <GitStateSummary status={status} />
-            <GitOtherWork cwd={cwd} wfid={wfid} onViewed={onCancel} />
+            <GitOtherWork cwd={cwd} wfid={wfid} onViewed={onCancel} open={otherOpen} onOpenChange={setOtherOpen} />
 
             <button
               type="button"
