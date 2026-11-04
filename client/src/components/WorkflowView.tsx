@@ -205,7 +205,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           <Panel className="no-frost" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <ChatPanel job={job} onCancelQueued={onCancelQueued} onLoadEarlier={onLoadEarlier} />
           </Panel>
-          <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} />
+          <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />
           <RuntimeStateBanner job={job} onCancel={onCancel} />
           <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
           <TerminalInput

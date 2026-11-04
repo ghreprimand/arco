@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { ServerMessage, WorkflowConfig } from '@arco/shared';
 import { handleServerMessage, type WsDeps } from './handleServerMessage.js';
 import { useAppStore } from '../stores/appStore.js';
-import { beginPlanReview } from '../components/terminalInput/planDraft.js';
+import { beginPlanRefine, beginPlanReview } from '../components/terminalInput/planDraft.js';
 
 useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
 
@@ -76,4 +76,24 @@ test('cluster auto-save remains a review candidate', () => {
   ]) handleServerMessage(message as ServerMessage, deps);
   assert.equal(sent.some((message) => message.type === 'cluster_plan_set'), false);
   assert.equal(useAppStore.getState().jobs[id].planCandidate?.mode, 'review');
+});
+
+test('refining a plan draft sends the draft and note, keeps the old draft until the reply, and guards busy or missing drafts', () => {
+  const id = 'plan-refine-fixture';
+  useAppStore.getState().createJob(id, { name: 'fixture', primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', workingDirectory: '/fixture', skipPermissions: false } as WorkflowConfig);
+  const prompts: string[] = [];
+  assert.equal(beginPlanRefine(id, (p) => { prompts.push(p); }, 'Add tests', false), false);
+  useAppStore.getState().setPlanCandidate(id, { body: '# Old\n- [ ] One', mode: 'review', capturedAt: 1 });
+  assert.equal(beginPlanRefine(id, (p) => { prompts.push(p); }, '   ', false), false);
+  assert.equal(beginPlanRefine(id, (p) => { prompts.push(p); }, 'Add tests', true), true);
+  assert.equal(prompts.length, 1);
+  assert.match(prompts[0], /Add tests/);
+  assert.match(prompts[0], /# Old/);
+  assert.match(prompts[0], /Do not create, update, attach, or write/);
+  assert.equal(useAppStore.getState().jobs[id].pendingPlanCapture, 'review');
+  assert.equal(useAppStore.getState().jobs[id].planCandidate?.body, '# Old\n- [ ] One');
+  assert.equal(beginPlanRefine(id, (p) => { prompts.push(p); }, 'Again', false), false);
+  useAppStore.getState().setPendingPlanCapture(id, null);
+  assert.equal(beginPlanRefine(id, () => false, 'Rejected', false), false);
+  assert.equal(useAppStore.getState().jobs[id].pendingPlanCapture ?? null, null);
 });

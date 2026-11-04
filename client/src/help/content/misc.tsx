@@ -1110,8 +1110,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         The agent's next reply will be its draft of the plan. A banner
-        appears offering <C>SAVE & ATTACH</C>: read first, save only if
-        happy. Slower but inspection-friendly.
+        appears offering <C>SAVE & ATTACH</C> and <C>REFINE</C>: read first,
+        ask for changes, save only if happy. Slower but inspection-friendly.
       </p>
     ),
     manualSection: 'plan-creation',
@@ -1375,7 +1375,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         <p>
           <C>VIEW CHANGES</C> closes this dialog and opens the FILES tab&apos;s
           CHANGES view on that worktree through the existing worktree picker.
-          Nothing here merges, deletes or switches anything.
+          Reopen GIT afterwards and your choices, notes and this section are
+          still there. Nothing here merges, deletes or switches anything.
         </p>
       </>
     ),

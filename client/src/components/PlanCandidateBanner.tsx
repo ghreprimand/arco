@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore, type JobState } from '../stores/appStore';
 import type { PlanFull } from '@arco/shared';
+import { beginPlanRefine } from './terminalInput/planDraft';
 
 interface Props {
   job: JobState;
@@ -9,6 +10,8 @@ interface Props {
   // member: routes the body to the cluster's shared PLAN. The server creates
   // or updates the canonical per-cwd plan automatically.
   onAttachToCluster?: (body: string) => Promise<void> | void;
+  // Sends a plan-review turn to this tab's agent; enables REFINE.
+  onSend?: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review') => boolean | void;
 }
 
 // Sits between the chat panel and the composer. Shows up when
@@ -17,7 +20,7 @@ interface Props {
 //   - mode 'review'   → SAVE & ATTACH / DISCARD buttons
 //   - mode 'autosave' → fires the save itself on mount, briefly shows a
 //                       "saved" status then dismisses
-export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster }: Props) {
+export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSend }: Props) {
   const candidate = job.planCandidate;
   const setPlanCandidate = useAppStore((s) => s.setPlanCandidate);
   const cwd = job.config.workingDirectory;
@@ -25,6 +28,10 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster }: Pr
   const [error, setError] = useState<string | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
   const autosaveFiredRef = useRef(false);
+  const [refining, setRefining] = useState(false);
+  const [note, setNote] = useState('');
+  const pushNotification = useAppStore((s) => s.pushNotification);
+  const revising = job.pendingPlanCapture === 'review';
 
   // Pulled out of the JSX because the autosave path calls it via useEffect
   // before any click can. Returns the created PlanFull or throws.
@@ -89,68 +96,115 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster }: Pr
     );
   }
 
-  // Review mode — operator picks Save or Discard.
+  // Review mode: the operator saves, refines or discards the draft. In a
+  // cluster tab the only save target is the cluster plan.
+  const submitRefine = () => {
+    if (!onSend) return;
+    if (beginPlanRefine(job.id, (content) => onSend(content, undefined, undefined, 'plan-review'), note, Boolean(onAttachToCluster))) {
+      setRefining(false);
+      setNote('');
+      setError(null);
+    } else {
+      pushNotification('error', 'Wait for the current turn to finish, and enter a note, before refining the plan draft.');
+    }
+  };
+  const afterSave = (title: string) => {
+    setSavedTitle(title);
+    setTimeout(() => setPlanCandidate(job.id, null), 2500);
+  };
+  const busy = saving || revising;
   return (
-    <div style={bannerStyle}>
-      <span className="display-font" style={{ color: 'var(--color-accent-secondary)', fontSize: '10px', letterSpacing: '1.5px' }}>
-        PLAN DRAFT READY
-      </span>
-      <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', flex: 1 }}>
-        {candidate.body.length} chars · {extractPlanTitle(candidate.body)}
-      </span>
-      {error && <span style={{ color: 'var(--color-warning)', fontSize: '10px' }}>{error}</span>}
-      <button
-        disabled={saving}
-        onClick={async () => {
-          setSaving(true);
-          setError(null);
-          try {
-            const plan = await persist();
-            onAttachPlan?.(plan.id);
-            setSavedTitle(plan.title);
-            setTimeout(() => setPlanCandidate(job.id, null), 2500);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setSaving(false);
-          }
-        }}
-        className="display-font"
-        style={primaryBtn}
-      >
-        {saving ? 'SAVING…' : (onAttachToCluster ? 'ATTACH TO WORKER' : 'SAVE & ATTACH')}
-      </button>
-      {onAttachToCluster && (
+    <div>
+      <div style={bannerStyle}>
+        <span className="display-font" style={{ color: 'var(--color-accent-secondary)', fontSize: '10px', letterSpacing: '1.5px' }}>
+          {revising ? 'REVISING PLAN DRAFT...' : 'PLAN DRAFT READY'}
+        </span>
+        <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', flex: 1 }}>
+          {candidate.body.length} chars · {extractPlanTitle(candidate.body)}
+        </span>
+        {error && <span style={{ color: 'var(--color-warning)', fontSize: '10px' }}>{error}</span>}
+        {onAttachToCluster ? (
+          <button
+            data-help="cluster.plan-tab.attach-from-banner"
+            disabled={busy}
+            onClick={async () => {
+              setSaving(true);
+              setError(null);
+              try {
+                await onAttachToCluster(candidate.body);
+                afterSave(extractPlanTitle(candidate.body));
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="display-font"
+            style={primaryBtn}
+          >
+            {saving ? 'SAVING…' : 'ATTACH TO CLUSTER'}
+          </button>
+        ) : (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setSaving(true);
+              setError(null);
+              try {
+                const plan = await persist();
+                onAttachPlan?.(plan.id);
+                afterSave(plan.title);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="display-font"
+            style={primaryBtn}
+          >
+            {saving ? 'SAVING…' : 'SAVE & ATTACH'}
+          </button>
+        )}
+        {onSend && (
+          <button
+            data-help="composer.plan-refine"
+            disabled={busy}
+            onClick={() => setRefining((v) => !v)}
+            className="display-font"
+            style={ghostBtn}
+          >
+            REFINE
+          </button>
+        )}
         <button
-          data-help="cluster.plan-tab.attach-from-banner"
-          disabled={saving}
-          onClick={async () => {
-            setSaving(true);
-            setError(null);
-            try {
-              await onAttachToCluster(candidate.body);
-              setSavedTitle(extractPlanTitle(candidate.body));
-              setTimeout(() => setPlanCandidate(job.id, null), 2500);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
-            } finally {
-              setSaving(false);
-            }
-          }}
+          disabled={busy}
+          onClick={() => setPlanCandidate(job.id, null)}
           className="display-font"
-          style={primaryBtn}
+          style={ghostBtn}
         >
-          ATTACH TO CLUSTER
+          DISCARD
         </button>
+      </div>
+      {refining && !revising && (
+        <div style={{ ...bannerStyle, borderTop: 'none' }}>
+          <input
+            data-help="composer.plan-refine-note"
+            autoFocus
+            value={note}
+            maxLength={2000}
+            placeholder="What should change in this draft?"
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && note.trim()) submitRefine();
+              if (e.key === 'Escape') setRefining(false);
+            }}
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-primary)', padding: '4px 8px', fontSize: '11px', fontFamily: 'var(--font-body)' }}
+          />
+          <button disabled={!note.trim()} onClick={submitRefine} className="display-font" style={primaryBtn}>SEND</button>
+          <button onClick={() => setRefining(false)} className="display-font" style={ghostBtn}>CANCEL</button>
+        </div>
       )}
-      <button
-        disabled={saving}
-        onClick={() => setPlanCandidate(job.id, null)}
-        className="display-font"
-        style={ghostBtn}
-      >
-        DISCARD
-      </button>
     </div>
   );
 }

@@ -290,7 +290,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           Builds a structured prompt with branch context, action steps, pause-and-ask
           rules, and expected deliverables. RUN AS picker to escalate to a different
           model in a new tab. <C>CANCEL</C> closes the dialog without sending or
-          switching branches.
+          switching branches. Anything typed stays until you send or close the tab,
+          so reopening GIT (for example after VIEW CHANGES) finds it as you left it.
         </p>
       </>
     ),
@@ -505,6 +506,26 @@ export const composerHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'live-config-swap',
   },
+  'composer.plan-refine': {
+    title: 'REFINE the plan draft',
+    body: (
+      <p>
+        Type a short note and the same agent revises the draft below. The new
+        draft replaces the old one, and nothing is saved until you attach it.
+        You can refine as many times as you like.
+      </p>
+    ),
+    manualSection: 'cluster-attach-from-banner',
+  },
+  'composer.plan-refine-note': {
+    title: 'Refine note',
+    body: (
+      <p>
+        Say what should change, for example "split phase 2 in two" or "drop
+        the release tasks". Enter sends it; Escape closes the box.
+      </p>
+    ),
+  },
   'composer.plan-cluster-member': {
     title: 'Cluster member: autosave routes through banner',
     body: (
@@ -512,8 +533,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         Cluster members never auto-attach plans. Clicking{' '}
         <C>DRAFT &amp; AUTO-SAVE</C> here lands on the same PlanCandidateBanner
         as <C>DRAFT → I'LL REVIEW</C> so you can pick{' '}
-        <C>SAVE &amp; ATTACH TO WORKER</C>, <C>ATTACH TO CLUSTER</C>, or{' '}
-        <C>DISCARD</C>. The Native <C>EnterPlanMode</C> tool routes through
+        <C>ATTACH TO CLUSTER</C>, <C>REFINE</C> or <C>DISCARD</C>. The Native <C>EnterPlanMode</C> tool routes through
         the same banner.
       </p>
     ),

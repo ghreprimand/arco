@@ -8,6 +8,11 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Fixed
 
 - Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). Other composer dialogs (GIT, SPAWN, HANDOFF, REVIEW, PLAN and the rest) now also open above the composer instead of inside it.
+- Fix the GIT dialog forgetting its state after VIEW CHANGES (or any close without sending): reopening it in the same tab restores the run-as choice, SHOW OTHER WORK, scroll position, branch, action, commit subject and scope notes, until a request is sent or the tab is closed.
+
+### Added
+
+- Add REFINE to the plan draft banner: type a short note and the same agent revises the draft; the new draft replaces the old one, nothing is saved until you attach it, and it can be repeated. In a cluster tab the only save button is ATTACH TO CLUSTER (ATTACH TO WORKER is gone); a single workflow keeps SAVE & ATTACH.
 
 ## v0.1.3 - 2026-11-04
 

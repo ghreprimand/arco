@@ -828,7 +828,7 @@ Two operator-armed surfaces overlay onto every member's per-turn system context 
 
 - The `PLAN` sub-tab in `ClusterRightPanel` (textarea + char-count; soft warn at 28672 chars, hard reject at 32768).
 - The `PROMOTE TO CLUSTER` button on a per-workflow PLAN tab (gated on cluster membership, confirms via `window.confirm`).
-- The `ATTACH TO CLUSTER` button on a worker's `PlanCandidateBanner` (mounts only on cluster-member tabs). Saves the plan record per-cwd like the existing `ATTACH TO WORKER` button does, but routes the body to the cluster's shared PLAN via `cluster_plan_set` instead of attaching to the worker's per-tab slot. The banner shows three buttons in a member tab - `ATTACH TO WORKER` / `ATTACH TO CLUSTER` / `DISCARD`; standalone tabs see only the first and third.
+- The `ATTACH TO CLUSTER` button on a worker's `PlanCandidateBanner` (mounts only on cluster-member tabs). Saves the plan record per-cwd and routes the body to the cluster's shared PLAN via `cluster_plan_set`. It is the only save button in a member tab (`ATTACH TO CLUSTER` / `REFINE` / `DISCARD`); standalone tabs see `SAVE & ATTACH` / `REFINE` / `DISCARD`.
 
 The body is injected as a forced system block immediately after the worker's `FORCED_FIRST_BLOCK` and before the operator's `appendSystemPrompt` / `systemPrompt` - every member's next turn reads it. `CLEAR PLAN` deletes `plan.md` from disk; subsequent turns no longer see the block. Hard cap `PLAN_MAX_BYTES = 32768` enforced server-side; oversize requests are rejected with a `NotificationToasts` error.
 

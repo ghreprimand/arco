@@ -460,6 +460,13 @@ export const actions: Section[] = [
           on that worktree. It is read-only: no merge, delete or switch actions.
         </p>
         <p>
+          Closing the dialog without sending, including through VIEW CHANGES,
+          keeps what was set. Opening GIT again in the same tab restores the
+          run-as choice, whether other work was shown, the scroll position,
+          the branch, the action and the commit subject and scope notes, until
+          a request is sent or the tab is closed.
+        </p>
+        <p>
           As with DOCS, the dialog embeds the <strong>RUN AS picker</strong> for
           in-tab vs new-tab routing.
         </p>

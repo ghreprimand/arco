@@ -24,8 +24,10 @@ export function tabsAt(path: string, jobs: Record<string, { config: { name: stri
   return [...names];
 }
 
-export function GitOtherWork({ cwd, wfid, onViewed }: { cwd: string; wfid: string; onViewed: () => void }) {
-  const [open, setOpen] = useState(false);
+export function GitOtherWork({ cwd, wfid, onViewed, open: openProp, onOpenChange }: { cwd: string; wfid: string; onViewed: () => void; open?: boolean; onOpenChange?: (open: boolean) => void }) {
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = openProp ?? openLocal;
+  const setOpen = (next: boolean | ((o: boolean) => boolean)) => { const value = typeof next === 'function' ? next(open) : next; setOpenLocal(value); onOpenChange?.(value); };
   const [data, setData] = useState<OtherWorkResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const jobs = useAppStore((s) => s.jobs);
