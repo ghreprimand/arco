@@ -27,6 +27,8 @@ import { BOARD_COLUMNS, groupByStatus, taskGraphSummary, taskShowWorkflowId } fr
 
 import {
   filterVisibleBoardTasks,
+  readBoardShowDone,
+  BOARD_SHOW_DONE_KEY,
   namedCommitsForTask,
   reviewTasksWithMetSignoff,
   splitRecentAndOlderReview,
@@ -210,9 +212,12 @@ export function ClusterTaskBoardTab({
   const tasks = (useAppStore((s) => (ledgerKey ? s.taskLedger[ledgerKey] : undefined)) ?? []) as WorktreeAwareLedgerTask[];
   // Done and archived tasks are hidden unless the operator asks for them; the
   // filter runs before grouping so column counts match what is drawn.
-  const [showDone, setShowDone] = useState(false);
+  // On by default so finished work stays visible; the choice is remembered once changed.
+  const [showDone, setShowDoneState] = useState(() => readBoardShowDone());
+  const setShowDone = (next: boolean | ((v: boolean) => boolean)) => setShowDoneState((v) => { const value = typeof next === 'function' ? next(v) : next; try { localStorage.setItem(BOARD_SHOW_DONE_KEY, value ? '1' : '0'); } catch { /* storage unavailable */ } return value; });
   const [olderOpen, setOlderOpen] = useState(false);
-  const grouped = groupByStatus(filterVisibleBoardTasks(tasks, { showDone }));
+  const visibleTasks = filterVisibleBoardTasks(tasks, { showDone });
+  const grouped = groupByStatus(visibleTasks);
   const { recent: recentReview, older: olderReview } = splitRecentAndOlderReview(grouped.review);
   // Bulk accept only touches review cards the operator can see: recent ones,
   // plus older ones while that row is expanded.
@@ -549,7 +554,7 @@ export function ClusterTaskBoardTab({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
             <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
-              {tasks.length} TASK{tasks.length === 1 ? '' : 'S'}
+              {visibleTasks.length} TASK{visibleTasks.length === 1 ? '' : 'S'}{tasks.length > visibleTasks.length ? ` (${tasks.length - visibleTasks.length} DONE HIDDEN)` : ''}
             </div>
             <div style={{ fontSize: '10px', lineHeight: 1.4, color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
               Who is doing what right now. Your part: accept finished work and answer blocked tasks.

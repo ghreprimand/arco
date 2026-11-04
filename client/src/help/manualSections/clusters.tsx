@@ -1575,8 +1575,8 @@ export const clusters: Section[] = [
   reads met. Partial, not-met, and unsigned tasks are left for you.
   </li>
   <li>
-  <Code>SHOW DONE</Code> lists done and archived tasks, which are hidden
-  by default. Review tasks older than 7 days fold into an{' '}
+  <Code>SHOW DONE</Code> is on by default and lists done and archived
+  tasks; turn it off to hide them (the choice is remembered). Review tasks older than 7 days fold into an{' '}
   <Code>N older</Code> row.
   </li>
   <li>

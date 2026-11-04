@@ -75,6 +75,13 @@ export function splitRecentAndOlderReview(
   return { recent, older };
 }
 
+export const BOARD_SHOW_DONE_KEY = 'arco.board.showDone';
+
+// SHOW DONE is on unless the operator turned it off; the choice is stored only once changed.
+export function readBoardShowDone(storage?: Pick<Storage, 'getItem'>): boolean {
+  try { return (storage ?? localStorage).getItem(BOARD_SHOW_DONE_KEY) !== '0'; } catch { return true; }
+}
+
 export function filterVisibleBoardTasks(
   tasks: readonly LedgerTask[],
   opts: { showDone: boolean },

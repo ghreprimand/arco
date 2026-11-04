@@ -92,3 +92,12 @@ test('needs-you list merges review, operator-blocked and questions', () => {
   assert.equal(needsYouLabel(items.length), '3 NEED YOU');
   assert.deepEqual(items.map((i) => i.kind), ['review', 'blocked', 'question']);
 });
+
+test('SHOW DONE is on by default and remembers an explicit choice', async () => {
+  const { readBoardShowDone } = await import('./clusterNeedsYou.js');
+  const store = (value: string | null) => ({ getItem: () => value });
+  assert.equal(readBoardShowDone(store(null)), true);
+  assert.equal(readBoardShowDone(store('1')), true);
+  assert.equal(readBoardShowDone(store('0')), false);
+  assert.equal(readBoardShowDone({ getItem: () => { throw new Error('unavailable'); } }), true);
+});
