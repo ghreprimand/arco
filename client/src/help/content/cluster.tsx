@@ -962,8 +962,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <p>
         Saves the worker-drafted plan to disk and routes the body up to the
         cluster's shared PLAN slot (standard members see it on their next turn).
-        Only shown when this workflow is a cluster member; standalone tabs
-        only see SAVE &amp; ATTACH / DISCARD.
+        In a cluster this is the only save choice; standalone tabs see
+        SAVE &amp; ATTACH instead. REFINE and DISCARD appear in both.
       </p>
     ),
     manualSection: 'cluster-attach-from-banner',

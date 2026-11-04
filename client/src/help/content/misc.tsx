@@ -1110,8 +1110,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         The agent's next reply will be its draft of the plan. A banner
-        appears offering <C>SAVE & ATTACH</C>: read first, save only if
-        happy. Slower but inspection-friendly.
+        appears offering <C>SAVE & ATTACH</C> and <C>REFINE</C>: read first,
+        ask for changes, save only if happy. Slower but inspection-friendly.
       </p>
     ),
     manualSection: 'plan-creation',
