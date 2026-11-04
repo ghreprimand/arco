@@ -12,7 +12,7 @@ import { applyPhosphorPreferences } from '../themes/phosphor/preferences';
 import { PROVIDER_AUTO_ID, resolveProviderTheme } from '../themes/providerThemes';
 import { writeCachedThemeId, writeCachedFontPackOverride, writeCachedFrostedOverride, writeCachedFrostedOpacity, writeCachedBgBrightness, writeCachedTextBrightness, writeCachedCrispText, applyUiScale, writeCachedUiScale } from '../themes/bootstrap';
 import {
-  capMessages, capSessionChat, trimJobMemory, LOADED_HISTORY_PIN,
+  capMessages, capSessionChat, isStarvedChat, trimJobMemory, LOADED_HISTORY_PIN,
   capWorkerText, capToolInputText, capWorkers, capActivityEntry,
   MAX_WORKER_OUTPUT_BYTES_CLIENT, MAX_WORKER_THINKING_BYTES_CLIENT,
   MAX_WORKER_TOOL_CALLS, MAX_ACTIVITY_ENTRIES, MAX_TOOL_FILTERED_ENTRIES,
@@ -2002,6 +2002,13 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       if (!Array.isArray(j.activity)) j.activity = [];
       if (!Array.isArray(j.historyEvents)) j.historyEvents = [];
       Object.assign(j, trimJobMemory(j as JobState));
+      // A chat starved by the old system-row preference cannot recover from
+      // replay (the browser already saw every seq). Empty it and reset
+      // lastSeq so the server sends its tail, as for a never-seen browser.
+      if (isStarvedChat(j.messages)) {
+        j.messages = [];
+        j.lastSeq = 0;
+      }
       // Persisted `busy`/`turnStartedAt` would go stale across reloads —
       // the authoritative snapshot arrives within seconds of WS connect.
       j.busy = false;

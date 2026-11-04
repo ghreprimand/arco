@@ -22,6 +22,7 @@ const MAX_TOOL_INPUT_STRING_BYTES_CLIENT = 16 * 1024; // per string field in too
 export const MAX_WORKER_TOOL_CALLS = 200;                    // last N tool calls
 const MAX_RETAINED_WORKERS = 80;                      // all live workers + newest settled workers
 const MAX_CHAT_MESSAGES = 500;                        // newest 500 messages
+const MAX_PREFERRED_SHARE = 0.5;                      // system/tool rows may take at most this share of the window
 const SESSION_CHAT_WINDOW = 500;                       // newest Claude JSONL-derived rows kept hot
 export const LOADED_HISTORY_PIN = 200;                // explicit load-earlier page kept visible after prepend
 export const MAX_ACTIVITY_ENTRIES = 500;                     // right-pane live feed cap; sized so tool-heavy turns survive without unbounded growth
@@ -76,9 +77,18 @@ export function capMessages(messages: ChatMessage[], options: MessageWindowOptio
     const hot = newestFirst.filter(({ i }) => keep.has(i)).slice(0, limit);
     return cappedMessages.filter((_, i) => hot.some((h) => h.i === i));
   }
+  // Preferred rows are capped at half the window: every turn emits system
+  // rows, so an uncapped preference starves user and assistant messages on
+  // long-running tabs.
+  const preferBudget = Math.floor(limit * MAX_PREFERRED_SHARE);
+  let preferred = 0;
   for (const { i } of newestFirst) {
-    if (keep.size >= limit) break;
-    if (shouldPreferKeeping(cappedMessages[i]!)) keep.add(i);
+    if (keep.size >= limit || preferred >= preferBudget) break;
+    if (keep.has(i)) continue;
+    if (shouldPreferKeeping(cappedMessages[i]!)) {
+      keep.add(i);
+      preferred++;
+    }
   }
   const remaining = Math.max(0, limit - keep.size);
   if (remaining > 0) {
@@ -88,6 +98,12 @@ export function capMessages(messages: ChatMessage[], options: MessageWindowOptio
       .forEach(({ i }) => keep.add(i));
   }
   return cappedMessages.filter((_, i) => keep.has(i));
+}
+
+// A persisted chat that holds only system rows and tool cards was starved by
+// the old preference rule; it is reloaded from the server tail on rehydrate.
+export function isStarvedChat(messages: ChatMessage[]): boolean {
+  return messages.length >= 100 && messages.every((m) => m.role === 'system' || !!m.toolUse);
 }
 
 export function capWorkerText(text: string, cap: number, label: string): string {

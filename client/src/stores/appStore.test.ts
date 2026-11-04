@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ChatMessage } from '@arco/shared';
 import { capMessages, capSessionChat } from './appStore.js';
+import { isStarvedChat } from './memoryTrim.js';
 
 function msg(id: string, timestamp: number, patch: Partial<ChatMessage> = {}): ChatMessage {
   return {
@@ -73,4 +74,26 @@ test('capSessionChat bounds large tool-use input fields', () => {
   const input = capped[0]!.toolUse!.input as { content: string };
   assert.ok(input.content.length < giant.length);
   assert.match(input.content, /client-side tool input field truncated/);
+});
+
+test('capMessages keeps user and assistant rows on a long chat full of system rows', () => {
+  const rows: ChatMessage[] = [];
+  for (let t = 0; t < 300; t++) {
+    rows.push(msg(`u-${t}`, t * 4, { role: 'user' }));
+    rows.push(msg(`s-${t}-a`, t * 4 + 1, { role: 'system' }));
+    rows.push(msg(`a-${t}`, t * 4 + 2));
+    rows.push(msg(`s-${t}-b`, t * 4 + 3, { role: 'system' }));
+  }
+  const capped = capMessages(rows);
+  assert.equal(capped.length, 500);
+  const ids = new Set(capped.map((m) => m.id));
+  assert.ok(ids.has('u-299') && ids.has('a-299'));
+  assert.ok(capped.filter((m) => m.role !== 'system').length >= 200);
+});
+
+test('isStarvedChat flags only long chats without user or assistant rows', () => {
+  const sys = (n: number) => Array.from({ length: n }, (_, i) => msg(`s-${i}`, i, { role: 'system' }));
+  assert.equal(isStarvedChat(sys(120)), true);
+  assert.equal(isStarvedChat(sys(20)), false);
+  assert.equal(isStarvedChat([...sys(120), msg('a', 999)]), false);
 });

@@ -300,7 +300,7 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 On rehydrate, `onRehydrateStorage` also strips persisted streaming flags, drops queued optimistic entries older than 30 s, and dedupes any `peer-sent-<msgId>` / `peer-recv-<msgId>` rows that earlier builds (pre-intake-dedup) accidentally duplicated.
 
 **Hard caps** to prevent memory regressions:
-- `MAX_CHAT_MESSAGES = 500` per job
+- `MAX_CHAT_MESSAGES = 500` per job. System rows and tool cards are preferred when trimming but take at most half the window (`MAX_PREFERRED_SHARE`), so user and assistant messages survive on long-running tabs; do not remove the cap. A persisted chat that holds only system rows and tool cards (100 or more) is emptied on rehydrate and its `lastSeq` reset, so the server sends its recent tail.
 - `MAX_WORKER_OUTPUT_BYTES_CLIENT = 256 KB` per worker
 - `MAX_ACTIVITY_ENTRIES = 500` per job (raised from 80 - tool-heavy turns were truncating the live feed before settle)
 
