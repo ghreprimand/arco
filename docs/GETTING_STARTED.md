@@ -124,7 +124,7 @@ arco setup
 
 `arco setup` asks before installing the per-user service, starts it, and opens
 the local URL. Use `arco start` for a foreground run. Use
-`arco service install|uninstall|start|stop|restart|status|logs` to manage the
+`arco service install|uninstall|start|stop|restart|status|logs|refresh` to manage the
 service directly.
 
 If npm reports `EACCES` for a global install on Linux or macOS, use nvm or a

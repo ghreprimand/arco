@@ -56,7 +56,7 @@ arco setup
 ```
 
 `arco setup` asks before installing the service, starts it, and opens the local
-URL. Use `arco service install|uninstall|start|stop|restart|status|logs` for
+URL. Use `arco service install|uninstall|start|stop|restart|status|logs|refresh` for
 direct service control, or `arco start` for a foreground run. Service settings
 come from `ARCO_HOME`, `ARCO_PORT`, `ARCO_HOST`, and the other supported
 environment values saved at first install. Existing unowned or modified service
@@ -72,6 +72,20 @@ The packaged service is the systemd user unit `arco.service`, the launchd
 LaunchAgent `arco-workbench.plist` with label `arco-workbench`, or the Windows
 Task Scheduler logon task `arco-workbench`. See
 [`SERVICE_MODE.md`](SERVICE_MODE.md).
+
+For a Linux installation affected by the 0.1.3 service working-directory issue,
+`arco update` can roll back when the old unit fails to restart. Upgrade the
+package directly, then refresh and start the unmodified Arco-owned unit:
+
+```sh
+npm install -g arco-workbench
+arco service refresh
+arco service start
+```
+
+A service definition changed outside Arco is not overwritten; review it before
+continuing. See [Service mode](SERVICE_MODE.md#packaged-service) for the
+working-directory requirements.
 
 ### Source checkout
 
