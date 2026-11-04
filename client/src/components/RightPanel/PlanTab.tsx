@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import type { ProviderName, ModelName, EffortLevel, PlanSummary, PlanFull, WorkflowConfig, ReviewContextRef } from '@arco/shared';
+import { hasGuardrails, insertGuardrails, type ProviderName, type ModelName, type EffortLevel, type PlanSummary, type PlanFull, type WorkflowConfig, type ReviewContextRef } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { SpawnDialog } from '../SpawnDialog';
 import { ReviewDialog } from '../ReviewDialog';
@@ -441,6 +441,28 @@ export function PlanTab({
             </button>
             </span>
           )}
+          {(editing || body !== null) && (() => {
+            const current = editing ? draftBody : body ?? '';
+            const present = hasGuardrails(current);
+            return (
+              <span data-help="plan.insert-guardrails" style={{ display: 'inline-flex' }}>
+                <button
+                  data-testid="plan-insert-guardrails"
+                  disabled={present || bodyLoading}
+                  title={present ? 'Already in this plan' : 'Insert a Privacy and public safety section as an unsaved edit'}
+                  onClick={() => {
+                    if (!editing) setDraftTitle(plan.title);
+                    setDraftBody(insertGuardrails(current));
+                    setEditing(true);
+                  }}
+                  className="display-font"
+                  style={planMiniBtn}
+                >
+                  INSERT GUARDRAILS
+                </button>
+              </span>
+            );
+          })()}
           <button onClick={onDetach} data-help="plan.detach" className="display-font" style={planMiniBtn}>DETACH</button>
           {/* Phase 2.6 — copy this plan body to the cluster's shared plan.
               Only rendered for cluster-member workflows when the operator's

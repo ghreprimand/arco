@@ -28,6 +28,7 @@ import { MdTuneupDialog } from './MdTuneupDialog';
 import { ResearchDialog } from './ResearchDialog';
 import { mintResearchSpawnToken, registerPendingResearch } from './terminalInput/research';
 import { beginPlanReview, planDraftPrompt } from './terminalInput/planDraft';
+import { effectivePublic } from '../utils/publicProject';
 import { DialogPortal } from './DialogShell';
 import { openCompareDialog } from './terminalInput/compare';
 import { PrimaryStatus } from './PrimaryStatus';
@@ -2179,12 +2180,12 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             // path) — not just from inside ClusterTab/MemberPane.
             const effectiveMode = isMemberOfACluster && mode === 'autosave' ? 'review' : mode;
             if (effectiveMode === 'review') {
-              if (!beginPlanReview(job.id, (prompt) => onSend(prompt, undefined, undefined, 'plan-review'), '', isMemberOfACluster)) {
+              if (!beginPlanReview(job.id, (prompt) => onSend(prompt, undefined, undefined, 'plan-review'), '', isMemberOfACluster, effectivePublic(job.config.workingDirectory ?? ''))) {
                 useAppStore.getState().pushNotification('error', 'Wait for the current turn or plan draft to finish before drafting a plan.');
               }
             } else {
               setPendingPlanCapture(job.id, 'autosave');
-              if (onSend(planDraftPrompt('', 'autosave')) === false) setPendingPlanCapture(job.id, null);
+              if (onSend(planDraftPrompt('', 'autosave', false, effectivePublic(job.config.workingDirectory ?? ''))) === false) setPendingPlanCapture(job.id, null);
             }
           }}
           onCancel={() => setShowPlanDialog(false)}

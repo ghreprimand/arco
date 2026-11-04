@@ -8,6 +8,7 @@ import { RuntimeStateBanner } from './RuntimeStateBanner';
 import { NorthStarBar } from './NorthStarBar';
 import { Panel } from './primitives/Panel';
 import { useAppStore } from '../stores/appStore';
+import { ProjectStateNotice } from './ProjectStateNotice';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, PreviewCaptureKind, PreviewViewport, ArcoSkillRef, BakeoffAttemptSpec } from '@arco/shared';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
@@ -113,6 +114,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   // I3 — focus mode hides the right panel (+ splitter), giving the chat the
   // full width. Reversible: toggling off restores the persisted split fraction.
   const focusMode = useAppStore((s) => s.focusMode);
+  const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && m.accessMode === 'isolated')));
   const [rightFraction, setRightFraction] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(WIDTH_KEY);
@@ -205,6 +207,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           <Panel className="no-frost" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <ChatPanel job={job} onCancelQueued={onCancelQueued} onLoadEarlier={onLoadEarlier} />
           </Panel>
+          <ProjectStateNotice cwd={job.config.workingDirectory ?? ''} skip={isolatedMember} />
           <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />
           <RuntimeStateBanner job={job} onCancel={onCancel} />
           <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />

@@ -95,6 +95,7 @@ export interface ProjectStateReport {
 
 export async function checkProjectState(cwd: string): Promise<ProjectStateReport> {
   const base: ProjectStateReport = { isGit: false, hasState: false, tracked: 0, trackedSample: [], ignored: true, ignoreFile: 'default' };
+  if (/[\\/]isolates[\\/]/.test(cwd)) return base;
   const inside = await git(cwd, ['rev-parse', '--is-inside-work-tree']);
   if (inside.code !== 0 || inside.stdout.trim() !== 'true') return base;
   base.isGit = true;

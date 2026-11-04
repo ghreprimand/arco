@@ -1122,6 +1122,44 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'plan-creation',
   },
+  'plan.public-project': {
+    title: 'This project is public (or will be)',
+    body: (
+      <p>
+        When ticked, the plan draft also asks for a "Privacy and public safety"
+        section of standing rules. Unticked, the request is unchanged. The choice
+        is remembered for this project folder in this browser. It is pre-ticked
+        only when the Git remote is confirmed public on GitHub, with the reason
+        shown; your own choice always wins.
+      </p>
+    ),
+    manualSection: 'public-project',
+  },
+  'plan.insert-guardrails': {
+    title: 'Insert guardrails',
+    body: (
+      <p>
+        <C>INSERT GUARDRAILS</C> adds a "Privacy and public safety" section before
+        the first phase as an unsaved edit. Review it, then save. Disabled when
+        the plan already has that section.
+      </p>
+    ),
+    manualSection: 'public-project',
+  },
+  'project-state.notice': {
+    title: 'Project state in Git',
+    body: (
+      <p>
+        Git is tracking Arco's <C>.arco</C> folder, or the folder is not ignored.{' '}
+        <C>RESTORE IGNORE FILE</C> writes the default ignore file (an edited one
+        is kept as a backup). <C>STOP TRACKING</C> removes the folder from Git's
+        index and keeps the files; commit afterwards, and note that anything
+        already pushed stays in the remote's history. <C>DISMISS</C> hides this
+        for the project.
+      </p>
+    ),
+    manualSection: 'public-project',
+  },
   'plan.draft-autosave': {
     title: 'Draft & auto-save',
     body: (

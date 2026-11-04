@@ -176,6 +176,55 @@ export const plans: Section[] = [
     ),
   },
   {
+    id: 'public-project',
+    group: 'Plans & artifacts',
+    title: 'Working on a public project',
+    body: (
+      <>
+        <p>
+          A project that is public, or will be, needs rules about what never reaches the
+          repository. Arco helps in four places. Nothing changes until you click, and
+          every notice can be dismissed.
+        </p>
+        <Sub>The public-project box</Sub>
+        <p>
+          <Code>This project is public (or will be)</Code> sits beside the plan-draft
+          choices: in the cluster creator, next to DRAFT A PLAN, and in the PLAN
+          dialog. When it is ticked, the draft asks the agent for a "Privacy and public
+          safety" section of standing rules fitted to the project. Unticked, the
+          draft request is unchanged. The choice is remembered per project folder in
+          this browser.
+        </p>
+        <p>
+          Arco suggests the box from the folder's Git remote. If the remote is on
+          GitHub, GitLab, Bitbucket or Codeberg, a hint names the host. For GitHub
+          only, Arco asks once a day whether the repository is public. The request
+          is anonymous and carries only the owner and repository names. A confirmed public repository
+          pre-ticks the box and says why. Your own choice always wins.
+        </p>
+        <Sub>Add the rules to an existing plan</Sub>
+        <p>
+          <Code>INSERT GUARDRAILS</Code> in the plan view puts the same section before
+          the first phase as an unsaved edit. Read it, change it, then save. The
+          button is disabled with "Already in this plan" when the section exists.
+          It never saves by itself.
+        </p>
+        <Sub>Keeping Arco's own state out of Git</Sub>
+        <p>
+          Arco keeps its state for a project in a <Code>.arco</Code> folder that
+          it asks Git to ignore. When Git tracks files in it, or the ignore file is
+          missing or edited so the folder is no longer ignored, a quiet notice appears
+          once per project.
+        </p>
+        <ul>
+          <li><Code>RESTORE IGNORE FILE</Code> writes the default ignore file. An edited file is first kept as a backup beside it.</li>
+          <li><Code>STOP TRACKING</Code> removes the folder from Git's index and keeps the files on disk. A commit is still needed. Anything already pushed stays in the remote's history, so rotate any secret that was in it.</li>
+          <li><Code>DISMISS</Code> hides the notice for that project.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'plan-checklists',
     group: 'Plans & artifacts',
     title: 'Clickable checklists',

@@ -1,5 +1,6 @@
 import type { JobState } from '../stores/appStore';
 import { DialogShell } from './DialogShell';
+import { PublicProjectBox } from './PublicProjectBox';
 
 interface Props {
   job: JobState;
@@ -54,6 +55,8 @@ export function PlanComposerDialog({ job, onConfirm, onCancel, isClusterMember }
           </span>
         )}
       </div>
+
+      <PublicProjectBox cwd={job.config.workingDirectory ?? ''} testId="plan-dialog-public-project" />
 
       <button
         onClick={() => onConfirm('review')}

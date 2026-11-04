@@ -32,6 +32,12 @@ async def main():
                 if url.path == '/api/outputs':
                     await route.fulfill(json={'outputs':[]})
                     return
+                if url.path == '/api/public-project/remote':
+                    await route.fulfill(json={'state':'none'})
+                    return
+                if url.path == '/api/public-project/state':
+                    await route.fulfill(json={'isGit':False,'hasState':False,'tracked':0,'trackedSample':[],'ignored':True,'ignoreFile':'default'})
+                    return
                 if url.path == '/api/project-trust':
                     await route.fulfill(json={'trusted':False})
                     return

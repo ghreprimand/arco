@@ -1,5 +1,6 @@
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
+import { effectivePublic } from '../utils/publicProject';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { receiveComputerActivityChanged } from '../voice/activity';
 import { useComputerStore } from '../stores/computerStore';
@@ -2119,7 +2120,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               if (!ws || ws.readyState !== WebSocket.OPEN) return false;
               ws.send(JSON.stringify({ type: 'user_message', workflowId: draft.workflowId, content, primitive: 'plan-review' }));
               return true;
-            }, draft.goal, true);
+            }, draft.goal, true, effectivePublic(store.jobs[draft.workflowId]?.config.workingDirectory ?? ''));
             if (!started) store.pushNotification('error', 'The cluster was created, but the plan draft did not start. Use DRAFT A PLAN when the director is ready.');
           }
           // A snapshot restore completes as a cluster_created with a brand-new

@@ -30,6 +30,9 @@ import { NeedsYouBadge } from './NeedsYouBadge';
 import { ClusterRightPanel } from './ClusterRightPanel';
 import { clusterDisplayName } from './TabBar';
 import { beginPlanReview } from './terminalInput/planDraft';
+import { PublicProjectBox } from './PublicProjectBox';
+import { ProjectStateNotice } from './ProjectStateNotice';
+import { effectivePublic } from '../utils/publicProject';
 import type { ClusterMemberProvider, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, LedgerTaskStatus } from '@arco/shared';
 import { presetForText } from '@arco/shared';
 import type { ClusterDispatcherSettingsPatch, ClusterMemberPrimaryUpdate, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
@@ -816,16 +819,18 @@ export function ClusterTab({
                     <NeedsYouBadge clusterId={clusterId} />
                   </div>
 
+                  {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
                   {!cluster.plan && !planHintHidden && <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: '11px' }}>
                     <span>No plan yet: a plan keeps every worker on the same list.</span>
                     {!directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => setMembersTabRequest((value) => value + 1)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
                     <button type="button" disabled={!directorMember} title={directorMember ? 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={() => {
                       if (!directorMember) return;
                       const id = directorMember.workflowId;
-                      const started = beginPlanReview(id, (prompt) => onSendToMember(id, prompt, undefined, undefined, 'plan-review'), '', true);
+                      const started = beginPlanReview(id, (prompt) => onSendToMember(id, prompt, undefined, undefined, 'plan-review'), '', true, effectivePublic(jobs[id]?.config.workingDirectory ?? ''));
                       if (started) setClusterFocusedMember(clusterId, id);
                       else useAppStore.getState().pushNotification('error', 'The director must be idle and ready before drafting a plan.');
                     }}>DRAFT A PLAN</button>
+                    {directorMember && <PublicProjectBox cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} testId="cluster-public-project" />}
                     <button type="button" disabled={!onAttachClusterPlan} onClick={() => setPlanTabRequest((value) => value + 1)}>ATTACH EXISTING</button>
                     <button type="button" onClick={() => { setPlanHintHidden(true); try { localStorage.setItem(`arco.clusterPlanHint.${clusterId}`, '1'); } catch { /* no-op */ } }}>NOT NOW</button>
                   </div>}

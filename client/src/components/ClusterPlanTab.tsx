@@ -29,7 +29,7 @@ import type {
   PlanSummary,
   PlanFull,
 } from '@arco/shared';
-import { ROLE_PRESETS } from '@arco/shared';
+import { ROLE_PRESETS, hasGuardrails, insertGuardrails } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { PlanBodyRenderer, CHECKBOX_RE } from './PlanBodyRenderer';
 import { PlanRefsSection, PlanRefChips } from './plans/PlanRefsSection';
@@ -454,6 +454,20 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
           >
             EDIT
           </button>
+        )}
+        {onSetPlan && (mode === 'edit' || remoteBody) && (
+          <span data-help="plan.insert-guardrails" style={{ display: 'inline-flex' }}>
+            <button
+              data-testid="cluster-plan-insert-guardrails"
+              disabled={hasGuardrails(mode === 'edit' ? draft : remoteBody)}
+              title={hasGuardrails(mode === 'edit' ? draft : remoteBody) ? 'Already in this plan' : 'Insert a Privacy and public safety section as an unsaved edit'}
+              onClick={() => { setDraft(insertGuardrails(mode === 'edit' ? draft : remoteBody)); setMode('edit'); }}
+              className="display-font"
+              style={headerBtn}
+            >
+              INSERT GUARDRAILS
+            </button>
+          </span>
         )}
         {onClearPlan && cluster.plan && (
           <button

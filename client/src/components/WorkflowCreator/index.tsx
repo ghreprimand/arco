@@ -27,6 +27,7 @@ import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
+import { PublicProjectBox } from '../PublicProjectBox';
 import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import { availableMemberProviders, firstAvailablePrimaryProvider, memberProviderAvailable, MEMBER_PROVIDER_NAMES, primaryProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders';
 
@@ -1226,6 +1227,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           <label htmlFor="cluster-plan-goal" style={labelStyle}>What is this project for? (optional)</label>
           <textarea id="cluster-plan-goal" value={clusterPlanGoal} onChange={(event) => setClusterPlanGoal(event.target.value)} maxLength={4000} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
           <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '11px', color: 'var(--color-fg-muted)' }}><input type="checkbox" checked={draftInitialPlan} onChange={(event) => setDraftInitialPlan(event.target.checked)} /> Have the director draft a plan for review</label>
+          <PublicProjectBox cwd={workDir} testId="creator-public-project" />
           {draftInitialPlan && clusterPlanGoal.trim() && !members.some((member) => isClusterDirector(member.role)) && <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>Choose a director in the member list before creating the cluster.</span>}
         </div>}
         {mode === 'cluster' && (
