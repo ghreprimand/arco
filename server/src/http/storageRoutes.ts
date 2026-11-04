@@ -71,7 +71,7 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
         await ignoreCopyDestination(project, review.target);
         return json(res, 200, { ok: true });
       }
-      await copyReviewedArtifact(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic, body.token);
+      await copyReviewedArtifact(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic, body.token, undefined, body.confirmUnscanned === true);
       return json(res, 200, { ok: true });
     }
     if (action === 'keep') {

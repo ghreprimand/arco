@@ -4,7 +4,7 @@ import { KeepButton } from './KeepButton';
 import { effectivePublic } from '../utils/publicProject';
 
 interface Finding { line: number; rule: string }
-interface Review { target: string; bytes: number; ignored: boolean; publicRepository: boolean; token: string; files: Array<{ rel: string; media: boolean; findings: Finding[] }> }
+interface Review { target: string; bytes: number; ignored: boolean; publicRepository: boolean; token: string; files: Array<{ rel: string; media: boolean; unscanned: boolean; findings: Finding[] }> }
 export function artifactRelative(file: string, workflowId: string): string | null {
   const normalized = file.replace(/\\/g, '/');
   const marker = `/.arco/workflows/${workflowId}/artifacts/`;
@@ -32,7 +32,13 @@ export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd
     const result = await call('copy-review', { destinationFolder: dir });
     if (result) { setReview(result as Review); setStage('review'); }
   }
-  async function copy() { if (review && await call('copy-confirm', { token: review.token })) setDone('Copied into the project. The original remains in Arco.'); }
+  async function copy() {
+    if (!review) return;
+    const unscanned = review.files.filter(file => file.unscanned).map(file => file.rel);
+    const needsConfirmation = !review.ignored && review.publicRepository && unscanned.length > 0;
+    if (needsConfirmation && !window.confirm(`These files were not fully scanned:\n${unscanned.join('\n')}\n\nCopy them into the public repository?`)) return;
+    if (await call('copy-confirm', { token: review.token, confirmUnscanned: needsConfirmation })) setDone('Copied into the project. The original remains in Arco.');
+  }
   async function ignore() { if (review && await call('copy-ignore', { token: review.token })) await inspect(); }
   return <div style={{ position: 'fixed', inset: 0, zIndex: 9800, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
     <div role="dialog" aria-modal="true" aria-label="Move artifact to project" style={{ width: 'min(680px,100%)', maxHeight: 'calc(90vh / var(--ui-scale, 1))', overflowY: 'auto', padding: 16, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
@@ -42,6 +48,7 @@ export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd
         {stage === 'folder' && <DirectoryBrowser inline initialPath={cwd} withFilename={false} title="Choose a project folder" confirmLabel="REVIEW DESTINATION" onDone={r => { if (r) void inspect(r.dir); else setStage('choice'); }} />}
         {stage === 'review' && review && <><p>Destination: {review.target}</p><p>{review.ignored ? 'Git ignores this destination.' : 'Files here are included in your repository unless you exclude them.'}</p><p>{review.publicRepository ? 'This repository is public or marked public.' : 'The repository is not confirmed public; visibility can be unknown.'}</p><p>Size: {(review.bytes / 1000 ** 2).toFixed(1)} MB. {review.bytes > 50 * 1000 ** 2 ? 'Large copy.' : ''} {!review.ignored && review.bytes > 100 * 1000 ** 2 ? 'Over 100 MB cannot be copied into a folder included in Git.' : ''}</p>
           <p>Images, recordings and other binary files can contain private content that text scanning cannot inspect.</p>
+          {review.files.some(f => f.unscanned) && <><p>Not scanned or not fully scanned:</p><ul>{review.files.filter(f => f.unscanned).map(f => <li key={f.rel}>{f.rel}</li>)}</ul></>}
           <p>Text scan: {review.files.reduce((count, file) => count + file.findings.length, 0)} findings.</p>
           <ul>{review.files.flatMap(f => f.findings.map((finding, i) => <li key={`${f.rel}:${finding.line}:${i}`}>{f.rel}:{finding.line} - {finding.rule}</li>))}</ul>
           <button data-help="storage.choose-folder" disabled={busy} onClick={() => { setReview(null); setStage('folder'); }}>CHOOSE ANOTHER FOLDER</button>{' '}

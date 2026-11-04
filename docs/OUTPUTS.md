@@ -87,7 +87,9 @@ Outputs does not offer destructive cleanup.
 
 **MOVE TO PROJECT** on an artifact offers **KEEP IT PRIVATE** or **ADD TO
 PROJECT FILES**. Before a copy, review the destination, Git ignore and public
-repository status, size and content findings. The original stays in the artifact
+repository status, size and content findings. Files not fully scanned are listed
+by name. Copying them into a public repository outside Git ignore requires a
+second confirmation. The original stays in the artifact
 store; Arco does not stage or commit the copy. A large-artifact warning offers
 **KEEP** to protect the artifact from cleanup or **DISMISS**.
 

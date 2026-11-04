@@ -35,8 +35,12 @@ export const maintenance: Section[] = [
   <p>
   MOVE TO PROJECT in OUTPUTS offers KEEP IT PRIVATE or a copy into the project.
   Review Git ignore status, public visibility, size and text findings first.
-  Images, recordings and other binary files need manual inspection. Arco does
-  not stage or commit the copy, and the original remains in Arco. A failed copy
+  Files that cannot be fully scanned are listed by name. A public repository
+  copy outside Git ignore asks for a second confirmation for those files.
+  Images and recordings need manual inspection.
+  </p>
+  <p>
+  Arco does not stage or commit the copy, and the original remains in Arco. A failed copy
   can leave partial files at the destination. The temporary folder must be
   outside the project and Git repositories.
   </p>

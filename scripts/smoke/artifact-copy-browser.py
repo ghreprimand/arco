@@ -28,6 +28,7 @@ async def main():
         conv = project / '.arco' / 'workflows' / 'conv-1'
         (conv / 'artifacts').mkdir(parents=True)
         (conv / 'meta.json').write_text(json.dumps({'name': 'Fixture'}))
+        (conv / 'artifacts' / 'picture.png').write_bytes(b'\x89PNG' + b'api_' + b'key=fixture_value')
         source = conv / 'artifacts' / 'report.txt'
         source.write_text('Email: ' + '@'.join(['person', 'example.test']) + '\n')
         port = h.host_isolation.closed_port()
@@ -53,6 +54,7 @@ async def main():
             page = await context.new_page()
             await page.goto(server.base)
             await page.goto(base + '/fixture')
+            await page.evaluate('(cwd) => localStorage.setItem("arco.publicProject." + cwd, "1")', str(project))
             await page.wait_for_function('window.fixtureReady === true')
             await page.evaluate('''async (cwd) => {
               const React = (await import('/node_modules/.vite/deps/react.js')).default;
@@ -65,7 +67,24 @@ async def main():
             await dialog.get_by_role('button', name='REVIEW DESTINATION').click()
             await expect(dialog.get_by_text('report.txt:1 - email-address')).to_be_visible(timeout=30000)
             await expect(dialog.get_by_text('Files here are included in your repository unless you exclude them.')).to_be_visible()
-            await dialog.get_by_role('button', name='COPY INTO PROJECT').click()
+            await expect(dialog.get_by_text('picture.png', exact=True)).to_be_visible()
+            review = await page.evaluate('''async (cwd) => {
+              const body = {path: cwd, workflowId: 'conv-1', itemPath: 'artifacts', destinationFolder: cwd, publicProject: true, confirm: true};
+              const review = await (await fetch('/api/storage/copy-review', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
+              const response = await fetch('/api/storage/copy-confirm', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...body, token:review.token})});
+              return response.status;
+            }''', str(project))
+            assert review != 200 and not (project / 'artifacts').exists()
+            confirmations = []
+            async def confirm_copy(prompt):
+                confirmations.append(prompt.message)
+                if len(confirmations) == 1: await prompt.dismiss()
+                else: await prompt.accept()
+            page.on('dialog', lambda prompt: asyncio.create_task(confirm_copy(prompt)))
+            await dialog.get_by_role('button', name='COPY INTO PUBLIC REPOSITORY').click()
+            await page.wait_for_timeout(300)
+            assert not (project / 'artifacts').exists() and 'picture.png' in confirmations[0]
+            await dialog.get_by_role('button', name='COPY INTO PUBLIC REPOSITORY').click()
             await expect(dialog.get_by_text('Copied into the project.', exact=False)).to_be_visible(timeout=30000)
             assert (project / 'artifacts' / 'report.txt').read_text() == source.read_text()
             assert source.exists()

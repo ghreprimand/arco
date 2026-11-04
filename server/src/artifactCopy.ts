@@ -32,21 +32,21 @@ export function scanCopyLine(line: string): string[] {
   for (const m of decoded.matchAll(/(?:(?<![A-Za-z0-9_/])\/(?:home|Users)\/|[A-Za-z]:[\\/]Users[\\/])([A-Za-z0-9_.-]+)(?=[\\/])/g)) if (!safeUsers.has(m[1])) rules.push('personal-home-path');
   return [...new Set(rules)];
 }
-interface FileEntry { rel: string; bytes: number; hash: string; media: boolean; findings: Array<{ line: number; rule: string }> }
+interface FileEntry { rel: string; bytes: number; hash: string; media: boolean; unscanned: boolean; findings: Array<{ line: number; rule: string }> }
 interface CopyInspection { source: string; target: string; bytes: number; ignored: boolean; publicRepository: boolean; files: FileEntry[]; directories: string[]; token: string }
 async function scanFile(file: string, rel: string, maxFindings = 1000): Promise<FileEntry> {
   const fh = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const info = await fh.stat(); if (!info.isFile()) throw new Error('Only regular files can be copied.');
     const hash = createHash('sha256'); const findings: FileEntry['findings'] = [];
-    const media = MEDIA.test(rel); const knownText = TEXT.test(rel); const scanText = !media || knownText; let line = 1; let pending = ''; let binary = false;
-    const decoder = new TextDecoder('utf-8', { fatal: true });
+    const media = MEDIA.test(rel); const scanText = !media || TEXT.test(rel); let line = 1; let pending = ''; let unscanned = !scanText;
+    const decoder = new TextDecoder('utf-8');
     for await (const chunk of createReadStream('', { fd: fh.fd, autoClose: false, emitClose: false })) {
       const buffer = chunk as Buffer; hash.update(buffer);
-      if (!scanText || binary) continue;
-      if (buffer.includes(0) && !knownText) { binary = true; continue; }
-      const textBuffer = knownText && buffer.includes(0) ? Buffer.from(buffer.filter(byte => byte !== 0)) : buffer;
-      let text: string; try { text = decoder.decode(textBuffer, { stream: true }); } catch { if (knownText) throw new Error('Text encoding cannot be scanned.'); binary = true; continue; }
+      if (!scanText) continue;
+      const textBuffer = buffer.includes(0) ? Buffer.from(buffer.filter(byte => byte !== 0)) : buffer;
+      const text = decoder.decode(textBuffer, { stream: true });
+      if (text.includes('\ufffd')) unscanned = true;
       pending += text;
       for (;;) {
         const i = pending.indexOf('\n'); if (i < 0) break;
@@ -55,11 +55,13 @@ async function scanFile(file: string, rel: string, maxFindings = 1000): Promise<
       }
       if (pending.length > MiB) throw new Error('A text line is too long to scan; split the artifact.');
     }
-    if (scanText && !binary) {
-      try { pending += decoder.decode(); } catch { if (knownText) throw new Error('Text encoding cannot be scanned.'); binary = true; }
-      if (!binary) for (const rule of scanCopyLine(pending)) findings.push({ line, rule });
+    if (scanText) {
+      const remainder = decoder.decode();
+      if (remainder.includes('\ufffd')) unscanned = true;
+      pending += remainder;
+      for (const rule of scanCopyLine(pending)) { if (findings.length >= maxFindings) throw new Error('Too many findings to show; split the artifact.'); findings.push({ line, rule }); }
     }
-    return { rel, bytes: info.size, hash: hash.digest('hex'), media: media || binary, findings };
+    return { rel, bytes: info.size, hash: hash.digest('hex'), media, unscanned, findings };
   } finally { await fh.close(); }
 }
 async function gitIgnored(cwd: string, target: string): Promise<boolean> {
@@ -144,9 +146,10 @@ export async function inspectArtifactCopy(cwd: string, workflowId: string, itemP
 // Re-scan immediately before copying and require an unchanged review token.
 // Each destination is exclusively created; source bytes are checked against
 // the preflight hash before success is reported. Originals are never removed.
-export async function copyReviewedArtifact(cwd: string, workflowId: string, itemPath: string, destinationFolder: string, declaredPublic: boolean, token: string, beforePublish?: (index: number) => Promise<void>): Promise<CopyInspection> {
+export async function copyReviewedArtifact(cwd: string, workflowId: string, itemPath: string, destinationFolder: string, declaredPublic: boolean, token: string, beforePublish?: (index: number) => Promise<void>, confirmUnscanned = false): Promise<CopyInspection> {
   const check = await inspectArtifactCopy(cwd, workflowId, itemPath, destinationFolder, declaredPublic);
   if (!token || token !== check.token) throw new Error('The artifact or destination changed. Review it again.');
+  if (!check.ignored && check.publicRepository && check.files.some((file) => file.unscanned) && !confirmUnscanned) throw new Error('Confirm the files that were not scanned before copying into a public repository.');
   if (!check.ignored && check.bytes > 100 * MB) throw new Error('Over 100 MB cannot be copied into a folder included in Git. Choose an ignored folder.');
   const sourceInfo = await fs.lstat(check.source);
   const tempRoot = await fs.realpath(tmpdir());
