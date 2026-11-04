@@ -73,20 +73,6 @@ LaunchAgent `arco-workbench.plist` with label `arco-workbench`, or the Windows
 Task Scheduler logon task `arco-workbench`. See
 [`SERVICE_MODE.md`](SERVICE_MODE.md).
 
-For a Linux installation affected by the 0.1.3 service working-directory issue,
-`arco update` can roll back when the old unit fails to restart. Upgrade the
-package directly, then refresh and start the unmodified Arco-owned unit:
-
-```sh
-npm install -g arco-workbench
-arco service refresh
-arco service start
-```
-
-A service definition changed outside Arco is not overwritten; review it before
-continuing. See [Service mode](SERVICE_MODE.md#packaged-service) for the
-working-directory requirements.
-
 ### Source checkout
 
 Contributor source runs retain the checkout commands:
@@ -200,6 +186,20 @@ modules cannot be replaced safely. A packaged service can instead use
 **UPDATE AND RESTART** from the version box, the release toast, or Settings on
 Linux, macOS, and Windows. The action interrupts running turns and reports
 completion or rollback after reconnect.
+
+For a Linux installation affected by the 0.1.3 service working-directory issue,
+`arco update` can roll back when the old unit fails to restart. Upgrade the
+package directly, then refresh and start the unmodified Arco-owned unit:
+
+```sh
+npm install -g arco-workbench
+arco service refresh
+arco service start
+```
+
+A service definition changed outside Arco is not overwritten; review it before
+continuing. See [Service mode](SERVICE_MODE.md#packaged-service) for the
+working-directory requirements.
 
 ### Source checkout
 

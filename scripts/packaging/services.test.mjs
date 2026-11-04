@@ -141,7 +141,7 @@ test('an older Arco-owned Windows definition is rewritten, and a current one is 
   assert.equal(f.calls.length, 0);
 });
 
-test('Linux refresh repairs an unmodified old unit and refuses an edited unit', async (t) => {
+test('Linux refresh repairs an unmodified old unit and refuses an edited unit', { skip: process.platform === 'win32' }, async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'arco-linux-refresh-')); t.after(() => rmSync(home, { recursive: true, force: true }));
   const paths = { home, config: join(home, 'service/config.json'), unit: join(home, 'unit') };
   const calls = [];
