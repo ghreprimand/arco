@@ -32,7 +32,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
-- Scan extensionless artifact copies even when they contain NUL bytes, and ask again before unscanned files are copied into a public repository.
+- Scan extensionless artifact copies even when they contain NUL bytes, and ask again before unscanned files are copied into a public repository outside Git ignore.
 
 - Fix long-running tabs losing every user and assistant message: system rows and tool cards now take at most half of the 500-row chat window, and a tab already showing only system rows reloads its recent history from the server once.
 - Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). The GIT, SPAWN, HANDOFF, REVIEW, PLAN, DOCS, TUNE UP, DEEP RESEARCH and SKILL editor dialogs use the same layout.
