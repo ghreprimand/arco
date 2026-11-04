@@ -1130,7 +1130,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         section of standing rules. Unticked, the request is unchanged. The choice
         is remembered for this project folder in this browser. It is pre-ticked
         only when the Git remote is confirmed public on GitHub, with the reason
-        shown; your own choice always wins.
+        shown. A remote on another host, or a GitHub repository whose visibility is unknown, shows only a hint naming the host. Your own choice always wins.
       </p>
     ),
     manualSection: 'public-project',

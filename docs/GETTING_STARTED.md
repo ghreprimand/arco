@@ -280,7 +280,7 @@ at least two members, each with a model selected.
    added later; they do not replace existing rows. By default a cluster accepts
    one member per local runtime (Ollama, llama.cpp). Raise "Cluster members that
    may use this runtime at once" in Connections to allow more.
-5. Optionally describe the project purpose and leave **Have the director draft a plan for review** checked. Choose a director in the member list. After creation, review the draft before attaching it; leave the purpose empty to skip the drafting turn. See [Plan or board?](PLAN_OR_BOARD.md).
+5. Optionally describe the project purpose and leave **Have the director draft a plan for review** checked. Choose a director in the member list. After creation, review the draft before attaching it; leave the purpose empty to skip the drafting turn. For a public project, tick **This project is public (or will be)** beside it. See [Plan or board?](PLAN_OR_BOARD.md).
 6. Select **CREATE CLUSTER**. The cluster tab opens with its members. Member
    cards default to the **ROWS** layout (AUTO, COLS, and GRID remain available).
 

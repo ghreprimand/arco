@@ -17,5 +17,12 @@ steps in one place.
 A cluster without a plan offers DRAFT A PLAN, ATTACH EXISTING, and NOT NOW;
 NOT NOW is remembered for that cluster in the browser.
 
+For a project that is public, or will be, tick **This project is public (or
+will be)** beside the draft choices. The draft then also asks for a "Privacy
+and public safety" section. For a plan that already exists, **INSERT GUARDRAILS**
+adds the same section as an unsaved edit. A quiet notice offers **RESTORE IGNORE
+FILE**, **STOP TRACKING** and **DISMISS** when Git tracks or does not ignore the
+project's `.arco` folder. See the manual section "Working on a public project".
+
 For setup, see [Create a first cluster](GETTING_STARTED.md#create-a-first-cluster).
 For board controls, see [Task ledger](TASK_LEDGER.md).
