@@ -179,7 +179,7 @@ export function MemberPane({
           clusterContext={clusterContext}
         />
         <RuntimeStateBanner job={job} onCancel={onCancel} />
-        <div data-help="composer.plan"><PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachToCluster} /></div>
+        <div data-help="composer.plan"><PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachToCluster} onSend={onSend} /></div>
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         <TerminalInput
           job={job}

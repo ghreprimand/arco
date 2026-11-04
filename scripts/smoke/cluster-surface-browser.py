@@ -198,8 +198,30 @@ async def main():
           receive({type:'primary_turn_started',workflowId:'worker-b',startedAt:10,seq:100},d);
           receive({type:'primary_text',workflowId:'worker-b',phase:'passthrough',text:'# Fixture plan\\n- [ ] First',seq:101},d);
           receive({type:'primary_complete',workflowId:'worker-b',phase:'passthrough',seq:102},d);
+          receive({type:'primary_turn_ended',workflowId:'worker-b',seq:103},d);
         }""")
         await expect(page.get_by_text('PLAN DRAFT READY', exact=True)).to_be_visible()
+        assert await page.evaluate('planWrites.length') == 0
+        assert await page.get_by_role('button', name='ATTACH TO WORKER').count() == 0
+        sent_before = await page.evaluate('sent.length')
+        await page.get_by_role('button', name='REFINE', exact=True).click()
+        await page.get_by_placeholder('What should change in this draft?').fill('Add a release phase')
+        await page.get_by_placeholder('What should change in this draft?').press('Enter')
+        assert await page.evaluate('sent.length') == sent_before + 1
+        refine_args = await page.evaluate('sent.at(-1)')
+        assert refine_args[4] == 'plan-review' and 'Add a release phase' in refine_args[1] and 'Fixture plan' in refine_args[1]
+        assert await page.evaluate("s.getState().jobs['worker-b'].pendingPlanCapture") == 'review'
+        await expect(page.get_by_text('REVISING PLAN DRAFT...', exact=True)).to_be_visible()
+        assert await page.evaluate("s.getState().jobs['worker-b'].planCandidate.body.includes('Fixture plan')")
+        await page.evaluate("""() => {
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'primary_turn_started',workflowId:'worker-b',startedAt:20,seq:110},d);
+          receive({type:'primary_text',workflowId:'worker-b',phase:'passthrough',text:'# Revised plan\\n- [ ] First\\n- [ ] Release',seq:111},d);
+          receive({type:'primary_complete',workflowId:'worker-b',phase:'passthrough',seq:112},d);
+          receive({type:'primary_turn_ended',workflowId:'worker-b',seq:113},d);
+        }""")
+        await expect(page.get_by_text('PLAN DRAFT READY', exact=True)).to_be_visible()
+        assert await page.evaluate("s.getState().jobs['worker-b'].planCandidate.body.startsWith('# Revised plan')")
         assert await page.evaluate('planWrites.length') == 0
         await page.get_by_role('button', name='ATTACH TO CLUSTER').click()
         assert await page.evaluate('planWrites.length') == 1

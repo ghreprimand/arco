@@ -1190,7 +1190,7 @@ Fired on operator-driven `plan_detach`, `detachAllForPlan` (mark-complete or har
 
 ### `plan_candidate_ready` <-
 
-Cluster-member plan-creation choice point. When a worker that is a member of a cluster produces a plan via an auto-attach path (Native `EnterPlanMode`, or the `PlanComposerDialog` AUTOSAVE button), the server skips the silent worker-attach and emits this event instead. The client lands it in `JobState.planCandidate` so `PlanCandidateBanner` renders the three-button choice (SAVE & ATTACH TO WORKER / ATTACH TO CLUSTER / DISCARD). Non-cluster workflows never see this message - the existing `plan_set` auto-attach pipeline is unchanged for them. `plan_set` STILL fires alongside this message (for events.jsonl audit); only the `handlePlanAttach` side-effect is gated when the workflow is in a cluster.
+Cluster-member plan-creation choice point. When a worker that is a member of a cluster produces a plan via an auto-attach path (Native `EnterPlanMode`, or the `PlanComposerDialog` AUTOSAVE button), the server skips the silent worker-attach and emits this event instead. The client lands it in `JobState.planCandidate` so `PlanCandidateBanner` renders its choice (ATTACH TO CLUSTER / REFINE / DISCARD). Non-cluster workflows never see this message - the existing `plan_set` auto-attach pipeline is unchanged for them. `plan_set` STILL fires alongside this message (for events.jsonl audit); only the `handlePlanAttach` side-effect is gated when the workflow is in a cluster.
 
 ```ts
 {

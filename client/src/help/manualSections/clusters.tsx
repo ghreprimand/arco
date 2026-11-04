@@ -776,21 +776,15 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  The plan candidate banner lets the operator choose whether a newly
-  emitted plan attaches to one worker, to the whole cluster, or is
-  discarded.
+  The plan candidate banner lets the operator save a newly emitted plan,
+  ask the agent to revise it, or discard it.
   </p>
   <p>
   When any worker emits a plan via <Code>ExitPlanMode</Code> (Claude /
   Codex / etc.), the <strong>PlanCandidateBanner</strong> appears
-  between the chat and the composer with three buttons:
+  between the chat and the composer with these buttons:
   </p>
   <ul>
-  <li>
-  <Code>ATTACH TO WORKER</Code> - saves the plan as a per-cwd plan
-  record and attaches it to <em>this</em> worker's per-tab plan
-  slot. The original (non-cluster) behavior.
-  </li>
   <li>
   <Code>ATTACH TO CLUSTER</Code> - saves the plan as a per-cwd plan
   record and also routes the body up to the cluster's shared PLAN
@@ -798,13 +792,18 @@ export const clusters: Section[] = [
   <em>every</em> member's next turn.
   </li>
   <li>
+  <Code>REFINE</Code> - opens a short note box. The same agent revises the
+  draft, the new draft replaces the old one, and nothing is saved until
+  you attach it. Repeat as often as needed.
+  </li>
+  <li>
   <Code>DISCARD</Code> - drops the candidate without persisting.
   </li>
   </ul>
   <p>
-  <Code>ATTACH TO CLUSTER</Code> only shows when the current workflow
-  is itself a cluster member; on standalone tabs only{' '}
-  <Code>SAVE &amp; ATTACH</Code> and <Code>DISCARD</Code> appear.
+  In a cluster tab <Code>ATTACH TO CLUSTER</Code> is the only save
+  button; on standalone tabs <Code>SAVE &amp; ATTACH</Code> takes its
+  place. <Code>REFINE</Code> and <Code>DISCARD</Code> appear in both.
   </p>
   <p>
     <strong>Cluster members never auto-attach plans.</strong> All three

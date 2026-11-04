@@ -120,8 +120,9 @@ export const plans: Section[] = [
         <ul>
           <li>
             <strong>Draft - I'll review.</strong> The agent's next reply is its
-            draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code> on that
-            reply, so you can read it first and commit only if happy. The drafting
+            draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code> and
+            <Code>REFINE</Code> on that reply, so you can read it first, ask for
+            changes and commit only if happy. The drafting
             turn has no project tools. Ordinary Claude CLI hooks are disabled,
             although administrator-managed hooks can still run.
           </li>
