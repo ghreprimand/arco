@@ -4,11 +4,12 @@ import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
 import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@arco/shared';
 
 // docs/ARCHITECTURE.md - the header notice center: a bell with an unread
-// badge that opens the durable notice history + per-category mute toggles.
+// badge that opens the durable notice history + per-category show controls.
 // Inform-only — nothing here sends a command; the only outbound action is the
 // mute preference (`onSetMutes`, persisted server-side).
 
 const CATEGORY_LABEL: Record<WorkbenchNoticeCategory, string> = {
+  attention: 'Failed or waiting on you',
   'port-change': 'Port changes',
   'computer-watch': 'Computer watches',
   'turn-finished': 'Turn finished',
@@ -161,13 +162,13 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
 
           {/* Mute toggles */}
           <div data-help="header.notifications" style={{ padding: '8px 10px', borderTop: '1px solid var(--color-border-hairline)' }}>
-            <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginBottom: '6px' }}>MUTE CATEGORIES</div>
+            <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginBottom: '6px' }}>SHOW IN BELL</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px' }}>
               {WORKBENCH_NOTICE_CATEGORIES.map((cat) => {
                 const isMuted = muted.includes(cat);
                 return (
                   <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: isMuted ? 'var(--color-fg-muted)' : 'var(--color-accent-primary-dim)' }}>
-                    <input type="checkbox" checked={isMuted} onChange={() => toggleMute(cat)} style={{ cursor: 'pointer' }} />
+                    <input type="checkbox" checked={!isMuted} onChange={() => toggleMute(cat)} style={{ cursor: 'pointer' }} />
                     <span style={{ fontSize: '10px' }}>{CATEGORY_LABEL[cat]}</span>
                   </label>
                 );

@@ -1,6 +1,6 @@
 // Attention alerts: a turn finished, failed, or is waiting on the operator.
 //
-// Opt-in per event and per channel (this computer, phone), off by default.
+// Desktop and phone alerts are opt-in; quiet in-app notices are on by default.
 // The server watches workflow messages, applies the preferences, sends the
 // phone message through ntfy itself (no hub and no client needed) and tells
 // connected browsers with an `attention_event` so each can decide whether to
@@ -16,7 +16,7 @@ import { broadcastToClients } from './notifications.js';
 import * as clusterStore from './clusterStore.js';
 import { isClusterDirector } from '@arco/shared';
 
-// A turn shorter than this is not worth an alert: the operator was watching.
+// Desktop and phone finished alerts require a longer turn.
 export const MIN_FINISHED_TURN_MS = 15_000;
 const TEXT_MAX = 200;
 
@@ -119,20 +119,19 @@ function shouldRaise(kind: AttentionKind, workflowId: string): boolean {
   return isClusterDirector(clusterStore.getMemberRole(clusterId, workflowId));
 }
 
-export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInfo, text?: string): void {
+export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInfo, text?: string, longEnough = true): void {
   if (info.incognito) return;
-  const wantDesktop = channels.desktop[kind];
-  const target = channels.phone[kind] ? resolvePhoneTarget() : null;
-  if (!wantDesktop && !target) return;
-  if (!shouldRaise(kind, workflowId)) return;
+  const externalEligible = longEnough && shouldRaise(kind, workflowId);
+  const wantDesktop = channels.desktop[kind] && externalEligible;
+  const target = channels.phone[kind] && externalEligible ? resolvePhoneTarget() : null;
   // One alert per workflow and kind per few seconds, whatever produced it.
   const key = `${workflowId}:${kind}`;
   const now = Date.now();
   if (now - (lastAlertAt.get(key) ?? 0) < 3000) return;
   lastAlertAt.set(key, now);
   const name = ascii(info.name || workflowId.slice(0, 8), 60);
-  if (wantDesktop) {
-    broadcastToClients({ type: 'attention_event', id: `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name });
+  {
+    broadcastToClients({ type: 'attention_event', id: `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name, desktopEligible: wantDesktop });
   }
   if (target) {
     const body = channels.phoneText && text ? ascii(text, TEXT_MAX) : `Open Arco to see it.`;
@@ -157,7 +156,7 @@ export function observeAttention(workflowId: string, message: ServerMessage, inf
       turnStarts.delete(workflowId);
       const text = lastText.get(workflowId);
       lastText.delete(workflowId);
-      if (start !== undefined && Date.now() - start >= MIN_FINISHED_TURN_MS) raise('finished', workflowId, info, text ? text.slice(0, TEXT_MAX) : undefined);
+      if (start !== undefined) raise('finished', workflowId, info, text ? text.slice(0, TEXT_MAX) : undefined, Date.now() - start >= MIN_FINISHED_TURN_MS);
       break;
     }
     case 'operator_question':

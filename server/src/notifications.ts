@@ -99,6 +99,7 @@ export function setMutes(muted: WorkbenchNoticeCategory[]): void {
  */
 export function emit(
   n: Omit<WorkbenchNotice, 'id' | 'ts'> & { ts?: number },
+  options: { transportOnly?: boolean } = {},
 ): WorkbenchNotice | null {
   if (mutedCategories.has(n.category)) return null;
   const notice: WorkbenchNotice = {
@@ -106,7 +107,7 @@ export function emit(
     id: `wn_${Date.now().toString(36)}_${(idCounter++).toString(36)}`,
     ts: n.ts ?? Date.now(),
   };
-  broadcast?.({ type: 'workbench_notice', notice });
+  if (!options.transportOnly) broadcast?.({ type: 'workbench_notice', notice });
   // Fan out to external transports AFTER the in-app broadcast and only for
   // non-muted notices (muted ones returned above). Fire-and-forget: a slow or
   // failing transport must never delay or break the in-app surface.
@@ -123,7 +124,7 @@ export function emit(
 // Thin wrappers so callsites stay a one-liner and the category/severity/copy
 // conventions live in one place.
 
-/** Long-turn detection. Pair onTurnStarted / onTurnEnded around a primary turn. */
+/** Keep long-turn events for legacy external transports, without a second BELL entry. */
 export function onTurnStarted(workflowId: string): void {
   turnStarts.set(workflowId, Date.now());
 }
@@ -144,7 +145,7 @@ export function onTurnEnded(workflowId: string, opts?: { provider?: ProviderName
     body: `Ran ${dur}.`,
     workflowId,
     provider: opts?.provider,
-  });
+  }, { transportOnly: true });
 }
 
 /** A throttled provider became available again. */

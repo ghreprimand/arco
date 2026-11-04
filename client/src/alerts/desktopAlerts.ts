@@ -1,6 +1,7 @@
 import type { AttentionEventMessage, AttentionKind, NotificationChannelsView } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useNotificationChannelsStore } from '../stores/notificationChannelsStore';
+import { useNotificationStore } from '../stores/notificationStore';
 
 const PHRASE: Record<AttentionKind, string> = {
   finished: 'finished',
@@ -27,11 +28,22 @@ export function shouldRaiseDesktop(
   return !env.hasFocus || !env.visible;
 }
 
+export function shouldAddAttentionNotice(enabled: boolean, viewing: boolean): boolean {
+  return enabled && !viewing;
+}
+
 // One notification per event: the event id is the tag, so a second browser
 // window on the same computer replaces rather than repeats it.
 export function handleAttentionEvent(msg: AttentionEventMessage): void {
-  if (typeof Notification === 'undefined') return;
   const view = useNotificationChannelsStore.getState().view;
+  const state = useAppStore.getState();
+  const cluster = Object.values(state.clusters).find((c) => c.members.some((m) => m.workflowId === msg.workflowId));
+  const viewing = !state.showHome && !state.showCreator && (cluster ? state.activeClusterId === cluster.clusterId : state.activeJobId === msg.workflowId);
+  const category = msg.kind === 'finished' ? 'turn-finished' : 'attention';
+  if (shouldAddAttentionNotice(!useNotificationStore.getState().muted.includes(category), viewing)) {
+    useNotificationStore.getState().pushNotice({ id: msg.id, category, severity: msg.kind === 'failed' ? 'error' : 'info', title: `${msg.workflowName} ${PHRASE[msg.kind]}`, ts: Date.now(), workflowId: msg.workflowId });
+  }
+  if (typeof Notification === 'undefined' || msg.desktopEligible === false) return;
   const ok = shouldRaiseDesktop(view, msg.kind, {
     permission: Notification.permission,
     hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : true,

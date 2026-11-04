@@ -3,8 +3,7 @@ import { ATTENTION_KINDS, isValidNtfyTopic, normalizeNtfyServer, type AttentionK
 import { useNotificationChannelsStore } from '../stores/notificationChannelsStore';
 
 // Settings > Notifications: which events raise a desktop notification (this
-// computer) and a phone message (ntfy, no hub needed). Everything is off until
-// a box is ticked.
+// computer) and phone messages. BELL visibility is controlled in the top bar.
 
 const LABEL: Record<AttentionKind, { name: string; hint: string }> = {
   finished: { name: 'A turn finished', hint: 'After a turn that ran at least 15 seconds. In a cluster, only the director by default.' },
@@ -28,9 +27,15 @@ export function NotificationChannelsSettings() {
   const [token, setToken] = useState('');
   const [note, setNote] = useState('');
   const [testing, setTesting] = useState(false);
+  const [desktopNote, setDesktopNote] = useState('');
   const [permission, setPermission] = useState<string>(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const update = () => setPermission(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+    window.addEventListener('focus', update); document.addEventListener('visibilitychange', update);
+    return () => { window.removeEventListener('focus', update); document.removeEventListener('visibilitychange', update); };
+  }, []);
   useEffect(() => { if (view) { setServer(view.ntfy.server); setTopic(view.ntfy.topic); } }, [view?.ntfy.server, view?.ntfy.topic]);
 
   if (!view) return <p>{error || 'Loading notification settings...'}</p>;
@@ -45,6 +50,14 @@ export function NotificationChannelsSettings() {
       setPermission(await Notification.requestPermission());
     }
     await save({ ...base(), desktop: { ...view.desktop, [kind]: on } });
+  };
+  const testDesktop = () => {
+    if (typeof Notification === 'undefined') { setDesktopNote('This browser does not support desktop notifications.'); return; }
+    if (Notification.permission !== 'granted') { setDesktopNote('Browser permission is needed before a desktop notification can appear.'); return; }
+    try {
+      new Notification('Arco notification test', { body: 'Desktop notifications are available.' });
+      setDesktopNote('Test sent. Normal alerts appear only when Arco is unfocused; finished turns must run at least 15 seconds.');
+    } catch { setDesktopNote('The browser could not show the test notification. Check its site and system notification settings.'); }
   };
   const togglePhone = (kind: AttentionKind, on: boolean) => save({ ...base(), phone: { ...view.phone, [kind]: on } });
 
@@ -76,7 +89,15 @@ export function NotificationChannelsSettings() {
   return (
     <div data-help="settings.notification-channels" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <span className="display-font" style={{ fontSize: 11, letterSpacing: 2, color: 'var(--color-accent-primary-dim)' }}>NOTIFICATIONS</span>
-      <p style={{ margin: 0 }}>Choose which events notify you and where. Everything is off until you tick it. Desktop notifications appear only while Arco is not the window you are looking at; one is shown per event, and clicking it opens that tab.</p>
+      <p style={{ margin: 0 }}>Choose which events notify you and where. Desktop and phone alerts are off until you tick them. Desktop notifications appear only while Arco is not the window you are looking at; one is shown per event, and clicking it opens that tab.</p>
+      <p style={{ margin: 0 }}>Browser permission: {permission === 'default' ? 'not asked' : permission}.</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="display-font" disabled={permission === 'unsupported' || permission === 'granted' || permission === 'denied'} onClick={async () => setPermission(await Notification.requestPermission())}>REQUEST PERMISSION</button>
+        <button type="button" className="display-font" onClick={testDesktop}>TEST DESKTOP</button>
+      </div>
+      <p style={{ margin: 0 }}>Normal desktop alerts need browser permission and an unfocused Arco window. Finished turns must run at least 15 seconds.</p>
+      <div aria-live="polite">{desktopNote}</div>
+      <p style={{ margin: 0 }}>Use SHOW IN BELL in the top bar to choose which in-app notices appear.</p>
       <table style={{ borderCollapse: 'collapse' }}>
         <thead><tr><th style={{ textAlign: 'left', padding: '4px 10px' }}>Event</th><th style={cell}>This computer</th><th style={cell}>Phone</th></tr></thead>
         <tbody>
@@ -90,10 +111,7 @@ export function NotificationChannelsSettings() {
         </tbody>
       </table>
       {permission === 'unsupported' && <p style={{ margin: 0, color: 'var(--color-fg-muted)' }}>This browser does not support desktop notifications.</p>}
-      {permission === 'denied' && <p style={{ margin: 0, color: 'var(--color-warning)' }}>This browser is blocking notifications from Arco. Allow them in the browser's site settings, then tick the boxes again.</p>}
-      {permission === 'default' && Object.values(view.desktop).some(Boolean) && (
-        <button type="button" className="display-font" onClick={async () => setPermission(await Notification.requestPermission())}>ALLOW IN THIS BROWSER</button>
-      )}
+      {permission === 'denied' && <p style={{ margin: 0, color: 'var(--color-warning)' }}>This browser is blocking notifications from Arco. Allow them in the browser's site settings.</p>}
       <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         In a cluster, "a turn finished" comes from
         <select className="arco-field" aria-label="Cluster finished source" value={view.clusterFinished} onChange={(e) => void save({ ...base(), clusterFinished: e.target.value === 'all' ? 'all' : 'director' })}>

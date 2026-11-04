@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerMessage } from '@arco/shared';
-import { initNotifications } from './notifications.js';
+import { initNotifications, _setMutesPathForTest, _resetTransportsForTest, registerNoticeTransport, onTurnStarted, onTurnEnded } from './notifications.js';
 import {
   _setChannelsPathForTest, _setFetchForTest, channelsView, loadChannels, observeAttention, resolvePhoneTarget, saveChannels, sendTest, MIN_FINISHED_TURN_MS,
 } from './attention.js';
@@ -19,6 +19,8 @@ beforeEach(async () => {
   sent.length = 0; posts.length = 0;
   const dir = await mkdtemp(join(tmpdir(), 'arco-attn-'));
   _setChannelsPathForTest(join(dir, 'notification-channels.json'));
+  _setMutesPathForTest(join(dir, 'notification-mutes.json'));
+  _resetTransportsForTest();
   _setFetchForTest((async (url: string, init: { headers: Record<string, string>; body: string }) => { posts.push({ url, headers: init.headers, body: init.body }); return { ok: true, status: 200 }; }) as never);
   await initNotifications((m) => { sent.push(m); });
   await loadChannels();
@@ -26,10 +28,11 @@ beforeEach(async () => {
 
 const question = (id: string) => ({ type: 'operator_question', workflowId: 'x', question: { requestId: id, status: 'pending', questions: [{ question: 'Which branch?' }] } }) as unknown as ServerMessage;
 
-test('nothing is sent while every switch is off', () => {
+test('desktop and phone are off while the BELL event is still delivered', () => {
   const id = wf();
   observeAttention(id, question('q-off'), info);
-  assert.equal(sent.length, 0);
+  assert.equal(sent.filter((m) => m.type === 'attention_event').length, 1);
+  assert.equal((sent[0] as unknown as { desktopEligible: boolean }).desktopEligible, false);
   assert.equal(posts.length, 0);
 });
 
@@ -54,7 +57,7 @@ test('message text is included only when switched on', async () => {
   observeAttention(wf(), question('q-2'), info);
   await new Promise((r) => setImmediate(r));
   assert.equal(posts[0].body, 'Which branch?');
-  assert.equal(sent.length, 0, 'no desktop event when only the phone is on');
+  assert.equal((sent[0] as unknown as { desktopEligible: boolean }).desktopEligible, false);
 });
 
 test('finished needs a turn of at least the minimum length and skips Incognito', async () => {
@@ -62,7 +65,8 @@ test('finished needs a turn of at least the minimum length and skips Incognito',
   const id = wf();
   observeAttention(id, { type: 'primary_turn_started', workflowId: id, startedAt: 1 } as ServerMessage, info);
   observeAttention(id, { type: 'primary_turn_ended', workflowId: id, endedAt: 2 } as ServerMessage, info);
-  assert.equal(sent.length, 0, 'a quick turn is not worth an alert');
+  assert.equal((sent[0] as unknown as { desktopEligible: boolean }).desktopEligible, false);
+  sent.length = 0;
   const realNow = Date.now;
   try {
     const t0 = realNow();
@@ -108,4 +112,28 @@ test('TEST reports the result', async () => {
   assert.equal((await sendTest({ ntfy: { server: 'https://ntfy.example.org', topic: '' } })).ok, false);
   _setFetchForTest((async () => { throw new Error('connect refused'); }) as never);
   assert.match((await sendTest({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t4' } })).error ?? '', /refused/);
+});
+
+test('short finished turns reach in-app notices without raising desktop alerts', async () => {
+  await saveChannels({ desktop: { finished: true } });
+  const id = wf();
+  observeAttention(id, { type: 'primary_turn_started', workflowId: id, startedAt: 1 } as ServerMessage, info);
+  observeAttention(id, { type: 'primary_turn_ended', workflowId: id, endedAt: 2 } as ServerMessage, info);
+  const event = sent.find((m) => m.type === 'attention_event') as unknown as { desktopEligible?: boolean };
+  assert.ok(event);
+  assert.equal(event.desktopEligible, false);
+});
+
+test('long turn reaches legacy transports without a second workbench notice', () => {
+  const delivered: string[] = [];
+  registerNoticeTransport((notice) => { delivered.push(notice.category); });
+  const now = Date.now;
+  try {
+    const start = now(); Date.now = () => start;
+    onTurnStarted('legacy-fixture');
+    Date.now = () => start + 60_001;
+    onTurnEnded('legacy-fixture', { workflowName: 'Fixture' });
+    assert.deepEqual(delivered, ['turn-finished']);
+    assert.equal(sent.some((message) => message.type === 'workbench_notice'), false);
+  } finally { Date.now = now; }
 });

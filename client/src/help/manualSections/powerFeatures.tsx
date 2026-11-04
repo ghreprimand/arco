@@ -673,13 +673,13 @@ export const powerFeatures: Section[] = [
   <li><Code>cluster-nudge</Code>, <Code>backup</Code></li>
   </ul>
   <p>
-  Each category has a <strong>mute toggle</strong>, saved on the server. Opening
+  Use <strong>SHOW IN BELL</strong> to choose categories; a checked box shows that category. The choices are saved on the server. Opening
   the center clears the unread badge, and CLEAR wipes the history.
   </p>
   <Sub>Desktop and phone alerts</Sub>
   <p>
   In Settings &gt; Notifications, tick when a turn finishes, fails or is waiting
-  on you, separately for this computer and for your phone. Everything starts off.
+  on you, separately for this computer and for your phone. Desktop and phone alerts start off. Quiet BELL notices for other tabs start on and use the same SHOW IN BELL choices.
   </p>
   <ul>
   <li><strong>Desktop.</strong> Alerts appear only while Arco is not the focused window, one per event. The window title also shows a waiting count such as (2) ARCO.</li>
