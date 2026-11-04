@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/appStore';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 import { CursorModelSelect } from './CursorModelSelect';
+import { DialogShell } from './DialogShell';
 
 // Shared look for the Cursor family/effort dropdowns — matches the dialog's
 // text inputs (sunken bg, hairline border, accent text).
@@ -206,40 +207,37 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
   });
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Run review"
+      dataHelp="actions.review"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={420}
+      zIndex={50}
+      actions={(
+        <>
+          <span data-help="review.cancel" style={{ display: 'inline-flex' }}>
+            <Btn onClick={onCancel}>CANCEL</Btn>
+          </span>
+          <span data-help="review.run" style={{ display: 'inline-flex' }}>
+            <Btn
+              primary
+              onClick={() => {
+                const ref = buildContextRef();
+                const diff = !isScopeLocked && scopeKind === 'git-diff' ? false : includeGitDiff;
+                if (usingMember && onConfirmViaMember) {
+                  onConfirmViaMember(reviewerKind, ref, diff);
+                } else {
+                  onConfirm({ provider, model, effort, ...(provider === 'codex' && providerAccountRef ? { providerAccountRef } : {}) }, ref, diff);
+                }
+              }}
+            >
+              {usingMember ? 'SEND REVIEW TASK' : 'RUN REVIEW'}
+            </Btn>
+          </span>
+        </>
+      )}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(420px, calc(92vw / var(--ui-scale, 1)))',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div
-          className="display-font"
-          style={{
-            fontSize: '12px',
-            letterSpacing: '3px',
-            color: 'var(--color-accent-primary)',
-            marginBottom: '14px',
-          }}
-        >
-          RUN REVIEW
-        </div>
 
         {clusterContext && clusterPeers.length > 0 && (
           <Field label="STEP 2: WHO DOES THE REVIEW?" helpKey="review.dispatch">
@@ -513,36 +511,13 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
         </Field>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-          <span data-help="review.cancel" style={{ display: 'inline-flex' }}>
-            <Btn onClick={onCancel}>CANCEL</Btn>
-          </span>
-          <span data-help="review.run" style={{ display: 'inline-flex' }}>
-            <Btn
-              primary
-              onClick={() => {
-                const ref = buildContextRef();
-                const diff = !isScopeLocked && scopeKind === 'git-diff' ? false : includeGitDiff;
-                if (usingMember && onConfirmViaMember) {
-                  onConfirmViaMember(reviewerKind, ref, diff);
-                } else {
-                  onConfirm({ provider, model, effort, ...(provider === 'codex' && providerAccountRef ? { providerAccountRef } : {}) }, ref, diff);
-                }
-              }}
-            >
-              {usingMember ? 'SEND REVIEW TASK' : 'RUN REVIEW'}
-            </Btn>
-          </span>
-        </div>
-
         <div
           className="display-font"
           style={{ marginTop: '10px', fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px' }}
         >
           Read-only tools. Output lands in the Review tab as a markdown artifact.
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { DialogShell } from './DialogShell';
 
 // Phase 1 — Arco-managed skills CRUD dialog. Operator types Name +
 // Description + Body, picks scope (project / global), and saves. The server
@@ -126,48 +127,45 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
   };
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9300,
-        padding: '20px',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          maxHeight: 'calc(calc(100vh / var(--ui-scale, 1)) - 80px)',
-          overflowY: 'auto',
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          fontFamily: 'var(--font-body)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span
+    <DialogShell
+      title={isEdit ? 'Edit skill' : 'New skill'}
+      dataHelp="composer.skills"
+      onClose={onClose}
+      closeOnBackdrop
+      width={560}
+      zIndex={9300}
+      status={!loading && error ? (
+        <div style={{ fontSize: '11px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)' }}>{error}</div>
+      ) : undefined}
+      actions={loading ? undefined : (
+        <>
+          <button
+            onClick={onSave}
+            disabled={saving || (scope === 'project' && !cwd)}
             className="display-font"
-            style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)' }}
+            style={{
+              ...primaryBtnStyle,
+              opacity: saving || (scope === 'project' && !cwd) ? 0.5 : 1,
+              cursor: saving ? 'default' : 'pointer',
+            }}
           >
-            {isEdit ? 'EDIT SKILL' : 'NEW SKILL'}
-          </span>
-          <button onClick={onClose} className="display-font" style={cancelBtnStyle}>
-            CLOSE ✕
+            {saving ? 'SAVING\u2026' : 'SAVE'}
           </button>
-        </div>
-
+          <button
+            onClick={onAudit}
+            disabled={auditing}
+            className="display-font"
+            style={{ ...cancelBtnStyle, opacity: auditing ? 0.5 : 1 }}
+            title="Scan the body for invisible unicode + threat patterns (read-only diagnostic)"
+          >
+            {auditing ? 'AUDITING\u2026' : 'AUDIT'}
+          </button>
+          <button onClick={onClose} disabled={saving} className="display-font" style={cancelBtnStyle}>
+            CANCEL
+          </button>
+        </>
+      )}
+    >
         {loading ? (
           <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>Loading…</div>
         ) : (
@@ -257,12 +255,6 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
               </div>
             )}
 
-            {error && (
-              <div style={{ fontSize: '11px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)' }}>
-                {error}
-              </div>
-            )}
-
             {/* H35 — diagnostic audit findings (read-only; never gates save). */}
             {audit && (
               <div
@@ -287,36 +279,9 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-              <button
-                onClick={onSave}
-                disabled={saving || (scope === 'project' && !cwd)}
-                className="display-font"
-                style={{
-                  ...primaryBtnStyle,
-                  opacity: saving || (scope === 'project' && !cwd) ? 0.5 : 1,
-                  cursor: saving ? 'default' : 'pointer',
-                }}
-              >
-                {saving ? 'SAVING…' : 'SAVE'}
-              </button>
-              <button
-                onClick={onAudit}
-                disabled={auditing}
-                className="display-font"
-                style={{ ...cancelBtnStyle, opacity: auditing ? 0.5 : 1 }}
-                title="Scan the body for invisible unicode + threat patterns (read-only diagnostic)"
-              >
-                {auditing ? 'AUDITING…' : 'AUDIT'}
-              </button>
-              <button onClick={onClose} disabled={saving} className="display-font" style={cancelBtnStyle}>
-                CANCEL
-              </button>
-            </div>
           </>
         )}
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

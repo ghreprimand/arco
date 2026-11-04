@@ -7,6 +7,7 @@ import { useCodexCatalogFor } from '../hooks/useCodexCatalog';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 import { CursorModelSelect } from './CursorModelSelect';
+import { DialogShell } from './DialogShell';
 
 // Shared look for the Cursor family/effort dropdowns — matches the dialog's
 // text inputs (sunken bg, hairline border, accent text).
@@ -159,37 +160,24 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Spawn from here"
+      dataHelp="actions.spawn"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={520}
+      zIndex={50}
+      actions={(
+        <>
+          <span data-help="spawn.cancel" style={{ display: 'inline-flex' }}>
+            <Btn onClick={onCancel}>CANCEL</Btn>
+          </span>
+          <span data-help="spawn.confirm" style={{ display: 'inline-flex' }}>
+            <Btn primary onClick={() => { if (!roleProblem) submit(); }}>SPAWN</Btn>
+          </span>
+        </>
+      )}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(520px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
-          overflowY: 'auto',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div
-          className="display-font"
-          style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '14px' }}
-        >
-          SPAWN FROM HERE
-        </div>
 
         <Field label="NAME" helpKey="spawn.name">
           <input
@@ -457,23 +445,13 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-          <span data-help="spawn.cancel" style={{ display: 'inline-flex' }}>
-            <Btn onClick={onCancel}>CANCEL</Btn>
-          </span>
-          <span data-help="spawn.confirm" style={{ display: 'inline-flex' }}>
-            <Btn primary onClick={() => { if (!roleProblem) submit(); }}>SPAWN</Btn>
-          </span>
-        </div>
-
         <div
           className="display-font"
           style={{ marginTop: '10px', fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px' }}
         >
           Parent tab stays live. A fresh session opens in a new tab pre-warmed with a handoff of the parent's context.
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

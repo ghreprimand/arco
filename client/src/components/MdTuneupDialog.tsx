@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createTwoFilesPatch } from 'diff';
+import { DialogShell } from './DialogShell';
 import { DiffView } from './diff/DiffView';
 import { useMdTuneupStore, type MdTuneupEditor } from '../stores/mdTuneupStore';
 import { useAppStore } from '../stores/appStore';
@@ -116,28 +117,50 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
     ? `✦ TUNE UP ${entry?.baseName ?? (queue ? queue[qIndex].split('/').pop() : 'CLAUDE.md')}`
     : '✦ TUNE UP AGENT FILES';
 
-  return (
-    <div
-      onClick={dismiss}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-    >
-      <div
-        data-help="composer.tuneup"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 'min(900px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(88vh / var(--ui-scale, 1))', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
-          borderRadius: '6px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden',
-        }}
-      >
-        <div className="display-font glow-text-bright" style={{ fontSize: '13px', letterSpacing: '2px', color: 'var(--color-accent-primary)' }}>
-          {title}
-          {inReview && queue.length > 1 && (
-            <span style={{ marginLeft: '10px', fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '1px' }}>
-              FILE {qIndex + 1} OF {queue.length}
-            </span>
-          )}
-        </div>
+  const actions = !inReview
+    ? (cand?.loaded && cand.candidates.length === 0 ? (
+      <>                  <button className="display-font" onClick={dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>CLOSE</button>
+                </>
+    ) : cand?.loaded ? (
+      <>                  <button className="display-font" onClick={dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>CANCEL</button>
+                  <button
+                    className="display-font"
+                    onClick={startQueue}
+                    disabled={Object.values(checked).every((v) => !v)}
+                    style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}
+                  >
+                    TUNE SELECTED ({Object.values(checked).filter(Boolean).length})
+                  </button>
+                </>
+    ) : null)
+    : entry?.status === 'error' ? (
+      <>              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>{more ? 'SKIP → NEXT' : 'CLOSE'}</button>
+            </>
+    ) : entry?.status === 'applied' ? (
+      <>              {entry.undoConflictHash ? <>
+                <button className="display-font" onClick={() => clearUndoConflict(workflowId)} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>KEEP CURRENT</button>
+                <button className="display-font" onClick={() => undo(workflowId, true)} style={btnStyle('var(--color-warning)', 'var(--color-warning)')}>CONFIRM UNDO</button>
+              </> : entry.undoId && <button className="display-font" onClick={() => undo(workflowId)} style={btnStyle('var(--color-warning)', 'var(--color-warning)')}>UNDO</button>}
+              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>{more ? `NEXT: ${queue[qIndex + 1].split('/').pop()} →` : 'DONE'}</button>
+            </>
+    ) : entry?.status === 'undone' ? (
+      <><button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>{more ? `NEXT: ${queue[qIndex + 1].split('/').pop()} →` : 'DONE'}</button></>
+    ) : entry?.status === 'proposed' ? (
+      <>              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>{more ? 'REJECT → NEXT' : 'REJECT'}</button>
+              <button className="display-font" onClick={() => accept(workflowId)} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>ACCEPT &amp; BACK UP</button>
+            </>
+    ) : null;
 
+  return (
+    <DialogShell
+      title={inReview && queue.length > 1 ? `${title} - file ${qIndex + 1} of ${queue.length}` : title}
+      dataHelp="composer.tuneup"
+      onClose={dismiss}
+      closeOnBackdrop
+      width={900}
+      zIndex={1000}
+      actions={actions}
+    >
         {/* ── SELECT PHASE ── */}
         {!inReview && (
           <>
@@ -148,9 +171,6 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
               <>
                 <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
                   No CLAUDE.md / CLAUDE.local.md / AGENTS.md found in this project. Nothing to tune up.
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button className="display-font" onClick={dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>CLOSE</button>
                 </div>
               </>
             )}
@@ -183,17 +203,6 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                  <button className="display-font" onClick={dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>CANCEL</button>
-                  <button
-                    className="display-font"
-                    onClick={startQueue}
-                    disabled={Object.values(checked).every((v) => !v)}
-                    style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}
-                  >
-                    TUNE SELECTED ({Object.values(checked).filter(Boolean).length})
-                  </button>
-                </div>
               </>
             )}
           </>
@@ -217,9 +226,6 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
         {inReview && entry?.status === 'error' && (
           <>
             <div style={{ fontSize: '12px', color: 'var(--color-warning)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{entry.error ?? 'Tune-up failed.'}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>{more ? 'SKIP → NEXT' : 'CLOSE'}</button>
-            </div>
           </>
         )}
 
@@ -235,20 +241,12 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
             )}
             {entry.undoError && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>{entry.undoError}</div>}
             {entry.undoConflictHash && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>The file changed after ACCEPT. Confirm to replace the current text with the saved original. Arco backs up the current text first and checks it again.</div>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              {entry.undoConflictHash ? <>
-                <button className="display-font" onClick={() => clearUndoConflict(workflowId)} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>KEEP CURRENT</button>
-                <button className="display-font" onClick={() => undo(workflowId, true)} style={btnStyle('var(--color-warning)', 'var(--color-warning)')}>CONFIRM UNDO</button>
-              </> : entry.undoId && <button className="display-font" onClick={() => undo(workflowId)} style={btnStyle('var(--color-warning)', 'var(--color-warning)')}>UNDO</button>}
-              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>{more ? `NEXT: ${queue[qIndex + 1].split('/').pop()} →` : 'DONE'}</button>
-            </div>
           </>
         )}
 
         {inReview && entry?.status === 'undone' && <>
           <div style={{ fontSize: '12px', color: 'var(--color-fg)' }}>Original instruction file restored.</div>
           {entry.safetyBackupPath && <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', wordBreak: 'break-all' }}>The replaced text was backed up to <code>{entry.safetyBackupPath}</code>.</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>{more ? `NEXT: ${queue[qIndex + 1].split('/').pop()} →` : 'DONE'}</button></div>
         </>}
 
         {inReview && entry?.status === 'proposed' && (
@@ -269,14 +267,9 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
               <DiffView patch={patch} defaultViewType="split" emptyText="No changes proposed: the file is already tight." />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="display-font" onClick={more ? advance : dismiss} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>{more ? 'REJECT → NEXT' : 'REJECT'}</button>
-              <button className="display-font" onClick={() => accept(workflowId)} style={btnStyle('var(--color-accent-primary)', 'var(--color-accent-primary)')}>ACCEPT &amp; BACK UP</button>
-            </div>
           </>
         )}
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

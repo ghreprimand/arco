@@ -8,6 +8,7 @@ import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco
 import { PROTECTED_BRANCH_RE } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
 import { ChangesPanel } from './diff/ChangesPanel';
+import { DialogShell } from './DialogShell';
 
 // Composer-button sibling for COMMIT / PUSH / PR / branch switching.
 // Fetches live git status on open so the popup shows reality (current
@@ -244,38 +245,26 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
     }
   };
 
+  const canSubmit = Boolean(status && status.isRepo);
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Git"
+      dataHelp="composer.git"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={760}
+      zIndex={50}
+      bodyRef={scroller}
+      onBodyScroll={(e) => rememberGitDialog(wfid, { scrollTop: e.currentTarget.scrollTop })}
+      actions={canSubmit ? (
+        <>
+          <Btn onClick={onCancel}>CANCEL</Btn>
+          <Btn primary onClick={submit} disabled={switchPending || (creatingNew && !newBranchName.trim())}>
+            {switchPending ? 'SWITCHING\u2026' : isCurrentPrimary ? 'CONTINUE' : 'CONTINUE (NEW TAB)'}
+          </Btn>
+        </>
+      ) : undefined}
     >
-      <div
-        data-help="composer.git"
-        ref={scroller}
-        onScroll={(e) => rememberGitDialog(wfid, { scrollTop: e.currentTarget.scrollTop })}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(760px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(90vh / var(--ui-scale, 1))',
-          overflowY: 'auto',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '12px' }}>
-          GIT
-        </div>
 
         <div style={{ marginBottom: '12px' }}>
           <RunAsPicker current={currentPrimary} selection={runAs} onChange={setRunAs} />
@@ -433,17 +422,9 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
               rows={2}
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-body)' }}
             />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px' }}>
-              <Btn onClick={onCancel}>CANCEL</Btn>
-              <Btn primary onClick={submit} disabled={switchPending || (creatingNew && !newBranchName.trim())}>
-                {switchPending ? 'SWITCHING…' : isCurrentPrimary ? 'CONTINUE' : 'CONTINUE (NEW TAB)'}
-              </Btn>
-            </div>
           </>
         )}
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

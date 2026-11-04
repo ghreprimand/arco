@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore';
 import { effortsForModel, clampEffortForProvider } from '../utils/format';
 import { claudeModelLabel, defaultModelForProvider, modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 import { CursorModelSelect } from './CursorModelSelect';
+import { DialogShell } from './DialogShell';
 
 // Shared look for the Cursor family/effort dropdowns — matches the dialog's
 // text inputs (sunken bg, hairline border, accent text).
@@ -125,42 +126,24 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onCancel}
+    <DialogShell
+      title="Rotate session"
+      dataHelp="actions.handoff"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={520}
+      zIndex={50}
+      actions={(
+        <>
+          <span data-help="handoff.cancel" style={{ display: 'inline-flex' }}>
+            <Btn onClick={onCancel}>CANCEL</Btn>
+          </span>
+          <span data-help="handoff.confirm" style={{ display: 'inline-flex' }}>
+            <Btn primary onClick={confirm}>{primaryChanged ? 'ROTATE & SWAP' : 'ROTATE'}</Btn>
+          </span>
+        </>
+      )}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(520px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
-          overflowY: 'auto',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div
-          className="display-font"
-          style={{
-            fontSize: '12px',
-            letterSpacing: '3px',
-            color: 'var(--color-accent-primary)',
-            marginBottom: '6px',
-          }}
-        >
-          ROTATE SESSION
-        </div>
         <div
           className="display-font"
           style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginBottom: '14px', letterSpacing: '0.5px', lineHeight: 1.5 }}
@@ -389,16 +372,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
           );
         })()}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
-          <span data-help="handoff.cancel" style={{ display: 'inline-flex' }}>
-            <Btn onClick={onCancel}>CANCEL</Btn>
-          </span>
-          <span data-help="handoff.confirm" style={{ display: 'inline-flex' }}>
-            <Btn primary onClick={confirm}>{primaryChanged ? 'ROTATE & SWAP' : 'ROTATE'}</Btn>
-          </span>
-        </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

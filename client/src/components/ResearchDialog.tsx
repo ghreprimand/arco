@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
 import { RESEARCH_DEFAULT_ROUNDS, RESEARCH_MAX_ROUNDS_CEILING } from '@arco/shared';
 import { RunAsPicker, spawnConfigFromRunAs, type RunAsSelection } from './RunAsPicker';
+import { DialogShell } from './DialogShell';
 
 // Deep Research one-off composer surface - docs/ARCHITECTURE.md
 // Sibling of DOCS / GIT: a topic brief + a hard round cap + the shared RUN AS
@@ -59,25 +60,20 @@ export function ResearchDialog({ parentConfig, onConfirm, onSpawn, onCancel }: P
   };
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      onClick={onCancel}
+    <DialogShell
+      title="Deep research"
+      dataHelp="composer.research"
+      onClose={onCancel}
+      closeOnBackdrop
+      width={540}
+      zIndex={50}
+      actions={(
+        <>
+          <Btn onClick={onCancel}>CANCEL</Btn>
+          <Btn primary disabled={!canSend} onClick={send}>{isCurrentPrimary ? 'RESEARCH' : 'RESEARCH (NEW TAB)'}</Btn>
+        </>
+      )}
     >
-      <div
-        data-help="composer.research"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-bg-dialog)',
-          border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px',
-          padding: '18px 22px',
-          width: 'min(540px, calc(94vw / var(--ui-scale, 1)))',
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <div className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '6px' }}>
-          DEEP RESEARCH
-        </div>
         <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5, marginBottom: '12px' }}>
           Runs one bounded research turn: the agent plans queries, searches the web, reads results, and writes a cited markdown report into the RESEARCH tab. The round cap is a hard ceiling on web-search rounds.
         </div>
@@ -126,12 +122,7 @@ export function ResearchDialog({ parentConfig, onConfirm, onSpawn, onCancel }: P
           <RunAsPicker current={currentPrimary} selection={runAs} onChange={setRunAs} utility />
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px' }}>
-          <Btn onClick={onCancel}>CANCEL</Btn>
-          <Btn primary disabled={!canSend} onClick={send}>{isCurrentPrimary ? 'RESEARCH' : 'RESEARCH (NEW TAB)'}</Btn>
-        </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 
