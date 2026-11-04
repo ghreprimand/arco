@@ -1,0 +1,341 @@
+import type { Section } from '../../components/UserManual/manualTypes';
+import { Code, Pre, Note, Sub } from '../../components/UserManual/components';
+export const plans: Section[] = [
+  {
+    id: 'plans-overview',
+    group: 'Plans & artifacts',
+    title: 'Plans - per-cwd checklists',
+    body: (
+      <>
+        <p>
+          A plan is a checklist that keeps a workflow or cluster oriented on what
+          remains to do. Use one when work spans several turns or several workers.
+          Long-form detail belongs in the plan's <strong>reference docs</strong>,
+          not the checklist (see Plan reference docs).
+        </p>
+        <Sub>What a plan is</Sub>
+        <p>
+          A <strong>plan</strong> is an itemized markdown checklist pinned to a
+          workflow or cluster. Plans live at{' '}
+          <Code>&lt;cwd&gt;/.arco/plans/&lt;id&gt;.md</Code>. One folder can host
+          many plans, and the same plan can be attached to several workflows at
+          once.
+        </p>
+        <Sub>What the agent sees</Sub>
+        <p>
+          A one-line header naming the plan is added invisibly to every primary
+          turn so the agent stays oriented. The full body is not injected; the
+          agent reads the file on demand, which saves per-turn bandwidth. The
+          header looks like this:
+        </p>
+        <Pre>{`[Active project plan: "<title>" - file: .arco/plans/<id>.md. <living-doc note>]
+<your message>`}</Pre>
+        <p>
+          The header names the plan title and file path and tells the agent to keep
+          the checklist current (tick <Code>- [ ]</Code> to <Code>- [x]</Code>)
+          without adding new sections on its own. On first attach it says "newly
+          attached - read the brief...", and after an operator edit it says "edited
+          since last turn - re-read...". Edits the agent makes to the file refresh
+          the panel live.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'plan-review',
+    group: 'Plans & artifacts',
+    title: 'Plan-scoped review (REVIEW vs VERIFY, whole plan / section / custom)',
+    body: (
+      <>
+        <p>
+          Plan-scoped review audits the plan itself instead of the workflow
+          transcript. When a plan is attached, the Plan tab sends reviewers the plan
+          body as the subject.
+        </p>
+        <Sub>REVIEW and VERIFY</Sub>
+        <p>
+          REVIEW and VERIFY are paired buttons at both whole-plan and per-section
+          level.
+        </p>
+        <ul>
+          <li>
+            <strong>CRITIQUE</strong> (REVIEW) - the reviewer evaluates the plan
+            itself for gaps, ordering and missing considerations. All items show
+            with check state preserved, and it always proceeds, even on plans
+            without sections.
+          </li>
+          <li>
+            <strong>VERIFY</strong> - the reviewer cross-checks claimed-completed
+            work against the actual code, using tools instead of taking checkboxes
+            at face value. Whole-plan and phase scopes show only <Code>[x]</Code>{' '}
+            items. A section with no checked items but a completion-claim preamble
+            (for example "Completed: we did X, Y, Z") still renders, because the
+            prose is the claim.
+          </li>
+        </ul>
+        <Sub>The buttons</Sub>
+        <ul>
+          <li><Code>REVIEW PLAN</Code> (top of tab) - the whole plan, defaulting to CRITIQUE.</li>
+          <li><Code>VERIFY WORK</Code> (next to REVIEW PLAN) - the whole plan, defaulting to VERIFY with <Code>INCLUDE GIT DIFF</Code> pre-ticked, so claimed-done items are audited against the changes.</li>
+          <li><Code>▷ REVIEW PHASE PLAN</Code> (pill under each <Code>### Phase</Code> heading) - that one section, CRITIQUE by default.</li>
+          <li><Code>▷ VERIFY PHASE WORK</Code> (next pill under the heading) - that one section, VERIFY by default with git diff pre-ticked.</li>
+          <li><Code>CUSTOM REVIEW</Code> - a tree of checkboxes where items can be picked across plan sections (per-section tri-state, with SELECT ALL / ALL CHECKED / CLEAR shortcuts).</li>
+        </ul>
+        <p>
+          In every case the dialog's MODE row stays editable, so VERIFY and CRITIQUE
+          can be flipped before running. INCLUDE GIT DIFF works the same way: the
+          VERIFY buttons only preset it. SCOPE is locked to the plan reference, for
+          example <Code>PLAN PHASE: 3. Categories + auto-assignment</Code>.
+        </p>
+        <p>
+          For <Code>CUSTOM REVIEW</Code> your selection is authoritative. Mode
+          affects framing only, and items render regardless of check state. If the
+          plan is edited between picking and submitting, the request is rejected
+          with the missing items named so they can be re-picked.
+        </p>
+        <Note kind="tip">
+          The plan parser tolerates plans whose checkboxes were stripped: bare
+          numbered bullets such as <Code>- **1.2** Task name</Code> are recognized as
+          tasks too. So even if an agent rewrites a plan as prose with numbered
+          items, the review surfaces still work.
+        </Note>
+      </>
+    ),
+  },
+  {
+    id: 'plan-creation',
+    group: 'Plans & artifacts',
+    title: 'Drafting & attaching a plan',
+    body: (
+      <>
+        <p>
+          Draft and attach a plan from the composer, the PLAN tab, or by asking the
+          agent. The composer's PLAN button explains in its hover text that a plan
+          keeps the next steps in one place; no hint line is shown in the composer.
+        </p>
+        <Sub>From the composer</Sub>
+        <p>
+          The <Code>PLAN</Code> button in the composer opens a modal with two paths:
+        </p>
+        <ul>
+          <li>
+            <strong>Draft - I'll review.</strong> The agent's next reply is its
+            draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code> on that
+            reply, so you can read it first and commit only if happy. The drafting
+            turn has no project tools. Ordinary Claude CLI hooks are disabled,
+            although administrator-managed hooks can still run.
+          </li>
+          <li>
+            <strong>Draft &amp; auto-save.</strong> Saves the agent's reply as the
+            plan automatically. It is faster but less inspection-friendly.
+          </li>
+        </ul>
+        <p>Both paths ask the agent to synthesize the conversation into this shape:</p>
+        <Pre>{`# Title
+- **Goal**
+- **Current state**
+- **Open questions / blockers**
+- **Next steps** - as a markdown checklist (- [ ] item)`}</Pre>
+        <Sub>From the PLAN tab</Sub>
+        <p>
+          The PLAN tab in the right panel lists every plan in this folder (for
+          example "active in &lt;workflow&gt; + 1 other · 3 past"). Active plans are
+          inline, and completed plans hide behind a <Code>▶ N completed</Code>{' '}
+          toggle. Click a plan to attach it to the current workflow.
+        </p>
+        <Sub>Asking the agent directly</Sub>
+        <p>
+          Saying "create a plan and attach it to this workflow" also works. Every
+          turn with no plan attached carries a short note telling the agent how.
+        </p>
+        <ul>
+          <li>On Codex, CLI Claude and Cursor cluster members, a real tool does it: <Code>plan_create</Code> takes a title and body, creates the plan and attaches it in one call. It rejects a body with no sections or checkboxes and says why, so a malformed plan is caught as it is written.</li>
+          <li>Elsewhere, the note gives the equivalent API call and the body shape Arco actually parses.</li>
+          <li>Claude Native tabs use their <Code>EnterPlanMode</Code> tool, which attaches for real.</li>
+        </ul>
+        <p>
+          A plan only exists once it is registered in the project's plan index, so a
+          markdown file written somewhere else is invisible to Arco. The PLAN button
+          remains the most reliable route on any provider.
+        </p>
+        <Sub>Structure is load-bearing</Sub>
+        <p>
+          A plan body is not free-form markdown. Plan sections come from{' '}
+          <Code>### Heading</Code> lines, and a task counts only if it is a{' '}
+          <em>top-level</em> <Code>- [ ] task</Code> checkbox (indent subtasks
+          beneath it).
+        </p>
+        <p>
+          A plan written without checkboxes reads fine to a human but parses to{' '}
+          <em>zero</em> tasks, so per-section Review and the review item picker have
+          nothing to offer. If a generated plan looks right but Review comes up
+          empty, this is why.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'plan-checklists',
+    group: 'Plans & artifacts',
+    title: 'Clickable checklists',
+    body: (
+      <>
+        <p>
+          Checklist items in the panel are clickable, and the panel and the file on
+          disk stay in sync both ways. A <Code>- [ ] item</Code> line renders as a
+          hollow box. Clicking it flips it to <Code>[x]</Code>, strikes the text
+          through and dims it, and updates the file.
+        </p>
+        <ul>
+          <li>When the agent flips a box, the panel updates live.</li>
+          <li>When you flip a box in the panel, the agent sees it on the next turn. The header flags that the plan was edited, prompting the agent to re-read the file.</li>
+        </ul>
+        <Sub>Promoting an item to a board task</Sub>
+        <p>
+          In a <strong>cluster Plan tab</strong> with a task board attached, each
+          unchecked <Code>- [ ]</Code> item also shows a <Code>→ TASK</Code> pill.
+          Click it to copy that item's text into a durable board task on the board
+          you see. The plan item stays in place.
+        </p>
+        <p>
+          The pill appears only when a board is attached (it is hidden when the
+          board mode is none) and never on already-checked items.
+        </p>
+        <Sub>Completing and deleting</Sub>
+        <p>From the detail view (or per row in the list):</p>
+        <ul>
+          <li><strong>Mark complete</strong> - archives the plan and detaches it from any attached workflows.</li>
+          <li><strong>Delete</strong> - permanent, with a confirm. It removes the file from disk.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: 'plan-refs',
+    group: 'Plans & artifacts',
+    title: 'Plan reference docs',
+    body: (
+      <>
+        <p>
+          Reference docs hold the long-form detail a checklist should not: specs,
+          research, design notes and API contracts that a task depends on. They are
+          attached to a plan and stored at{' '}
+          <Code>&lt;cwd&gt;/.arco/plans/&lt;id&gt;.refs/&lt;slug&gt;.md</Code>.
+        </p>
+        <Sub>Linking and managing refs</Sub>
+        <p>
+          A task links a ref as <Code>[label](ref:slug)</Code>,{' '}
+          <Code>[[ref:slug]]</Code> or a bare <Code>ref:slug</Code> in prose. The
+          PLAN tab renders the link as a chip that opens the doc. A link to a ref
+          nobody has written yet shows dashed and dim; click it to create the doc.
+        </p>
+        <p>
+          A <Code>REFS</Code> chip strip above the plan body and the{' '}
+          <Code>REFERENCE DOCS</Code> section under it list the docs. They appear in
+          the workflow PLAN tab, the cluster PLAN sub-tab and the ALL PLANS library.
+          Click any doc to read it in a viewer. <Code>+ REF</Code> adds one, and the
+          viewer has EDIT and delete.
+        </p>
+        <p>
+          A doc's first <Code># H1</Code> is its title. The limits are 256 KB per
+          doc and 64 docs per plan.
+        </p>
+        <Sub>How agents use refs</Sub>
+        <p>
+          Agents create refs with the <Code>plan_ref_write</Code>,{' '}
+          <Code>plan_ref_list</Code> and <Code>plan_ref_read</Code> tools, or by
+          writing the file directly. An agent asked to write a plan is told that a
+          plan has two parts, the checklist and its refs, and to link each ref from
+          the tasks that depend on it. <Code>plan_create</Code> returns a warning
+          when a body runs long or a task carries paragraphs of prose.
+        </p>
+        <p>
+          The per-turn plan header names the plan's refs and tells the agent to read
+          the ref a task links before starting it, treating the ref as the spec. For
+          cluster members, a trailing line in the folded plan does the same.{' '}
+          <Code>cluster_plan_read</Code> returns the ref list.
+        </p>
+        <p>
+          On the cluster board, <Code>cluster_task_show</Code> resolves every{' '}
+          <Code>ref:</Code> link in the task's title, notes or comments into
+          reference docs (paths, titles, missing flags). It also adds the refs on the
+          plan item the task came from, meaning its sub-bullets and its section's
+          intro, matched by the task title. Dispatched tasks are told to read them
+          first, and the task drawer shows them as chips.
+        </p>
+        <p>
+          A plan-scoped <strong>Review</strong> inlines the refs that the in-scope
+          items link (16 KB each, 48 KB total), so the reviewer judges the work
+          against the spec.
+        </p>
+        <Note>
+          Moving a plan to another project carries its refs; deleting a plan deletes
+          them.
+        </Note>
+      </>
+    ),
+  },
+  {
+    id: 'plans-library',
+    group: 'Plans & artifacts',
+    title: 'ALL PLANS - the plans library',
+    body: (
+      <>
+        <p>
+          The plans library lists every plan across projects, so you can review one
+          without attaching it to a workflow. It is the <strong>PLANS</strong> lens
+          in the ARTIFACTS window, which lists every plan in every project Arco
+          knows about. Open it from the header <Code>☰ PLANS</Code> button or the{' '}
+          <Code>⌸ ALL PLANS</Code> button on an empty PLAN tab.
+        </p>
+        <p>
+          Filter by ACTIVE, COMPLETED or ALL, and search by title or project. The dot
+          on each row shows its state:
+        </p>
+        <ul>
+          <li><Code>●</Code> attached (a workflow or cluster uses it)</li>
+          <li><Code>○</Code> not attached</li>
+          <li><Code>✓</Code> completed</li>
+          <li><Code>⧉N</Code> is the ref count</li>
+        </ul>
+        <p>
+          Selecting a plan shows its body (checkboxes are clickable), reference docs
+          and attachment history, with EDIT, DONE / REOPEN and delete. Edits behave
+          as they do in the PLAN tab, so any attached tab refreshes as usual.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'artifacts',
+    group: 'Plans & artifacts',
+    title: 'Review & handoff artifacts',
+    body: (
+      <>
+        <p>
+          Review and handoff write durable markdown artifacts beside the workflow, so
+          their results outlive the session.
+        </p>
+        <ul>
+          <li>
+            <strong>Review artifact</strong> - <Code>artifacts/review-&lt;ts&gt;.md</Code>.
+            YAML frontmatter (verdict, reviewer, primary, contextRef) plus the body.
+            It appears in the REVIEW tab.
+          </li>
+          <li>
+            <strong>Handoff artifact</strong> - <Code>handoffs/handoff-&lt;ts&gt;.md</Code>.
+            A plain markdown body that seeds the next session in the rotated tab.
+          </li>
+        </ul>
+        <Sub>Inline artifacts</Sub>
+        <p>
+          Inline artifacts are a third kind: fenced <Code>```arco-artifact</Code>{' '}
+          blocks that the agent emits during chat. They render as pills you can
+          expand in place and are saved with the conversation. Agents use them for
+          focused outputs, such as a generated config or a snippet to commit, that
+          they want to call out.
+        </p>
+      </>
+    ),
+  },
+];

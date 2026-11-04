@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-native:
+    name: package native (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, arch: x64, runner: ubuntu-latest }
+          - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { platform: darwin, arch: x64, runner: macos-15-intel }
+          - { platform: darwin, arch: arm64, runner: macos-latest }
+          - { platform: win32, arch: x64, runner: windows-latest }
+          - { platform: win32, arch: arm64, runner: windows-11-arm }
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          package-manager-cache: false
+          node-version: 24
+          architecture: ${{ matrix.arch }}
+      - run: npm ci --include=dev
+      - run: node scripts/packaging/collect-native.mjs "$RUNNER_TEMP/native"
+      - run: node scripts/public-audit.mjs --package "$RUNNER_TEMP/native"
+      - uses: actions/setup-node@v7
+        with:
+          package-manager-cache: false
+          node-version: 26
+          architecture: ${{ matrix.arch }}
+      - run: node scripts/packaging/probe-native.mjs "$RUNNER_TEMP/native/${{ matrix.platform }}-${{ matrix.arch }}"
+      # Artifact uploads do not preserve executable modes; keep them in tar.
+      - name: Archive native artifact
+        run: |
+          cd "$RUNNER_TEMP"
+          tar -czf "native-${{ matrix.platform }}-${{ matrix.arch }}.tgz" -C native .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/native-${{ matrix.platform }}-${{ matrix.arch }}.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: package-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Disable line-ending conversion
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          package-manager-cache: false
+          node-version: 24
+      - name: Check tag matches package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node --input-type=module -e 'import { readFileSync } from "node:fs"; const version = JSON.parse(readFileSync("package.json", "utf8")).version; if (process.env.TAG !== `v${version}`) throw new Error("Tag does not match the package version.");'
+      - name: Install
+        run: npm ci --include=dev
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        timeout-minutes: 20
+        run: npm run test:unit
+      - name: Load private audit patterns
+        env:
+          ARCO_PRIVATE_PATTERNS: ${{ secrets.ARCO_PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$ARCO_PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$ARCO_PRIVATE_PATTERNS" > "$RUNNER_TEMP/arco-private-patterns"
+            echo "ARCO_PRIVATE_PATTERNS_FILE=$RUNNER_TEMP/arco-private-patterns" >> "$GITHUB_ENV"
+          else
+            echo "No ARCO_PRIVATE_PATTERNS secret; using built-in rules only."
+          fi
+      - name: Public-safety audit (tree)
+        run: npm run audit:public -- --tree
+      - name: Public-safety audit (history, identity and trailers)
+        env:
+          ARCO_PRIVATE_PATTERNS_FILE: ''
+        run: node scripts/public-audit.mjs --history
+      - name: Help registry check
+        run: npm run docs:check
+      - name: Documentation link check
+        run: npm run test:docs
+      - name: Install npm 12
+        run: npm install --global npm@12 --ignore-scripts
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: ${{ runner.temp }}/native-archives
+          merge-multiple: true
+      - name: Unpack native artifacts
+        run: |
+          cd "$RUNNER_TEMP"
+          mkdir -p native
+          for archive in native-archives/*.tgz; do tar -xzf "$archive" -C native; done
+      - name: Assemble and audit package
+        run: npm run release:pack -- "$RUNNER_TEMP/native" "$RUNNER_TEMP/arco-release.tgz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arco-release-package
+          path: ${{ runner.temp }}/arco-release.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  github-release:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          package-manager-cache: false
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          name: arco-release-package
+          path: ${{ runner.temp }}
+      - name: Publish release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/release/notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$TAG" --verify-tag --title "Arco $TAG" --notes-file "$RUNNER_TEMP/release-notes.md" "$RUNNER_TEMP/arco-release.tgz"
+
+  npm-package-exists:
+    needs: release
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Check the public registry for the package
+        id: check
+        run: |
+          # Public lookup, no credentials. E404 means the package is not
+          # published yet; any other failure fails the job.
+          if out=$(npm view arco-workbench name 2>&1); then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'E404' <<<"$out"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::npm staging skipped because the first publish of arco-workbench is manual."
+          else
+            echo "::error::Registry lookup failed unexpectedly."
+            exit 1
+          fi
+
+  stage-npm:
+    needs: [release, npm-package-exists]
+    if: needs.npm-package-exists.outputs.exists == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/arco-workbench
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          package-manager-cache: false
+          node-version: 24
+      - name: Install current npm
+        run: npm install --global npm@latest --ignore-scripts
+      - uses: actions/download-artifact@v8
+        with:
+          name: arco-release-package
+          path: ${{ runner.temp }}
+      - name: Stage package with trusted publishing
+        run: |
+          if ! npm stage publish "$RUNNER_TEMP/arco-release.tgz"; then
+            echo "::error::npm staging failed. Verify the npm trusted publisher for this repository and release workflow, package access, and npm authentication requirements. The GitHub Release is created independently."
+            exit 1
+          fi

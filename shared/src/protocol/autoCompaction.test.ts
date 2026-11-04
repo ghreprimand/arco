@@ -1,0 +1,33 @@
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import { isAutoCompactionPolicy, resolveAutoCompactionPolicy } from './workflows.js';
+
+test('auto-compaction validates explicit bounded integer policy', () => {
+  for (const n of [30, 50, 70, 95]) assert.equal(isAutoCompactionPolicy({ enabled: true, thresholdPercent: n }), true);
+  for (const n of [29, 30.5, 95.1, 96, NaN, Infinity]) assert.equal(isAutoCompactionPolicy({ enabled: true, thresholdPercent: n }), false);
+  assert.equal(isAutoCompactionPolicy({ thresholdPercent: 80 }), false);
+});
+
+test('worker override including off takes precedence; absence retains inheritance', () => {
+  const cluster = { enabled: true, thresholdPercent: 80 };
+  const off = { enabled: false, thresholdPercent: 75 };
+  assert.deepEqual(resolveAutoCompactionPolicy(undefined, undefined), undefined);
+  assert.deepEqual(resolveAutoCompactionPolicy(undefined, cluster), cluster);
+  assert.deepEqual(resolveAutoCompactionPolicy(off, cluster), off);
+  assert.deepEqual(resolveAutoCompactionPolicy(undefined, {enabled:true,thresholdPercent:30}), {enabled:true,thresholdPercent:30});
+  assert.deepEqual(resolveAutoCompactionPolicy({enabled:true,thresholdPercent:30}, cluster), {enabled:true,thresholdPercent:30});
+  assert.deepEqual(resolveAutoCompactionPolicy({enabled:true,thresholdPercent:Infinity}, cluster), {enabled:false,thresholdPercent:80});
+});
+
+
+test('Provider policy selects safe defaults without overriding saved choices', async () => {
+  const { resolveProviderAutoCompaction } = await import('./workflows.js');
+  assert.deepEqual(resolveProviderAutoCompaction(undefined, undefined, 'claude', 'native', false), { enabled: true, thresholdPercent: 90 });
+  assert.deepEqual(resolveProviderAutoCompaction(undefined, undefined, 'ollama', '', false), { enabled: true, thresholdPercent: 90 });
+  assert.equal(resolveProviderAutoCompaction(undefined, undefined, 'claude', 'cli', false), undefined);
+  assert.equal(resolveProviderAutoCompaction(undefined, undefined, 'codex', 'appserver', false), undefined);
+  assert.equal(resolveProviderAutoCompaction(undefined, undefined, 'claude', 'native', true), undefined);
+  assert.equal(resolveProviderAutoCompaction(undefined, undefined, 'ollama', '', false, true), undefined);
+  const off = { enabled: false, thresholdPercent: 75 };
+  assert.deepEqual(resolveProviderAutoCompaction(off, undefined, 'claude', 'native', false), off);
+});

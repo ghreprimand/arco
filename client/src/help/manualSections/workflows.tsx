@@ -1,0 +1,294 @@
+import type { Section } from '../../components/UserManual/manualTypes';
+import { Code, Pre, Note, Sub } from '../../components/UserManual/components';
+export const workflows: Section[] = [
+  {
+  id: 'what-is-workflow',
+  group: 'Workflows & sessions',
+  title: 'What is a workflow?',
+  body: (
+  <>
+  <p>
+  An <strong>Agent workflow</strong> is one project tab: a folder, a provider
+  session and a durable event log. Workflows persist across server restarts.
+  </p>
+  <p>Each workflow bundles:</p>
+  <ul>
+  <li>A working directory (cwd), which is the project root.</li>
+  <li>A primary provider, model, effort and (for Claude) tool allowlist.</li>
+  <li>A primary CLI session id (a Claude UUID or Codex thread id, where the provider supports resume).</li>
+  <li>A persistent log at <Code>&lt;cwd&gt;/.arco/workflows/&lt;wfid&gt;/events.jsonl</Code>.</li>
+  <li>A <Code>meta.json</Code> file tracking session history, the attached plan, calibration and similar settings.</li>
+  <li>Optional artifacts under <Code>artifacts/</Code> and <Code>handoffs/</Code> alongside.</li>
+  </ul>
+  <p>
+  The server reloads workflows on boot. The client rehydrates from local storage,
+  and the server replays anything it missed.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'sessions-and-resume',
+  group: 'Workflows & sessions',
+  title: 'Native sessions & resume',
+  body: (
+  <>
+  <p>
+  Where the provider supports it, Arco's session is a real CLI session. It can
+  leave Arco and continue in a terminal, or the reverse. Arco owns the tab state;
+  the provider owns the conversation state.
+  </p>
+  <Pre>{`# Claude - resume by UUID
+claude --resume <session-uuid>
+# Codex - resume by thread id
+codex exec resume <thread-id> "next prompt"
+`}</Pre>
+  <p>
+  To go the other way, start a session in a terminal, then pick it up in Arco with
+  the <strong>RESUME</strong> picker in the workflow creator.
+  </p>
+  <Note kind="warn">
+  <strong>Concurrent writer guard.</strong> If a separate{' '}
+  <Code>claude --resume</Code> terminal starts writing to a session Arco has open,
+  Arco detects it, shows a chat warning, and refuses new turns for 60 seconds
+  rather than interleave writes. Recover with <strong>Handoff</strong>.
+  </Note>
+  <Sub>Providers without sessions</Sub>
+  <p>
+  Local HTTP providers (Ollama, llama.cpp, LM Studio) have no session. Arco
+  re-feeds the rendered transcript on every turn, and prefix caching reduces the
+  repeated prompt work.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'persistence',
+  group: 'Workflows & sessions',
+  title: 'Persistence layout',
+  body: (
+  <>
+  <p>
+  Project workflow records live under the project's folder. Saved Chat, global
+  settings, clusters and indexes use separate homes. Saved Chat uses its own
+  directory under <Code>~/.arco/chats</Code>, and Incognito has no persistent
+  record.
+  </p>
+  <Sub>Per project</Sub>
+  <Pre>{`<cwd>/.arco/
+  workflows/
+  <workflowId>/
+  events.jsonl  # append-only event log; lossless replay source
+  meta.json  # session ids, history, attached plan, calibration
+  handoffs/  # handoff-<ts>.md artifacts
+  artifacts/  # review-<ts>.md artifacts
+  plans/  # <planId>.md briefs (cwd-scoped)`}</Pre>
+  <p>
+  Everything is written atomically (temporary file, then rename) except{' '}
+  <Code>events.jsonl</Code>, which is append-only.
+  </p>
+  <Sub>Provider session files</Sub>
+  <p>The native CLI session files live with the provider:</p>
+  <Pre>{`~/.claude/projects/<cwd-hash>/<sessionId>.jsonl  # Claude
+~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl  # Codex`}</Pre>
+  <Sub>Clusters</Sub>
+  <p>Cluster state lives separately, in <Code>~/.arco/clusters/&lt;clusterId&gt;/</Code>:</p>
+  <Pre>{`~/.arco/clusters/<clusterId>/
+  meta.json  # cluster name, members, plan, idle nudger
+  mailbox/
+  <recipientWfid>/<msgId>.json  # per-recipient peer-message inbox`}</Pre>
+  <p>
+  The mailbox is a budgeted inbox with one file per message, keyed by the
+  recipient's workflow id. Draining it deletes the file. The durable record of each
+  peer exchange lives in the sender's and the recipient's <Code>events.jsonl</Code>.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'context-window',
+  group: 'Workflows & sessions',
+  title: 'Context window & calibration',
+  body: (
+  <>
+  <p>
+  The worker header shows <Code>CTX: N K / N K · NN%</Code>. The denominator is the
+  model's context window; the numerator is Arco's running estimate of how full the
+  prompt is. How that estimate is made depends on the provider.
+  </p>
+  <Sub>Claude CLI</Sub>
+  <p>
+  Arco uses the CLI session's latest context snapshot when available, with a
+  calibration from the session file's size as a fallback. The dot next to the
+  percentage is <Code>○</Code> (estimate) until the first calibration or snapshot
+  runs, then <Code>●</Code>.
+  </p>
+  <Sub>Claude Native</Sub>
+  <p>
+  Arco counts tokens on the retained next-turn prompt using Anthropic's token
+  counter, with model-specific retention rules. Fable/Mythos 5.1 and Opus 5.5
+  retain thinking and a frozen request prefix. On all models, the latest assistant
+  message and referenced server-tool calls are protected from end-of-turn pruning.
+  </p>
+  <p>
+  Server web search and fetch turns may show very large Activity{' '}
+  <Code>prompt</Code>, <Code>cache-read</Code> and <Code>cache-write</Code>{' '}
+  figures. Those are per-turn processing telemetry, not retained context.
+  </p>
+  <Sub>Codex</Sub>
+  <p>
+  Arco uses Codex token counts with OpenAI semantics. <Code>input_tokens</Code> is
+  the full prompt or context size, while <Code>cached_input_tokens</Code> is a
+  subset used for cache-hit reporting, not an additive term. The indicator is{' '}
+  <Code>●</Code> when Codex reports its context window and <Code>○</Code> when
+  Arco falls back to the model metadata estimate.
+  </p>
+  <Sub>Claude CLI calibration</Sub>
+  <p>
+  Calibration runs at idle moments when a turn crosses an uncalibrated zone (E, A,
+  B or C, at 8-15%, 20-30%, 45-55% and 70-80%). It runs <Code>/context</Code>{' '}
+  against the live session through a background terminal, captures the true count,
+  and stores the bytes-to-tokens ratio in <Code>meta.json</Code>.
+  </p>
+  <p>
+  Click the CTX readout in the worker header to recalibrate a CLI session on
+  demand.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'auto-handoff',
+  group: 'Workflows & sessions',
+  title: 'Auto-handoff at threshold',
+  body: (
+  <>
+  <p>
+  Auto-handoff rotates a tab to a fresh session when its context gets too full.
+  It is off by default.
+  </p>
+  <p>
+  When enabled and context fill reaches the configured ceiling (default 90%), Arco
+  generates a handoff document and rotates the tab to a fresh session. A warning
+  appears at a lower threshold (default 75%), so a manual <strong>Handoff</strong>,
+  a finish-and-rotate, or a threshold bump remain available. Both thresholds are
+  per tab and set in the CONFIG pane.
+  </p>
+  <Note kind="warn">
+  Auto-handoff runs only when Arco has a trusted context-fill signal for the
+  active provider. Claude uses session or Native counts, Codex app-server and Codex
+  use the latest rollout token snapshot, and Ollama uses the daemon's prompt count.
+  </Note>
+  </>
+  ),
+  },
+  {
+  id: 'fold-context',
+  group: 'Workflows & sessions',
+  title: 'Fold - in-place context trim',
+  body: (
+  <>
+  <p>
+  <strong>Fold</strong> is the cheapest of Arco's three context-relief tools: a
+  deterministic in-place trim with no model round-trip. It folds older transcript
+  history into a digest and keeps a verbatim recent tail, in the same session,
+  instantly.
+  </p>
+  <Sub>Fold, Compact and Handoff</Sub>
+  <ul>
+  <li><strong>Fold</strong> trims in place with no model call.</li>
+  <li><strong>Compact</strong> summarizes the conversation with a model call.</li>
+  <li><strong>Handoff</strong> rotates to a fresh worker with a written document.</li>
+  </ul>
+  <p>
+  The raw transcript always stays in <Code>events.jsonl</Code>.
+  </p>
+  <Sub>Running a fold</Sub>
+  <p>
+  Fold runs manually with the <Code>⊞ FOLD</Code> button in the composer (between
+  turns only). It can also run automatically: arm <strong>AUTO-FOLD (NATIVE)</strong>{' '}
+  in the CONFIG pane and set a <Code>FOLD AT</Code> threshold. Auto-fold fires when
+  context pressure crosses that threshold, which is kept below the handoff{' '}
+  <Code>WARN</Code> threshold so the cheap trim happens before a handoff is
+  recommended.
+  </p>
+  <Note kind="info">
+  Fold and auto-fold are Claude Native only, and auto-fold is off by default
+  (operator-armed). The trigger reads Arco's token-budget meter, which is the
+  usable-input pressure against the effective context window (the real window minus
+  reserved output), updated each turn.
+  </Note>
+  </>
+  ),
+  },
+  {
+  id: 'rewind-conversation',
+  group: 'Workflows & sessions',
+  title: 'Rewind & forks',
+  body: (
+  <>
+  <p>
+  Rewind moves the live conversation back to a past event without deleting the
+  abandoned branch. Use it to try a different direction from an earlier point.
+  </p>
+  <ol>
+  <li>From the <strong>HISTORY</strong> tab, select any past event.</li>
+  <li>Click <Code>REWIND CONVERSATION</Code> (two-click confirm).</li>
+  </ol>
+  <p>
+  Arco forks a new branch from the selected event, and later turns continue from the
+  rewound point. The abandoned branch is never deleted. It stays in{' '}
+  <Code>events.jsonl</Code> on disk, and undoing a rewind is just another rewind.
+  </p>
+  <Note kind="warn">
+  Rewind is Claude Native only for now. CLI and Codex resume is summarizer-backed, so
+  a true byte-identical rewind would silently do nothing; Arco rejects the request
+  rather than pretend. Rewind during a turn is also refused, so cancel the active
+  turn first.
+  </Note>
+  </>
+  ),
+  },
+  {
+  id: 'genesis-workflow',
+  group: 'Workflows & sessions',
+  title: 'Genesis - idea to scaffolded project',
+  body: (
+  <>
+  <p>
+  <strong>Genesis</strong> starts a project from a vague idea instead of a folder.
+  Pick <Code>GENESIS</Code> in the new-workflow mode toggle, give a working name and
+  a <em>Spark</em> (the raw idea), and launch. No working directory is required.
+  </p>
+  <Sub>The four stages</Sub>
+  <p>
+  The workflow runs in a hidden scratch space while the idea is shaped through four
+  stages, tracked in the right-panel <Code>GENESIS</Code> tab:
+  </p>
+  <ul>
+  <li><strong>Spark</strong> - the raw idea, in your words.</li>
+  <li><strong>Concept</strong> - what it is, in plain language, built from the Spark.</li>
+  <li><strong>The Case</strong> - why building it is worth it, who it is for, and where scope stops.</li>
+  <li><strong>Build-direction</strong> - stack, scope boundaries and first concrete steps.</li>
+  </ul>
+  <p>
+  Each downstream field is anchored to the one above it, and the agent never invents
+  audiences, tech or scope that have not been stated.
+  </p>
+  <Sub>Scaffolding</Sub>
+  <p>
+  When ready, <Code>CREATE &amp; SCAFFOLD</Code> creates the real project folder
+  (default <Code>~/Projects</Code>), writes seed docs (<Code>README</Code>,{' '}
+  <Code>SPEC</Code>, <Code>TODO</Code>, <Code>CLAUDE.md</Code>), and optionally
+  creates a GitHub repo. It then binds the workflow to the new folder, carrying the
+  transcript over, and seeds a plan.
+  </p>
+  <Note kind="info">
+  The seed lives in the workflow config until scaffold, so ideation can pause and
+  resume across sessions. Scaffolding creates files on disk and needs your
+  confirmation.
+  </Note>
+  </>
+  ),
+  },
+];

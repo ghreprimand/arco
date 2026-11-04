@@ -1,0 +1,41 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import type { ServerMessage, WorkflowConfig } from '@arco/shared';
+import { useAppStore } from '../stores/appStore';
+import { handleServerMessage } from '../ws/handleServerMessage';
+import { hasWaitingQuestion, questionToastText } from './waitingQuestion';
+
+useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+const deps = { wsRef: { current: null }, scheduleReconnect: () => {} };
+const send = (msg: object) => handleServerMessage(msg as ServerMessage, deps);
+const config = { name: 'Alpha', primaryProvider: 'codex', primaryModel: 'fixture', primaryEffort: 'low' } as unknown as WorkflowConfig;
+
+test('both question sources, settlement, snapshot and one toast per question', () => {
+  const id = 'question-fixture';
+  useAppStore.getState().createJob(id, config);
+  useAppStore.setState({ notifications: [] });
+  const q = { requestId: 'one', provider: 'codex', status: 'pending', createdAt: Date.now(), questions: [{ id: 'q', question: 'Choose' }] };
+  send({ type: 'operator_question', workflowId: id, question: q });
+  send({ type: 'operator_question', workflowId: id, question: q });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), true);
+  assert.deepEqual(useAppStore.getState().notifications.map((n) => n.message), ['Alpha has a question']);
+  send({ type: 'operator_question', workflowId: id, question: { ...q, status: 'answered' } });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });
+  send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), true);
+  assert.equal(useAppStore.getState().notifications.length, 2);
+  send({ type: 'claude_native_question_settled', workflowId: id, questionId: 'two' });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false, 'replayed notice cannot reopen a settled question');
+  send({ type: 'workflow_state_snapshot', workflowId: id, workers: {}, busy: true, transcriptTail: [], operatorQuestions: [], claudeNativePendingQuestionIds: ['three'] });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), true);
+  send({ type: 'workflow_state_snapshot', workflowId: id, workers: {}, busy: false, transcriptTail: [], operatorQuestions: [], claudeNativePendingQuestionIds: [] });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  send({ type: 'operator_question', workflowId: id, question: { ...q, requestId: 'four', status: 'pending' } });
+  send({ type: 'operator_question', workflowId: id, question: { ...q, requestId: 'four', status: 'cancelled' } });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  send({ type: 'cluster_state', clusterId: 'cluster', state: { clusterId: 'cluster', name: 'Team', cwd: '/projects/fixture', members: [{ workflowId: id, displayName: 'Builder', status: 'idle' }] } });
+  assert.equal(questionToastText(id), 'Builder in Team has a question');
+});

@@ -1,0 +1,91 @@
+name: Bug report
+description: Report a reproducible problem in Arco
+title: '[Bug]: '
+labels:
+- bug
+body:
+- type: markdown
+  attributes:
+    value: |-
+      Describe one reproducible problem. If an existing issue matches, add only new evidence or reproduction details there.
+
+      Remove tokens, keys, credentials, usernames, local paths, private hostnames, private URLs, and personal or project data. Use consistent placeholders. Do not attach raw transcripts or unredacted logs.
+
+      Security vulnerabilities belong in the [private reporting process](https://github.com/ghreprimand/arco/blob/main/SECURITY.md), not a public issue.
+- type: textarea
+  id: problem
+  attributes:
+    label: Observed and expected behavior
+    description: Describe what happened and what should have happened.
+  validations:
+    required: true
+- type: textarea
+  id: reproduction
+  attributes:
+    label: Reproduction steps
+    description: Provide the smallest reliable sequence using a synthetic project.
+    placeholder: |-
+      1. Start Arco with ...
+      2. Open ...
+      3. Observe ...
+  validations:
+    required: true
+- type: input
+  id: revision
+  attributes:
+    label: Arco commit
+    description: Commit from git rev-parse HEAD; no checkout path.
+  validations:
+    required: true
+- type: dropdown
+  id: platform
+  attributes:
+    label: Platform
+    options:
+    - Linux
+    - macOS
+    - Windows
+    - Other
+  validations:
+    required: true
+- type: dropdown
+  id: installation
+  attributes:
+    label: Installation
+    options:
+    - Native
+    - Docker
+    - Other
+  validations:
+    required: true
+- type: textarea
+  id: environment
+  attributes:
+    label: Environment details
+    description: Operating system version, browser, Node.js version, and shell when relevant. For Docker,
+      include the Docker/Compose versions. Do not include machine names.
+- type: textarea
+  id: provider
+  attributes:
+    label: Provider and transport
+    description: Provider, model, CLI or service version, and transport if relevant; otherwise enter Not
+      applicable. No account identifiers or credentials.
+  validations:
+    required: true
+- type: textarea
+  id: logs
+  attributes:
+    label: Sanitized logs and additional evidence
+    description: Optional short excerpts only. Strip local paths, tokens, credentials, private hosts,
+      and personal data before pasting.
+    render: text
+- type: checkboxes
+  id: checks
+  attributes:
+    label: Submission checks
+    options:
+    - label: Existing documentation and open and closed issues have been checked.
+      required: true
+    - label: The report contains no credentials, tokens, identifying local paths, private hosts or URLs,
+        or personal data.
+      required: true

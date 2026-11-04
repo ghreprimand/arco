@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Git supplies the exact proposed ref updates on stdin.
+node scripts/public-audit.mjs --push

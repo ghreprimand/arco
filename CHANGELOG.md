@@ -1,0 +1,137 @@
+# Changelog
+
+User-visible changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and semantic versioning. New entries go under Unreleased; releases appear newest first.
+
+## Unreleased
+
+### Added
+
+- Add Settings > Notifications: opt-in alerts when a turn finishes (after 15 seconds), fails or is waiting on you, each switchable for this computer (a system notification, only while Arco is not the focused window, one per event, click opens the tab) and for your phone through ntfy (server, topic with GENERATE, optional access token, TEST; no hub needed, message text off by default; in a cluster "finished" comes from the director unless you choose every member). Everything is off by default, and existing `ARCO_NTFY_*` settings keep working. The window title shows a waiting count such as "(2) ARCO".
+- Add a status on every workflow tab, cluster tab and Home Continue card: Working, Needs you, New reply (a turn finished while you were elsewhere; cleared when you open the tab) or Idle. Tabs show a colored status dot (hover or assistive technology for the word; Idle has no dot); Home Continue cards keep the word. A member card's waiting mail is a mail mark with a count (muted while busy, highlighted when idle); clicking it nudges that member, and idle mail counts as Needs you on the tab.
+- Add CONTINUE a local Claude Code or Codex terminal session from a project card or the session creator (Home reads history when the project menu opens).
+- Add captured file changes beneath completed turns, with diff and checkpoint undo; overlapping managed work offers a diff without undo.
+- Add SECOND OPINION (formerly COMPARE): from the composer button or selected chat messages, several models each draft the reply you could send. Optional switches add the tab's last three turns and read-only file access (both off by default). USE THIS REPLY puts a draft in the composer to edit; nothing is sent automatically. Picks per model are tallied in this browser.
+- Add FORWARD for selected chat messages to one or more cluster members with an optional note. SEND TRANSCRIPT gains the same note, several recipients, and switches for operator messages, agent replies and mail lines; shortened copies of mail a member sent are left out unless ticked.
+- Add ADD WORKER identity fields on SPAWN FROM HERE into a cluster (role, tier, focus, access mode) next to provider, model and effort. The source's role is never copied, a second director is refused, the default name is the role plus a number, and focus starts as the first line of the new direction.
+- Add a read-only SHOW OTHER WORK section in the GIT dialog for other worktrees and local branches (tab working there, ahead/behind the default branch, uncommitted files, open pull request when the GitHub CLI is available). VIEW CHANGES opens FILES > CHANGES on that worktree.
+- Add OPEN on Outputs entries (and clickable names or image previews) to preview or open in the default app; programs and scripts are refused and stay downloadable.
+- Add cluster creation that can request a director's reviewable plan draft, and plan hints that make drafting or attaching a plan easier to find.
+- Add Settings > Appearance > Message box size (Small by default, Medium, Large): how tall every message box starts, kept in this browser.
+- Add a quiet NEW REPLY mark on the director card in a cluster, and GO TO DIRECTOR on a question toast from another member. Focus never moves by itself.
+- Add a NEED YOU counter to the cluster member header and make the Board quicker to clear: ACCEPT replaces DONE on review cards, ACCEPT ALL MET accepts met sign-offs, done tasks hide behind SHOW DONE, review tasks older than 7 days fold into an "N older" row, and an optional Settings > Agents and clusters checkbox marks met tasks done automatically. The Board and Plan tabs now say in one line what each is for, and the manual gains a "Plan or board?" section.
+- Add Codex as a utility agent and Smart AUTO-PICKUP evaluator option while it is enabled and signed in. Each request is a one-shot read-only Codex session in an empty temporary folder with no MCP servers and web search off; any command, file change, tool, web item or approval request ends it with no decision. Regular Codex workflows are unchanged.
+- Add update notices that follow the current attempt, report the installed version once, and avoid repeated punctuation in errors.
+- Add package install port selection that remembers an available local port, moves if it becomes occupied, and keeps shortcuts and `arco open` on the running workbench.
+- Add Windows package update checks of the recorded service process and bound process-inspection retries before replacing installed files.
+
+### Changed
+
+- Reformat the in-app manual into shorter paragraphs, lists, tables and subheadings so sections are easier to scan, without changing what they say.
+- Make the in-app manual easier to read: space between paragraphs, a comfortable line length, clearer lists and subheadings, and short paragraphs that lead with what a feature is.
+- Make the cluster, workspace and operator-action manual sections easier to scan with shorter paragraphs, lists and subheadings.
+- Check optional local private words on whole-word boundaries in the tree audit and pre-commit staged changes.
+
+- Publish the package as `arco-workbench`; the `arco` command and package update controls remain available.
+
+- Move the CTX and OUT readout to the worker header, keeping its values, colors and calibration action.
+- Redesign Home with a personal greeting and status, chat/session/cluster start tiles, waiting-first Continue cards, a filterable project grid and a Getting started checklist. The ARCO wordmark shows on Home as on every other screen.
+- Regroup the top bar: provider dots open a Providers panel (versions, usage-page links, FREE VRAM with a connected local runtime, CONNECTIONS); KNOWLEDGE, TOOLS and a VOICE mic toggle with its menu sit beside them; BELL, FOCUS, HELP, SETTINGS, the version box and power follow. HELP and SETTINGS are hidden in focus mode. Move the ? help button into the top bar, right of the version box.
+- Move the cluster controls into the message box of a cluster tab: NUDGE is a larger button beside the send area that highlights and counts while any member has waiting mail; SEND TO SEVERAL is replaced by a TO chip (for example "TO: BUILDER", "TO: 3 MEMBERS") that opens the member picker; BRIEF CLUSTER becomes a THIS WORKER or WHOLE CLUSTER choice on the composer's BRIEF. The cluster header keeps only the layout row and the plan line, whose "Members" now opens Workspace > Members. The member card's mail mark is larger. The one-time plan hint beside the composer's PLAN button is gone; its sentence is now the button's hover text.
+- Open a cluster with the director focused and listed first (until you reorder cards), and keep the message box on the right as the one place to type. The bottom broadcast composer and SHOW BROADCAST are removed; the empty message box names who it reaches (the director by default).
+- Rename the ARCHIVE button and window to ARTIFACTS (a live view of what agents produced across all projects); its content is unchanged.
+- Show only what was made for you in Outputs by default (generated images, audio and video, documents at the top of the artifacts folder, reports and exports); code files and files in artifact subfolders sit behind an All files toggle. Image entries use a wide uncropped preview above the title, and long titles clamp to two lines with SHOW FULL TEXT / SHOW LESS.
+- Unify the composer into one SKILLS menu for Arco playbooks and supported agent-native skills, with NEW SKILL, apply-once and pin controls.
+- Show line and token estimates, read-only previews and deterministic hints on TUNE UP AGENT FILES before running a model; an accepted tune-up can be undone from its backup.
+- Default Handoff to a quick, deterministic seed from recent conversation, the action digest and Git state. Written handoffs remain available and default to medium writer effort.
+- Default auto-handoff to off. Provider auto-compaction now uses Arco compaction near 90% for Claude Native and Ollama; Claude CLI and Codex retain their own compaction. Existing explicit settings are preserved, and Claude API compaction stays opt-in under CONFIG > ADVANCED.
+- Change the shipped appearance defaults: Phosphor themes use Victor Mono, frosted glass opacity defaults to 80%, and text brightness defaults to +25. Saved choices are kept, and the brightness reset returns to these defaults.
+- Remove the Cookbook (local-model catalog, recommendations and in-app downloads). The System modal Models tab keeps the hardware profile and fit warnings under "model files".
+- Hide cluster cloud and remote-management controls while the management hub is disconnected.
+- Theme unstyled buttons (utility agent settings, CATCH ME UP, TIDY, BRIEF and the version box) and let Catch me up summarize from the tab start when no visit is recorded.
+- Keep workers available to the operator in agent instructions: no sleep or poll longer than 60 seconds inside a turn; the director hands full verification and landing gates to the Tester (or a Builder when there is no Tester) and CI watching to the change's author; the TESTER preset includes landing-gate verification; Claude Native, Codex, Ollama and llama.cpp prompts carry the same no-wait line.
+- Point the GIT dialog push instruction at the branch the commit lands on: after NEW BRANCH it tells the agent to run `git push -u <remote> <branch>` instead of pushing to the previous branch's upstream.
+- Paint modal dialogs on an opaque surface under Phosphor glass and Frosted so chat text no longer shows through; side panels keep their glass.
+- Bring repository guides, the in-app manual and contextual help up to date for 0.1.3 controls (including Notifications, SECOND OPINION, SKILLS, ARTIFACTS, Outputs, plans, tab status, waiting mail, cluster composer TO/NUDGE/BRIEF, auto-handoff defaults and Claude API compaction), give every durable cluster right-panel control its own plain-language help entry, and note that each opened project gets a `.arco` folder whose own `.gitignore` ignores its contents by default.
+- Retake the README Home and cluster screenshots for the regrouped top bar, ARCO wordmark on Home, tab status and the cluster plan hint.
+
+### Fixed
+
+- Show Codex usage windows in words (5-hour, Weekly, N-hour, N-day) without the provider prefix, format reset times in local time, and rename the unlabeled "More" disclosure to "Source and login".
+- Explain utility agent failures in BRIEF, CATCH ME UP, TIDY and TEST, and identify the model tried when no answer is returned. Claude Native utility requests resolve model aliases and report timeouts and provider errors.
+- Name Codex beside Claude Native, Cursor and Ollama in the utility-agent feature index, Settings map, glossary and getting-started guide.
+- Home waits until a project menu opens before scanning its terminal session history.
+- Prevent instruction tune-up acceptance from writing through unsafe file links, and preserve separate instruction-file backups when tune-ups share a filename and timestamp.
+- Keep cluster plan drafts awaiting review until an operator chooses where to attach them.
+- Show the path the server actually read for chat file links, report a missing file by its name, open Windows absolute paths, and link filenames that match agent writes or artifacts.
+- Replace em-dashes in in-app help and board UI strings with ASCII punctuation.
+- Bound Windows process checks, leave unverified orphan PIDs untouched, and stop only service processes matching the command and home configuration.
+- Fix Cursor replies: text on either side of reasoning or a tool call is now a separate message, only the latest message shows the blinking cursor, and the cursor no longer adds or removes a line.
+- Attach files through same-origin `/upload` so drop, paste and the attach button work when Arco is not on port 3001, and show a visible error naming the file and the reason when an upload fails.
+- Clarify the disabled Recall reference tooltip, local-runtime reconnect labels in Settings Authentication, handoff mode hints for providers without a resumable session, and keyboard focus on the Ollama status details.
+- Package installation and native modules support Node.js 24 and 26 without compiling during install.
+- Make the Recall "summarize on tab close" checkbox work: closing a workflow tab with a saved session starts the usual Recall summary with a toast and an OPEN RECALL link. Incognito tabs and tabs with no session do nothing, and closing is never delayed.
+
+
+## v0.1.2 - 2026-11-02
+
+### Added
+
+- Add a utility agent: choose one provider and model for short side jobs in Settings > Agents and clusters (or on the last Welcome screen). It is never chosen for you, TEST checks it, and USE UTILITY AGENT fills it into the Smart AUTO-PICKUP evaluator, Research, Cookbook recommendation, document edit and handoff summarizer choices without changing saved ones. BRIEF, CATCH ME UP and TIDY need a utility agent.
+- Add BRIEF on each member card and in the composer toolbar, and BRIEF CLUSTER above the member cards: a short synopsis from the utility agent using facts Arco can see (turn state, current step with the same elapsed time and long-running mark as the working indicator, Queued or Delivered for the last operator message from the same state the transcript shows, recent events, pending question, peer mail, board task, uncommitted files), with the facts listed. It sends nothing to any worker.
+- Add CATCH ME UP summaries of workflow and cluster activity since the last visit, written by the utility agent. For a cluster, a member that is not loaded or is Incognito is skipped with a note that its activity is not available, instead of failing the whole request.
+- Add TIDY in workflow and Chat composers: the utility agent proposes a clearer draft, with refinements, revision history and undo. ACCEPT only replaces the composer text; TIDY never sends. KEEP ORIGINAL and Escape leave the draft unchanged.
+- Add an always-present version box in the top bar, right of the power button: it shows the running version, turns into an accent box with an up arrow and the new version when an update is available (and stays that way after the notice is dismissed), opens the update dialog on click, and shows UPDATING while an update runs.
+- Add per-user application shortcuts and `arco open` for a dedicated app window.
+
+### Contributors
+
+- Allow local tree-only privacy audit patterns without applying them to published history.
+
+## v0.1.1 - 2026-11-02
+
+### Added
+
+- Document a complete package uninstall path (service removal, npm uninstall, optional permanent data and checkpoint cleanup) in Operations, with a README link and in-app manual entry.
+- Show mid-turn message delivery and the current timed working step in workflows and cluster cards.
+
+### Changed
+
+- Cluster coordination treats silence as approval of a stated next step and asks continuing reports to name that step.
+- Peer send results and mailbox inspection show recipient activity, current task and latest reply to the sender.
+- Director status-only peer messages ask for confirmation before delivery; reports and actionable messages continue normally.
+- New homes enable detected provider sign-ins and local runtimes; Strata and DeepSeek through Xolotl start off. Existing provider choices remain intact.
+- The usage dropdowns on the provider dots are minimal: the provider name, then the usage bars with percent and reset time (Claude Session and Weekly, Codex its usage lines, Cursor what its source provides), with one small refresh button. Sign-in and account detail stays in Connections and Settings. "Allowance" wording is now "usage limits".
+
+### Fixed
+
+- Project locations that are Git repositories now show the repository and its child folders; workflow names use the selected project display name.
+- Windows: the background service no longer leaves a console window open on the desktop. The task now starts Node through a hidden script host launcher, raw output is kept in log files under the Arco home, `arco service logs` shows them, and `arco update` and UPDATE AND RESTART move an older install to the new task definition. Stopping or restarting the Windows service now also ends the Node process, so the port is freed.
+- Claude: Welcome and Connections now report Claude as connected only when the selected transport can be used. With Native (the default) selected and no Native credentials, Claude reads "Native: sign-in needed" with SIGN IN FOR NATIVE in place and "Use Claude CLI instead" when the CLI is signed in, and Continue waits for a usable sign-in.
+- Settings > Providers and models groups the Claude sign-ins together (Native first, then CLI) ahead of the other accounts and local endpoints, and the link from Connections lands on that group and highlights it.
+- Repeated ADD FRESH batches with the same name continue numbering after existing cluster members.
+- Fresh service installation on Windows and macOS no longer prints the expected missing-service probe as an error.
+- llama.cpp: `llama-server` is now found on PATH on every platform (`llama-server.exe` on Windows) instead of a fixed Linux path, `ARCO_LLAMACPP_BIN` still overrides it, and the not-found message says where to look.
+
+## v0.1.0 - 2026-11-01
+
+### Added
+
+- A local software workbench with project-aware agent conversations, saved and Incognito chats, terminals, files, Git, Preview, Review, Compare, Research, Handoff, Spawn, clusters, plans, Recall, Knowledge, Genesis, Cookbook and Media studio.
+- An npm package (`npm install -g arco-workbench`, then `arco setup`) with the `arco` command and per-user background services on Linux, macOS and Windows, plus Docker with a persistent Arco home and explicitly mounted project folders. Public documentation leads with that package install and service; Docker is secondary; source builds are documented for contributors. The package supports setup, foreground start, service management, updates, diagnostics and local voice setup. Source checkouts retain `npm start` and `npm run dev`.
+- Skippable Welcome setup (optional operator name, project locations, Connections), Project Home with open work, locations, pins, bookmarks, archive, missing-folder recovery and one-click resume, and Settings organized by task with a control-location map.
+- Provider integrations for Claude, Codex, Cursor, Ollama, LM Studio and llama.cpp. Optional Strata and DeepSeek through separately installed external services that Arco does not distribute. New homes default to Claude Native and Codex app-server where those transports apply.
+- Clusters with size-ordered templates, at most one director on new work, work-size hints for repeated roles, ROWS member cards by default, local runtime capacity for Ollama and llama.cpp, and connected-only creator launch. AUTO-PICKUP modes: Off (default), Rule-based (the recommended automatic mode), Smart Observe-only and Smart Automatic (advanced evaluator options with durable limits and session expiry).
+- Waiting Codex and Claude Native questions surface as a named toast, cluster card highlight and tab mark until settled.
+- Optional native voice setup (`arco voice setup` or `npm run voice:setup` in a checkout) with guided microphone testing, Computer voice operator and download notices; voice requires a native install.
+- Optional GitHub release notices: in-app toast (**OPEN RELEASE** / **DISMISS**), Settings > Advanced with **CHECK NOW** and opt-out. `npm run arco:update` selects the newest stable release by default; `--ref` and `--main` select a tag or commit with confirmation. It handles Windows checkout path aliases, refuses local changes and rolls back on failure. Packaged installs use `arco update` with rollback; their services offer **UPDATE AND RESTART** on all three platforms. Linux source services also offer **UPDATE AND RESTART**.
+- In-app manual and contextual help for reachable controls, public reference documentation, contributor and extending guides, third-party notices and GPL-3.0-only licensing.
+- Numbered releases with this changelog and a local release command that prepares commits and tags without pushing.
+
+### Changed
+
+- New homes use Phosphor Electric Blue and Victor Mono at 100% interface scale; a saved theme or font pack is left alone. Interface text size is adjustable from 90% to 150%.
+- Project `.arco/` state is ignored by Git by default; customized ignore files are preserved.
+
+The [long-form release notes](docs/releases/v0.1.0.md) describe installation,
+provider boundaries, download sources, and platform acceptance status.

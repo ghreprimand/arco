@@ -1,0 +1,290 @@
+name: CI
+
+# Verify on Linux, macOS and Windows for public-repository pushes and pull requests.
+# Weekly and manual runs remain available; documentation-only changes skip hosted jobs.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'devlog/**'
+      - '*.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'devlog/**'
+      - '*.md'
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Runner OS for the verify and browser jobs (all = Ubuntu, macOS and Windows)'
+        type: choice
+        default: ubuntu
+        options: [ubuntu, macos, windows, all]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # Push, pull request, schedule or dispatch "all": all three. Other dispatches: the chosen OS.
+        os: ${{ fromJSON((contains('push pull_request schedule', github.event_name) || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
+        node: [24, 26]
+    steps:
+      # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
+      - name: Disable line-ending conversion
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          # A PR merge ref has a generated GitHub identity, not a project author.
+          # Audit the source commit and its full history under the project rules.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # NODE_ENV is unset on hosted runners; devDependencies (tsc, tsx) are required.
+      - name: Install
+        run: npm ci --include=dev
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      # scripts/test-unit.mjs isolates HOME, provider commands and (on Linux, when permitted) the
+      # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
+      - name: Unit tests
+        # A hung test must fail the step with output instead of holding the runner for the job limit.
+        timeout-minutes: 20
+        run: npm run test:unit
+      # Optional operator-held patterns (names, hosts) for the audit. The secret is written to a
+      # temporary file and exposed only as ARCO_PRIVATE_PATTERNS_FILE; absent secret = no-op.
+      - name: Load private audit patterns
+        env:
+          ARCO_PRIVATE_PATTERNS: ${{ secrets.ARCO_PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$ARCO_PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$ARCO_PRIVATE_PATTERNS" > "$RUNNER_TEMP/arco-private-patterns"
+            echo "ARCO_PRIVATE_PATTERNS_FILE=$RUNNER_TEMP/arco-private-patterns" >> "$GITHUB_ENV"
+          else
+            echo "No ARCO_PRIVATE_PATTERNS secret; using built-in rules only."
+          fi
+      - name: Public-safety audit (tree)
+        run: npm run audit:public -- --tree
+      # CI audits only the checked-out commit and tagged releases. Other remote branches must
+      # not make an unrelated PR fail; push and release scans remain strict over their targets.
+      - name: Public-safety audit (history, identity and trailers)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        # Private patterns apply to the tree and staged scans only: older commits legitimately
+        # contain the upstream name and fixture addresses. An empty value makes the script fall
+        # back to its (absent) repository-local pattern file.
+        env:
+          ARCO_PRIVATE_PATTERNS_FILE: ''
+        run: node scripts/public-audit.mjs --history-head
+      - name: Help registry check
+        run: npm run docs:check
+      - name: Documentation link check
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: npm run test:docs
+
+  # The browser and docker jobs do not wait for the verify matrix: a macOS or Windows failure must
+  # not hide the Linux browser and container results.
+  browser:
+    name: browser smokes (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    if: github.event_name != 'workflow_dispatch' || inputs.os == 'ubuntu' || inputs.os == 'all'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: npm ci --include=dev
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+          echo "ARCO_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Build client and server for isolated onboarding acceptance
+        run: npm run build
+      - name: Browser smokes (fixture APIs, no providers)
+        run: node scripts/smoke/run-browser-suites.mjs
+
+  # The macOS browser run stays best effort until its Recall and Phosphor timeouts are resolved.
+  browser-other:
+    name: browser smokes (macos, best effort)
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 40
+    # Never on push or pull request: only the weekly schedule and a dispatch that selects them.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.os == 'macos' || inputs.os == 'all'))
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: npm ci --include=dev
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install chromium
+          echo "ARCO_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Browser smokes
+        run: node scripts/smoke/run-browser-suites.mjs
+
+  # The Windows browser run gates the build: Windows is a primary platform. Suites that need the
+  # Linux isolated-server harness report as skipped there.
+  browser-windows:
+    name: browser smokes (windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    if: github.event_name != 'workflow_dispatch' || inputs.os == 'windows' || inputs.os == 'all'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: npm ci --include=dev
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install chromium
+          echo "ARCO_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Browser smokes
+        run: node scripts/smoke/run-browser-suites.mjs
+
+  # Runs only once the container baseline (P2.1) has landed a Dockerfile.
+  docker:
+    name: docker smoke (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'workflow_dispatch' || inputs.os == 'ubuntu' || inputs.os == 'all'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Detect Dockerfile
+        id: detect
+        run: |
+          if [ -f Dockerfile ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v7
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install smoke dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: npm ci --include=dev
+      # smoke:docker builds arco:development itself and drives it with temporary projects, volumes and fixture providers.
+      - name: Docker smoke
+        if: steps.detect.outputs.present == 'true'
+        run: npm run smoke:docker
+
+  package-native:
+    name: package native (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, arch: x64, runner: ubuntu-latest }
+          - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { platform: darwin, arch: x64, runner: macos-15-intel }
+          - { platform: darwin, arch: arm64, runner: macos-latest }
+          - { platform: win32, arch: x64, runner: windows-latest }
+          - { platform: win32, arch: arm64, runner: windows-11-arm }
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - run: npm ci --include=dev
+      - run: node scripts/packaging/collect-native.mjs "$RUNNER_TEMP/native"
+      - run: node scripts/public-audit.mjs --package "$RUNNER_TEMP/native"
+      # A single Node-API artifact must load under both supported runtimes.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          architecture: ${{ matrix.arch }}
+      - run: node scripts/packaging/probe-native.mjs "$RUNNER_TEMP/native/${{ matrix.platform }}-${{ matrix.arch }}"
+      # Artifact uploads do not preserve executable modes; keep them in tar.
+      - name: Archive native artifact
+        run: |
+          cd "$RUNNER_TEMP"
+          tar -czf "native-${{ matrix.platform }}-${{ matrix.arch }}.tgz" -C native .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/native-${{ matrix.platform }}-${{ matrix.arch }}.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  package-smoke:
+    name: package install (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: package-native
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [24, 26]
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm run build
+      - name: Install npm 11 for the plain-install test
+        run: |
+          npm install --prefix "$RUNNER_TEMP/npm11" npm@11 --ignore-scripts --no-audit --no-fund
+          echo "ARCO_SMOKE_PLAIN_NPM=$RUNNER_TEMP/npm11/node_modules/npm/bin/npm-cli.js" >> "$GITHUB_ENV"
+      - run: npm install --global npm@12 --ignore-scripts
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: ${{ runner.temp }}/native-archives
+          merge-multiple: true
+      - name: Unpack native artifacts
+        run: |
+          cd "$RUNNER_TEMP"
+          mkdir -p native
+          for archive in native-archives/*.tgz; do tar -xzf "$archive" -C native; done
+      - run: npm run smoke:package -- "$RUNNER_TEMP/native"

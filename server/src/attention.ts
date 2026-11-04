@@ -1,0 +1,179 @@
+// Attention alerts: a turn finished, failed, or is waiting on the operator.
+//
+// Opt-in per event and per channel (this computer, phone), off by default.
+// The server watches workflow messages, applies the preferences, sends the
+// phone message through ntfy itself (no hub and no client needed) and tells
+// connected browsers with an `attention_event` so each can decide whether to
+// raise a desktop notification. Inform-only: nothing here accepts commands.
+
+import { join } from 'path';
+import { readFile } from 'fs/promises';
+import type { AttentionKind, NotificationChannels, NotificationChannelsView, ServerMessage } from '@arco/shared';
+import { DEFAULT_NOTIFICATION_CHANNELS, isValidNtfyTopic, normalizeNtfyServer, sanitizeNotificationChannels } from '@arco/shared';
+import { atomicWriteFile } from './atomicFile.js';
+import { arcoHome } from './arcoHome.js';
+import { broadcastToClients } from './notifications.js';
+import * as clusterStore from './clusterStore.js';
+import { isClusterDirector } from '@arco/shared';
+
+// A turn shorter than this is not worth an alert: the operator was watching.
+export const MIN_FINISHED_TURN_MS = 15_000;
+const TEXT_MAX = 200;
+
+let channelsPath = join(arcoHome(), 'notification-channels.json');
+export function _setChannelsPathForTest(p: string): void { channelsPath = p; }
+let channels: NotificationChannels = DEFAULT_NOTIFICATION_CHANNELS;
+let loaded = false;
+let fetchImpl: typeof fetch = fetch;
+export function _setFetchForTest(f: typeof fetch): void { fetchImpl = f; }
+let idCounter = 0;
+const turnStarts = new Map<string, number>();
+const lastText = new Map<string, string>();
+const lastAlertAt = new Map<string, number>();
+const seenRequests = new Set<string>();
+function firstSighting(id: string): boolean {
+  if (seenRequests.has(id)) return false;
+  if (seenRequests.size > 500) seenRequests.clear();
+  seenRequests.add(id);
+  return true;
+}
+
+export async function loadChannels(): Promise<NotificationChannels> {
+  try {
+    const parsed = JSON.parse(await readFile(channelsPath, 'utf-8'));
+    channels = sanitizeNotificationChannels(parsed, typeof parsed?.ntfy?.token === 'string' ? parsed.ntfy.token : undefined);
+  } catch { channels = DEFAULT_NOTIFICATION_CHANNELS; }
+  loaded = true;
+  return channels;
+}
+
+export function getChannels(): NotificationChannels { return channels; }
+
+export async function saveChannels(value: unknown): Promise<NotificationChannels> {
+  if (!loaded) await loadChannels();
+  channels = sanitizeNotificationChannels(value, channels.ntfy.token);
+  await atomicWriteFile(channelsPath, JSON.stringify(channels), { mode: 0o600 });
+  return channels;
+}
+
+/** The phone address in use: saved settings win; ARCO_NTFY_* still works when none is saved. */
+export function resolvePhoneTarget(cfg: NotificationChannels = channels, env: NodeJS.ProcessEnv = process.env): { url: string; token?: string } | null {
+  if (cfg.ntfy.topic && isValidNtfyTopic(cfg.ntfy.topic)) {
+    const server = normalizeNtfyServer(cfg.ntfy.server);
+    if (server) return { url: `${server}/${cfg.ntfy.topic}`, ...(cfg.ntfy.token ? { token: cfg.ntfy.token } : {}) };
+  }
+  const envUrl = (env.ARCO_NTFY_URL || '').trim();
+  if (envUrl) return { url: envUrl, ...((env.ARCO_NTFY_TOKEN || '').trim() ? { token: env.ARCO_NTFY_TOKEN!.trim() } : {}) };
+  return null;
+}
+
+export function channelsView(cfg: NotificationChannels = channels, env: NodeJS.ProcessEnv = process.env): NotificationChannelsView {
+  const { ntfy, ...rest } = cfg;
+  const saved = !!(ntfy.topic && isValidNtfyTopic(ntfy.topic));
+  return { ...rest, ntfy: { server: ntfy.server, topic: ntfy.topic, tokenSet: !!ntfy.token }, ntfyFromEnvironment: !saved && !!(env.ARCO_NTFY_URL || '').trim() };
+}
+
+/** True when the phone path will send "finished" itself, so the older notice transport can skip it. */
+export function phoneHandlesFinished(): boolean {
+  return channels.phone.finished && resolvePhoneTarget() !== null;
+}
+
+function ascii(s: string, max = 120): string {
+  return s.replace(/[\r\n]+/g, ' ').replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+const HEADLINE: Record<AttentionKind, string> = {
+  finished: 'finished',
+  failed: 'hit an error',
+  waiting: 'is waiting for you',
+};
+
+export async function sendPhone(target: { url: string; token?: string }, title: string, body: string, kind: AttentionKind | 'test'): Promise<{ ok: boolean; error?: string }> {
+  const headers: Record<string, string> = {
+    Title: ascii(title),
+    Priority: kind === 'failed' || kind === 'waiting' ? 'high' : 'default',
+    Tags: kind === 'failed' ? 'rotating_light' : kind === 'waiting' ? 'raising_hand' : 'white_check_mark',
+  };
+  if (target.token) headers.Authorization = `Bearer ${target.token}`;
+  try {
+    const res = await fetchImpl(target.url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) });
+    return res.ok ? { ok: true } : { ok: false, error: `The server answered ${res.status}.` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function sendTest(draft: unknown): Promise<{ ok: boolean; error?: string }> {
+  const cfg = sanitizeNotificationChannels(draft, channels.ntfy.token);
+  const target = resolvePhoneTarget(cfg);
+  if (!target) return { ok: false, error: 'Enter a server address and a topic first.' };
+  return sendPhone(target, 'Arco test', 'This is a test message from Arco. If you can read it, phone notifications work.', 'test');
+}
+
+interface WorkflowInfo { name: string; incognito: boolean }
+
+function shouldRaise(kind: AttentionKind, workflowId: string): boolean {
+  if (kind !== 'finished' || channels.clusterFinished === 'all') return true;
+  const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  if (!clusterId) return true;
+  return isClusterDirector(clusterStore.getMemberRole(clusterId, workflowId));
+}
+
+export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInfo, text?: string): void {
+  if (info.incognito) return;
+  const wantDesktop = channels.desktop[kind];
+  const target = channels.phone[kind] ? resolvePhoneTarget() : null;
+  if (!wantDesktop && !target) return;
+  if (!shouldRaise(kind, workflowId)) return;
+  // One alert per workflow and kind per few seconds, whatever produced it.
+  const key = `${workflowId}:${kind}`;
+  const now = Date.now();
+  if (now - (lastAlertAt.get(key) ?? 0) < 3000) return;
+  lastAlertAt.set(key, now);
+  const name = ascii(info.name || workflowId.slice(0, 8), 60);
+  if (wantDesktop) {
+    broadcastToClients({ type: 'attention_event', id: `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name });
+  }
+  if (target) {
+    const body = channels.phoneText && text ? ascii(text, TEXT_MAX) : `Open Arco to see it.`;
+    void sendPhone(target, `${name} ${HEADLINE[kind]}`, body, kind).then((r) => {
+      if (!r.ok) console.warn(`[ntfy] attention push failed: ${r.error}`);
+    });
+  }
+}
+
+/** Feed every workflow-scoped server message through here. Cheap for messages it ignores. */
+export function observeAttention(workflowId: string, message: ServerMessage, info: WorkflowInfo): void {
+  switch (message.type) {
+    case 'primary_turn_started':
+      turnStarts.set(workflowId, Date.now());
+      lastText.delete(workflowId);
+      break;
+    case 'primary_text':
+      if (channels.phoneText && channels.phone.finished) lastText.set(workflowId, ((lastText.get(workflowId) ?? '') + message.text).slice(-TEXT_MAX * 2));
+      break;
+    case 'primary_turn_ended': {
+      const start = turnStarts.get(workflowId);
+      turnStarts.delete(workflowId);
+      const text = lastText.get(workflowId);
+      lastText.delete(workflowId);
+      if (start !== undefined && Date.now() - start >= MIN_FINISHED_TURN_MS) raise('finished', workflowId, info, text ? text.slice(0, TEXT_MAX) : undefined);
+      break;
+    }
+    case 'operator_question':
+      if (message.question.status === 'pending' && firstSighting(message.question.requestId)) raise('waiting', workflowId, info, message.question.questions.map((q) => q.question).join(' '));
+      break;
+    case 'gate_required':
+      if (firstSighting(message.gateId)) raise('waiting', workflowId, info, message.reason);
+      break;
+    case 'worker_error':
+      raise('failed', workflowId, info, message.error);
+      break;
+    case 'primary_refusal':
+      raise('failed', workflowId, info, message.explanation ?? 'The provider declined the request.');
+      break;
+    case 'error':
+      if (message.workflowId) raise('failed', message.workflowId, info, message.message);
+      break;
+  }
+}

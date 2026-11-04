@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, test } from 'node:test';
+const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-update-settings-')));
+process.env.ARCO_HOME = join(home, '.arco');
+process.env.HOME = home;
+process.env.USERPROFILE = home;
+after(() => rmSync(home, { recursive: true, force: true }));
+test('update settings default enabled and persist across unrelated patches', async () => {
+  const { readSettings, patchSettings } = await import('./settings.js');
+  assert.equal((await readSettings()).updateCheck, true);
+  await patchSettings({ updateCheck: false, updateCheckDismissed: 'v0.2.0' });
+  await patchSettings({ projects: [] });
+  assert.equal((await readSettings()).updateCheck, false);
+  assert.equal((await readSettings()).updateCheckDismissed, 'v0.2.0');
+  await patchSettings({ updateCheck: true });
+  assert.equal((await readSettings()).updateCheck, true);
+  assert.equal((await readSettings()).updateCheckDismissed, 'v0.2.0');
+});

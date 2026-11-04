@@ -1,0 +1,783 @@
+{
+  "pass": "documenter-heldout-second",
+  "n": 50,
+  "actionAgreement": 50,
+  "reasonAgreement": 50,
+  "jointAgreement": 50,
+  "actionAgreementRate": 1.0,
+  "reasonAgreementRate": 1.0,
+  "jointAgreementRate": 1.0,
+  "disputes": [],
+  "actionCounts": {
+    "wake": 32,
+    "defer": 12,
+    "ask": 6
+  },
+  "reasonCounts": {
+    "assignment": 10,
+    "question": 6,
+    "blocker": 4,
+    "failure": 4,
+    "completion": 8,
+    "progress": 2,
+    "ack_or_status": 4,
+    "superseded": 2,
+    "duplicate": 4,
+    "ownership": 3,
+    "conflict": 3
+  },
+  "labels": [
+    {
+      "id": "spv2-01-01",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-02",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-03",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-04",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-05",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-06",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-07",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-08",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-09",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-01-10",
+      "action": "wake",
+      "reason": "assignment"
+    },
+    {
+      "id": "spv2-02-01",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-02-02",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-02-07",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-02-08",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-02-09",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-02-10",
+      "action": "wake",
+      "reason": "question"
+    },
+    {
+      "id": "spv2-03-07",
+      "action": "wake",
+      "reason": "blocker"
+    },
+    {
+      "id": "spv2-03-08",
+      "action": "wake",
+      "reason": "blocker"
+    },
+    {
+      "id": "spv2-03-09",
+      "action": "wake",
+      "reason": "blocker"
+    },
+    {
+      "id": "spv2-03-10",
+      "action": "wake",
+      "reason": "blocker"
+    },
+    {
+      "id": "spv2-04-07",
+      "action": "wake",
+      "reason": "failure"
+    },
+    {
+      "id": "spv2-04-08",
+      "action": "wake",
+      "reason": "failure"
+    },
+    {
+      "id": "spv2-04-09",
+      "action": "wake",
+      "reason": "failure"
+    },
+    {
+      "id": "spv2-04-10",
+      "action": "wake",
+      "reason": "failure"
+    },
+    {
+      "id": "spv2-05-07",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-05-08",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-05-09",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-05-10",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-06-07",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-06-08",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-06-09",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-06-10",
+      "action": "wake",
+      "reason": "completion"
+    },
+    {
+      "id": "spv2-07-07",
+      "action": "defer",
+      "reason": "progress"
+    },
+    {
+      "id": "spv2-07-09",
+      "action": "defer",
+      "reason": "progress"
+    },
+    {
+      "id": "spv2-08-08",
+      "action": "defer",
+      "reason": "ack_or_status"
+    },
+    {
+      "id": "spv2-08-10",
+      "action": "defer",
+      "reason": "ack_or_status"
+    },
+    {
+      "id": "spv2-09-07",
+      "action": "defer",
+      "reason": "ack_or_status"
+    },
+    {
+      "id": "spv2-09-09",
+      "action": "defer",
+      "reason": "ack_or_status"
+    },
+    {
+      "id": "spv2-10-08",
+      "action": "defer",
+      "reason": "superseded"
+    },
+    {
+      "id": "spv2-10-10",
+      "action": "defer",
+      "reason": "superseded"
+    },
+    {
+      "id": "spv2-11-07",
+      "action": "defer",
+      "reason": "duplicate"
+    },
+    {
+      "id": "spv2-11-08",
+      "action": "defer",
+      "reason": "duplicate"
+    },
+    {
+      "id": "spv2-11-09",
+      "action": "defer",
+      "reason": "duplicate"
+    },
+    {
+      "id": "spv2-11-10",
+      "action": "defer",
+      "reason": "duplicate"
+    },
+    {
+      "id": "spv2-12-08",
+      "action": "ask",
+      "reason": "ownership"
+    },
+    {
+      "id": "spv2-12-09",
+      "action": "ask",
+      "reason": "ownership"
+    },
+    {
+      "id": "spv2-12-10",
+      "action": "ask",
+      "reason": "ownership"
+    },
+    {
+      "id": "spv2-13-08",
+      "action": "ask",
+      "reason": "conflict"
+    },
+    {
+      "id": "spv2-13-09",
+      "action": "ask",
+      "reason": "conflict"
+    },
+    {
+      "id": "spv2-13-10",
+      "action": "ask",
+      "reason": "conflict"
+    }
+  ],
+  "comparisonRows": [
+    {
+      "id": "spv2-01-01",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-02",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-03",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-04",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-05",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-06",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-07",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-08",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-09",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-01-10",
+      "action": "wake",
+      "reason": "assignment",
+      "expectedAction": "wake",
+      "expectedReason": "assignment",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-01",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-02",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-07",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-08",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-09",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-02-10",
+      "action": "wake",
+      "reason": "question",
+      "expectedAction": "wake",
+      "expectedReason": "question",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-03-07",
+      "action": "wake",
+      "reason": "blocker",
+      "expectedAction": "wake",
+      "expectedReason": "blocker",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-03-08",
+      "action": "wake",
+      "reason": "blocker",
+      "expectedAction": "wake",
+      "expectedReason": "blocker",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-03-09",
+      "action": "wake",
+      "reason": "blocker",
+      "expectedAction": "wake",
+      "expectedReason": "blocker",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-03-10",
+      "action": "wake",
+      "reason": "blocker",
+      "expectedAction": "wake",
+      "expectedReason": "blocker",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-04-07",
+      "action": "wake",
+      "reason": "failure",
+      "expectedAction": "wake",
+      "expectedReason": "failure",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-04-08",
+      "action": "wake",
+      "reason": "failure",
+      "expectedAction": "wake",
+      "expectedReason": "failure",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-04-09",
+      "action": "wake",
+      "reason": "failure",
+      "expectedAction": "wake",
+      "expectedReason": "failure",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-04-10",
+      "action": "wake",
+      "reason": "failure",
+      "expectedAction": "wake",
+      "expectedReason": "failure",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-05-07",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-05-08",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-05-09",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-05-10",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-06-07",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-06-08",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-06-09",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-06-10",
+      "action": "wake",
+      "reason": "completion",
+      "expectedAction": "wake",
+      "expectedReason": "completion",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-07-07",
+      "action": "defer",
+      "reason": "progress",
+      "expectedAction": "defer",
+      "expectedReason": "progress",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-07-09",
+      "action": "defer",
+      "reason": "progress",
+      "expectedAction": "defer",
+      "expectedReason": "progress",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-08-08",
+      "action": "defer",
+      "reason": "ack_or_status",
+      "expectedAction": "defer",
+      "expectedReason": "ack_or_status",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-08-10",
+      "action": "defer",
+      "reason": "ack_or_status",
+      "expectedAction": "defer",
+      "expectedReason": "ack_or_status",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-09-07",
+      "action": "defer",
+      "reason": "ack_or_status",
+      "expectedAction": "defer",
+      "expectedReason": "ack_or_status",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-09-09",
+      "action": "defer",
+      "reason": "ack_or_status",
+      "expectedAction": "defer",
+      "expectedReason": "ack_or_status",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-10-08",
+      "action": "defer",
+      "reason": "superseded",
+      "expectedAction": "defer",
+      "expectedReason": "superseded",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-10-10",
+      "action": "defer",
+      "reason": "superseded",
+      "expectedAction": "defer",
+      "expectedReason": "superseded",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-11-07",
+      "action": "defer",
+      "reason": "duplicate",
+      "expectedAction": "defer",
+      "expectedReason": "duplicate",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-11-08",
+      "action": "defer",
+      "reason": "duplicate",
+      "expectedAction": "defer",
+      "expectedReason": "duplicate",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-11-09",
+      "action": "defer",
+      "reason": "duplicate",
+      "expectedAction": "defer",
+      "expectedReason": "duplicate",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-11-10",
+      "action": "defer",
+      "reason": "duplicate",
+      "expectedAction": "defer",
+      "expectedReason": "duplicate",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-12-08",
+      "action": "ask",
+      "reason": "ownership",
+      "expectedAction": "ask",
+      "expectedReason": "ownership",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-12-09",
+      "action": "ask",
+      "reason": "ownership",
+      "expectedAction": "ask",
+      "expectedReason": "ownership",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-12-10",
+      "action": "ask",
+      "reason": "ownership",
+      "expectedAction": "ask",
+      "expectedReason": "ownership",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-13-08",
+      "action": "ask",
+      "reason": "conflict",
+      "expectedAction": "ask",
+      "expectedReason": "conflict",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-13-09",
+      "action": "ask",
+      "reason": "conflict",
+      "expectedAction": "ask",
+      "expectedReason": "conflict",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    },
+    {
+      "id": "spv2-13-10",
+      "action": "ask",
+      "reason": "conflict",
+      "expectedAction": "ask",
+      "expectedReason": "conflict",
+      "agreeAction": true,
+      "agreeReason": true,
+      "agreeJoint": true
+    }
+  ]
+}

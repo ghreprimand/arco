@@ -1,0 +1,111 @@
+import { test, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { ServerMessage } from '@arco/shared';
+import { initNotifications } from './notifications.js';
+import {
+  _setChannelsPathForTest, _setFetchForTest, channelsView, loadChannels, observeAttention, resolvePhoneTarget, saveChannels, sendTest, MIN_FINISHED_TURN_MS,
+} from './attention.js';
+
+const sent: ServerMessage[] = [];
+const posts: Array<{ url: string; headers: Record<string, string>; body: string }> = [];
+let seq = 0;
+const info = { name: 'Fix login', incognito: false };
+const wf = () => `wf-attn-${seq++}`;
+
+beforeEach(async () => {
+  sent.length = 0; posts.length = 0;
+  const dir = await mkdtemp(join(tmpdir(), 'arco-attn-'));
+  _setChannelsPathForTest(join(dir, 'notification-channels.json'));
+  _setFetchForTest((async (url: string, init: { headers: Record<string, string>; body: string }) => { posts.push({ url, headers: init.headers, body: init.body }); return { ok: true, status: 200 }; }) as never);
+  await initNotifications((m) => { sent.push(m); });
+  await loadChannels();
+});
+
+const question = (id: string) => ({ type: 'operator_question', workflowId: 'x', question: { requestId: id, status: 'pending', questions: [{ question: 'Which branch?' }] } }) as unknown as ServerMessage;
+
+test('nothing is sent while every switch is off', () => {
+  const id = wf();
+  observeAttention(id, question('q-off'), info);
+  assert.equal(sent.length, 0);
+  assert.equal(posts.length, 0);
+});
+
+test('a pending question raises one desktop event and one phone message, without text by default', async () => {
+  await saveChannels({ desktop: { waiting: true }, phone: { waiting: true }, ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t1' } });
+  const id = wf();
+  observeAttention(id, question('q-1'), info);
+  observeAttention(id, question('q-1'), info); // replay of the same question
+  assert.equal(sent.filter((m) => m.type === 'attention_event').length, 1);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, 'https://ntfy.example.org/arco-t1');
+  assert.equal(posts[0].headers.Title, 'Fix login is waiting for you');
+  assert.ok(!posts[0].body.includes('Which branch'), 'message text stays out');
+  const ev = sent.find((m) => m.type === 'attention_event') as unknown as { workflowName: string; text?: string };
+  assert.equal(ev.workflowName, 'Fix login');
+  assert.equal(ev.text, undefined);
+});
+
+test('message text is included only when switched on', async () => {
+  await saveChannels({ phone: { waiting: true }, phoneText: true, ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t2' } });
+  observeAttention(wf(), question('q-2'), info);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(posts[0].body, 'Which branch?');
+  assert.equal(sent.length, 0, 'no desktop event when only the phone is on');
+});
+
+test('finished needs a turn of at least the minimum length and skips Incognito', async () => {
+  await saveChannels({ desktop: { finished: true } });
+  const id = wf();
+  observeAttention(id, { type: 'primary_turn_started', workflowId: id, startedAt: 1 } as ServerMessage, info);
+  observeAttention(id, { type: 'primary_turn_ended', workflowId: id, endedAt: 2 } as ServerMessage, info);
+  assert.equal(sent.length, 0, 'a quick turn is not worth an alert');
+  const realNow = Date.now;
+  try {
+    const t0 = realNow();
+    Date.now = () => t0;
+    observeAttention(id, { type: 'primary_turn_started', workflowId: id, startedAt: t0 } as ServerMessage, info);
+    Date.now = () => t0 + MIN_FINISHED_TURN_MS + 1;
+    observeAttention(id, { type: 'primary_turn_ended', workflowId: id, endedAt: t0 } as ServerMessage, { name: 'Private', incognito: true });
+    assert.equal(sent.length, 0, 'Incognito never notifies');
+    Date.now = () => t0;
+    observeAttention(id, { type: 'primary_turn_started', workflowId: id, startedAt: t0 } as ServerMessage, info);
+    Date.now = () => t0 + MIN_FINISHED_TURN_MS + 1;
+    observeAttention(id, { type: 'primary_turn_ended', workflowId: id, endedAt: t0 } as ServerMessage, info);
+    assert.equal(sent.filter((m) => m.type === 'attention_event').length, 1);
+  } finally { Date.now = realNow; }
+});
+
+test('failures raise an alert for the failed event only', async () => {
+  await saveChannels({ desktop: { failed: true } });
+  const id = wf();
+  observeAttention(id, { type: 'worker_error', workflowId: id, workerId: 'w', error: 'boom' } as ServerMessage, info);
+  assert.equal((sent[0] as unknown as { kind: string }).kind, 'failed');
+});
+
+test('saved settings win; ARCO_NTFY_URL keeps working when none is saved; the token never reaches the view', async () => {
+  const env = { ARCO_NTFY_URL: 'https://hub.example.org/topic', ARCO_NTFY_TOKEN: 'envtok' } as NodeJS.ProcessEnv;
+  assert.deepEqual(resolvePhoneTarget(await saveChannels({}), env), { url: 'https://hub.example.org/topic', token: 'envtok' });
+  assert.equal(channelsView(await saveChannels({}), env).ntfyFromEnvironment, true);
+  const cfg = await saveChannels({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t3', token: 'secret' } });
+  assert.deepEqual(resolvePhoneTarget(cfg, env), { url: 'https://ntfy.example.org/arco-t3', token: 'secret' });
+  const view = channelsView(cfg, env);
+  assert.equal(view.ntfy.tokenSet, true);
+  assert.ok(!JSON.stringify(view).includes('secret'));
+  const kept = await saveChannels({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t3' } });
+  assert.equal(kept.ntfy.token, 'secret', 'omitting the token keeps it');
+});
+
+test('TEST reports the result', async () => {
+  const cfg = await saveChannels({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t4' } });
+  assert.ok(cfg.ntfy.topic);
+  const r = await sendTest({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t4' } });
+  assert.equal(r.ok, true);
+  assert.equal(posts.at(-1)?.url, 'https://ntfy.example.org/arco-t4');
+  assert.equal((await sendTest({ ntfy: { server: 'https://ntfy.example.org', topic: '' } })).ok, false);
+  _setFetchForTest((async () => { throw new Error('connect refused'); }) as never);
+  assert.match((await sendTest({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t4' } })).error ?? '', /refused/);
+});

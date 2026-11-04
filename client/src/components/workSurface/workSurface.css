@@ -1,0 +1,4 @@
+.work-surface-controls{display:inline-flex;align-items:center;gap:6px;flex:none}
+.work-surface-controls button{font:12px var(--font-body);color:var(--color-fg);background:var(--color-bg-input);border:1px solid var(--color-border-hairline);border-radius:3px;padding:6px 9px;cursor:pointer}
+.work-surface-controls button:focus-visible{outline:2px solid var(--color-accent-primary);outline-offset:2px}
+.work-surface-resize{touch-action:none;cursor:nwse-resize!important}
