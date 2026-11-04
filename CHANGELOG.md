@@ -38,6 +38,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Generate a valid Linux service working directory and provide a guarded refresh for existing package installations.
 
+### Fixed
+
+- Fix Home showing every project folder at once: Projects shows two rows of cards, Show all opens the rest in a scrolling area, and search shows every match. The Getting started card now counts any started chat, session or cluster (open or saved) as step 3, and has a HIDE button that is remembered in the browser.
+
 ## v0.1.3 - 2026-11-04
 
 ### Added

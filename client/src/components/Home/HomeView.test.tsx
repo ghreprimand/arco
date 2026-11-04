@@ -97,3 +97,38 @@ test('open work renders two rows of cards with a Show all toggle that announces 
   assert.equal(few.split('aria-label="Open session Work ').length - 1, 2);
   assert.doesNotMatch(few, /home-show-all/);
 });
+
+test('project grid is bounded to two rows with Show all, and search shows every match', async () => {
+  const { boundProjects } = await import('../../utils/homeModel.js');
+  const make = (n: number) => Array.from({ length: n }, (_, i) => i);
+  for (const [count, shown, toggle] of [[3, 3, false], [6, 6, false], [7, 6, true], [30, 6, true]] as const) {
+    const r = boundProjects(make(count), 3, false, false);
+    assert.equal(r.shown.length, shown, `${count} projects`);
+    assert.equal(r.toggle, toggle);
+    assert.equal(r.scrolls, false);
+  }
+  const open = boundProjects(make(30), 3, true, false);
+  assert.equal(open.shown.length, 30);
+  assert.equal(open.scrolls, true);
+  assert.equal(boundProjects(make(30), 4, false, false).shown.length, 8, 'rows follow the column count');
+  const searching = boundProjects(make(30), 3, false, true);
+  assert.equal(searching.shown.length, 30);
+  assert.equal(searching.toggle, false);
+  assert.equal(searching.scrolls, true);
+  assert.equal(boundProjects(make(2), 0, false, false).shown.length, 2);
+});
+
+test('Getting started step 3 counts any started conversation, and the card can be hidden', async () => {
+  const { conversationStarted } = await import('../../utils/homeModel.js');
+  const none = { openWork: 0, savedChats: 0, savedClusters: 0, savedSessions: 0, remembered: false };
+  assert.equal(conversationStarted(none), false);
+  for (const key of ['openWork', 'savedChats', 'savedClusters', 'savedSessions'] as const) assert.equal(conversationStarted({ ...none, [key]: 1 }), true, key);
+  assert.equal(conversationStarted({ ...none, remembered: true }), true);
+  const { useAppStore } = await import('../../stores/appStore.js');
+  const { HomeView } = await import('./HomeView.js');
+  useAppStore.setState({ jobs: {}, clusters: {} });
+  persisted.set('arco-home-guide-hidden', '1');
+  try {
+    assert.doesNotMatch(renderToStaticMarkup(<HomeView />), /Hide the getting started guide/);
+  } finally { persisted.delete('arco-home-guide-hidden'); }
+});

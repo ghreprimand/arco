@@ -243,3 +243,22 @@ export function savedSessionRows(sessions: SessionInfo[], jobs: Record<string, J
     })
     .sort((a, b) => b.startedAt - a.startedAt);
 }
+
+// Project cards stop at this many rows until Show all, like open work.
+export const PROJECT_ROWS = 2;
+
+// What the project grid renders: everything while searching (the grid scrolls
+// inside its bound), otherwise the first `columns * PROJECT_ROWS` cards until
+// the operator expands it. `toggle` is whether a Show all control is needed.
+export function boundProjects<T>(list: T[], columns: number, expanded: boolean, searching: boolean): { shown: T[]; limit: number; toggle: boolean; scrolls: boolean } {
+  const limit = Math.max(1, Math.floor(columns)) * PROJECT_ROWS;
+  const over = list.length > limit;
+  if (searching) return { shown: list, limit, toggle: false, scrolls: over };
+  return { shown: expanded || !over ? list : list.slice(0, limit), limit, toggle: over, scrolls: over && expanded };
+}
+
+// Step 3 of Getting started: any conversation that was ever started counts,
+// whether it is open now, saved as a chat or session, or a saved cluster.
+export function conversationStarted(input: { openWork: number; savedChats: number; savedClusters: number; savedSessions: number; remembered: boolean }): boolean {
+  return input.remembered || input.openWork > 0 || input.savedChats > 0 || input.savedClusters > 0 || input.savedSessions > 0;
+}
