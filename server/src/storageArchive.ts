@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import path from 'node:path';
-import { KEEP_FILE, holdsKept, isKept, readKeep } from './keepStore.js';
+import { STAYING_FILES, holdsKept, isKept, readKeep, withKeepLock } from './keepStore.js';
 import { conversationDir, recordStorageAction, StorageActionError } from './storageActions.js';
 import { renameWithRetry } from './atomicFile.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
@@ -49,9 +49,9 @@ async function collect(dir: string, kept: Parameters<typeof isKept>[0]): Promise
     for (const entry of await fs.readdir(abs, { withFileTypes: true })) {
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       if (isKept(kept, childRel)) { skipped++; continue; }
-      // The KEEP list stays with the kept items it protects; with nothing
-      // kept it is archived and restored like any other file.
-      if (!rel && entry.name === KEEP_FILE && kept.length) { skipped++; continue; }
+      // The KEEP list and the size-warning record always stay in place, so
+      // kept items stay protected after an archive.
+      if (!rel && STAYING_FILES.has(entry.name)) { skipped++; continue; }
       const child = path.join(abs, entry.name);
       if (entry.isDirectory()) { await walk(childRel); continue; }
       if (!entry.isFile()) { skipped++; continue; }
@@ -146,42 +146,45 @@ export async function archiveConversation(cwd: string, workflowId: string, opts:
   const target = archivePath(cwd, workflowId);
   try { await fs.lstat(target); throw new StorageActionError('exists', 'An archive of this conversation already exists.'); }
   catch (err) { if (err instanceof StorageActionError) throw err; }
-  const keep = await readKeep(dir);
-  if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was archived.');
-  if (isKept(keep.items, '.')) throw new StorageActionError('kept', 'The whole conversation is kept.');
-  const { files, skipped } = await collect(dir, keep.items);
-  const archivedAt = Date.now();
-  ensureProjectStateIgnore(cwd);
-  await fs.mkdir(archiveDir(cwd), { recursive: true });
-  const tmp = `${target}.${randomUUID()}.tmp`;
-  try {
-    await pipeline(Readable.from(archiveStream(dir, files, { workflowId, archivedAt })),
-      createBrotliCompress({ params: { [zc.BROTLI_PARAM_QUALITY]: 4, [zc.BROTLI_PARAM_LGWIN]: 22 } }),
-      createWriteStream(tmp, { flags: 'wx', mode: 0o600 }));
-    const fh = await fs.open(tmp, 'r+'); try { await fh.sync(); } finally { await fh.close(); }
-    // Read back: every file present with the same size and hash.
-    const expected = new Map(files.map((f) => [f.path, f]));
-    let seen = 0;
-    await readArchive(tmp, async (entry, data) => {
-      const h = createHash('sha256'); let size = 0;
-      for await (const chunk of data) { h.update(chunk as Buffer); size += (chunk as Buffer).length; }
-      const want = expected.get(entry.path);
-      if (!want || want.size !== size || want.sha256 !== h.digest('hex')) throw new Error(`${entry.path} did not read back correctly`);
-      seen++;
-    });
-    if (seen !== files.length) throw new Error('The archive is incomplete.');
-    await renameWithRetry(tmp, target);
-  } catch (err) {
-    await fs.rm(tmp, { force: true });
-    throw err;
-  }
-  // Remove what was archived; kept items and links stay.
-  for (const f of files) await fs.rm(path.join(dir, ...f.path.split('/')), { force: true });
-  await pruneEmptyFolders(dir, keep.items);
-  const archiveBytes = (await fs.stat(target)).size;
-  const originalBytes = files.reduce((n, f) => n + f.size, 0);
-  await recordStorageAction(cwd, { action: 'archive', by: opts.by, workflowId, files: files.length, originalBytes, archiveBytes, keptItems: skipped });
-  return { files: files.length, originalBytes, archiveBytes, keptItems: skipped };
+  // Hold the KEEP lock from the read through the last removal.
+  return withKeepLock(dir, async () => {
+    const keep = await readKeep(dir);
+    if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was archived.');
+    if (isKept(keep.items, '.')) throw new StorageActionError('kept', 'The whole conversation is kept.');
+    const { files, skipped } = await collect(dir, keep.items);
+    const archivedAt = Date.now();
+    ensureProjectStateIgnore(cwd);
+    await fs.mkdir(archiveDir(cwd), { recursive: true });
+    const tmp = `${target}.${randomUUID()}.tmp`;
+    try {
+      await pipeline(Readable.from(archiveStream(dir, files, { workflowId, archivedAt })),
+        createBrotliCompress({ params: { [zc.BROTLI_PARAM_QUALITY]: 4, [zc.BROTLI_PARAM_LGWIN]: 22 } }),
+        createWriteStream(tmp, { flags: 'wx', mode: 0o600 }));
+      const fh = await fs.open(tmp, 'r+'); try { await fh.sync(); } finally { await fh.close(); }
+      // Read back: every file present with the same size and hash.
+      const expected = new Map(files.map((f) => [f.path, f]));
+      let seen = 0;
+      await readArchive(tmp, async (entry, data) => {
+        const h = createHash('sha256'); let size = 0;
+        for await (const chunk of data) { h.update(chunk as Buffer); size += (chunk as Buffer).length; }
+        const want = expected.get(entry.path);
+        if (!want || want.size !== size || want.sha256 !== h.digest('hex')) throw new Error(`${entry.path} did not read back correctly`);
+        seen++;
+      });
+      if (seen !== files.length) throw new Error('The archive is incomplete.');
+      await renameWithRetry(tmp, target);
+    } catch (err) {
+      await fs.rm(tmp, { force: true });
+      throw err;
+    }
+    // Remove what was archived; kept items and links stay.
+    for (const f of files) await fs.rm(path.join(dir, ...f.path.split('/')), { force: true });
+    await pruneEmptyFolders(dir, keep.items);
+    const archiveBytes = (await fs.stat(target)).size;
+    const originalBytes = files.reduce((n, f) => n + f.size, 0);
+    await recordStorageAction(cwd, { action: 'archive', by: opts.by, workflowId, files: files.length, originalBytes, archiveBytes, keptItems: skipped });
+    return { files: files.length, originalBytes, archiveBytes, keptItems: skipped };
+  });
 }
 
 async function pruneEmptyFolders(dir: string, kept: Parameters<typeof isKept>[0]): Promise<void> {
@@ -209,6 +212,7 @@ export async function restoreConversation(cwd: string, workflowId: string): Prom
   const dir = conversationDir(cwd, workflowId);
   const source = archivePath(cwd, workflowId);
   try { await fs.lstat(source); } catch { throw new StorageActionError('not_found', 'No archive of this conversation was found.'); }
+  // A file that already exists (keep.json included) is never overwritten.
   const collisions: string[] = [];
   // First pass: the whole archive reads back with matching hashes, and no
   // file exists yet. Nothing is written before both hold.

@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { holdsKept, isKept, readKeep } from './keepStore.js';
+import { STAYING_FILES, holdsKept, isKept, readKeep, withKeepLock } from './keepStore.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 
 // Operator storage actions (P7.4/P7.5, docs/STORAGE_PLAN.md). Every action is
@@ -41,7 +41,7 @@ async function removeExceptKept(dir: string, rel: string, kept: Parameters<typeo
   for (const entry of entries) {
     const childRel = rel ? `${rel}/${entry.name}` : entry.name;
     const child = path.join(abs, entry.name);
-    if (entry.name === 'keep.json' && !rel) continue;
+    if (!rel && STAYING_FILES.has(entry.name)) continue;
     if (isKept(kept, childRel)) { out.keptItems++; continue; }
     if (entry.isDirectory() && holdsKept(kept, childRel)) { await removeExceptKept(dir, childRel, kept, out); continue; }
     const size = await treeSize(child);
@@ -70,6 +70,7 @@ export async function treeSize(p: string): Promise<{ bytes: number; files: numbe
 export async function emptyScratch(cwd: string, workflowId: string, opts: { busy: boolean }): Promise<RemovalResult> {
   const dir = conversationDir(cwd, workflowId);
   if (opts.busy) throw new StorageActionError('busy', 'The conversation is working; empty its scratch folder when it is idle.');
+  return withKeepLock(dir, async () => {
   const keep = await readKeep(dir);
   if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was deleted.');
   const out: RemovalResult = { removedBytes: 0, removedFiles: 0, keptItems: 0 };
@@ -77,6 +78,7 @@ export async function emptyScratch(cwd: string, workflowId: string, opts: { busy
   await removeExceptKept(dir, 'scratch', keep.items, out);
   await recordStorageAction(cwd, { action: 'empty_scratch', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });
   return out;
+  });
 }
 
 // DELETE a closed conversation (P7.5): the existing purge (folder, checkpoints,
@@ -89,6 +91,7 @@ export async function deleteConversation(
 ): Promise<RemovalResult> {
   const dir = conversationDir(cwd, workflowId);
   if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before deleting it.');
+  return withKeepLock(dir, async () => {
   const keep = await readKeep(dir);
   if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was deleted.');
   if (isKept(keep.items, '.')) throw new StorageActionError('kept', 'The whole conversation is kept.');
@@ -110,6 +113,7 @@ export async function deleteConversation(
   }
   await recordStorageAction(cwd, { action: 'delete', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });
   return out;
+  });
 }
 
 // COMPRESS OLD LOGS (operator click, per project): seal the live logs of

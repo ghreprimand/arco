@@ -1,12 +1,29 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { KeepItem } from '@arco/shared';
+import { withFileLock } from './atomicFile.js';
 
 // Reader for the per-conversation KEEP file (docs/STORAGE_PLAN.md, "KEEP file
 // format"): <project>/.arco/workflows/<id>/keep.json. Builder of the KEEP and
 // MOVE TO PROJECT controls owns the writer; archive, delete, EMPTY SCRATCH and
 // size warnings read it here.
 export const KEEP_FILE = 'keep.json';
+
+// One in-process lock per conversation KEEP list. The KEEP writer and every
+// action that reads the list and then removes files (archive, delete, EMPTY
+// SCRATCH) hold it from the read through the last removal, so a KEEP set
+// meanwhile is never undone. Use exactly this key: withFileLock matches keys
+// as strings.
+export function keepLockKey(conversationDir: string): string {
+  return path.join(path.resolve(conversationDir), KEEP_FILE);
+}
+export function withKeepLock<T>(conversationDir: string, fn: () => Promise<T>): Promise<T> {
+  return withFileLock(keepLockKey(conversationDir), fn);
+}
+
+// Files of the conversation folder itself that every storage action leaves
+// in place: the KEEP list and the record of size warnings already shown.
+export const STAYING_FILES = new Set([KEEP_FILE, 'storage-warnings.json']);
 
 export type KeepRead = { ok: true; items: KeepItem[] } | { ok: false };
 

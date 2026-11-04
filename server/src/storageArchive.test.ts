@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { archiveConversation, archivePath, listArchives, restoreConversation } from './storageArchive.js';
-import { deleteConversation, StorageActionError } from './storageActions.js';
+import { deleteConversation, emptyScratch, StorageActionError } from './storageActions.js';
 import { sanitizePolicy, staleConversations } from './storageOverview.js';
 import { scanStorage } from './storageReport.js';
-import { readKeep } from './keepStore.js';
+import { readKeep, withKeepLock } from './keepStore.js';
 
 // P7.5 (docs/STORAGE_PLAN.md): ARCHIVE, restore and DELETE for closed
 // conversations, and the opt-in auto-archive rule. Nothing is removed before
@@ -130,5 +130,75 @@ test('the auto-archive rule is off by default and picks only long-closed, unkept
     assert.deepEqual(await staleConversations(cwd, 60), []);
     await writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items: [{ path: '.', reason: 'operator', at: 1 }] }));
     assert.deepEqual(await staleConversations(cwd, 30), []);
+  });
+});
+
+const purgeDir = (dir: string) => async (_cwd: string, _id: string, o: { removeDir?: (d: string) => Promise<void> }) => {
+  if (o.removeDir) await o.removeDir(dir); else await rm(dir, { recursive: true, force: true });
+  return { ok: true };
+};
+
+test('a kept file survives ARCHIVE then DELETE', async () => {
+  await project(async (cwd, dir) => {
+    await writeFile(path.join(dir, 'storage-warnings.json'), '{"version":1,"files":{},"conversationBytes":0}');
+    await archiveConversation(cwd, ID, closed);
+    assert.ok(existsSync(path.join(dir, 'keep.json')));
+    assert.ok(existsSync(path.join(dir, 'storage-warnings.json')));
+    await deleteConversation(cwd, ID, { open: false, busy: false, purge: purgeDir(dir), archiveFile: archivePath(cwd, ID) });
+    assert.equal(existsSync(archivePath(cwd, ID)), false);
+    assert.equal(await readFile(path.join(dir, 'artifacts', 'kept.md'), 'utf8'), 'kept');
+    assert.deepEqual((await readKeep(dir)).ok, true);
+  });
+});
+
+test('a kept file survives ARCHIVE then EMPTY SCRATCH', async () => {
+  await project(async (cwd, dir) => {
+    await mkdir(path.join(dir, 'scratch'), { recursive: true });
+    await writeFile(path.join(dir, 'scratch', 'kept.iso'), 'image');
+    await writeFile(path.join(dir, 'scratch', 'temp.o'), 'object');
+    await writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items: [
+      { path: 'artifacts/kept.md', reason: 'operator', at: 1 }, { path: 'scratch/kept.iso', reason: 'size-warning', at: 2 },
+    ] }));
+    await archiveConversation(cwd, ID, closed);
+    // The kept scratch file stayed through the archive; the other was archived.
+    assert.deepEqual(await readdir(path.join(dir, 'scratch')), ['kept.iso']);
+    await writeFile(path.join(dir, 'scratch', 'new.tmp'), 'later');
+    const result = await emptyScratch(cwd, ID, { busy: false });
+    assert.equal(result.removedFiles, 1);
+    assert.deepEqual(await readdir(path.join(dir, 'scratch')), ['kept.iso']);
+    assert.equal(await readFile(path.join(dir, 'artifacts', 'kept.md'), 'utf8'), 'kept');
+  });
+});
+
+test('RESTORE never overwrites the KEEP list', async () => {
+  await project(async (cwd, dir) => {
+    await archiveConversation(cwd, ID, closed);
+    const keepBefore = await readFile(path.join(dir, 'keep.json'), 'utf8');
+    await restoreConversation(cwd, ID);
+    assert.equal(await readFile(path.join(dir, 'keep.json'), 'utf8'), keepBefore);
+    // With nothing kept the list is still not archived; restore leaves it.
+    await writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items: [] }));
+    await archiveConversation(cwd, ID, closed);
+    await writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items: [{ path: 'artifacts/kept.md', reason: 'operator', at: 9 }] }));
+    await restoreConversation(cwd, ID);
+    assert.deepEqual((await readKeep(dir)), { ok: true, items: [{ path: 'artifacts/kept.md', reason: 'operator', at: 9 }] });
+  });
+});
+
+test('a KEEP written while DELETE runs is not undone', async () => {
+  await project(async (cwd, dir) => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    // DELETE takes the lock first and is held inside the purge; a KEEP writer
+    // queued behind it runs only after DELETE finished.
+    const deleting = deleteConversation(cwd, ID, { open: false, busy: false, purge: async (c, i, o) => { await gate; return purgeDir(dir)(c, i, o); } });
+    await new Promise((r) => setImmediate(r));
+    let wrote = false;
+    const writer = withKeepLock(dir, async () => { wrote = true; });
+    await new Promise((r) => setImmediate(r));
+    assert.equal(wrote, false);
+    release();
+    await deleting; await writer;
+    assert.equal(wrote, true);
   });
 });
