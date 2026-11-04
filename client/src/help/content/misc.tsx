@@ -43,9 +43,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        The project grid puts pinned folders first and sorts others by recent activity. Search by name or path, or filter by location. Cards show their location when several locations are configured. Shows two rows of cards at first; Show all opens the rest in a bounded scrolling list, and a search shows every match. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
+        The project grid puts pinned folders first and sorts others by recent activity. Search by name or path, or filter by location. Cards show their location when several locations are configured. The grid shows two rows of cards at first; Show all opens the rest in a bounded scrolling list, and a search shows every match. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
       </p>
     ),
+    manualSection: 'home',
   },
 
   'home.getting-started': {
