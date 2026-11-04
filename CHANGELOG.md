@@ -5,13 +5,6 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-### Fixed
-
-- Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). The GIT, SPAWN, HANDOFF, REVIEW, PLAN, DOCS, TUNE UP, DEEP RESEARCH and SKILL editor dialogs use the same layout.
-- Fix the GIT dialog forgetting its state after VIEW CHANGES (or any close without sending): reopening it in the same tab restores the run-as choice, SHOW OTHER WORK, scroll position, branch, action, commit subject and scope notes, until a request is sent or the tab is closed.
-- Apply local public-audit pattern lists in linked worktrees.
-- Bound Windows service stop checks and handle a service process that already exited while stopping.
-
 ### Added
 
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.
@@ -25,22 +18,16 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
-- Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). Other composer dialogs (GIT, SPAWN, HANDOFF, REVIEW, PLAN and the rest) now also open above the composer instead of inside it.
+- Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). The GIT, SPAWN, HANDOFF, REVIEW, PLAN, DOCS, TUNE UP, DEEP RESEARCH and SKILL editor dialogs use the same layout.
+- Fix the GIT dialog forgetting its state after VIEW CHANGES (or any close without sending): reopening it in the same tab restores the run-as choice, SHOW OTHER WORK, scroll position, branch, action, commit subject and scope notes, until a request is sent or the tab is closed.
+- Apply local public-audit pattern lists in linked worktrees.
+- Bound Windows service stop checks and handle a service process that already exited while stopping.
 - Read Claude Native utility replies containing thinking blocks, and explain unreadable, non-text and truncated replies separately.
 - Show linked instruction-file names on their target in TUNE UP AGENT FILES and explain skipped links.
 - Fix UNDO THIS TURN giving no result: after an undo the turn line reads "Undone", UNDO THIS TURN is disabled so it cannot run twice, and the diff opened from it is labelled as the undone change.
-### Fixed
-
 - Fix the cluster board hiding finished work: SHOW DONE is now on by default (and remembered once changed), and the task count in the board header matches the tasks drawn, with a note of how many done tasks are hidden when it is off.
-### Fixed
-
 - Fix nudges giving no sign they were sent: after clicking a member card's mail mark or sending NUDGE, the mark reads "Nudged" and the composer NUDGE button reads "NUDGED" with a count until the member starts its turn (or two minutes pass). No toast or sound.
-### Fixed
-
 - Generate a valid Linux service working directory and provide a guarded refresh for existing package installations.
-
-### Fixed
-
 - Fix Home showing every project folder at once: Projects shows two rows of cards, Show all opens the rest in a scrolling area, and search shows every match. The Getting started card now counts any started chat, session or cluster (open or saved) as step 3, and has a HIDE button that is remembered in the browser.
 
 ## v0.1.3 - 2026-11-04
