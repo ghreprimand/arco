@@ -160,7 +160,7 @@ item or approval request ends the request. The choice is unset until saved. **TE
 Research, document edit, and handoff summarizer pickers
 fills the choice into that picker without changing other saved selections.
 BRIEF, CATCH ME UP, and TIDY need a utility agent before they run. TIDY
-**ACCEPT** only replaces the composer draft and never sends. Failed requests show the cause when available and identify the model that was tried.
+**ACCEPT** only replaces the composer draft and never sends. Failed requests show the cause when available and identify the model that was tried. Unsupported non-text content and replies that are too long or cut off are reported instead of used.
 
 ### AUTO-PICKUP
 

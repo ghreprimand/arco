@@ -78,8 +78,9 @@ refused when the chosen provider is not available as an evaluator.
   schema-constrained output for evaluators (free text for utility jobs) and an
   output token limit.
 - Claude: one Messages API request using Claude Native sign-in credentials, with
-  no tools declared. Any non-text content is rejected. It is unavailable with
-  only a Claude CLI sign-in.
+  no tools declared. Thinking and redacted-thinking blocks are ignored; tool
+  use and other non-text content are rejected. It is unavailable with only a
+  Claude CLI sign-in.
 - Cursor: a new cursor-agent acp process per request, started in a new empty
   temporary folder that is deleted afterwards. It advertises no file or terminal
   capability and no MCP servers, and switches the session to Cursor's Ask mode
