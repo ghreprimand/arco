@@ -970,7 +970,7 @@ export const configuration: Section[] = [
   </p>
   <ul>
   <li>Edit the proposal, REFINE with additional directions, or use BACK to revisit earlier revisions.</li>
-  <li>KEEP ORIGINAL and Escape leave the draft untouched.</li>
+  <li>KEEP ORIGINAL, the close button in the dialog header and Escape leave the draft untouched.</li>
   <li>UNDO TIDY restores the original until the composer changes.</li>
   <li>The original and refinement directions go to the selected provider.</li>
   </ul>

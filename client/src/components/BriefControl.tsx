@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { clusterBriefFacts, workerBriefFacts } from '../brief/briefFromStore';
 import { useUsableUtilityAgent } from './UtilityAgentPicker';
+import { DialogShell } from './DialogShell';
 
 const STILL_WORKING_MS = 4000;
 const menuItemStyle: CSSProperties = { padding: '7px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', textAlign: 'left', whiteSpace: 'nowrap' };
@@ -52,13 +53,6 @@ export function BriefControl({ scope, targetId, label, title, 'data-help': helpI
     window.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('click', onDoc); window.removeEventListener('keydown', onKey); };
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (phase === 'closed') return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (timer.current) clearTimeout(timer.current); setPhase('closed'); setResult(null); } };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [phase === 'closed']);
 
   const run = async (runScope: UtilityBriefScope = active.scope, runTarget: string = active.targetId) => {
     setActive({ scope: runScope, targetId: runTarget });
@@ -126,48 +120,45 @@ export function BriefControl({ scope, targetId, label, title, 'data-help': helpI
         </div>
       )}
       {phase !== 'closed' && (
-        <div
-          role="dialog"
-          aria-label={dialogLabel}
-          data-testid="brief-panel"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation(); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}
+        <DialogShell
+          title={dialogLabel}
+          ariaLabel={dialogLabel}
+          testId="brief-panel"
+          onClose={close}
+          closeTestId="brief-close"
+          width={560}
+          zIndex={1200}
+          actions={<>
+            {(phase === 'running' || phase === 'slow') && <button type="button" data-testid="brief-cancel" onClick={cancel}>CANCEL</button>}
+            {phase === 'done' && agent && <button type="button" data-testid="brief-again" onClick={() => void run()}>BRIEF AGAIN</button>}
+          </>}
         >
-          <div style={{ width: 'min(calc(92vw / var(--ui-scale, 1)), 560px)', maxHeight: 'calc(86vh / var(--ui-scale, 1))', overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
-            <div className="display-font" style={{ letterSpacing: '1px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>{dialogLabel}</div>
-            {phase === 'done' && !agent && (
-              <div data-testid="brief-not-set" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <p style={{ margin: 0 }}>{saved ? 'The chosen utility agent is not connected or enabled right now.' : 'A utility agent must be chosen before BRIEF can run.'}</p>
-                <button type="button" data-testid="brief-open-setting" onClick={openSetting} style={{ alignSelf: 'flex-start' }}>OPEN UTILITY AGENT SETTING</button>
-              </div>
-            )}
-            {phase === 'running' && <p role="status" style={{ margin: 0 }}>Asking the utility agent.</p>}
-            {phase === 'slow' && <p role="status" data-testid="brief-slow" style={{ margin: 0 }}>Still working. A cold start can take a while; CANCEL stops it.</p>}
-            {phase === 'done' && agent && result && (
-              <div role="status" data-testid="brief-result" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {result.status === 'ok'
-                  ? <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{result.text}</p>
-                  : <p style={{ margin: 0 }}>{describeUtilityFailure(result)}</p>}
-                {result.agent && <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>{result.status === 'ok' && result.text?.trim() ? `Answered by ${result.agent.provider} / ${result.agent.model} in ${(result.elapsedMs / 1000).toFixed(1)}s. This is a reading of the facts below, not an instruction.` : utilityAttribution(result)}</div>}
-                {result.truncated && <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>Some facts were shortened to fit the input limit.</div>}
-              </div>
-            )}
-            {phase !== 'running' && phase !== 'slow' && agent && shownFacts.length > 0 && (
-              <details data-testid="brief-facts">
-                <summary style={{ cursor: 'pointer' }}>FACTS USED ({shownFacts.length})</summary>
-                <ul style={{ margin: '6px 0 0', paddingLeft: '16px', fontFamily: 'var(--font-code)', fontSize: '11px', wordBreak: 'break-word' }}>
-                  {shownFacts.map((f, i) => <li key={`${f.label}-${i}`}><strong>{f.label}:</strong> {f.value}</li>)}
-                </ul>
-              </details>
-            )}
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              {(phase === 'running' || phase === 'slow') && <button type="button" data-testid="brief-cancel" onClick={cancel}>CANCEL</button>}
-              {phase === 'done' && agent && <button type="button" data-testid="brief-again" onClick={() => void run()}>BRIEF AGAIN</button>}
-              <button type="button" data-testid="brief-close" onClick={close}>CLOSE</button>
+          {phase === 'done' && !agent && (
+            <div data-testid="brief-not-set" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ margin: 0 }}>{saved ? 'The chosen utility agent is not connected or enabled right now.' : 'A utility agent must be chosen before BRIEF can run.'}</p>
+              <button type="button" data-testid="brief-open-setting" onClick={openSetting} style={{ alignSelf: 'flex-start' }}>OPEN UTILITY AGENT SETTING</button>
             </div>
-          </div>
-        </div>
+          )}
+          {phase === 'running' && <p role="status" style={{ margin: 0 }}>Asking the utility agent.</p>}
+          {phase === 'slow' && <p role="status" data-testid="brief-slow" style={{ margin: 0 }}>Still working. A cold start can take a while; CANCEL stops it.</p>}
+          {phase === 'done' && agent && result && (
+            <div role="status" data-testid="brief-result" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {result.status === 'ok'
+                ? <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{result.text}</p>
+                : <p style={{ margin: 0 }}>{describeUtilityFailure(result)}</p>}
+              {result.agent && <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>{result.status === 'ok' && result.text?.trim() ? `Answered by ${result.agent.provider} / ${result.agent.model} in ${(result.elapsedMs / 1000).toFixed(1)}s. This is a reading of the facts below, not an instruction.` : utilityAttribution(result)}</div>}
+              {result.truncated && <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>Some facts were shortened to fit the input limit.</div>}
+            </div>
+          )}
+          {phase !== 'running' && phase !== 'slow' && agent && shownFacts.length > 0 && (
+            <details data-testid="brief-facts">
+              <summary style={{ cursor: 'pointer' }}>FACTS USED ({shownFacts.length})</summary>
+              <ul style={{ margin: '6px 0 0', paddingLeft: '16px', fontFamily: 'var(--font-code)', fontSize: '11px', wordBreak: 'break-word' }}>
+                {shownFacts.map((f, i) => <li key={`${f.label}-${i}`}><strong>{f.label}:</strong> {f.value}</li>)}
+              </ul>
+            </details>
+          )}
+        </DialogShell>
       )}
     </>
   );

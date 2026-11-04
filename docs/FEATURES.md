@@ -19,7 +19,7 @@ controls. For installation and first session, see
 | Utility agent | One operator-chosen provider and model for short side jobs | Settings > Agents and clusters (also offered on the last Welcome screen). Accepts only Claude with Native sign-in, Cursor, Codex, or Ollama. Never chosen silently; **TEST** checks it; **USE UTILITY AGENT** can fill it into Smart AUTO-PICKUP, Research, document edit, and handoff summarizer pickers without changing saved choices. See [Settings](SETTINGS.md#utility-agent) |
 | BRIEF | Short synopsis from visible activity facts | On each member card and in the composer toolbar; in a cluster tab the composer's BRIEF offers THIS WORKER or WHOLE CLUSTER. Uses the utility agent; lists the facts; sends nothing to any worker. |
 | CATCH ME UP | Summary since the last visit | On a workflow or cluster; the utility agent writes the synopsis for the covered time range. Unloaded or Incognito cluster members are skipped with a note. |
-| TIDY | Rewrite the composer draft into a clearer instruction | Workflow and Chat composers. **ACCEPT** only replaces the draft; TIDY never sends. **KEEP ORIGINAL** and Escape leave it unchanged. |
+| TIDY | Rewrite the composer draft into a clearer instruction | Workflow and Chat composers. **ACCEPT** only replaces the draft; TIDY never sends. **KEEP ORIGINAL**, the close button in the dialog header and Escape leave it unchanged. |
 
 ## Capacity, updates, and appearance
 
