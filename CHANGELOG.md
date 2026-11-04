@@ -31,6 +31,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Fixed
 
 - Fix nudges giving no sign they were sent: after clicking a member card's mail mark or sending NUDGE, the mark reads "Nudged" and the composer NUDGE button reads "NUDGED" with a count until the member starts its turn (or two minutes pass). No toast or sound.
+### Fixed
+
+- Generate a valid Linux service working directory and provide a guarded refresh for existing package installations.
 
 ## v0.1.3 - 2026-11-04
 

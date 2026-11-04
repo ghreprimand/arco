@@ -46,10 +46,13 @@ regular browser tab. The service is `arco.service` under systemd user services,
 `arco-workbench` Task Scheduler logon task on Windows.
 
 Use `arco start` for a foreground run. Manage the installed service with
-`arco service install|uninstall|start|stop|restart|status|logs`. The service
+`arco service install|uninstall|start|stop|restart|status|logs|refresh`. The service
 keeps `ARCO_HOME`, `ARCO_PORT`, `ARCO_HOST`, and other supported environment
 settings from its first install. It refuses an existing unowned definition or
 one that was modified after installation.
+
+For Linux service recovery after 0.1.3, see the
+[package update recovery steps](docs/OPERATIONS.md#packaged-install).
 
 Use these package commands for maintenance:
 

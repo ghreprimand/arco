@@ -56,9 +56,9 @@ test('package update snapshots first and restarts the service after install', as
   assert.deepEqual(f.actions, ['stop', 'start']);
   // On Windows the update also rewrites the service task in a fresh process
   // (`arco service refresh`), which the fixture records as a third call.
-  const windows = process.platform === 'win32';
-  assert.deepEqual(f.calls.map((args) => args[0]), windows ? ['view', 'install', 'service'] : ['view', 'install']);
-  if (windows) assert.deepEqual(f.calls[2].slice(0, 2), ['service', 'refresh']);
+  const refreshes = process.platform === 'win32' || process.platform === 'linux';
+  assert.deepEqual(f.calls.map((args) => args[0]), refreshes ? ['view', 'install', 'service'] : ['view', 'install']);
+  if (refreshes) assert.deepEqual(f.calls[2].slice(0, 2), ['service', 'refresh']);
   assert.equal(f.calls[1].at(-1), '@scope/arco@1.1.0');
   assert.equal(existsSync(join(f.home, 'package-update.lock')), false);
 });
@@ -160,7 +160,7 @@ test('a Windows update refreshes the service definition in a fresh process befor
   }
   const f = fixture(t); const order = [];
   await updatePackage(manifest, f.root, { ...f.deps, platform: 'linux', service: async (a) => order.push(a), refresh: async () => order.push('refresh') });
-  assert.deepEqual(order, ['stop', 'start']);
+  assert.deepEqual(order, ['stop', 'refresh', 'start']);
 });
 
 test('a result keeps its attempt metadata and an older worker cannot replace a newer attempt', (t) => {

@@ -88,11 +88,11 @@ export async function updatePackage(manifest, root, deps = {}) {
     const target = deps.target ?? `${manifest.name}@${version}`;
     installed = true;
     call(['install', '--global', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', prefix, target], { stdio: 'inherit' });
-    // The new package may define the service differently (the Windows task now
-    // runs without a console window). A fresh process loads the new code to
+    // The new package may define the service differently. A fresh process loads
+    // the new code to
     // rewrite an unmodified Arco-owned definition; a failure keeps the old one.
     let refreshNote = '';
-    if (managed && platform === 'win32') {
+    if (managed && (platform === 'win32' || platform === 'linux')) {
       const refresh = deps.refresh ?? (() => run(process.execPath, [join(root, 'scripts/packaging/arco.mjs'), 'service', 'refresh'], { windowsHide: true }));
       try { const r = await refresh(); if (r?.error || (r?.status ?? 0) !== 0) refreshNote = ' The service definition was not refreshed; run arco service refresh.'; }
       catch { refreshNote = ' The service definition was not refreshed; run arco service refresh.'; }

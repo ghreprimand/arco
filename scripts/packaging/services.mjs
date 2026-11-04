@@ -16,6 +16,11 @@ function systemdQuote(value) {
   if (/[\r\n\0]/.test(value)) throw new Error('A service path contains an unsupported character.');
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/%/g, '%%').replace(/\$/g, '$$')}"`;
 }
+function systemdDirectory(value) {
+  if (!isAbsolute(value)) throw new Error('The service working directory must be absolute.');
+  if (/[\s\x00-\x1f\x7f"']/.test(value)) throw new Error('The service working directory contains an unsupported character.');
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '%%');
+}
 // On Windows the task starts node through Windows Script Host (wscript.exe is a
 // GUI-subsystem program, so no console window is created) running a small
 // JScript launcher that starts node hidden and waits for it. conhost.exe
@@ -30,7 +35,7 @@ export const windowsLauncherPath = (config) => join(dirname(config), 'launch.js'
 export function renderService(platform, { node, entry, config, home, user, env = process.env }) {
   const args = [node, entry, 'service-run', config];
   if (args.some((arg) => /[\r\n\0]/.test(arg))) throw new Error('A service path contains an unsupported character.');
-  if (platform === 'linux') return `[Unit]\nDescription=Arco workbench\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${systemdQuote(home)}\nExecStart=${args.map(systemdQuote).join(' ')}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n`;
+  if (platform === 'linux') return `[Unit]\nDescription=Arco workbench\nAfter=network.target\n\n[Service]\nType=simple\nWorkingDirectory=${systemdDirectory(home)}\nExecStart=${args.map(systemdQuote).join(' ')}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n`;
   if (platform === 'darwin') return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array>${args.map((arg) => `<string>${xml(arg)}</string>`).join('')}</array><key>WorkingDirectory</key><string>${xml(home)}</string><key>RunAtLoad</key><true/><key>KeepAlive</key><false/><key>StandardOutPath</key><string>${xml(join(home, 'service.stdout.log'))}</string><key>StandardErrorPath</key><string>${xml(join(home, 'service.stderr.log'))}</string></dict></plist>\n`;
   if (platform === 'win32') {
     if (!user || /[\r\n\0]/.test(user)) throw new Error('Cannot determine the current Windows user.');
@@ -201,11 +206,11 @@ export async function serviceAction(action, deps = {}) {
 // that succeeds, so a failure leaves the previous definition in place.
 export async function refreshServiceDefinition(deps = {}) {
   const platform = deps.platform ?? process.platform, env = deps.env ?? process.env;
-  if (platform !== 'win32') return 'Nothing to refresh on this platform.';
+  if (platform !== 'win32' && platform !== 'linux') return 'Nothing to refresh on this platform.';
   const paths = deps.paths ?? servicePaths(platform, env);
   if (!existsSync(paths.config)) return 'No packaged service is installed.';
   const release = await lockfile.lock(paths.config, { retries: { retries: 50, minTimeout: 100, maxTimeout: 100 } });
-  try { return await refreshLocked(paths, env, deps); }
+  try { return await refreshLocked(paths, env, { ...deps, platform }); }
   finally { await release(); }
 }
 
@@ -222,6 +227,29 @@ async function refreshLocked(paths, env, deps) {
   const stat = lstatSync(paths.unit);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) throw new Error('Unsafe service definition.');
   if (createHash('sha256').update(readFileSync(paths.unit)).digest('hex') !== saved.unitHash) throw new Error('The service definition changed. Review it before continuing.');
+  if (deps.platform === 'linux') {
+    const previous = readFileSync(paths.unit);
+    const previousConfig = readFileSync(paths.config);
+    const bytes = Buffer.from(renderService('linux', { node: deps.node ?? process.execPath, entry: deps.entry ?? cli, config: paths.config, home: paths.home, env }));
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    if (hash === saved.unitHash) return 'The service definition is current.';
+    const staged = `${paths.unit}.new`;
+    let created = false, replaced = false;
+    try {
+      writeFileSync(staged, bytes, { mode: 0o600, flag: 'wx' }); created = true;
+      renameSync(staged, paths.unit); replaced = true;
+      writeFileSync(paths.config, JSON.stringify({ ...saved, unitHash: hash }, null, 2) + '\n', { mode: 0o600 });
+      const reloaded = run('systemctl', ['--user', 'daemon-reload']);
+      if (reloaded.error || reloaded.status !== 0) throw new Error('Could not reload the updated service definition.');
+    } catch (error) {
+      if (replaced) {
+        writeFileSync(paths.unit, previous, { mode: 0o600 });
+        writeFileSync(paths.config, previousConfig, { mode: 0o600 });
+      }
+      throw error;
+    } finally { if (created) rmSync(staged, { force: true }); }
+    return 'The service definition was updated; it takes effect the next time the service starts.';
+  }
   const domain = env.USERDOMAIN, username = env.USERNAME;
   const user = domain && username ? `${domain}\\${username}` : username;
   const text = renderService('win32', { node: deps.node ?? process.execPath, entry: deps.entry ?? cli, config: paths.config, home: paths.home, user, env });
