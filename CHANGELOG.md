@@ -10,7 +10,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.
 - Offer LM Studio, llama.cpp, Strata and DeepSeek through Xolotl as utility agents and Smart AUTO-PICKUP evaluators. The selected model must already be loaded; these requests do not load or switch models.
 - Add REFINE to the plan draft banner: type a short note and the same agent revises the draft; the new draft replaces the old one, nothing is saved until you attach it, and it can be repeated. In a cluster tab the only save button is ATTACH TO CLUSTER (ATTACH TO WORKER is gone); a single workflow keeps SAVE & ATTACH.
-- Show desktop notification permission and a test in Settings, and quiet BELL notices for activity in other tabs with clear show controls.
+- Show desktop notification permission and a test in Settings, and quiet BELL notices for activity in other tabs with REQUEST PERMISSION, TEST DESKTOP and SHOW IN BELL controls.
 
 ### Changed
 
@@ -27,7 +27,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Fix UNDO THIS TURN giving no result: after an undo the turn line reads "Undone", UNDO THIS TURN is disabled so it cannot run twice, and the diff opened from it is labelled as the undone change.
 - Fix the cluster board hiding finished work: SHOW DONE is now on by default (and remembered once changed), and the task count in the board header matches the tasks drawn, with a note of how many done tasks are hidden when it is off.
 - Fix nudges giving no sign they were sent: after clicking a member card's mail mark or sending NUDGE, the mark reads "Nudged" and the composer NUDGE button reads "NUDGED" with a count until the member starts its turn (or two minutes pass). No toast or sound.
-- Generate a valid Linux service working directory and provide a guarded refresh for existing package installations.
+- Generate a valid Linux service working directory and provide a guarded `arco service refresh` for existing package installations.
 - Fix Home showing every project folder at once: Projects shows two rows of cards, Show all opens the rest in a scrolling area, and search shows every match. The Getting started card now counts any started chat, session or cluster (open or saved) as step 3, and has a HIDE button that is remembered in the browser.
 
 ## v0.1.3 - 2026-11-04
