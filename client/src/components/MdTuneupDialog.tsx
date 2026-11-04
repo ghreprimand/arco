@@ -154,6 +154,12 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
                 </div>
               </>
             )}
+            {cand?.loaded && !!cand.skippedLinks?.length && (
+              <div style={{ fontSize: '11px', color: 'var(--color-warning)', lineHeight: 1.5 }}>
+                Skipped linked instruction files:
+                {cand.skippedLinks.map((link) => <div key={link.path}>{link.path}: {link.reason}</div>)}
+              </div>
+            )}
             {cand?.loaded && cand.candidates.length > 0 && (
               <>
                 <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>
@@ -178,7 +184,9 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
                     </label>
                     <button type="button" className="display-font" onClick={() => void viewFile(c.path)} style={btnStyle('var(--color-border-hairline)', 'var(--color-fg-muted)')}>{preview?.path === c.path ? 'HIDE' : 'VIEW'}</button>
                     </div>
+                    {!!c.alsoReadAs?.length && <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', paddingLeft: '24px' }}>Also read as {c.alsoReadAs.join(', ')}</div>}
                     {c.hints?.map((hint) => <div key={hint} style={{ fontSize: '11px', color: 'var(--color-warning)', paddingLeft: '24px' }}>{hint}</div>)}
+                    {preview?.path === c.path && !!c.alsoReadAs?.length && <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>Also read as {c.alsoReadAs.join(', ')}</div>}
                     {preview?.path === c.path && <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 'calc(24vh / var(--ui-scale, 1))', overflowY: 'auto' }}>{preview.error ?? preview.text ?? 'Loading...'}</pre>}
                     </div>
                   ))}

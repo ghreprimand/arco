@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ProviderName, ModelName, EffortLevel, MdTuneupTarget, MdTuneupCandidate } from '@arco/shared';
+import type { ProviderName, ModelName, EffortLevel, MdTuneupTarget, MdTuneupCandidate, MdTuneupSkippedLink } from '@arco/shared';
 
 // Agent-instruction-file tune-up client store — see shared/src/protocol/mdTuneup.ts.
 // Kept OUT of appStore (mirrors docEditStore / recallStore): a tune-up is a
@@ -60,6 +60,7 @@ export function registerMdTuneupUndoSender(fn: UndoSender | null) { undoSender =
 export interface MdTuneupCandidates {
   candidates: MdTuneupCandidate[];
   defaultPath?: string;
+  skippedLinks?: MdTuneupSkippedLink[];
   // false until the server's md_tuneup_candidates lands (so the dialog shows a
   // "scanning…" state rather than a premature "no files found").
   loaded: boolean;
@@ -69,7 +70,7 @@ interface MdTuneupState {
   byWorkflow: Record<string, MdTuneupEntry>;
   candidatesByWorkflow: Record<string, MdTuneupCandidates>;
   requestCandidates: (workflowId: string) => void;
-  onCandidates: (workflowId: string, candidates: MdTuneupCandidate[], defaultPath?: string) => void;
+  onCandidates: (workflowId: string, candidates: MdTuneupCandidate[], defaultPath?: string, skippedLinks?: MdTuneupSkippedLink[]) => void;
   dispatch: (workflowId: string, editor: MdTuneupEditor, target: MdTuneupTarget) => void;
   onStarted: (workflowId: string, patch: { tuneupId: string; filePath: string; baseName: string; originalBytes: number }) => void;
   onProposed: (workflowId: string, patch: {
@@ -93,8 +94,8 @@ export const useMdTuneupStore = create<MdTuneupState>((set, get) => ({
     set((s) => ({ candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates: [], loaded: false } } }));
     if (candidatesSender) candidatesSender(workflowId);
   },
-  onCandidates: (workflowId, candidates, defaultPath) => set((s) => ({
-    candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates, defaultPath, loaded: true } },
+  onCandidates: (workflowId, candidates, defaultPath, skippedLinks) => set((s) => ({
+    candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates, defaultPath, skippedLinks, loaded: true } },
   })),
   dispatch: (workflowId, editor, target) => {
     set((s) => ({ byWorkflow: { ...s.byWorkflow, [workflowId]: { workflowId, status: 'pending' } } }));

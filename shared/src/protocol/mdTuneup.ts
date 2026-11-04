@@ -16,7 +16,11 @@ export interface MdTuneupCandidate {
   lines?: number;
   approximateTokens?: number;
   hints?: string[];
+  // Relative paths of instruction-name links that resolve to this file.
+  alsoReadAs?: string[];
 }
+
+export interface MdTuneupSkippedLink { path: string; reason: string; }
 
 // Client asks the server which instruction files exist in the cwd (so the
 // dialog can offer a pick list instead of guessing). Fired when the operator
@@ -32,6 +36,7 @@ export interface MdTuneupCandidatesMessage {
   type: 'md_tuneup_candidates';
   workflowId: string;
   candidates: MdTuneupCandidate[];
+  skippedLinks?: MdTuneupSkippedLink[];
   defaultPath?: string;
 }
 

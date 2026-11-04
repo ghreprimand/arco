@@ -22,6 +22,7 @@ import {
   type ModelName,
   type EffortLevel,
   type MdTuneupCandidate,
+  type MdTuneupSkippedLink,
 } from '@arco/shared';
 
 // Dirs never worth scanning for instruction files — heavy, vendored, or
@@ -68,8 +69,10 @@ async function candidateMetrics(abs: string, bytes: number): Promise<Pick<MdTune
 // Discover recognized instruction files at the project root and in nested
 // folders. Results use project-relative paths and sort shallowest-first so
 // likely top-level guidance appears before files scoped to subdirectories.
-export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCandidate[]> {
+export async function discoverInstructionFilesWithLinks(cwd: string): Promise<{ candidates: MdTuneupCandidate[]; skippedLinks: MdTuneupSkippedLink[] }> {
   const found: MdTuneupCandidate[] = [];
+  const links: string[] = [];
+  const root = await fs.realpath(cwd);
   const walk = async (dir: string, depth: number): Promise<void> => {
     if (depth > DISCOVERY_MAX_DEPTH) return;
     let entries;
@@ -82,6 +85,8 @@ export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCan
       if (ent.isDirectory()) {
         if (SKIP_DIRS.has(ent.name) || ent.name.startsWith('.')) continue;
         await walk(path.join(dir, ent.name), depth + 1);
+      } else if (ent.isSymbolicLink() && INSTRUCTION_NAME_SET.has(ent.name)) {
+        links.push(path.join(dir, ent.name));
       } else if (ent.isFile() && INSTRUCTION_NAME_SET.has(ent.name)) {
         const abs = path.join(dir, ent.name);
         let bytes = 0;
@@ -98,7 +103,32 @@ export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCan
     const db = b.path.split(path.sep).length;
     return da !== db ? da - db : a.path.localeCompare(b.path);
   });
-  return found;
+  const targets = new Map<string, MdTuneupCandidate>();
+  for (const candidate of found) {
+    const abs = path.join(cwd, candidate.path);
+    try {
+      const stat = await fs.lstat(abs), real = await fs.realpath(abs);
+      if (stat.isFile() && !stat.isSymbolicLink() && withinRoot(root, real)) targets.set(real, candidate);
+    } catch { /* candidate disappeared during the scan */ }
+  }
+  const skippedLinks: MdTuneupSkippedLink[] = [];
+  for (const link of links) {
+    const relative = path.relative(cwd, link);
+    try {
+      const real = await fs.realpath(link);
+      if (!withinRoot(root, real)) { skippedLinks.push({ path: relative, reason: 'Target is outside this project.' }); continue; }
+      const target = targets.get(real);
+      if (!target) { skippedLinks.push({ path: relative, reason: 'Target is not a discovered instruction file.' }); continue; }
+      (target.alsoReadAs ??= []).push(relative);
+    } catch { skippedLinks.push({ path: relative, reason: 'Target cannot be resolved.' }); }
+  }
+  for (const candidate of found) candidate.alsoReadAs?.sort();
+  skippedLinks.sort((a, b) => a.path.localeCompare(b.path));
+  return { candidates: found, skippedLinks };
+}
+
+export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCandidate[]> {
+  return (await discoverInstructionFilesWithLinks(cwd)).candidates;
 }
 
 export interface MdTuneupEditorConfig {

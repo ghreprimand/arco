@@ -600,6 +600,11 @@ export const actions: Section[] = [
           VIEW expands the current text
           without a model call. Text preview and analysis are limited to 2 MiB.
         </p>
+        <p>
+          Instruction-file links to a listed file appear as other names on its
+          card and in VIEW. Links outside the project or to unlisted files are
+          shown as skipped. Tune-up writes the selected file, never through a link.
+        </p>
         <ol>
           <li>
             For each picked file a single <strong>bounded, read-only</strong>{' '}
