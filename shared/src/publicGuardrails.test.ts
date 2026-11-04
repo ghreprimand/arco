@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { GUARDRAILS_HEADING, PUBLIC_DRAFT_REQUEST, hasGuardrails, insertGuardrails } from './publicGuardrails.js';
+import { GUARDRAILS_HEADING, PUBLIC_DRAFT_REQUEST, PUBLIC_GUARDRAILS_TEMPLATE, hasGuardrails, insertGuardrails } from './publicGuardrails.js';
 
 const plan = '# Title\n\nIntro line.\n\n### Phase one\n- [ ] task\n';
 
@@ -27,4 +27,13 @@ test('guardrails append when a plan has no phase heading', () => {
 
 test('draft request carries the template', () => {
   assert.ok(PUBLIC_DRAFT_REQUEST.includes('## Privacy and public safety'));
+});
+
+test('template has no phase headings and adds no phases to a plan', () => {
+  assert.ok(!PUBLIC_GUARDRAILS_TEMPLATE.split('\n').some((line) => line.startsWith('###')));
+  assert.ok(!PUBLIC_DRAFT_REQUEST.split('\n').some((line) => line.startsWith('###')));
+  const phases = (body: string) => body.split('\n').filter((line) => /^### /.test(line)).length;
+  const three = '# T\n\nIntro.\n\n### A\n- [ ] a\n\n### B\n- [ ] b\n\n### C\n- [ ] c\n';
+  assert.equal(phases(insertGuardrails(three)), 3);
+  assert.equal(phases(insertGuardrails('# T\n\nIntro only.')), 0);
 });
