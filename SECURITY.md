@@ -125,6 +125,12 @@ every OS. Each open is logged. An open still hands the file to whatever app the
 operating system associates with its type; Arco does not inspect content. The
 route answers with an error where no desktop is available (Docker, headless).
 
+## Public-project checks
+
+When a plan-draft control is shown for a project folder, the server reads the folder's Git remotes (`git remote -v`, local only). For a remote on github.com it makes one unauthenticated request to `https://api.github.com/repos/<owner>/<repo>` with a five-second limit and no token, and caches the answer per folder for a day. A repository is treated as public only when GitHub answers 200 with `private: false`; any other answer, error or timeout counts as unknown. GitHub sees the server's public IP address and the owner and repository names from the remote; no project paths, prompts or conversation content are sent. Other hosts (GitLab, Bitbucket, Codeberg) are recognized from the remote text only and receive no request.
+
+The project state check runs `git ls-files` and `git check-ignore` inside a Git project folder and reads the `.arco/.gitignore` file. It changes nothing by itself. RESTORE IGNORE FILE writes the default ignore file after moving an edited one aside as a backup in `.arco/`; STOP TRACKING runs `git rm -r --cached -- .arco`, which removes the folder from the index only and keeps the files on disk. Anything already pushed stays in the remote's history.
+
 ## Outbound release checks
 
 The server requests the latest Arco release from

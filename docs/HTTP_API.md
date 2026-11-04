@@ -17,6 +17,7 @@ For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called fro
 | [Sessions and transcripts](#sessions-and-transcripts) |
 | [Workflows](#workflows) |
 | [Project trust](#project-trust) |
+| [Public-project checks](#public-project-checks) |
 | [ARTIFACTS explorer (`/api/explorer/*`)](#artifacts-explorer-apiexplorer) |
 | [Local model lifecycle](#local-model-lifecycle) |
 | [Media ops (Workbench Expansion H6 + H7)](#media-ops-workbench-expansion-h6--h7) |
@@ -626,6 +627,17 @@ Request body (JSON):
 - `path` - relative-to-cwd or absolute. **Resolved against `cwd` and re-checked with `resolveWithinCwd` - the exact same path-escape guard the Native `Write`/`Edit` tools use.** Any path that escapes the cwd (relative `../`, an absolute path outside, or a traversal like `foo/../../x`) is **rejected with 400 and nothing is written.** This is load-bearing: a fat-fingered or agent-suggested path must never write outside the project.
 - `content` - the full new file contents (whole-file replace, not a patch). Parent dirs inside cwd are created as needed; an existing directory at the target is refused.
 - Response: `200 { ok: true, path: "<cwd-relative>", bytes: N }` on success; `400 { ok: false, error }` on a rejected escape / bad input; `500 { ok: false, error }` on an unexpected fs error.
+
+---
+
+## Public-project checks
+
+Route: `server/src/http/publicProjectRoutes.ts`; logic: `server/src/publicProject.ts`. The `path` is an absolute project folder; a missing or unsafe one answers **400**.
+
+- **`GET /api/public-project/remote?path=`** -> `{ state: 'none' }`, `{ state: 'hosted', host }` or `{ state: 'public', host }`. Reads `git remote -v`; for github.com only, one unauthenticated repository request, cached for a day (see [SECURITY.md](../SECURITY.md#public-project-checks)). Only confirmed public repositories answer `public`.
+- **`GET /api/public-project/state?path=`** -> `{ isGit, hasState, tracked, trackedSample, ignored, ignoreFile }`. `ignoreFile` is `default`, `missing` or `edited`; `ignored` is false when a probe path under `.arco/workflows/` is not ignored. Read-only.
+- **`POST /api/public-project/restore-ignore`** `{ path }` -> `{ ok, backup? }`. Writes the default `.arco/.gitignore`; an edited file is first renamed to `.gitignore.backup-<time>` in `.arco/`.
+- **`POST /api/public-project/stop-tracking`** `{ path }` -> `{ ok, removed }`. Runs `git rm -r --cached -- .arco`; files stay on disk and a commit is still needed.
 
 ---
 

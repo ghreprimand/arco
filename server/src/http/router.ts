@@ -140,6 +140,7 @@ import { tryHandleUsageStatsRoutes } from './usageStatsRoutes.js';
 import { tryHandleEndpointDiscoveryRoutes } from './endpointDiscoveryRoutes.js';
 import { tryHandleDiagnosticsRoutes } from './diagnosticsRoutes.js';
 import { tryHandleProjectRoutes } from './projectRoutes.js';
+import { tryHandlePublicProjectRoutes } from './publicProjectRoutes.js';
 import { tryHandleProjectTrustRoutes } from './projectTrustRoutes.js';
 import { tryHandleServicesRoutes } from './servicesRoutes.js';
 import { tryHandleMediaOpsRoutes } from './mediaOpsRoutes.js';
@@ -473,6 +474,7 @@ export async function handleHttpRequest(
   // DD7 — project-trust manager (list / record / clear). User-scope file, so it
   // rides HTTP: the global SettingsPanel has no workflowId for the WS message.
   if (await tryHandleProjectRoutes(req, res)) return;
+  if (await tryHandlePublicProjectRoutes(req, res)) return;
   if (await tryHandleProjectTrustRoutes(req, res)) return;
 
   // Ops L1/L2 — Local services. GET /api/services is read-only enumeration of
