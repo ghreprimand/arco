@@ -11,7 +11,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { promises as fs, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, existsSync } from 'node:fs';
+import { promises as fs, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, existsSync, readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -324,6 +324,30 @@ test('storage report is restricted to registered project paths', async () => {
   const emptied = await main.post('/api/storage/empty-scratch', { ...action, confirm: true });
   assert.equal(emptied.status, 200);
   assert.equal(((await emptied.json()) as { removedFiles: number }).removedFiles, 0);
+  // Archive, restore and delete a closed conversation.
+  const conv = path.join(main.project, '.arco', 'workflows', 'storage-action-2');
+  mkdirSync(path.join(conv, 'artifacts'), { recursive: true });
+  writeFileSync(path.join(conv, 'meta.json'), '{"workflowId":"storage-action-2","cliSessions":[]}');
+  writeFileSync(path.join(conv, 'artifacts', 'a.txt'), 'synthetic');
+  const conversationAction = { path: main.project, workflowId: 'storage-action-2', confirm: true };
+  assert.equal((await main.post('/api/storage/restore', conversationAction)).status, 404);
+  assert.equal((await main.post('/api/storage/archive', conversationAction)).status, 200);
+  assert.equal(existsSync(path.join(conv, 'meta.json')), false);
+  assert.equal((await main.post('/api/storage/restore', conversationAction)).status, 200);
+  assert.equal(readFileSync(path.join(conv, 'artifacts', 'a.txt'), 'utf8'), 'synthetic');
+  assert.equal((await main.post('/api/storage/delete', conversationAction)).status, 200);
+  assert.equal(existsSync(conv), false);
+  // The policy starts with auto-archive off; the overview covers the project.
+  const policy = await (await main.api('/api/storage/policy')).json() as { autoArchiveClosedDays: number | null; budgetGiB: number };
+  assert.equal(policy.autoArchiveClosedDays, null); assert.equal(policy.budgetGiB, 100);
+  const saved = await (await main.post('/api/storage/policy', { autoArchiveClosedDays: 45, budgetGiB: 'x' })).json() as { autoArchiveClosedDays: number; budgetGiB: number };
+  assert.equal(saved.autoArchiveClosedDays, 45); assert.equal(saved.budgetGiB, 100);
+  await main.post('/api/storage/policy', { autoArchiveClosedDays: null });
+  const overview = await (await main.api('/api/storage-report?scope=all')).json() as { projects: Array<{ path: string }>; budget: { limitBytes: number } };
+  assert.ok(overview.projects.some((p) => p.path === main.project));
+  assert.equal(overview.budget.limitBytes, 100 * 1024 ** 3);
+  const budget = await (await main.api('/api/storage/budget')).json() as { over: boolean; measuredAt: number | null };
+  assert.equal(budget.over, false); assert.ok(budget.measuredAt);
 });
 
 // ── read confinement ─────────────────────────────────────────

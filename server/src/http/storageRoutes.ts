@@ -5,7 +5,10 @@ import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
 import { lstat } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
-import { emptyScratch, StorageActionError } from '../storageActions.js';
+import { deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
+import { archiveConversation, archivePath, restoreConversation } from '../storageArchive.js';
+import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
+import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { workflows } from '../server/state.js';
 
 const cache = new Map<string, Promise<StorageReport>>();
@@ -48,9 +51,16 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
   if (body.confirm !== true) return json(res, 400, { error: 'confirmation_required' });
   const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
   try {
+    const busy = !!workflows.get(workflowId)?.busy;
+    const open = openWorkflowIds().has(workflowId);
     if (action === 'empty-scratch') {
-      const result = await emptyScratch(project, workflowId, { busy: !!workflows.get(workflowId)?.busy });
+      const result = await emptyScratch(project, workflowId, { busy });
       return json(res, 200, { ok: true, ...result });
+    }
+    if (action === 'archive') return json(res, 200, { ok: true, ...(await archiveConversation(project, workflowId, { open, busy, by: 'operator' })) });
+    if (action === 'restore') return json(res, 200, { ok: true, ...(await restoreConversation(project, workflowId)) });
+    if (action === 'delete') {
+      return json(res, 200, { ok: true, ...(await deleteConversation(project, workflowId, { open, busy, purge: purgeWorkflow, archiveFile: archivePath(project, workflowId) })) });
     }
     return json(res, 404, { error: 'unknown_action' });
   } catch (err) {
@@ -62,9 +72,33 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
 
 export async function tryHandleStorageRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://localhost');
+  if (url.pathname === '/api/storage/policy') {
+    if (req.method === 'GET') { json(res, 200, await readPolicy()); return true; }
+    if (req.method === 'POST') {
+      const body = await readJson(req);
+      if (!body) { json(res, 400, { error: 'invalid_body' }); return true; }
+      const patch: Record<string, unknown> = {};
+      for (const key of ['autoArchiveClosedDays', 'budgetGiB', 'budgetNotice']) if (key in body) patch[key] = body[key];
+      json(res, 200, await writePolicy(patch));
+      return true;
+    }
+  }
+  if (url.pathname === '/api/storage/budget' && req.method === 'GET') {
+    // The notice reads the last measurement; it never starts a scan itself.
+    const policy = await readPolicy();
+    const age = cachedOverviewAge();
+    const last = age === null ? null : await storageOverview().catch(() => null);
+    json(res, 200, { enabled: policy.budgetNotice, limitBytes: policy.budgetGiB * 1024 ** 3, totalBytes: last?.totalBytes ?? null, measuredAt: last?.measuredAt ?? null, over: !!(policy.budgetNotice && last && last.totalBytes > policy.budgetGiB * 1024 ** 3) });
+    return true;
+  }
   const actionMatch = /^\/api\/storage\/([a-z-]+)$/.exec(url.pathname);
   if (actionMatch && req.method === 'POST') { await handleStorageAction(req, res, actionMatch[1]); return true; }
   if (url.pathname !== '/api/storage-report' || req.method !== 'GET') return false;
+  if (url.searchParams.get('scope') === 'all') {
+    try { json(res, 200, await storageOverview(url.searchParams.get('refresh') === '1')); }
+    catch { json(res, 500, { error: 'Storage scan failed' }); }
+    return true;
+  }
   if (url.searchParams.get('scope') === 'home') {
     // Arco's own folder: voice and media models, caches, shared checkpoints,
     // task worktrees, saved clusters. Chat and Genesis project state folders

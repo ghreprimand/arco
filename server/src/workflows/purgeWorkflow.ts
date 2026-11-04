@@ -104,7 +104,7 @@ async function deleteProviderSessions(
 export async function purgeWorkflow(
   cwd: string,
   wfid: string,
-  opts: { nuclear: boolean },
+  opts: { nuclear: boolean; removeDir?: (dir: string) => Promise<void> },
 ): Promise<PurgeResult> {
   const removed: string[] = [];
   try {
@@ -141,7 +141,9 @@ export async function purgeWorkflow(
 
     // 2. The workflow directory tree (events.jsonl, meta.json, artifacts,
     //    handoffs, sandbox.db, mcp-config, attachments, …).
-    await rm(workflowDir(cwd, wfid), { recursive: true, force: true });
+    // The storage DELETE action passes `removeDir` to leave KEEP items in place.
+    if (opts.removeDir) await opts.removeDir(workflowDir(cwd, wfid));
+    else await rm(workflowDir(cwd, wfid), { recursive: true, force: true });
     removed.push('workflow dir');
 
     // 3. Checkpoints (git refs + tar files).

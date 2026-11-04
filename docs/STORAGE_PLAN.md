@@ -150,7 +150,8 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 
 ### 7. Archive, delete and the disk-budget notice (P7.5, approved)
 
-- **Recommendation:** **ARCHIVE** packs a closed conversation folder into one compressed file next to it and can be restored; **DELETE** removes it after a confirmation. Both are operator clicks. The optional auto-archive rule ("closed more than 30 days") is off by default and never deletes. A disk-budget notice appears when all state folders and Arco's own folder together pass 100 GiB; the number is adjustable and the notice can be turned off.
+- **Recommendation:** **ARCHIVE** packs a closed conversation folder into one compressed file, `<project>/.arco/archive/<id>.arcoarchive`, and can be restored; **DELETE** removes it after a confirmation. Both are operator clicks. The optional auto-archive rule ("closed more than 30 days") is off by default and never deletes. A disk-budget notice appears when all state folders and Arco's own folder together pass 100 GiB; the number is adjustable and the notice can be turned off.
+- **How:** the archive holds each file with its SHA-256 and is read back against them before any file is removed; kept items and links stay in the conversation folder. Restore checks the whole archive first and never overwrites a file. Delete uses the existing purge and leaves kept items. The rule and the notice live in Arco's `storage-policy.json`; a daily run applies the rule and measures again for the notice.
 - **Trade-off:** archiving keeps the bytes of artifacts that are already compressed (disk images, archives), so it frees little for them. Delete is the only way to reclaim those, and it stays a confirmed click.
 
 ### 8. One storage page for all projects (approved)

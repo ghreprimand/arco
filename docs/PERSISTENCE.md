@@ -63,7 +63,8 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 <cwd>/.arco/
 ├──.gitignore                       # ignores all project state by default
 ├── settings.json                    # per-project settings overrides
-├── storage-actions.jsonl            # one line per operator storage action (EMPTY SCRATCH, archive, delete)
+├── storage-actions.jsonl            # one line per storage action (EMPTY SCRATCH, archive, restore, delete, auto-archive)
+├── archive/<wfid>.arcoarchive       # an archived conversation: Brotli-compressed files with their hashes (storageArchive.ts)
 ├── session-index.json               # resume-picker projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
 ├── title-events.jsonl               # session-index title history (same module; rebuildable)
 ├── <workflowId>/                    # per-workflow CLI/Codex MCP config (mcp/mcpConfigWriter.ts) - cluster peer tools / codebase-memory / registry servers
@@ -117,7 +118,7 @@ The `.gitignore` excludes all project state by default; an unedited legacy defau
 
 ### Purge (irreversible)
 
-Closing a tab (`remove_workflow`) does **not** delete this tree - it tears down in-memory state, unlinks `sandbox.db` + `mcp-config.json`, and closes open plan spans; the workflow stays resumable. The HISTORY-tab **PURGE CONVERSATION** action (-> `DELETE /api/workflows/:wfid`, `server/src/workflows/purgeWorkflow.ts`) deletes this whole tree plus the out-of-tree artifacts keyed by `<wfid>`: git checkpoints (`refs/arco/<wfid>/*` - in the cwd repo and the shadow store), skipped-path sidecars and legacy tar checkpoints (`~/.arco/checkpoints/<cwd-hash>/<wfid>.*`), the recall row (`recall.db` entries + FTS), and the cluster mailbox (`~/.arco/clusters/<cid>/mailbox/<wfid>/`). The `nuclear` tier additionally removes the bound provider session files (`~/.claude/projects/...`, Codex rollout). There is no undo - the recall row is dropped immediately rather than waiting for the projection GC.
+Closing a tab (`remove_workflow`) does **not** delete this tree - it tears down in-memory state, unlinks `sandbox.db` + `mcp-config.json`, and closes open plan spans; the workflow stays resumable. The HISTORY-tab **PURGE CONVERSATION** action (-> `DELETE /api/workflows/:wfid`, `server/src/workflows/purgeWorkflow.ts`) deletes this whole tree plus the out-of-tree artifacts keyed by `<wfid>`: git checkpoints (`refs/arco/<wfid>/*` - in the cwd repo and the shadow store), skipped-path sidecars and legacy tar checkpoints (`~/.arco/checkpoints/<cwd-hash>/<wfid>.*`), the recall row (`recall.db` entries + FTS), and the cluster mailbox (`~/.arco/clusters/<cid>/mailbox/<wfid>/`). The `nuclear` tier additionally removes the bound provider session files (`~/.claude/projects/...`, Codex rollout). There is no undo - the recall row is dropped immediately rather than waiting for the projection GC. The storage DELETE action (`POST /api/storage/delete`) runs the same purge but leaves KEEP items in the folder and also removes the conversation's archive; ARCHIVE (`POST /api/storage/archive`) is the restorable alternative.
 
 ---
 
@@ -638,6 +639,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 ├── models.md                        # vestigial model catalog (Settings-editable, unconsumed - see below)
 ├── llamacpp.json                    # GGUF catalog (alias -> ggufPath + options)
 ├── known-cwds.json                  # crash-recovery registry
+├── storage-policy.json              # { autoArchiveClosedDays, budgetGiB, budgetNotice } (storageOverview.ts); auto-archive off by default
 ├── workspace.json                   # server-authoritative open tabs: { version, workflows: {wfid -> {config, parentWorkflowId?, openedAt}}, clusters: [id] } (workspace.ts; workspace-<port>.json off 3001)
 ├── worker-pids.json                 # live worker PIDs + start times for orphan reaping
 ├── terminal-pids.json               # same shape, terminal PTYs (terminal/ptyPidRegistry.ts)

@@ -17,6 +17,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Measure storage once a day in the background, read-only, for the disk-budget notice (100 GiB by default). The optional rule that archives conversations closed for a chosen number of days is off by default and never deletes.
 - Agents are told to put large intermediate files (builds, disk images, downloads) in the conversation's own scratch folder instead of its artifacts. Nothing in scratch is deleted automatically.
 - Seal long conversation logs into compressed pieces once the live log passes 16 MiB. Nothing is deleted, every view still shows the whole history, and `arco storage unseal` writes plain logs back before installing an older release.
 - Conversation logs no longer store a full copy of the task board on every change, and a cluster plan body is stored once in the plan history instead of in every member's log. Logs grow about half as fast in busy clusters; older logs read as before.

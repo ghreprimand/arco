@@ -12,7 +12,7 @@ export interface StorageBucket { bytes: number; allocatedBytes: number; files: n
 export const STORAGE_BUCKETS = [
   'events', 'artifacts', 'handoffs', 'checkpoints', 'scratch', 'conversationFiles',
   'plans', 'boards', 'worktrees', 'savedClusters', 'voiceAndModels', 'caches',
-  'providerData', 'logs', 'other',
+  'providerData', 'logs', 'archives', 'other',
 ] as const;
 export type StorageBucketName = typeof STORAGE_BUCKETS[number];
 export interface StorageWorkflow {
@@ -57,6 +57,7 @@ function classifyProject(rel) {
   if (rel[0] === 'project') return 'boards';
   if (rel[0] === 'worktrees') return 'worktrees';
   if (rel[0] === 'scratch') return 'scratch';
+  if (rel[0] === 'archive') return 'archives';
   if (rel.length === 1 && /\.log$/.test(rel[0])) return 'logs';
   return 'other';
 }

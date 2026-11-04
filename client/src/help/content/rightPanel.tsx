@@ -732,7 +732,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.storage.scan': {
     title: 'MEASURE STORAGE', manualSection: 'right-panel',
-    body: <p>Measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately.</p>,
+    body: <p>Measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately.</p>,
   },
   'rightpanel.storage.home': {
     title: 'MEASURE ARCO FOLDER', manualSection: 'right-panel',

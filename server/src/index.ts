@@ -277,6 +277,7 @@ import {
 import { resolveOrphanedGate, handleGateRevoke } from './ws/gateHandlers.js';
 import { checkRequestOrigin } from './http/originGuard.js';
 import { checkUpgradeAuth, describePeer, wsAuthEnabled } from './http/wsAuth.js';
+import { startStoragePolicy } from './storageOverview.js';
 
 // Strict-incognito exception list, read by the protocol fence in the ws
 // message handler below. That fence rejects every config
@@ -2228,6 +2229,9 @@ function onListening() {
     },
   });
   clusterIdleNudger.start();
+  // P7.5: daily storage measurement for the disk-budget notice and the
+  // opt-in auto-archive rule (off by default; never deletes).
+  startStoragePolicy();
 
   // docs/PROTOCOL_CLUSTER.md - configure the auto-turn detector. The
   // detector itself has no timer (it runs inline off broadcastWorkflow's

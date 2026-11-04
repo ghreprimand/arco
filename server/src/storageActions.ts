@@ -34,13 +34,14 @@ export interface RemovalResult { removedBytes: number; removedFiles: number; kep
 // Remove everything under `root` (relative `rel` inside the conversation)
 // except kept items. Links are removed as links, never followed.
 async function removeExceptKept(dir: string, rel: string, kept: Parameters<typeof isKept>[0], out: RemovalResult): Promise<void> {
-  const abs = path.join(dir, ...rel.split('/'));
+  const abs = rel ? path.join(dir, ...rel.split('/')) : dir;
   let entries;
   try { entries = await fs.readdir(abs, { withFileTypes: true }); }
   catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return; throw err; }
   for (const entry of entries) {
-    const childRel = `${rel}/${entry.name}`;
+    const childRel = rel ? `${rel}/${entry.name}` : entry.name;
     const child = path.join(abs, entry.name);
+    if (entry.name === 'keep.json' && !rel) continue;
     if (isKept(kept, childRel)) { out.keptItems++; continue; }
     if (entry.isDirectory() && holdsKept(kept, childRel)) { await removeExceptKept(dir, childRel, kept, out); continue; }
     const size = await treeSize(child);
@@ -75,5 +76,38 @@ export async function emptyScratch(cwd: string, workflowId: string, opts: { busy
   if (isKept(keep.items, 'scratch')) { out.keptItems++; return out; }
   await removeExceptKept(dir, 'scratch', keep.items, out);
   await recordStorageAction(cwd, { action: 'empty_scratch', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });
+  return out;
+}
+
+// DELETE a closed conversation (P7.5): the existing purge (folder, checkpoints,
+// Recall row, mailbox), plus its archive if it has one. Kept items stay in
+// the conversation folder. Refused for an open or working conversation, a
+// wholly kept one, or an unreadable KEEP list.
+export async function deleteConversation(
+  cwd: string, workflowId: string,
+  opts: { open: boolean; busy: boolean; purge: (cwd: string, id: string, o: { nuclear: boolean; removeDir?: (dir: string) => Promise<void> }) => Promise<{ ok: boolean; error?: string }>; archiveFile?: string },
+): Promise<RemovalResult> {
+  const dir = conversationDir(cwd, workflowId);
+  if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before deleting it.');
+  const keep = await readKeep(dir);
+  if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was deleted.');
+  if (isKept(keep.items, '.')) throw new StorageActionError('kept', 'The whole conversation is kept.');
+  let exists = true;
+  try { await fs.lstat(dir); } catch { exists = false; }
+  let archived = false;
+  if (opts.archiveFile) { try { await fs.lstat(opts.archiveFile); archived = true; } catch { /* none */ } }
+  if (!exists && !archived) throw new StorageActionError('not_found', 'The conversation was not found.');
+  const out: RemovalResult = { removedBytes: 0, removedFiles: 0, keptItems: 0 };
+  if (exists && !keep.items.length) { const size = await treeSize(dir); out.removedBytes += size.bytes; out.removedFiles += size.files; }
+  const result = await opts.purge(cwd, workflowId, {
+    nuclear: false,
+    ...(keep.items.length ? { removeDir: async () => { await removeExceptKept(dir, '', keep.items, out); } } : {}),
+  });
+  if (!result.ok) throw new Error(result.error || 'The conversation could not be deleted.');
+  if (archived && opts.archiveFile) {
+    out.removedBytes += (await fs.stat(opts.archiveFile)).size; out.removedFiles++;
+    await fs.rm(opts.archiveFile, { force: true });
+  }
+  await recordStorageAction(cwd, { action: 'delete', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });
   return out;
 }

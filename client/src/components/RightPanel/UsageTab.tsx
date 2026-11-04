@@ -403,7 +403,7 @@ const BUCKET_LABELS: Record<string, string> = {
   events: 'Conversation logs', artifacts: 'Artifacts', handoffs: 'Handoffs', checkpoints: 'Checkpoints',
   scratch: 'Scratch files', conversationFiles: 'Other conversation files', plans: 'Plans', boards: 'Task boards',
   worktrees: 'Worktrees and isolated copies', savedClusters: 'Saved clusters', voiceAndModels: 'Voice and media models',
-  caches: 'Caches and browser profiles', providerData: 'Provider account data', logs: 'Server logs', other: 'Other',
+  caches: 'Caches and browser profiles', providerData: 'Provider account data', logs: 'Server logs', archives: 'Archived conversations', other: 'Other',
 };
 function bytes(n: number): string {
   if (n < 1024) return `${n} B`;
