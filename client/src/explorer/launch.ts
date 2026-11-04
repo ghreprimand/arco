@@ -18,8 +18,8 @@ const EXPLORER_URL = '/?app=explorer';
 
 // `lens` picks the landing lens (`&lens=plans` → the PLANS library). An
 // already-open explorer window is re-navigated to it, not duplicated.
-export async function openArchive(lens?: 'plans'): Promise<void> {
-  const url = lens ? `${EXPLORER_URL}&lens=${lens}` : EXPLORER_URL;
+export async function openArchive(lens?: 'plans', cwd?: string): Promise<void> {
+  const url = `${EXPLORER_URL}${lens ? `&lens=${lens}` : ''}${cwd ? `&cwd=${encodeURIComponent(cwd)}` : ''}`;
   // Same-browser popup — inherits correct per-monitor DPI. Named so a second
   // click focuses the existing window instead of stacking duplicates.
   const win = window.open(url, 'arco-explorer', 'popup,width=1400,height=900');
@@ -27,7 +27,7 @@ export async function openArchive(lens?: 'plans'): Promise<void> {
 
   // Popup refused (rare for a user gesture) → server-spawned chromeless window.
   try {
-    const res = await fetch('/api/explorer/open', { method: 'POST' });
+    const res = await fetch(`/api/explorer/open?${new URLSearchParams({ ...(lens ? { lens } : {}), ...(cwd ? { cwd } : {}) })}`, { method: 'POST' });
     const body = (await res.json()) as { ok?: boolean };
     if (body.ok) return;
   } catch {

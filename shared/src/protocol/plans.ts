@@ -148,6 +148,8 @@ export interface PlanRefFull extends PlanRefSummary {
 // One row of `GET /api/explorer/plans` — the cross-project plans library.
 export interface PlanLibraryEntry extends PlanSummary {
   refCount: number;
+  checkboxTotal?: number;
+  checkboxDone?: number;
   // True when a workflow attachment span is still open or a cluster binds it.
   attached: boolean;
   clusters: Array<{ clusterId: string; name: string }>;

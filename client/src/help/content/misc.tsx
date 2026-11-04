@@ -1260,6 +1260,31 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'plan-refs',
   },
+  'plans.project-group': {
+    title: 'Project plans',
+    body: <p>Expand or collapse this project's plans. The choice is remembered in this browser. Search opens matching projects.</p>,
+    manualSection: 'plans-library',
+  },
+  'plans.probably-finished': {
+    title: 'Probably finished',
+    body: <p>Unattached plans with all boxes checked or no edits for 30 days appear here. MARK DONE moves a plan to Completed; nothing changes until clicked.</p>,
+    manualSection: 'plans-library',
+  },
+  'plans.mark-done': {
+    title: 'Mark plan done',
+    body: <p>Moves this plan to Completed. Reopen it from the plan details if work resumes.</p>,
+    manualSection: 'plans-library',
+  },
+  'plans.versions': {
+    title: 'Plan versions',
+    body: <p>Expand repeated titles to see each version and its date. A group with an attached version stays in the normal list; its unattached versions offer MARK DONE. The plans stay separate.</p>,
+    manualSection: 'plans-library',
+  },
+  'plans.in-use': {
+    title: 'Plan in use',
+    body: <p>Names the tabs or clusters attached to this plan.</p>,
+    manualSection: 'plans-library',
+  },
   'plan.library': {
     title: 'All plans',
     body: (

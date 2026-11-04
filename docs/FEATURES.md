@@ -109,7 +109,7 @@ controls. For installation and first session, see
 | HISTORY tab | Read-only timeline of seq-stamped narrative events | Actions: **LABEL THIS** (pin free-text label to `events.jsonl`); **REVIEW FROM HERE** (since-event Review); **SPAWN FROM HERE** (cutoff-aware Spawn so the new tab boots truncated at the chosen seq); **REWIND CONVERSATION** (Native-first restore-point: move live head back to a chosen seq; current branch kept and returnable; fork markers inline; REWINDS filter). Native-only; rejected on CLI / Codex |
 | Tasks (Claude Native) | First-class workflows for Native `Task` tool sub-agents | Scoped to parent; inline `TaskCard`; TASKS sub-tab gated on non-empty children; parallel `Task` calls dispatch concurrently; depth-1 cap by design |
 | Built-in GitHub browser | Browse repos, trees, source, PRs, issues, Actions runs, and clone | Authenticated via `gh auth`; GITHUB tab |
-| ARTIFACTS explorer | Chromeless read-only window for project artifacts across projects | Header **ARTIFACTS**: ARTIFACTS home (per-project cards + recent-across-all strip); RECENTS (attributed agent-writes ledger + exhaustive changed-within scan); TREE view. Read-only, zero model authority. See [Documentation index](INDEX.md) |
+| ARTIFACTS explorer | Chromeless read-only window for project artifacts across projects | Header **ARTIFACTS**: ARTIFACTS home (per-project cards + recent-across-all strip); RECENTS, PLANS and TREE. PLANS groups projects, folds repeated titles, names attached tabs and offers MARK DONE for probably finished plans. Zero model authority. See [Documentation index](INDEX.md) |
 
 ## Media, chrome, and themes
 

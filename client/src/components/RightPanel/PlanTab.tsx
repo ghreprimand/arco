@@ -284,7 +284,7 @@ export function PlanTab({
           A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.arco/plans/</code>.
         </div>
         <button
-          onClick={() => { void openArchive('plans'); }}
+          onClick={() => { void openArchive('plans', cwd); }}
           data-help="plan.library"
           className="display-font"
           style={{ ...planMiniBtn, marginBottom: '14px' }}

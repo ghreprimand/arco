@@ -46,7 +46,8 @@ export async function tryHandleExplorerRoutes(
   // window.open. A genuinely unexpected error still degrades to a soft result.
   if (url.startsWith('/api/explorer/open') && req.method === 'POST') {
     try {
-      const result = await launchExplorerWindow(deriveOrigin(req));
+      const params = new URL(url, 'http://localhost').searchParams;
+      const result = await launchExplorerWindow(deriveOrigin(req), { lens: params.get('lens') === 'plans' ? 'plans' : undefined, cwd: params.get('cwd') || undefined });
       return sendJson(res, 200, result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);

@@ -5,6 +5,7 @@ import { PlanBodyRenderer, CHECKBOX_RE } from '../components/PlanBodyRenderer';
 import { PlanWorkflowsSection } from '../components/RightPanel/PlanWorkflowsSection';
 import { PlanRefsSection, PlanRefChips } from '../components/plans/PlanRefsSection';
 import { usePlanRefs } from '../components/plans/planRefs';
+import { probablyFinished, foldVersions } from './plansGrouping';
 
 // PLANS lens — the plans library. Every plan across every known project
 // (GET /api/explorer/plans), browsable and reviewable without attaching it to
@@ -18,12 +19,34 @@ type StatusFilter = 'active' | 'completed' | 'all';
 
 interface Selection { cwd: string; planId: string }
 
+const CURRENT_PROJECT = new URLSearchParams(window.location.search).get('cwd');
+const EXPANDED_KEY = 'arco_plans_expanded_projects';
+
 export function PlansLens({ focusTick }: { focusTick: number }) {
   const [projects, setProjects] = useState<PlanLibraryProject[] | null>(null);
   const [status, setStatus] = useState<StatusFilter>('active');
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState<Selection | null>(null);
   const [tick, setTick] = useState(0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(EXPANDED_KEY) || '{}') as Record<string, boolean>; } catch { return {}; }
+  });
+  const [finishedOpen, setFinishedOpen] = useState<Record<string, boolean>>({});
+  const [versionsOpen, setVersionsOpen] = useState<Record<string, boolean>>({});
+  const [actionError, setActionError] = useState('');
+  const toggleProject = (cwd: string, open: boolean) => setExpanded((old) => {
+    const next = { ...old, [cwd]: open };
+    try { localStorage.setItem(EXPANDED_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+    return next;
+  });
+  const markDone = async (cwd: string, plan: PlanLibraryEntry) => {
+    try {
+      const url = `/api/plans?path=${encodeURIComponent(cwd)}&planId=${encodeURIComponent(plan.id)}`;
+      const r = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completedAt: Date.now() }) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setActionError(''); setTick((v) => v + 1);
+    } catch (e) { setActionError(e instanceof Error ? e.message : String(e)); }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +79,22 @@ export function PlansLens({ focusTick }: { focusTick: number }) {
     return proj && plan ? { project: proj, plan } : null;
   }, [projects, sel]);
 
-  const total = (projects ?? []).reduce((n, p) => n + p.plans.length, 0);
+  const visiblePlans = filtered.flatMap((p) => p.plans);
+  const total = visiblePlans.length;
+  const inUse = visiblePlans.filter((p) => p.attached).length;
+  const finished = visiblePlans.filter((p) => probablyFinished(p)).length;
+  const rows = (cwd: string, plans: PlanLibraryEntry[], offerDone: boolean) => foldVersions(plans).map((versions) => {
+    const key = `${cwd}:${versions[0].title.trim().toLowerCase()}`;
+    const open = versionsOpen[key] ?? false;
+    const renderRow = (pl: PlanLibraryEntry) => <div key={pl.id}>
+      <PlanRow plan={pl} active={sel?.cwd === cwd && sel.planId === pl.id} onClick={() => setSel({ cwd, planId: pl.id })} />
+      {(offerDone || (status === 'active' && versions.length > 1 && versions.some((p) => p.attached) && !pl.attached)) && <button style={chip(false)} data-help="plans.mark-done" onClick={() => void markDone(cwd, pl)}>MARK DONE</button>}
+    </div>;
+    return versions.length === 1 ? renderRow(versions[0]) : <div key={key}>
+      <button style={chip(false)} data-help="plans.versions" aria-expanded={open} onClick={() => setVersionsOpen((v) => ({ ...v, [key]: !open }))}>{versions[0].title} - {versions.length} versions</button>
+      {open && versions.map(renderRow)}
+    </div>;
+  });
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
@@ -65,30 +103,33 @@ export function PlansLens({ focusTick }: { focusTick: number }) {
           {(['active', 'completed', 'all'] as StatusFilter[]).map((s) => (
             <button key={s} onClick={() => setStatus(s)} className="display-font" style={chip(status === s)}>{s.toUpperCase()}</button>
           ))}
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)', alignSelf: 'center' }}>{total} plans</span>
         </div>
+        <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginBottom: '8px' }}>{total} plans, {inUse} in use, {finished} probably finished</div>
+        {actionError && <div role="alert">{actionError}</div>}
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search plan or project…" style={searchStyle} />
         <div style={{ flex: 1, overflowY: 'auto', marginTop: '10px', paddingBottom: '12px' }}>
           {projects === null ? (
             <Muted text="Loading plans…" />
           ) : filtered.length === 0 ? (
             <Muted text={query || status !== 'all' ? 'No plans match.' : 'No plans in any known project.'} />
-          ) : filtered.map((proj) => (
-            <div key={proj.cwd} style={{ marginBottom: '12px' }}>
-              <div className="display-font" title={proj.cwd} style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {proj.name.toUpperCase()} <span style={{ color: 'var(--color-fg-muted)' }}>· {proj.plans.length}</span>
-              </div>
-              {proj.plans.map((pl) => (
-                <PlanRow
-                  key={pl.id}
-                  plan={pl}
-                  active={sel?.cwd === proj.cwd && sel.planId === pl.id}
-                  onClick={() => setSel({ cwd: proj.cwd, planId: pl.id })}
-                />
-              ))}
-            </div>
-          ))}
+          ) : filtered.map((proj) => {
+            const isOpen = Boolean(query.trim()) || (expanded[proj.cwd] ?? proj.cwd === CURRENT_PROJECT);
+            const groups = foldVersions(proj.plans);
+            const probable = status === 'active' ? groups.filter((g) => g.every((p) => probablyFinished(p))).flat() : [];
+            const normal = status === 'active' ? groups.filter((g) => !g.every((p) => probablyFinished(p))).flat() : proj.plans;
+            return <div key={proj.cwd} style={{ marginBottom: '12px' }}>
+              <button className="display-font" data-help="plans.project-group" aria-expanded={isOpen} onClick={() => toggleProject(proj.cwd, !isOpen)} style={chip(false)} title={proj.cwd}>
+                {isOpen ? '▾' : '▸'} {proj.name} - {proj.plans.length} plans - {formatRelativeTime(Math.max(...proj.plans.map((p) => p.updatedAt)))}
+              </button>
+              {isOpen && <>
+                {rows(proj.cwd, normal, false)}
+                {probable.length > 0 && <div>
+                  <button style={chip(false)} data-help="plans.probably-finished" aria-expanded={Boolean(finishedOpen[proj.cwd]) || Boolean(query.trim())} onClick={() => setFinishedOpen((v) => ({ ...v, [proj.cwd]: !v[proj.cwd] }))}>Probably finished ({probable.length})</button>
+                  {(finishedOpen[proj.cwd] || query.trim()) && rows(proj.cwd, probable, true)}
+                </div>}
+              </>}
+            </div>;
+          })}
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -125,7 +166,7 @@ function PlanRow({ plan, active, onClick }: { plan: PlanLibraryEntry; active: bo
       <span title={done ? 'Completed' : plan.attached ? 'Attached' : 'Not attached'} style={{ width: '10px', flexShrink: 0, color: done ? 'var(--color-fg-muted)' : plan.attached ? 'var(--color-accent-primary)' : 'var(--color-accent-primary-dim)' }}>
         {done ? '✓' : plan.attached ? '●' : '○'}
       </span>
-      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: done ? 0.65 : 1 }}>{plan.title}</span>
+      <span style={{ flex: 1, minWidth: 0, opacity: done ? 0.65 : 1 }}>{plan.title}{plan.attached && <span data-help="plans.in-use" style={{ display: 'block', fontSize: '10px' }}>In use: {[...(plan.attachments ?? []).filter((a) => a.detachedAt === null).map((a) => a.workflowName), ...plan.clusters.map((c) => c.name)].join(', ') || 'attached'}</span>}</span>
       {plan.refCount > 0 && <span title={`${plan.refCount} reference docs`} style={{ fontSize: '10px', color: 'var(--color-accent-secondary-dim)', flexShrink: 0 }}>⧉{plan.refCount}</span>}
       <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)', flexShrink: 0 }}>{formatRelativeTime(plan.updatedAt)}</span>
     </button>

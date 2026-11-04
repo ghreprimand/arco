@@ -349,6 +349,19 @@ export const plans: Section[] = [
           <li><Code>⧉N</Code> is the ref count</li>
         </ul>
         <p>
+          Projects collapse to a single line, with the current project open. The
+          browser remembers each choice; search opens matching groups. Counts show
+          plans, those in use, and those probably finished for the current filter.
+        </p>
+        <p>
+          Probably finished holds unattached plans with every box checked or no
+          edits for 30 days. MARK DONE moves a plan to COMPLETED. Repeated titles
+          appear once; expand them to see each version and its date. In use names
+          the tabs or clusters using a plan. A group with an attached version stays in
+          the normal list; its unattached versions offer MARK DONE. Nothing is
+          marked done automatically.
+        </p>
+        <p>
           Selecting a plan shows its body (checkboxes are clickable), reference docs
           and attachment history, with EDIT, DONE / REOPEN and delete. Edits behave
           as they do in the PLAN tab, so any attached tab refreshes as usual.
