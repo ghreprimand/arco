@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.1.3 - 2026-11-04
+
 ### Added
 
 - Add Settings > Notifications: opt-in alerts when a turn finishes (after 15 seconds), fails or is waiting on you, each switchable for this computer (a system notification, only while Arco is not the focused window, one per event, click opens the tab) and for your phone through ntfy (server, topic with GENERATE, optional access token, TEST; no hub needed, message text off by default; in a cluster "finished" comes from the director unless you choose every member). Everything is off by default, and existing `ARCO_NTFY_*` settings keep working. The window title shows a waiting count such as "(2) ARCO".
@@ -66,7 +68,6 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Clarify the disabled Recall reference tooltip, local-runtime reconnect labels in Settings Authentication, handoff mode hints for providers without a resumable session, and keyboard focus on the Ollama status details.
 - Package installation and native modules support Node.js 24 and 26 without compiling during install.
 - Make the Recall "summarize on tab close" checkbox work: closing a workflow tab with a saved session starts the usual Recall summary with a toast and an OPEN RECALL link. Incognito tabs and tabs with no session do nothing, and closing is never delayed.
-
 
 ## v0.1.2 - 2026-11-02
 
