@@ -27,13 +27,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
-- Reformat the in-app manual into shorter paragraphs, lists, tables and subheadings so sections are easier to scan, without changing what they say.
-- Make the in-app manual easier to read: space between paragraphs, a comfortable line length, clearer lists and subheadings, and short paragraphs that lead with what a feature is.
-- Make the cluster, workspace and operator-action manual sections easier to scan with shorter paragraphs, lists and subheadings.
-- Check optional local private words on whole-word boundaries in the tree audit and pre-commit staged changes.
-
-- Publish the package as `arco-workbench`; the `arco` command and package update controls remain available.
-
+- Make the in-app manual easier to read: short paragraphs that lead with what a feature is, lists, tables and subheadings, space between paragraphs and a comfortable line length, without changing what it says.
+- Publish the npm package as `arco-workbench` (`npm install -g arco-workbench`); the `arco` command, setup, service and update controls are unchanged. Earlier `@ghreprimand/arco` versions are no longer available.
 - Move the CTX and OUT readout to the worker header, keeping its values, colors and calibration action.
 - Redesign Home with a personal greeting and status, chat/session/cluster start tiles, waiting-first Continue cards, a filterable project grid and a Getting started checklist. The ARCO wordmark shows on Home as on every other screen.
 - Regroup the top bar: provider dots open a Providers panel (versions, usage-page links, FREE VRAM with a connected local runtime, CONNECTIONS); KNOWLEDGE, TOOLS and a VOICE mic toggle with its menu sit beside them; BELL, FOCUS, HELP, SETTINGS, the version box and power follow. HELP and SETTINGS are hidden in focus mode. Move the ? help button into the top bar, right of the version box.
