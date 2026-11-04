@@ -187,7 +187,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          NUDGE sits beside the send area of the cluster message box and shows the total of waiting mail (for example <C>NUDGE 2</C>), highlighted while any member has mail. It opens the NUDGE modal: a per-member checkbox list with each
+          NUDGE sits beside the send area of the cluster message box and shows the total of waiting mail (for example <C>NUDGE 2</C>), highlighted while any member has mail. After a nudge it reads <C>NUDGED 1</C> (the number of members nudged) until they start their turn, or for two minutes. It opens the NUDGE modal: a per-member checkbox list with each
           member&apos;s role chip, mailbox depth (e.g. <C>3 MAIL</C>),
           and a BUSY badge when applicable. Default selection is{' '}
           <strong>empty</strong>; you pick recipients explicitly. SEND
