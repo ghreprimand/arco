@@ -5,8 +5,6 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-## v0.1.4 - 2026-11-04
-
 ### Added
 
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.
