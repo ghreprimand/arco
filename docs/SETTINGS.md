@@ -65,7 +65,7 @@ Sections: 25.
 | `catalog` | Providers and models | Model catalog | Global | Model catalog editor |
 | `auto-handoff-defaults` | Agents and clusters | Auto-handoff defaults | Global, for new workflows | Off by default; auto-handoff thresholds and summarizer, with Quick or written modes |
 | `utility-agent` | Agents and clusters | Utility agent | Global | Provider and model for side jobs (Claude Native, Cursor, Codex, or Ollama); TEST, CLEAR; not chosen until saved. See [Utility agent](#utility-agent) |
-| `notification-channels` | Notifications | Desktop and phone notifications | Global (switches kept by the server; the desktop permission is per browser) | Events (finished, failed, waiting) by place (this computer, phone); ntfy server, topic with GENERATE, optional token, TEST; message text switch; cluster finished source. See [Notifications](NOTIFICATIONS.md) |
+| `notification-channels` | Notifications | Desktop and phone notifications | Global (switches kept by the server; the desktop permission is per browser) | Events (finished, failed, waiting) by place (this computer, phone); browser permission and desktop TEST; SHOW IN BELL controls quiet notices for other tabs; ntfy server, topic with GENERATE, optional token, TEST; message text switch; cluster finished source. See [Notifications](NOTIFICATIONS.md) |
 | `board-auto-done` | Agents and clusters | Board auto-done | Global | Checkbox that marks review tasks done when the director signs off as met |
 | `skills` | Agents and clusters | Skills | Global or project (the active tab's folder) | Global and project skill lists, new, edit and delete |
 | `handoff-prompts` | Agents and clusters | Handoff prompts | Global or project (the active tab's folder) | Handoff prompt overrides per mode |

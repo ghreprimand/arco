@@ -14,6 +14,7 @@ import type { ProviderName } from './providers.js';
 
 // The seven workbench event categories from the plan. Mute is per-category.
 export type WorkbenchNoticeCategory =
+  | 'attention'       // failed or waiting attention notice
   | 'port-change'     // package startup moved to an available port
   | 'computer-watch'  // explicitly armed Computer completion watch
   | 'turn-finished'    // a long primary turn completed
@@ -29,6 +30,7 @@ export const WORKBENCH_NOTICE_CATEGORIES: readonly WorkbenchNoticeCategory[] = [
   'port-change',
   'computer-watch',
   'turn-finished',
+  'attention',
   'quota-recovered',
   'auth-expired',
   'cluster-nudge',
@@ -78,8 +80,8 @@ export interface SetNotificationMutesMessage {
 
 // ---------------------------------------------------------------------------
 // Attention alerts (desktop and phone). Separate from workbench notices: they
-// are opt-in per event and per channel, off by default, and never create an
-// in-app toast.
+// are opt-in per event for desktop and phone, and never create an in-app toast.
+// Quiet in-app notices follow the existing BELL category settings.
 
 export const ATTENTION_KINDS = ['finished', 'failed', 'waiting'] as const;
 export type AttentionKind = typeof ATTENTION_KINDS[number];
@@ -167,4 +169,6 @@ export interface AttentionEventMessage {
   kind: AttentionKind;
   workflowId: string;
   workflowName: string;
+  // Short turns and filtered cluster members can still produce in-app notices.
+  desktopEligible?: boolean;
 }

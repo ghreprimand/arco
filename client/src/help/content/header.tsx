@@ -374,16 +374,14 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Workbench event notices: a long turn finished, a provider's quota
-          recovered, a terminal exited non-zero, and more. A badge counts unread
-          notices; each also flashes a transient toast. Click the bell for the
-          durable history.
+          The bell collects notices such as a turn finishing in another tab,
+          a provider's quota recovering or a terminal exiting non-zero. A badge
+          counts unread notices. Attention notices do not show a pop-up.
         </p>
         <p>
-          <strong>Mute per category</strong> from the dropdown's MUTE section:
-          muting is enforced server-side (a muted category never broadcasts) and
-          persists across restarts. Inform-only: notifications never accept
-          commands.
+          Use <strong>SHOW IN BELL</strong> to choose categories. A checked box
+          means the category is shown; choices persist across restarts. Notices
+          are informational and never accept commands.
         </p>
       </>
     ),

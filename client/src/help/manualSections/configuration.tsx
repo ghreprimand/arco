@@ -883,11 +883,12 @@ export const configuration: Section[] = [
   <>
   <p>
   Settings &gt; Notifications chooses which events notify you, as a grid of
-  events and places. Everything is off until you tick a box.
+  events and places. Desktop and phone alerts are off until you tick a box.
   </p>
   <ul>
   <li><strong>Events</strong> - a turn finished (one that ran at least 15 seconds; in a cluster only the director's unless you choose every member), a turn failed, and waiting for you (a question or an approval is open). Incognito tabs never notify.</li>
-  <li><strong>This computer</strong> - a system notification, shown only while Arco is not the window you are looking at, once per event. Clicking it opens that tab. The browser asks permission when you first tick a box; if it is blocked, allow it in the browser's site settings.</li>
+  <li><strong>This computer</strong> - a system notification, shown only while Arco is not the window you are looking at, once per event. Clicking it opens that tab. The permission state is shown here. REQUEST PERMISSION asks the browser and TEST DESKTOP sends a test. If blocked, allow it in the browser's site settings.</li>
+  <li><strong>BELL</strong> - a quiet notice for a different tab that finishes, fails or needs you. It is on by default; use SHOW IN BELL to choose categories.</li>
   <li><strong>Phone</strong> - a message through an ntfy server, with no hub and no REMOTE switch needed. See Phone setup below.</li>
   <li><strong>Message text</strong> - left out of phone messages unless you tick it; then they include the question, the error or the start of the reply. The tab name is always included.</li>
   </ul>

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_NOTIFICATION_CHANNELS, isValidNtfyTopic, normalizeNtfyServer, sanitizeNotificationChannels } from './notifications.js';
 
-test('everything is off by default and malformed input falls back to off', () => {
+test('desktop and phone are off by default and malformed input falls back to off', () => {
   assert.deepEqual(sanitizeNotificationChannels(undefined), { ...DEFAULT_NOTIFICATION_CHANNELS, ntfy: { server: 'https://ntfy.sh', topic: '' } });
   const s = sanitizeNotificationChannels({ desktop: { finished: 'yes', failed: 1 }, phone: 5, phoneText: 'true', clusterFinished: 'x' });
   assert.deepEqual(s.desktop, { finished: false, failed: false, waiting: false });

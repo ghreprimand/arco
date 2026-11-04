@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { NotificationChannelsView } from '@arco/shared';
 import { isJobWaiting, titleWithWaiting, waitingJobIds } from './waiting';
-import { shouldRaiseDesktop } from './desktopAlerts';
+import { shouldRaiseDesktop, shouldAddAttentionNotice } from './desktopAlerts';
 
 const msg = (extra: Record<string, unknown>) => ({ id: 'm', role: 'system', content: '', timestamp: 1, ...extra }) as never;
 
@@ -31,4 +31,10 @@ test('a desktop notification needs the switch, permission and an unfocused windo
   assert.equal(shouldRaiseDesktop(view({ waiting: true }), 'waiting', { permission: 'granted', hasFocus: true, visible: true }), false, 'focused window');
   assert.equal(shouldRaiseDesktop(view({ waiting: true }), 'waiting', { permission: 'granted', hasFocus: true, visible: false }), true, 'hidden tab');
   assert.equal(shouldRaiseDesktop(null, 'waiting', away), false);
+});
+
+test('in-app attention is recorded only for a tab not being viewed', () => {
+  assert.equal(shouldAddAttentionNotice(true, false), true);
+  assert.equal(shouldAddAttentionNotice(true, true), false);
+  assert.equal(shouldAddAttentionNotice(false, false), false);
 });

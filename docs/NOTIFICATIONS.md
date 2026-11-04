@@ -14,7 +14,8 @@ A `WorkbenchNotice` is `{ id, category, severity, title, body?, ts, workflowId?,
 
 | category | when | severity (typical) |
 |---|---|---|
-| `turn-finished` | a long primary turn completed (>= 60s) | success |
+| `turn-finished` | a primary turn completed in another tab | info |
+| `attention` | a turn failed or is waiting on the operator in another tab | info / error |
 | `quota-recovered` | a throttled provider became available again | success |
 | `auth-expired` | a provider's auth needs re-login | warning |
 | `terminal-exited` | a terminal session exited non-zero | warning |
@@ -28,20 +29,20 @@ A `WorkbenchNotice` is `{ id, category, severity, title, body?, ts, workflowId?,
 
 ## Attention alerts (desktop and phone)
 
-Separate from workbench notices: three opt-in events, each switchable for two
-places, all off by default. They never create an in-app toast.
+Desktop and phone alerts are opt-in per event and off by default. BELL notices for another tab are shown by default and controlled by SHOW IN BELL. These alerts never create an in-app toast.
 
 | event | raised when |
 |---|---|
-| finished | a primary turn ends after at least 15 seconds (`primary_turn_ended`); in a cluster only the director's unless `clusterFinished` is `all` |
+| finished | a primary turn ends (`primary_turn_ended`); desktop and phone alerts require at least 15 seconds and in a cluster only the director unless `clusterFinished` is `all` |
 | failed | a `worker_error`, a `primary_refusal`, or a workflow-scoped `error` passes through `broadcastWorkflow` |
 | waiting | an `operator_question` becomes pending or a `gate_required` is parked (each id once) |
 
 `server/src/attention.ts` watches workflow messages from `broadcastWorkflow`
 (Incognito workflows are skipped), applies the switches, allows one alert per
-workflow and event every 3 seconds, and does two things:
+workflow and event every 3 seconds, and does three things:
 
-- **This computer:** broadcasts `attention_event` (`{ id, kind, workflowId, workflowName }`, no message text). Each browser
+- **BELL:** sends an `attention_event` with no message text. Each browser adds a quiet notice when its current tab is different and the matching BELL category is shown.
+- **This computer:** uses the same `attention_event`. Each browser
   shows a system notification only when its switch is on, permission is granted
   and the window is unfocused or hidden; the event id is the notification tag so
   one event shows once, and a click focuses the window and opens the tab
@@ -56,7 +57,7 @@ workflow and event every 3 seconds, and does two things:
 Preferences live in `~/.arco/notification-channels.json` (mode 0600; the ntfy
 token is stored there and never returned to the browser). `GET`/`PUT
 /api/notification-channels` and `POST /api/notification-channels/test` serve
-Settings > Notifications. The window title shows `(N) ` before the page title
+Settings > Notifications, where REQUEST PERMISSION and TEST DESKTOP check the browser permission and notification path. Normal desktop alerts require an unfocused window; finished turns must last at least 15 seconds. The window title shows `(N) ` before the page title
 while N tabs hold an unanswered question or approval (`client/src/alerts/waiting.ts`,
 the same definition any per-tab status uses).
 
@@ -86,14 +87,13 @@ One chokepoint so every source is a one-liner and external transports can use th
  (returns `null`, nothing broadcast), else broadcast `workbench_notice`.
 - `setMutes(cats)`, replace + persist + re-broadcast the snapshot. Serviced
  from the `set_notification_mutes` handler.
-- Source helpers: `onTurnStarted` / `onTurnEnded` (long-turn detection, only
- past the 60s threshold), `notifyQuotaRecovered(provider)`.
+- Source helpers: `onTurnStarted` / `onTurnEnded` (legacy external transport only after 60 seconds), `notifyQuotaRecovered(provider)`.
 
 ### Wired sources
 
 - **`turn-finished`**, `broadcast.ts` already special-cases
  `primary_turn_started` / `primary_turn_ended`; `onTurnStarted` /
- `onTurnEnded` ride that same spot. Only turns >= 60s surface a notice.
+ `onTurnEnded` keep the 60-second legacy transport path. BELL uses the attention event for every finished turn in an unviewed tab.
 - **`quota-recovered`**, `index.ts`'s quota change-listener: `markAvailable`
  only fires the listener on a real throttled->available flip, so a non-throttled
  state there is a recovery -> `notifyQuotaRecovered`.
@@ -114,14 +114,13 @@ the identical `emit()`.
 - **`stores/notificationStore.ts`**, standalone Zustand store (out of
  `appStore`, like `recallStore`): `notices` history (cap 50, newest first),
  the server-authoritative `muted` set, and a `lastSeenTs` marker for the unread
- badge. Mute is enforced server-side, so the store never filters incoming
- notices.
+ badge. Attention events are filtered by this mute set in each browser.
 - **`ws/handleServerMessage.ts`**, `workbench_notice` -> `pushNotice` (history)
  **and** a transient toast via the existing app strip
  (`appStore.pushNotification`, error/warning -> `error`, else `info`).
  `notification_mutes` -> `setMutedFromServer`.
 - **`components/NotificationCenter.tsx`**, the header bell (`◔ BELL`) with an
- unread badge; the dropdown shows the notice history + a per-category MUTE grid
+ unread badge; the dropdown shows the notice history + a per-category SHOW IN BELL grid (checked means shown)
  (checkbox -> `set_notification_mutes` via `onSetMutes`, threaded App ->
  SystemHeader -> useWebSocket). Always visible, even in I3 focus mode, since
  notices are exactly the "agent finished / something broke" signal focus mode
@@ -135,7 +134,7 @@ Pure, no WS/server boot. Injects a capture-broadcast into the hub and asserts:
 every category emits a `workbench_notice`; a muted category is suppressed before
 broadcast (`emit` returns `null`, zero wire messages); `setMutes` persists to
 disk + re-broadcasts `notification_mutes` and a fresh `init` reloads it (survives
-a restart); the long-turn helper only fires past threshold; `notifyQuotaRecovered`
+a restart); the long-turn helper sends only to legacy transports past its threshold; `notifyQuotaRecovered`
 emits. `npm run smoke:notifications` (26 asserts).
 
 ## External transport (ntfy)

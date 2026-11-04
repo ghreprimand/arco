@@ -14,6 +14,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.
 - Add REFINE to the plan draft banner: type a short note and the same agent revises the draft; the new draft replaces the old one, nothing is saved until you attach it, and it can be repeated. In a cluster tab the only save button is ATTACH TO CLUSTER (ATTACH TO WORKER is gone); a single workflow keeps SAVE & ATTACH.
+- Show desktop notification permission and a test in Settings, and quiet BELL notices for activity in other tabs with clear show controls.
 
 ### Changed
 
