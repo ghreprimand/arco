@@ -25,15 +25,15 @@ const report = (file, line, rule) => findings.add(`${file}:${line}: ${rule}`);
 try {
 const root = git('rev-parse', '--show-toplevel').toString().trim();
 process.chdir(root);
-const patternsFile = process.env.ARCO_PRIVATE_PATTERNS_FILE || git('rev-parse', '--git-path', 'private-patterns').toString().trim();
+const commonGitDir = resolve(root, git('rev-parse', '--git-common-dir').toString().trim());
+const patternsFile = process.env.ARCO_PRIVATE_PATTERNS_FILE || join(commonGitDir, 'private-patterns');
 const readPatterns = file => existsSync(file) ? readFileSync(file, 'utf8').split(/\r?\n/).map(s => s.trim().toLowerCase()).filter(s => s && !s.startsWith('#')) : [];
 const privatePatterns = readPatterns(patternsFile);
 // Optional current-content patterns are excluded from history and push audits.
 const treeScope = ['--tree', '--staged', '--package'].some(flag => args.has(flag)) || process.argv.length === 2;
-const treePatterns = treeScope ? readPatterns(git('rev-parse', '--git-path', 'private-patterns-tree').toString().trim()) : [];
+const treePatterns = treeScope ? readPatterns(join(commonGitDir, 'private-patterns-tree')) : [];
 // Optional local word list is shared by linked worktrees. It is never tracked,
 // echoed, or applied to historical objects. Empty or absent files are a no-op.
-const commonGitDir = resolve(root, git('rev-parse', '--git-common-dir').toString().trim());
 const privateWords = readPatterns(join(commonGitDir, 'private-words'));
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const privateWordPattern = privateWords.length
