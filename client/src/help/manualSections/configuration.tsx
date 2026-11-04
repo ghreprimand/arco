@@ -930,6 +930,7 @@ export const configuration: Section[] = [
   <li><strong>Claude</strong> - needs Claude Native sign-in. The Claude CLI transport cannot make a single request without tools.</li>
   <li><strong>Cursor</strong> - needs Cursor Agent installed and signed in. The request runs in Ask mode with no file or terminal capability.</li>
   <li><strong>Ollama</strong> - always able to serve once connected; pick an installed model.</li>
+  <li><strong>LM Studio, llama.cpp, Strata and DeepSeek through Xolotl</strong> - load the selected model first. These requests do not load or switch models.</li>
   <li><strong>Codex</strong> - needs Codex enabled in Settings and signed in. It runs as a one-shot read-only session in an empty folder with no MCP servers or web search, and any tool use ends the request with no decision.</li>
   </ul>
   <p>Models for each provider are chosen as buttons under MODEL; SAVE keeps the choice.</p>

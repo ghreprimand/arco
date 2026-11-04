@@ -7,7 +7,7 @@
 // Claude Native (no tools field), Cursor (Ask mode, no capabilities), Ollama
 // (no tools field) and Codex (one-shot app-server, read-only sandbox, any
 // tool item or approval request ends the turn).
-export const UTILITY_AGENT_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama'] as const;
+export const UTILITY_AGENT_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama', 'lmstudio', 'llamacpp', 'strata', 'deepseek'] as const;
 export type UtilityAgentProvider = typeof UTILITY_AGENT_PROVIDERS[number];
 
 export interface UtilityAgent {

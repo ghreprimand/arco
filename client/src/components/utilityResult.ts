@@ -6,6 +6,8 @@ export function describeUtilityFailure(result: UtilityJobResult): string {
   if (result.status === 'cancelled') return 'Cancelled.';
   if (result.reason === 'not_signed_in') return 'Sign in to the utility agent provider and try again.';
   if (result.reason === 'empty_answer') return 'The utility agent returned an empty reply.';
+  const local = /^model_not_loaded_(lmstudio|llamacpp|strata|deepseek)$/.exec(result.reason ?? '');
+  if (local) return `The model is not loaded in ${{ lmstudio: 'LM Studio', llamacpp: 'llama.cpp', strata: 'Strata', deepseek: 'DeepSeek' }[local[1] as 'lmstudio' | 'llamacpp' | 'strata' | 'deepseek']}; load it or choose another.`;
   if (result.reason === 'unreadable_answer') return 'The utility agent returned an unreadable reply.';
   if (result.reason === 'non_text_answer') return 'The utility agent returned unsupported non-text content.';
   if (result.reason === 'output_too_long') return 'The utility agent reply was too long or was cut off.';

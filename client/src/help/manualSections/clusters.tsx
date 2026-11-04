@@ -1060,9 +1060,13 @@ export const clusters: Section[] = [
   <p>
     The dialog offers providers
   that are enabled, connected and able to answer without tools here:
-  Claude with Native sign-in, Cursor, Codex, and Ollama. Codex runs as a
+  Claude with Native sign-in, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, and DeepSeek through Xolotl. Codex runs as a
   one-shot read-only session with no MCP servers or web search; any tool
   use or approval request ends it with no decision.
+  </p>
+  <p>LM Studio, llama.cpp,
+  Strata and DeepSeek require the selected model to be loaded first; these
+  requests do not load or switch models.
   </p>
   <p>
     Arming is

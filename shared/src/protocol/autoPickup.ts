@@ -35,7 +35,7 @@ export function resolveAutoPickupMode(mode: unknown, legacyEnabled: unknown): Au
   return legacyEnabled === true ? 'rule' : 'off';
 }
 
-export const SMART_PICKUP_EVALUATOR_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama'] as const;
+export const SMART_PICKUP_EVALUATOR_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama', 'lmstudio', 'llamacpp', 'strata', 'deepseek'] as const;
 export type SmartPickupEvaluatorProvider = typeof SMART_PICKUP_EVALUATOR_PROVIDERS[number];
 
 export interface SmartPickupEvaluator {

@@ -51,9 +51,12 @@ Contribution scope and validation requirements are described in
 ## Utility agent and Smart AUTO-PICKUP evaluator requests
 
 The utility agent (Settings > Agents and clusters) and the Smart AUTO-PICKUP
-evaluator accept only Claude with Native sign-in, Cursor, Codex, and Ollama.
+evaluator accept only Claude with Native sign-in, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, and DeepSeek through Xolotl.
 Claude CLI alone cannot serve either role. Codex is offered only while it is
 enabled and signed in, and runs in a locked-down one-shot process (see below).
+LM Studio, llama.cpp, Strata and DeepSeek requests require the selected model to
+be loaded already; they never start, stop or switch a model. Their shared
+OpenAI-compatible request sends no tools and rejects returned tool calls.
 Utility jobs and evaluator requests are operator-initiated or operator-armed,
 are tool-less or contained so that any tool use ends the request, are bounded by a time limit and an abort, and return text plus the facts or
 mail snapshot that was sent. Cost and retention follow the chosen provider.

@@ -25,7 +25,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 
-const PROVIDER_NAMES: Record<SmartPickupEvaluatorProvider, string> = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama' };
+const PROVIDER_NAMES: Record<SmartPickupEvaluatorProvider, string> = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', lmstudio: 'LM Studio', llamacpp: 'llama.cpp', strata: 'Strata', deepseek: 'DeepSeek (Xolotl)' };
 
 const MODE_HELP: Record<AutoPickupMode, string> = {
   off: 'No automatic worker turns. MAIL ALERTS and NUDGE stay available.',
@@ -42,7 +42,11 @@ function describeDecision(state: ClusterAutoPickupState): string | null {
   const d = state.lastDecision;
   if (!d) return null;
   const when = new Date(d.at).toLocaleTimeString();
-  const what = d.action ? `answered ${d.action}` : d.reason.replace(/_/g, ' ');
+  const unloaded = /^evaluator_error:model_not_loaded_(lmstudio|llamacpp|strata|deepseek)$/.exec(d.reason);
+  const names = { lmstudio: 'LM Studio', llamacpp: 'llama.cpp', strata: 'Strata', deepseek: 'DeepSeek' } as const;
+  const what = d.action ? `answered ${d.action}` : unloaded
+    ? `model not loaded in ${names[unloaded[1] as keyof typeof names]}; load it or choose another`
+    : d.reason.replace(/_/g, ' ');
   return `${when}: ${what}${d.action ? ` (${d.reason.replace(/_/g, ' ')}), ${d.outcome}` : ''}`;
 }
 

@@ -291,7 +291,7 @@ roles. Work size is a hint for the director and does not change model or effort.
 Arco does not otherwise auto-route work from role or work size. AUTO-PICKUP on
 the cluster header stays Off until armed. Rule-based is the recommended
 automatic mode; Smart Observe-only and Smart Automatic need an evaluator on
-Claude Native, Cursor, or Ollama. See the in-app manual for modes and limits.
+Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl. See the in-app manual for modes and limits.
 See [TASK_LEDGER.md](TASK_LEDGER.md) for cluster boards, messages, and saved
 tasks.
 
@@ -300,8 +300,8 @@ tasks.
 Short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY** use one
 operator-chosen utility agent instead of a workflow's agent. Open
 **Settings > Agents and clusters**, or finish Welcome when it offers the
-choice. Pick Claude with Native sign-in, Cursor, Codex, or Ollama, choose a model,
-then save. Nothing is selected until that save. **TEST** checks the choice;
+choice. Pick Claude with Native sign-in, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl, choose a model,
+then save. For LM Studio, llama.cpp, Strata, and DeepSeek, load the selected model first; these requests never load or switch models. Nothing is selected until that save. **TEST** checks the choice;
 **CLEAR** removes it. The utility agent has no tools and only reads facts Arco
 already holds. See [Settings: Utility agent](SETTINGS.md#utility-agent).
 

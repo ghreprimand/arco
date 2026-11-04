@@ -29,7 +29,7 @@ test('limits and evaluator are sanitized; legacy boolean maps to Rule-based', ()
   assert.equal(s.timeoutSeconds, 30, 'fractions rejected');
   assert.equal(s.maxOutputTokens, 64);
   assert.equal(sanitizeSmartPickupEvaluator({ provider: 'cursor', model: ' auto ' })?.model, 'auto');
-  assert.equal(sanitizeSmartPickupEvaluator({ provider: 'deepseek', model: 'x' }), null);
+  assert.deepEqual(sanitizeSmartPickupEvaluator({ provider: 'deepseek', model: 'x' }), { provider: 'deepseek', model: 'x' });
   assert.equal(sanitizeSmartPickupEvaluator({ provider: 'codex', model: '' }), null);
   assert.equal(resolveAutoPickupMode(undefined, true), 'rule');
   assert.equal(resolveAutoPickupMode(undefined, undefined), 'off');

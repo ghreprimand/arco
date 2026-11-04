@@ -17,7 +17,7 @@ test('the utility agent is unset by default, kept across other patches, replaced
   await patchSettings({ projects: [] });
   assert.deepEqual((await readSettings()).utilityAgent, { provider: 'cursor', model: 'auto' });
   // An unsupported provider or empty model is dropped; the earlier choice stays.
-  await patchSettings({ utilityAgent: { provider: 'strata', model: 'x' } as never });
+  await patchSettings({ utilityAgent: { provider: 'unsupported', model: 'x' } as never });
   await patchSettings({ utilityAgent: { provider: 'claude', model: '  ' } as never });
   assert.deepEqual((await readSettings()).utilityAgent, { provider: 'cursor', model: 'auto' });
   await patchSettings({ utilityAgent: { provider: 'ollama', model: ' qwen ' } });
