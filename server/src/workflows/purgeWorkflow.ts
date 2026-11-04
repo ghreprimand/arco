@@ -14,7 +14,7 @@
 // caller logs what was removed. There is no undo; the type-to-confirm gate on the
 // nuclear tier is the only guard (enforced at the route).
 
-import { rm, readdir, unlink, readFile } from 'node:fs/promises';
+import { lstat, rm, readdir, unlink, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -107,6 +107,13 @@ export async function purgeWorkflow(
   opts: { nuclear: boolean; removeDir?: (dir: string) => Promise<void> },
 ): Promise<PurgeResult> {
   const removed: string[] = [];
+  // A link in the way (the project's .arco, .arco/workflows or the workflow
+  // folder) is never followed: refuse before anything is torn down.
+  for (const rel of ['.arco', join('.arco', 'workflows'), join('.arco', 'workflows', wfid)]) {
+    try {
+      if ((await lstat(join(cwd, rel))).isSymbolicLink()) return { ok: false, removed, error: `${rel.split('\\').join('/')} is a link, so nothing was deleted` };
+    } catch { /* missing: nothing to follow */ }
+  }
   try {
     // For nuclear, capture the provider sessions BEFORE the dir (holding
     // meta.json) is deleted.

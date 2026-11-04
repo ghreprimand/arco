@@ -9,7 +9,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - KEEP a whole conversation from the STORAGE view.
 
-- Add a STORAGE lens to the ARTIFACTS window: every project and Arco's own folder, largest first, with COMPRESS OLD LOGS per project and ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH per conversation, each confirmed. Kept items and plans always stay. STORAGE SETTINGS holds auto-archive (off by default, never deletes) and a disk budget notice (100 GiB).
+- Add a STORAGE lens to the ARTIFACTS window: every project and Arco's own folder, largest first, with COMPRESS OLD LOGS per project and ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH per conversation, each confirmed. Kept items and plans always stay, and an action refuses a linked folder instead of following it. STORAGE SETTINGS holds auto-archive (off by default, never deletes) and a disk budget notice (100 GiB).
 - Review artifact copies into project files with Git ignore, repository visibility, size and text checks. KEEP retains protected artifacts in Arco; copying never removes the original, stages or commits it. Large artifact warnings offer KEEP or DISMISS.
 
 - Measure storage in USAGE: MEASURE STORAGE (then MEASURE AGAIN) for the project and MEASURE ARCO FOLDER for Arco's own folder, with every byte under one heading (conversation logs, artifacts, worktrees, caches, voice models and more), log bytes by event type, and large files. Read-only.
@@ -24,7 +24,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Measure storage once a day in the background, read-only, for the disk-budget notice (100 GiB by default). The optional rule that archives conversations closed for a chosen number of days is off by default and never deletes.
 - Agents are told to put large intermediate files (builds, disk images, downloads) in the conversation's own scratch folder instead of its artifacts. Nothing in scratch is deleted automatically.
-- Seal long conversation logs into compressed pieces once the live log passes 16 MiB. Nothing is deleted, every view still shows the whole history, and `arco storage unseal` writes plain logs back before installing an older release.
+- Seal long conversation logs into compressed pieces once the live log passes 16 MiB. Nothing is deleted, every view still shows the whole history, a damaged piece never hides records the live log still holds, and `arco storage unseal` writes plain logs back before installing an older release.
 - Conversation logs no longer store a full copy of the task board on every change, and a cluster plan body is stored once in the plan history instead of in every member's log. Logs grow about half as fast in busy clusters; older logs read as before.
 - ARTIFACTS > PLANS groups projects and repeated titles, identifies plans in use and offers MARK DONE for probably finished plans.
 

@@ -213,20 +213,20 @@ In each conversation folder:
 Sealing runs in the conversation's existing flush chain (`flushBuffer`), after an append that leaves the live file at 16 MiB or more. Events keep getting sequence numbers and wait in memory while it runs; nothing waits on the server's event loop.
 
 1. Read the live file as a stream, up to its last complete line.
-2. Skip records whose sequence number is at or below the last sealed segment's `lastSeq` (left over from an interrupted seal).
-3. Write the records into segments of at most 16 MiB of records each: compress into a `.tmp` file, flush it to disk, rename it to its final name, flush the folder.
-4. Read each new segment back and check its record count and last sequence number.
-5. Write `log-format.json` if it is missing.
-6. Replace the live file with a new one that holds only the last sealed record, through a temporary file and a rename.
+2. Skip a record only when an existing segment's name covers its sequence number and that segment passes the content check: it decompresses, every line parses, sequence numbers rise, and the first and last match the name (left over from an interrupted seal, or the copied record). A segment that fails is renamed `<name>.damaged-<time>`, kept on disk and no longer read; its records are sealed again from the live file.
+3. Write the other records into segments of at most 16 MiB of records each, never spanning an existing segment: compress into a `.tmp` file, flush it to disk, read it back and compare, then rename it to its final name and flush the folder.
+4. Write `log-format.json` if it is missing.
+5. Replace the live file with a new one that holds only the newest sealed record, through a temporary file and a rename.
 
-The copied last record keeps sequence numbers continuous for a release that reads only `events.jsonl`. New readers skip any live record at or below the last sealed sequence number, so it is never seen twice.
+The copied last record keeps sequence numbers continuous for a release that reads only `events.jsonl`. New readers skip a live record only up to the newest sequence number they read from a segment, or that a checked segment holds, so it is never seen twice and a damaged segment never hides live records.
 
 ### Crash safety
 
 | Interrupted | On disk | Result |
 | --- | --- | --- |
-| Before a segment's rename | A `.tmp` file and the full live file | Readers ignore the `.tmp`; the next seal removes it and starts again. |
-| After some segments, before the live file is replaced | Segments and the full live file | Readers skip the live records already sealed; the next seal continues after the last sealed record. |
+| Before a segment's rename | A `.tmp` file and the full live file | Readers ignore the `.tmp`; the next seal removes it and starts again. A segment that failed its read-back is never renamed into place. |
+| After some segments, before the live file is replaced | Segments and the full live file | Readers skip the live records already read from a segment; the next seal checks those segments and continues after them. |
+| A segment whose content does not match its name (disk damage, or a release before this check) | That segment and the full live file | The next seal moves the segment aside and seals its records again from the live file. |
 | During the live file replacement | The old or the new live file, never half of one | Both are valid. |
 
 Sequence numbers come from `readLatestSeq`, which reads the live file's tail and, when that is empty, the `lastSeq` in the newest segment's name. They stay monotonic across seals, crashes and restarts.

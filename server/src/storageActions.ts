@@ -8,7 +8,7 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // when the KEEP file cannot be read, and is recorded in
 // <project>/.arco/storage-actions.jsonl.
 export class StorageActionError extends Error {
-  constructor(readonly code: 'keep_unreadable' | 'busy' | 'open' | 'not_found' | 'kept' | 'exists' | 'invalid', message: string) {
+  constructor(readonly code: 'keep_unreadable' | 'busy' | 'open' | 'not_found' | 'kept' | 'exists' | 'invalid' | 'unsafe', message: string) {
     super(message);
   }
 }
@@ -17,6 +17,37 @@ const WFID = /^[a-zA-Z0-9-]{1,64}$/;
 export function conversationDir(cwd: string, workflowId: string): string {
   if (!WFID.test(workflowId)) throw new StorageActionError('invalid', 'Invalid conversation id.');
   return path.join(cwd, '.arco', 'workflows', workflowId);
+}
+
+// Links are never followed by a storage action. The project's `.arco`,
+// `.arco/workflows` and the conversation folder must be real folders (not
+// links), and the folder must resolve to where its path says; otherwise the
+// action is refused before anything is read, written or removed.
+// `mayBeMissing`: a conversation folder that does not exist is fine (restore).
+export async function checkedConversationDir(cwd: string, workflowId: string, opts: { mayBeMissing?: boolean } = {}): Promise<string> {
+  const dir = conversationDir(cwd, workflowId);
+  for (const p of [path.join(cwd, '.arco'), path.join(cwd, '.arco', 'workflows'), dir]) {
+    let st;
+    try { st = await fs.lstat(p); }
+    catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      if (opts.mayBeMissing && p === dir) return dir;
+      throw new StorageActionError('not_found', 'The conversation folder was not found.');
+    }
+    if (st.isSymbolicLink() || !st.isDirectory()) throw unsafe(path.relative(cwd, p));
+  }
+  const expected = path.join(await fs.realpath(cwd), '.arco', 'workflows', workflowId);
+  if (await fs.realpath(dir) !== expected) throw unsafe(path.relative(cwd, dir));
+  return dir;
+}
+export function unsafe(rel: string): StorageActionError {
+  return new StorageActionError('unsafe', `${rel.split(path.sep).join('/')} is a link or not a folder, so nothing was changed.`);
+}
+// A folder or file inside a checked conversation folder: false when missing,
+// refused when it is a link.
+export async function checkedEntry(dir: string, rel: string): Promise<boolean> {
+  try { if ((await fs.lstat(path.join(dir, ...rel.split('/')))).isSymbolicLink()) throw unsafe(rel); return true; }
+  catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false; throw err; }
 }
 
 export async function recordStorageAction(cwd: string, entry: Record<string, unknown>): Promise<void> {
@@ -35,6 +66,9 @@ export interface RemovalResult { removedBytes: number; removedFiles: number; kep
 // except kept items. Links are removed as links, never followed.
 async function removeExceptKept(dir: string, rel: string, kept: Parameters<typeof isKept>[0], out: RemovalResult): Promise<void> {
   const abs = rel ? path.join(dir, ...rel.split('/')) : dir;
+  // The start folder itself is never a link (a link inside is removed as one).
+  try { if ((await fs.lstat(abs)).isSymbolicLink()) throw unsafe(rel || '.'); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return; throw err; }
   let entries;
   try { entries = await fs.readdir(abs, { withFileTypes: true }); }
   catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return; throw err; }
@@ -68,8 +102,9 @@ export async function treeSize(p: string): Promise<{ bytes: number; files: numbe
 // items. Refused while the conversation is working and when the KEEP file
 // cannot be read.
 export async function emptyScratch(cwd: string, workflowId: string, opts: { busy: boolean }): Promise<RemovalResult> {
-  const dir = conversationDir(cwd, workflowId);
   if (opts.busy) throw new StorageActionError('busy', 'The conversation is working; empty its scratch folder when it is idle.');
+  const dir = await checkedConversationDir(cwd, workflowId, { mayBeMissing: true });
+  await checkedEntry(dir, 'scratch');
   return withKeepLock(dir, async () => {
   const keep = await readKeep(dir);
   if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was deleted.');
@@ -89,8 +124,12 @@ export async function deleteConversation(
   cwd: string, workflowId: string,
   opts: { open: boolean; busy: boolean; purge: (cwd: string, id: string, o: { nuclear: boolean; removeDir?: (dir: string) => Promise<void> }) => Promise<{ ok: boolean; error?: string }>; archiveFile?: string },
 ): Promise<RemovalResult> {
-  const dir = conversationDir(cwd, workflowId);
   if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before deleting it.');
+  const dir = await checkedConversationDir(cwd, workflowId, { mayBeMissing: true });
+  if (opts.archiveFile) {
+    try { if (!(await fs.lstat(opts.archiveFile)).isFile()) throw unsafe(path.relative(cwd, opts.archiveFile)); }
+    catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+  }
   return withKeepLock(dir, async () => {
   const keep = await readKeep(dir);
   if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was deleted.');
@@ -133,6 +172,8 @@ export async function compressOldLogs(
   try { names = await fs.readdir(root); } catch { names = []; }
   for (const id of names.sort()) {
     if (!WFID.test(id)) continue;
+    // Linked folders are never sealed into (checkedConversationDir refuses them).
+    try { await checkedConversationDir(cwd, id); } catch { continue; }
     const live = path.join(root, id, 'events.jsonl');
     let size = 0;
     try { const st = await fs.lstat(live); if (!st.isFile()) continue; size = st.size; } catch { continue; }

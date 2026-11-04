@@ -91,6 +91,26 @@ test('capMessages keeps user and assistant rows on a long chat full of system ro
   assert.ok(capped.filter((m) => m.role !== 'system').length >= 200);
 });
 
+test('capMessages keeps user and assistant rows when every turn also has a tool card', () => {
+  const rows: ChatMessage[] = [];
+  for (let t = 0; t < 300; t++) {
+    rows.push(msg(`u-${t}`, t * 5, { role: 'user', content: `question ${t}` }));
+    rows.push(msg(`s-${t}-a`, t * 5 + 1, { role: 'system' }));
+    rows.push(msg(`a-${t}`, t * 5 + 2, { content: `answer ${t}` }));
+    rows.push(msg(`s-${t}-b`, t * 5 + 3, { role: 'system' }));
+    rows.push(msg(`t-${t}`, t * 5 + 4, {
+      toolUse: { tool: 'Bash', input: { command: 'echo hi' }, toolUseId: `tool-${t}` },
+    }));
+  }
+  const capped = capMessages(rows);
+  assert.equal(capped.length, 500);
+  const ids = new Set(capped.map((m) => m.id));
+  assert.ok(ids.has('u-299') && ids.has('a-299'));
+  assert.ok(capped.filter((m) => m.role !== 'system').length >= 200);
+  const userAndAssistant = capped.filter((m) => m.role === 'user' || (m.role === 'assistant' && !m.toolUse));
+  assert.ok(userAndAssistant.length >= 100);
+});
+
 test('isStarvedChat flags only long chats without user or assistant rows', () => {
   const sys = (n: number) => Array.from({ length: n }, (_, i) => msg(`s-${i}`, i, { role: 'system' }));
   assert.equal(isStarvedChat(sys(120)), true);

@@ -9,7 +9,7 @@ import {
   flushWorkflowBuffer, forgetWorkflowBuffer, getHeadSeq, initWorkflowStore, persistAndStampSeq,
   readEventsPageBefore, readFirstSeq, replayEvents, replayEventsWithTs, replayTailEvents, scanEventsOfTypes,
 } from './workflowStore.js';
-import { listSegments, readLogHeadSync, readLogLines, readLogTailSync, readLogText, sealLiveLog, segmentName } from './eventLog.js';
+import { listSegments, readLogHeadSync, readLogLines, readLogTail, readLogTailSync, readLogText, readLogTextSync, sealLiveLog, segmentName } from './eventLog.js';
 import { readCatchUpEvents } from './catchUp.js';
 import { scanOperatorMessages } from './workflows/sessionIndex.js';
 import { readMemberActivity } from './management/clusterActivity.js';
@@ -231,5 +231,69 @@ test('COMPRESS OLD LOGS seals closed conversations only, without losing events w
     assert.deepEqual(seqs(await replayEvents(cwd, 'old-0001', 0)), range(1, 3001));
     const log = (await readFile(path.join(cwd, '.arco', 'storage-actions.jsonl'), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
     assert.equal(log.at(-1).action, 'compress_logs');
+  });
+});
+
+// Damaged segments (gate finding): a name is never trusted over the live copy.
+function recordsText(from: number, to: number): string {
+  return Array.from({ length: to - from + 1 }, (_, i) => JSON.stringify({ seq: from + i, type: 'primary_text', text: `r${from + i} ${'x'.repeat(60)}` })).join('\n') + '\n';
+}
+function seqsOfText(text: string): number[] {
+  return text.split('\n').filter(Boolean).map((l) => JSON.parse(l).seq as number);
+}
+
+test('every reader prefers the live copy over a segment whose content does not match its name', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0010';
+    await mkdir(dir(id), { recursive: true });
+    await writeFile(path.join(dir(id), segmentName(1, 30)), brotliCompressSync(recordsText(1, 1)));
+    await writeFile(path.join(dir(id), 'events.jsonl'), recordsText(1, 30));
+    const original = console.error; console.error = () => {};
+    try {
+      assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 30));
+      assert.deepEqual(seqsOfText(await readLogText(dir(id))), range(1, 30));
+      assert.deepEqual(seqsOfText(readLogTextSync(dir(id))), range(1, 30));
+      assert.deepEqual(seqsOfText((await readLogTail(dir(id), 1 << 20)).text), range(1, 30));
+      assert.deepEqual(seqsOfText(readLogTailSync(dir(id), 1 << 20).text), range(1, 30));
+      assert.deepEqual(seqsOfText(readLogHeadSync(dir(id), 1 << 20)), range(1, 30));
+    } finally { console.error = original; }
+  });
+});
+
+test('a damaged segment between sound ones is moved aside and its records sealed again from the live log', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0011';
+    await mkdir(dir(id), { recursive: true });
+    await writeFile(path.join(dir(id), segmentName(1, 10)), brotliCompressSync(recordsText(1, 10)));
+    await writeFile(path.join(dir(id), segmentName(11, 20)), Buffer.from('not brotli'));
+    await writeFile(path.join(dir(id), segmentName(21, 30)), brotliCompressSync(recordsText(21, 30)));
+    await writeFile(path.join(dir(id), 'events.jsonl'), recordsText(1, 35));
+    const original = console.error; console.error = () => {};
+    let result;
+    try { result = await sealLiveLog(dir(id), 1 << 20); } finally { console.error = original; }
+    assert.ok(result);
+    assert.equal(result.movedAside.length, 1);
+    const names = await readdir(dir(id));
+    assert.ok(names.some((n) => n.startsWith(`${segmentName(11, 20)}.damaged-`)), 'the damaged segment is kept, renamed');
+    assert.deepEqual((await listSegments(dir(id))).map((s) => [s.firstSeq, s.lastSeq]), [[1, 10], [11, 20], [21, 30], [31, 35]]);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 35));
+    assert.deepEqual(seqsOfText(readLogTailSync(dir(id), 1 << 20).text), range(1, 35));
+    const live = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean);
+    assert.deepEqual(live.map((l) => JSON.parse(l).seq), [35]);
+  });
+});
+
+test('a seal with every live record already in sound segments only replaces the live file', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0012';
+    await mkdir(dir(id), { recursive: true });
+    await writeFile(path.join(dir(id), segmentName(1, 20)), brotliCompressSync(recordsText(1, 20)));
+    await writeFile(path.join(dir(id), 'events.jsonl'), recordsText(1, 20));
+    const result = await sealLiveLog(dir(id), 1 << 20);
+    assert.ok(result);
+    assert.deepEqual(result.segments, []);
+    assert.deepEqual((await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean).map((l) => JSON.parse(l).seq), [20]);
+    assert.equal(await sealLiveLog(dir(id), 1 << 20), null, 'a live file holding only the copied record is left alone');
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 20));
   });
 });

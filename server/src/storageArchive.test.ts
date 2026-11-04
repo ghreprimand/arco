@@ -191,8 +191,9 @@ test('a KEEP written while DELETE runs is not undone', async () => {
     const gate = new Promise<void>((r) => { release = r; });
     // DELETE takes the lock first and is held inside the purge; a KEEP writer
     // queued behind it runs only after DELETE finished.
-    const deleting = deleteConversation(cwd, ID, { open: false, busy: false, purge: async (c, i, o) => { await gate; return purgeDir(dir)(c, i, o); } });
-    await new Promise((r) => setImmediate(r));
+    let entered = false;
+    const deleting = deleteConversation(cwd, ID, { open: false, busy: false, purge: async (c, i, o) => { entered = true; await gate; return purgeDir(dir)(c, i, o); } });
+    while (!entered) await new Promise((r) => setImmediate(r));
     let wrote = false;
     const writer = withKeepLock(dir, async () => { wrote = true; });
     await new Promise((r) => setImmediate(r));

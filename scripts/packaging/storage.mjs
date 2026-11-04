@@ -80,14 +80,22 @@ export async function knownProjects(home) {
   return [...out];
 }
 
+async function isLink(p) {
+  try { return (await fs.lstat(p)).isSymbolicLink(); } catch { return false; }
+}
+
 export async function unsealProjects(projects, log = console.log) {
   let conversations = 0, records = 0;
   for (const project of projects) {
     const root = join(project, '.arco', 'workflows');
+    // Links are never followed: a linked .arco, .arco/workflows or
+    // conversation folder is skipped.
+    if (await isLink(join(project, '.arco')) || await isLink(root)) { log(`Skipped ${project}: its .arco or .arco/workflows folder is a link.`); continue; }
     let names = [];
     try { names = await fs.readdir(root); } catch { continue; }
     for (const name of names) {
       if (!WFID_RE.test(name)) continue;
+      if (await isLink(join(root, name))) { log(`Skipped conversation ${name}: its folder is a link.`); continue; }
       const result = await unsealLog(join(root, name));
       if (!result) continue;
       conversations++; records += result.records;

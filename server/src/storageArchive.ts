@@ -5,7 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { STAYING_FILES, holdsKept, isKept, readKeep, withKeepLock } from './keepStore.js';
-import { conversationDir, recordStorageAction, StorageActionError } from './storageActions.js';
+import { checkedConversationDir, conversationDir, recordStorageAction, StorageActionError, unsafe } from './storageActions.js';
 import { renameWithRetry } from './atomicFile.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 
@@ -138,11 +138,27 @@ function safeRel(rel: string): string {
 
 export interface ArchiveResult { files: number; originalBytes: number; archiveBytes: number; keptItems: number }
 
+// The project's archive folder is a real folder (or missing), never a link.
+async function checkedArchiveDir(cwd: string): Promise<void> {
+  try { const st = await fs.lstat(archiveDir(cwd)); if (st.isSymbolicLink() || !st.isDirectory()) throw unsafe(path.join('.arco', 'archive')); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+}
+
+// Every existing part of `rel` below the conversation folder is a real folder
+// or file, not a link.
+async function noLinkOnPath(dir: string, rel: string): Promise<void> {
+  const parts = rel.split('/');
+  for (let i = 1; i <= parts.length; i++) {
+    const sub = parts.slice(0, i).join('/');
+    try { if ((await fs.lstat(path.join(dir, ...parts.slice(0, i)))).isSymbolicLink()) throw unsafe(sub); }
+    catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return; throw err; }
+  }
+}
+
 export async function archiveConversation(cwd: string, workflowId: string, opts: { open: boolean; busy: boolean; by: 'operator' | 'policy' }): Promise<ArchiveResult> {
-  const dir = conversationDir(cwd, workflowId);
   if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before archiving it.');
-  try { if (!(await fs.lstat(dir)).isDirectory()) throw new Error(); }
-  catch { throw new StorageActionError('not_found', 'The conversation folder was not found.'); }
+  const dir = await checkedConversationDir(cwd, workflowId);
+  await checkedArchiveDir(cwd);
   const target = archivePath(cwd, workflowId);
   try { await fs.lstat(target); throw new StorageActionError('exists', 'An archive of this conversation already exists.'); }
   catch (err) { if (err instanceof StorageActionError) throw err; }
@@ -177,8 +193,12 @@ export async function archiveConversation(cwd: string, workflowId: string, opts:
       await fs.rm(tmp, { force: true });
       throw err;
     }
-    // Remove what was archived; kept items and links stay.
-    for (const f of files) await fs.rm(path.join(dir, ...f.path.split('/')), { force: true });
+    // Remove what was archived; kept items and links stay. A folder swapped
+    // for a link since the walk stops the removal.
+    for (const f of files) {
+      await noLinkOnPath(dir, f.path);
+      await fs.rm(path.join(dir, ...f.path.split('/')), { force: true });
+    }
     await pruneEmptyFolders(dir, keep.items);
     const archiveBytes = (await fs.stat(target)).size;
     const originalBytes = files.reduce((n, f) => n + f.size, 0);
@@ -209,9 +229,12 @@ export interface RestoreResult { files: number; restoredBytes: number }
 // already exists there (nothing is overwritten); the archive is removed only
 // after every file is written and checked.
 export async function restoreConversation(cwd: string, workflowId: string): Promise<RestoreResult> {
-  const dir = conversationDir(cwd, workflowId);
+  const dir = await checkedConversationDir(cwd, workflowId, { mayBeMissing: true });
+  await checkedArchiveDir(cwd);
   const source = archivePath(cwd, workflowId);
-  try { await fs.lstat(source); } catch { throw new StorageActionError('not_found', 'No archive of this conversation was found.'); }
+  let sourceStat;
+  try { sourceStat = await fs.lstat(source); } catch { throw new StorageActionError('not_found', 'No archive of this conversation was found.'); }
+  if (!sourceStat.isFile()) throw unsafe(path.relative(cwd, source));
   // A file that already exists (keep.json included) is never overwritten.
   const collisions: string[] = [];
   // First pass: the whole archive reads back with matching hashes, and no
@@ -221,6 +244,7 @@ export async function restoreConversation(cwd: string, workflowId: string): Prom
     const h = createHash('sha256');
     for await (const chunk of data) h.update(chunk);
     if (h.digest('hex') !== entry.sha256) throw new Error(`${rel} is damaged in the archive; nothing was restored`);
+    await noLinkOnPath(dir, rel);
     try { await fs.lstat(path.join(dir, ...rel.split('/'))); collisions.push(rel); } catch { /* free */ }
   });
   if (collisions.length) throw new StorageActionError('exists', `The conversation folder already holds ${collisions[0]}; nothing was restored.`);
@@ -228,7 +252,9 @@ export async function restoreConversation(cwd: string, workflowId: string): Prom
   await readArchive(source, async (entry, data) => {
     const rel = safeRel(entry.path);
     const dest = path.join(dir, ...rel.split('/'));
+    await noLinkOnPath(dir, rel);
     await fs.mkdir(path.dirname(dest), { recursive: true });
+    await noLinkOnPath(dir, rel);
     const tmp = `${dest}.${randomUUID()}.tmp`;
     const h = createHash('sha256');
     async function* hashed() { for await (const c of data) { h.update(c); yield c; } }
