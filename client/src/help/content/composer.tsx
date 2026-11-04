@@ -4,7 +4,7 @@ import type { HelpEntry } from './shared';
 export const composerHelp: Record<string, HelpEntry> = {
   'composer.tidy': {
     title: 'Tidy draft',
-    body: <p>Ask the chosen utility agent to propose a clearer draft. The original stays in the composer until ACCEPT; KEEP ORIGINAL or Escape closes the dialog without changing it. REFINE adds instructions, BACK revisits earlier proposals, and the proposal can be edited. UNDO TIDY restores the original until the draft changes. The draft and directives are sent to the chosen provider; nothing is sent to the worker automatically.</p>,
+    body: <p>Ask the chosen utility agent to propose a clearer draft. The original stays in the composer until ACCEPT; KEEP ORIGINAL, the close button in the dialog header or Escape closes the dialog without changing it. REFINE adds instructions, BACK revisits earlier proposals, and the proposal can be edited. UNDO TIDY restores the original until the draft changes. The draft and directives are sent to the chosen provider; nothing is sent to the worker automatically.</p>,
     manualSection: 'utility-agent',
   },
   // ---------------------------------------------------------------- COMPOSER

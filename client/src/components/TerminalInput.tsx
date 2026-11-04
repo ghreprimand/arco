@@ -28,6 +28,7 @@ import { MdTuneupDialog } from './MdTuneupDialog';
 import { ResearchDialog } from './ResearchDialog';
 import { mintResearchSpawnToken, registerPendingResearch } from './terminalInput/research';
 import { beginPlanReview, planDraftPrompt } from './terminalInput/planDraft';
+import { DialogPortal } from './DialogShell';
 import { openCompareDialog } from './terminalInput/compare';
 import { PrimaryStatus } from './PrimaryStatus';
 import { QueuedMessagesIndicator } from './QueuedMessagesIndicator';
@@ -2077,6 +2078,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         </div>
       </div>
 
+      <DialogPortal>
       {showSkillEditor && (
         <div data-help="composer.skills">
           <SkillEditorDialog cwd={job.config.workingDirectory ?? ''} target={{ scope: job.config.workingDirectory ? 'project' : 'global' }}
@@ -2259,6 +2261,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           onCancel={() => setShowResearchDialog(false)}
         />
       )}
+      </DialogPortal>
     </div>
   );
 }

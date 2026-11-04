@@ -78,6 +78,21 @@ async def main():
         assert await dialog.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1 && e.firstElementChild.scrollWidth <= e.firstElementChild.clientWidth + 1')
         assert await dialog.locator('pre').evaluate('(e) => e.scrollHeight > e.clientHeight')
         await page.get_by_role('button', name='KEEP ORIGINAL').click(); assert len(await page.evaluate("d.getState().drafts.fixture")) == 12000
+        # Inside a transformed, filtered ancestor with a covering control and a short window: the dialog is portaled
+        # to the body, opaque, and its error line and actions are visible and topmost.
+        await page.evaluate("""() => {
+          const f = document.getElementById('fixture'); f.style.cssText = 'transform: translateZ(0); filter: blur(0px); position: relative; z-index: 1; height: 120px; overflow: hidden';
+          const cover = document.createElement('button'); cover.id = 'cover'; cover.textContent = 'COVER'; cover.style.cssText = 'position:fixed;bottom:0;right:0;z-index:1900;width:240px;height:60px'; document.body.appendChild(cover);
+        }""")
+        state['mode'] = 'timeout'; await page.set_viewport_size({'width': 900, 'height': 360})
+        await page.get_by_role('button', name='TIDY', exact=True).click(); await expect(dialog).to_contain_text('did not answer in time')
+        assert await dialog.evaluate('(e) => e.parentElement === document.body')
+        for name in ['TRY AGAIN', 'KEEP ORIGINAL', 'ACCEPT']:
+            button = dialog.get_by_role('button', name=name, exact=True); await button.scroll_into_view_if_needed()
+            assert await button.evaluate('(b) => { const r = b.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.top >= 0 && r.bottom <= innerHeight && (t === b || b.contains(t)); }'), name
+        assert await dialog.get_by_role('status').filter(has_text='did not answer in time').evaluate('(e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }')
+        assert await dialog.evaluate('(e) => getComputedStyle(e.firstElementChild).backgroundColor !== "rgba(0, 0, 0, 0)"')
+        await dialog.get_by_role('button', name='Close', exact=True).click(); await expect(dialog).to_have_count(0)
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()

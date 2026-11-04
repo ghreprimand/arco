@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Fixed
+
+- Fix TIDY, CATCH ME UP and BRIEF dialogs being clipped or painted over inside the composer: they open above the whole window on an opaque surface, keep the result or error line and the buttons visible at small window heights, and share one layout with FORWARD and SEND TRANSCRIPT (title in small spaced capitals, close button in the header, actions at the bottom right). Other composer dialogs (GIT, SPAWN, HANDOFF, REVIEW, PLAN and the rest) now also open above the composer instead of inside it.
+
 ## v0.1.3 - 2026-11-04
 
 ### Added
