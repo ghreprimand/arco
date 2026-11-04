@@ -299,10 +299,12 @@ export async function readLogTail(dir: string, maxBytes: number): Promise<{ text
   const segments = await listSegments(dir);
   let text = dropSealed(live, await trustedThrough(segments));
   let i = segments.length - 1;
+  // A damaged segment is reported and skipped; older sound ones still count,
+  // as in the full reader.
   while (i >= 0 && Buffer.byteLength(text) < maxBytes) {
-    if (!(await segmentIsSound(segments[i]))) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); break; }
+    if (!(await segmentIsSound(segments[i]))) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); i--; continue; }
     try { text = (await segmentText(segments[i])) + text; }
-    catch (err) { if (!(err instanceof SegmentReadError)) throw err; reportUnreadable(err); break; }
+    catch (err) { if (!(err instanceof SegmentReadError)) throw err; reportUnreadable(err); }
     i--;
   }
   return clipTail(text, maxBytes, i >= 0);
@@ -340,8 +342,8 @@ export function readLogTailSync(dir: string, maxBytes: number): { text: string; 
   let text = dropSealed(live, trustedThroughSync(segments));
   let i = segments.length - 1;
   while (i >= 0 && Buffer.byteLength(text) < maxBytes) {
-    if (!segmentIsSoundSync(segments[i])) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); break; }
-    try { text = decompressSegmentSync(segments[i]) + text; } catch (err) { reportUnreadable(err); break; }
+    if (!segmentIsSoundSync(segments[i])) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); i--; continue; }
+    try { text = decompressSegmentSync(segments[i]) + text; } catch (err) { reportUnreadable(err); }
     i--;
   }
   return clipTail(text, maxBytes, i >= 0);
@@ -381,6 +383,17 @@ export function readLogHeadSync(dir: string, maxBytes: number): string {
 export async function sealedThroughSeq(dir: string): Promise<number> {
   const segments = await listSegments(dir);
   return segments.length ? segments[segments.length - 1].lastSeq : 0;
+}
+// Highest sequence number any segment name has ever claimed, including
+// segments moved aside as damaged (`*.damaged-<time>`), so sequence recovery
+// never hands out a number a segment name already used.
+const NAMED_RE = /^events\.\d{12}-(\d{12})\.jsonl\.br(?:\.damaged-\d+)?$/;
+export async function highestNamedSeq(dir: string): Promise<number> {
+  let names: string[] = [];
+  try { names = await fs.readdir(dir); } catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0; throw err; }
+  let max = 0;
+  for (const name of names) { const m = NAMED_RE.exec(name); if (m) max = Math.max(max, Number(m[1])); }
+  return max;
 }
 export async function firstSealedSeq(dir: string): Promise<number | null> {
   const segments = await listSegments(dir);

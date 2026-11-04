@@ -43,6 +43,13 @@ export async function checkedConversationDir(cwd: string, workflowId: string, op
 export function unsafe(rel: string): StorageActionError {
   return new StorageActionError('unsafe', `${rel.split(path.sep).join('/')} is a link or not a folder, so nothing was changed.`);
 }
+// The project's archive folder: a real folder or missing, never a link.
+export async function checkedArchiveFolder(cwd: string): Promise<void> {
+  const p = path.join(cwd, '.arco', 'archive');
+  try { const st = await fs.lstat(p); if (st.isSymbolicLink() || !st.isDirectory()) throw unsafe(path.join('.arco', 'archive')); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+}
+
 // A folder or file inside a checked conversation folder: false when missing,
 // refused when it is a link.
 export async function checkedEntry(dir: string, rel: string): Promise<boolean> {
@@ -127,6 +134,7 @@ export async function deleteConversation(
   if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before deleting it.');
   const dir = await checkedConversationDir(cwd, workflowId, { mayBeMissing: true });
   if (opts.archiveFile) {
+    await checkedArchiveFolder(cwd);
     try { if (!(await fs.lstat(opts.archiveFile)).isFile()) throw unsafe(path.relative(cwd, opts.archiveFile)); }
     catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
   }
@@ -148,6 +156,9 @@ export async function deleteConversation(
   if (!result.ok) throw new Error(result.error || 'The conversation could not be deleted.');
   if (archived && opts.archiveFile) {
     out.removedBytes += (await fs.stat(opts.archiveFile)).size; out.removedFiles++;
+    // Checked again right before the removal.
+    await checkedArchiveFolder(cwd);
+    if (!(await fs.lstat(opts.archiveFile)).isFile()) throw unsafe(path.relative(cwd, opts.archiveFile));
     await fs.rm(opts.archiveFile, { force: true });
   }
   await recordStorageAction(cwd, { action: 'delete', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });

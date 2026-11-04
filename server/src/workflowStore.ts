@@ -24,7 +24,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import {
   LOG_FORMAT, firstSealedSeq, readLogFormat, readLogLines, readLogTail, sealLiveLog,
-  sealThresholdBytes, sealedThroughSeq, type SealResult,
+  sealThresholdBytes, highestNamedSeq, type SealResult,
 } from './eventLog.js';
 import type { ServerMessage } from '@arco/shared';
 
@@ -147,8 +147,9 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
   const { cwd, wfid } = buf;
   try {
     // A live file that holds no record (all of it sealed) falls back to the
-    // newest segment's last sequence number, from its file name.
-    buf.seq = Math.max(await readLatestSeq(eventsPath(cwd, wfid)), await sealedThroughSeq(workflowDir(cwd, wfid)));
+    // highest sequence number any segment name has claimed, damaged ones moved
+    // aside included, so no number is ever reused.
+    buf.seq = Math.max(await readLatestSeq(eventsPath(cwd, wfid)), await highestNamedSeq(workflowDir(cwd, wfid)));
   } catch (err) {
     console.error(`[arco] workflowStore init failed for ${wfid.slice(0, 8)}:`, err);
     buf.seq = 0;

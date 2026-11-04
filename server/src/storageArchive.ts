@@ -5,7 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { STAYING_FILES, holdsKept, isKept, readKeep, withKeepLock } from './keepStore.js';
-import { checkedConversationDir, conversationDir, recordStorageAction, StorageActionError, unsafe } from './storageActions.js';
+import { checkedArchiveFolder, checkedConversationDir, conversationDir, recordStorageAction, StorageActionError, unsafe } from './storageActions.js';
 import { renameWithRetry } from './atomicFile.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 
@@ -138,12 +138,6 @@ function safeRel(rel: string): string {
 
 export interface ArchiveResult { files: number; originalBytes: number; archiveBytes: number; keptItems: number }
 
-// The project's archive folder is a real folder (or missing), never a link.
-async function checkedArchiveDir(cwd: string): Promise<void> {
-  try { const st = await fs.lstat(archiveDir(cwd)); if (st.isSymbolicLink() || !st.isDirectory()) throw unsafe(path.join('.arco', 'archive')); }
-  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
-}
-
 // Every existing part of `rel` below the conversation folder is a real folder
 // or file, not a link.
 async function noLinkOnPath(dir: string, rel: string): Promise<void> {
@@ -158,7 +152,7 @@ async function noLinkOnPath(dir: string, rel: string): Promise<void> {
 export async function archiveConversation(cwd: string, workflowId: string, opts: { open: boolean; busy: boolean; by: 'operator' | 'policy' }): Promise<ArchiveResult> {
   if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before archiving it.');
   const dir = await checkedConversationDir(cwd, workflowId);
-  await checkedArchiveDir(cwd);
+  await checkedArchiveFolder(cwd);
   const target = archivePath(cwd, workflowId);
   try { await fs.lstat(target); throw new StorageActionError('exists', 'An archive of this conversation already exists.'); }
   catch (err) { if (err instanceof StorageActionError) throw err; }
@@ -230,7 +224,7 @@ export interface RestoreResult { files: number; restoredBytes: number }
 // after every file is written and checked.
 export async function restoreConversation(cwd: string, workflowId: string): Promise<RestoreResult> {
   const dir = await checkedConversationDir(cwd, workflowId, { mayBeMissing: true });
-  await checkedArchiveDir(cwd);
+  await checkedArchiveFolder(cwd);
   const source = archivePath(cwd, workflowId);
   let sourceStat;
   try { sourceStat = await fs.lstat(source); } catch { throw new StorageActionError('not_found', 'No archive of this conversation was found.'); }
@@ -264,7 +258,8 @@ export async function restoreConversation(cwd: string, workflowId: string): Prom
     await fs.utimes(dest, new Date(entry.mtimeMs), new Date(entry.mtimeMs)).catch(() => undefined);
     files++; restoredBytes += entry.size;
   });
-  await fs.rm(source, { force: true });
+  await checkedArchiveFolder(cwd);
+  if ((await fs.lstat(source)).isFile()) await fs.rm(source, { force: true });
   await recordStorageAction(cwd, { action: 'restore', workflowId, files, restoredBytes });
   return { files, restoredBytes };
 }
