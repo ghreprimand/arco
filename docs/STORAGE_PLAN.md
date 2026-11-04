@@ -129,7 +129,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 
 ### 4. Log segments (P7.3, approved)
 
-- **Recommendation:** seal the live log when it passes 16 MiB into compressed segments of at most 64 MiB of records each, using Brotli from `node:zlib` (quality 5, 16 MiB window). This differs from the earlier gzip suggestion: Brotli is equally built in and is 3 to 1,000 times more effective on these logs, and faster on the large ones.
+- **Recommendation:** seal the live log when it passes 16 MiB into compressed segments of at most 16 MiB of records each, using Brotli from `node:zlib` (quality 5, 16 MiB window). This differs from the earlier gzip suggestion: Brotli is equally built in and is 3 to 1,000 times more effective on these logs, and faster on the large ones.
 - **Trade-off:** fewer outside tools read Brotli than gzip. The export command below turns any log back into one plain file.
 
 ### 5. Downgrade (P7.3)
@@ -206,7 +206,7 @@ Sealing runs in the conversation's existing flush chain (`flushBuffer`), after a
 
 1. Read the live file as a stream, up to its last complete line.
 2. Skip records whose sequence number is at or below the last sealed segment's `lastSeq` (left over from an interrupted seal).
-3. Write the records into segments of at most 64 MiB of records each: compress into a `.tmp` file, flush it to disk, rename it to its final name, flush the folder.
+3. Write the records into segments of at most 16 MiB of records each: compress into a `.tmp` file, flush it to disk, rename it to its final name, flush the folder.
 4. Read each new segment back and check its record count and last sequence number.
 5. Write `log-format.json` if it is missing.
 6. Replace the live file with a new one that holds only the last sealed record, through a temporary file and a rename.
@@ -225,27 +225,27 @@ Sequence numbers come from `readLatestSeq`, which reads the live file's tail and
 
 ### Readers
 
-A new module, `server/src/eventLog.ts`, gives every reader the same view: segments in order, then the live file, each record once. Its functions: `listSegments`, `readRecords` (an async stream from a sequence number), `readAllText`, `readTail` and `readFirstRecord` (with synchronous versions for the synchronous readers).
+A new module, `server/src/eventLog.ts`, gives every reader the same view: segments in order, then the live file, each record once. Its functions: `listSegments`, `readLogLines` (an async stream from a sequence number), `readLogText`, `readLogTail`, and for the synchronous readers `readLogTailSync` and `readLogHeadSync`.
 
 | Reader | File and function | Change |
 | --- | --- | --- |
 | Sequence recovery | `workflowStore.ts` `readLatestSeq` | Falls back to the newest segment name. |
 | First sequence (gap fallback) | `workflowStore.ts` `readFirstSeq` | Oldest segment name; else the live file's first record. |
-| Full replay | `workflowStore.ts` `replayEvents`, `replayEventsWithTs` | `readRecords`. |
-| HISTORY pages | `workflowStore.ts` `readEventsPageBefore` | `readRecords`. |
-| Tail replay | `workflowStore.ts` `replayTailEvents` | Live tail; adds the newest segment's tail when the live file is shorter than the limit. |
-| Typed scan | `workflowStore.ts` `scanEventsOfTypes` | `readRecords` with the same text filter. |
-| Resume and REWIND | `resumeSummary.ts` `replayMessagesWithResumePolicy` | `readRecords` for the whole history and branch ancestry; `readTail` for the tail. |
-| Saved cluster save | `clusterSnapshots.ts` `saveSnapshot` | `readAllText`. The snapshot stays one plain log per member; the 512 MiB cap applies to the uncompressed text. |
+| Full replay | `workflowStore.ts` `replayEvents`, `replayEventsWithTs` | `readLogLines`. |
+| HISTORY pages | `workflowStore.ts` `readEventsPageBefore` | `readLogLines`. |
+| Tail replay | `workflowStore.ts` `replayTailEvents` | `readLogTail`: the live tail, plus the newest segments when the live file is shorter than the limit. |
+| Typed scan | `workflowStore.ts` `scanEventsOfTypes` | `readLogLines` with the same text filter. |
+| Resume and REWIND | `resumeSummary.ts` `replayMessagesWithResumePolicy` | The whole history (`readLogText`) when segments exist, as one byte-addressed text; the plain-log path is unchanged. |
+| Saved cluster save | `clusterSnapshots.ts` `saveSnapshot` | `readLogText`. The snapshot stays one plain log per member; the 512 MiB cap applies to the uncompressed text. |
 | Saved cluster restore | `clusterSnapshots.ts` `restoreSnapshot` | No change: it writes a new plain log. |
-| CATCH ME UP | `catchUp.ts` `readCatchUpEvents` | `readTail`. |
-| Resume picker | `workflows/sessionIndex.ts` `scanOperatorMessages` | `readRecords`. |
-| Session titles | `workflows/sessionDiscovery.ts` `readFirstUserText` | `readFirstRecord` (synchronous). |
-| Recall | `recall/index.ts` `scanEvents` | `readRecords`. |
-| Hub link | `management/initHubLink.ts` `readLastMessage`, `readFullTranscript` | Synchronous `readTail` and full read. |
-| Cluster activity | `management/clusterActivity.ts` `readMemberActivity` | Synchronous `readTail`. |
+| CATCH ME UP | `catchUp.ts` `readCatchUpEvents` | `readLogTail`. |
+| Resume picker | `workflows/sessionIndex.ts` `scanOperatorMessages` | `readLogLines`. |
+| Session titles | `workflows/sessionDiscovery.ts` `readFirstUserText` | `readLogHeadSync`. |
+| Recall | `recall/index.ts` `scanEvents` | `readLogLines`. |
+| Hub link | `management/initHubLink.ts` `readLastMessage`, `readFullTranscript` | `readLogTailSync`. |
+| Cluster activity | `management/clusterActivity.ts` `readMemberActivity` | `readLogTailSync`. |
 | Outputs | `outputs.ts` `reconcile` | Its byte offset into `events.jsonl` becomes a sequence cursor, because sealing replaces the live file. |
-| Usage | `http/usageStatsRoutes.ts` `collectWorkflowUsage` | `readRecords`. |
+| Usage | `http/usageStatsRoutes.ts` `collectWorkflowUsage` | `readLogLines`. |
 | Storage report | `storageReport.ts` | Already counts segments by type. |
 | Genesis move | `ws/genesisHandlers.ts` `moveWorkflowStoreDir` | No change: it moves the whole folder. |
 | Delete | `http/workflowDataRoutes.ts` `purgeWorkflow` | No change: it removes the whole folder. |
@@ -269,7 +269,7 @@ A segment that cannot be read is reported and skipped; the reader continues with
 | Live file holding only the copied record | Sequence recovery, reconnect, the next append continues the sequence. |
 | Interrupted seal (each row of the crash table) | No record lost or seen twice; the next seal finishes the job. |
 | A record larger than 1 MiB at the end | Sequence recovery and tail replay. |
-| Several segments, including a legacy 400 MB log sealed in one go | Order, sequence continuity, memory stays bounded while reading. |
+| Several segments, including a long plain log sealed in one go | Order and sequence continuity; reading streams one segment at a time. |
 | An unreadable segment | Reported, skipped, the rest readable, nothing deleted. |
 | Concurrent appends during a seal | All records present, in order. |
 | `arco storage unseal` | Produces one plain log equal to the full history; a plain-log reader (the 0.1.3 behavior) then sees everything. |

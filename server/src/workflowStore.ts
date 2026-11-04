@@ -20,9 +20,12 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 //     don't get stranded.
 //   - wfid must match a UUID-ish shape (path-scope defense).
 
-import { promises as fs, createReadStream } from 'fs';
-import { createInterface } from 'readline';
+import { promises as fs } from 'fs';
 import path from 'path';
+import {
+  LOG_FORMAT, firstSealedSeq, readLogFormat, readLogLines, readLogTail, sealLiveLog,
+  sealThresholdBytes, sealedThroughSeq,
+} from './eventLog.js';
 import type { ServerMessage } from '@arco/shared';
 
 const FLUSH_DEBOUNCE_MS = 100;
@@ -49,6 +52,14 @@ interface WorkflowBuffer {
   // check, the second's readLatestSeq landing AFTER the first had stamped
   // events — rolling buf.seq back and writing duplicate seqs to events.jsonl.
   initPromise: Promise<void> | null;
+  // Bytes in the live events.jsonl (P7.3). Sealing runs after an append that
+  // takes it past the seal threshold; a failed seal waits for another
+  // threshold's worth of growth before it is tried again.
+  liveBytes: number;
+  sealRetryAt: number;
+  // A log written by a newer release (format above LOG_FORMAT): events are
+  // still delivered live but not written, so the newer history is not damaged.
+  readOnly: boolean;
 }
 
 const buffers = new Map<string, WorkflowBuffer>();
@@ -122,6 +133,9 @@ export async function initWorkflowStore(cwd: string, wfid: string): Promise<void
       flushTimer: null,
       flushInFlight: null,
       initPromise: null,
+      liveBytes: 0,
+      sealRetryAt: 0,
+      readOnly: false,
     };
     buffers.set(key, buf);
   }
@@ -132,10 +146,17 @@ export async function initWorkflowStore(cwd: string, wfid: string): Promise<void
 async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
   const { cwd, wfid } = buf;
   try {
-    buf.seq = await readLatestSeq(eventsPath(cwd, wfid));
+    // A live file that holds no record (all of it sealed) falls back to the
+    // newest segment's last sequence number, from its file name.
+    buf.seq = Math.max(await readLatestSeq(eventsPath(cwd, wfid)), await sealedThroughSeq(workflowDir(cwd, wfid)));
   } catch (err) {
     console.error(`[arco] workflowStore init failed for ${wfid.slice(0, 8)}:`, err);
     buf.seq = 0;
+  }
+  try { buf.liveBytes = (await fs.stat(eventsPath(cwd, wfid))).size; } catch { buf.liveBytes = 0; }
+  if (await readLogFormat(workflowDir(cwd, wfid)) > LOG_FORMAT) {
+    buf.readOnly = true;
+    console.error(`[arco] workflow ${wfid.slice(0, 8)}: its log was written by a newer Arco release; new events are shown but not saved. Update Arco to continue saving this conversation.`);
   }
   // Protect all project state before creating the first workflow directory.
   ensureProjectStateIgnore(cwd);
@@ -164,7 +185,7 @@ export function persistAndStampSeq(
 ): ServerMessage {
   if (!cwd) return message;
   const buf = buffers.get(bufferKey(cwd, wfid));
-  if (!buf || !buf.initialized) return message;
+  if (!buf || !buf.initialized || buf.readOnly) return message;
   // Phase 0 — link each event back to its predecessor for HISTORY (Phase 8)
   // and forks (Phase 9). Linear workflows: parent = previous seq. The very
   // first event has no parent (left undefined; readers treat absent as
@@ -232,6 +253,21 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
         // Events are lost from disk for this round. The seq gap the client
         // sees on next reconnect triggers the snapshot-only fallback.
         return;
+      }
+      buf.liveBytes += Buffer.byteLength(chunk);
+      // P7.3: seal the live file into compressed segments once it is large.
+      // Runs inside this flush chain, so nothing appends meanwhile; new events
+      // wait in `pending` and land in the fresh live file.
+      const threshold = sealThresholdBytes();
+      if (buf.liveBytes >= Math.max(threshold, buf.sealRetryAt)) {
+        try {
+          const sealed = await sealLiveLog(path.dirname(filePath), threshold);
+          if (sealed) buf.liveBytes = sealed.liveBytes;
+          buf.sealRetryAt = 0;
+        } catch (err) {
+          console.error(`[arco] sealing the log of ${buf.wfid.slice(0, 8)} failed; it stays a plain file:`, err);
+          buf.sealRetryAt = buf.liveBytes + threshold;
+        }
       }
     }
   })();
@@ -304,6 +340,8 @@ export async function getHeadSeq(cwd: string, wfid: string): Promise<number> {
 export async function readFirstSeq(cwd: string, wfid: string): Promise<number | null> {
   if (!cwd) return null;
   validateWfid(wfid);
+  const sealedFirst = await firstSealedSeq(workflowDir(cwd, wfid)).catch(() => null);
+  if (sealedFirst !== null) return sealedFirst;
   const filePath = eventsPath(cwd, wfid);
   let fh;
   try {
@@ -350,16 +388,8 @@ export async function replayEventsWithTs(
     }
     await flushBuffer(buf);
   }
-  const filePath = eventsPath(cwd, wfid);
-  let text: string;
-  try {
-    text = await fs.readFile(filePath, 'utf8');
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw err;
-  }
   const out: Array<{ ts: number; message: ServerMessage }> = [];
-  for (const line of text.split('\n')) {
+  for await (const line of readLogLines(workflowDir(cwd, wfid), { fromSeq })) {
     if (!line.trim()) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {
@@ -394,16 +424,8 @@ export async function replayEvents(
     }
     await flushBuffer(buf);
   }
-  const filePath = eventsPath(cwd, wfid);
-  let text: string;
-  try {
-    text = await fs.readFile(filePath, 'utf8');
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw err;
-  }
   const out: ServerMessage[] = [];
-  for (const line of text.split('\n')) {
+  for await (const line of readLogLines(workflowDir(cwd, wfid), { fromSeq })) {
     if (!line.trim()) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {
@@ -439,27 +461,12 @@ export async function replayTailEvents(
     }
     await flushBuffer(buf);
   }
-  const filePath = eventsPath(cwd, wfid);
-  let size: number;
-  try {
-    size = (await fs.stat(filePath)).size;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { events: [], truncated: false };
-    throw err;
-  }
-  if (size <= maxBytes) return { events: await replayEvents(cwd, wfid, 0), truncated: false };
-  const fh = await fs.open(filePath, 'r');
-  let text: string;
-  try {
-    const chunk = Buffer.alloc(maxBytes);
-    const { bytesRead } = await fh.read(chunk, 0, maxBytes, size - maxBytes);
-    text = chunk.subarray(0, bytesRead).toString('utf8');
-  } finally {
-    await fh.close();
-  }
+  // Live tail, plus the newest sealed segments when the live file is short.
+  const tail = await readLogTail(workflowDir(cwd, wfid), maxBytes);
+  if (!tail.truncated) return { events: await replayEvents(cwd, wfid, 0), truncated: false };
   // The first line is almost certainly cut mid-record (and may start mid
   // UTF-8 sequence) — drop it.
-  const lines = text.split('\n').slice(1);
+  const lines = tail.text.split('\n').slice(1);
   const parsed: Array<{ type?: string; [k: string]: unknown }> = [];
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -499,10 +506,8 @@ export async function scanEventsOfTypes(
   }
   const needles = types.map((t) => `"${t}"`);
   const out: ServerMessage[] = [];
-  const stream = createReadStream(eventsPath(cwd, wfid), { encoding: 'utf8' });
-  try {
-    const rl = createInterface({ input: stream, crlfDelay: Infinity });
-    for await (const line of rl) {
+  {
+    for await (const line of readLogLines(workflowDir(cwd, wfid))) {
       if (!needles.some((n) => line.includes(n))) continue;
       let entry: { seq?: number; ts?: number; type?: string; [k: string]: unknown };
       try {
@@ -517,11 +522,6 @@ export async function scanEventsOfTypes(
       if (visit) visit(event);
       else out.push(event);
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw err;
-  } finally {
-    stream.destroy();
   }
   return out;
 }
@@ -542,18 +542,8 @@ export async function readEventsPageBefore(
     }
     await flushBuffer(buf);
   }
-  const filePath = eventsPath(cwd, wfid);
-  let text: string;
-  try {
-    text = await fs.readFile(filePath, 'utf8');
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { events: [], hasEarlier: false, total: 0 };
-    }
-    throw err;
-  }
   const parsed: ServerMessage[] = [];
-  for (const line of text.split('\n')) {
+  for await (const line of readLogLines(workflowDir(cwd, wfid))) {
     if (!line.trim()) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {

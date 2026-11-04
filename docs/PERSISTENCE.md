@@ -69,7 +69,9 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 │   └── mcp-config.json              # unlinked on tab close
 ├── workflows/
 │   └── <wfid>/                      # one directory per workflow
-│       ├── events.jsonl             # append-only NDJSON event log
+│       ├── events.jsonl             # append-only NDJSON event log (the live part)
+│       ├── events.<first>-<last>.jsonl.br  # sealed, compressed older records (see Sealed segments)
+│       ├── log-format.json          # { "format": 2 } once a segment exists
 │       ├── meta.json                # workflow identity + session ledger
 │       ├── resume-summary.json      # Native resume-summary cache (claude-native/resumeSummary.ts)
 │       ├── gate-approvals.json      # DEBAG gate sidecar (gateStore.ts) - only when reviewSafeMode='on'
@@ -131,6 +133,24 @@ Each line is a JSON object: `{seq, ts, parentEventSeq?,...message}` where `messa
 ```
 
 `seq` is a per-workflow monotonic counter. `ts` is `Date.now` at the moment of stamping (slightly after the underlying message was created). The wire-message itself may also carry a `timestamp` field - that's the message's logical timestamp; `ts` is the persistence timestamp.
+
+### Sealed segments
+
+Since 0.1.4 a live `events.jsonl` that passes 16 MiB (`ARCO_EVENT_SEGMENT_BYTES` overrides it) is sealed into compressed segments next to it. Nothing is deleted. `server/src/eventLog.ts` holds the format and every reader.
+
+| File | Meaning |
+| --- | --- |
+| `events.jsonl` | The live log, appended as before |
+| `events.<firstSeq>-<lastSeq>.jsonl.br` | Brotli-compressed records (quality 5, 16 MiB window), at most 16 MiB of text each; sequence numbers zero-padded to 12 digits so name order is sequence order |
+| `log-format.json` | `{ "format": 2 }`, written with the first segment |
+
+- Sealing runs in the conversation's flush chain (`workflowStore.flushBuffer`), so nothing appends meanwhile. Each segment is written to a temporary file, flushed, renamed and read back. Then the live file is replaced, through a rename, by one holding only the newest sealed record.
+- Readers see segments in order, then the live file, and skip any live record at or below the newest sealed sequence number. That covers the copied record and a seal interrupted before the live file was replaced; the next seal continues where it stopped and removes leftover `.tmp` files.
+- Sequence recovery (`readLatestSeq`) uses the live tail, else the newest segment name. A release that reads only `events.jsonl` still finds the copied record, so its sequence continues without duplicates; it just shows the unsealed part of the history.
+- An unreadable segment is reported and skipped; the history shows a gap and nothing is deleted.
+- A log whose `log-format.json` names a newer format is not written to; events still reach open tabs.
+- Every reader goes through `eventLog.ts`: `readLogLines`, `readLogText`, `readLogTail`, `readLogHeadSync`, `readLogTailSync`. Do not open `events.jsonl` directly in new code.
+- `arco storage unseal` (`npm run storage:unseal` in a checkout) writes each sealed history back to one plain `events.jsonl`, checks it, then removes the segments and the marker. It refuses while Arco is running.
 
 `parentEventSeq` links each event back to its predecessor in the workflow's events.jsonl. For linear workflows this equals `seq - 1`, so it's redundant; the field exists so forks can express a non-linear parent (the new branch's first event points back to the fork point, not the immediately previous seq) without a second schema bump. Absent on the very first event in a workflow and on every event in older (`schemaVersion: 1`) workflows. Readers treat absent as "previous event in seq order" - both wire (`WorkflowEvent`) and disk readers should handle the absent case.
 

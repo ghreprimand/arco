@@ -168,3 +168,24 @@ test('primary outputs: media, top-level documents, reports and exports; code and
   assert.equal(outputs.isPrimaryOutput({ source: 'artifact event', name: 'Inline', category: 'documents', inline: { language: 'ts' } }, root), false);
   assert.equal(outputs.isPrimaryOutput({ source: 'artifact event', name: 'Inline', category: 'documents', inline: {} }, root), true);
 });
+
+test('outputs reported in records that were sealed into compressed segments are still found', async () => {
+  const { sealLiveLog } = await import('./eventLog.js');
+  const id = '11111111-2222-4333-8444-666666666666';
+  const wfDir = path.join(project, '.arco', 'workflows', id);
+  mkdirSync(path.join(wfDir, 'artifacts'), { recursive: true });
+  writeFileSync(path.join(wfDir, 'meta.json'), JSON.stringify({ name: 'Sealed producer', cwd: project }));
+  const log = path.join(wfDir, 'events.jsonl');
+  const line = (seq: number, name: string) => JSON.stringify({ seq, type: 'primary_artifact', kind: 'text', path: name, title: name, ts: seq }) + '\n';
+  for (const name of ['sealed-a.txt', 'sealed-b.txt', 'sealed-c.txt']) writeFileSync(path.join(project, name), 'synthetic');
+  writeFileSync(log, line(1, 'sealed-a.txt'));
+  const sealedCtx = await outputs.outputContext(project, id);
+  assert.deepEqual((await outputs.listOutputs(sealedCtx)).map(x => x.title).sort(), ['sealed-a.txt']);
+  // Written and sealed before the next refresh: the live file now holds only
+  // the copied newest record.
+  appendFileSync(log, line(2, 'sealed-b.txt'));
+  assert.ok(await sealLiveLog(wfDir, 64));
+  appendFileSync(log, line(3, 'sealed-c.txt'));
+  assert.deepEqual((await outputs.listOutputs(sealedCtx)).map(x => x.title).sort(), ['sealed-a.txt', 'sealed-b.txt', 'sealed-c.txt']);
+  assert.equal((await outputs.listOutputs(sealedCtx)).length, 3);
+});

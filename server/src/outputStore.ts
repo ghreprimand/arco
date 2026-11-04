@@ -9,7 +9,10 @@ import { safeDirectory, isPathWithin } from './fileAccessPolicy.js';
 import { atomicWriteFile } from './atomicFile.js';
 
 export interface StoredOutput extends Omit<WorkflowOutput, 'missing' | 'size'> { aliases?: string[]; actions?: Array<{ action: 'copy' | 'move'; from: string; to: string; at: number }>; }
-export interface OutputIndex { version: 1; offset: number; entries: StoredOutput[]; }
+// `offset` is a byte position in the live events.jsonl. `seq` is the newest
+// event sequence number already read (P7.3): sealing replaces the live file,
+// so records sealed since the last read are read from the segments by number.
+export interface OutputIndex { version: 1; offset: number; seq?: number; entries: StoredOutput[]; }
 export async function outputDirectory(cwd: string, workflowId: string): Promise<string> {
   if (!/^[a-z0-9_-]{1,64}$/i.test(workflowId)) throw new Error('Invalid output workflow.');
   const root = safeDirectory(cwd);
@@ -25,7 +28,7 @@ export async function readOutputIndex(cwd: string, workflowId: string): Promise<
     const st = await lstat(file);
     if (!st.isFile() || st.isSymbolicLink() || st.size > 8 * 1024 * 1024) throw new Error();
     const index = JSON.parse(await readFile(file, 'utf8')) as OutputIndex;
-    if (index.version !== 1 || !Number.isSafeInteger(index.offset) || index.offset < 0 || !Array.isArray(index.entries) || index.entries.length > 2000
+    if (index.version !== 1 || !Number.isSafeInteger(index.offset) || index.offset < 0 || (index.seq !== undefined && (!Number.isSafeInteger(index.seq) || index.seq < 0)) || !Array.isArray(index.entries) || index.entries.length > 2000
       || index.entries.some(e => !e || !/^[a-f0-9]{32}$/.test(e.id) || e.workflowId !== workflowId || typeof e.title !== 'string'
         || typeof e.name !== 'string' || typeof e.cwd !== 'string' || typeof e.producer !== 'string' || typeof e.source !== 'string'
         || !['images', 'documents', 'audio', 'video', 'other'].includes(e.category) || !Number.isFinite(e.createdAt) || !Number.isFinite(e.updatedAt)

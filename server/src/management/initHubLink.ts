@@ -8,7 +8,6 @@
 // routed reply/stop/continue actions — re-validating against current state.
 
 import { WebSocket } from 'ws';
-import { openSync, fstatSync, readSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { workflows, workflowCwds } from '../server/state.js';
 import { handleUserMessage } from '../ws/turnEngine.js';
@@ -74,6 +73,7 @@ import type {
 } from '@arco/shared';
 import { createHubLink, type HubLink } from './hubLink.js';
 import { buildServiceInstanceDescriptor } from './identity.js';
+import { readLogTailSync } from '../eventLog.js';
 
 // Bounded read of the events.jsonl tail. Generous because ledger-snapshot
 // events (task_ledger_snapshot can be large + frequent) crowd the tail and push
@@ -92,18 +92,12 @@ function readLastMessage(
   cwd: string,
   wfid: string,
 ): { text: string; role: 'assistant'; at: number; durationMs?: number } | undefined {
-  let fd: number | undefined;
   try {
-    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-    fd = openSync(path, 'r');
-    const size = fstatSync(fd).size;
-    if (size === 0) return undefined;
-    const start = Math.max(0, size - TAIL_BYTES);
-    const len = size - start;
-    const buf = Buffer.allocUnsafe(len);
-    readSync(fd, buf, 0, len, start);
-    const lines = buf.toString('utf8').split('\n');
-    if (start > 0) lines.shift(); // drop the partial first line
+    // Live tail, plus sealed segments when the live file is short (P7.3).
+    const tail = readLogTailSync(join(cwd, '.arco', 'workflows', wfid), TAIL_BYTES);
+    if (!tail.text) return undefined;
+    const lines = tail.text.split('\n');
+    if (tail.truncated) lines.shift(); // drop the partial first line
 
     const chunks: string[] = [];
     let at = 0;
@@ -140,14 +134,6 @@ function readLastMessage(
     };
   } catch {
     return undefined;
-  } finally {
-    if (fd !== undefined) {
-      try {
-        closeSync(fd);
-      } catch {
-        /* ignore */
-      }
-    }
   }
 }
 
@@ -549,18 +535,11 @@ function readFullTranscript(wfid: string): { title?: string; turns: TranscriptTu
   const title = wf?.config.name;
   const cwd = workflowCwds.get(wfid) ?? wf?.config.workingDirectory;
   if (!cwd) return { ...(title ? { title } : {}), turns: [] };
-  let fd: number | undefined;
   try {
-    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-    fd = openSync(path, 'r');
-    const size = fstatSync(fd).size;
-    if (size === 0) return { ...(title ? { title } : {}), turns: [] };
-    const start = Math.max(0, size - MAX_TRANSCRIPT_BYTES);
-    const len = size - start;
-    const buf = Buffer.allocUnsafe(len);
-    readSync(fd, buf, 0, len, start);
-    const lines = buf.toString('utf8').split('\n');
-    if (start > 0) lines.shift();
+    const tail = readLogTailSync(join(cwd, '.arco', 'workflows', wfid), MAX_TRANSCRIPT_BYTES);
+    if (!tail.text) return { ...(title ? { title } : {}), turns: [] };
+    const lines = tail.text.split('\n');
+    if (tail.truncated) lines.shift();
 
     const turns: TranscriptTurn[] = [];
     let asst: string[] = [];
@@ -594,14 +573,6 @@ function readFullTranscript(wfid: string): { title?: string; turns: TranscriptTu
     return { ...(title ? { title } : {}), turns: turns.length > MAX_TURNS ? turns.slice(-MAX_TURNS) : turns };
   } catch {
     return { ...(title ? { title } : {}), turns: [] };
-  } finally {
-    if (fd !== undefined) {
-      try {
-        closeSync(fd);
-      } catch {
-        /* ignore */
-      }
-    }
   }
 }
 

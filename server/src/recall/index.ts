@@ -34,6 +34,7 @@ import { readMeta, listWorkflowMetas, latestCliSessionFor, type WorkflowMeta } f
 import { extractSessionName } from '../workflows/sessionDiscovery.js';
 import { encodeProjectDir } from '../http/fileRead.js';
 import { arcoHome } from '../arcoHome.js';
+import { readLogLines } from '../eventLog.js';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 80;
@@ -695,16 +696,10 @@ async function findAiTitle(meta: WorkflowMeta): Promise<string | undefined> {
 // first operator message used by the title chain.
 async function scanEvents(cwd: string, wfid: string): Promise<{ turnCount: number; firstMessage: string }> {
   if (!WFID_PATTERN.test(wfid)) return { turnCount: 0, firstMessage: '' };
-  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-  let raw: string;
-  try {
-    raw = await fs.readFile(eventsPath, 'utf8');
-  } catch {
-    return { turnCount: 0, firstMessage: '' };
-  }
   let turnCount = 0;
   let firstMessage = '';
-  for (const line of raw.split('\n')) {
+  // Sealed segments and the live file (P7.3).
+  try { for await (const line of readLogLines(path.join(cwd, '.arco', 'workflows', wfid))) {
     if (!line || !line.includes('"user_message_echo"')) continue;
     let entry: any;
     try { entry = JSON.parse(line); } catch { continue; }
@@ -713,7 +708,7 @@ async function scanEvents(cwd: string, wfid: string): Promise<{ turnCount: numbe
     if (!firstMessage && typeof entry.content === 'string' && entry.content.trim()) {
       firstMessage = entry.content.trim();
     }
-  }
+  } } catch { return { turnCount, firstMessage }; }
   return { turnCount, firstMessage };
 }
 

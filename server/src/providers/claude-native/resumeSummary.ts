@@ -2,6 +2,7 @@ import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFile } from '../../atomicFile.js';
+import { listSegments, readLogText } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 
 const SUMMARY_CACHE_VERSION = 1;
@@ -123,6 +124,26 @@ function summaryCachePath(cwd: string, workflowId: string): string {
   return join(workflowDir(cwd, workflowId), 'resume-summary.json');
 }
 
+// The history as a byte-addressed source. A plain log is read in place; a log
+// with sealed segments (P7.3) is read once into memory, the same amount a
+// whole-file read of the plain log took. Offsets are offsets in that text.
+interface LogSource { size: number; read(start: number, length: number): Promise<string> }
+async function openLogSource(cwd: string, workflowId: string): Promise<LogSource | null> {
+  const dir = workflowDir(cwd, workflowId);
+  if ((await listSegments(dir)).length > 0) {
+    const text = Buffer.from(await readLogText(dir), 'utf8');
+    return { size: text.length, read: async (start, length) => text.subarray(start, start + length).toString('utf8') };
+  }
+  const path = eventsPath(cwd, workflowId);
+  try {
+    const size = (await fs.stat(path)).size;
+    return { size, read: (start, length) => readByteRange(path, start, length) };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
+}
+
 async function readByteRange(path: string, start: number, length: number): Promise<string> {
   const fh = await fs.open(path, 'r');
   try {
@@ -134,10 +155,10 @@ async function readByteRange(path: string, start: number, length: number): Promi
   }
 }
 
-async function findTailReplayStart(path: string, desiredStart: number): Promise<{ start: number; completeLine: boolean }> {
+async function findTailReplayStart(source: LogSource, desiredStart: number): Promise<{ start: number; completeLine: boolean }> {
   if (desiredStart <= 0) return { start: 0, completeLine: true };
   const probeStart = Math.max(0, desiredStart - TAIL_LINE_BACKTRACK_BYTES);
-  const raw = await readByteRange(path, probeStart, desiredStart - probeStart);
+  const raw = await source.read(probeStart, desiredStart - probeStart);
   const lines = raw.split('\n');
   let cursor = probeStart;
   let turnStart: number | null = null;
@@ -527,16 +548,9 @@ export async function replayMessagesWithResumePolicy(
   maxSeq?: number,
   opts: ReplayOptions = {},
 ): Promise<ResumeReplayResult> {
-  const path = eventsPath(cwd, workflowId);
-  let stat;
-  try {
-    stat = await fs.stat(path);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { messages: [], mode: 'empty', eventBytes: 0 };
-    }
-    throw err;
-  }
+  const source = await openLogSource(cwd, workflowId);
+  if (!source) return { messages: [], mode: 'empty', eventBytes: 0 };
+  const stat = { size: source.size };
 
   const exactReplayBytes = opts.exactReplayBytes ?? RESUME_EXACT_REPLAY_BYTES;
   const recentTailBytes = opts.recentTailBytes ?? RESUME_RECENT_TAIL_BYTES;
@@ -555,7 +569,7 @@ export async function replayMessagesWithResumePolicy(
   // This is what lets post-rewind turns be included WITHOUT advancing leafSeq
   // on every turn.
   if (typeof opts.leafSeq === 'number') {
-    const raw = await fs.readFile(path, 'utf8');
+    const raw = await source.read(0, stat.size);
     const events = parseJsonl(raw);
     let tailSeq: number | undefined;
     for (const e of events) {
@@ -572,7 +586,7 @@ export async function replayMessagesWithResumePolicy(
   }
 
   if (stat.size <= exactReplayBytes) {
-    const raw = await fs.readFile(path, 'utf8');
+    const raw = await source.read(0, stat.size);
     const events = parseJsonl(raw);
     return {
       messages: buildMessagesFromReplayEvents(events, [], maxSeq),
@@ -585,7 +599,7 @@ export async function replayMessagesWithResumePolicy(
   // behavior so Spawn-from-here callers do not inherit a summary past maxSeq.
   if (typeof maxSeq === 'number') {
     const start = Math.max(0, stat.size - recentTailBytes);
-    const raw = await readByteRange(path, start, stat.size - start);
+    const raw = await source.read(start, stat.size - start);
     const events = parseJsonl(raw, { dropFirstPartial: start > 0 });
     return {
       messages: buildMessagesFromReplayEvents(events, [], maxSeq),
@@ -596,15 +610,15 @@ export async function replayMessagesWithResumePolicy(
   }
 
   const desiredTailStartByte = Math.max(0, stat.size - recentTailBytes);
-  const tailStart = await findTailReplayStart(path, desiredTailStartByte);
+  const tailStart = await findTailReplayStart(source, desiredTailStartByte);
   const tailStartByte = tailStart.start;
-  const tailRaw = await readByteRange(path, tailStartByte, stat.size - tailStartByte);
+  const tailRaw = await source.read(tailStartByte, stat.size - tailStartByte);
   const tailEvents = parseJsonl(tailRaw, { dropFirstPartial: !tailStart.completeLine });
 
   const cachePath = summaryCachePath(cwd, workflowId);
   let cache = await readSummaryCache(cachePath, workflowId, stat.size, tailStartByte);
   if (!cache) {
-    const olderRaw = tailStartByte > 0 ? await readByteRange(path, 0, tailStartByte) : '';
+    const olderRaw = tailStartByte > 0 ? await source.read(0, tailStartByte) : '';
     const olderEvents = parseJsonl(olderRaw, { dropLastPartial: !tailStart.completeLine });
     const built = summarizeClaudeNativePriorTurns(olderEvents);
     cache = {

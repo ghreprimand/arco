@@ -1,5 +1,4 @@
 import { open, readdir, stat } from 'fs/promises';
-import { openSync, fstatSync, readSync, closeSync } from 'node:fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import type { SessionInfo } from '@arco/shared';
@@ -10,6 +9,7 @@ import { backfillSessionIndex } from './sessionIndex.js';
 import { getRecallIndex } from '../recall/index.js';
 import { encodeProjectDir } from '../http/fileRead.js';
 import { extractUserText } from './transcripts.js';
+import { readLogHeadSync } from '../eventLog.js';
 
 export async function extractSessionName(
   path: string,
@@ -245,15 +245,11 @@ export async function extractCodexSessionInfo(path: string, wantCwd: string): Pr
 // Arco-internal sessions that have no provider .jsonl and may not yet be in
 // the recall index. Bounded head read, best-effort, never throws.
 function readFirstUserText(cwd: string, wfid: string): string | undefined {
-  let fd: number | undefined;
   try {
-    fd = openSync(join(cwd, '.arco', 'workflows', wfid, 'events.jsonl'), 'r');
-    const size = fstatSync(fd).size;
-    if (size === 0) return undefined;
-    const len = Math.min(size, 256 * 1024);
-    const buf = Buffer.allocUnsafe(len);
-    readSync(fd, buf, 0, len, 0);
-    for (const line of buf.toString('utf8').split('\n')) {
+    // The oldest records, from the first sealed segment when there is one (P7.3).
+    const head = readLogHeadSync(join(cwd, '.arco', 'workflows', wfid), 256 * 1024);
+    if (!head) return undefined;
+    for (const line of head.split('\n')) {
       if (!line || !line.includes('"user_message_echo"')) continue;
       try {
         const ev = JSON.parse(line) as { type?: string; content?: string };
@@ -268,10 +264,6 @@ function readFirstUserText(cwd: string, wfid: string): string | undefined {
     return undefined;
   } catch {
     return undefined;
-  } finally {
-    if (fd !== undefined) {
-      try { closeSync(fd); } catch { /* ignore */ }
-    }
   }
 }
 

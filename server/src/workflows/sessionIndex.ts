@@ -36,6 +36,7 @@ import path from 'path';
 import type { ProviderName, SessionIndex, SessionIndexEntry, SessionTitleEvent } from '@arco/shared';
 import type { WorkflowMeta } from '../workflowMeta.js';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
+import { readLogLines } from '../eventLog.js';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const CURRENT_INDEX_VERSION = 1;
@@ -138,21 +139,16 @@ function newestCliSession(meta: WorkflowMeta): WorkflowMeta['cliSessions'][numbe
 // + "where this left off" subtitle.
 export async function scanOperatorMessages(cwd: string, wfid: string): Promise<string[]> {
   if (!WFID_PATTERN.test(wfid)) return [];
-  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-  let raw: string;
-  try {
-    raw = await fs.readFile(eventsPath, 'utf8');
-  } catch {
-    return [];
-  }
   const out: string[] = [];
-  for (const line of raw.split('\n')) {
+  let lines: AsyncGenerator<string>;
+  try { lines = readLogLines(path.join(cwd, '.arco', 'workflows', wfid)); } catch { return []; }
+  try { for await (const line of lines) {
     if (!line || !line.includes('"user_message_echo"')) continue;
     let entry: any;
     try { entry = JSON.parse(line); } catch { continue; }
     if (entry.type !== 'user_message_echo') continue;
     if (typeof entry.content === 'string' && entry.content.trim()) out.push(entry.content.trim());
-  }
+  } } catch { return out; }
   return out;
 }
 

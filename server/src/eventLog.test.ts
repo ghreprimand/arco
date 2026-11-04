@@ -1,0 +1,195 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { brotliCompressSync } from 'node:zlib';
+import path from 'node:path';
+import type { ServerMessage } from '@arco/shared';
+import {
+  flushWorkflowBuffer, forgetWorkflowBuffer, getHeadSeq, initWorkflowStore, persistAndStampSeq,
+  readEventsPageBefore, readFirstSeq, replayEvents, replayEventsWithTs, replayTailEvents, scanEventsOfTypes,
+} from './workflowStore.js';
+import { listSegments, readLogHeadSync, readLogLines, readLogTailSync, readLogText, sealLiveLog, segmentName } from './eventLog.js';
+import { readCatchUpEvents } from './catchUp.js';
+import { scanOperatorMessages } from './workflows/sessionIndex.js';
+import { readMemberActivity } from './management/clusterActivity.js';
+import { aggregateUsageForCwd } from './http/usageStatsRoutes.js';
+import { replayMessagesWithResumePolicy } from './providers/claude-native/resumeSummary.js';
+// @ts-expect-error plain ES module without types
+import { unsealLog } from '../../scripts/packaging/storage.mjs';
+
+// P7.3 (docs/STORAGE_PLAN.md): sealed, compressed segments. Every reader sees
+// one history, each record once, in sequence order; nothing is lost when a
+// seal is interrupted; the plain-log export gives the whole history back.
+
+const SEAL = 4096;
+type Rec = { seq: number; type: string; [k: string]: unknown };
+
+async function withProject(fn: (cwd: string, dir: (id: string) => string) => Promise<void>): Promise<void> {
+  const cwd = await mkdtemp(path.join(tmpdir(), 'arco-seal-'));
+  const before = process.env.ARCO_EVENT_SEGMENT_BYTES;
+  process.env.ARCO_EVENT_SEGMENT_BYTES = String(SEAL);
+  try { await fn(cwd, (id) => path.join(cwd, '.arco', 'workflows', id)); }
+  finally {
+    if (before === undefined) delete process.env.ARCO_EVENT_SEGMENT_BYTES; else process.env.ARCO_EVENT_SEGMENT_BYTES = before;
+    await rm(cwd, { recursive: true, force: true });
+  }
+}
+
+// One conversation: an operator turn and assistant text, repeated.
+async function writeTurns(cwd: string, id: string, turns: number): Promise<void> {
+  await initWorkflowStore(cwd, id);
+  for (let t = 0; t < turns; t++) {
+    persistAndStampSeq(cwd, id, { type: 'user_message_echo', workflowId: id, content: `question ${t}` } as unknown as ServerMessage);
+    persistAndStampSeq(cwd, id, { type: 'primary_turn_started', workflowId: id } as unknown as ServerMessage);
+    persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: `answer ${t} `.repeat(20) } as unknown as ServerMessage);
+    persistAndStampSeq(cwd, id, { type: 'primary_turn_token_usage', workflowId: id, turnStartedAt: Date.now() + t, durationMs: 1, provider: 'claude', model: 'm', input: 1, output: 1, cacheRead: 0, cacheCreate: 0 } as unknown as ServerMessage);
+    persistAndStampSeq(cwd, id, { type: 'primary_turn_ended', workflowId: id } as unknown as ServerMessage);
+    await flushWorkflowBuffer(cwd, id);
+  }
+}
+
+function seqs(events: readonly unknown[]): number[] { return events.map((e) => (e as { seq: number }).seq); }
+function range(a: number, b: number): number[] { return Array.from({ length: b - a + 1 }, (_, i) => a + i); }
+
+test('sealing on write keeps one ordered history for every reader, across a restart', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0001';
+    await writeTurns(cwd, id, 40);
+    const segments = await listSegments(dir(id));
+    assert.ok(segments.length >= 2, 'the live file was sealed into several segments');
+    const head = await getHeadSeq(cwd, id);
+    assert.equal(head, 200);
+    // Full replay, with timestamps, from a sequence number, and typed scans.
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 200));
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 150)), range(151, 200));
+    assert.deepEqual((await replayEventsWithTs(cwd, id, 0)).map((e) => (e.message as { seq?: number }).seq), range(1, 200));
+    assert.equal((await scanEventsOfTypes(cwd, id, ['user_message_echo'])).length, 40);
+    // HISTORY pages across a segment boundary.
+    const page = await readEventsPageBefore(cwd, id, 120, 50);
+    assert.deepEqual(seqs(page.events), range(70, 119)); assert.equal(page.total, 119); assert.equal(page.hasEarlier, true);
+    // Gap fallback uses the first sealed record.
+    assert.equal(await readFirstSeq(cwd, id), 1);
+    // A tail longer than the live file reaches into the segments.
+    const tail = await replayTailEvents(cwd, id, SEAL * 2);
+    assert.equal(tail.truncated, true);
+    assert.equal((tail.events[0] as { type: string }).type, 'user_message_echo');
+    assert.equal((tail.events.at(-1) as { seq: number }).seq, 200);
+    assert.deepEqual(seqs(tail.events), range(seqs(tail.events)[0], 200));
+    // Restart: the sequence continues from the segments and live file.
+    forgetWorkflowBuffer(cwd, id);
+    await writeTurns(cwd, id, 1);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 205));
+    // Direct readers.
+    assert.equal((await scanOperatorMessages(cwd, id)).length, 41);
+    assert.match(readLogHeadSync(dir(id), 4096), /question 0/);
+    const usage = await aggregateUsageForCwd(cwd);
+    assert.equal(usage.turnsAggregated, 41);
+    const catchUp = await readCatchUpEvents(cwd, id);
+    assert.equal((catchUp.events.at(-1) as { seq?: number }).seq, 205);
+    const activity = readMemberActivity(cwd, id);
+    assert.ok(activity.some((row) => row.kind === 'turn-started'));
+    const resume = await replayMessagesWithResumePolicy(cwd, id, undefined, { exactReplayBytes: 1, recentTailBytes: 2048 });
+    assert.equal(resume.mode, 'summary_tail');
+    const exact = await replayMessagesWithResumePolicy(cwd, id);
+    assert.equal(exact.mode, 'exact');
+    assert.equal(exact.messages.filter((m) => m.role === 'user').length, 41);
+  });
+});
+
+test('an interrupted seal loses nothing and shows nothing twice; the next seal finishes it', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0002';
+    await mkdir(dir(id), { recursive: true });
+    const records: Rec[] = range(1, 30).map((seq) => ({ seq, type: seq % 3 ? 'primary_text' : 'user_message_echo', text: 'x'.repeat(200) }));
+    const text = (rs: Rec[]) => rs.map((r) => JSON.stringify(r)).join('\n') + '\n';
+    // Segments for 1..10 were written, the live file was not replaced yet,
+    // and a temporary file from the interrupted next segment is left over.
+    await writeFile(path.join(dir(id), segmentName(1, 10)), brotliCompressSync(text(records.slice(0, 10))));
+    await writeFile(path.join(dir(id), `${segmentName(11, 20)}.0f0f0f0f-0000-0000-0000-000000000000.tmp`), 'partial');
+    await writeFile(path.join(dir(id), 'events.jsonl'), text(records));
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 30));
+    assert.equal((await readLogText(dir(id))).split('\n').filter(Boolean).length, 30);
+    assert.equal(readLogTailSync(dir(id), 1 << 20).text.split('\n').filter(Boolean).length, 30);
+    const sealed = await sealLiveLog(dir(id), 2048);
+    assert.ok(sealed);
+    const names = await readdir(dir(id));
+    assert.equal(names.some((n) => n.endsWith('.tmp')), false);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 30));
+    // The new live file holds only the newest sealed record.
+    const live = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean);
+    assert.deepEqual(live.map((l) => JSON.parse(l).seq), [30]);
+    assert.equal(JSON.parse(await readFile(path.join(dir(id), 'log-format.json'), 'utf8')).format, 2);
+  });
+});
+
+test('a large final record, concurrent appends during a seal, and the 0.1.3 view', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0003';
+    await initWorkflowStore(cwd, id);
+    for (let i = 0; i < 20; i++) persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'y'.repeat(300) } as unknown as ServerMessage);
+    // One record larger than the 1 MiB sequence-recovery read.
+    persistAndStampSeq(cwd, id, { type: 'primary_tool_use', workflowId: id, output: 'z'.repeat(1_200_000) } as unknown as ServerMessage);
+    const flushing = flushWorkflowBuffer(cwd, id);
+    for (let i = 0; i < 10; i++) persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: `late ${i}` } as unknown as ServerMessage);
+    await flushing; await flushWorkflowBuffer(cwd, id);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 31));
+    forgetWorkflowBuffer(cwd, id);
+    assert.equal(await getHeadSeq(cwd, id), 31);
+    // A release that reads only events.jsonl still finds the newest sequence
+    // number in its tail (the copied record), so it would continue at 32.
+    const live = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean);
+    assert.equal(JSON.parse(live.at(-1)!).seq, 31);
+  });
+});
+
+test('an unreadable segment is reported and skipped, never deleted', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0004';
+    await writeTurns(cwd, id, 30);
+    const segments = await listSegments(dir(id));
+    assert.ok(segments.length >= 2);
+    await writeFile(segments[0].file, 'not brotli');
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { errors.push(args.join(' ')); };
+    let lines = 0;
+    try { for await (const _ of readLogLines(dir(id))) { void _; lines++; } } finally { console.error = original; }
+    assert.ok(lines > 0 && lines < 150);
+    assert.ok(errors.some((e) => e.includes('could not be read')));
+    assert.ok((await readdir(dir(id))).includes(segments[0].name));
+  });
+});
+
+test('arco storage unseal writes the whole history back to one plain log', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0005';
+    const plans = path.join(cwd, '.arco', 'plans');
+    await mkdir(plans, { recursive: true });
+    await writeFile(path.join(plans, 'p.md'), '# Plan\n');
+    await writeTurns(cwd, id, 30);
+    const full = await readLogText(dir(id));
+    const result = await unsealLog(dir(id));
+    assert.equal(result.records, 150);
+    assert.deepEqual(await listSegments(dir(id)), []);
+    assert.equal(await readFile(path.join(dir(id), 'events.jsonl'), 'utf8'), full);
+    assert.deepEqual((await readdir(dir(id))).filter((n) => n.startsWith('log-format')), []);
+    assert.equal(await readFile(path.join(plans, 'p.md'), 'utf8'), '# Plan\n');
+  });
+});
+
+test('a log written by a newer format is not written to', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0006';
+    await mkdir(dir(id), { recursive: true });
+    await writeFile(path.join(dir(id), 'log-format.json'), '{ "format": 99 }\n');
+    await writeFile(path.join(dir(id), 'events.jsonl'), '{"seq":1,"type":"workflow_created"}\n');
+    const original = console.error; console.error = () => {};
+    try { await initWorkflowStore(cwd, id); } finally { console.error = original; }
+    const out = persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'new' } as unknown as ServerMessage);
+    assert.equal((out as { seq?: number }).seq, undefined);
+    await flushWorkflowBuffer(cwd, id);
+    assert.equal(await readFile(path.join(dir(id), 'events.jsonl'), 'utf8'), '{"seq":1,"type":"workflow_created"}\n');
+    await assert.rejects(sealLiveLog(dir(id), 10), /newer storage format/);
+  });
+});

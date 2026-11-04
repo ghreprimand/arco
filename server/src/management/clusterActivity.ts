@@ -7,7 +7,7 @@
 // their turn's completion row (a count, not one row per call) so the feed
 // stays scannable on a phone.
 
-import { openSync, fstatSync, readSync, closeSync } from 'node:fs';
+import { readLogTailSync } from '../eventLog.js';
 import { join } from 'node:path';
 import type { ClusterActivityRow } from '@arco/shared';
 
@@ -18,18 +18,12 @@ export const ACTIVITY_MAX_ROWS = 200; // merged cap (most recent kept)
 // Bounded tail read of one member's events.jsonl → activity rows. Best-effort:
 // unreadable/absent logs yield []. Exported for the unit test.
 export function readMemberActivity(cwd: string, wfid: string): ClusterActivityRow[] {
-  let fd: number | undefined;
   try {
-    const path = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-    fd = openSync(path, 'r');
-    const size = fstatSync(fd).size;
-    if (size === 0) return [];
-    const start = Math.max(0, size - TAIL_BYTES);
-    const len = size - start;
-    const buf = Buffer.allocUnsafe(len);
-    readSync(fd, buf, 0, len, start);
-    const lines = buf.toString('utf8').split('\n');
-    if (start > 0) lines.shift(); // drop the partial first line
+    // Live tail, plus sealed segments when the live file is short (P7.3).
+    const tail = readLogTailSync(join(cwd, '.arco', 'workflows', wfid), TAIL_BYTES);
+    if (!tail.text) return [];
+    const lines = tail.text.split('\n');
+    if (tail.truncated) lines.shift(); // drop the partial first line
 
     const rows: ClusterActivityRow[] = [];
     let toolCount = 0;
@@ -86,10 +80,6 @@ export function readMemberActivity(cwd: string, wfid: string): ClusterActivityRo
     return rows;
   } catch {
     return [];
-  } finally {
-    if (fd !== undefined) {
-      try { closeSync(fd); } catch { /* ignore */ }
-    }
   }
 }
 

@@ -62,6 +62,7 @@ Use these package commands for maintenance:
 | `arco voice setup` | Install local voice components; requires `uv` |
 | `arco version` | Print the installed version |
 | `arco doctor` | Check the runtime, providers, port, and service |
+| `arco storage unseal` | Write compressed conversation logs back to plain files before installing an older release; run with Arco stopped |
 
 If a global npm install reports `EACCES` on Linux or macOS, use nvm or a
 user-owned npm prefix. On Windows, an execution-policy restriction can block

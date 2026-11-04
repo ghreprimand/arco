@@ -12,11 +12,12 @@ import { activateRepairedTerminal, nativeSqliteBinding, repairNative, supportedN
 import { updatePackage, writeUpdateResult } from './update.mjs';
 import { openArco, shortcuts } from './launch.mjs';
 import { isArcoHome, readPortState } from './ports.mjs';
+import { knownProjects, unsealProjects } from './storage.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const [command = 'help', ...args] = process.argv.slice(2);
-const help = `Usage: arco <command>\n\n  start                 Run the workbench in the foreground\n  open [--tab]          Open Arco in an app window or browser tab\n  shortcuts <action>    add or remove per-user launcher shortcuts\n  setup                 Configure and start a per-user service\n  setup --repair-native Repair native modules (build tools may be required)\n  service <action>      install, uninstall, start, stop, restart, status, logs or refresh\n  update                Update the installed package\n  voice setup           Install local voice components\n  version               Print the installed version\n  doctor                Check runtime, providers, port and service\n`;
+const help = `Usage: arco <command>\n\n  start                 Run the workbench in the foreground\n  open [--tab]          Open Arco in an app window or browser tab\n  shortcuts <action>    add or remove per-user launcher shortcuts\n  setup                 Configure and start a per-user service\n  setup --repair-native Repair native modules (build tools may be required)\n  service <action>      install, uninstall, start, stop, restart, status, logs or refresh\n  update                Update the installed package\n  voice setup           Install local voice components\n  version               Print the installed version\n  doctor                Check runtime, providers, port and service\n  storage unseal [--project <path>]...\n                        Write compressed conversation logs back to plain files\n                        before installing an older release (Arco must be stopped)\n`;
 function requireSupportedNode() { if (!supportedNodeVersion()) throw new Error('Unsupported Node.js version. Install Node.js 24 or 26 and retry.'); }
 function checkNative() {
   try {
@@ -100,6 +101,21 @@ async function main() {
   if (command === 'voice' && args.length === 1 && args[0] === 'setup') {
     const r = spawnSync(process.execPath, [join(root, 'scripts/voice/run.mjs'), 'setup.py'], { stdio: 'inherit', env: { ...process.env, ARCO_PACKAGED: '1' } });
     if (r.error || r.status !== 0) throw new Error('Voice setup failed.'); return;
+  }
+  if (command === 'storage') {
+    if (args[0] !== 'unseal') throw new Error('Use arco storage unseal [--project <path>]...');
+    const projects = [];
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] !== '--project' || !args[i + 1]) throw new Error('Use arco storage unseal [--project <path>]...');
+      projects.push(resolve(args[++i]));
+    }
+    const paths = servicePaths(process.platform);
+    const port = Number(readPortState(paths.home)?.port || process.env.ARCO_PORT || '3001');
+    if (Number.isInteger(port) && await isArcoHome(port, paths.home, fetch, process.env.ARCO_HOST).catch(() => false)) {
+      throw new Error('Arco is running. Stop it (arco service stop, or Ctrl+C) and run arco storage unseal again.');
+    }
+    await unsealProjects(projects.length ? projects : await knownProjects(paths.home));
+    return;
   }
   if (command === 'doctor') {
     const supported = supportedNodeVersion();

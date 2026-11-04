@@ -1,7 +1,8 @@
-import { lstat, open, realpath } from 'node:fs/promises';
-import { join, relative, isAbsolute, sep } from 'node:path';
+import { lstat, realpath } from 'node:fs/promises';
+import { dirname, join, relative, isAbsolute, sep } from 'node:path';
 import type { UtilityJobFact } from '@arco/shared';
 import { flushWorkflowBuffer } from './workflowStore.js';
+import { readLogTail } from './eventLog.js';
 
 const MAX_TAIL_BYTES = 1024 * 1024;
 const MAX_FACTS = 32;
@@ -98,7 +99,6 @@ export function collectCatchUpFacts(sources: CatchUpSource[], from: number, to: 
 export async function readCatchUpEvents(cwd: string, id: string): Promise<{ events: CatchUpEvent[]; truncated: boolean }> {
   if (!/^[a-zA-Z0-9-]{1,64}$/.test(id)) throw new Error('Invalid workflow.');
   await flushWorkflowBuffer(cwd, id);
-  let file;
   const eventPath = join(cwd, '.arco', 'workflows', id, 'events.jsonl');
   try {
     const stat = await lstat(eventPath);
@@ -106,16 +106,13 @@ export async function readCatchUpEvents(cwd: string, id: string): Promise<{ even
     const root = await realpath(cwd), resolved = await realpath(eventPath);
     const rel = relative(root, resolved);
     if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('Workflow activity escapes the project.');
-    file = await open(eventPath, 'r');
   }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { events: [], truncated: false }; throw error; }
-  try {
-    const size = (await file.stat()).size, length = Math.min(size, MAX_TAIL_BYTES), data = Buffer.alloc(length);
-    const { bytesRead } = await file.read(data, 0, length, size - length);
-    const lines = data.subarray(0, bytesRead).toString('utf8').split('\n');
-    if (size > length) lines.shift();
-    const events: CatchUpEvent[] = [];
-    for (const line of lines) { try { const value = JSON.parse(line); if (value && typeof value === 'object') events.push(value as CatchUpEvent); } catch { /* partial or invalid record */ } }
-    return { events, truncated: size > length };
-  } finally { await file.close(); }
+  // The live tail, plus the newest sealed segments when it is short (P7.3).
+  const tail = await readLogTail(dirname(eventPath), MAX_TAIL_BYTES);
+  const lines = tail.text.split('\n');
+  if (tail.truncated) lines.shift();
+  const events: CatchUpEvent[] = [];
+  for (const line of lines) { try { const value = JSON.parse(line); if (value && typeof value === 'object') events.push(value as CatchUpEvent); } catch { /* partial or invalid record */ } }
+  return { events, truncated: tail.truncated };
 }

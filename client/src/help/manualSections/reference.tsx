@@ -114,8 +114,14 @@ arco service install|uninstall|start|stop|restart|status|logs|refresh
 arco update  # update the installed package
 arco voice setup  # install local voice components
 arco doctor  # check runtime, providers, port and service
+arco storage unseal  # plain logs again, before installing an older release
 arco version`}</Pre>
   <ul>
+  <li>
+  <Code>arco storage unseal</Code> writes compressed conversation logs back to
+  plain files. Run it with Arco stopped before installing a release older than
+  0.1.4; <Code>--project &lt;path&gt;</Code> limits it to one project.
+  </li>
   <li>
   <Code>arco service logs</Code> prints recent logs. On Windows it also prints
   the raw output files.

@@ -19,6 +19,7 @@
   },
   "scripts": {
     "arco:update": "node scripts/arco-update.mjs",
+    "storage:unseal": "node scripts/packaging/arco.mjs storage unseal",
     "audit:public": "node scripts/public-audit.mjs",
     "setup:hooks": "node scripts/setup-hooks.mjs",
     "test:unit": "node scripts/test-unit.mjs",

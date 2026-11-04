@@ -1,7 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { createReadStream } from 'fs';
+import { readLogLines } from '../eventLog.js';
 import { promises as fs } from 'fs';
-import { createInterface } from 'readline';
 import path from 'path';
 import { PORT } from '../server/constants.js';
 import type {
@@ -193,16 +192,9 @@ export function aggregateUsage(
 // (mirrors recall/index.ts's tolerant read).
 async function collectWorkflowUsage(cwd: string, wfid: string, out: unknown[]): Promise<void> {
   if (!WFID_PATTERN.test(wfid)) return;
-  const eventsPath = path.join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
-  let stream;
   try {
-    stream = createReadStream(eventsPath, { encoding: 'utf8' });
-  } catch {
-    return;
-  }
-  try {
-    const rl = createInterface({ input: stream, crlfDelay: Infinity });
-    for await (const line of rl) {
+    // Sealed segments, then the live file (P7.3).
+    for await (const line of readLogLines(path.join(cwd, '.arco', 'workflows', wfid))) {
       // Cheap pre-filter before JSON.parse — most lines aren't usage events.
       if (!line || !line.includes('"primary_turn_token_usage"')) continue;
       let entry: unknown;

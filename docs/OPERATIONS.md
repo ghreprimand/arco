@@ -198,7 +198,19 @@ arco service start
 ```
 
 A service definition changed outside Arco is not overwritten; review it before
-continuing. See [Service mode](SERVICE_MODE.md#packaged-service) for the
+continuing.
+
+Before installing a release older than 0.1.4, stop Arco and write compressed
+conversation logs back to plain files. Older releases read only the plain
+`events.jsonl` and would show only the newest part of each long conversation:
+
+```sh
+arco storage unseal
+```
+
+Add `--project <path>` (repeatable) to limit it to some projects. In a source
+checkout, run `npm run storage:unseal`. See
+[Persistence](PERSISTENCE.md#sealed-segments). See [Service mode](SERVICE_MODE.md#packaged-service) for the
 working-directory requirements.
 
 ### Source checkout

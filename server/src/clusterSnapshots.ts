@@ -44,6 +44,7 @@ import { readClusterPlan } from './clusterPlanBridge.js';
 import { rememberCwd } from './crashRecovery.js';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
+import { listSegments, readLogText } from './eventLog.js';
 
 const NAME_MAX = 64;
 const MAX_SNAPSHOTS = 100;
@@ -332,6 +333,13 @@ function portableWorkflowMeta(input: WorkflowMeta): WorkflowMeta {
 // Snapshot the live cluster. Reads the in-memory/on-disk ClusterState, flushes
 // each member's event buffer (so the copy captures the latest events), then
 // copies each member's meta.json + events.jsonl into the snapshot dir.
+function memberLogTooLarge(wfid: string, bytes: number): SnapshotValidationError {
+  return new SnapshotValidationError(
+    'member_log_too_large',
+    `member ${wfid.slice(0, 8)} events.jsonl is ${Math.round(bytes / (1024 * 1024))}MB, over the ${MAX_MEMBER_EVENTS_BYTES / (1024 * 1024)}MB snapshot cap`,
+  );
+}
+
 export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSnapshotSummary> {
   const name = validateName(input.name);
 
@@ -389,21 +397,20 @@ export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSna
         JSON.stringify(portableWorkflowMeta(meta), null, 2) + '\n',
         'utf8',
       );
-      const srcEvents = path.join(cwd, '.arco', 'workflows', oldWfid, 'events.jsonl');
+      // The whole history, sealed segments included (P7.3); the snapshot
+      // keeps one plain log per member, so the cap applies to the plain text.
+      const srcDir = path.join(cwd, '.arco', 'workflows', oldWfid);
       let eventsText = '';
-      try {
-        const st = await fs.stat(srcEvents);
-        if (st.size > MAX_MEMBER_EVENTS_BYTES) {
-          throw new SnapshotValidationError(
-            'member_log_too_large',
-            `member ${oldWfid.slice(0, 8)} events.jsonl is ${Math.round(st.size / (1024 * 1024))}MB, over the ${MAX_MEMBER_EVENTS_BYTES / (1024 * 1024)}MB snapshot cap`,
-          );
-        }
-        eventsText = await fs.readFile(srcEvents, 'utf8');
-      } catch (err) {
-        if (err instanceof SnapshotValidationError) throw err;
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      let eventsBytes = 0;
+      const sealed = await listSegments(srcDir);
+      if (!sealed.length) {
+        try { eventsBytes = (await fs.stat(path.join(srcDir, 'events.jsonl'))).size; }
+        catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
       }
+      if (eventsBytes > MAX_MEMBER_EVENTS_BYTES) throw memberLogTooLarge(oldWfid, eventsBytes);
+      eventsText = await readLogText(srcDir);
+      eventsBytes = Buffer.byteLength(eventsText);
+      if (eventsBytes > MAX_MEMBER_EVENTS_BYTES) throw memberLogTooLarge(oldWfid, eventsBytes);
       await fs.writeFile(path.join(destDir, 'events.jsonl'), eventsText, 'utf8');
 
       members.push({

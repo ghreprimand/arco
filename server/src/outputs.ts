@@ -11,6 +11,7 @@ import { knownRoots, resolveBoundCwd } from './http/writeConfinement.js';
 import { workflows } from './server/state.js';
 import { matchFileEvent } from './recentFilesLedger.js';
 import { outputDirectory, readOutputIndex, writeOutputIndex, mappedOutputPath, type StoredOutput, type OutputIndex } from './outputStore.js';
+import { readLogLines, sealedThroughSeq } from './eventLog.js';
 
 export interface OutputContext { cwd: string; workflowId: string; producer: string; }
 const LIMIT = 2000;
@@ -154,6 +155,32 @@ async function reconcile(ctx: OutputContext, index: OutputIndex): Promise<void> 
     } catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
   };
   await walk(root);
+  const handle = async (event: Record<string, unknown>, fallbackTime: number) => {
+    const timestamp = typeof event.ts === 'number' ? event.ts : fallbackTime;
+    for (const output of outputEventPaths(event, ctx.cwd, root)) {
+      if (output.path) await record(output.path, output.title, output.source, timestamp, output.inputPath);
+      else if (output.inline && !index.entries.some(e => e.id === idFor(`inline:${output.key}`)) && index.entries.length < LIMIT) index.entries.push({ ...ctx, id: idFor(`inline:${output.key}`), title: output.title || 'Inline artifact', name: output.title || 'Inline artifact', category: 'documents', createdAt: timestamp, updatedAt: timestamp, inline: output.inline, source: output.source });
+    }
+  };
+  const noteSeq = (event: Record<string, unknown>) => { if (typeof event.seq === 'number' && event.seq > (index.seq ?? 0)) index.seq = event.seq; };
+  // Records sealed into compressed segments since the last read (P7.3): read
+  // them by sequence number, then restart the live file from its beginning.
+  const sealedThrough = await sealedThroughSeq(dir);
+  if (sealedThrough > (index.seq ?? 0)) {
+    const after = index.seq ?? 0;
+    for await (const line of readLogLines(dir, { fromSeq: after })) {
+      if (Buffer.byteLength(line) > 2 * 1024 * 1024) continue;
+      let event: Record<string, unknown> | null = null;
+      try { event = JSON.parse(line); } catch { /* malformed event */ }
+      if (!event || typeof event.seq !== 'number' || event.seq <= after) continue;
+      if (event.seq > sealedThrough) break;
+      await handle(event, Date.now());
+      noteSeq(event);
+    }
+    index.seq = Math.max(index.seq ?? 0, sealedThrough);
+    index.offset = 0;
+  }
+  const skipThrough = index.seq ?? 0;
   const events = path.join(dir, 'events.jsonl');
   let info;
   try { info = await lstat(events); } catch { return; }
@@ -179,12 +206,9 @@ async function reconcile(ctx: OutputContext, index: OutputIndex): Promise<void> 
         if (!oversized && lineBytes <= 2 * 1024 * 1024) {
           let event: Record<string, unknown> | null = null;
           try { event = JSON.parse(Buffer.concat(pending).toString('utf8')); } catch { /* malformed event */ }
-          if (event) {
-            const timestamp = typeof event.ts === 'number' ? event.ts : info.mtimeMs;
-            for (const output of outputEventPaths(event, ctx.cwd, root)) {
-              if (output.path) await record(output.path, output.title, output.source, timestamp, output.inputPath);
-              else if (output.inline && !index.entries.some(e => e.id === idFor(`inline:${output.key}`)) && index.entries.length < LIMIT) index.entries.push({ ...ctx, id: idFor(`inline:${output.key}`), title: output.title || 'Inline artifact', name: output.title || 'Inline artifact', category: 'documents', createdAt: timestamp, updatedAt: timestamp, inline: output.inline, source: output.source });
-            }
+          if (event && !(typeof event.seq === 'number' && event.seq <= skipThrough)) {
+            await handle(event, info.mtimeMs);
+            noteSeq(event);
           }
         }
         consumed += lineBytes;
