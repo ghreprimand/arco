@@ -2455,6 +2455,16 @@ The live client snapshot is still the full cwd-scoped task list. Sent live after
 { type: 'task_ledger_snapshot', workflowId: string, cwd: string, tasks: LedgerTask[] }
 ```
 
+### `storage_warning` <-
+
+Sent and logged after a turn ends when an artifact file reaches 1 GiB or a conversation's artifacts reach 5 GiB (`ARCO_ARTIFACT_WARN_FILE_BYTES` and `ARCO_ARTIFACT_WARN_CONVERSATION_BYTES` override them). Each item warns once; the conversation total warns again only after it grows by another threshold. Kept items (`keep.json`) never warn; approving a warning sets KEEP with reason `size-warning`. `server/src/storageWarnings.ts`.
+
+```ts
+{ type: 'storage_warning', workflowId: string,
+  items: Array<{ path: string; bytes: number; kind: 'file' | 'conversation' }>, // path relative to the conversation folder
+  fileThresholdBytes: number, conversationThresholdBytes: number }
+```
+
 ### `task_ledger_event` <-
 
 The durable per-mutation event - what lands in `events.jsonl` and what `rebuildFromEvents` folds. Persisted (the snapshot above is a convenience for live clients; this is the projection's source).

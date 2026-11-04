@@ -316,6 +316,14 @@ test('storage report is restricted to registered project paths', async () => {
   assert.equal(home.status, 200);
   const homeBody = await home.json() as { scope: string; buckets: Record<string, unknown> };
   assert.equal(homeBody.scope, 'home'); assert.ok(homeBody.buckets.caches);
+  // Storage actions: a registered project, a confirmation and a valid id.
+  const action = { path: main.project, workflowId: 'storage-action-1' };
+  assert.equal((await main.post('/api/storage/empty-scratch', action)).status, 400);
+  assert.equal((await main.post('/api/storage/empty-scratch', { ...action, path: main.outside, confirm: true })).status, 403);
+  assert.equal((await main.post('/api/storage/empty-scratch', { ...action, workflowId: '../x', confirm: true })).status, 400);
+  const emptied = await main.post('/api/storage/empty-scratch', { ...action, confirm: true });
+  assert.equal(emptied.status, 200);
+  assert.equal(((await emptied.json()) as { removedFiles: number }).removedFiles, 0);
 });
 
 // ── read confinement ─────────────────────────────────────────

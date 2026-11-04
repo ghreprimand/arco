@@ -42,6 +42,7 @@ import type {
 } from './handoffs.js';
 import type { CheckpointCreatedMessage, CheckpointRevertedMessage, TurnChangesMessage } from './checkpoints.js';
 import type { LiveChangesSnapshotMessage } from './liveChanges.js';
+import type { StorageWarningMessage } from './storage.js';
 import type { GitOpResultMessage } from './gitOps.js';
 import type { MediaOpResultMessage, MediaStemsResultMessage } from './media.js';
 import type { TerminalOpenedMessage, TerminalKilledMessage, TerminalCommandLoggedMessage, TerminalSessionsMessage } from './terminal.js';
@@ -1416,6 +1417,7 @@ export interface TurnMessagesDeliveredMessage {
 }
 
 export type ServerMessage =
+  | StorageWarningMessage
   | TurnMessagesDeliveredMessage
   | AppUpdateAvailableMessage
   | ComputerActivityChangedMessage

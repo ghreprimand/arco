@@ -23,6 +23,7 @@ import {
 import { WS_BACKPRESSURE_DROP_BYTES } from './constants.js';
 import { persistAndStampSeq } from '../workflowStore.js';
 import { rememberPlanBody } from '../planHistory.js';
+import { checkArtifactSizes, conversationWarnBytes, fileWarnBytes } from '../storageWarnings.js';
 import { readMeta, updateMeta } from '../workflowMeta.js';
 import { appendRecord, matchFileEvent, resolveMatchPath } from '../recentFilesLedger.js';
 import { artifactsDir } from '../workers/limits.js';
@@ -175,6 +176,9 @@ export function send(ws: WebSocket, message: ServerMessage): void {
     // ARCHIVE — agent-writes ledger. Native Write/Edit/NotebookEdit tool events
     // ride the operator turn through send(); record them here.
     recordFilesLedger(wfid, stamped);
+    // P7.4: primary turns end through send(); warn once about very large
+    // artifacts (idempotent with the broadcastWorkflow hook).
+    if (stamped.type === 'primary_turn_ended' && cwd && source && !source.config.incognito) void reportArtifactSizes(wfid, cwd);
     // Fan out to every observer of this workflow. Multi-observer so a
     // second browser window attached to the same workflowId also sees the
     // stream; previously the single-slot pointer got overwritten on the
@@ -369,6 +373,20 @@ export async function flushPlansWatcher(cwd: string, state: PlansWatcher): Promi
   }
 }
 
+async function reportArtifactSizes(workflowId: string, cwd: string): Promise<void> {
+  try {
+    const items = await checkArtifactSizes(join(cwd, '.arco', 'workflows', workflowId));
+    if (items.length) {
+      broadcastWorkflow(workflowId, {
+        type: 'storage_warning', workflowId, items,
+        fileThresholdBytes: fileWarnBytes(), conversationThresholdBytes: conversationWarnBytes(),
+      });
+    }
+  } catch (err) {
+    console.error(`[arco] artifact size check failed for ${workflowId.slice(0, 8)}:`, err);
+  }
+}
+
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
@@ -416,6 +434,8 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
     if (!wf.config.incognito) notifications.onTurnStarted(workflowId);
   } else if (message.type === 'primary_turn_ended') {
     clusterIdleNudger.onMemberTurnEnded(workflowId);
+    // P7.4: warn once about very large artifacts written during the turn.
+    if (cwd && !wf.config.incognito) void reportArtifactSizes(workflowId, cwd);
     if (!wf.config.incognito) {
       notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
     }

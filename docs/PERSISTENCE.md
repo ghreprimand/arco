@@ -63,6 +63,7 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 <cwd>/.arco/
 ├──.gitignore                       # ignores all project state by default
 ├── settings.json                    # per-project settings overrides
+├── storage-actions.jsonl            # one line per operator storage action (EMPTY SCRATCH, archive, delete)
 ├── session-index.json               # resume-picker projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
 ├── title-events.jsonl               # session-index title history (same module; rebuildable)
 ├── <workflowId>/                    # per-workflow CLI/Codex MCP config (mcp/mcpConfigWriter.ts) - cluster peer tools / codebase-memory / registry servers
@@ -72,6 +73,9 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 │       ├── events.jsonl             # append-only NDJSON event log (the live part)
 │       ├── events.<first>-<last>.jsonl.br  # sealed, compressed older records (see Sealed segments)
 │       ├── log-format.json          # { "format": 2 } once a segment exists
+│       ├── scratch/                 # large intermediate files; emptied only by EMPTY SCRATCH (storageActions.ts)
+│       ├── keep.json                # KEEP marks: items skipped by EMPTY SCRATCH, archive, delete and size warnings (keepStore.ts)
+│       ├── storage-warnings.json    # artifact sizes already warned about (storageWarnings.ts)
 │       ├── meta.json                # workflow identity + session ledger
 │       ├── resume-summary.json      # Native resume-summary cache (claude-native/resumeSummary.ts)
 │       ├── gate-approvals.json      # DEBAG gate sidecar (gateStore.ts) - only when reviewSafeMode='on'

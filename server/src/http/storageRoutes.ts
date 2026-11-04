@@ -5,12 +5,65 @@ import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
 import { lstat } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
+import { emptyScratch, StorageActionError } from '../storageActions.js';
+import { workflows } from '../server/state.js';
 
 const cache = new Map<string, Promise<StorageReport>>();
 // Not a path, so it cannot collide with a project key.
 const HOME_KEY = '\0home';
+function json(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+async function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+  let size = 0; const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > 64 * 1024) return null;
+    chunks.push(chunk as Buffer);
+  }
+  try { const v = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; }
+  catch { return null; }
+}
+
+// A registered project whose state folder is not a link; null otherwise.
+async function projectFor(cwd: unknown): Promise<string | null> {
+  if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return null;
+  const key = await realpathWithinProjects(path.resolve(cwd));
+  if (!key) return null;
+  try { if ((await lstat(path.join(key, '.arco'))).isSymbolicLink()) return null; }
+  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return null; }
+  return key;
+}
+
+const ACTION_STATUS: Record<StorageActionError['code'], number> = { keep_unreadable: 409, busy: 409, open: 409, kept: 409, exists: 409, not_found: 404, invalid: 400 };
+
+// Operator storage actions. Each needs `confirm: true`: the client asks first.
+async function handleStorageAction(req: IncomingMessage, res: ServerResponse, action: string): Promise<void> {
+  const body = await readJson(req);
+  if (!body) return json(res, 400, { error: 'invalid_body' });
+  const project = await projectFor(body.path);
+  if (!project) return json(res, 403, { error: 'Project is unavailable' });
+  if (body.confirm !== true) return json(res, 400, { error: 'confirmation_required' });
+  const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
+  try {
+    if (action === 'empty-scratch') {
+      const result = await emptyScratch(project, workflowId, { busy: !!workflows.get(workflowId)?.busy });
+      return json(res, 200, { ok: true, ...result });
+    }
+    return json(res, 404, { error: 'unknown_action' });
+  } catch (err) {
+    if (err instanceof StorageActionError) return json(res, ACTION_STATUS[err.code], { error: err.code, message: err.message });
+    console.error('[arco] storage action failed:', err);
+    return json(res, 500, { error: 'storage_action_failed' });
+  }
+}
+
 export async function tryHandleStorageRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://localhost');
+  const actionMatch = /^\/api\/storage\/([a-z-]+)$/.exec(url.pathname);
+  if (actionMatch && req.method === 'POST') { await handleStorageAction(req, res, actionMatch[1]); return true; }
   if (url.pathname !== '/api/storage-report' || req.method !== 'GET') return false;
   if (url.searchParams.get('scope') === 'home') {
     // Arco's own folder: voice and media models, caches, shared checkpoints,

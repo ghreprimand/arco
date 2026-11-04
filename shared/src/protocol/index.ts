@@ -25,6 +25,7 @@ export * from './mdTuneup.js';
 export * from './handoffs.js';
 export * from './checkpoints.js';
 export * from './liveChanges.js';
+export * from './storage.js';
 export * from './gitOps.js';
 export * from './bakeoffs.js';
 export * from './terminal.js';

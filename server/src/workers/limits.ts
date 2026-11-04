@@ -68,6 +68,9 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
     ? `- For report-shaped outputs (deep dives, inventories, audits, multi-section findings), write a markdown file into \`${dir}/\` (this directory already exists) and return a brief summary that names the file in backticks (for example \`audit-spawns.md\`) so it is clickable in chat. Do NOT write report files at the project root — Arco tracks artifacts per-workflow and surfaces them inline in chat. For ordinary prose responses — even detailed ones — return the full text inline; the operator reads it in chat.`
     : `- For report-shaped outputs (deep dives, inventories, audits, multi-section findings), write a markdown file in the cwd and return a brief summary + absolute path. For ordinary prose responses — even detailed ones — return the full text inline; the operator reads it in chat.`;
 
+  const scratchLine = dir
+    ? `\n- Put large intermediate files (builds, disk images, downloads, datasets) in \`${path.join(path.dirname(dir), 'scratch')}/\` (create it if missing), not in artifacts. Keep only finished deliverables in artifacts. The operator empties scratch with EMPTY SCRATCH; nothing there is deleted automatically.`
+    : '';
   return `
 
 ---
@@ -76,7 +79,7 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
 - No \`find /\` / \`du -sh /\` without \`-maxdepth\` and exclusions for \`/proc /sys /dev /run\`. Skip \`~/.cache\`, \`node_modules\`, \`.git/objects\`, \`/var/cache\`, \`/snap\`.
 - No reads of \`/proc/kcore\`, \`/proc/*/mem\`, \`/dev/{kmem,mem,zero,urandom}\` past first KB. No unbounded \`journalctl\` or \`while true\` loops.
 - No \`cat\` of files >10MB; use \`head -c 100K\` instead. \`xargs\` always with explicit limits.
-${bigOutputLine}
+${bigOutputLine}${scratchLine}
 - Arco will hard-kill your process tree at 32GB RSS or ${formatCapMb(MAX_WORKER_OUTPUT_BYTES)} returned output. These are the floor, not the budget.
 `;
 }
