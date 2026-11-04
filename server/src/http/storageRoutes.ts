@@ -5,7 +5,8 @@ import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
 import { lstat } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
-import { deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
+import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
+import { sealWorkflowLogNow } from '../workflowStore.js';
 import { archiveConversation, archivePath, restoreConversation } from '../storageArchive.js';
 import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
@@ -51,6 +52,11 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
   if (body.confirm !== true) return json(res, 400, { error: 'confirmation_required' });
   const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
   try {
+    if (action === 'compress-logs') {
+      const open = openWorkflowIds();
+      const result = await compressOldLogs(project, { isOpen: (id) => open.has(id), isBusy: (id) => !!workflows.get(id)?.busy, seal: sealWorkflowLogNow });
+      return json(res, 200, { ok: true, ...result });
+    }
     const busy = !!workflows.get(workflowId)?.busy;
     const open = openWorkflowIds().has(workflowId);
     if (action === 'empty-scratch') {

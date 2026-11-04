@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import path from 'node:path';
-import { holdsKept, isKept, readKeep } from './keepStore.js';
+import { KEEP_FILE, holdsKept, isKept, readKeep } from './keepStore.js';
 import { conversationDir, recordStorageAction, StorageActionError } from './storageActions.js';
 import { renameWithRetry } from './atomicFile.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
@@ -49,6 +49,9 @@ async function collect(dir: string, kept: Parameters<typeof isKept>[0]): Promise
     for (const entry of await fs.readdir(abs, { withFileTypes: true })) {
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       if (isKept(kept, childRel)) { skipped++; continue; }
+      // The KEEP list stays with the kept items it protects; with nothing
+      // kept it is archived and restored like any other file.
+      if (!rel && entry.name === KEEP_FILE && kept.length) { skipped++; continue; }
       const child = path.join(abs, entry.name);
       if (entry.isDirectory()) { await walk(childRel); continue; }
       if (!entry.isFile()) { skipped++; continue; }

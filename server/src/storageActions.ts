@@ -111,3 +111,46 @@ export async function deleteConversation(
   await recordStorageAction(cwd, { action: 'delete', workflowId, removedBytes: out.removedBytes, removedFiles: out.removedFiles, keptItems: out.keptItems });
   return out;
 }
+
+// COMPRESS OLD LOGS (operator click, per project): seal the live logs of
+// closed conversations into compressed segments. Open or working
+// conversations are skipped and listed; logs under 1 MiB are not worth it.
+// Lossless: the same sealing as during writes, inside each conversation's
+// flush chain. Nothing is deleted.
+export const COMPRESS_MIN_BYTES = 1024 * 1024;
+export interface CompressResult { sealed: number; skippedOpen: string[]; failed: number; beforeBytes: number; afterBytes: number }
+export async function compressOldLogs(
+  cwd: string,
+  opts: { isOpen: (id: string) => boolean; isBusy: (id: string) => boolean; seal: (cwd: string, id: string) => Promise<unknown> },
+): Promise<CompressResult> {
+  const root = path.join(cwd, '.arco', 'workflows');
+  const out: CompressResult = { sealed: 0, skippedOpen: [], failed: 0, beforeBytes: 0, afterBytes: 0 };
+  let names: string[] = [];
+  try { names = await fs.readdir(root); } catch { names = []; }
+  for (const id of names.sort()) {
+    if (!WFID.test(id)) continue;
+    const live = path.join(root, id, 'events.jsonl');
+    let size = 0;
+    try { const st = await fs.lstat(live); if (!st.isFile()) continue; size = st.size; } catch { continue; }
+    if (size < COMPRESS_MIN_BYTES) continue;
+    if (opts.isOpen(id) || opts.isBusy(id)) { out.skippedOpen.push(id); continue; }
+    const before = await logBytes(path.join(root, id));
+    try { await opts.seal(cwd, id); }
+    catch (err) { out.failed++; console.error(`[arco] compress logs: ${id.slice(0, 8)} not sealed:`, err); continue; }
+    const after = await logBytes(path.join(root, id));
+    if (after < before) { out.sealed++; out.beforeBytes += before; out.afterBytes += after; }
+  }
+  await recordStorageAction(cwd, { action: 'compress_logs', sealed: out.sealed, skippedOpen: out.skippedOpen.length, failed: out.failed, beforeBytes: out.beforeBytes, afterBytes: out.afterBytes });
+  return out;
+}
+
+async function logBytes(dir: string): Promise<number> {
+  let total = 0;
+  try {
+    for (const name of await fs.readdir(dir)) {
+      if (name !== 'events.jsonl' && !/^events\.\d{12}-\d{12}\.jsonl\.br$/.test(name)) continue;
+      total += (await fs.lstat(path.join(dir, name))).size;
+    }
+  } catch { /* unreadable */ }
+  return total;
+}

@@ -337,6 +337,10 @@ test('storage report is restricted to registered project paths', async () => {
   assert.equal(readFileSync(path.join(conv, 'artifacts', 'a.txt'), 'utf8'), 'synthetic');
   assert.equal((await main.post('/api/storage/delete', conversationAction)).status, 200);
   assert.equal(existsSync(conv), false);
+  const compressed = await main.post('/api/storage/compress-logs', { path: main.project, confirm: true });
+  assert.equal(compressed.status, 200);
+  assert.equal(((await compressed.json()) as { sealed: number }).sealed, 0);
+  assert.equal((await main.post('/api/storage/compress-logs', { path: main.project })).status, 400);
   // The policy starts with auto-archive off; the overview covers the project.
   const policy = await (await main.api('/api/storage/policy')).json() as { autoArchiveClosedDays: number | null; budgetGiB: number };
   assert.equal(policy.autoArchiveClosedDays, null); assert.equal(policy.budgetGiB, 100);

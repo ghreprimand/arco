@@ -155,6 +155,7 @@ Since 0.1.4 a live `events.jsonl` that passes 16 MiB (`ARCO_EVENT_SEGMENT_BYTES`
 - An unreadable segment is reported and skipped; the history shows a gap and nothing is deleted.
 - A log whose `log-format.json` names a newer format is not written to; events still reach open tabs.
 - Every reader goes through `eventLog.ts`: `readLogLines`, `readLogText`, `readLogTail`, `readLogHeadSync`, `readLogTailSync`. Do not open `events.jsonl` directly in new code.
+- Closed conversations are not written to, so they are sealed only on request: COMPRESS OLD LOGS (`POST /api/storage/compress-logs`) seals a project's closed conversations whose live log is at least 1 MiB (`workflowStore.sealWorkflowLogNow`).
 - `arco storage unseal` (`npm run storage:unseal` in a checkout) writes each sealed history back to one plain `events.jsonl`, checks it, then removes the segments and the marker. It refuses while Arco is running.
 
 `parentEventSeq` links each event back to its predecessor in the workflow's events.jsonl. For linear workflows this equals `seq - 1`, so it's redundant; the field exists so forks can express a non-linear parent (the new branch's first event points back to the fork point, not the immediately previous seq) without a second schema bump. Absent on the very first event in a workflow and on every event in older (`schemaVersion: 1`) workflows. Readers treat absent as "previous event in seq order" - both wire (`WorkflowEvent`) and disk readers should handle the absent case.

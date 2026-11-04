@@ -193,3 +193,43 @@ test('a log written by a newer format is not written to', async () => {
     await assert.rejects(sealLiveLog(dir(id), 10), /newer storage format/);
   });
 });
+
+test('COMPRESS OLD LOGS seals closed conversations only, without losing events written meanwhile', async () => {
+  const { compressOldLogs } = await import('./storageActions.js');
+  const { sealWorkflowLogNow } = await import('./workflowStore.js');
+  await withProject(async (cwd, dir) => {
+    delete process.env.ARCO_EVENT_SEGMENT_BYTES; // the default 16 MiB, so writes alone never seal
+    const big = (id: string) => range(1, 3000).map((seq) => JSON.stringify({ seq, ts: seq, type: 'primary_text', workflowId: id, text: `${id} ${seq} `.repeat(30) })).join('\n') + '\n';
+    for (const id of ['old-0001', 'open-0001', 'tiny-0001']) await mkdir(dir(id), { recursive: true });
+    await writeFile(path.join(dir('old-0001'), 'events.jsonl'), big('old-0001'));
+    await writeFile(path.join(dir('open-0001'), 'events.jsonl'), big('open-0001'));
+    await writeFile(path.join(dir('tiny-0001'), 'events.jsonl'), '{"seq":1,"type":"workflow_created"}\n');
+    const before = await readLogText(dir('old-0001'));
+    // The conversation is reopened and writes an event while it is sealed.
+    await initWorkflowStore(cwd, 'old-0001');
+    const sealing = compressOldLogs(cwd, {
+      isOpen: (id) => id === 'open-0001', isBusy: () => false,
+      seal: async (c, id) => {
+        const done = sealWorkflowLogNow(c, id);
+        await new Promise((r) => setImmediate(r));
+        persistAndStampSeq(c, id, { type: 'primary_text', workflowId: id, text: 'written during the seal' } as unknown as ServerMessage);
+        await flushWorkflowBuffer(c, id);
+        return done;
+      },
+    });
+    const result = await sealing;
+    assert.equal(result.sealed, 1);
+    assert.deepEqual(result.skippedOpen, ['open-0001']);
+    assert.ok(result.afterBytes < result.beforeBytes / 5);
+    await flushWorkflowBuffer(cwd, 'old-0001');
+    assert.ok((await listSegments(dir('old-0001'))).length >= 1);
+    assert.deepEqual(await listSegments(dir('open-0001')), []);
+    assert.deepEqual(await listSegments(dir('tiny-0001')), []);
+    const after = await readLogText(dir('old-0001'));
+    assert.ok(after.startsWith(before));
+    assert.match(after.slice(before.length), /written during the seal/);
+    assert.deepEqual(seqs(await replayEvents(cwd, 'old-0001', 0)), range(1, 3001));
+    const log = (await readFile(path.join(cwd, '.arco', 'storage-actions.jsonl'), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+    assert.equal(log.at(-1).action, 'compress_logs');
+  });
+});

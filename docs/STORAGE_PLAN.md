@@ -136,6 +136,8 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 - **Recommendation:** seal the live log when it passes 16 MiB into compressed segments of at most 16 MiB of records each, using Brotli from `node:zlib` (quality 5, 16 MiB window). This differs from the earlier gzip suggestion: Brotli is equally built in and is 3 to 1,000 times more effective on these logs, and faster on the large ones.
 - **Trade-off:** fewer outside tools read Brotli than gzip. The export command below turns any log back into one plain file.
 
+- **Closed conversations:** a log is sealed when it is written to, so closed conversations keep their plain logs until the operator clicks **COMPRESS OLD LOGS** on the STORAGE page. It seals the closed conversations of one project and skips open or working ones; there is no background sweep.
+
 ### 5. Downgrade (P7.3)
 
 - **Recommendation:** releases from 0.1.4 on write a format marker in each sealed conversation and refuse to write to a log with a newer format than they know. Releases before 0.1.4 cannot refuse; for them, `arco storage unseal` exports every sealed log back into one plain `events.jsonl` before a downgrade.

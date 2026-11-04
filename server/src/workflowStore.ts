@@ -24,7 +24,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import {
   LOG_FORMAT, firstSealedSeq, readLogFormat, readLogLines, readLogTail, sealLiveLog,
-  sealThresholdBytes, sealedThroughSeq,
+  sealThresholdBytes, sealedThroughSeq, type SealResult,
 } from './eventLog.js';
 import type { ServerMessage } from '@arco/shared';
 
@@ -276,6 +276,30 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
   } finally {
     buf.flushInFlight = null;
   }
+}
+
+// COMPRESS OLD LOGS (P7.3/P7.5): seal a conversation's live log now, inside
+// its flush chain so no append can land between reading and replacing the
+// live file. Pending events are written first; events arriving meanwhile
+// wait and land in the new live file. Returns null when nothing was sealed.
+export async function sealWorkflowLogNow(cwd: string, wfid: string): Promise<SealResult | null> {
+  validateWfid(wfid);
+  await initWorkflowStore(cwd, wfid);
+  const buf = buffers.get(bufferKey(cwd, wfid));
+  if (!buf) return null;
+  if (buf.readOnly) throw new Error('This conversation log uses a newer storage format.');
+  if (buf.flushTimer) { clearTimeout(buf.flushTimer); buf.flushTimer = null; }
+  await flushBuffer(buf);
+  while (buf.flushInFlight) await buf.flushInFlight;
+  let result: SealResult | null = null;
+  const run = (async () => {
+    result = await sealLiveLog(workflowDir(cwd, wfid), sealThresholdBytes());
+    if (result) buf.liveBytes = result.liveBytes;
+  })();
+  buf.flushInFlight = run;
+  try { await run; } finally { if (buf.flushInFlight === run) buf.flushInFlight = null; }
+  if (buf.pending.length) await flushBuffer(buf);
+  return result;
 }
 
 // Flush a single workflow's pending events to disk now (clearing its debounce

@@ -9,6 +9,7 @@ import { archiveConversation, archivePath, listArchives, restoreConversation } f
 import { deleteConversation, StorageActionError } from './storageActions.js';
 import { sanitizePolicy, staleConversations } from './storageOverview.js';
 import { scanStorage } from './storageReport.js';
+import { readKeep } from './keepStore.js';
 
 // P7.5 (docs/STORAGE_PLAN.md): ARCHIVE, restore and DELETE for closed
 // conversations, and the opt-in auto-archive rule. Nothing is removed before
@@ -40,19 +41,21 @@ test('archive keeps kept items in place, restores byte for byte, and never touch
     if (process.platform !== 'win32') await symlink(path.join(cwd, '.arco', 'plans', 'p.md'), path.join(dir, 'artifacts', 'plan-link'));
     await assert.rejects(archiveConversation(cwd, ID, { ...closed, open: true }), isCode('open'));
     const result = await archiveConversation(cwd, ID, closed);
-    assert.equal(result.files, 5); // meta, events, blob, empty, keep.json
+    assert.equal(result.files, 4); // meta, events, blob, empty; keep.json stays with the kept item
     assert.ok(existsSync(archivePath(cwd, ID)));
     assert.deepEqual((await listArchives(cwd)).map((a) => a.workflowId), [ID]);
     // Only kept items (and the link, never followed) remain.
     const left = (await readdir(path.join(dir, 'artifacts'))).sort();
     assert.deepEqual(left, process.platform !== 'win32' ? ['kept.md', 'plan-link'] : ['kept.md']);
     assert.equal(existsSync(path.join(dir, 'meta.json')), false);
+    // The KEEP list stays, so the kept item is still protected afterwards.
+    assert.deepEqual(await readKeep(dir), { ok: true, items: [{ path: 'artifacts/kept.md', reason: 'operator', at: 1 }] });
     assert.equal(await readFile(path.join(cwd, '.arco', 'plans', 'p.md'), 'utf8'), '# Plan\n');
     await assert.rejects(archiveConversation(cwd, ID, closed), isCode('exists'));
     const report = await scanStorage(path.join(cwd, '.arco'), null);
     assert.ok(report.buckets.archives.bytes > 0);
     const restored = await restoreConversation(cwd, ID);
-    assert.equal(restored.files, 5);
+    assert.equal(restored.files, 4);
     assert.deepEqual(await readFile(path.join(dir, 'artifacts', 'nested', 'blob.bin')), blob);
     assert.equal(await readFile(path.join(dir, 'artifacts', 'empty.txt'), 'utf8'), '');
     assert.equal((await stat(path.join(dir, 'events.jsonl'))).mtimeMs, when.getTime());
