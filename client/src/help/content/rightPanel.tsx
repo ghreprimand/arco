@@ -730,6 +730,14 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       </>
     ),
   },
+  'storage.move-project': { title: 'MOVE TO PROJECT', manualSection: 'archive-explorer', body: <p>Choose KEEP IT PRIVATE or review a copy into a project folder. The original stays. Git status, repository visibility, size and text findings appear before the copy; Arco never stages or commits it.</p> },
+  'storage.keep-artifact': { title: 'KEEP artifact', manualSection: 'archive-explorer', body: <p>Keep the artifact in Arco and protect it from cleanup, archive and later size warnings.</p> },
+  'storage.choose-folder': { title: 'CHOOSE ANOTHER FOLDER', manualSection: 'archive-explorer', body: <p>Choose a different destination inside this project and review its checks.</p> },
+  'storage.ignore-copy': { title: 'ADD TO .GITIGNORE', manualSection: 'archive-explorer', body: <p>Add a rule for this destination to the project's ignore file, then check it again. This does not stage or commit anything.</p> },
+  'storage.copy-confirm': { title: 'Copy into project', manualSection: 'archive-explorer', body: <p>Copy after reviewing Git status, visibility, size and text findings. The original stays in Arco; existing files are never overwritten. A failed copy can leave partial files at the destination. The temporary folder must be outside the project and Git repositories.</p> },
+  'storage.warning': { title: 'Large artifacts', manualSection: 'archive-explorer', body: <p>Warns when artifact files or totals cross the configured thresholds. KEEP protects the item from storage cleanup and archive.</p> },
+  'storage.warning-keep': { title: 'KEEP artifact', manualSection: 'archive-explorer', body: <p>Protect the warned item from cleanup, archive and later size warnings.</p> },
+  'storage.warning-dismiss': { title: 'Dismiss warning', manualSection: 'archive-explorer', body: <p>Dismiss this warning without protecting the item.</p> },
   'rightpanel.storage.scan': {
     title: 'MEASURE STORAGE', manualSection: 'right-panel',
     body: <p>Measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately.</p>,

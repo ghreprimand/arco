@@ -8,6 +8,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Added
 
 - Add a STORAGE lens to the ARTIFACTS window: every project and Arco's own folder, largest first, with COMPRESS OLD LOGS per project and ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH per conversation, each confirmed. Kept items and plans always stay. STORAGE SETTINGS holds auto-archive (off by default, never deletes) and a disk budget notice (100 GiB).
+- Review artifact copies into project files with Git ignore, repository visibility, size and text checks. KEEP retains protected artifacts in Arco; copying never removes the original, stages or commits it. Large artifact warnings offer KEEP or DISMISS.
+
 - Measure storage in USAGE: MEASURE STORAGE (then MEASURE AGAIN) for the project and MEASURE ARCO FOLDER for Arco's own folder, with every byte under one heading (conversation logs, artifacts, worktrees, caches, voice models and more), log bytes by event type, and large files. Read-only.
 
 - Add public-project guardrails: a "This project is public (or will be)" box beside the plan-draft choices (cluster creator, DRAFT A PLAN, PLAN dialog) that makes a drafted plan include a "Privacy and public safety" section, remembered per project folder and suggested from the Git remote (one anonymous GitHub request, cached for a day, only when a plan-draft control is shown); INSERT GUARDRAILS to add the section to an existing plan as an unsaved edit; and a dismissible notice with RESTORE IGNORE FILE and STOP TRACKING when Git tracks or does not ignore a project's `.arco` folder.

@@ -19,9 +19,15 @@ export type RemoteSuggestion =
   | { state: 'hosted'; host: string }
   | { state: 'public'; host: string };
 
+export function projectGitEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  for (const name of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete env[name];
+  return env;
+}
+
 async function git(cwd: string, args: string[]): Promise<{ code: number; stdout: string }> {
   try {
-    const { stdout } = await execFileAsync('git', args, { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 1024 * 1024, encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    const { stdout } = await execFileAsync('git', args, { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 1024 * 1024, encoding: 'utf8', env: projectGitEnv() });
     return { code: 0, stdout };
   } catch (err) {
     const e = err as { code?: number | string; stdout?: string };

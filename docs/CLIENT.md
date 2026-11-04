@@ -1261,3 +1261,7 @@ MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headin
 ## Plans library
 
 ARTIFACTS > PLANS groups plans by project, remembers expanded projects and opens search matches. The current project opens by default. Repeated titles expand into versions. A group with an attached version stays in the normal list, where its unattached versions offer MARK DONE. In-use labels name attached tabs or clusters. Unattached plans with all checkboxes checked or no edits for 30 days appear under Probably finished; MARK DONE moves a selected plan to Completed. Nothing is marked done automatically. The counts follow the current filter.
+
+## Artifact copy review
+
+OUTPUTS > MOVE TO PROJECT reviews Git ignore status, public visibility, size and text findings before copying. Images, recordings and other binaries need manual inspection. KEEP IT PRIVATE retains and protects the artifact instead. ADD TO .GITIGNORE adds a destination rule. Copies do not overwrite, stage or commit, and the original stays in Arco. A failed copy can leave partial files at the destination. The temporary folder must be outside the project and Git repositories. Large artifact warnings offer KEEP to protect the item or DISMISS without protecting it.

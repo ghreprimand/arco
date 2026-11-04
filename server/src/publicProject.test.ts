@@ -107,3 +107,16 @@ test('restore backs up an edited ignore file; stop tracking keeps files', async 
     assert.equal((await checkProjectState(dir)).ignored, true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('visibility checks ignore an inherited Git repository override', async () => {
+  const project = repo(); const other = repo(); const prior = process.env.GIT_DIR;
+  try {
+    g(project, 'remote', 'add', 'origin', 'https://github.com/o/r.git');
+    process.env.GIT_DIR = join(other, '.git'); clearRemoteCache();
+    const result = await suggestFromRemote(project, { fetchImpl: async () => ({ status: 200, json: async () => ({ private: false }) }) });
+    assert.deepEqual(result, { state: 'public', host: 'github.com' });
+  } finally {
+    if (prior === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = prior;
+    clearRemoteCache(); rmSync(project, { recursive: true, force: true }); rmSync(other, { recursive: true, force: true });
+  }
+});

@@ -19,6 +19,7 @@ import { useMdTuneupStore } from '../stores/mdTuneupStore';
 import { useKnowledgeDistillStore } from '../stores/knowledgeDistillStore';
 import { useCompareStore } from '../stores/compareStore';
 import { useNotificationStore } from '../stores/notificationStore';
+import { useStorageWarningStore } from '../stores/storageWarningStore';
 import { useHubLinkStore } from '../stores/hubLinkStore';
 import { useOrchestrationAssistStore } from '../stores/orchestrationAssistStore';
 import { useLiveChangesStore } from '../stores/liveChangesStore';
@@ -184,6 +185,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
       }
 
       switch (msg.type) {
+        case 'storage_warning':
+          useStorageWarningStore.getState().add(msg);
+          break;
         case 'hub_link_status': {
           useHubLinkStore.getState().setStatus({ connected: msg.connected, hubUrl: msg.hubUrl, monitoredCount: msg.monitoredCount, connectedSince: msg.connectedSince });
           break;

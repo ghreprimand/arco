@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, lstatSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { publicSafetyRules as rules } from '../shared/src/publicSafetyRules.ts';
 
 const args = new Set(process.argv.slice(2));
 const packageAt = process.argv.indexOf('--package');
@@ -53,11 +54,6 @@ const split = buffer => buffer.toString().split('\0').filter(Boolean);
 // public GitHub no-reply identity. There is no environment or configuration
 // override.
 const expected = 'ghreprimand <203024559+ghreprimand@users.noreply.github.com>';
-const rules = [
-  ['private-key', /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/],
-  ['provider-token', /\b(?:sk-(?:proj-|ant-api\d+-)?[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16})\b/],
-  ['credential-assignment', /\b(?:api_key|apiKey|access_token|refresh_token|client_secret)\s*[=:]\s*["'][A-Za-z0-9_./+\-=]{32,}["']/],
-];
 const safeUsers = new Set(['operator', 'example', 'user', 'username', 'u', 'op', 'root', 'nobody', 'glob', 'real', 'test', 'runner', 'node']);
 // Public protocol endpoints and synthetic addresses used by retained Arco
 // parsing and checkpoint behavior. Reserved test domains never deliver mail.

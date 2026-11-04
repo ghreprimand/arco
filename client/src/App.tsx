@@ -20,6 +20,7 @@ import { SystemHeader } from './components/SystemHeader';
 import { StaleBuildBanner } from './components/StaleBuildBanner';
 import { TabBar } from './components/TabBar';
 import { NotificationToasts } from './components/NotificationToasts';
+import { StorageWarnings } from './components/StorageWarnings';
 import { WorkflowCreator } from './components/WorkflowCreator';
 import { WorkflowView } from './components/WorkflowView';
 import { ChatModeView } from './components/ChatModeView';
@@ -967,6 +968,7 @@ ${scopeBody}
       <DocViewer />
       <DragOverlay />
       <NotificationToasts />
+      <StorageWarnings />
       <ArtifactModal onRespond={(workflowId, content) => sendMessage(workflowId, content)} />
       <WorkerDetailModal />
       <CompareDialogHost />

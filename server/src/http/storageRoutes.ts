@@ -12,6 +12,9 @@ import { isKept, readKeep } from '../keepStore.js';
 import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { workflows } from '../server/state.js';
+import { addKeep } from '../keepStore.js';
+import { outputDirectory } from '../outputStore.js';
+import { inspectArtifactCopy, copyReviewedArtifact, ignoreCopyDestination } from '../artifactCopy.js';
 
 const cache = new Map<string, Promise<StorageReport>>();
 // Not a path, so it cannot collide with a project key.
@@ -58,6 +61,25 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
       const result = await compressOldLogs(project, { isOpen: (id) => open.has(id), isBusy: (id) => !!workflows.get(id)?.busy, seal: sealWorkflowLogNow });
       return json(res, 200, { ok: true, ...result });
     }
+    if (action === 'copy-review' || action === 'copy-confirm' || action === 'copy-ignore') {
+      if (typeof body.itemPath !== 'string' || typeof body.destinationFolder !== 'string') return json(res, 400, { error: 'invalid' });
+      const declaredPublic = body.publicProject === true;
+      const review = await inspectArtifactCopy(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic);
+      if (action === 'copy-review') return json(res, 200, review);
+      if (typeof body.token !== 'string' || body.token !== review.token) return json(res, 409, { error: 'The artifact or destination changed. Review it again.' });
+      if (action === 'copy-ignore') {
+        await ignoreCopyDestination(project, review.target);
+        return json(res, 200, { ok: true });
+      }
+      await copyReviewedArtifact(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic, body.token);
+      return json(res, 200, { ok: true });
+    }
+    if (action === 'keep') {
+      if (typeof body.itemPath !== 'string' || (body.reason !== 'operator' && body.reason !== 'size-warning')) return json(res, 400, { error: 'invalid' });
+      const dir = await outputDirectory(project, workflowId);
+      const items = await addKeep(dir, body.itemPath, body.reason);
+      return json(res, 200, { ok: true, items });
+    }
     const busy = !!workflows.get(workflowId)?.busy;
     const open = openWorkflowIds().has(workflowId);
     if (action === 'empty-scratch') {
@@ -72,6 +94,7 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
     return json(res, 404, { error: 'unknown_action' });
   } catch (err) {
     if (err instanceof StorageActionError) return json(res, ACTION_STATUS[err.code], { error: err.code, message: err.message });
+    if (action === 'keep' || action.startsWith('copy-')) return json(res, 400, { error: err instanceof Error ? err.message : 'The request could not be completed.' });
     console.error('[arco] storage action failed:', err);
     return json(res, 500, { error: 'storage_action_failed' });
   }

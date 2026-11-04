@@ -114,3 +114,46 @@ test('the agent guidance names the conversation scratch folder', () => {
   assert.match(footer, /EMPTY SCRATCH/);
   assert.doesNotMatch(buildWorkerSafetyFooter(), /scratch/);
 });
+
+test('KEEP writes atomically, preserves existing marks, and refuses broken metadata and links', async () => {
+  const { addKeep } = await import('./keepStore.js');
+  await conversation(async (_cwd, dir) => {
+    await writeFile(path.join(dir, 'artifacts', 'one.txt'), 'one');
+    await writeFile(path.join(dir, 'artifacts', 'two.txt'), 'two');
+    await Promise.all([addKeep(dir, 'artifacts/one.txt', 'operator'), addKeep(dir, 'artifacts/two.txt', 'size-warning')]);
+    const result = await readKeep(dir);
+    assert.ok(result.ok);
+    if (result.ok) assert.deepEqual(result.items.map(i => i.path).sort(), ['artifacts/one.txt', 'artifacts/two.txt']);
+    await assert.rejects(addKeep(dir, '../escape', 'operator'));
+    if (process.platform !== 'win32') {
+      await symlink(path.join(dir, 'artifacts', 'one.txt'), path.join(dir, 'artifacts', 'link'));
+      await assert.rejects(addKeep(dir, 'artifacts/link', 'operator'));
+    }
+    await writeFile(path.join(dir, 'keep.json'), 'broken');
+    await assert.rejects(addKeep(dir, 'artifacts/one.txt', 'operator'), /cannot be read/);
+    assert.equal(await readFile(path.join(dir, 'keep.json'), 'utf8'), 'broken');
+  });
+});
+
+test('KEEP writer shares the storage action lock', async () => {
+  const { addKeep, withKeepLock } = await import('./keepStore.js');
+  await conversation(async (_cwd, dir) => {
+    await writeFile(path.join(dir, 'artifacts', 'one.txt'), 'one');
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const holding = new Promise<void>(resolve => { entered = resolve; });
+    const action = withKeepLock(dir, async () => { entered(); await gate; });
+    await holding;
+    let completed = false;
+    const writer = addKeep(dir, 'artifacts/one.txt', 'operator').then(() => { completed = true; });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 30));
+      assert.equal(completed, false);
+    } finally { release(); }
+    await Promise.all([action, writer]);
+    assert.equal(completed, true);
+    const result = await readKeep(dir);
+    assert.ok(result.ok && isKept(result.items, 'artifacts/one.txt'));
+  });
+});

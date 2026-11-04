@@ -155,6 +155,8 @@ test('pre-commit hook rejects an added private word without printing it', () => 
   mkdirSync(join(cwd, 'scripts'), { recursive: true });
   mkdirSync(join(cwd, '.githooks'), { recursive: true });
   cpSync(audit, join(cwd, 'scripts', 'public-audit.mjs'));
+  mkdirSync(join(cwd, 'shared', 'src'), { recursive: true });
+  cpSync(resolve('shared/src/publicSafetyRules.ts'), join(cwd, 'shared/src/publicSafetyRules.ts'));
   cpSync(resolve('.githooks/pre-commit'), join(cwd, '.githooks', 'pre-commit'));
   git('config', 'core.hooksPath', '.githooks');
   writeFileSync(join(cwd, '.git', 'private-words'), 'ZephyrFixture\n');
@@ -376,6 +378,8 @@ test('unborn history is valid and unknown audit options fail closed', () => fixt
 test('installed hooks reject private staged content and commit messages before creating history', () => fixture(({ cwd, git }) => {
   mkdirSync(join(cwd, 'scripts'));
   cpSync(audit, join(cwd, 'scripts/public-audit.mjs'));
+  mkdirSync(join(cwd, 'shared', 'src'), { recursive: true });
+  cpSync(resolve('shared/src/publicSafetyRules.ts'), join(cwd, 'shared/src/publicSafetyRules.ts'));
   cpSync(resolve('.githooks'), join(cwd, '.githooks'), { recursive: true });
   execFileSync(process.execPath, [resolve('scripts/setup-hooks.mjs')], { cwd, stdio: 'pipe' });
   writeFileSync(join(cwd, '.git/private-patterns'), 'private-fixture-owner');

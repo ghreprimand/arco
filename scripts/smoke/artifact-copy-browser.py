@@ -1,0 +1,80 @@
+"""Copy an artifact through the dialog against an isolated synthetic Git project."""
+import asyncio
+import importlib.util
+import json
+import os
+import subprocess
+import time
+import urllib.request
+from pathlib import Path
+from urllib.parse import urlparse
+from playwright.async_api import async_playwright, expect
+
+spec = importlib.util.spec_from_file_location('storage_harness', Path(__file__).with_name('connections-browser.py'))
+h = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(h)
+class Server(h.IsolatedServer):
+    def extra_settings(self):
+        return {'projects': [str(self.projects / 'app')], 'onboardingComplete': True}
+
+HTML = '''<!doctype html><html><body><div id="fixture"></div><script type="module">import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type; window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;</script></body></html>'''
+async def main():
+    server = Server(f'http://127.0.0.1:{h.host_isolation.closed_port()}')
+    project = server.projects / 'app'
+    vite = None
+    try:
+        subprocess.run(['git', 'init', '-q', str(project)], check=True)
+        (project / '.gitignore').write_text('.arco/\n')
+        conv = project / '.arco' / 'workflows' / 'conv-1'
+        (conv / 'artifacts').mkdir(parents=True)
+        (conv / 'meta.json').write_text(json.dumps({'name': 'Fixture'}))
+        source = conv / 'artifacts' / 'report.txt'
+        source.write_text('Email: ' + '@'.join(['person', 'example.test']) + '\n')
+        port = h.host_isolation.closed_port()
+        env = {**server.env, 'ARCO_CLIENT_PORT': str(port), 'ARCO_PORT': str(server.port)}
+        vite = subprocess.Popen(['node', 'node_modules/vite/bin/vite.js', 'client', '--host', '127.0.0.1', '--port', str(port), '--strictPort'], cwd=h.REPO, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        base = f'http://127.0.0.1:{port}'
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            if vite.poll() is not None: raise RuntimeError('Fixture Vite exited')
+            try:
+                with urllib.request.urlopen(base, timeout=1): break
+            except Exception: await asyncio.sleep(.15)
+        else: raise RuntimeError('Fixture Vite did not start')
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+            context = await browser.new_context()
+            async def local_only(route):
+                parsed = urlparse(route.request.url)
+                if parsed.netloc == urlparse(base).netloc and parsed.path == '/fixture': await route.fulfill(content_type='text/html', body=HTML)
+                elif parsed.netloc in (urlparse(base).netloc, urlparse(server.base).netloc): await route.continue_()
+                else: await route.abort()
+            await context.route('http**://**/*', local_only)
+            page = await context.new_page()
+            await page.goto(server.base)
+            await page.goto(base + '/fixture')
+            await page.wait_for_function('window.fixtureReady === true')
+            await page.evaluate('''async (cwd) => {
+              const React = (await import('/node_modules/.vite/deps/react.js')).default;
+              const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+              const { ArtifactMoveDialog } = await import('/src/components/ArtifactMoveDialog.tsx');
+              createRoot(document.getElementById('fixture')).render(React.createElement(ArtifactMoveDialog, { cwd, workflowId: 'conv-1', itemPath: 'artifacts', onClose: () => {} }));
+            }''', str(project))
+            dialog = page.get_by_role('dialog', name='Move artifact to project')
+            await dialog.get_by_role('button', name='ADD TO PROJECT FILES').click()
+            await dialog.get_by_role('button', name='REVIEW DESTINATION').click()
+            await expect(dialog.get_by_text('report.txt:1 - email-address')).to_be_visible(timeout=30000)
+            await expect(dialog.get_by_text('Files here are included in your repository unless you exclude them.')).to_be_visible()
+            await dialog.get_by_role('button', name='COPY INTO PROJECT').click()
+            await expect(dialog.get_by_text('Copied into the project.', exact=False)).to_be_visible(timeout=30000)
+            assert (project / 'artifacts' / 'report.txt').read_text() == source.read_text()
+            assert source.exists()
+            assert subprocess.check_output(['git', 'diff', '--cached', '--name-only'], cwd=project).strip() == b''
+            await browser.close()
+    finally:
+        if vite:
+            vite.terminate()
+            try: vite.wait(timeout=10)
+            except subprocess.TimeoutExpired: vite.kill(); vite.wait(timeout=5)
+        server.close()
+asyncio.run(main())

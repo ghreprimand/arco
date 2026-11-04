@@ -85,6 +85,12 @@ failure leaves the source intact. Existing indexed and artifact-path links resol
 to the moved location. Removing an external file produces a missing-file state;
 Outputs does not offer destructive cleanup.
 
+**MOVE TO PROJECT** on an artifact offers **KEEP IT PRIVATE** or **ADD TO
+PROJECT FILES**. Before a copy, review the destination, Git ignore and public
+repository status, size and content findings. The original stays in the artifact
+store; Arco does not stage or commit the copy. A large-artifact warning offers
+**KEEP** to protect the artifact from cleanup or **DISMISS**.
+
 ## Related links
 
 - [Feature reference](FEATURES.md)

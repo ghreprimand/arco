@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { KeepItem } from '@arco/shared';
-import { withFileLock } from './atomicFile.js';
+import { atomicWriteFile, withFileLock } from './atomicFile.js';
 
 // Reader for the per-conversation KEEP file (docs/STORAGE_PLAN.md, "KEEP file
 // format"): <project>/.arco/workflows/<id>/keep.json. Builder of the KEEP and
@@ -71,4 +71,32 @@ export function holdsKept(items: KeepItem[], rel: string): boolean {
   const p = normalizeKeepPath(rel);
   if (p === null) return true;
   return items.some((k) => k.path.startsWith(`${p}/`));
+}
+
+// Add a protection atomically; malformed existing metadata is never overwritten.
+export async function addKeep(conversationDir: string, raw: string, reason: KeepItem['reason']): Promise<KeepItem[]> {
+  const rel = normalizeKeepPath(raw);
+  if (rel === null || (rel !== '.' && !/^(artifacts|scratch)(?:\/|$)/.test(rel))) throw new Error('Invalid KEEP path.');
+  if (reason !== 'operator' && reason !== 'size-warning') throw new Error('Invalid KEEP reason.');
+  const file = path.join(conversationDir, KEEP_FILE);
+  return withKeepLock(conversationDir, async () => {
+    let current = conversationDir;
+    const root = await fs.lstat(current);
+    if (!root.isDirectory() || root.isSymbolicLink()) throw new Error('Conversation is unavailable.');
+    for (const part of rel === '.' ? [] : rel.split('/')) {
+      current = path.join(current, part);
+      const st = await fs.lstat(current);
+      if (st.isSymbolicLink() || (!st.isDirectory() && !st.isFile())) throw new Error('KEEP does not follow links.');
+    }
+    try { if ((await fs.lstat(file)).isSymbolicLink()) throw new Error('KEEP file cannot be a link.'); }
+    catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+    const existing = await readKeep(conversationDir);
+    if (!existing.ok) throw new Error('The KEEP list cannot be read; nothing was changed.');
+    if (!isKept(existing.items, rel)) {
+      if (existing.items.length >= 10000) throw new Error('The KEEP list is full.');
+      existing.items.push({ path: rel, reason, at: Date.now() });
+      await atomicWriteFile(file, JSON.stringify({ version: 1, items: existing.items }) + '\n', { mode: 0o600, skipMkdir: true });
+    }
+    return existing.items;
+  });
 }

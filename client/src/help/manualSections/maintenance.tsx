@@ -33,6 +33,18 @@ export const maintenance: Section[] = [
   </li>
   </ul>
   <p>
+  MOVE TO PROJECT in OUTPUTS offers KEEP IT PRIVATE or a copy into the project.
+  Review Git ignore status, public visibility, size and text findings first.
+  Images, recordings and other binary files need manual inspection. Arco does
+  not stage or commit the copy, and the original remains in Arco. A failed copy
+  can leave partial files at the destination. The temporary folder must be
+  outside the project and Git repositories.
+  </p>
+  <p>
+  Large artifact warnings offer KEEP, which protects the item from cleanup,
+  archive and later size warnings, or DISMISS without protection.
+  </p>
+  <p>
   Use ALL/DOCS/IMAGES to filter recents, refresh to update listings, and
   <strong> A− / A+</strong> for the Artifacts window's own saved zoom. A changed
   file is not necessarily an agent write, and an empty scan is not proof that
