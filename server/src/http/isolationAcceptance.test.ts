@@ -253,7 +253,7 @@ after(async () => {
 
 // ── session gate ──────────────────────────────────────────────────────────
 test('the HTTP surface needs a session cookie and the mint needs browser fetch metadata', async () => {
-  for (const p of ['/api/file-content?path=/etc/hostname', '/api/files?path=/', '/api/list-dirs', '/api/settings']) {
+  for (const p of ['/api/file-content?path=/etc/hostname', '/api/files?path=/', '/api/list-dirs', '/api/settings', '/api/storage-report?path=%2F', '/api/storage-report?scope=home']) {
     assert.equal((await fetch(`${main.base}${p}`)).status, 401, p);
   }
   assert.equal((await fetch(`${main.base}/api/session`, { method: 'POST', headers: { Origin: main.base } })).status, 403);
@@ -302,6 +302,20 @@ test('legitimate reads keep working: a workflow artifact resolves through cwd + 
   assert.equal(missing.type, 'error');
   assert.equal(missing.error, 'File not found: nothing-here.md', 'a missing file is named as asked, not by an invented path');
   await socket.close();
+});
+
+test('storage report is restricted to registered project paths', async () => {
+  const q = encodeURIComponent;
+  const ok = await main.api(`/api/storage-report?path=${q(main.project)}`);
+  assert.equal(ok.status, 200);
+  const body = await ok.json() as { measuredAt: number; workflows: unknown[] };
+  assert.ok(body.measuredAt > 0); assert.ok(Array.isArray(body.workflows));
+  assert.equal((await main.api(`/api/storage-report?path=${q(main.outside)}`)).status, 403);
+  assert.equal((await main.api(`/api/storage-report?path=${q(path.join(main.project, 'linkout'))}`)).status, 403);
+  const home = await main.api('/api/storage-report?scope=home');
+  assert.equal(home.status, 200);
+  const homeBody = await home.json() as { scope: string; buckets: Record<string, unknown> };
+  assert.equal(homeBody.scope, 'home'); assert.ok(homeBody.buckets.caches);
 });
 
 // ── read confinement ─────────────────────────────────────────

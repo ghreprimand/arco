@@ -1249,3 +1249,9 @@ The creator and member role editor limit new director assignments to one per clu
 - [Architecture](ARCHITECTURE.md)
 - [WebSocket protocol](PROTOCOL.md)
 - [Documentation style](STYLE.md)
+
+### Storage report
+
+In the right-panel USAGE tab, MEASURE STORAGE reads the current project state. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, other conversation files, plans, task boards, worktrees and isolated copies, or other. Each conversation shows its log bytes by event type, activity and open status. Large files are marked. MEASURE AGAIN refreshes the cached result; the measurement time and read errors are shown. Shared checkpoint storage is listed separately.
+
+MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headings for voice and media models, caches and browser profiles, provider account data, saved clusters and server logs. A file with several hard links is counted once. Chat and Genesis project folders inside Arco's folder are skipped and counted with their own projects. Neither report deletes or changes files.

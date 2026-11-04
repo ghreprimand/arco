@@ -1,3 +1,4 @@
+import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { removedProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { tryHandleSmartPickupRoutes } from './smartPickupRoutes.js';
@@ -463,6 +464,7 @@ export async function handleHttpRequest(
   // primary_turn_token_usage events under a cwd; no new capture). Distinct
   // /api/usage-stats prefix, so no collision with /api/usage or /api/recall.
   if (await tryHandleUsageStatsRoutes(req, res)) return;
+  if (await tryHandleStorageRoutes(req, res)) return;
 
   // D2 — Endpoint auto-discovery (tailscale peers + localhost, bounded ports).
   if (await tryHandleEndpointDiscoveryRoutes(req, res)) return;

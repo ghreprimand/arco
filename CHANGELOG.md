@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Measure storage in USAGE: MEASURE STORAGE for the project and MEASURE ARCO FOLDER for Arco's own folder, with every byte under one heading (conversation logs, artifacts, worktrees, caches, voice models and more), log bytes by event type, and large files. Read-only.
+
 - Add public-project guardrails: a "This project is public (or will be)" box beside the plan-draft choices (cluster creator, DRAFT A PLAN, PLAN dialog) that makes a drafted plan include a "Privacy and public safety" section, remembered per project folder and suggested from the Git remote (one anonymous GitHub request, cached for a day, only when a plan-draft control is shown); INSERT GUARDRAILS to add the section to an existing plan as an unsaved edit; and a dismissible notice with RESTORE IGNORE FILE and STOP TRACKING when Git tracks or does not ignore a project's `.arco` folder.
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.
 - Offer LM Studio, llama.cpp, Strata and DeepSeek through Xolotl as utility agents and Smart AUTO-PICKUP evaluators. The selected model must already be loaded; these requests do not load or switch models.

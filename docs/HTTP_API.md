@@ -2285,3 +2285,7 @@ a replacement selected by a later request. Tests: `npm run test:voice`.
 - [WebSocket protocol](PROTOCOL.md)
 - [Architecture](ARCHITECTURE.md)
 - [Documentation style](STYLE.md)
+
+### Storage report
+
+`GET /api/storage-report?path=<absolute-project-path>` reads project state in a worker and returns sizes, event types, largest files, activity, open status, errors and the measurement time. `buckets` assigns every byte to one named bucket (`events`, `artifacts`, `handoffs`, `checkpoints`, `scratch`, `conversationFiles`, `plans`, `boards`, `worktrees`, `savedClusters`, `voiceAndModels`, `caches`, `providerData`, `logs`, `other`) with logical and allocated sizes. Extra hard links are reported in `hardLinkBytes` and counted once; nested project state folders are skipped and counted in `nestedFolders`. `GET /api/storage-report?scope=home` measures Arco's own folder the same way. The cached result is refreshed with `refresh=1`. Shared checkpoint bytes are separate from workflow data. The endpoint writes nothing.

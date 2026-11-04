@@ -33,7 +33,7 @@ function providerColor(p: ProviderName): string {
   return PROVIDER_COLORS[p] ?? 'var(--color-accent-primary)';
 }
 
-export function UsageTab({ job }: { job: JobState }) {
+function UsageContent({ job }: { job: JobState }) {
   const cwd = job.config.workingDirectory;
   // Cursor is the one provider whose usage is POLLED from the authed dashboard
   // API rather than summed from per-turn events (ACP carries no token counts).
@@ -392,4 +392,80 @@ function RatioBar({ ratio, color }: { ratio: number; color: string }) {
       {w > 0 && <rect x={0} y={0} width={w} height={H} rx={2} fill={color} />}
     </svg>
   );
+}
+
+interface StorageFileRow { path: string; bytes: number }
+interface StorageItem { id: string; open: boolean; lastActive: number; eventBytes: number; eventTypes: Record<string, number>; artifactBytes: number; handoffBytes: number; checkpointBytes: number; scratchBytes?: number; otherBytes?: number; largestFiles: StorageFileRow[]; largeFiles: StorageFileRow[]; errors: number }
+interface StorageResult { measuredAt: number; stateBytes: number; allocatedBytes?: number; hardLinkBytes?: number; nestedFolders?: number; checkpointBytes: number; buckets?: Record<string, { bytes: number; files: number }>; workflows: StorageItem[]; largestFiles: StorageFileRow[]; largeFiles: StorageFileRow[]; errors: number }
+const LARGE_BYTES = 500 * 1024 * 1024;
+// One label per server bucket; every measured byte is in exactly one.
+const BUCKET_LABELS: Record<string, string> = {
+  events: 'Conversation logs', artifacts: 'Artifacts', handoffs: 'Handoffs', checkpoints: 'Checkpoints',
+  scratch: 'Scratch files', conversationFiles: 'Other conversation files', plans: 'Plans', boards: 'Task boards',
+  worktrees: 'Worktrees and isolated copies', savedClusters: 'Saved clusters', voiceAndModels: 'Voice and media models',
+  caches: 'Caches and browser profiles', providerData: 'Provider account data', logs: 'Server logs', other: 'Other',
+};
+function bytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ['KiB', 'MiB', 'GiB', 'TiB']; let value = n / 1024; let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  return `${value.toFixed(1)} ${units[unit]}`;
+}
+function useStorageReport(query: Record<string, string>) {
+  const [report, setReport] = useState<StorageResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  async function scan(refresh: boolean) {
+    setLoading(true); setError('');
+    try {
+      const params = new URLSearchParams({ ...query, ...(refresh ? { refresh: '1' } : {}) });
+      const response = await fetch(`/api/storage-report?${params}`);
+      if (!response.ok) throw new Error('Storage report could not be read.');
+      setReport(await response.json() as StorageResult);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Storage report could not be read.'); }
+    finally { setLoading(false); }
+  }
+  return { report, loading, error, scan };
+}
+function StorageBuckets({ report }: { report: StorageResult }) {
+  if (!report.buckets) return null;
+  const rows = Object.entries(report.buckets).filter(([, b]) => b.bytes > 0).sort((a, b) => b[1].bytes - a[1].bytes);
+  return <ul>{rows.map(([name, b]) => <li key={name}>{BUCKET_LABELS[name] ?? name}: {bytes(b.bytes)} ({b.files} files)</li>)}</ul>;
+}
+function StorageSummary({ report, label }: { report: StorageResult; label: string }) {
+  return <>
+    <p>Measured {new Date(report.measuredAt).toLocaleString()}: {label} {bytes(report.stateBytes)}{report.allocatedBytes !== undefined ? `, ${bytes(report.allocatedBytes)} on disk` : ''}{report.checkpointBytes ? `; shared checkpoints ${bytes(report.checkpointBytes)}` : ''}. {report.errors ? `${report.errors} read errors; totals may be incomplete.` : ''}</p>
+    <StorageBuckets report={report} />
+    {(report.hardLinkBytes || report.nestedFolders) ? <p>{report.hardLinkBytes ? `Extra hard links to files already counted: ${bytes(report.hardLinkBytes)} (not added again). ` : ''}{report.nestedFolders ? `${report.nestedFolders} nested project state folders are measured with their own projects.` : ''}</p> : null}
+  </>;
+}
+function StorageReportPanel({ cwd }: { cwd: string }) {
+  const project = useStorageReport({ path: cwd });
+  const home = useStorageReport({ scope: 'home' });
+  if (!cwd) return null;
+  const { report, loading, error, scan } = project;
+  return <section data-help="rightpanel.storage.scan" style={{ overflowWrap: 'anywhere', padding: '10px 14px', borderBottom: '1px solid var(--color-border)' }}>
+    <strong>STORAGE</strong>{' '}
+    <button type="button" data-help="rightpanel.storage.scan" disabled={loading} onClick={() => void scan(!!report)}>{loading ? 'MEASURING...' : report ? 'MEASURE AGAIN' : 'MEASURE STORAGE'}</button>{' '}
+    <button type="button" data-help="rightpanel.storage.home" disabled={home.loading} onClick={() => void home.scan(!!home.report)}>{home.loading ? 'MEASURING...' : 'MEASURE ARCO FOLDER'}</button>
+    <p>Read-only sizes. Nothing is changed or deleted.</p>
+    {error && <p role="alert">{error}</p>}
+    {home.error && <p role="alert">{home.error}</p>}
+    {home.report && <details open><summary>Arco folder</summary><StorageSummary report={home.report} label="Arco folder" /></details>}
+    {report && <>
+      <StorageSummary report={report} label="project state" />
+      <p>Files at least 500 MiB are marked LARGE. Sizes can change during a scan.</p>
+      {report.workflows.map(w => <details key={w.id}>
+        <summary>{w.id.slice(0, 8)} - {w.open ? 'Open' : 'Closed or orphaned'} - {w.lastActive ? new Date(w.lastActive).toLocaleString() : 'No activity time'}</summary>
+        <p>Logs {bytes(w.eventBytes)}; artifacts {bytes(w.artifactBytes)}; handoffs {bytes(w.handoffBytes)}; checkpoints {bytes(w.checkpointBytes)}{w.scratchBytes ? `; scratch ${bytes(w.scratchBytes)}` : ''}{w.otherBytes ? `; other files ${bytes(w.otherBytes)}` : ''}. {w.errors ? `${w.errors} read errors.` : ''}</p>
+        <ul>{Object.entries(w.eventTypes).sort((a,b) => b[1]-a[1]).map(([type,size]) => <li key={type}>{type}: {bytes(size)}</li>)}</ul>
+        <ul>{w.largestFiles.map(file => <li key={file.path}>{file.path}: {bytes(file.bytes)} {file.bytes >= LARGE_BYTES ? 'LARGE' : ''}</li>)}</ul>
+      </details>)}
+      <details><summary>All large project state files ({report.largeFiles.length})</summary><ul>{report.largeFiles.map(file => <li key={file.path}>{file.path}: {bytes(file.bytes)}</li>)}</ul></details>
+      <details><summary>Largest project state files</summary><ul>{report.largestFiles.map(file => <li key={file.path}>{file.path}: {bytes(file.bytes)} {file.bytes >= LARGE_BYTES ? 'LARGE' : ''}</li>)}</ul></details>
+    </>}
+  </section>;
+}
+export function UsageTab({ job }: { job: JobState }) {
+  return <div style={{ overflowY: 'auto', flex: 1 }}><StorageReportPanel key={job.config.workingDirectory || ''} cwd={job.config.workingDirectory || ''} /><UsageContent job={job} /></div>;
 }

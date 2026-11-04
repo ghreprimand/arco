@@ -730,6 +730,14 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       </>
     ),
   },
+  'rightpanel.storage.scan': {
+    title: 'MEASURE STORAGE',
+    body: <p>Measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately.</p>,
+  },
+  'rightpanel.storage.home': {
+    title: 'MEASURE ARCO FOLDER',
+    body: <p>Measure Arco's own folder without changing it: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters, server logs and other files. Chat and Genesis project folders inside it are skipped here and counted with their own projects. Click again to refresh.</p>,
+  },
   'rightpanel.usage.refresh': {
     title: 'REFRESH',
     body: <p>Re-runs the read-only aggregation against disk: pick up turns recorded since you opened the tab.</p>,
