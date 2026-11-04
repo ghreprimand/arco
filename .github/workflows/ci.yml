@@ -153,6 +153,8 @@ jobs:
           python3 -m pip install playwright
           python3 -m playwright install chromium
           echo "ARCO_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Build shared, client and server for the browser suites
+        run: npm run build
       - name: Browser smokes
         run: node scripts/smoke/run-browser-suites.mjs
 
@@ -178,6 +180,8 @@ jobs:
           python3 -m pip install playwright
           python3 -m playwright install chromium
           echo "ARCO_TEST_CHROME=$(python3 -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')" >> "$GITHUB_ENV"
+      - name: Build shared, client and server for the browser suites
+        run: npm run build
       - name: Browser smokes
         run: node scripts/smoke/run-browser-suites.mjs
 
