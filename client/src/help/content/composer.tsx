@@ -290,7 +290,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           Builds a structured prompt with branch context, action steps, pause-and-ask
           rules, and expected deliverables. RUN AS picker to escalate to a different
           model in a new tab. <C>CANCEL</C> closes the dialog without sending or
-          switching branches.
+          switching branches. Anything typed stays until you send or close the tab,
+          so reopening GIT (for example after VIEW CHANGES) finds it as you left it.
         </p>
       </>
     ),

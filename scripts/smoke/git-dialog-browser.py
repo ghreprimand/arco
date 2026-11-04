@@ -232,18 +232,49 @@ async def main():
             assert '**Branch:** `feature/dialog-check`' in spawned['prompt'], spawned['prompt']
             assert '**Branch context:** No upstream tracking branch yet.' in spawned['prompt'], spawned['prompt']
 
+            # A dialog closed without sending reopens as it was: notes, action,
+            # SHOW OTHER WORK and scroll position, until a request is sent.
+            before_cancel_count = await page.evaluate('window.cancelCount')
+            await page.evaluate('testRoot.render(null)')
+            await expect(page.get_by_role('button', name='CANCEL', exact=True)).to_have_count(0)
+            await page.evaluate('mountDialog()')
+            await expect(page.get_by_role('button', name='SHOW OTHER WORK', exact=True)).to_be_visible()
+            await page.get_by_placeholder('e.g. fix categoryId race in transaction insert').fill('Keep this subject')
+            await page.get_by_placeholder('e.g. exclude lockfile changes; only commit the auth/ directory').fill('Only src/')
+            await page.get_by_role('button', name='SHOW OTHER WORK', exact=True).click()
+            await expect(page.get_by_role('button', name='HIDE OTHER WORK', exact=True)).to_have_attribute('aria-expanded', 'true')
+            await page.locator('[data-help="composer.git"]').evaluate('(el) => { el.scrollTop = 40; }')
+            await page.wait_for_timeout(100)
+            await page.get_by_role('button', name='CANCEL', exact=True).last.click()
+            await expect(page.get_by_role('button', name='CANCEL', exact=True)).to_have_count(0)
+            await page.evaluate('mountDialog()')
+            await expect(page.get_by_placeholder('e.g. fix categoryId race in transaction insert')).to_have_value('Keep this subject')
+            await expect(page.get_by_placeholder('e.g. exclude lockfile changes; only commit the auth/ directory')).to_have_value('Only src/')
+            await expect(page.get_by_role('button', name='HIDE OTHER WORK', exact=True)).to_have_attribute('aria-expanded', 'true')
+            assert await page.locator('[data-help="composer.git"]').evaluate('(el) => el.scrollHeight <= el.clientHeight || el.scrollTop > 0')
+            await page.get_by_role('button', name='CONTINUE (NEW TAB)', exact=True).or_(page.get_by_role('button', name='CONTINUE', exact=True)).first.click()
+            await page.wait_for_function('window.dispatches.length === 3')
+            await page.evaluate('testRoot.render(null)')
+            await page.evaluate('mountDialog()')
+            await expect(page.get_by_placeholder('e.g. fix categoryId race in transaction insert')).to_have_value('')
+            await expect(page.get_by_role('button', name='SHOW OTHER WORK', exact=True)).to_have_attribute('aria-expanded', 'false')
+            await page.get_by_role('button', name='CANCEL', exact=True).last.click()
+            await page.wait_for_function(f'cancelCount === {before_cancel_count + 2}')
+            dispatches = await page.evaluate('window.dispatches')
+            before_dispatches = len(dispatches)
+
             # Explicit cancel and backdrop click close without dispatching or
             # invoking checkout.
             before_dispatches, before_checkouts = len(dispatches), len(checkouts)
             await page.evaluate('mountDialog()')
             await page.get_by_role('button', name='CANCEL', exact=True).last.click()
-            await page.wait_for_function('cancelCount === 1')
+            await page.wait_for_function(f'cancelCount === {before_cancel_count + 3}')
             await expect(page.get_by_role('button', name='CANCEL', exact=True)).to_have_count(0)
             assert len(dispatches) == before_dispatches and len(checkouts) == before_checkouts
             await page.evaluate('mountDialog()')
             await expect(page.get_by_role('button', name='CANCEL', exact=True)).to_have_count(1)
             await page.locator('[data-help="composer.git"]').evaluate('(el) => el.parentElement.click()')
-            await page.wait_for_function('cancelCount === 2')
+            await page.wait_for_function(f'cancelCount === {before_cancel_count + 4}')
             assert len(dispatches) == before_dispatches and len(checkouts) == before_checkouts
             assert not errors, errors
             await context.close()

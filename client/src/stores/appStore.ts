@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { forgetGitDialog } from '../utils/gitDialogMemory';
 import { allowanceBindingChanged, invalidateClaudeAllowanceRequests } from '../utils/claudeAllowance';
 import { useDraftStore, dropDraftForJob } from './draftStore';
 import { useComputerStore } from './computerStore';
@@ -836,6 +837,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   removeJob: (id) => {
     // Drafts live in draftStore (perf boundary — see stores/draftStore.ts).
     dropDraftForJob(id);
+    forgetGitDialog(id);
     set((s) => {
       const { [id]: _, ...rest } = s.jobs;
       const atts = s.attachments[id];
