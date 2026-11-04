@@ -402,7 +402,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           One provider and model for short side jobs outside your workflows, such as summaries. A utility job is
           started by a button you click, has no tools, reads only facts Arco collects, can be cancelled, and shows
-          which model answered and the facts it was given. Failed requests explain the cause when available and name the model tried. Nothing is chosen until you save a choice; a fast,
+          which model answered and the facts it was given. Failed requests explain the cause when available and name the model tried. A reply that is too long or cut off is reported instead of used. Nothing is chosen until you save a choice; a fast,
           low-cost model is suggested but never selected for you.
         </p>
         <p>

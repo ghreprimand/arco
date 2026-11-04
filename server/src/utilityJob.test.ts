@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { sanitizeUtilityAgent, UTILITY_JOB_INPUT_MAX_CHARS, suggestUtilityModel } from '@arco/shared';
 import { buildUtilityPrompt, cancelUtilityJob, runUtilityJob, runningUtilityJobs } from './utilityJob.js';
-import { setEvaluatorAdaptersForTest, EvaluatorRefused, type EvaluatorAdapter, type EvaluatorRequest } from './smartPickupAdapters.js';
+import { claudeAdapter, setEvaluatorAdaptersForTest, EvaluatorRefused, type EvaluatorAdapter, type EvaluatorRequest } from './smartPickupAdapters.js';
 
 const agent = { provider: 'ollama' as const, model: 'small' };
 function fake(evaluate: (req: EvaluatorRequest) => Promise<string>, available = true): EvaluatorAdapter {
@@ -56,6 +56,25 @@ test('success returns text, the answering model and the facts, with no tools req
     assert.equal(seen?.model, 'small');
     assert.equal(seen?.timeoutMs, 60_000);
     assert.deepEqual(runningUtilityJobs(), []);
+  } finally { restore(); }
+});
+
+test('cluster brief and tidy use the Claude text beside thinking with room for longer replies', async () => {
+  const budgets: number[] = [];
+  const fetchImpl = (async (_url: unknown, init?: { body?: unknown }) => {
+    const body = JSON.parse(String(init?.body)); budgets.push(body.max_tokens);
+    const text = body.system[1].text === 'cluster' ? Array.from({ length: 6 }, (_, i) => `Member ${i}: working; no pending question.`).join('\n') : 'A clear revised instruction.';
+    return new Response(JSON.stringify({ id: 'msg', type: 'message', role: 'assistant', model: 'fixture', content: [{ type: 'thinking', thinking: 'private' }, { type: 'text', text }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const adapter = claudeAdapter({ fetchImpl, tokens: async () => ({ accessToken: 'fixture' }), hasCredentials: async () => true });
+  const restore = setEvaluatorAdaptersForTest({ claude: adapter });
+  const claude = { provider: 'claude' as const, model: 'fixture' };
+  try {
+    const brief = await runUtilityJob({ jobId: 'brief-six-members', instructions: 'cluster', facts: [], agent: claude });
+    const tidy = await runUtilityJob({ jobId: 'tidy-example', instructions: 'tidy', facts: [], material: 'draft', agent: claude });
+    assert.equal(brief.status, 'ok'); assert.equal(brief.text?.split('\n').length, 6);
+    assert.equal(tidy.status, 'ok'); assert.equal(tidy.text, 'A clear revised instruction.');
+    assert.deepEqual(budgets, [2048, 2048]);
   } finally { restore(); }
 });
 
