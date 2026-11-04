@@ -1400,6 +1400,7 @@ async function restoreAdmittedCheckpoint(
     type: 'checkpoint_reverted',
     workflowId: msg.workflowId,
     seq: msg.seq,
+    restoredSeq: msg.seq,
     fileCount: result.fileCount,
     safetySnapshotRef: safety.ref,
     safetySnapshotSeq: safetyGuardSeq,

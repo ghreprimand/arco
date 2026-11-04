@@ -166,6 +166,10 @@ export interface CheckpointRevertedMessage {
   workflowId: string;
   // The checkpoint that was restored (its guard seq).
   seq: number;
+  // Same value as `seq`, kept under a name that survives the event envelope
+  // (which replaces `seq` with the event sequence) so history can tell which
+  // checkpoint was restored.
+  restoredSeq?: number;
   // Number of files in the restored tree.
   fileCount: number;
   // The safety snapshot taken BEFORE the revert — ref (git) or tar name.

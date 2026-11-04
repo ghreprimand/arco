@@ -9,7 +9,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'chat.turn-changes': {
     title: 'Changes during this turn',
-    body: <p>Open the changed-files line to view the captured checkpoint diff. UNDO THIS TURN uses the checkpoint restore and asks for confirmation; it restores the entire working tree to the earlier checkpoint, including changes made after the turn. A safety checkpoint is taken first. Oversized files skipped by the shadow checkpoint are identified in the line. If another managed writer was active in the folder, the line says so and offers VIEW DIFF without undo. External writers are not detected, Git-ignored files and additional directories outside the working tree are outside the checkpoint, and isolated scratch members do not produce a project-checkpoint line.</p>,
+    body: <p>Open the changed-files line to view the captured checkpoint diff. UNDO THIS TURN uses the checkpoint restore and asks for confirmation; it restores the entire working tree to the earlier checkpoint, including changes made after the turn. A safety checkpoint is taken first. Once it has run the line reads Undone, UNDO THIS TURN is disabled, and the diff is labelled as the undone change. Oversized files skipped by the shadow checkpoint are identified in the line. If another managed writer was active in the folder, the line says so and offers VIEW DIFF without undo. External writers are not detected, Git-ignored files and additional directories outside the working tree are outside the checkpoint, and isolated scratch members do not produce a project-checkpoint line.</p>,
     manualSection: 'chat-panel',
   },
   'utility.catch-up': {
