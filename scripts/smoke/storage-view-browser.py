@@ -20,7 +20,8 @@ class Server(h.IsolatedServer):
         state = app / '.arco'
         closed = state / 'workflows' / 'closed-0001'
         whole = state / 'workflows' / 'kept-0001'
-        for d in (closed / 'artifacts', closed / 'scratch', whole / 'artifacts', state / 'plans'):
+        candidate = state / 'workflows' / 'candidate-0001'
+        for d in (closed / 'artifacts', closed / 'scratch', whole / 'artifacts', candidate / 'artifacts', state / 'plans'):
             d.mkdir(parents=True, exist_ok=True)
         (state / 'plans' / 'p.md').write_text('# Plan\n')
         (closed / 'meta.json').write_text(json.dumps({'workflowId': 'closed-0001', 'name': 'Closed draft', 'cwd': str(app), 'cliSessions': []}))
@@ -34,6 +35,8 @@ class Server(h.IsolatedServer):
         (whole / 'events.jsonl').write_text('{"seq":1,"type":"workflow_created"}\n')
         with open(whole / 'artifacts' / 'disk.img', 'wb') as f: f.truncate(2 * 1024 ** 3)  # sparse; logical size counts
         (whole / 'keep.json').write_text(json.dumps({'version': 1, 'items': [{'path': '.', 'reason': 'operator', 'at': 1}]}))
+        (candidate / 'meta.json').write_text(json.dumps({'workflowId': 'candidate-0001', 'name': 'Candidate', 'cwd': str(app), 'cliSessions': []}))
+        (candidate / 'events.jsonl').write_text('{"seq":1,"type":"workflow_created"}\n')
         self.app = app
         return {'projects': [str(app)], 'onboardingComplete': True}
     def extra_env(self): return {'ARCO_STORAGE_POLICY': '0'}
@@ -69,6 +72,12 @@ async def main():
             await expect(page.get_by_text('1 kept item')).to_be_visible()
             await expect(page.get_by_text('Kept', exact=True)).to_be_visible()
             await expect(page.get_by_role('button', name='ARCHIVE Kept study')).to_be_disabled()
+            candidate_row = page.locator('div').filter(has=page.get_by_text('Candidate', exact=True)).filter(has=page.get_by_role('button', name='ARCHIVE Candidate')).last
+            await candidate_row.get_by_role('button', name='KEEP', exact=True).click()
+            await expect(page.get_by_role('status')).to_contain_text('Kept "Candidate"')
+            await expect(page.get_by_role('button', name='ARCHIVE Candidate')).to_be_disabled()
+            await expect(candidate_row.get_by_text('Kept', exact=True)).to_be_visible()
+            assert json.loads((app / '.arco' / 'workflows' / 'candidate-0001' / 'keep.json').read_text())['items'][0]['path'] == '.'
             # A dismissed confirmation changes nothing.
             await page.get_by_role('button', name='DELETE Closed draft').click()
             await page.wait_for_timeout(500)
@@ -95,7 +104,7 @@ async def main():
             assert (app / '.arco' / 'plans' / 'p.md').read_text() == '# Plan\n'
             actions = [json.loads(l)['action'] for l in (app / '.arco' / 'storage-actions.jsonl').read_text().splitlines()]
             assert actions == ['empty_scratch', 'compress_logs', 'archive', 'restore', 'delete'], actions
-            assert len(answers) == 6, answers
+            assert len(answers) == 7, answers
             assert not b.errors, b.errors
             await b.close(); b = None
             print('PASS: STORAGE lens on a synthetic home: sizes, budget notice, settings, KEEP state, every action confirmed and logged, kept items and plans intact.')

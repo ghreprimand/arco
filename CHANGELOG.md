@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- KEEP a whole conversation from the STORAGE view.
+
 - Add a STORAGE lens to the ARTIFACTS window: every project and Arco's own folder, largest first, with COMPRESS OLD LOGS per project and ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH per conversation, each confirmed. Kept items and plans always stay. STORAGE SETTINGS holds auto-archive (off by default, never deletes) and a disk budget notice (100 GiB).
 - Review artifact copies into project files with Git ignore, repository visibility, size and text checks. KEEP retains protected artifacts in Arco; copying never removes the original, stages or commits it. Large artifact warnings offer KEEP or DISMISS.
 

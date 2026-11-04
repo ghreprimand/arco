@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { KeepButton } from '../components/KeepButton';
 import { formatRelativeTime } from '../components/RightPanel/format';
 
 // STORAGE lens (docs/STORAGE_PLAN.md, P7.5) - where the disk space goes, for
@@ -183,6 +184,10 @@ function Conversations({ path, onDone, onError }: { path: string; onDone: (m: st
             <span style={{ minWidth: '180px' }} title={c.id}>{title}</span>
             <span style={muted}>{formatBytes(size(c))} - {working ? 'Open' : 'Closed'}{c.lastActive ? ` - ${formatRelativeTime(c.lastActive)}` : ''}</span>
             {keepText && <span data-help="storage.keep" style={{ ...muted, color: 'var(--color-accent-primary)' }}>{keepText}</span>}
+            <KeepButton cwd={path} workflowId={c.id} itemPath="." help="storage.keep" className="display-font" style={btn}
+              disabled={!!busy || !c.keep?.readable || c.keep.whole}
+              confirmMessage={`Keep all of "${title}"? Archive and delete will leave it in place.`}
+              onError={onError} onKept={() => { onDone(`Kept "${title}".`); setTick((t) => t + 1); }} />
             <button className="display-font" data-help="storage.archive" aria-label={`ARCHIVE ${title}`} style={btn} disabled={!!busy || working || c.keep?.whole}
               title={working ? 'Close the conversation first' : c.keep?.whole ? 'The whole conversation is kept' : undefined}
               onClick={() => void act('archive', c.id, `Archive "${title}"? Its files are packed into one compressed file and can be restored. Kept items stay in place.`,

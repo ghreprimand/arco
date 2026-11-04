@@ -1301,8 +1301,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     manualSection: 'storage-view',
   },
   'storage.keep': {
-    title: 'KEEP state',
-    body: <p>Kept items are skipped by ARCHIVE, DELETE, EMPTY SCRATCH and size warnings. "Kept" means the whole conversation is kept, so ARCHIVE and DELETE are off. If the KEEP list cannot be read, those actions stop instead of acting.</p>,
+    title: 'KEEP',
+    body: <p>KEEP protects the whole conversation after confirmation. Kept items are skipped by ARCHIVE, DELETE, EMPTY SCRATCH and size warnings. "Kept" means the whole conversation is kept, so ARCHIVE and DELETE are off. If the KEEP list cannot be read, those actions stop instead of acting.</p>,
     manualSection: 'storage-view',
   },
   'storage.archive': {

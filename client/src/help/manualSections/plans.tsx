@@ -342,6 +342,7 @@ export const plans: Section[] = [
           a confirmation first, and kept items always stay:
         </p>
         <ul>
+          <li><strong>KEEP</strong> protects the whole conversation from archive and deletion.</li>
           <li><strong>ARCHIVE</strong> packs a closed conversation into one compressed file; <strong>RESTORE</strong> brings it back without overwriting anything.</li>
           <li><strong>DELETE</strong> removes a closed conversation or an archive for good.</li>
           <li><strong>EMPTY SCRATCH</strong> deletes the scratch folder where agents put large temporary files.</li>
