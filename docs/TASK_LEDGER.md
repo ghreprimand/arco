@@ -109,7 +109,7 @@ from the workflow):
 
 | Message | Effect |
 |---|---|
-| `task_ledger_snapshot` | The full cwd-scoped list (`cwd`, `tasks[]`). Broadcast after every mutation and on connect/rehydrate. The client keys it by `cwd`. |
+| `task_ledger_snapshot` | The full cwd-scoped list (`cwd`, `tasks[]`). Sent live after every mutation and on connect/rehydrate; never written to `events.jsonl` (since 0.1.4; older logs still hold copies and replay them). The client keys it by `cwd`. |
 | `task_ledger_event` | The durable per-mutation event (`op`, `id`, `task?`, `payload?`, `at`). This is what lands in `events.jsonl` and what `rebuildFromEvents()` folds. Live clients no-op on it (the snapshot follows). |
 
 On rehydrate the server pushes a `task_ledger_snapshot` per workflow (see

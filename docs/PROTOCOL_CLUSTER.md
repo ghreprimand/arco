@@ -482,13 +482,14 @@ Cluster-level remote-management and gate switches. `cluster_remote_set` (◉ REM
 
 ### `cluster_plan_changed` <-
 
-server-side audit row for plan body edits (set or cleared). `body` carries the new full text (empty string = cleared). `bodyLength` duplicates `body.length` for events.jsonl scans that don't want to parse the body. `updatedAt` is wall-clock ms. Fires alongside a `cluster_state` push that carries the same body inline on `state.plan`.
+server-side audit row for plan body edits (set or cleared). The live push carries `body`, the new full text (empty string = cleared). The copy written to each member's `events.jsonl` carries `bodySha256` instead: the body is stored once in `<cwd>/.arco/plans/.history/<sha256>.md` (since 0.1.4; older logs carry `body`, and a cleared plan or a body that could not be stored keeps `body`). `bodyLength` duplicates the body length for scans that don't want to parse the body. `updatedAt` is wall-clock ms. Fires alongside a `cluster_state` push that carries the same body inline on `state.plan`.
 
 ```ts
 {
   type: 'cluster_plan_changed',
   clusterId: string,
-  body: string,            // '' when cleared
+  body?: string,           // '' when cleared; absent in the logged copy
+  bodySha256?: string,     // logged copy: name of the plan history file
   updatedAt: number,
   bodyLength: number,
 }

@@ -2449,7 +2449,7 @@ optional dispatch not producing terminal statuses.
 
 ### `task_ledger_snapshot` <-
 
-The live client snapshot is still the full cwd-scoped task list. Broadcast after every mutation and on connect/rehydrate. `cwd` is the authoritative key the client stores under. Durable comments/runs are available through the task-kernel projection and `cluster_task_show`, not this WS snapshot.
+The live client snapshot is still the full cwd-scoped task list. Sent live after every mutation and on connect/rehydrate; it is not written to `events.jsonl` (since 0.1.4; older logs still hold copies, which replay as before). `cwd` is the authoritative key the client stores under. Durable comments/runs are available through the task-kernel projection and `cluster_task_show`, not this WS snapshot.
 
 ```ts
 { type: 'task_ledger_snapshot', workflowId: string, cwd: string, tasks: LedgerTask[] }

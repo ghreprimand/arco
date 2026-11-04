@@ -28,7 +28,7 @@ import type {
 import * as clusterStore from '../clusterStore.js';
 import * as taskLedger from '../project/taskLedger.js';
 import { workflows, workflowCwds } from '../server/state.js';
-import { broadcastWorkflow, send } from '../server/broadcast.js';
+import { broadcastWorkflow, send, sendWorkflowLive } from '../server/broadcast.js';
 
 // Per-cwd mutation serialization. Each cwd gets a tail promise; a new mutation
 // chains off it so the load-mutate-save sequence never interleaves.
@@ -131,9 +131,12 @@ export async function appendLedgerComment(
 
 // Re-snapshot the cwd to every observer of the originating workflow. We
 // broadcast on the originating workflow so the snapshot fans out to the tab(s)
-// looking at this cwd; the client keys it by `cwd`.
+// looking at this cwd; the client keys it by `cwd`. Live only (P7.2): a full
+// board copy is not written to events.jsonl. The ledger store holds the board,
+// emitEvent below persists each change, and a reconnecting tab gets a fresh
+// copy from sendTaskLedgerSnapshot.
 export function broadcastSnapshot(workflowId: string, cwd: string, tasks: LedgerTask[], boardKey?: TaskBoardKey): void {
-  broadcastWorkflow(workflowId, {
+  sendWorkflowLive(workflowId, {
     type: 'task_ledger_snapshot',
     workflowId,
     cwd,

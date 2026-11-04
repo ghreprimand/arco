@@ -894,10 +894,15 @@ export interface ClusterMemberReplacedMessage {
 // `bodyLength` is logged into events.jsonl (the lightweight audit shape —
 // the full body lives on disk under <cwd>/.arco/plans/ and in the next
 // cluster_state push). Fired on cluster_plan_set / attach / clear.
+// Live pushes carry `body`. The audit copy written to each member's
+// events.jsonl carries `bodySha256` instead (P7.2): the body is stored once in
+// <cwd>/.arco/plans/.history/<sha256>.md. Logs written before 0.1.4 carry
+// `body`; a cleared plan, or a body that could not be stored, keeps `body`.
 export interface ClusterPlanChangedMessage {
   type: 'cluster_plan_changed';
   clusterId: string;
-  body: string;            // empty string = cleared
+  body?: string;           // empty string = cleared
+  bodySha256?: string;
   updatedAt: number;
   bodyLength: number;      // duplicates body.length for the events.jsonl audit row
 }

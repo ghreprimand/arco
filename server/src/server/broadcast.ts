@@ -22,6 +22,7 @@ import {
 } from './state.js';
 import { WS_BACKPRESSURE_DROP_BYTES } from './constants.js';
 import { persistAndStampSeq } from '../workflowStore.js';
+import { rememberPlanBody } from '../planHistory.js';
 import { readMeta, updateMeta } from '../workflowMeta.js';
 import { appendRecord, matchFileEvent, resolveMatchPath } from '../recentFilesLedger.js';
 import { artifactsDir } from '../workers/limits.js';
@@ -508,7 +509,38 @@ export function broadcastCluster(clusterId: string, message: ServerMessage): voi
   if (message.type === 'cluster_plan_changed') {
     clusterAutoTurn.rulePickupWorkChanged(clusterId);
     const members = clusterStore.getMembers(clusterId) ?? [];
-    for (const wfid of members) broadcastWorkflow(wfid, message);
+    // P7.2: the audit copy carries the body's hash; the body itself is
+    // stored once in the project's plan history (never deleted with plans).
+    const hashes = new Map<string, string | null>();
+    for (const wfid of members) broadcastWorkflow(wfid, planAuditCopy(message, workflowCwds.get(wfid), hashes));
+  }
+}
+
+function planAuditCopy(
+  message: Extract<ServerMessage, { type: 'cluster_plan_changed' }>,
+  cwd: string | undefined,
+  hashes: Map<string, string | null>,
+): ServerMessage {
+  if (!cwd || !message.body) return message;
+  let hash = hashes.get(cwd);
+  if (hash === undefined) { hash = rememberPlanBody(cwd, message.body); hashes.set(cwd, hash); }
+  if (!hash) return message;
+  const { body: _body, ...rest } = message;
+  void _body;
+  return { ...rest, bodySha256: hash };
+}
+
+// Live-only fan-out to a workflow's open tabs: no sequence number, nothing
+// written to events.jsonl. For full task-board copies (P7.2): the board lives
+// in the ledger store, reconnecting tabs get a fresh copy
+// (sendTaskLedgerSnapshot / task_ledger_list), and recovery folds the
+// persisted task_ledger_event records.
+export function sendWorkflowLive(workflowId: string, message: ServerMessage): void {
+  const wf = workflows.get(workflowId);
+  if (!wf) return;
+  const payload = JSON.stringify(message);
+  for (const obs of wf.observers) {
+    if (obs.readyState === WebSocket.OPEN) obs.send(payload);
   }
 }
 

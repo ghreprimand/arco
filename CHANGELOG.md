@@ -17,6 +17,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Conversation logs no longer store a full copy of the task board on every change, and a cluster plan body is stored once in the plan history instead of in every member's log. Logs grow about half as fast in busy clusters; older logs read as before.
 - Include recent turns by default in SECOND OPINION when no messages are selected, and show what the models will see.
 
 ### Fixed
