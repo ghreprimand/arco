@@ -193,6 +193,7 @@ export async function handleTaskLedgerCreate(
       goalMode: msg.goalMode,
       goalMaxTurns: msg.goalMaxTurns,
       worktreeRequired: msg.worktreeRequired,
+      release: msg.release,
       createdBy: msg.workflowId,
     });
     const next = [...tasks, task];
@@ -227,6 +228,7 @@ export async function handleTaskLedgerUpdate(
       goalMode: msg.goalMode,
       goalMaxTurns: msg.goalMaxTurns,
       worktreeRequired: msg.worktreeRequired,
+      release: msg.release,
       assignee: msg.assignee,
       updatedBy: msg.workflowId,
     });

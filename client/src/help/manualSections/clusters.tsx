@@ -1582,6 +1582,14 @@ export const clusters: Section[] = [
   <Code>N older</Code> row.
   </li>
   <li>
+  <Code>RELEASE</Code> labels are optional. Set one in a card&apos;s
+  drawer (or let the director set it) and a release filter appears in the
+  board header. A chosen release shows how many tasks are in it, how
+  many you accepted and how many are left, and reads READY TO RELEASE
+  when none are left. CATCH ME UP and BRIEF on a cluster also mention how
+  the board moved.
+  </li>
+  <li>
   Settings &gt; Agents and clusters &gt; Board auto-done can accept met
   tasks for you. It is off by default.
   </li>

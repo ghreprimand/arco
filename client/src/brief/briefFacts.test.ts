@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { JobState } from '../stores/appStore';
-import { collectClusterFacts, collectWorkerFacts, formatDuration, lastOperatorMessageState, toolSubject } from './briefFacts';
+import { collectBoardFacts, collectClusterFacts, collectWorkerFacts, formatDuration, lastOperatorMessageState, toolSubject } from './briefFacts';
 
 const NOW = 1_000_000_000;
 function job(patch: Partial<JobState>): JobState {
@@ -77,4 +77,18 @@ test('cluster facts give one line per member and roll up who waits on the operat
   assert.equal(f.filter((x) => x.label.startsWith('Member ')).length, 3);
   assert.equal(get(f, 'Waiting on the operator'), 'A, C');
   assert.equal(get(collectClusterFacts([{ name: 'B', facts: b, blocked: false }]), 'Waiting on the operator'), 'nobody');
+});
+
+test('board facts report totals, release progress and recent movement; unlabeled boards have no release lines', () => {
+  const now = 10 * 24 * 60 * 60 * 1000;
+  const task = (id: string, status: string, over: Record<string, unknown> = {}) => ({ id, title: id, status, links: [], notes: '', priority: 0, parentIds: [], blockedReason: '', reviewRequired: false, goalMode: false, createdAt: 1, updatedAt: 1, ...over }) as never;
+  assert.deepEqual(collectBoardFacts([], now), []);
+  const plain = collectBoardFacts([task('a', 'todo'), task('b', 'done', { updatedAt: now - 1000 })], now);
+  assert.deepEqual(plain.map((f) => f.label), ['Board', 'Board movement (last 24h)']);
+  assert.equal(plain[0].value, '2 tasks: 1 todo, 1 done');
+  assert.equal(plain[1].value, '1 changed: 1 done');
+  const labeled = collectBoardFacts([task('a', 'done', { release: '0.1.4' }), task('b', 'review', { release: '0.1.4' }), task('c', 'archived', { release: '0.1.4' }), task('d', 'todo', { release: '0.1.10' })], now);
+  assert.equal(labeled.find((f) => f.label === 'Release 0.1.4')?.value, '2 in, 1 accepted, 1 left');
+  assert.equal(labeled.find((f) => f.label === 'Release 0.1.10')?.value, '1 in, 0 accepted, 1 left');
+  assert.equal(labeled.find((f) => f.label === 'Board movement (last 24h)')?.value, 'none');
 });

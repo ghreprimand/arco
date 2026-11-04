@@ -143,3 +143,25 @@ export function collectClusterFacts(members: Array<{ name: string; facts: Utilit
   out.push({ label: 'Waiting on the operator', value: waiting.length ? waiting.join(', ') : 'nobody' });
   return out;
 }
+
+// Board facts for a cluster BRIEF: totals by status, release progress for any
+// labeled release, and how many tasks changed in the last day by their status.
+// Boards without release labels produce no release lines.
+export function collectBoardFacts(tasks: readonly LedgerTask[], now: number): UtilityJobFact[] {
+  if (tasks.length === 0) return [];
+  const count = (list: readonly LedgerTask[]) => {
+    const by = new Map<string, number>();
+    for (const t of list) by.set(t.status, (by.get(t.status) ?? 0) + 1);
+    return [...by].map(([status, n]) => `${n} ${status}`).join(', ');
+  };
+  const out: UtilityJobFact[] = [{ label: 'Board', value: `${tasks.length} tasks: ${count(tasks)}` }];
+  const releases = [...new Set(tasks.map((t) => t.release).filter((r): r is string => !!r))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  for (const release of releases) {
+    const inRelease = tasks.filter((t) => t.release === release && t.status !== 'archived');
+    const accepted = inRelease.filter((t) => t.status === 'done').length;
+    out.push({ label: `Release ${release}`, value: `${inRelease.length} in, ${accepted} accepted, ${inRelease.length - accepted} left` });
+  }
+  const moved = tasks.filter((t) => now - t.updatedAt <= 24 * 60 * 60 * 1000);
+  out.push({ label: 'Board movement (last 24h)', value: moved.length ? `${moved.length} changed: ${count(moved)}` : 'none' });
+  return out;
+}

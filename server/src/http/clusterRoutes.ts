@@ -408,6 +408,7 @@ export async function tryHandleClusterRoutes(
             reviewRequired?: boolean;
             goalMode?: boolean;
             goalMaxTurns?: number;
+            release?: string;
             status?: string;
           };
           const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
@@ -429,6 +430,7 @@ export async function tryHandleClusterRoutes(
               ...(typeof body.reviewRequired === 'boolean' ? { reviewRequired: body.reviewRequired } : {}),
               ...(typeof body.goalMode === 'boolean' ? { goalMode: body.goalMode } : {}),
               ...(typeof body.goalMaxTurns === 'number' ? { goalMaxTurns: body.goalMaxTurns } : {}),
+              ...(typeof body.release === 'string' ? { release: body.release } : {}),
               ...(typeof body.status === 'string' ? { status: body.status as LedgerTaskStatus } : {}),
             },
             (msg) => broadcastCluster(clusterId, msg),
@@ -609,7 +611,7 @@ export async function tryHandleClusterRoutes(
           const chunks: Buffer[] = [];
           for await (const chunk of req) chunks.push(chunk as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
-            workflowId?: string; id?: string; status?: string; notes?: string;
+            workflowId?: string; id?: string; status?: string; notes?: string; release?: string;
             signoff?: { state?: string; summary?: string } | null;
           };
           const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
@@ -624,6 +626,7 @@ export async function tryHandleClusterRoutes(
               id: typeof body.id === 'string' ? body.id : '',
               ...(typeof body.status === 'string' ? { status: body.status as LedgerTaskStatus } : {}),
               ...(typeof body.notes === 'string' ? { notes: body.notes } : {}),
+              ...(typeof body.release === 'string' ? { release: body.release } : {}),
               // §D3 — advisory sign-off; peerTaskUpdate validates + stamps author.
               ...(body.signoff !== undefined ? { signoff: body.signoff } : {}),
             },

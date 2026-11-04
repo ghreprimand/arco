@@ -1011,7 +1011,7 @@ Show one task's detail record: task fields, parent/child tasks, durable comments
 
 ### `POST /api/clusters/:id/peer/task-create`
 
-Create a non-terminal task in the cluster cwd. Body: `{ workflowId, title, body?, notes?, assignee?, priority?, parentIds?, links?, reviewRequired?, goalMode?, goalMaxTurns? }`. Delegates to `clusterPeerOps.peerTaskCreate`, emits `task_ledger_event` op `create`, and broadcasts a fresh snapshot. Returns the created task object, or `{ error: <code>, message }` on failure.
+Create a non-terminal task in the cluster cwd. Body: `{ workflowId, title, body?, notes?, assignee?, priority?, parentIds?, links?, reviewRequired?, goalMode?, goalMaxTurns?, release? }`. Delegates to `clusterPeerOps.peerTaskCreate`, emits `task_ledger_event` op `create`, and broadcasts a fresh snapshot. Returns the created task object, or `{ error: <code>, message }` on failure.
 
 ### `POST /api/clusters/:id/peer/task-claim`
 

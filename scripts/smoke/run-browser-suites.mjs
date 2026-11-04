@@ -53,6 +53,7 @@ const SUITES = [
   { name: 'cluster-surface', script: 'cluster-surface-browser.py', port: 5231 },
   { name: 'terminal-sessions', script: 'terminal-sessions-browser.py', port: 5233 },
   { name: 'turn-changes', script: 'turn-changes-browser.py', port: 5234 },
+  { name: 'board-release', script: 'board-release-browser.py', port: 5245 },
   { name: 'cursor-segments', script: 'cursor-segments-browser.py', port: 5232 },
   { name: 'git-dialog', script: 'git-dialog-browser.py', port: 5233 },
   { name: 'spawn-member', script: 'spawn-member-browser.py', port: 5234 },

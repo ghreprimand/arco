@@ -19,8 +19,21 @@ test('collects only transcript and board events in the requested interval', () =
     ] },
     { id: 'b', label: 'Tester', events: [{ ts: 19, type: 'peer_message_received', content: 'Tests pass' }] },
   ], 10, 50);
-  assert.deepEqual(facts.map((f) => f.value), ['Tests pass', 'Build it', 'Done today.', 'update: Review (review)']);
+  assert.deepEqual(facts.map((f) => f.value), ['Tests pass', 'Build it', 'Done today.', 'update: Review (review)', '1 board change; 1 review']);
   assert.equal(truncated, false);
+});
+test('board movement names release labels and counts changes by status', () => {
+  const { facts } = collectCatchUpFacts([{ id: 'a', label: 'Director', events: [
+    { ts: 5, type: 'task_ledger_event', op: 'create', task: { title: 'Out of range', status: 'todo', release: '0.1.4' } },
+    { ts: 20, type: 'task_ledger_event', op: 'update', task: { title: 'Fix A', status: 'done', release: '0.1.4' } },
+    { ts: 21, type: 'task_ledger_event', op: 'update', task: { title: 'Fix B', status: 'review', release: '0.1.4' } },
+    { ts: 22, type: 'task_ledger_event', op: 'update', task: { title: 'Plain', status: 'review' } },
+  ] }], 10, 50);
+  assert.ok(facts.some((f) => f.value === 'update: Fix A (done) [release 0.1.4]'));
+  assert.ok(facts.some((f) => f.value === 'update: Plain (review)'), 'unlabeled tasks read as before');
+  const movement = facts.find((f) => f.label === 'Board movement in this range');
+  assert.equal(movement?.value, '3 board changes; 1 done, 2 review; by release: 0.1.4 2');
+  assert.equal(collectCatchUpFacts([{ id: 'a', label: 'Director', events: [{ ts: 20, type: 'user_message_echo', content: 'hi' }] }], 10, 50).facts.some((f) => f.label.startsWith('Board movement')), false);
 });
 test('facts are bounded and truncation is explicit', () => {
   const events = Array.from({ length: 45 }, (_, i) => ({ ts: i + 1, type: 'user_message_echo', content: `${i}:` + 'x'.repeat(600) }));

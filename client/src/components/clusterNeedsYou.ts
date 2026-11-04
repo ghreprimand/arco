@@ -82,12 +82,37 @@ export function readBoardShowDone(storage?: Pick<Storage, 'getItem'>): boolean {
   try { return (storage ?? localStorage).getItem(BOARD_SHOW_DONE_KEY) !== '0'; } catch { return true; }
 }
 
+// Release filter values: null shows every task, NO_RELEASE the unlabeled ones,
+// any other string that label.
+export const NO_RELEASE = '\u0000none';
+
+export function releaseLabels(tasks: readonly LedgerTask[]): string[] {
+  const labels = new Set<string>();
+  for (const t of tasks) if (t.release) labels.add(t.release);
+  return [...labels].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+}
+
 export function filterVisibleBoardTasks(
   tasks: readonly LedgerTask[],
-  opts: { showDone: boolean },
+  opts: { showDone: boolean; release?: string | null },
 ): LedgerTask[] {
-  if (opts.showDone) return [...tasks];
-  return tasks.filter((t) => t.status !== 'done' && t.status !== 'archived');
+  let list = opts.showDone ? [...tasks] : tasks.filter((t) => t.status !== 'done' && t.status !== 'archived');
+  if (opts.release === NO_RELEASE) list = list.filter((t) => !t.release);
+  else if (typeof opts.release === 'string' && opts.release) list = list.filter((t) => t.release === opts.release);
+  return list;
+}
+
+// "Ready to release" counts for one label: how many tasks are in it, how many
+// the operator accepted (done), and how many are left (not done, not archived).
+export function releaseSummary(tasks: readonly LedgerTask[], release: string): { total: number; accepted: number; left: number } {
+  let total = 0, accepted = 0, left = 0;
+  for (const t of tasks) {
+    if (t.release !== release || t.status === 'archived') continue;
+    total++;
+    if (t.status === 'done') accepted++;
+    else left++;
+  }
+  return { total, accepted, left };
 }
 
 export function buildNeedsYouItems(input: {

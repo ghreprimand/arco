@@ -161,6 +161,13 @@ function sanitizePriority(priority: unknown): number {
   return typeof priority === 'number' && Number.isFinite(priority) ? Math.trunc(priority) : 0;
 }
 
+export const RELEASE_MAX = 24;
+
+// Release label: one trimmed line, bounded. Empty means no label.
+export function sanitizeRelease(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, RELEASE_MAX) : '';
+}
+
 function sanitizeGoalMaxTurns(value: unknown): { goalMaxTurns: number } | Record<string, never> {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? { goalMaxTurns: Math.trunc(value) }
@@ -202,6 +209,9 @@ function normalizeTask(task: LedgerTask): LedgerTask {
     ...sanitizeGoalMaxTurns(raw.goalMaxTurns),
     ...sanitizeAssignee(raw.assignee),
   };
+  const release = sanitizeRelease(raw.release);
+  if (release) next.release = release;
+  else delete next.release;
   if (!(typeof raw.assignee === 'string' && raw.assignee.trim().length > 0)) delete next.assignee;
   if (!(typeof raw.goalMaxTurns === 'number' && Number.isFinite(raw.goalMaxTurns) && raw.goalMaxTurns > 0)) {
     delete next.goalMaxTurns;
@@ -425,6 +435,7 @@ function toBoardRow(t: LedgerTask): Record<string, unknown> {
     ...(t.parentIds?.length ? { parentIds: t.parentIds } : {}),
     ...(t.links?.length ? { links: t.links } : {}),
     ...(t.reviewRequired ? { reviewRequired: true } : {}),
+    ...(t.release ? { release: t.release } : {}),
     ...(preview ? { notesPreview: preview } : {}),
     ...(notes.length > BOARD_NOTES_PREVIEW ? { notesLength: notes.length } : {}),
     createdAt: t.createdAt,
@@ -570,6 +581,7 @@ export function newTask(input: {
   goalMode?: boolean;
   goalMaxTurns?: number;
   worktreeRequired?: boolean;
+  release?: string;
   createdBy?: string;
 }): LedgerTask {
   const now = Date.now();
@@ -588,6 +600,7 @@ export function newTask(input: {
     goalMode: input.goalMode === true,
     worktreeRequired: input.worktreeRequired === true,
     ...sanitizeGoalMaxTurns(input.goalMaxTurns),
+    ...(sanitizeRelease(input.release) ? { release: sanitizeRelease(input.release) } : {}),
     ...(typeof input.createdBy === 'string' && input.createdBy.trim().length > 0
       ? { createdBy: input.createdBy.trim(), updatedBy: input.createdBy.trim() }
       : {}),
@@ -726,6 +739,8 @@ export function applyUpdate(
     goalMaxTurns?: number | null;
     assignee?: string;
     worktreeRequired?: boolean;
+    // Release label; '' clears it, undefined leaves it untouched.
+    release?: string;
     worktree?: TaskWorktree | null;
     // §D3 — director's advisory verdict. An object sets it (caller stamps
     // byWorkflowId/at); `null` clears it; `undefined` leaves it untouched.
@@ -755,6 +770,11 @@ export function applyUpdate(
       : {}),
     updatedAt: Date.now(),
   };
+  if (typeof patch.release === 'string') {
+    const label = sanitizeRelease(patch.release);
+    if (label) next.release = label;
+    else delete next.release;
+  }
   if (patch.goalMaxTurns !== undefined) {
     if (patch.goalMaxTurns === null) delete next.goalMaxTurns;
     else {

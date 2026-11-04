@@ -3,7 +3,7 @@ import type { UtilityJobFact } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useLiveChangesStore } from '../stores/liveChangesStore';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
-import { collectClusterFacts, collectWorkerFacts } from './briefFacts';
+import { collectBoardFacts, collectClusterFacts, collectWorkerFacts } from './briefFacts';
 
 const CLOSED = new Set(['done', 'archived']);
 
@@ -42,5 +42,10 @@ export function workerBriefFacts(workflowId: string, now = Date.now()): { name: 
 export function clusterBriefFacts(clusterId: string, now = Date.now()): UtilityJobFact[] {
   const cluster = useAppStore.getState().clusters[clusterId];
   if (!cluster) return [];
-  return collectClusterFacts(cluster.members.map((m) => workerBriefFacts(m.workflowId, now)));
+  const s = useAppStore.getState();
+  const ledgerKey = cluster.cwd && cluster.taskBoardKey ? `${cluster.cwd}::${cluster.taskBoardKey}` : (cluster.cwd ?? '');
+  return [
+    ...collectClusterFacts(cluster.members.map((m) => workerBriefFacts(m.workflowId, now))),
+    ...collectBoardFacts(ledgerKey ? s.taskLedger[ledgerKey] ?? [] : [], now),
+  ];
 }
