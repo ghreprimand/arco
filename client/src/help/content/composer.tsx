@@ -363,7 +363,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           they cannot edit anything. By default they have no tools. Tick{' '}
           <C>Let the models read project files</C> to allow read-only file
           tools (no web, no extra tools), and <C>Include this tab&apos;s last 3
-          turns</C> to give them recent context. Both start off.
+          turns</C> to give them recent context. Recent turns start on when no messages are selected; file access starts off. The dialog shows what each model will see and the approximate size.
         </p>
         <p>
           Open it from this button with a typed question, or tick one or more

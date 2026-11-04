@@ -74,8 +74,11 @@ async def main():
         assert 'Nothing is dispatched or opened in a new tab' in text, text
         ask = dlg.get_by_role('button', name='ASK THE MODELS')
         await expect(ask).to_be_enabled()
+        await expect(dlg.get_by_label('Include this tab', exact=False)).not_to_be_checked()
+        await expect(dlg.get_by_test_id('second-opinion-context-summary')).to_contain_text('Selected messages: included')
         await dlg.get_by_label('Include this tab', exact=False).click()
         await dlg.get_by_label('Let the models read project files', exact=False).click()
+        await expect(dlg.get_by_test_id('second-opinion-context-summary')).to_contain_text('Project files: read-only access')
         await dlg.get_by_placeholder('e.g. Say yes', exact=False).fill('Say later, keep the diff small')
         await ask.click()
         reqs = await page.evaluate('requests')
@@ -85,17 +88,22 @@ async def main():
         assert 'refactor the session module' in r['context'] and 'Please fix the login bug' in r['context'], r['context']
         assert r['prompt'] == 'Say later, keep the diff small' and len(r['legs']) == 2, r
 
-        # Defaults: both switches off; a typed question alone is enough (composer entry).
+        # With no selected messages, recent turns are on and file access stays off.
         await page.evaluate("cs.useCompareStore.getState().closeDialog(); cs.useCompareStore.getState().openDialog('wf-a')")
         dlg = page.locator('[data-help="composer.compare"]')
         await expect(page.get_by_test_id('second-opinion-excerpt')).to_have_count(0)
         await expect(dlg.get_by_role('button', name='ASK THE MODELS')).to_be_disabled()
-        await expect(dlg.get_by_label('Include this tab', exact=False)).not_to_be_checked()
+        await expect(dlg.get_by_label('Include this tab', exact=False)).to_be_checked()
         await expect(dlg.get_by_label('Let the models read project files', exact=False)).not_to_be_checked()
+        await expect(dlg.get_by_test_id('second-opinion-context-summary')).to_contain_text('Recent turns: included')
+        await expect(dlg.get_by_test_id('second-opinion-context-summary')).to_contain_text('Project files: no access')
+        await dlg.get_by_label('Include this tab', exact=False).click()
+        await expect(dlg.get_by_test_id('second-opinion-context-summary')).to_contain_text('Recent turns: not included')
+        await dlg.get_by_label('Include this tab', exact=False).click()
         await dlg.get_by_placeholder('e.g. The worker asks', exact=False).fill('What should I answer?')
         await dlg.get_by_role('button', name='ASK THE MODELS').click()
         reqs = await page.evaluate('requests')
-        assert reqs[1]['fileAccess'] is False and reqs[1]['context'] == '', reqs[1]
+        assert reqs[1]['fileAccess'] is False and 'Please fix the login bug' in reqs[1]['context'], reqs[1]
 
         # Results: blind drafts, pick one, tally, USE THIS REPLY fills the composer without sending.
         await page.evaluate('''() => {
@@ -126,6 +134,6 @@ async def main():
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()
-        print('PASS: second opinion from a selection or a typed question, switches default off, reply-draft request, corrected hint, blind drafts, pick tally, USE THIS REPLY fills the composer with undo and sends nothing')
+        print('PASS: second opinion from a selection or a typed question, context defaults and summary, reply-draft request, corrected hint, blind drafts, pick tally, USE THIS REPLY fills the composer with undo and sends nothing')
 
 asyncio.run(main())

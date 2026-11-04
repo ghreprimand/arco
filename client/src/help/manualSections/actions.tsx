@@ -547,10 +547,13 @@ export const actions: Section[] = [
         <p>
           Each model is a fresh, <strong>read-only</strong> run with{' '}
           <em>no shared session</em>: it never sees another draft and never
-          edits anything. It gets the selected messages and your question. Two
-          switches add more, both off by default: the tab&apos;s last three
-          turns, and read-only access to project files (no web and no other
-          tools). Off means no tools at all.
+          edits anything. It gets the selected messages and your question.
+        </p>
+        <p>
+          Two switches add the tab&apos;s last three turns and read-only access to
+          project files (no web and no other tools). Recent turns start on when
+          no messages are selected; file access starts off. The dialog shows
+          what each model will see and the approximate size. Off means no tools.
         </p>
         <Note kind="info">
           <strong>Blind mode</strong> (on by default) hides which model wrote

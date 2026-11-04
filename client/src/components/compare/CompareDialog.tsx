@@ -30,6 +30,7 @@ interface Props {
 // How much of the tab's recent conversation the switch carries.
 const RECENT_TURNS = 3;
 const RECENT_MAX_CHARS = 12_000;
+const CONTEXT_MAX_CHARS = 24 * 1024;
 
 export function recentTurnsText(messages: ChatMessage[], tabName: string): string {
   const bounds = turnBoundaries(messages);
@@ -39,9 +40,25 @@ export function recentTurnsText(messages: ChatMessage[], tabName: string): strin
   return text.length > RECENT_MAX_CHARS ? text.slice(-RECENT_MAX_CHARS) : text;
 }
 
+export function opinionContext(excerpt: string, recent: string): { context: string; selected: string; turns: string } {
+  const selection = excerpt.trim();
+  const recentText = recent.trim();
+  const selectedPart = selection ? `Selected from the worker's session:\n\n${selection}` : '';
+  const turnsPart = recentText ? `Recent turns of the worker's session:\n\n${recentText}` : '';
+  const separator = selectedPart && turnsPart ? '\n\n---\n\n' : '';
+  const full = selectedPart + separator + turnsPart;
+  const cutoff = Math.max(0, full.length - CONTEXT_MAX_CHARS);
+  const status = (part: string, start: number) => {
+    if (!part) return 'not included';
+    if (cutoff >= start + part.length) return 'omitted (context limit)';
+    return cutoff > start ? 'partly included (context limit)' : 'included';
+  };
+  return { context: full.slice(-CONTEXT_MAX_CHARS), selected: status(selectedPart, 0), turns: status(turnsPart, selectedPart.length + separator.length) };
+}
+
 export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCancel }: Props) {
   const [prompt, setPrompt] = useState('');
-  const [includeTurns, setIncludeTurns] = useState(false);
+  const [includeTurns, setIncludeTurns] = useState(() => !excerpt.trim());
   const [fileAccess, setFileAccess] = useState(false);
   const [tally, setTally] = useState<Tally>(() => readTally());
   const [blind, setBlind] = useState(true);
@@ -66,6 +83,7 @@ export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCa
   const addLeg = () => setLegs((ls) => (ls.length >= COMPARE_MAX_LEGS ? ls : [...ls, currentPrimary]));
   const removeLeg = (i: number) => setLegs((ls) => (ls.length <= COMPARE_MIN_LEGS ? ls : ls.filter((_, j) => j !== i)));
 
+  const context = opinionContext(excerpt, includeTurns ? recentTurnsText(messages, parentConfig.name) : '');
   const canSend = (prompt.trim().length > 0 || excerpt.trim().length > 0) && legs.length >= COMPARE_MIN_LEGS;
 
   const send = () => {
@@ -75,7 +93,7 @@ export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCa
       legs.map((l) => ({ provider: l.provider, model: l.model, effort: l.effort, providerAccountRef: l.providerAccountRef })),
       blind,
       {
-        context: [excerpt.trim() ? `Selected from the worker's session:\n\n${excerpt.trim()}` : '', includeTurns ? `Recent turns of the worker's session:\n\n${recentTurnsText(messages, parentConfig.name)}` : ''].filter(Boolean).join('\n\n---\n\n'),
+        context: context.context,
         fileAccess,
       },
     );
@@ -169,6 +187,12 @@ export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCa
           <input type="checkbox" checked={fileAccess} onChange={(e) => setFileAccess(e.target.checked)} />
           Let the models read project files (read-only: no edits, no web, no extra tools). Off: they answer from the text above only.
         </label>
+
+        <div data-testid="second-opinion-context-summary" style={{ marginTop: '10px', fontSize: '11px', lineHeight: 1.5, color: 'var(--color-fg-muted)' }}>
+          Models see your question and the following context (about {context.context.length.toLocaleString()} characters):<br />
+          Selected messages: {context.selected}. Recent turns: {context.turns}{includeTurns ? ' (up to the last 3 turns, at most 12,000 characters)' : ''}.<br />
+          Project files: {fileAccess ? 'read-only access' : 'no access'}.
+        </div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', fontSize: '11px', color: 'var(--color-fg-muted)', cursor: 'pointer' }}>
           <input type="checkbox" checked={blind} onChange={(e) => setBlind(e.target.checked)} />
