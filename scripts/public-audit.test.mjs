@@ -107,6 +107,23 @@ test('private words are read from the common directory in a linked worktree', ()
   assert.match(result.stderr, /local-private-word/);
 }));
 
+test('linked worktrees use both common private pattern files', () => fixture(({ cwd, git, commit }) => {
+  commit();
+  const linked = join(cwd, 'linked-patterns');
+  git('worktree', 'add', '-b', 'fixture-patterns', linked, 'main');
+  writeFileSync(join(cwd, '.git', 'private-patterns'), 'long-fixture-substring\n');
+  writeFileSync(join(cwd, '.git', 'private-patterns-tree'), 'tree-fixture-substring\n');
+  const run = (...args) => spawnSync(process.execPath, [audit, ...args], { cwd: linked, encoding: 'utf8', env: { ...process.env, ARCO_PRIVATE_PATTERNS_FILE: '' } });
+  writeFileSync(join(linked, 'added.txt'), 'long-fixture-substring');
+  execFileSync('git', ['add', 'added.txt'], { cwd: linked, stdio: 'pipe' });
+  assert.match(run('--staged').stderr, /local-private-pattern/);
+  writeFileSync(join(linked, 'added.txt'), 'tree-fixture-substring');
+  execFileSync('git', ['add', 'added.txt'], { cwd: linked, stdio: 'pipe' });
+  assert.match(run('--staged').stderr, /local-private-pattern/);
+  assert.match(run('--tree').stderr, /local-private-pattern/);
+  assert.equal(run('--history').status, 0);
+}));
+
 test('staged private word check ignores unchanged content and handles literal punctuation', () => fixture(({ cwd, git, check, commit }) => {
   commit('ZephyrFixture old line\nordinary\n');
   writeFileSync(join(cwd, '.git', 'private-words'), 'ZephyrFixture\nC++\n');

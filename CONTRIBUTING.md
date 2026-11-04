@@ -311,7 +311,7 @@ Significant changes get an entry in [`DEVLOG.md`](DEVLOG.md), a newest-first ind
 ## Local gate and hooks
 
 Before a change commit, run `npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run audit:public -- --tree` and `npm run docs:check`, plus the browser or smoke suite the change touches. The repository hooks in `.githooks` run the staged public-safety audit, the commit identity check and the devlog requirement on every commit, and audit the pushed history on push.
-The optional `.git/private-patterns-tree` file uses the same one-term-per-line format as `.git/private-patterns` and applies only to tree, staged and package scans, not history or push scans.
+Optional local pattern files live in the common Git directory, so linked worktrees use the same lists. `private-patterns` matches case-insensitive substrings in audit scopes; `private-patterns-tree` uses the same one-term-per-line format but applies only to tree, staged and package scans, not history or push scans. Use `private-words` for short terms that need whole-word matching, avoiding incidental matches inside hashes and other identifiers. These lists are local and are not tracked.
 The optional `.git/private-words` file contains one local word or phrase per line. The tree audit and pre-commit staged audit reject case-insensitive whole-word matches without printing the configured terms. Linked worktrees use the common Git directory. An absent file is ignored; this check does not scan history or push objects.
 
 ## Public-safety rules
