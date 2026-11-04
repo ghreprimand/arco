@@ -4,6 +4,7 @@ import { FileViewerModal } from '../components/FileViewerModal';
 import { ArtifactsLens } from './ArtifactsLens';
 import { RecentsLens } from './RecentsLens';
 import { PlansLens } from './PlansLens';
+import { StorageLens } from './StorageLens';
 
 // ARTIFACTS (docs/CLIENT.md) - the standalone chromeless explorer window,
 // mounted by main.tsx on `?app=explorer` INSTEAD of the workspace <App/>. It is
@@ -13,7 +14,7 @@ import { PlansLens } from './PlansLens';
 // workspace WS in v1 — §3): lenses refetch on window focus (poll-on-focus) plus
 // a manual refresh.
 
-type LensId = 'artifacts' | 'recents' | 'plans' | 'tree';
+type LensId = 'artifacts' | 'recents' | 'plans' | 'storage' | 'tree';
 
 interface LensDef { id: LensId; label: string; icon: string; hint: string }
 
@@ -22,6 +23,7 @@ const LENSES: LensDef[] = [
   { id: 'artifacts', label: 'ARTIFACTS', icon: '⌸', hint: 'Projects + agent-produced artifacts' },
   { id: 'recents', label: 'RECENTS', icon: '⌁', hint: 'Recently written / changed files' },
   { id: 'plans', label: 'PLANS', icon: '☰', hint: 'Every plan across all projects: review without attaching' },
+  { id: 'storage', label: 'STORAGE', icon: '◫', hint: 'Disk use by project; archive, delete and compress closed conversations' },
   { id: 'tree', label: 'TREE', icon: '⊞', hint: 'Browse the filesystem' },
 ];
 
@@ -98,7 +100,7 @@ export function ExplorerApp() {
 
       <header style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', borderBottom: '1px solid var(--color-border-hairline)', background: 'var(--color-bg-panel)', flexShrink: 0 }}>
         <span className="display-font glow-text-bright" style={{ fontSize: '17px', letterSpacing: '3px' }}>⌸ ARTIFACTS</span>
-        <span style={{ fontSize: '12px', color: 'var(--color-fg-muted)', letterSpacing: '1px' }}>project documents · artifacts · recents · plans · files</span>
+        <span style={{ fontSize: '12px', color: 'var(--color-fg-muted)', letterSpacing: '1px' }}>project documents · artifacts · recents · plans · storage · files</span>
         <span style={{ flex: 1 }} />
         {/* Text-size (window zoom) control. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginRight: '4px' }}>
@@ -146,6 +148,7 @@ export function ExplorerApp() {
             <RecentsLens focusTick={focusTick} onOpen={setViewerPath} onRevealInTree={revealInTree} />
           )}
           {activeLens.id === 'plans' && <PlansLens focusTick={focusTick} />}
+          {activeLens.id === 'storage' && <StorageLens focusTick={focusTick} />}
           {activeLens.id === 'tree' && (
             root ? (
               <FileExplorer cwd={root} revealPath={reveal?.path} revealNonce={reveal?.nonce} />

@@ -1270,6 +1270,71 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: <p>Unattached plans with all boxes checked or no edits for 30 days appear here. MARK DONE moves a plan to Completed; nothing changes until clicked.</p>,
     manualSection: 'plans-library',
   },
+  'storage.lens': {
+    title: 'STORAGE',
+    body: <p>Where disk space goes: every project Arco knows about and Arco's own folder, largest first, with each one's headings (conversation logs, artifacts, worktrees, caches and more). Nothing is changed without a click, and plans are never touched.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.measure': {
+    title: 'MEASURE AGAIN',
+    body: <p>Measures every project and Arco's folder again, read-only. Large folders take a while. Totals shown after an action stay as measured until you measure again.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.budget-notice': {
+    title: 'Disk budget notice',
+    body: <p>Shown when Arco's storage passes the disk budget in STORAGE SETTINGS. Archive or delete closed conversations, or raise the budget. The notice only reports; it removes nothing.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.project': {
+    title: 'Project row',
+    body: <p>A project's saved state and its size. Open it to list its conversations and archives with ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH. Worktrees and caches are shown but have no clean-up action here.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.home': {
+    title: "Arco's folder",
+    body: <p>Arco's own folder: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters and logs. Shown for information; it has no clean-up action here.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.compress-logs': {
+    title: 'COMPRESS OLD LOGS',
+    body: <p>Seals the conversation logs of this project's closed conversations into compressed pieces, after a confirmation. Nothing is deleted and every view still shows the whole history. Open or working conversations and logs under 1 MiB are skipped.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.keep': {
+    title: 'KEEP state',
+    body: <p>Kept items are skipped by ARCHIVE, DELETE, EMPTY SCRATCH and size warnings. "Kept" means the whole conversation is kept, so ARCHIVE and DELETE are off. If the KEEP list cannot be read, those actions stop instead of acting.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.archive': {
+    title: 'ARCHIVE',
+    body: <p>Packs a closed conversation into one compressed file in the project, after a confirmation, and checks it before removing anything. Kept items stay in place. RESTORE brings it back. Off while the conversation is open or working.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.restore': {
+    title: 'RESTORE',
+    body: <p>Unpacks an archived conversation back into the project after checking the whole archive. A file that already exists is never overwritten; the restore then stops without writing anything.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.delete': {
+    title: 'DELETE',
+    body: <p>Permanently removes a closed conversation, after a confirmation: its log, artifacts, checkpoints, search entry and archive. Kept items stay. There is no undo; ARCHIVE is the restorable choice.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.empty-scratch': {
+    title: 'EMPTY SCRATCH',
+    body: <p>Deletes the conversation's scratch folder, where agents put large temporary files, after a confirmation. Kept items stay. Off while the conversation is working.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.auto-archive': {
+    title: 'Auto-archive',
+    body: <p>Off by default. When on, a daily run archives conversations closed for more than the chosen number of days, except kept ones. It never deletes.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.budget': {
+    title: 'Disk budget',
+    body: <p>Shows the disk budget notice when Arco's storage passes this many GiB (100 by default). A daily read-only measurement keeps it current; untick to turn the notice off.</p>,
+    manualSection: 'storage-view',
+  },
   'plans.mark-done': {
     title: 'Mark plan done',
     body: <p>Moves this plan to Completed. Reopen it from the plan details if work resumes.</p>,

@@ -326,6 +326,36 @@ export const plans: Section[] = [
     ),
   },
   {
+    id: 'storage-view',
+    group: 'Plans & artifacts',
+    title: 'STORAGE - where disk space goes',
+    body: (
+      <>
+        <p>
+          The <strong>STORAGE</strong> lens in the ARTIFACTS window lists every project
+          Arco knows about and Arco's own folder, largest first. Each row shows its
+          headings, such as conversation logs, artifacts, worktrees and caches, and its
+          biggest item. Sizes are read-only; <strong>MEASURE AGAIN</strong> refreshes them.
+        </p>
+        <p>
+          Open a project to list its conversations and archives. Every action asks for
+          a confirmation first, and kept items always stay:
+        </p>
+        <ul>
+          <li><strong>ARCHIVE</strong> packs a closed conversation into one compressed file; <strong>RESTORE</strong> brings it back without overwriting anything.</li>
+          <li><strong>DELETE</strong> removes a closed conversation or an archive for good.</li>
+          <li><strong>EMPTY SCRATCH</strong> deletes the scratch folder where agents put large temporary files.</li>
+          <li><strong>COMPRESS OLD LOGS</strong> seals the logs of a project's closed conversations; nothing is deleted.</li>
+        </ul>
+        <p>
+          Worktrees, caches and Arco's own folder are shown for information only.
+          Plans are never touched. STORAGE SETTINGS holds the disk budget notice
+          (100 GiB by default) and auto-archive, which is off by default and never deletes.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'plans-library',
     group: 'Plans & artifacts',
     title: 'ALL PLANS - the plans library',

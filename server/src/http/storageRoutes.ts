@@ -3,11 +3,12 @@ import path from 'node:path';
 import { arcoHome } from '../arcoHome.js';
 import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
-import { lstat } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
 import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
 import { sealWorkflowLogNow } from '../workflowStore.js';
-import { archiveConversation, archivePath, restoreConversation } from '../storageArchive.js';
+import { archiveConversation, archivePath, listArchives, restoreConversation } from '../storageArchive.js';
+import { isKept, readKeep } from '../keepStore.js';
 import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { workflows } from '../server/state.js';
@@ -130,13 +131,31 @@ export async function tryHandleStorageRoutes(req: IncomingMessage, res: ServerRe
     pending = scanStorage(path.join(key, '.arco'), projectCheckpointRoot(arcoHome(), path.resolve(cwd)), { open });
     cache.set(key, pending);
   }
-  await respond(res, key, pending);
+  await respond(res, key, pending, (report) => withConversationState(key, report));
   return true;
 }
 
-async function respond(res: ServerResponse, key: string, pending: Promise<StorageReport>): Promise<void> {
+// Fresh per response (the scan itself is cached): each conversation's name,
+// KEEP state and working state, and the project's archives, for the STORAGE
+// view. KEEP changes and archive actions show without measuring again.
+async function withConversationState(cwd: string, report: StorageReport): Promise<unknown> {
+  const conversations = await Promise.all(report.workflows.map(async (w) => {
+    const dir = path.join(cwd, '.arco', 'workflows', w.id);
+    let name: string | undefined;
+    try { const meta = JSON.parse(await readFile(path.join(dir, 'meta.json'), 'utf8')) as { name?: unknown }; if (typeof meta.name === 'string') name = meta.name; }
+    catch { /* no meta: archived or partial folder */ }
+    const keep = await readKeep(dir);
+    return {
+      ...w, ...(name ? { name } : {}), busy: !!workflows.get(w.id)?.busy,
+      keep: keep.ok ? { readable: true, whole: isKept(keep.items, '.'), items: keep.items.length } : { readable: false, whole: false, items: 0 },
+    };
+  }));
+  return { ...report, workflows: conversations, archives: await listArchives(cwd) };
+}
+
+async function respond(res: ServerResponse, key: string, pending: Promise<StorageReport>, shape?: (r: StorageReport) => Promise<unknown>): Promise<void> {
   try {
-    const result = await pending;
+    const result = shape ? await shape(await pending) : await pending;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(result));
   } catch {
     if (cache.get(key) === pending) cache.delete(key);
