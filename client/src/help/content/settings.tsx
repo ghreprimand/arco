@@ -406,7 +406,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           low-cost model is suggested but never selected for you.
         </p>
         <p>
-          Claude (with Native sign-in), Cursor, Codex and Ollama can serve. Codex runs as a one-shot read-only session with no MCP servers or web search, and any tool use ends the request.
+          Claude (with Native sign-in), Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata and DeepSeek through Xolotl can serve. For LM Studio, llama.cpp, Strata and DeepSeek, load the chosen model first; these requests never load or switch models. Codex runs as a one-shot read-only session with no MCP servers or web search, and any tool use ends the request.
           <strong> TEST</strong> sends one fixed request to confirm the choice answers. The facts of every job are
           sent to the chosen provider, and any cost depends on that provider.
         </p>

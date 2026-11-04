@@ -164,6 +164,10 @@ async def main():
         status = dialog.get_by_label('AUTO-PICKUP status')
         await expect(status).to_contain_text('Evaluator requests: 2 this session, 2 in the last hour, 0 in progress.')
         await expect(status).to_contain_text('answered defer (acknowledgment only), logged')
+        await page.evaluate('''() => snapshot({autoPickup:{mode:'smart-observe',limits:{...limits,sessionMinutes:45},evaluator:{provider:'cursor',model:'auto'},lastEvaluator:{provider:'cursor',model:'auto'},
+          session:{id:'s1',armedAt:Date.now(),expiresAt:Date.now()+45*60000},counters:{inFlight:0,callsLastHour:2,callsThisSession:2,wakesLastHour:0,wakesThisSession:0},
+          lastDecision:{at:Date.now(),recipientWorkflowId:'worker-a',action:null,reason:'evaluator_error:model_not_loaded_llamacpp',outcome:'none'}}})''')
+        await expect(status).to_contain_text('model not loaded in llama.cpp; load it or choose another')
         # Automatic is its own explicit choice with its own button.
         await dialog.get_by_role('radio', name='Smart: Automatic').check()
         await expect(dialog.get_by_role('button', name='ARM AUTOMATIC', exact=True)).to_be_enabled()
@@ -202,6 +206,20 @@ async def main():
         await page.get_by_role('button', name='Turn AUTO-PICKUP off', exact=True).click()
         assert await page.evaluate('sent.at(-1)') == {'type': 'cluster_auto_pickup_set', 'clusterId': 'cluster-a', 'mode': 'off'}
         assert await page.evaluate('toggles.length') == 0, 'the legacy toggle is not used'
+
+        # Local evaluators are offered only while connected and use their discovered models.
+        CAPABILITIES.extend({'provider': p, 'available': True} for p in ('lmstudio', 'llamacpp', 'strata', 'deepseek'))
+        await page.evaluate("""() => {
+          s.setState(st => ({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,lmstudio:true,llamacpp:true,strata:true,deepseek:true}},
+            authStatus:{...st.authStatus,lmstudio:{loggedIn:true,installedModels:['lms-fixture']},llamacpp:{loggedIn:true,installedModels:['llama-fixture']},strata:{loggedIn:true,installedModels:['strata-fixture']},deepseek:{loggedIn:true,installedModels:['deepseek-fixture']}}}));
+          snapshot({autoPickup:{mode:'off',limits}});
+        }""")
+        await chip.click()
+        await dialog.get_by_role('radio', name='Smart: Observe-only').check()
+        for provider_id, model_id in [('lmstudio', 'lms-fixture'), ('llamacpp', 'llama-fixture'), ('strata', 'strata-fixture'), ('deepseek', 'deepseek-fixture')]:
+            await provider.select_option(provider_id)
+            assert model_id in await model.locator('option').all_text_contents()
+        await page.keyboard.press('Escape')
 
         assert not blocked, blocked
         assert not errors, errors

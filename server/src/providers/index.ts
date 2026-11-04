@@ -9,6 +9,7 @@ import { CodexAppServerProvider, disposeCodexAppServerWorker } from './codex-app
 import { ClaudeNativeProvider, disposeClaudeNativeWorker } from './claude-native/index.js';
 import { LlamacppProvider } from './llamacpp.js';
 import { isLocalModelProvider, localModelsUnloading, localModelBusyMessage } from './localModelControl.js';
+import { queueLocalProvider, type LocalProviderName } from './localProviderQueue.js';
 import { DeepSeekProvider } from './deepseek.js';
 import { StrataProvider } from './strata.js';
 import { LmstudioProvider } from './lmstudio.js';
@@ -36,16 +37,6 @@ const PROVIDERS: Record<ProviderName, Provider> = {
 // same backend; serializing matches the local-runtime pattern. (Override the
 // serial behavior via ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0, except Strata:
 // its profile manager requires the slot for the entire tool loop.)
-type LocalProviderName = 'ollama' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek';
-
-const localQueues: Record<LocalProviderName, Promise<void>> = {
-  ollama: Promise.resolve(),
-  llamacpp: Promise.resolve(),
-  lmstudio: Promise.resolve(),
-  strata: Promise.resolve(),
-  deepseek: Promise.resolve(),
-};
-
 class QueuedLocalProcess extends EventEmitter implements ProviderProcess {
   private inner: ProviderProcess | null = null;
   private killed = false;
@@ -100,12 +91,7 @@ class QueuedLocalProcess extends EventEmitter implements ProviderProcess {
       });
     };
 
-    const prior = localQueues[this.providerName];
-    let release!: () => void;
-    localQueues[this.providerName] = new Promise<void>((resolve) => { release = resolve; });
-    void prior
-      .then(run, run)
-      .finally(() => release());
+    void queueLocalProvider(this.providerName, run);
     this.emit('system_notice', `${this.providerName} local slot queued; Arco runs one ${this.providerName} worker at a time`);
   }
 

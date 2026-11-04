@@ -12,7 +12,7 @@ function fake(evaluate: (req: EvaluatorRequest) => Promise<string>, available = 
 test('agent sanitizer accepts only supported providers and bounded models', () => {
   assert.deepEqual(sanitizeUtilityAgent({ provider: 'cursor', model: ' auto ' }), { provider: 'cursor', model: 'auto' });
   assert.deepEqual(sanitizeUtilityAgent({ provider: 'codex', model: ' gpt-6-luna ' }), { provider: 'codex', model: 'gpt-6-luna' });
-  assert.equal(sanitizeUtilityAgent({ provider: 'strata', model: 'x' }), null);
+  assert.deepEqual(sanitizeUtilityAgent({ provider: 'strata', model: 'x' }), { provider: 'strata', model: 'x' });
   assert.equal(sanitizeUtilityAgent({ provider: 'claude', model: '' }), null);
   assert.equal(sanitizeUtilityAgent({ provider: 'claude', model: 'x'.repeat(201) }), null);
   assert.equal(sanitizeUtilityAgent(null), null);

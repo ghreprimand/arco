@@ -64,7 +64,7 @@ Sections: 25.
 | `llamacpp-catalog` | Providers and models | llama.cpp model registry | Global | llama.cpp registry editor and preload (shown when llama.cpp is enabled and installed) |
 | `catalog` | Providers and models | Model catalog | Global | Model catalog editor |
 | `auto-handoff-defaults` | Agents and clusters | Auto-handoff defaults | Global, for new workflows | Off by default; auto-handoff thresholds and summarizer, with Quick or written modes |
-| `utility-agent` | Agents and clusters | Utility agent | Global | Provider and model for side jobs (Claude Native, Cursor, Codex, or Ollama); TEST, CLEAR; not chosen until saved. See [Utility agent](#utility-agent) |
+| `utility-agent` | Agents and clusters | Utility agent | Global | Provider and model for side jobs (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl); TEST, CLEAR; not chosen until saved. See [Utility agent](#utility-agent) |
 | `notification-channels` | Notifications | Desktop and phone notifications | Global (switches kept by the server; the desktop permission is per browser) | Events (finished, failed, waiting) by place (this computer, phone); ntfy server, topic with GENERATE, optional token, TEST; message text switch; cluster finished source. See [Notifications](NOTIFICATIONS.md) |
 | `board-auto-done` | Agents and clusters | Board auto-done | Global | Checkbox that marks review tasks done when the director signs off as met |
 | `skills` | Agents and clusters | Skills | Global or project (the active tab's folder) | Global and project skill lists, new, edit and delete |
@@ -152,8 +152,10 @@ outside a workflow turn: **BRIEF**, **CATCH ME UP**, **TIDY**, and the shared
 no-tools runner those buttons use. It lives in Settings > Agents and clusters
 and is also offered (never selected silently) on the last Welcome screen.
 
-Accepted providers: Claude with Native sign-in, Cursor, Codex, and Ollama. Claude
-CLI alone cannot serve. Codex runs as a one-shot app-server in an empty temporary
+Accepted providers: Claude with Native sign-in, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, and DeepSeek through Xolotl. Claude
+CLI alone cannot serve. Local choices other than Ollama require the selected model
+to already be loaded; Arco does not load or switch a model for these jobs.
+Codex runs as a one-shot app-server in an empty temporary
 folder with a read-only sandbox, no MCP servers and web search off; any tool
 item or approval request ends the request. The choice is unset until saved. **TEST** runs one bounded request;
 **CLEAR** removes the saved choice. **USE UTILITY AGENT** on Smart AUTO-PICKUP,
@@ -168,7 +170,7 @@ AUTO-PICKUP is a per-cluster control on the cluster right-panel header (default
 Off), not a Settings page. Modes: Off, Rule-based (recommended deterministic wake on idle
 mail with acknowledgement, loop and adjustable wake-budget guards), Smart: Observe-only (evaluator proposes wake / wait / ask; log only), and
 Smart: Automatic (wake proposals may start a turn after server gates and
-limits). Smart modes need an evaluator (Claude Native, Cursor, Codex or Ollama). The same provider limits apply to the utility agent.
+limits). Smart modes need an evaluator (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata or DeepSeek through Xolotl). The same provider limits apply to the utility agent.
 Limits, session expiry, TURN OFF, STOP holds and counters
 are described in the in-app manual section AUTO-PICKUP and Smart pickup and in
 [cluster protocol](PROTOCOL_CLUSTER.md). Evaluator request contents and adapter

@@ -17,7 +17,7 @@ HTML = '''<!doctype html><html><head><link rel="stylesheet" href="/src/styles/gl
 RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$ = () => {};
 window.$RefreshSig$ = () => type => type; window.__vite_plugin_react_preamble_installed__ = true;
 window.fixtureReady = true;</script></body></html>'''
-SETTINGS = {'enabledProviders': {'claude': True, 'codex': True, 'cursor': True, 'ollama': True}}
+SETTINGS = {'enabledProviders': {'claude': True, 'codex': True, 'cursor': True, 'ollama': True, 'lmstudio': True, 'llamacpp': True, 'strata': True, 'deepseek': True}}
 
 async def main():
     async with async_playwright() as p:
@@ -37,7 +37,8 @@ async def main():
                     await route.fulfill(json={'providers': [
                         {'provider': 'claude', 'available': True},
                         {'provider': 'cursor', 'available': False, 'reason': 'Cursor Agent is not installed or signed in.'},
-                        {'provider': 'ollama', 'available': True}]}); return
+                        {'provider': 'ollama', 'available': True},
+                        *[{'provider': p, 'available': True} for p in ('lmstudio', 'llamacpp', 'strata', 'deepseek')]]}); return
                 if url.path == '/api/settings' and method == 'POST':
                     body = json.loads(route.request.post_data or '{}'); posts.append(body)
                     state['saved'] = body.get('utilityAgent')
@@ -72,8 +73,8 @@ async def main():
           const {UtilityAgentPicker} = await import('/src/components/UtilityAgentPicker.tsx');
           const {useAppStore:s} = await import('/src/stores/appStore.ts');
           window.s = s;
-          s.setState({connected:true, settings:{enabledProviders:{claude:true,codex:true,cursor:true,ollama:true}},
-            authStatus:{claude:{loggedIn:true},codex:{loggedIn:true},cursor:{loggedIn:true},ollama:{loggedIn:true,installedModels:['tiny','big']}}});
+          s.setState({connected:true, settings:{enabledProviders:{claude:true,codex:true,cursor:true,ollama:true,lmstudio:true,llamacpp:true,strata:true,deepseek:true}},
+            authStatus:{claude:{loggedIn:true},codex:{loggedIn:true},cursor:{loggedIn:true},ollama:{loggedIn:true,installedModels:['tiny','big']},lmstudio:{loggedIn:true,installedModels:['local-lms']},llamacpp:{loggedIn:true,installedModels:['local-llama']},strata:{loggedIn:true,installedModels:['local-strata']},deepseek:{loggedIn:true,installedModels:['local-deepseek']}}});
           createRoot(document.getElementById('fixture')).render(React.createElement(UtilityAgentPicker));
         }''')
         picker = page.get_by_test_id('utility-agent-picker')
@@ -82,6 +83,11 @@ async def main():
         await expect(page.get_by_test_id('utility-provider-claude')).to_be_visible()
         await expect(page.get_by_test_id('utility-provider-ollama')).to_be_visible()
         await expect(page.get_by_test_id('utility-provider-cursor')).to_have_count(0)
+        for provider, model in [('lmstudio', 'local-lms'), ('llamacpp', 'local-llama'), ('strata', 'local-strata'), ('deepseek', 'local-deepseek')]:
+            await page.get_by_test_id('utility-provider-' + provider).click()
+            await expect(page.get_by_test_id('utility-model').filter(has_text=model)).to_be_visible()
+            await expect(page.get_by_test_id('utility-save')).to_be_disabled()
+
         await expect(picker).to_contain_text('CURSOR: Cursor Agent is not installed')
         await expect(picker).not_to_contain_text('CODEX')
         await expect(page.get_by_test_id('utility-save')).to_be_disabled()

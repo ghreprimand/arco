@@ -34,6 +34,13 @@ import { ensureLiveTokens } from './providers/claude-native/oauth.js';
 import { loadTokens } from './providers/claude-native/auth.js';
 import { CLAUDE_CLI_USER_AGENT } from './providers/claude-native/wireFingerprint.js';
 import { resolveClaudeAliasFromCatalog } from './providers/claude-native/catalog.js';
+import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
+import { getStrataBase, probeStrata } from './providers/strata.js';
+import { getDeepSeekBase, probeDeepSeek } from './providers/deepseek.js';
+import { llamacppManager } from './providers/llamacppManager.js';
+import { probeLlamacppLive } from './providers/llamacpp.js';
+import { queueLocalProvider, type LocalProviderName } from './providers/localProviderQueue.js';
+import { localModelsUnloading } from './providers/localModelControl.js';
 
 export interface EvaluatorRequest {
   model: string;
@@ -416,11 +423,113 @@ export function codexAdapter(opts: { launch?: () => [string, string[]]; usable?:
   };
 }
 
+async function boundedLocalResponse(response: Response, maxBytes: number): Promise<unknown> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) throw new EvaluatorRefused('output_too_long');
+  if (!response.body) throw new EvaluatorRefused('unreadable_answer');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = []; let size = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new EvaluatorRefused('output_too_long'); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const data = new Uint8Array(size); let offset = 0;
+  for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.byteLength; }
+  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(data)); }
+  catch { throw new EvaluatorRefused('unreadable_answer'); }
+}
+
+// A single bounded, non-streaming OpenAI-compatible request for local models.
+export function openAiCompatibleAdapter(provider: SmartPickupEvaluatorProvider, opts: {
+  base: (model: string, signal: AbortSignal) => Promise<string>;
+  available: () => Promise<boolean>;
+  fetchImpl?: typeof fetch;
+  run?: <T>(work: () => Promise<T>) => Promise<T>;
+}): EvaluatorAdapter {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  return {
+    provider,
+    async capability() { try { return { provider, available: await opts.available() }; } catch { return { provider, available: false, reason: 'Local provider is unavailable.' }; } },
+    async evaluate(req) {
+      const { signal, done } = deadline(req);
+      let onAbort: (() => void) | undefined;
+      try {
+        const perform = async () => {
+        signal.throwIfAborted();
+        const base = (await opts.base(req.model, signal)).replace(/\/$/, '');
+        signal.throwIfAborted();
+        const response = await fetchImpl(`${base}/chat/completions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+          body: JSON.stringify({ model: req.model, stream: false, max_tokens: req.maxOutputTokens, temperature: 0,
+            messages: [{ role: 'system', content: req.instructions }, { role: 'user', content: req.prompt }] }),
+        });
+        if (!response.ok) throw new EvaluatorRefused(response.status === 401 || response.status === 403 ? 'not_signed_in' : `provider_http_${response.status}`);
+        const result = await boundedLocalResponse(response, outputCharCap(req.maxOutputTokens) * 4 + 16_384) as { choices?: Array<{ message?: { content?: unknown; tool_calls?: unknown; function_call?: unknown }; finish_reason?: string }> };
+        const choice = result && Array.isArray(result.choices) ? result.choices[0] : undefined;
+        if ((choice?.message?.tool_calls != null && (!Array.isArray(choice.message.tool_calls) || choice.message.tool_calls.length > 0)) || choice?.message?.function_call || (choice?.finish_reason === 'tool_calls' || choice?.finish_reason === 'function_call')) throw new EvaluatorRefused('tool_attempted');
+        if (!choice?.message || !('content' in choice.message)) throw new EvaluatorRefused('unreadable_answer');
+        if (typeof choice.message.content !== 'string') throw new EvaluatorRefused('non_text_answer');
+        const answer = choice.message.content;
+        if (choice.finish_reason === 'length' || answer.length > outputCharCap(req.maxOutputTokens)) throw new EvaluatorRefused('output_too_long');
+        if (!answer.trim()) throw new EvaluatorRefused('empty_answer');
+        return answer;
+        };
+        const work = opts.run ? opts.run(perform) : perform();
+        const aborted = new Promise<never>((_, reject) => {
+          onAbort = () => reject(signal.reason);
+          signal.addEventListener('abort', onAbort, { once: true });
+          if (signal.aborted) onAbort();
+        });
+        return await Promise.race([work, aborted]);
+      } catch (error) {
+        if (signal.aborted) throw signal.reason;
+        if (error instanceof EvaluatorRefused) throw error;
+        if (error instanceof SyntaxError) throw new EvaluatorRefused('unreadable_answer');
+        throw new EvaluatorRefused('unavailable');
+      } finally { if (onAbort) signal.removeEventListener('abort', onAbort); done(); }
+    },
+  };
+}
+
+function localRun<T>(provider: LocalProviderName, work: () => Promise<T>): Promise<T> {
+  return queueLocalProvider(provider, async () => {
+    if (localModelsUnloading()) throw new EvaluatorRefused('unavailable');
+    return work();
+  });
+}
+
+export async function requireLoadedLocalModel(provider: 'lmstudio' | 'strata' | 'deepseek', base: string, model: string, signal: AbortSignal): Promise<string> {
+  const url = provider === 'lmstudio' ? `${base.replace(/\/v\d+$/, '')}/api/v1/models` : `${base}/status`;
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new EvaluatorRefused('unavailable');
+  const body = await boundedLocalResponse(response, 128_000) as { model?: string; loaded?: boolean; models?: Array<{ key?: string; loaded_instances?: Array<{ id?: string }> }> };
+  const loaded = provider === 'lmstudio'
+    ? body.models?.some((entry) => (entry.key === model && !!entry.loaded_instances?.length) || entry.loaded_instances?.some((instance) => instance.id === model))
+    : body.model === model && body.loaded === true;
+  if (!loaded) throw new EvaluatorRefused(`model_not_loaded_${provider}`);
+  return base;
+}
+
 let adapters: Record<SmartPickupEvaluatorProvider, EvaluatorAdapter> = {
   ollama: ollamaAdapter(),
   claude: claudeAdapter(),
   cursor: cursorAdapter(),
   codex: codexAdapter(),
+  lmstudio: openAiCompatibleAdapter('lmstudio', { base: async (model, signal) => requireLoadedLocalModel('lmstudio', await getLmstudioBase(), model, signal), available: async () => (await probeLmstudio()).up, run: (work) => localRun('lmstudio', work) }),
+  strata: openAiCompatibleAdapter('strata', { base: async (model, signal) => requireLoadedLocalModel('strata', await getStrataBase(), model, signal), available: async () => (await probeStrata()).up, run: (work) => localRun('strata', work) }),
+  deepseek: openAiCompatibleAdapter('deepseek', { base: async (model, signal) => requireLoadedLocalModel('deepseek', await getDeepSeekBase(), model, signal), available: async () => (await probeDeepSeek()).up, run: (work) => localRun('deepseek', work) }),
+  llamacpp: openAiCompatibleAdapter('llamacpp', { base: async (model) => {
+    const status = llamacppManager.getStatus();
+    if (status.state !== 'ready' || status.alias !== model || !status.port) throw new EvaluatorRefused('model_not_loaded_llamacpp');
+    return `http://${llamacppManager.getEndpoint().host}:${status.port}/v1`;
+  }, available: async () => (await probeLlamacppLive()).up, run: (work) => localRun('llamacpp', async () => {
+    const release = llamacppManager.acquire(); try { return await work(); } finally { release(); }
+  }) }),
 };
 
 export function evaluatorAdapter(provider: SmartPickupEvaluatorProvider): EvaluatorAdapter {

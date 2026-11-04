@@ -30,6 +30,8 @@ export function useUsableUtilityAgent(): UtilityAgent | null {
   return isProviderEnabled(agent.provider) && Boolean(authStatus?.[agent.provider]?.loggedIn) ? agent : null;
 }
 
+const PROVIDER_LABEL: Record<UtilityAgentProvider, string> = { claude: 'CLAUDE', codex: 'CODEX', cursor: 'CURSOR', ollama: 'OLLAMA', lmstudio: 'LM STUDIO', llamacpp: 'LLAMA.CPP', strata: 'STRATA', deepseek: 'DEEPSEEK (XOLOTL)' };
+
 const pill = (active: boolean): React.CSSProperties => ({
   padding: '3px 8px', background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
   border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
@@ -103,14 +105,14 @@ export function UtilityAgentPicker({ afterSave }: { afterSave?: () => void }) {
         {saved ? ` Current choice: ${saved.provider.toUpperCase()} / ${saved.model}.` : ' No utility agent is chosen; utility buttons ask for one.'}
       </p>
       {capabilities === null ? <p role="status" style={statusStyle}>Checking which providers can serve.</p>
-        : offered.length === 0 ? <p role="status" style={statusStyle}>No provider that can serve is enabled and connected. Connect Claude, Cursor, Codex or Ollama first.</p>
+        : offered.length === 0 ? <p role="status" style={statusStyle}>No provider that can serve is enabled and connected. Connect a supported provider first.</p>
         : (
           <>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
               <span className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>PROVIDER</span>
               {offered.map((p) => (
                 <button key={p} type="button" className="display-font" aria-pressed={provider === p} data-testid={`utility-provider-${p}`} style={pill(provider === p)}
-                  onClick={() => { setProvider(p); setModel(saved?.provider === p ? saved.model : ''); }}>{p.toUpperCase()}</button>
+                  onClick={() => { setProvider(p); setModel(saved?.provider === p ? saved.model : ''); }}>{PROVIDER_LABEL[p]}</button>
               ))}
             </div>
             {provider && (
