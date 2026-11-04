@@ -26,6 +26,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Fixed
 
 - Fix the cluster board hiding finished work: SHOW DONE is now on by default (and remembered once changed), and the task count in the board header matches the tasks drawn, with a note of how many done tasks are hidden when it is off.
+### Fixed
+
+- Fix nudges giving no sign they were sent: after clicking a member card's mail mark or sending NUDGE, the mark reads "Nudged" and the composer NUDGE button reads "NUDGED" with a count until the member starts its turn (or two minutes pass). No toast or sound.
 
 ## v0.1.3 - 2026-11-04
 

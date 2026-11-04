@@ -100,7 +100,7 @@ REVIEWS (aggregated reviewer queue) / HANDOFFS / PLAN (shared markdown) /
 HISTORY / PREVIEW / CONFIG / GITHUB mirrors so routine work does not leave the
 cluster tab.
 
-Member cards show a mail mark with the count when messages are waiting (delivered at the member's next turn). It is muted while the member is busy; when the member is idle with mail it is highlighted and clicking it nudges that member, and the tab shows Needs you. The cluster NUDGE button
+Member cards show a mail mark with the count when messages are waiting (delivered at the member's next turn). It is muted while the member is busy; when the member is idle with mail it is highlighted and clicking it nudges that member (the mark then reads Nudged, and the composer NUDGE button reads NUDGED with a count, until the member starts its turn), and the tab shows Needs you. The cluster NUDGE button
 shows the total and opens an empty recipient picker; only an explicit selection
 and send starts a reminder.
 

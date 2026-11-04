@@ -17,6 +17,8 @@
 
 import type { SpawnMemberIdentity } from '@arco/shared';
 import { useEffect, useRef, useState } from 'react';
+
+const NUDGED_MS = 120_000;
 import { buildClusterNudge } from '../utils/clusterNudge';
 import { onVoiceDialog } from '../voice/dialogs';
 import { useAppStore, type ClusterCardLayout } from '../stores/appStore';
@@ -598,6 +600,28 @@ export function ClusterTab({
   // dispatching. Idle+mailbox-depth-positive members are visually flagged
   // ("has mail") so the operator can pick the ones that actually need
   // waking, but no member is auto-checked.
+  // Members nudged and not yet started: their mail mark and the composer NUDGE
+  // read "Nudged" until the member starts its turn (or two minutes pass).
+  const [nudgedAt, setNudgedAt] = useState<Record<string, number>>({});
+  const startedKey = cluster.members.map((m) => `${m.workflowId}:${m.status === 'busy' || jobs[m.workflowId]?.busy === true ? 1 : 0}`).join('|');
+  useEffect(() => {
+    const now = Date.now();
+    setNudgedAt((prev) => {
+      const next: Record<string, number> = {};
+      for (const m of cluster.members) {
+        const at = prev[m.workflowId];
+        if (at && now - at < NUDGED_MS && !(m.status === 'busy' || jobs[m.workflowId]?.busy === true)) next[m.workflowId] = at;
+      }
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [startedKey]);
+  useEffect(() => {
+    const live = Object.values(nudgedAt);
+    if (!live.length) return;
+    const timer = setTimeout(() => setNudgedAt((prev) => Object.fromEntries(Object.entries(prev).filter(([, at]) => Date.now() - at < NUDGED_MS))), Math.max(1000, NUDGED_MS - (Date.now() - Math.min(...live)) + 50));
+    return () => clearTimeout(timer);
+  }, [nudgedAt]);
+  const nudgedCount = Object.keys(nudgedAt).length;
   const openNudgeModal = () => {
     setNudgeSelection(new Set());
   };
@@ -618,7 +642,7 @@ export function ClusterTab({
         undefined,
         'steer',
       );
-      if (result !== false) sent++;
+      if (result !== false) { sent++; setNudgedAt((prev) => ({ ...prev, [member.workflowId]: Date.now() })); }
     }
     if (sent === 0 || !toast) return sent;
     setToasts((prev) => [...prev, {
@@ -826,6 +850,7 @@ export function ClusterTab({
                         role={m.role}
                         pendingMail={pendingByMember[cluster.members.indexOf(m)]}
                         onNudge={() => nudgeMembers(new Set([m.workflowId]), false)}
+                        nudged={nudgedAt[m.workflowId] !== undefined}
                         newReply={directorNewReply && m.workflowId === directorMember?.workflowId}
                         focused={focusedMemberId === m.workflowId}
                         onClick={() => setClusterFocusedMember(clusterId, m.workflowId)}
@@ -902,7 +927,7 @@ export function ClusterTab({
                       onSend={(content, attachments, kind, primitive) =>
                         sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive)
                       }
-                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, onNudge: openNudgeModal }}
+                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: openNudgeModal }}
                       onAttachPlan={onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
                       onAttachToCluster={onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
                       onCancel={() => onCancelMember(focusedMember.workflowId)}

@@ -275,7 +275,9 @@ export const clusters: Section[] = [
   member; they are delivered at its next turn. It is muted while the
   member is busy. When the member is idle with mail it is highlighted
   like a question, the tab counts as Needs you, and clicking the mark
-  nudges that member. It makes no sound and shows no pop-up.
+  nudges that member and the mark reads Nudged until that member
+  starts its turn (the composer NUDGE button reads NUDGED and a
+  count meanwhile). It makes no sound and shows no pop-up.
   </li>
   <li>
   <strong>Second line</strong> - 8-char workflowId prefix and, if
