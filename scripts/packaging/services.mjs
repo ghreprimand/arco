@@ -25,7 +25,7 @@ export function windowsScriptHost(env = process.env) {
   return `${(env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows').replace(/[\\/]+$/, '')}\\System32\\wscript.exe`;
 }
 export const WINDOWS_LAUNCHER = "var a = WScript.Arguments, c = [], i;\r\nfor (i = 0; i < a.length; i++) c.push('\"' + a(i) + '\"');\r\nWScript.Quit(new ActiveXObject('WScript.Shell').Run(c.join(' '), 0, true));\r\n";
-export const WINDOWS_END_TREE = String.raw`$ErrorActionPreference='Stop'; $m=$env:ARCO_SERVICE_MARK; if (-not $m) { exit 1 }; $configPattern='(?i)(?:^|\s|")' + [Regex]::Escape($m) + '(?:"|\s|$)'; $candidates=@(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and ($_.Name -eq 'node.exe' -or $_.Name -eq 'wscript.exe') }); if (@($candidates | Where-Object { [String]::IsNullOrWhiteSpace([string]$_.CommandLine) }).Count -gt 0) { throw 'Cannot inspect process command lines.' }; $candidates | Where-Object { $_.CommandLine -match '(?i)(?:^|[\\/\s"])arco\.mjs"?\s+"?service-run"?(?:\s|$)' -and $_.CommandLine -match $configPattern } | ForEach-Object { $id=$_.ProcessId; & taskkill.exe /PID $id /T /F | Out-Null; if ($LASTEXITCODE -ne 0) { $alive=@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $_.Id -eq $id }); if ($alive.Count -gt 0) { throw 'Could not stop the service process.' } } }; exit 0`;
+export const WINDOWS_END_TREE = String.raw`$ErrorActionPreference='Stop'; $m=$env:ARCO_SERVICE_MARK; if (-not $m) { exit 1 }; $configPattern='(?i)(?:^|\s|")' + [Regex]::Escape($m) + '(?:"|\s|$)'; $candidates=@(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and ($_.Name -eq 'node.exe' -or $_.Name -eq 'wscript.exe') }); if (@($candidates | Where-Object { [String]::IsNullOrWhiteSpace([string]$_.CommandLine) }).Count -gt 0) { throw 'Cannot inspect process command lines.' }; $candidates | Where-Object { $_.CommandLine -match '(?i)(?:^|[\\/\s"])arco\.mjs"?\s+"?service-run"?(?:\s|$)' -and $_.CommandLine -match $configPattern } | ForEach-Object { $id=$_.ProcessId; $ErrorActionPreference='Continue'; & taskkill.exe /PID $id /T /F 2>$null | Out-Null; $ErrorActionPreference='Stop'; if ($LASTEXITCODE -ne 0) { $alive=@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $_.Id -eq $id }); if ($alive.Count -gt 0) { throw 'Could not stop the service process.' } } }; exit 0`;
 export const windowsLauncherPath = (config) => join(dirname(config), 'launch.js');
 export function renderService(platform, { node, entry, config, home, user, env = process.env }) {
   const args = [node, entry, 'service-run', config];
@@ -103,7 +103,9 @@ export async function serviceAction(action, deps = {}) {
         // keep running and hold the port. Whatever the task state, also end every
         // wscript.exe or node.exe whose command line names this home's service
         // configuration (the launcher and service-run both do), with its tree.
-        const stopped = run('schtasks.exe', ['/End', '/TN', label], { stdio: 'pipe', encoding: 'utf8' });
+        const stopArgs = ['/End', '/TN', label];
+        const stopOptions = { stdio: 'pipe', encoding: 'utf8', timeout: 30000, env };
+        const stopped = await (deps.run ? run('schtasks.exe', stopArgs, stopOptions) : runWindowsProbe('schtasks.exe', stopArgs, stopOptions));
         let ended = !stopped.error && stopped.status === 0;
         if (!ended) {
           const args = ['-NoProfile', '-NonInteractive', '-Command', "$ErrorActionPreference='Stop'; (Get-ScheduledTask -TaskName 'arco-workbench').State.ToString()"];

@@ -174,10 +174,12 @@ test('a Windows stop ends the task and then every launcher or node process for t
   const seen = [];
   await serviceAction('stop', { platform: 'win32', paths: f.paths, env: f.env, run: (cmd, args, options = {}) => { seen.push({ cmd, args, options }); return { status: 0 }; } });
   assert.deepEqual(seen[0].args, ['/End', '/TN', 'arco-workbench']);
+  assert.equal(seen[0].options.timeout, 30000, 'ending the scheduled task has a deadline');
   assert.equal(seen[1].cmd, 'powershell.exe');
   assert.equal(seen[1].args.at(-1), WINDOWS_END_TREE);
   assert.equal(seen[1].options.env.ARCO_SERVICE_MARK, f.paths.config);
   assert.match(WINDOWS_END_TREE, /taskkill\.exe \/PID \$id \/T \/F/);
+  assert.match(WINDOWS_END_TREE, /taskkill\.exe \/PID \$id \/T \/F 2>\$null/, 'an already-exited process does not abort the survivor check');
   assert.match(WINDOWS_END_TREE, /\$LASTEXITCODE -ne 0.*GetProcesses\(\).*\$alive\.Count -gt 0/, 'a failed termination only passes when the process is gone');
   assert.match(WINDOWS_END_TREE, /node\.exe/);
   assert.match(WINDOWS_END_TREE, /wscript\.exe/);
@@ -188,6 +190,17 @@ test('a Windows stop ends the task and then every launcher or node process for t
   attempts = 0;
   await serviceAction('stop', { platform: 'win32', paths: f.paths, env: f.env, run: (cmd, args) => cmd === 'schtasks.exe' ? { status: 1 } : args.at(-1) === WINDOWS_END_TREE ? { status: 0 } : (++attempts === 1 ? { error: Object.assign(new Error(), { code: 'ETIMEDOUT' }) } : { status: 0, stdout: 'Ready' }) });
   assert.equal(attempts, 2);
+  const checks = [];
+  await serviceAction('stop', { platform: 'win32', paths: f.paths, env: f.env, run: (cmd, args) => {
+    checks.push(args.at(-1));
+    if (cmd === 'schtasks.exe') return { error: Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }) };
+    return args.at(-1) === WINDOWS_END_TREE ? { status: 0 } : { status: 0, stdout: 'Ready' };
+  } });
+  assert.equal(checks.length, 3, 'a timed-out stop checks the task state and service process tree');
+  await assert.rejects(serviceAction('stop', { platform: 'win32', paths: f.paths, env: f.env, run: (cmd, args) => {
+    if (cmd === 'schtasks.exe') return { error: Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }) };
+    return args.at(-1) === WINDOWS_END_TREE ? { status: 1 } : { status: 0, stdout: 'Ready' };
+  } }), /end the Arco service processes/, 'a reported survivor remains an error');
 });
 
 test('Windows service stop requires both the service command and this home config', () => {

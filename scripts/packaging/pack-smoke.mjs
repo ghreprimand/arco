@@ -160,7 +160,9 @@ try {
     const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
     const portFree = () => new Promise((ok) => { const probe = createServer(); probe.once('error', () => ok(false)); probe.listen(heldPort, '127.0.0.1', () => probe.close(() => ok(true))); });
     if (await portFree()) throw new Error('The stand-in service is not holding its port.');
-    const stopRun = (cmd, args, options = {}) => cmd === 'schtasks.exe' ? (spawnSync('taskkill.exe', ['/PID', String(host.pid), '/F'], { stdio: 'ignore' }), { status: 0 }) : spawnSync(cmd, args, { ...options, windowsHide: true });
+    const stopRun = async (cmd, args, options = {}) => cmd === 'schtasks.exe'
+      ? serviceModule.runWindowsProbe('taskkill.exe', ['/PID', String(host.pid), '/F'], { timeout: 30000, env })
+      : serviceModule.runWindowsProbe(cmd, args, options);
     // An unrelated Node process mentioning the same config path must survive.
     const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', unitPaths.config], { stdio: 'ignore', windowsHide: true });
     try {
