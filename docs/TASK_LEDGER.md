@@ -381,7 +381,7 @@ Operator clearing on review cards uses **ACCEPT** (marks one task done through
 the same `task_ledger_update` path as the LEDGER tab; workers cannot do this)
 and **RECHECK** (sends a templated note to the sign-off author). **ACCEPT ALL
 MET** accepts every visible review task whose sign-off reads met. Done tasks
-stay hidden until **SHOW DONE**; review tasks older than seven days fold behind
+are shown by default and hidden when **SHOW DONE** is turned off (remembered); review tasks older than seven days fold behind
 an older-count row. A **NEED YOU** badge above the member cards counts review
 tasks with a director sign-off, tasks blocked on an operator decision, and
 members waiting on an answer; selecting an item opens the board or focuses that

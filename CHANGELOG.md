@@ -23,6 +23,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Read Claude Native utility replies containing thinking blocks, and explain unreadable, non-text and truncated replies separately.
 - Show linked instruction-file names on their target in TUNE UP AGENT FILES and explain skipped links.
 - Fix UNDO THIS TURN giving no result: after an undo the turn line reads "Undone", UNDO THIS TURN is disabled so it cannot run twice, and the diff opened from it is labelled as the undone change.
+### Fixed
+
+- Fix the cluster board hiding finished work: SHOW DONE is now on by default (and remembered once changed), and the task count in the board header matches the tasks drawn, with a note of how many done tasks are hidden when it is off.
 
 ## v0.1.3 - 2026-11-04
 

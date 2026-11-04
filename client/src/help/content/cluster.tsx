@@ -889,8 +889,9 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Show done',
     body: (
       <p>
-        Done and archived tasks are hidden by default so the board shows only live
-        work. Turn this on to list them again. The count at the top still counts all tasks.
+        Done and archived tasks are shown by default so finished work stays in view.
+        Turn this off to hide them and show only live work; the choice is remembered.
+        The count at the top matches the tasks drawn, and says how many done tasks are hidden.
       </p>
     ),
     manualSection: 'cluster-board',
