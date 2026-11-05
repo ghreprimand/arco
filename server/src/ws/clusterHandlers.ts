@@ -25,9 +25,7 @@ import {
   type ClusterSwarmCreateMessage,
   type ClusterMemberProvider,
   type ClusterMemberAccessMode,
-  type EffortLevel,
   type LedgerTask,
-  type ModelName,
   type OrchestrationProposal,
   type OrchestrationProposalItem,
   type WorkflowConfig,
@@ -52,6 +50,7 @@ import { resolveRegistryWiring } from '../mcp/registryWiring.js';
 import { readMeta, latestCliSessionFor, workflowConfigFromMeta } from '../workflowMeta.js';
 import { isValidPlanId } from '../planStore.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
+import { memberConfigFromSpec, memberConfigFromTemplate, memberModelProblem, type CodexAccountResolver } from './clusterMembers.js';
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
 import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
 import {
@@ -1494,6 +1493,9 @@ export function resolveClusterOverrideProvider(
 // source tab's cwd + primary config), then creates the cluster with source +
 // new members. additionalCount is clamped to [1, 4]. Native-only fence holds
 // at every step.
+// Codex account lookup for a new member; a failed lookup keeps the reference.
+const resolveCodexAccount: CodexAccountResolver = async (ref, cwd) => (await resolveProviderAccount('codex', ref, cwd).catch(() => null))?.profile.id ?? null;
+
 export async function handleClusterCreateWithFreshWorkers(
   ws: WebSocket,
   session: Session,
@@ -1532,20 +1534,9 @@ export async function handleClusterCreateWithFreshWorkers(
     send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: ${providerResolution.error}` });
     return;
   }
-  if (msg.model !== undefined) {
-    if (typeof msg.model !== 'string' || msg.model.trim().length === 0) {
-      send(ws, { type: 'error', message: 'cluster_create_with_fresh_workers rejected: unknown_model' });
-      return;
-    }
-    if (!(await isKnownCatalogModel(providerResolution.provider, msg.model))) {
-      send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: unknown_model:${msg.model}` });
-      return;
-    }
-  }
-  if (providerResolution.provider !== inheritedSourceProvider && msg.model === undefined) {
-    send(ws, { type: 'error', message: 'cluster_create_with_fresh_workers rejected: unknown_model (provider changed without model)' });
-    return;
-  }
+  const choice = { inherited: inheritedSourceProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
+  const modelProblem = await memberModelProblem({ op: 'cluster_create_with_fresh_workers', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: true, changedWithoutModel: 'unknown_model (provider changed without model)' });
+  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
   const n = Math.max(1, Math.min(4, Math.floor(msg.additionalCount)));
   const freshAdded = Array.from({ length: n }, () => providerResolution.provider as string);
   const freshDisabled = await disabledClusterProvider([inheritedSourceProvider, ...freshAdded]);
@@ -1558,29 +1549,10 @@ export async function handleClusterCreateWithFreshWorkers(
   const newWorkflowIds: string[] = [];
   for (let i = 0; i < n; i++) {
     const baseName = source.config.name || 'Worker';
-    const childConfig: WorkflowConfig = {
-      ...source.config,
-      autoCompaction: undefined,
-      name: `${baseName} #${i + 2}`,
-      workingDirectory: sourceCwd,
-      resumeSessionId: undefined,
-      resumeWorkflowId: undefined,
-    };
-    if (msg.provider !== undefined || providerResolution.provider !== inheritedSourceProvider) {
-      // WorkflowConfig stores undefined for the default-claude case (see
-      // handleHandoff's mirror). Keep that invariant.
-      childConfig.primaryProvider = providerResolution.provider === 'claude' ? undefined : providerResolution.provider;
-      if (providerResolution.provider !== 'codex') childConfig.providerAccountRef = undefined;
-    }
-    if (msg.model !== undefined) childConfig.primaryModel = msg.model;
-    if (msg.effort !== undefined) childConfig.primaryEffort = msg.effort as typeof childConfig.primaryEffort;
-    const childProvider = childConfig.primaryProvider ?? 'claude';
-    if (childProvider === 'codex') {
-      const account = await resolveProviderAccount('codex', msg.providerAccountRef ?? childConfig.providerAccountRef, sourceCwd).catch(() => null);
-      if (account) childConfig.providerAccountRef = account.profile.id;
-    } else {
-      childConfig.providerAccountRef = undefined;
-    }
+    const childConfig = await memberConfigFromTemplate({
+      template: source.config, cwd: sourceCwd, kind: 'fresh', name: `${baseName} #${i + 2}`, choice,
+      model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: false, resolveCodexAccount,
+    });
     try {
       const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newWorkflowIds.push(newId);
@@ -1710,28 +1682,7 @@ export async function handleClusterCreateFromScratch(
   }
   const newWorkflowIds: string[] = [];
   for (let i = 0; i < msg.members.length; i++) {
-    const m = msg.members[i];
-    const displayName = (m.displayName ?? '').trim();
-    const childConfig: WorkflowConfig = {
-      name: displayName.length > 0 ? displayName : `Member #${i + 1}`,
-      // WorkflowConfig stores undefined for default-claude (mirrors handleHandoff).
-      primaryProvider: m.provider === 'claude' ? undefined : m.provider,
-      primaryModel: m.model as ModelName,
-      primaryEffort: (m.effort ?? 'medium') as EffortLevel,
-      skipPermissions: m.skipPermissions ?? true,
-      workingDirectory: msg.cwd,
-      ...(m.fastMode ? { fastMode: true } : {}),
-      ...(m.efficiencyToolFilter && m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
-      ...(m.outputStyle && m.outputStyle !== 'normal' ? { outputStyle: m.outputStyle } : {}),
-    };
-    if (m.accessMode === 'isolated') {
-      childConfig.claudeTransport = 'native';
-      childConfig.ultracode = false;
-    }
-    if (m.provider === 'codex') {
-      const account = await resolveProviderAccount('codex', m.providerAccountRef, msg.cwd).catch(() => null);
-      if (account) childConfig.providerAccountRef = account.profile.id;
-    }
+    const childConfig = await memberConfigFromSpec(msg.members[i], i, msg.cwd, resolveCodexAccount);
     try {
       const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newWorkflowIds.push(newId);
@@ -1833,20 +1784,9 @@ export async function handleClusterAddFreshWorkers(
     send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${providerResolution.error}` });
     return;
   }
-  if (msg.model !== undefined) {
-    if (typeof msg.model !== 'string' || msg.model.trim().length === 0) {
-      send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: unknown_model' });
-      return;
-    }
-    if (!(await isKnownCatalogModel(providerResolution.provider, msg.model))) {
-      send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: unknown_model:${msg.model}` });
-      return;
-    }
-  }
-  if (providerResolution.provider !== inheritedTemplateProvider && msg.model === undefined) {
-    send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: unknown_model (provider changed without model)' });
-    return;
-  }
+  const choice = { inherited: inheritedTemplateProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
+  const modelProblem = await memberModelProblem({ op: 'cluster_add_fresh_workers', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: true, changedWithoutModel: 'unknown_model (provider changed without model)' });
+  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
   if (accessMode === 'isolated' && providerResolution.provider !== 'claude') {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_requires_claude_native' });
     return;
@@ -1927,34 +1867,10 @@ export async function handleClusterAddFreshWorkers(
       usedNumbers.add(k);
       childName = `${autoBaseName} #${k}`;
     }
-    const childConfig: WorkflowConfig = {
-      ...template.config,
-      autoCompaction: undefined,
-      name: childName,
-      workingDirectory: cluster.cwd,
-      resumeSessionId: undefined,
-      resumeWorkflowId: undefined,
-    };
-    if (msg.provider !== undefined || providerResolution.provider !== inheritedTemplateProvider) {
-      childConfig.primaryProvider = providerResolution.provider === 'claude' ? undefined : providerResolution.provider;
-      if (providerResolution.provider !== 'codex') childConfig.providerAccountRef = undefined;
-    }
-    if (msg.model !== undefined) childConfig.primaryModel = msg.model;
-    if (msg.effort !== undefined) childConfig.primaryEffort = msg.effort as typeof childConfig.primaryEffort;
-    if (accessMode === 'isolated') {
-      childConfig.primaryProvider = undefined;
-      childConfig.claudeTransport = 'native';
-      childConfig.ultracode = false;
-      childConfig.resumeSessionId = undefined;
-      childConfig.resumeWorkflowId = undefined;
-    }
-    const childProvider = childConfig.primaryProvider ?? 'claude';
-    if (childProvider === 'codex') {
-      const account = await resolveProviderAccount('codex', msg.providerAccountRef ?? childConfig.providerAccountRef, cluster.cwd).catch(() => null);
-      if (account) childConfig.providerAccountRef = account.profile.id;
-    } else {
-      childConfig.providerAccountRef = undefined;
-    }
+    const childConfig = await memberConfigFromTemplate({
+      template: template.config, cwd: cluster.cwd, kind: 'fresh', name: childName, choice,
+      model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+    });
     try {
       const id = await deps.createBlankNativeWorkflow(ws, session, childConfig);
       newIds.push(id);
@@ -2043,14 +1959,9 @@ export async function handleClusterMemberReplace(
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: isolated_requires_claude_native' });
     return;
   }
-  if (msg.model !== undefined && !(await isKnownCatalogModel(providerResolution.provider, msg.model))) {
-    send(ws, { type: 'error', message: `cluster_member_replace rejected: unknown_model:${msg.model}` });
-    return;
-  }
-  if (providerResolution.provider !== inheritedClusterProvider && msg.model === undefined) {
-    send(ws, { type: 'error', message: 'cluster_member_replace rejected: provider_changed_without_model' });
-    return;
-  }
+  const choice = { inherited: inheritedClusterProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
+  const modelProblem = await memberModelProblem({ op: 'cluster_member_replace', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: false, changedWithoutModel: 'provider_changed_without_model' });
+  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
   if (providerResolution.provider !== inheritedProvider) {
     const replaced = [providerResolution.provider as string];
     const others = cluster.members.filter((id) => id !== msg.workflowId).map(memberProvider);
@@ -2081,33 +1992,10 @@ export async function handleClusterMemberReplace(
     }
   }
 
-  const childConfig: WorkflowConfig = {
-    ...source.config,
-    workingDirectory: cluster.cwd,
-    resumeSessionId: undefined,
-    resumeWorkflowId: undefined,
-    researchSpawnToken: undefined,
-    templateSpawnToken: undefined,
-  };
-  if (msg.provider !== undefined || providerResolution.provider !== inheritedClusterProvider) {
-    childConfig.primaryProvider = providerResolution.provider === 'claude' ? undefined : providerResolution.provider;
-    if (providerResolution.provider !== 'codex') childConfig.providerAccountRef = undefined;
-  }
-  if (msg.model !== undefined) childConfig.primaryModel = msg.model;
-  if (msg.effort !== undefined) childConfig.primaryEffort = msg.effort as EffortLevel;
-  if (accessMode === 'isolated') {
-    childConfig.primaryProvider = undefined;
-    childConfig.claudeTransport = 'native';
-    childConfig.ultracode = false;
-    childConfig.providerAccountRef = undefined;
-  } else if ((childConfig.primaryProvider ?? 'claude') === 'codex') {
-    const account = await resolveProviderAccount(
-      'codex',
-      msg.providerAccountRef ?? childConfig.providerAccountRef,
-      cluster.cwd,
-    ).catch(() => null);
-    if (account) childConfig.providerAccountRef = account.profile.id;
-  }
+  const childConfig = await memberConfigFromTemplate({
+    template: source.config, cwd: cluster.cwd, kind: 'replacement', choice,
+    model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+  });
 
   let newWorkflowId: string;
   try {

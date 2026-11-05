@@ -255,6 +255,8 @@ The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validat
 }
 ```
 
+**New member settings.** `cluster_create_with_fresh_workers`, `cluster_add_fresh_workers` and `cluster_member_replace` build the new member's `WorkflowConfig` with `memberConfigFromTemplate` in `server/src/ws/clusterMembers.ts`; `cluster_create_from_scratch` uses `memberConfigFromSpec`; all four use `memberModelProblem` or the same checks for the model. A fresh member gets a new name, no resume and no auto-compaction override, and keeps an account only when it is Codex. A replacement keeps the old member's name, auto-compaction and a non-Codex account, and clears the spawn tokens. The handlers keep their own validation order and error codes.
+
 ### `cluster_member_replace` -> / `cluster_member_replaced` <-
 
 Atomically replace one cluster slot with a new workflow ID and provider

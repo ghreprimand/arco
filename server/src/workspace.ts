@@ -86,6 +86,12 @@ function persist(): void {
     .catch((err) => console.error('[arco] workspace.json write failed:', err));
 }
 
+// Resolves when every queued workspace.json write has finished. Tests await
+// it before deleting their temporary home.
+export function settleWorkspaceWrites(): Promise<void> {
+  return writeChain;
+}
+
 function changed(): void {
   persist();
   listener?.(snapshot());
