@@ -320,7 +320,7 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     if (target === source) throw new Error('Choose a different destination.');
     // Exclusive destination creation refuses existing files and dangling links;
     // a no-follow source handle prevents final-component link swaps.
-    if (entry.inline) await writeFile(target, entry.inline.content, { flag: 'wx' });
+    if (entry.inline) await writeFile(target, entry.inline.content, { flag: 'wx', mode: 0o600 });
     else await copyOutputBytes(source, target);
     const grant = { cwd: realpathSync(ctx.cwd), workflowId: ctx.workflowId, file: target };
     if (grantNeeded) {

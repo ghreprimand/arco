@@ -8,7 +8,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.outputs.transfer': {
     title: 'Move or copy output', manualSection: 'archive-explorer',
-    body: <p>Choose a destination in your home folder or an already approved project or media folder. Arco refuses protected state, existing files and unsafe links. Save a copy keeps the original; Move removes it only after saving the new location. The dialog keeps the result visible until it is closed.</p>,
+    body: <p>Choose a destination in your home folder or an already approved project or media folder. Arco refuses protected state, existing files and unsafe links. Save a copy keeps the original and creates an owner-only file on systems with POSIX permissions; Move removes the original only after saving the new location. The dialog keeps the result visible until it is closed.</p>,
   },
   'rightpanel.outputs.download': {
     title: 'Download output', manualSection: 'archive-explorer',

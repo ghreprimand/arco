@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync, existsSync, appendFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync, existsSync, appendFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
@@ -115,9 +115,11 @@ test('supported event exports outside cwd survive replay and foreign workflow st
   assert.equal(list.find(x => x.path === media)?.category, 'audio');
   assert.ok(!list.some(x => x.name === 'unrelated.txt' || x.name === 'failed.txt'));
   const inline = list.find(x => x.inline)!;
-  const exported = path.join(copies, 'inline.txt');
+  const homeCopies = path.join(home, 'documents'); mkdirSync(homeCopies);
+  const exported = path.join(homeCopies, 'inline.txt');
   await outputs.transferOutput(ctx, inline.id, exported, false);
   assert.equal(readFileSync(exported, 'utf8'), inline.inline?.content);
+  if (process.platform !== 'win32') assert.equal(statSync(exported).mode & 0o077, 0, 'inline copies are private');
   assert.equal((await outputs.listOutputs(ctx)).find(x => x.path === exported)?.derivedFrom, inline.id);
   assert.ok((await outputs.listOutputs(ctx)).find(x => x.id === inline.id)?.inline);
 });

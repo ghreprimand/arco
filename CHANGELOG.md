@@ -33,6 +33,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Fixed
 
 - Menus, dropdowns, usage cards and notices stay inside the window on small screens and at a larger interface text size. One placement rule for all of them opens a menu on the other side of its button or moves it along the edge when it would run past one, and lets a menu taller than the room left scroll inside itself. Before, the provider usage cards and the PROVIDERS panel could run off the left edge, and other menus off the right or bottom edge.
+- Inline output copies use owner-only permissions on systems with POSIX permissions.
 - OUTPUTS can move or copy to an ordinary home folder, keeps each result visible in the dialog, and presents Download as a button.
 - An open page shows RELOAD when a restart leaves its session invalid or its build outdated, and reloads automatically when no unsaved work is detected.
 - SHARE WITH REPOSITORY no longer leaves its exception lines in `.arco/.gitignore` when it refuses because Git still ignores the skill. The file is left exactly as it was.

@@ -45,7 +45,8 @@ provider write-tool forms may require saving the result into the workflow's
 artifacts directory. Older stem events that recorded only a directory cannot
 identify all exported filenames; new stem events record the exact file paths.
 Inline text/code artifacts remain inline until **Save a copy** explicitly exports
-a file. Nothing invents a disk file for an inline artifact.
+a file. On systems with POSIX permissions, saved copies are created with access
+limited to the owner. Nothing invents a disk file for an inline artifact.
 
 ## Preview, edit and save
 
