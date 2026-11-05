@@ -1942,6 +1942,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     // server pushes a fresh cluster_state. The on-WS-open subscribe will
     // overwrite each entry with authoritative server state shortly after.
     clusters: s.clusters,
+    // The member in view per cluster, so HISTORY and PREVIEW come back on the
+    // same member after a reload. Only members of a saved cluster are kept.
+    clusterFocusedMember: Object.fromEntries(Object.entries(s.clusterFocusedMember)
+      .filter(([cid, wfid]) => s.clusters[cid]?.members.some((m) => m.workflowId === wfid))),
     clusterGridSplit: s.clusterGridSplit,
     clusterCardLayout: s.clusterCardLayout,
     showCreator: s.showCreator || Boolean(s.activeJobId && s.jobs[s.activeJobId]?.config.incognito),
@@ -1953,6 +1957,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   },
   onRehydrateStorage: () => (state) => {
     if (!state) return;
+    // A saved focus whose cluster or member is gone falls back to the default
+    // (the director) when the cluster state arrives.
+    state.clusterFocusedMember = Object.fromEntries(Object.entries(state.clusterFocusedMember ?? {})
+      .filter(([cid, wfid]) => state.clusters[cid]?.members.some((m) => m.workflowId === wfid)));
     // Older builds persisted Computer as the active project tab. Keep its
     // history, but restore a workbench target for the voice tools.
     if (state.activeJobId && state.jobs[state.activeJobId]?.config.voiceOperator) {

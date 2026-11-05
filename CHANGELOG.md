@@ -18,7 +18,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Settings > SKILLS now says that project skills are ignored by Git (inside `.arco`) instead of "version with the repo".
 - Docs and help name MEMORY > USAGE on single-worker, chat and cluster tabs (a cluster covers every member in the project folder) and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
-- Cluster HISTORY and PREVIEW show the member in view (the selected card or tab, the director by default) and name it at the top, with a picker to switch. Before, they always showed the first member.
+- Cluster HISTORY and PREVIEW show the member in view (the selected card or tab, the director by default) and name it at the top, with a picker to switch. The member in view is kept when the page reloads. Before, they always showed the first member.
 - REWIND CONVERSATION stays visible for providers other than Claude Native, disabled with the reason beside it, instead of being hidden.
 
 ### Fixed

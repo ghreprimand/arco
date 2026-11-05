@@ -277,6 +277,7 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 - `activeJobId` (nulled when it points at an incognito job), `activeClusterId`
 - `clusters` - restores the cluster tab's `[N]` badge before WS reconnect; overwritten by the authoritative `cluster_state` push on subscribe.
 - `clusterGridSplit`, `clusterCardLayout`
+- `clusterFocusedMember` - the member in view per cluster, saved only while that member is in the saved cluster and dropped again on load when it is not; `setClusterState` falls back to the director when the member has left.
 - `showCreator` (forced true when the active tab is incognito, so a reload lands on the creator)
 
 **Persisted directly to localStorage (outside the Zustand store):**

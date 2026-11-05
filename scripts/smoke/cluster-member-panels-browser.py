@@ -49,7 +49,7 @@ async def main():
         await page.add_init_script("localStorage.setItem('arco.clusterSidePanelTab.byCluster', JSON.stringify({c1: 'history'}))")
         await page.goto(ORIGIN + '/fixture')
         await page.wait_for_function('window.fixtureReady === true', timeout=10000)
-        await page.evaluate('''async () => {
+        MOUNT = '''async () => {
           const React = (await import('/node_modules/.vite/deps/react.js')).default;
           const {createRoot} = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
           const {ClusterRightPanel} = await import('/src/components/ClusterRightPanel/index.tsx');
@@ -67,7 +67,8 @@ async def main():
           const cluster = {clusterId: 'c1', cwd: '/projects/fixture', createdAt: '', taskBoardMode: 'none', taskBoardAttached: false, mailboxDepth: {}, members};
           s.getState().setClusterState('c1', cluster);
           createRoot(document.getElementById('fixture')).render(React.createElement(ClusterRightPanel, {cluster}));
-        }''')
+        }'''
+        await page.evaluate(MOUNT)
         picker = page.get_by_label('HISTORY of member')
         # No member chosen yet: the director (not the first member) is in view.
         await expect(picker).to_have_value('lead-codex')
@@ -81,6 +82,12 @@ async def main():
         await picker.select_option('builder-cli')
         assert await page.evaluate("s.getState().clusterFocusedMember.c1") == 'builder-cli'
         await expect(unavailable).to_have_text('Available for Claude Native workers only; this worker uses the Claude CLI.')
+        # A reload keeps the member in view (P8.11).
+        await page.wait_for_function("(JSON.parse(localStorage.getItem('arco-jobs') || '{}').state || {}).clusterFocusedMember?.c1 === 'builder-cli'", timeout=10000)
+        await page.reload()
+        await page.wait_for_function('window.fixtureReady === true', timeout=10000)
+        await page.evaluate(MOUNT)
+        await expect(picker).to_have_value('builder-cli')
         # PREVIEW follows the same member.
         await page.locator('[data-help="cluster.right-panel.group.runtime"]').click()
         await page.locator('[data-help="cluster.right-panel.preview"]').click()

@@ -899,7 +899,7 @@ Since the server-authoritative workspace (`~/.arco/workspace.json`), this slice 
 
 - **`jobs`** - per-workflow entries: `id`, `currentSessionId`, `config`, the last 200 `messages`, cost/token totals, `resolvedPrimaryModel`, the last 40 `reviews` / `research` / `handoffs`, `lastSeq`, `taskChildren` / `parentWorkflowId` / `promoted`, and the last 500 `historyEvents`. `workers` is persisted as `{}` - the server re-pushes live state on reconnect.
 - **`activeJobId`** - the focused tab (nulled when it is incognito).
-- **`clusters`** / **`activeClusterId`** / **`clusterGridSplit`** / **`clusterCardLayout`** - cluster mirror + layout; the server's `cluster_state` overwrites the mirror after subscribe.
+- **`clusters`** / **`activeClusterId`** / **`clusterGridSplit`** / **`clusterCardLayout`** / **`clusterFocusedMember`** - cluster mirror, layout and the member in view (kept only for current members); the server's `cluster_state` overwrites the mirror after subscribe.
 - **`showCreator`**.
 
 Incognito Chat jobs are filtered out of this entire persisted slice. Their

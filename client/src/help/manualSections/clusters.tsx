@@ -1845,6 +1845,10 @@ export const clusters: Section[] = [
   one. A line at the top names that member; choosing another there selects
   it in the cluster tab, the same as clicking its card.
   </p>
+  <p>
+  The member in view is kept when the page reloads, as long as it is still in
+  the cluster.
+  </p>
   <Note kind="tip">
   Most clusters only need one dev server total - the team is working
   one cwd - so bind PREVIEW on the member that runs it. Empty clusters
