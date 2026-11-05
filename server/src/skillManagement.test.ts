@@ -233,6 +233,36 @@ test('SHARE WITH REPOSITORY adds an exception to .arco/.gitignore so only that s
   await assert.rejects(m.shareSkill(other, 'blocked'), /still ignores the skill's files through another ignore rule\. The rule is in \.gitignore line 1 \(\.arco\/\)\./);
 });
 
+test('SHARE WITH REPOSITORY refused: .arco/.gitignore stays byte-identical, or absent when it was absent', async () => {
+  const bytes = (cwd: string) => readFileSync(join(cwd, '.arco', '.gitignore'));
+  const STILL = /still ignores the skill's files through another ignore rule\./;
+  // The project's .gitignore ignores the .arco folder: refused before writing.
+  const a = project(); git(a, 'init', '-q'); writeFileSync(join(a, '.gitignore'), 'dist/\n.arco/\n');
+  await skills.writeSkill({ scope: 'project', name: 'Blocked', description: 'x', body: 'y' }, a);
+  writeFileSync(join(a, '.arco', '.gitignore'), Buffer.concat([bytes(a), Buffer.from('# no newline at end')]));
+  const beforeA = bytes(a);
+  await assert.rejects(m.shareSkill(a, 'blocked'), (e: Error) => STILL.test(e.message) && /\.gitignore line 2 \(\.arco\/\)\. Nothing was changed\./.test(e.message));
+  assert.deepEqual(bytes(a), beforeA);
+  // A global ignore file on this computer (here: the repository's core.excludesFile).
+  const b = project(); git(b, 'init', '-q');
+  const excludes = join(b, '.git', 'fixture-excludes'); writeFileSync(excludes, '.arco\n'); git(b, 'config', 'core.excludesFile', excludes);
+  await skills.writeSkill({ scope: 'project', name: 'Blocked', description: 'x', body: 'y' }, b);
+  const beforeB = bytes(b);
+  await assert.rejects(m.shareSkill(b, 'blocked'), (e: Error) => STILL.test(e.message) && e.message.includes('(.arco)') && e.message.endsWith('Nothing was changed.'));
+  assert.deepEqual(bytes(b), beforeB);
+  // A deeper ignore file wins over the exception: written, checked, then put back.
+  const c = project(); git(c, 'init', '-q');
+  await skills.writeSkill({ scope: 'project', name: 'Blocked', description: 'x', body: 'y' }, c);
+  writeFileSync(join(c, '.arco', 'skills', '.gitignore'), '*\n');
+  const beforeC = bytes(c);
+  await assert.rejects(m.shareSkill(c, 'blocked'), (e: Error) => STILL.test(e.message) && e.message.includes('.arco/skills/.gitignore line 1 (*)'));
+  assert.deepEqual(bytes(c), beforeC);
+  // Same, with no .arco/.gitignore at first: the file the share created is removed.
+  rmSync(join(c, '.arco', '.gitignore'));
+  await assert.rejects(m.shareSkill(c, 'blocked'), STILL);
+  assert.equal(existsSync(join(c, '.arco', '.gitignore')), false);
+});
+
 async function call(method: string, url: string, payload?: unknown): Promise<{ code: number; body: Record<string, unknown> }> {
   const req = Object.assign(Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]), { method, url }) as IncomingMessage;
   let code = 0, text = '';

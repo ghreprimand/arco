@@ -477,31 +477,58 @@ export async function previewShare(cwd: string, slug: string): Promise<SharePrev
   return { slug, files, alreadyTrackable: states.every((s) => s === false), publicRepository, lines: shareLines(slug, ignore) };
 }
 
+// The ignore rule Git applies to `rel`, as text for an error message, or ''.
+async function ignoreRule(cwd: string, rel: string): Promise<string> {
+  try {
+    const { stdout } = await run('git', ['check-ignore', '-v', '--no-index', '--', rel], { cwd, timeout: 10000, env: projectGitEnv() });
+    // Output: <source>:<line>:<pattern><TAB><path>
+    const hit = /^(.*):(\d+):(.*)\t/.exec(stdout);
+    return hit ? ` The rule is in ${hit[1]} line ${hit[2]} (${hit[3]}).` : '';
+  } catch { return ''; }
+}
+
+const STILL_IGNORED = "Git still ignores the skill's files through another ignore rule.";
+const NOTHING_CHANGED = ' Nothing was changed.';
+
 // Adds the exception lines to .arco/.gitignore (never replacing the file) and
 // checks with Git that the skill's files are no longer ignored. Arco does not
-// stage or commit them.
+// stage or commit them. When a rule outside .arco/.gitignore ignores the .arco
+// folder itself, Git never reads .arco/.gitignore, so the share is refused
+// before anything is written. Any other refusal or error after the write puts
+// the file back byte for byte (or removes it if it did not exist).
 export async function shareSkill(cwd: string, slug: string): Promise<SharePreview> {
   const before = await previewShare(cwd, slug);
   if (before.alreadyTrackable) return before;
+  // `.arco` without a trailing slash: with one, Git also applies the rules of
+  // .arco/.gitignore to the folder itself. Git still sees it is a folder.
+  if (await gitIgnored(cwd, '.arco')) {
+    throw new Error(`${STILL_IGNORED}${await ignoreRule(cwd, '.arco')}${NOTHING_CHANGED}`);
+  }
   const file = path.join(cwd, '.arco', '.gitignore');
   const st = await fs.lstat(file).catch(() => null);
   if (st && !st.isFile()) throw new Error('The project state ignore file is not a regular file.');
-  const existing = st ? await fs.readFile(file, 'utf8') : '';
+  const original = st ? await fs.readFile(file) : null;
+  const existing = original ? original.toString('utf8') : '';
   const add = shareLines(slug, existing);
   const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
-  await fs.appendFile(file, `${prefix}# Shared with the repository: ${slug}\n${add.join('\n')}\n`);
-  const after = await previewShare(cwd, slug);
+  const restore = async () => {
+    if (original) await fs.writeFile(file, original);
+    else await fs.rm(file, { force: true });
+  };
+  let after: SharePreview;
+  try {
+    await fs.appendFile(file, `${prefix}# Shared with the repository: ${slug}\n${add.join('\n')}\n`);
+    after = await previewShare(cwd, slug);
+  } catch (err) {
+    await restore();
+    throw err;
+  }
   if (!after.alreadyTrackable) {
-    // Name the rule that still applies (the project's .gitignore, or a global
-    // ignore file on this computer) so the operator knows where to look.
-    let rule = '';
-    try {
-      const { stdout } = await run('git', ['check-ignore', '-v', '--no-index', '--', after.files[0]], { cwd, timeout: 10000, env: projectGitEnv() });
-      // Output: <source>:<line>:<pattern><TAB><path>
-      const hit = /^(.*):(\d+):(.*)\t/.exec(stdout);
-      if (hit) rule = ` The rule is in ${hit[1]} line ${hit[2]} (${hit[3]}).`;
-    } catch { /* no rule found */ }
-    throw new Error(`Git still ignores the skill's files through another ignore rule.${rule}`);
+    // Name the rule that still applies (for example a deeper .gitignore) so
+    // the operator knows where to look, then undo the write.
+    const rule = await ignoreRule(cwd, after.files[0]);
+    await restore();
+    throw new Error(`${STILL_IGNORED}${rule}${NOTHING_CHANGED}`);
   }
   return after;
 }

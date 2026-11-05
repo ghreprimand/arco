@@ -539,8 +539,9 @@ export const configuration: Section[] = [
   </p>
   <p>
   If Git still ignores the files after that (a project <Code>.gitignore</Code>{' '}
-  line, or a global ignore file on this computer), SHARE refuses and names the
-  rule. Arco ships no third-party skills.
+  line, or a global ignore file on this computer), SHARE refuses, names the
+  rule and leaves <Code>.arco/.gitignore</Code> unchanged. Arco ships no
+  third-party skills.
   </p>
   </>
   ),
