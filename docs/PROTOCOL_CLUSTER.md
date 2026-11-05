@@ -772,6 +772,8 @@ Rule-based pickup ignores batches containing only short, unambiguous acknowledge
 
 Chain depth is carried on `peer_message_sent.chainDepth` (see below); operator-initiated peer-sends ride at depth 0, so the first auto-turn lands at depth 1.
 
+Turn boundaries reach the detector from both fan-out paths (`send()` for turns run by the turn engine, `broadcastWorkflow` for the rest) through one function in `server/src/server/broadcast.ts`; a start or end carried twice (STOP sends its own end) is handled once. On a member's `primary_turn_started` the idle nudger marks it busy and resets its per-turn nudge count. On `primary_turn_ended` the nudger stamps the idle time, the artifact size check runs, the chain-depth marker clears, and the member's waiting mail is re-checked (Rule-based or Smart). The detector remembers the highest chain depth of mail a member has not acted on; the turn-end re-check and the periodic resume sweep (`ARCO_CLUSTER_AUTO_TURN_SWEEP_INTERVAL_MS`, default 5000) use that depth, not 0, so mail held by the depth cap stays held until the member's next turn reads it. The remembered depth clears when the member's turn starts or an auto-turn fires for it.
+
 The toggle is kept for older clients and the remote console: `enabled: true` sets the AUTO-PICKUP mode to Rule-based and `false` sets it to Off (ending any Smart session).
 
 ### `cluster_auto_pickup_set` ->

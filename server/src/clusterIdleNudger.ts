@@ -120,6 +120,12 @@ export function onMemberTurnEnded(workflowId: string): void {
   s.idleSince = Date.now();
 }
 
+/** Test surface: the busy flag and nudge state recorded for a member. */
+export function _peekMember(workflowId: string): { busy?: boolean; idleSince?: number; nudgesThisTurn?: number } {
+  const s = memberState.get(workflowId);
+  return { busy: lastBusy.get(workflowId), idleSince: s?.idleSince, nudgesThisTurn: s?.nudgesThisTurn };
+}
+
 // Drop a workflow from the per-member state when it leaves all clusters or
 // the cluster is deleted. Prevents memory accumulation across long server
 // uptimes. Called on cluster_delete + cluster_member_remove.

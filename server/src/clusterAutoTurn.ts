@@ -123,6 +123,13 @@ interface MemberState {
 }
 
 const memberState = new Map<string, MemberState>();
+// Highest chain depth among mail a member has not yet acted on, as Smart
+// pickup keeps it (smartPickupObserver.ts depthSeen). The resume sweeps
+// re-enter the detector with this depth, so mail held by the chain-depth cap
+// stays held instead of waking the member at depth 0 a few seconds later.
+// Cleared when the member's next turn starts (that turn reads its mail) and
+// when an auto-turn fires for it.
+const pendingDepth = new Map<string, number>();
 
 let broadcastWorkflowFn: ((workflowId: string, msg: ServerMessage) => void) | undefined;
 let dispatchAutoTurnFn: ((workflowId: string, content: string) => void) | undefined;
@@ -159,10 +166,11 @@ export function configure(opts: {
 //   • server restart with pending mail + idle recipient (no turn_ended ever
 //     fires)
 //   • operator just flipped auto-pickup ON with stale messages already sitting
-// Walks every auto-pickup-enabled cluster, finds idle members with depth ≥ 1,
-// and re-enters the detector with chainDepth=0 (chain broken — recipient is
-// fully idle). The existing cooldown / rate-cap guards still apply; a member
-// already auto-turned in the last 20s gets a `cooldown` skip, not a fire.
+// Walks every auto-pickup-enabled cluster, finds idle members with mailbox
+// depth ≥ 1, and re-enters the detector with the highest chain depth of that
+// member's pending mail (0 for mail sent by operator turns). The depth cap,
+// cooldown and rate-cap guards still apply: mail held by the depth cap stays
+// held, and a member auto-turned in the last 20s gets a `cooldown` skip.
 export function start(): void {
   if (sweepTimer) return;
   sweepTimer = setInterval(() => {
@@ -193,7 +201,7 @@ async function sweep(): Promise<void> {
         clusterId,
         senderWfid: pending[0].fromWorkflowId,
         recipientWfid: m.workflowId,
-        incomingChainDepth: 0,
+        incomingChainDepth: pendingChainDepth(m.workflowId),
       });
     }
   }
@@ -246,6 +254,18 @@ export function clearAutoTurnDepth(workflowId: string): void {
 // the cluster is deleted. Mirrors clusterIdleNudger.dropMember.
 export function dropMember(workflowId: string): void {
   memberState.delete(workflowId);
+  pendingDepth.delete(workflowId);
+}
+
+// Chain depth the resume sweeps use for a member's pending mail.
+export function pendingChainDepth(workflowId: string): number {
+  return pendingDepth.get(workflowId) ?? 0;
+}
+
+// The member's turn started: it reads its mailbox, so held mail no longer
+// carries a chain depth.
+export function onMemberTurnStarted(workflowId: string): void {
+  pendingDepth.delete(workflowId);
 }
 
 // Drop a cluster's transient rate state. Called on cluster deletion.
@@ -299,6 +319,7 @@ export function onPeerMessageSent(opts: {
   incomingChainDepth: number;
 }): void {
   if (!clusterStore.isAutoTurnOnMailboxEnabled(opts.clusterId)) return;
+  if (opts.incomingChainDepth > pendingChainDepth(opts.recipientWfid)) pendingDepth.set(opts.recipientWfid, opts.incomingChainDepth);
   try { ruleGuard.mail(opts.clusterId, opts.senderWfid, opts.recipientWfid); } catch (error) { console.error('[arco] Rule-based pickup ledger unavailable:', error); return; }
   const key = `${opts.clusterId}:${opts.recipientWfid}`;
   if (pendingChecks.has(key)) return;
@@ -375,6 +396,7 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
   ms.lastFiredAt = now;
   ms.currentAutoTurnDepth = newDepth;
   cs.fireTimestamps.push(now);
+  pendingDepth.delete(recipientWfid);
 
   const fireMsg: ServerMessage = {
     type: 'cluster_auto_turn_fired',

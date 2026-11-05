@@ -160,10 +160,10 @@ export function send(ws: WebSocket, message: ServerMessage): void {
     recordIncognitoEvent(wfid, message);
     recordContextUsage(wfid, message);
     // Operator turns, auto-pickup turns and peer-mail turns all report their
-    // start and end through send(), so turn alerts are observed here as well
-    // as in broadcastWorkflow. Plain request errors are left out: they answer
-    // one request and are not a failed turn.
-    if (source && message.type !== 'error') observeTurnAlerts(wfid, source, message);
+    // start and end through send(), so turn boundaries are observed here as
+    // well as in broadcastWorkflow. Plain request errors are left out: they
+    // answer one request and are not a failed turn.
+    if (source && message.type !== 'error') observeTurnBoundary(wfid, source, message);
     const cwd = workflowCwds.get(wfid);
     // Skip persistence for reasoning events from local thinking models.
     // Qwen3.6 et al emit thousands of reasoning tokens per turn; persisting
@@ -182,9 +182,6 @@ export function send(ws: WebSocket, message: ServerMessage): void {
     // ARCHIVE — agent-writes ledger. Native Write/Edit/NotebookEdit tool events
     // ride the operator turn through send(); record them here.
     recordFilesLedger(wfid, stamped);
-    // P7.4: primary turns end through send(); warn once about very large
-    // artifacts (idempotent with the broadcastWorkflow hook).
-    if (stamped.type === 'primary_turn_ended' && cwd && source && !source.config.incognito) void reportArtifactSizes(wfid, cwd);
     // Fan out to every observer of this workflow. Multi-observer so a
     // second browser window attached to the same workflowId also sees the
     // stream; previously the single-slot pointer got overwritten on the
@@ -393,20 +390,87 @@ async function reportArtifactSizes(workflowId: string, cwd: string): Promise<voi
   }
 }
 
-// Turn-finished, failed and waiting alerts (attention.ts), the long-turn
-// notice (notifications.ts, §J1) and artifact size checks while a turn runs
-// (storageTurnWatch.ts). Called from both fan-out paths so a turn is seen
-// whichever one carries its start and end.
-function observeTurnAlerts(workflowId: string, wf: WorkflowState, message: ServerMessage): void {
+// Turn state per workflow as last seen by observeTurnBoundary. A STOP sends
+// primary_turn_ended itself and the killed worker's settled path sends a
+// second one; a start or end already seen is not acted on twice. An end with
+// no recorded start (a turn begun before a restart) still runs the end hooks.
+const turnBoundaryState = new Map<string, 'open' | 'closed'>();
+
+// Everything that happens at a turn's start and end, called from both fan-out
+// paths so a turn is seen whichever one carries its start and end:
+// turn-finished, failed and waiting alerts (attention.ts), the long-turn notice
+// (notifications.ts, §J1), artifact size checks during and after the turn
+// (storageTurnWatch.ts, P7.4), the idle nudger's busy/idle baseline, the
+// auto-turn chain-depth marker and the auto-pickup idle-resume sweep
+// (docs/PROTOCOL_CLUSTER.md).
+function observeTurnBoundary(workflowId: string, wf: WorkflowState, message: ServerMessage): void {
+  // attention.ts sees every message (questions, gates and errors too) and
+  // ignores a repeated start or end itself.
   attention.observeAttention(workflowId, message, { name: wf.config.name ?? '', incognito: !!wf.config.incognito });
-  if (message.type === 'primary_turn_ended') stopTurnSizes(workflowId);
-  if (wf.config.incognito) return;
   if (message.type === 'primary_turn_started') {
-    notifications.onTurnStarted(workflowId);
-    const cwd = workflowCwds.get(workflowId);
-    // A closed tab stops its check at the next tick.
-    if (cwd) watchTurnSizes(workflowId, async () => { if (workflows.has(workflowId)) await reportArtifactSizes(workflowId, cwd); else stopTurnSizes(workflowId); });
-  } else if (message.type === 'primary_turn_ended') notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
+    if (turnBoundaryState.get(workflowId) === 'open') return;
+    turnBoundaryState.set(workflowId, 'open');
+    onTurnStarted(workflowId, wf);
+  } else if (message.type === 'primary_turn_ended') {
+    if (turnBoundaryState.get(workflowId) === 'closed') return;
+    turnBoundaryState.set(workflowId, 'closed');
+    onTurnEnded(workflowId, wf);
+  }
+}
+
+function onTurnStarted(workflowId: string, wf: WorkflowState): void {
+  // Feed the idle-nudger detector's busy/idle baseline. The detector runs on
+  // its own polling timer; this clears idleSince and resets the per-turn
+  // nudge counter.
+  clusterIdleNudger.onMemberTurnStarted(workflowId);
+  clusterAutoTurn.onMemberTurnStarted(workflowId);
+  if (wf.config.incognito) return;
+  // §J1 long-turn notice: onTurnEnded emits one if the turn ran long.
+  notifications.onTurnStarted(workflowId);
+  const cwd = workflowCwds.get(workflowId);
+  // A closed tab stops its check at the next tick.
+  if (cwd) watchTurnSizes(workflowId, async () => { if (workflows.has(workflowId)) await reportArtifactSizes(workflowId, cwd); else stopTurnSizes(workflowId); });
+}
+
+function onTurnEnded(workflowId: string, wf: WorkflowState): void {
+  stopTurnSizes(workflowId);
+  clusterIdleNudger.onMemberTurnEnded(workflowId);
+  // P7.4: warn once about very large artifacts written during the turn.
+  const cwd = workflowCwds.get(workflowId);
+  if (!wf.config.incognito) {
+    if (cwd) void reportArtifactSizes(workflowId, cwd);
+    notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
+  }
+  // Clear the in-flight auto-turn depth marker once the recipient's turn
+  // ends. The next operator turn starts at depth 0; the next auto-turn
+  // dispatch re-sets the marker.
+  clusterAutoTurn.clearAutoTurnDepth(workflowId);
+  // Idle-resume sweep for auto-pickup. If peer messages arrived while this
+  // member was mid-turn, the detector emitted `recipient_busy` skips and
+  // nothing else re-fires when the turn ends, so fan-in directors get stuck
+  // until the operator nudges. Re-enter the detector with the chain depth of
+  // that mail and let its depth, cooldown, rate-cap and busy guards do the
+  // gating. Gated on the cluster's auto-pickup setting so the off path stays a
+  // map lookup.
+  const endedClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  if (!endedClusterId) return;
+  if (isSmartPickupMode(clusterStore.getAutoPickupMode(endedClusterId))) {
+    setImmediate(() => { void onSmartPickupMail(endedClusterId, workflowId).catch(() => undefined); });
+  }
+  if (clusterStore.isAutoTurnOnMailboxEnabled(endedClusterId)) {
+    setImmediate(() => {
+      void (async () => {
+        const pending = await clusterMailbox.peek(workflowId).catch(() => []);
+        if (pending.length === 0) return;
+        clusterAutoTurn.onPeerMessageSent({
+          clusterId: endedClusterId,
+          senderWfid: pending[0].fromWorkflowId,
+          recipientWfid: workflowId,
+          incomingChainDepth: clusterAutoTurn.pendingChainDepth(workflowId),
+        });
+      })();
+    });
+  }
 }
 
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {
@@ -426,7 +490,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
       outgoing = { ...message, chainDepth: depth };
     }
   }
-  observeTurnAlerts(workflowId, wf, message);
+  observeTurnBoundary(workflowId, wf, message);
   recordIncognitoEvent(workflowId, outgoing);
   const cwd = workflowCwds.get(workflowId);
   const stamped = cwd ? persistAndStampSeq(cwd, workflowId, outgoing) : outgoing;
@@ -446,45 +510,6 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
   // generate a cluster_state per delta with no observable change.
   if (CLUSTER_STATE_TRIGGERS.has(message.type)) {
     void notifyClusterStateForWorkflow(workflowId);
-  }
-  // docs/PROTOCOL_CLUSTER.md - feed the idle-nudger detector's
-  // busy/idle baseline. The detector itself runs on a separate polling
-  // timer; this just stamps the idleSince / resets the per-turn counter.
-  if (message.type === 'primary_turn_started') {
-    clusterIdleNudger.onMemberTurnStarted(workflowId);
-  } else if (message.type === 'primary_turn_ended') {
-    clusterIdleNudger.onMemberTurnEnded(workflowId);
-    // P7.4: warn once about very large artifacts written during the turn.
-    if (cwd && !wf.config.incognito) void reportArtifactSizes(workflowId, cwd);
-    // docs/PROTOCOL_CLUSTER.md - clear the in-flight auto-turn depth
-    // marker once the recipient's turn ends. The next operator turn starts
-    // at depth 0; the next auto-turn dispatch re-sets the marker.
-    clusterAutoTurn.clearAutoTurnDepth(workflowId);
-    // Idle-resume sweep for auto-pickup. If peer messages arrived while this
-    // member was mid-turn, the detector emitted `recipient_busy` skips and
-    // nothing else re-fires when the turn ends — fan-in directors get stuck
-    // until the operator nudges. Re-enter the detector synthetically with
-    // chainDepth=0 (the chain is broken: recipient fully idled), letting its
-    // existing cooldown / rate-cap / busy guards do the gating. Gated on the
-    // cluster's auto-pickup toggle so the off path stays a single map lookup.
-    const endedClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-    if (endedClusterId && isSmartPickupMode(clusterStore.getAutoPickupMode(endedClusterId))) {
-      setImmediate(() => { void onSmartPickupMail(endedClusterId, workflowId).catch(() => undefined); });
-    }
-    if (endedClusterId && clusterStore.isAutoTurnOnMailboxEnabled(endedClusterId)) {
-      setImmediate(() => {
-        void (async () => {
-          const pending = await clusterMailbox.peek(workflowId).catch(() => []);
-          if (pending.length === 0) return;
-          clusterAutoTurn.onPeerMessageSent({
-            clusterId: endedClusterId,
-            senderWfid: pending[0].fromWorkflowId,
-            recipientWfid: workflowId,
-            incomingChainDepth: 0,
-          });
-        })();
-      });
-    }
   }
   // docs/PROTOCOL_CLUSTER.md - invoke the auto-turn detector on every
   // peer_message_sent that lands. The detector reads the cluster toggle

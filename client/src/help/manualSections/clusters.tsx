@@ -994,8 +994,9 @@ export const clusters: Section[] = [
   </li>
   <li>
   <strong>Rule-based (recommended)</strong> - wakes idle members on
-  waiting mail without a model. Acknowledgement-only batches remain
-  in the mailbox.
+  waiting mail without a model, including mail that arrived during a
+  member&apos;s turn, once that turn ends. Acknowledgement-only batches
+  remain in the mailbox.
   </li>
   <li>
   <strong>Smart: Observe-only</strong> - an operator-chosen evaluator
@@ -1024,6 +1025,10 @@ export const clusters: Section[] = [
   ceiling remain. Chain depth defaults to 8 and can be adjusted; the
   environment override remains. Saved clusters with the older boolean
   retain Rule-based mode.
+  </p>
+  <p>
+  Mail stopped by the chain-depth limit stays in the mailbox and does
+  not wake the member later; the member&apos;s next turn reads it.
   </p>
   <h4 className="manual-sub">What the evaluator sees and may propose</h4>
   <p>

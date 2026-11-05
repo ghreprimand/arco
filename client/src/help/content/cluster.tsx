@@ -1270,7 +1270,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.auto-pickup-rule-limits': {
     title: 'Rule-based limits',
-    body: <p>Set the alternating wake limit, hourly wakes per member, total wakes per arming and chain depth. Acknowledgement-only mail stays in the mailbox. The hourly cap rolls over; reaching the arming total pauses automatic pickup until RESUME.</p>,
+    body: <p>Set the alternating wake limit, hourly wakes per member, total wakes per arming and chain depth. Acknowledgement-only mail and mail stopped by the chain-depth limit stay in the mailbox. The hourly cap rolls over; reaching the arming total pauses automatic pickup until RESUME.</p>,
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-rule-reset': {
