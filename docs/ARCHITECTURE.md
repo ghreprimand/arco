@@ -392,7 +392,7 @@ sequenceDiagram
 Key file refs:
 
 - `server/src/primitives/seedWorker.ts` - `runPrimaryTurn` is the single entry point for primary work. Spawns the provider, translates `worker_*` events into `primary_*` (phase=`passthrough`), and emits `primary_turn_started` / `primary_turn_ended`.
-- `server/src/ws/turnEngine.ts:handleUserMessage` (dispatched from the `index.ts` WS switch) - queues mid-turn messages, resolves transport (incl. the ultracode->CLI force), kicks off `runPrimaryTurn`, drains the interjection queue when the turn settles, then runs the post-settle armed actions (auto-fold / auto-handoff / Native auto-compact / goal run).
+- `server/src/ws/turnEngine.ts:handleUserMessage` (dispatched from the `index.ts` WS switch) - queues mid-turn messages, resolves the per-turn settings once (`ws/turnSettings.ts`: transports incl. the ultracode->CLI force, Native-only switches, output style, north star), builds the base prompts (`ws/turnPrompt.ts`: skills, Chat or Computer preamble, CLAUDE.md, knowledge base; cluster, Genesis and public-project blocks follow in `turnEngine.ts`), kicks off `runPrimaryTurn`, drains the interjection queue when the turn settles, then runs the post-settle steps in their fixed order (`ws/afterTurn.ts`: Computer reset, calibration, auto-fold / auto-handoff / explicit auto-compaction, queued messages, goal run).
 - Cancel: `handleCancel` calls `wf.manager.killAll` and unconditionally broadcasts `turn_cancelled` + `primary_turn_ended`. The trailing `_ended` is an escape hatch - if the worker had gone "ghost" (silently settled due to an emission ordering bug or server restart mid-turn), nothing else would emit it and the client would stay stuck on busy.
 
 ### Primitives

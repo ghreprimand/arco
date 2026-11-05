@@ -79,6 +79,9 @@ withPreviewNudge
 } from '../server/prompts.js';
 import { buildGenesisSystemBlock } from '../genesis/prompts.js';
 import { CHAT_PROVIDERS, chatSystemPrompt, chatWebArmed, isChatWorkflow } from '../chatMode.js';
+import { resolveTurnSettings } from './turnSettings.js';
+import { composeBasePrompts } from './turnPrompt.js';
+import { runAfterTurn } from './afterTurn.js';
 import {
 sessions,
 workflows
@@ -1786,99 +1789,19 @@ export async function handleUserMessage(
   // update_primary_config so the operator's choice doesn't depend on a
   // hand-edited settings.json.
   const cascade = await readSettings(cwd, { includeProject }).catch(() => null);
-  const tabTransport = wf.config.codexTransport;
-  const codexTransport: 'exec' | 'appserver' =
-    tabTransport === 'appserver' || tabTransport === 'exec'
-      ? tabTransport
-      : cascade?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
-  // Phase 7a — Claude transport, same precedence as Codex above.
-  const tabClaudeTransport = wf.config.claudeTransport;
-  // docs/PROVIDERS.md - sticky ultracode mode forces the CLI transport (the
-  // harness WorkflowTool lives only in the `claude` binary; Native's raw SDK
-  // can't host it). The operator's base transport is remembered separately in
-  // wf.config.ultracodeBaseTransport so turning ultracode OFF restores it.
-  const ultracode = wf.primary.provider === 'claude' && wf.config.ultracode === true;
-  const claudeTransport: 'cli' | 'native' =
-    ultracode
-      ? 'cli'
-      : tabClaudeTransport === 'native' || tabClaudeTransport === 'cli'
-        ? tabClaudeTransport
-        : cascade?.claude?.transport === 'native' ? 'native' : 'cli';
+  // turnSettings.ts — which value wins for each per-turn setting (tab
+  // choice, settings files, default; Native-only switches off elsewhere).
+  const {
+    codexTransport, ultracode, claudeTransport, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta,
+    claudeNativeThinkingDisplay, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection,
+    efficiencySandbox, reviewSafeMode, outputStyle, goal, ollamaParams,
+  } = resolveTurnSettings({ provider: wf.primary.provider, config: wf.config, cascade, isolatedMember, primitive });
   const providerAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
     : null;
   if (providerAccount?.profile.id && wf.config.providerAccountRef !== providerAccount.profile.id) {
     wf.config.providerAccountRef = providerAccount.profile.id;
   }
-  // Anthropic server-side compaction (`compact_20260112`). Defaults OFF for
-  // Native tabs (NATIVE_COMPACTION_PLAN §1) — seeded into config at tab
-  // creation, so by here it's a concrete boolean; an absent value also reads
-  // as off. CLI Claude handles compaction inside the CLI process so the flag
-  // is moot there.
-  const claudeNativeCompact: boolean = claudeTransport === 'native'
-    ? wf.config.claudeNativeCompact === true
-    : false;
-  const claudeNativeForceInterleavedThinkingBeta: boolean = claudeTransport === 'native'
-    ? wf.config.claudeNativeForceInterleavedThinkingBeta === true
-    : false;
-  // Adaptive-thinking display for the Native worker. Absent ⇒ 'omitted'
-  // (Claude-Code parity — no thinking streamed back); 'summarized' streams
-  // summarized thinking into the Activity tab.
-  const claudeNativeThinkingDisplay: 'omitted' | 'summarized' | 'updates' | undefined = claudeTransport === 'native'
-    ? wf.config.claudeNativeThinkingDisplay
-    : undefined;
-  // docs/PROVIDERS.md - Native tool-result filter mode. Only honored
-  // on Native (the filter pipeline runs inside `claude-native/dispatchTool`;
-  // CLI/Codex don't surface raw tool stdout to us). Default off until measured
-  // per the §13.3 / §2.4 doc-discipline rule (no aggressive defaults).
-  const efficiencyToolFilter: 'off' | 'conservative' | 'aggressive' = claudeTransport === 'native'
-    ? (wf.config.efficiencyToolFilter ?? 'off')
-    : 'off';
-  // docs/PROVIDERS.md - fact-force first-edit gate mode. It is
-  // opt-in: new tabs and rehydrated tabs without the field stay 'off'. CLI
-  // parity is deferred (master §3.3 F4), so hard-zero non-Native transports.
-  const efficiencyFactForce: 'on' | 'off' = claudeTransport === 'native'
-    ? (wf.config.efficiencyFactForce ?? 'off')
-    : 'off';
-  // Config-protection write-gate. Default 'on' (safety gate); the operator
-  // opts out per-tab. Native-only (the gate lives in the Native worker), so
-  // we hard-zero non-Native transports to 'off' to avoid a meaningless flag.
-  const efficiencyConfigProtection: 'on' | 'off' = claudeTransport === 'native'
-    ? (wf.config.efficiencyConfigProtection ?? 'on')
-    : 'off';
-  const efficiencySandbox: 'off' | 'on' = claudeTransport === 'native' && !isolatedMember
-    ? (wf.config.efficiencySandbox ?? 'off')
-    : 'off';
-  // docs/PROVIDERS.md - operator-armed durable review gate. Native-only (the gate
-  // lives in the in-process worker's dispatchTool). Default 'off' so it stays
-  // operator-opted-in and inert until armed.
-  const reviewSafeMode: 'off' | 'on' = claudeTransport === 'native'
-    ? (wf.config.reviewSafeMode ?? 'off')
-    : 'off';
-  // docs/PROVIDERS.md - operator-armed terseness picker. Honored by
-  const outputStyleSupported =
-    (wf.primary.provider === 'claude' && claudeTransport === 'native') ||
-    (wf.primary.provider === 'codex' && codexTransport === 'appserver');
-  const outputStyle: 'normal' | 'lite' | 'terse' = primitive === 'docs' || primitive === 'git'
-    ? 'normal'
-    : outputStyleSupported
-      ? (wf.config.outputStyle ?? 'normal')
-      : 'normal';
-  // docs/GOTCHAS.md - operator-set persistent north-star. Read straight
-  // from wf.config, inherited on EVERY path including in-tab DOCS / GIT (the one
-  // deliberate divergence from outputStyle's forced 'normal' for those two — a
-  // DOCS/GIT prompt benefits from the goal context). Absent / blank ⇒ no block
-  // on any transport; honored wherever clusterPlan is folded.
-  const goal: string | undefined = isolatedMember ? undefined : wf.config.goal;
-  // docs/PROVIDERS.md - per-tab Ollama param preset blob. Resolved
-  // ONLY for Ollama tabs (the provider's request builder is the sole consumer;
-  // every other provider ignores the field). Read straight from wf.config so
-  // it is byte-stable across this workflow's turns — the prefix-cache
-  // invariant. The operator-edit path (updatePrimaryConfig) is the only place
-  // it changes between turns, and that's logged as a cache-invalidation event.
-  const ollamaParams: Record<string, unknown> | undefined = wf.primary.provider === 'ollama'
-    ? wf.config.ollamaParams
-    : undefined;
 
   let activeTurnObservation: ReturnType<typeof observeCheckoutWriters> | undefined;
   try {
@@ -2114,62 +2037,28 @@ export async function handleUserMessage(
       // Local HTTP transports receive stable tool instructions through the
       // provider system-prompt field; Claude and Codex transports fold them
       // into their string-form prompt or native request blocks.
-      const usesSystemPromptForSkills = wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek');
-      const primarySkillsContext = [pinnedSkillsBlock, primarySkillsManifest].filter(Boolean).join('\n\n');
-      let finalSystemPrompt = usesSystemPromptForSkills && primarySkillsContext
-        ? (primarySystemPrompt ? `${primarySkillsContext}\n\n${primarySystemPrompt}` : primarySkillsContext)
-        : primarySystemPrompt;
-      const finalAppendBase = chatMode ? primaryAppendSystemPrompt : withPreviewNudge(primaryAppendSystemPrompt);
-      const baseWithSkills = !usesSystemPromptForSkills && primarySkillsContext
-        ? `${primarySkillsContext}\n\n${finalAppendBase}`
-        : finalAppendBase;
-      // Phase 7a — fold discovered CLAUDE.md files into appendSystemPrompt
-      // for Claude tabs (CLI + Native both benefit). Walks up from cwd
-      // collecting CLAUDE.md, plus ~/.claude/CLAUDE.md.
-      let finalAppend = baseWithSkills;
-      // docs/VOICE.md - the Computer voice operator chat has its own
-      // base instructions and real (arco-voice) tools; the generic Chat
-      // preamble ("do not use backend tools… continue in an Agent tab") made
-      // Luna refuse them (2026-10-17 smoke:voice-luna regression).
-      if (chatMode && wf.config.voiceOperator === true) {
-        if (usesSystemPromptForSkills) finalSystemPrompt = VOICE_OPERATOR_PROMPT;
-        else if (wf.primary.provider !== 'codex') finalAppend = [VOICE_OPERATOR_PROMPT, finalAppend].filter(Boolean).join('\n\n');
-      }
-      if (chatMode && wf.config.voiceOperator !== true) {
-        const chatPrompt = chatSystemPrompt(chatWeb);
-        if (usesSystemPromptForSkills) {
-          finalSystemPrompt = chatPrompt;
-        } else {
-          finalAppend = finalAppend ? `${chatPrompt}\n\n${finalAppend}` : chatPrompt;
-        }
-      }
+      let claudeMd: string | null = null;
       if (projectContextEnabled && (wf.primary.provider === 'claude') && cwd) {
         try {
-          const claudeMd = await discoverClaudeMdFiles(cwd, { includeProject });
-          if (claudeMd) {
-            finalAppend = baseWithSkills
-              ? `${claudeMd}\n\n${baseWithSkills}`
-              : claudeMd;
-          }
+          claudeMd = (await discoverClaudeMdFiles(cwd, { includeProject })) || null;
         } catch (err) {
           console.warn(`[arco] [${workflowId.slice(0, 8)}] CLAUDE.md discovery failed:`, err);
         }
       }
-
-      // docs/ARCHITECTURE.md - fold the operator-curated knowledge
-      // base into appendSystemPrompt as a BOUNDED block. Provider-agnostic
-      // (every primary provider that consumes appendSystemPrompt benefits),
-      // and only the always-include articles are injected. buildKnowledgeBlock
-      // hard-caps the combined body at KNOWLEDGE_INJECT_BUDGET and appends an
-      // explicit truncation notice when the set overflows — the KB can NEVER
-      // silently bloat the turn. Emitted byte counts land in events.jsonl
-      // (system_notice) for the four-question test's context visibility. FENCE:
-      // this READS operator-curated articles; nothing here writes the KB.
+      // docs/ARCHITECTURE.md - the operator-curated knowledge base, as a
+      // BOUNDED block. Provider-agnostic, only the always-include articles.
+      // buildKnowledgeBlock hard-caps the combined body at
+      // KNOWLEDGE_INJECT_BUDGET and appends a truncation notice when the set
+      // overflows — the KB can NEVER silently bloat the turn. Emitted byte
+      // counts land in events.jsonl (system_notice) for the four-question
+      // test's context visibility. FENCE: this READS operator-curated
+      // articles; nothing here writes the KB.
+      let knowledge: string | null = null;
       if (projectContextEnabled && cwd) {
         try {
           const kb = await buildKnowledgeBlock(cwd);
           if (kb.text) {
-            finalAppend = finalAppend ? `${kb.text}\n\n${finalAppend}` : kb.text;
+            knowledge = kb.text;
             if (firstIteration) {
               const truncNote = kb.truncated ? ` (truncated — exceeds injection budget)` : '';
               send(ws, {
@@ -2183,6 +2072,20 @@ export async function handleUserMessage(
           console.warn(`[arco] [${workflowId.slice(0, 8)}] knowledge-base injection failed:`, err);
         }
       }
+      // turnPrompt.ts — skills, the Chat or Computer preamble, CLAUDE.md and
+      // the knowledge base, in the order the model sees them.
+      let { systemPrompt: finalSystemPrompt, appendSystemPrompt: finalAppend } = composeBasePrompts({
+        provider: wf.primary.provider,
+        chatMode,
+        computerChat: wf.config.voiceOperator === true,
+        chatWeb,
+        systemPrompt: primarySystemPrompt,
+        appendSystemPrompt: primaryAppendSystemPrompt,
+        pinnedSkills: pinnedSkillsBlock,
+        skillsManifest: primarySkillsManifest,
+        claudeMd,
+        knowledge,
+      });
 
       // Operator-initiated plan-mode entry. Resolved per turn from the
       // pending flag the `enter_plan_mode_request` handler set. Only Claude
@@ -2909,40 +2812,41 @@ export async function handleUserMessage(
 
   if (preserveQueue) return;
 
-  // Computer rotates only after the complete tool/queue turn has settled.
-  await maybeFreshComputerContext(workflowId, !lastTurnErrored);
-  await announceComputerSettled(workflowId);
-
-  // Phase 2 calibration — run after the full drain queue empties (idle moment).
-  // Updates per-session ratio/overhead from ground-truth /context output.
-  await maybeCalibrate(workflowId, wf, cwd);
-
-  // §2.1 — auto-fold runs FIRST (foldAt sits below the handoff thresholds): the
-  // cheap deterministic in-place Fold is tried before recommending a handoff. A
-  // successful fold reseeds the session, so skip the (now-stale) handoff check
-  // this round — the next turn's meter re-evaluates against the reduced context.
-  const clusterIdForPolicy = clusterStore.getClusterIdForWorkflow(workflowId);
-  const explicitPolicy = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterIdForPolicy ? clusterStore.getAutoCompaction(clusterIdForPolicy) : undefined, wf.primary.provider, claudeTransport, wf.config.claudeNativeCompact === true, cascade?.ollama?.compaction?.enabled !== undefined || cascade?.ollama?.compaction?.threshold !== undefined);
-  if (explicitPolicy) {
-    const action = await runExplicitContextActions(workflowId, wf, cwd, explicitPolicy, policyReading, busyToken, ws, session);
-    if (action === 'stale') return;
-    if (action === 'compact-attempted') { await drainQueueIfIdle(workflowId); return; }
-  } else {
-    // Preserve existing behavior for work without the new policy.
-    const folded = await maybeAutoFold(workflowId, wf, cwd);
-    if (!folded) await maybeAutoHandoff(workflowId, wf, cwd);
-    // Provider-owned compaction remains with the provider.
-  }
-
-  // Messages typed while auto-fold / auto-handoff held the tab are still
-  // queued. Flush them first; that turn runs its own post-settle chain (goal
-  // run included), so this settle is done.
-  if (await drainQueueIfIdle(workflowId)) return;
-
-  // docs/GOTCHAS.md - north-star auto-continue. Last of the post-settle armed
-  // actions on purpose: fold / handoff / compaction all reshape the context
-  // this tick would run against, so they get to act first.
-  await maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored);
+  // afterTurn.ts — the post-settle steps in their fixed order.
+  await runAfterTurn({
+    // Computer rotates only after the complete tool/queue turn has settled.
+    computer: async () => {
+      await maybeFreshComputerContext(workflowId, !lastTurnErrored);
+      await announceComputerSettled(workflowId);
+    },
+    // Phase 2 calibration: per-session ratio/overhead from ground-truth /context output.
+    calibrate: () => maybeCalibrate(workflowId, wf, cwd),
+    // §2.1 — auto-fold runs FIRST (foldAt sits below the handoff thresholds):
+    // the cheap deterministic in-place Fold is tried before recommending a
+    // handoff. A successful fold reseeds the session, so the (now-stale)
+    // handoff check is skipped; the next turn's meter re-evaluates.
+    context: async () => {
+      const clusterIdForPolicy = clusterStore.getClusterIdForWorkflow(workflowId);
+      const explicitPolicy = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterIdForPolicy ? clusterStore.getAutoCompaction(clusterIdForPolicy) : undefined, wf.primary.provider, claudeTransport, wf.config.claudeNativeCompact === true, cascade?.ollama?.compaction?.enabled !== undefined || cascade?.ollama?.compaction?.threshold !== undefined);
+      if (explicitPolicy) {
+        const action = await runExplicitContextActions(workflowId, wf, cwd, explicitPolicy, policyReading, busyToken, ws, session);
+        if (action === 'stale') return 'stop';
+        if (action === 'compact-attempted') { await drainQueueIfIdle(workflowId); return 'stop'; }
+      } else {
+        // Preserve existing behavior for work without the new policy.
+        const folded = await maybeAutoFold(workflowId, wf, cwd);
+        if (!folded) await maybeAutoHandoff(workflowId, wf, cwd);
+        // Provider-owned compaction remains with the provider.
+      }
+      return 'continue';
+    },
+    // Messages typed while auto-fold / auto-handoff held the tab are still
+    // queued; that turn runs its own post-settle chain (goal run included).
+    drainQueue: () => drainQueueIfIdle(workflowId),
+    // docs/GOTCHAS.md - north-star auto-continue, last on purpose: fold,
+    // handoff and compaction all reshape the context this tick would run against.
+    goalRun: () => maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored),
+  });
 }
 
 // docs/GOTCHAS.md - one tick of an armed goal run. Every branch either
