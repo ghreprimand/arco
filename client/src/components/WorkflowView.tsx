@@ -5,7 +5,6 @@ import { TerminalInput } from './TerminalInput';
 import { RightPanel } from './RightPanel';
 import { PlanCandidateBanner } from './PlanCandidateBanner';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
-import { NorthStarBar } from './NorthStarBar';
 import { Panel } from './primitives/Panel';
 import { useAppStore } from '../stores/appStore';
 import { ProjectStateNotice } from './ProjectStateNotice';
@@ -226,7 +225,6 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           <ProjectStateNotice cwd={job.config.workingDirectory ?? ''} skip={isolatedMember} />
           <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />
           <RuntimeStateBanner job={job} onCancel={onCancel} />
-          <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
           <TerminalInput
             job={job}
             onSend={onSend}

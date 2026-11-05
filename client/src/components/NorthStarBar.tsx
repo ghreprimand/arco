@@ -52,8 +52,10 @@ export function NorthStarBar({
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        padding: '3px 12px',
-        borderTop: '1px solid var(--color-border-hairline)',
+        padding: '2px 6px',
+        border: '1px solid var(--color-border-hairline)',
+        borderRadius: '3px',
+        maxWidth: '100%',
         fontSize: '11px',
         lineHeight: 1.4,
         color: 'var(--color-fg-muted)',
@@ -110,7 +112,7 @@ export function NorthStarBar({
               : (saved || 'No north-star set')
           }
           style={{
-            flex: 1,
+            maxWidth: '18em',
             minWidth: 0,
             textAlign: 'left',
             padding: 0,

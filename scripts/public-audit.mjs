@@ -156,6 +156,7 @@ const reviewedCaptures = new Map([
     'a759b99454b994f95ba52afbf41ed35ff17471e950ae5c3adc67360a7ad5b102',
   ]],
   ['docs/images/cluster.webp', [
+    '5611fd938130c3e3a884f32650e38d4a89e77d2b25a87f861e80500397e589af', // Synthetic cluster fixture, refreshed composer status.
     '3f52d4451f7dab350a55070f43cbd900666ef2c49be8186648cb24c302b1ee5b',
     'bcf48ec2227a0e496fc2cfb9c365d301cfddaa804abb7b985996ad90b3482e76',
     '63b6c20e45028c8df123a70658e259d6b378ffd07bca813401a355eab610f937',

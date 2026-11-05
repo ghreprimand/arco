@@ -1940,3 +1940,5 @@ error.
 - [Settings](SETTINGS.md)
 - [Gotchas](GOTCHAS.md)
 - [Documentation style](STYLE.md)
+
+HANDOFF starts a fresh session and can help when changing to an unrelated task, correcting a worker on a wrong track, switching provider or model, or using a provider without compaction. Compaction is lossy but has no fixed limit. Plans, board, goal, artifacts and Git remain outside the conversation. QUICK builds a deterministic seed; ORIGINAL WORKER writes a reflection; FRESH SUMMARIZER uses a separate worker.

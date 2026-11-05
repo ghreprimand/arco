@@ -604,7 +604,7 @@ reversible.
 
 ### `primary_tool_counter` <-
 
- Worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Drives the composer chip's `toolCallsSinceCompact` field; when set, the chip prefers this over the client-side `toolCallsSinceHandoff` recount (which stays as audit fallback for non-Native tabs and first-paint). Native-only.
+ Worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Updates the client `toolCallsSinceCompact` counter; the separate `toolCallsSinceHandoff` recount remains available. Native-only.
 
 ```ts
 {

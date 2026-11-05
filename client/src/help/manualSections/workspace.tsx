@@ -329,7 +329,9 @@ export const workspace: Section[] = [
       <>
         <p>
           The composer is the prompt box at the bottom of the chat panel. It has
-          two modes:
+          two modes. A status line groups the north star, pending messages,
+          compaction continuation and selected skills. Hover a chip for details;
+          select PENDING to inspect or cancel messages.
         </p>
         <ul>
           <li>
@@ -346,15 +348,14 @@ export const workspace: Section[] = [
             <strong>follow-up</strong> (&quot;after the current task
             lands&quot;). Steer is delivered mid-turn on Claude Native, Codex
             app-server, Ollama, llama.cpp, and LM Studio; other transports drain
-            queued messages after the current turn settles. <Kbd>Alt+↑</Kbd>{' '}
+            queued messages after the current turn settles. The PENDING chip opens their details and cancellation controls. <Kbd>Alt+↑</Kbd>{' '}
             recalls the most recent queued message into the editor. For Claude
             and Codex, <Code>SEND</Code> keeps the ordinary Enter behavior;{' '}
             <Kbd>Ctrl/Cmd+Enter</Kbd> or the adjacent{' '}
             <Code>INTERRUPT &amp; SEND</Code> interrupts the turn and sends the
             draft next in the same conversation, preserving queued messages and
             completed changes. <Kbd>Esc</Kbd> cancels the in-flight turn (drops
-            the queue too; <Kbd>Shift+Esc</Kbd> skips the confirm). The strip
-            above the composer shows each message as Queued until delivery is confirmed, then Delivered until the next agent text or turn end. A provider without a delivery signal stays Queued until turn end. The working indicator and cluster member cards show the current tool, the first line of a shell command, and elapsed step time. Steps over 60 seconds are marked long-running.
+            the queue too; <Kbd>Shift+Esc</Kbd> skips the confirm). The PENDING list shows each message as Queued until delivery is confirmed, then Delivered until the next agent text or turn end. A provider without a delivery signal stays Queued until turn end. The working indicator and cluster member cards show the current tool, the first line of a shell command, and elapsed step time. Steps over 60 seconds are marked long-running.
           </li>
         </ul>
         <h4 className="manual-sub">Slash commands &amp; references</h4>

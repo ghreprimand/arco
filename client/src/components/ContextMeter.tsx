@@ -4,6 +4,8 @@ import { useCodexCatalogFor } from '../hooks/useCodexCatalog';
 import { GenerationSpeedReadout } from './GenerationSpeedReadout';
 import { cacheHitPercent, codexPublishedMaxOutput, contextPercentColor, contextTokens, providerOperationalWindow, providerPublishedContextWindow } from '../utils/format';
 
+const HANDOFF_GUIDE = 'HANDOFF can help for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit; plans, board, goal, artifacts and Git remain outside the conversation. QUICK builds a deterministic seed; ORIGINAL WORKER writes a reflection; FRESH SUMMARIZER uses a separate worker.';
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function CacheWarmthTimer({ endedAt }: { endedAt: number }) {
@@ -81,6 +83,7 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
       : `Last calibration: ${calibratedAgo}`;
     const hoverText = [
       headline,
+      HANDOFF_GUIDE,
       tokensLine,
       `Messages: ~${cu.messagesTokens.toLocaleString()} tokens (${compact(cu.jsonlBytes)} JSONL)`,
       `Overhead: ~${cu.overheadTokens.toLocaleString()} tokens`,
@@ -135,7 +138,7 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
   if (provider === 'cursor') {
     return (
       <span
-        title="Cursor owns this ACP session's context and automatic summarization. ACP currently exposes no live retained-token count, so Arco cannot show an honest percentage. Use COMPACT for Cursor's native /compress or HANDOFF for a clean rotation."
+        title={`Cursor manages its own context; no live retained-token count is available.\n${HANDOFF_GUIDE}`}
         style={{ opacity: 0.75, whiteSpace: 'nowrap' }}
       >
         CTX: Cursor-managed
@@ -171,6 +174,7 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
     const maxOutput = codexPublishedMaxOutput(job.config.primaryModel);
     const providerLabel = 'Codex';
     const hover = [
+      HANDOFF_GUIDE,
       `${providerLabel} context fill: last turn's input_tokens (already the full prompt)`,
       `~${ctx.toLocaleString()} / ${window.toLocaleString()} tokens (${percent}%) · window: ${windowSource}`,
       maxOutput === null
@@ -213,7 +217,7 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
   return (
     <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
       <span
-        title={`Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}`}
+        title={`Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}\n${HANDOFF_GUIDE}`}
         style={{ opacity: 0.7, whiteSpace: 'nowrap' }}
       >
         ↓ {ctx > 0 ? compact(ctx) : '-'} CTX · ↑ {outCumulative > 0 ? compact(outCumulative) : '-'} OUT

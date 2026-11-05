@@ -808,13 +808,10 @@ export const miscHelp: Record<string, HelpEntry> = {
   'actions.handoff': {
     title: 'Handoff',
     body: (
-      <p>
-        Rotates this tab's session. The current agent writes a handoff
-        document; a fresh session starts with that doc as its seed. In{' '}
-        <C>Original-worker</C> mode, Claude and Codex can reflect on their
-        session. Other providers re-read the transcript with the same model,
-        with a configured summarizer fallback when it may not fit.
-      </p>
+      <>
+        <p>HANDOFF starts a fresh session with a seed. Choose it for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit; the plan, board, goal, artifacts and Git remain outside the conversation.</p>
+        <p>QUICK builds a deterministic seed. ORIGINAL WORKER writes a reflection. FRESH SUMMARIZER uses a separate worker to write the seed.</p>
+      </>
     ),
     manualSection: 'handoff-action',
   },

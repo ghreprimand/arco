@@ -35,6 +35,7 @@ import { DialogPortal } from './DialogShell';
 import { openCompareDialog } from './terminalInput/compare';
 import { PrimaryStatus } from './PrimaryStatus';
 import { QueuedMessagesIndicator } from './QueuedMessagesIndicator';
+import { NorthStarBar } from './NorthStarBar';
 import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO} from '@arco/shared';
 import { useMessageBoxSize, messageBoxMinHeight, messageBoxMaxHeight } from '../utils/messageBoxSize';
 import type { ToolboxEntry, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, ArcoSkillRef } from '@arco/shared';
@@ -790,92 +791,122 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         style={{ display: 'none' }}
       />
 
-      {/* docs/PROVIDERS.md - handoff nudge. Pure
-          UI hint. The worker-authoritative `toolCallsSinceCompact`
-          (Native, Phase D) is preferred when defined; the client-side
-          `toolCallsSinceHandoff` recount stays as the audit fallback for
-          non-Native tabs and for the first paint before the worker has
-          emitted a value. */}
-      {onHandoff && (
-        <HandoffNudgeChip
-          count={job.toolCallsSinceCompact ?? job.toolCallsSinceHandoff ?? 0}
-          onClick={() => setShowHandoffDialog(true)}
-        />
-      )}
-
-      {/* NATIVE_COMPACTION_PLAN Phase 3 — post-compaction "Continue" affordance.
-          After native_compacted lands, the conversation is parked on a fresh
-          summary seed. Default resume is MANUAL (per the autonomy fence: between-
-          turn compaction means the turn already ended; auto-continuing is
-          autonomous continuation, kept opt-in via config.nativeCompactAutoContinue,
-          handled server-side). The operator clicks Continue to send the
-          continuance prompt and resume; "Dismiss" parks silently. When the opt-in
-          fired, the next primary_turn_started clears this before it's seen. */}
-      {job.compactedResume && !isCompacting && (
-        <div
-          data-help="composer.compact-continue"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '8px',
-            padding: '7px 12px',
-            border: '1px solid var(--color-accent-primary-dim)',
-            borderRadius: '3px',
-            background: 'var(--color-accent-primary-a15, transparent)',
-          }}
-        >
-          <span className="display-font" style={{ fontSize: '11px', letterSpacing: '0.5px', color: 'var(--color-fg-muted)', flex: 1 }}>
-            ⊟ COMPACTED
-            {typeof job.compactedResume.foldedTurns === 'number'
-              ? `: folded ${job.compactedResume.foldedTurns} turn${job.compactedResume.foldedTurns === 1 ? '' : 's'} into a summary.`
-              : ': earlier history folded into a summary.'}
-            {' '}History is parked; resume when ready.
+      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0 }}>
+        <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
+        {job.compactedResume && !isCompacting && (
+          <span data-help="composer.compact-continue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <button type="button" disabled={isBusy} title={typeof job.compactedResume.foldedTurns === 'number' ? `Compacted ${job.compactedResume.foldedTurns} turns into a summary. Continue the parked conversation.` : 'Earlier history was folded into a summary. Continue the parked conversation.'} onClick={() => { if (isBusy || isCompacting) return; clearCompacting(job.id); onSend(COMPACT_CONTINUE_PROMPT); }}>COMPACTED: CONTINUE</button>
+            <button type="button" title="Dismiss the compacted conversation notice; resume on your own when ready." aria-label="Dismiss compacted notice" onClick={() => clearCompacting(job.id)}>×</button>
           </span>
-          <button
-            onClick={() => {
-              if (isBusy || isCompacting) return;
-              clearCompacting(job.id);
-              onSend(COMPACT_CONTINUE_PROMPT);
-            }}
-            disabled={isBusy}
-            className="display-font"
-            title="Send a short continuance prompt so the agent re-orients from the compacted summary and resumes the work."
-            style={{
-              padding: '4px 12px',
-              background: 'transparent',
-              border: '1px solid var(--color-accent-primary)',
-              borderRadius: '3px',
-              color: isBusy ? 'var(--color-fg-muted)' : 'var(--color-accent-primary)',
-              cursor: isBusy ? 'default' : 'pointer',
-              opacity: isBusy ? 0.5 : 1,
-              fontSize: '10px',
-              letterSpacing: '1px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            ▸ CONTINUE
-          </button>
-          <button
-            onClick={() => clearCompacting(job.id)}
-            className="display-font"
-            title="Dismiss: resume on your own when ready."
-            style={{
-              padding: '4px 8px',
-              background: 'transparent',
-              border: '1px solid var(--color-border-hairline)',
-              borderRadius: '3px',
-              color: 'var(--color-fg-muted)',
-              cursor: 'pointer',
-              fontSize: '10px',
-              letterSpacing: '1px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            ✕
-          </button>
+        )}
+        {onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
+      {/* Standing pins persist in WorkflowConfig/meta.json and are re-injected
+          every turn. They remain visible until explicitly removed. */}
+      {pinnedSkills.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
+            PINNED SKILLS:
+          </span>
+          {pinnedSkills.map((s) => (
+            <span
+              key={`${s.scope}:${s.slug}`}
+              className="display-font"
+              title={`Standing skill · applied every turn · ${s.scope}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '9px', letterSpacing: '0.5px',
+                color: 'var(--color-accent-primary)', border: '1px solid var(--color-accent-primary)',
+                borderRadius: '3px', padding: '2px 6px',
+              }}
+            >
+              ◉ {skillDisplayName(s.scope, s.slug)}
+              <button
+                onClick={() => setSkillPinned(s, false)}
+                title="Unpin this skill"
+                style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: '11px', lineHeight: 1 }}
+              >×</button>
+            </span>
+          ))}
         </div>
       )}
+
+      {/* One-shot picks inline into the next turn only, then clear. */}
+      {pickedSkills.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
+            INLINE SKILLS:
+          </span>
+          {pickedSkills.map((s) => (
+            <span
+              key={`${s.scope}:${s.slug}`}
+              className="display-font"
+              title={`Inline "${s.name}" (${s.scope}) into the next turn`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '9px',
+                letterSpacing: '0.5px',
+                color: 'var(--color-accent-secondary)',
+                border: '1px solid var(--color-accent-secondary)',
+                borderRadius: '3px',
+                padding: '2px 6px',
+              }}
+            >
+              {s.name}
+              <button
+                onClick={() => togglePickedSkill(s)}
+                title="Remove"
+                style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: '11px', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* docs/PROVIDERS.md - always-visible reminder that this tab is in sticky
+          ultracode: every turn authors a Workflow + fans out a subagent fleet,
+          unattended + heavy-spend. Toggle in CONFIG → TRANSPORT. */}
+      {ultracodeActive && (
+        <button
+          type="button"
+          data-help="rightpanel.config.transport"
+          onClick={(event) => useAppStore.getState().setActiveHelpPopover({ key: 'rightpanel.config.transport', anchorRect: event.currentTarget.getBoundingClientRect().toJSON() })}
+          className="display-font"
+          title="Ultracode is ON for this tab: every turn fans out a subagent fleet (CLI + Workflow + xhigh). Toggle in CONFIG → TRANSPORT."
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '9px',
+            letterSpacing: '1.5px',
+            color: 'var(--color-accent-primary)',
+            border: '1px solid var(--color-accent-primary)',
+            background: 'var(--color-accent-primary-a10, transparent)',
+            borderRadius: '3px',
+            padding: '3px 8px',
+            width: 'fit-content',
+            cursor: 'pointer',
+          }}
+        >
+          ⚡ ULTRACODE
+          {fleetLive ? (
+            <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.5px', fontFamily: 'var(--font-body)', fontSize: '10px' }}>
+              <span style={{ color: 'var(--color-accent-primary)' }}>
+                {ultracodeFleet!.done}/{ultracodeFleet!.total} agents
+              </span>
+              {ultracodeFleet!.running > 0 ? ` · ${ultracodeFleet!.running} running` : ' · done'}
+            </span>
+          ) : (
+            <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.5px', fontFamily: 'var(--font-body)', fontSize: '10px' }}>
+              fleet · unattended · heavy spend
+            </span>
+          )}
+        </button>
+      )}
+
+      </div>
 
       {/* DD7 — project-trust prompt. This repo ships CLAUDE.md / project skills /
           .arco/settings.json that Arco SUPPRESSED from the turn until the
@@ -935,117 +966,6 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           >
             NEVER
           </button>
-        </div>
-      )}
-
-      {/* Standing pins persist in WorkflowConfig/meta.json and are re-injected
-          every turn. They remain visible until explicitly removed. */}
-      {pinnedSkills.length > 0 && (
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
-            PINNED SKILLS:
-          </span>
-          {pinnedSkills.map((s) => (
-            <span
-              key={`${s.scope}:${s.slug}`}
-              className="display-font"
-              title={`Standing skill · applied every turn · ${s.scope}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '9px', letterSpacing: '0.5px',
-                color: 'var(--color-accent-primary)', border: '1px solid var(--color-accent-primary)',
-                borderRadius: '3px', padding: '2px 6px',
-              }}
-            >
-              ◉ {skillDisplayName(s.scope, s.slug)}
-              <button
-                onClick={() => setSkillPinned(s, false)}
-                title="Unpin this skill"
-                style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: '11px', lineHeight: 1 }}
-              >×</button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* One-shot picks inline into the next turn only, then clear. */}
-      {pickedSkills.length > 0 && (
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
-            INLINE SKILLS:
-          </span>
-          {pickedSkills.map((s) => (
-            <span
-              key={`${s.scope}:${s.slug}`}
-              className="display-font"
-              title={`Inline "${s.name}" (${s.scope}) into the next turn`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '9px',
-                letterSpacing: '0.5px',
-                color: 'var(--color-accent-secondary)',
-                border: '1px solid var(--color-accent-secondary)',
-                borderRadius: '3px',
-                padding: '2px 6px',
-              }}
-            >
-              {s.name}
-              <button
-                onClick={() => togglePickedSkill(s)}
-                title="Remove"
-                style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: '11px', lineHeight: 1 }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Queued-interjections indicator. Renders nothing when no messages
-          are queued; otherwise shows a pill above the composer that opens
-          a preview modal on click. Queued messages are intentionally kept
-          OUT of the scrolling chat log until they're actually sent. */}
-      {onCancelQueued && (
-        <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />
-      )}
-
-      {/* docs/PROVIDERS.md - always-visible reminder that this tab is in sticky
-          ultracode: every turn authors a Workflow + fans out a subagent fleet,
-          unattended + heavy-spend. Toggle in CONFIG → TRANSPORT. */}
-      {ultracodeActive && (
-        <div
-          className="display-font"
-          title="Ultracode is ON for this tab: every turn fans out a subagent fleet (CLI + Workflow + xhigh). Toggle in CONFIG → TRANSPORT."
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '9px',
-            letterSpacing: '1.5px',
-            color: 'var(--color-accent-primary)',
-            border: '1px solid var(--color-accent-primary)',
-            background: 'var(--color-accent-primary-a10, transparent)',
-            borderRadius: '3px',
-            padding: '3px 8px',
-            marginBottom: '8px',
-            width: 'fit-content',
-          }}
-        >
-          ⚡ ULTRACODE
-          {fleetLive ? (
-            <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.5px', fontFamily: 'var(--font-body)', fontSize: '10px' }}>
-              <span style={{ color: 'var(--color-accent-primary)' }}>
-                {ultracodeFleet!.done}/{ultracodeFleet!.total} agents
-              </span>
-              {ultracodeFleet!.running > 0 ? ` · ${ultracodeFleet!.running} running` : ' · done'}
-            </span>
-          ) : (
-            <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.5px', fontFamily: 'var(--font-body)', fontSize: '10px' }}>
-              fleet · unattended · heavy spend
-            </span>
-          )}
         </div>
       )}
 
@@ -2384,41 +2304,5 @@ function ChipPopover({
         </button>
       ))}
     </div>
-  );
-}
-
-// docs/PROVIDERS.md - strategic-compact nudge. Renders only
-// after the operator has accumulated enough tool calls without a handoff
-// to make a /handoff worth offering. Defaults: first nudge at 50, then
-// every 25 (50, 75, 100, ...). Pure UI suggestion — clicking opens the
-// HandoffDialog; ignoring it does nothing.
-const HANDOFF_NUDGE_FIRST = 50;
-const HANDOFF_NUDGE_INTERVAL = 25;
-function HandoffNudgeChip({ count, onClick }: { count: number; onClick: () => void }) {
-  if (count < HANDOFF_NUDGE_FIRST) return null;
-  // Show the chip on every multiple of HANDOFF_NUDGE_INTERVAL once the
-  // first threshold's been crossed; in between thresholds the chip stays
-  // visible (so it doesn't flicker mid-turn) but doesn't escalate styling.
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="display-font"
-      style={{
-        marginBottom: '6px',
-        padding: '4px 10px',
-        fontSize: '10px',
-        letterSpacing: '1px',
-        background: 'transparent',
-        color: 'var(--color-fg-muted)',
-        border: '1px solid var(--color-border-hairline)',
-        borderRadius: '2px',
-        cursor: 'pointer',
-        textAlign: 'left',
-      }}
-      title="Click to open handoff dialog. Tool calls accumulate context burn; handoff cycles to a fresh session with a summary seeded forward."
-    >
-      ⌁ {count} TOOL CALLS SINCE HANDOFF: CONSIDER /HANDOFF
-    </button>
   );
 }

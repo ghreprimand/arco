@@ -59,77 +59,16 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
 
   if (items.length === 0) return null;
 
-  const provider: ProviderName = job.config.primaryProvider ?? 'claude';
-  const claudeTransport = job.config.claudeTransport;
-  const codexTransport = job.config.codexTransport;
-  const steerTooltip = providerSteerTooltip(provider, claudeTransport, codexTransport);
-
+  const steerTooltip = providerSteerTooltip(job.config.primaryProvider ?? 'claude', job.config.claudeTransport, job.config.codexTransport);
+  const tooltip = items.map((item) => `${item.kind.toUpperCase()} (${item.state?.toUpperCase()}): ${item.content}`).join('\n') + `\n\n${steerTooltip}`;
   return (
-    <div
-      data-help="composer.turn-messages"
-      style={{
-        marginBottom: '8px',
-        border: '1px solid var(--color-border-hairline)',
-        borderLeft: '2px solid var(--color-accent-secondary)',
-        borderRadius: '3px',
-        background: 'transparent',
-        padding: '6px 8px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-        <span
-          className="display-font"
-          style={{
-            color: 'var(--color-accent-secondary)',
-            fontSize: '10px',
-            letterSpacing: '1px',
-          }}
-        >
-          PENDING · {items.length}
-        </span>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="display-font"
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--color-border-hairline)',
-            borderRadius: '3px',
-            color: 'var(--color-fg-muted)',
-            cursor: 'pointer',
-            fontSize: '9px',
-            letterSpacing: '1px',
-            padding: '1px 6px',
-          }}
-        >
-          PREVIEW
-        </button>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-        {items.map((item) => (
-          <QueueChip
-            key={item.clientMessageId ?? `${item.kind}-${item.index}`}
-            item={item}
-            steerTooltip={steerTooltip}
-            onCancel={item.clientMessageId && queuedIds.has(item.clientMessageId) ? () => onCancel(item.clientMessageId!) : undefined}
-          />
-        ))}
-      </div>
-      {open && (
-        <QueuedMessagesModal
-          items={items}
-          onCancel={onCancel}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </div>
+    <span data-help="composer.turn-messages">
+      <button type="button" onClick={() => setOpen(true)} title={tooltip} className="display-font">PENDING · {items.length}</button>
+      {open && <QueuedMessagesModal items={items} onCancel={onCancel} onClose={() => setOpen(false)} />}
+    </span>
   );
 }
 
-// Honest about delivery semantics. Mid-turn delivery happens at tool-call
-// boundaries only; the provider's API doesn't accept mid-text-stream
-// injection. If the model is in pure text-output mode, the steer falls
-// through to the next turn.
 function providerSteerTooltip(
   provider: ProviderName,
   claudeTransport?: 'cli' | 'native',
@@ -159,78 +98,6 @@ function providerSteerTooltip(
   }
 }
 
-interface ChipProps {
-  item: QueueItem;
-  steerTooltip: string;
-  onCancel?: () => void;
-}
-
-function QueueChip({ item, steerTooltip, onCancel }: ChipProps) {
-  const isSteer = item.kind !== 'follow-up';
-  const label = item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP';
-  const preview = item.content.length > 60 ? item.content.slice(0, 60) + '…' : item.content;
-  const tooltip = item.kind === 'interrupt' ? `INTERRUPT & SEND: waiting for cancellation to settle, then runs before other queued messages.\n\n- ${item.content}` : isSteer ? `${steerTooltip}\n\n- ${item.content}` : `FOLLOW-UP: appended after the current turn.\n\n- ${item.content}`;
-  return (
-    <span
-      title={tooltip}
-      className="display-font"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '2px 6px',
-        border: '1px solid var(--color-border-hairline)',
-        borderRadius: '3px',
-        background: 'var(--color-bg-sunken)',
-        fontSize: '11px',
-        color: 'var(--color-fg-muted)',
-        maxWidth: 'min(320px, 100%)',
-        minWidth: 0,
-      }}
-    >
-      <span
-        style={{
-          fontSize: '9px',
-          letterSpacing: '1px',
-          padding: '0 4px',
-          borderRadius: '2px',
-          color: isSteer ? 'var(--color-warning)' : 'var(--color-accent-secondary)',
-          border: `1px solid ${isSteer ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)'}`,
-        }}
-      >
-        {label} · {item.state === 'delivered' ? 'DELIVERED' : 'QUEUED'}
-      </span>
-      <span
-        style={{
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          fontFamily: 'var(--font-body)',
-          fontSize: '11px',
-        }}
-      >
-        {preview}
-      </span>
-      {onCancel && (
-        <button
-          onClick={onCancel}
-          title="Drop this queued message"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--color-fg-muted)',
-            cursor: 'pointer',
-            fontSize: '11px',
-            padding: 0,
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
-      )}
-    </span>
-  );
-}
 
 interface ModalProps {
   items: QueueItem[];
@@ -353,7 +220,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
                     color: item.kind !== 'follow-up' ? 'var(--color-warning)' : 'var(--color-accent-secondary)',
                   }}
                 >
-                  #{i + 1} · {item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP'}
+                  #{i + 1} · {item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP'} · {item.state === 'delivered' ? 'DELIVERED' : 'QUEUED'}
                 </span>
                 {item.cancellable && (
                   <button

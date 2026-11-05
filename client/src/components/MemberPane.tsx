@@ -22,7 +22,6 @@ import { ChatPanel } from './ChatPanel';
 import { TerminalInput } from './TerminalInput';
 import { PlanCandidateBanner } from './PlanCandidateBanner';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
-import { NorthStarBar } from './NorthStarBar';
 import { AccountBadge, accountBadgeForJob } from './TabBar';
 import { useAppStore } from '../stores/appStore';
 import type { JobState } from '../stores/appStore';
@@ -180,7 +179,6 @@ export function MemberPane({
         />
         <RuntimeStateBanner job={job} onCancel={onCancel} />
         <div data-help="composer.plan"><PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachToCluster} onSend={onSend} /></div>
-        <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         <TerminalInput
           job={job}
           onSend={(content, attachments, kind, primitive, pickedSkills) => onSend(content, attachments, kind, primitive, pickedSkills)}

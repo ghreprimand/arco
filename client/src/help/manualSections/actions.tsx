@@ -154,9 +154,7 @@ export const actions: Section[] = [
     body: (
       <>
         <p>
-          Use Handoff when the conversation gets long, when switching providers
-          mid-task, or when the concurrent-writer guard fires and a fresh
-          session is needed.
+          Choose HANDOFF for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit. Plans, board, goal, artifacts and Git remain outside the conversation.
         </p>
         <h4 className="manual-sub">Handoff choices</h4>
         <p>Choose a handoff mode:</p>
