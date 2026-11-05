@@ -181,6 +181,16 @@ function isSystemdServiceMode(): boolean {
   return !!process.env.INVOCATION_ID || !!process.env.SYSTEMD_EXEC_PID;
 }
 
+// Preserve the mint refusal reason without flooding the service log during a
+// disconnected page's retry loop. Reasons are a fixed set from wsAuth.
+const mintRefusalLoggedAt = new Map<string, number>();
+function logMintRefusal(reason: string): void {
+  const now = Date.now();
+  if (now - (mintRefusalLoggedAt.get(reason) ?? 0) < 10_000) return;
+  mintRefusalLoggedAt.set(reason, now);
+  console.warn(`[arco] refused session mint: ${reason}`);
+}
+
 function systemdUnitName(): string {
   return process.env.ARCO_SYSTEMD_UNIT || 'arco.service';
 }
@@ -194,7 +204,8 @@ export async function handleHttpRequest(
   // could drive the file/terminal surface. See originGuard.ts.
   const guard = checkRequestOrigin(req);
   if (!guard.ok) {
-    console.warn(`[arco] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${guard.reason}`);
+    if (req.method === 'POST' && req.url === '/api/session') logMintRefusal(guard.reason.startsWith('host ') ? 'host not allowed' : guard.reason.startsWith('origin ') ? 'origin not allowed' : guard.reason);
+    else console.warn(`[arco] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${guard.reason}`);
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Forbidden origin' }));
     return;
@@ -226,7 +237,7 @@ export async function handleHttpRequest(
     }
     const verdict = checkMintRequest(req);
     if (!verdict.ok) {
-      console.warn(`[arco] refused session mint: ${verdict.reason} (${describePeer(req)})`);
+      logMintRefusal(verdict.reason);
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Session mint refused' }));
       return;

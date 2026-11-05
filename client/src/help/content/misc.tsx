@@ -2017,6 +2017,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Close worker detail',
     body: <p>Closes the worker detail view. Escape or a click on the backdrop does the same. The worker keeps running; nothing is cancelled.</p>,
   },
+  'update.reload-page': {
+    title: 'Reload Arco',
+    body: <p>Reload this page after a restart when the session cannot recover or the running page is older than the server. Arco reloads automatically when no unsaved work is detected. Review and save any drafts or edits before selecting RELOAD.</p>,
+    manualSection: 'arco-updates',
+  },
   'dialog.size': {
     title: 'Dialog size',
     body: <p>Maximize fills the window and Restore returns to the previous size. The resize handle changes the size by dragging or with the arrow keys; Home restores the initial size. The size applies to this dialog only and changes no content.</p>,

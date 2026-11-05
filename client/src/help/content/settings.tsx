@@ -507,7 +507,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.update-action': {
     title: 'Update Arco',
     manualSection: 'arco-updates',
-    body: <p>In a packaged user service on Linux, macOS or Windows, or a Linux source user service, confirm UPDATE AND RESTART to install the newest release and stop running turns. On Windows, an update stops only the matching service command and home configuration, and refuses to proceed if the stop cannot be verified. Other run modes show a command to copy and run in a terminal.</p>,
+    body: <p>In a packaged user service on Linux, macOS or Windows, or a Linux source user service, confirm UPDATE AND RESTART to install the newest release and stop running turns. After restart, a page without unsaved work reloads automatically when needed; otherwise RELOAD stays available. On Windows, an update stops only the matching service command and home configuration, and refuses to proceed if the stop cannot be verified. Other run modes show a command to copy and run in a terminal.</p>,
   },
   'settings.update-result': {
     title: 'Update result',

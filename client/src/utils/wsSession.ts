@@ -8,6 +8,8 @@
 //   - fetches to gated routes re-mint and retry once on a 401
 //     (installSessionFetch) — covers the restart gap and boot-time races.
 
+import { reportRecovery } from '../buildCheck';
+
 const REFRESH_MS = 20 * 60 * 1000;
 const nativeFetch: typeof fetch = window.fetch.bind(window);
 let inflight: Promise<void> | null = null;
@@ -31,20 +33,25 @@ function isGatedUrl(input: RequestInfo | URL): boolean {
   } catch {
     return false;
   }
-  if (url.hostname !== window.location.hostname) return false;
+  if (url.origin !== window.location.origin) return false;
   if (url.pathname === '/api/session') return false;
   return url.pathname.startsWith('/api/') || url.pathname === '/upload';
 }
 
 export function installSessionFetch(): void {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    let replay: Request | undefined;
+    if (typeof input !== 'string' && !(input instanceof URL) && !init?.body) {
+      try { replay = input.clone(); } catch { /* The body is already in use. */ }
+    }
     const res = await nativeFetch(input, init);
     if (res.status !== 401 || !isGatedUrl(input)) return res;
-    // A Request object's body is single-use; only plain (input, init) calls
-    // can be replayed.
-    if (typeof input !== 'string' && !(input instanceof URL)) return res;
     await ensureWsSession();
-    return nativeFetch(input, init);
+    // Do not resend a Request if its body could not be copied safely.
+    if (typeof input !== 'string' && !(input instanceof URL) && !replay) { reportRecovery('session'); return res; }
+    const retry = await nativeFetch(replay ?? input, init);
+    if (retry.status === 401) reportRecovery('session');
+    return retry;
   };
 }
 

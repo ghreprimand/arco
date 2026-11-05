@@ -9,6 +9,7 @@ import { bootstrapCachedTheme } from './themes/bootstrap';
 import { TerminalPopout } from './components/Terminal/TerminalPopout';
 import { ExplorerApp } from './explorer/ExplorerApp';
 import { installSessionFetch, startSessionRefresh } from './utils/wsSession';
+import { startRecoveryGuard } from './buildCheck';
 
 // Apply cached theme synchronously before React mounts so the first paint
 // matches the operator's saved theme. Without this the :root defaults
@@ -43,6 +44,7 @@ const standalonePhosphor = (explorerApp || popoutSessionId) && document.document
 
 // Operator session cookie (server/src/http/wsAuth.ts) — before any window
 // renders, so every surface (main app, terminal pop-out, explorer) has it.
+startRecoveryGuard();
 installSessionFetch();
 startSessionRefresh();
 

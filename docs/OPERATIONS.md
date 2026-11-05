@@ -193,6 +193,10 @@ modules cannot be replaced safely. A packaged service can instead use
 Linux, macOS, and Windows. The action interrupts running turns and reports
 completion or rollback after reconnect.
 
+After a restart, a page reloads automatically if its build changed or its
+session cannot recover and no unsaved work is detected. Otherwise it shows a
+RELOAD banner. Save drafts and edits before selecting RELOAD.
+
 For a Linux installation affected by the 0.1.3 service working-directory issue,
 `arco update` can roll back when the old unit fails to restart. Upgrade the
 package directly, then refresh and start the unmodified Arco-owned unit:

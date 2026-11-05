@@ -9,6 +9,7 @@ export function StaleBuildBanner() {
   return (
     <div
       role="alert"
+      data-help="update.reload-page"
       className="display-font"
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px',
@@ -16,10 +17,11 @@ export function StaleBuildBanner() {
         fontSize: '10px', letterSpacing: '1.5px', flexShrink: 0,
       }}
     >
-      ARCO WAS REBUILT: THIS TAB IS RUNNING AN OLDER BUILD
+      ARCO RESTARTED. RELOAD TO CONTINUE.
       <button
         type="button"
         aria-label="Reload Arco"
+        data-help="update.reload-page"
         onClick={() => window.location.reload()}
         className="display-font"
         style={{ padding: '3px 10px', background: '#111', color: 'var(--color-warning)', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '1.5px' }}

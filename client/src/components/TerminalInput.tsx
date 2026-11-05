@@ -214,6 +214,7 @@ const ComposerTextarea = memo(function ComposerTextarea({
   return (
     <textarea
       ref={inputRef}
+      data-recovery-composer=""
       value={value}
       onChange={(e) => setDraft(jobId, e.target.value)}
       onKeyDown={onKeyDown}

@@ -170,6 +170,11 @@ export const maintenance: Section[] = [
   refuses to proceed if the stop cannot be verified.
   </p>
   <p>
+  After a restart, Arco reloads a page automatically if its build changed or
+  its session cannot recover and no unsaved work is detected. Otherwise the
+  RELOAD banner stays visible. Save drafts and edits before selecting it.
+  </p>
+  <p>
   See <Code>docs/OPERATIONS.md#updating-arco</Code> for the procedure.
   </p>
   <p>
