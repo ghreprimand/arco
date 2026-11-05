@@ -55,6 +55,13 @@ test('content/download endpoints use indexed identity, safe headers, range and e
   res = await fetch(`${base}/api/outputs/file?${query(ids[0])}&id=${id}`, { headers: { Range: 'bytes=0-3' } });
   assert.equal(res.status, 206); assert.equal(await res.text(), 'Synt');
   assert.equal((await fetch(`${base}/api/outputs/content?${query(ids[2])}&id=${id}`)).status, 400);
+  const documents = path.join(home, 'Documents'); mkdirSync(documents);
+  const copied = path.join(documents, 'copy.txt');
+  res = await fetch(`${base}/api/outputs/transfer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cwd: project, workflowId: ids[0], id, destination: copied, action: 'copy' }) });
+  assert.equal(res.status, 200); assert.equal(readFileSync(copied, 'utf8'), 'Synthetic 0');
+  const protectedDir = path.join(documents, '.arco'); mkdirSync(protectedDir);
+  res = await fetch(`${base}/api/outputs/transfer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cwd: project, workflowId: ids[0], id, destination: path.join(protectedDir, 'blocked.txt'), action: 'move' }) });
+  assert.equal(res.status, 400); assert.match((await res.json() as { error: string }).error, /protected/i);
   const destination = path.join(otherProject, 'moved.txt');
   const move = () => fetch(`${base}/api/outputs/transfer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cwd: project, workflowId: ids[0], id, destination, action: 'move' }) });
   assert.equal((await move()).status, 200);

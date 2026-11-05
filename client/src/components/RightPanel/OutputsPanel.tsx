@@ -80,6 +80,7 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
   const [viewerEditing, setViewerEditing] = useState(false);
   const [viewer, setViewer] = useState<WorkflowOutput | null>(null);
   const [transfer, setTransfer] = useState<{ output: WorkflowOutput; action: 'copy' | 'move'; destination?: string } | null>(null);
+  const [transferError, setTransferError] = useState(''), [transferResult, setTransferResult] = useState('');
   const [busy, setBusy] = useState(false);
   const [artifactMove, setArtifactMove] = useState<WorkflowOutput | null>(null);
   const [architectureReport, setArchitectureReport] = useState<WorkflowOutput | null>(null);
@@ -133,13 +134,16 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
   const activate = (o: WorkflowOutput) => { if (previewable(o)) open(o); else void openInDefaultApp(o); };
   async function finishTransfer() {
     if (!transfer?.destination || busy) return;
-    setBusy(true); setError('');
+    setBusy(true); setTransferError('');
     try {
       const res = await fetch('/api/outputs/transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cwd: transfer.output.cwd, workflowId: transfer.output.workflowId, id: transfer.output.id, destination: transfer.destination, sourcePath: transfer.output.path, action: transfer.action }) });
-      const body = await res.json(); if (!res.ok || !body.ok) throw new Error(body.error || 'The file was not transferred.');
-      setNote(transfer.action === 'copy' ? 'Copy saved. The original output remains available.' : 'Output moved. Existing output links still resolve.');
-      setTransfer(null); await load(true);
-    } catch (err) { setError(err instanceof Error ? err.message : 'The file was not transferred.'); }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setTransferError(`${transfer.action === 'move' ? 'The file was not moved.' : 'The copy was not saved.'} ${body.error || 'The request was refused.'}`); return; }
+      if (!body.ok) throw new Error('The server did not confirm the result.');
+      const folder = transfer.destination.replace(/[\\/][^\\/]+$/, '');
+      setTransferResult(transfer.action === 'copy' ? `Copy saved to ${folder}` : `Moved to ${folder}`);
+      await load(true);
+    } catch { setTransferError('The result could not be confirmed. Check the source and destination before trying again.'); }
     finally { setBusy(false); }
   }
   const previewable = (o: WorkflowOutput) => !!o.inline || (o.category !== 'other' && !/\.(pdf|docx?|odt)$/i.test(o.name));
@@ -185,15 +189,15 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {previewable(output) && <button type="button" disabled={output.missing} onClick={() => open(output)}>Preview</button>}
             {output.path && previewable(output) && ['images', 'documents', 'audio', 'video'].includes(output.category) && <button type="button" disabled={output.missing} onClick={() => open(output, true)}>Open in editor</button>}
-            <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'copy' })}>Save a copy</button>
-            {output.path && <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'move' })}>Move</button>}
+            <button type="button" data-help="rightpanel.outputs.transfer" disabled={output.missing} onClick={() => { setTransferError(''); setTransferResult(''); setTransfer({ output, action: 'copy' }); }}>Save a copy</button>
+            {output.path && <button type="button" data-help="rightpanel.outputs.transfer" disabled={output.missing} onClick={() => { setTransferError(''); setTransferResult(''); setTransfer({ output, action: 'move' }); }}>Move</button>}
             {output.path && artifactRelative(output.path, output.workflowId) && isArchitectureReport(output.name) && <button type="button" data-help="architecture-review.candidates" disabled={output.missing} onClick={() => setArchitectureReport(output)}>CANDIDATES</button>}
             {output.path && artifactRelative(output.path, output.workflowId) && <button data-help="storage.move-project" disabled={output.missing} onClick={() => setArtifactMove(output)}>MOVE TO PROJECT</button>}
             {output.keptBy && <><span data-help="storage.unkeep" style={{ color: 'var(--color-accent-primary)', alignSelf: 'center' }}>Kept</span>
               <UnkeepButton cwd={output.cwd} workflowId={output.workflowId} itemPath={output.keptBy} label={`UNKEEP ${label}`}
                 confirmMessage={unkeepQuestion(output, label)} onError={setError} onDone={() => { setNote(`${label} is no longer kept.`); void load(true); }} /></>}
             {canOpen(output) && <button type="button" data-testid="output-open" data-help="rightpanel.outputs.open" disabled={output.missing} onClick={() => void openInDefaultApp(output)}>OPEN</button>}
-            {output.path && <a download href={`/api/outputs/file?${paramsFor(output)}&download=1`} aria-disabled={output.missing} onClick={e => { if (output.missing) e.preventDefault(); }}>Download</a>}
+            {output.path && <button type="button" data-help="rightpanel.outputs.download" disabled={output.missing} onClick={() => { const link = document.createElement('a'); link.href = `/api/outputs/file?${paramsFor(output)}&download=1`; link.download = output.name; document.body.appendChild(link); link.click(); link.remove(); }}>Download</button>}
           </div>
           <details><summary>File information</summary><p title={label}>{label}</p><p>{output.name} / {output.size === undefined ? 'Inline content' : `${output.size} bytes`} / {output.source}</p><p>Produced by {output.producer} ({output.workflowId}). Created {new Date(output.createdAt).toLocaleString()}.</p>{output.originPath && <p>Original location: {output.originPath}</p>}{output.inputPath && <p>Source file: {output.inputPath}</p>}{output.derivedFrom && <p>Derived from output {output.derivedFrom}.</p>}</details>
         </li>;
@@ -203,11 +207,11 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
     {viewer && <FileViewerModal initialEditing={viewerEditing} path={viewer.path || viewer.name} fallback={{ cwd: viewer.cwd, workflowId: viewer.workflowId }} readUrl={`/api/outputs/content?${paramsFor(viewer)}`} editContext={viewer.path ? { cwd: viewer.cwd, workflowId: viewer.workflowId } : undefined} saveRequest={{ url: '/api/outputs/text', body: { cwd: viewer.cwd, workflowId: viewer.workflowId, id: viewer.id } }} onClose={() => { setViewer(null); void load(true); }} />}
     {architectureReport?.path && <ArchitectureReviewDialog cwd={architectureReport.cwd} workflowId={architectureReport.workflowId} report={artifactRelative(architectureReport.path, architectureReport.workflowId)!} onClose={() => setArchitectureReport(null)} />}
     {artifactMove?.path && <ArtifactMoveDialog cwd={artifactMove.cwd} workflowId={artifactMove.workflowId} itemPath={artifactRelative(artifactMove.path, artifactMove.workflowId)!} onClose={() => setArtifactMove(null)} />}
-    {transfer && <TransferDialog transfer={transfer} roots={roots} busy={busy} error={error} onDestination={destination => setTransfer({ ...transfer, destination })} onConfirm={() => void finishTransfer()} onClose={() => { if (!busy) setTransfer(null); }} />}
+    {transfer && <TransferDialog transfer={transfer} roots={roots} busy={busy} error={transferError} result={transferResult} onDestination={destination => setTransfer({ ...transfer, destination })} onConfirm={() => void finishTransfer()} onClose={() => { if (!busy) setTransfer(null); }} />}
   </section>;
 }
-function TransferDialog({ transfer, roots, busy, error, onDestination, onConfirm, onClose }: {
-  transfer: { output: WorkflowOutput; action: 'copy' | 'move'; destination?: string }; roots?: Array<{ name: string; path: string }>; busy: boolean; error: string;
+function TransferDialog({ transfer, roots, busy, error, result, onDestination, onConfirm, onClose }: {
+  transfer: { output: WorkflowOutput; action: 'copy' | 'move'; destination?: string }; roots?: Array<{ name: string; path: string }>; busy: boolean; error: string; result: string;
   onDestination: (path: string) => void; onConfirm: () => void; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
@@ -227,7 +231,7 @@ function TransferDialog({ transfer, roots, busy, error, onDestination, onConfirm
   useEffect(() => { if (transfer.destination) dialog.current?.querySelector<HTMLButtonElement>('[data-transfer-confirm]')?.focus(); }, [transfer.destination]);
   const file = transfer.output.name.replace(/[\\/:*?"<>|]/g, '_');
   return <div style={{ position: 'fixed', inset: 0, zIndex: 9800, background: '#000a', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 12 }}>
-    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={transfer.action === 'move' ? 'Move output' : 'Save a copy'} onKeyDown={event => {
+    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" data-help="rightpanel.outputs.transfer" aria-label={transfer.action === 'move' ? 'Move output' : 'Save a copy'} onKeyDown={event => {
       if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
       if (event.key !== 'Tab') return;
       const controls = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)') ?? [])].filter(el => el.getClientRects().length);
@@ -236,9 +240,9 @@ function TransferDialog({ transfer, roots, busy, error, onDestination, onConfirm
     }} style={{ width: 'min(640px,100%)', maxHeight: 'calc(94vh / var(--ui-scale,1))', overflowY: 'auto', padding: 14, border: '1px solid var(--color-border-hairline)', borderRadius: 6, background: 'var(--color-bg-dialog)' }}>
       <h2>{transfer.action === 'move' ? 'Move output' : 'Save a copy'}</h2>
       <p style={{ overflowWrap: 'anywhere' }}>Source: {transfer.output.path || 'Inline artifact'}</p>
-      {!transfer.destination ? <DirectoryBrowser inline initialPath={transfer.output.path?.replace(/[\\/][^\\/]+$/, '') || transfer.output.cwd} roots={roots} defaultName={transfer.output.inline && !file.includes('.') ? `${file}.txt` : file} title="Choose output destination" confirmLabel="Review destination" onDone={result => { if (result?.basename.trim()) onDestination(joinFolder(result.dir, result.basename.trim())); }} /> : <><p style={{ overflowWrap: 'anywhere' }}>Destination: {transfer.destination}</p><p>{transfer.action === 'move' ? 'Move removes the source only after the destination and output location are saved. Existing output links keep working.' : 'Save a copy retains the original output.'} Existing files are never overwritten.</p><button type="button" data-transfer-confirm disabled={busy} onClick={onConfirm}>{busy ? 'Saving...' : transfer.action === 'move' ? 'Move output' : 'Save copy'}</button></>}
+      {result ? <p role="status">{result}</p> : !transfer.destination ? <DirectoryBrowser inline initialPath={transfer.output.path?.replace(/[\\/][^\\/]+$/, '') || transfer.output.cwd} roots={roots} defaultName={transfer.output.inline && !file.includes('.') ? `${file}.txt` : file} title="Choose output destination" confirmLabel="Review destination" onDone={result => { if (result?.basename.trim()) onDestination(joinFolder(result.dir, result.basename.trim())); }} /> : <><p style={{ overflowWrap: 'anywhere' }}>Destination: {transfer.destination}</p><p>{transfer.action === 'move' ? 'Move removes the source only after the destination and output location are saved. Existing output links keep working.' : 'Save a copy retains the original output.'} Existing files are never overwritten.</p><button type="button" data-transfer-confirm disabled={busy} onClick={onConfirm}>{busy ? 'Saving...' : transfer.action === 'move' ? 'Move output' : 'Save copy'}</button></>}
       {error && <p role="alert">{error}</p>}
-      <button type="button" disabled={busy} onClick={onClose}>Cancel</button>
+      <button type="button" disabled={busy} onClick={onClose}>{result ? 'Close' : 'Cancel'}</button>
     </div>
   </div>;
 }

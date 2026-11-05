@@ -77,9 +77,12 @@ source and destination, then choose **Save copy**. The original remains availabl
 **Move output**. Existing files are never silently overwritten. A stale dialog
 must be refreshed if another action already moved the output.
 
-Copy/move destinations must be inside an existing approved project or enabled
-media folder. Browsing another directory does not grant content or write access.
-Protected state and symlink escapes remain refused. A move saves the destination
+Copy and move destinations may be in the home folder or an existing approved
+project or enabled media folder. Protected Arco and Git state, other protected
+folders and symlink escapes remain refused. The result stays in the dialog until
+it is closed. A failed request names the reason; a lost connection asks for the
+source and destination to be checked before retrying. Only the exact chosen home
+destination is authorized for later output access. A move saves the destination
 and durable location mapping before removing the source; destination or metadata
 failure leaves the source intact. Existing indexed and artifact-path links resolve
 to the moved location. Removing an external file produces a missing-file state;

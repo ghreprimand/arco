@@ -167,14 +167,22 @@ async def main():
             await expect(dialog).to_contain_text('/exports/' + name)
             return dialog
         dialog = await destination('Save a copy', 'copy.png'); await dialog.get_by_role('button', name='Save copy', exact=True).click()
-        await expect(dialog).to_have_count(0)
+        await expect(dialog.get_by_role('status')).to_have_text('Copy saved to /exports')
+        await dialog.get_by_role('button', name='Close', exact=True).click()
         assert next(o for o in state['outputs'] if o['id'] == 'a'*32)['path'] == CWD + '/generated.png'
         dialog = await destination('Move', 'collision.png'); await dialog.get_by_role('button', name='Move output', exact=True).click()
+        await expect(dialog.get_by_role('alert')).to_contain_text('The file was not moved.')
+        await expect(dialog.get_by_role('alert')).to_contain_text('already exists')
+        await page.wait_for_timeout(5500)
         await expect(dialog.get_by_role('alert')).to_contain_text('already exists')
         await dialog.get_by_role('button', name='Cancel', exact=True).click()
         dialog = await destination('Move', 'moved.png'); await dialog.get_by_role('button', name='Move output', exact=True).click()
-        await expect(dialog).to_have_count(0)
+        await expect(dialog.get_by_role('status')).to_have_text('Moved to /exports')
+        await dialog.get_by_role('button', name='Close', exact=True).click()
         await expect(image).to_contain_text('/exports/moved.png')
+        async with page.expect_download() as download:
+            await image.get_by_role('button', name='Download', exact=True).click()
+        assert (await download.value).suggested_filename == 'generated.png'
         for scale in [1.1,1.5]:
             await page.evaluate('value => {document.documentElement.style.zoom=String(value);document.documentElement.style.setProperty("--ui-scale",String(value));}',scale)
             await panel.get_by_label('Search outputs', exact=True).focus()

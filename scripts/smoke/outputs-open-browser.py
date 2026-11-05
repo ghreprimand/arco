@@ -68,7 +68,7 @@ async def main():
         await item('setup.exe').get_by_test_id('output-name').click()
         await expect(panel.get_by_role('alert')).to_contain_text('Use Download instead')
         assert state['opens'] == ['c' * 32, 'c' * 32]
-        await expect(item('setup.exe').get_by_role('link', name='Download', exact=True)).to_be_visible()
+        await expect(item('setup.exe').get_by_role('button', name='Download', exact=True)).to_be_visible()
         # Missing file: OPEN disabled and the name is not a link.
         await expect(item('lost.pdf').get_by_test_id('output-open')).to_be_disabled()
         await expect(item('lost.pdf').get_by_test_id('output-name')).to_have_count(0)
@@ -76,7 +76,7 @@ async def main():
         state['desktop'] = False
         await panel.get_by_role('button', name='Refresh', exact=True).click()
         await expect(panel.get_by_test_id('output-open')).to_have_count(0)
-        await expect(item('brief.pdf').get_by_role('link', name='Download', exact=True)).to_be_visible()
+        await expect(item('brief.pdf').get_by_role('button', name='Download', exact=True)).to_be_visible()
         assert not errors, errors
         await context.close(); await browser.close()
         print('PASS: name click previews or opens by default app, OPEN, refused types explained, missing file disabled, OPEN hidden without a desktop')

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants, createReadStream, createWriteStream, realpathSync } from 'node:fs';
 import { open, lstat, writeFile, readFile, readdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
+import { homedir } from 'node:os';
 import { pipeline } from 'node:stream/promises';
 import type { OutputCategory, WorkflowOutput, ServerMessage } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
@@ -12,6 +13,7 @@ import { workflows } from './server/state.js';
 import { matchFileEvent } from './recentFilesLedger.js';
 import { outputDirectory, readOutputIndex, writeOutputIndex, mappedOutputPath, type StoredOutput, type OutputIndex } from './outputStore.js';
 import { readLogLines, sealedThroughSeq } from './eventLog.js';
+import { addOutputGrant, hasOutputGrant, removeOutputGrant } from './outputGrants.js';
 
 export interface OutputContext { cwd: string; workflowId: string; producer: string; }
 const LIMIT = 2000;
@@ -93,10 +95,27 @@ async function safeOutputFile(ctx: OutputContext, file: string, approved?: strin
   const abs = path.resolve(ctx.cwd, file);
   if (hiddenOutput(abs.replace(ctx.cwd, ''))) throw new Error('This file is not a published output.');
   assertOutputSpelling(ctx, abs);
-  const real = confinedPath(abs, approved ?? await outputRoots(ctx.cwd));
+  let real: string;
+  try { real = confinedPath(abs, approved ?? await outputRoots(ctx.cwd)); }
+  catch (err) {
+    let granted = false;
+    try { granted = await hasOutputGrant({ cwd: realpathSync(ctx.cwd), workflowId: ctx.workflowId, file: abs }); } catch { /* A broken store never grants access. */ }
+    if (!granted) throw err;
+    real = confinedPath(abs, [homedir()]);
+    // A grant names the exact file chosen by the operator. A later link must
+    // not turn it into authority to read a different home file.
+    if (real !== abs) throw new Error('The output destination changed or became a link.');
+    rejectProtectedDestination(real);
+  }
   assertOutputSpelling(ctx, real);
   if (hiddenOutput(real.replace(ctx.cwd, ''))) throw new Error('This file is not a published output.');
   return real;
+}
+
+function rejectProtectedDestination(file: string): void {
+  if (path.resolve(file).split(path.sep).some((part) => ['.arco', '.git'].includes(part.toLowerCase()))) {
+    throw new Error('Choose a folder outside protected Arco and Git state.');
+  }
 }
 export async function resolveTrackedOutput(cwd: string, workflowId: string, requested: string): Promise<string | null> {
   const ctx = await outputContext(cwd, workflowId);
@@ -287,8 +306,14 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     if (expectedSource && entry.path && path.resolve(ctx.cwd, expectedSource) !== path.resolve(entry.path)) throw new Error('The output moved since this dialog opened. Refresh before retrying.');
     const source = entry.path ? await safeOutputFile(ctx, entry.path) : '';
     if (!path.isAbsolute(destination) || destination.includes('\0')) throw new Error('Choose an absolute destination filename.');
+    rejectProtectedDestination(destination);
     assertOutputSpelling(ctx, destination);
-    const parent = confinedPath(path.dirname(destination), await outputRoots(ctx.cwd), 'directory');
+    const roots = await outputRoots(ctx.cwd);
+    let parent: string;
+    let grantNeeded = false;
+    try { parent = confinedPath(path.dirname(destination), roots, 'directory'); }
+    catch { parent = confinedPath(path.dirname(destination), [homedir()], 'directory'); grantNeeded = true; }
+    rejectProtectedDestination(parent);
     const target = path.join(parent, path.basename(destination));
     assertOutputSpelling(ctx, target);
     if (hiddenOutput(path.relative(ctx.cwd, target))) throw new Error('Choose a visible output filename and folder.');
@@ -297,17 +322,22 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     // a no-follow source handle prevents final-component link swaps.
     if (entry.inline) await writeFile(target, entry.inline.content, { flag: 'wx' });
     else await copyOutputBytes(source, target);
+    const grant = { cwd: realpathSync(ctx.cwd), workflowId: ctx.workflowId, file: target };
+    if (grantNeeded) {
+      try { await addOutputGrant(grant); } catch { await unlink(target).catch(() => {}); throw new Error('The destination could not be authorized. The source remains intact.'); }
+    }
     const old = JSON.parse(JSON.stringify(index)) as OutputIndex;
     if (move) {
       entry.aliases = [...new Set([...(entry.aliases ?? []), entry.path!])];
       entry.actions = [...(entry.actions ?? []), { action: 'move', from: source, to: target, at: Date.now() }];
       entry.path = target; entry.name = path.basename(target); entry.updatedAt = Date.now();
     } else index.entries.push({ ...entry, inline: undefined, category: outputCategory(target), id: idFor(randomUUID()), path: target, originPath: target, aliases: [], derivedFrom: entry.id, title: path.basename(target), name: path.basename(target), source: 'saved copy', actions: [{ action: 'copy', from: source, to: target, at: Date.now() }], createdAt: Date.now(), updatedAt: Date.now() });
-    try { await writeIndex(ctx.cwd, ctx.workflowId, index); } catch (err) { await unlink(target).catch(() => {}); throw new Error('Output location was not saved. The source remains intact.'); }
+    try { await writeIndex(ctx.cwd, ctx.workflowId, index); } catch (err) { await unlink(target).catch(() => {}); if (grantNeeded) await removeOutputGrant(grant).catch(() => {}); throw new Error('Output location was not saved. The source remains intact.'); }
     if (move) {
       try { await unlink(source); } catch (err) {
         await writeIndex(ctx.cwd, ctx.workflowId, old);
         await unlink(target).catch(() => {});
+        if (grantNeeded) await removeOutputGrant(grant).catch(() => {});
         throw new Error('The source could not be removed. It remains at its original location.');
       }
     }

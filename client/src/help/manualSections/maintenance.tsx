@@ -33,6 +33,12 @@ export const maintenance: Section[] = [
   </li>
   </ul>
   <p>
+  In OUTPUTS, Save a copy keeps the original; Move removes it only after the
+  destination and output location are saved. Choose a folder in the home folder
+  or an approved project or media folder. Protected state and unsafe links are
+  refused. The result stays visible until the dialog is closed.
+  </p>
+  <p>
   MOVE TO PROJECT in OUTPUTS offers KEEP IT PRIVATE or a copy into the project.
   Review Git ignore status, public visibility, size and text findings first.
   Files that cannot be fully scanned are listed by name. A public repository

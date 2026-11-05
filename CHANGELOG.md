@@ -27,6 +27,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- OUTPUTS can move or copy to an ordinary home folder, keeps each result visible in the dialog, and presents Download as a button.
 - An open page shows RELOAD when a restart leaves its session invalid or its build outdated, and reloads automatically when no unsaved work is detected.
 - SHARE WITH REPOSITORY no longer leaves its exception lines in `.arco/.gitignore` when it refuses because Git still ignores the skill. The file is left exactly as it was.
 - llama.cpp Chat tabs and plan-review turns no longer run a tool call the model writes as `<tool_call>` text, even with AUTO on. Tools stay refused there, as on Ollama and LM Studio.

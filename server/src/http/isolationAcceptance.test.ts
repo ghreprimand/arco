@@ -256,6 +256,7 @@ test('the HTTP surface needs a session cookie and the mint needs browser fetch m
   for (const p of ['/api/file-content?path=/etc/hostname', '/api/files?path=/', '/api/list-dirs', '/api/settings', '/api/storage-report?path=%2F', '/api/storage-report?scope=home']) {
     assert.equal((await fetch(`${main.base}${p}`)).status, 401, p);
   }
+  assert.equal((await fetch(`${main.base}/api/outputs/transfer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
   assert.equal((await fetch(`${main.base}/api/session`, { method: 'POST', headers: { Origin: main.base } })).status, 403);
   assert.equal((await fetch(`${main.base}/api/session`, { method: 'POST', headers: { Origin: 'https://example.com' } })).status, 403);
 });

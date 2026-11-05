@@ -4,7 +4,15 @@ import type { HelpEntry } from './shared';
 export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.outputs': {
     title: 'Workspace Outputs',
-    body: <p>Outputs stays beside Files in Workspace. It collects this workflow's artifact files, supported generated-file events and scoped editor/media exports. Cluster Outputs includes only its members and identifies each producer. By default it lists what was made for you (generated media, top-level documents, reports and exports); tick <C>All files</C> to include code and files in artifact subfolders. Search or filter Images, Documents, Audio, Video and Other. Image entries show a wide uncropped preview above the title. Long titles clamp to two lines with <C>SHOW FULL TEXT</C> / <C>SHOW LESS</C>; the full title stays in the hover tip, File information and search. Preview and Open in editor reuse the existing viewers without changing the producing workflow context. Unsupported formats offer file information and Download. Save a copy retains the original; Move reviews source and destination, refuses collisions and preserves output links. Closing a preview never removes an output. Missing files keep their provenance. Ordinary changed files are not automatically classified as generated.</p>,
+    body: <p>Outputs stays beside Files in Workspace. It collects this workflow's artifact files, supported generated-file events and scoped editor/media exports. Cluster Outputs includes only its members and identifies each producer. By default it lists what was made for you (generated media, top-level documents, reports and exports); tick <C>All files</C> to include code and files in artifact subfolders. Search or filter Images, Documents, Audio, Video and Other. Image entries show a wide uncropped preview above the title. Long titles clamp to two lines with <C>SHOW FULL TEXT</C> / <C>SHOW LESS</C>; the full title stays in the hover tip, File information and search. Preview and Open in editor reuse the existing viewers without changing the producing workflow context. Unsupported formats offer file information and Download. Save a copy retains the original; Move reviews source and destination, refuses collisions and preserves output links. The result stays in the dialog until it is closed. Closing a preview never removes an output. Missing files keep their provenance. Ordinary changed files are not automatically classified as generated.</p>,
+  },
+  'rightpanel.outputs.transfer': {
+    title: 'Move or copy output', manualSection: 'archive-explorer',
+    body: <p>Choose a destination in your home folder or an already approved project or media folder. Arco refuses protected state, existing files and unsafe links. Save a copy keeps the original; Move removes it only after saving the new location. The dialog keeps the result visible until it is closed.</p>,
+  },
+  'rightpanel.outputs.download': {
+    title: 'Download output', manualSection: 'archive-explorer',
+    body: <p>Download this output through the browser. The file stays in its current location.</p>,
   },
   'rightpanel.outputs.all-files': {
     title: 'All files',
