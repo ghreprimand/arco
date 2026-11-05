@@ -1199,6 +1199,10 @@ export const clusters: Section[] = [
   cluster tab is open.
   </p>
   <p>
+  After SEND NUDGE or NUDGE ALL WITH MAIL, a toast names how many were
+  nudged and how many of those were busy reminders.
+  </p>
+  <p>
   It uses the same steering path as typing into that member&apos;s chat.
   Providers without mid-turn delivery receive the reminder after the
   current turn. The member still reads its mail with{' '}

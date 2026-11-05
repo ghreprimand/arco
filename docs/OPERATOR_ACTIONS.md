@@ -112,6 +112,8 @@ shows the total and opens an empty recipient picker; only an explicit selection
 and send starts a reminder. NUDGE ALL WITH MAIL (n) in the picker, and
 Cluster: nudge all with mail in the command palette, nudge every member with
 waiting mail at once, idle or busy; members without mail are never nudged.
+The toast after SEND NUDGE or NUDGE ALL WITH MAIL names how many were nudged
+and, when any were busy, how many got the busy reminder.
 
 **Operator-armed idle nudger.** Default OFF; the MAIL ALERTS chip arms it. When
 ON, the server alerts the operator (toast + ACTIVITY row) if a member is idle

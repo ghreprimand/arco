@@ -207,13 +207,14 @@ export const clusterHelp: Record<string, HelpEntry> = {
           point in their current work, using the existing steering path.
           Providers without mid-turn steering receive it after the current
           turn. Members read pending messages with <C>peer_read</C>; sending
-          a nudge does not drain the mailbox.{' '}
+          a nudge does not drain the mailbox. A toast confirms how many were
+          nudged and, when any were busy, how many got the busy reminder.{' '}
           <C>Esc</C> closes without sending.
         </p>
         <p>
           <C>NUDGE ALL WITH MAIL (n)</C> in the modal nudges every member
           with waiting mail at once, idle or busy, the same as ticking them
-          all and pressing SEND NUDGE. The command palette has it as
+          all and pressing SEND NUDGE (same toast). The command palette has it as
           Cluster: nudge all with mail.
         </p>
         <p>
