@@ -29,6 +29,11 @@ async def main():
         (conv / 'artifacts').mkdir(parents=True)
         (conv / 'meta.json').write_text(json.dumps({'name': 'Fixture'}))
         (conv / 'artifacts' / 'picture.png').write_bytes(b'\x89PNG' + b'api_' + b'key=fixture_value')
+        # A file past the 1,000-findings limit and a binary with readable text
+        # are reviewed, not refused, and listed as not fully scanned. Line
+        # numbers in a binary count its newline bytes (64 in the first part).
+        (conv / 'artifacts' / 'noisy.txt').write_text('password=fixture\n' * 1001)
+        (conv / 'artifacts' / 'disk.bin').write_bytes(bytes(range(256)) * 64 + b'\n' + b'password=' + b'synthetic\n' + bytes(range(255, -1, -1)) * 64)
         source = conv / 'artifacts' / 'report.txt'
         source.write_text('Email: ' + '@'.join(['person', 'example.test']) + '\n')
         port = h.host_isolation.closed_port()
@@ -68,6 +73,11 @@ async def main():
             await expect(dialog.get_by_text('report.txt:1 - email-address')).to_be_visible(timeout=30000)
             await expect(dialog.get_by_text('Files here are included in your repository unless you exclude them.')).to_be_visible()
             await expect(dialog.get_by_text('picture.png', exact=True)).to_be_visible()
+            await expect(dialog.get_by_text('noisy.txt (findings limit reached; the rest was not scanned)', exact=True)).to_be_visible()
+            await expect(dialog.get_by_text('disk.bin', exact=True)).to_be_visible()
+            await expect(dialog.get_by_text('disk.bin:66 - password-or-secret', exact=True)).to_be_visible()
+            await expect(dialog.get_by_text('noisy.txt:1000 - password-or-secret', exact=True)).to_be_visible()
+            await expect(dialog.get_by_text('noisy.txt:1001 - password-or-secret', exact=True)).to_have_count(0)
             review = await page.evaluate('''async (cwd) => {
               const body = {path: cwd, workflowId: 'conv-1', itemPath: 'artifacts', destinationFolder: cwd, publicProject: true, confirm: true};
               const review = await (await fetch('/api/storage/copy-review', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
@@ -84,6 +94,7 @@ async def main():
             await dialog.get_by_role('button', name='COPY INTO PUBLIC REPOSITORY').click()
             await page.wait_for_timeout(300)
             assert not (project / 'artifacts').exists() and 'picture.png' in confirmations[0]
+            assert 'noisy.txt' in confirmations[0] and 'disk.bin' in confirmations[0]
             await dialog.get_by_role('button', name='COPY INTO PUBLIC REPOSITORY').click()
             await expect(dialog.get_by_text('Copied into the project.', exact=False)).to_be_visible(timeout=30000)
             assert (project / 'artifacts' / 'report.txt').read_text() == source.read_text()

@@ -41,6 +41,12 @@ export const maintenance: Section[] = [
   linked parent work; links within artifacts are refused.
   </p>
   <p>
+  Other binary files, such as archives and disk images, are scanned for
+  readable text only and listed as not fully scanned. A file stops being
+  scanned after 1,000 findings, and a copy after 2,000; the rest is listed as
+  not fully scanned instead of stopping the review.
+  </p>
+  <p>
   Arco does not stage or commit the copy, and the original remains in Arco. A failed copy
   can leave partial files at the destination. The temporary folder must be
   outside the project and Git repositories.

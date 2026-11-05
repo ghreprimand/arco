@@ -32,36 +32,101 @@ export function scanCopyLine(line: string): string[] {
   for (const m of decoded.matchAll(/(?:(?<![A-Za-z0-9_/])\/(?:home|Users)\/|[A-Za-z]:[\\/]Users[\\/])([A-Za-z0-9_.-]+)(?=[\\/])/g)) if (!safeUsers.has(m[1])) rules.push('personal-home-path');
   return [...new Set(rules)];
 }
-interface FileEntry { rel: string; bytes: number; hash: string; media: boolean; unscanned: boolean; findings: Array<{ line: number; rule: string }> }
+interface FileEntry { rel: string; bytes: number; hash: string; media: boolean; unscanned: boolean; findingsCapped?: boolean; findings: Array<{ line: number; rule: string }> }
 interface CopyInspection { source: string; target: string; bytes: number; ignored: boolean; publicRepository: boolean; files: FileEntry[]; directories: string[]; token: string }
-async function scanFile(file: string, rel: string, maxFindings = 1000): Promise<FileEntry> {
+export const MAX_FILE_FINDINGS = 1000;
+export const MAX_TOTAL_FINDINGS = 2000;
+// Readable text inside a binary file: runs of four or more printable ASCII
+// characters (as the `strings` tool finds them). Paths, addresses, keys and
+// tokens are ASCII, so scanning the runs catches them without decoding the
+// rest of the bytes as text.
+const PRINTABLE_RUN = /[\x20-\x7e\t]{4,}/g;
+const NOT_PRINTABLE = /[^\x20-\x7e\t]/;
+function printableRuns(text: string): string { return (text.match(PRINTABLE_RUN) ?? []).join('\n'); }
+// Random bytes often contain short colon runs such as "::" or ":0:4" that the
+// IPv6 part of the ip-address rule accepts. In binary content an address
+// counts only as an IPv4 address or an IPv6 form with at least four hex digits.
+const IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+const IPV6 = /(?<![A-Za-z0-9])(?:[a-fA-F0-9]{0,4}:){2,}[a-fA-F0-9]{0,4}(?![A-Za-z0-9])/g;
+function scanBinaryRuns(runs: string): string[] {
+  const rules = scanCopyLine(runs);
+  if (!rules.includes('ip-address') || IPV4.test(runs) || [...runs.matchAll(IPV6)].some((m) => (m[0].match(/[a-fA-F0-9]/g) ?? []).length >= 4)) return rules;
+  return rules.filter((rule) => rule !== 'ip-address');
+}
+// Text files are scanned line by line. A file that is not valid UTF-8 text
+// (an undecodable sequence once NUL bytes are dropped) is scanned from that point on for
+// printable runs only and listed as not fully scanned. When the findings
+// limit is reached the file is hashed to the end but no longer scanned, and
+// it is listed as not fully scanned instead of refusing the whole copy.
+async function scanFile(file: string, rel: string, maxFindings = MAX_FILE_FINDINGS): Promise<FileEntry> {
   const fh = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const info = await fh.stat(); if (!info.isFile()) throw new Error('Only regular files can be copied.');
     const hash = createHash('sha256'); const findings: FileEntry['findings'] = [];
     const media = MEDIA.test(rel); const scanText = !media || TEXT.test(rel); let line = 1; let pending = ''; let unscanned = !scanText;
+    let binary = false; let capped = scanText && maxFindings <= 0; let carry = '';
     const decoder = new TextDecoder('utf-8');
+    const scanLine = (text: string, at: number, rules = scanCopyLine(text)) => {
+      for (const rule of rules) {
+        if (findings.length >= maxFindings) { capped = true; return; }
+        findings.push({ line: at, rule });
+      }
+    };
+    // Binary mode keeps counting newline bytes so findings still point near
+    // the right place; a printable run cut by a chunk boundary is carried.
+    const scanBinary = (text: string, final: boolean) => {
+      let body = carry + text;
+      if (final) carry = '';
+      else {
+        let cut = body.length;
+        while (cut > 0 && !NOT_PRINTABLE.test(body[cut - 1]) && body.length - cut < MiB) cut--;
+        carry = body.slice(cut); body = body.slice(0, cut);
+      }
+      let from = 0;
+      for (;;) {
+        const i = body.indexOf('\n', from);
+        const piece = body.slice(from, i < 0 ? body.length : i);
+        const runs = printableRuns(piece);
+        if (runs) scanLine(runs, line, scanBinaryRuns(runs));
+        if (capped || i < 0) break;
+        from = i + 1; line++;
+      }
+    };
     for await (const chunk of createReadStream('', { fd: fh.fd, autoClose: false, emitClose: false })) {
       const buffer = chunk as Buffer; hash.update(buffer);
-      if (!scanText) continue;
-      const textBuffer = buffer.includes(0) ? Buffer.from(buffer.filter(byte => byte !== 0)) : buffer;
-      const text = decoder.decode(textBuffer, { stream: true });
-      if (text.includes('\ufffd')) unscanned = true;
-      pending += text;
-      for (;;) {
-        const i = pending.indexOf('\n'); if (i < 0) break;
-        for (const rule of scanCopyLine(pending.slice(0, i))) { if (findings.length >= maxFindings) throw new Error('Too many findings to show; split the artifact.'); findings.push({ line, rule }); }
-        pending = pending.slice(i + 1); line++;
+      if (!scanText || capped) continue;
+      // NUL bytes are dropped first, so UTF-16 text with ASCII content still
+      // reads as text.
+      const bytes = buffer.includes(0) ? Buffer.from(buffer.filter((byte) => byte !== 0)) : buffer;
+      if (!binary) {
+        const text = decoder.decode(bytes, { stream: true });
+        if (text.includes('\ufffd')) {
+          // Not text from here on: scan what was already decoded, then this
+          // chunk's raw bytes for printable runs.
+          binary = true; unscanned = true;
+          if (pending) { scanLine(pending, line); pending = ''; }
+          if (!capped) scanBinary(bytes.toString('latin1'), false);
+          continue;
+        }
+        pending += text;
+        for (;;) {
+          const i = pending.indexOf('\n'); if (i < 0 || capped) break;
+          scanLine(pending.slice(0, i), line);
+          pending = pending.slice(i + 1); line++;
+        }
+        if (pending.length > MiB) throw new Error('A text line is too long to scan; split the artifact.');
+      } else scanBinary(bytes.toString('latin1'), false);
+    }
+    if (scanText && !capped) {
+      if (binary) scanBinary('', true);
+      else {
+        const remainder = decoder.decode();
+        if (remainder.includes('\ufffd')) unscanned = true;
+        scanLine(pending + remainder, line);
       }
-      if (pending.length > MiB) throw new Error('A text line is too long to scan; split the artifact.');
     }
-    if (scanText) {
-      const remainder = decoder.decode();
-      if (remainder.includes('\ufffd')) unscanned = true;
-      pending += remainder;
-      for (const rule of scanCopyLine(pending)) { if (findings.length >= maxFindings) throw new Error('Too many findings to show; split the artifact.'); findings.push({ line, rule }); }
-    }
-    return { rel, bytes: info.size, hash: hash.digest('hex'), media, unscanned, findings };
+    if (capped) unscanned = true;
+    return { rel, bytes: info.size, hash: hash.digest('hex'), media, unscanned, ...(capped ? { findingsCapped: true } : {}), findings };
   } finally { await fh.close(); }
 }
 async function gitIgnored(cwd: string, target: string): Promise<boolean> {
@@ -132,9 +197,10 @@ export async function inspectArtifactCopy(cwd: string, workflowId: string, itemP
     assertSafePath(dest);
     ignored = await gitIgnored(project, dest) && ignored;
     await ensureNoLinks(source, f.rel);
-    const scanned = await scanFile(f.path, f.rel || path.basename(source));
+    // Past the total limit, later files are hashed but not scanned and are
+    // listed as not fully scanned.
+    const scanned = await scanFile(f.path, f.rel || path.basename(source), Math.min(MAX_FILE_FINDINGS, MAX_TOTAL_FINDINGS - findingCount));
     findingCount += scanned.findings.length;
-    if (findingCount > 2000) throw new Error('Too many findings to show; copy a smaller artifact.');
     files.push(scanned);
     await ensureNoLinks(source, f.rel);
   }

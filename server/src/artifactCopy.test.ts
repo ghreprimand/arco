@@ -121,14 +121,29 @@ test('publication uses the reviewed private snapshot if the source changes', asy
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
-test('copy review refuses an unbounded number of findings', async () => {
+test('past the findings limit, files are listed as not fully scanned instead of refused', async () => {
   const cwd = await mkdtemp(path.join(tmpdir(), 'arco-copy-findings-'));
   try {
     execFileSync('git', ['init', '-q'], { cwd });
     const dir = path.join(cwd, '.arco', 'workflows', 'conv-1', 'artifacts', 'bundle');
     await mkdir(dir, { recursive: true });
-    for (const name of ['a.txt', 'b.txt', 'c.txt']) await writeFile(path.join(dir, name), 'password=fixture\n'.repeat(700));
-    await assert.rejects(inspectArtifactCopy(cwd, 'conv-1', 'artifacts/bundle', cwd, false), /Too many findings/);
+    for (const name of ['a.txt', 'b.txt', 'c.txt', 'd.txt']) await writeFile(path.join(dir, name), 'password=fixture\n'.repeat(700));
+    await writeFile(path.join(dir, 'e.txt'), 'password=fixture\n'.repeat(1200));
+    const review = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/bundle', cwd, true);
+    const byName = Object.fromEntries(review.files.map((f) => [f.rel, f]));
+    // 700 + 700, then the 2,000 total leaves 600 for c.txt and nothing after.
+    assert.deepEqual(['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'].map((n) => byName[n].findings.length), [700, 700, 600, 0, 0]);
+    assert.deepEqual(['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'].map((n) => byName[n].unscanned), [false, false, true, true, true]);
+    assert.deepEqual(['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'].map((n) => !!byName[n].findingsCapped), [false, false, true, true, true]);
+    // A public copy outside Git ignore still needs the confirmation for them.
+    await assert.rejects(copyReviewedArtifact(cwd, 'conv-1', 'artifacts/bundle', cwd, true, review.token), /Confirm the files that were not scanned/);
+    await copyReviewedArtifact(cwd, 'conv-1', 'artifacts/bundle', cwd, true, review.token, undefined, true);
+    assert.equal(await readFile(path.join(cwd, 'bundle', 'e.txt'), 'utf8'), 'password=fixture\n'.repeat(1200));
+    // One file alone stops at 1,000 findings.
+    await mkdir(path.join(cwd, 'single'));
+    const one = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/bundle/e.txt', path.join(cwd, 'single'), false);
+    assert.equal(one.files[0].findings.length, 1000);
+    assert.equal(one.files[0].unscanned, true);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 

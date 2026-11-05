@@ -4,7 +4,7 @@ import { KeepButton } from './KeepButton';
 import { effectivePublic } from '../utils/publicProject';
 
 interface Finding { line: number; rule: string }
-interface Review { target: string; bytes: number; ignored: boolean; publicRepository: boolean; token: string; files: Array<{ rel: string; media: boolean; unscanned: boolean; findings: Finding[] }> }
+interface Review { target: string; bytes: number; ignored: boolean; publicRepository: boolean; token: string; files: Array<{ rel: string; media: boolean; unscanned: boolean; findingsCapped?: boolean; findings: Finding[] }> }
 export function artifactRelative(file: string, workflowId: string): string | null {
   const normalized = file.replace(/\\/g, '/');
   const marker = `/.arco/workflows/${workflowId}/artifacts/`;
@@ -47,8 +47,8 @@ export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd
         {stage === 'choice' && <><p>Keep this artifact private, or add a copy to the project's files.</p><KeepButton cwd={cwd} workflowId={workflowId} itemPath={itemPath} disabled={busy} onError={setError} onKept={() => setDone('Kept in Arco.')}>KEEP IT PRIVATE</KeepButton>{' '}<button data-help="storage.move-project" disabled={busy} onClick={() => setStage('folder')}>ADD TO PROJECT FILES</button></>}
         {stage === 'folder' && <DirectoryBrowser inline initialPath={cwd} withFilename={false} title="Choose a project folder" confirmLabel="REVIEW DESTINATION" onDone={r => { if (r) void inspect(r.dir); else setStage('choice'); }} />}
         {stage === 'review' && review && <><p>Destination: {review.target}</p><p>{review.ignored ? 'Git ignores this destination.' : 'Files here are included in your repository unless you exclude them.'}</p><p>{review.publicRepository ? 'This repository is public or marked public.' : 'The repository is not confirmed public; visibility can be unknown.'}</p><p>Size: {(review.bytes / 1000 ** 2).toFixed(1)} MB. {review.bytes > 50 * 1000 ** 2 ? 'Large copy.' : ''} {!review.ignored && review.bytes > 100 * 1000 ** 2 ? 'Over 100 MB cannot be copied into a folder included in Git.' : ''}</p>
-          <p>Images, recordings and other binary files can contain private content that text scanning cannot inspect.</p>
-          {review.files.some(f => f.unscanned) && <><p>Not scanned or not fully scanned:</p><ul>{review.files.filter(f => f.unscanned).map(f => <li key={f.rel}>{f.rel}</li>)}</ul></>}
+          <p>Images, recordings and other binary files can contain private content that text scanning cannot inspect. In other binary files only readable text is scanned.</p>
+          {review.files.some(f => f.unscanned) && <><p>Not scanned or not fully scanned:</p><ul>{review.files.filter(f => f.unscanned).map(f => <li key={f.rel}>{f.rel}{f.findingsCapped ? ' (findings limit reached; the rest was not scanned)' : ''}</li>)}</ul></>}
           <p>Text scan: {review.files.reduce((count, file) => count + file.findings.length, 0)} findings.</p>
           <ul>{review.files.flatMap(f => f.findings.map((finding, i) => <li key={`${f.rel}:${finding.line}:${i}`}>{f.rel}:{finding.line} - {finding.rule}</li>))}</ul>
           <button data-help="storage.choose-folder" disabled={busy} onClick={() => { setReview(null); setStage('folder'); }}>CHOOSE ANOTHER FOLDER</button>{' '}

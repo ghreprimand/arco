@@ -88,7 +88,9 @@ Outputs does not offer destructive cleanup.
 **MOVE TO PROJECT** on an artifact offers **KEEP IT PRIVATE** or **ADD TO
 PROJECT FILES**. Before a copy, review the destination, Git ignore and public
 repository status, size and content findings. Files not fully scanned are listed
-by name. Copying them into a public repository outside Git ignore requires a
+by name: binary files other than images and recordings, where only runs of
+readable text are scanned, and files past the findings limit (1,000 findings per
+file, 2,000 per copy; the rest of the file is hashed but not scanned). Copying them into a public repository outside Git ignore requires a
 second confirmation. Projects opened through a linked parent folder are supported;
 links within the artifact remain refused. The original stays in the artifact
 store; Arco does not stage or commit the copy. A large-artifact warning offers
