@@ -37,6 +37,79 @@ export function resolveProviderAutoCompaction(worker: AutoCompactionPolicy | und
   return undefined;
 }
 
+// Auto-handoff (operator decision for 0.1.5): auto-compaction handles context
+// fill; auto-handoff starts a fresh session after N compactions in the same
+// conversation, at a turn boundary. Off by default; N = 5 when turned on.
+export type AutoHandoffMode = 'quick' | 'original-worker' | 'fresh-summarizer';
+export const AUTO_HANDOFF_DEFAULT_COMPACTIONS = 5;
+export const AUTO_HANDOFF_MIN_COMPACTIONS = 1;
+export const AUTO_HANDOFF_MAX_COMPACTIONS = 20;
+export interface AutoHandoffConfig {
+  enabled: boolean;
+  // Compactions in one conversation before the handoff. Absent = 5.
+  afterCompactions?: number;
+  mode?: AutoHandoffMode;
+  summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
+}
+
+export function clampAutoHandoffCompactions(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return AUTO_HANDOFF_DEFAULT_COMPACTIONS;
+  return Math.min(AUTO_HANDOFF_MAX_COMPACTIONS, Math.max(AUTO_HANDOFF_MIN_COMPACTIONS, Math.round(value)));
+}
+
+// Saved configs from before 0.1.5 carry `warnAt` / `autoAt` percentages. An
+// auto-handoff that was on stays on with N = 5; one that was off stays off.
+// The percentage fields are dropped. Anything malformed reads as absent.
+export function normalizeAutoHandoff(raw: unknown): AutoHandoffConfig | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.enabled !== 'boolean') return undefined;
+  const out: AutoHandoffConfig = { enabled: r.enabled, afterCompactions: clampAutoHandoffCompactions(r.afterCompactions) };
+  if (r.mode === 'quick' || r.mode === 'original-worker' || r.mode === 'fresh-summarizer') out.mode = r.mode;
+  const s = r.summarizer as Record<string, unknown> | undefined;
+  if (s && typeof s === 'object' && typeof s.provider === 'string') {
+    out.summarizer = {
+      provider: s.provider as ProviderName,
+      ...(typeof s.model === 'string' ? { model: s.model as ModelName } : {}),
+      ...(typeof s.effort === 'string' ? { effort: s.effort as EffortLevel } : {}),
+    };
+  }
+  return out;
+}
+
+// Whether Arco can count compactions for this tab, and so run auto-handoff.
+// `compaction` is the resolved auto-compaction policy (resolveProviderAutoCompaction),
+// `ollamaSavedEnabled` the global Ollama compaction switch when that applies.
+export type AutoHandoffAvailability =
+  | { available: true; counts: string }
+  | { available: false; reason: string; needsAutoCompaction?: true };
+
+export function autoHandoffAvailability(input: {
+  provider: string;
+  claudeTransport?: string;
+  codexTransport?: string;
+  chat?: boolean;
+  compaction?: AutoCompactionPolicy;
+  ollamaSavedEnabled?: boolean;
+}): AutoHandoffAvailability {
+  const needs = (): AutoHandoffAvailability => ({ available: false, needsAutoCompaction: true, reason: 'Needs auto-compaction. Turn on AUTO-COMPACTION to use auto-handoff.' });
+  if (input.chat) return { available: false, reason: 'Chat tabs do not hand off automatically.' };
+  switch (input.provider) {
+    case 'claude':
+      if (input.claudeTransport !== 'native') return { available: true, counts: 'Counts the compactions the Claude CLI reports.' };
+      return input.compaction?.enabled ? { available: true, counts: 'Counts Claude Native compactions (automatic and COMPACT).' } : needs();
+    case 'codex':
+      if (input.codexTransport !== 'appserver') return { available: false, reason: 'Codex on the exec transport does not report compactions. Use the app-server transport.' };
+      return { available: true, counts: 'Counts the compactions Codex reports, including its own.' };
+    case 'ollama':
+      return input.compaction?.enabled || (input.compaction === undefined && input.ollamaSavedEnabled !== false) ? { available: true, counts: 'Counts Arco\'s Ollama compactions.' } : needs();
+    case 'cursor':
+      return { available: false, reason: 'Cursor compresses its context without reporting it, so Arco cannot count compactions.' };
+    default:
+      return { available: false, reason: 'This provider has no compaction. Use HANDOFF when the context fills.' };
+  }
+}
+
 export interface WorkflowSessionMetadata {
   // Read-only historical continuation metadata; no active provider uses this kind.
   sessionKind?: 'antigravity-cascade';
@@ -147,25 +220,18 @@ export interface WorkflowConfig {
   // output. Opus 4.6 fast-mode toggle parity with native CLI. Default false.
   fastMode?: boolean;
   advanced?: AdvancedOptions;
-  // Phase 3 context robustness — per-tab auto-handoff config. Defaults
-  // (enabled=true, warnAt=75, autoAt=90) are applied server-side when absent.
+  // Per-tab auto-handoff: off when absent; when on, a handoff starts after
+  // `afterCompactions` (default 5) compactions in one conversation.
   // `mode` picks quick deterministic, original-worker, or fresh-summarizer.
   // Absent resolves from the global default, then quick. `summarizer` pins
   // which model writes a
   // fresh-summarizer handoff (per-tab override; falls back to the global
   // settings.handoffSummarizer, then the tab's primary). model/effort optional
   // - the resolver uses the primary model and medium effort when absent.
-  autoHandoff?: {
-    enabled: boolean;
-    warnAt: number;
-    autoAt: number;
-    mode?: 'quick' | 'original-worker' | 'fresh-summarizer';
-    summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
-  };
+  autoHandoff?: AutoHandoffConfig;
   // §2.1 — per-tab auto-fold (Claude Native only). When enabled, an in-place
   // deterministic Fold fires once the §2.3 budget meter's effective-window pct
-  // crosses `foldAt` (which sits BELOW autoHandoff.warnAt, so the cheap Fold is
-  // tried before a handoff is recommended). `tailBudget` is the verbatim-tail
+  // crosses `foldAt`. A Fold is not a compaction for auto-handoff counting. `tailBudget` is the verbatim-tail
   // token budget (default ~20% of the model window). OFF by default — like
   // auto-handoff it's an operator-armed surface. Persisted to meta.json.
   autoFold?: {

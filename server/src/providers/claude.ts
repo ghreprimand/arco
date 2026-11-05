@@ -17,6 +17,7 @@ import { markThrottled, markAvailable } from '../quota.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
+import { reportCompaction } from '../compactionReport.js';
 import type { Provider, ProviderProcess } from './types.js';
 import { commandArgs } from '../windowsCommand.js';
 
@@ -599,6 +600,11 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       // any stale throttle state. Subsequent errors can re-throttle.
       markAvailable('claude');
       this.emit('init', data);
+    });
+
+    // Auto-handoff counts the CLI's compactions of this tab's conversation.
+    this.parser.on('compact_boundary', (data: { sessionId?: string }) => {
+      if (this.config.workflowId) reportCompaction({ workflowId: this.config.workflowId, source: 'claude-cli', ...(data.sessionId ? { sessionId: data.sessionId } : {}) });
     });
 
     this.parser.on('text', (text: string) => {

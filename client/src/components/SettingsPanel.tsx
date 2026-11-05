@@ -2,7 +2,7 @@ import { NotificationChannelsSettings } from './NotificationChannelsSettings';
 import { UtilityAgentPicker } from './UtilityAgentPicker';
 import { MESSAGE_BOX_SIZES, setMessageBoxSize, useMessageBoxSize } from '../utils/messageBoxSize';
 import { LAYOUT_MODES, setLayoutMode, useLayout } from '../layout/layoutRange';
-import { UI_SCALES, DEFAULT_UI_SCALE } from '@arco/shared';
+import { UI_SCALES, DEFAULT_UI_SCALE, AUTO_HANDOFF_MAX_COMPACTIONS, AUTO_HANDOFF_MIN_COMPACTIONS, clampAutoHandoffCompactions } from '@arco/shared';
 import { AppVersionSection } from './settings/AppVersionSection';
 import { AppWindowBrowserSection } from './settings/AppWindowBrowserSection';
 import { EndpointHelp } from './EndpointHelp';
@@ -1453,24 +1453,27 @@ function CodexTransportDefaultsSection() {
 // Global auto-handoff default for newly-created tabs. Mirrors the per-tab
 // AUTO-HANDOFF section in the CONFIG tab; the per-tab value always wins, so
 // this only seeds tabs that have never been touched. Writes the full
-// {enabled,warnAt,autoAt} via POST /api/settings — sliders commit on release
-// (onMouseUp/onTouchEnd) so a drag doesn't hammer the settings file.
+// {enabled,afterCompactions,mode} via POST /api/settings; the count commits on
+// blur or Enter.
 function AutoHandoffDefaultsSection() {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const gd = settings?.autoHandoffDefaults;
   const enabled = gd?.enabled ?? false;
-  const warnAt = gd?.warnAt ?? 75;
-  const autoAt = gd?.autoAt ?? 90;
+  const afterCompactions = clampAutoHandoffCompactions(gd?.afterCompactions);
   const mode: 'quick' | 'original-worker' | 'fresh-summarizer' = gd?.mode ?? 'quick';
   const [saving, setSaving] = useState(false);
-  // Live slider positions while dragging; committed on release.
-  const [warnDraft, setWarnDraft] = useState(warnAt);
-  const [autoDraft, setAutoDraft] = useState(autoAt);
-  useEffect(() => { setWarnDraft(warnAt); }, [warnAt]);
-  useEffect(() => { setAutoDraft(autoAt); }, [autoAt]);
+  const [afterDraft, setAfterDraft] = useState(String(afterCompactions));
+  useEffect(() => { setAfterDraft(String(afterCompactions)); }, [afterCompactions]);
+  const commitAfter = () => {
+    const value = Number(afterDraft);
+    if (!Number.isFinite(value)) { setAfterDraft(String(afterCompactions)); return; }
+    const next = clampAutoHandoffCompactions(value);
+    setAfterDraft(String(next));
+    if (next !== afterCompactions) void commit({ enabled, afterCompactions: next, mode });
+  };
 
-  const commit = async (next: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' }) => {
+  const commit = async (next: { enabled: boolean; afterCompactions: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' }) => {
     if (saving) return;
     setSaving(true);
     try {
@@ -1527,7 +1530,7 @@ function AutoHandoffDefaultsSection() {
               type="button"
               className="display-font"
               disabled={saving}
-              onClick={() => { void commit({ enabled: opt === 'on', warnAt, autoAt, mode }); }}
+              onClick={() => { void commit({ enabled: opt === 'on', afterCompactions, mode }); }}
               style={{
                 flex: 1,
                 padding: '6px 10px',
@@ -1546,38 +1549,24 @@ function AutoHandoffDefaultsSection() {
           );
         })}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-body)', marginBottom: '8px', opacity: enabled ? 1 : 0.45 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-fg-muted)' }}>
-          <span style={{ minWidth: '42px', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '1px' }}>WARN</span>
-          <input
-            type="range"
-            min={60}
-            max={85}
-            value={warnDraft}
-            disabled={saving || !enabled}
-            onChange={(e) => setWarnDraft(Number(e.target.value))}
-            onMouseUp={() => { if (warnDraft !== warnAt) void commit({ enabled, warnAt: warnDraft, autoAt, mode }); }}
-            onTouchEnd={() => { if (warnDraft !== warnAt) void commit({ enabled, warnAt: warnDraft, autoAt, mode }); }}
-            style={{ flex: 1, accentColor: 'var(--color-warning)' }}
-          />
-          <span style={{ minWidth: '28px', textAlign: 'right', color: 'var(--color-warning)' }}>{warnDraft}%</span>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-fg-muted)' }}>
-          <span style={{ minWidth: '42px', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '1px' }}>AUTO</span>
-          <input
-            type="range"
-            min={75}
-            max={95}
-            value={autoDraft}
-            disabled={saving || !enabled}
-            onChange={(e) => setAutoDraft(Number(e.target.value))}
-            onMouseUp={() => { if (autoDraft !== autoAt) void commit({ enabled, warnAt, autoAt: autoDraft, mode }); }}
-            onTouchEnd={() => { if (autoDraft !== autoAt) void commit({ enabled, warnAt, autoAt: autoDraft, mode }); }}
-            style={{ flex: 1, accentColor: 'var(--color-danger, #f04a4a)' }}
-          />
-          <span style={{ minWidth: '28px', textAlign: 'right', color: 'var(--color-danger, #f04a4a)' }}>{autoDraft}%</span>
-        </label>
-      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-body)', color: 'var(--color-fg-muted)', marginBottom: '8px', opacity: enabled ? 1 : 0.45 }}>
+        Hand off after
+        <input
+          type="number"
+          aria-label="Default compactions before auto-handoff"
+          min={AUTO_HANDOFF_MIN_COMPACTIONS}
+          max={AUTO_HANDOFF_MAX_COMPACTIONS}
+          step={1}
+          value={afterDraft}
+          disabled={saving || !enabled}
+          onChange={(e) => setAfterDraft(e.target.value)}
+          onBlur={commitAfter}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitAfter(); } }}
+          className="arco-field"
+          style={{ width: '4.5em' }}
+        />
+        compactions
+      </label>
       {/* WP5 — global default MODE. Per-tab CONFIG mode wins; non-resumable
           providers (ollama) always fall back to fresh-summarizer regardless. */}
       <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)', marginBottom: '6px' }}>
@@ -1592,7 +1581,7 @@ function AutoHandoffDefaultsSection() {
               type="button"
               className="display-font"
               disabled={saving}
-              onClick={() => { void commit({ enabled, warnAt, autoAt, mode: opt }); }}
+              onClick={() => { void commit({ enabled, afterCompactions, mode: opt }); }}
               style={{
                 flex: 1,
                 padding: '6px 10px',
@@ -1612,7 +1601,7 @@ function AutoHandoffDefaultsSection() {
         })}
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: '14px' }}>
-        Starting auto-handoff state for new tabs. Existing tabs keep their per-tab setting. Disable to lean on Arco's between-turn compaction or manual context handling by default.
+        Starting auto-handoff state for new tabs; existing tabs keep their own setting. When enabled, a tab starts a fresh session at the end of a turn after this many compactions in one conversation (1 to 20, default 5). It needs auto-compaction where Arco compacts (Claude Native, Ollama).
       </div>
 
       {/* WP6 — global default summarizer (settings.handoffSummarizer). Only

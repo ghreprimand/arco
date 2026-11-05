@@ -21,7 +21,7 @@ test('fresh threshold runs one guarded Native compact and preserves prior events
   const cwd=join(temp,'project'), id=randomUUID(); const sent: Array<Record<string,unknown>>=[];
   const ws={readyState:1,send:(payload:string)=>sent.push(JSON.parse(payload))} as unknown as WebSocket;
   const config={name:'fixture',workingDirectory:cwd,primaryProvider:'claude' as const,primaryModel:'claude-opus-4-8',primaryEffort:'low' as const,claudeTransport:'native' as const,autoCompaction:{enabled:true,thresholdPercent:80}};
-  const wf={busy:false,config,primary:{provider:'claude',model:'claude-opus-4-8',effort:'low',skipPermissions:false},observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,warnAt:75,autoAt:90,warnFired:false,autoFired:false},lastContextPercent:85} as unknown as WorkflowState;
+  const wf={busy:false,config,primary:{provider:'claude',model:'claude-opus-4-8',effort:'low',skipPermissions:false},observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,afterCompactions:5,compactions:0,fired:false},lastContextPercent:85} as unknown as WorkflowState;
   workflows.set(id,wf); workflowCwds.set(id,cwd); await initWorkflowStore(cwd,id);
   native.setClaudeNativeWorkflowEventBroadcast((workflowId,event)=>broadcastWorkflow(workflowId,event));
   engine.initTurnEngine({previewAutoDetect:{} as never,handleCreateWorkflow:async()=>{},handleHandoffRequest:async()=>{},handleCompactWorkflow:compact.handleCompactWorkflow});

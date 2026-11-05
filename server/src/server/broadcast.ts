@@ -7,6 +7,7 @@ import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // See docs/ARCHITECTURE.md.
 
 import { WebSocket } from 'ws';
+import { reportCompaction } from '../compactionReport.js';
 import { observeConditionMessage } from '../voice/conditionFacts.js';
 import { watch as fsWatch, mkdirSync, type FSWatcher } from 'fs';
 import { basename, join } from 'path';
@@ -491,6 +492,8 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
     }
   }
   observeTurnBoundary(workflowId, wf, message);
+  // Claude Native compaction (COMPACT or automatic) counts toward auto-handoff.
+  if (message.type === 'native_compacted') reportCompaction({ workflowId, source: 'claude-native' });
   recordIncognitoEvent(workflowId, outgoing);
   const cwd = workflowCwds.get(workflowId);
   const stamped = cwd ? persistAndStampSeq(cwd, workflowId, outgoing) : outgoing;

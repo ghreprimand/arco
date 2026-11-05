@@ -37,8 +37,8 @@ export const GOAL_RUN_MAX_ITERATIONS = 500;
 // Context-fill ceiling. Past this the model is working in a degraded window
 // and further unattended turns mostly burn tokens re-reading a crowded
 // transcript — stop and let the operator decide between Fold / Handoff /
-// re-arm. Deliberately ABOVE autoHandoff.warnAt so an armed auto-handoff gets
-// first refusal.
+// re-arm. Deliberately close to the full window: auto-compaction normally
+// acts before this.
 export const GOAL_RUN_CONTEXT_STOP_PCT = 92;
 
 export type GoalRunState = {

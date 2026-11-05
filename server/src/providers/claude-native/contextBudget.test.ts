@@ -4,7 +4,7 @@
 // (window − reservedOutput), not the raw window, so it reads higher than a
 // raw-window percent for the same prompt size — that gap is the whole point
 // (reserved output tokens aren't usable for input). Plus: clamping, junk-input
-// safety, and the warn/auto/fold threshold-crossing logic.
+// safety, and the fold threshold-crossing logic.
 //
 // Run with: node --import tsx --test src/providers/claude-native/contextBudget.test.ts
 
@@ -66,21 +66,9 @@ test('haiku 200K window', () => {
   assert.equal(b.pct, Math.round((90_000 / 192_000) * 100));
 });
 
-test('crossedThresholds: warn/auto fire at or above their level', () => {
-  const t = { warnAt: 75, autoAt: 90 };
-  assert.deepEqual(crossedThresholds(74, t), { warn: false, auto: false, fold: false });
-  assert.deepEqual(crossedThresholds(75, t), { warn: true, auto: false, fold: false });
-  assert.deepEqual(crossedThresholds(90, t), { warn: true, auto: true, fold: false });
-});
-
 test('crossedThresholds: fold only fires when foldAt is configured', () => {
-  assert.equal(crossedThresholds(80, { warnAt: 75, autoAt: 90 }).fold, false);
-  assert.equal(crossedThresholds(80, { warnAt: 75, autoAt: 90, foldAt: 70 }).fold, true);
-  assert.equal(crossedThresholds(60, { warnAt: 75, autoAt: 90, foldAt: 70 }).fold, false);
-});
-
-test('foldAt sits below warnAt → fold crosses before warn', () => {
-  const t = { warnAt: 75, autoAt: 90, foldAt: 60 };
-  const c = crossedThresholds(65, t);
-  assert.deepEqual(c, { warn: false, auto: false, fold: true });
+  assert.deepEqual(crossedThresholds(80, {}), { fold: false });
+  assert.deepEqual(crossedThresholds(80, { foldAt: 70 }), { fold: true });
+  assert.deepEqual(crossedThresholds(70, { foldAt: 70 }), { fold: true });
+  assert.deepEqual(crossedThresholds(60, { foldAt: 70 }), { fold: false });
 });

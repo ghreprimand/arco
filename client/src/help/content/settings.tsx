@@ -482,11 +482,12 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Starting auto-handoff state for newly-created tabs; off by default. When enabled, Arco
-          auto-rotates to a fresh session at the <C>AUTO</C> token threshold
-          (and warns at <C>WARN</C>) when the provider has a trusted context-fill
-          signal. Disabling it leans on provider compact or manual Handoff instead.
-          QUICK is the default mode; a saved per-tab or global written mode remains in effect.
+          Starting auto-handoff state for newly-created tabs; off by default. When enabled, a
+          tab starts a fresh session at the end of a turn after the set number of compactions
+          in one conversation (default 5, 1 to 20). Auto-compaction keeps handling the context
+          fill. QUICK is the default mode; a saved per-tab or global written mode remains in
+          effect. Settings saved with the earlier WARN and AUTO percentages keep their on or
+          off state and use 5 compactions.
         </p>
         <p>
           The per-tab <strong>AUTO-HANDOFF</strong> control in the CONFIG tab

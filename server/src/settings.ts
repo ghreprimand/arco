@@ -1,5 +1,5 @@
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
+import { clampAutoHandoffCompactions, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
 // Three-layer operator-settings cascade.
 //
 // Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
@@ -376,22 +376,17 @@ function sanitizeCodexConfig(raw: unknown): { transport?: 'exec' | 'appserver'; 
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-// Global auto-handoff default. Mirrors the per-tab slider bounds in the
-// CONFIG tab (warn 60–85, auto 75–95) so a hand-edited settings.json can't
-// pin a threshold the UI can't represent. Each field is independent — a
-// partial object (e.g. just `enabled: false`) is valid; missing fields fall
-// through to the hardcoded default at seed time.
-function sanitizeAutoHandoffDefaults(raw: unknown): { enabled?: boolean; warnAt?: number; autoAt?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' } | undefined {
+// Global auto-handoff defaults. Each field is independent; a partial object
+// (e.g. just `enabled: false`) is valid and missing fields fall through to the
+// built-in default (off, after 5 compactions) at seed time. `warnAt` /
+// `autoAt` percentages saved before 0.1.5 are dropped; an `enabled` value is
+// kept, so an auto-handoff that was on stays on with 5 compactions.
+function sanitizeAutoHandoffDefaults(raw: unknown): { enabled?: boolean; afterCompactions?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
-  const out: { enabled?: boolean; warnAt?: number; autoAt?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' } = {};
+  const out: { enabled?: boolean; afterCompactions?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' } = {};
   if (typeof r.enabled === 'boolean') out.enabled = r.enabled;
-  if (typeof r.warnAt === 'number' && Number.isFinite(r.warnAt)) {
-    out.warnAt = Math.min(85, Math.max(60, Math.round(r.warnAt)));
-  }
-  if (typeof r.autoAt === 'number' && Number.isFinite(r.autoAt)) {
-    out.autoAt = Math.min(95, Math.max(75, Math.round(r.autoAt)));
-  }
+  if (typeof r.afterCompactions === 'number' && Number.isFinite(r.afterCompactions)) out.afterCompactions = clampAutoHandoffCompactions(r.afterCompactions);
   // Only known modes pass; anything else is dropped so a
   // hand-edited settings.json can't smuggle an invalid mode into resolution.
   if (r.mode === 'quick' || r.mode === 'original-worker' || r.mode === 'fresh-summarizer') out.mode = r.mode;
@@ -1017,7 +1012,7 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   // pass through. The AUTO-HANDOFF DEFAULTS section in SettingsPanel writes
   // here. A `null` field on a patch object survives sanitize-as-undefined and
   // is dropped by the merge, so the operator can't half-clear it — they POST
-  // the full {enabled,warnAt,autoAt} they want.
+  // the full {enabled,afterCompactions,mode} they want.
   if ('autoHandoffDefaults' in patch) {
     const sanitizedPatch = sanitizeAutoHandoffDefaults(patch.autoHandoffDefaults) ?? {};
     const next = { ...(current.autoHandoffDefaults ?? {}), ...sanitizedPatch };

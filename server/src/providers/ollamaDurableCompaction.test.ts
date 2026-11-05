@@ -136,3 +136,16 @@ test('manual COMPACT enters the durable worker path with auto off', async () => 
  await worker.maybeCompact(f.prepare(),undefined,[{baseUrl:'fixture'}],{},cache);
  assert.equal(readOllamaBoundary(f.args.cwd,'fixture')?.summary,'manual summary');
 });
+
+test('a saved compaction is reported once for auto-handoff; reusing the saved summary is not a new compaction', async () => {
+ const { setCompactionSink } = await import('../compactionReport.js');
+ const reports: Array<{ workflowId: string; source: string }> = [];
+ setCompactionSink((r) => { reports.push({ workflowId: r.workflowId, source: r.source }); });
+ try {
+  const f = fixture(), messages = f.prepare();
+  await compactDurableOllama({ ...f.args, messages });
+  assert.deepEqual(reports, [{ workflowId: 'fixture', source: 'ollama' }]);
+  await compactDurableOllama({ ...f.args, messages: f.prepare() });
+  assert.equal(reports.length, 1);
+ } finally { setCompactionSink(null); }
+});

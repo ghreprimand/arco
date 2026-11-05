@@ -8,12 +8,12 @@
 // (read on rehydrate). Keep the two blocks below in sync when adding a field.
 
 import { WebSocket } from 'ws';
-import { isAutoCompactionPolicy, type UpdatePrimaryConfigMessage } from '@arco/shared';
+import { isAutoCompactionPolicy, normalizeAutoHandoff, type UpdatePrimaryConfigMessage } from '@arco/shared';
 import { send, broadcastWorkflow, broadcastTransient } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { capGoal } from '../providers/goalBlock.js';
 import { normalizeGoalRunArm } from '../goalRun.js';
-import { deriveAutoFold, startSessionWatcher } from './turnEngine.js';
+import { deriveAutoFold, deriveAutoHandoff, startSessionWatcher } from './turnEngine.js';
 import { updateMeta } from '../workflowMeta.js';
 import { withFileLock } from '../atomicFile.js';
 import { disposeProviderResources } from '../providers/index.js';
@@ -74,14 +74,16 @@ export async function handleUpdatePrimaryConfig(
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] provider.account updated → ${msg.providerAccountRef || 'default'}`);
   }
 
-  // Phase 3 — update auto-handoff config. Mirrors into wf.config so the
-  // client receives the updated config on next rehydrate.
-  if (msg.autoHandoff !== undefined) {
-    wf.autoHandoff.enabled = msg.autoHandoff.enabled;
-    wf.autoHandoff.warnAt = msg.autoHandoff.warnAt;
-    wf.autoHandoff.autoAt = msg.autoHandoff.autoAt;
-    wf.config.autoHandoff = { ...msg.autoHandoff };
-    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] auto-handoff updated → enabled=${msg.autoHandoff.enabled} warn=${msg.autoHandoff.warnAt}% auto=${msg.autoHandoff.autoAt}%`);
+  // Update the auto-handoff config. Mirrors into wf.config so the client
+  // receives the updated config on next rehydrate. The compaction count of
+  // the current conversation is kept: lowering N to or below it hands off at
+  // the next turn boundary. A malformed value is ignored.
+  const autoHandoff = msg.autoHandoff !== undefined ? normalizeAutoHandoff(msg.autoHandoff) : undefined;
+  if (autoHandoff) {
+    wf.config.autoHandoff = autoHandoff;
+    const live = deriveAutoHandoff(wf.config);
+    wf.autoHandoff = { ...live, compactions: wf.autoHandoff?.compactions ?? 0, session: wf.autoHandoff?.session, fired: wf.autoHandoff?.fired ?? false };
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] auto-handoff updated → enabled=${autoHandoff.enabled} after=${live.afterCompactions} compactions`);
   }
 
   // §2.1 — auto-fold config. Mirror into the live state (deriveAutoFold carries
@@ -329,7 +331,7 @@ export async function handleUpdatePrimaryConfig(
         if (msg.model !== undefined) meta.primaryModel = msg.model;
         if (msg.effort !== undefined) meta.primaryEffort = msg.effort;
         if (msg.providerAccountRef !== undefined) meta.providerAccountRef = msg.providerAccountRef || undefined;
-        if (msg.autoHandoff !== undefined) meta.autoHandoff = { ...msg.autoHandoff };
+        if (autoHandoff) meta.autoHandoff = { ...autoHandoff };
         if (msg.autoFold !== undefined) meta.autoFold = { ...msg.autoFold };
         if (msg.codexTransport !== undefined) meta.codexTransport = msg.codexTransport;
         if (msg.codexContextPolicy !== undefined) meta.codexContextPolicy = msg.codexContextPolicy;

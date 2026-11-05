@@ -380,8 +380,8 @@ sequenceDiagram
         opt Claude CLI only
             S->>S: maybeCalibrate (idle, zone-gated)
         end
-        opt provider has a ctx-fill signal
-            S->>S: maybeAutoHandoff (>= autoAt threshold)
+        opt auto-handoff on and N compactions this conversation
+            S->>S: maybeAutoHandoff (before any fold or compaction of the boundary)
         end
         opt armed per tab
             S->>S: auto-fold / Native auto-compact, then maybeGoalRun
@@ -484,7 +484,7 @@ Opening a repo Arco hasn't seen before suppresses its project-local `AGENTS.md`,
 
 ### System notices
 
-`worker_system_notice` is the back-channel for transient provider issues (rate-limit warnings, retry backoff, API overload). The seed worker translates them into `system_notice` broadcasts which appear as in-chat alerts. Also used for context-fill warnings (`[CONTEXT] 75% - handoff recommended`) and calibration progress.
+`worker_system_notice` is the back-channel for transient provider issues (rate-limit warnings, retry backoff, API overload). The seed worker translates them into `system_notice` broadcasts which appear as in-chat alerts. Also used for calibration progress.
 
 ---
 
@@ -631,8 +631,8 @@ Two distinct numbers; both surface in `TokenBadge.tsx` / `ContextMeter`:
 **Compaction in Lite.** The Handoff button is still the operator-driven escape hatch, and Claude Native tabs also offer Claude API compaction (beta) under CONFIG > ADVANCED:
 
 1. `compact_20260112` (server-managed summarization at threshold) - **off by default**; the CONFIG > ADVANCED "Claude API compaction (beta)" toggle sets `WorkflowConfig.claudeNativeCompact: true` (new tabs start off). Rides `compact-2026-01-12`; gated on the model's catalog capability flag. Operator COMPACT (`native_compacted`) is the separate, Arco-owned in-place summary.
-2. **Auto-handoff** - Off by default; when enabled Arco rotates to a fresh session at threshold. Threshold (`autoAt`) defaults to 90%, warning (`warnAt`) to 75%; both per-tab from the CONFIG pane, persisted in `meta.json`. The global `autoHandoffDefaults` setting seeds new tabs and is materialized onto legacy tabs that have no per-tab value so server state matches the CONFIG UI. Auto-handoff only runs for providers with a trusted context-fill signal: Claude CLI/Native, Codex (both transports), and Ollama. Codex app-server use the latest rollout `last_token_usage` snapshot, not aggregated turn usage.
-3. **Cursor ACP** - Cursor automatically summarizes long conversations. Arco's idle-only COMPACT button (or `/compress`) sends Cursor's native `/compress` as an isolated ACP prompt, bypassing the normal cluster/north-star prefix so the slash dispatcher recognizes it. ACP exposes no trusted retained-context count today, so the worker header says `CTX: Cursor-managed` and Cursor is intentionally excluded from threshold auto-handoff.
+2. **Auto-handoff** - Off by default; when enabled Arco starts a fresh session at a turn boundary after N compactions in one conversation (`afterCompactions`, default 5, 1 to 20), per tab from the CONFIG pane and persisted in `meta.json` with the running count (`autoHandoffCount`). `server/src/compactionCounter.ts` counts reports from `compactionReport.ts`: Claude Native `native_compacted`, Claude CLI `compact_boundary`, Codex app-server `contextCompaction` items and `thread/compacted` (once per turn), and Arco's durable Ollama compaction. Fold is not counted. The global `autoHandoffDefaults` setting seeds new tabs and is materialized onto legacy tabs that have no per-tab value. Saved `warnAt` / `autoAt` percentages from before 0.1.5 are read as on/off with 5 compactions.
+3. **Cursor ACP** - Cursor automatically summarizes long conversations. Arco's idle-only COMPACT button (or `/compress`) sends Cursor's native `/compress` as an isolated ACP prompt, bypassing the normal cluster/north-star prefix so the slash dispatcher recognizes it. ACP exposes no trusted retained-context count or compaction report today, so the worker header says `CTX: Cursor-managed` and Cursor is excluded from auto-handoff.
 4. Operator Handoff button - always available regardless of the above.
 
 `clear_thinking_20251015` and `clear_tool_uses_20250919` are not default-on. They save context, but the Opus 4.8 A/B test showed `clear_tool_uses` can clear live web-search evidence and make Native diverge from Claude CLI behavior.

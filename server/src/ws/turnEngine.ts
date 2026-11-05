@@ -2,6 +2,7 @@ import { buildMessageGuardPolicy } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { projectOllamaHistory, stampOllamaExecution } from '../providers/ollamaExecutionHistory.js';
 import { publishActivity, computerProjectionChanged } from '../voice/activityBus.js';
 import { setComputerBackgroundClaim, clearComputerBackgroundClaim, isComputerBackgroundClaim } from '../voice/operatorTools.js';
@@ -16,7 +17,8 @@ SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
 } from '@arco/shared';
-import { isAutoCompactionPolicy, resolveProviderAutoCompaction } from '@arco/shared';
+import { AUTO_HANDOFF_DEFAULT_COMPACTIONS, autoHandoffAvailability, clampAutoHandoffCompactions, isAutoCompactionPolicy, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffAvailability, type AutoHandoffConfig, type AutoHandoffMode } from '@arco/shared';
+import { compactionsThisConversation } from '../compactionCounter.js';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
@@ -103,7 +105,7 @@ readSkillBody,
 import { ARCHITECTURE_REVIEW_SLUG, architectureReviewFacts } from '../architectureReview.js';
 import { artifactsDir } from '../workers/limits.js';
 import {
-ensureMeta,readMeta,reconcileLatestCliSession,updateMeta,type WorkflowMeta
+ensureMeta,readMeta,reconcileLatestCliSession,updateMeta,workflowDir,type WorkflowMeta
 } from '../workflowMeta.js';
 import {
 currentSeq as currentWorkflowSeq,
@@ -140,7 +142,7 @@ export interface TurnEngineDeps {
   captureCheckpoint?: typeof createCheckpoint;
   previewAutoDetect: PreviewAutoDetect;
   handleCreateWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<void>;
-  handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@arco/shared').HandoffRequestMessage) => Promise<void>;
+  handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@arco/shared').HandoffRequestMessage) => Promise<{ artifactName: string } | void>;
   handleCompactWorkflow?: (ws: WebSocket, session: Session, msg: import('@arco/shared').CompactWorkflowMessage, guard?: (claim: () => number) => Promise<number | false>, autoDetail?: string) => Promise<void>;
 }
 let deps: TurnEngineDeps;
@@ -388,17 +390,17 @@ export function derivePrimaryConfig(config: WorkflowConfig): PrimaryConfig {
 }
 
 export function deriveAutoHandoff(config: WorkflowConfig): WorkflowState['autoHandoff'] {
+  const saved = normalizeAutoHandoff(config.autoHandoff);
   return {
-    enabled: config.autoHandoff?.enabled ?? false,
-    warnAt: config.autoHandoff?.warnAt ?? 75,
-    autoAt: config.autoHandoff?.autoAt ?? 90,
-    warnFired: false,
-    autoFired: false,
+    enabled: saved?.enabled ?? false,
+    afterCompactions: saved?.afterCompactions ?? AUTO_HANDOFF_DEFAULT_COMPACTIONS,
+    compactions: 0,
+    fired: false,
     // WP5 — carry through verbatim (no defaulting); resolution happens at
     // fire time so a later change to the global default still affects tabs
     // that never set a per-tab override.
-    mode: config.autoHandoff?.mode,
-    summarizer: config.autoHandoff?.summarizer,
+    mode: saved?.mode,
+    summarizer: saved?.summarizer,
   };
 }
 
@@ -418,21 +420,24 @@ export function deriveAutoFold(config: WorkflowConfig): WorkflowState['autoFold'
 
 export function applyAutoHandoffDefault(
   config: WorkflowConfig,
-  defaults?: Partial<NonNullable<WorkflowConfig['autoHandoff']>> | null,
+  defaults?: { enabled?: boolean; afterCompactions?: number; mode?: AutoHandoffMode; summarizer?: AutoHandoffConfig['summarizer'] } | null,
 ): boolean {
+  // A config from an older client or saved file may carry percent fields.
+  if (config.autoHandoff !== undefined) {
+    const saved = normalizeAutoHandoff(config.autoHandoff);
+    if (saved) config.autoHandoff = saved; else delete config.autoHandoff;
+  }
   if (config.autoHandoff) return false;
   if (!defaults) return false;
   if (
     defaults.enabled === undefined
-    && defaults.warnAt === undefined
-    && defaults.autoAt === undefined
+    && defaults.afterCompactions === undefined
     && defaults.mode === undefined
     && defaults.summarizer === undefined
   ) return false;
   config.autoHandoff = {
     enabled: defaults.enabled ?? false,
-    warnAt: defaults.warnAt ?? 75,
-    autoAt: defaults.autoAt ?? 90,
+    afterCompactions: clampAutoHandoffCompactions(defaults.afterCompactions),
     ...(defaults.mode !== undefined ? { mode: defaults.mode } : {}),
     ...(defaults.summarizer !== undefined ? { summarizer: defaults.summarizer } : {}),
   };
@@ -475,8 +480,6 @@ export function resetCodexContextAfterCompact(
   modelContextWindow?: number,
 ): void {
   wf.lastContextPercent = 0;
-  wf.autoHandoff.warnFired = false;
-  wf.autoHandoff.autoFired = false;
   broadcastTransient(workflowId, {
     type: 'codex_token_snapshot',
     workflowId,
@@ -715,99 +718,105 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   return true;
 }
 
-// Check context fill and fire warning or auto-handoff. Called after the turn
-// loop exits (wf.busy has been reset to false by the finally block).
-export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cwd: string): Promise<void> {
+// Auto-handoff after N compactions (operator decision for 0.1.5). Runs at a
+// turn boundary only: called after the turn loop exits (wf.busy reset), before
+// any automatic fold or compaction of that boundary. Nothing is said before
+// the handoff; once it has run, one chat line names the count and links the
+// handoff document. Returns true when a handoff was started.
+export async function maybeAutoHandoff(workflowId: string, wf: WorkflowState, cwd: string): Promise<boolean> {
   // Chat tabs are projectless: a handoff re-seeds as an Agent worker (tools,
   // project context) and, for incognito, installed a cwdHandoffChain slot for
-  // the temp root + broadcast lock snapshots. deriveAutoHandoff defaults ON,
-  // so an Ollama chat at 90% window used to rotate into an Agent tab silently.
-  if (isChatWorkflow(wf.config)) return;
-  const percentOfWindow = wf.lastContextPercent;
-  if (typeof percentOfWindow !== 'number' || percentOfWindow <= 0) return;
-
+  // the temp root + broadcast lock snapshots. Never automatically.
+  if (isChatWorkflow(wf.config)) return false;
   const ah = wf.autoHandoff;
-  // Reset fired flags when context drops back to safe levels (after a handoff
-  // the new session starts near 0%).
-  if (percentOfWindow < Math.max(0, ah.warnAt - 5)) {
-    ah.warnFired = false;
-    ah.autoFired = false;
+  if (!ah?.enabled || ah.fired || wf.busy) return false;
+  const count = compactionsThisConversation(wf);
+  if (count < ah.afterCompactions) return false;
+  const cascade = await readSettings(cwd).catch(() => null);
+  if (!(await autoHandoffAvailableFor(workflowId, wf, cwd, cascade)).available) return false;
+  if (wf.busy || ah.fired) return false;
+  const obs = anyObserver(workflowId);
+  if (!obs) {
+    console.warn(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: no observer to broadcast on`);
+    return false;
   }
+  ah.fired = true;
+  console.log(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: ${count} compactions this conversation, firing`);
 
-  // Warning
-  if (percentOfWindow >= ah.warnAt && !ah.warnFired) {
-    ah.warnFired = true;
-    const obs = anyObserver(workflowId);
-    if (obs) {
-      send(obs, {
+  // Re-use the same handoff logic as the manual button by constructing
+  // a synthetic message and calling the handler.
+  //
+  // Per-tab override wins over the global default; quick is the fallback.
+  const mode: AutoHandoffMode =
+    wf.autoHandoff.mode
+    ?? cascade?.autoHandoffDefaults?.mode
+    ?? 'quick';
+  // Keep mode resolution in sync with manual handoff: provider-specific
+  // resume capability is handled by handoffHandlers, which translates the
+  // original-worker choice where a live session cannot be reopened.
+  const synthMsg: import('@arco/shared').HandoffRequestMessage = {
+    type: 'handoff_request',
+    workflowId,
+    mode,
+  };
+  // SUMMARIZER resolution: only matters for fresh-summarizer. Put the
+  // per-tab summarizer (if set) onto the synthesized message; the handler's
+  // chain is `msg.summarizer ?? settings.handoffSummarizer ?? primary`, so
+  // per-tab wins, global is the middle, primary is last. For original-worker
+  // we leave summarizer unset.
+  if (mode === 'fresh-summarizer' && wf.autoHandoff.summarizer) {
+    const s = wf.autoHandoff.summarizer;
+    synthMsg.summarizer = {
+      provider: s.provider,
+      model: s.model ?? wf.primary.model,
+      effort: s.effort ?? 'medium',
+    };
+  }
+  try {
+    const dummySession: Session = sessions.get(obs) ?? { id: 'auto', workflowIds: new Set([workflowId]), clusterIds: new Set(), clusterObserved: new Map() };
+    const done = await deps.handleHandoffRequest(obs, dummySession, synthMsg);
+    if (done && typeof done === 'object' && done.artifactName) {
+      const doc = path.join(workflowDir(cwd, workflowId), 'handoffs', done.artifactName);
+      broadcastWorkflow(workflowId, {
         type: 'system_notice',
         workflowId,
-        content: `[CONTEXT] ${percentOfWindow}% — handoff recommended. Auto-handoff at ${ah.autoAt}%.`,
+        content: `Handed off after ${count} compaction${count === 1 ? '' : 's'}: [handoff document](${doc.split(path.sep).join('/')})`,
       });
     }
-    console.log(`[arco] [${workflowId.slice(0, 8)}] context warning: ${percentOfWindow}% >= ${ah.warnAt}%`);
-  }
-
-  // Auto-handoff
-  if (ah.enabled && percentOfWindow >= ah.autoAt && !ah.autoFired && !wf.busy) {
-    ah.autoFired = true;
-    const obs = anyObserver(workflowId);
-    if (!obs) {
-      console.warn(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: no observer to broadcast on`);
-      return;
-    }
-    console.log(`[arco] [${workflowId.slice(0, 8)}] auto-handoff: context at ${percentOfWindow}%, firing`);
-    send(obs, {
-      type: 'system_notice',
-      workflowId,
-      content: `[AUTO-HANDOFF] Context at ${percentOfWindow}%. Rotating the session.`,
-    });
-
-    // Re-use the same handoff logic as the manual button by constructing
-    // a synthetic message and calling the handler.
-    //
-    // Per-tab override wins over the global default; quick is the fallback.
-    const cascade = await readSettings(cwd).catch(() => null);
-    const mode: 'quick' | 'original-worker' | 'fresh-summarizer' =
-      wf.autoHandoff.mode
-      ?? cascade?.autoHandoffDefaults?.mode
-      ?? 'quick';
-    // Keep mode resolution in sync with manual handoff: provider-specific
-    // resume capability is handled by handoffHandlers, which translates the
-    // original-worker choice where a live session cannot be reopened.
-    const synthMsg: import('@arco/shared').HandoffRequestMessage = {
-      type: 'handoff_request',
-      workflowId,
-      mode,
-    };
-    // SUMMARIZER resolution: only matters for fresh-summarizer. Put the
-    // per-tab summarizer (if set) onto the synthesized message; the handler's
-    // chain is `msg.summarizer ?? settings.handoffSummarizer ?? primary`, so
-    // per-tab wins, global is the middle, primary is last. For original-worker
-    // we leave summarizer unset.
-    if (mode === 'fresh-summarizer' && wf.autoHandoff.summarizer) {
-      const s = wf.autoHandoff.summarizer;
-      synthMsg.summarizer = {
-        provider: s.provider,
-        model: s.model ?? wf.primary.model,
-        effort: s.effort ?? 'medium',
-      };
-    }
-    try {
-      const dummySession: Session = sessions.get(obs) ?? { id: 'auto', workflowIds: new Set([workflowId]), clusterIds: new Set(), clusterObserved: new Map() };
-      await deps.handleHandoffRequest(obs, dummySession, synthMsg);
-    } catch (err) {
-      console.error(`[arco] [${workflowId.slice(0, 8)}] auto-handoff failed:`, err);
-      const obs2 = anyObserver(workflowId);
-      if (obs2) {
-        send(obs2, {
-          type: 'system_notice',
-          workflowId,
-          content: `[AUTO-HANDOFF FAILED] ${err instanceof Error ? err.message : String(err)}. Click HANDOFF manually.`,
-        });
-      }
+    // Not completed (cancelled, refused, or failed with its own notice): no
+    // retry in this conversation; HANDOFF stays available.
+  } catch (err) {
+    console.error(`[arco] [${workflowId.slice(0, 8)}] auto-handoff failed:`, err);
+    const obs2 = anyObserver(workflowId);
+    if (obs2) {
+      send(obs2, {
+        type: 'system_notice',
+        workflowId,
+        content: `[AUTO-HANDOFF FAILED] ${err instanceof Error ? err.message : String(err)}. Click HANDOFF manually.`,
+      });
     }
   }
+  return true;
+}
+
+// Whether auto-handoff can count compactions for this tab now (provider,
+// transport and the resolved auto-compaction policy, worker over cluster).
+export async function autoHandoffAvailableFor(workflowId: string, wf: WorkflowState, cwd: string, cascade?: Awaited<ReturnType<typeof readSettings>> | null): Promise<AutoHandoffAvailability> {
+  const settings = cascade === undefined ? await readSettings(cwd).catch(() => null) : cascade;
+  const provider = wf.primary.provider;
+  const claudeTransport = provider === 'claude' ? await resolveClaudeTransport(wf, cwd) : undefined;
+  const codexTransport = wf.config.codexTransport ?? (settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec');
+  const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  const ollamaSaved = settings?.ollama?.compaction?.enabled !== undefined || settings?.ollama?.compaction?.threshold !== undefined;
+  const compaction = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterId ? clusterStore.getAutoCompaction(clusterId) : undefined, provider, claudeTransport ?? '', wf.config.claudeNativeCompact === true, ollamaSaved);
+  return autoHandoffAvailability({
+    provider,
+    claudeTransport,
+    codexTransport,
+    chat: isChatWorkflow(wf.config),
+    compaction,
+    ollamaSavedEnabled: ollamaSaved ? settings?.ollama?.compaction?.enabled !== false : undefined,
+  });
 }
 
 export function freshAutoCompactionPercent(provider: string, transport: string, outcome: { error?: string; lastPromptTokens?: number; modelContextWindow?: number; freshContextWindow?: number }): number | undefined {
@@ -862,8 +871,11 @@ export async function runExplicitContextActions(
   busyToken: number, ws?: WebSocket, session?: Session,
 ): Promise<'stale' | 'compact-attempted' | 'done'> {
   if (lastBusyClaim.get(wf) !== busyToken) return 'stale';
-  // Ollama compacts at the next pre-dispatch boundary. Do not start an
-  // automatic fresh-session handoff ahead of that explicitly chosen policy.
+  // A due auto-handoff starts a fresh session, so this boundary needs no
+  // fold or compaction.
+  if (await maybeAutoHandoff(workflowId, wf, cwd)) return 'done';
+  if (lastBusyClaim.get(wf) !== busyToken) return 'stale';
+  // Ollama compacts at the next pre-dispatch boundary.
   if (wf.primary.provider === 'ollama' && policy.enabled) return 'done';
   let foldClaim: number | undefined;
   const folded = await maybeAutoFold(workflowId, wf, cwd, (token) => { foldClaim = token; }, () => lastBusyClaim.get(wf) === busyToken);
@@ -872,7 +884,6 @@ export async function runExplicitContextActions(
   if (folded) { wf.lastContextPercent = 0; wf.lastContextBudgetPct = undefined; }
   if (foldClaim !== undefined) return 'done';
   if (await maybeAutoCompactPolicy(workflowId, wf, cwd, policy, reading, busyToken, ws, session)) return 'compact-attempted';
-  await maybeAutoHandoff(workflowId, wf, cwd);
   return 'done';
 }
 
@@ -939,9 +950,9 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
   const prevPercent = wf.lastContextPercent;
   wf.lastContextPercent = currentPercent;
 
-  // Don't calibrate at or above the auto-handoff threshold — not worth the
-  // latency when a session rotation is imminent.
-  if (currentPercent >= wf.autoHandoff.autoAt) return;
+  // Don't calibrate near a full window: not worth the latency when the CLI's
+  // own compaction is imminent.
+  if (currentPercent >= 90) return;
 
   // Skip when the estimator already has ground truth from the JSONL usage
   // blocks — calibration only exists to tune the byte-count ratio, and the
@@ -2644,9 +2655,8 @@ export async function handleUserMessage(
             ...est,
             claudeSessionId: sid,
           });
-          // Keep the shared auto-handoff signal fresh (fire-and-forget, so it
-          // may settle just after maybeAutoHandoff runs — warnAt/autoAt margin
-          // absorbs the one-turn lag).
+          // Keep the shared context signal fresh (fire-and-forget, so it may
+          // settle one turn late; nothing here acts on a single reading).
           wf.lastContextPercent = est.percentOfWindow;
         }).catch(() => { /* best-effort */ });
       } else if (wf.primary.provider === 'claude' && claudeTransport === 'native' && typeof outcome.lastPromptTokens === 'number') {
@@ -2678,8 +2688,6 @@ export async function handleUserMessage(
           const budget = computeContextBudget(outcome.lastPromptTokens, win, reserved);
           wf.lastContextBudgetPct = budget.pct;
           const thresholds = {
-            warnAt: wf.autoHandoff.warnAt,
-            autoAt: wf.autoHandoff.autoAt,
             ...(typeof wf.autoFold?.foldAt === 'number' ? { foldAt: wf.autoFold.foldAt } : {}),
           };
           broadcastTransient(workflowId, {
@@ -2821,10 +2829,9 @@ export async function handleUserMessage(
     },
     // Phase 2 calibration: per-session ratio/overhead from ground-truth /context output.
     calibrate: () => maybeCalibrate(workflowId, wf, cwd),
-    // §2.1 — auto-fold runs FIRST (foldAt sits below the handoff thresholds):
-    // the cheap deterministic in-place Fold is tried before recommending a
-    // handoff. A successful fold reseeds the session, so the (now-stale)
-    // handoff check is skipped; the next turn's meter re-evaluates.
+    // A due auto-handoff (N compactions this conversation) runs first and
+    // replaces any fold or compaction of this boundary; otherwise the cheap
+    // deterministic Fold, then the auto-compaction policy.
     context: async () => {
       const clusterIdForPolicy = clusterStore.getClusterIdForWorkflow(workflowId);
       const explicitPolicy = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterIdForPolicy ? clusterStore.getAutoCompaction(clusterIdForPolicy) : undefined, wf.primary.provider, claudeTransport, wf.config.claudeNativeCompact === true, cascade?.ollama?.compaction?.enabled !== undefined || cascade?.ollama?.compaction?.threshold !== undefined);
@@ -2833,10 +2840,9 @@ export async function handleUserMessage(
         if (action === 'stale') return 'stop';
         if (action === 'compact-attempted') { await drainQueueIfIdle(workflowId); return 'stop'; }
       } else {
-        // Preserve existing behavior for work without the new policy.
-        const folded = await maybeAutoFold(workflowId, wf, cwd);
-        if (!folded) await maybeAutoHandoff(workflowId, wf, cwd);
-        // Provider-owned compaction remains with the provider.
+        // Work without an explicit policy: a due auto-handoff first, else
+        // the cheap fold. Provider-owned compaction remains with the provider.
+        if (!(await maybeAutoHandoff(workflowId, wf, cwd))) await maybeAutoFold(workflowId, wf, cwd);
       }
       return 'continue';
     },

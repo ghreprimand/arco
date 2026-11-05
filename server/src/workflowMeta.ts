@@ -1,5 +1,5 @@
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { normalizeAutoHandoff, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
 // Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
@@ -21,7 +21,7 @@ import { retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { ProviderName, ModelName, EffortLevel, WorkflowMetaSummary, SessionHistoryEntry, PreviewHistoryEntry, SessionInfo, McpWorkflowAllow, GenesisSeed, WorkflowConfig, ArcoSkillRef } from '@arco/shared';
+import type { ProviderName, ModelName, EffortLevel, WorkflowMetaSummary, SessionHistoryEntry, PreviewHistoryEntry, SessionInfo, McpWorkflowAllow, GenesisSeed, WorkflowConfig, ArcoSkillRef, AutoHandoffConfig } from '@arco/shared';
 import { getRecallIndex } from './recall/index.js';
 import { upsertSessionIndexFromMeta } from './workflows/sessionIndex.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
@@ -89,7 +89,12 @@ export interface WorkflowMeta {
   lastEventSeq: number | null;
   lastTranscriptSeq: number | null;
   compactedAt: number | null;
-  autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } };
+  // Read through normalizeAutoHandoff: files from before 0.1.5 carry
+  // warnAt/autoAt percentages instead of afterCompactions.
+  autoHandoff?: AutoHandoffConfig;
+  // Compactions counted toward auto-handoff in the conversation `session`
+  // (the primary session id), so a restart keeps the count.
+  autoHandoffCount?: { session?: string; count: number };
   // §2.1 — per-tab auto-fold config (Claude Native). Persisted so the operator's
   // arming survives a server restart.
   autoCompaction?: WorkflowConfig['autoCompaction'];
@@ -330,7 +335,7 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     ...(meta.reviewSafeMode ? { reviewSafeMode: meta.reviewSafeMode } : {}),
     ...(meta.autoCompaction !== undefined ? { autoCompaction: resolveAutoCompactionPolicy(meta.autoCompaction, undefined) } : {}),
     ...(meta.autoFold ? { autoFold: meta.autoFold } : {}),
-    ...(meta.autoHandoff ? { autoHandoff: meta.autoHandoff } : {}),
+    ...(normalizeAutoHandoff(meta.autoHandoff) ? { autoHandoff: normalizeAutoHandoff(meta.autoHandoff) } : {}),
   };
 }
 

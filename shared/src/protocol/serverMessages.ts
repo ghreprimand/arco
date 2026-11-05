@@ -1227,8 +1227,8 @@ export interface UltracodeFleetProgressMessage {
 
 // §2.3 — Token-budget meter (Claude Native). A deterministic per-turn reading
 // of usable-input pressure: the count_tokens prompt size against the
-// *effective* window (real window − reserved output budget), plus which
-// warn/auto/fold thresholds that pct has crossed. Distinct from
+// *effective* window (real window − reserved output budget), plus whether
+// the fold threshold has been crossed. Distinct from
 // `context_usage` (which is % of the RAW window and drives the CTX bar): the
 // budget meter is the signal the Fold/auto-fold trigger reads, since the
 // reserved output tokens are not usable for input. Transient (derived each
@@ -1241,8 +1241,8 @@ export interface ContextBudgetMessage {
   reservedOutput: number;
   effectiveWindow: number;
   pct: number;
-  thresholds: { warnAt: number; autoAt: number; foldAt?: number };
-  crossed: { warn: boolean; auto: boolean; fold: boolean };
+  thresholds: { foldAt?: number };
+  crossed: { fold: boolean };
 }
 
 // Phase 0 — operator label. Operator-attached note targeting a prior event

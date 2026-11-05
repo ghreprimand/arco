@@ -1,4 +1,4 @@
-import { isAutoCompactionPolicy, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { isAutoCompactionPolicy, normalizeAutoHandoff, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 import { stopTurnSizes } from '../storageTurnWatch.js';
 import { noteSmartPickupStop } from '../smartPickupObserver.js';
 import { isKnownProvider } from '../providers/index.js';
@@ -117,6 +117,7 @@ import {
   startSessionWatcher,
   toSessionEntries,
 } from './turnEngine.js';
+import { restoreCompactions } from '../compactionCounter.js';
 
 export interface WorkflowHandlerDeps {
   previewAutoDetect: PreviewAutoDetect;
@@ -424,15 +425,13 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         wf.config.autoFold = { ...savedMeta.autoFold };
         wf.autoFold = deriveAutoFold(wf.config);
       }
-      if (savedMeta?.autoHandoff) {
+      const savedAutoHandoff = normalizeAutoHandoff(savedMeta?.autoHandoff);
+      if (savedAutoHandoff) {
         if (wf) {
-          wf.autoHandoff.enabled = savedMeta.autoHandoff.enabled;
-          wf.autoHandoff.warnAt = savedMeta.autoHandoff.warnAt;
-          wf.autoHandoff.autoAt = savedMeta.autoHandoff.autoAt;
-          // WP5 — restore mode + summarizer too (resolution at fire time).
-          wf.autoHandoff.mode = savedMeta.autoHandoff.mode;
-          wf.autoHandoff.summarizer = savedMeta.autoHandoff.summarizer;
-          wf.config.autoHandoff = { ...savedMeta.autoHandoff };
+          // Saved percent settings from before 0.1.5 read as on/off with 5
+          // compactions; mode + summarizer resolve at fire time.
+          wf.config.autoHandoff = savedAutoHandoff;
+          wf.autoHandoff = deriveAutoHandoff(wf.config);
         }
       } else if (savedMeta && wf) {
         const cascade = seedCascade ?? await readSettings(config.workingDirectory).catch(() => null);
@@ -445,6 +444,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
           });
         }
       }
+      if (wf && savedMeta) restoreCompactions(wf, savedMeta.autoHandoffCount);
       if (savedMeta?.disableRssGuard) {
         const wf = workflows.get(workflowId);
         if (wf) wf.disableRssGuard = true;

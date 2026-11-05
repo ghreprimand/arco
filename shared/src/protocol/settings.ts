@@ -177,12 +177,13 @@ export interface ArcoSettings {
   // Global auto-handoff default for newly-created tabs (mirror of the
   // TRANSPORT DEFAULTS pattern). Per-tab `config.autoHandoff` always wins;
   // this only seeds tabs that have never been touched. Absent / partial ⇒
-  // the hardcoded fallback (enabled true / warn 75% / auto 90%) fills the
-  // gaps. Cascade-readable so a project `.arco/settings.json` can pin it.
+  // off, after 5 compactions. Cascade-readable so a project
+  // `.arco/settings.json` can pin it. Saved `warnAt` / `autoAt` from before
+  // 0.1.5 are ignored.
   // Per-tab config.autoHandoff.mode wins; absent here defaults to quick.
   // The summarizer model stays in the separate
   // top-level `handoffSummarizer` (below) — do not duplicate it here.
-  autoHandoffDefaults?: { enabled?: boolean; warnAt?: number; autoAt?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' };
+  autoHandoffDefaults?: { enabled?: boolean; afterCompactions?: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer' };
   // WP2 — global default for the fresh-summarizer worker that WRITES a handoff
   // doc. A handoff fires precisely when the current worker is low on context;
   // letting that degraded worker summarize itself is the failure mode this

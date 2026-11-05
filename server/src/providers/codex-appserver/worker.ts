@@ -45,6 +45,8 @@ import type { ThreadGoalClearResponse } from './bindings/v2/ThreadGoalClearRespo
 import type { ThreadGoalUpdatedNotification } from './bindings/v2/ThreadGoalUpdatedNotification.js';
 import type { ThreadCompactStartParams } from './bindings/v2/ThreadCompactStartParams.js';
 import type { ThreadCompactStartResponse } from './bindings/v2/ThreadCompactStartResponse.js';
+import type { ContextCompactedNotification } from './bindings/v2/ContextCompactedNotification.js';
+import { reportCompaction } from '../../compactionReport.js';
 import type { TurnInterruptParams } from './bindings/v2/TurnInterruptParams.js';
 import type { TurnSteerParams } from './bindings/v2/TurnSteerParams.js';
 import type { TurnSteerResponse } from './bindings/v2/TurnSteerResponse.js';
@@ -1155,6 +1157,7 @@ export class CodexAppServerWorker extends EventEmitter {
         if (p.item.type === 'imageGeneration') {
           void this.handleImageGeneration(p.item as ImageGenerationItem);
         }
+        if (p.item.type === 'contextCompaction') this.countCompaction(p.threadId, p.turnId);
         // Phase 6b — drain hook. Fire after every item completes; the
         // expectedTurnId precondition on `turn/steer` is the safety net for
         // the late-arriving case (turn ended between `item/completed` and
@@ -1213,6 +1216,8 @@ export class CodexAppServerWorker extends EventEmitter {
         // when an operator-triggered compact has written its summary. It is NOT
         // an idle signal: the compact turn can remain active briefly afterward,
         // so compactThread() continues waiting for turn/completed.
+        const p = (n.params ?? {}) as Partial<ContextCompactedNotification>;
+        this.countCompaction(p.threadId, p.turnId);
         this.emit('system_notice', `[${appServerNoticeTag(this.config)}] Thread context was compacted internally.`);
         return;
       }
@@ -1222,6 +1227,21 @@ export class CodexAppServerWorker extends EventEmitter {
       default:
         return;
     }
+  }
+
+  // Auto-handoff counting. Codex reports one compaction as a contextCompaction
+  // item and, while it still sends it, the older thread/compacted
+  // notification; both carry the turn id, so one compaction counts once.
+  private countedCompactionTurns = new Set<string>();
+  private countCompaction(threadId: string | undefined, turnId: string | undefined): void {
+    if (threadId && this.threadId && threadId !== this.threadId) return;
+    const key = `${threadId ?? ''}:${turnId ?? ''}`;
+    if (turnId) {
+      if (this.countedCompactionTurns.has(key)) return;
+      this.countedCompactionTurns.add(key);
+      if (this.countedCompactionTurns.size > 200) this.countedCompactionTurns.delete(this.countedCompactionTurns.values().next().value as string);
+    }
+    reportCompaction({ workflowId: this.workflowId, source: 'codex', ...(this.threadId ? { sessionId: this.threadId } : {}) });
   }
 
   private emitToolUseFromItem(item: ThreadItem, status: 'started' | 'completed'): void {

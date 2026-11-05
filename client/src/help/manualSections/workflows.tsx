@@ -160,24 +160,35 @@ codex exec resume <thread-id> "next prompt"
   {
   id: 'auto-handoff',
   group: 'Workflows & sessions',
-  title: 'Auto-handoff at threshold',
+  title: 'Auto-handoff after compactions',
   body: (
   <>
   <p>
-  Auto-handoff rotates a tab to a fresh session when its context gets too full.
-  It is off by default.
+  Auto-compaction keeps a long conversation inside the context window, and each
+  compaction loses some detail. Auto-handoff starts a fresh session once a
+  conversation has been compacted a set number of times. It is off by default.
   </p>
   <p>
-  When enabled and context fill reaches the configured ceiling (default 90%), Arco
-  generates a handoff document and rotates the tab to a fresh session. A warning
-  appears at a lower threshold (default 75%), so a manual <strong>Handoff</strong>,
-  a finish-and-rotate, or a threshold bump remain available. Both thresholds are
-  per tab and set in the CONFIG pane.
+  Turn it on in the CONFIG pane under AUTO-HANDOFF: tick <strong>Hand off
+  after</strong> and set the number of compactions (default 5, from 1 to 20).
+  The handoff runs only at the end of a turn, in the chosen mode: QUICK,
+  ORIGINAL WORKER or FRESH SUMMARIZER. The count starts again with the new
+  session.
   </p>
-  <Note kind="warn">
-  Auto-handoff runs only when Arco has a trusted context-fill signal for the
-  active provider. Claude uses session or Native counts, Codex app-server and Codex
-  use the latest rollout token snapshot, and Ollama uses the daemon's prompt count.
+  <p>
+  Nothing is shown before the handoff. Afterwards one chat line says, for
+  example, Handed off after 5 compactions, and links the handoff document.
+  A Fold does not count as a compaction.
+  </p>
+  <Sub>Where Arco can count</Sub>
+  <ul>
+  <li>Claude Native and Ollama: Arco's own compactions, so auto-compaction must be on.</li>
+  <li>Claude CLI and Codex app-server: the compactions they report, including their own.</li>
+  <li>Cursor, Codex exec and providers without compaction: not countable. The control is unavailable and says why.</li>
+  </ul>
+  <Note kind="info">
+  Tabs saved with the earlier WARN and AUTO percentages keep their on or off
+  state and hand off after 5 compactions.
   </Note>
   </>
   ),

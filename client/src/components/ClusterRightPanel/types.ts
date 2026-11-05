@@ -34,13 +34,7 @@ export type ClusterMemberPrimaryUpdate = {
   autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null;
   model?: ModelName;
   effort?: EffortLevel;
-  autoHandoff?: {
-    enabled: boolean;
-    warnAt: number;
-    autoAt: number;
-    mode?: 'quick' | 'original-worker' | 'fresh-summarizer';
-    summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
-  };
+  autoHandoff?: import('@arco/shared').AutoHandoffConfig;
   codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard';
   claudeTransport?: 'cli' | 'native';
   claudeNativeCompact?: boolean;

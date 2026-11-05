@@ -88,9 +88,10 @@ test('new tabs keep auto-handoff disabled unless explicitly enabled', async () =
   const { applyAutoHandoffDefault, deriveAutoHandoff, applyClaudeNativeCompactDefault } = await import('./turnEngine.js');
   const config = { name: 'fixture', primaryModel: 'fixture', primaryEffort: 'medium' } as import('@arco/shared').WorkflowConfig;
   assert.equal(deriveAutoHandoff(config).enabled, false);
-  applyAutoHandoffDefault(config, { warnAt: 70 });
-  assert.equal(config.autoHandoff?.enabled, false);
-  const explicit = { ...config, autoHandoff: { enabled: true, warnAt: 75, autoAt: 90 } };
+  assert.equal(deriveAutoHandoff(config).afterCompactions, 5);
+  applyAutoHandoffDefault(config, { afterCompactions: 7 });
+  assert.deepEqual(config.autoHandoff, { enabled: false, afterCompactions: 7 });
+  const explicit = { ...config, autoHandoff: { enabled: true, afterCompactions: 3 } };
   applyAutoHandoffDefault(explicit, { enabled: false });
   assert.equal(explicit.autoHandoff.enabled, true);
   applyClaudeNativeCompactDefault(explicit);

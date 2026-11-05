@@ -364,10 +364,9 @@ export const providers: Section[] = [
   would suggest.
   </li>
   <li>
-  <strong>Auto-handoff uses rollout snapshots.</strong> Arco reads the latest
-  per-call token snapshot before checking thresholds, so a native compact or
-  short follow-up does not fire from the previous turn&apos;s stale context
-  percentage.
+  <strong>Compactions count toward auto-handoff.</strong> On the app-server
+  transport Arco counts each compaction Codex reports, its own and the ones
+  COMPACT or auto-compaction start, once per compaction.
   </li>
   </ul>
   </>

@@ -273,7 +273,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   model?: ModelName,
   effort?: EffortLevel,
   providerAccountRef?: string,                        // provider-account profile id (wired for Codex; reserved on Claude)
-  autoHandoff?: { enabled, warnAt, autoAt, mode?, summarizer? }, // per-tab auto-handoff thresholds + mode + fresh-summarizer
+  autoHandoff?: { enabled, afterCompactions?, mode?, summarizer? }, // per-tab auto-handoff after N compactions + mode + fresh-summarizer
   codexTransport?: 'exec' | 'appserver', // per-tab Codex transport override
   codexContextPolicy?: 'max' | 'standard',           // per-tab window policy; absent means MAX
   claudeTransport?: 'cli' | 'native', // per-tab Claude transport override
@@ -908,8 +908,8 @@ sequenceDiagram
     end
     S-->>C: primary_complete
     S-->>C: primary_turn_ended
-    opt context fill warning
-      S-->>C: system_notice "[CONTEXT] 75% - handoff recommended"
+    opt auto-handoff after N compactions (turn boundary)
+      S-->>C: system_notice "Handed off after 5 compactions: [handoff document](...)"
     end
     opt context_usage refresh
       S-->>C: context_usage

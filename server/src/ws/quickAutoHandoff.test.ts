@@ -17,9 +17,9 @@ const { patchSettings } = await import('../settings.js');
 test('automatic handoff defaults to quick and honors saved global and tab modes', async () => {
   const cwd = join(home, 'project'); mkdirSync(cwd);
   const ws = { readyState: 1, send: () => {} } as unknown as WebSocket;
-  const wf = { busy: false, observers: new Set([ws]), config: { name: 'fixture', workingDirectory: cwd },
-    primary: { provider: 'claude', model: 'sonnet', effort: 'high' }, lastContextPercent: 95,
-    autoHandoff: { enabled: true, warnAt: 75, autoAt: 90, warnFired: false, autoFired: false },
+  const wf = { busy: false, observers: new Set([ws]), config: { name: 'fixture', workingDirectory: cwd, claudeTransport: 'native' },
+    primary: { provider: 'claude', model: 'sonnet', effort: 'high' },
+    autoHandoff: { enabled: true, afterCompactions: 5, compactions: 5, fired: false },
   } as unknown as WorkflowState;
   const modes: string[] = [];
   engine.initTurnEngine({ previewAutoDetect: {} as never, handleCreateWorkflow: async () => {}, handleHandoffRequest: async (_ws, _session, msg) => { modes.push(msg.mode); } });
@@ -27,9 +27,9 @@ test('automatic handoff defaults to quick and honors saved global and tab modes'
   try {
     await engine.maybeAutoHandoff('fixture', wf, cwd);
     await patchSettings({ autoHandoffDefaults: { mode: 'fresh-summarizer' } });
-    wf.autoHandoff.autoFired = false;
+    wf.autoHandoff.fired = false;
     await engine.maybeAutoHandoff('fixture', wf, cwd);
-    wf.autoHandoff.autoFired = false; wf.autoHandoff.mode = 'original-worker';
+    wf.autoHandoff.fired = false; wf.autoHandoff.mode = 'original-worker';
     await engine.maybeAutoHandoff('fixture', wf, cwd);
     assert.deepEqual(modes, ['quick', 'fresh-summarizer', 'original-worker']);
   } finally { workflows.delete('fixture'); }

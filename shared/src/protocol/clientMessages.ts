@@ -263,16 +263,10 @@ export interface UpdatePrimaryConfigMessage {
   // Phase 3 — update auto-handoff config without a provider/model change.
   // WP5 — `mode` + `summarizer` carry the operator's per-tab handoff-mode and
   // fresh-summarizer model choices (see WorkflowConfig.autoHandoff).
-  autoHandoff?: {
-    enabled: boolean;
-    warnAt: number;
-    autoAt: number;
-    mode?: 'quick' | 'original-worker' | 'fresh-summarizer';
-    summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
-  };
+  autoHandoff?: import('./workflows.js').AutoHandoffConfig;
   // §2.1 — update per-tab auto-fold config (Claude Native). Off by default;
-  // foldAt is the budget-meter pct that triggers an in-place Fold (below
-  // autoHandoff.warnAt). Persists to meta.json + WorkflowConfig.autoFold.
+  // foldAt is the budget-meter pct that triggers an in-place Fold.
+  // Persists to meta.json + WorkflowConfig.autoFold.
   autoFold?: {
     enabled: boolean;
     foldAt: number;

@@ -31,15 +31,11 @@ export interface ContextBudget {
 }
 
 export interface BudgetThresholds {
-  warnAt: number;
-  autoAt: number;
   // §2.1 wires this from autoFold config; undefined ⇒ fold crossing never fires.
   foldAt?: number;
 }
 
 export interface ThresholdCrossings {
-  warn: boolean;
-  auto: boolean;
   fold: boolean;
 }
 
@@ -67,8 +63,6 @@ export function computeContextBudget(
 // pct is at or above it. fold only fires when a foldAt is configured.
 export function crossedThresholds(pct: number, t: BudgetThresholds): ThresholdCrossings {
   return {
-    warn: pct >= t.warnAt,
-    auto: pct >= t.autoAt,
     fold: typeof t.foldAt === 'number' && pct >= t.foldAt,
   };
 }

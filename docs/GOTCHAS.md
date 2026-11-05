@@ -718,7 +718,7 @@ Operator-armed, per tab, default OFF; while armed, one continuation turn is disp
 - **`remaining` is decremented BEFORE the dispatch await.** A fast re-entrant settle would otherwise read the pre-decrement count and spend one iteration twice.
 - **Counters are NOT mirrored to meta.json.** A server restart ends any armed run. This is deliberate: the restart already killed the turn, and a deploy silently resuming an unattended loop is precisely the surprise the feature is designed to avoid. Don't "fix" this by persisting the counters.
 - **Busy / queued is a skip, not a stop** - no iteration consumed, next settle re-evaluates. Only the six reasons in `GOAL_RUN_STOP_TEXT` end a run, and each one is announced with its reason.
-- **`maybeGoalRun` runs LAST** among the post-settle armed actions (after auto-fold, auto-handoff, native auto-compaction). Each of those reshapes the context the tick would run against.
+- **`maybeGoalRun` runs LAST** among the post-settle armed actions (after auto-handoff, auto-fold, native auto-compaction; a due auto-handoff replaces the other two at that boundary). Each of those reshapes the context the tick would run against.
 - **Arming requires a north star**, and clearing the north star mid-run stops it (`no_north_star`) - otherwise the loop dispatches turns pointing at nothing.
 - **Operator messages don't disarm.** Steering mid-run is expected; stopping is always explicit (the chip or `/goal run stop`). The chip renders only while armed, so an unattended loop can never be running without a visible counter and a one-click stop above the composer - don't hide it behind a panel.
 

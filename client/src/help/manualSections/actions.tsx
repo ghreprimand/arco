@@ -266,8 +266,8 @@ export const actions: Section[] = [
             toolset.
           </li>
           <li>
-            <strong>Auto-handoff thresholds</strong> (Claude) - warning +
-            ceiling.
+            <strong>Auto-handoff</strong> - hand off after N compactions
+            (default 5). Off by default.
           </li>
           <li>
             <strong>Auto-fold</strong> (Claude Native) - deterministic in-place

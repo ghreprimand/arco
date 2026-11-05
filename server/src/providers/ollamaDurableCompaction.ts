@@ -3,6 +3,7 @@ import { projectOllamaHistory } from './ollamaExecutionHistory.js';
 import { readOllamaBoundary, saveOllamaBoundary, ollamaProjectDigest, type OllamaBoundary } from './ollamaBoundaryStore.js';
 import { assembleCompacted, compactionSeedMessage, type CompactMessage, type CompactionConfig } from './ollamaRecovery.js';
 import { renderTranscript } from '../primitives/exportContext.js';
+import { reportCompaction } from '../compactionReport.js';
 
 type Message = CompactMessage;
 const cycles = new Map<string, { digest: string; fired: boolean }>();
@@ -73,7 +74,7 @@ export async function compactDurableOllama(args: {
     sessionEpoch: history.epoch, throughSeq: candidate.throughSeq, digest: candidate.digest,
     summary: summary.text, foldedCount: cutMessages(candidate).length };
   try {
-    const saved = await saveOllamaBoundary(cwd, next, () => !args.signal?.aborted && context.stillOwner(), () => { emit(`ollama_compacted: summarized ${next.foldedCount} history messages via ${summary.source} at ${Math.round(used / window * 100)}% context (threshold ${context.policy.thresholdPercent}%). Original events remain recoverable.`); });
+    const saved = await saveOllamaBoundary(cwd, next, () => !args.signal?.aborted && context.stillOwner(), () => { emit(`ollama_compacted: summarized ${next.foldedCount} history messages via ${summary.source} at ${Math.round(used / window * 100)}% context (threshold ${context.policy.thresholdPercent}%). Original events remain recoverable.`); reportCompaction({ workflowId, source: 'ollama' }); });
     if (!saved) { emit('Ollama auto-compaction deferred: cancellation or a newer summary prevented the save.'); return; }
   } catch { emit('Ollama auto-compaction failed to save its summary boundary; original events remain intact.'); return; }
   if (args.signal?.aborted || !context.stillOwner()) return;

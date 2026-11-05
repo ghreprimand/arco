@@ -554,7 +554,7 @@ Anthropic's `/v1/models` exposes three context-management capabilities. Arco kee
 | `clear_thinking` (strip stale thinking blocks server-side) | off | none today; keep off unless an explicit operator surface is added |
 | `clear_tool_uses` (strip stale tool i/o server-side) | off | none today; keep off unless an explicit operator surface is added |
 | `compact_20260112` (server-managed summarization at threshold) | off for Native | CONFIG > ADVANCED "Claude API compaction (beta)" toggle (`WorkflowConfig.claudeNativeCompact`; explicit `true` enables) |
-| Auto-handoff (Arco rotates to fresh session at threshold) | opt-in (default `false` for new Claude tabs) | CONFIG-tab "AUTO-HANDOFF" toggle (`WorkflowConfig.autoHandoff.enabled`) |
+| Auto-handoff (Arco starts a fresh session after N compactions, default 5) | opt-in (default `false` for new tabs) | CONFIG-tab "AUTO-HANDOFF" Hand off after N compactions (`WorkflowConfig.autoHandoff.enabled`, `afterCompactions`) |
 
 `clear_thinking` and `clear_tool_uses` ship behind `anthropic-beta: context-management-2025-06-27` if they are ever used, but Native deliberately does not send that beta or those edits by default. The 2026-05-31 Opus 4.8 A/B test showed that `clear_tool_uses` can replace live web-search evidence with `Search result was cleared`, causing repeated searches and stale-source answers. Compact rides on `compact-2026-01-12` and is emitted only when the operator has explicitly enabled the per-tab toggle and the active model's cached `/v1/models` catalog entry advertises `compact_20260112`. An unrecognized model conservatively skips all betas rather than risk a 400. Compaction is `{ type: 'compact_20260112' }` in `context_management.edits`, not a sibling `context_management.compact` object. Per-request beta-header override is set on the SDK call so a live model swap mid-tab re-evaluates capabilities cleanly. The `Claude API compaction (beta)` toggle is only rendered when `transport === 'native'` and the active model's catalog entry has `compact_20260112: { supported: true }`; missing `WorkflowConfig.claudeNativeCompact` means disabled, and explicit `true` is the durable enable.
 
@@ -573,7 +573,7 @@ Distinct from the Anthropic server-side edits above - these are Arco-owned, dete
 
 `server/src/catalog.ts` polls `https://api.anthropic.com/v1/models` (using the worker's OAuth tokens + standard wire fingerprint), distills the wire shape to the picker's camelCase form via `distillCatalogModel()`, and caches the result for one hour (`REFRESH_INTERVAL_MS = 60 * 60 * 1000`). Refresh is lazy - the next request after expiry triggers it; `?force=1` on `GET /api/claude-native/catalog` bypasses the cache. Capability flags (`clearThinking`, `clearToolUses`, `compact`) are derived from the catalog entry's `supportedFeatures`, but only `compact` is consumed by the worker by default. The CONFIG-tab model picker uses `compact` to gate the CONFIG > ADVANCED Claude API compaction (beta) toggle, and `getCachedModelCapabilities(modelId)` is called per Native request to decide whether to send `compact-2026-01-12` + `{ type: 'compact_20260112' }`. Cold-start, fetch failure, or an unrecognized id (operator typo, picker out of sync) all return `null` and the worker conservatively skips the beta - the `[claude-native:<wfid>] → messages.create ... ctx_mgmt=compact` log line shows what actually went out. Static fallbacks still need to be updated when a new family ships: `supportsClaudeAdaptiveThinking()` / `CLAUDE_MODEL_EFFORTS` control effort semantics, `adaptiveMaxTokensForModel()` controls output cap, and `contextEstimator.ts` controls the CTX denominator before the live catalog can help.
 
-Compact + auto-handoff coexist; both can be on (two safety nets), either can be off, or both off (operator drives Handoff manually). See plan-doc 15 for the full combination matrix and the resolved beta-header strings.
+Compaction handles context fill; auto-handoff counts compactions (`native_compacted`, automatic and COMPACT) and starts a fresh session after N of them in one conversation. On Claude Native it needs Arco's auto-compaction on; Claude API compaction (`compact_20260112`) is not counted. See plan-doc 15 for the full combination matrix and the resolved beta-header strings.
 
 #### Operator in-place compact (`⊟ COMPACT` / `native_compacted`)
 
@@ -1024,7 +1024,7 @@ an ordinary model prompt instead of a slash command. `available_commands_update`
 active turn; when Cursor has supplied an authoritative snapshot, Arco refuses rather than guessing
 if `compress` is absent. The underlying Cursor session persists the summary. Arco records the action
 through the existing `ctx_action` + system-notice compact path; Handoff remains the clean-session escape
-hatch. Cursor still has no Arco auto-handoff threshold because ACP supplies no trusted fill signal.
+hatch. Cursor has no Arco auto-handoff: ACP does not report Cursor's own compressions, so Arco cannot count them.
 
 **Included-allocation gauge.** `cursorUsage.ts` also GETs `/api/usage-summary` (the endpoint the Spending
 page calls) → `CursorIncludedUsage` (`used`/`limit`/`remaining` cents, `totalPercentUsed` /
@@ -1768,7 +1768,7 @@ Future entries (e.g. operator-installed Linear / Jira MCPs) should follow the sa
 | Mid-turn cancel | yes (SIGKILL) | yes (loop-abort, in-process) | yes (SIGKILL) | yes (`turn/interrupt` + 5s ack; SIGKILL fallback) | yes (abort fetch) | yes (abort fetch) | yes (abort fetch) |
 | Mid-turn steer | post-turn drain | drain hook between tool-result append + next API call | post-turn drain | `turn/steer` RPC (precondition: `expectedTurnId`) | yes (between tool-loop iterations) | yes (between tool-loop iterations) | yes (between tool-loop iterations) |
 | Concurrent-writer guard | yes | n/a (Arco-internal session) | no | no | n/a | n/a | n/a |
-| Auto-handoff support | yes | yes | yes (rollout snapshot) | yes (rollout snapshot) | yes | no - in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
+| Auto-handoff support (after N compactions) | yes (CLI `compact_boundary`) | yes (`native_compacted`; needs auto-compaction) | no (exec reports no compactions) | yes (`contextCompaction` / `thread/compacted`) | yes (durable compaction; needs auto-compaction) | no - in-place auto-recovery instead (context fill / stall / tool-cap / reasoning runaway) | no |
 | Server-side context-mgmt | n/a | operator-armed (`compact` OFF by default - CONFIG ADVANCED Claude API compaction (beta) toggle, gated on catalog support; `clear_thinking` / `clear_tool_uses` intentionally off) | n/a | n/a | n/a | n/a | n/a |
 | Cluster peer tools | per-spawn stdio MCP child via `--mcp-config` | registered in-process | per-turn stdio MCP child via `-c mcp_servers.*` TOML overrides | per-appserver-process stdio MCP child via `-c mcp_servers.*` TOML overrides | in-process tool registry (`localClusterCapacity`, default 1) | in-process tool registry (`localClusterCapacity`, default 1) | no |
 | Chat tabs | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (+ web) | yes (not Incognito) | yes |

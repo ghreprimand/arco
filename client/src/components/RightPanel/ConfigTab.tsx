@@ -1,7 +1,7 @@
 import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react';
-import { CLAUDE_MODEL_LABELS } from '@arco/shared';
+import { AUTO_HANDOFF_MAX_COMPACTIONS, AUTO_HANDOFF_MIN_COMPACTIONS, CLAUDE_MODEL_LABELS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffConfig } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -29,7 +29,7 @@ export function ConfigTab({
   mcp,
 }: {
   job: JobState;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   mcp?: McpSenders;
@@ -279,10 +279,9 @@ export function ConfigTab({
 
       {canEdit && <AutoCompactionSection job={job} onUpdatePrimary={onUpdatePrimary!} />}
 
-      {/* Phase 3 — auto-handoff config. WP1: generalized beyond Claude to the
-          providers that now keep wf.lastContextPercent fresh per turn
-      (Codex via app-server usage, Ollama via prompt_eval_count). */}
-      {(provider === 'claude' || provider === 'codex' || provider === 'ollama') && canEdit && (
+      {/* Auto-handoff after N compactions. Shown for every provider: where
+          Arco cannot count compactions the control is disabled with the reason. */}
+      {canEdit && job.config.kind !== 'chat' && (
         <AutoHandoffSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
@@ -573,7 +572,7 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
     || (provider === 'ollama' && job.config.kind !== 'chat');
   return <section data-help="rightpanel.config.auto-compaction" style={{ marginTop: 18, fontSize: 11 }}>
     <div className="display-font">AUTO-COMPACTION</div>
-    <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. While enabled, automatic handoff waits for this policy; manual handoff remains available. Unknown usage does not trigger this policy.</p>
+    <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. Auto-handoff below counts these compactions and hands off after the number set there; manual handoff remains available. Unknown usage does not trigger this policy.</p>
     {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}
     <label className="arco-field-label">Policy <select title="Provider: Claude CLI and Codex compact themselves; Claude Native and Ollama compact automatically near the limit." className="arco-field" aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
       <option value="inherit">{cluster ? 'Inherit cluster default' : 'Provider'}</option>
@@ -589,21 +588,23 @@ function AutoHandoffSection({
   onUpdatePrimary,
 }: {
   job: JobState;
-  onUpdatePrimary: (update: { autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number } }) => void;
+  onUpdatePrimary: (update: { autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number } }) => void;
 }) {
   // Fall back to the operator's global default (AUTO-HANDOFF DEFAULTS in
-  // Settings) when the tab has no per-tab value yet, then the hardcoded
-  // 75/90/on. New tabs arrive with config.autoHandoff already seeded by the
+  // Settings) when the tab has no per-tab value yet, then off after 5
+  // compactions. New tabs arrive with config.autoHandoff already seeded by the
   // server, so this only covers older tabs created before a default was set.
   const settings = useAppStore((s) => s.settings);
+  const clusters = useAppStore((s) => s.clusters);
   const gd = settings?.autoHandoffDefaults;
-  const ah = job.config.autoHandoff ?? {
+  const ah: AutoHandoffConfig = normalizeAutoHandoff(job.config.autoHandoff) ?? {
     enabled: gd?.enabled ?? false,
-    warnAt: gd?.warnAt ?? 75,
-    autoAt: gd?.autoAt ?? 90,
-    mode: gd?.mode,
+    afterCompactions: clampAutoHandoffCompactions(gd?.afterCompactions),
+    ...(gd?.mode ? { mode: gd.mode } : {}),
   };
-  const cu = job.contextUsage;
+  const after = clampAutoHandoffCompactions(ah.afterCompactions);
+  const [afterDraft, setAfterDraft] = useState(String(after));
+  useEffect(() => { setAfterDraft(String(after)); }, [after]);
 
   // WP6 — ORIGINAL is available for ALL providers. claude/codex truly resume
   // their session; local models (ollama/etc.) translate "original" server-side
@@ -613,17 +614,36 @@ function AutoHandoffSection({
   const providerResumable = provider === 'claude' || provider === 'codex';
   const resolvedMode: 'quick' | 'original-worker' | 'fresh-summarizer' = ah.mode ?? gd?.mode ?? 'quick';
 
-  const setAh = (patch: Partial<typeof ah>) => {
-    const next = { ...ah, ...patch };
+  const setAh = (patch: Partial<AutoHandoffConfig>) => {
+    const next: AutoHandoffConfig = { ...ah, afterCompactions: after, ...patch };
     onUpdatePrimary({ autoHandoff: next });
   };
+  const commitAfter = () => {
+    const value = Number(afterDraft);
+    if (!Number.isFinite(value)) { setAfterDraft(String(after)); return; }
+    const next = clampAutoHandoffCompactions(value);
+    setAfterDraft(String(next));
+    if (next !== after) setAh({ afterCompactions: next });
+  };
 
-  // §2.1 — auto-fold (Claude Native only). foldAt sits BELOW warnAt so the cheap
-  // in-place Fold is tried before a handoff is recommended. Off by default.
+  // §2.1 — auto-fold (Claude Native only). Off by default.
   const resolvedClaudeTransportCfg: 'cli' | 'native' = job.config.claudeTransport
     ?? (settings?.claude?.transport === 'native' ? 'native' : 'cli');
   const foldEligible = provider === 'claude' && resolvedClaudeTransportCfg === 'native';
-  const af = job.config.autoFold ?? { enabled: false, foldAt: Math.max(40, ah.warnAt - 10) };
+  const af = job.config.autoFold ?? { enabled: false, foldAt: 65 };
+
+  // Whether Arco can count compactions here (the same rule the server uses).
+  const cluster = Object.values(clusters).find((c) => c.members.some((m) => m.workflowId === job.id));
+  const ollamaSaved = settings?.ollama?.compaction?.enabled !== undefined || settings?.ollama?.compaction?.threshold !== undefined;
+  const availability = autoHandoffAvailability({
+    provider,
+    claudeTransport: resolvedClaudeTransportCfg,
+    codexTransport: job.config.codexTransport ?? settings?.codex?.transport ?? 'exec',
+    chat: job.config.kind === 'chat',
+    compaction: resolveProviderAutoCompaction(job.config.autoCompaction ?? undefined, cluster?.autoCompaction, provider, provider === 'claude' ? resolvedClaudeTransportCfg : '', job.config.claudeNativeCompact === true, ollamaSaved),
+    ollamaSavedEnabled: ollamaSaved ? settings?.ollama?.compaction?.enabled !== false : undefined,
+  });
+  const unavailable = !availability.available;
   const setAf = (patch: Partial<typeof af>) => onUpdatePrimary({ autoFold: { ...af, ...patch } });
 
   // WP5 — the fresh-summarizer model picker. `current` = this tab's primary
@@ -647,48 +667,39 @@ function AutoHandoffSection({
       <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)', marginBottom: '8px' }}>
         AUTO-HANDOFF
       </div>
-      {cu && (
-        <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>
-          Context: ~{cu.estimatedTokens.toLocaleString()} / {cu.windowSize.toLocaleString()} tokens ({cu.percentOfWindow}%)
-        </div>
-      )}
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-body)', marginBottom: '6px', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-body)', marginBottom: '6px', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: unavailable ? 'not-allowed' : 'pointer' }}>
+          <input
+            type="checkbox"
+            aria-label="Hand off automatically after compactions"
+            checked={ah.enabled && !unavailable}
+            disabled={unavailable}
+            onChange={(e) => setAh({ enabled: e.target.checked })}
+            style={{ accentColor: 'var(--color-accent-primary)' }}
+          />
+          <span style={{ color: 'var(--color-fg-muted)' }}>Hand off after</span>
+        </label>
         <input
-          type="checkbox"
-          checked={ah.enabled}
-          onChange={(e) => setAh({ enabled: e.target.checked })}
-          style={{ accentColor: 'var(--color-accent-primary)' }}
+          type="number"
+          aria-label="Compactions before auto-handoff"
+          min={AUTO_HANDOFF_MIN_COMPACTIONS}
+          max={AUTO_HANDOFF_MAX_COMPACTIONS}
+          step={1}
+          value={afterDraft}
+          disabled={unavailable}
+          onChange={(e) => setAfterDraft(e.target.value)}
+          onBlur={commitAfter}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitAfter(); } }}
+          className="arco-field"
+          style={{ width: '4.5em' }}
         />
-        <span style={{ color: 'var(--color-fg-muted)' }}>Enable auto-handoff</span>
-      </label>
-      <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: '8px' }}>
-        Arco auto-rotates to a fresh session at the token threshold. Disable to lean on Anthropic's compact (Native only) or to handle context manually.
+        <span style={{ color: 'var(--color-fg-muted)' }}>compactions</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-body)' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-fg-muted)' }}>
-          <span style={{ minWidth: '42px', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '1px' }}>WARN</span>
-          <input
-            type="range"
-            min={60}
-            max={85}
-            value={ah.warnAt}
-            onChange={(e) => setAh({ warnAt: Number(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--color-warning)' }}
-          />
-          <span style={{ minWidth: '28px', textAlign: 'right', color: 'var(--color-warning)' }}>{ah.warnAt}%</span>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-fg-muted)' }}>
-          <span style={{ minWidth: '42px', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '1px' }}>AUTO</span>
-          <input
-            type="range"
-            min={75}
-            max={95}
-            value={ah.autoAt}
-            onChange={(e) => setAh({ autoAt: Number(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--color-danger, #f04a4a)' }}
-          />
-          <span style={{ minWidth: '28px', textAlign: 'right', color: 'var(--color-danger, #f04a4a)' }}>{ah.autoAt}%</span>
-        </label>
+      <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: '8px' }}>
+        Auto-compaction keeps the context in check; each compaction is lossy. After this many compactions in one conversation, Arco starts a fresh session at the end of a turn, in the mode below, and says so in one chat line. Off by default. A Fold does not count.
+      </div>
+      <div role={unavailable ? 'alert' : undefined} data-auto-handoff-availability style={{ fontSize: '10px', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: '8px', color: unavailable ? 'var(--color-warning)' : 'var(--color-fg-muted)' }}>
+        {availability.available ? availability.counts : availability.reason}
       </div>
 
       {/* WP5 — handoff MODE. Original-worker resumes the same session (only
@@ -744,15 +755,15 @@ function AutoHandoffSection({
             <span style={{ color: 'var(--color-fg-muted)' }}>Enable auto-fold</span>
           </label>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: '8px' }}>
-            Before a handoff is recommended, deterministically fold older history into a digest and keep a verbatim recent tail: same session, instant, no model round. The raw transcript stays in events.jsonl. Fires when the context budget crosses FOLD AT (kept below WARN).
+            Deterministically fold older history into a digest and keep a verbatim recent tail: same session, instant, no model round. The raw transcript stays in events.jsonl. Fires when the context budget crosses FOLD AT. A Fold is not counted as a compaction for auto-handoff.
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-fg-muted)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>
             <span style={{ minWidth: '52px', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '1px' }}>FOLD AT</span>
             <input
               type="range"
               min={30}
-              max={Math.max(35, ah.warnAt - 5)}
-              value={Math.min(af.foldAt, Math.max(35, ah.warnAt - 5))}
+              max={85}
+              value={Math.min(af.foldAt, 85)}
               onChange={(e) => setAf({ foldAt: Number(e.target.value) })}
               style={{ flex: 1, accentColor: 'var(--color-accent-primary)' }}
             />

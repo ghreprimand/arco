@@ -85,14 +85,18 @@ export interface WorkflowState {
   // arrive from the client. Empty once every entry has been emitted OR when
   // the watcher hasn't run yet.
   pendingEarlierEntries?: SessionJsonlEntry[];
-  // Phase 3 — per-tab auto-handoff state. Mirrors WorkflowConfig.autoHandoff
-  // with defaults when absent.
+  // Per-tab auto-handoff state. Mirrors WorkflowConfig.autoHandoff with
+  // defaults when absent (off, after 5 compactions).
   autoHandoff: {
     enabled: boolean;
-    warnAt: number;
-    autoAt: number;
-    warnFired: boolean;
-    autoFired: boolean;
+    afterCompactions: number;
+    // Compactions counted in the current conversation (compactionCounter.ts).
+    // `session` is the primary session id the count belongs to; a different
+    // session id means a new conversation and a count of 0.
+    compactions: number;
+    session?: string;
+    // Set when the handoff for this count has been started; cleared with the count.
+    fired: boolean;
     // WP5 — mirrors config.autoHandoff.mode/summarizer. Left undefined when
     // unset; the resolution (global default, provider-resumable fallback)
     // happens at fire time in maybeAutoHandoff, not here.
@@ -101,8 +105,7 @@ export interface WorkflowState {
   };
   // §2.1 — per-tab auto-fold state (Claude Native). foldAt is the
   // effective-window budget % (from the §2.3 meter) at which an in-place Fold
-  // fires; it sits BELOW autoHandoff.warnAt so a fold is attempted before a
-  // handoff is recommended. Off by default (enabled false / absent). The
+  // fires. A Fold is not counted as a compaction for auto-handoff. Off by default (enabled false / absent). The
   // config + ConfigTab toggle + fired-flag bookkeeping land with §2.1; §2.3
   // only reads foldAt to report fold-threshold crossings on the budget meter.
   autoFold?: {

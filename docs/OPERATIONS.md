@@ -947,13 +947,13 @@ The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-e
 | `acknowledgedCliVersions` | Dismiss CONFIG-tab dot | Yes |
 | `claude.transport` (`'cli' \| 'native'`) | Per-tab Claude transport - overridden by `WorkflowConfig.claudeTransport`. Reviewers and handoff seeds always run on `cli` regardless. | Yes |
 | `codex.transport` (`'exec' \| 'appserver'`) | Per-tab Codex transport - overridden by `WorkflowConfig.codexTransport`. Reviewers and handoff seeds always run on `exec`. | Yes |
-| `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff thresholds/mode; pin a fresh-summarizer provider/model for handoffs | Yes |
+| `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff (`enabled`, `afterCompactions`, `mode`); pin a fresh-summarizer provider/model for handoffs | Yes |
 | `defaultProjectTrust` (`ask`/`always`/`never`) | DD7 default for unseen repos; read from global scope only | Yes |
 | `mediaUnconfined` | Media studio path fence (see External dependencies) | Yes |
 | `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.arco/handoff*.prompt.md` are the normal surface) | Yes |
 | `queueMode` (`'visible' \| 'hidden'`) | Queue UX mode | Yes |
 
-Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, warnAt, autoAt }` (trusted context-signal providers only; enabled by default for new tabs), `claudeNativeCompact` (server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (one-shot warning gate when an operator first flips Codex transport to `appserver`).
+Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, afterCompactions, mode?, summarizer? }` with `autoHandoffCount` (off by default; providers whose compactions Arco can count), `claudeNativeCompact` (server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (one-shot warning gate when an operator first flips Codex transport to `appserver`).
 
 ---
 

@@ -342,7 +342,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.config.auto-compaction': {
     title: 'Auto-compaction',
-    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 30-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Ollama compacts before dispatch. Other transports are unavailable for this policy. Ollama summarizes verified completed executions before the next turn and reuses saved summaries. Legacy or partial history defers safely; raw events remain available. An enabled Ollama policy defers automatic handoff; manual handoff remains available. Explicit Off stops automatic compaction. Provider uses Arco compaction near 90% for Claude Native and Ollama; Claude CLI and Codex compact themselves. Fold is deterministic, while handoff starts a fresh session.</p>,
+    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 30-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Ollama compacts before dispatch. Other transports are unavailable for this policy. Ollama summarizes verified completed executions before the next turn and reuses saved summaries. Legacy or partial history defers safely; raw events remain available. Auto-handoff counts these compactions. Explicit Off stops automatic compaction, and auto-handoff then shows that it needs auto-compaction. Provider uses Arco compaction near 90% for Claude Native and Ollama; Claude CLI and Codex compact themselves. Fold is deterministic, while handoff starts a fresh session.</p>,
     manualSection: 'auto-handoff',
   },
   'rightpanel.config.claude-api-compaction': {
@@ -354,8 +354,16 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Auto-handoff',
     body: (
       <p>
-        Arco auto-rotates to a fresh session at a context-fill threshold
-        (warn-at / auto-at percentages, editable here). Off by default. Provider auto-compaction handles supported workflows near the context limit.
+        Hand off after N compactions: auto-compaction keeps the context in check,
+        and after this many compactions in one conversation (default 5, 1 to 20)
+        Arco starts a fresh session at the end of a turn, in the chosen mode
+        (QUICK, ORIGINAL WORKER or FRESH SUMMARIZER). Off by default. Nothing is
+        shown before it; afterwards one chat line says how many compactions there
+        were and links the handoff document. The count starts again with the new
+        session. A Fold does not count. Claude Native and Ollama need
+        auto-compaction on; Claude CLI and Codex app-server report their own
+        compactions. Where Arco cannot count (Cursor, Codex exec, providers without
+        compaction) the control is unavailable and says why.
       </p>
     ),
     manualSection: 'auto-handoff',
@@ -364,13 +372,13 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Auto-fold (Native)',
     body: (
       <p>
-        Operator-armed, Claude-Native-only, off by default. Before a handoff is
-        recommended, Arco deterministically folds older transcript history into
-        a digest and keeps a verbatim recent tail: same session, instant,{' '}
+        Operator-armed, Claude-Native-only, off by default. Arco
+        deterministically folds older transcript history into a digest and keeps
+        a verbatim recent tail: same session, instant,{' '}
         <em>no model round</em>. The raw transcript stays in <C>events.jsonl</C>.
-        Fires when the context budget crosses <C>FOLD AT</C> (kept below the
-        auto-handoff <C>WARN</C> level). The composer's <C>FOLD</C> button forces
-        one immediately regardless.
+        Fires when the context budget crosses <C>FOLD AT</C>. A Fold is not
+        counted toward auto-handoff. The composer's <C>FOLD</C> button forces one
+        immediately regardless.
       </p>
     ),
     manualSection: 'auto-handoff',

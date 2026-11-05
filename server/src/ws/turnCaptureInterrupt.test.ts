@@ -22,7 +22,7 @@ test('an interrupt during pre-capture replaces the prompt before any worker star
     tasks.push(spec.task); emit({type:'worker_text',text:'answer'}); emit({type:'worker_complete',costUsd:0,durationMs:1});
     return {text:'answer',costUsd:0,durationMs:1};
   }, getWorkerPid:()=>undefined};
-  const wf = {config:{name:'fixture',workingDirectory:cwd,primaryProvider:'codex',primaryModel:'fixture',primaryEffort:'low',skipPermissions:false},primary:{provider:'codex',model:'fixture',effort:'low',skipPermissions:false},manager,busy:false,observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,warnAt:75,autoAt:90,warnFired:false,autoFired:false},bgTracker:{noteBgHint:()=>{},attachParent:()=>{},detachParent:()=>{}}} as unknown as WorkflowState;
+  const wf = {config:{name:'fixture',workingDirectory:cwd,primaryProvider:'codex',primaryModel:'fixture',primaryEffort:'low',skipPermissions:false},primary:{provider:'codex',model:'fixture',effort:'low',skipPermissions:false},manager,busy:false,observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,afterCompactions:5,compactions:0,fired:false},bgTracker:{noteBgHint:()=>{},attachParent:()=>{},detachParent:()=>{}}} as unknown as WorkflowState;
   workflows.set(id,wf); workflowCwds.set(id,cwd); await initWorkflowStore(cwd,id);
   let signal!:()=>void, finish!:(value:null)=>void, calls=0;
   const started = new Promise<void>(resolve=>{signal=resolve;});

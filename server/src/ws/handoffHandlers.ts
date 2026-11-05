@@ -16,7 +16,7 @@ import type {
   SpawnMemberIdentity,
   WorkflowConfig,
 } from '@arco/shared';
-import { CODEX_MODEL_INFO, MEMBER_FOCUS_MAX, clusterDirectorProblem, isClusterDirector, isClusterMemberAccessMode, isMemberTier, normalizeClusterRoleText, resolveAutoCompactionPolicy } from '@arco/shared';
+import { CODEX_MODEL_INFO, MEMBER_FOCUS_MAX, clusterDirectorProblem, isClusterDirector, isClusterMemberAccessMode, isMemberTier, normalizeClusterRoleText, normalizeAutoHandoff, resolveAutoCompactionPolicy } from '@arco/shared';
 import { lookupCtx } from '../providers/claude-native/modelParams.js';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
@@ -106,6 +106,12 @@ import {
   resetAutoCompactionCycle,
   startSessionWatcher,
 } from './turnEngine.js';
+import { resetCompactions, restoreCompactions } from '../compactionCounter.js';
+
+// "Original worker" on a local model rereads its own transcript; at or above
+// this context fill the transcript may not fit, so the fresh summarizer writes
+// the handoff instead.
+const LOCAL_SELF_SUMMARY_LIMIT_PERCENT = 90;
 
 export interface HandoffHandlerDeps {
   previewAutoDetect: PreviewAutoDetect;
@@ -120,7 +126,7 @@ export async function handleHandoffRequest(
   ws: WebSocket,
   session: Session,
   msg: import('@arco/shared').HandoffRequestMessage,
-): Promise<void> {
+): Promise<{ artifactName: string } | void> {
   const wf = workflows.get(msg.workflowId);
   if (!wf) {
     send(ws, { type: 'error', message: `Unknown workflow ${msg.workflowId.slice(0, 8)}` });
@@ -315,7 +321,7 @@ export async function handleHandoffRequest(
     // model can't fit the transcript back into its own window. lastContextPercent
     // is the cheapest existing signal; default to "fits" when we have none.
     const tooBig = typeof wf.lastContextPercent === 'number'
-      && wf.lastContextPercent >= (wf.autoHandoff?.autoAt ?? 90);
+      && wf.lastContextPercent >= LOCAL_SELF_SUMMARY_LIMIT_PERCENT;
     if (!tooBig) {
       // Fits: same local model summarizes itself.
       effectiveMode = 'fresh-summarizer';
@@ -695,9 +701,8 @@ export async function handleHandoffRequest(
   console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} complete (archived ${oldSessionId?.slice(0, 8)}, new ${wf.primarySessionId?.slice(0, 8)})`);
   releaseHandoffBusy();
 
-  // Reset fired flags so warning/auto-handoff thresholds work fresh in the new session.
-  wf.autoHandoff.warnFired = false;
-  wf.autoHandoff.autoFired = false;
+  // A new conversation: auto-handoff counts compactions from 0 again.
+  resetCompactions(msg.workflowId, wf);
 
   // Reset calibration state — new session starts uncalibrated.
   wf.calibration = undefined;
@@ -712,6 +717,7 @@ export async function handleHandoffRequest(
       broadcastTransient(msg.workflowId, { type: 'context_usage', workflowId: msg.workflowId, ...est, claudeSessionId: wf.primarySessionId });
     }).catch(() => { /* best-effort */ });
   }
+  return { artifactName: handle.artifactName };
 
   } finally {
     // Catches the early returns and throws that used to leave the tab stuck
@@ -1011,7 +1017,7 @@ export async function handleSpawnFromHere(
   let translatedSummarizer = summarizer;
   if (effectiveMode === 'original-worker' && !parentResumable) {
     const tooBig = typeof parent.lastContextPercent === 'number'
-      && parent.lastContextPercent >= (parent.autoHandoff?.autoAt ?? 90);
+      && parent.lastContextPercent >= LOCAL_SELF_SUMMARY_LIMIT_PERCENT;
     if (!tooBig) {
       effectiveMode = 'fresh-summarizer';
       translatedSummarizer = { provider: parent.primary.provider, model: parent.primary.model, effort: parent.primary.effort };
@@ -1404,14 +1410,12 @@ export async function handleRehydrateWorkflows(
             wf.primarySessionId = latestForProvider.sessionId;
           }
           wf.config.autoCompaction = resolveAutoCompactionPolicy(meta.autoCompaction, undefined);
-          if (meta.autoHandoff) {
-            wf.autoHandoff.enabled = meta.autoHandoff.enabled;
-            wf.autoHandoff.warnAt = meta.autoHandoff.warnAt;
-            wf.autoHandoff.autoAt = meta.autoHandoff.autoAt;
-            // WP5 — restore mode + summarizer too (resolution at fire time).
-            wf.autoHandoff.mode = meta.autoHandoff.mode;
-            wf.autoHandoff.summarizer = meta.autoHandoff.summarizer;
-            wf.config.autoHandoff = { ...meta.autoHandoff };
+          const savedAutoHandoff = normalizeAutoHandoff(meta.autoHandoff);
+          if (savedAutoHandoff) {
+            // Saved percent settings from before 0.1.5 read as on/off with 5
+            // compactions; mode + summarizer resolve at fire time.
+            wf.config.autoHandoff = savedAutoHandoff;
+            wf.autoHandoff = { ...deriveAutoHandoff(wf.config), compactions: wf.autoHandoff?.compactions ?? 0, session: wf.autoHandoff?.session, fired: wf.autoHandoff?.fired ?? false };
           } else {
             const cascade = await readSettings(cwd).catch(() => null);
             if (applyAutoHandoffDefault(wf.config, cascade?.autoHandoffDefaults) && wf.config.autoHandoff) {
@@ -1423,6 +1427,7 @@ export async function handleRehydrateWorkflows(
               });
             }
           }
+          if (!existing) restoreCompactions(wf, meta.autoHandoffCount);
           if (meta.disableRssGuard) wf.disableRssGuard = true;
           if (meta.planId) {
             const summary = await readPlanSummary(cwd, meta.planId).catch(() => null);

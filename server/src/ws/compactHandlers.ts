@@ -363,9 +363,8 @@ export async function handleFoldWorkflow(ws: WebSocket, _session: Session, msg: 
   if (result.ok) {
     // A fold drops the prompt size; the next turn's count_tokens refreshes the
     // CTX bar (same as compact — no synthetic snapshot needed). Reset the
-    // handoff/fold fired flags so a post-fold low fill re-arms cleanly.
-    wf.autoHandoff.warnFired = false;
-    wf.autoHandoff.autoFired = false;
+    // fold fired flag so a post-fold low fill re-arms cleanly. A Fold is not
+    // counted as a compaction for auto-handoff.
     if (wf.autoFold) wf.autoFold.foldFired = false;
     const kb = typeof result.byteDelta === 'number' ? ` (~${Math.round(result.byteDelta / 1024)} KB reclaimed)` : '';
     const turns = typeof result.foldedTurns === 'number' ? `${result.foldedTurns} turn(s) ` : '';

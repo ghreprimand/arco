@@ -28,7 +28,7 @@ test('plan review dispatches without project tools and is refused while busy', a
   }, getWorkerPid: () => undefined };
   const wf = { config: { name: 'fixture', workingDirectory: cwd, primaryProvider: 'ollama', primaryModel: 'fixture', primaryEffort: 'medium', skipPermissions: false },
     primary: { provider: 'ollama', model: 'fixture', effort: 'medium' }, manager, busy: false, observers: new Set([ws]),
-    queue: { steering: [], followUp: [] }, autoHandoff: { enabled: false, warnAt: 75, autoAt: 90, warnFired: false, autoFired: false },
+    queue: { steering: [], followUp: [] }, autoHandoff: { enabled: false, afterCompactions: 5, compactions: 0, fired: false },
     bgTracker: { noteBgHint: () => {}, attachParent: () => {}, detachParent: () => {} } } as unknown as WorkflowState;
   workflows.set(id, wf); workflowCwds.set(id, cwd); await initWorkflowStore(cwd, id);
   engine.initTurnEngine({ previewAutoDetect: { noteAgentText: () => {}, notePotentialDevServerStart: () => {} } as never, handleCreateWorkflow: async () => {}, handleHandoffRequest: async () => {} });
@@ -57,7 +57,7 @@ test('a normal follow-up queued during plan review returns to agent mode', async
   }), getWorkerPid: () => undefined };
   const wf = { config: { name: 'fixture', workingDirectory: cwd, primaryProvider: 'ollama', primaryModel: 'fixture', primaryEffort: 'medium', skipPermissions: false },
     primary: { provider: 'ollama', model: 'fixture', effort: 'medium' }, manager, busy: false, observers: new Set([ws]),
-    queue: { steering: [], followUp: [] }, autoHandoff: { enabled: false, warnAt: 75, autoAt: 90, warnFired: false, autoFired: false },
+    queue: { steering: [], followUp: [] }, autoHandoff: { enabled: false, afterCompactions: 5, compactions: 0, fired: false },
     bgTracker: { noteBgHint: () => {}, attachParent: () => {}, detachParent: () => {} } } as unknown as WorkflowState;
   workflows.set(id, wf); workflowCwds.set(id, cwd); await initWorkflowStore(cwd, id);
   engine.initTurnEngine({ previewAutoDetect: { noteAgentText: () => {}, notePotentialDevServerStart: () => {} } as never, handleCreateWorkflow: async () => {}, handleHandoffRequest: async () => {} });

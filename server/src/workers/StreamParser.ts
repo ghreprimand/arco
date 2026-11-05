@@ -179,6 +179,15 @@ export class StreamParser extends EventEmitter {
         tools: event.tools,
         sessionId: event.session_id,
       });
+    } else if (subtype === 'compact_boundary') {
+      // The Claude CLI compacted the conversation (its own auto-compaction or
+      // /compact): {"type":"system","subtype":"compact_boundary",
+      // "compact_metadata":{"trigger":"auto"|"manual",...}}.
+      const meta = event.compact_metadata as Record<string, unknown> | undefined;
+      this.emit('compact_boundary', {
+        sessionId: typeof event.session_id === 'string' ? event.session_id : undefined,
+        trigger: typeof meta?.trigger === 'string' ? meta.trigger : undefined,
+      });
     }
   }
 

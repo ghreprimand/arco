@@ -79,7 +79,7 @@ The same machinery drafts replies for a worker. The request adds `purpose: 'repl
 5. Stream events. The seedWorker's job is to translate each `WorkerEvent` (`text`/`thinking`/`tool_use`/`result`/`system_notice`) into the corresponding `primary_*` protocol message and broadcast it.
 6. Settle. `await turn.settled` collects the final outcome. For Claude, also call `estimateContextFill` and broadcast `context_usage`.
 7. Drain `wf.queue.steering` then `wf.queue.followUp`. If non-empty, join messages with `\n\n`, concat attachments, loop back to step 1. Each queued message was already echoed at enqueue time, so the drain doesn't re-echo individually.
-8. `finally`: `wf.busy = false`, queue cleared. Run `maybeCalibrate` (Claude, idle, zone-gated) and `maybeAutoHandoff`.
+8. `finally`: `wf.busy = false`, queue cleared. Run `maybeCalibrate` (Claude, idle, zone-gated) and `maybeAutoHandoff` (when on and the conversation has had N compactions; before any fold or compaction of that boundary).
 
 ### Events emitted (in order)
 
@@ -94,7 +94,7 @@ primary_complete            (cost, tokens, durationMs)
 primary_turn_token_usage    (Claude Native - ground-truth input/output/cache tokens for context_usage recompute)
 primary_turn_ended          (always)
 context_usage               (Claude only, post-settle)
-[CONTEXT] system_notice     (Claude only, on threshold cross)
+system_notice               (auto-handoff only: "Handed off after N compactions", after the handoff)
 ```
 
 ### Cancel / error
@@ -417,7 +417,7 @@ sequenceDiagram
 
 **Summarizer resolution.** When the request carries no `summarizer`, Handoff and Spawn use the pinned `settings.handoffSummarizer` before falling back to the primary. Handoff uses medium writer effort unless an effort was selected; Spawn retains its own writer defaults. Why: a handoff fires exactly when the current worker is low on context, so letting that degraded worker summarize itself is the failure mode to dodge. Auto-handoff defaults to Quick and retains any explicitly saved written mode.
 
-**Original-worker on a non-resumable provider.** Only Claude / Codex have a live session to resume. For Ollama / llama.cpp / LM Studio, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ autoHandoff.autoAt` (default 90) the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
+**Original-worker on a non-resumable provider.** Only Claude / Codex have a live session to resume. For Ollama / llama.cpp / LM Studio, `original-worker` is *translated* rather than refused: the **same model** re-reads its own transcript via the fresh-summarizer mechanism (notice: "Original-worker on a local model = the same model re-reads its transcript"). If `lastContextPercent ≥ 90` the transcript likely won't fit back into that window, so it switches to the configured summarizer - or, when none is configured, attempts anyway with a warning. A resumable provider with no session yet (no turn taken) also degrades to `fresh-summarizer`. The dialog doesn't gate any of this.
 
 **Per-cwd serialization.** Handoffs in the same cwd are chained (`cwdHandoffChain`): a second request waits (`[HANDOFF QUEUED]` notice) so two reflections don't read repo state mid-write; a duplicate on the same workflow is ignored. The chain is mirrored to clients as `handoff_lock_snapshot` (-> `appStore.handoffLocksByCwd`) and a wedged slot can be cleared by the operator via `handoff_lock_clear` (`handleHandoffLockClear`).
 

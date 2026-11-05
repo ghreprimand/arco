@@ -786,22 +786,16 @@ export const configuration: Section[] = [
   </p>
   <Sub>Context, handoff and compaction</Sub>
   <p>
-  <strong>WARN</strong> + <strong>AUTO</strong> sliders under AUTO-HANDOFF are
-  context-fill percentages. The warning threshold ranges from 60 to 85
-  percent and the auto-handoff ceiling from 75 to 95 percent. Off by default;
-  defaults are <Code>warnAt: 75</Code> and <Code>autoAt: 90</Code>.
+  <strong>AUTO-HANDOFF</strong> - <strong>Hand off after</strong> N
+  compactions, off by default. When ticked, a tab starts a fresh session at the
+  end of a turn once its conversation has been compacted N times (default 5,
+  1 to 20). The line below the control says what Arco counts for the provider,
+  or why it cannot count.
   </p>
-  <p>
-  Arco honors them only when the provider has a trusted context-fill signal:
-  </p>
-  <ul>
-  <li>Claude uses session/Native counts.</li>
-  <li>Codex app-server uses the latest rollout token snapshot.</li>
-  <li>Ollama uses the daemon prompt count.</li>
-  </ul>
   <p>
   Quick is the default auto-handoff mode; saved written-mode choices are
-  preserved. Disable auto-handoff to rely on compact/manual Handoff instead.
+  preserved. Tabs saved with the earlier WARN and AUTO percentages keep their
+  on or off state with 5 compactions.
   </p>
   <p>
   <strong>AUTO-COMPACTION</strong> - Provider uses Arco compaction near 90% for
@@ -821,10 +815,10 @@ export const configuration: Section[] = [
   </p>
   <p>
   <strong>AUTO-FOLD</strong> (Claude Native, default <Code>off</Code>) - a
-  checkbox plus a <Code>FOLD AT</Code> percentage slider held below the
-  warning threshold. Before a handoff is recommended, it deterministically
+  checkbox plus a <Code>FOLD AT</Code> percentage slider. It deterministically
   folds older history into a digest and keeps a verbatim recent tail in the
-  same session: instant, no model round.
+  same session: instant, no model round. A Fold does not count toward
+  auto-handoff.
   </p>
   <p>
   The raw transcript stays in <Code>events.jsonl</Code>. Pair the manual
