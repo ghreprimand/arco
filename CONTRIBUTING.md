@@ -158,7 +158,7 @@ Keep fixtures synthetic and isolate provider calls.
 
 Hosted CI runs the build, typecheck, unit suite, privacy audit, and configured smoke checks. Type checks and tests are required before landing changes.
 
-Hosted minutes are metered, and macOS and Windows runners bill at a multiple of Linux. A push to `main` or a pull request therefore runs only the Ubuntu jobs (verify with the help-registry check, browser smokes, Docker smoke), and skips changes that touch only `docs/**`, `devlog/**` or root-level `*.md` files. The Windows browser job also runs on every push and pull request and gates the build; the suites that need the Linux isolated-server harness report as skipped there. The macOS browser job is best effort and runs on a weekly schedule and on demand, as do the other macOS and Windows jobs, through the **CI** workflow's `workflow_dispatch` form, whose `os` input selects `ubuntu`, `macos`, `windows` or `all`. Every job has a timeout, and a newer push to the same ref cancels the older run. Run the Windows and macOS jobs before a release or after a change to paths, shells, file watching or process handling; the local gate (`npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run audit:public -- --tree`) stays the first line of defense.
+Hosted CI (the **CI** workflow) runs on three occasions. A push to `main` runs the verify job on Ubuntu, macOS and Windows, the Ubuntu and Windows browser smokes and the Docker smoke; pushes that touch only `docs/**`, `devlog/**` or root-level `*.md` files skip it. The verify job on a push to `main` also audits the full history of every branch and tag (`node scripts/public-audit.mjs --history`); other runs audit the checked-out commit's history and the tags (`--history-head`). A weekly run adds the best-effort macOS browser job. A run started by hand from the `workflow_dispatch` form, whose `os` input selects `ubuntu`, `macos`, `windows` or `all`, checks any branch, such as a release branch before `main` moves to it. Pull requests do not start CI; the project's own changes reach `main` from a release branch that passed a hand-started run with `os` set to `all`. Every run also builds and smoke-tests the native packages. The suites that need the Linux isolated-server harness report as skipped on Windows. Every job has a timeout, and a newer run on the same ref cancels the older one. Hosted minutes are metered, and macOS and Windows runners bill at a multiple of Linux. The local gate (`npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run audit:public -- --tree`) stays the first line of defense.
 
 ```bash
 # Type check across all three workspaces (no emit):
@@ -300,7 +300,7 @@ Shaders: highp + bounded hash inputs to prevent long-uptime freeze
 Theme system overhaul: new themes, shaders, header chips
 ```
 
-Pull requests are welcome. Include a concise change summary, verification results, and any remaining limitations.
+Pull requests are welcome. Include a concise change summary, verification results, and any remaining limitations. Hosted CI does not run on pull requests; a maintainer starts it by hand after review.
 
 ---
 

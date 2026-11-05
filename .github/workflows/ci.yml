@@ -1,15 +1,13 @@
 name: CI
 
-# Verify on Linux, macOS and Windows for public-repository pushes and pull requests.
-# Weekly and manual runs remain available; documentation-only changes skip hosted jobs.
+# Verify on Linux, macOS and Windows for every push to main (documentation-only
+# pushes skip it), weekly, and when started by hand. The project does not use pull
+# requests: a release branch is checked by a manual run (workflow_dispatch, os "all")
+# before main moves to it. A push to main also audits the full history of every
+# branch and tag.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'devlog/**'
-      - '*.md'
-  pull_request:
     paths-ignore:
       - 'docs/**'
       - 'devlog/**'
@@ -43,8 +41,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Push, pull request, schedule or dispatch "all": all three. Other dispatches: the chosen OS.
-        os: ${{ fromJSON((contains('push pull_request schedule', github.event_name) || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
+        # Push, schedule or dispatch "all": all three. Other dispatches: the chosen OS.
+        os: ${{ fromJSON((contains('push schedule', github.event_name) || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
         node: [24, 26]
     steps:
       # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
@@ -52,9 +50,7 @@ jobs:
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
         with:
-          # A PR merge ref has a generated GitHub identity, not a project author.
-          # Audit the source commit and its full history under the project rules.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Full history of every branch and tag, for the history audits below.
           fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
@@ -87,16 +83,22 @@ jobs:
           fi
       - name: Public-safety audit (tree)
         run: npm run audit:public -- --tree
-      # CI audits only the checked-out commit and tagged releases. Other remote branches must
-      # not make an unrelated PR fail; push and release scans remain strict over their targets.
+      # A manual or weekly run audits the checked-out commit's history and the tags.
+      # Private patterns apply to the tree and staged scans only: older commits legitimately
+      # contain the upstream name and fixture addresses. An empty value makes the script fall
+      # back to its (absent) repository-local pattern file.
       - name: Public-safety audit (history, identity and trailers)
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        # Private patterns apply to the tree and staged scans only: older commits legitimately
-        # contain the upstream name and fixture addresses. An empty value makes the script fall
-        # back to its (absent) repository-local pattern file.
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && github.event_name != 'push'
         env:
           ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history-head
+      # A push to main audits the full history of every branch and tag on the remote, so a
+      # problem on any branch is found while it can still be removed.
+      - name: Public-safety audit (full history, all branches and tags)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && github.event_name == 'push'
+        env:
+          ARCO_PRIVATE_PATTERNS_FILE: ''
+        run: node scripts/public-audit.mjs --history
       - name: Help registry check
         run: npm run docs:check
       - name: Documentation link check
@@ -227,8 +229,6 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -268,8 +268,6 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
