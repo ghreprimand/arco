@@ -175,6 +175,24 @@ async def main():
           window.sameTabNotice = useNotificationStore.getState().notices.some(n => n.id === 'same-tab');
         }""")
         assert not await page.evaluate('window.sameTabNotice')
+        # In an open cluster tab only the member in view counts as viewed: a
+        # finished turn of another member still reaches the BELL.
+        await page.evaluate("""async () => {
+          const {useAppStore} = await import('/src/stores/appStore.ts');
+          const {useNotificationStore} = await import('/src/stores/notificationStore.ts');
+          const {handleServerMessage} = await import('/src/ws/handleServerMessage.ts');
+          const members = [{workflowId: 'lead'}, {workflowId: 'helper'}];
+          useAppStore.setState({showHome: false, showCreator: false, activeJobId: null, activeClusterId: 'c1', clusters: {...useAppStore.getState().clusters, c1: {clusterId: 'c1', members}}, clusterFocusedMember: {}});
+          const has = (id) => useNotificationStore.getState().notices.some(n => n.id === id);
+          const fire = (id, workflowId, workflowName) => handleServerMessage({type:'attention_event', id, kind:'finished', workflowId, workflowName, desktopEligible:false}, {wsRef:{current:null}, scheduleReconnect:()=>{}});
+          fire('lead-in-view', 'lead', 'Lead');
+          fire('helper-elsewhere', 'helper', 'Helper');
+          useAppStore.setState({clusterFocusedMember: {c1: 'helper'}});
+          fire('lead-elsewhere', 'lead', 'Lead');
+          window.clusterNotices = {leadInView: has('lead-in-view'), helperElsewhere: has('helper-elsewhere'), leadElsewhere: has('lead-elsewhere')};
+          useAppStore.setState({activeClusterId: null});
+        }""")
+        assert await page.evaluate('window.clusterNotices') == {'leadInView': False, 'helperElsewhere': True, 'leadElsewhere': True}, await page.evaluate('window.clusterNotices')
         await page.evaluate("""async () => {
           const {useNotificationStore} = await import('/src/stores/notificationStore.ts');
           const {handleServerMessage} = await import('/src/ws/handleServerMessage.ts');
@@ -188,6 +206,6 @@ async def main():
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()
-        print('PASS: permission and desktop test, server attention event, BELL visibility, phone settings and test')
+        print('PASS: permission and desktop test, server attention event from a turn, BELL visibility in tabs and clusters, phone settings and test')
 
 asyncio.run(main())

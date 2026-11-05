@@ -29,19 +29,22 @@ A `WorkbenchNotice` is `{ id, category, severity, title, body?, ts, workflowId?,
 
 ## Attention alerts (desktop and phone)
 
-Desktop and phone alerts are opt-in per event and off by default. BELL notices for another tab are shown by default and controlled by SHOW IN BELL. These alerts never create an in-app toast.
+Desktop and phone alerts are opt-in per event and off by default. BELL notices for another tab, or for a cluster member that is not in view, are shown by default and controlled by SHOW IN BELL. These alerts never create an in-app toast.
 
 | event | raised when |
 |---|---|
 | finished | a primary turn ends (`primary_turn_ended`); desktop and phone alerts require at least 15 seconds and in a cluster only the director unless `clusterFinished` is `all` |
-| failed | a `worker_error`, a `primary_refusal`, or a workflow-scoped `error` passes through `broadcastWorkflow` |
+| failed | a `worker_error` or a `primary_refusal` passes through either path, or a workflow-scoped `error` passes through `broadcastWorkflow` |
 | waiting | an `operator_question` becomes pending or a `gate_required` is parked (each id once) |
 
-`server/src/attention.ts` watches workflow messages from `broadcastWorkflow`
-(Incognito workflows are skipped), applies the switches, allows one alert per
+`server/src/attention.ts` watches workflow messages from both fan-out paths in
+`server/src/server/broadcast.ts`: `send()`, which carries the start and end of
+every operator, auto-pickup and peer-mail turn, and `broadcastWorkflow`
+(Incognito workflows are skipped; a plain request `error` sent through `send()`
+is not a failed turn), applies the switches, allows one alert per
 workflow and event every 3 seconds, and does three things:
 
-- **BELL:** sends an `attention_event` with no message text. Each browser adds a quiet notice when its current tab is different and the matching BELL category is shown.
+- **BELL:** sends an `attention_event` with no message text. Each browser adds a quiet notice when the matching BELL category is shown and the workflow is not the one in view: a different tab, or in a cluster tab any member other than the chosen one (the first member when none is chosen).
 - **This computer:** uses the same `attention_event`. Each browser
   shows a system notification only when its switch is on, permission is granted
   and the window is unfocused or hidden; the event id is the notification tag so
@@ -91,8 +94,8 @@ One chokepoint so every source is a one-liner and external transports can use th
 
 ### Wired sources
 
-- **`turn-finished`**, `broadcast.ts` already special-cases
- `primary_turn_started` / `primary_turn_ended`; `onTurnStarted` /
+- **`turn-finished`**, `broadcast.ts` special-cases
+ `primary_turn_started` / `primary_turn_ended` on both `send()` and `broadcastWorkflow`; `onTurnStarted` /
  `onTurnEnded` keep the 60-second legacy transport path. BELL uses the attention event for every finished turn in an unviewed tab.
 - **`quota-recovered`**, `index.ts`'s quota change-listener: `markAvailable`
  only fires the listener on a real throttled->available flip, so a non-throttled

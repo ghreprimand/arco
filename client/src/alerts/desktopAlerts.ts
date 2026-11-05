@@ -32,13 +32,27 @@ export function shouldAddAttentionNotice(enabled: boolean, viewing: boolean): bo
   return enabled && !viewing;
 }
 
+type ViewState = Pick<ReturnType<typeof useAppStore.getState>, 'showHome' | 'showCreator' | 'activeJobId' | 'activeClusterId' | 'clusters' | 'clusterFocusedMember'>;
+
+// The workflow on screen: the open workflow tab, or in an open cluster tab the
+// member in view (the chosen one, else the first). Other members of the same
+// cluster count as elsewhere, so their turns still reach the BELL.
+export function isViewingWorkflow(state: ViewState, workflowId: string): boolean {
+  if (state.showHome || state.showCreator) return false;
+  const cluster = state.activeClusterId ? state.clusters[state.activeClusterId] : undefined;
+  if (cluster) {
+    const focused = state.clusterFocusedMember[cluster.clusterId];
+    const inView = focused && cluster.members.some((m) => m.workflowId === focused) ? focused : cluster.members[0]?.workflowId;
+    return inView === workflowId;
+  }
+  return !state.activeClusterId && state.activeJobId === workflowId;
+}
+
 // One notification per event: the event id is the tag, so a second browser
 // window on the same computer replaces rather than repeats it.
 export function handleAttentionEvent(msg: AttentionEventMessage): void {
   const view = useNotificationChannelsStore.getState().view;
-  const state = useAppStore.getState();
-  const cluster = Object.values(state.clusters).find((c) => c.members.some((m) => m.workflowId === msg.workflowId));
-  const viewing = !state.showHome && !state.showCreator && (cluster ? state.activeClusterId === cluster.clusterId : state.activeJobId === msg.workflowId);
+  const viewing = isViewingWorkflow(useAppStore.getState(), msg.workflowId);
   const category = msg.kind === 'finished' ? 'turn-finished' : 'attention';
   if (shouldAddAttentionNotice(!useNotificationStore.getState().muted.includes(category), viewing)) {
     useNotificationStore.getState().pushNotice({ id: msg.id, category, severity: msg.kind === 'failed' ? 'error' : 'info', title: `${msg.workflowName} ${PHRASE[msg.kind]}`, ts: Date.now(), workflowId: msg.workflowId });

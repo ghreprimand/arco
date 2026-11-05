@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { NotificationChannelsView } from '@arco/shared';
 import { isJobWaiting, titleWithWaiting, waitingJobIds } from './waiting';
-import { shouldRaiseDesktop, shouldAddAttentionNotice } from './desktopAlerts';
+import { isViewingWorkflow, shouldRaiseDesktop, shouldAddAttentionNotice } from './desktopAlerts';
 
 const msg = (extra: Record<string, unknown>) => ({ id: 'm', role: 'system', content: '', timestamp: 1, ...extra }) as never;
 
@@ -37,4 +37,22 @@ test('in-app attention is recorded only for a tab not being viewed', () => {
   assert.equal(shouldAddAttentionNotice(true, false), true);
   assert.equal(shouldAddAttentionNotice(true, true), false);
   assert.equal(shouldAddAttentionNotice(false, false), false);
+});
+
+test('in a cluster tab only the member in view counts as viewed', () => {
+  const cluster = { clusterId: 'c1', members: [{ workflowId: 'director' }, { workflowId: 'builder' }] };
+  const base = { showHome: false, showCreator: false, activeJobId: null, activeClusterId: 'c1', clusters: { c1: cluster }, clusterFocusedMember: {} } as never as Parameters<typeof isViewingWorkflow>[0];
+  // No member chosen: the first member is in view.
+  assert.equal(isViewingWorkflow(base, 'director'), true);
+  assert.equal(isViewingWorkflow(base, 'builder'), false);
+  const focused = { ...base, clusterFocusedMember: { c1: 'builder' } };
+  assert.equal(isViewingWorkflow(focused, 'builder'), true);
+  assert.equal(isViewingWorkflow(focused, 'director'), false);
+  // A member id that left the cluster falls back to the first member.
+  assert.equal(isViewingWorkflow({ ...base, clusterFocusedMember: { c1: 'gone' } }, 'director'), true);
+  // Home, the creator, another cluster or a workflow tab: not viewed.
+  assert.equal(isViewingWorkflow({ ...focused, showHome: true }, 'builder'), false);
+  assert.equal(isViewingWorkflow({ ...focused, showCreator: true }, 'builder'), false);
+  assert.equal(isViewingWorkflow({ ...focused, activeClusterId: null, activeJobId: 'other' }, 'builder'), false);
+  assert.equal(isViewingWorkflow({ ...focused, activeClusterId: null, activeJobId: 'builder' }, 'builder'), true);
 });

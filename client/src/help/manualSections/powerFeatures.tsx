@@ -679,7 +679,7 @@ export const powerFeatures: Section[] = [
   <Sub>Desktop and phone alerts</Sub>
   <p>
   In Settings &gt; Notifications, tick when a turn finishes, fails or is waiting
-  on you, separately for this computer and for your phone. Desktop and phone alerts start off. Quiet BELL notices for other tabs start on and use the same SHOW IN BELL choices.
+  on you, separately for this computer and for your phone. Desktop and phone alerts start off. Quiet BELL notices for other tabs, and for cluster members not in view, start on and use the same SHOW IN BELL choices.
   </p>
   <ul>
   <li><strong>Desktop.</strong> Alerts appear only while Arco is not the focused window, one per event. The window title also shows a waiting count such as (2) ARCO.</li>

@@ -9,6 +9,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Docs and help name the storage and token view as MEMORY > USAGE on single-worker and chat tabs only, and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere, including cluster tabs that have no USAGE.
 
+### Fixed
+
+- Turn-finished BELL notices and desktop alerts now appear for real turns. Before, only test turns produced them, so no operator, auto-pickup or peer-mail turn on any provider raised one. In a cluster tab, members other than the one in view now count as another tab for BELL notices.
+
 ## v0.1.4 - 2026-11-05
 
 ### Added

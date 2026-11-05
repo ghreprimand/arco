@@ -11,7 +11,7 @@ import { observeConditionMessage } from '../voice/conditionFacts.js';
 import { watch as fsWatch, mkdirSync, type FSWatcher } from 'fs';
 import { basename, join } from 'path';
 import type { ClusterTaskBoardMode, ServerMessage } from '@arco/shared';
-import type { PlansWatcher } from '../workflows/types.js';
+import type { PlansWatcher, WorkflowState } from '../workflows/types.js';
 import {
   sessions,
   workflows,
@@ -158,6 +158,11 @@ export function send(ws: WebSocket, message: ServerMessage): void {
     if (source && !source.config.incognito && !source.config.voiceOperator) observeConditionMessage(wfid, clusterStore.getClusterIdForWorkflow(wfid), message);
     recordIncognitoEvent(wfid, message);
     recordContextUsage(wfid, message);
+    // Operator turns, auto-pickup turns and peer-mail turns all report their
+    // start and end through send(), so turn alerts are observed here as well
+    // as in broadcastWorkflow. Plain request errors are left out: they answer
+    // one request and are not a failed turn.
+    if (source && message.type !== 'error') observeTurnAlerts(wfid, source, message);
     const cwd = workflowCwds.get(wfid);
     // Skip persistence for reasoning events from local thinking models.
     // Qwen3.6 et al emit thousands of reasoning tokens per turn; persisting
@@ -387,6 +392,16 @@ async function reportArtifactSizes(workflowId: string, cwd: string): Promise<voi
   }
 }
 
+// Turn-finished, failed and waiting alerts (attention.ts) and the long-turn
+// notice (notifications.ts, §J1). Called from both fan-out paths so a turn is
+// seen whichever one carries its start and end.
+function observeTurnAlerts(workflowId: string, wf: WorkflowState, message: ServerMessage): void {
+  attention.observeAttention(workflowId, message, { name: wf.config.name ?? '', incognito: !!wf.config.incognito });
+  if (wf.config.incognito) return;
+  if (message.type === 'primary_turn_started') notifications.onTurnStarted(workflowId);
+  else if (message.type === 'primary_turn_ended') notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
+}
+
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
@@ -404,7 +419,7 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
       outgoing = { ...message, chainDepth: depth };
     }
   }
-  attention.observeAttention(workflowId, message, { name: wf.config.name ?? '', incognito: !!wf.config.incognito });
+  observeTurnAlerts(workflowId, wf, message);
   recordIncognitoEvent(workflowId, outgoing);
   const cwd = workflowCwds.get(workflowId);
   const stamped = cwd ? persistAndStampSeq(cwd, workflowId, outgoing) : outgoing;
@@ -430,15 +445,10 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
   // timer; this just stamps the idleSince / resets the per-turn counter.
   if (message.type === 'primary_turn_started') {
     clusterIdleNudger.onMemberTurnStarted(workflowId);
-    // §J1 — start the long-turn timer; onTurnEnded emits a notice if it ran long.
-    if (!wf.config.incognito) notifications.onTurnStarted(workflowId);
   } else if (message.type === 'primary_turn_ended') {
     clusterIdleNudger.onMemberTurnEnded(workflowId);
     // P7.4: warn once about very large artifacts written during the turn.
     if (cwd && !wf.config.incognito) void reportArtifactSizes(workflowId, cwd);
-    if (!wf.config.incognito) {
-      notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
-    }
     // docs/PROTOCOL_CLUSTER.md - clear the in-flight auto-turn depth
     // marker once the recipient's turn ends. The next operator turn starts
     // at depth 0; the next auto-turn dispatch re-sets the marker.

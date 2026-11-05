@@ -374,7 +374,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          The bell collects notices such as a turn finishing in another tab,
+          The bell collects notices such as a turn finishing in another tab or in a cluster member that is not in view,
           a provider's quota recovering or a terminal exiting non-zero. A badge
           counts unread notices. Attention notices do not show a pop-up.
         </p>
