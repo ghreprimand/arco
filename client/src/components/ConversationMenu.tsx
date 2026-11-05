@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProviderName, SessionIndexEntry, SessionInfo } from '@arco/shared';
 import { entryKey, useSessionIndexStore } from '../stores/sessionIndexStore';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 interface Props {
   cwd: string;
@@ -61,6 +62,7 @@ export function ConversationMenu({ cwd, currentSessionId, disabled, onNew, onRes
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
 
   const entries = useSessionIndexStore((s) => s.entries);
   const fetchIndex = useSessionIndexStore((s) => s.fetchIndex);
@@ -171,6 +173,7 @@ export function ConversationMenu({ cwd, currentSessionId, disabled, onNew, onRes
       </button>
       {open && (
         <div
+          ref={placeRef}
           className="glow-border"
           style={{
             position: 'absolute',

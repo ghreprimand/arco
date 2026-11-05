@@ -28,6 +28,7 @@ import { ProjectsSettings } from './ProjectsSettings';
 import { useProjectTrust } from '../hooks/useProjectTrust';
 import { PhosphorControls } from '../themes/phosphor/PhosphorControls';
 import { themeCategories } from '../themes/phosphor/arco-palette';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 
 // Slot 12 — auto-compact threshold bounds (mirrors server/src/settings.ts
@@ -2458,6 +2459,7 @@ function ThemePicker({ activeThemeId, onSelect }: { activeThemeId: string; onSel
 
 function ThemePill({ theme, active, onSelect }: { theme: Theme; active: boolean; onSelect: () => void }) {
   const [hover, setHover] = useState(false);
+  const placeRef = useKeepInWindow();
   const bg = theme.tokens['color-bg-panel'] ?? theme.tokens['color-bg'] ?? '#000';
   const fg = theme.tokens['color-fg'] ?? theme.tokens['color-accent-primary'] ?? '#fff';
   const border = active
@@ -2516,6 +2518,7 @@ function ThemePill({ theme, active, onSelect }: { theme: Theme; active: boolean;
       </button>
       {hover && (
         <div
+          ref={placeRef}
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',

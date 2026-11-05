@@ -43,6 +43,7 @@ import {
 import type { UploadResult } from '../utils/uploadAttachment';
 import { useLayoutRange } from '../layout/layoutRange';
 import { ToolbarMore, useToolbarOverflow } from '../layout/ToolbarOverflow';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // FILE, PLAN and BRIEF stay on the composer line in every layout.
 const TOOLBAR_KEEP: ReadonlySet<string> = new Set(['composer.attach', 'composer.plan', 'composer.brief']);
@@ -361,6 +362,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   // cleared after each send and when the active tab changes.
   const [pickedSkills, setPickedSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string }>>([]);
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
+  const skillMenuPlaceRef = useKeepInWindow();
   const skillMenuRef = useRef<HTMLDivElement>(null);
   const [showSkillEditor, setShowSkillEditor] = useState(false);
   const [skillCatalogRevision, setSkillCatalogRevision] = useState(0);
@@ -2004,6 +2006,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             </button>
             {skillMenuOpen && (
               <div
+                ref={skillMenuPlaceRef}
                 style={{
                   position: 'absolute',
                   bottom: 'calc(100% + 6px)',
@@ -2377,6 +2380,7 @@ function ChipPopover({
   onClose: () => void;
 }) {
   const authStatus = useAppStore((s) => s.authStatus);
+  const placeRef = useKeepInWindow();
   const popoverStyle: React.CSSProperties = {
     position: 'absolute',
     bottom: '100%',
@@ -2397,7 +2401,7 @@ function ChipPopover({
     const efforts = effortsForModel(provider, model, claudeCatalog, codexCatalog);
     if (efforts.length === 0) {
       return (
-        <div style={popoverStyle}>
+        <div ref={placeRef} data-testid="composer-chip-popover" style={popoverStyle}>
           <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', padding: '4px 6px' }}>
             This model doesn't accept the effort flag.
           </div>
@@ -2405,7 +2409,7 @@ function ChipPopover({
       );
     }
     return (
-      <div style={popoverStyle}>
+      <div ref={placeRef} data-testid="composer-chip-popover" style={popoverStyle}>
         {efforts.map((e) => (
           <button
             key={e}
@@ -2468,7 +2472,7 @@ function ChipPopover({
     // id). CursorModelSelect reads the catalog from the store itself, so no
     // prop plumbing; it emits an exact catalog id.
     return (
-      <div style={{ ...popoverStyle, padding: '8px', minWidth: '240px' }}>
+      <div ref={placeRef} data-testid="composer-chip-popover" style={{ ...popoverStyle, padding: '8px', minWidth: '240px' }}>
         <CursorModelSelect
           value={String(model)}
           onChange={(id) => onPick({ model: id as ModelName })}
@@ -2495,7 +2499,7 @@ function ChipPopover({
   } else {
     // Other providers: simple "current model only" — picker not useful here.
     return (
-      <div style={popoverStyle}>
+      <div ref={placeRef} data-testid="composer-chip-popover" style={popoverStyle}>
         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', padding: '4px 6px' }}>
           Switch model from the {provider.toUpperCase()} provider's CONFIG tab.
         </div>
@@ -2503,7 +2507,7 @@ function ChipPopover({
     );
   }
   return (
-    <div style={{ ...popoverStyle, maxHeight: 'calc(60vh / var(--ui-scale, 1))', overflowY: 'auto' }}>
+    <div ref={placeRef} data-testid="composer-chip-popover" style={{ ...popoverStyle, maxHeight: 'calc(60vh / var(--ui-scale, 1))', overflowY: 'auto' }}>
       {entries.map((m) => (
         <button
           key={m.value}

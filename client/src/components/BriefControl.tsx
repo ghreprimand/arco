@@ -6,6 +6,7 @@ import { useStartupStore } from '../stores/startupStore';
 import { clusterBriefFacts, workerBriefFacts } from '../brief/briefFromStore';
 import { useUsableUtilityAgent } from './UtilityAgentPicker';
 import { DialogShell } from './DialogShell';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const STILL_WORKING_MS = 4000;
 const menuItemStyle: CSSProperties = { padding: '7px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', textAlign: 'left', whiteSpace: 'nowrap' };
@@ -35,6 +36,7 @@ export function BriefControl({ scope, targetId, label, title, 'data-help': helpI
   const [phase, setPhase] = useState<Phase>('closed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuUp, setMenuUp] = useState(true);
+  const placeRef = useKeepInWindow();
   const [active, setActive] = useState<{ scope: UtilityBriefScope; targetId: string }>({ scope, targetId });
   const [result, setResult] = useState<UtilityJobResult | null>(null);
   const [facts, setFacts] = useState<UtilityJobFact[]>([]);
@@ -113,7 +115,7 @@ export function BriefControl({ scope, targetId, label, title, 'data-help': helpI
       </button>
       {menuOpen && clusterId && (
         <div role="menu" data-testid="brief-menu" style={{ position: 'relative', width: 0, height: 0 }}>
-          <div style={{ position: 'absolute', ...(menuUp ? { bottom: '6px' } : { top: '6px' }), left: 0, zIndex: 1100, display: 'flex', flexDirection: 'column', minWidth: '150px', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)', boxShadow: '0 8px 24px rgba(0,0,0,0.45)' }}>
+          <div ref={placeRef} style={{ position: 'absolute', ...(menuUp ? { bottom: '6px' } : { top: '6px' }), left: 0, zIndex: 1100, display: 'flex', flexDirection: 'column', minWidth: '150px', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)', boxShadow: '0 8px 24px rgba(0,0,0,0.45)' }}>
             <button type="button" role="menuitem" className="display-font" data-testid="brief-this-worker" onClick={(e) => { e.stopPropagation(); void run('worker', targetId); }} style={menuItemStyle}>THIS WORKER</button>
             <button type="button" role="menuitem" className="display-font" data-testid="brief-whole-cluster" onClick={(e) => { e.stopPropagation(); void run('cluster', clusterId); }} style={menuItemStyle}>WHOLE CLUSTER</button>
           </div>

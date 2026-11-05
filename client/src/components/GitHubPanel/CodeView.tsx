@@ -7,6 +7,7 @@ import {
   Loading, ErrorBox, EmptyBox, Markdown, fmtDate, fmtBytes, detectLang,
   inputStyle, selectChip, mergeBtnStyle, badgeStyle,
 } from './shared';
+import { useKeepInWindow } from '../../layout/keepInWindow';
 
 // ── CODE view: branch picker, file tree, file viewer, README ────────────
 
@@ -18,6 +19,7 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
   const [readme, setReadme] = useState<string | null>(null);
   const [branches, setBranches] = useState<GhBranch[] | null>(null);
   const [showBranchMenu, setShowBranchMenu] = useState(false);
+  const branchMenuRef = useKeepInWindow();
   const [branchQuery, setBranchQuery] = useState('');
   const [releases, setReleases] = useState<GhRelease[] | null>(null);
   const [tags, setTags] = useState<GhTag[] | null>(null);
@@ -143,7 +145,7 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
               ⌥ {ref} ▾
             </button>
             {showBranchMenu && (
-              <div style={branchMenuStyle}>
+              <div ref={branchMenuRef} style={branchMenuStyle}>
                 <div style={{ padding: '6px', borderBottom: '1px solid var(--color-border-hairline)' }}>
                   <input
                     value={branchQuery}
@@ -525,6 +527,7 @@ function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owne
 
 function CloneMenu({ repo, onClose }: { repo: GhRepo; onClose: () => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const placeRef = useKeepInWindow();
   const https = repo.clone_url || `https://github.com/${repo.full_name}.git`;
   const ssh = repo.ssh_url || `git@github.com:${repo.full_name}.git`;
   const gh = `gh repo clone ${repo.full_name}`;
@@ -543,7 +546,7 @@ function CloneMenu({ repo, onClose }: { repo: GhRepo; onClose: () => void }) {
     return () => window.removeEventListener('mousedown', onDoc);
   }, [onClose]);
   return (
-    <div data-clone-menu style={{ ...branchMenuStyle, width: '360px', padding: '6px' }}>
+    <div ref={placeRef} data-clone-menu style={{ ...branchMenuStyle, width: '360px', padding: '6px' }}>
       {rows.map((r) => (
         <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
           <span style={{ width: '50px', fontSize: '10px', color: 'var(--color-accent-secondary-dim)', fontFamily: 'var(--font-display)', letterSpacing: '1px' }}>{r.label}</span>

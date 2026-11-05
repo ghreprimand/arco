@@ -6,6 +6,7 @@ import { formatResetLabel, formatResetText } from '../utils/usageFormat';
 import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 import { refreshClaudeAllowance } from '../utils/claudeAllowance';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 interface Props {
   usage: UsageInfo | null;
@@ -155,6 +156,7 @@ const CURSOR_USAGE_URL = 'https://cursor.com/dashboard?tab=usage';
 // dashboard. Mirrors CodexStatus.
 function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const placeRef = useKeepInWindow();
   const cents = usage?.chargedCents ?? 0;
   const pct = usage?.available && typeof usage.totalTokens === 'number'
     ? `${formatTokens(usage.totalTokens)} MTD`
@@ -175,6 +177,7 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
       />
       {open && (
         <div
+          ref={placeRef}
           role="tooltip"
           style={{
             position: 'absolute',
@@ -223,6 +226,7 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
 
 function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const placeRef = useKeepInWindow();
   const accounts = useAppStore((s) => s.settings?.providerAccounts?.codex);
   const [account, setAccount] = useState('');
   const [source, setSource] = useState<'appserver' | 'camoufox'>('appserver');
@@ -287,6 +291,7 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
       <StatusDot letter="X" state="live" title="Codex: LIVE (hover for usage, click for analytics)" href={CODEX_ANALYTICS_URL} />
       {open && (
         <div
+          ref={placeRef}
           role="tooltip"
           style={{
             position: 'absolute',
@@ -352,6 +357,7 @@ function parseCodexUsageValue(value: string): { usedPercent: number | null; rese
 // hover — same content the old boxed pill carried, now behind the compact dot.
 function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   const [open, setOpen] = useState(false);
+  const placeRef = useKeepInWindow();
   const [checking, setChecking] = useState(false);
   const checkingRef = useRef(false);
   const [checkError, setCheckError] = useState(false);
@@ -391,6 +397,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
       />
       {open && (
         <div
+          ref={placeRef}
           role="tooltip"
           style={{
             position: 'absolute',
@@ -437,6 +444,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
 //           source of truth. Hover surfaces the loaded model + unload time.
 function OllamaStatus({ daemonUp, live }: { daemonUp: boolean; live: OllamaLiveStatus | null }) {
   const [open, setOpen] = useState(false);
+  const placeRef = useKeepInWindow();
   const loaded = daemonUp ? (live?.loadedModels ?? []) : [];
   const state: DotState = !daemonUp ? 'down' : loaded.length > 0 ? 'live' : 'ready';
   const title = state === 'down'
@@ -455,6 +463,7 @@ function OllamaStatus({ daemonUp, live }: { daemonUp: boolean; live: OllamaLiveS
       <StatusDot letter="O" state={state} title={title} />
       {open && (
         <div
+          ref={placeRef}
           role="tooltip"
           style={{
             position: 'absolute',

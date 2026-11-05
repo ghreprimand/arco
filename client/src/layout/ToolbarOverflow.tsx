@@ -5,6 +5,7 @@
 // nothing is hidden and the row wraps as before.
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useKeepInWindow } from './keepInWindow';
 
 interface Hidden { help: string; label: string }
 
@@ -52,6 +53,7 @@ export function useToolbarOverflow(ref: RefObject<HTMLElement | null>, enabled: 
 export function ToolbarMore({ row, hidden }: { row: RefObject<HTMLElement | null>; hidden: Hidden[] }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLSpanElement | null>(null);
+  const placeRef = useKeepInWindow();
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => { if (!boxRef.current?.contains(e.target as Node)) setOpen(false); };
@@ -82,7 +84,7 @@ export function ToolbarMore({ row, hidden }: { row: RefObject<HTMLElement | null
         MORE ▾
       </button>
       {open && (
-        <div role="menu" data-testid="composer-more-menu" style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px', zIndex: 60, minWidth: '170px', display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px', background: 'var(--color-bg-dialog, var(--color-bg-panel))', border: '1px solid var(--color-border-hairline)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+        <div ref={placeRef} role="menu" data-testid="composer-more-menu" style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px', zIndex: 60, minWidth: '170px', display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px', background: 'var(--color-bg-dialog, var(--color-bg-panel))', border: '1px solid var(--color-border-hairline)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
           {hidden.map((h) => (
             <button key={h.help} type="button" role="menuitem" data-overflow-item={h.help} onClick={() => run(h.help)} className="display-font" style={{ textAlign: 'left', padding: '4px 8px', fontSize: '10px', letterSpacing: '1px', background: 'transparent', border: 'none', color: 'var(--color-fg)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               {h.label}

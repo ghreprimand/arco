@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNotificationStore, unreadCount } from '../stores/notificationStore';
 import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
 import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@arco/shared';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // docs/ARCHITECTURE.md - the header notice center: a bell with an unread
 // badge that opens the durable notice history + per-category show controls.
@@ -47,6 +48,7 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
   const clearHistory = useNotificationStore((s) => s.clearHistory);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
 
   useEffect(() => {
     if (!open) return;
@@ -110,6 +112,7 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
 
       {open && (
         <div
+          ref={placeRef}
           role="dialog"
           onClick={(e) => e.stopPropagation()}
           style={{

@@ -41,6 +41,7 @@ import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { UploadResult } from '../utils/uploadAttachment';
 import { readRangeFraction, useLayout, writeRangeFraction, type LayoutRange } from '../layout/layoutRange';
 import { PanelStrip, SlideOut } from '../layout/SlideOut';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // docs/CLIENT.md - splitter min widths (px). Detail favored - its
 // chat surface needs reading width; the grid's cards stay legible at 240.
@@ -306,6 +307,7 @@ export function ClusterTab({
   const setClusterCardLayout = useAppStore((s) => s.setClusterCardLayout);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastRef = useKeepInWindow({ anchor: () => null });
   const { range: widthRange } = useLayout();
   const widthRangeRef = useRef(widthRange);
   widthRangeRef.current = widthRange;
@@ -1522,6 +1524,7 @@ export function ClusterTab({
 
       {/* Toast strip — bottom-right, stacked. Auto-dismiss after 4.5s. */}
       <div
+        ref={toastRef}
         style={{
           position: 'fixed',
           right: '16px',

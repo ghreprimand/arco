@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { FreeVramButton } from './FreeVramButton';
 import { useStartupStore } from '../stores/startupStore';
 import { ProviderReleasesModal, type ReleaseRuntime } from './ProviderReleasesModal';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // I1 — provider/version chips folded behind a single PROVIDERS trigger. The
 // strip used to live inline in SystemHeader's right cluster (one button per
@@ -63,6 +64,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
   // is only actionable if the operator can read the whole thing.
   const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const rootRef = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
 
   useEffect(() => {
     if (!open) return;
@@ -201,6 +203,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
 
       {open && (
         <div
+          ref={placeRef}
           role="dialog"
           data-help="header.cli-versions"
           onClick={(e) => e.stopPropagation()}

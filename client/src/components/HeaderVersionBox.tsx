@@ -4,6 +4,7 @@ import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { useStartupStore } from '../stores/startupStore';
 import { UpdateAction } from './UpdateAction';
 import { headerActionStyle } from './headerActionStyle';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const RELEASES = 'https://github.com/ghreprimand/arco/releases';
 const plain = (value: string) => `v${value.replace(/^v/, '')}`;
@@ -19,6 +20,7 @@ export function HeaderVersionBox() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const root = useRef<HTMLSpanElement>(null);
+  const placeRef = useKeepInWindow();
   useEffect(() => { void refresh().catch(() => {}); }, [refresh]);
   useEffect(() => { if (notice?.latest) void refresh().catch(() => {}); }, [notice?.latest, refresh]);
   useEffect(() => {
@@ -77,6 +79,7 @@ export function HeaderVersionBox() {
       role="dialog"
       aria-label={available ? 'Arco update' : 'Arco version'}
       data-testid="header-version-popover"
+      ref={placeRef}
       style={{ display: open ? 'block' : 'none', position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 9000, minWidth: 260, padding: 12, fontSize: 12, lineHeight: 1.6, background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)', color: 'var(--color-fg)' }}
     >
       {available ? <>

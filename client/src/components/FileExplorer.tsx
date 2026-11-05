@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { FileViewerModal } from './FileViewerModal';
 import { useTerminalStore } from '../stores/terminalStore';
 import { classifyMediaExt, openMediaFile, type MediaMode } from './media/launchers';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 interface Entry {
   name: string;
@@ -40,6 +41,8 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
   // codebase; the directory context menu fires its action directly). Closed on
   // any outside click / Escape / scroll.
   const [mediaMenu, setMediaMenu] = useState<{ x: number; y: number; path: string; mode: MediaMode } | null>(null);
+  // A pointer menu has no trigger: it is only kept inside the window.
+  const mediaMenuRef = useKeepInWindow({ anchor: () => null });
 
   const loadDir = useCallback(async (path: string) => {
     setLoading((s) => new Set(s).add(path));
@@ -266,6 +269,7 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
 
       {mediaMenu && (
         <div
+          ref={mediaMenuRef}
           data-help="files.media-context"
           // Stop propagation so clicking an item doesn't trip the outside-click
           // close before the action runs.

@@ -9,12 +9,14 @@ import { AppUpdateNotice } from './AppUpdateNotice';
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { findDirector } from './clusterSurface.helpers';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const DISMISS_AFTER_MS = 6000;
 
 export function NotificationToasts() {
   const notifications = useAppStore((s) => s.notifications);
   const dismiss = useAppStore((s) => s.dismissNotification);
+  const placeRef = useKeepInWindow({ anchor: () => null });
   const focusQuestion = (workflowId: string) => {
     const state = useAppStore.getState();
     const cluster = Object.values(state.clusters).find((c) => c.members.some((m) => m.workflowId === workflowId));
@@ -48,6 +50,7 @@ export function NotificationToasts() {
 
   return (
     <div
+      ref={placeRef}
       style={{
         position: 'fixed',
         top: '16px',

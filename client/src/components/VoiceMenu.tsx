@@ -4,6 +4,7 @@ import { useComputerStore } from '../stores/computerStore';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { headerActionStyle } from './headerActionStyle';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const item: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'transparent', border: '1px solid transparent', borderRadius: 3, color: 'var(--color-accent-primary-dim)', cursor: 'pointer', fontSize: 10, letterSpacing: '1px', padding: '5px 8px', textAlign: 'left' };
 
@@ -16,6 +17,7 @@ export function VoiceMenu() {
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState<boolean | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
   useEffect(() => {
     let alive = true;
     void fetch('/api/voice/setup').then((r) => r.ok ? r.json() : null).then((d) => { if (alive && d && typeof d.ready === 'boolean') setReady(d.ready); }).catch(() => {});
@@ -44,7 +46,7 @@ export function VoiceMenu() {
     <button type="button" className="display-font" data-testid="voice-menu" aria-haspopup="menu" aria-expanded={open} aria-label="Voice menu" title="Voice conversation, memory and controls"
       onClick={() => setOpen((v) => !v)}
       style={{ ...headerActionStyle, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 0, padding: '3px 5px', fontSize: 8, background: open ? 'var(--color-accent-primary-a10)' : 'transparent' }}>{open ? '\u25B2' : '\u25BC'}</button>
-    {open && <div role="menu" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 220, padding: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-hairline)', borderRadius: 4, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
+    {open && <div ref={placeRef} role="menu" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 220, padding: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-hairline)', borderRadius: 4, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <button type="button" role="menuitem" className="display-font" data-help="header.computer" style={item} aria-expanded={computerOpen} title="Your voice conversation, tool calls, agent selection, saved memory and usage" onClick={close(() => useComputerStore.getState().setOpen(!computerOpen))}>
         <span style={{ flex: 1 }}>VOICE CONVERSATION AND MEMORY</span>
       </button>

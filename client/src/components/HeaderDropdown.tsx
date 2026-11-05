@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // I1-followup — generic header action menu. The header used to carry seven
 // equally-weighted action buttons in a single row (Recall / Plans / Media /
@@ -50,6 +51,7 @@ const triggerBtn: React.CSSProperties = {
 export function HeaderDropdown({ label, icon, items, dataHelp, title }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +89,7 @@ export function HeaderDropdown({ label, icon, items, dataHelp, title }: Props) {
 
       {open && (
         <div
+          ref={placeRef}
           role="menu"
           onClick={(e) => e.stopPropagation()}
           style={{

@@ -3,6 +3,7 @@ import { useAppStore } from '../../stores/appStore';
 import { ROLE_PRESETS, presetForText, MEMBER_TIERS, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ClusterStatePayload, MemberTier } from '@arco/shared';
 import { ReplaceMemberDialog } from './ReplaceMemberDialog';
+import { useKeepInWindow } from '../../layout/keepInWindow';
 
 // Phase 2.6 — operator-set role hint cap, mirrored from the server enum in
 // clusterStore.MEMBER_ROLE_MAX.
@@ -40,6 +41,7 @@ export function MemberRow({
   const [editingCustom, setEditingCustom] = useState(false);
   const [roleDraft, setRoleDraft] = useState(member.role ?? '');
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const placeRef = useKeepInWindow({ ref: popoverRef });
 
   // focus (sub-specialty) inline editor. Click to expand the
   // single-line summary into an editable input; ↵ commits, Esc cancels.
@@ -436,7 +438,8 @@ export function MemberRow({
               </button>
               {popoverOpen && (
                 <div
-                  ref={popoverRef}
+                  ref={placeRef}
+                  data-testid="member-role-popover"
                   style={{
                     position: 'absolute',
                     top: 'calc(100% + 4px)',

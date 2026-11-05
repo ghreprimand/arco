@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { ProviderName } from '@arco/shared';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const PROVIDER_ORDER: ProviderName[] = ['claude',  'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 const PROVIDER_LABEL: Record<ProviderName, string> = {
@@ -33,6 +34,7 @@ export function WorkflowStatusChip() {
   const quotaState = useAppStore((s) => s.quotaState);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const placeRef = useKeepInWindow();
 
   useEffect(() => {
     if (!open) return;
@@ -76,6 +78,7 @@ export function WorkflowStatusChip() {
 
       {open && (
         <div
+          ref={placeRef}
           role="dialog"
           aria-label="Provider throttling"
           onClick={(e) => e.stopPropagation()}

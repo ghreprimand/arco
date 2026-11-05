@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { HELP_CONTENT } from '../../help/helpContent';
 import { openManualSection } from '../../help/openManualSection';
+import { useKeepInWindow } from '../../layout/keepInWindow';
 
 // Popover surfaced when the operator clicks a [data-help] target while help
 // mode is active. Position is computed against the captured anchorRect so the
@@ -12,6 +13,7 @@ export function HelpPopover() {
   const activeHelpPopover = useAppStore((s) => s.activeHelpPopover);
   const setActiveHelpPopover = useAppStore((s) => s.setActiveHelpPopover);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const placeRef = useKeepInWindow({ ref: popoverRef, anchor: () => null });
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   useLayoutEffect(() => {
@@ -55,7 +57,7 @@ export function HelpPopover() {
 
   return (
     <div
-      ref={popoverRef}
+      ref={placeRef}
       className="help-system-ui"
       style={{
         position: 'fixed',

@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore';
 import { LoginCommand } from './LoginCommand';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 import { useStartupStore } from '../stores/startupStore';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 // Recovery follows the selected Claude transport. Unknown/stale probes never
 // become logout warnings. Native opens its existing settings; CLI sign-in uses
@@ -22,6 +23,7 @@ export function HeaderAuthChip() {
     return (config?.primaryProvider ?? 'claude') === 'claude' && config?.ultracode === true;
   });
   const [open, setOpen] = useState(false);
+  const placeRef = useKeepInWindow();
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
   const [command, setCommand] = useState<string | null>(null);
@@ -117,6 +119,8 @@ export function HeaderAuthChip() {
       </button>
       {open && (
         <div
+          ref={placeRef}
+          data-testid="header-auth-popover"
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',

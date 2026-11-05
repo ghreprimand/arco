@@ -7,6 +7,7 @@ import type { CreatorPrefill } from '../../stores/appStore.types';
 import { parseSavedSessions, savedSessionRows, type HomeProject, type OpenWorkItem, type SavedSessionRow } from '../../utils/homeModel';
 import { organize, relocate, removeFromList, type ProjectReply } from './projectApi';
 import { KIND_LABEL, action, box, field, muted, primary, when } from './homeStyles';
+import { useKeepInWindow } from '../../layout/keepInWindow';
 
 const relativeActivity = (at: number) => {
   const days = Math.floor(Math.max(0, Date.now() - at) / 86400000);
@@ -47,6 +48,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
   const setActiveJob = useAppStore((s) => s.setActiveJob);
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useKeepInWindow();
   const [saved, setSaved] = useState<SavedSessionRow[] | null>(null);
   const [savedError, setSavedError] = useState('');
   const [earlier, setEarlier] = useState<Earlier[]>([]);
@@ -143,7 +145,7 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
         </div>
         <div className="home-card-actions">
           <button type="button" style={primary} disabled={missing} onClick={() => onStart({ mode: 'single', workDir: project.path })} aria-label={`New session in ${label}`}>New session</button>
-          <details className="home-card-menu" data-help="home.project-actions" onToggle={event => setMenuOpen(event.currentTarget.open)}><summary aria-label={`More actions for ${label}`}>...</summary><div>
+          <details className="home-card-menu" data-help="home.project-actions" onToggle={event => setMenuOpen(event.currentTarget.open)}><summary aria-label={`More actions for ${label}`}>...</summary><div ref={menuRef}>
           <button type="button" style={action} disabled={missing} onClick={() => onStart({ mode: 'cluster', workDir: project.path })} aria-label={`New cluster in ${label}`}>New cluster</button>
           <button type="button" style={action} disabled={missing} aria-expanded={expanded} aria-controls={listId} onClick={toggle} aria-label={`${expanded ? 'Hide' : 'Show'} saved sessions for ${label}`}>
             {expanded ? 'Hide saved' : 'Saved sessions'}

@@ -573,6 +573,14 @@ export const workspace: Section[] = [
           is kept in this browser and applies at once; the command palette has
           Layout: Automatic, Standard and Compact.
         </p>
+        <p>
+          Menus, dropdowns, usage cards and notices stay inside the window in
+          every layout and at every interface text size. A menu that would run
+          past an edge opens on the other side of its button or moves along
+          the edge, keeping a small gap. A menu taller than the room left
+          scrolls inside itself. Resizing the window or changing the text size
+          places it again.
+        </p>
       </>
     ),
   },

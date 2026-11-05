@@ -19,6 +19,7 @@ import { KIND_LABEL, when } from './homeStyles';
 import { hasWaitingQuestion } from '../../questions/waitingQuestion';
 import { turnStep } from '../../utils/turnStep';
 import { anyPrimaryProviderConnected } from '../../utils/startupGate';
+import { useKeepInWindow } from '../../layout/keepInWindow';
 
 const availableProjects = (projects: HomeProject[]) => projects.filter(p => p.exists && !p.archived).length;
 
@@ -84,6 +85,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const [query, setQuery] = useState('');
   const search = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const moreRef = useKeepInWindow();
   const listRequest = useRef(0);
 
   // Every list reply (load or change) replaces the whole list.
@@ -211,7 +213,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         <button type="button" className="home-start-tile home-primary" aria-label="Start a chat" onClick={() => start({ mode: 'chat' })}><strong>Start a chat</strong><span>Ask a question or explore an idea.</span></button>
         <button type="button" className="home-start-tile" aria-label="New session" onClick={() => start({ mode: 'single' })}><strong>New session</strong><span>Work on a project with an agent.</span></button>
         <button type="button" className="home-start-tile" aria-label="New cluster" onClick={() => start({ mode: 'cluster' })}><strong>New cluster</strong><span>Coordinate a team of agents.</span></button>
-        <details className="home-more"><summary>More ways to start</summary><div><button type="button" onClick={() => start({ mode: 'genesis' })}>New idea (Genesis)</button></div></details>
+        <details className="home-more"><summary>More ways to start</summary><div ref={moreRef}><button type="button" onClick={() => start({ mode: 'genesis' })}>New idea (Genesis)</button></div></details>
       </section>;
 
   return <main aria-labelledby="home-title" className="home-page">

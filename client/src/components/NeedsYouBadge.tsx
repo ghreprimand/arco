@@ -9,6 +9,7 @@ import { useAppStore } from '../stores/appStore';
 import { requestBoardTask } from '../stores/boardTaskRequest';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { buildNeedsYouItems, needsYouLabel, type NeedsYouItem } from './clusterNeedsYou';
+import { useKeepInWindow } from '../layout/keepInWindow';
 
 const EMPTY_TASKS: LedgerTask[] = [];
 const KIND_LABEL: Record<NeedsYouItem['kind'], string> = {
@@ -28,6 +29,7 @@ export function NeedsYouBadge({ clusterId }: { clusterId: string }) {
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const placeRef = useKeepInWindow({ ref: popoverRef, anchor: buttonRef });
 
   const items = useMemo(() => {
     const waitingQuestions = (cluster?.members ?? [])
@@ -98,7 +100,7 @@ export function NeedsYouBadge({ clusterId }: { clusterId: string }) {
       </button>
       {open && anchor && (
         <div
-          ref={popoverRef}
+          ref={placeRef}
           role="menu"
           data-testid="cluster-needs-you-list"
           style={{

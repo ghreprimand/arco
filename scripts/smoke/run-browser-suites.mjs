@@ -54,6 +54,7 @@ const SUITES = [
   { name: 'update-action', script: 'update-action-browser.py', port: 5198 },
   { name: 'update-notice', script: 'update-notice-browser.py', port: 5198 },
   { name: 'topbar', script: 'topbar-browser.py', port: 5203 },
+  { name: 'popover-placement', script: 'popover-placement-browser.py', port: 5251 },
   { name: 'version-box', script: 'version-box-browser.py', port: 5198 },
   { name: 'cluster-surface', script: 'cluster-surface-browser.py', port: 5231 },
   { name: 'terminal-sessions', script: 'terminal-sessions-browser.py', port: 5233 },
