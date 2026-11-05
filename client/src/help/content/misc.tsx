@@ -2054,6 +2054,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Close worker detail',
     body: <p>Closes the worker detail view. Escape or a click on the backdrop does the same. The worker keeps running; nothing is cancelled.</p>,
   },
+  'browser-notice': {
+    title: 'Browser notice',
+    body: <p>Shown once in Firefox, Safari and other browsers outside the Chromium family. Arco runs lighter in Chrome, Edge, Brave, Vivaldi or Chromium, and <code>arco open</code> and the Arco shortcut open it there as an app window. CHOOSE BROWSER opens Settings &gt; Advanced &gt; App window browser. DISMISS hides the notice in this browser for good.</p>,
+    manualSection: 'app-window-browser',
+  },
   'update.reload-page': {
     title: 'Reload Arco',
     body: <p>Reload this page after a restart when the session cannot recover or the running page is older than the server. Arco reloads automatically when no unsaved work is detected. Review and save any drafts or edits before selecting RELOAD.</p>,

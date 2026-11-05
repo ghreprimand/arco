@@ -109,6 +109,7 @@ export const reference: Section[] = [
 arco setup --repair-native  # rebuild native modules (build tools required)
 arco start  # run in the foreground
 arco open [--tab]  # app window, or a browser tab
+arco open --browser <name-or-path>  # app window in a chosen browser, once
 arco shortcuts add|remove  # per-user launcher shortcut
 arco service install|uninstall|start|stop|restart|status|logs|refresh
 arco update  # update the installed package

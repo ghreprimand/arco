@@ -96,6 +96,11 @@ export interface ArcoSettings {
   operatorName?: string;
   // Starting location for directory browsing; does not add discovery roots.
   defaultWorkingDirectory?: string;
+  // Settings > Advanced > App window browser: the browser `arco open`, the
+  // application shortcut and the explorer window use. Absent = Automatic (the
+  // search order); otherwise a detected browser id ("brave", "vivaldi-flatpak")
+  // or a program name or absolute path. Read by scripts/packaging/browsers.mjs.
+  appWindowBrowser?: string;
   // Named discovery folders. Absent migrates the legacy single root; [] disables discovery.
   projectRoots?: Array<{ name: string; path: string }>;
   // Explicit project folders; registration never moves or deletes their files.

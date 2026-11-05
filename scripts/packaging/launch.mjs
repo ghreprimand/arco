@@ -1,11 +1,14 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { accessSync, constants, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serviceAction, servicePaths, windowsScriptHost, WINDOWS_LAUNCHER } from './services.mjs';
 import { browserHost, isArcoHome, readPortState } from './ports.mjs';
+import { launchCommand, resolveBrowser, savedBrowserChoice } from './browsers.mjs';
+
+export { discoverBrowser, findBrowsers, resolveBrowser } from './browsers.mjs';
 
 const entry = fileURLToPath(new URL('./arco.mjs', import.meta.url));
 const assets = fileURLToPath(new URL('../../client/dist/', import.meta.url));
@@ -69,24 +72,23 @@ export function shortcuts(action, deps = {}) {
   } else throw new Error('Unsupported shortcut platform.');
   writeFileSync(owned, JSON.stringify({ platform, target: paths.target, digest: shortcutDigest(paths.target) }) + '\n', { mode: 0o600 });
 }
-export function discoverBrowser(platform, env = process.env, deps = {}) {
-  const exists = deps.exists || ((path) => { try { accessSync(path, platform === 'linux' ? constants.X_OK : constants.F_OK); return true; } catch { return false; } }), run = deps.run || ((cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', stdio: 'pipe', windowsHide: true, env }));
-  if (platform === 'win32') {
-    for (const [exe, suffix] of [['msedge.exe', 'Microsoft/Edge/Application/msedge.exe'], ['chrome.exe', 'Google/Chrome/Application/chrome.exe']]) {
-      for (const hive of ['HKCU', 'HKLM']) {
-        const result = run('reg.exe', ['query', `${hive}\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\${exe}`, '/ve']);
-        const value = (result.stdout || '').match(/REG_(?:EXPAND_)?SZ\s+([^\r\n]+)/i)?.[1]?.trim(); if (value && exists(value)) return value;
-      }
-      for (const root of [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)) { const path = join(root, ...suffix.split('/')); if (exists(path)) return path; }
-    }
-  } else if (platform === 'darwin') {
-    for (const app of ['Google Chrome', 'Microsoft Edge', 'Brave Browser', 'Chromium']) for (const root of ['/Applications', join(env.ARCO_TEST_USER_HOME || homedir(), 'Applications')]) { const path = join(root, `${app}.app`, 'Contents', 'MacOS', app === 'Brave Browser' ? 'Brave Browser' : app); if (exists(path)) return path; }
-  } else if (platform === 'linux') {
-    for (const name of ['google-chrome', 'google-chrome-stable', 'microsoft-edge', 'microsoft-edge-stable', 'brave-browser', 'brave', 'chromium', 'chromium-browser']) for (const dir of (env.PATH || '').split(':').filter(Boolean)) { const path = join(dir, name); if (exists(path)) return path; }
+// `arco open` options: --tab, or --browser <name-or-path> (also --browser=<value>).
+export function parseOpenArgs(args) {
+  const usage = 'Use arco open [--tab] or arco open --browser <name-or-path>.';
+  const options = {};
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tab' && !options.tab) options.tab = true;
+    else if (args[i] === '--browser' && options.browser === undefined && typeof args[i + 1] === 'string' && args[i + 1].trim() && !args[i + 1].startsWith('--')) options.browser = args[++i].trim();
+    else if (args[i].startsWith('--browser=') && options.browser === undefined && args[i].slice(10).trim()) options.browser = args[i].slice(10).trim();
+    else throw new Error(usage);
   }
-  return null;
+  if (options.tab && options.browser !== undefined) throw new Error(usage);
+  return options;
 }
-export async function openArco({ tab = false, env = process.env, platform = process.platform, launch, service = serviceAction, probe, delay = (ms) => new Promise((ok) => setTimeout(ok, ms)), log = console.log } = {}) {
+export const LIGHTER_HINT = 'Arco runs lighter in Chrome, Edge, Brave, Vivaldi or Chromium. Install one, or choose a browser with arco open --browser <name-or-path> or Settings > Advanced > App window browser.';
+// `browser` (from `arco open --browser`) wins over the saved Settings choice;
+// a choice that is not found falls back to the automatic search order.
+export async function openArco({ tab = false, browser: requested, env = process.env, platform = process.platform, launch, service = serviceAction, probe, delay = (ms) => new Promise((ok) => setTimeout(ok, ms)), log = console.log, browserDeps } = {}) {
   const paths = servicePaths(platform, env);
   const portNow = () => {
     let saved = {}; try { saved = JSON.parse(readFileSync(paths.config, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -102,10 +104,22 @@ export async function openArco({ tab = false, env = process.env, platform = proc
   const healthy = probe || ((candidate) => isArcoHome(candidate, paths.home, fetch, hostNow()));
   if (!(await healthy(port))) { await service('start', { platform, env }); let ready = false; for (let i = 0; i < 100; i++) { await delay(200); port = portNow(); if (await healthy(port)) { ready = true; break; } } if (!ready) throw new Error('Arco did not become ready. Check arco service logs.'); }
   const url = `http://${browserHost(hostNow() || 'localhost')}:${port}/`;
-  const browser = tab ? null : discoverBrowser(platform, env);
+  let browser = null;
+  if (!tab) {
+    const choice = requested ?? savedBrowserChoice(paths.home);
+    const resolved = resolveBrowser(choice, platform, env, browserDeps);
+    if (resolved.missing) log(resolved.unsupported ? `The chosen browser "${choice}" has no app window (not a Chromium-family browser); using the automatic choice.` : `The chosen browser "${choice}" was not found; using the automatic choice.`);
+    browser = resolved.browser;
+  }
   let command, args;
-  if (browser) { command = browser; args = [`--user-data-dir=${join(paths.home, 'browser-profile')}`, `--app=${url}`]; }
-  else { if (!tab) log('No supported Chromium browser found; opening a normal browser tab.'); [command, args] = platform === 'darwin' ? ['open', [url]] : platform === 'win32' ? ['rundll32.exe', ['url.dll,FileProtocolHandler', url]] : ['xdg-open', [url]]; }
+  if (browser) {
+    const profile = join(paths.home, 'browser-profile');
+    if (browser.flatpak) mkdirSync(profile, { recursive: true, mode: 0o700 });
+    [command, args] = launchCommand(browser, url, profile);
+  } else {
+    if (!tab) log(`No supported Chromium browser found; opening a normal browser tab. ${LIGHTER_HINT}`);
+    [command, args] = platform === 'darwin' ? ['open', [url]] : platform === 'win32' ? ['rundll32.exe', ['url.dll,FileProtocolHandler', url]] : ['xdg-open', [url]];
+  }
   if (launch) return launch(command, args);
   const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }); child.on('error', () => {}); child.unref();
 }

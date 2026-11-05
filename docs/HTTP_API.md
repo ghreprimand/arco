@@ -675,12 +675,27 @@ The read-only HTTP surface behind the standalone chromeless file-explorer window
 and opens on the operator's machine. This endpoint is only hit if that popup is refused; it
 spawns a Chromium-family browser in `--app=` mode at `<origin>/?app=explorer` (`<origin>` from
 the request `Origin`/`Host`). Binary resolution is POSIX-portable (`server/src/explorerLaunch.ts`):
+the Settings > Advanced > App window browser choice first when it is set and found (see
+`GET /api/app-browsers`), then
 `brave-origin-beta` -> `brave` -> `chromium` -> `google-chrome` on PATH, then a macOS `open -na <app>`
 fallback; the service/desktop env is inherited with a `DISPLAY=:0` fallback for a display-less
 systemd unit. (A separately-spawned `--app=` process latches onto one fixed scale factor and does
 not re-scale per monitor - the reason it's the fallback, not the default.)
 
 **Fail-soft - never 5xxs.** Always **200** with an `ExplorerLaunchResult`: `{ ok: true, binary, url }` on a successful spawn; `{ ok: false, code: 'no-browser', error }` when no browser is found; `{ ok: false, code: 'spawn-failed', error }` when the spawn exits non-zero within a 500 ms probe window. On either `ok:false` the client drops to a plain new tab.
+
+### `GET /api/app-browsers`
+
+Read-only list for **Settings > Advanced > App window browser**. Returns
+`{ platform, choice, browsers, using, missing }`: `choice` is the saved
+`appWindowBrowser` setting or `null` (Automatic); `browsers` lists the
+Chromium-family browsers found on the computer running Arco, in search order,
+each `{ id, name, path }` (Flatpak installs have ids such as `brave-flatpak`);
+`using` is the browser a window opens in now, or `null` for a normal tab;
+`missing` is `true` when the saved choice was not found and Automatic is used.
+Detection is shared with `arco open` (`scripts/packaging/browsers.mjs`). The
+choice is saved with `POST /api/settings` `{ "appWindowBrowser": "<id, name or path>" }`;
+an empty string or `"automatic"` clears it.
 
 ### `GET /api/explorer/artifacts[?project=<abs cwd>]`
 

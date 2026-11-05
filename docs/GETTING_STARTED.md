@@ -150,6 +150,13 @@ needed. If that port later becomes occupied, Arco selects another and shows a
 notice. `arco open` and shortcuts follow the saved address; `arco doctor` shows
 its status.
 
+`arco open` and the shortcut open Arco in an app window of Chrome, Edge, Brave,
+Vivaldi or Chromium, including Flatpak installs on Linux. Choose which one in
+**Settings > Advanced > App window browser**, or once with
+`arco open --browser <name-or-path>`. Firefox and Safari work as normal tabs;
+Arco shows a one-time notice there because it runs lighter in a Chromium-family
+browser. See [Service mode](SERVICE_MODE.md) for the search order.
+
 Update a package install with `arco update`, or use **UPDATE AND RESTART** from
 a release notice while the packaged service is running. Updating stops running
 turns. See [Updating Arco](OPERATIONS.md#updating-arco).

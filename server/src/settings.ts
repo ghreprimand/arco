@@ -190,6 +190,16 @@ function sanitizeDefaultWorkingDirectory(raw: unknown): string | undefined {
   return cleaned;
 }
 
+// App window browser: one line, bounded; empty or "automatic" clears it
+// (Automatic). Existence is checked when a window opens, not here, so a
+// browser installed later or on a removable drive is kept.
+export function sanitizeAppWindowBrowser(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || /[\u0000-\u001f\u007f]/.test(raw)) return undefined;
+  const cleaned = raw.trim();
+  if (!cleaned || cleaned.length > 1024 || cleaned.toLowerCase() === 'automatic') return undefined;
+  return cleaned;
+}
+
 // Registered projects: absolute paths, de-duplicated, bounded. Order is the
 // operator's; the list is replaced whole by a patch (the routes in
 // http/projectRoutes.ts do the add/remove read-modify-write).
@@ -630,6 +640,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (projects?.length) result.projects = projects;
   const defaultWd = sanitizeDefaultWorkingDirectory(partial.defaultWorkingDirectory);
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
+  const appBrowser = sanitizeAppWindowBrowser(partial.appWindowBrowser);
+  if (appBrowser) result.appWindowBrowser = appBrowser;
   const roots = sanitizeProjectRoots(partial.projectRoots);
   if (roots !== undefined) result.projectRoots = roots;
   else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }]);
@@ -864,6 +876,14 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     // empty / non-absolute clears the field
   } else if (current.defaultWorkingDirectory) {
     merged.defaultWorkingDirectory = current.defaultWorkingDirectory;
+  }
+  if ('appWindowBrowser' in patch) {
+    if (patch.appWindowBrowser !== null && patch.appWindowBrowser !== undefined && typeof patch.appWindowBrowser !== 'string') throw new Error('invalid appWindowBrowser');
+    const browser = sanitizeAppWindowBrowser(patch.appWindowBrowser);
+    if (browser) merged.appWindowBrowser = browser;
+    else if (typeof patch.appWindowBrowser === 'string' && patch.appWindowBrowser.trim() && patch.appWindowBrowser.trim().toLowerCase() !== 'automatic') throw new Error('invalid appWindowBrowser');
+  } else if (current.appWindowBrowser) {
+    merged.appWindowBrowser = current.appWindowBrowser;
   }
   if ('uiScale' in patch) {
     if (typeof patch.uiScale !== 'number' || !Number.isFinite(patch.uiScale)) throw new Error('invalid uiScale');

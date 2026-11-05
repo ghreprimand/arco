@@ -154,6 +154,7 @@ import { tryHandleOutputRoutes } from './outputRoutes.js';
 import { tryHandleWorkflowDataRoutes } from './workflowDataRoutes.js';
 import { tryHandleKnowledgeRoutes } from './knowledgeRoutes.js';
 import { tryHandleExplorerRoutes } from './explorerRoutes.js';
+import { tryHandleAppBrowserRoutes } from './appBrowserRoutes.js';
 import { isReady, readinessSnapshot } from '../server/readiness.js';
 import { checkRequestOrigin } from './originGuard.js';
 import { checkHttpAuth, checkMintRequest, describePeer, mintToken, sessionCookieHeader, wsAuthEnabled } from './wsAuth.js';
@@ -474,6 +475,7 @@ export async function handleHttpRequest(
   // /api/explorer/open (window launch) + read-only GET artifacts/recents/
   // changed lenses. Distinct /api/explorer/ prefix, so no collision.
   if (await tryHandleExplorerRoutes(req, res)) return;
+  if (await tryHandleAppBrowserRoutes(req, res)) return;
 
   // D3 — Usage analytics over time (read-only aggregation of existing
   // primary_turn_token_usage events under a cwd; no new capture). Distinct

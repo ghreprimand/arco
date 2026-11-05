@@ -127,6 +127,7 @@ export const gettingStarted: Section[] = [
   </p>
   <ul>
   <li><Code>arco open</Code> opens an app window; <Code>arco open --tab</Code> opens a browser tab.</li>
+  <li><Code>arco open --browser brave</Code> opens the app window in a chosen browser (see App window browser).</li>
   <li><Code>arco doctor</Code> checks its status.</li>
   <li><Code>arco start</Code> runs in the foreground.</li>
   </ul>
@@ -169,6 +170,46 @@ export const gettingStarted: Section[] = [
   Appearance, Projects, Agents and clusters, Voice, Files and media, and Advanced
   are the other task-based categories. Search finds controls across categories;
   the control-location map is in <Code>docs/SETTINGS.md</Code>.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'app-window-browser',
+  group: 'Getting started',
+  title: 'App window browser',
+  body: (
+  <>
+  <p>
+  <Code>arco open</Code> and the Arco shortcut open Arco in its own window of a
+  Chromium-family browser: Chrome, Edge, Brave, Vivaldi or Chromium. The window
+  uses a separate Arco browser profile, so its microphone and notification
+  permissions stay apart from everyday browsing.
+  </p>
+  <Sub>Which browser</Sub>
+  <p>
+  Automatic uses the first one found. Windows checks Edge, Chrome, Brave, Vivaldi
+  and Chromium, for all users and for the current user. macOS checks Chrome, Edge,
+  Brave, Chromium and Vivaldi. Linux checks the same programs on the PATH, then
+  Flatpak installs.
+  </p>
+  <p>
+  To pick one, open <Code>⚙ SETTINGS &gt; Advanced &gt; App window browser</Code>.
+  Choose a detected browser, or Another program for a program name or full path.
+  The line below the list shows what the window opens in now.
+  </p>
+  <p>
+  <Code>arco open --browser &lt;name-or-path&gt;</Code> uses a browser once, for
+  example <Code>arco open --browser vivaldi</Code>. When a chosen browser is not
+  found, Arco says so and uses Automatic.
+  </p>
+  <Sub>Other browsers</Sub>
+  <p>
+  With no Chromium-family browser installed, <Code>arco open</Code> opens a normal
+  tab in the default browser. In Firefox, Safari or another non-Chromium browser,
+  Arco shows a notice once: Arco runs lighter in Chrome, Edge, Brave, Vivaldi or
+  Chromium. CHOOSE BROWSER opens the setting and DISMISS hides the notice for that
+  browser.
   </p>
   </>
   ),

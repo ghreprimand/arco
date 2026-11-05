@@ -14,6 +14,7 @@ import { spawn } from 'child_process';
 import { access, constants } from 'fs/promises';
 import { delimiter, join } from 'path';
 import { desktopLaunchEnv } from './runtimeEnv.js';
+import { chosenAppBrowser } from './appBrowsers.js';
 
 // Preference order: Brave channel builds first when present, then plain
 // Brave, then Chromium, then Chrome. The `*-stable` / `*-browser` aliases
@@ -96,6 +97,13 @@ export async function launchExplorerWindow(origin: string, options: { lens?: 'pl
   // neither (§3 — the prod unit may not export a display).
   const env = desktopLaunchEnv();
   if (!env.DISPLAY && !env.WAYLAND_DISPLAY) env.DISPLAY = ':0';
+
+  // Settings > Advanced > App window browser, when set and found, comes first.
+  const chosen = await chosenAppBrowser().catch(() => null);
+  if (chosen) {
+    const ok = await spawnDetachedProbe(chosen.command, chosen.args(url), env);
+    if (ok) return { ok: true, binary: chosen.command, url };
+  }
 
   const bin = await findOnPath(BROWSER_CANDIDATES);
   if (bin) {

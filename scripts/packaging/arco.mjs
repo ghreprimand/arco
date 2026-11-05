@@ -10,14 +10,14 @@ import { serviceAction, servicePaths, refreshServiceDefinition, SERVICE_ENV_KEYS
 import { redirectServiceStdio, serviceLogReport } from './service-logs.mjs';
 import { activateRepairedTerminal, nativeSqliteBinding, repairNative, supportedNodeVersion } from './native-repair.mjs';
 import { updatePackage, writeUpdateResult } from './update.mjs';
-import { openArco, shortcuts } from './launch.mjs';
+import { openArco, parseOpenArgs, shortcuts } from './launch.mjs';
 import { isArcoHome, readPortState } from './ports.mjs';
 import { knownProjects, unsealProjects } from './storage.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const [command = 'help', ...args] = process.argv.slice(2);
-const help = `Usage: arco <command>\n\n  start                 Run the workbench in the foreground\n  open [--tab]          Open Arco in an app window or browser tab\n  shortcuts <action>    add or remove per-user launcher shortcuts\n  setup                 Configure and start a per-user service\n  setup --repair-native Repair native modules (build tools may be required)\n  service <action>      install, uninstall, start, stop, restart, status, logs or refresh\n  update                Update the installed package\n  voice setup           Install local voice components\n  version               Print the installed version\n  doctor                Check runtime, providers, port and service\n  storage unseal [--project <path>]...\n                        Write compressed conversation logs back to plain files\n                        before installing an older release (Arco must be stopped)\n`;
+const help = `Usage: arco <command>\n\n  start                 Run the workbench in the foreground\n  open [--tab]          Open Arco in an app window or browser tab\n  open --browser <name-or-path>\n                        Open the app window in this browser (chrome, edge,\n                        brave, vivaldi, chromium, or a program path)\n  shortcuts <action>    add or remove per-user launcher shortcuts\n  setup                 Configure and start a per-user service\n  setup --repair-native Repair native modules (build tools may be required)\n  service <action>      install, uninstall, start, stop, restart, status, logs or refresh\n  update                Update the installed package\n  voice setup           Install local voice components\n  version               Print the installed version\n  doctor                Check runtime, providers, port and service\n  storage unseal [--project <path>]...\n                        Write compressed conversation logs back to plain files\n                        before installing an older release (Arco must be stopped)\n`;
 function requireSupportedNode() { if (!supportedNodeVersion()) throw new Error('Unsupported Node.js version. Install Node.js 24 or 26 and retry.'); }
 function checkNative() {
   try {
@@ -36,7 +36,7 @@ async function main() {
   if (command === 'version' || command === '--version') { console.log(manifest.version); return; }
   if (command === 'help' || command === '--help' || command === '-h') { console.log(help); return; }
   if (command === 'shortcut-open') { if (args.length !== 1 || resolve(args[0]) !== args[0]) throw new Error('Invalid shortcut home.'); process.env.ARCO_HOME = args[0]; await openArco(); return; }
-  if (command === 'open') { if (args.length > 1 || (args.length && args[0] !== '--tab')) throw new Error('Use arco open [--tab].'); await openArco({ tab: args.includes('--tab') }); return; }
+  if (command === 'open') { await openArco(parseOpenArgs(args)); return; }
   if (command === 'shortcuts') { if (args.length !== 1) throw new Error('Use arco shortcuts add or remove.'); shortcuts(args[0]); return; }
   if (command === 'start') { if (args.length) throw new Error('arco start takes no arguments.'); await start(); return; }
   if (command === 'service-run') {

@@ -18,6 +18,7 @@ import { startTabStatusTracking } from './stores/tabStatusStore';
 import { ThemedBackgroundShader } from './components/ThemedBackgroundShader';
 import { SystemHeader } from './components/SystemHeader';
 import { StaleBuildBanner } from './components/StaleBuildBanner';
+import { BrowserNotice } from './components/BrowserNotice';
 import { TabBar } from './components/TabBar';
 import { NotificationToasts } from './components/NotificationToasts';
 import { StorageWarnings } from './components/StorageWarnings';
@@ -669,6 +670,7 @@ ${scopeBody}
       >
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
+        <BrowserNotice />
         {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar

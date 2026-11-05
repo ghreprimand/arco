@@ -4,6 +4,7 @@ import { MESSAGE_BOX_SIZES, setMessageBoxSize, useMessageBoxSize } from '../util
 import { LAYOUT_MODES, setLayoutMode, useLayout } from '../layout/layoutRange';
 import { UI_SCALES, DEFAULT_UI_SCALE } from '@arco/shared';
 import { AppVersionSection } from './settings/AppVersionSection';
+import { AppWindowBrowserSection } from './settings/AppWindowBrowserSection';
 import { EndpointHelp } from './EndpointHelp';
 import { SettingsLayout, SettingsSection } from './settings/SettingsLayout';
 import { MediaAccessSettings } from './MediaAccessSettings';
@@ -1299,6 +1300,10 @@ export function SettingsPanel({ onClose }: Props) {
             </div>
           )}
         </div>
+        </SettingsSection>
+
+        <SettingsSection id="app-window-browser">
+          <AppWindowBrowserSection />
         </SettingsSection>
 
         <SettingsSection id="cli-versions">

@@ -18,6 +18,28 @@ application shortcut, starts the service, and opens the local URL. Run
 Arco-owned browser profile. The profile retains its own microphone permission.
 `arco open --tab` opens the default browser instead. If no supported Chromium
 browser is found, `arco open` reports the fallback and opens a normal tab.
+
+Automatic search order for the app window:
+
+| System | Browsers, first found wins |
+| --- | --- |
+| Windows | Edge, Chrome, Brave, Vivaldi, Chromium (App Paths registrations, then Program Files, Program Files (x86) and the per-user `%LOCALAPPDATA%` installs) |
+| macOS | Chrome, Edge, Brave, Chromium, Vivaldi (`/Applications`, then `~/Applications`) |
+| Linux | `google-chrome`, `microsoft-edge`, `brave-browser` or `brave`, `chromium`, `vivaldi` on `PATH` (with their `-stable` and `-browser` names), then Flatpak installs of Chrome, Edge, Brave, Chromium and Vivaldi |
+
+A Flatpak browser is found through its exported launcher in
+`/var/lib/flatpak/exports/bin` or `~/.local/share/flatpak/exports/bin` and runs
+with `flatpak run`, which gives it access to the Arco browser profile folder.
+
+To choose the browser, use **Settings > Advanced > App window browser**
+(Automatic, a detected browser, or another program name or path), or
+`arco open --browser <name-or-path>` for one launch. Names are `chrome`,
+`edge`, `brave`, `vivaldi` and `chromium`, a Flatpak id such as
+`com.brave.Browser`, or a program on `PATH`. The setting is stored in
+`settings.json` in the Arco home and also applies to the shortcut and the
+explorer window. A chosen browser that is not found falls back to Automatic
+with a message. In a non-Chromium browser, the page shows a one-time notice
+with CHOOSE BROWSER and DISMISS.
 The shortcut appears in the Windows Start menu, macOS Applications, or the
 Linux application menu. Run `arco shortcuts add` or `arco shortcuts remove`
 to manage it. A modified shortcut is left in place for manual review. The

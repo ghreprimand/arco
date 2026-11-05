@@ -40,8 +40,10 @@ arco setup
 
 `arco setup` asks before installing the per-user service and creating an
 application shortcut, starts the service, and opens the local URL. Use the
-shortcut or `arco open` for a Chromium app window; `arco open --tab` opens a
-regular browser tab. The service is `arco.service` under systemd user services,
+shortcut or `arco open` for a Chromium app window (Chrome, Edge, Brave, Vivaldi
+or Chromium; choose one in Settings > Advanced > App window browser or with
+`arco open --browser <name-or-path>`); `arco open --tab` opens a regular
+browser tab. The service is `arco.service` under systemd user services,
 `arco-workbench.plist` with label `arco-workbench` under launchd, or the
 `arco-workbench` Task Scheduler logon task on Windows.
 

@@ -56,6 +56,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'notification-channels', page: 'notifications', label: 'Desktop and phone notifications', scope: 'Global (switches kept by the server; the desktop permission is per browser)', help: ['settings.notification-channels'], keywords: 'alert push ntfy phone desktop finished failed waiting title count topic token' },
   { id: 'media-access', page: 'files', label: 'Media folder access', scope: 'Global', help: ['settings.media-unconfined'], aliases: ['media-unconfined'], keywords: 'media studio folders outside confined revoke' },
   { id: 'transport-defaults', page: 'advanced', label: 'Transport defaults', scope: 'Global, for new workflows', help: ['settings.transport-defaults'], keywords: 'codex exec app-server claude cli native' },
+  { id: 'app-window-browser', page: 'advanced', label: 'App window browser', scope: 'Global', help: ['settings.app-window-browser'], keywords: 'arco open shortcut chrome edge brave vivaldi chromium flatpak firefox safari app window' },
   { id: 'cli-versions', page: 'advanced', label: 'CLI and runtime versions', scope: 'Global', help: ['settings.cli-versions', 'settings.app-updates', 'settings.update-action', 'settings.update-result'], keywords: 'version diagnostics' },
 ];
 

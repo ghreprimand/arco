@@ -44,7 +44,7 @@ where it now lives. The table has one row per section; `navigation.test.ts`
 (`client/src/components/settings/`) checks that the rows match the sections
 the dialog renders and that every Settings help entry is covered.
 
-Sections: 26.
+Sections: 27.
 
 | Section id | Category | Section | Scope | Controls |
 | --- | --- | --- | --- | --- |
@@ -73,6 +73,7 @@ Sections: 26.
 | `voice-setup` | Voice | Voice setup | Global | Local speech status, install log, microphone test, test phrase, model notices |
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
+| `app-window-browser` | Advanced | App window browser | Global | Automatic (first detected Chromium-family browser), a detected browser, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
 | `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions |
 
 ## Appearance and browser rendering

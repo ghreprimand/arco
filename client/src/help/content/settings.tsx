@@ -524,6 +524,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
     manualSection: 'arco-updates',
     body: <p>Shows the running version and latest release. CHECK NOW refreshes release information. Check for new releases controls the automatic check; ARCO_UPDATE_CHECK=0 overrides it. UPDATE AND RESTART is available in packaged user services on Linux, macOS and Windows and in Linux source user services after confirmation; other run modes show a copyable command. No update runs automatically.</p>,
   },
+  'settings.app-window-browser': {
+    title: 'App window browser',
+    manualSection: 'app-window-browser',
+    body: <p>Chooses the browser for <code>arco open</code>, the Arco shortcut and the explorer window. Automatic uses the first Chromium-family browser found on this computer. Pick a detected browser, or Another program for a program name or full path, then SAVE. The status line shows what the window opens in now. A chosen browser that is not found, or that has no app window (Firefox, Safari), falls back to Automatic. <code>arco open --browser &lt;name-or-path&gt;</code> overrides the choice once.</p>,
+  },
   'settings.cli-versions': {
     title: 'CLI versions',
     manualSection: 'provider-updates',
