@@ -26,7 +26,7 @@ async def main():
     with wave.open(wav, 'wb') as f:
         f.setnchannels(1); f.setsampwidth(2); f.setframerate(8000); f.writeframes(b'\x00\x00' * 800)
     long_title = 'A long generation prompt that must clamp in the Outputs list so operators can scan the card without reading fifteen lines of prompt text before the actions. UniqueNeedleWord appears only near the end.'
-    state = {'outputs': [output('a', 'generated.png', 'images', long_title), output('b', 'report.md', 'documents'), output('c', 'sound.wav', 'audio'), output('d', 'clip.mp4', 'video'), output('e', 'archive.bin', 'other', primary=False), output('f', 'missing.txt', 'documents', missing=True), output('g', 'short.png', 'images', 'Short title')], 'writes': [], 'requests': [], 'frames': [], 'text': '# Synthetic report\nDurable content.'}
+    state = {'outputs': [output('a', 'generated.png', 'images', long_title), output('b', 'report.md', 'documents', keptBy='artifacts'), output('c', 'sound.wav', 'audio'), output('d', 'clip.mp4', 'video'), output('e', 'archive.bin', 'other', primary=False), output('f', 'missing.txt', 'documents', missing=True), output('g', 'short.png', 'images', 'Short title')], 'writes': [], 'requests': [], 'frames': [], 'text': '# Synthetic report\nDurable content.'}
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         context = await browser.new_context(viewport={'width': 1280, 'height': 720})
@@ -55,6 +55,9 @@ async def main():
                 else: state['outputs'].append({**original, 'id':'9'*32, 'path':body['destination'], 'name':body['destination'].split('/')[-1], 'title':body['destination'].split('/')[-1], 'derivedFrom':original['id']})
                 data = {'ok':True}
             elif path == '/api/outputs/text': state['text'] = req.post_data_json['content']; data = {'ok':True}
+            elif path == '/api/storage/unkeep':
+                for o in state['outputs']: o.pop('keptBy', None)
+                data = {'ok': True, 'items': []}
             elif path == '/api/list-dirs': data = {'parent':query.get('path',['/projects'])[0] or '/projects', 'dirs':[]}
             elif path == '/api/update-check': data = {'current':'0.1.0','latest':None,'enabled':False,'updateAvailable':False}
             elif path == '/api/app/version': data = {'version':'0.1.0'}
@@ -137,6 +140,18 @@ async def main():
         await expect(page.get_by_role('button', name='EDIT', exact=True)).to_be_visible()
         assert state['writes'][-1][0] == '/api/outputs/text' and state['writes'][-1][1]['workflowId'] == A
         await page.keyboard.press('Escape')
+        # A kept artifact shows Kept and UNKEEP; the question names the kept folder.
+        report_item = panel.get_by_role('listitem').filter(has=page.get_by_text('report.md', exact=True).first)
+        await expect(report_item.get_by_text('Kept', exact=True)).to_be_visible()
+        questions = []
+        async def answer(d):
+            questions.append(d.message); await d.accept()
+        page.once('dialog', lambda d: asyncio.ensure_future(answer(d)))
+        await report_item.get_by_role('button', name='UNKEEP report.md').click()
+        await expect(report_item.get_by_text('Kept', exact=True)).to_have_count(0)
+        assert questions and 'kept as part of the folder artifacts' in questions[0], questions
+        unkeep = next(body for path, body in state['writes'] if path == '/api/storage/unkeep')
+        assert unkeep == {'path': CWD, 'workflowId': A, 'itemPath': 'artifacts', 'confirm': True}, unkeep
         await panel.get_by_label('Search outputs', exact=True).fill('')
         image = panel.get_by_role('listitem').filter(has=page.locator('img[src*="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]'))
         await image.get_by_role('button', name='Preview', exact=True).click()
@@ -189,6 +204,6 @@ async def main():
         assert not any(f.get('type') in ['create_workflow','send_prompt','create_cluster'] for f in state['frames'])
         assert not errors, errors
         await context.close(); await browser.close()
-        print('PASS: modal close/reopen, View in Outputs, reload, filters/search, wrong-active-tab context, existing text/image viewers, copy/move/collision, keyboard and narrow110/150%, cluster attribution/exclusion; no provider calls')
+        print('PASS: modal close/reopen, View in Outputs, reload, filters/search, wrong-active-tab context, existing text/image viewers, copy/move/collision, keyboard and narrow110/150%, cluster attribution/exclusion, Kept and UNKEEP; no provider calls')
 
 asyncio.run(main())

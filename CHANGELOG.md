@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- UNKEEP undoes KEEP: in ARTIFACTS > STORAGE for every KEEP mark of a conversation, and in OUTPUTS, where a kept artifact now shows Kept, for the mark that covers it. Each asks first; no file is changed.
+- Large artifact warnings also arrive while a turn is still running (checked every 30 seconds), not only when it ends.
 - Cluster tabs have MEMORY > USAGE: token usage for every member's conversations in the project folder, with MEASURE STORAGE and MEASURE ARCO FOLDER.
 
 ### Changed
@@ -19,6 +21,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - VIEW DIFF VS NOW on a checkpoint works in folders that are not Git repositories, and in Git folders it no longer shows untracked files as deleted and re-added.
 - REVERT TO HERE says what it will change before it runs: files changed back, files created since that are removed, files deleted since that are restored, and files unchanged, or that nothing would change. Afterwards a result line and the REVERTED row in HISTORY show the counts, with VIEW CHANGES for the diff. The dialog states that only files are restored, not the conversation, task board or other cluster members, and in a cluster that other members' edits in the folder are reverted too.
+- RESTORE IGNORE FILE and STOP TRACKING change only projects in the PROJECTS list, and refuse with a message when `.arco` or `.arco/.gitignore` is a link.
 - Turn-finished BELL notices and desktop alerts now appear for real turns. Before, only test turns produced them, so no operator, auto-pickup or peer-mail turn on any provider raised one. In a cluster tab, members other than the one in view now count as another tab for BELL notices.
 
 ## v0.1.4 - 2026-11-05

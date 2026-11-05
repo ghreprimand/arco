@@ -100,3 +100,40 @@ export async function addKeep(conversationDir: string, raw: string, reason: Keep
     return existing.items;
   });
 }
+
+// The KEEP entry that protects `rel`: the entry for the path itself, else the
+// nearest kept folder above it, else the whole conversation. Null when the
+// path is not kept.
+export function keepCovering(items: KeepItem[], rel: string): string | null {
+  const p = normalizeKeepPath(rel);
+  if (p === null) return null;
+  let best: string | null = null;
+  for (const k of items) {
+    const covers = k.path === '.' || k.path === p || p.startsWith(`${k.path}/`);
+    if (!covers) continue;
+    if (best === null || best === '.' || (k.path !== '.' && k.path.length > best.length)) best = k.path;
+  }
+  return best;
+}
+
+// UNKEEP: remove one protection (exactly that path) or every protection of
+// the conversation. Same lock and link rules as addKeep; an unreadable list is
+// never rewritten. Returns the remaining entries.
+export async function removeKeep(conversationDir: string, raw: string | { all: true }): Promise<KeepItem[]> {
+  const rel = typeof raw === 'string' ? normalizeKeepPath(raw) : null;
+  if (typeof raw === 'string' && rel === null) throw new Error('Invalid KEEP path.');
+  const file = path.join(conversationDir, KEEP_FILE);
+  return withKeepLock(conversationDir, async () => {
+    const root = await fs.lstat(conversationDir);
+    if (!root.isDirectory() || root.isSymbolicLink()) throw new Error('Conversation is unavailable.');
+    try { if ((await fs.lstat(file)).isSymbolicLink()) throw new Error('KEEP file cannot be a link.'); }
+    catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []; throw err; }
+    const existing = await readKeep(conversationDir);
+    if (!existing.ok) throw new Error('The KEEP list cannot be read; nothing was changed.');
+    const remaining = rel === null ? [] : existing.items.filter((k) => k.path !== rel);
+    if (remaining.length !== existing.items.length) {
+      await atomicWriteFile(file, JSON.stringify({ version: 1, items: remaining }) + '\n', { mode: 0o600, skipMkdir: true });
+    }
+    return remaining;
+  });
+}

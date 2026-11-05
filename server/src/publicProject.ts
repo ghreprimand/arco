@@ -2,7 +2,7 @@
 // Arco's project state stays out of Git. Read-only except for the two explicit
 // fixes (restore the ignore file, stop tracking). Every git call is argv-only.
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { DEFAULT_PROJECT_IGNORE } from './projectStateIgnore.js';
@@ -122,6 +122,12 @@ export async function checkProjectState(cwd: string): Promise<ProjectStateReport
 export function restoreIgnoreFile(cwd: string): { backup?: string } {
   const dir = join(cwd, '.arco');
   const file = join(dir, '.gitignore');
+  // Never through a link: the folder must be a real folder and the file, if
+  // present, a real file (the route refuses links first; this is the backstop).
+  const dirStat = lstatSync(dir);
+  if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) throw new Error('The project state folder is not a plain folder.');
+  try { if (!lstatSync(file).isFile()) throw new Error('.arco/.gitignore is not a plain file.'); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
   let backup: string | undefined;
   if (existsSync(file)) {
     if (readFileSync(file, 'utf8') === DEFAULT_PROJECT_IGNORE) return {};

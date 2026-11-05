@@ -5,7 +5,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { WorkflowOutput } from '@arco/shared';
 import { getClusterCached, displayNameFor } from '../clusterStore.js';
 import { listOutputs, outputContext, readOutput, saveOutputText, transferOutput } from '../outputs.js';
-import { readOutputIndex } from '../outputStore.js';
+import { outputDirectory, readOutputIndex } from '../outputStore.js';
+import { keepCovering, readKeep } from '../keepStore.js';
+import path from 'node:path';
 import { readFileForExplorer } from '../http/fileRead.js';
 import { REFUSED_EXTENSIONS, desktopOpenAvailable, isLoopbackAddress, launchOpener, openerCommand, refusalFor } from './outputOpen.js';
 const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', wav: 'audio/wav', mp3: 'audio/mpeg', ogg: 'audio/ogg', flac: 'audio/flac', m4a: 'audio/mp4', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' };
@@ -36,7 +38,8 @@ export async function tryHandleOutputRoutes(req: IncomingMessage, res: ServerRes
       let count = 0;
       for (const ctx of contexts) {
         const rows = await listOutputs(ctx); count += rows.length;
-        combined.push(...rows.map(row => ({ ...row, producer: ctx.producer, ...(row.inline ? { inline: { content: '', language: row.inline.language } } : {}) })));
+        const keptBy = await keptLookup(ctx.cwd, ctx.workflowId);
+        combined.push(...rows.map(row => ({ ...row, producer: ctx.producer, ...(row.inline ? { inline: { content: '', language: row.inline.language } } : {}), ...keptBy(row.path) })));
         combined.sort((a, b) => b.updatedAt - a.updatedAt); combined = combined.slice(0, 2000);
       }
       return json(res, 200, { outputs: combined, truncated: count > 2000, limit: 2000, desktopOpen: desktopOpenAvailable(), refusedExtensions: REFUSED_EXTENSIONS, coverage: 'Workflow artifacts, path-backed artifacts, supported Write/Edit events, and scoped editor/media exports. Other changed files are not classified as generated.' });
@@ -95,4 +98,21 @@ export async function tryHandleOutputRoutes(req: IncomingMessage, res: ServerRes
     const code = (err as NodeJS.ErrnoException).code;
     return json(res, code === 'ENOENT' ? 404 : code === 'EEXIST' ? 409 : 400, { error: code === 'EEXIST' ? 'A file already exists at the destination. Choose another name.' : err instanceof Error ? err.message : 'The output request failed.' });
   }
+}
+
+// KEEP marks for one conversation's artifacts, read once per listing. An
+// unreadable or missing list marks nothing (UNKEEP then reports the problem).
+async function keptLookup(cwd: string, workflowId: string): Promise<(file?: string) => { keptBy?: string }> {
+  try {
+    const dir = await outputDirectory(cwd, workflowId);
+    const keep = await readKeep(dir);
+    if (!keep.ok || keep.items.length === 0) return () => ({});
+    return (file) => {
+      if (!file) return {};
+      const rel = path.relative(dir, file).split(path.sep).join('/');
+      if (!rel.startsWith('artifacts/')) return {};
+      const by = keepCovering(keep.items, rel);
+      return by === null ? {} : { keptBy: by };
+    };
+  } catch { return () => ({}); }
 }

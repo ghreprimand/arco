@@ -5,6 +5,7 @@ import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { openImageForEdit, openMediaFile } from '../media/launchers';
 import { FileViewerModal } from '../FileViewerModal';
 import { ArtifactMoveDialog, artifactRelative } from '../ArtifactMoveDialog';
+import { UnkeepButton } from '../KeepButton';
 const CATEGORIES = ['all', 'images', 'documents', 'audio', 'video', 'other'] as const;
 const joinFolder = (folder: string, name: string) => folder.replace(/[\\/]+$/, '') + (folder.includes('\\') ? '\\' : '/') + name;
 const paramsFor = (output: WorkflowOutput) => new URLSearchParams({ cwd: output.cwd, workflowId: output.workflowId, id: output.id });
@@ -185,6 +186,9 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
             <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'copy' })}>Save a copy</button>
             {output.path && <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'move' })}>Move</button>}
             {output.path && artifactRelative(output.path, output.workflowId) && <button data-help="storage.move-project" disabled={output.missing} onClick={() => setArtifactMove(output)}>MOVE TO PROJECT</button>}
+            {output.keptBy && <><span data-help="storage.unkeep" style={{ color: 'var(--color-accent-primary)', alignSelf: 'center' }}>Kept</span>
+              <UnkeepButton cwd={output.cwd} workflowId={output.workflowId} itemPath={output.keptBy} label={`UNKEEP ${label}`}
+                confirmMessage={unkeepQuestion(output, label)} onError={setError} onDone={() => { setNote(`${label} is no longer kept.`); void load(true); }} /></>}
             {canOpen(output) && <button type="button" data-testid="output-open" data-help="rightpanel.outputs.open" disabled={output.missing} onClick={() => void openInDefaultApp(output)}>OPEN</button>}
             {output.path && <a download href={`/api/outputs/file?${paramsFor(output)}&download=1`} aria-disabled={output.missing} onClick={e => { if (output.missing) e.preventDefault(); }}>Download</a>}
           </div>
@@ -233,4 +237,14 @@ function TransferDialog({ transfer, roots, busy, error, onDestination, onConfirm
       <button type="button" disabled={busy} onClick={onClose}>Cancel</button>
     </div>
   </div>;
+}
+
+// What UNKEEP on an output removes: its own mark, the kept folder above it, or
+// the mark on the whole conversation.
+function unkeepQuestion(output: WorkflowOutput, label: string): string {
+  const own = output.path ? artifactRelative(output.path, output.workflowId) : null;
+  const then = 'Archive, delete, EMPTY SCRATCH and size warnings will include it again. No file is changed.';
+  if (output.keptBy === '.') return `"${label}" is kept because the whole conversation is kept. Stop keeping the whole conversation? ${then}`;
+  if (own && output.keptBy === own) return `Stop keeping "${label}"? ${then}`;
+  return `"${label}" is kept as part of the folder ${output.keptBy}. Stop keeping that folder and everything in it? ${then}`;
 }

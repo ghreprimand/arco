@@ -78,6 +78,12 @@ async def main():
             await expect(page.get_by_role('button', name='ARCHIVE Candidate')).to_be_disabled()
             await expect(candidate_row.get_by_text('Kept', exact=True)).to_be_visible()
             assert json.loads((app / '.arco' / 'workflows' / 'candidate-0001' / 'keep.json').read_text())['items'][0]['path'] == '.'
+            # UNKEEP undoes it after a confirmation; no file changes.
+            await page.get_by_role('button', name='UNKEEP Candidate').click()
+            await expect(page.get_by_role('status')).to_contain_text('"Candidate" is no longer kept')
+            await expect(page.get_by_role('button', name='ARCHIVE Candidate')).to_be_enabled()
+            assert json.loads((app / '.arco' / 'workflows' / 'candidate-0001' / 'keep.json').read_text())['items'] == []
+            await expect(page.get_by_role('button', name='UNKEEP Candidate')).to_have_count(0)
             # A dismissed confirmation changes nothing.
             await page.get_by_role('button', name='DELETE Closed draft').click()
             await page.wait_for_timeout(500)
@@ -104,10 +110,10 @@ async def main():
             assert (app / '.arco' / 'plans' / 'p.md').read_text() == '# Plan\n'
             actions = [json.loads(l)['action'] for l in (app / '.arco' / 'storage-actions.jsonl').read_text().splitlines()]
             assert actions == ['empty_scratch', 'compress_logs', 'archive', 'restore', 'delete'], actions
-            assert len(answers) == 7, answers
+            assert len(answers) == 8, answers
             assert not b.errors, b.errors
             await b.close(); b = None
-            print('PASS: STORAGE lens on a synthetic home: sizes, budget notice, settings, KEEP state, every action confirmed and logged, kept items and plans intact.')
+            print('PASS: STORAGE lens on a synthetic home: sizes, budget notice, settings, KEEP and UNKEEP, every action confirmed and logged, kept items and plans intact.')
     finally:
         if b: await b.close()
         server.close()

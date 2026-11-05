@@ -19,6 +19,9 @@ export interface WorkflowOutput {
   // of the artifacts folder, reports and exports. False for code edits and files
   // in artifact subfolders, which the Outputs panel shows under All files.
   primary?: boolean;
+  // For an artifact under KEEP: the kept path that covers it (the file
+  // itself, a folder above it, or "." for the whole conversation).
+  keptBy?: string;
   source: string;
   inline?: { content: string; language?: string };
 }

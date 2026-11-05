@@ -39,6 +39,7 @@ import * as clusterAutoTurn from '../clusterAutoTurn.js';
 import * as clusterIdleNudger from '../clusterIdleNudger.js';
 import * as attention from '../attention.js';
 import * as notifications from '../notifications.js';
+import { stopTurnSizes, watchTurnSizes } from '../storageTurnWatch.js';
 
 export function handoffLockSnapshot(cwd: string): ServerMessage {
   const slot = cwdHandoffChain.get(cwd);
@@ -392,14 +393,20 @@ async function reportArtifactSizes(workflowId: string, cwd: string): Promise<voi
   }
 }
 
-// Turn-finished, failed and waiting alerts (attention.ts) and the long-turn
-// notice (notifications.ts, §J1). Called from both fan-out paths so a turn is
-// seen whichever one carries its start and end.
+// Turn-finished, failed and waiting alerts (attention.ts), the long-turn
+// notice (notifications.ts, §J1) and artifact size checks while a turn runs
+// (storageTurnWatch.ts). Called from both fan-out paths so a turn is seen
+// whichever one carries its start and end.
 function observeTurnAlerts(workflowId: string, wf: WorkflowState, message: ServerMessage): void {
   attention.observeAttention(workflowId, message, { name: wf.config.name ?? '', incognito: !!wf.config.incognito });
+  if (message.type === 'primary_turn_ended') stopTurnSizes(workflowId);
   if (wf.config.incognito) return;
-  if (message.type === 'primary_turn_started') notifications.onTurnStarted(workflowId);
-  else if (message.type === 'primary_turn_ended') notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
+  if (message.type === 'primary_turn_started') {
+    notifications.onTurnStarted(workflowId);
+    const cwd = workflowCwds.get(workflowId);
+    // A closed tab stops its check at the next tick.
+    if (cwd) watchTurnSizes(workflowId, async () => { if (workflows.has(workflowId)) await reportArtifactSizes(workflowId, cwd); else stopTurnSizes(workflowId); });
+  } else if (message.type === 'primary_turn_ended') notifications.onTurnEnded(workflowId, { provider: wf.config.primaryProvider, workflowName: wf.config.name });
 }
 
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {

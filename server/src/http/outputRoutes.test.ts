@@ -137,3 +137,19 @@ test('open resolves registered outputs only, refuses programs and records the op
     assert.equal(readFileSync(stub, 'utf8').trim().split('\n').length, 1);
   } finally { delete process.env.ARCO_OUTPUT_OPEN_STUB; }
 });
+
+test('outputs say which KEEP mark covers an artifact, and UNKEEP clears it', async () => {
+  const { addKeep, removeKeep } = await import('../keepStore.js');
+  const dir = path.join(project, '.arco', 'workflows', ids[2]);
+  const keptBy = async () => ((await (await fetch(`${base}/api/outputs?${query(ids[2])}`)).json()) as { outputs: Array<{ name: string; keptBy?: string }> }).outputs.find(o => o.name === 'output-2.txt')?.keptBy;
+  assert.equal(await keptBy(), undefined);
+  await addKeep(dir, 'artifacts/output-2.txt', 'operator');
+  assert.equal(await keptBy(), 'artifacts/output-2.txt');
+  await addKeep(dir, '.', 'operator');
+  // The file's own mark is the most specific one.
+  assert.equal(await keptBy(), 'artifacts/output-2.txt');
+  await removeKeep(dir, 'artifacts/output-2.txt');
+  assert.equal(await keptBy(), '.');
+  await removeKeep(dir, { all: true });
+  assert.equal(await keptBy(), undefined);
+});

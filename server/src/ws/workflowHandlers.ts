@@ -1,4 +1,5 @@
 import { isAutoCompactionPolicy, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { stopTurnSizes } from '../storageTurnWatch.js';
 import { noteSmartPickupStop } from '../smartPickupObserver.js';
 import { isKnownProvider } from '../providers/index.js';
 import { publishWorkerActivity } from './turnEngine.js';
@@ -1038,6 +1039,7 @@ export function handleRemoveWorkflow(workflowId: string): void {
   // §3.1 — drop the per-workflow stuck-breaker state on tab close.
   stuckBreaker.dispose(workflowId);
   clearPrivateWatches(workflowId);
+  stopTurnSizes(workflowId);
   workflows.delete(workflowId);
   workflowCwds.delete(workflowId);
   if (cwd) releaseProjectSettingsWatcher(cwd);

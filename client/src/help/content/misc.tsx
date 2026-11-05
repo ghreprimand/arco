@@ -1154,8 +1154,9 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>RESTORE IGNORE FILE</C> writes the default ignore file (an edited one
         is kept as a backup). <C>STOP TRACKING</C> removes the folder from Git's
         index and keeps the files; commit afterwards, and note that anything
-        already pushed stays in the remote's history. <C>DISMISS</C> hides this
-        for the project.
+        already pushed stays in the remote's history. Both act only on projects
+        in the PROJECTS list, and refuse when <C>.arco</C> or its ignore file is
+        a link. <C>DISMISS</C> hides this for the project.
       </p>
     ),
     manualSection: 'public-project',
@@ -1302,7 +1303,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.keep': {
     title: 'KEEP',
-    body: <p>KEEP protects the whole conversation after confirmation. Kept items are skipped by ARCHIVE, DELETE, EMPTY SCRATCH and size warnings. "Kept" means the whole conversation is kept, so ARCHIVE and DELETE are off. If the KEEP list cannot be read, those actions stop instead of acting.</p>,
+    body: <p>KEEP protects the whole conversation after confirmation. Kept items are skipped by ARCHIVE, DELETE, EMPTY SCRATCH and size warnings. "Kept" means the whole conversation is kept, so ARCHIVE and DELETE are off. If the KEEP list cannot be read, those actions stop instead of acting. UNKEEP undoes it.</p>,
+    manualSection: 'storage-view',
+  },
+  'storage.unkeep': {
+    title: 'UNKEEP',
+    body: <p>Removes KEEP after confirmation; no file is changed. In STORAGE it removes every KEEP mark of the conversation. In OUTPUTS, where a kept artifact shows "Kept", it removes the mark that covers that file: its own, the kept folder above it, or the whole conversation, as the question says. Archive, delete, EMPTY SCRATCH and size warnings then include those items again.</p>,
     manualSection: 'storage-view',
   },
   'storage.archive': {

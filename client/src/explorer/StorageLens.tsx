@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { KeepButton } from '../components/KeepButton';
+import { KeepButton, UnkeepButton } from '../components/KeepButton';
 import { formatRelativeTime } from '../components/RightPanel/format';
 
 // STORAGE lens (docs/STORAGE_PLAN.md, P7.5) - where the disk space goes, for
@@ -188,6 +188,12 @@ function Conversations({ path, onDone, onError }: { path: string; onDone: (m: st
               disabled={!!busy || !c.keep?.readable || c.keep.whole}
               confirmMessage={`Keep all of "${title}"? Archive and delete will leave it in place.`}
               onError={onError} onKept={() => { onDone(`Kept "${title}".`); setTick((t) => t + 1); }} />
+            {c.keep?.readable && (c.keep.whole || c.keep.items > 0) && (
+              <UnkeepButton cwd={path} workflowId={c.id} all className="display-font" style={btn} label={`UNKEEP ${title}`}
+                disabled={!!busy}
+                confirmMessage={`Stop keeping "${title}"? This removes ${c.keep.items === 1 ? 'its KEEP mark' : `all ${c.keep.items} KEEP marks`}${c.keep.whole ? ', including the one on the whole conversation' : ''}. Archive, delete, EMPTY SCRATCH and size warnings will include those items again. No file is changed.`}
+                onError={onError} onDone={() => { onDone(`"${title}" is no longer kept.`); setTick((t) => t + 1); }} />
+            )}
             <button className="display-font" data-help="storage.archive" aria-label={`ARCHIVE ${title}`} style={btn} disabled={!!busy || working || c.keep?.whole}
               title={working ? 'Close the conversation first' : c.keep?.whole ? 'The whole conversation is kept' : undefined}
               onClick={() => void act('archive', c.id, `Archive "${title}"? Its files are packed into one compressed file and can be restored. Kept items stay in place.`,

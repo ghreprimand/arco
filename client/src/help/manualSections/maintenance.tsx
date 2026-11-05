@@ -47,7 +47,14 @@ export const maintenance: Section[] = [
   </p>
   <p>
   Large artifact warnings offer KEEP, which protects the item from cleanup,
-  archive and later size warnings, or DISMISS without protection.
+  archive and later size warnings, or DISMISS without protection. The size check
+  runs every 30 seconds while a turn works and again when it ends, so a very
+  large file warns while the turn is still running.
+  </p>
+  <p>
+  A kept artifact shows Kept in OUTPUTS with UNKEEP beside it. UNKEEP asks first
+  and names what it removes: the file's own mark, a kept folder above it, or the
+  mark on the whole conversation. No file is changed.
   </p>
   <p>
   Use ALL/DOCS/IMAGES to filter recents, refresh to update listings, and

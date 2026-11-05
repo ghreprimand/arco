@@ -221,6 +221,11 @@ export const plans: Section[] = [
           <li><Code>STOP TRACKING</Code> removes the folder from Git's index and keeps the files on disk. A commit is still needed. Anything already pushed stays in the remote's history, so rotate any secret that was in it.</li>
           <li><Code>DISMISS</Code> hides the notice for that project.</li>
         </ul>
+        <p>
+          The two buttons change only projects in the PROJECTS list. They refuse,
+          with a message, when <Code>.arco</Code> or <Code>.arco/.gitignore</Code>{' '}
+          is a link, so nothing outside the project's own state folder changes.
+        </p>
       </>
     ),
   },
@@ -342,7 +347,7 @@ export const plans: Section[] = [
           a confirmation first, and kept items always stay:
         </p>
         <ul>
-          <li><strong>KEEP</strong> protects the whole conversation from archive and deletion.</li>
+          <li><strong>KEEP</strong> protects the whole conversation from archive and deletion. <strong>UNKEEP</strong> removes every KEEP mark of the conversation again; no file is changed.</li>
           <li><strong>ARCHIVE</strong> packs a closed conversation into one compressed file; <strong>RESTORE</strong> brings it back without overwriting anything.</li>
           <li><strong>DELETE</strong> removes a closed conversation or an archive for good.</li>
           <li><strong>EMPTY SCRATCH</strong> deletes the scratch folder where agents put large temporary files.</li>

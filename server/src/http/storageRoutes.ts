@@ -12,7 +12,7 @@ import { isKept, readKeep } from '../keepStore.js';
 import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { workflows } from '../server/state.js';
-import { addKeep } from '../keepStore.js';
+import { addKeep, removeKeep } from '../keepStore.js';
 import { outputDirectory } from '../outputStore.js';
 import { inspectArtifactCopy, copyReviewedArtifact, ignoreCopyDestination } from '../artifactCopy.js';
 
@@ -80,6 +80,12 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
       const items = await addKeep(dir, body.itemPath, body.reason);
       return json(res, 200, { ok: true, items });
     }
+    if (action === 'unkeep') {
+      if (body.all !== true && typeof body.itemPath !== 'string') return json(res, 400, { error: 'invalid' });
+      const dir = await outputDirectory(project, workflowId);
+      const items = await removeKeep(dir, body.all === true ? { all: true } : body.itemPath as string);
+      return json(res, 200, { ok: true, items });
+    }
     const busy = !!workflows.get(workflowId)?.busy;
     const open = openWorkflowIds().has(workflowId);
     if (action === 'empty-scratch') {
@@ -94,7 +100,7 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
     return json(res, 404, { error: 'unknown_action' });
   } catch (err) {
     if (err instanceof StorageActionError) return json(res, ACTION_STATUS[err.code], { error: err.code, message: err.message });
-    if (action === 'keep' || action.startsWith('copy-')) return json(res, 400, { error: err instanceof Error ? err.message : 'The request could not be completed.' });
+    if (action === 'keep' || action === 'unkeep' || action.startsWith('copy-')) return json(res, 400, { error: err instanceof Error ? err.message : 'The request could not be completed.' });
     console.error('[arco] storage action failed:', err);
     return json(res, 500, { error: 'storage_action_failed' });
   }

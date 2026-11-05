@@ -148,7 +148,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 - **Recommendation:** warn at write time when one artifact file reaches 1 GiB, or a conversation's artifacts reach 5 GiB. In Set B this would have warned for 7 files and 2 conversations out of 1,895. Approving a warning sets **KEEP** on that file or folder, and it never warns again.
 - **Scratch:** each conversation gets `scratch/` beside `artifacts/`, not inside it. Agent guidance says to put large intermediate files there. **EMPTY SCRATCH** deletes it, only on the operator's click and after a confirmation. Kept items are skipped.
 - **Trade-off:** files under the thresholds never warn, even when many of them add up. The per-conversation total covers most of that.
-- **Checked when:** a turn ends. `ARCO_ARTIFACT_WARN_FILE_BYTES` and `ARCO_ARTIFACT_WARN_CONVERSATION_BYTES` override the thresholds.
+- **Checked when:** every 30 seconds while a turn runs and again when it ends (`server/src/storageTurnWatch.ts`); each item still warns once. `ARCO_ARTIFACT_WARN_FILE_BYTES` and `ARCO_ARTIFACT_WARN_CONVERSATION_BYTES` override the thresholds and `ARCO_ARTIFACT_WARN_INTERVAL_MS` the interval.
 
 ### 7. Archive, delete and the disk-budget notice (P7.5, approved)
 

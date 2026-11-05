@@ -94,6 +94,11 @@ links within the artifact remain refused. The original stays in the artifact
 store; Arco does not stage or commit the copy. A large-artifact warning offers
 **KEEP** to protect the artifact from cleanup or **DISMISS**.
 
+A kept artifact shows **Kept** with **UNKEEP** beside it (the listing carries
+`keptBy`, the KEEP mark that covers the file). UNKEEP asks first and removes that
+mark: the file's own, a kept folder above it, or the one on the whole
+conversation. No file is changed.
+
 ## Related links
 
 - [Feature reference](FEATURES.md)

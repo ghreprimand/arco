@@ -3,11 +3,14 @@
 //   GET  /api/public-project/state?path=...         -> project state report
 //   POST /api/public-project/restore-ignore { path } -> { ok, backup? }
 //   POST /api/public-project/stop-tracking { path }  -> { ok, removed }
-import { statSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+// The two POST actions change a project: they take registered projects only
+// (403 otherwise) and refuse a linked .arco or .arco/.gitignore (409).
+import { lstatSync, statSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
 import { IncomingMessage, ServerResponse } from 'http';
 import { assertSafePath } from '../fileAccessPolicy.js';
 import { checkProjectState, restoreIgnoreFile, stopTrackingState, suggestFromRemote } from '../publicProject.js';
+import { realpathWithinProjects } from '../projects.js';
 
 function sendJson(res: ServerResponse, code: number, body: unknown): true {
   res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -18,6 +21,16 @@ function sendJson(res: ServerResponse, code: number, body: unknown): true {
 function validDir(value: unknown): string | null {
   if (typeof value !== 'string' || !isAbsolute(value)) return null;
   try { assertSafePath(value); return statSync(value).isDirectory() ? value : null; } catch { return null; }
+}
+
+// A link at .arco or .arco/.gitignore would make RESTORE IGNORE FILE write, or
+// STOP TRACKING act, somewhere other than the project's own state folder.
+function linkedStateReason(cwd: string): string | null {
+  for (const [p, label] of [[join(cwd, '.arco'), 'The project state folder .arco'], [join(cwd, '.arco', '.gitignore'), 'The file .arco/.gitignore']] as const) {
+    try { if (lstatSync(p).isSymbolicLink()) return `${label} is a link; Arco does not follow it. Replace it with a real folder or file first.`; }
+    catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return `${label} cannot be checked.`; }
+  }
+  return null;
 }
 
 async function readPath(req: IncomingMessage): Promise<unknown> {
@@ -42,8 +55,12 @@ export async function tryHandlePublicProjectRoutes(req: IncomingMessage, res: Se
       return sendJson(res, 200, action === 'remote' ? await suggestFromRemote(cwd) : await checkProjectState(cwd));
     }
     if (req.method === 'POST' && (action === 'restore-ignore' || action === 'stop-tracking')) {
-      const cwd = validDir(await readPath(req));
-      if (!cwd) return sendJson(res, 400, { error: 'Choose an existing project folder.' });
+      const requested = validDir(await readPath(req));
+      if (!requested) return sendJson(res, 400, { error: 'Choose an existing project folder.' });
+      const cwd = await realpathWithinProjects(resolve(requested));
+      if (!cwd) return sendJson(res, 403, { error: 'Only a project in the PROJECTS list can be changed here.' });
+      const linked = linkedStateReason(cwd);
+      if (linked) return sendJson(res, 409, { error: linked });
       if (action === 'restore-ignore') return sendJson(res, 200, { ok: true, ...restoreIgnoreFile(cwd) });
       return sendJson(res, 200, await stopTrackingState(cwd));
     }
