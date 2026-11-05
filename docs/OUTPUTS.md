@@ -45,8 +45,7 @@ provider write-tool forms may require saving the result into the workflow's
 artifacts directory. Older stem events that recorded only a directory cannot
 identify all exported filenames; new stem events record the exact file paths.
 Inline text/code artifacts remain inline until **Save a copy** explicitly exports
-a file. On systems with POSIX permissions, saved copies are created with access
-limited to the owner. Nothing invents a disk file for an inline artifact.
+a file. Nothing invents a disk file for an inline artifact.
 
 ## Preview, edit and save
 
@@ -76,9 +75,11 @@ a collection entry does not install FFmpeg or a model.
 **Create folder** to open the new-folder fields. The folder list fills the
 dialog, which can be resized or maximized. Review the
 source and destination, then choose **Save copy**. The original remains available.
-**Move** is a separate action for disk files: review both locations, then confirm
-**Move output**. Existing files are never silently overwritten. A stale dialog
-must be refreshed if another action already moved the output.
+On systems with POSIX permissions, the saved file is owner-only (mode 0600), for
+both inline text and existing output files. **Move** is a separate action for
+disk files: review both locations, then confirm **Move output**. Existing files
+are never silently overwritten. A stale dialog must be refreshed if another
+action already moved the output.
 
 Copy and move destinations may be in the home folder or an existing approved
 project or enabled media folder. Protected Arco and Git state, other protected
