@@ -49,7 +49,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.group.memory': {
     title: 'MEMORY group',
-    body: <p>What this tab keeps over time: <C>KNOWLEDGE</C> (saved notes and links), <C>LEDGER</C> (the project task list), <C>HISTORY</C> (past events) and <C>USAGE</C> (tokens and cost).</p>,
+    body: <p>What this tab keeps over time. In a single-worker or chat tab: <C>KNOWLEDGE</C> (saved notes and links), <C>LEDGER</C> (the project task list), <C>HISTORY</C> (past events) and <C>USAGE</C> (tokens and cost; also MEASURE STORAGE / MEASURE ARCO FOLDER). Cluster tabs show <C>HISTORY</C> only under MEMORY; for disk space from anywhere use ARTIFACTS &gt; STORAGE.</p>,
   },
   'rightpanel.group.runtime': {
     title: 'RUNTIME group',
@@ -713,8 +713,10 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Per-provider, per-day token-volume + cache-hit-ratio trends for every
-          conversation under this project's cwd: a quota-pressure read of{' '}
+          Open from <C>MEMORY &gt; USAGE</C> in a single-worker or chat tab (cluster
+          tabs have no USAGE; use ARTIFACTS &gt; STORAGE for disk space). Per-provider,
+          per-day token-volume + cache-hit-ratio trends for every conversation under
+          this project's cwd: a quota-pressure read of{' '}
           <em>which tab/model is eating your rolling window</em>, framed as token
           volume (never cost). Backed by <C>GET /api/usage-stats</C>, a read-only
           deterministic aggregation of the <C>primary_turn_token_usage</C> events
@@ -740,11 +742,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'storage.warning-dismiss': { title: 'Dismiss warning', manualSection: 'archive-explorer', body: <p>Dismiss this warning without protecting the item.</p> },
   'rightpanel.storage.scan': {
     title: 'MEASURE STORAGE', manualSection: 'right-panel',
-    body: <p>Measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately.</p>,
+    body: <p>In a single-worker or chat tab under MEMORY &gt; USAGE, measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately. Cluster tabs have no USAGE; from anywhere use ARTIFACTS &gt; STORAGE (MEASURE AGAIN).</p>,
   },
   'rightpanel.storage.home': {
     title: 'MEASURE ARCO FOLDER', manualSection: 'right-panel',
-    body: <p>Measure Arco's own folder without changing it: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters, server logs and other files. Chat and Genesis project folders inside it are skipped here and counted with their own projects. Click again to refresh.</p>,
+    body: <p>In a single-worker or chat tab under MEMORY &gt; USAGE, measure Arco's own folder without changing it: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters, server logs and other files. Chat and Genesis project folders inside it are skipped here and counted with their own projects. Click again to refresh. From anywhere, ARTIFACTS &gt; STORAGE also measures with MEASURE AGAIN.</p>,
   },
   'rightpanel.usage.refresh': {
     title: 'REFRESH',

@@ -391,9 +391,9 @@ App
 │           ├── BakeoffTab         (BAKE-OFF tab - operator-armed worktree bake-offs)
 │           ├── KnowledgeTab       (KNOWLEDGE tab - per-cwd operator-owned knowledge base; + KnowledgeWizard)
 │           ├── TasksPanel (TASKS tab; gated on non-empty job.taskChildren)
-│           ├── LedgerTab          (LEDGER tab - cwd-scoped durable project task ledger)
-│           ├── HistoryTab (HISTORY tab; read-only timeline + LABEL / REVIEW-FROM-HERE / SPAWN-FROM-HERE)
-│           ├── UsageTab           (USAGE tab - Workbench; per-provider/per-day token + cache-ratio trends, hand-rolled SVG)
+│           ├── LedgerTab          (MEMORY > LEDGER - single-worker/chat; cwd-scoped durable project task ledger)
+│           ├── HistoryTab (MEMORY > HISTORY; read-only timeline + LABEL / REVIEW-FROM-HERE / SPAWN-FROM-HERE)
+│           ├── UsageTab           (MEMORY > USAGE - single-worker/chat only; token trends + MEASURE STORAGE; cluster: ARTIFACTS > STORAGE)
 │           ├── PreviewTab         (PREVIEW tab - per-workflow dev-server iframe with auto-detect + aspect toggle)
 │           ├── ConfigTab          (CONFIG tab - `RightPanel/ConfigTab.tsx`: transport sections (Claude + sticky ULTRACODE / Codex + MAX/STANDARD context), auto-compaction, auto-handoff + auto-fold, Claude Native knobs (compact, auto-continue, thinking display, interleaved beta, tool filter, web budget, fact-force, config protection, review safe-mode, sandbox), OUTPUT STYLE, NORTH STAR + goal-run control, PROJECT TRUST, Ollama lifecycle/params/VRAM/compaction session, then CodebaseMemorySection + McpRegistrySection)
 │           └── GitHubPanel        (GITHUB tab)
@@ -1254,7 +1254,7 @@ The creator and member role editor limit new director assignments to one per clu
 
 ### Storage report
 
-In the right-panel USAGE tab, MEASURE STORAGE reads the current project state. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, other conversation files, plans, task boards, worktrees and isolated copies, archived conversations, or other. Each conversation shows its log bytes by event type, activity and open status. Large files are marked. MEASURE AGAIN refreshes the cached result; the measurement time and read errors are shown. Shared checkpoint storage is listed separately.
+In a single-worker or chat tab, open **MEMORY > USAGE** in the right panel. MEASURE STORAGE reads the current project state. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, other conversation files, plans, task boards, worktrees and isolated copies, archived conversations, or other. Each conversation shows its log bytes by event type, activity and open status. Large files are marked. MEASURE AGAIN refreshes the cached result; the measurement time and read errors are shown. Shared checkpoint storage is listed separately. Cluster tabs have no USAGE; from anywhere use ARTIFACTS > STORAGE (MEASURE AGAIN).
 
 MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headings for voice and media models, caches and browser profiles, provider account data, saved clusters and server logs. A file with several hard links is counted once. Chat and Genesis project folders inside Arco's folder are skipped and counted with their own projects. Neither report deletes or changes files.
 

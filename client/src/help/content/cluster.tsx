@@ -1225,7 +1225,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.group.memory': {
     title: 'MEMORY group',
-    body: <p><C>HISTORY</C>: past events from the cluster&apos;s first member.</p>,
+    body: <p><C>HISTORY</C>: past events from the cluster&apos;s first member. Cluster tabs have no USAGE; for disk space open ARTIFACTS &gt; STORAGE (MEASURE AGAIN). Token usage and MEASURE STORAGE / MEASURE ARCO FOLDER live under MEMORY &gt; USAGE on a single-worker or chat tab.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.right-panel.group.runtime': {

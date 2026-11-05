@@ -448,7 +448,8 @@ export const workspace: Section[] = [
           scannable: <strong>WORKSPACE</strong> (Files including Outputs,
           Genesis), <strong>AGENT</strong> (Activity, Review, Research,
           Handoffs, Plan, Bake-off, Tasks), <strong>MEMORY</strong> (Knowledge,
-          Ledger, History, Usage), and <strong>RUNTIME</strong> (Preview,
+          Ledger, History, Usage - single-worker and chat tabs; cluster tabs show
+          History only under MEMORY), and <strong>RUNTIME</strong> (Preview,
           Config, GitHub).
         </p>
         <p>
@@ -500,15 +501,15 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="ld">LEDGER</strong>,
-              <>Project task ledger (TRIAGE / TODO / READY / IN PROGRESS / BLOCKED / REVIEW / DONE / ARCHIVED) with linked plans, reviews, workflows, and URLs. Cwd-scoped, persists across sessions.</>,
+              <>MEMORY &gt; LEDGER in a single-worker or chat tab. Project task ledger (TRIAGE / TODO / READY / IN PROGRESS / BLOCKED / REVIEW / DONE / ARCHIVED) with linked plans, reviews, workflows, and URLs. Cwd-scoped, persists across sessions. Cluster work uses AGENT &gt; BOARD instead.</>,
             ],
             [
               <strong key="h2">HISTORY</strong>,
-              <>Read-only seq-stamped timeline with LABEL THIS, REVIEW FROM HERE, SPAWN FROM HERE, and REWIND CONVERSATION actions, plus a REWINDS filter and fork markers. REWIND CONVERSATION (Claude Native only) moves the live head back to a past point - the current branch is kept and can be returned to, so it is reversible; a two-click confirm guards it and it is blocked while a turn is in flight.</>,
+              <>MEMORY &gt; HISTORY (single-worker, chat and cluster tabs). Read-only seq-stamped timeline with LABEL THIS, REVIEW FROM HERE, SPAWN FROM HERE, and REWIND CONVERSATION actions, plus a REWINDS filter and fork markers. REWIND CONVERSATION (Claude Native only) moves the live head back to a past point - the current branch is kept and can be returned to, so it is reversible; a two-click confirm guards it and it is blocked while a turn is in flight.</>,
             ],
             [
               <strong key="us">USAGE</strong>,
-              <>Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked.</>,
+              <>MEMORY &gt; USAGE in a single-worker or chat tab only (cluster tabs have no USAGE). Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked. From anywhere, ARTIFACTS &gt; STORAGE also offers MEASURE AGAIN.</>,
             ],
             [
               <strong key="pv">PREVIEW</strong>,

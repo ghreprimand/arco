@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+### Changed
+
+- Docs and help name the storage and token view as MEMORY > USAGE on single-worker and chat tabs only, and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere, including cluster tabs that have no USAGE.
+
 ## v0.1.4 - 2026-11-05
 
 ### Added
@@ -14,7 +18,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Add a STORAGE lens to the ARTIFACTS window: every project and Arco's own folder, largest first, with COMPRESS OLD LOGS per project and ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH per conversation, each confirmed. Kept items and plans always stay, and an action refuses a linked folder instead of following it. STORAGE SETTINGS holds auto-archive (off by default, never deletes) and a disk budget notice (100 GiB).
 - Review artifact copies into project files with Git ignore, repository visibility, size and text checks. KEEP retains protected artifacts in Arco; copying never removes the original, stages or commits it. Large artifact warnings offer KEEP or DISMISS.
 
-- Measure storage in USAGE: MEASURE STORAGE (then MEASURE AGAIN) for the project and MEASURE ARCO FOLDER for Arco's own folder, with every byte under one heading (conversation logs, artifacts, worktrees, caches, voice models and more), log bytes by event type, and large files. Read-only.
+- Measure storage in a single-worker or chat tab under MEMORY > USAGE: MEASURE STORAGE (then MEASURE AGAIN) for the project and MEASURE ARCO FOLDER for Arco's own folder, with every byte under one heading (conversation logs, artifacts, worktrees, caches, voice models and more), log bytes by event type, and large files. Read-only. From anywhere, ARTIFACTS > STORAGE offers MEASURE AGAIN.
 
 - Add public-project guardrails: a "This project is public (or will be)" box beside the plan-draft choices (cluster creator, DRAFT A PLAN, PLAN dialog) that makes a drafted plan include a "Privacy and public safety" section, remembered per project folder and suggested from the Git remote (one anonymous GitHub request, cached for a day, only when a plan-draft control is shown); INSERT GUARDRAILS to add the section to an existing plan as an unsaved edit; and a dismissible notice with RESTORE IGNORE FILE and STOP TRACKING when Git tracks or does not ignore a project's `.arco` folder.
 - Add optional release labels to cluster board tasks (a RELEASE field in the card drawer, or set by the director), a release filter in the board header, and a ready-to-release line for a chosen release (tasks in, accepted, left). CATCH ME UP lists board changes with their release and a movement summary, and BRIEF on a cluster adds board totals, release progress and the last day's movement. Boards without labels and older saved boards look and load as before.

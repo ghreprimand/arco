@@ -73,7 +73,7 @@ export const clusters: Section[] = [
   MAILBOX.
   </li>
   <li>
-  <strong>MEMORY</strong> - HISTORY, from the anchor member.
+  <strong>MEMORY</strong> - HISTORY, from the anchor member. No USAGE here; use ARTIFACTS &gt; STORAGE for disk space, or MEMORY &gt; USAGE on a single-worker or chat tab.
   </li>
   <li>
   <strong>RUNTIME</strong> - PREVIEW / CONFIG / GITHUB.
