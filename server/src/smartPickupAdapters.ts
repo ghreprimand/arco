@@ -18,7 +18,7 @@
 //             item, or any approval or other server request, interrupts the
 //             turn, kills the process and gives no decision.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -224,7 +224,9 @@ export function cursorAdapter(opts: { launch?: (model: string) => [string, strin
       const t0 = Date.now();
       let phaseAt = t0;
       const phase = (name: string) => { const now = Date.now(); trace?.(`phase ${name} ${now - phaseAt}ms (total ${now - t0}ms)`); phaseAt = now; };
-      const cwd = await mkdtemp(join(tmpdir(), 'arco-evaluator-'));
+      // The real path, so the folder the agent is told matches the child's
+      // process folder even when the temporary directory is reached through a link.
+      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'arco-evaluator-')));
       const proc = spawn(...launch(req.model), { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env }, detached: process.platform !== 'win32' });
       let rpc: AcpJsonRpcClient | null = null;
       let text = '';
@@ -336,7 +338,9 @@ export function codexAdapter(opts: { launch?: () => [string, string[]]; usable?:
       return state.available ? { provider: 'codex', available: true } : { provider: 'codex', available: false, reason: state.reason ?? 'Codex is not available.' };
     },
     async evaluate(req) {
-      const cwd = await mkdtemp(join(tmpdir(), 'arco-evaluator-'));
+      // The real path, so the folder the agent is told matches the child's
+      // process folder even when the temporary directory is reached through a link.
+      const cwd = await realpath(await mkdtemp(join(tmpdir(), 'arco-evaluator-')));
       const proc = spawn(...launch(), { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env }, detached: process.platform !== 'win32' });
       let rpc: JsonRpcClient | null = null;
       let threadId = '';
