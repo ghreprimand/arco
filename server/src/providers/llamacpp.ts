@@ -11,7 +11,7 @@ import {
   ToolLoopDetector,
   type OllamaToolDefinition,
 } from './ollamaTools.js';
-import { ThinkSplitter, parseRenderedTranscript } from './ollama.js';
+import { ThinkSplitter, ollamaToolCallAllowed, parseRenderedTranscript } from './ollama.js';
 import { llamacppManager, type LlamacppLoadedState } from './llamacppManager.js';
 import { LLAMACPP_NOT_FOUND, resolveLlamaServer } from './llamacppBinary.js';
 import { goalBlock } from './goalBlock.js';
@@ -752,6 +752,11 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       let result: string;
       if (argError) {
         result = `[error] tool "${name}" arguments rejected: ${argError}`;
+      } else if (!ollamaToolCallAllowed(this.config, name)) {
+        // Chat tabs and plan-review turns offer no tools, but the XML
+        // fallback above can still turn `<tool_call>` text into a call.
+        // Refuse it here, as the Ollama and LM Studio dispatchers do.
+        result = `[error] tool "${name}" is not enabled for this turn.`;
       } else if (!autoMode) {
         result =
           `[Arco SAFE mode] tool "${name}" was not executed. ` +

@@ -145,7 +145,10 @@ explicitly instead of inheriting a provider default:
 - **Strata** - the shared OpenAI HTTP worker advertises and dispatches only
   `WebSearch` / `WebFetch` when Chat web access is armed. Standalone logs/image
   caches mean it is unavailable in strict Incognito.
-- **llama.cpp, LM Studio** - tool schemas omitted; no web option.
+- **llama.cpp, LM Studio** - tool schemas omitted; no web option. Both still
+  re-check `ollamaToolCallAllowed()` at dispatch, so a tool call the model
+  writes as text (llama.cpp's `<tool_call>` fallback) is refused in Chat and
+  in plan-review turns, even with AUTO on.
 - **Cursor** - routed to the stateless `-p --mode ask` transport
   (`--stream-partial-output` in chat) with deterministic transcript replay.
 

@@ -25,6 +25,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- llama.cpp Chat tabs and plan-review turns no longer run a tool call the model writes as `<tool_call>` text, even with AUTO on. Tools stay refused there, as on Ollama and LM Studio.
 - CATCH ME UP skips the model for empty ranges, offers wider ranges and keeps failed summaries out of chat.
 
 - VIEW DIFF VS NOW on a checkpoint works in folders that are not Git repositories, and in Git folders it no longer shows untracked files as deleted and re-added.
