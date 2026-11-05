@@ -11,8 +11,8 @@ test('catch-up route collects and logs bounded workflow activity; cancellation s
   const home = mkdtempSync(join(tmpdir(), 'arco-catch-route-'));
   process.env.ARCO_HOME = join(home, 'state');
   const cwd = join(home, 'project'), id = 'fixture-workflow'; mkdirSync(cwd, { recursive: true });
-  const [{ workflows, workflowCwds }, { initWorkflowStore, flushWorkflowBuffer }, { patchSettings }, { setEvaluatorAdaptersForTest, EvaluatorRefused }, { tryHandleUtilityAgentRoutes }] = await Promise.all([
-    import('../server/state.js'), import('../workflowStore.js'), import('../settings.js'), import('../smartPickupAdapters.js'), import('./utilityAgentRoutes.js'),
+  const [{ workflows, workflowCwds }, { initWorkflowStore, flushWorkflowBuffer }, { patchSettings }, { setEvaluatorAdaptersForTest, EvaluatorRefused }, { tryHandleUtilityAgentRoutes }, { settleProjectWrites }] = await Promise.all([
+    import('../server/state.js'), import('../workflowStore.js'), import('../settings.js'), import('../smartPickupAdapters.js'), import('./utilityAgentRoutes.js'), import('../testSupport/projectWrites.js'),
   ]);
   let finish!: () => void;
   const wait = new Promise<void>((resolve) => { finish = resolve; });
@@ -49,6 +49,6 @@ test('catch-up route collects and logs bounded workflow activity; cancellation s
     const missing = await request('/api/utility-agent/catch-up', { ...body, jobId: 'catch-missing', id: 'missing' });
     assert.equal(missing.code, 409);
   } finally {
-    restore(); workflows.delete(id); workflowCwds.delete(id); await flushWorkflowBuffer(cwd, id); rmSync(home, { recursive: true, force: true });
+    restore(); workflows.delete(id); workflowCwds.delete(id); await flushWorkflowBuffer(cwd, id); await settleProjectWrites(); rmSync(home, { recursive: true, force: true });
   }
 });

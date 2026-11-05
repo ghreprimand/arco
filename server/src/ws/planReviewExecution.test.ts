@@ -10,10 +10,11 @@ import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-plan-review-'));
 installIsolatedTestHome(root);
-after(() => rmSync(root, { recursive: true, force: true }));
+after(async () => { await settleProjectWrites(); rmSync(root, { recursive: true, force: true }); });
 const engine = await import('./turnEngine.js');
 const { workflows, workflowCwds } = await import('../server/state.js');
 const { initWorkflowStore, flushAll } = await import('../workflowStore.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 
 test('plan review dispatches without project tools and is refused while busy', async () => {
   const cwd = join(root, 'project'); mkdirSync(cwd); const id = 'review-fixture';

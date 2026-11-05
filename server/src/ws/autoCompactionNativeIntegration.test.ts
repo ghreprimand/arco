@@ -12,6 +12,7 @@ installIsolatedTestHome(temp); process.env.ARCO_TEST='1';
 const native=await import('../providers/claude-native/index.js');
 const engine=await import('./turnEngine.js');
 const compact=await import('./compactHandlers.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 const { workflows, workflowCwds }=await import('../server/state.js');
 const { broadcastWorkflow }=await import('../server/broadcast.js');
 const { initWorkflowStore,replayEvents }=await import('../workflowStore.js');
@@ -72,5 +73,5 @@ test('fresh threshold runs one guarded Native compact and preserves prior events
     assert.equal(await engine.runExplicitContextActions(id,wf,cwd,config.autoCompaction,{percent:90,provider:'claude',sessionId:undefined},compactToken,ws,{} as Session),'compact-attempted');
     assert.equal(compacts,1); assert.equal(handoffs,0);
 
-  } finally {native.disposeClaudeNativeWorker(id); workflows.delete(id); workflowCwds.delete(id); rmSync(temp,{recursive:true,force:true});}
+  } finally {native.disposeClaudeNativeWorker(id); workflows.delete(id); workflowCwds.delete(id); await settleProjectWrites(); rmSync(temp,{recursive:true,force:true});}
 });

@@ -11,6 +11,7 @@ const home = mkdtempSync(join(tmpdir(), 'arco-turn-interrupt-')); installIsolate
 const engine = await import('./turnEngine.js');
 const { workflows, workflowCwds } = await import('../server/state.js');
 const { initWorkflowStore, flushAll } = await import('../workflowStore.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 
 test('an interrupt during pre-capture replaces the prompt before any worker starts', async () => {
   const cwd = join(home, 'project'), id = 'fixture-interrupt'; mkdirSync(cwd, {recursive:true});
@@ -34,5 +35,5 @@ test('an interrupt during pre-capture replaces the prompt before any worker star
     assert.equal(tasks.length,1);
     assert.match(tasks[0],/new instruction/);
     assert.doesNotMatch(tasks[0],/old instruction/);
-  } finally { workflows.delete(id); workflowCwds.delete(id); await flushAll(); rmSync(home,{recursive:true,force:true,maxRetries:10,retryDelay:100}); }
+  } finally { workflows.delete(id); workflowCwds.delete(id); await settleProjectWrites(); rmSync(home,{recursive:true,force:true,maxRetries:10,retryDelay:100}); }
 });

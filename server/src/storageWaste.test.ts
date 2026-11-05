@@ -14,6 +14,7 @@ import * as taskLedger from './project/taskLedger.js';
 import { planBodyHash, planHistoryDir } from './planHistory.js';
 import { listPlans } from './planStore.js';
 import type { WorkflowState } from './workflows/types.js';
+import { removeProjectDir } from './testSupport/projectWrites.js';
 import type { WorkflowMeta } from './workflowMeta.js';
 
 // P7.2 (docs/STORAGE_PLAN.md): full board copies are sent live but never
@@ -63,7 +64,7 @@ test('board copies reach open tabs but are not written to the log; changes still
     assert.deepEqual(rebuilt.map((t) => t.title).sort(), ['first', 'second']);
   } finally {
     workflows.delete(id); workflowCwds.delete(id);
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });
 
@@ -80,7 +81,7 @@ test('an old log with board copies still replays them', async () => {
     assert.deepEqual(replayed.map((m) => m.type), ['workflow_created', 'task_ledger_snapshot']);
   } finally {
     workflows.delete(id); workflowCwds.delete(id);
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });
 
@@ -117,6 +118,6 @@ test('plan bodies are stored once and the member log carries the hash', async ()
   } finally {
     await clusterStore.deleteCluster(clusterId).catch(() => undefined);
     for (const id of ids) { workflows.delete(id); workflowCwds.delete(id); }
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });

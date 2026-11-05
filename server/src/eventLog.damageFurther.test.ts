@@ -6,8 +6,9 @@ import { brotliCompressSync } from 'node:zlib';
 import path from 'node:path';
 import type { ServerMessage } from '@arco/shared';
 import {
-  forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq,
+  flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq,
 } from './workflowStore.js';
+import { removeProjectDir } from './testSupport/projectWrites.js';
 import {
   readLogHeadSync, readLogTail, readLogTailSync, readLogText, readLogTextSync, sealLiveLog, segmentName,
 } from './eventLog.js';
@@ -84,7 +85,7 @@ test('a damaged middle segment is moved aside while a reader holds it, and a lat
     assert.equal(third, null);
     assert.deepEqual(await history(cwd), Array.from({ length: 35 }, (_, i) => i + 1));
     assert.equal((await readdir(dir)).filter((name) => name.includes('.damaged-')).length, 1);
-  } finally { await rm(cwd, { recursive: true, force: true }); }
+  } finally { await removeProjectDir(cwd); }
 });
 
 test('records that survive only in sound segments stay visible when the damaged segment is not in the live file', async () => {
@@ -119,7 +120,7 @@ test('records that survive only in sound segments stay visible when the damaged 
       seen((await readLogTail(dir, 1 << 20)).text, 'readLogTail');
       seen(readLogTailSync(dir, 1 << 20).text, 'readLogTailSync');
     });
-  } finally { await rm(cwd, { recursive: true, force: true }); }
+  } finally { await removeProjectDir(cwd); }
 });
 
 test('a sequence number named by a damaged segment is not allocated again', async () => {
@@ -134,6 +135,7 @@ test('a sequence number named by a damaged segment is not allocated again', asyn
     await quiet(() => initWorkflowStore(cwd, id));
     const reserved = persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'while damaged' } as unknown as ServerMessage) as { seq?: number };
     assert.ok((reserved.seq ?? 0) > 40, `allocated ${reserved.seq} while a segment is still named through 40`);
+    await flushWorkflowBuffer(cwd, id);
     forgetWorkflowBuffer(cwd, id);
     await quiet(() => sealLiveLog(dir, 1 << 20));
     const aside = (await readdir(dir)).find((name) => name.includes('.damaged-'));
@@ -142,5 +144,5 @@ test('a sequence number named by a damaged segment is not allocated again', asyn
     await quiet(() => initWorkflowStore(cwd, id));
     const after = persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'after aside' } as unknown as ServerMessage) as { seq?: number };
     assert.ok((after.seq ?? 0) > 40, `allocated ${after.seq} after the segment named through 40 was moved aside`);
-  } finally { await rm(cwd, { recursive: true, force: true }); }
+  } finally { await removeProjectDir(cwd); }
 });

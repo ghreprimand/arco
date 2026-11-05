@@ -9,7 +9,7 @@ import type { WebSocket } from 'ws';
 
 const root = await mkdtemp(path.join(tmpdir(), 'arco-tuneup-safety-'));
 installIsolatedTestHome(root);
-after(async () => { await rm(root, { recursive: true, force: true }); });
+after(async () => { await (await import('../testSupport/projectWrites.js')).settleProjectWrites(); await rm(root, { recursive: true, force: true }); });
 const { backupAndWriteInstructionFile, discoverInstructionFiles, discoverInstructionFilesWithLinks, instructionMetrics } = await import('./runMdTuneup.js');
 const { rememberTuneupUndo, undoTuneup } = await import('./mdTuneupUndo.js');
 

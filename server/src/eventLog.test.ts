@@ -11,6 +11,7 @@ import {
 } from './workflowStore.js';
 import { listSegments, readLogHeadSync, readLogLines, readLogTail, readLogTailSync, readLogText, readLogTextSync, sealLiveLog, sealTestHooks, segmentName } from './eventLog.js';
 import { readCatchUpEvents } from './catchUp.js';
+import { removeProjectDir } from './testSupport/projectWrites.js';
 import { scanOperatorMessages } from './workflows/sessionIndex.js';
 import { readMemberActivity } from './management/clusterActivity.js';
 import { aggregateUsageForCwd } from './http/usageStatsRoutes.js';
@@ -32,7 +33,7 @@ async function withProject(fn: (cwd: string, dir: (id: string) => string) => Pro
   try { await fn(cwd, (id) => path.join(cwd, '.arco', 'workflows', id)); }
   finally {
     if (before === undefined) delete process.env.ARCO_EVENT_SEGMENT_BYTES; else process.env.ARCO_EVENT_SEGMENT_BYTES = before;
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 }
 

@@ -11,6 +11,7 @@ const temp=mkdtempSync(join(tmpdir(),'arco-ollama-execution-'));installIsolatedT
 const engine=await import('./turnEngine.js');
 const { workflows,workflowCwds }=await import('../server/state.js');
 const { initWorkflowStore,replayEvents,flushAll }=await import('../workflowStore.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 const { projectOllamaHistory }=await import('../providers/ollamaExecutionHistory.js');
 const { acquireCheckoutWriter }=await import('../checkoutOwnership.js');
 
@@ -66,5 +67,5 @@ test('real turn loop persists exact queued input identities and scopes each prov
   const noEdit=engine.handleUserMessage(ws,session,id,'no edits','z',undefined,false,undefined,undefined);
   await waitFor(4); pending[3].reply(); await noEdit;
   assert.equal((await replayEvents(cwd,id,0)).filter(e=>e.type==='turn_changes').length,2);
- } finally {delete process.env.ARCO_CHECKPOINT_TOTAL_CAP_BYTES;workflows.delete(id);workflowCwds.delete(id);await flushAll();rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+ } finally {delete process.env.ARCO_CHECKPOINT_TOTAL_CAP_BYTES;workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });

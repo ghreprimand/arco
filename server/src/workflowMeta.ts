@@ -366,6 +366,28 @@ export async function readMeta(cwd: string, wfid: string): Promise<WorkflowMeta 
   }
 }
 
+// The index upserts writeMeta starts are not awaited by its callers. They are
+// remembered here so code that removes a project folder (tests, mainly) can
+// wait for them first instead of racing a late write into <cwd>/.arco.
+const pendingSideEffects = new Set<Promise<unknown>>();
+
+function trackSideEffect(work: Promise<unknown>): void {
+  pendingSideEffects.add(work);
+  const done = () => { pendingSideEffects.delete(work); };
+  work.then(done, done);
+}
+
+/**
+ * Resolve once every index upsert started by writeMeta so far has finished,
+ * including upserts started while waiting. Never rejects (each upsert already
+ * logs its own failure).
+ */
+export async function settleMetaSideEffects(): Promise<void> {
+  while (pendingSideEffects.size > 0) {
+    await Promise.allSettled([...pendingSideEffects]);
+  }
+}
+
 export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> {
   if (!cwd) return;
   validateWfid(meta.workflowId);
@@ -380,15 +402,15 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
   // workflows run. FAILURE-ISOLATED: a recall hiccup must never break a real
   // workflow's meta write, so the upsert is fired-and-logged, never awaited
   // into the meta-write result. recall.db is a rebuildable projection anyway.
-  getRecallIndex().upsertFromMeta(meta).catch((err) => {
+  trackSideEffect(getRecallIndex().upsertFromMeta(meta).catch((err) => {
     console.error('[arco] recall index upsert failed:', err);
-  });
+  }));
   // docs/ARCHITECTURE.md - keep the project-local session index current after
   // every turn. Same FAILURE-ISOLATED contract as the recall upsert above: the
   // session index is a rebuildable projection, so a hiccup must never break the
   // meta write. Fired-and-logged, never awaited.
   if (meta.kind !== 'chat') {
-    upsertSessionIndexFromMeta(meta)
+    trackSideEffect(upsertSessionIndexFromMeta(meta)
       // Opt-in utility-model title (settings.ollama.utility.titles). Chained
       // AFTER the upsert so the entry exists; dynamic import keeps ollama.ts
       // out of this module's static graph. Self-gating + never throws.
@@ -396,7 +418,7 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
       .then((m) => m.maybeGenerateModelTitle(meta))
       .catch((err) => {
         console.error('[arco] session index upsert failed:', err);
-      });
+      }));
   }
 }
 

@@ -9,6 +9,7 @@ import {
   flushWorkflowBuffer, forgetWorkflowBuffer, getHeadSeq, initWorkflowStore, persistAndStampSeq, replayEvents,
 } from './workflowStore.js';
 import { readLogText, sealLiveLog, segmentName, unsealLog } from './eventLog.js';
+import { removeProjectDir } from './testSupport/projectWrites.js';
 
 // Adversarial checks for P7.3. A seal that stops at any step, a reader that
 // holds the live file open, and a later seal must keep every record once.
@@ -54,7 +55,7 @@ test('a crash after a good segment is sealed, before the live file is replaced, 
     const sealed = await sealLiveLog(dir, 2048);
     assert.ok(sealed);
     await assertHistory(cwd, id, 30);
-  } finally { await rm(cwd, { recursive: true, force: true }); }
+  } finally { await removeProjectDir(cwd); }
 });
 
 test('a segment whose bytes do not match its name does not discard the live copy on the next seal', async () => {
@@ -74,7 +75,7 @@ test('a segment whose bytes do not match its name does not discard the live copy
     assert.ok((await readdir(dir)).some((name) => name.endsWith('.jsonl.br')));
   } finally {
     console.error = original;
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });
 
@@ -91,7 +92,7 @@ test('an unreadable segment does not discard the live copy on the next seal', as
     await assertHistory(cwd, id, 30);
   } finally {
     console.error = original;
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });
 
@@ -140,7 +141,7 @@ test('sealing while a reader holds the live file open keeps one ordered history 
     await assertHistory(cwd, id, seq);
     const plainTail = (await readFile(live, 'utf8')).trim().split('\n').at(-1);
     assert.equal(JSON.parse(plainTail!).seq, seq);
-  } finally { await rm(cwd, { recursive: true, force: true }); }
+  } finally { await removeProjectDir(cwd); }
 });
 
 test('writes that arrive during a seal appear once, and unseal then reopen continues the sequence', async () => {
@@ -178,6 +179,6 @@ test('writes that arrive during a seal appear once, and unseal then reopen conti
   } finally {
     if (before === undefined) delete process.env.ARCO_EVENT_SEGMENT_BYTES;
     else process.env.ARCO_EVENT_SEGMENT_BYTES = before;
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });

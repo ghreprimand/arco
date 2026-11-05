@@ -8,7 +8,8 @@ import test from 'node:test';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { currentSeq, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq } from './workflowStore.js';
+import { currentSeq, flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq } from './workflowStore.js';
+import { removeProjectDir } from './testSupport/projectWrites.js';
 
 test('concurrent inits share one prime and never roll seq back', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-wfstore-'));
@@ -28,7 +29,8 @@ test('concurrent inits share one prime and never roll seq back', async () => {
     await initWorkflowStore(cwd, wfid);
     assert.equal(currentSeq(cwd, wfid), 6);
   } finally {
+    await flushWorkflowBuffer(cwd, wfid);
     forgetWorkflowBuffer(cwd, wfid);
-    await rm(cwd, { recursive: true, force: true });
+    await removeProjectDir(cwd);
   }
 });

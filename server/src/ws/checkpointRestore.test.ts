@@ -15,6 +15,7 @@ const { trackRecallFixture } = await import('../testSupport/recallFixture.test-s
 const closeRecall = trackRecallFixture();
 const { workflows, workflowCwds } = await import('../server/state.js');
 const { initWorkflowStore, flushAll } = await import('../workflowStore.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 const { createCheckpoint, checkpointRestoreScopes } = await import('../gitSnapshots.js');
 const { handleRevertToCheckpoint } = await import('./workflowHandlers.js');
 const { claimBusy, releaseBusy, revokeBusy, handleUserMessage } = await import('./turnEngine.js');
@@ -25,7 +26,7 @@ const { broadcastWorkflow } = await import('../server/broadcast.js');
 const { releaseProjectSettingsWatcher } = await import('../settings.js');
 const { readSessionIndex } = await import('../workflows/sessionIndex.js');
 const ownership = await import('../checkoutOwnership.js');
-after(async () => { await flushAll(); await closeRecall(); rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
+after(async () => { await settleProjectWrites(); await closeRecall(); rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();

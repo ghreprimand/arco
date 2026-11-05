@@ -13,8 +13,9 @@ const { trackRecallFixture } = await import('../testSupport/recallFixture.test-s
 const closeRecall = trackRecallFixture();
 const { workflows } = await import('../server/state.js');
 const { handleRenameWorkflow } = await import('./workflowHandlers.js');
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 const { writeMeta, readMeta, workflowDir, workflowConfigFromMeta, arcoInternalSessionInfoForMeta } = await import('../workflowMeta.js');
-after(async () => { await closeRecall(); rmSync(root, {recursive:true,force:true,maxRetries:10,retryDelay:100}); });
+after(async () => { await settleProjectWrites(); await closeRecall(); rmSync(root, {recursive:true,force:true,maxRetries:10,retryDelay:100}); });
 test('workflow rename persists before acknowledgement and refuses missing metadata', async () => {
  const id=randomUUID(), cwd=join(root,'project'), sent:Array<Record<string,unknown>>=[];
  const ws={readyState:1,send:(s:string)=>sent.push(JSON.parse(s))} as unknown as WebSocket;
