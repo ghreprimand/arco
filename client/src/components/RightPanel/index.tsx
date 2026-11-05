@@ -98,7 +98,7 @@ function tabForWorkflow(map: Record<string, RightTab>, workflowId: string): Righ
 // Phase 4 Lite scaffolding. Content for REVIEW (Phase 5) and HANDOFFS
 // (Phase 6) lands in later phases; their tabs render empty-state markers
 // now so the shell is complete without shipping half-built features.
-export function RightPanel({ job, onRenameWorkflow, onUpdatePrimary, onCancelReview, onSend, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, onCancelHandoff, onClearHandoffLock, onAttachPlan, onDetachPlan, onPromoteToCluster, onSpawn, onReview, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onAttachCodebaseMemory, onDetachCodebaseMemory, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, mcp }: Props) {
+export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary, onCancelReview, onSend, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, onCancelHandoff, onClearHandoffLock, onAttachPlan, onDetachPlan, onPromoteToCluster, onSpawn, onReview, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onAttachCodebaseMemory, onDetachCodebaseMemory, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, mcp }: Props) {
   const isClusterMember = useAppStore((s) => Object.values(s.clusters).some((cluster) => cluster.members.some((member) => member.workflowId === job.id)));
   const cliChanges = useAppStore((s) => s.cliChanges);
   const markPreviewSeen = useAppStore((s) => s.markPreviewSeen);
@@ -132,6 +132,9 @@ export function RightPanel({ job, onRenameWorkflow, onUpdatePrimary, onCancelRev
     [job.id],
   );
 
+  useEffect(() => {
+    if (tabRequest && TABS.some((t) => t.id === tabRequest.tab)) setTab(tabRequest.tab as RightTab);
+  }, [tabRequest, setTab]);
   const voicePanel = useVoicePanelRequest((s) => s.request);
   useEffect(() => {
     if (voicePanel?.id === job.id && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as RightTab);

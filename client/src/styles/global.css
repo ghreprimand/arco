@@ -268,3 +268,7 @@ body {
   background: var(--color-accent-primary);
   color: var(--color-bg);
 }
+
+/* Window-size layout: composer tools that do not fit move into MORE
+   (client/src/layout/ToolbarOverflow.tsx). */
+[data-overflowed="true"] { display: none !important; }

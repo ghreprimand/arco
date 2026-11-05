@@ -61,6 +61,7 @@ const SUITES = [
   { name: 'skill-management', script: 'skill-management-browser.py', isolatedServer: true },
   { name: 'plans-library', script: 'plans-library-browser.py', port: 5247 },
   { name: 'storage-view', script: 'storage-view-browser.py', isolatedServer: true },
+  { name: 'layout-ranges', script: 'layout-ranges-browser.py', isolatedServer: true },
   { name: 'public-project', script: 'public-project-browser.py', port: 5246 },
   { name: 'board-release', script: 'board-release-browser.py', port: 5245 },
   { name: 'cursor-segments', script: 'cursor-segments-browser.py', port: 5232 },

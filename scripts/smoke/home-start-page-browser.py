@@ -23,7 +23,8 @@ async def check(browser, scale, scenario):
     populated = scenario == 'populated'
     discovery = scenario in ['discovery', 'multiple']
     context = await browser.new_context(viewport={'width': 1280, 'height': 720}, device_scale_factor=2 if scale == 1.0 else 1)
-    await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{scale}');")
+    # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
+    await context.add_init_script(f"localStorage.setItem('arco_ui_scale', '{scale}'); localStorage.setItem('arco.layoutMode', 'standard');")
     state = {'projects': [project('Harbor', '/projects/harbor', 1, pinned=True), project('Field notes', '/work/field-notes', 2), project('Moved project', '/work/old-location', 3, exists=False), project('Archived toolkit', '/work/toolkit', 4, archived=True)] if populated else [], 'messages': []}
     state['projects'] += [{'name': 'discovered', 'path': '/projects/discovered/sample', 'source': 'scanned', 'exists': True}] if populated else []
     roots = [{'name': 'Work', 'path': '/projects', 'exists': True}, {'name': 'Personal', 'path': '/work', 'exists': True}, {'name': 'Offline drive', 'path': '/offline', 'exists': False}] if populated or discovery else []

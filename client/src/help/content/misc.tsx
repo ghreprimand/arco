@@ -2,6 +2,41 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'layout.member-rail': {
+    title: 'Member rail',
+    body: <p>In the narrow layout (a window under 1100 px) the member list folds into this rail of initials. The dot shows waiting mail (warning color) or a busy member. Click an initial to put that member in view; the hover text gives its name, role and state.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.member-list-open': {
+    title: 'Show the member list',
+    body: <p>Opens the full member list over the chat, with the same cards and LAYOUT choices as on a wider window. Clicking a card puts that member in view and closes the list; Esc, CLOSE or a click beside it also closes it.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.right-strip': {
+    title: 'Side panel strip',
+    body: <p>In the narrow layout the right panel folds into this strip. Each button opens the panel over the chat at that tab (BOARD, PLAN or FILES in a cluster; FILES, PLAN or MEMORY in a single tab); MORE opens it at the tab used last. Nothing is removed: every tab is still there.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.slide-out-close': {
+    title: 'Close the panel',
+    body: <p>Closes a panel that opened over the chat in the narrow layout. Esc or a click beside the panel does the same. What you changed in the panel stays.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.cluster-settings': {
+    title: 'Cluster settings summary',
+    body: <p>Outside the Standard layout the cluster settings above the right panel tabs fold into this line: mail alerts, AUTO-PICKUP, efficiency, the task board and remote sharing when it is on. <C>SETTINGS</C> opens the full controls; click it again to fold them.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.composer-more': {
+    title: 'More composer tools',
+    body: <p>Outside the Standard layout the composer tools stay on one line. Tools that do not fit move into <C>MORE</C>, from the end of the line, and come back when the window grows. FILE, PLAN and BRIEF always stay on the line. Choosing a tool in the list does the same as its button.</p>,
+    manualSection: 'window-layout',
+  },
+  'layout.plan-hint-more': {
+    title: 'More plan choices',
+    body: <p>Shows the rest of the no-plan hint: the public-project choice, ATTACH EXISTING and NOT NOW. LESS folds them back into one line.</p>,
+    manualSection: 'window-layout',
+  },
   'terminal-sessions': {
     title: 'Continue a terminal session',
     body: <p>Lists up to 50 recent Claude Code and 50 Codex sessions for this project, read from their configured local history folders. On Home, discovery starts when the project menu opens. Scans are bounded, so older records may not appear. OPEN starts a tab with the matching provider and session. Claude sessions use the CLI transport; connect Claude CLI first. Codex uses the terminal account even when other profiles are configured. Close the terminal session before continuing to avoid concurrent writers. Nothing is copied or uploaded by discovery. The list is hidden when no matching sessions are available, including in Docker without mounted history.</p>,

@@ -54,6 +54,8 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         page = await browser.new_page(viewport={'width': 1920, 'height': 1200})
+        # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
+        await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
         errors, blocked, writes = [], [], []
         activity = {'policy': {'enabled': True, 'agentUpdates': 'off'}, 'pending': 0, 'updatesPerHour': 12, 'updatesThisHour': 0, 'ledger': [], 'deliveries': []}
         outputs = [{'id': c * 32, 'name': n, 'title': n, 'path': CWD + '/' + n, 'originPath': CWD + '/' + n, 'category': k, 'workflowId': 'worker-a', 'cwd': CWD,

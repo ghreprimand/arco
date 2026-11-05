@@ -112,6 +112,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: <p>Scale the interface from 90% to 150%. The default is 100%; the choice applies immediately and is cached for the next startup before the interface appears.</p>,
     manualSection: 'settings-themes',
   },
+  'settings.layout': {
+    title: 'Layout',
+    body: <p>How the workspace uses the window. <C>AUTOMATIC</C> (default) follows the window width, counted at the interface text size: narrow under 1100 px folds the member list and the right panel into strips, medium up to 1599 px uses compact member rows and fixed side widths, wide from 1600 px keeps cards short. <C>STANDARD</C> keeps the original layout at every width. <C>COMPACT</C> uses the medium layout at every width (narrow still applies under 1100 px). Kept in this browser only; it applies at once. Also in the command palette as Layout: Automatic, Standard or Compact.</p>,
+    manualSection: 'window-layout',
+  },
   'settings.message-box-size': {
     title: 'Message box size',
     body: <p>How tall every message box is before anything is typed: <C>SMALL</C> (default, one line), <C>MEDIUM</C> or <C>LARGE</C>. The box still grows with the text. Kept in this browser only; nothing is sent anywhere.</p>,

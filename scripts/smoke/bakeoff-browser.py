@@ -16,6 +16,8 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         context = await browser.new_context(viewport={'width':1920,'height':1080})
+        # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
+        await context.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
         errors, frames, writes = [], [], []
         async def api(route):
             request = route.request

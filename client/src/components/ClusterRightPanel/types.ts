@@ -100,6 +100,10 @@ export interface PeerMessage {
 export interface Props {
   cluster: ClusterStatePayload;
   planTabRequest?: number;
+  // Window-size layout: fold the cluster settings into one summary line.
+  compactSettings?: boolean;
+  // Narrow-range strip: open this tab (n changes on every request).
+  tabRequest?: { tab: string; n: number } | null;
   // Increments to switch the panel to WORKSPACE > MEMBERS.
   membersTabRequest?: number;
   // Operator clicked a member row → focus that member's individual tab.

@@ -14,6 +14,8 @@ import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContex
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { TaskLedgerPatch } from './RightPanel/types';
 import type { UploadResult } from '../utils/uploadAttachment';
+import { readRangeFraction, useLayout, writeRangeFraction } from '../layout/layoutRange';
+import { PanelStrip, SlideOut } from '../layout/SlideOut';
 
 interface Props {
   job: JobState;
@@ -109,25 +111,39 @@ const WIDTH_KEY = 'arco.sidePanelWidth';
 const MIN_FRACTION = 0.2;
 const MAX_FRACTION = 0.55;
 const DEFAULT_FRACTION = 0.34;
+// Window-size layout (client/src/layout/layoutRange.ts): the medium range
+// starts at a fixed width until the operator drags the splitter there; each
+// range keeps its own position. Narrow folds the panel into a strip.
+const MEDIUM_RIGHT_PX = 360;
+const RIGHT_STRIP = [
+  { id: 'files', label: 'FILES' },
+  { id: 'plan', label: 'PLAN' },
+  { id: 'knowledge', label: 'MEMORY' },
+  { id: 'more', label: 'MORE' },
+];
 
 export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onCancelQueued, onUpload, onReview, onCancelReview, onCancelHandoff, onClearHandoffLock, onHandoff, onSpawn, onUpdatePrimary, onLoadEarlier, onRecalibrate, onAttachPlan, onDetachPlan, onAttachPlanToCluster, onBackToCluster, onPromoteToCluster, onSetPreviewPort, onClearPreviewPort, onPreviewCapture, onReviewCapture, onArmPlanMode, onAttachCodebaseMemory, onDetachCodebaseMemory, onTranscriptSend, onResearch, onCancelResearch, onResearchFollowUp, onTaskLedgerCreate, onTaskLedgerUpdate, onTaskLedgerDelete, onTaskLedgerList, onTaskWorktreeCreate, onTaskWorktreeRemove, onBakeoffList, onBakeoffStart, onBakeoffPromote, onBakeoffCleanup, onGenesisSeedUpdate, onGenesisScaffold, onGenesisCreativeArm, onGenesisAssistRequest, mcp }: Props) {
   // I3 — focus mode hides the right panel (+ splitter), giving the chat the
   // full width. Reversible: toggling off restores the persisted split fraction.
   const focusMode = useAppStore((s) => s.focusMode);
   const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && m.accessMode === 'isolated')));
-  const [rightFraction, setRightFraction] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(WIDTH_KEY);
-      if (raw) {
-        const n = Number(raw);
-        if (Number.isFinite(n) && n >= MIN_FRACTION && n <= MAX_FRACTION) return n;
-      }
-    } catch { /* no-op */ }
-    return DEFAULT_FRACTION;
-  });
-  useEffect(() => {
-    try { localStorage.setItem(WIDTH_KEY, String(rightFraction)); } catch { /* no-op */ }
-  }, [rightFraction]);
+  const { range: widthRange } = useLayout();
+  const widthRangeRef = useRef(widthRange);
+  widthRangeRef.current = widthRange;
+  const [byRange, setByRange] = useState<Partial<Record<string, number | null>>>({});
+  const saved = widthRange in byRange ? byRange[widthRange] ?? null : readRangeFraction(WIDTH_KEY, widthRange, MIN_FRACTION, MAX_FRACTION);
+  const rightFixedPx = saved === null && widthRange === 'medium' ? MEDIUM_RIGHT_PX : null;
+  const rightFraction = saved ?? DEFAULT_FRACTION;
+  // Reads only refs and stable setters, so the drag effect below may keep it.
+  const setRightFraction = (value: number) => {
+    const r = widthRangeRef.current;
+    writeRangeFraction(WIDTH_KEY, r, value);
+    setByRange((m) => ({ ...m, [r]: value }));
+  };
+  const [slide, setSlide] = useState<string | null>(null);
+  const [tabRequest, setTabRequest] = useState<{ tab: string; n: number } | null>(null);
+  useEffect(() => { if (widthRange !== 'narrow') setSlide(null); }, [widthRange]);
+  const narrow = widthRange === 'narrow';
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
@@ -189,7 +205,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         {/* LEFT — chat + composer. Full width in focus mode. */}
         <div
           style={{
-            flex: focusMode ? '1 1 100%' : `1 1 ${(1 - rightFraction) * 100}%`,
+            flex: focusMode ? '1 1 100%' : narrow || rightFixedPx !== null ? '1 1 0%' : `1 1 ${(1 - rightFraction) * 100}%`,
             display: 'flex',
             flexDirection: 'column',
             minWidth: 0,
@@ -233,7 +249,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         </div>
 
         {/* SPLITTER — hidden in focus mode (no right panel to resize). */}
-        {!focusMode && (
+        {!focusMode && !narrow && (
         <div
           onMouseDown={startDrag}
           role="separator"
@@ -250,11 +266,16 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         />
         )}
 
-        {/* RIGHT — tabbed side panel. Hidden in focus mode. */}
-        {!focusMode && (
+        {!focusMode && narrow && <PanelStrip items={RIGHT_STRIP} active={slide} onOpen={(id) => {
+          if (id !== 'more') setTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
+          setSlide(id);
+        }} />}
+
+        {/* RIGHT — tabbed side panel. Hidden in focus mode; a slide-out in the narrow range. */}
+        {!focusMode && (!narrow || slide) && (() => { const rightBody = (
         <div
           style={{
-            flex: `1 1 ${rightFraction * 100}%`,
+            flex: narrow ? 1 : rightFixedPx !== null ? `0 0 ${rightFixedPx}px` : `1 1 ${rightFraction * 100}%`,
             display: 'flex',
             flexDirection: 'column',
             minWidth: 0,
@@ -263,6 +284,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         >
           <RightPanel
             job={job}
+            tabRequest={tabRequest}
             onRenameWorkflow={onRenameWorkflow}
             onUpdatePrimary={onUpdatePrimary}
             onCancelReview={onCancelReview}
@@ -300,7 +322,9 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
             mcp={mcp}
           />
         </div>
-        )}
+        );
+        return narrow ? <SlideOut side="right" width="400px" label="SIDE PANEL" onClose={() => setSlide(null)} testId="right-panel-slide-out">{rightBody}</SlideOut> : rightBody;
+        })()}
       </div>
     </div>
   );

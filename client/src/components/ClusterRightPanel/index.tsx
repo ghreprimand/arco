@@ -40,7 +40,8 @@ import { MailboxModal } from './MailboxModal';
 import { EfficiencyControl } from './EfficiencyControl';
 import { ProjectTrustChip } from './ProjectTrustChip';
 import { ProgressControl } from './ProgressControl';
-import { AutoPickupControl } from './AutoPickupControl';
+import { AutoPickupControl, autoPickupStateOf } from './AutoPickupControl';
+import { AUTO_PICKUP_MODE_LABELS } from '@arco/shared';
 import { SavedClustersList } from '../SavedClustersList';
 import { requestClusterSnapshotSave } from '../../stores/clusterSnapshotsStore';
 
@@ -94,7 +95,7 @@ function tabForCluster(map: Record<string, SubTab>, clusterId: string): SubTab {
   return 'members';
 }
 
-export function ClusterRightPanel({ cluster, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
+export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
   const hubConnected = useHubLinkStore(s => s.known && s.connected);
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
@@ -110,6 +111,8 @@ export function ClusterRightPanel({ cluster, planTabRequest, membersTabRequest, 
   const voicePanel = useVoicePanelRequest((s) => s.request);
   useEffect(() => { if (planTabRequest) setTab('plan'); }, [planTabRequest, cluster.clusterId]);
   useEffect(() => { if (membersTabRequest) setTab('members'); }, [membersTabRequest, cluster.clusterId]);
+  useEffect(() => { if (tabRequest && TABS.some((t) => t.id === tabRequest.tab)) setTab(tabRequest.tab as SubTab); }, [tabRequest, cluster.clusterId]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     if (voicePanel?.id === cluster.clusterId && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as SubTab);
   }, [voicePanel, cluster.clusterId]);
@@ -244,7 +247,24 @@ export function ClusterRightPanel({ cluster, planTabRequest, membersTabRequest, 
           server caps + suppression invariants live there. The
           efficiency selector rides the same bar. The bar renders when either
           arming surface is wired (both come from the same parent). */}
-      {(onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
+      {compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
+        // Medium and wide layouts: one summary line; SETTINGS opens the full block.
+        const pickup = AUTO_PICKUP_MODE_LABELS[autoPickupStateOf(cluster).mode].chip;
+        const parts = [
+          onToggleIdleNudger ? `MAIL ALERTS ${cluster.idleNudgerEnabled ? 'ON' : 'OFF'}` : null,
+          onToggleAutoTurn ? `AUTO-PICKUP ${pickup}` : null,
+          onSetEfficiency ? (cluster.efficiencyLevel ?? 'thorough').toUpperCase() : null,
+          onSetTaskBoardMode || onSetTaskBoardAttached ? `BOARD ${cluster.taskBoardMode && cluster.taskBoardMode !== 'none' && cluster.taskBoardAttached !== false ? cluster.taskBoardMode.toUpperCase() : 'OFF'}` : null,
+          cluster.remoteEnabled ? 'REMOTE ON' : null,
+        ].filter(Boolean).join(' · ');
+        return (
+          <div data-help="layout.cluster-settings" className="display-font" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderBottom: settingsOpen ? undefined : '1px solid var(--color-border-hairline)', fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap', minWidth: 0 }}>
+            <span data-testid="cluster-settings-summary" title={parts} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-fg-muted)' }}>{parts}</span>
+            <button type="button" data-testid="cluster-settings-toggle" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((v) => !v)} className="display-font" style={{ flexShrink: 0, padding: '2px 8px', fontSize: '10px', letterSpacing: '1px', cursor: 'pointer' }}>{settingsOpen ? 'SETTINGS ▴' : 'SETTINGS ▾'}</button>
+          </div>
+        );
+      })()}
+      {(!compactSettings || settingsOpen) && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
         <div
           style={{
             display: 'flex',

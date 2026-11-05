@@ -33,6 +33,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'phosphor', page: 'appearance', label: 'Phosphor effects and softness', scope: 'Global', help: ['settings.phosphor-effects', 'settings.phosphor-softness'], aliases: ['phosphor-effects', 'phosphor-softness'], keywords: 'glow crt reduced motion' },
   { id: 'font-pack-override', page: 'appearance', label: 'Font pack override', scope: 'Global', help: ['settings.font-pack-override'], keywords: 'typography typeface' },
   { id: 'interface-text-size', page: 'appearance', label: 'Interface text size', scope: 'Global', help: ['settings.interface-text-size'], keywords: 'scale zoom size' },
+  { id: 'layout', page: 'appearance', label: 'Layout', scope: 'Global (this browser)', help: ['settings.layout'], keywords: 'window width laptop small screen compact narrow wide standard automatic member list panel' },
   { id: 'message-box-size', page: 'appearance', label: 'Message box size', scope: 'Global (this browser)', help: ['settings.message-box-size'], keywords: 'composer input height textarea' },
   { id: 'theme-brightness', page: 'appearance', label: 'Background and text brightness', scope: 'Global', help: ['settings.theme-brightness'] },
   { id: 'crisp-text', page: 'appearance', label: 'Crisp text', scope: 'Global', help: ['settings.crisp-text'] },

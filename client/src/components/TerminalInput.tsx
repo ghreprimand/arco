@@ -41,6 +41,11 @@ import {
   effortsForModel,
 } from '../utils/format';
 import type { UploadResult } from '../utils/uploadAttachment';
+import { useLayoutRange } from '../layout/layoutRange';
+import { ToolbarMore, useToolbarOverflow } from '../layout/ToolbarOverflow';
+
+// FILE, PLAN and BRIEF stay on the composer line in every layout.
+const TOOLBAR_KEEP: ReadonlySet<string> = new Set(['composer.attach', 'composer.plan', 'composer.brief']);
 
 interface Props {
   job: JobState;
@@ -348,6 +353,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const clearAttachments = useAppStore((s) => s.clearAttachments);
   const addMessage = useAppStore((s) => s.addMessage);
   const [uploading, setUploading] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const toolbarOneLine = useLayoutRange() !== 'standard';
+  const toolbarHidden = useToolbarOverflow(toolbarRef, toolbarOneLine, TOOLBAR_KEEP);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // DD8 — operator-picked Arco skills to inline into the next turn. Per-tab;
   // cleared after each send and when the active tab changes.
@@ -1402,15 +1410,19 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
 
       {/* Toolbar row — permanent second line. Primitives on the left,
           live status + tokens on the right. Stays visible at narrow widths
-          because it's below the prompt instead of competing with it. */}
+          because it's below the prompt instead of competing with it. Outside
+          the Standard layout it stays on one line and the tools that do not
+          fit move into MORE (client/src/layout/ToolbarOverflow.tsx). */}
       <div
+        ref={toolbarRef}
+        data-testid="composer-toolbar"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
           marginTop: '4px',
           padding: '0 4px',
-          flexWrap: 'wrap',
+          flexWrap: toolbarOneLine ? 'nowrap' : 'wrap',
         }}
       >
         <span data-help="composer.attach" style={{ display: 'inline-flex' }}>
@@ -1813,6 +1825,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           ⚖ SECOND OPINION
         </button>
 
+        {toolbarOneLine && <ToolbarMore row={toolbarRef} hidden={toolbarHidden} />}
         <div style={{ flex: 1 }} />
 
         {isBusy && <PrimaryStatus job={job} />}

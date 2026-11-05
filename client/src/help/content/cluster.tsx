@@ -130,7 +130,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member-card': {
     title: 'Member card',
-    body: <p>One member at a glance: status light, name, idle or busy, short id, role, waiting mail, and the latest reply (or live activity while busy). Click to focus that member.</p>,
+    body: <p>One member at a glance: status light, name, idle or busy, short id, role, waiting mail, and the latest reply (or live activity while busy). Click to focus that member. In the medium layout the card is one row with a one-line reply and the short id in its tooltip; in the wide layout the reply shows at most two lines (Settings, Layout).</p>,
     manualSection: 'cluster-grid',
   },
   'cluster.member-mail': {
@@ -612,7 +612,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.no-plan-hint': {
     title: 'Start a cluster plan',
-    body: <p>DRAFT A PLAN asks the idle director for a tool-free draft that you review before attaching. ATTACH EXISTING opens the cluster PLAN tab. NOT NOW hides this hint for this cluster in this browser.</p>,
+    body: <p>DRAFT A PLAN asks the idle director for a tool-free draft that you review before attaching. ATTACH EXISTING opens the cluster PLAN tab. NOT NOW hides this hint for this cluster in this browser. Outside the Standard layout the hint is one line; MORE shows the other choices and LESS folds them again.</p>,
     manualSection: 'cluster-plan',
   },
   'cluster.board.mode': {

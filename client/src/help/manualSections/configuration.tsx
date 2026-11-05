@@ -142,6 +142,13 @@ export const configuration: Section[] = [
   <li>Text/background brightness and frosted-surface overrides remain available.</li>
   <li>Phosphor effects off overrides frost without deleting its saved preference.</li>
   </ul>
+  <Sub>Layout</Sub>
+  <p>
+  <strong>Layout</strong> (Appearance) is Automatic (default), Standard or
+  Compact. Automatic fits the workspace to the window width; Standard keeps the
+  original layout; Compact uses the laptop layout at every width. Kept in this
+  browser only. See Window size and layout.
+  </p>
   <Sub>Message box size</Sub>
   <p>
   <strong>Message box size</strong> (Appearance) sets how tall every message

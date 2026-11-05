@@ -162,6 +162,7 @@ const reviewedCaptures = new Map([
     'b6576252389fcfdc776dff8621dbb8926631d57c9f2b613b98a93924d2ddac8f',
     '303f237f0b28bc99521018a0f14b04e706012ff042835454f984f18940780bfb',
     'ea7f3ce53d36a8593402dbb57c28ec537402175c51943b0733b9c0c3b84d7b1b',
+    'd2ec4b30b011334d53120ed057d07e389040f0135d074a60bfe670a1caf2444e',
   ]],
 ]);
 function reviewedCaptureAllows(file, digest) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { LAYOUT_MODES, setLayoutMode } from '../layout/layoutRange';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../stores/appStore';
 import { useComputerStore } from '../stores/computerStore';
@@ -166,6 +167,7 @@ export function CommandPalette({ onClose }: Props) {
     { kind: 'command', id: 'cmd:settings', label: 'Open Settings', hint: 'Providers, themes, transports', run: () => setShowSettings(true) },
     { kind: 'command', id: 'cmd:manual', label: 'Open User Manual', hint: 'In-app docs', run: () => setShowManual(true) },
     { kind: 'command', id: 'cmd:shortcuts', label: 'Keyboard shortcuts', hint: 'Cheat sheet (Ctrl/Cmd+?)', run: () => window.dispatchEvent(new CustomEvent('arco:open-shortcuts')) },
+    ...LAYOUT_MODES.map((m) => ({ kind: 'command' as const, id: `cmd:layout-${m.id}`, label: `Layout: ${m.label}`, hint: m.hint, run: () => setLayoutMode(m.id) })),
     { kind: 'command', id: 'cmd:focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', hint: 'Hide secondary chrome for a full-width chat (I3)', run: () => setFocusMode(!focusMode) },
     { kind: 'command', id: 'cmd:github', label: 'Open GitHub panel', hint: 'PRs, issues', run: () => setShowGithub(true) },
     { kind: 'command', id: 'cmd:media', label: 'Open Media studio', hint: 'Image viewer + audio/video', run: () => openMediaStudio() },

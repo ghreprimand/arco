@@ -281,6 +281,9 @@ async def walk_cluster_panel(page, probe, tap):
     await step('role-popover', f'{panel} button[data-help^="cluster.right-panel.role-"]')
     await step('role-custom', f'{panel} button[data-help="cluster.right-panel.role-custom"]', f'{panel} button:text-is("ESC")')
     await step('member-focus', f'{panel} button[data-help="cluster.right-panel.focus-display"]', key='Escape')
+    # Outside the Standard layout the cluster settings are folded; open them.
+    if await page.locator(f'{panel} [data-testid="cluster-settings-toggle"][aria-expanded="false"]').count():
+        await tap(f'{panel} [data-testid="cluster-settings-toggle"]')
     await step('efficiency-note', f'{panel} button:text-matches("^NOTE")', key='Escape')
 
     await page.evaluate('''async () => {

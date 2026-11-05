@@ -7,6 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Layout for small and large windows, in Settings > Appearance > Layout and the command palette ("Layout: ..."). Automatic (default) follows the window width at the interface text size. Under 1100 px the member list becomes a rail of initials and the right panel a strip of buttons; both open over the chat. From 1100 to 1599 px member cards are one row and the side panels start at fixed widths. From 1600 px cards keep their own height with a two-line reply. Outside Standard, cluster settings fold into one summary line with SETTINGS, the no-plan hint is one line, and composer tools that do not fit move into MORE. Standard keeps the original layout at every width; Compact uses the medium layout at every width. Dragged splitter widths are kept for each range. The choice is saved per browser.
 - UNKEEP undoes KEEP: in ARTIFACTS > STORAGE for every KEEP mark of a conversation, and in OUTPUTS, where a kept artifact now shows Kept, for the mark that covers it. Each asks first; no file is changed.
 - Large artifact warnings also arrive while a turn is still running (checked every 30 seconds), not only when it ends.
 - Cluster tabs have MEMORY > USAGE: token usage for every member's conversations in the project folder, with MEASURE STORAGE and MEASURE ARCO FOLDER.

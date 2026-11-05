@@ -1,6 +1,7 @@
 import { NotificationChannelsSettings } from './NotificationChannelsSettings';
 import { UtilityAgentPicker } from './UtilityAgentPicker';
 import { MESSAGE_BOX_SIZES, setMessageBoxSize, useMessageBoxSize } from '../utils/messageBoxSize';
+import { LAYOUT_MODES, setLayoutMode, useLayout } from '../layout/layoutRange';
 import { UI_SCALES, DEFAULT_UI_SCALE } from '@arco/shared';
 import { AppVersionSection } from './settings/AppVersionSection';
 import { EndpointHelp } from './EndpointHelp';
@@ -79,6 +80,7 @@ export function SettingsPanel({ onClose }: Props) {
     setTextBrightnessDraft(settings?.textBrightness ?? DEFAULT_TEXT_BRIGHTNESS);
   }, [settings?.textBrightness]);
   const messageBoxSize = useMessageBoxSize();
+  const layoutMode = useLayout().mode;
   const saveUiScale = async (uiScale: number) => {
     if (!settings) return;
     const previous = settings;
@@ -516,6 +518,15 @@ export function SettingsPanel({ onClose }: Props) {
               {UI_SCALES.map(scale => <button key={scale} type="button" style={{ padding: '5px 8px', color: 'var(--color-accent-primary)', background: 'var(--color-bg-sunken)', border: `1px solid ${(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, cursor: 'pointer' }} aria-pressed={(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale} onClick={() => void saveUiScale(scale)}>{Math.round(scale * 100)}%</button>)}
               <button type="button" onClick={() => void saveUiScale(DEFAULT_UI_SCALE)}>Reset to default</button>
             </div>
+          </div>
+        </SettingsSection>
+        <SettingsSection id="layout">
+          <div data-help="settings.layout">
+            <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>LAYOUT</div>
+            <div role="radiogroup" aria-label="Layout" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+              {LAYOUT_MODES.map((m) => <button key={m.id} type="button" role="radio" aria-checked={layoutMode === m.id} data-testid={`layout-mode-${m.id}`} title={m.hint} style={{ padding: '5px 8px', color: 'var(--color-accent-primary)', background: 'var(--color-bg-sunken)', border: `1px solid ${layoutMode === m.id ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, cursor: 'pointer' }} onClick={() => setLayoutMode(m.id)}>{m.label.toUpperCase()}</button>)}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>Automatic follows the window width: narrow under 1100 px, medium to 1599 px, wide from 1600 px, counted at the interface text size. Standard keeps the original layout; Compact uses the medium layout at every width. Saved in this browser only.</div>
           </div>
         </SettingsSection>
         <SettingsSection id="message-box-size">

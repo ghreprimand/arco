@@ -441,7 +441,8 @@ export const workspace: Section[] = [
         <h4 className="manual-sub">Panel groups</h4>
         <p>
           Drag the splitter to resize the panel. The splitter position is shared
-          across workflows and persists in the browser.
+          across workflows and persists in the browser, once for each layout
+          range (see Window size and layout).
         </p>
         <p>
           The tabs are grouped by purpose into four families so the strip stays
@@ -529,6 +530,46 @@ export const workspace: Section[] = [
     ),
   },
 
+  {
+    id: 'window-layout',
+    group: 'The workspace',
+    title: 'Window size and layout',
+    body: (
+      <>
+        <p>
+          <strong>Layout</strong> (Settings, Appearance) decides how the
+          workspace uses the window. <strong>Automatic</strong> (default) picks
+          one of three ranges by window width, counted at the interface text
+          size, so 1920 px at 150% counts as 1280. <strong>Standard</strong>{' '}
+          keeps the original layout at every width. <strong>Compact</strong>{' '}
+          uses the medium range at every width; under 1100 px the narrow range
+          still applies.
+        </p>
+        <Table
+          headers={['Range', 'Width', 'What changes']}
+          rows={[
+            ['Narrow', 'under 1100 px', 'The member list becomes a rail of initials; its menu button opens the full list over the chat. The right panel becomes a strip of buttons that open it over the chat.'],
+            ['Medium', '1100 to 1599 px', 'Member cards are one row with a one-line reply. The member list starts at 250 px, the right panel at 320 px in a cluster and 360 px in a single tab.'],
+            ['Wide', '1600 px and over', 'Member cards take their own height with a two-line reply. The member list starts at 380 px; the right panel keeps a share of the window.'],
+          ]}
+        />
+        <p>
+          Outside Standard, the cluster settings above the right panel fold into
+          one summary line with <strong>SETTINGS</strong> to open them, the
+          no-plan hint is one line with <strong>MORE</strong>, and the composer
+          tools stay on one line: tools that do not fit move into{' '}
+          <strong>MORE</strong>. FILE, PLAN and BRIEF always stay.
+        </p>
+        <p>
+          A dragged splitter is remembered for each range, so a laptop window
+          and a desktop window keep their own widths. A width saved before
+          ranges existed becomes the start value of the wide range. The choice
+          is kept in this browser and applies at once; the command palette has
+          Layout: Automatic, Standard and Compact.
+        </p>
+      </>
+    ),
+  },
   {
     id: 'changes-diff',
     group: 'The workspace',

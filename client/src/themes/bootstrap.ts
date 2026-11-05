@@ -170,6 +170,9 @@ export function applyUiScale(value: number): void {
     const scale = String(normalizeUiScale(value));
     document.documentElement.style.zoom = scale;
     document.documentElement.style.setProperty('--ui-scale', scale);
+    // The window-size layout (client/src/layout/layoutRange.ts) counts the
+    // interface scale; tell it to re-measure.
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('arco:ui-scale'));
   }
 }
 export function readCachedUiScale(): number {

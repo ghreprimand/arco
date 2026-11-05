@@ -28,6 +28,7 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 | [Utilities](#utilities) |
 | [Adding a new component](#adding-a-new-component) |
 | [Cluster tab rendering](#cluster-tab-rendering) |
+| [Layout ranges](#layout-ranges) |
 | [ARTIFACTS explorer (`?app=explorer`)](#artifacts-explorer-appexplorer) |
 | [Cross-references](#cross-references) |
 | [Workspace Outputs](#workspace-outputs) |
@@ -286,7 +287,10 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 - `arco.preview.aspect` - preview pane aspect ratio (global)
 - `arco.gitDialog.prefs.${cwd}` - per-repo GIT dialog choices
 - `arco.historyFilter.byWorkflow` - HISTORY tab filter strip
-- `arco.clusterRightPanelWidth` - outer cluster right-panel splitter
+- `arco.clusterRightPanelWidth` - outer cluster right-panel splitter (Standard layout; `.narrow`, `.medium` and `.wide` suffixes hold the other ranges, see [Layout ranges](#layout-ranges))
+- `arco.clusterGridSplit.medium` / `.wide` - member grid splitter outside the Standard layout
+- `arco.sidePanelWidth` - single-tab right-panel splitter, with the same range suffixes
+- `arco.layoutMode` - Settings > Appearance > Layout (`auto`, `standard` or `compact`)
 - `arco.focusMode` - I3 focus-mode flag (`'1'`/`'0'`); read into the store's `focusMode` at init, written by `setFocusMode`
 - splitter widths (per-workflow + cluster) via `usePersistedSplitter`
 
@@ -1066,7 +1070,7 @@ ClusterTab (App.tsx routes here when activeClusterId set)
 
 **Bottom-row mechanics + grid card click.** Click a member tab in the bottom row OR click any `MemberCard` in the grid -> both call `setClusterFocusedMember(clusterId, workflowId)` updating `appStore.clusterFocusedMember[clusterId]`. The cluster tab stays the active top-row tab; only the focused detail MemberPane changes. Three visual surfaces subscribe to the same key so they stay in sync: bottom-row tab (accent border-bottom + bg tint), the corresponding `MemberCard` in the grid (accent outline at the same border thickness as unfocused so swapping focus never shifts neighbouring cards), and the single detail `MemberPane` (accent header + outline). First-render default in `ClusterTab` picks `cluster.members[0]`; `setClusterState`'s reducer carries focus across membership changes (re-pinning to the first member when the previously-focused workflow is removed).
 
-**Grid splitter.** The `ClusterTab` body splits horizontally between the `MemberCard` grid (left) and the focused detail `MemberPane` (right) via a 4 px col-resize divider. Drag fraction reads from `appStore.clusterGridSplit` (default 0.35; persisted via the existing zustand-persist `partialize`). The drag handler mirrors `WorkflowView.tsx`'s splitter cleanup contract - `mousemove` updates a local live-value, `mouseup` (+ capture-phase pointerup + pointercancel + blur + visibilitychange) commits to the store and clears `body.style.userSelect / cursor`. Min widths: 240 px grid, 360 px detail. Cards-per-row is `clamp(ceil(sqrt(N)), 1, 4)` so 2 -> 2, 3-4 -> 2×2, 5-6 -> 3×2, 7-9 -> 3×3, 10+ -> 4 cols max with vertical scroll. See [PROTOCOL_CLUSTER.md](PROTOCOL_CLUSTER.md) for the cluster message details.
+**Grid splitter.** The `ClusterTab` body splits horizontally between the `MemberCard` grid (left) and the focused detail `MemberPane` (right) via a 4 px col-resize divider. Drag fraction reads from `appStore.clusterGridSplit` (default 0.35; persisted via the existing zustand-persist `partialize`) in the Standard layout; the other ranges keep their own value (see [Layout ranges](#layout-ranges)). The drag handler mirrors `WorkflowView.tsx`'s splitter cleanup contract - `mousemove` updates a local live-value, `mouseup` (+ capture-phase pointerup + pointercancel + blur + visibilitychange) commits to the store and clears `body.style.userSelect / cursor`. Min widths: 240 px grid, 360 px detail. Cards-per-row is `clamp(ceil(sqrt(N)), 1, 4)` so 2 -> 2, 3-4 -> 2×2, 5-6 -> 3×2, 7-9 -> 3×3, 10+ -> 4 cols max with vertical scroll. See [PROTOCOL_CLUSTER.md](PROTOCOL_CLUSTER.md) for the cluster message details.
 
 **Member-remove ×.** Bottom-row × on a member tab confirms then dispatches `cluster_member_remove`. Server-side: detach + tear down workflow in one operation (single click = "I'm done with this member"). If detaching drops the cluster below 2 members, `clusterStore.removeMember` collapses the cluster - server fans out `cluster_deleted`, and the now-orphan member's workflow is also torn down. The other member(s) become standalone workflows on their next turn (peer tools disappear from their tool list the invariant).
 
@@ -1096,7 +1100,7 @@ fresh members; roster rows badge non-standard modes.
 
 **`ClusterPlanTab.tsx` - VIEW / EDIT modes (2026-05-11).** Two modes toggled by the header `EDIT` pill. VIEW renders the body through `PlanBodyRenderer`; H3 section blocks expose `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` / `▷ SPAWN PHASE`. EDIT drops to the textarea with byte counter + dirty marker; SAVE writes via `cluster_plan_set` and flips back to VIEW. Auto-opens in EDIT when the body is empty; auto-flips back to EDIT if a remote update drops the body to empty. Header pill bar in VIEW: `EDIT` / `CLEAR PLAN` / `REVIEW PLAN` / `VERIFY WORK` / `CUSTOM REVIEW`. REVIEW/VERIFY pop a `ClusterMemberPicker` first (review needs a worker to run on); CUSTOM REVIEW reuses the existing `PlanReviewPicker` against the picked member's promoted plan.
 
-**Outer cluster right-panel splitter (2026-05-11).** A 4 px col-resize divider sits between the cluster main area (member grid + detail pane) and `ClusterRightPanel`. Width persisted to `localStorage` under `arco.clusterRightPanelWidth`. Fraction clamped to `[0.18, 0.5]` with default `0.28`. Same cleanup contract as `WorkflowView`'s splitter (mousemove updates a live-value, mouseup + capture-phase pointerup + pointercancel + blur + visibilitychange commit + clear `body.style.userSelect/cursor`).
+**Outer cluster right-panel splitter (2026-05-11).** A 4 px col-resize divider sits between the cluster main area (member grid + detail pane) and `ClusterRightPanel`. Width persisted to `localStorage` under `arco.clusterRightPanelWidth` (per layout range, see [Layout ranges](#layout-ranges)). Fraction clamped to `[0.18, 0.5]` with default `0.28`. Same cleanup contract as `WorkflowView`'s splitter (mousemove updates a live-value, mouseup + capture-phase pointerup + pointercancel + blur + visibilitychange commit + clear `body.style.userSelect/cursor`).
 
 **`PlanCandidateBanner` - detection-based fallback (2026-05-11).** Previously the banner only appeared when the operator clicked PLAN (DRAFT / DRAFT & AUTO-SAVE) before sending. Fallback in the `ws/handleServerMessage.ts` `primary_complete` handler (`phase: 'passthrough'`): when `pendingPlanCapture` is absent AND the assistant's latest reply matches `looksLikePlan` (H1 title on first non-empty line + ≥3 markdown checkbox lines), the banner surfaces in `review` mode automatically. Catches the cases where the operator asked for a plan via free-form prompt without clicking PLAN, or where the pre-arm flag was dropped before `primary_complete` (page reload mid-turn). Operator can DISCARD if it's a false positive - the heuristic is conservative enough to avoid surprising normal replies.
 
@@ -1154,6 +1158,23 @@ Cluster BOARD sub-tab (`client/src/components/ClusterTaskBoardTab.tsx`). Renders
 State is not persisted (proposals are fetched from the server on subscribe). The store is kept out of `appStore` because proposals are cluster-scoped, not per-workflow, and the panel can be independently mounted.
 
 ---
+
+## Layout ranges
+
+`client/src/layout/layoutRange.ts` turns the window width and Settings > Appearance > Layout into the layout to draw. The width is `innerWidth` divided by the interface scale (`--ui-scale`, set by `applyUiScale`, which dispatches `arco:ui-scale`), so 1920 px at 150% counts as 1280.
+
+| Mode | Under 1100 px | 1100 to 1599 px | 1600 px and over |
+| --- | --- | --- | --- |
+| Automatic (default) | narrow | medium | wide |
+| Compact | narrow | medium | medium |
+| Standard | standard | standard | standard |
+
+`useLayout()` re-reads on `resize`, `arco:ui-scale`, `arco:layout-mode` (fired by `setLayoutMode`) and the `storage` event, so a change applies at once in every open tab. The mode is kept in `localStorage` (`arco.layoutMode`), never per project.
+
+- **Standard:** the original layout; nothing below applies.
+- **Medium and wide:** `MemberCard` gets `density` `compact` (one row, the short id and role in the tooltip, a one-line reply) or `wide` (own height, a two-line reply), and the grid rows use `min-content`. The cluster settings bar in `ClusterRightPanel` folds into one summary line with SETTINGS (`compactSettings`). The no-plan hint is one line with MORE. The composer tool row stays on one line: `useToolbarOverflow` (`client/src/layout/ToolbarOverflow.tsx`) marks the optional tools that overflow with `data-overflowed` (hidden by a global CSS rule) from the end of the row, and `ToolbarMore` lists them and clicks the hidden button. FILE, PLAN and BRIEF are never hidden.
+- **Start widths:** without a dragged position for the range, the medium range uses a 250 px member grid and a 320 px cluster right panel (360 px in `WorkflowView`); the wide range uses a 380 px member grid and the default panel share. Dragging saves a fraction under the range key (`readRangeFraction` / `writeRangeFraction`). The wide range starts from a value saved before ranges existed: the unsuffixed key, or a grid split other than the store default.
+- **Narrow:** the member grid becomes a 46 px rail of initials (`layout.member-rail`) whose menu button opens the grid in a `SlideOut` on the left. The right panel becomes a 34 px `PanelStrip` (`layout.right-strip`); each button sends a `tabRequest` to `ClusterRightPanel` or `RightPanel` and opens it in a `SlideOut` on the right. Esc, CLOSE or the backdrop closes a slide-out; leaving the narrow range closes both.
 
 ## ARTIFACTS explorer (`?app=explorer`)
 

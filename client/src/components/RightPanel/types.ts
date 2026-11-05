@@ -14,6 +14,8 @@ export interface TaskLedgerPatch {
 
 export interface Props {
   job: JobState;
+  // Narrow-range strip: open this tab (n changes on every request).
+  tabRequest?: { tab: string; n: number } | null;
   onRenameWorkflow?: (id: string, name: string, requestId: string) => boolean;
   onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: { enabled: boolean; warnAt: number; autoAt: number; mode?: 'quick' | 'original-worker' | 'fresh-summarizer'; summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } }; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onCancelReview?: (reviewId: string) => void;

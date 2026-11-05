@@ -38,6 +38,8 @@ import { presetForText } from '@arco/shared';
 import type { ClusterDispatcherSettingsPatch, ClusterMemberPrimaryUpdate, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { UploadResult } from '../utils/uploadAttachment';
+import { readRangeFraction, useLayout, writeRangeFraction, type LayoutRange } from '../layout/layoutRange';
+import { PanelStrip, SlideOut } from '../layout/SlideOut';
 
 // docs/CLIENT.md - splitter min widths (px). Detail favored - its
 // chat surface needs reading width; the grid's cards stay legible at 240.
@@ -61,6 +63,19 @@ const RIGHT_PANEL_MAX_FRACTION = 0.5;
 // existed (320 / ~1140 typical body width). Defaulting to a fraction keeps
 // the first paint stable across window widths.
 const RIGHT_PANEL_DEFAULT_FRACTION = 0.28;
+// Window-size layout (client/src/layout/layoutRange.ts): start widths in the
+// medium and wide ranges until the operator drags a splitter there. Each
+// range keeps its own dragged position.
+const MEDIUM_RIGHT_PANEL_PX = 320;
+const GRID_SPLIT_KEY = 'arco.clusterGridSplit';
+const GRID_SPLIT_STORE_DEFAULT = 0.35;
+const GRID_PX: Partial<Record<LayoutRange, number>> = { medium: 250, wide: 380 };
+const RIGHT_STRIP = [
+  { id: 'board', label: 'BOARD' },
+  { id: 'plan', label: 'PLAN' },
+  { id: 'files', label: 'FILES' },
+  { id: 'more', label: 'MORE' },
+];
 
 interface Props {
   clusterId: string;
@@ -290,6 +305,25 @@ export function ClusterTab({
   const setClusterCardLayout = useAppStore((s) => s.setClusterCardLayout);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const { range: widthRange } = useLayout();
+  const widthRangeRef = useRef(widthRange);
+  widthRangeRef.current = widthRange;
+  const compactLayout = widthRange !== 'standard';
+  // Saved grid split per range (Standard uses the store value as before).
+  const [gridByRange, setGridByRange] = useState<Partial<Record<LayoutRange, number | null>>>({});
+  const gridSavedForRange = (r: LayoutRange): number | null => {
+    if (r === 'standard') return gridSplit;
+    if (r in gridByRange) return gridByRange[r] ?? null;
+    const own = readRangeFraction(GRID_SPLIT_KEY, r, 0.05, 0.95);
+    if (own !== null) return own;
+    // The wide range starts from a split saved before ranges existed.
+    return r === 'wide' && gridSplit !== GRID_SPLIT_STORE_DEFAULT ? gridSplit : null;
+  };
+  const [memberListOpen, setMemberListOpen] = useState(false);
+  const [rightSlide, setRightSlide] = useState<string | null>(null);
+  const [rightTabRequest, setRightTabRequest] = useState<{ tab: string; n: number } | null>(null);
+  const [planHintMore, setPlanHintMore] = useState(false);
+  useEffect(() => { if (widthRange !== 'narrow') { setMemberListOpen(false); setRightSlide(null); } }, [widthRange]);
   // docs/CLIENT.md - splitter drag, mirrors WorkflowView.tsx
   // pattern (mouse + capture-phase pointerup + pointercancel + blur +
   // visibilitychange cleanup; defensive body-style restore on mount).
@@ -319,7 +353,11 @@ export function ClusterTab({
       // Persist debounced — setLiveSplit may have buffered the latest value;
       // commit it now.
       setLiveSplit((v) => {
-        if (v !== null) setClusterGridSplit(v);
+        if (v !== null) {
+          const r = widthRangeRef.current;
+          if (r === 'standard') setClusterGridSplit(v);
+          else { writeRangeFraction(GRID_SPLIT_KEY, r, v); setGridByRange((m) => ({ ...m, [r]: v })); }
+        }
         return null;
       });
     }
@@ -358,19 +396,20 @@ export function ClusterTab({
   // resize either boundary without interaction.
   const outerContainerRef = useRef<HTMLDivElement | null>(null);
   const outerDraggingRef = useRef(false);
-  const [rightPanelFraction, setRightPanelFraction] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(RIGHT_PANEL_WIDTH_KEY);
-      if (raw) {
-        const n = Number(raw);
-        if (Number.isFinite(n) && n >= RIGHT_PANEL_MIN_FRACTION && n <= RIGHT_PANEL_MAX_FRACTION) return n;
-      }
-    } catch { /* no-op */ }
-    return RIGHT_PANEL_DEFAULT_FRACTION;
-  });
-  useEffect(() => {
-    try { localStorage.setItem(RIGHT_PANEL_WIDTH_KEY, String(rightPanelFraction)); } catch { /* no-op */ }
-  }, [rightPanelFraction]);
+  // Right panel position per range. null: no position saved for this range;
+  // Standard and wide then use the default share, medium a fixed width.
+  const [rightByRange, setRightByRange] = useState<Partial<Record<LayoutRange, number | null>>>({});
+  const rightSaved = widthRange in rightByRange
+    ? rightByRange[widthRange] ?? null
+    : readRangeFraction(RIGHT_PANEL_WIDTH_KEY, widthRange, RIGHT_PANEL_MIN_FRACTION, RIGHT_PANEL_MAX_FRACTION);
+  const rightFixedPx = rightSaved === null && widthRange === 'medium' ? MEDIUM_RIGHT_PANEL_PX : null;
+  const rightPanelFraction = rightSaved ?? RIGHT_PANEL_DEFAULT_FRACTION;
+  // Only reads refs and stable setters, so the drag effect below may keep it.
+  const setRightPanelFraction = (value: number) => {
+    const r = widthRangeRef.current;
+    writeRangeFraction(RIGHT_PANEL_WIDTH_KEY, r, value);
+    setRightByRange((m) => ({ ...m, [r]: value }));
+  };
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (!outerDraggingRef.current || !outerContainerRef.current) return;
@@ -716,7 +755,7 @@ export function ClusterTab({
             on the right. */}
         <div
           style={{
-            flex: `1 1 ${(1 - rightPanelFraction) * 100}%`,
+            flex: widthRange === 'narrow' || rightFixedPx !== null ? '1 1 0%' : `1 1 ${(1 - rightPanelFraction) * 100}%`,
             minWidth: 0,
             minHeight: 0,
             display: 'flex',
@@ -755,7 +794,15 @@ export function ClusterTab({
                       gridTemplateColumns: `repeat(${balancedCardsPerRow}, minmax(0, 1fr))`,
                       gridAutoRows: 'minmax(120px, 1fr)',
                     };
-            const fraction = liveSplit ?? gridSplit;
+            // Medium and wide: cards take their own height instead of
+            // stretching to fill the column.
+            const cardRowsCss = compactLayout
+              ? { gridTemplateRows: layout === 'columns' ? 'min-content' : 'none', gridAutoRows: 'min-content', alignContent: 'start' as const }
+              : {};
+            const savedGrid = gridSavedForRange(widthRange);
+            const gridFixedPx = liveSplit === null && savedGrid === null ? GRID_PX[widthRange] ?? null : null;
+            const fraction = liveSplit ?? savedGrid ?? GRID_SPLIT_STORE_DEFAULT;
+            const cardDensity = widthRange === 'wide' ? 'wide' : compactLayout ? 'compact' : 'standard';
             const focusedMember =
               cluster.members.find((m) => m.workflowId === focusedMemberId) ?? cluster.members[0];
             const focusedJob = focusedMember ? jobs[focusedMember.workflowId] : undefined;
@@ -763,10 +810,11 @@ export function ClusterTab({
             return (
               <>
                 {/* GRID — compact cards */}
+                {(() => { const gridColumn = (
                 <div
                   data-help="cluster.grid"
                   style={{
-                    flex: `1 1 ${fraction * 100}%`,
+                    flex: widthRange === 'narrow' ? 1 : gridFixedPx !== null ? `0 0 ${gridFixedPx}px` : `1 1 ${fraction * 100}%`,
                     minWidth: 0,
                     minHeight: 0,
                     display: 'flex',
@@ -822,9 +870,12 @@ export function ClusterTab({
                   </div>
 
                   {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
-                  {!cluster.plan && !planHintHidden && <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: '11px' }}>
-                    <span>No plan yet: a plan keeps every worker on the same list.</span>
-                    {!directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => setMembersTabRequest((value) => value + 1)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
+                  {!cluster.plan && !planHintHidden && (() => {
+                    // Medium and wide: one line (DRAFT A PLAN, then MORE for the rest).
+                    const short = compactLayout && !planHintMore;
+                    return <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: short ? 'nowrap' : 'wrap', alignItems: 'center', gap: '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: '11px', overflow: short ? 'hidden' : undefined }}>
+                    <span style={short ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } : undefined} title={short ? 'A plan keeps every worker on the same list.' : undefined}>{short ? 'No plan yet.' : 'No plan yet: a plan keeps every worker on the same list.'}</span>
+                    {!short && !directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => setMembersTabRequest((value) => value + 1)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
                     <button type="button" disabled={!directorMember} title={directorMember ? 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={() => {
                       if (!directorMember) return;
                       const id = directorMember.workflowId;
@@ -832,10 +883,13 @@ export function ClusterTab({
                       if (started) setClusterFocusedMember(clusterId, id);
                       else useAppStore.getState().pushNotification('error', 'The director must be idle and ready before drafting a plan.');
                     }}>DRAFT A PLAN</button>
-                    {directorMember && <PublicProjectBox cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} testId="cluster-public-project" />}
-                    <button type="button" disabled={!onAttachClusterPlan} onClick={() => setPlanTabRequest((value) => value + 1)}>ATTACH EXISTING</button>
-                    <button type="button" onClick={() => { setPlanHintHidden(true); try { localStorage.setItem(`arco.clusterPlanHint.${clusterId}`, '1'); } catch { /* no-op */ } }}>NOT NOW</button>
-                  </div>}
+                    {short && <button type="button" data-help="layout.plan-hint-more" data-testid="plan-hint-more" onClick={() => setPlanHintMore(true)} style={{ flexShrink: 0 }}>MORE ▾</button>}
+                    {!short && directorMember && <PublicProjectBox cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} testId="cluster-public-project" />}
+                    {!short && <button type="button" disabled={!onAttachClusterPlan} onClick={() => setPlanTabRequest((value) => value + 1)}>ATTACH EXISTING</button>}
+                    {!short && <button type="button" onClick={() => { setPlanHintHidden(true); try { localStorage.setItem(`arco.clusterPlanHint.${clusterId}`, '1'); } catch { /* no-op */ } }}>NOT NOW</button>}
+                    {compactLayout && planHintMore && <button type="button" data-help="layout.plan-hint-more" onClick={() => setPlanHintMore(false)}>LESS ▴</button>}
+                    </div>;
+                  })()}
                   <div
                     style={{
                       flex: 1,
@@ -844,8 +898,9 @@ export function ClusterTab({
                       overflowX: layout === 'columns' ? 'auto' : 'hidden',
                       padding: '8px',
                       display: 'grid',
-                      gap: '8px',
+                      gap: compactLayout ? '6px' : '8px',
                       ...layoutCss,
+                      ...cardRowsCss,
                     }}
                   >
                     {orderMembers(cluster.members, operatorReordered).map((m) => (
@@ -860,7 +915,8 @@ export function ClusterTab({
                         nudged={nudgedAt[m.workflowId] !== undefined}
                         newReply={directorNewReply && m.workflowId === directorMember?.workflowId}
                         focused={focusedMemberId === m.workflowId}
-                        onClick={() => setClusterFocusedMember(clusterId, m.workflowId)}
+                        density={cardDensity}
+                        onClick={() => { setClusterFocusedMember(clusterId, m.workflowId); setMemberListOpen(false); }}
                         dragOver={dragOverId === m.workflowId && dragId !== null && dragId !== m.workflowId}
                         dragProps={onReorderMembers ? {
                           draggable: true,
@@ -893,9 +949,41 @@ export function ClusterTab({
                     ))}
                   </div>
                 </div>
+                );
+                if (widthRange !== 'narrow') return gridColumn;
+                // Narrow: a rail of member initials; the full list opens over the chat.
+                return (
+                  <>
+                    <div data-help="layout.member-rail" data-testid="member-rail" style={{ flex: '0 0 46px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '8px 0', borderRight: '1px solid var(--color-border-hairline)', overflowY: 'auto' }}>
+                      <button type="button" data-help="layout.member-list-open" data-testid="member-list-open" onClick={() => setMemberListOpen(true)} title="Show the member list" aria-label="Show the member list" className="display-font" style={{ padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }}>☰</button>
+                      {orderMembers(cluster.members, operatorReordered).map((m) => {
+                        const focused = focusedMemberId === m.workflowId;
+                        const mail = pendingByMember[cluster.members.indexOf(m)] ?? 0;
+                        const busy = m.status === 'busy';
+                        return (
+                          <button
+                            key={m.workflowId}
+                            type="button"
+                            onClick={() => setClusterFocusedMember(clusterId, m.workflowId)}
+                            title={`${m.displayName}${m.role ? ` (${m.role})` : ''}: ${busy ? 'working' : 'idle'}${mail ? `, ${mail} waiting` : ''}`}
+                            aria-label={`${m.displayName}${busy ? ', working' : ''}${mail ? `, ${mail} messages waiting` : ''}`}
+                            aria-pressed={focused}
+                            className="display-font"
+                            style={{ width: '32px', height: '32px', flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer', background: focused ? 'var(--color-accent-primary-a08)' : 'transparent', color: focused ? 'var(--color-accent-primary)' : 'var(--color-fg)', border: `1px solid ${focused ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}` }}
+                          >
+                            {m.displayName.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?'}
+                            <span aria-hidden="true" style={{ position: 'absolute', right: '-3px', top: '-3px', width: '7px', height: '7px', borderRadius: '50%', background: mail ? 'var(--color-warning)' : busy ? 'var(--color-accent-primary)' : 'transparent', border: mail || busy ? 'none' : '1px solid var(--color-fg-muted)' }} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {memberListOpen && <SlideOut side="left" width="320px" label="MEMBERS" onClose={() => setMemberListOpen(false)} testId="member-list-slide-out">{gridColumn}</SlideOut>}
+                  </>
+                );
+                })()}
 
                 {/* SPLITTER */}
-                <div
+                {widthRange !== 'narrow' && <div
                   onMouseDown={startSplitDrag}
                   role="separator"
                   aria-orientation="vertical"
@@ -913,12 +1001,12 @@ export function ClusterTab({
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLDivElement).style.background = 'var(--color-border-hairline)';
                   }}
-                />
+                />}
 
                 {/* DETAIL — focused member's full MemberPane */}
                 <div
                   style={{
-                    flex: `1 1 ${(1 - fraction) * 100}%`,
+                    flex: widthRange === 'narrow' || gridFixedPx !== null ? '1 1 0%' : `1 1 ${(1 - fraction) * 100}%`,
                     minWidth: 0,
                     minHeight: 0,
                     display: 'flex',
@@ -1013,7 +1101,7 @@ export function ClusterTab({
             4 px col-resize divider as the inner grid splitter; persisted
             fraction in localStorage so the operator's preferred width
             survives reloads. */}
-        <div
+        {widthRange !== 'narrow' && <div
           onMouseDown={startOuterSplitDrag}
           role="separator"
           aria-orientation="vertical"
@@ -1031,18 +1119,17 @@ export function ClusterTab({
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLDivElement).style.background = 'var(--color-border-hairline)';
           }}
-        />
+        />}
 
-        <div
-          style={{
-            flex: `1 1 ${rightPanelFraction * 100}%`,
-            minWidth: 0,
-            minHeight: 0,
-            display: 'flex',
-          }}
-        >
+        {widthRange === 'narrow' && <PanelStrip items={RIGHT_STRIP} active={rightSlide} onOpen={(id) => {
+          if (id !== 'more') setRightTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
+          setRightSlide(id);
+        }} />}
+        {(() => { const rightPanel = (
         <ClusterRightPanel
           cluster={cluster}
+          compactSettings={compactLayout}
+          tabRequest={rightTabRequest}
           planTabRequest={planTabRequest}
           membersTabRequest={membersTabRequest}
           onFocusMember={setActiveJob}
@@ -1094,7 +1181,23 @@ export function ClusterTab({
           onDetachCodebaseMemory={onDetachCodebaseMemory}
           mcp={mcp}
         />
+        );
+        if (widthRange === 'narrow') {
+          return rightSlide && <SlideOut side="right" width="380px" label="CLUSTER PANEL" onClose={() => setRightSlide(null)} testId="right-panel-slide-out">{rightPanel}</SlideOut>;
+        }
+        return (
+        <div
+          style={{
+            flex: rightFixedPx !== null ? `0 0 ${rightFixedPx}px` : `1 1 ${rightPanelFraction * 100}%`,
+            minWidth: 0,
+            minHeight: 0,
+            display: 'flex',
+          }}
+        >
+          {rightPanel}
         </div>
+        );
+        })()}
       </div>
 
       {/* NUDGE modal — operator picks which members get the canned mailbox

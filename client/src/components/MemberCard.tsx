@@ -39,6 +39,12 @@ interface Props {
   // drop target for the dashed outline.
   dragProps?: HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   dragOver?: boolean;
+  // Window-size layout (client/src/layout/layoutRange.ts). standard: the
+  // original card, at least 120 px tall, filling its grid cell. wide: own
+  // height, the latest reply capped at two lines. compact (medium range and
+  // the narrow member list): one row with the id in the tooltip and a
+  // one-line reply.
+  density?: 'standard' | 'wide' | 'compact';
 }
 
 function lastAssistantText(job: JobState | undefined): string | null {
@@ -55,7 +61,8 @@ function lastAssistantText(job: JobState | undefined): string | null {
   return null;
 }
 
-export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver }: Props) {
+export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver, density = 'standard' }: Props) {
+  const clamp = density === 'wide' ? 2 : density === 'compact' ? 1 : 0;
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';
@@ -88,8 +95,8 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
   const bodyRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = bodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [bodyText]);
+    if (el && !clamp) el.scrollTop = el.scrollHeight;
+  }, [bodyText, clamp]);
 
   return (
     <div
@@ -99,6 +106,8 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
       role="button"
       tabIndex={0}
       data-help="cluster.member-card"
+      data-density={density}
+      title={density === 'compact' && wfidShort ? `${displayName} · ${wfidShort}${trimmedRole ? ` · ${trimmedRole}` : ''}` : undefined}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -106,11 +115,11 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
         }
       }}
       style={{
-        minHeight: '120px',
-        padding: '10px 12px',
+        minHeight: density === 'standard' ? '120px' : 0,
+        padding: density === 'compact' ? '6px 10px' : '10px 12px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: density === 'compact' ? '3px' : '6px',
         cursor: 'pointer',
         background: focused ? 'var(--color-accent-primary-a06)' : 'var(--color-bg-panel)',
         border: waitingQuestion
@@ -171,13 +180,15 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
             ? <button type="button" data-help="cluster.member-mail" data-mail-state="idle" aria-label={label} title={label} onClick={(e) => { e.stopPropagation(); onNudge(); }} style={{ ...style, cursor: 'pointer' }}>{text}</button>
             : <span data-help="cluster.member-mail" data-mail-state={idle ? 'idle' : 'busy'} role="status" aria-live="off" aria-label={label} title={label} style={style}>{text}</span>;
         })()}
+        {density === 'compact' && roleChipLabel && <span data-help="cluster.member-card.role-chip" title={trimmedRole} style={{ padding: '0 4px', border: '1px solid var(--color-accent-secondary-a40, var(--color-accent-secondary-dim))', color: 'var(--color-accent-secondary)', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }}>{roleChipLabel}</span>}
         <span style={{ marginLeft: 'auto', color: busy ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', fontSize: '10px', flexShrink: 0 }}>
           {status.toUpperCase()}
         </span>
         {wfid && <BriefControl scope="worker" targetId={wfid} label="BRIEF" data-help="cluster.member-brief" testId="member-brief" title="A short synopsis of this member from facts Arco can see. Read-only; sends nothing." style={{ padding: '1px 5px', fontSize: '9px', flexShrink: 0 }} />}
       </div>
-      {/* Line 2 — wfid prefix · role chip (when set) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', letterSpacing: '1px' }}>
+      {/* Line 2 — wfid prefix · role chip (when set). Folded into the
+          tooltip and line 1 in the compact density. */}
+      {density !== 'compact' && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', letterSpacing: '1px' }}>
         <span
           style={{
             color: 'var(--color-fg-muted)',
@@ -207,7 +218,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
             {roleChipLabel}
           </span>
         )}
-      </div>
+      </div>}
       <div
         ref={bodyRef}
         style={{
@@ -217,9 +228,10 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
           fontSize: '12px',
           lineHeight: 1.4,
           color: bodyDim ? 'var(--color-fg-muted)' : 'var(--color-fg)',
-          overflowY: 'auto',
+          overflowY: clamp ? 'hidden' : 'auto',
           overflowX: 'hidden',
           whiteSpace: busy ? 'nowrap' : 'pre-wrap',
+          ...(clamp && !busy ? { display: '-webkit-box', WebkitBoxOrient: 'vertical' as const, WebkitLineClamp: clamp, flex: '0 0 auto' } : {}),
           textOverflow: busy ? 'ellipsis' : undefined,
           wordBreak: 'break-word',
           fontStyle: busy ? 'italic' : 'normal',
