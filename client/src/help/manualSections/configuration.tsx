@@ -465,9 +465,9 @@ export const configuration: Section[] = [
   </p>
   <Sub>Skills</Sub>
   <p>
-  <strong>Skills</strong> are CRUD-managed from Settings and stored as{' '}
-  <Code>SKILL.md</Code> files under project <Code>.arco/skills/</Code> or
-  global <Code>~/.arco/skills/</Code>. The primary sees a compact manifest
+  <strong>Skills</strong> are managed in Settings &gt; SKILLS and stored as
+  folders with a <Code>SKILL.md</Code> under project <Code>.arco/skills/</Code>{' '}
+  or global <Code>~/.arco/skills/</Code>. The primary sees a compact manifest
   each turn; it reads the full skill body on demand with normal file tools.
   </p>
   <p>From the composer:</p>
@@ -483,12 +483,59 @@ export const configuration: Section[] = [
   review.
   </li>
   </ul>
+  <p>Importing, updating, turning off, moving and sharing skills: see Skills.</p>
   <Sub>Handoff prompts</Sub>
   <p>
   <strong>Handoff prompts</strong> are editable from Settings. Project-level
   overrides live under <Code>&lt;cwd&gt;/.arco/</Code> and can customize the
   original-worker and fresh-summarizer handoff seed prompts without changing
   code. Quick handoff does not use a writer prompt.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'skills',
+  group: 'Configuration',
+  title: 'Skills - import, update, on/off, move and share',
+  body: (
+  <>
+  <p>
+  A skill is a folder with a <Code>SKILL.md</Code> (name and description at the
+  top, then the instructions) and any files it refers to. Settings &gt; SKILLS
+  lists project and global skills. Each row shows the extra files, where an
+  imported skill came from, and skill names its text mentions that are not
+  installed, such as "Refers to grilling, not installed".
+  </p>
+  <Sub>IMPORT</Sub>
+  <p>
+  <strong>IMPORT</strong> (also in the composer SKILLS menu) takes a public
+  GitHub link to a skill folder or its <Code>SKILL.md</Code>, a folder on this
+  computer, or a zip file. <strong>REVIEW</strong> lists every file with its
+  size and runs the security check on each text file. Nothing is fetched before
+  REVIEW and nothing is saved before <strong>IMPORT</strong>.
+  </p>
+  <p>
+  Imported files keep their folders but never executable bits; hidden files are
+  left out. Limits: 64 files, 512 KB per file, 2 MB in total. The source, with
+  the GitHub commit, is recorded next to the skill.
+  </p>
+  <Sub>UPDATE, TURN OFF, MOVE, DUPLICATE</Sub>
+  <p>
+  <strong>UPDATE</strong> fetches an imported skill's source again and shows a
+  diff per file, with the security check, before <strong>APPLY UPDATE</strong>.{' '}
+  <strong>TURN OFF</strong> keeps a skill but leaves it out of the agent's list,
+  tab pins and the SKILLS menu. <strong>MOVE TO GLOBAL</strong> or{' '}
+  <strong>MOVE TO PROJECT</strong> moves the folder; <strong>DUPLICATE</strong>{' '}
+  copies it under a new name.
+  </p>
+  <Sub>SHARE WITH REPOSITORY</Sub>
+  <p>
+  Project skills live in <Code>.arco/skills/</Code>, and Git ignores{' '}
+  <Code>.arco</Code>. <strong>SHARE WITH REPOSITORY</strong> lists the files that
+  would become visible to Git, then adds an exception for that one skill to{' '}
+  <Code>.arco/.gitignore</Code>. Arco does not stage or commit. A public project
+  gets a warning first. Arco ships no third-party skills.
   </p>
   </>
   ),

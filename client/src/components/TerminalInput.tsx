@@ -16,6 +16,7 @@ import { useCodexCatalogFor } from '../hooks/useCodexCatalog';
 import { useHubLinkStore } from '../stores/hubLinkStore';
 import { ToolboxMenu } from './ToolboxMenu';
 import { SkillEditorDialog } from './SkillEditorDialog';
+import { SkillImportDialog } from './SkillsSettings';
 import { ReviewDialog } from './ReviewDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { SpawnDialog } from './SpawnDialog';
@@ -354,7 +355,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const skillMenuRef = useRef<HTMLDivElement>(null);
   const [showSkillEditor, setShowSkillEditor] = useState(false);
   const [skillCatalogRevision, setSkillCatalogRevision] = useState(0);
-  const [availableSkills, setAvailableSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string; description: string; operatorOnly?: boolean }>>([]);
+  const [availableSkills, setAvailableSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string; description: string; operatorOnly?: boolean; off?: boolean }>>([]);
+  const [showSkillImport, setShowSkillImport] = useState(false);
   const [skillCatalogStatus, setSkillCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   // P8.5 — skills shipped with Arco: run once, or make an editable copy.
   const [builtinSkills, setBuiltinSkills] = useState<Array<{ slug: string; name: string; description: string }>>([]);
@@ -381,7 +383,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data: { project?: typeof availableSkills; global?: typeof availableSkills; builtin?: typeof builtinSkills }) => {
         if (cancelled) return;
-        setAvailableSkills([...(data.project ?? []), ...(data.global ?? [])]);
+        // Skills turned off in Settings > SKILLS are left out of the apply list.
+        setAvailableSkills([...(data.project ?? []), ...(data.global ?? [])].filter((s) => !s.off));
         setBuiltinSkills(data.builtin ?? []);
         setSkillCatalogStatus('ready');
       })
@@ -2002,7 +2005,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
                 }}
               >
                 <div className="display-font" style={{ padding: '9px 10px', color: 'var(--color-fg-muted)', fontSize: '9px', letterSpacing: '1px' }}>YOUR SKILLS</div>
-                <button type="button" onClick={() => setShowSkillEditor(true)} className="display-font" style={{ margin: '0 10px 8px', padding: '4px 8px', cursor: 'pointer' }}>NEW SKILL</button>
+                <button type="button" onClick={() => setShowSkillEditor(true)} className="display-font" style={{ margin: '0 0 8px 10px', padding: '4px 8px', cursor: 'pointer' }}>NEW SKILL</button>
+                <button type="button" data-help="composer.skills.import" onClick={() => { setShowSkillImport(true); setSkillMenuOpen(false); }} className="display-font" style={{ margin: '0 10px 8px 6px', padding: '4px 8px', cursor: 'pointer' }}>IMPORT</button>
                 {skillCatalogStatus === 'loading' ? (
                   <div style={{ padding: '14px', color: 'var(--color-fg-muted)', fontSize: '11px' }}>Loading skills...</div>
                 ) : skillCatalogStatus === 'error' ? (
@@ -2119,6 +2123,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       </div>
 
       <DialogPortal>
+      {showSkillImport && (
+        <SkillImportDialog cwd={job.config.workingDirectory ?? ''} onClose={() => setShowSkillImport(false)} onImported={() => { setShowSkillImport(false); setSkillCatalogRevision((n) => n + 1); setSkillMenuOpen(true); }} />
+      )}
       {showSkillEditor && (
         <div data-help="composer.skills">
           <SkillEditorDialog cwd={job.config.workingDirectory ?? ''} target={{ scope: job.config.workingDirectory ? 'project' : 'global' }}

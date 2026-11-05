@@ -66,6 +66,10 @@ export interface SkillSummary {
   // authority over it) but is still listed in the UI and pickable by the
   // operator, who inlines its full body into a turn (no Read round-trip).
   operatorOnly?: boolean;
+  // P8.6 — from the skill's sidecar file (.arco-skill.json). An off skill is
+  // left out of the model manifest, pins and the SKILLS menu's apply list.
+  off?: boolean;
+  source?: { kind: 'github'; url: string; commit?: string } | { kind: 'folder'; path: string } | { kind: 'zip'; name: string };
 }
 
 export interface SkillFull extends SkillSummary {
@@ -73,9 +77,28 @@ export interface SkillFull extends SkillSummary {
 }
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const NAME_MAX = 80;
-const DESCRIPTION_MAX = 240;
-const BODY_MAX = 64 * 1024;
+export const NAME_MAX = 80;
+export const DESCRIPTION_MAX = 240;
+export const BODY_MAX = 64 * 1024;
+
+// P8.6 — per-skill sidecar: where an imported skill came from and whether it
+// is turned off. Not part of the skill text; never sent to the model.
+export const SKILL_SIDECAR = '.arco-skill.json';
+export type StoredSkillSource =
+  | { kind: 'github'; url: string; owner: string; repo: string; ref: string; path: string; commit?: string }
+  | { kind: 'folder'; path: string }
+  | { kind: 'zip'; name: string };
+export interface SkillSidecar { off?: boolean; source?: StoredSkillSource; importedAt?: number; updatedAt?: number }
+export async function readSkillSidecar(dir: string): Promise<SkillSidecar> {
+  try {
+    const parsed = JSON.parse(await readFile(path.join(dir, SKILL_SIDECAR), 'utf8')) as SkillSidecar;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch { return {}; }
+}
+export function publicSource(source: StoredSkillSource): NonNullable<SkillSummary['source']> {
+  if (source.kind === 'github') return { kind: 'github', url: source.url, ...(source.commit ? { commit: source.commit } : {}) };
+  return source.kind === 'folder' ? { kind: 'folder', path: source.path } : { kind: 'zip', name: source.name };
+}
 
 export function isValidSlug(slug: string): boolean {
   return SLUG_PATTERN.test(slug);
@@ -89,7 +112,7 @@ function globalSkillsRoot(): string {
   return path.join(arcoHome(), 'skills');
 }
 
-function rootForScope(scope: SkillScope, cwd: string): string {
+export function rootForScope(scope: SkillScope, cwd: string): string {
   if (scope === 'global') return globalSkillsRoot();
   if (!cwd) throw new Error('project scope requires cwd');
   return projectSkillsRoot(cwd);
@@ -131,7 +154,7 @@ interface ParsedFrontmatter {
   operatorOnly?: boolean;
 }
 
-function parseSkillFile(text: string): ParsedFrontmatter {
+export function parseSkillFile(text: string): ParsedFrontmatter {
   if (!text.startsWith('---')) return { body: text };
   const end = text.indexOf('\n---', 3);
   if (end === -1) return { body: text };
@@ -168,7 +191,7 @@ function escapeYamlValue(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-function renderSkillFile(name: string, description: string, body: string, operatorOnly?: boolean): string {
+export function renderSkillFile(name: string, description: string, body: string, operatorOnly?: boolean): string {
   // DD8 — persist the operator-only flag so editing a skill via the UI doesn't
   // silently strip it. Only written when true (absence == model-visible default).
   const ooLine = operatorOnly ? 'operator-only: true\n' : '';
@@ -210,6 +233,7 @@ async function scanScope(scope: SkillScope, cwd: string): Promise<SkillSummary[]
     }
     const parsed = parseSkillFile(text);
     if (!parsed.name) continue; // missing frontmatter — skipped per the plan
+    const side = await readSkillSidecar(dir);
     results.push({
       slug,
       name: parsed.name,
@@ -217,6 +241,8 @@ async function scanScope(scope: SkillScope, cwd: string): Promise<SkillSummary[]
       scope,
       path: skillPath,
       ...(parsed.operatorOnly ? { operatorOnly: true } : {}),
+      ...(side.off ? { off: true } : {}),
+      ...(side.source ? { source: publicSource(side.source) } : {}),
     });
   }
   results.sort((a, b) => a.name.localeCompare(b.name));
@@ -377,7 +403,8 @@ export function buildSkillsManifest(
 ): string {
   // DD8 — operator-only skills are withheld from the model manifest entirely.
   // The model is never told they exist; the operator inlines them on pick.
-  const all = [...catalog.project, ...catalog.global].filter((s) => !s.operatorOnly);
+  // P8.6 — skills turned off are left out as well.
+  const all = [...catalog.project, ...catalog.global].filter((s) => !s.operatorOnly && !s.off);
   if (all.length === 0) return '';
   const lines: string[] = [];
   lines.push('You have access to operator-defined skills — short reusable playbooks for recurring tasks. Each entry below lists a skill\'s name, scope, and a one-line description. To apply a skill, use your Read tool on its `path` attribute to load the full SKILL.md, then follow it.');
@@ -456,6 +483,10 @@ export async function resolvePinnedSkills(
     }
     if (!full) {
       missing.push(key);
+      continue;
+    }
+    if ((await readSkillSidecar(path.dirname(full.path))).off) {
+      missing.push(`${key} (off)`);
       continue;
     }
     const bytes = Buffer.byteLength(full.body, 'utf8');

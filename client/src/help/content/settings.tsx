@@ -344,12 +344,45 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Skills',
     body: (
       <p>
-        CRUD UI for project and global <C>SKILL.md</C> files. Arco injects a
-        compact manifest each turn; the agent reads full skill bodies only when
-        needed.
+        Project and global skills: a folder with a <C>SKILL.md</C> and any files
+        it needs. Arco lists names and descriptions to the agent each turn; the
+        agent reads a full skill only when needed. Each row shows the extra files,
+        where an imported skill came from, and skill names its text refers to that
+        are not installed. Project skills are in <C>.arco/skills/</C>, which Git
+        ignores unless you use <C>SHARE WITH REPOSITORY</C>.
       </p>
     ),
-    manualSection: 'settings-operator',
+    manualSection: 'skills',
+  },
+  'settings.skills.import': {
+    title: 'IMPORT',
+    body: <p><C>IMPORT</C> adds a skill from a public GitHub link (a skill folder or its <C>SKILL.md</C>), a folder on this computer, or a zip file. <C>REVIEW</C> fetches or reads it and lists every file with its size and the security check findings; nothing is saved until <C>IMPORT</C>. Choose this project or global. All files of the skill folder are kept, without executable bits; hidden files are left out. Limits: 64 files, 512 KB per file, 2 MB in total.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.update': {
+    title: 'UPDATE',
+    body: <p><C>UPDATE</C> appears for a skill imported from GitHub or a folder. It fetches the source again and shows, per file, what was added, removed or changed, with the security check. <C>APPLY UPDATE</C> replaces the skill's files; whether it is on or off stays as it was.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.toggle': {
+    title: 'TURN OFF / TURN ON',
+    body: <p><C>TURN OFF</C> keeps the skill but leaves it out of the agent's list, of tab pins and of the composer SKILLS menu. It is shown greyed with OFF. <C>TURN ON</C> brings it back.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.move': {
+    title: 'MOVE TO GLOBAL / MOVE TO PROJECT',
+    body: <p>Moves the skill folder, with all its files, between this project's skills and your global skills (every project). It asks first. Tabs that pinned the skill lose the pin.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.duplicate': {
+    title: 'DUPLICATE',
+    body: <p><C>DUPLICATE</C> copies the skill and its files under a new name, as a starting point for your own version. The copy has no import source, so UPDATE does not apply to it.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.share': {
+    title: 'SHARE WITH REPOSITORY',
+    body: <p>Project skills sit in <C>.arco</C>, which Git ignores. <C>SHARE WITH REPOSITORY</C> lists the files that would become visible to Git and, after you confirm, adds an exception for this one skill to <C>.arco/.gitignore</C>. Arco does not stage or commit them. For a public project it warns that anyone will be able to read the skill.</p>,
+    manualSection: 'skills',
   },
   'settings.handoff-prompts': {
     title: 'Handoff prompts',

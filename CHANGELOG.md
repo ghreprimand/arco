@@ -10,12 +10,13 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - UNKEEP undoes KEEP: in ARTIFACTS > STORAGE for every KEEP mark of a conversation, and in OUTPUTS, where a kept artifact now shows Kept, for the mark that covers it. Each asks first; no file is changed.
 - Large artifact warnings also arrive while a turn is still running (checked every 30 seconds), not only when it ends.
 - Cluster tabs have MEMORY > USAGE: token usage for every member's conversations in the project folder, with MEASURE STORAGE and MEASURE ARCO FOLDER.
-
 - Architecture review, a built-in operator-only skill (composer SKILLS > BUILT-IN > RUN). Arco measures the project first: largest files, most-changed files, files without tests, files with many exports, and decisions already recorded. The agent writes a report of candidates to the artifacts and changes no code. In OUTPUTS, CANDIDATES on the report offers ADD TO PLAN (a plan item with its own reference doc) and RECORD DECISION (kept in the plan's decisions doc so later reviews skip it). EDITABLE COPY saves the skill as your own.
 - Code reviews and the cluster director also check the shape of a change: duplicated logic, pass-through wrappers, tests that miss the interface, and changes spread over many places. Advisory only.
+- Skill management in Settings > SKILLS: IMPORT from a public GitHub link, a folder or a zip file, with every file and the security check shown before saving; UPDATE an imported skill with a per-file diff; TURN OFF and TURN ON; MOVE TO GLOBAL or MOVE TO PROJECT; DUPLICATE; SHARE WITH REPOSITORY for a project skill. Each row shows the skill's extra files, its source and skill names it refers to that are not installed. IMPORT is also in the composer SKILLS menu.
 
 ### Changed
 
+- Settings > SKILLS now says that project skills are ignored by Git (inside `.arco`) instead of "version with the repo".
 - Docs and help name MEMORY > USAGE on single-worker, chat and cluster tabs (a cluster covers every member in the project folder) and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
 - Cluster HISTORY and PREVIEW show the member in view (the selected card or tab, the director by default) and name it at the top, with a picker to switch. Before, they always showed the first member.
 - REWIND CONVERSATION stays visible for providers other than Claude Native, disabled with the reason beside it, instead of being hidden.

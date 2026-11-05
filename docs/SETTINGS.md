@@ -67,7 +67,7 @@ Sections: 25.
 | `utility-agent` | Agents and clusters | Utility agent | Global | Provider and model for side jobs (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl); TEST, CLEAR; not chosen until saved. See [Utility agent](#utility-agent) |
 | `notification-channels` | Notifications | Desktop and phone notifications | Global (switches kept by the server; the desktop permission is per browser) | Events (finished, failed, waiting) by place (this computer, phone); browser permission and desktop TEST; SHOW IN BELL controls quiet notices for other tabs; ntfy server, topic with GENERATE, optional token, TEST; message text switch; cluster finished source. See [Notifications](NOTIFICATIONS.md) |
 | `board-auto-done` | Agents and clusters | Board auto-done | Global | Checkbox that marks review tasks done when the director signs off as met |
-| `skills` | Agents and clusters | Skills | Global or project (the active tab's folder) | Global and project skill lists, new, edit and delete |
+| `skills` | Agents and clusters | Skills | Global or project (the active tab's folder) | Global and project skill lists with extra files, import source and missing referenced skills; NEW, EDIT, delete, IMPORT, UPDATE, TURN OFF/ON, MOVE TO GLOBAL/PROJECT, DUPLICATE, SHARE WITH REPOSITORY |
 | `handoff-prompts` | Agents and clusters | Handoff prompts | Global or project (the active tab's folder) | Handoff prompt overrides per mode |
 | `voice-setup` | Voice | Voice setup | Global | Local speech status, install log, microphone test, test phrase, model notices |
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |

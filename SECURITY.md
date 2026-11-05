@@ -131,6 +131,10 @@ When a plan-draft control is shown for a project folder, the server reads the fo
 
 The project state check runs `git ls-files` and `git check-ignore` inside a Git project folder and reads the `.arco/.gitignore` file. It changes nothing by itself. RESTORE IGNORE FILE writes the default ignore file after moving an edited one aside as a backup in `.arco/`; STOP TRACKING runs `git rm -r --cached -- .arco`, which removes the folder from the index only and keeps the files on disk. Anything already pushed stays in the remote's history.
 
+## Skill import
+
+IMPORT in Settings > SKILLS and the composer SKILLS menu fetches nothing until REVIEW is selected. For a GitHub link the server makes unauthenticated requests to `https://api.github.com/repos/<owner>/<repo>` (the commit of the branch or tag, then the folder listing) and downloads each file only from `https://raw.githubusercontent.com/`, with a 15-second limit per request and no token, so private repositories are not supported. GitHub sees the server's public IP address and the repository, branch and folder named in the link. A folder import reads the chosen folder without following links; a zip import is read in memory. Every import is limited to 64 files, 512 KB per file and 2 MB in total, refuses links, paths that leave the skill folder, encrypted and zip64 archives, and leaves out hidden files. The read-only skill audit runs over every text file and its findings are shown before anything is saved. Files are written without executable bits. UPDATE repeats the fetch on request and shows a per-file diff before replacing anything. SHARE WITH REPOSITORY only appends exception lines to `.arco/.gitignore` and never stages or commits.
+
 ## Outbound release checks
 
 The server requests the latest Arco release from

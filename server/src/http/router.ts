@@ -1,5 +1,6 @@
 import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
+import { tryHandleSkillManagementRoutes } from './skillManagementRoutes.js';
 import { removedProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { tryHandleSmartPickupRoutes } from './smartPickupRoutes.js';
@@ -469,6 +470,7 @@ export async function handleHttpRequest(
   if (await tryHandleUsageStatsRoutes(req, res)) return;
   if (await tryHandleStorageRoutes(req, res)) return;
   if (await tryHandleArchitectureReviewRoutes(req, res)) return;
+  if (await tryHandleSkillManagementRoutes(req, res)) return;
 
   // D2 — Endpoint auto-discovery (tailscale peers + localhost, bounded ports).
   if (await tryHandleEndpointDiscoveryRoutes(req, res)) return;

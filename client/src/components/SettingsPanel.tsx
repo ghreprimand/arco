@@ -21,42 +21,13 @@ import { FONT_PACKS } from '../themes/fontPacks';
 import { DEFAULT_FROSTED_OPACITY, DEFAULT_TEXT_BRIGHTNESS } from '../themes/apply';
 import { Panel } from './primitives/Panel';
 import { LlamacppCatalogEditor } from './LlamacppCatalogEditor';
-import { SkillEditorDialog, type SkillEditorTarget } from './SkillEditorDialog';
+import { SkillsSettings } from './SkillsSettings';
 import { HandoffPromptsEditor } from './HandoffPromptsEditor';
 import { ProjectsSettings } from './ProjectsSettings';
 import { useProjectTrust } from '../hooks/useProjectTrust';
 import { PhosphorControls } from '../themes/phosphor/PhosphorControls';
 import { themeCategories } from '../themes/phosphor/arco-palette';
 
-interface SkillSummary {
-  slug: string;
-  name: string;
-  description: string;
-  scope: 'project' | 'global';
-  path: string;
-  // §5.2 — read-only usage telemetry from the server sidecar. Absent ⇒ unused.
-  useCount?: number;
-  lastUsed?: number;
-  // DD8 — withheld from the model manifest; operator inlines on pick.
-  operatorOnly?: boolean;
-}
-
-// §5.2 — compact "used 4× · 3d ago" / "unused" caption for a skill row.
-function formatSkillUsage(skill: SkillSummary): string {
-  const count = skill.useCount ?? 0;
-  if (count <= 0) return 'unused';
-  const times = `used ${count}×`;
-  if (!skill.lastUsed) return times;
-  const ageMs = Date.now() - skill.lastUsed;
-  if (ageMs < 0) return times;
-  const mins = Math.floor(ageMs / 60000);
-  if (mins < 1) return `${times} · just now`;
-  if (mins < 60) return `${times} · ${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${times} · ${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${times} · ${days}d ago`;
-}
 
 // Slot 12 — auto-compact threshold bounds (mirrors server/src/settings.ts
 // sanitizeAutoCompact; staying in sync matters because the server clamps
@@ -381,45 +352,6 @@ export function SettingsPanel({ onClose }: Props) {
   // primary turn automatically (server scans on every turn) — no restart.
   const activeJob = useAppStore((s) => (s.activeJobId ? s.jobs[s.activeJobId] : undefined));
   const activeCwd = activeJob?.config.workingDirectory ?? '';
-  const [skills, setSkills] = useState<{ project: SkillSummary[]; global: SkillSummary[] } | null>(null);
-  const [skillsError, setSkillsError] = useState<string | null>(null);
-  const [skillEditor, setSkillEditor] = useState<SkillEditorTarget | null>(null);
-  const refreshSkills = async () => {
-    setSkillsError(null);
-    try {
-      const params = activeCwd ? `?cwd=${encodeURIComponent(activeCwd)}` : '';
-      const res = await fetch(`/api/skills${params}`);
-      if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errBody.error || res.statusText);
-      }
-      const data = (await res.json()) as { project: SkillSummary[]; global: SkillSummary[] };
-      setSkills(data);
-    } catch (err) {
-      setSkillsError(err instanceof Error ? err.message : String(err));
-    }
-  };
-  useEffect(() => { void refreshSkills(); }, [activeCwd]);
-  const deleteSkill = async (s: SkillSummary) => {
-    // No native confirm — the surrounding settings modal already feels modal,
-    // and an extra dialog is friction for what's a recoverable action (the
-    // body is in git for project skills). If undo becomes a real ask we'll
-    // add it, but for v1 the click is the commit.
-    setSkillsError(null);
-    try {
-      const params = new URLSearchParams({ scope: s.scope, slug: s.slug });
-      if (s.scope === 'project') params.set('cwd', activeCwd);
-      const res = await fetch(`/api/skills?${params.toString()}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errBody.error || res.statusText);
-      }
-      await refreshSkills();
-    } catch (err) {
-      setSkillsError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   // Slot 12 — catalog editor state. Lazy-loaded when the operator opens the
   // editor; local edits hold in catalogDraft until SAVE commits them.
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -1235,87 +1167,12 @@ export function SettingsPanel({ onClose }: Props) {
           {llamacppReady && <LlamacppCatalogEditor />}
         </SettingsSection>
 
-        {/* Phase 1 (operator-features) — Arco-managed skills. Project
-            skills live under <cwd>/.arco/skills/ and version with the
-            project; global skills live under ~/.arco/skills/ and apply
-            everywhere. Manifest of name+description gets injected into
-            every primary turn's system prompt; the agent reads each
-            SKILL.md on demand via its Read tool. */}
+        {/* Arco-managed skills (SkillsSettings.tsx). Project skills live
+            under <cwd>/.arco/skills/, which Git ignores unless shared;
+            global skills live under ~/.arco/skills/. */}
         <SettingsSection id="skills">
-        <div data-help="settings.skills">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
-              SKILLS
-            </span>
-            <button
-              onClick={() => setSkillEditor({ scope: activeCwd ? 'project' : 'global' })}
-              className="display-font"
-              style={{
-                padding: '4px 10px',
-                background: 'var(--color-accent-secondary-a08)',
-                border: '1px solid var(--color-accent-secondary-dim)',
-                borderRadius: '3px',
-                color: 'var(--color-accent-secondary)',
-                cursor: 'pointer',
-                fontSize: '10px',
-                letterSpacing: '1.5px',
-              }}
-            >
-              + NEW
-            </button>
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6', marginBottom: '8px' }}>
-            Project skills live under <code>{'<cwd>/.arco/skills/'}</code> (version with the repo); global skills under <code>~/.arco/skills/</code>. Each is a SKILL.md with frontmatter (name, description). Edits take effect on the next turn: no restart.
-          </div>
-          {skillsError && (
-            <div style={{ fontSize: '10px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)', marginBottom: '6px' }}>
-              {skillsError}
-            </div>
-          )}
-          {skills && skills.project.length === 0 && skills.global.length === 0 && (
-            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '6px', fontStyle: 'italic' }}>
-              No skills yet. Click + NEW to create one.
-            </div>
-          )}
-          {skills && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-              {skills.project.map((s) => (
-                <SkillRow
-                  key={`project:${s.slug}`}
-                  skill={s}
-                  onEdit={() => setSkillEditor({ scope: s.scope, slug: s.slug })}
-                  onDelete={() => { void deleteSkill(s); }}
-                />
-              ))}
-              {skills.global.length > 0 && (
-                <div
-                  className="display-font"
-                  style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginTop: '6px', marginBottom: '2px' }}
-                >
-                  (GLOBAL)
-                </div>
-              )}
-              {skills.global.map((s) => (
-                <SkillRow
-                  key={`global:${s.slug}`}
-                  skill={s}
-                  onEdit={() => setSkillEditor({ scope: s.scope, slug: s.slug })}
-                  onDelete={() => { void deleteSkill(s); }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <SkillsSettings cwd={activeCwd} />
         </SettingsSection>
-
-        {skillEditor && (
-          <SkillEditorDialog
-            cwd={activeCwd}
-            target={skillEditor}
-            onClose={() => setSkillEditor(null)}
-            onSaved={() => { void refreshSkills(); }}
-          />
-        )}
 
         {/* Phase 3 (operator-features) — Handoff prompt overrides. Edits the
             two reflection prompts (`original-worker` and `fresh-summarizer`)
@@ -2401,123 +2258,6 @@ function CodexProfilesSection() {
           {error}
         </div>
       )}
-    </div>
-  );
-}
-
-function SkillRow({
-  skill,
-  onEdit,
-  onDelete,
-}: {
-  skill: SkillSummary;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '6px 10px',
-        border: '1px solid var(--color-border-hairline)',
-        borderRadius: '3px',
-        background: 'var(--color-bg-sunken)',
-      }}
-    >
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-        <span
-          className="display-font"
-          style={{
-            fontSize: '11px',
-            letterSpacing: '1.5px',
-            color: 'var(--color-accent-primary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {skill.name}
-          {skill.operatorOnly && (
-            <span
-              className="display-font"
-              style={{
-                marginLeft: '8px',
-                fontSize: '8px',
-                letterSpacing: '1px',
-                color: 'var(--color-warning)',
-                border: '1px solid var(--color-warning)',
-                borderRadius: '2px',
-                padding: '1px 4px',
-                opacity: 0.85,
-              }}
-              title="Operator-only: withheld from the model manifest; inline it by picking from the composer"
-            >
-              OPERATOR
-            </span>
-          )}
-          <span
-            className="display-font"
-            style={{
-              marginLeft: '8px',
-              fontSize: '9px',
-              letterSpacing: '0.5px',
-              color: 'var(--color-fg-muted)',
-              opacity: (skill.useCount ?? 0) > 0 ? 0.8 : 0.5,
-            }}
-            title="Counted when the agent Reads this skill's SKILL.md"
-          >
-            {formatSkillUsage(skill)}
-          </span>
-        </span>
-        <span
-          style={{
-            fontSize: '10px',
-            color: 'var(--color-fg-muted)',
-            fontFamily: 'var(--font-body)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-          title={skill.description}
-        >
-          {skill.description || <em style={{ opacity: 0.6 }}>(no description)</em>}
-        </span>
-      </div>
-      <button
-        onClick={onEdit}
-        className="display-font"
-        style={{
-          padding: '3px 8px',
-          background: 'transparent',
-          border: '1px solid var(--color-border-hairline)',
-          borderRadius: '3px',
-          color: 'var(--color-accent-primary-dim)',
-          cursor: 'pointer',
-          fontSize: '9px',
-          letterSpacing: '1px',
-        }}
-      >
-        EDIT
-      </button>
-      <button
-        onClick={onDelete}
-        className="display-font"
-        style={{
-          padding: '3px 8px',
-          background: 'transparent',
-          border: '1px solid var(--color-warning-dim)',
-          borderRadius: '3px',
-          color: 'var(--color-warning-dim)',
-          cursor: 'pointer',
-          fontSize: '10px',
-          letterSpacing: '1px',
-        }}
-        title="Delete skill"
-      >
-        ×
-      </button>
     </div>
   );
 }

@@ -1442,6 +1442,18 @@ Create or update a skill. Body:
 
 Removes the skill's directory recursively. 404 if missing. Same validation rules as the GET-body endpoint.
 
+### Skill management (P8.6)
+
+All matched before the plain `/api/skills` routes; `cwd` (query) is required for project scope. Errors answer 400 with `{ error }`.
+
+- `POST /api/skills/import/preview` - body `{ source }` with `{ kind: 'github', url }` (a `github.com/.../tree/<ref>/<path>` or `.../blob/<ref>/<path>/SKILL.md` link, or a `raw.githubusercontent.com` link), `{ kind: 'folder', path }` (absolute) or `{ kind: 'zip', name, data }` (base64, at most 8 MB). Returns `{ token, name, description, operatorOnly, files: [{ path, bytes, text, findings }], skipped, source, findingCount }`. Limits: 64 files, 512 KB per file, 2 MB in total, depth 6; links, `..`, absolute and backslash paths, encrypted and zip64 archives are refused; hidden files are skipped.
+- `POST /api/skills/import/confirm` - `{ token, scope }`; writes the reviewed files (mode 0644) and a `.arco-skill.json` sidecar with the source. Returns `{ skill: { scope, slug, name } }`. A token is single-use and expires after 15 minutes.
+- `POST /api/skills/update/preview` - `{ scope, slug }` for a skill imported from GitHub or a folder; returns `{ token, name, changed, files: [{ path, status, text, before?, after?, findings }], source, findingCount }`. `POST /api/skills/update/confirm` - `{ token }` replaces the folder and keeps the off state.
+- `POST /api/skills/state` - `{ scope, slug, off }`. An off skill is left out of the model manifest and pins; `GET /api/skills` reports `off: true` and `source` per skill.
+- `POST /api/skills/move` - `{ scope, slug, to }`. `POST /api/skills/duplicate` - `{ scope, slug, name }` (the copy has no source).
+- `GET /api/skills/details` - `{ skills: [{ scope, slug, files: [{ path, bytes }], missing }] }`: extra files and referenced skill names that are not installed.
+- `POST /api/skills/share/preview` and `POST /api/skills/share` (`confirm: true`) - `{ slug }`, project scope, registered projects only (403 otherwise). Returns `{ slug, files, alreadyTrackable, publicRepository, lines }`; sharing appends the lines to `.arco/.gitignore` and verifies with `git check-ignore`.
+
 ### `POST /api/skills/copy-builtin?cwd=<absolute path>`
 
 P8.5 - saves an editable copy of a built-in skill. Body `{ scope: 'project' | 'global', slug }`. Writes an ordinary operator-only skill named `<name> (copy)` with the built-in's description and body; the built-in stays unchanged. 404 for an unknown built-in; `cwd` is required for project scope. Returns `{ skill: SkillSummary }`.
