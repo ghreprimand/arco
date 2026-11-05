@@ -280,8 +280,9 @@ export const plans: Section[] = [
         <p>
           Before the agent starts, Arco measures the project without a model: the
           largest source files, the files changed most often in the last 180 days
-          (Git projects), source files without a matching test, files with the
-          most exported names, and the decisions already recorded. The agent
+          (Git projects), source files that no test covers by name or by
+          import, files with the most exported names, and the decisions already
+          recorded. The agent
           reads these facts, explores the code and changes nothing.
         </p>
         <p>

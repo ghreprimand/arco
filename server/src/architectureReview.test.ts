@@ -75,6 +75,34 @@ test('facts in a Git repository: largest, most changed, untested and exports; de
   assert.equal(review.renderArchitectureFacts(await review.gatherArchitectureFacts(cwd, null)), text);
 });
 
+test('imports in test files are resolved to project modules', () => {
+  assert.deepEqual(review.importedModules('src/ws/turn.test.ts', [
+    "import { a } from './engine.js';",
+    "import b from '../providers/worker';",
+    "import type { C } from '../ui/index.tsx';",
+    "const d = await import('./lazy.mjs');",
+    "const e = require('./legacy.cjs');",
+    "import './side-effect';",
+    "import x from 'node:fs'; import y from '@arco/shared';",
+    "import z from '../../../outside.js';",
+  ].join('\n')).sort(), ['src/providers/worker', 'src/ui', 'src/ws/engine', 'src/ws/lazy', 'src/ws/legacy', 'src/ws/side-effect']);
+  assert.deepEqual(review.importedModules('tests/test_jobs.py', 'from app.jobs import run\nimport app.util\nfrom .helpers import x\nfrom . import conftest\n').sort(), ['*/app/jobs', '*/app/util', 'tests', 'tests/helpers']);
+});
+
+test('a source file that a test imports under another name counts as tested', async () => {
+  const cwd = repo('imported-project');
+  write(cwd, 'src/robustness.test.ts', "import { Panel } from './panel.js';\n" + lines(5));
+  write(cwd, 'src/lib/index.ts', 'export const i = 1;\n' + lines(10));
+  write(cwd, 'src/lib.test.ts', "import { i } from './lib';\n");
+  write(cwd, 'app/jobs.py', 'def run():\n    pass\n');
+  write(cwd, 'tests/test_scheduler.py', 'from app.jobs import run\n');
+  git(cwd, 'add', '-A'); git(cwd, 'commit', '-qm', 'tests by import');
+  const f = await review.gatherArchitectureFacts(cwd, null);
+  assert.deepEqual(f.untested.map((x) => x.path), ['src/util.ts']);
+  assert.equal(f.untestedCount, 1);
+  assert.match(review.renderArchitectureFacts(f), /Source files that no test file matches by name or imports: 1\./);
+});
+
 test('facts in a folder without Git skip change history and still list the rest', async () => {
   const cwd = repo('plain-folder', false);
   const f = await review.gatherArchitectureFacts(cwd, '## Not pursued: Merge the panels');

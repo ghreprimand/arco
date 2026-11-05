@@ -42,6 +42,41 @@ export function testedStem(rel: string): string {
 
 function stem(rel: string): string { return path.posix.basename(rel).replace(/\.[^.]+$/, '').toLowerCase(); }
 
+const MAX_TEST_BYTES = 64 * 1024 * 1024;
+const CODE_EXT = /\.(?:[cm]?[jt]sx?|py)$/i;
+
+// The project-relative module names a test file imports: relative JavaScript
+// and TypeScript specifiers (`./worker.js`, `../ws/turnEngine`), resolved
+// against the test's folder, and Python modules (`from pkg.mod import x`,
+// `from .mod import x`). Package names and path aliases are left out.
+export function importedModules(testRel: string, text: string): string[] {
+  const dir = path.posix.dirname(testRel);
+  const out = new Set<string>();
+  const add = (p: string) => { const n = path.posix.normalize(p).replace(CODE_EXT, '').replace(/\/index$/, ''); if (!n.startsWith('..')) out.add(n); };
+  if (/\.py$/i.test(testRel)) {
+    for (const m of text.matchAll(/^\s*(?:from\s+(\.*)([A-Za-z_][\w.]*)?\s+import|import\s+([A-Za-z_][\w.]*))/gm)) {
+      const dots = m[1] ?? '';
+      const name = (m[2] ?? m[3] ?? '').replace(/\./g, '/');
+      if (dots) add(path.posix.join(dir, ...Array(Math.max(0, dots.length - 1)).fill('..'), name));
+      else if (name) out.add(`*/${name}`);
+    }
+    return [...out];
+  }
+  for (const m of text.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"](\.{1,2}\/[^'"]+)['"]/gm)) add(path.posix.join(dir, m[1]));
+  return [...out];
+}
+
+// True when some test imports `rel`: its path without the extension (or its
+// folder, for an index file) is a resolved import; a Python module also counts
+// when an absolute import ends with its path.
+function importedBy(rel: string, imports: Set<string>): boolean {
+  const bare = rel.replace(CODE_EXT, '');
+  if (imports.has(bare) || (/\/index$/.test(bare) && imports.has(bare.replace(/\/index$/, '')))) return true;
+  if (!/\.py$/i.test(rel)) return false;
+  for (let i = bare.indexOf('/'); i >= 0; i = bare.indexOf('/', i + 1)) if (imports.has(`*/${bare.slice(i + 1)}`)) return true;
+  return imports.has(`*/${bare}`);
+}
+
 async function gitLines(cwd: string, args: string[]): Promise<string[] | null> {
   try {
     const { stdout } = await run('git', args, { cwd, timeout: 20_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' } });
@@ -93,6 +128,20 @@ export async function gatherArchitectureFacts(cwd: string, decisions: string | n
   const tests = files.filter((f) => SOURCE_EXT.test(f) && isTestFile(f));
   const sources = files.filter((f) => SOURCE_EXT.test(f) && !isTestFile(f));
   const tested = new Set(tests.map(testedStem));
+  // A source file also counts as tested when a test imports it, so tests with
+  // another name (turnRobustness.test.ts covering worker.ts) are seen.
+  const imports = new Set<string>();
+  let testBytes = 0;
+  for (const rel of tests) {
+    if (testBytes >= MAX_TEST_BYTES) break;
+    try {
+      const full = path.join(cwd, ...rel.split('/'));
+      const st = await fs.lstat(full);
+      if (!st.isFile() || st.size > MAX_FILE_BYTES) continue;
+      testBytes += st.size;
+      for (const m of importedModules(rel, await fs.readFile(full, 'utf8'))) imports.add(m);
+    } catch { continue; }
+  }
   const measured: Array<{ path: string; lines: number; exports: number }> = [];
   let total = 0;
   for (const rel of sources) {
@@ -108,7 +157,7 @@ export async function gatherArchitectureFacts(cwd: string, decisions: string | n
     measured.push({ path: rel, lines, exports: countExports(rel, text) });
   }
   const byLines = [...measured].sort((a, b) => b.lines - a.lines || a.path.localeCompare(b.path));
-  const untestedAll = byLines.filter((m) => !tested.has(stem(m.path)));
+  const untestedAll = byLines.filter((m) => !tested.has(stem(m.path)) && !importedBy(m.path, imports));
   let mostChanged: ArchitectureFacts['mostChanged'] = null;
   if (git) {
     const log = await gitLines(cwd, ['log', '--since=180.days', '-n', '2000', '--name-only', '--pretty=format:']);
@@ -142,7 +191,7 @@ export function renderArchitectureFacts(f: ArchitectureFacts): string {
     if (f.mostChanged.length === 0) out.push('- none');
     for (const x of f.mostChanged) out.push(`- ${x.path}: ${x.commits}`);
   }
-  out.push('', `Source files without a matching test file: ${f.untestedCount}. The largest of them (lines):`);
+  out.push('', `Source files that no test file matches by name or imports: ${f.untestedCount}. The largest of them (lines):`);
   for (const x of f.untested) out.push(`- ${x.path}: ${x.lines}`);
   out.push('', 'Files with the most exported names:');
   for (const x of f.mostExports) out.push(`- ${x.path}: ${x.exports}`);

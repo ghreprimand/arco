@@ -12,7 +12,7 @@ When the turn starts, Arco measures the project without a model and adds the res
 
 - the 15 largest source files by line count;
 - in a Git project, the 15 source files changed in the most commits in the last 180 days;
-- the number of source files without a matching test file, and the 20 largest of them (`report.ts` is matched by `report.test.ts`, `report.spec.ts`, `test_report.py` or `report_test.go`);
+- the number of source files that no test file covers, and the 20 largest of them. A test covers a file by name (`report.ts` is matched by `report.test.ts`, `report.spec.ts`, `test_report.py` or `report_test.go`) or by importing it: a relative JavaScript or TypeScript import such as `./report.js`, or a Python import such as `from app.report import run`;
 - the 15 files with the most exported names;
 - the attached plan's `decisions` reference doc, if there is one.
 

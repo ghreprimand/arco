@@ -645,7 +645,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills.run-builtin': {
     title: 'RUN a built-in skill',
-    body: <p><C>RUN</C> sends one message that runs the built-in skill in this conversation. For Architecture review, Arco first measures the project: largest files, files changed most often, files without a matching test, files with many exports, and decisions already recorded. The agent then writes a report of candidates to the artifacts and changes no code. Open the report in OUTPUTS and select <C>CANDIDATES</C>.</p>,
+    body: <p><C>RUN</C> sends one message that runs the built-in skill in this conversation. For Architecture review, Arco first measures the project: largest files, files changed most often, files no test covers (by name or by import), files with many exports, and decisions already recorded. The agent then writes a report of candidates to the artifacts and changes no code. Open the report in OUTPUTS and select <C>CANDIDATES</C>.</p>,
     manualSection: 'architecture-review',
   },
   'composer.skills.copy-builtin': {
