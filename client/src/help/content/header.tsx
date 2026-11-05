@@ -312,7 +312,7 @@ export const headerHelp: Record<string, HelpEntry> = {
         Claude CLI auth status. Appears only when <code>claude auth status</code>{' '}
         actually reports logged out (a failed status check never counts), and clears
         on its own once the login is back. Click for the login command, run in
-        Arco's terminal.
+        Arco's terminal. A click outside the panel or Escape closes it.
       </p>
     ),
   },

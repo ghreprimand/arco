@@ -173,8 +173,6 @@ async def close_all(page):
       for (const d of document.querySelectorAll('[data-testid="provider-dot"]')) d.dispatchEvent(new MouseEvent('mouseout',{bubbles:true, relatedTarget:document.body}));
       document.body.dispatchEvent(new MouseEvent('mousedown',{bubbles:true})); document.body.dispatchEvent(new MouseEvent('click',{bubbles:true}));
       for (const d of document.querySelectorAll('details[open]')) d.open = false;
-      // The auth chip's panel closes only from its own button.
-      document.querySelector('[data-testid="header-auth-popover"]')?.previousElementSibling?.click();
       s.setState({activeHelpPopover:null, notifications:[]}); warn.setState({warnings:[]}); }""")
     size = page.viewport_size
     await page.mouse.move(size['width'] / 2, size['height'] - 2)

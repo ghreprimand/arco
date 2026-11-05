@@ -69,6 +69,7 @@ export const workspace: Section[] = [
           <li>
             <strong>Auth chip</strong> - at-a-glance status of Claude auth.
             Pulses when re-login is needed; click to start the re-login flow.
+            A click outside its panel or Escape closes the panel.
           </li>
           <li>
             <strong>KNOWLEDGE dropdown</strong> - RECALL (search past

@@ -106,6 +106,22 @@ async def main():
         await expect(page.get_by_text('claude auth login --claudeai', exact=True)).to_be_visible()
         assert requests == ['cli-login']
         assert await page.evaluate('JSON.stringify(authStore.getState().jobs.fixture.config)===savedConfig')
+        # The panel closes like the other top-bar popovers: Escape (focus back on
+        # the chip) and a click outside; a click inside keeps it open.
+        chip = page.get_by_role('button', name='[AUTH: CLAUDE CLI]', exact=True)
+        panel = page.get_by_test_id('header-auth-popover')
+        await expect(chip).to_have_attribute('aria-expanded', 'true')
+        await panel.get_by_text('claude auth login --claudeai', exact=True).click()
+        await expect(panel).to_be_visible()
+        await page.keyboard.press('Escape')
+        await expect(panel).to_have_count(0)
+        await expect(chip).to_be_focused()
+        await expect(chip).to_have_attribute('aria-expanded', 'false')
+        await chip.click()
+        await expect(panel.get_by_text('claude auth login --claudeai', exact=True)).to_be_visible()
+        await page.mouse.click(5, 5)
+        await expect(panel).to_have_count(0)
+        assert requests == ['cli-login']
 
         await page.evaluate("setFixture('present',false,'native',true,false,true)")
         await expect(page.get_by_role('button', name='[AUTH: CLAUDE CLI]', exact=True)).to_be_visible()

@@ -27,6 +27,8 @@ export function HeaderAuthChip() {
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
   const [command, setCommand] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartedAtRef = useRef<number | null>(null);
 
@@ -48,6 +50,17 @@ export function HeaderAuthChip() {
   useEffect(() => () => {
     if (pollRef.current) clearInterval(pollRef.current);
   }, []);
+
+  // Like the other top-bar popovers: a click outside or Escape closes the
+  // panel. Escape returns focus to the chip. A sign-in already started keeps
+  // polling; reopening the chip shows its command again.
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: MouseEvent) => { if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false); };
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus(); } };
+    document.addEventListener('mousedown', away); document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', key); };
+  }, [open]);
 
   if (!attention) return null;
 
@@ -92,9 +105,11 @@ export function HeaderAuthChip() {
   };
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
+    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex' }}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="display-font"
         title={attention === 'native' ? 'Claude Native credentials need attention' : 'Claude CLI is signed out'}
         style={{
