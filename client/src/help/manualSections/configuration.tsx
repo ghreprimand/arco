@@ -1005,6 +1005,7 @@ export const configuration: Section[] = [
   start, or the last 24 hours if older, and shows that range.
   </li>
   <li>When the range has no activity, no model is called. SINCE LAST TURN, LAST HOUR and TODAY offer another range.</li>
+  <li>A failed summary stays in the dialog and is not written into chat.</li>
   <li>
   The dialog shows the requested time range, answering model, facts used and
   any omissions.

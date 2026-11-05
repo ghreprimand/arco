@@ -202,12 +202,12 @@ Update [`docs/PRIMITIVES.md`](PRIMITIVES.md) with a new section, and [`docs/PROT
 
 ## Authoring an Arco skill
 
-Operators create skills from the SettingsPanel SKILLS section. The on-disk shape is also hand-editable, which is useful when checking project skills into git.
+Operators create and manage skills in Settings > SKILLS (NEW, EDIT, IMPORT, UPDATE, TURN OFF/ON, MOVE, DUPLICATE, SHARE WITH REPOSITORY). The on-disk shape is also hand-editable. Project skills live under `.arco/skills/`, which Git ignores with the rest of `.arco`; SHARE WITH REPOSITORY adds an exception in `.arco/.gitignore` for one skill and never stages or commits.
 
 Layout:
 
 ```text
-<cwd>/.arco/skills/<slug>/SKILL.md      # project (versioned with the repo)
+<cwd>/.arco/skills/<slug>/SKILL.md      # project (ignored by Git unless shared)
 ~/.arco/skills/<slug>/SKILL.md          # global (user home)
 ```
 
@@ -231,7 +231,7 @@ Per primary turn, the server scans both roots, builds an XML `<arco-skills>` man
 
 Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the user includes the body on demand via the `SKILLS` composer picker. Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, diagnostic only) and the project-trust gate (skills from an untrusted repository are suppressed until a user approves the repository, `server/src/projectTrust.ts`).
 
-Server module: `server/src/skills.ts`. HTTP surface: `/api/skills` (see `docs/HTTP_API.md`). UI: `SettingsPanel.tsx` SKILLS section + `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
+Server modules: `server/src/skills.ts` and `server/src/skillManagement.ts`. HTTP surface: `/api/skills` and `/api/skills/import|update|state|move|duplicate|share` (see `docs/HTTP_API.md`). UI: `SkillsSettings.tsx` and `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
 
 ---
 

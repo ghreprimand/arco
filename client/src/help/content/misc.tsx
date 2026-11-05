@@ -14,7 +14,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'utility.catch-up': {
     title: 'Catch me up',
-    body: <p>Summarizes bounded workflow or cluster activity from the earlier of the last visit or last operator message. Without a previous visit, SUMMARIZE covers the tab from its start or the last 24 hours. When a range has no activity, no model is called; SINCE LAST TURN, LAST HOUR and TODAY offer another range. The dialog shows the range, facts and omissions. Choose a utility agent first. Running can be cancelled.</p>,
+    body: <p>Summarizes bounded workflow or cluster activity from the earlier of the last visit or last operator message. Without a previous visit, SUMMARIZE covers the tab from its start or the last 24 hours. When a range has no activity, no model is called; SINCE LAST TURN, LAST HOUR and TODAY offer another range. A failed summary stays in the dialog and is not written into chat. The dialog shows the range, facts and omissions. Choose a utility agent first. Running can be cancelled.</p>,
     manualSection: 'utility-agent',
   },
   'home.start': {
