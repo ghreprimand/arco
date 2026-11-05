@@ -99,10 +99,11 @@ async def main():
   assert await page.locator('[data-theme-choice]').count() == 68
   await family.select_option('classic')
   await check_choice('everforest','classic')
-  # Keyboard family selection follows the same native selector path.
-  await family.focus(); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  # Set the family through the select. End then Enter on a native select does not
+  # change its value on macOS, so the page sets the value the way the other selects do.
+  await family.select_option('phosphor')
   await check_choice('phosphor:arco:electric','phosphor')
-  await family.focus(); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await family.select_option('classic')
   await check_choice('everforest','classic')
   await page.get_by_role('button',name='Close settings',exact=True).click()
   family = await open_themes()
@@ -121,13 +122,13 @@ async def main():
   await page.mouse.move(0,0)
   await check_choice('phosphor:arco:arco-crt','phosphor')
   assert len(writes) == writes_before
-  await family.focus(); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await family.select_option('classic')
   await check_choice('everforest','classic')
-  await family.focus(); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await family.select_option('phosphor')
   await check_choice('phosphor:arco:arco-crt','phosphor')
   await page.get_by_role('button',name='Close settings',exact=True).click()
   await page.set_viewport_size({'width':1536,'height':1080})
-  print('PASS: Classic/Phosphor selection, remembered themes, hover, keyboard, reopen/reload, preserved appearance and manual scale')
+  print('PASS: Classic/Phosphor selection, remembered themes, hover, reopen/reload, preserved appearance and manual scale')
   await page.evaluate('''async () => {
     const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
     const fixtures=await import('/src/phosphor-demo/fixtures.ts');
@@ -315,7 +316,7 @@ async def main():
    assert abs(after['x']-before['x']-60)<3
    await page.evaluate("scaleEditor.closeEditor(); document.getElementById('gallery-editor-container').remove()")
   assert not errors,errors
-  result={'errors':errors,'settingsWrites':writes,'interceptedWsMessages':len(messages),'checks':['Real App/SettingsPanel, no demo layout','Six palettes preserve workflow data, transcript DOM and action labels','Family switch from shipped default, remembered Classic/Phosphor selection, keyboard, hover, reopen/reload, preserved appearance and manual scale; category/search picker','Softness save, effects override, reduced motion, crisp wordmark','Classic cleanup','Cached startup restores family and softness']}
+  result={'errors':errors,'settingsWrites':writes,'interceptedWsMessages':len(messages),'checks':['Real App/SettingsPanel, no demo layout','Six palettes preserve workflow data, transcript DOM and action labels','Family switch from shipped default, remembered Classic/Phosphor selection, hover, reopen/reload, preserved appearance and manual scale; category/search picker','Softness save, effects override, reduced motion, crisp wordmark','Classic cleanup','Cached startup restores family and softness']}
   (ART/'results.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
   await browser.close()
 asyncio.run(main())
