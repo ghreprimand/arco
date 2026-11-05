@@ -96,6 +96,24 @@ async def main():
         await chip.click()
         rule_dialog = page.get_by_role('dialog', name='AUTO-PICKUP')
         await expect(rule_dialog.get_by_text('Advanced: model-assisted')).to_be_visible()
+        # The heading sits above the Smart: Observe-only radio, which stays on
+        # the same line as its label and does not take the heading as its name.
+        observe_radio = rule_dialog.get_by_role('radio', name='Smart: Observe-only', exact=False)
+        assert 'Advanced' not in (await observe_radio.evaluate('el => el.closest("label").textContent'))
+        measure = """d => {
+          const heading = d.querySelector('[data-testid="auto-pickup-advanced-heading"]').getBoundingClientRect();
+          const radio = d.querySelector('input[value="smart-observe"]');
+          const r = radio.getBoundingClientRect();
+          const name = radio.closest('label').querySelector('strong').getBoundingClientRect();
+          return {headingBottom: heading.bottom, radioTop: r.top, radioMid: (r.top + r.bottom) / 2, nameTop: name.top, nameBottom: name.bottom};
+        }"""
+        # At 100% and at 150% interface scale (bootstrap.ts sets zoom and --ui-scale).
+        for scale in ('1', '1.5'):
+            await page.evaluate("s => { document.documentElement.style.zoom = s; document.documentElement.style.setProperty('--ui-scale', s); }", scale)
+            layout = await rule_dialog.evaluate(measure)
+            assert layout['headingBottom'] <= layout['radioTop'] + 0.5, (scale, layout)
+            assert layout['nameTop'] <= layout['radioMid'] <= layout['nameBottom'], (scale, layout)
+        await page.evaluate("() => { document.documentElement.style.zoom = ''; document.documentElement.style.removeProperty('--ui-scale'); }")
         await expect(rule_dialog.get_by_text('Rule-based limits')).to_be_visible()
         pair_limit = rule_dialog.get_by_label('Alternating wakes before pause (2 to 10 wakes)')
         await pair_limit.fill('7')

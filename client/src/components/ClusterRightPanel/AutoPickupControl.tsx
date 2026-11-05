@@ -1,5 +1,5 @@
 import { useUsableUtilityAgent } from '../UtilityAgentPicker';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   AUTO_PICKUP_MODE_LABELS,
   AUTO_PICKUP_MODES,
@@ -176,12 +176,15 @@ function AutoPickupDialog({ state, onClose, onApply }: {
         <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
           <legend className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)' }}>MODE</legend>
           {AUTO_PICKUP_MODES.map((m, i) => (
-            <label key={m} style={{ display: 'block', margin: '6px 0' }}>
-              <input ref={i === 0 ? first : undefined} type="radio" name="auto-pickup-mode" value={m} checked={mode === m} onChange={() => setMode(m)} />{' '}
-              {m === 'smart-observe' && <span style={{ display: 'block', margin: '12px 0 4px' }}>Advanced: model-assisted</span>}
-              <strong>{AUTO_PICKUP_MODE_LABELS[m].label}</strong>
-              <span style={{ display: 'block', marginLeft: '22px', color: 'var(--color-fg-muted)' }}>{MODE_HELP[m]}</span>
-            </label>
+            <Fragment key={m}>
+              {/* The heading groups the Smart modes; it sits above their first radio, outside any label. */}
+              {m === 'smart-observe' && <div data-testid="auto-pickup-advanced-heading" style={{ margin: '12px 0 4px', color: 'var(--color-fg-muted)' }}>Advanced: model-assisted</div>}
+              <label style={{ display: 'block', margin: '6px 0' }}>
+                <input ref={i === 0 ? first : undefined} type="radio" name="auto-pickup-mode" value={m} checked={mode === m} onChange={() => setMode(m)} />{' '}
+                <strong>{AUTO_PICKUP_MODE_LABELS[m].label}</strong>
+                <span style={{ display: 'block', marginLeft: '22px', color: 'var(--color-fg-muted)' }}>{MODE_HELP[m]}</span>
+              </label>
+            </Fragment>
           ))}
         </fieldset>
 
