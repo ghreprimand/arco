@@ -246,7 +246,7 @@ function SkillUpdateDialog({ cwd, skill, onClose, onUpdated }: { cwd: string; sk
     catch (err) { setError(err instanceof Error ? err.message : String(err)); setBusy(false); }
   };
   return (
-    <DialogShell title={`UPDATE ${skill.name.toUpperCase()}`} ariaLabel="Update skill" dataHelp="settings.skills.update" onClose={onClose} width={820}
+    <DialogShell size="viewer" title={`UPDATE ${skill.name.toUpperCase()}`} ariaLabel="Update skill" dataHelp="settings.skills.update" onClose={onClose} width={820}
       status={error ? <span role="alert" style={{ color: 'var(--color-error)' }}>{error}</span> : null}
       actions={<button type="button" disabled={busy || !preview?.changed} onClick={() => void apply()}>APPLY UPDATE</button>}>
       <p style={{ marginTop: 0 }}>Fetched again from {sourceLabel(skill.source)}. Nothing changes until you select APPLY UPDATE; the skill stays on or off as it is.</p>

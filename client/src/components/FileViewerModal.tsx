@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -235,11 +235,9 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         ref={surface}
+        data-dialog-surface="viewer"
         style={{
-          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))',
-          height: 'calc(88vh / var(--ui-scale, 1))',
-          maxWidth: 'calc(96vw / var(--ui-scale, 1))',
-          maxHeight: 'calc(94vh / var(--ui-scale, 1))',
+          ...contentSurfaceSize,
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '6px',
@@ -281,7 +279,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-            <WorkSurfaceControls surface={surface} />
+            <WorkSurfaceControls storageKey="file-viewer" surface={surface} />
             {dirty && (
               <span
                 title="Unsaved edits"
@@ -465,13 +463,13 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
                   color: 'var(--color-accent-primary)',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
-                  margin: 0,
+                  maxWidth: '90ch', margin: '0 auto',
                 }}
               >
                 {payload.content}
               </pre>
             ) : classification.kind === 'markdown' ? (
-              <div className="arco-markdown">
+              <div className="arco-markdown" style={{ maxWidth: '90ch', margin: '0 auto' }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {payload.content}
                 </ReactMarkdown>

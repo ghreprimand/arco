@@ -128,6 +128,7 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
 
   return (
     <DialogShell
+      size="viewer"
       title={isEdit ? 'Edit skill' : 'New skill'}
       dataHelp="composer.skills"
       onClose={onClose}

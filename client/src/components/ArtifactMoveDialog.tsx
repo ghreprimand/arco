@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { DirectoryBrowser } from './media/DirectoryPicker';
 import { KeepButton } from './KeepButton';
 import { effectivePublic } from '../utils/publicProject';
+import { confirmationSurfaceSize, contentSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 interface Finding { line: number; rule: string }
 interface Review { target: string; bytes: number; ignored: boolean; publicRepository: boolean; token: string; files: Array<{ rel: string; media: boolean; unscanned: boolean; findingsCapped?: boolean; findings: Finding[] }> }
@@ -12,6 +13,7 @@ export function artifactRelative(file: string, workflowId: string): string | nul
   return index < 0 ? null : `artifacts/${normalized.slice(index + marker.length)}`;
 }
 export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd: string; workflowId: string; itemPath: string; onClose: () => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<'choice' | 'folder' | 'review'>('choice');
   const [folder, setFolder] = useState(cwd);
   const [review, setReview] = useState<Review | null>(null);
@@ -41,11 +43,12 @@ export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd
   }
   async function ignore() { if (review && await call('copy-ignore', { token: review.token })) await inspect(); }
   return <div style={{ position: 'fixed', inset: 0, zIndex: 9800, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div role="dialog" aria-modal="true" aria-label="Move artifact to project" style={{ width: 'min(680px,100%)', maxHeight: 'calc(90vh / var(--ui-scale, 1))', overflowY: 'auto', padding: 16, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
-      <h2>MOVE TO PROJECT</h2><p>{itemPath}</p>
+    <div ref={surface} role="dialog" aria-modal="true" aria-label="Move artifact to project" style={{ ...(stage === 'folder' ? pickerSurfaceSize : stage === 'review' ? contentSurfaceSize : confirmationSurfaceSize), display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', padding: 16, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}><h2 style={{ flex: 1 }}>MOVE TO PROJECT</h2><WorkSurfaceControls storageKey={`artifact-project-${stage}`} surface={surface} /></div><p>{itemPath}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
       {done ? <p role="status">{done}</p> : <>
         {stage === 'choice' && <><p>Keep this artifact private, or add a copy to the project's files.</p><KeepButton cwd={cwd} workflowId={workflowId} itemPath={itemPath} disabled={busy} onError={setError} onKept={() => setDone('Kept in Arco.')}>KEEP IT PRIVATE</KeepButton>{' '}<button data-help="storage.move-project" disabled={busy} onClick={() => setStage('folder')}>ADD TO PROJECT FILES</button></>}
-        {stage === 'folder' && <DirectoryBrowser inline initialPath={cwd} withFilename={false} title="Choose a project folder" confirmLabel="REVIEW DESTINATION" onDone={r => { if (r) void inspect(r.dir); else setStage('choice'); }} />}
+        {stage === 'folder' && <DirectoryBrowser inline fill compactCreate initialPath={cwd} withFilename={false} title="Choose a project folder" confirmLabel="REVIEW DESTINATION" onDone={r => { if (r) void inspect(r.dir); else setStage('choice'); }} />}
         {stage === 'review' && review && <><p>Destination: {review.target}</p><p>{review.ignored ? 'Git ignores this destination.' : 'Files here are included in your repository unless you exclude them.'}</p><p>{review.publicRepository ? 'This repository is public or marked public.' : 'The repository is not confirmed public; visibility can be unknown.'}</p><p>Size: {(review.bytes / 1000 ** 2).toFixed(1)} MB. {review.bytes > 50 * 1000 ** 2 ? 'Large copy.' : ''} {!review.ignored && review.bytes > 100 * 1000 ** 2 ? 'Over 100 MB cannot be copied into a folder included in Git.' : ''}</p>
           <p>Images, recordings and other binary files can contain private content that text scanning cannot inspect. In other binary files only readable text is scanned.</p>
           {review.files.some(f => f.unscanned) && <><p>Not scanned or not fully scanned:</p><ul>{review.files.filter(f => f.unscanned).map(f => <li key={f.rel}>{f.rel}{f.findingsCapped ? ' (findings limit reached; the rest was not scanned)' : ''}</li>)}</ul></>}
@@ -58,6 +61,7 @@ export function ArtifactMoveDialog({ cwd, workflowId, itemPath, onClose }: { cwd
         </>}
       </>}
       {error && <p role="alert">{error}</p>}
+      </div>
       <p>The original stays in Arco. Arco does not stage or commit the copy. A failed copy can leave partial files at the destination.</p><button disabled={busy} onClick={onClose}>CLOSE</button>
     </div>
   </div>;

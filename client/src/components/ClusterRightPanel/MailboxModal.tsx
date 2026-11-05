@@ -1,5 +1,7 @@
 import type { ClusterStatePayload } from '@arco/shared';
 import type { PeerMessage } from './types';
+import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { useRef } from 'react';
 
 interface MailboxModalProps {
   cluster: ClusterStatePayload;
@@ -20,6 +22,7 @@ interface MailboxModalProps {
 // message lives in events.jsonl forever; this modal only mutates the
 // transient mailbox file layer.
 export function MailboxModal({ cluster, wfid, messages, loading, error, onClose, onCancel, onMakeTask }: MailboxModalProps) {
+  const surface = useRef<HTMLDivElement>(null);
   const recipient = cluster.members.find((m) => m.workflowId === wfid);
   const recipientName = recipient?.displayName ?? wfid.slice(0, 8);
   const senderName = (fromWfid: string): string => {
@@ -39,13 +42,13 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         data-help="cluster.mailbox-modal"
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-border-hairline)',
-          width: 'min(720px, calc(90vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(80vh / var(--ui-scale, 1))',
+          ...pickerSurfaceSize, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         }}
@@ -61,6 +64,7 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
           <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>
             {messages ? `${messages.length} pending` : ''}
           </span>
+          <WorkSurfaceControls surface={surface} storageKey="cluster-mailbox" />
           <button
             type="button"
             onClick={onClose}
@@ -79,7 +83,7 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
             CLOSE
           </button>
         </div>
-        <div style={{ overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ overflowY: 'auto', flex: '1 1 auto', minHeight: 0, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {loading && (
             <div style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>Loading…</div>
           )}

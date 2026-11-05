@@ -2,7 +2,7 @@ import { layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ModalHelpButton } from '../help/ModalHelpButton';
-import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AudioEditor, AudioOpsPanel } from './AudioEditor';
 import { VideoEditor, VideoOpsPanel } from './VideoEditor';
 import { ImageEditor } from './ImageEditor';
@@ -348,15 +348,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
         className="glow-border"
         ref={surface}
         style={{
-          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))', maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))',
-          // The viewer sizes to its content (the <img> gives the body intrinsic
-          // height). The EDITOR's body is `flex: 1` with NO intrinsic height, so
-          // without a definite modal height it collapses to zero and only the
-          // SAVE bar shows (the vendored editor's `.gallery-editor { height:100% }`
-          // resolves against a 0-height parent). Fill the available height while
-          // editing so the flex:1 editor area — and the canvas inside it — has
-          // real height to occupy.
-          height: editing ? '100%' : undefined,
+          ...contentSurfaceSize,
           background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
           borderRadius: '6px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
@@ -391,7 +383,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
             </span>
           </div>
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-            <WorkSurfaceControls surface={surface} />
+            <WorkSurfaceControls storageKey="media" surface={surface} />
             {mode === 'image' && hasImage && !editing && (
               <>
                 <button data-help="media.zoom-out" onClick={() => zoomBy(1 / 1.2)} className="display-font" title="Zoom out" style={ctrlBtn}>−</button>

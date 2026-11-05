@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { formSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { useMemo, useRef, useState } from 'react';
 import type { WorkflowConfig, ProviderName, ModelName, EffortLevel, CompareLegConfig, ChatMessage } from '@arco/shared';
 import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@arco/shared';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
@@ -57,6 +58,7 @@ export function opinionContext(excerpt: string, recent: string): { context: stri
 }
 
 export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCancel }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [prompt, setPrompt] = useState('');
   const [includeTurns, setIncludeTurns] = useState(() => !excerpt.trim());
   const [fileAccess, setFileAccess] = useState(false);
@@ -105,14 +107,15 @@ export function CompareDialog({ parentConfig, messages, excerpt, onConfirm, onCa
       onClick={onCancel}
     >
       <div
+        ref={surface}
         data-help="composer.compare"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px', padding: '18px 22px', width: 'min(620px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))', overflowY: 'auto', fontFamily: 'var(--font-body)',
+          borderRadius: '6px', padding: '18px 22px', ...formSurfaceSize(), overflowY: 'auto', fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="second-opinion-setup" />
         <div className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '6px' }}>
           SECOND OPINION
         </div>

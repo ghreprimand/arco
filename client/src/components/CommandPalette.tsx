@@ -1,3 +1,4 @@
+import { pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { requestNudgeAll } from '../utils/clusterNudge';
 import { LAYOUT_MODES, setLayoutMode } from '../layout/layoutRange';
@@ -70,6 +71,7 @@ interface Props {
 }
 
 export function CommandPalette({ onClose }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -308,18 +310,20 @@ export function CommandPalette({ onClose }: Props) {
         style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.45)', display: 'flex',
-          alignItems: 'flex-start', justifyContent: 'center', paddingTop: 'calc(12vh / var(--ui-scale, 1))',
+          alignItems: 'center', justifyContent: 'center', padding: '12px',
         }}
       >
         <div
+          ref={surface}
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: 'min(640px, calc(90vw / var(--ui-scale, 1)))', maxHeight: 'calc(70vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column',
+            ...pickerSurfaceSize, display: 'flex', flexDirection: 'column',
             background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-bright)',
             borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
             fontFamily: 'var(--font-body)',
           }}
         >
+          <WorkSurfaceControls surface={surface} storageKey="command-palette" />
           <input
             ref={inputRef}
             value={query}

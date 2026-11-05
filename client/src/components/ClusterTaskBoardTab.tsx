@@ -1,3 +1,4 @@
+import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 // docs/ARCHITECTURE.md - cluster task board.
 //
 // A kanban VIEW over the cluster cwd's project task ledger (the same
@@ -1424,6 +1425,7 @@ function SwarmCreateModal({
   onClose: () => void;
   onCreate: (request: ClusterSwarmCreateRequest) => void;
 }) {
+  const surface = useRef<HTMLFormElement>(null);
   const members = cluster.members;
   const defaultVerifier = members[Math.max(0, members.length - 2)]?.workflowId ?? requesterWorkflowId;
   const defaultSynthesizer = members[Math.max(0, members.length - 1)]?.workflowId ?? defaultVerifier;
@@ -1497,13 +1499,13 @@ function SwarmCreateModal({
       }}
     >
       <form
+        ref={surface}
         onSubmit={(event) => {
           event.preventDefault();
           submit();
         }}
         style={{
-          width: 'min(560px, 100%)',
-          maxHeight: 'min(720px, calc(92vh / var(--ui-scale, 1)))',
+          ...formSurfaceSize(),
           overflowY: 'auto',
           border: '1px solid var(--color-border)',
           background: 'var(--color-bg-panel)',
@@ -1514,6 +1516,7 @@ function SwarmCreateModal({
           padding: '12px',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="swarm-create" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div className="display-font" style={{ flex: 1, color: 'var(--color-accent-secondary)', fontSize: '11px', letterSpacing: '1.5px' }}>
             CREATE SWARM

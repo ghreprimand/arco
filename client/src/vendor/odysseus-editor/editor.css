@@ -2044,8 +2044,12 @@ body.gallery-selecting .gallery-dl-btn,
   border-radius: 10px;
   padding: 14px 18px 12px;
   box-shadow: 0 8px 30px color-mix(in srgb, var(--fg) 25%, transparent);
-  width: min(720px, calc(92vw / var(--ui-scale, 1)));
-  max-height: calc(86vh / var(--ui-scale, 1));
+  width: 90%;
+  height: 85%;
+  max-width: 96%;
+  max-height: 94%;
+  box-sizing: border-box;
+  resize: both;
   overflow-y: auto;
   color: var(--fg);
 }
@@ -4060,8 +4064,12 @@ body.gallery-selecting .gallery-dl-btn,
 }
 
 .ge-canvas-prompt {
-  max-width: 360px;
-  width: calc(90vw / var(--ui-scale, 1));
+  width: min(calc(96vw / var(--ui-scale, 1)), clamp(36em, calc(50vw / var(--ui-scale, 1)), 60em));
+  max-width: calc(96vw / var(--ui-scale, 1));
+  max-height: calc(90vh / var(--ui-scale, 1));
+  box-sizing: border-box;
+  overflow: auto;
+  resize: both;
 }
 
 .ge-canvas-prompt .modal-header h4 { margin: 0; font-size: 14px; }

@@ -40,6 +40,11 @@ export const maintenance: Section[] = [
   </p>
   <p>
   MOVE TO PROJECT in OUTPUTS offers KEEP IT PRIVATE or a copy into the project.
+  Its folder browser fills the dialog; select Create folder to reveal the new
+  folder fields, then enter a name and select + FOLDER. Resize the dialog or
+  choose Maximize to see more.
+  </p>
+  <p>
   Review Git ignore status, public visibility, size and text findings first.
   Files that cannot be fully scanned are listed by name. A public repository
   copy outside Git ignore asks for a second confirmation for those files.

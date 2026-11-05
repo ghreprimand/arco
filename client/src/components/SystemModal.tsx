@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { DiagnosticsTab } from './DiagnosticsTab';
 import { ModelHealthPanel } from './ModelHealthPanel';
@@ -13,6 +14,7 @@ interface Props {
 type SystemTab = 'actions' | 'diagnostics' | 'model-health' | 'services';
 
 export function SystemModal({ onClose, onSetPreviewPort }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<SystemTab>('actions');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,22 +68,21 @@ export function SystemModal({ onClose, onSetPreviewPort }: Props) {
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-border-hairline)',
           borderRadius: '6px',
           padding: '24px 28px',
-          width: tab === 'diagnostics' || tab === 'model-health' || tab === 'services' ? '560px' : 'auto',
-          minWidth: '320px',
-          maxWidth: 'calc(90vw / var(--ui-scale, 1))',
-          maxHeight: 'calc(85vh / var(--ui-scale, 1))',
+          ...contentSurfaceSize,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: '18px',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="system" />
         <div
           className="display-font"
           style={{

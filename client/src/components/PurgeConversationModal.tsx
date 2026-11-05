@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useRef, useState } from 'react';
 
 // Conversation purge modal (HISTORY tab → PURGE). Two tiers:
 //   arco  — delete everything Arco wrote for this workflow.
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurged }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<'arco' | 'nuclear'>('arco');
   const [confirmName, setConfirmName] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -72,12 +74,15 @@ export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurge
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
     >
       <div
+        ref={surface}
+        data-dialog-surface="confirm"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 'min(520px, calc(92vw / var(--ui-scale, 1)))', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
+          ...confirmationSurfaceSize, background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
           borderRadius: '6px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="purge-conversation" />
         <div className="display-font glow-text-bright" style={{ fontSize: '13px', letterSpacing: '2px', color: 'var(--color-warning)' }}>
           ⌦ PURGE CONVERSATION
         </div>

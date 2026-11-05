@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useEffect, useMemo, useRef } from 'react';
 import { Panel } from './primitives/Panel';
 import { SHORTCUTS } from '../help/shortcuts';
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ShortcutCheatSheet({ onClose }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   // Close on Escape — matches the UserManual / SettingsPanel convention.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -53,11 +55,10 @@ export function ShortcutCheatSheet({ onClose }: Props) {
       }}
     >
       <Panel
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%',
-          maxWidth: '640px',
-          maxHeight: 'calc(calc(100vh / var(--ui-scale, 1)) - 80px)',
+          ...formSurfaceSize(),
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-border-hairline)',
           borderRadius: '6px',
@@ -67,6 +68,7 @@ export function ShortcutCheatSheet({ onClose }: Props) {
           overflow: 'hidden',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="shortcuts" />
         <div
           style={{
             display: 'flex',

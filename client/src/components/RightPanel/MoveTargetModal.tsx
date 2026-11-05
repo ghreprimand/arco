@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { useState, useEffect, useRef } from 'react';
 
 // Modal for picking the destination project directory when moving a plan.
 // Shows one-click chips for every other open tab's cwd, plus a free-text
@@ -17,6 +18,7 @@ export function MoveTargetModal({
   onConfirm: (target: string) => void;
   onCancel: () => void;
 }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [typed, setTyped] = useState('');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
@@ -32,18 +34,19 @@ export function MoveTargetModal({
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(560px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
+          ...pickerSurfaceSize,
           overflowY: 'auto',
           fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="move-plan-target" />
         <div className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '6px' }}>
           MOVE PLAN
         </div>

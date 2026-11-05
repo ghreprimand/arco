@@ -64,7 +64,7 @@ export function ArchitectureReviewDialog({ cwd, workflowId, report, onClose }: {
   }
 
   return (
-    <DialogShell title="ARCHITECTURE REVIEW" ariaLabel="Architecture review candidates" dataHelp="architecture-review.dialog" onClose={onClose} width={760}
+    <DialogShell size="viewer" title="ARCHITECTURE REVIEW" ariaLabel="Architecture review candidates" dataHelp="architecture-review.dialog" onClose={onClose} width={760}
       status={error ? <span role="alert" style={{ color: 'var(--color-error)' }}>{error}</span> : status ? <span role="status">{status}</span> : null}>
       <p style={{ marginTop: 0 }}>{report}</p>
       {!data && !error && <p>Loading candidates...</p>}

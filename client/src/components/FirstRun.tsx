@@ -1,5 +1,6 @@
 import { UtilityAgentPicker } from './UtilityAgentPicker';
 import { useEffect, useRef, useState } from 'react';
+import { confirmationSurfaceSize, formSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { PRIMARY_PROVIDERS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
@@ -121,7 +122,7 @@ export function FirstRun() {
   const complete = () => { setStep('complete'); setNote(''); };
   if (step === 'provider') return <Connections mode="gate" onSkip={complete} onContinue={complete} canContinue={providerConnected} />;
   return <div className="connections-backdrop">
-    <div className={`connections-dialog first-run-dialog${step === 'folder' ? ' first-run-folder-step' : ''}`}  ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" data-help="welcome.steps" onKeyDown={e => {
+    <div className={`connections-dialog first-run-dialog${step === 'folder' ? ' first-run-folder-step' : ''}`} style={step === 'folder' ? pickerSurfaceSize : step === 'complete' ? confirmationSurfaceSize : formSurfaceSize()} ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" data-help="welcome.steps" onKeyDown={e => {
       if (e.key === 'Escape') { e.stopPropagation(); void finish(); }
       if (e.key !== 'Tab') return;
       const list = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]') ?? [])].filter(el => el.getClientRects().length > 0);
@@ -132,7 +133,7 @@ export function FirstRun() {
       <header className="connections-header"><div>
         <h1 id="first-run-title" ref={title} tabIndex={-1}>{step === 'welcome' ? 'Welcome to Arco' : step === 'folder' ? 'Add project locations' : 'Setup complete'}</h1>
         <p>{step === 'welcome' ? 'Arco is a workbench for AI coding tools, projects, and a voice operator. Add a folder, connect a provider, then start a conversation in the existing workspace.' : step === 'folder' ? 'Step 1 of 3: choose locations containing projects, such as Work or Personal. Add more than one, then Continue. In Docker, mount folders first.' : 'Your setup is ready. Go to Home or open a chat when you are ready.'}</p>
-      </div>{step !== 'complete' && <button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button>}</header>
+      </div><WorkSurfaceControls surface={dialog} storageKey={`first-run-${step}`} />{step !== 'complete' && <button type="button" disabled={busy} onClick={() => step === 'welcome' ? setStep('folder') : step === 'folder' ? setStep('provider') : void finish()}>Skip this step</button>}</header>
       {step === 'welcome' && <>
         <section className="connection-detail" data-help="welcome.operator-name">
           <label htmlFor="first-run-operator-name">What should Arco call you?</label>

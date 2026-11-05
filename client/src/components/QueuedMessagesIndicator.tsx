@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName } from '@arco/shared';
@@ -238,6 +239,7 @@ interface ModalProps {
 }
 
 function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
+  const surface = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -262,12 +264,11 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         style={{
-          width: '100%',
-          maxWidth: '720px',
-          maxHeight: '100%',
+          ...formSurfaceSize(),
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '6px',
@@ -293,6 +294,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
           >
             QUEUED MESSAGES · {items.length}
           </div>
+          <WorkSurfaceControls surface={surface} storageKey="queued-messages" />
           <button
             onClick={onClose}
             className="display-font"

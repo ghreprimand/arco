@@ -1,3 +1,4 @@
+import { formSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { useUsableUtilityAgent } from '../UtilityAgentPicker';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import {
@@ -113,6 +114,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
   onClose: () => void;
   onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>) => void;
 }) {
+  const surface = useRef<HTMLDivElement>(null);
   const authStatus = useAppStore((s) => s.authStatus);
   const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
   const connected = useAppStore((s) => s.connected);
@@ -164,15 +166,16 @@ function AutoPickupDialog({ state, onClose, onApply }: {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
+        ref={surface}
         role="dialog"
         aria-modal="true"
         aria-labelledby="auto-pickup-title"
         data-help="cluster.auto-pickup-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-        style={{ width: 'min(620px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(88vh / var(--ui-scale, 1))', overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)', borderRadius: '6px', padding: '18px 20px', fontSize: '12px', lineHeight: 1.5 }}
+        style={{ ...formSurfaceSize(), overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)', borderRadius: '6px', padding: '18px 20px', fontSize: '12px', lineHeight: 1.5 }}
       >
-        <h2 id="auto-pickup-title" className="display-font glow-text-bright" style={{ margin: '0 0 10px', fontSize: '14px', letterSpacing: '2px' }}>AUTO-PICKUP</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><h2 id="auto-pickup-title" className="display-font glow-text-bright" style={{ margin: '0 0 10px', fontSize: '14px', letterSpacing: '2px' }}>AUTO-PICKUP</h2><WorkSurfaceControls surface={surface} storageKey="auto-pickup" /></div>
         <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
           <legend className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)' }}>MODE</legend>
           {AUTO_PICKUP_MODES.map((m, i) => (

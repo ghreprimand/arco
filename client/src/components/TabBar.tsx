@@ -1,8 +1,9 @@
+import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { TabStatusChip, useTabStatus } from './TabStatusChip';
 import { clusterHasIdleMail, TAB_STATUS_LABEL } from '../utils/tabStatus';
 import { layoutPoint } from '../utils/pointer';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -367,6 +368,7 @@ function ClusterCloseConfirm({
   onKeepMembers: () => void;
   onCloseAll: () => void;
 }) {
+  const surface = useRef<HTMLDivElement>(null);
   return (
     <div
       onClick={onCancel}
@@ -381,17 +383,18 @@ function ClusterCloseConfirm({
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-border)',
           borderRadius: '4px',
           padding: '20px 22px',
-          maxWidth: '480px',
-          width: '90%',
+          ...confirmationSurfaceSize,
           fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="cluster-close" />
         <div
           className="display-font"
           style={{

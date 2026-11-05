@@ -19,6 +19,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Changed
 
 - Architecture review facts count a source file as tested when a test file imports it, not only when a test file has the same name. A relative JavaScript or TypeScript import and a Python import both count.
+- Dialogs open at sizes suited to their content and remember the chosen size in the browser. Reset size restores the default. Create folder reveals the new-folder fields in output pickers.
 - Settings > SKILLS now says that project skills are ignored by Git (inside `.arco`) instead of "version with the repo".
 - Docs and help name MEMORY > USAGE on single-worker, chat and cluster tabs (a cluster covers every member in the project folder) and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
 - Extending and glossary text no longer say project skills are versioned with the repository; they match Settings > SKILLS (ignored under `.arco`, SHARE WITH REPOSITORY for one skill).

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useMemo, useRef, useState } from 'react';
 
 // Tree-with-checkboxes modal for the CUSTOM REVIEW flow. Operator picks
 // any subset of plan tasks across phases; on confirm, returns the
@@ -84,6 +85,7 @@ interface Props {
 }
 
 export function PlanReviewPicker({ planTitle, planBody, onConfirm, onCancel }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const phases = useMemo(() => parsePlanForPicker(planBody), [planBody]);
   // Selection set keyed by `${phaseIdx}/${taskIdx}`.
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -166,19 +168,20 @@ export function PlanReviewPicker({ planTitle, planBody, onConfirm, onCancel }: P
       onClick={onCancel}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(560px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(85vh / var(--ui-scale, 1))',
+          ...pickerSurfaceSize, overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="plan-review-picker" />
         <div
           className="display-font"
           style={{

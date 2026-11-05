@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { confirmationSurfaceSize, contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { WORKTREE_REV, type CheckpointRevertPreview } from '@arco/shared';
 import { describeRestoreChanges, restoreChangesNothing } from '../utils/checkpointChanges';
@@ -205,6 +206,7 @@ function Overlay({
   wide?: boolean;
   dataHelp?: string;
 }) {
+  const surface = useRef<HTMLDivElement>(null);
   return (
     <div
       data-help={dataHelp}
@@ -221,12 +223,11 @@ function Overlay({
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         style={{
-          width: '100%',
-          maxWidth: wide ? '1100px' : '520px',
-          maxHeight: '100%',
+          ...(wide ? contentSurfaceSize : confirmationSurfaceSize),
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '6px',
@@ -236,6 +237,7 @@ function Overlay({
           padding: '18px',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey={wide ? 'checkpoint-viewer' : 'checkpoint-confirm'} />
         {children}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 // Cluster member picker — small modal listing cluster members. Used by
 // the cluster PLAN tab's REVIEW/VERIFY PLAN and REVIEW/VERIFY PHASE
 // surfaces, which need a target worker to anchor the review against
@@ -9,7 +10,7 @@
 // MemberCard's role pill). Click commits the picker; Esc / backdrop
 // click cancels.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { presetForText } from '@arco/shared';
 import type { ClusterStatePayload, ClusterMember } from '@arco/shared';
 
@@ -31,6 +32,7 @@ function roleChipLabel(role: string | undefined): string | null {
 }
 
 export function ClusterMemberPicker({ cluster, title, subtitle, onPick, onCancel }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
@@ -54,18 +56,19 @@ export function ClusterMemberPicker({ cluster, title, subtitle, onPick, onCancel
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
           padding: '18px 22px',
-          width: 'min(480px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
+          ...pickerSurfaceSize,
           overflowY: 'auto',
           fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="cluster-member-picker" />
         <div
           className="display-font"
           style={{

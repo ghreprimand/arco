@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -6,6 +6,7 @@ import 'highlight.js/styles/atom-one-dark.css';
 import { useAppStore } from '../stores/appStore';
 import { formatModelLabel, totalTokens } from '../utils/format';
 import { TokenBadge } from './TokenBadge';
+import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import type { WorkerState } from '@arco/shared';
 
 // Click a WorkerCard to inspect it here. Live-updates from the store while the
@@ -35,6 +36,7 @@ export function WorkerDetailModal() {
 }
 
 function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: () => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [showThinking, setShowThinking] = useState(false);
   const [now, setNow] = useState(Date.now());
   const autoCompactThreshold: number | undefined = undefined;
@@ -74,6 +76,7 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         style={{
@@ -81,13 +84,13 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
           background: 'var(--color-bg-elevated)',
           border: `1px solid ${isActive ? 'var(--color-accent-secondary)' : 'var(--color-accent-primary-dim)'}`,
           borderRadius: '6px',
-          width: 'min(960px, calc(94vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(90vh / var(--ui-scale, 1))',
+          ...contentSurfaceSize, overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 36px var(--color-accent-secondary-a25)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="worker-detail" />
         {/* Header */}
         <div
           style={{

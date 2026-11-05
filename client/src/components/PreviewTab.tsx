@@ -3,6 +3,7 @@ import type { PreviewCaptureKind, PreviewViewport } from '@arco/shared';
 import type { JobState } from '../stores/appStore';
 import { readDraft } from '../stores/draftStore';
 import { useAppStore } from '../stores/appStore';
+import { contentSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 interface ListeningEntry {
   port: number;
@@ -607,6 +608,7 @@ interface DeadServiceModalProps {
 // since multiple workflows can spawn dev servers, but this is faster than
 // having the operator hunt for the port themselves.
 function DeadServiceModal({ deadPort, entries, onPick, onClose }: DeadServiceModalProps) {
+  const surface = useRef<HTMLDivElement>(null);
   // Esc to close — registered with capture so a stacked modal (Manual,
   // DocViewer) doesn't swallow it.
   useEffect(() => {
@@ -629,15 +631,14 @@ function DeadServiceModal({ deadPort, entries, onPick, onClose }: DeadServiceMod
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         style={{
           background: 'var(--color-bg-panel, var(--color-bg-elevated))',
           border: '1px solid var(--color-border-bright)',
           padding: '20px 22px',
-          minWidth: '380px',
-          maxWidth: '520px',
-          maxHeight: 'calc(70vh / var(--ui-scale, 1))',
+          ...pickerSurfaceSize, overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'var(--font-display)',
@@ -646,6 +647,7 @@ function DeadServiceModal({ deadPort, entries, onPick, onClose }: DeadServiceMod
           color: 'var(--color-fg-muted)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="dead-service" />
         <div style={{ color: 'var(--color-accent-primary)', fontSize: '12px', marginBottom: '8px' }}>
           PREVIEW :{deadPort} NOT RESPONDING
         </div>
@@ -708,6 +710,7 @@ function DeadServiceModal({ deadPort, entries, onPick, onClose }: DeadServiceMod
 // artifact (JSON-wrapped text) and renders it as a <pre>, matching the Review/
 // Research artifact-viewing convention. Esc / backdrop-click closes.
 function ReportModal({ cwd, workflowId, name, onClose }: { cwd: string; workflowId: string; name: string; onClose: () => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [body, setBody] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -733,21 +736,21 @@ function ReportModal({ cwd, workflowId, name, onClose }: { cwd: string; workflow
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         style={{
           background: 'var(--color-bg-panel, var(--color-bg-elevated))',
           border: '1px solid var(--color-border-bright)',
           padding: '18px 20px',
-          minWidth: '420px',
-          maxWidth: '760px',
-          maxHeight: 'calc(80vh / var(--ui-scale, 1))',
+          ...contentSurfaceSize, overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           fontFamily: 'var(--font-display)',
           color: 'var(--color-fg-muted)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="preview-report" />
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
           <span style={{ color: 'var(--color-accent-primary)', fontSize: '12px', letterSpacing: '1px', flex: 1 }}>{name}</span>
           <button onClick={onClose} style={tabBtnStyle(false)}>CLOSE</button>
@@ -757,7 +760,7 @@ function ReportModal({ cwd, workflowId, name, onClose }: { cwd: string; workflow
         ) : body === null ? (
           <div style={{ fontSize: '11px', opacity: 0.7 }}>Loading…</div>
         ) : (
-          <pre style={{ overflow: 'auto', minHeight: 0, margin: 0, fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, color: 'var(--color-fg-default)', whiteSpace: 'pre-wrap' }}>
+          <pre style={{ overflow: 'auto', minHeight: 0, maxWidth: '90ch', margin: '0 auto', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, color: 'var(--color-fg-default)', whiteSpace: 'pre-wrap' }}>
             {body}
           </pre>
         )}

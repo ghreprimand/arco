@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
 import { strataEngineReleaseVersion } from '@arco/shared';
+import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 // Shared in-app release/source history for operator-managed runtimes.
 // GitHub is an explicit link; opening a version row never opens a browser.
@@ -33,6 +34,7 @@ function formatDate(iso: string | null): string {
 }
 
 export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const { label, repo } = RUNTIMES[runtime];
   const [commits, setCommits] = useState<Commit[] | null>(null);
   const [comparison, setComparison] = useState<Comparison | null>(null);
@@ -96,6 +98,7 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
       }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         role="dialog" aria-modal="true" aria-label={`${label} ${runtime === 'xolotl' ? 'changes' : 'releases'}`}
@@ -104,13 +107,13 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-accent-secondary)',
           borderRadius: '6px',
-          width: 'min(820px, calc(92vw / var(--ui-scale, 1)))',
-          maxHeight: 'calc(88vh / var(--ui-scale, 1))',
+          ...contentSurfaceSize, overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 36px var(--color-accent-secondary-a30)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="provider-releases" />
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="display-font" style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid var(--color-accent-secondary)', color: 'var(--color-accent-secondary)', letterSpacing: '2px', borderRadius: '2px' }}>
             {label}

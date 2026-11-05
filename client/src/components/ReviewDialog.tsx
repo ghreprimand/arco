@@ -208,6 +208,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
 
   return (
     <DialogShell
+      size="viewer"
       title="Run review"
       dataHelp="actions.review"
       onClose={onCancel}

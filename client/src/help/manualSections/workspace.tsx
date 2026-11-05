@@ -12,6 +12,12 @@ export const workspace: Section[] = [
           The header is the persistent chrome at the top of every screen. Left
           to right:
         </p>
+        <p>
+          Dialogs open at sizes suited to their content. Drag Resize or use its
+          arrow keys to change the size. Maximize fills the window; Restore
+          returns to the previous size. Arco remembers the size for that kind
+          of dialog in this browser. Reset size or Home restores the default.
+        </p>
         <ul>
           <li>
             <strong>ARCO</strong> - the wordmark. On Home it is hidden in the

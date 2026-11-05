@@ -7,6 +7,7 @@ import { FileViewerModal } from '../FileViewerModal';
 import { ArtifactMoveDialog, artifactRelative } from '../ArtifactMoveDialog';
 import { ArchitectureReviewDialog, isArchitectureReport } from '../ArchitectureReviewDialog';
 import { UnkeepButton } from '../KeepButton';
+import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 const CATEGORIES = ['all', 'images', 'documents', 'audio', 'video', 'other'] as const;
 const joinFolder = (folder: string, name: string) => folder.replace(/[\\/]+$/, '') + (folder.includes('\\') ? '\\' : '/') + name;
 const paramsFor = (output: WorkflowOutput) => new URLSearchParams({ cwd: output.cwd, workflowId: output.workflowId, id: output.id });
@@ -237,12 +238,12 @@ function TransferDialog({ transfer, roots, busy, error, result, onDestination, o
       const controls = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)') ?? [])].filter(el => el.getClientRects().length);
       if (event.shiftKey && (document.activeElement === controls[0] || document.activeElement === dialog.current)) { event.preventDefault(); controls.at(-1)?.focus(); }
       else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
-    }} style={{ width: 'min(640px,100%)', maxHeight: 'calc(94vh / var(--ui-scale,1))', overflowY: 'auto', padding: 14, border: '1px solid var(--color-border-hairline)', borderRadius: 6, background: 'var(--color-bg-dialog)' }}>
-      <h2>{transfer.action === 'move' ? 'Move output' : 'Save a copy'}</h2>
+    }} style={{ ...pickerSurfaceSize, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto', padding: 14, border: '1px solid var(--color-border-hairline)', borderRadius: 6, background: 'var(--color-bg-dialog)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><h2 style={{ flex: 1 }}>{transfer.action === 'move' ? 'Move output' : 'Save a copy'}</h2><WorkSurfaceControls storageKey="output-transfer" surface={dialog} /></div>
       <p style={{ overflowWrap: 'anywhere' }}>Source: {transfer.output.path || 'Inline artifact'}</p>
-      {result ? <p role="status">{result}</p> : !transfer.destination ? <DirectoryBrowser inline initialPath={transfer.output.path?.replace(/[\\/][^\\/]+$/, '') || transfer.output.cwd} roots={roots} defaultName={transfer.output.inline && !file.includes('.') ? `${file}.txt` : file} title="Choose output destination" confirmLabel="Review destination" onDone={result => { if (result?.basename.trim()) onDestination(joinFolder(result.dir, result.basename.trim())); }} /> : <><p style={{ overflowWrap: 'anywhere' }}>Destination: {transfer.destination}</p><p>{transfer.action === 'move' ? 'Move removes the source only after the destination and output location are saved. Existing output links keep working.' : 'Save a copy retains the original output.'} Existing files are never overwritten.</p><button type="button" data-transfer-confirm disabled={busy} onClick={onConfirm}>{busy ? 'Saving...' : transfer.action === 'move' ? 'Move output' : 'Save copy'}</button></>}
+      {result ? <p role="status">{result}</p> : !transfer.destination ? <DirectoryBrowser inline fill compactCreate initialPath={transfer.output.path?.replace(/[\\/][^\\/]+$/, '') || transfer.output.cwd} roots={roots} defaultName={transfer.output.inline && !file.includes('.') ? `${file}.txt` : file} title="Choose output destination" confirmLabel="Review destination" onDone={result => { if (result?.basename.trim()) onDestination(joinFolder(result.dir, result.basename.trim())); }} /> : <><p style={{ overflowWrap: 'anywhere' }}>Destination: {transfer.destination}</p><p>{transfer.action === 'move' ? 'Move removes the source only after the destination and output location are saved. Existing output links keep working.' : 'Save a copy retains the original output.'} Existing files are never overwritten.</p><button type="button" data-transfer-confirm disabled={busy} onClick={onConfirm}>{busy ? 'Saving...' : transfer.action === 'move' ? 'Move output' : 'Save copy'}</button></>}
       {error && <p role="alert">{error}</p>}
-      <button type="button" disabled={busy} onClick={onClose}>{result ? 'Close' : 'Cancel'}</button>
+      <button type="button" disabled={busy} onClick={onClose} style={{ alignSelf: 'flex-end' }}>{result ? 'Close' : 'Cancel'}</button>
     </div>
   </div>;
 }

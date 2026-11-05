@@ -7,6 +7,7 @@ import { ChatMessage } from '../components/ChatMessage';
 import { TokenBadge } from '../components/TokenBadge';
 import { DiffView } from '../components/diff/DiffView';
 import { ThemedBackgroundShader } from '../components/ThemedBackgroundShader';
+import { contentSurfaceSize, formSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from '../components/workSurface/WorkSurfaceControls';
 import { applyTheme, applyCrispText } from '../themes/apply';
 import { CLASSIC_THEME_REGISTRY as THEME_REGISTRY } from '../themes/registry';
 import { resolveProviderTheme } from '../themes/providerThemes';
@@ -59,20 +60,11 @@ function Dialog({ title, close, children }: { title: string; close: () => void; 
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const dialog = ref.current!;
-    // CSS zoom leaves vh in the unzoomed coordinate space in Chromium.
-    // Bound the top-layer dialog to its actual available CSS pixels as well.
-    const fit = () => {
-      const zoom = Number(getComputedStyle(document.body).zoom) || 1;
-      dialog.style.maxHeight = `${innerHeight / zoom - 24}px`;
-      dialog.style.maxWidth = `${innerWidth / zoom - 24}px`;
-    };
-    fit(); dialog.showModal();
-    const observer = new ResizeObserver(fit); observer.observe(document.body);
-    window.addEventListener('resize', fit);
-    return () => { observer.disconnect(); window.removeEventListener('resize', fit); dialog.close(); };
+    dialog.showModal();
+    return () => dialog.close();
   }, []);
-  return <dialog ref={ref} className="demo-dialog" onCancel={close} onClick={e => { if (e.target === e.currentTarget) close(); }} aria-label={title}>
-    <header className="section-heading"><h2>{title}</h2><button onClick={close} aria-label="Close dialog">×</button></header><div className="dialog-body">{children}</div>
+  return <dialog ref={ref} className="demo-dialog" style={title === 'SEARCH TRANSCRIPT' || title === 'NOTIFICATIONS' ? pickerSurfaceSize : title === 'DEMO COVERAGE' ? contentSurfaceSize : formSurfaceSize()} onCancel={close} onClick={e => { if (e.target === e.currentTarget) close(); }} aria-label={title}>
+    <header className="section-heading"><h2>{title}</h2><WorkSurfaceControls surface={ref} storageKey={`demo-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} /><button onClick={close} aria-label="Close dialog">×</button></header><div className="dialog-body">{children}</div>
   </dialog>;
 }
 function Demo() {

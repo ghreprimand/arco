@@ -1,4 +1,5 @@
 import { useStartupStore } from '../stores/startupStore';
+import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { defaultComputerSelection } from '../utils/computerAvailability';
 import { computerCatalogs, syncComputerDefault } from '../voice/computerControl';
 import { ComputerActivityPanel } from './ComputerActivityPanel';
@@ -76,7 +77,7 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
     onClick={() => close(false)}
     style={{ position: 'fixed', inset: 0, zIndex: 9200, padding: '20px', background: 'rgba(0, 0, 0, 0.78)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
     <Panel ref={panelRef} onClick={(event) => event.stopPropagation()}
-      style={{ width: '100%', maxWidth: 1100, height: '100%', maxHeight: 900, display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
+      style={{ ...contentSurfaceSize, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
       <div data-help="header.computer" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--color-border-hairline)' }}>
         <div style={{ flex: 1 }}>
           <h2 id="computer-title" className="display-font" style={{ margin: 0, fontSize: 16, letterSpacing: 2 }}>COMPUTER</h2>
@@ -84,6 +85,7 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
         </div>
         <span style={{ color: 'var(--color-fg-muted)', fontSize: 11 }}>{busy ? 'WORKING' : enabled ? 'HANDS-FREE ON' : 'MIC OFF'}</span>
         {busy && <button style={button} disabled={!connected} onClick={stop}>STOP REQUEST</button>}
+        <WorkSurfaceControls surface={panelRef} storageKey="computer" />
         <button ref={closeRef} style={button} aria-label="Close Computer" onClick={() => close(false)}>CLOSE ✕</button>
       </div>
       {noAgent && <p data-help="computer.agent" style={{ margin: '10px 18px' }}>No Computer agent is connected. Connect Codex, Claude Code, Ollama or Strata in <a href="#connections" onClick={() => { close(false); useStartupStore.getState().setSetupOpen(true); }}>Connections</a>.</p>}

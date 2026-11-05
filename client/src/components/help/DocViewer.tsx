@@ -1,3 +1,4 @@
+import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -43,6 +44,7 @@ function extOf(path: string): string {
 }
 
 export function DocViewer() {
+  const surface = useRef<HTMLDivElement>(null);
   const activeDocRef = useAppStore((s) => s.activeDocRef);
   const setActiveDocRef = useAppStore((s) => s.setActiveDocRef);
   const path = activeDocRef?.path ?? null;
@@ -122,11 +124,10 @@ export function DocViewer() {
       }}
     >
       <Panel
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%',
-          maxWidth: '960px',
-          height: 'calc(calc(100vh / var(--ui-scale, 1)) - 60px)',
+          ...contentSurfaceSize,
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-accent-primary-dim)',
           borderRadius: '6px',
@@ -136,6 +137,7 @@ export function DocViewer() {
           overflow: 'hidden',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="doc-viewer" />
         <div
           style={{
             display: 'flex',
@@ -229,7 +231,7 @@ export function DocViewer() {
           )}
           {!error && content !== null && (
             isMarkdown ? (
-              <div className="arco-markdown">
+              <div className="arco-markdown" style={{ maxWidth: '90ch', margin: '0 auto' }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {content}
                 </ReactMarkdown>

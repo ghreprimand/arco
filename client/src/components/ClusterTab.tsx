@@ -1,3 +1,4 @@
+import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 // docs/PROTOCOL_CLUSTER.md + docs/CLIENT.md - cluster tab.
 //
 // Body layout: compact MemberCard grid (left) + 4px col-resize splitter +
@@ -576,6 +577,8 @@ export function ClusterTab({
   // open. Default-empty (operator must explicitly pick) so a stray click
   // never nudges everyone.
   const [nudgeSelection, setNudgeSelection] = useState<Set<string> | null>(null);
+  const nudgeSurface = useRef<HTMLDivElement>(null);
+  const recipientsSurface = useRef<HTMLDivElement>(null);
 
   // Recipients chooser: the composer's TO chip. null means the member in view
   // (the default); otherwise the picked member ids. Sending to several uses
@@ -1243,13 +1246,13 @@ export function ClusterTab({
           }}
         >
           <div
+            ref={nudgeSurface}
             role="dialog"
             aria-modal="true"
             aria-label="Nudge: pick recipients"
             onClick={(e) => e.stopPropagation()}
             style={{
-              minWidth: '420px',
-              maxWidth: '560px',
+              ...formSurfaceSize(), overflowY: 'auto',
               background: 'var(--color-bg-dialog)',
               border: '1px solid var(--color-accent-primary)',
               padding: '16px 18px',
@@ -1258,6 +1261,7 @@ export function ClusterTab({
               gap: '12px',
             }}
           >
+            <WorkSurfaceControls surface={nudgeSurface} storageKey="cluster-nudge" />
             <div
               className="display-font"
               style={{
@@ -1442,13 +1446,15 @@ export function ClusterTab({
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9200, padding: '16px', boxSizing: 'border-box' }}
         >
           <div
+            ref={recipientsSurface}
             role="dialog"
             aria-modal="true"
             aria-label="Choose recipients"
             data-testid="recipients-dialog"
             onClick={(e) => e.stopPropagation()}
-            style={{ minWidth: '420px', maxWidth: '560px', width: '100%', boxSizing: 'border-box', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+            style={{ ...formSurfaceSize(), overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}
           >
+            <WorkSurfaceControls surface={recipientsSurface} storageKey="cluster-recipients" />
             <div className="display-font" style={{ fontSize: '11px', letterSpacing: '1.5px', color: 'var(--color-accent-primary)' }}>
               CHOOSE RECIPIENTS
             </div>

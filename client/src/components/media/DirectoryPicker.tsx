@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 
 // A reusable click-through folder picker — the "Save As" surface for the media
 // studio's server-side ops (no native OS dialog exists for a server file, and
@@ -27,6 +27,8 @@ export interface PickOptions {
   title?: string;
   // Embed the same browser in setup instead of opening a second dialog.
   inline?: boolean;
+  // Expand the browser inside a content-sized host dialog.
+  fill?: boolean;
   confirmLabel?: string;
   roots?: Array<{ name: string; path: string }>;
   compactCreate?: boolean;
@@ -34,7 +36,7 @@ export interface PickOptions {
 
 interface DirEntry { name: string; path: string; }
 
-export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, confirmLabel = 'SAVE HERE ↵', roots = [], compactCreate = false, onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
+export function DirectoryBrowser({ initialPath, defaultName, withFilename = true, title = 'Save output to…', inline = false, fill = false, confirmLabel = 'SAVE HERE ↵', roots = [], compactCreate = false, onDone }: PickOptions & { onDone: (r: PickResult | null) => void }) {
   const surface = useRef<HTMLDivElement>(null);
   const request = useRef(0);
   const pathEdits = useRef(0);
@@ -106,18 +108,19 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
   const content = <div
       className={inline ? 'directory-browser-host' : undefined}
       onClick={() => onDone(null)}
-      style={inline ? {} : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9700, padding: '40px' }}
+      style={inline ? (fill ? { display: 'flex', flex: '1 1 auto', minHeight: 0 } : {}) : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9700, padding: '12px' }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         ref={surface}
+        data-dialog-surface={inline ? undefined : 'picker'}
         className={inline ? 'first-run-browser' : 'glow-border'}
-        style={{ width: inline ? '100%' : 'min(1200px, calc(90vw / var(--ui-scale, 1)))', maxWidth: inline ? undefined : 'calc(94vw / var(--ui-scale, 1))', height: inline ? '340px' : 'calc(80vh / var(--ui-scale, 1))', maxHeight: inline ? undefined : 'calc(90vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
+        style={{ ...(inline ? { width: '100%', height: fill ? 'auto' : 'calc(55vh / var(--ui-scale, 1))', flex: fill ? '1 1 auto' : undefined, minHeight: fill ? 0 : undefined } : pickerSurfaceSize), display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)', borderRadius: '6px', overflow: 'hidden' }}
       >
         {/* Header */}
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <span className="display-font glow-text-cyan" style={{ fontSize: '12px', letterSpacing: '1.5px' }}>{title.toUpperCase()}</span>
-          {!inline && <WorkSurfaceControls surface={surface} />}
+          {!inline && <WorkSurfaceControls storageKey="directory-picker" surface={surface} />}
           {!inline && <button onClick={() => onDone(null)} className="display-font" title="Cancel (Esc)" style={{ ...btn, width: '26px' }}>×</button>}
         </div>
 
@@ -150,7 +153,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
           )}
         </div>
 
-        {compactCreate && <button type="button" style={{ ...btn, margin: '4px 14px', textAlign: 'left' }} aria-expanded={creatingFolder} onClick={() => setCreatingFolder(value => !value)}>{creatingFolder ? 'Hide create folder' : 'Create folder'}</button>}
+        {compactCreate && <button type="button" data-help="dialog.create-folder" style={{ ...btn, margin: '4px 14px', textAlign: 'left' }} aria-expanded={creatingFolder} onClick={() => setCreatingFolder(value => !value)}>{creatingFolder ? 'Hide create folder' : 'Create folder'}</button>}
         {(!compactCreate || creatingFolder) && <><small style={{ padding: '4px 14px', overflowWrap: 'anywhere' }}>Create folder inside: {cwd || 'choose a parent first'}</small>
         {/* New folder */}
         <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', gap: '8px' }}>

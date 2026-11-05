@@ -5,7 +5,7 @@ import { useRecallStore, EMPTY_FILTERS, type RecallSearchFilters } from '../../s
 import { RecallResultRow } from './RecallResultRow';
 import { recallSummarizerFor } from '../../recall/closeSummary';
 import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@arco/shared';
-import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 
 // Workbench Expansion §F3 — top-level Recall search view.
 //
@@ -237,7 +237,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
         }}
         data-help="recall.view"
         style={{
-          width: 'min(1440px, calc(92vw / var(--ui-scale, 1)))', height: 'calc(88vh / var(--ui-scale, 1))', maxWidth: 'calc(96vw / var(--ui-scale, 1))', maxHeight: 'calc(94vh / var(--ui-scale, 1))', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+          ...pickerSurfaceSize, display: 'flex', flexDirection: 'column',
           background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-bright)',
           borderRadius: 8, boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflowY: 'auto',
           fontFamily: 'var(--font-body)',
@@ -250,7 +250,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
           <span style={{ fontSize: 11, color: 'var(--color-fg-muted)' }}>
             search every conversation Arco has run
           </span>
-          <span style={{ marginLeft: 'auto' }}><WorkSurfaceControls surface={surface} /></span>
+          <span style={{ marginLeft: 'auto' }}><WorkSurfaceControls storageKey="recall" surface={surface} /></span>
           <button type="button" aria-label="Close Recall" onClick={onClose} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: 16 }}>
             ✕
           </button>
@@ -361,7 +361,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             data-help="recall.distill-kb"
             style={{
               borderTop: '1px solid var(--color-border-bright)', background: 'var(--color-bg)',
-              maxHeight: '35%', flex: '0 1 35%', minHeight: 0, display: 'flex', flexDirection: 'column',
+              height: 'min(24em, calc(45vh / var(--ui-scale, 1)))', minHeight: '14em', flex: '0 0 auto', display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--color-border-hairline)' }}>

@@ -1,4 +1,7 @@
 import { interfaceScale, layoutPoint, layoutRect } from '../../utils/pointer';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { WorkSurfaceControls } from '../../components/workSurface/WorkSurfaceControls';
 /**
  * Gallery Editor — canvas-based image editor with layers, brush, eraser, text, crop, inpaint mask.
  */
@@ -3426,6 +3429,13 @@ function _promptCanvasSize(opts) {
       overlay.className = 'modal';
       overlay.innerHTML = _canvasSizePromptHTML();
       document.body.appendChild(overlay);
+      const surface = overlay.querySelector('.ge-canvas-prompt');
+      const header = surface?.querySelector('.modal-header');
+      if (surface && header) {
+        const controls = document.createElement('span');
+        header.appendChild(controls);
+        createRoot(controls).render(createElement(WorkSurfaceControls, { surface: { current: surface }, storageKey: 'editor-canvas-size' }));
+      }
     }
     overlay.style.display = '';
     overlay.classList.remove('hidden');
@@ -3455,6 +3465,7 @@ function _promptCanvasSize(opts) {
     function onCancel() { cleanup(null); }
     function onBackdrop(e) { if (e.target === overlay) cleanup(null); }
     function onKey(e) {
+      if (e.key === 'Enter' && e.target?.closest?.('.work-surface-controls')) return;
       if (e.key === 'Enter') { e.preventDefault(); onOk(); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(null); }
     }

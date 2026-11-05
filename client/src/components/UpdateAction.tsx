@@ -1,8 +1,10 @@
+import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 
 type State = { mode: 'service' | 'foreground' | 'docker'; platform?: string; packaged?: boolean; result: { outcome: string; message?: string; attemptId?: string } | null };
 export function UpdateAction({ latest, url, autoConfirm = false }: { latest: string | null; url: string | null; autoConfirm?: boolean }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(false);
@@ -78,7 +80,8 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     {message && <div role="status">{message}</div>}
     {resultMessage && <div role="status">{resultMessage}</div>}
     {confirm && <div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 20, maxWidth: 480 }}>
+      <div ref={surface} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 20, ...confirmationSurfaceSize }}>
+        <WorkSurfaceControls surface={surface} storageKey="update-confirm" />
         <p>Update to {latest} and restart Arco? Running turns will stop.</p>
         {url && <p><a href={url} target="_blank" rel="noopener noreferrer">Release notes</a></p>}
         <button type="button" onClick={() => void start()}>UPDATE AND RESTART</button>{' '}

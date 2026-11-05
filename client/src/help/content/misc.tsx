@@ -2059,7 +2059,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'dialog.size': {
     title: 'Dialog size',
-    body: <p>Maximize fills the window and Restore returns to the previous size. The resize handle changes the size by dragging or with the arrow keys; Home restores the initial size. The size applies to this dialog only and changes no content.</p>,
+    body: <p>Maximize fills the window and Restore returns to the previous size. Drag Resize or use its arrow keys to change the size. Reset size or Home restores the default. Arco remembers the size for this kind of dialog in this browser, without saving project details.</p>,
+  },
+  'dialog.create-folder': {
+    title: 'Create folder',
+    body: <p>Show or hide the fields for creating a folder in the current location. Enter a name and select + FOLDER to create it.</p>,
+    manualSection: 'archive-explorer',
   },
   'help.modal-button': {
     title: 'Tool help',

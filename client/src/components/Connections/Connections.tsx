@@ -151,7 +151,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
       <header className="connections-header"><div><h1 id="provider-setup-title">{mode==='gate'?'Welcome - Connections':'Connections'}</h1>
         <p id="provider-setup-intro">Connect an AI tool, choose a project, then start work. Provider sign-in, API credentials, local services and tool accounts are different access paths.</p>
         {mode==='gate' && <div role="status">{canContinue ? 'PROVIDER CONNECTED - already signed in; continue to use this provider.' : 'NO PROVIDER CONNECTED YET'}</div>}
-      </div><WorkSurfaceControls surface={dialog} /><button type="button" onClick={leave}>{mode==='gate'?'SKIP FOR NOW':'CLOSE'}</button></header>
+      </div><WorkSurfaceControls storageKey="connections" surface={dialog} /><button type="button" onClick={leave}>{mode==='gate'?'SKIP FOR NOW':'CLOSE'}</button></header>
       {onContinue && <p className="connections-scope">Step 2 of 3: connect a provider. Continue after an enabled AI provider reports connected, or skip this step.</p>}
       <p className="connections-scope">Connections apply to the Arco server. Your projects and saved work remain available. Checks do not send a prompt or prove model access.</p>
       <div className="connections-actions"><button type="button" onClick={()=>void refresh()} disabled={checking} aria-busy={checking}>{checking?'Checking...':'Refresh all statuses'}</button>

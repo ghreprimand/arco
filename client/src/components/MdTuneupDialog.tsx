@@ -153,6 +153,7 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
 
   return (
     <DialogShell
+      size="viewer"
       title={inReview && queue.length > 1 ? `${title} - file ${qIndex + 1} of ${queue.length}` : title}
       dataHelp="composer.tuneup"
       onClose={dismiss}

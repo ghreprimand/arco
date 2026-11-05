@@ -148,7 +148,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
         <header className="settings-header">
           <h2 className="display-font glow-text-bright">SETTINGS</h2>
           {document.querySelector('.connections-backdrop') && <span>Close Settings to return to Connections.</span>}
-          <WorkSurfaceControls surface={dialog} />
+          <WorkSurfaceControls storageKey="settings" surface={dialog} />
           <button type="button" className="display-font" onClick={close} aria-label="Close settings" data-help="settings-panel.close">CLOSE ✕</button>
         </header>
         <label className="settings-search" data-help="settings.navigation">Find a setting

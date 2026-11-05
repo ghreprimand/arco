@@ -2,3 +2,9 @@
 .work-surface-controls button{font:12px var(--font-body);color:var(--color-fg);background:var(--color-bg-input);border:1px solid var(--color-border-hairline);border-radius:3px;padding:6px 9px;cursor:pointer}
 .work-surface-controls button:focus-visible{outline:2px solid var(--color-accent-primary);outline-offset:2px}
 .work-surface-resize{touch-action:none;cursor:nwse-resize!important}
+[data-help="header.computer"] .work-surface-controls button{font-family:var(--font-display)}
+
+/* Content surfaces use the same viewport share while their inline dimensions
+   remain free for the shared resize controls to change. */
+.settings-dialog.settings-dialog,.connections-dialog.connections-dialog{width:min(140em,calc(90vw / var(--ui-scale,1)));height:calc(85vh / var(--ui-scale,1));max-width:calc(96vw / var(--ui-scale,1));max-height:calc(94vh / var(--ui-scale,1));resize:both;box-sizing:border-box}
+.home-add-dialog.home-add-dialog{width:min(calc(96vw / var(--ui-scale,1)),clamp(40em,calc(70vw / var(--ui-scale,1)),90em));height:min(calc(94vh / var(--ui-scale,1)),clamp(24em,calc(75vh / var(--ui-scale,1)),60em));max-width:calc(96vw / var(--ui-scale,1));max-height:calc(94vh / var(--ui-scale,1));resize:both;box-sizing:border-box}

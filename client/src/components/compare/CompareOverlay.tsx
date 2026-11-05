@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { useCompareStore, sendCompareVote, sendCompareSynthesize, sendCompareCancel } from '../../stores/compareStore';
 import { CompareGrid } from './CompareGrid';
 import { CompareVote } from './CompareVote';
@@ -15,6 +17,7 @@ import { recordPick } from '../../utils/secondOpinionTally';
 // (CompareDialog), so this overlay only owns the results surface.
 
 export function CompareOverlay() {
+  const surface = useRef<HTMLDivElement>(null);
   const active = useCompareStore((s) => s.active);
   const dismiss = useCompareStore((s) => s.dismiss);
 
@@ -32,12 +35,14 @@ export function CompareOverlay() {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 55, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
+        ref={surface}
         style={{
           background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)',
-          borderRadius: '6px', padding: '16px 18px', width: 'min(1180px, calc(96vw / var(--ui-scale, 1)))', height: 'min(820px, calc(92vh / var(--ui-scale, 1)))',
+          borderRadius: '6px', padding: '16px 18px', ...contentSurfaceSize, overflow: 'hidden',
           display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="second-opinion-results" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
           <span className="display-font" style={{ fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)' }}>
             {replyDraft ? 'SECOND OPINION' : 'COMPARE'}

@@ -5,6 +5,7 @@ import { GROUPS } from './manualTypes';
 import { Code, stringifyNode } from './components';
 import { MANUAL_SECTIONS } from '../../help/manualSections';
 import { HELP_CONTENT } from '../../help/helpContent';
+import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import './manual.css';
 
 // User Manual — operator-facing reference. Structured as a single modal with
@@ -14,6 +15,7 @@ import './manual.css';
 // behavior changes; the docs/ set remains the canonical agent-facing source.
 
 export function UserManual({ onClose }: Props) {
+  const surface = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string>('welcome');
   const [query, setQuery] = useState('');
   // J4 — when a matched HELP TOPIC has no manualSection, clicking it can't
@@ -132,12 +134,11 @@ export function UserManual({ onClose }: Props) {
       }}
     >
       <Panel
+        ref={surface}
         className="manual-panel"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%',
-          maxWidth: '1100px',
-          height: '100%',
+          ...contentSurfaceSize,
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-border-hairline)',
           borderRadius: '6px',
@@ -147,6 +148,7 @@ export function UserManual({ onClose }: Props) {
           overflow: 'hidden',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="manual" />
         <div
           style={{
             display: 'flex',

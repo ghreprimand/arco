@@ -248,6 +248,7 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
   const canSubmit = Boolean(status && status.isRepo);
   return (
     <DialogShell
+      size="viewer"
       title="Git"
       dataHelp="composer.git"
       onClose={onCancel}

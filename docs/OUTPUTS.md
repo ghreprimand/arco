@@ -71,7 +71,9 @@ variant derived from a tracked output retains its origin association. Existing
 editor overwrite confirmations and media-operation requirements remain in force;
 a collection entry does not install FFmpeg or a model.
 
-**Save a copy** opens the shared directory picker with a filename. Review the
+**Save a copy** opens the shared directory picker with a filename. Select
+**Create folder** to open the new-folder fields. The folder list fills the
+dialog, which can be resized or maximized. Review the
 source and destination, then choose **Save copy**. The original remains available.
 **Move** is a separate action for disk files: review both locations, then confirm
 **Move output**. Existing files are never silently overwritten. A stale dialog

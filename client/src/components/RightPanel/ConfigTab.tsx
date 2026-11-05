@@ -1,5 +1,6 @@
+import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
-import { useCallback, useState, useEffect, type CSSProperties } from 'react';
+import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react';
 import { CLAUDE_MODEL_LABELS } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
@@ -913,6 +914,7 @@ function CodexTransportSection({
 // First-time-enable warning modal for the Codex app-server transport.
 // Transport behavior is documented in docs/PROVIDERS.md.
 function CodexAppserverWarningModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   return (
     <div
       role="dialog"
@@ -929,11 +931,12 @@ function CodexAppserverWarningModal({ onCancel, onConfirm }: { onCancel: () => v
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
+        ref={surface}
         style={{
           background: 'var(--color-bg)',
           border: '1px solid var(--color-accent-primary)',
           borderRadius: '4px',
-          maxWidth: '520px',
+          ...confirmationSurfaceSize,
           padding: '20px 24px',
           fontFamily: 'var(--font-body)',
           fontSize: '13px',
@@ -942,6 +945,7 @@ function CodexAppserverWarningModal({ onCancel, onConfirm }: { onCancel: () => v
           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="codex-native-confirm" />
         <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary)', marginBottom: '14px' }}>
           CODEX TRANSPORT: APPSERVER <span style={{ fontStyle: 'italic', color: 'var(--color-fg-muted)' }}>(experimental)</span>
         </div>
@@ -2172,6 +2176,7 @@ function OutputStyleSection({
 // First-time-enable warning modal for Claude Native.
 // Transport behavior is documented in docs/PROVIDERS.md.
 function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  const surface = useRef<HTMLDivElement>(null);
   return (
     <div
       role="dialog"
@@ -2188,11 +2193,12 @@ function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => voi
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
+        ref={surface}
         style={{
           background: 'var(--color-bg)',
           border: '1px solid var(--color-accent-primary)',
           borderRadius: '4px',
-          maxWidth: '560px',
+          ...confirmationSurfaceSize,
           padding: '20px 24px',
           fontFamily: 'var(--font-body)',
           fontSize: '13px',
@@ -2201,6 +2207,7 @@ function ClaudeNativeWarningModal({ onCancel, onConfirm }: { onCancel: () => voi
           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
         }}
       >
+        <WorkSurfaceControls surface={surface} storageKey="claude-native-confirm" />
         <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary)', marginBottom: '14px' }}>
           CLAUDE TRANSPORT: NATIVE <span style={{ fontStyle: 'italic', color: 'var(--color-fg-muted)' }}>(experimental)</span>
         </div>

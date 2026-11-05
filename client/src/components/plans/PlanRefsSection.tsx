@@ -1,3 +1,4 @@
+import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 // REFERENCE DOCS section + viewer for one plan. Shared by the workflow PLAN
 // tab, the cluster PLAN sub-tab, and the explorer PLANS lens. The plan stays a
 // lean checklist; long-form detail lives in refs the checklist links to
@@ -6,7 +7,7 @@
 // Controlled `openSlug` so the plan body's ref chips (PlanBodyRenderer
 // `onOpenRef`) open the same viewer the list rows do.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { PlanRefSummary } from '@arco/shared';
@@ -163,6 +164,7 @@ export function PlanRefChips({ refs, onOpenSlug }: { refs: PlanRefSummary[] | nu
 export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }: {
   cwd: string; planId: string; slug: string; exists: boolean; onClose: () => void; onChanged: () => void;
 }) {
+  const surface = useRef<HTMLDivElement>(null);
   const [body, setBody] = useState<string | null>(null);
   const [title, setTitle] = useState(slug);
   const [error, setError] = useState<string | null>(null);
@@ -226,11 +228,13 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
       style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(3px)' }}
     >
       <div
+        ref={surface}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
-        style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-accent-secondary)', borderRadius: '6px', width: 'min(860px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(88vh / var(--ui-scale, 1))', display: 'flex', flexDirection: 'column' }}
+        style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-accent-secondary)', borderRadius: '6px', ...contentSurfaceSize, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       >
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <WorkSurfaceControls surface={surface} storageKey="plan-reference" />
           <span className="display-font" style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid var(--color-accent-secondary)', color: 'var(--color-accent-secondary)', letterSpacing: '2px', borderRadius: '2px' }}>
             REF
           </span>
@@ -256,7 +260,7 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
           ) : body === null ? (
             !error && <div style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>loading…</div>
           ) : (
-            <div className="arco-markdown" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55 }}>
+            <div className="arco-markdown" style={{ maxWidth: '90ch', margin: '0 auto', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55 }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
             </div>
           )}

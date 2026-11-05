@@ -1,8 +1,10 @@
+import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 
 type Props = { workflowId: string; name: string; onRename: (id: string, name: string, requestId: string) => boolean };
 
 export function WorkspaceRename({ workflowId, name, onRename }: Props) {
+  const surface = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(name);
   const [pending, setPending] = useState(false);
@@ -37,7 +39,8 @@ export function WorkspaceRename({ workflowId, name, onRename }: Props) {
     <button ref={trigger} type="button" aria-label={`Rename workspace ${name || workflowId.slice(0, 8)}`} title="Rename workspace" onPointerDown={e => e.stopPropagation()} onClick={() => { setDraft(name); setError(''); setOpen(true); }} className="display-font" style={{ padding:'4px 10px', background:'transparent', border:'1px solid var(--color-border-hairline)', color:'var(--color-fg-muted)', cursor:'pointer', fontSize:10, letterSpacing:'1px' }}>RENAME</button>
     </div>
     {open && <div role="dialog" aria-modal="true" aria-label="Rename workspace" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.65)',display:'grid',placeItems:'center'}} onPointerDown={e => e.stopPropagation()}>
-      <form onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); cancel(); } }} style={{background: 'var(--color-bg-dialog)',border:'1px solid var(--color-border-hairline)',padding:20,display:'grid',gap:10,minWidth:280}}>
+      <form ref={surface} onSubmit={e => { e.preventDefault(); submit(); }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); cancel(); } }} style={{...formSurfaceSize(),background: 'var(--color-bg-dialog)',border:'1px solid var(--color-border-hairline)',padding:20,display:'grid',gap:10}}>
+        <WorkSurfaceControls surface={surface} storageKey="workspace-rename" />
         <label className="arco-field-label">Workspace name <input className="arco-field" autoFocus value={draft} onChange={e => setDraft(e.target.value)} aria-label="Workspace name" /></label>
         <span>Up to 64 characters. Leave blank to reset the name.</span>
         {error && <span role="alert">{error}</span>}

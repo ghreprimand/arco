@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { confirmationSurfaceSize, contentSurfaceSize, formSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 // One layout for operator dialogs opened from the composer and the top bar:
 // rendered into document.body (so no ancestor transform, filter or stacking
@@ -29,6 +30,7 @@ interface Props {
   // Result or error line kept between the scrolling body and the actions.
   status?: ReactNode;
   width?: number;
+  size?: 'confirm' | 'form' | 'picker' | 'viewer';
   ariaLabel?: string;
   testId?: string;
   dataHelp?: string;
@@ -45,7 +47,7 @@ interface Props {
 
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary, a[href]';
 
-export function DialogShell({ title, onClose, children, actions, status, width = 680, ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
+export function DialogShell({ title, onClose, children, actions, status, width = 0, size = 'form', ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -79,16 +81,18 @@ export function DialogShell({ title, onClose, children, actions, status, width =
       >
         <div
           ref={box}
+          data-dialog-surface={size}
           tabIndex={-1}
           style={{
-            width: `min(${width}px, 100%)`, maxHeight: 'calc(85vh / var(--ui-scale, 1))', minHeight: 0,
+            ...(size === 'viewer' ? contentSurfaceSize : size === 'picker' ? pickerSurfaceSize : size === 'confirm' ? confirmationSurfaceSize : formSurfaceSize(width)), minHeight: 0,
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)', borderRadius: '6px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.4)', fontFamily: 'var(--font-body)', outline: 'none',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '10px 14px', borderBottom: '1px solid var(--color-border-hairline)', flexShrink: 0 }}>
             <h2 className="display-font" style={dialogTitleStyle}>{title.toUpperCase()}</h2>
+            <span style={{ marginLeft: 'auto' }}><WorkSurfaceControls surface={box} storageKey={(dataHelp ?? testId ?? ariaLabel)?.toLowerCase().replace(/[^a-z0-9._-]+/g, '-')} /></span>
             <button
               type="button"
               aria-label={closeLabel}
@@ -96,7 +100,7 @@ export function DialogShell({ title, onClose, children, actions, status, width =
               title={closeLabel}
               onClick={onClose}
               className="display-font"
-              style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', padding: '2px 8px', cursor: 'pointer', fontSize: '12px', lineHeight: 1.2 }}
+              style={{ background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', padding: '2px 8px', cursor: 'pointer', fontSize: '12px', lineHeight: 1.2 }}
             >{'\u00D7'}</button>
           </div>
           <div ref={bodyRef} onScroll={onBodyScroll} style={{ ...dialogBodyStyle, flex: '1 1 auto', minHeight: 0, overflow: 'auto', overflowWrap: 'anywhere', padding: '12px 14px', display: 'grid', gap: '10px', alignContent: 'start' }}>
