@@ -218,7 +218,10 @@ test('copy and KEEP accept a project opened through a symlinked ancestor', async
     execFileSync('git', ['init', '-q'], { cwd });
     await writeFile(path.join(cwd, '.arco', 'workflows', 'conv-1', 'artifacts', 'note.txt'), 'ordinary note');
     const review = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/note.txt', cwd, false);
-    await copyReviewedArtifact(cwd, 'conv-1', 'artifacts/note.txt', cwd, false, review.token);
+    await ignoreCopyDestination(cwd, review.target);
+    const ignored = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/note.txt', cwd, false);
+    assert.equal(ignored.ignored, true);
+    await copyReviewedArtifact(cwd, 'conv-1', 'artifacts/note.txt', cwd, false, ignored.token);
     assert.equal(await readFile(path.join(cwd, 'note.txt'), 'utf8'), 'ordinary note');
     const dir = await outputDirectory(cwd, 'conv-1');
     assert.ok((await addKeep(dir, 'artifacts/note.txt', 'operator')).some(item => item.path === 'artifacts/note.txt'));

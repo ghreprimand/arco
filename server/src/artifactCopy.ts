@@ -224,7 +224,7 @@ export async function copyReviewedArtifact(cwd: string, workflowId: string, item
 
 // Append one literal root-relative rule. Never replace an edited ignore file.
 export async function ignoreCopyDestination(cwd: string, target: string): Promise<void> {
-  const project = safeDirectory(cwd);
+  const project = await fs.realpath(safeDirectory(cwd));
   if (!isPathWithin(project, target) || target === project) throw new Error('Choose a destination inside this project.');
   try { await gitCall(project, ['rev-parse', '--is-inside-work-tree']); }
   catch { throw new Error('This project is not a Git repository.'); }

@@ -32,6 +32,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Allow ADD TO .GITIGNORE for artifact copies when a project path has a different resolved spelling.
+
 - Allow artifact copies from projects opened through a linked parent folder.
 
 - Scan extensionless artifact copies even when they contain NUL bytes, and ask again before unscanned files are copied into a public repository outside Git ignore.
