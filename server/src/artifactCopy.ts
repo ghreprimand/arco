@@ -116,9 +116,12 @@ async function listSource(root: string): Promise<{ files: Array<{ path: string; 
 export async function inspectArtifactCopy(cwd: string, workflowId: string, itemPath: string, destinationFolder: string, declaredPublic: boolean): Promise<CopyInspection> {
   const rel = normalizeKeepPath(itemPath);
   if (!rel || (rel !== 'artifacts' && !rel.startsWith('artifacts/'))) throw new Error('Choose an artifact file or folder.');
-  const dir = await outputDirectory(cwd, workflowId); let source = dir;
+  const dir = await fs.realpath(await outputDirectory(cwd, workflowId)); let source = dir;
   for (const part of rel.split('/')) { source = path.join(source, part); const st = await fs.lstat(source); if (st.isSymbolicLink()) throw new Error('Artifact links cannot be copied.'); }
-  const project = safeDirectory(cwd); const folder = confinedPath(destinationFolder, [project], 'directory');
+  source = await fs.realpath(source);
+  if (!isPathWithin(path.join(dir, 'artifacts'), source)) throw new Error('Artifact path changed; review it again.');
+  const project = await fs.realpath(safeDirectory(cwd));
+  const folder = await fs.realpath(confinedPath(destinationFolder, [cwd], 'directory'));
   const target = path.join(folder, path.basename(source));
   assertSafePath(target);
   if (!isPathWithin(project, target) || target.split(path.sep).includes('.arco')) throw new Error('Choose a project folder outside Arco state.');
@@ -153,7 +156,7 @@ export async function copyReviewedArtifact(cwd: string, workflowId: string, item
   if (!check.ignored && check.bytes > 100 * MB) throw new Error('Over 100 MB cannot be copied into a folder included in Git. Choose an ignored folder.');
   const sourceInfo = await fs.lstat(check.source);
   const tempRoot = await fs.realpath(tmpdir());
-  if (isPathWithin(safeDirectory(cwd), tempRoot)) throw new Error('The temporary folder must be outside the project.');
+  if (isPathWithin(await fs.realpath(safeDirectory(cwd)), tempRoot)) throw new Error('The temporary folder must be outside the project.');
   for (let ancestor = tempRoot; ;) {
     try { await fs.lstat(path.join(ancestor, '.git')); throw new Error('The temporary folder must be outside Git repositories.'); }
     catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }

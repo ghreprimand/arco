@@ -89,7 +89,8 @@ Outputs does not offer destructive cleanup.
 PROJECT FILES**. Before a copy, review the destination, Git ignore and public
 repository status, size and content findings. Files not fully scanned are listed
 by name. Copying them into a public repository outside Git ignore requires a
-second confirmation. The original stays in the artifact
+second confirmation. Projects opened through a linked parent folder are supported;
+links within the artifact remain refused. The original stays in the artifact
 store; Arco does not stage or commit the copy. A large-artifact warning offers
 **KEEP** to protect the artifact from cleanup or **DISMISS**.
 

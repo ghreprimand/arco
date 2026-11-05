@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { copyReviewedArtifact, inspectArtifactCopy } from './artifactCopy.js';
 import { addKeep } from './keepStore.js';
 import { archiveConversation, archivePath } from './storageArchive.js';
 import { deleteConversation } from './storageActions.js';
+import { linkFolder } from './testSupport/links.js';
 
 const ID = 'conv-1';
 
@@ -38,15 +39,14 @@ test('copy refuses destinations inside .arco and .git, and item paths that leave
 });
 
 test('a symlink destination and a symlink inside artifacts are refused', async () => {
-  if (process.platform === 'win32') return;
   const { cwd, artifacts } = await repo();
   const outside = await mkdtemp(path.join(tmpdir(), 'arco-copy-link-out-'));
   try {
-    await symlink(outside, path.join(cwd, 'linked-out'));
+    await linkFolder(outside, path.join(cwd, 'linked-out'));
     await assert.rejects(inspectArtifactCopy(cwd, ID, 'artifacts/note.txt', path.join(cwd, 'linked-out'), false));
-    await symlink(path.join(cwd, '.git'), path.join(cwd, 'git-alias'));
+    await linkFolder(path.join(cwd, '.git'), path.join(cwd, 'git-alias'));
     await assert.rejects(inspectArtifactCopy(cwd, ID, 'artifacts/note.txt', path.join(cwd, 'git-alias'), false));
-    await symlink(outside, path.join(artifacts, 'escape'));
+    await linkFolder(outside, path.join(artifacts, 'escape'));
     await writeFile(path.join(outside, 'secret.txt'), 'api_key=abcdefghijklmnop');
     await assert.rejects(inspectArtifactCopy(cwd, ID, 'artifacts/escape', path.join(cwd), false), /links/);
     assert.equal(await readFile(path.join(cwd, 'note.txt')).catch(() => ''), '');

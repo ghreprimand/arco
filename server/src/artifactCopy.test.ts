@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rename, rm, symlink, truncate, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { copyReviewedArtifact, ignoreCopyDestination, inspectArtifactCopy, scanCopyLine } from './artifactCopy.js';
+import { outputDirectory } from './outputStore.js';
+import { addKeep } from './keepStore.js';
+import { linkFile, linkFolder } from './testSupport/links.js';
 
 test('copy checks, review token, no clobber and original retention', async () => {
   const cwd = await mkdtemp(path.join(tmpdir(), 'arco-copy-'));
@@ -27,8 +30,7 @@ test('copy checks, review token, no clobber and original retention', async () =>
     assert.equal(await readFile(path.join(cwd, 'out', 'report.txt'), 'utf8'), 'changed');
     assert.equal(await readFile(source, 'utf8'), 'changed');
     await assert.rejects(inspectArtifactCopy(cwd, 'conv-1', 'artifacts/report.txt', path.join(cwd, 'out'), false), /already exists/);
-    if (process.platform !== 'win32') {
-      await symlink(source, path.join(dir, 'linked.txt'));
+    if (await linkFile(source, path.join(dir, 'linked.txt'))) {
       await assert.rejects(inspectArtifactCopy(cwd, 'conv-1', 'artifacts/linked.txt', path.join(cwd, 'out'), false), /links/);
     }
   } finally { await rm(cwd, { recursive: true, force: true }); }
@@ -147,7 +149,7 @@ test('private snapshot is refused when the temporary folder is inside the projec
 });
 
 
-test('destination folder swap cannot redirect reviewed bytes', { skip: process.platform === 'win32' }, async () => {
+test('destination folder swap cannot redirect reviewed bytes', async () => {
   const cwd = await mkdtemp(path.join(tmpdir(), 'arco-copy-parent-'));
   const outside = await mkdtemp(path.join(tmpdir(), 'arco-copy-outside-'));
   try {
@@ -156,7 +158,7 @@ test('destination folder swap cannot redirect reviewed bytes', { skip: process.p
     await mkdir(dir, { recursive: true }); await mkdir(path.join(cwd, 'out'));
     await writeFile(path.join(dir, 'report.txt'), 'reviewed');
     const review = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/report.txt', path.join(cwd, 'out'), false);
-    const swap = async () => { await rename(path.join(cwd, 'out'), path.join(cwd, 'old-out')); await symlink(outside, path.join(cwd, 'out')); };
+    const swap = async () => { await rename(path.join(cwd, 'out'), path.join(cwd, 'old-out')); await linkFolder(outside, path.join(cwd, 'out')); };
     await assert.rejects(copyReviewedArtifact(cwd, 'conv-1', 'artifacts/report.txt', path.join(cwd, 'out'), false, review.token, swap), /Destination folder changed/);
     await assert.rejects(readFile(path.join(outside, 'report.txt')));
   } finally { await rm(cwd, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }); }
@@ -174,8 +176,8 @@ test('private snapshot is refused inside a different Git repository', async () =
     const review = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/note.txt', cwd, false);
     process.env.TMPDIR = other;
     if (tmpdir() === other) await assert.rejects(copyReviewedArtifact(cwd, 'conv-1', 'artifacts/note.txt', cwd, false, review.token), /outside Git repositories/);
-    if (process.platform !== 'win32') {
-      const alias = path.join(cwd, 'temp-alias'); await symlink(other, alias);
+    {
+      const alias = path.join(cwd, 'temp-alias'); await linkFolder(other, alias);
       process.env.TMPDIR = alias;
       if (tmpdir() === alias) await assert.rejects(copyReviewedArtifact(cwd, 'conv-1', 'artifacts/note.txt', cwd, false, review.token), /outside Git repositories/);
     }
@@ -201,4 +203,27 @@ test('Git checks ignore inherited repository redirection', async () => {
     if (previous === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = previous;
     await rm(cwd, { recursive: true, force: true }); await rm(other, { recursive: true, force: true });
   }
+});
+
+
+test('copy and KEEP accept a project opened through a symlinked ancestor', async () => {
+  const parent = await mkdtemp(path.join(tmpdir(), 'arco-copy-alias-'));
+  const actual = path.join(parent, 'actual');
+  const alias = path.join(parent, 'alias');
+  try {
+    await mkdir(actual);
+    await linkFolder(actual, alias);
+    const cwd = path.join(alias, 'project');
+    await mkdir(path.join(cwd, '.arco', 'workflows', 'conv-1', 'artifacts'), { recursive: true });
+    execFileSync('git', ['init', '-q'], { cwd });
+    await writeFile(path.join(cwd, '.arco', 'workflows', 'conv-1', 'artifacts', 'note.txt'), 'ordinary note');
+    const review = await inspectArtifactCopy(cwd, 'conv-1', 'artifacts/note.txt', cwd, false);
+    await copyReviewedArtifact(cwd, 'conv-1', 'artifacts/note.txt', cwd, false, review.token);
+    assert.equal(await readFile(path.join(cwd, 'note.txt'), 'utf8'), 'ordinary note');
+    const dir = await outputDirectory(cwd, 'conv-1');
+    assert.ok((await addKeep(dir, 'artifacts/note.txt', 'operator')).some(item => item.path === 'artifacts/note.txt'));
+    if (await linkFile(path.join(cwd, 'note.txt'), path.join(cwd, '.arco', 'workflows', 'conv-1', 'artifacts', 'linked.txt'))) {
+      await assert.rejects(inspectArtifactCopy(cwd, 'conv-1', 'artifacts/linked.txt', cwd, false), /links/);
+    }
+  } finally { await rm(parent, { recursive: true, force: true }); }
 });

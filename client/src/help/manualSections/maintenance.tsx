@@ -37,7 +37,8 @@ export const maintenance: Section[] = [
   Review Git ignore status, public visibility, size and text findings first.
   Files that cannot be fully scanned are listed by name. A public repository
   copy outside Git ignore asks for a second confirmation for those files.
-  Images and recordings need manual inspection.
+  Images and recordings need manual inspection. Projects opened through a
+  linked parent work; links within artifacts are refused.
   </p>
   <p>
   Arco does not stage or commit the copy, and the original remains in Arco. A failed copy
