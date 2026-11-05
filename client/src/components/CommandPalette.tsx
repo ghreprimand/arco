@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { requestNudgeAll } from '../utils/clusterNudge';
 import { LAYOUT_MODES, setLayoutMode } from '../layout/layoutRange';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../stores/appStore';
@@ -82,6 +83,7 @@ export function CommandPalette({ onClose }: Props) {
   const activeJobId = useAppStore((s) => s.activeJobId);
   const setActiveJob = useAppStore((s) => s.setActiveJob);
   const setActiveCluster = useAppStore((s) => s.setActiveCluster);
+  const activeClusterId = useAppStore((s) => s.activeClusterId);
   const flashChatMessage = useAppStore((s) => s.flashChatMessage);
   const setShowSettings = useAppStore((s) => s.setShowSettings);
   const setShowManual = useAppStore((s) => s.setShowManual);
@@ -168,13 +170,15 @@ export function CommandPalette({ onClose }: Props) {
     { kind: 'command', id: 'cmd:manual', label: 'Open User Manual', hint: 'In-app docs', run: () => setShowManual(true) },
     { kind: 'command', id: 'cmd:shortcuts', label: 'Keyboard shortcuts', hint: 'Cheat sheet (Ctrl/Cmd+?)', run: () => window.dispatchEvent(new CustomEvent('arco:open-shortcuts')) },
     ...LAYOUT_MODES.map((m) => ({ kind: 'command' as const, id: `cmd:layout-${m.id}`, label: `Layout: ${m.label}`, hint: m.hint, run: () => setLayoutMode(m.id) })),
+    // Offered while a cluster tab is in view; the same as NUDGE ALL WITH MAIL in its NUDGE picker.
+    ...(activeClusterId ? [{ kind: 'command' as const, id: 'cmd:cluster-nudge-all', label: 'Cluster: nudge all with mail', hint: 'Nudge every member with waiting mail, idle or busy', run: () => { requestNudgeAll(activeClusterId); } }] : []),
     { kind: 'command', id: 'cmd:focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', hint: 'Hide secondary chrome for a full-width chat (I3)', run: () => setFocusMode(!focusMode) },
     { kind: 'command', id: 'cmd:github', label: 'Open GitHub panel', hint: 'PRs, issues', run: () => setShowGithub(true) },
     { kind: 'command', id: 'cmd:media', label: 'Open Media studio', hint: 'Image viewer + audio/video', run: () => openMediaStudio() },
     { kind: 'command', id: 'cmd:media-image', label: 'Open Media studio (image)', hint: 'Zoom/pan/fit image viewer', run: () => openMediaStudio('image') },
     { kind: 'command', id: 'cmd:media-audio', label: 'Open Media studio (audio)', hint: 'Import + play audio', run: () => openMediaStudio('audio') },
     { kind: 'command', id: 'cmd:media-video', label: 'Open Media studio (video)', hint: 'Import + play video', run: () => openMediaStudio('video') },
-  ], [showJobCreator, setShowSettings, setShowManual, setShowGithub, setShowRecall, focusMode, setFocusMode]);
+  ], [showJobCreator, setShowSettings, setShowManual, setShowGithub, setShowRecall, focusMode, setFocusMode, activeClusterId]);
 
   // ── Tabs (open workflows + clusters) ──
   const tabs = useMemo<Result[]>(() => {

@@ -182,6 +182,16 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: <p>The director finished a reply you have not looked at. It clears when you open the director. Arco never switches focus for you.</p>,
     manualSection: 'cluster-tab',
   },
+  'cluster.nudge.all': {
+    title: 'NUDGE ALL WITH MAIL',
+    body: (
+      <>
+        <p>Nudges every member that has waiting mail, without ticking them. The number is how many members have mail. It works like SEND NUDGE with exactly those members picked: idle members start a turn with the wake-up prompt; busy members get the gentler reminder to read their mail at a convenient point, or after the current turn on providers without mid-turn steering. Members without mail are never nudged.</p>
+        <p>Unavailable when no member has mail; the reason shows under the list. The command palette offers the same action as Cluster: nudge all with mail while a cluster tab is open.</p>
+      </>
+    ),
+    manualSection: 'cluster-nudge-button',
+  },
   'cluster.broadcast.nudge': {
     title: 'Nudge button',
     body: (
@@ -199,6 +209,12 @@ export const clusterHelp: Record<string, HelpEntry> = {
           turn. Members read pending messages with <C>peer_read</C>; sending
           a nudge does not drain the mailbox.{' '}
           <C>Esc</C> closes without sending.
+        </p>
+        <p>
+          <C>NUDGE ALL WITH MAIL (n)</C> in the modal nudges every member
+          with waiting mail at once, idle or busy, the same as ticking them
+          all and pressing SEND NUDGE. The command palette has it as
+          Cluster: nudge all with mail.
         </p>
         <p>
           Distinct from the <C>TO:</C> chooser in the same message box:

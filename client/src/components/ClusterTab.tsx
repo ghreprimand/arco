@@ -19,7 +19,7 @@ import type { SpawnMemberIdentity } from '@arco/shared';
 import { useEffect, useRef, useState } from 'react';
 
 const NUDGED_MS = 120_000;
-import { buildClusterNudge } from '../utils/clusterNudge';
+import { buildClusterNudge, membersWithMail, NUDGE_ALL_NONE, onNudgeAllRequest } from '../utils/clusterNudge';
 import { onVoiceDialog } from '../voice/dialogs';
 import { useAppStore, type ClusterCardLayout } from '../stores/appStore';
 import { MemberPane } from './MemberPane';
@@ -674,6 +674,7 @@ export function ClusterTab({
     // picker opened. Match the composer's busy fallbacks during reconnect.
     const currentJobs = useAppStore.getState().jobs;
     let sent = 0;
+    let reminded = 0;
     for (const member of cluster.members) {
       if (!ids.has(member.workflowId)) continue;
       const job = currentJobs[member.workflowId];
@@ -686,12 +687,16 @@ export function ClusterTab({
         undefined,
         'steer',
       );
-      if (result !== false) { sent++; setNudgedAt((prev) => ({ ...prev, [member.workflowId]: Date.now() })); }
+      if (result !== false) {
+        sent++;
+        if (active) reminded++;
+        setNudgedAt((prev) => ({ ...prev, [member.workflowId]: Date.now() }));
+      }
     }
     if (sent === 0 || !toast) return sent;
     setToasts((prev) => [...prev, {
       id: `nudge-${Date.now()}`,
-      text: `Nudged ${sent} member${sent === 1 ? '' : 's'}`,
+      text: `Nudged ${sent} member${sent === 1 ? '' : 's'}${reminded > 0 ? ` (${reminded} busy: reminded to read mail when convenient)` : ''}`,
       expiresAt: Date.now() + 4500,
     }]);
     return sent;
@@ -700,6 +705,26 @@ export function ClusterTab({
     if (!nudgeSelection || nudgeSelection.size === 0) return;
     if (nudgeMembers(nudgeSelection) > 0) setNudgeSelection(null);
   };
+  // NUDGE ALL WITH MAIL: SEND NUDGE with every member that has waiting mail
+  // ticked, idle or busy. Members without mail are never nudged.
+  const mailMemberIds = membersWithMail(cluster.members, cluster.mailboxDepth);
+  const nudgeAllWithMail = (): number => {
+    if (mailMemberIds.length === 0) {
+      setToasts((prev) => [...prev, { id: `nudge-${Date.now()}`, text: NUDGE_ALL_NONE, expiresAt: Date.now() + 4500 }]);
+      return 0;
+    }
+    const sent = nudgeMembers(new Set(mailMemberIds));
+    if (sent > 0) setNudgeSelection(null);
+    return sent;
+  };
+  // The command palette's "Cluster: nudge all with mail" asks the active cluster tab.
+  const nudgeAllRef = useRef(nudgeAllWithMail);
+  nudgeAllRef.current = nudgeAllWithMail;
+  useEffect(() => onNudgeAllRequest((id) => {
+    if (id !== clusterId) return false;
+    nudgeAllRef.current();
+    return true;
+  }), [clusterId]);
   const cancelNudge = () => setNudgeSelection(null);
   const toggleNudgeMember = (wfid: string) => {
     setNudgeSelection((prev) => {
@@ -1346,7 +1371,10 @@ export function ClusterTab({
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            {mailMemberIds.length === 0 && (
+              <div data-testid="nudge-all-reason" style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>{NUDGE_ALL_NONE}</div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
                 onClick={cancelNudge}
                 className="display-font"
@@ -1361,6 +1389,24 @@ export function ClusterTab({
                 }}
               >
                 CANCEL
+              </button>
+              <button
+                onClick={nudgeAllWithMail}
+                disabled={mailMemberIds.length === 0}
+                data-help="cluster.nudge.all"
+                title={mailMemberIds.length === 0 ? NUDGE_ALL_NONE : 'Nudge every member with waiting mail, idle or busy'}
+                className="display-font"
+                style={{
+                  padding: '6px 14px',
+                  background: 'transparent',
+                  color: mailMemberIds.length === 0 ? 'var(--color-fg-muted)' : 'var(--color-accent-secondary)',
+                  border: `1px solid ${mailMemberIds.length === 0 ? 'var(--color-border-hairline)' : 'var(--color-accent-secondary)'}`,
+                  cursor: mailMemberIds.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '10px',
+                  letterSpacing: '1.5px',
+                }}
+              >
+                NUDGE ALL WITH MAIL ({mailMemberIds.length})
               </button>
               <button
                 onClick={confirmNudge}

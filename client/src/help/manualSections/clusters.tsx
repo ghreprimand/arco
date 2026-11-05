@@ -1191,6 +1191,14 @@ export const clusters: Section[] = [
   </li>
   </ol>
   <p>
+  <strong>NUDGE ALL WITH MAIL (n)</strong>, beside SEND NUDGE, skips the
+  ticking: it nudges every member with waiting mail, idle or busy, in the
+  same way. Members without mail are never nudged. It is unavailable when
+  no member has mail, and the reason shows under the list. The command
+  palette offers it as <Code>Cluster: nudge all with mail</Code> while a
+  cluster tab is open.
+  </p>
+  <p>
   It uses the same steering path as typing into that member&apos;s chat.
   Providers without mid-turn delivery receive the reminder after the
   current turn. The member still reads its mail with{' '}

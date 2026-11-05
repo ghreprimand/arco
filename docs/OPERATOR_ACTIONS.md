@@ -109,7 +109,9 @@ cluster tab.
 
 Member cards show a mail mark with the count when messages are waiting (delivered at the member's next turn). It is muted while the member is busy; when the member is idle with mail it is highlighted and clicking it nudges that member (the mark then reads Nudged, and the composer NUDGE button reads NUDGED with a count, until the member starts its turn), and the tab shows Needs you. The cluster NUDGE button
 shows the total and opens an empty recipient picker; only an explicit selection
-and send starts a reminder.
+and send starts a reminder. NUDGE ALL WITH MAIL (n) in the picker, and
+Cluster: nudge all with mail in the command palette, nudge every member with
+waiting mail at once, idle or busy; members without mail are never nudged.
 
 **Operator-armed idle nudger.** Default OFF; the MAIL ALERTS chip arms it. When
 ON, the server alerts the operator (toast + ACTIVITY row) if a member is idle
