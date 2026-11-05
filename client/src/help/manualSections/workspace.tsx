@@ -449,7 +449,7 @@ export const workspace: Section[] = [
           Genesis), <strong>AGENT</strong> (Activity, Review, Research,
           Handoffs, Plan, Bake-off, Tasks), <strong>MEMORY</strong> (Knowledge,
           Ledger, History, Usage - single-worker and chat tabs; cluster tabs show
-          History only under MEMORY), and <strong>RUNTIME</strong> (Preview,
+          History and Usage under MEMORY), and <strong>RUNTIME</strong> (Preview,
           Config, GitHub).
         </p>
         <p>
@@ -509,7 +509,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="us">USAGE</strong>,
-              <>MEMORY &gt; USAGE in a single-worker or chat tab only (cluster tabs have no USAGE). Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked. From anywhere, ARTIFACTS &gt; STORAGE also offers MEASURE AGAIN.</>,
+              <>MEMORY &gt; USAGE in a single-worker, chat or cluster tab (a cluster tab covers all members). Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked. From anywhere, ARTIFACTS &gt; STORAGE also offers MEASURE AGAIN.</>,
             ],
             [
               <strong key="pv">PREVIEW</strong>,

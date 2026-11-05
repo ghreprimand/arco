@@ -282,7 +282,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 ---
 
-**HISTORY tab** - **MEMORY > HISTORY** in the right panel (single-worker, chat and cluster tabs). Read-only timeline of seq-stamped narrative events for the current workflow. Operator actions: LABEL THIS (`create_label_request` -> persisted `operator_label`), REVIEW FROM HERE (since-event Review), SPAWN FROM HERE (cutoff-aware Spawn). Filter strip persists per-workflow under `arco.historyFilter.byWorkflow`. See [`PRIMITIVES.md section 6 HISTORY-tab actions`](PRIMITIVES.md).
+**HISTORY tab** - **MEMORY > HISTORY** in the right panel (single-worker, chat and cluster tabs). Read-only timeline of seq-stamped narrative events for the current workflow (in a cluster tab, the member in view, named at the top). Operator actions: LABEL THIS (`create_label_request` -> persisted `operator_label`), REVIEW FROM HERE (since-event Review), SPAWN FROM HERE (cutoff-aware Spawn). Filter strip persists per-workflow under `arco.historyFilter.byWorkflow`. See [`PRIMITIVES.md section 6 HISTORY-tab actions`](PRIMITIVES.md).
 
 **operator_label** - Operator-pinned label (<= 200 chars) anchored to a prior event by its `seq`. Persisted to `events.jsonl` so labels survive replay. Append-only in v1; re-label freely.
 

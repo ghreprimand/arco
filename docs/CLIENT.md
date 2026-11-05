@@ -1034,8 +1034,8 @@ ClusterTab (App.tsx routes here when activeClusterId set)
 ├── ClusterRightPanel (right; width persisted, fraction clamped to [0.18, 0.5], default 0.28)
 │   ├── WORKSPACE group - MEMBERS (rows + role/tier/focus/rename/add-worker) and FILES (cluster.cwd)
 │   ├── AGENT group - ACTIVITY, REVIEWS, HANDOFFS, PLAN, BOARD, MAILBOX
-│   ├── MEMORY group - HISTORY (anchored to the first member's workflow history)
-│   └── RUNTIME group - PREVIEW (first-member anchor), CONFIG (member selector + ConfigTab), GITHUB (cluster.cwd)
+│   ├── MEMORY group - HISTORY (the member in view: clusterFocusedMember, else the director, else members[0]; header picker sets the focus) and USAGE (ProjectUsageTab on cluster.cwd: token usage of every member plus MEASURE STORAGE / MEASURE ARCO FOLDER)
+│   └── RUNTIME group - PREVIEW (the member in view, same picker), CONFIG (member selector + ConfigTab), GITHUB (cluster.cwd)
 └── Recipient chooser dialog (opened from the composer's TO chip)
     └── on send to several: cluster_broadcast WS message + local toast
 ```
@@ -1254,7 +1254,7 @@ The creator and member role editor limit new director assignments to one per clu
 
 ### Storage report
 
-In a single-worker or chat tab, open **MEMORY > USAGE** in the right panel. MEASURE STORAGE reads the current project state. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, other conversation files, plans, task boards, worktrees and isolated copies, archived conversations, or other. Each conversation shows its log bytes by event type, activity and open status. Large files are marked. MEASURE AGAIN refreshes the cached result; the measurement time and read errors are shown. Shared checkpoint storage is listed separately. Cluster tabs have no USAGE; from anywhere use ARTIFACTS > STORAGE (MEASURE AGAIN).
+In a single-worker, chat or cluster tab, open **MEMORY > USAGE** in the right panel (a cluster tab reports its shared project folder). MEASURE STORAGE reads the current project state. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, other conversation files, plans, task boards, worktrees and isolated copies, archived conversations, or other. Each conversation shows its log bytes by event type, activity and open status. Large files are marked. MEASURE AGAIN refreshes the cached result; the measurement time and read errors are shown. Shared checkpoint storage is listed separately. Cluster tabs have no USAGE; from anywhere use ARTIFACTS > STORAGE (MEASURE AGAIN).
 
 MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headings for voice and media models, caches and browser profiles, provider account data, saved clusters and server logs. A file with several hard links is counted once. Chat and Genesis project folders inside Arco's folder are skipped and counted with their own projects. Neither report deletes or changes files.
 

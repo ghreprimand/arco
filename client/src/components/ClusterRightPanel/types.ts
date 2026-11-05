@@ -78,6 +78,7 @@ export type SubTab =
   | 'github'
   | 'files'
   | 'history'
+  | 'usage'
   | 'preview'
   | 'config';
 

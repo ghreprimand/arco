@@ -49,7 +49,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.group.memory': {
     title: 'MEMORY group',
-    body: <p>What this tab keeps over time. In a single-worker or chat tab: <C>KNOWLEDGE</C> (saved notes and links), <C>LEDGER</C> (the project task list), <C>HISTORY</C> (past events) and <C>USAGE</C> (tokens and cost; also MEASURE STORAGE / MEASURE ARCO FOLDER). Cluster tabs show <C>HISTORY</C> only under MEMORY; for disk space from anywhere use ARTIFACTS &gt; STORAGE.</p>,
+    body: <p>What this tab keeps over time. In a single-worker or chat tab: <C>KNOWLEDGE</C> (saved notes and links), <C>LEDGER</C> (the project task list), <C>HISTORY</C> (past events) and <C>USAGE</C> (tokens and cost; also MEASURE STORAGE / MEASURE ARCO FOLDER). Cluster tabs show <C>HISTORY</C> (of the member in view) and <C>USAGE</C> (for the whole project folder) under MEMORY; for disk space from anywhere use ARTIFACTS &gt; STORAGE.</p>,
   },
   'rightpanel.group.runtime': {
     title: 'RUNTIME group',
@@ -698,6 +698,20 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'history-tab',
   },
+  'rightpanel.history.rewind': {
+    title: 'REWIND CONVERSATION',
+    body: (
+      <p>
+        Moves the selected worker&apos;s conversation head back to the selected
+        event; the current branch is kept and can be returned to, so a rewind is
+        reversible. Two clicks confirm. It works for Claude Native workers only.
+        For other providers and the Claude CLI the button stays visible but
+        disabled, with the reason beside it. It does not touch files; use{' '}
+        <C>REVERT TO HERE</C> on a checkpoint row for those.
+      </p>
+    ),
+    manualSection: 'history-tab',
+  },
   'rightpanel.history.purge': {
     title: 'PURGE CONVERSATION',
     body: (
@@ -722,8 +736,8 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Open from <C>MEMORY &gt; USAGE</C> in a single-worker or chat tab (cluster
-          tabs have no USAGE; use ARTIFACTS &gt; STORAGE for disk space). Per-provider,
+          Open from <C>MEMORY &gt; USAGE</C> in a single-worker, chat or cluster tab
+          (a cluster tab covers all members, since they share one folder). Per-provider,
           per-day token-volume + cache-hit-ratio trends for every conversation under
           this project's cwd: a quota-pressure read of{' '}
           <em>which tab/model is eating your rolling window</em>, framed as token
@@ -751,11 +765,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'storage.warning-dismiss': { title: 'Dismiss warning', manualSection: 'archive-explorer', body: <p>Dismiss this warning without protecting the item.</p> },
   'rightpanel.storage.scan': {
     title: 'MEASURE STORAGE', manualSection: 'right-panel',
-    body: <p>In a single-worker or chat tab under MEMORY &gt; USAGE, measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately. Cluster tabs have no USAGE; from anywhere use ARTIFACTS &gt; STORAGE (MEASURE AGAIN).</p>,
+    body: <p>Under MEMORY &gt; USAGE in a single-worker, chat or cluster tab, measure the current project's saved state without changing it. Every byte is listed under one heading: conversation logs, artifacts, handoffs, checkpoints, scratch files, plans, task boards, worktrees and isolated copies, archived conversations, or other. MEASURE AGAIN refreshes the cached result. Large files and incomplete scans are marked; shared checkpoint data is listed separately. From anywhere, ARTIFACTS &gt; STORAGE also measures with MEASURE AGAIN.</p>,
   },
   'rightpanel.storage.home': {
     title: 'MEASURE ARCO FOLDER', manualSection: 'right-panel',
-    body: <p>In a single-worker or chat tab under MEMORY &gt; USAGE, measure Arco's own folder without changing it: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters, server logs and other files. Chat and Genesis project folders inside it are skipped here and counted with their own projects. Click again to refresh. From anywhere, ARTIFACTS &gt; STORAGE also measures with MEASURE AGAIN.</p>,
+    body: <p>Under MEMORY &gt; USAGE in a single-worker, chat or cluster tab, measure Arco's own folder without changing it: voice and media models, caches and browser profiles, provider account data, shared checkpoints, task worktrees, saved clusters, server logs and other files. Chat and Genesis project folders inside it are skipped here and counted with their own projects. Click again to refresh. From anywhere, ARTIFACTS &gt; STORAGE also measures with MEASURE AGAIN.</p>,
   },
   'rightpanel.usage.refresh': {
     title: 'REFRESH',

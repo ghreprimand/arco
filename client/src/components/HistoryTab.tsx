@@ -7,6 +7,7 @@ import { FileViewerModal } from './FileViewerModal';
 import { CheckpointActions } from './CheckpointActions';
 import { PurgeConversationModal } from './PurgeConversationModal';
 import { narrativeEventFromMessage } from '../utils/historyEvents';
+import { rewindUnavailableReason } from '../utils/rewindSupport';
 
 // Phase 8 — read-only timeline of a workflow's narrative events. Filter
 // strip + selection state + action bar; LABEL pins a note to the chosen
@@ -190,8 +191,10 @@ export function HistoryTab({ job }: Props) {
   // is reversible — "undo the undo" is just another rewind — so an inline
   // confirm is enough; no modal). The server validates range + busy and forks a
   // child of the selected seq, leaving the abandoned branch intact on disk.
+  const claudeTransportSetting = useAppStore((s) => s.settings?.claude?.transport);
+  const rewindUnavailable = rewindUnavailableReason(job.config, claudeTransportSetting);
   const handleRewind = () => {
-    if (!selected || !wsSendRaw || job.busy) return;
+    if (!selected || !wsSendRaw || job.busy || rewindUnavailable) return;
     if (!rewindConfirm) {
       setRewindConfirm(true);
       return;
@@ -415,27 +418,24 @@ export function HistoryTab({ job }: Props) {
             SPAWN FROM HERE
           </ActionBtn>
           {/* docs/PERSISTENCE.md - conversation rewind (distinct from the git
-              working-tree RESTORE FILES on checkpoint rows). Native-only in v1
-              (server gates the claude-CLI / cascade edge); we hide it for
-              non-Claude providers so it's never offered where it can't work.
-              Two-click confirm. */}
-          {(job.config.primaryProvider ?? 'claude') === 'claude' && (
-            <>
-              <ActionBtn
-                disabled={!selected || !!job.busy}
-                danger={rewindConfirm}
-                onClick={handleRewind}
-                title={job.busy ? 'Cancel the in-flight turn before rewinding' : 'Move the live head to this point; the current branch is kept and can be returned to (Claude Native)'}
-              >
-                {rewindConfirm ? 'CONFIRM REWIND ↩' : 'REWIND CONVERSATION'}
-              </ActionBtn>
-              {rewindConfirm && (
-                <ActionBtn disabled={false} onClick={() => setRewindConfirm(false)}>
-                  CANCEL
-                </ActionBtn>
-              )}
-            </>
+              working-tree REVERT TO HERE on checkpoint rows). Claude Native
+              only (the server refuses other transports); other providers see
+              it disabled with the reason. Two-click confirm. */}
+          <ActionBtn
+            disabled={!selected || !!job.busy || !!rewindUnavailable}
+            danger={rewindConfirm}
+            onClick={handleRewind}
+            dataHelp="rightpanel.history.rewind"
+            title={rewindUnavailable ?? (job.busy ? 'Cancel the in-flight turn before rewinding' : 'Move the live head to this point; the current branch is kept and can be returned to (Claude Native)')}
+          >
+            {rewindConfirm ? 'CONFIRM REWIND ↩' : 'REWIND CONVERSATION'}
+          </ActionBtn>
+          {rewindConfirm && (
+            <ActionBtn disabled={false} onClick={() => setRewindConfirm(false)}>
+              CANCEL
+            </ActionBtn>
           )}
+          {rewindUnavailable && <span data-testid="rewind-unavailable" style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>{rewindUnavailable}</span>}
         </div>
         {/* A4 — checkpoint rows get revert + view-diff actions. Reverted
             markers ("REVERTED ↩") are themselves history: they offer only
@@ -624,12 +624,14 @@ function ActionBtn({
   disabled,
   danger,
   title,
+  dataHelp,
   children,
 }: {
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
   title?: string;
+  dataHelp?: string;
   children: React.ReactNode;
 }) {
   const accent = danger ? 'var(--color-danger)' : 'var(--color-accent-primary)';
@@ -639,6 +641,7 @@ function ActionBtn({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      data-help={dataHelp}
       className="display-font"
       style={{
         padding: '6px 10px',

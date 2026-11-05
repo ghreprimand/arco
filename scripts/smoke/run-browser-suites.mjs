@@ -22,6 +22,7 @@ const SUITES = [
   { name: 'reauth-continuity', script: 'reauth-continuity-browser.py', port: 5203 },
   { name: 'workspace-rename', script: 'workspace-rename-browser.py', port: 5203 },
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },
+  { name: 'cluster-member-panels', script: 'cluster-member-panels-browser.py', port: 5203 },
   { name: 'add-worker-identity', script: 'add-worker-identity-browser.py', port: 5203 },
   { name: 'catch-me-up', script: 'catch-me-up-browser.py', port: 5225 },
   { name: 'tidy-composer', script: 'tidy-composer-browser.py', port: 5226 },

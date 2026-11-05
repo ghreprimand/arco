@@ -1122,7 +1122,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'HISTORY',
     body: (
       <>
-        <p>Past events from the cluster&apos;s first member, which is also the template for new workers. To look through another member&apos;s history, open that member&apos;s own tab and use its HISTORY panel.</p>
+        <p>Past events and checkpoints of the member in view: the member whose card or tab you selected, or the director until you select one. The line at the top names the member; pick another there to switch (the same as clicking its card).</p>
         <p>A cluster with no members shows a placeholder until a worker is added from MEMBERS.</p>
       </>
     ),
@@ -1132,7 +1132,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'PREVIEW',
     body: (
       <>
-        <p>A live view of a local app, bound through the cluster&apos;s first member. Setting a port here sets it on that member.</p>
+        <p>A live view of a local app, bound through the member in view (named at the top, the director until you select another). Setting a port here sets it on that member.</p>
         <p>Most clusters need one app view because members share one project folder. If several members run their own servers, use each member&apos;s own PREVIEW panel.</p>
       </>
     ),
@@ -1225,8 +1225,18 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.group.memory': {
     title: 'MEMORY group',
-    body: <p><C>HISTORY</C>: past events from the cluster&apos;s first member. Cluster tabs have no USAGE; for disk space open ARTIFACTS &gt; STORAGE (MEASURE AGAIN). Token usage and MEASURE STORAGE / MEASURE ARCO FOLDER live under MEMORY &gt; USAGE on a single-worker or chat tab.</p>,
+    body: <p><C>HISTORY</C>: past events and checkpoints of the member in view. <C>USAGE</C>: token usage for every conversation in the cluster&apos;s project folder, all members included, with MEASURE STORAGE and MEASURE ARCO FOLDER.</p>,
     manualSection: 'cluster-tab',
+  },
+  'cluster.right-panel.tab.usage': {
+    title: 'USAGE',
+    body: <p>Token usage per provider and day for every conversation saved in the cluster&apos;s project folder, so all members are included. MEASURE STORAGE measures that folder&apos;s saved state and MEASURE ARCO FOLDER measures Arco&apos;s own folder; neither changes anything.</p>,
+    manualSection: 'cluster-tab',
+  },
+  'cluster.right-panel.member-in-view': {
+    title: 'Member shown',
+    body: <p>Which member HISTORY or PREVIEW shows. It follows the member card or tab you selected and starts at the director. Choosing a member here selects it in the cluster tab too.</p>,
+    manualSection: 'cluster-cwd-tabs',
   },
   'cluster.right-panel.group.runtime': {
     title: 'RUNTIME group',

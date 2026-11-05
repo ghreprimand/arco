@@ -17,7 +17,7 @@ Plans (`<project>/.arco/plans/<id>.md`, their `.refs/` folders and the plan hist
 
 ### How it was measured
 
-The storage report (in a single-worker or chat tab, **MEMORY > USAGE** in the right panel: **MEASURE STORAGE** and **MEASURE ARCO FOLDER**; from anywhere, ARTIFACTS > STORAGE with **MEASURE AGAIN**) walks a state folder in a background worker and puts every file into exactly one bucket. Rules:
+The storage report (in a single-worker, chat or cluster tab, **MEMORY > USAGE** in the right panel: **MEASURE STORAGE** and **MEASURE ARCO FOLDER**; from anywhere, ARTIFACTS > STORAGE with **MEASURE AGAIN**) walks a state folder in a background worker and puts every file into exactly one bucket. Rules:
 
 - Sizes are logical file sizes. The allocated size on disk is reported beside them.
 - A file with several hard links is counted once. The extra links are reported separately.

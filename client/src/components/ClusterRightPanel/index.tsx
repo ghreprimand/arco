@@ -26,6 +26,8 @@ import { ClusterActivityTab } from '../ClusterActivityTab';
 import { GitHubPanel } from '../GitHubPanel';
 import { HistoryTab } from '../HistoryTab';
 import { PreviewTab } from '../PreviewTab';
+import { ProjectUsageTab } from '../RightPanel/UsageTab';
+import { findDirector } from '../clusterSurface.helpers';
 import { ConfigTab } from '../RightPanel/ConfigTab';
 import { ClusterFilesTabBody, type ClusterFilesSubTab } from '../RightPanel/FilesTab';
 import type { ClusterStatePayload, ClusterTaskBoardMode } from '@arco/shared';
@@ -52,6 +54,7 @@ const TABS: { id: SubTab; label: string }[] = [
   { id: 'board', label: 'BOARD' },
   { id: 'mailbox', label: 'MAILBOX' },
   { id: 'history', label: 'HISTORY' },
+  { id: 'usage', label: 'USAGE' },
   { id: 'preview', label: 'PREVIEW' },
   { id: 'config', label: 'CONFIG' },
   { id: 'github', label: 'GITHUB' },
@@ -61,7 +64,7 @@ type GroupId = 'workspace' | 'agent' | 'memory' | 'runtime';
 const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
   { id: 'workspace', label: 'WORKSPACE', tabs: ['members', 'files'] },
   { id: 'agent', label: 'AGENT', tabs: ['activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox'] },
-  { id: 'memory', label: 'MEMORY', tabs: ['history'] },
+  { id: 'memory', label: 'MEMORY', tabs: ['history', 'usage'] },
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
 const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
@@ -843,13 +846,14 @@ export function ClusterRightPanel({ cluster, planTabRequest, membersTabRequest, 
         {tab === 'files' && <ClusterFilesTabBody cluster={cluster} subTab={filesSubTab} onSubTab={setFilesSubTab} />}
         {/* HISTORY + PREVIEW are intrinsically per-workflow (they emit WS
             messages keyed by workflowId and read JobState fields like
-            taskChildren / preview.port). Cluster-scoped variants would
-            require a server-side aggregation pass; the simpler win is to
-            pin them to the cluster anchor (members[0]): the template
-            worker, same one SPAWN PHASE inherits from. If no member exists
-            yet (empty cluster), show an empty state. */}
+            taskChildren / preview.port). They follow the member in view (the
+            focused member card or tab; the director by default) and name it
+            in a header with a member picker. If no member exists yet (empty
+            cluster), show an empty state. USAGE is per project folder, so it
+            covers every member. */}
         {tab === 'history' && <ClusterAnchoredHistory cluster={cluster} />}
         {tab === 'preview' && <ClusterAnchoredPreview cluster={cluster} />}
+        {tab === 'usage' && <ProjectUsageTab cwd={cluster.cwd} note="Covers every conversation saved in this project folder, all members included." />}
         {tab === 'config' && (
           <ClusterConfigTab
             cluster={cluster}
@@ -1074,35 +1078,63 @@ function ClusterConfigTab({
   );
 }
 
-// Pull the cluster anchor's JobState from the store and hand it to HistoryTab
-// unmodified. Empty-state when the cluster has no members (just-detached
-// last member, or in-flight teardown).
+// HISTORY and PREVIEW show one member at a time: the member in view (the
+// focused member card or tab), else the director, else the first member.
+function useMemberInView(cluster: ClusterStatePayload) {
+  const focused = useAppStore((s) => s.clusterFocusedMember[cluster.clusterId]);
+  return cluster.members.find((m) => m.workflowId === focused) ?? findDirector(cluster.members) ?? cluster.members[0];
+}
+
+// Names the member a per-member panel shows, with a picker that focuses
+// another member (the same as clicking its card).
+function MemberInViewHeader({ cluster, memberId, what }: { cluster: ClusterStatePayload; memberId: string; what: string }) {
+  const setFocused = useAppStore((s) => s.setClusterFocusedMember);
+  return (
+    <label data-help="cluster.right-panel.member-in-view" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }} className="display-font">
+      {what} OF
+      <select aria-label={`${what} of member`} value={memberId} onChange={(e) => setFocused(cluster.clusterId, e.target.value)}
+        style={{ background: 'var(--color-bg)', color: 'var(--color-fg)', border: '1px solid var(--color-border-hairline)', fontSize: '11px', padding: '1px 4px' }}>
+        {cluster.members.map((m) => (
+          <option key={m.workflowId} value={m.workflowId}>{m.displayName || m.workflowId.slice(0, 8)}{m.role ? ` (${m.role})` : ''}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function ClusterAnchoredHistory({ cluster }: { cluster: ClusterStatePayload }) {
-  const anchorWfid = cluster.members[0]?.workflowId;
+  const member = useMemberInView(cluster);
+  const anchorWfid = member?.workflowId;
   const job = useAppStore((s) => (anchorWfid ? s.jobs[anchorWfid] : undefined));
   if (!anchorWfid || !job) {
     return (
       <div style={{ color: 'var(--color-fg-muted)', fontSize: '11px', padding: '8px' }}>
-        No anchor member yet: HISTORY is sourced from the cluster&apos;s first
-        member. Add a worker from the MEMBERS tab to populate.
+        No member yet: HISTORY shows the member in view. Add a worker from the
+        MEMBERS tab to populate.
       </div>
     );
   }
-  return <HistoryTab job={job} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <MemberInViewHeader cluster={cluster} memberId={anchorWfid} what="HISTORY" />
+      <HistoryTab key={anchorWfid} job={job} />
+    </div>
+  );
 }
 
 // PREVIEW is wired through the App-level setPreviewPort / clearPreviewPort
 // senders, which route to wsSendRaw under the hood. Reach for wsSendRaw
 // directly so we don't have to thread two more props from ClusterTab.
 function ClusterAnchoredPreview({ cluster }: { cluster: ClusterStatePayload }) {
-  const anchorWfid = cluster.members[0]?.workflowId;
+  const member = useMemberInView(cluster);
+  const anchorWfid = member?.workflowId;
   const job = useAppStore((s) => (anchorWfid ? s.jobs[anchorWfid] : undefined));
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   if (!anchorWfid || !job) {
     return (
       <div style={{ color: 'var(--color-fg-muted)', fontSize: '11px', padding: '8px' }}>
-        No anchor member yet: PREVIEW is sourced from the cluster&apos;s first
-        member. Add a worker from the MEMBERS tab to populate.
+        No member yet: PREVIEW shows the member in view. Add a worker from the
+        MEMBERS tab to populate.
       </div>
     );
   }
@@ -1121,5 +1153,10 @@ function ClusterAnchoredPreview({ cluster }: { cluster: ClusterStatePayload }) {
     if (!wsSendRaw) return;
     wsSendRaw({ type: 'clear_preview_port', workflowId: anchorWfid });
   };
-  return <PreviewTab job={job} onSetPort={onSetPort} onClear={onClear} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <MemberInViewHeader cluster={cluster} memberId={anchorWfid} what="PREVIEW" />
+      <PreviewTab key={anchorWfid} job={job} onSetPort={onSetPort} onClear={onClear} />
+    </div>
+  );
 }

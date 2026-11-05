@@ -73,7 +73,7 @@ export const clusters: Section[] = [
   MAILBOX.
   </li>
   <li>
-  <strong>MEMORY</strong> - HISTORY, from the anchor member. No USAGE here; use ARTIFACTS &gt; STORAGE for disk space, or MEMORY &gt; USAGE on a single-worker or chat tab.
+  <strong>MEMORY</strong> - HISTORY of the member in view, and USAGE for the whole project folder (token usage of all members, MEASURE STORAGE and MEASURE ARCO FOLDER).
   </li>
   <li>
   <strong>RUNTIME</strong> - PREVIEW / CONFIG / GITHUB.
@@ -1835,16 +1835,16 @@ export const clusters: Section[] = [
   <p>
   <strong><Code>HISTORY</Code></strong> and{' '}
   <strong><Code>PREVIEW</Code></strong> belong to individual workflows.
-  In the cluster panel they show the <strong>anchor member</strong>, the
-  first member and the one <Code>SPAWN PHASE</Code> inherits from.{' '}To scrub another member's history or bind a port on another member,
-  focus that member's tab and use its own HISTORY / PREVIEW tab.
+  In the cluster panel they show the <strong>member in view</strong>: the
+  member whose card or tab you selected, or the director until you select
+  one. A line at the top names that member; choosing another there selects
+  it in the cluster tab, the same as clicking its card.
   </p>
   <Note kind="tip">
   Most clusters only need one dev server total - the team is working
-  one cwd - so anchor-pinned PREVIEW matches the natural workflow.
-  Empty clusters (no members yet) show a placeholder on HISTORY /
-  PREVIEW; GITHUB and FILES work regardless because they only need
-  the cwd.
+  one cwd - so bind PREVIEW on the member that runs it. Empty clusters
+  (no members yet) show a placeholder on HISTORY / PREVIEW; GITHUB and
+  FILES work regardless because they only need the cwd.
   </Note>
   </>
   ),

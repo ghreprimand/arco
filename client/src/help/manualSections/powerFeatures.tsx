@@ -157,7 +157,8 @@ export const powerFeatures: Section[] = [
   abandoned branch stays on disk, so a rewind is itself reversible: undoing it is
   just another rewind. It uses a two-click confirm (the button becomes{' '}
   <Code>CONFIRM REWIND ↩</Code>, with a CANCEL escape) and is blocked while a
-  turn is in flight. The button is hidden for other providers.
+  turn is in flight. For other providers and the Claude CLI the button is shown
+  disabled, with the reason beside it.
   </li>
   </ul>
   <Note>

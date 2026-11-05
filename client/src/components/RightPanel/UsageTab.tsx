@@ -33,8 +33,7 @@ function providerColor(p: ProviderName): string {
   return PROVIDER_COLORS[p] ?? 'var(--color-accent-primary)';
 }
 
-function UsageContent({ job }: { job: JobState }) {
-  const cwd = job.config.workingDirectory;
+function UsageContent({ cwd }: { cwd: string | undefined }) {
   // Cursor is the one provider whose usage is POLLED from the authed dashboard
   // API rather than summed from per-turn events (ACP carries no token counts).
   // Its card rides on top of the per-project aggregation and renders even when
@@ -467,5 +466,18 @@ function StorageReportPanel({ cwd }: { cwd: string }) {
   </section>;
 }
 export function UsageTab({ job }: { job: JobState }) {
-  return <div style={{ overflowY: 'auto', flex: 1 }}><StorageReportPanel key={job.config.workingDirectory || ''} cwd={job.config.workingDirectory || ''} /><UsageContent job={job} /></div>;
+  return <ProjectUsageTab cwd={job.config.workingDirectory || ''} />;
+}
+
+// USAGE for a project folder: the storage report and token usage summed over
+// every conversation saved there. A cluster tab passes its shared folder, so
+// the figures cover all members.
+export function ProjectUsageTab({ cwd, note }: { cwd: string; note?: string }) {
+  return (
+    <div style={{ overflowY: 'auto', flex: 1 }}>
+      {note && <div style={{ padding: '6px 14px 0', fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>{note}</div>}
+      <StorageReportPanel key={cwd} cwd={cwd} />
+      <UsageContent cwd={cwd || undefined} />
+    </div>
+  );
 }
