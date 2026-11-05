@@ -17,7 +17,7 @@ layout for workflow and cluster tabs. Deep contracts:
 | **Spawn from here** | Forks the current context to a new tab with a configurable model/effort. Original tab continues in parallel. |
 | **Live model/effort swap** | Edit MODEL and EFFORT in the CONFIG tab. Takes effect on the next turn. Provider swaps require a Handoff (session rotation). |
 | **BRIEF** | In a cluster tab the composer's BRIEF offers THIS WORKER or WHOLE CLUSTER. Ask the utility agent for a short synopsis of one worker or the whole cluster from facts Arco can see. Lists the facts; sends nothing to any worker. Needs a utility agent. |
-| **CATCH ME UP** | Summarize workflow or cluster activity since the last visit, with the time range covered. Needs a utility agent. |
+| **CATCH ME UP** | Summarize workflow or cluster activity from the earlier of the last visit or last operator message. An empty range makes no model call and offers SINCE LAST TURN, LAST HOUR and TODAY. Needs a utility agent. |
 | **TIDY** | Ask the utility agent to propose a clearer composer draft. **ACCEPT** replaces the draft only; TIDY never sends. Needs a utility agent. |
 
 ## Right-panel tabs

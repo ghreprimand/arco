@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectCatchUpFacts, readCatchUpEvents, resolveCatchUpWindow } from './catchUp.js';
+import { catchUpActivityTimes, catchUpMarkerStart, collectCatchUpFacts, readCatchUpEvents, resolveCatchUpWindow } from './catchUp.js';
 import { buildUtilityPrompt } from './utilityJob.js';
 import { UTILITY_JOB_INPUT_MAX_CHARS } from '@arco/shared';
 
@@ -95,4 +95,16 @@ test('resolveCatchUpWindow clamps older tabs to the last 24 hours', () => {
     { id: 'a', label: 'Worker', events: [{ ts: earliest, type: 'user_message_echo', content: 'Hello' }] },
   ], end);
   assert.deepEqual(window, { from: end - 24 * 60 * 60 * 1000 });
+});
+
+
+test('default starts at the earlier of the last operator message and visit', () => {
+  const times = catchUpActivityTimes([{ id: 'a', label: 'Worker', events: [
+    { ts: 10, type: 'user_message_echo', content: 'begin' },
+    { ts: 20, type: 'primary_text', text: 'answer' },
+  ] }], 30);
+  assert.deepEqual(times, { lastActivity: 20, lastOperator: 10 });
+  assert.equal(catchUpMarkerStart(25, times.lastOperator), 9);
+  assert.equal(catchUpMarkerStart(5, times.lastOperator), 4);
+  assert.equal(catchUpMarkerStart(5, null), 4);
 });

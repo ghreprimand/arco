@@ -23,6 +23,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- CATCH ME UP skips the model for empty ranges, offers wider ranges and keeps failed summaries out of chat.
+
 - VIEW DIFF VS NOW on a checkpoint works in folders that are not Git repositories, and in Git folders it no longer shows untracked files as deleted and re-added.
 - REVERT TO HERE says what it will change before it runs: files changed back, files created since that are removed, files deleted since that are restored, and files unchanged, or that nothing would change. Afterwards a result line and the REVERTED row in HISTORY show the counts, with VIEW CHANGES for the diff. The dialog states that only files are restored, not the conversation, task board or other cluster members, and in a cluster that other members' edits in the folder are reverted too.
 - RESTORE IGNORE FILE and STOP TRACKING change only projects in the PROJECTS list, and refuse with a message when `.arco` or `.arco/.gitignore` is a link.

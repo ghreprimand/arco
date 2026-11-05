@@ -41,11 +41,18 @@ test('catch-up route collects and logs bounded workflow activity; cancellation s
     assert.equal(result.body.facts[0].value, 'fixture event'); assert.ok(result.body.to >= body.from);
     await flushWorkflowBuffer(cwd, id);
     assert.match(readFileSync(join(dir, 'events.jsonl'), 'utf8'), /Catch me up.*Fixture summary/);
+    const logBeforeEmpty = readFileSync(join(dir, 'events.jsonl'), 'utf8');
+    const empty = await request('/api/utility-agent/catch-up', { ...body, jobId: 'catch-empty', from: Date.now() });
+    assert.equal(empty.body.empty, true); assert.equal(calls, 1);
+    await flushWorkflowBuffer(cwd, id);
+    assert.equal(readFileSync(join(dir, 'events.jsonl'), 'utf8'), logBeforeEmpty);
     const pending = request('/api/utility-agent/catch-up', { ...body, jobId: 'catch-cancel' });
     for (let i = 0; calls < 2 && i < 100; i++) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(calls, 2);
     const cancelled = await request('/api/utility-agent/cancel', { jobId: 'catch-cancel' });
     assert.equal(cancelled.body.cancelled, true); finish(); assert.equal((await pending).body.status, 'cancelled');
+    await flushWorkflowBuffer(cwd, id);
+    assert.equal(readFileSync(join(dir, 'events.jsonl'), 'utf8'), logBeforeEmpty);
     const missing = await request('/api/utility-agent/catch-up', { ...body, jobId: 'catch-missing', id: 'missing' });
     assert.equal(missing.code, 409);
   } finally {

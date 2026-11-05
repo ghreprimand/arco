@@ -26,7 +26,7 @@ async def main():
                     body = json.loads(route.request.post_data or '{}'); state['requests'].append(body)
                     if state['mode'] == 'empty':
                         await route.fulfill(json={'jobId': body['jobId'], 'status': 'ok', 'empty': True, 'from': 0, 'to': 0, 'facts': [], 'elapsedMs': 0}); return
-                    start = body['from'] if isinstance(body.get('from'), (int, float)) else 1_700_000_000_000
+                    start = body['marker'] if isinstance(body.get('marker'), (int, float)) else 1_700_000_000_000
                     result = {'jobId': body['jobId'], 'from': start, 'to': start + 60000, 'facts': [{'label': 'Worker Reply', 'value': 'Fixture work completed'}], 'elapsedMs': 10, 'agent': {'provider': 'ollama', 'model': 'tiny'}}
                     if state['mode'] == 'slow': await state['release'].wait()
                     result['status'] = {'ok': 'ok', 'timeout': 'timeout', 'slow': 'cancelled'}[state['mode']]
@@ -92,7 +92,14 @@ async def main():
         dialog = page.get_by_role('dialog')
         await dialog.get_by_role('button', name='SUMMARIZE').click()
         await expect(dialog).to_contain_text('Nothing has happened in this tab yet.')
-        assert 'from' not in state['requests'][-1]
+        assert 'marker' not in state['requests'][-1]
+        await expect(dialog.get_by_role('button', name='SINCE LAST TURN')).to_be_visible()
+        await expect(dialog.get_by_role('button', name='LAST HOUR')).to_be_visible()
+        await expect(dialog.get_by_role('button', name='TODAY')).to_be_visible()
+        state['mode'] = 'ok'
+        await dialog.get_by_role('button', name='LAST HOUR').click()
+        await expect(dialog).to_contain_text('Fixture work completed.')
+        assert state['requests'][-1]['range'] == 'hour'
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()

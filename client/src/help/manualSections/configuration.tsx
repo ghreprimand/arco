@@ -995,15 +995,16 @@ export const configuration: Section[] = [
   </ul>
   <Sub>CATCH ME UP</Sub>
   <p>
-  Use CATCH ME UP on a workflow or cluster to summarize activity since the tab
-  was last viewed in this browser. The view marker is stored in this browser.
+  Use CATCH ME UP to summarize workflow or cluster activity from the earlier
+  of the last visit or last operator message. The visit marker is stored in
+  this browser.
   </p>
   <ul>
   <li>
   When no previous visit is recorded, SUMMARIZE covers the tab from its
   start, or the last 24 hours if older, and shows that range.
   </li>
-  <li>A tab with no activity answers that nothing has happened yet.</li>
+  <li>When the range has no activity, no model is called. SINCE LAST TURN, LAST HOUR and TODAY offer another range.</li>
   <li>
   The dialog shows the requested time range, answering model, facts used and
   any omissions.

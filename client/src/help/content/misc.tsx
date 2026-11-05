@@ -14,7 +14,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'utility.catch-up': {
     title: 'Catch me up',
-    body: <p>Summarizes bounded workflow or cluster transcript and board activity since this tab was last viewed in this browser. When no previous visit is recorded, Summarize covers the tab from its start, or the last 24 hours if older, and shows that range. A tab with no activity answers &quot;Nothing has happened in this tab yet.&quot; The dialog shows the time range, model, facts and any omissions. A utility agent must be chosen first. Running is explicit and can be cancelled.</p>,
+    body: <p>Summarizes bounded workflow or cluster activity from the earlier of the last visit or last operator message. Without a previous visit, SUMMARIZE covers the tab from its start or the last 24 hours. When a range has no activity, no model is called; SINCE LAST TURN, LAST HOUR and TODAY offer another range. The dialog shows the range, facts and omissions. Choose a utility agent first. Running can be cancelled.</p>,
     manualSection: 'utility-agent',
   },
   'home.start': {

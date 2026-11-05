@@ -322,7 +322,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **BRIEF** - Operator button that asks the utility agent for a short synopsis of one worker or the whole cluster from deterministic client-collected facts (turn state, current step and elapsed time, Queued or Delivered for the last operator message, recent events, pending question, mail, board task, worktree changes). Lists the facts; sends nothing to any worker.
 
-**CATCH ME UP** - Operator button that asks the utility agent to summarize workflow or cluster activity since the last visit, with the time range covered. Unloaded or Incognito cluster members are skipped with a note.
+**CATCH ME UP** - Operator button that asks the utility agent to summarize workflow or cluster activity from the earlier of the last visit or last operator message. Empty ranges offer SINCE LAST TURN, LAST HOUR and TODAY without a model call. Unloaded or Incognito cluster members are skipped with a note.
 
 **TIDY** - Composer control that asks the utility agent to propose a clearer draft. **ACCEPT** replaces the composer text only; TIDY never sends. **KEEP ORIGINAL** and Escape leave the draft unchanged.
 

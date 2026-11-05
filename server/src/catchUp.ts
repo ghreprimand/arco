@@ -46,6 +46,23 @@ export function boardMovement(sources: CatchUpSource[], from: number, to: number
   return parts.join('; ');
 }
 
+/** Most recent meaningful activity and operator message in the available tail. */
+export function catchUpActivityTimes(sources: CatchUpSource[], end: number): { lastActivity: number | null; lastOperator: number | null } {
+  let lastActivity: number | null = null, lastOperator: number | null = null;
+  for (const source of sources) for (const event of source.events) {
+    if (typeof event.ts !== 'number' || event.ts > end || event.ts < 0) continue;
+    const value = catchUpValue(event);
+    if (!value?.value.trim()) continue;
+    lastActivity = Math.max(lastActivity ?? 0, event.ts);
+    if (event.type === 'user_message_echo') lastOperator = Math.max(lastOperator ?? 0, event.ts);
+  }
+  return { lastActivity, lastOperator };
+}
+
+export function catchUpMarkerStart(marker: number, lastOperator: number | null): number {
+  return Math.max(0, Math.min(marker, lastOperator ?? marker) - 1);
+}
+
 /** When no visit marker exists: empty tab, or from = tab start / last 24 hours. */
 export function resolveCatchUpWindow(sources: CatchUpSource[], end: number): { empty: true } | { from: number } {
   let earliest: number | null = null;
@@ -67,7 +84,7 @@ export function resolveCatchUpWindow(sources: CatchUpSource[], end: number): { e
 
 // Select only transcript and board activity, in timestamp order. Text fragments
 // adjacent within one worker are joined before applying the per-fact limit.
-export function collectCatchUpFacts(sources: CatchUpSource[], from: number, to: number): { facts: UtilityJobFact[]; truncated: boolean } {
+export function collectCatchUpFacts(sources: CatchUpSource[], from: number, to: number): { facts: UtilityJobFact[]; truncated: boolean; activityCount: number } {
   const rows: Array<{ ts: number; label: string; value: string; kind: string; id: string }> = [];
   let truncated = sources.some((s) => s.truncated);
   for (const source of sources) {
@@ -93,7 +110,7 @@ export function collectCatchUpFacts(sources: CatchUpSource[], from: number, to: 
   if (movement) facts.push({ label: 'Board movement in this range', value: movement });
   // A member that is not loaded or is incognito is skipped, and said so.
   for (const source of sources) if (source.unavailable) facts.push({ label: source.label.slice(0, 64), value: 'activity not available' });
-  return { facts, truncated };
+  return { facts, truncated, activityCount: rows.length };
 }
 
 export async function readCatchUpEvents(cwd: string, id: string): Promise<{ events: CatchUpEvent[]; truncated: boolean }> {
