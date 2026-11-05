@@ -19,6 +19,7 @@ import { awaitModelImages, modelImagePath } from './attachments.js';
 import { applyOllamaParams, effectiveNumCtx, parseArchContextLength } from './ollamaParams.js';
 import { loadedContextLength } from './ollamaVram.js';
 import { subsetOllamaTools } from './ollamaToolSubset.js';
+import { decideLocalToolCall, dispatchLocalToolCalls, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { addGenSpeed, estimatePromptTokens, genSpeedFromOllamaDone, OLLAMA_DEFAULT_WINDOW, type GenSpeedSample } from './ollamaTokens.js';
 import {
   resolveToolMode,
@@ -149,6 +150,16 @@ export function ollamaToolCallAllowed(
   if (config.voiceOperator) return computerToolDefinitions().some((t) => t.function.name === toolName);
   return config.chatWebAccess === true && OLLAMA_CHAT_WEB_TOOLS.has(toolName);
 }
+
+// Tool-call rules for Ollama (see localToolDispatch.ts). Computer chats run
+// every call through Computer first; the loop coach never ends the turn
+// because Ollama has no final-summary path.
+const OLLAMA_TOOL_RULES = (config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator'>): LocalToolRules => ({
+  computer: 'first',
+  boundary: (name) => ollamaToolCallAllowed(config, name) ? null : `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`,
+  unknownTool: (name) => `[error] unknown tool "${name}". The Ollama tool runtime is on a strict allowlist; see docs/PROVIDERS.md §Ollama for the v1 set.`,
+  endTurnOnRepeat: false,
+});
 
 export function ollamaChatWebReminder(
   config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess'>,
@@ -1155,74 +1166,28 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     loopDetector: ToolLoopDetector,
     observedToolNames?: Set<string>,
   ): Promise<OllamaChatMessage[]> {
-    const cwd = this.config.cwd;
-    const toolMessages: OllamaChatMessage[] = [];
-    for (const call of calls) {
-      // Cancel mid-batch: Write/Edit don't consult the abort signal, so a
-      // [Bash, Write, Edit] batch cancelled during Bash would otherwise still
-      // mutate files after "Worker killed". Callers re-check the signal and
-      // bail, so the partial result list is never sent back to the model.
-      if (this.abortController?.signal.aborted) break;
+    const rt: LocalToolRuntime = {
+      cwd: this.config.cwd,
+      autoMode,
+      computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
+      loop: loopDetector,
+      runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
+      runTool: (name, args, cwd) => executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId }),
+      notice: (text) => this.emit('system_notice', text),
+    };
+    return dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
       const name = call.function.name;
       const args = call.function.arguments;
       observedToolNames?.add(name);
       // UI surfacing — same shape as the Claude path's tool_use event so the
       // existing chat renderer + activity tab light up unchanged.
       const toolUseId = randomUUID();
-      this.emit('tool_use', {
-        name,
-        input: JSON.stringify(args),
-        toolUseId,
-      });
-
-      let result: string;
-      if (call.argError) {
-        // Malformed-JSON arguments from the model — surface the parse
-        // failure rather than executing with a defaulted-empty arg set
-        // (which usually fires a tool against the wrong target).
-        result = `[error] tool "${name}" arguments rejected: ${call.argError}`;
-      } else if (this.config.interactionMode === 'chat' && this.config.voiceOperator) {
-        result = await executeComputerTool(this.config.workflowId, name, args);
-      } else if (!ollamaToolCallAllowed(this.config, name)) {
-        result = `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`;
-      } else if (!autoMode) {
-        result =
-          `[Arco SAFE mode] tool "${name}" was not executed. ` +
-          'The local provider runs tools server-side only when AUTO mode is enabled on this workflow. ' +
-          'Tell the operator what you were going to do, or answer from what they have shown you.';
-      } else if (!cwd) {
-        // The tool runtime needs a workflow cwd to anchor path validation.
-        // Heretic reviewer / one-shot spawns without a cwd are out of scope
-        // for tools; refuse rather than execute relative to the server's
-        // own working directory.
-        result = `[error] tool "${name}" requires a workflow cwd; this spawn has none.`;
-      } else if (!isKnownOllamaTool(name)) {
-        result = `[error] unknown tool "${name}". The Ollama tool runtime is on a strict allowlist; see docs/PROVIDERS.md §Ollama for the v1 set.`;
-      } else {
-        // Loop detection: identical (name, args) past the threshold returns
-        // a coaching message instead of re-executing. See ToolLoopDetector
-        // in ollamaTools.ts for the rationale and threshold tuning.
-        // Ollama provider doesn't have the llama.cpp final-summary path,
-        // so terminate falls back to one more coaching pass — same outward
-        // behavior as before this flag existed. Wire termination here if
-        // Ollama gets a recovery scaffold.
-        const { coach, previousCount } = loopDetector.shouldCoach(name, args);
-        if (coach) {
-          result = loopDetector.coachingMessage(name, previousCount + 1);
-          this.emit('system_notice', `tool-loop coach: "${name}" called ${previousCount + 1}x with identical args — injected coaching message instead of re-executing`);
-        } else {
-          result = await executeOllamaTool(name, args, {
-            cwd,
-            abortSignal: this.abortController?.signal,
-            workflowId: this.config.workflowId,
-            clusterId: this.config.clusterId,
-          });
-        }
-      }
+      this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId });
+      // Malformed-JSON arguments arrive as argError from the stream parser.
+      const result = await decideLocalToolCall(name, { args, argError: call.argError }, OLLAMA_TOOL_RULES(this.config), rt);
       if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId, status: result.startsWith('[error]') ? 'failed' : 'completed', output: result });
-      toolMessages.push({ role: 'tool', content: result });
-    }
-    return toolMessages;
+      return { role: 'tool', content: result } as OllamaChatMessage;
+    });
   }
 
   // M4 — emit a routing event onto the system_notice channel so it lands in

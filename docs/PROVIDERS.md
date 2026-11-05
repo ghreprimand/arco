@@ -1653,7 +1653,7 @@ Same 5 MB cap and `.png/.jpg/.jpeg/.gif/.webp` allowlist as the Ollama path.
 
 ### Tool runtime
 
-Reused from `ollamaTools.ts` - the local-tool runtime (Bash/Read/Write/etc.) is provider-agnostic. AUTO mode executes; SAFE mode returns a denial string the model treats as the tool result so the loop converges without an operator-approval ping-pong. `isKnownOllamaTool()` is a strict allowlist gate; tools the model invents are rejected.
+Reused from `ollamaTools.ts` - the local-tool runtime (Bash/Read/Write/etc.) is provider-agnostic, and every local provider decides each call through `decideLocalToolCall` in `localToolDispatch.ts` with its own rules. AUTO mode executes; SAFE mode returns a denial string the model treats as the tool result so the loop converges without an operator-approval ping-pong. `isKnownOllamaTool()` is a strict allowlist gate; tools the model invents are rejected.
 
 OpenAI fragment-assembly: tool calls arrive across multiple SSE events, partial by `index`. Reassembled in `partialToolCalls` map, emitted as a single `ToolCall[]` once `finish_reason === 'tool_calls'`.
 

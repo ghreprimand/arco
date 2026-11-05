@@ -9,7 +9,6 @@ import { markAvailable } from '../quota.js';
 import {
   executeOllamaTool,
   getOllamaToolDefinitions,
-  isKnownOllamaTool,
   ToolLoopDetector,
   type OllamaToolDefinition,
 } from './ollamaTools.js';
@@ -18,6 +17,7 @@ import {
   ollamaChatWebReminder, ThinkSplitter, parseRenderedTranscript,
 } from './ollama.js';
 import { addGenSpeed } from './ollamaTokens.js';
+import { decideLocalToolCall, dispatchLocalToolCalls, localUnknownToolResult, parseToolArguments, toolNotEnabledResult, truncateLocalToolResult, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { goalBlock } from './goalBlock.js';
 import { awaitModelImages, modelImagePath } from './attachments.js';
 import {
@@ -138,23 +138,6 @@ function mediaTypeFor(p: string): string {
   if (ext === '.gif') return 'image/gif';
   if (ext === '.webp') return 'image/webp';
   return 'application/octet-stream';
-}
-
-function truncateToolResult(name: string, raw: string): string {
-  const total = TOOL_RESULT_HEAD_BYTES + TOOL_RESULT_TAIL_BYTES;
-  if (raw.length <= total + 200) return raw;
-  if (name === 'Read') {
-    const lines = raw.split('\n');
-    if (lines.length <= 250) return raw;
-    const head = lines.slice(0, 100).join('\n');
-    const tail = lines.slice(-100).join('\n');
-    const elided = lines.length - 200;
-    return `${head}\n\n[... ${elided} lines elided by Arco to keep LM Studio context lean — re-read with explicit line range if needed ...]\n\n${tail}`;
-  }
-  const head = raw.slice(0, TOOL_RESULT_HEAD_BYTES);
-  const tail = raw.slice(-TOOL_RESULT_TAIL_BYTES);
-  const elided = raw.length - head.length - tail.length;
-  return `${head}\n\n[... ${elided} bytes of tool output elided by Arco to keep LM Studio context lean ...]\n\n${tail}`;
 }
 
 // Stub throttle parser for symmetry with the subprocess providers. LM Studio
@@ -546,77 +529,45 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
     autoMode: boolean,
     loopDetector: ToolLoopDetector,
   ): Promise<ChatMessage[]> {
-    const cwd = this.config.cwd;
-    const out: ChatMessage[] = [];
-    for (const call of calls) {
-      // Cancel mid-batch: Write/Edit ignore the abort signal, so without this
-      // a batch cancelled during an earlier Bash still mutates files after
-      // "Worker killed". The caller re-checks the signal and bails.
-      if (this.abortController?.signal.aborted) break;
+    const runtimeEvents = this.connection.name === 'strata' || this.connection.name === 'deepseek';
+    // Tool-call rules (see localToolDispatch.ts): a name not offered this turn
+    // or outside the Chat boundary is refused first; a Computer chat runs its
+    // tools after that check.
+    const rules: LocalToolRules = {
+      computer: 'after-boundary',
+      boundary: (name) => !this.advertisedTools.has(name) || !ollamaToolCallAllowed(this.config, name) ? toolNotEnabledResult(name) : null,
+      unknownTool: localUnknownToolResult,
+      endTurnOnRepeat: true,
+    };
+    const rt: LocalToolRuntime = {
+      cwd: this.config.cwd,
+      autoMode,
+      computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
+      loop: loopDetector,
+      runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
+      runTool: (name, args, cwd) => executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId }),
+      notice: (text) => this.emit('system_notice', text),
+    };
+    return dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
       const name = call.function.name;
-      let args: Record<string, unknown> = {};
-      let argError: string | undefined;
-      if (call.function.arguments) {
-        try {
-          const parsed = JSON.parse(call.function.arguments);
-          if (parsed && typeof parsed === 'object') args = parsed as Record<string, unknown>;
-          else argError = `arguments JSON parsed to a non-object (${typeof parsed})`;
-        } catch (e) {
-          const preview = call.function.arguments.slice(0, 80);
-          argError = `arguments not JSON-parseable (${(e as Error).message}); received: ${JSON.stringify(preview)}`;
-        }
-      }
-
+      const parsed = parseToolArguments(call.function.arguments);
+      const { args } = parsed;
       this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId: call.id,
-        ...((this.connection.name === 'strata' || this.connection.name === 'deepseek') ? { id: call.id, status: 'started', provider: this.connection.name } : {}) });
-
-      let result: string;
-      if (argError) {
-        result = `[error] tool "${name}" arguments rejected: ${argError}`;
-      } else if (!this.advertisedTools.has(name) || !ollamaToolCallAllowed(this.config, name)) {
-        result = `[error] tool "${name}" is not enabled for this turn.`;
-      } else if (this.config.interactionMode === 'chat' && this.config.voiceOperator) {
-        result = await executeComputerTool(this.config.workflowId, name, args);
-      } else if (!autoMode) {
-        result =
-          `[Arco SAFE mode] tool "${name}" was not executed. ` +
-          'The local provider runs tools server-side only when AUTO mode is enabled on this workflow. ' +
-          'Tell the operator what you were going to do, or answer from what they have shown you.';
-      } else if (!cwd) {
-        result = `[error] tool "${name}" requires a workflow cwd; this spawn has none.`;
-      } else if (!isKnownOllamaTool(name)) {
-        result = `[error] unknown tool "${name}". The local-tool runtime is on a strict allowlist; see docs/PROVIDERS.md.`;
-      } else {
-        const { coach, terminate, previousCount } = loopDetector.shouldCoach(name, args);
-        if (terminate) {
-          result = loopDetector.terminationMessage(name, previousCount + 1);
-          this.emit('system_notice', `tool-loop terminating: "${name}" called ${previousCount + 1}x with identical args after coaching ignored — ending turn`);
-        } else if (coach) {
-          result = loopDetector.coachingMessage(name, previousCount + 1);
-          this.emit('system_notice', `tool-loop coach: "${name}" called ${previousCount + 1}x with identical args — injected coaching message instead of re-executing`);
-        } else {
-          result = await executeOllamaTool(name, args, {
-            cwd,
-            abortSignal: this.abortController?.signal,
-            workflowId: this.config.workflowId,
-            clusterId: this.config.clusterId,
-          });
-        }
-      }
+        ...(runtimeEvents ? { id: call.id, status: 'started', provider: this.connection.name } : {}) });
+      const result = await decideLocalToolCall(name, parsed, rules, rt);
       if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId: call.id, status: result.startsWith('[error]') ? 'failed' : 'completed', output: result });
       const stored = this.connection.toolResultPolicy === 'runtime'
         ? result
-        : truncateToolResult(name, result);
-      if ((this.connection.name === 'strata' || this.connection.name === 'deepseek') && stored !== result) {
+        : truncateLocalToolResult(name, result, 'LM Studio', TOOL_RESULT_HEAD_BYTES, TOOL_RESULT_TAIL_BYTES);
+      if (runtimeEvents && stored !== result) {
         this.emit('system_notice', `${this.connection.label} ${name} tool result trimmed: ${Buffer.byteLength(result)} → ${Buffer.byteLength(stored)} bytes; re-run with a narrower query or range for omitted content.`);
       }
-      if (this.connection.name === 'strata' || this.connection.name === 'deepseek') {
+      if (runtimeEvents) {
         this.emit('tool_use', { name, input: JSON.stringify(args), id: call.id, toolUseId: call.id, provider: this.connection.name,
           status: result.startsWith('[error]') ? 'failed' : 'completed', output: stored });
       }
-      out.push({ role: 'tool', content: stored, tool_call_id: call.id });
-    }
-    return out;
+      return { role: 'tool', content: stored, tool_call_id: call.id } as ChatMessage;
+    });
   }
 
   private async run(prompt: string): Promise<void> {
