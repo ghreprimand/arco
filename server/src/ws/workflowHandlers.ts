@@ -1406,11 +1406,13 @@ async function restoreAdmittedCheckpoint(
     safetySnapshotSeq: safetyGuardSeq,
     backend: result.backend,
     ...(result.limitation ? { limitation: result.limitation } : {}),
+    ...(result.changes ? { changes: result.changes } : {}),
+    ...(result.backend === 'git' ? { restoredRef: result.restoredFrom } : {}),
     ts: Date.now(),
   });
   console.log(
     `[arco] [${msg.workflowId.slice(0, 8)}] reverted to checkpoint seq ${msg.seq} ` +
-    `(${result.fileCount} files, ${result.backend}); safety snapshot at seq ${safetyGuardSeq}`,
+    `(${result.fileCount} files, ${result.backend}${result.changes ? `; ${result.changes.changed} changed back, ${result.changes.removed} removed, ${result.changes.restored} restored` : ''}); safety snapshot at seq ${safetyGuardSeq}`,
   );
 }
 

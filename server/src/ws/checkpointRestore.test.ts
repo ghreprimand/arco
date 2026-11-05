@@ -99,6 +99,9 @@ test('segment boundaries allow an independent similarly named checkout and prese
     await restore(f);
     assert.equal(readFileSync(join(f.cwd, 'file.txt'), 'utf8'), 'checkpoint');
     const reverted = f.sent.find(m => m.type === 'checkpoint_reverted'); assert.ok(reverted);
+    // The broadcast reports what the restore changed, not only the tree size.
+    assert.deepEqual({ ...(reverted.changes as object), paths: undefined }, { changed: 1, removed: 0, restored: 0, unchanged: (reverted.fileCount as number) - 1, paths: undefined, pathsTruncated: false });
+    assert.match(String(reverted.restoredRef), /^refs\/arco\//);
     await handleRevertToCheckpoint(f.ws, { type: 'revert_to_checkpoint', workflowId: f.id, seq: reverted.safetySnapshotSeq as number });
     assert.equal(readFileSync(join(f.cwd, 'file.txt'), 'utf8'), 'active work');
     assert.equal(git(f.cwd, 'rev-parse', 'HEAD'), head);

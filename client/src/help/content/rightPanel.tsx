@@ -675,15 +675,24 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           Each <C>CHECKPOINT ●</C> row is a working-tree snapshot Arco took
           before a file-mutating turn (your real git HEAD / index are never
           touched). <C>VIEW DIFF VS NOW</C> shows what's changed since that
-          checkpoint (<C>checkpoint ref</C> vs the live working tree).
+          checkpoint, in Git and non-Git folders alike.
         </p>
         <p>
           <C>REVERT TO HERE</C> restores the working tree to that checkpoint:
-          faithfully, so files created after it are removed. It is safe: Arco
+          faithfully, so files created after it are removed. Before anything
+          changes, the confirm dialog counts the files it would change back,
+          remove and restore, or says that nothing would change. It is safe: Arco
           ALWAYS takes a fresh <C>pre-revert</C> checkpoint first, so the revert
-          is itself undoable (revert to that pre-revert marker to undo). A
-          confirm dialog shows the file count before anything changes. Can't
+          is itself undoable (revert to that pre-revert marker to undo). Can't
           revert while a turn is running: cancel it first.
+        </p>
+        <p>
+          Only files go back. The conversation, the task board and other cluster
+          members stay as they are; use <C>REWIND CONVERSATION</C> for the
+          conversation. In a cluster the checkpoint covers the whole folder,
+          including files other members changed. Afterwards a result line and the{' '}
+          <C>REVERTED</C> row show the counts; <C>VIEW CHANGES</C> on either shows
+          the diff of what the revert changed.
         </p>
       </>
     ),

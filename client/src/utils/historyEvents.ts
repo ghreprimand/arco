@@ -1,3 +1,4 @@
+import { describeRestoreChanges } from './checkpointChanges';
 import type { ServerMessage } from '@arco/shared';
 import type { HistoryEventEntry } from '../stores/appStore';
 
@@ -199,11 +200,16 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
         // safetySnapshotRef carries the guard seq of the pre-revert snapshot
         // in its trailing segment; the restored checkpoint's guard seq isn't
         // recoverable here (msg.seq is clobbered) so we report the count only.
-        summary: `restored a checkpoint · ${msg.fileCount} file${msg.fileCount === 1 ? '' : 's'}`
+        summary: (msg.changes
+          ? `restored checkpoint${typeof msg.restoredSeq === 'number' ? ` ${msg.restoredSeq}` : ''}: ${describeRestoreChanges(msg.changes)}`
+          : `restored a checkpoint · ${msg.fileCount} file${msg.fileCount === 1 ? '' : 's'}`)
           + (msg.limitation ? ` · ${trim80(msg.limitation)}` : ''),
         at: msg.ts ?? fallbackAt,
         reverted: true,
         ...(typeof msg.restoredSeq === 'number' ? { revertedCheckpointSeq: msg.restoredSeq } : {}),
+        ...(msg.changes ? { revertChanges: msg.changes } : {}),
+        // Before -> after of the restore: the safety snapshot to the restored checkpoint.
+        ...(msg.restoredRef && msg.safetySnapshotRef ? { revertDiff: { from: msg.safetySnapshotRef, to: msg.restoredRef } } : {}),
       };
     default:
       return null;

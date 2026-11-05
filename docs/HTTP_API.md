@@ -325,6 +325,11 @@ Workbench Expansion A3. Returns a unified-diff patch for the in-app DiffView. Ba
 - `path` - explicit cwd (mirrors the other workflow-scoped routes). Wins over the resolved wfid cwd.
 - `from` / `to` - git revisions. A revision can be a shadow checkpoint ref (`refs/arco/<wfid>/<seq>`, from A2), `HEAD`, a sha, or a branch. `to` may also be the literal `WORKTREE` sentinel (the default when omitted), which compares the live working tree (incl. staged) against `from` (or `HEAD` when `from` is also omitted - the pre-commit diff).
 - Always answers **200** with `{ patch, isRepo, from, to, missingRef? }`. Non-git dirs return `isRepo:false` + empty `patch`; an unresolvable revision returns `missingRef` + empty `patch`; a clean tree returns an empty `patch`. None of these is an error.
+- A checkpoint ref with `to=WORKTREE` (VIEW DIFF VS NOW) compares the checkpoint with the files a restore of it would cover now, in Git and non-Git folders alike: untracked files count, Git-ignored files and `.arco` do not (`gitSnapshots.diffCheckpointToNow`). Two checkpoint refs of one workflow also compare in a non-Git folder's shadow store.
+
+### `GET /api/workflows/checkpoint-preview?wfid=<wfid>&seq=<seq>`
+
+What REVERT TO HERE would change, without changing anything (`gitSnapshots.previewCheckpointRevert`, route in `server/src/http/diffRoutes.ts`). The folder is always the workflow's own working directory; there is no `path` override. Answers **200** with `{ ok: true, changes: { changed, removed, restored, unchanged, paths, pathsTruncated } }` (files changed back, created since and removed, deleted since and restored, already matching; the first 50 affected paths), or `{ ok: false, error }` when the checkpoint cannot be compared (pruned, a legacy tar checkpoint, a folder over the size limit, or a file now over the per-file limit that the checkpoint contains). The revert itself computes the same counts and reports them on `checkpoint_reverted.changes`. **400** for a missing or invalid `wfid` / `seq`.
 
 ---
 

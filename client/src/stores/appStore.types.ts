@@ -503,6 +503,10 @@ export interface HistoryEventEntry {
   reverted?: boolean;
   // On a `reverted` row: the guard seq of the checkpoint that was restored.
   revertedCheckpointSeq?: number;
+  // On a `reverted` row: what the restore changed, and the refs whose diff
+  // shows it (safety snapshot -> restored checkpoint).
+  revertChanges?: import('@arco/shared').CheckpointRestoreChanges;
+  revertDiff?: { from: string; to: string };
   // docs/PERSISTENCE.md - `fork` rows are leaf_move (REWIND CONVERSATION)
   // markers. `branchSource` is the deterministic tag (v1 always 'revert');
   // `rewindTargetSeq` is the seq the head was moved to.

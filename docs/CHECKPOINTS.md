@@ -140,7 +140,11 @@ reservation does not replace isolation through a separate worktree.
    **legacy tar reader** takes over (pre-2026-08-19 checkpoints): extract over the cwd
    (additive/overwrite), with the documented limitation that files created after the checkpoint are NOT
    removed, surfaced on `checkpoint_reverted.limitation` and in the UI. Nothing creates new tars.
-4. Emit `checkpoint_reverted { seq, fileCount, safetySnapshotRef, safetySnapshotSeq, backend, limitation?, ts }`.
+4. Emit `checkpoint_reverted { seq, restoredSeq, fileCount, safetySnapshotRef, safetySnapshotSeq, backend, limitation?, changes?, restoredRef?, ts }`.
+   `changes` is counted from the same scratch index just before `read-tree -u`: `write-tree` gives the
+   live tree the restore covers, and `diff-tree --name-status` against the checkpoint tree counts files
+   changed back (`M`/`T`), created since and removed (`D`), deleted since and restored (`A`), and the
+   rest of the checkpoint as unchanged. Legacy tar restores carry no counts.
 
 **Guard-seq wire caveat.** `persistAndStampSeq` does `{ ...message, seq: <eventSeq> }`, which **overwrites**
 the guard-seq `seq` field on `checkpoint_created` / `checkpoint_reverted`. The client therefore recovers the
@@ -149,8 +153,18 @@ guard seq from the **ref** (`refs/arco/<wfid>/<seq>` or `<wfid>.<seq>.tar`), not
 client sends, so the round-trip is consistent.
 
 **Other invariants:** revert is rejected while conflicting managed work is in flight, including a busy
-requester (`wf.busy`). The confirm dialog (`CheckpointActions.tsx`) shows the file count + the
-safety-snapshot note before sending. execFile argv only; wfid/seq validated like A2/A3.
+requester (`wf.busy`). execFile argv only; wfid/seq validated like A2/A3.
+
+## Preview and result
+
+The confirm dialog (`CheckpointActions.tsx`) asks `GET /api/workflows/checkpoint-preview` what the
+revert would change (`previewCheckpointRevert`: the same scratch-index seed and count as the revert,
+without `read-tree -u`) and shows the counts, the first affected paths, or "Nothing would change" when
+the folder already matches. It states that only files are restored (the conversation, task board and
+other cluster members stay as they are; REWIND CONVERSATION is the conversation's counterpart) and, in
+a cluster, that the checkpoint covers the whole folder including other members' edits. After the
+revert, a result line under the buttons and the `REVERTED` HISTORY row show `checkpoint_reverted.changes`;
+VIEW CHANGES on either opens the `safetySnapshotRef` to `restoredRef` diff.
 
 ## Turn changes in chat
 
@@ -165,7 +179,10 @@ Overlap tracking observes writers managed by this server, including separate wor
 ## Downstream
 
 A3 (diff viewer) reads `git diff <refA> <refB>` between shadow refs for per-turn diffs. "View diff vs now"
- for Git worktrees uses the same renderer with `from=<checkpoint ref>`, `to=WORKTREE`. Non-Git shadow stores support comparisons between captured refs.
+ uses the same renderer with `from=<checkpoint ref>`, `to=WORKTREE`; in Git and non-Git folders alike it
+ diffs the checkpoint tree against a tree written from the revert seed (`diffCheckpointToNow`), so the
+ diff shows exactly what a revert would change. Non-Git shadow stores also support comparisons between
+ captured refs.
 
 ## Smoke
 

@@ -89,7 +89,8 @@ export const powerFeatures: Section[] = [
   <li>
   <strong>VIEW DIFF VS NOW</strong> opens the diff viewer comparing the
   checkpoint with the live working tree, using the same renderer as the Files{' '}
-  <strong>CHANGES</strong> sub-tab.
+  <strong>CHANGES</strong> sub-tab. It works in folders that are not Git
+  repositories too.
   </li>
   <li>
   <strong>REVERT TO HERE</strong> restores the working tree to that checkpoint
@@ -97,9 +98,22 @@ export const powerFeatures: Section[] = [
   </li>
   </ul>
   <p>
-  A confirm dialog shows the file count before anything changes. The restored
-  tree shows up as ordinary uncommitted changes. Reverting is blocked while a
-  turn is in progress, so cancel it first.
+  Before anything changes, the confirm dialog counts what the revert would do:
+  files changed back, files created since that are removed, files deleted since
+  that are restored, and files already unchanged. It says so when nothing would
+  change. The restored tree shows up as ordinary uncommitted changes. Reverting
+  is blocked while a turn is in progress, so cancel it first.
+  </p>
+  <p>
+  After a revert, a result line under the buttons and the <Code>REVERTED</Code>{' '}
+  row in HISTORY show the same counts. <strong>VIEW CHANGES</strong> on either
+  opens the diff of what the revert changed.
+  </p>
+  <p>
+  Only files go back. The conversation, the task board and other cluster
+  members' conversations stay as they are; REWIND CONVERSATION takes a
+  conversation back. In a cluster the checkpoint covers the whole project
+  folder, so files other members changed since then are reverted too.
   </p>
   <p>
   Revert is always reversible. Arco first takes a fresh <Code>pre-revert</Code>{' '}

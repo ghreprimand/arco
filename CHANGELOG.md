@@ -11,6 +11,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- VIEW DIFF VS NOW on a checkpoint works in folders that are not Git repositories, and in Git folders it no longer shows untracked files as deleted and re-added.
+- REVERT TO HERE says what it will change before it runs: files changed back, files created since that are removed, files deleted since that are restored, and files unchanged, or that nothing would change. Afterwards a result line and the REVERTED row in HISTORY show the counts, with VIEW CHANGES for the diff. The dialog states that only files are restored, not the conversation, task board or other cluster members, and in a cluster that other members' edits in the folder are reverted too.
 - Turn-finished BELL notices and desktop alerts now appear for real turns. Before, only test turns produced them, so no operator, auto-pickup or peer-mail turn on any provider raised one. In a cluster tab, members other than the one in view now count as another tab for BELL notices.
 
 ## v0.1.4 - 2026-11-05

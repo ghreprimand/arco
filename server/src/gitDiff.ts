@@ -21,7 +21,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
-import { checkpointStoreRoot } from './gitSnapshots.js';
+import { checkpointStoreRoot, diffCheckpointToNow } from './gitSnapshots.js';
 // Workbench Expansion I3 — isSafeRev moved to gitSafe.ts (shared with gitOps.ts);
 // re-exported here so existing imports keep resolving.
 import { isSafeRev } from './gitSafe.js';
@@ -149,6 +149,17 @@ export async function computeDiff(args: ComputeDiffArgs): Promise<DiffResult> {
   const base: DiffResult = { patch: '', isRepo: false, from: from || 'HEAD', to };
 
   if (!cwd) return base;
+  // A checkpoint against the live folder (VIEW DIFF VS NOW): compare with the
+  // files a restore of that checkpoint covers now, in Git and non-Git folders.
+  const checkpoint = /^refs\/arco\/([A-Za-z0-9._-]+)\/(\d+)$/.exec(from);
+  if (checkpoint && to === WORKTREE) {
+    const now = await diffCheckpointToNow(cwd, checkpoint[1], Number(checkpoint[2]));
+    if ('problem' in now) {
+      if (now.problem === 'missing' || now.problem === 'legacy') return { ...base, isRepo: true, missingRef: from };
+      throw new Error('Could not compare the checkpoint with the folder.');
+    }
+    return { ...base, isRepo: true, patch: now.patch, from, to };
+  }
   if (!(await isGitRepo(cwd))) {
     // Two immutable checkpoint refs can also live in the non-git shadow store.
     // Restrict this path to refs within the same workflow, never arbitrary

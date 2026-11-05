@@ -1,7 +1,8 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { computeDiff, WORKTREE } from '../gitDiff.js';
 import { PORT } from '../server/constants.js';
-import { workflowCwds } from '../server/state.js';
+import { workflowCwds, workflows } from '../server/state.js';
+import { previewCheckpointRevert } from '../gitSnapshots.js';
 
 // Workbench Expansion A3 — Diff endpoint group.
 //
@@ -37,6 +38,9 @@ export async function tryHandleDiffRoutes(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<boolean> {
+  if (req.method === 'GET' && req.url?.startsWith('/api/workflows/checkpoint-preview')) {
+    return handleCheckpointPreview(req, res);
+  }
   if (!(req.url?.startsWith('/api/workflows/diff') && req.method === 'GET')) {
     return false;
   }
@@ -59,6 +63,34 @@ export async function tryHandleDiffRoutes(
     const to = url.searchParams.get('to') || WORKTREE;
     const result = await computeDiff({ cwd, from, to });
     return send(200, result);
+  } catch (err) {
+    return send(500, { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+//   GET /api/workflows/checkpoint-preview?wfid&seq
+//
+// What REVERT TO HERE would change in the workflow's folder (files changed
+// back, created files removed, deleted files restored, unchanged), without
+// changing anything. The folder is always the workflow's own; there is no
+// ?path override. 200 with { ok: false, error } when the checkpoint cannot be
+// compared (pruned, legacy archive, over the size limit).
+async function handleCheckpointPreview(req: IncomingMessage, res: ServerResponse): Promise<true> {
+  const send = (code: number, body: unknown): true => {
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(body));
+    return true;
+  };
+  try {
+    const url = new URL(req.url ?? '', `http://localhost:${PORT}`);
+    const wfid = url.searchParams.get('wfid') || '';
+    const seq = Number(url.searchParams.get('seq'));
+    if (!wfid || !isValidWfid(wfid) || !Number.isSafeInteger(seq) || seq < 0) {
+      return send(400, { error: 'valid wfid and seq query required' });
+    }
+    const cwd = workflows.get(wfid)?.config.workingDirectory || workflowCwds.get(wfid) || '';
+    if (!cwd) return send(200, { ok: false, error: 'This workflow has no working directory.' });
+    return send(200, await previewCheckpointRevert({ cwd, workflowId: wfid, seq }));
   } catch (err) {
     return send(500, { error: err instanceof Error ? err.message : String(err) });
   }

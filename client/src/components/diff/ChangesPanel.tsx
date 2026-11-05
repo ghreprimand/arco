@@ -19,9 +19,11 @@ export interface ChangesPanelProps {
   defaultViewType?: 'unified' | 'split';
   // Bump to force a refetch (e.g. when the operator reopens the tab).
   refreshKey?: number;
+  // Shown when the diff is empty (default: "No changes since HEAD.").
+  emptyText?: string;
 }
 
-export function ChangesPanel({ wfid, cwd, from, to, defaultViewType, refreshKey }: ChangesPanelProps) {
+export function ChangesPanel({ wfid, cwd, from, to, defaultViewType, refreshKey, emptyText }: ChangesPanelProps) {
   const [state, setState] = useState<
     { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: DiffResponse }
   >({ kind: 'loading' });
@@ -60,7 +62,7 @@ export function ChangesPanel({ wfid, cwd, from, to, defaultViewType, refreshKey 
     <DiffView
       patch={data.patch}
       defaultViewType={defaultViewType}
-      emptyText="No changes since HEAD."
+      emptyText={emptyText ?? 'No changes since HEAD.'}
     />
   );
 }

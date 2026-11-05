@@ -181,9 +181,39 @@ export interface CheckpointRevertedMessage {
   backend: 'git' | 'tar';
   // Set on a legacy tar restore when full faithfulness wasn't achievable.
   limitation?: string;
+  // What the restore changed, counted before it ran. Absent on legacy tar
+  // restores and on events written before counts existed.
+  changes?: CheckpointRestoreChanges;
+  // The restored checkpoint ref; with safetySnapshotRef it gives the diff of
+  // what the restore changed.
+  restoredRef?: string;
   // Epoch ms.
   ts: number;
 }
+
+// What a checkpoint restore changes (or would change) in the working tree,
+// comparing the live files a restore covers with the checkpoint's files.
+export interface CheckpointRestoreChanges {
+  // Files that differ now and go back to their checkpoint content.
+  changed: number;
+  // Files created after the checkpoint, which the restore removes.
+  removed: number;
+  // Files deleted after the checkpoint, which the restore writes back.
+  restored: number;
+  // Checkpoint files that already match.
+  unchanged: number;
+  // The first CHECKPOINT_CHANGE_PATHS_MAX affected paths.
+  paths: Array<{ path: string; change: 'changed' | 'removed' | 'restored' }>;
+  pathsTruncated: boolean;
+}
+
+export const CHECKPOINT_CHANGE_PATHS_MAX = 50;
+
+// HTTP (not WS): GET /api/workflows/checkpoint-preview?wfid&seq answers what
+// REVERT TO HERE would change, without changing anything.
+export type CheckpointRevertPreview =
+  | { ok: true; changes: CheckpointRestoreChanges }
+  | { ok: false; error: string };
 
 // ── Local ↔ remote comparison (Workbench Expansion I2) ──
 //

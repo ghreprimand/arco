@@ -438,8 +438,9 @@ export function HistoryTab({ job }: Props) {
           )}
         </div>
         {/* A4 — checkpoint rows get revert + view-diff actions. Reverted
-            markers ("REVERTED ↩") are themselves history, so no revert offered. */}
-        {selected && selected.category === 'checkpoint' && !selected.reverted && (
+            markers ("REVERTED ↩") are themselves history: they offer only
+            VIEW CHANGES (what that revert changed). */}
+        {selected && selected.category === 'checkpoint' && (
           <div style={{ marginTop: '8px' }}>
             <CheckpointActions
               entry={selected}

@@ -1991,9 +1991,18 @@ Emitted after a successful revert (failure surfaces as a plain `error`). Persist
   safetySnapshotSeq: number,
   backend: 'git' | 'tar',       // 'git' covers both the repo and shadow-store paths; 'tar' = legacy pre-shadow checkpoint
   limitation?: string,          // set when full faithfulness wasn't possible (legacy tar restores)
+  restoredSeq?: number,         // same as seq; survives the event envelope
+  changes?: {                   // what the restore changed, counted just before it ran (git backends)
+    changed: number, removed: number, restored: number, unchanged: number,
+    paths: Array<{ path: string, change: 'changed' | 'removed' | 'restored' }>, // first 50
+    pathsTruncated: boolean,
+  },
+  restoredRef?: string,         // the restored checkpoint ref; diff safetySnapshotRef -> restoredRef shows the change
   ts: number,
 }
 ```
+
+HISTORY shows the counts on the `REVERTED` row and offers VIEW CHANGES (that diff). Events written before `changes` existed keep the older "N files" summary.
 
 ---
 

@@ -33,6 +33,7 @@ import path from 'node:path';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 import { acquireCheckoutWriter } from './checkoutOwnership.js';
+import { CHECKPOINT_CHANGE_PATHS_MAX, type CheckpointRestoreChanges, type CheckpointRevertPreview } from '@arco/shared';
 
 const execFileAsync = promisify(execFile);
 
@@ -645,6 +646,8 @@ export interface RevertResult {
   // Set on the tar path: full faithfulness (delete files-added-after) was not
   // achievable; see the tar branch comment.
   limitation?: string;
+  // What the restore changed, counted just before it ran (git backends).
+  changes?: CheckpointRestoreChanges;
 }
 
 // Resolve a checkpoint ref's tree, rejecting refs that don't exist (e.g.
@@ -656,92 +659,233 @@ async function resolveCheckpointTree(cwd: string, gitDir: string, ref: string): 
   return tree || null;
 }
 
-async function revertGitCheckpoint(
-  cwd: string,
-  gitDir: string,
-  workflowId: string,
-  seq: number,
-): Promise<RevertResult | null> {
+// A scratch index seeded with exactly the live files a restore covers, plus
+// the target tree. Preview, diff-to-now and the restore itself all start from
+// this, so the counts shown before a revert are the ones the revert applies.
+interface PreparedRestore {
+  gitDir: string;
+  // Extra argv before the git subcommand (`--work-tree <cwd>` for the shadow store).
+  workTree: string[];
+  ref: string;
+  tree: string;
+  env: NodeJS.ProcessEnv;
+  index: string;
+}
+
+type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' };
+
+function scratchIndex(cwd: string, workflowId: string, seq: number): string {
+  // CRUCIAL: OUTSIDE the working tree. `read-tree -u --reset` sweeps
+  // working-tree files (and now-empty dirs) absent from the target tree; an
+  // index under cwd/.arco would get deleted mid-operation ("unable to write
+  // new index file").
+  return path.join(tmpdir(), `arco-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`);
+}
+
+async function prepareGitRestore(cwd: string, gitDir: string, workflowId: string, seq: number): Promise<PrepareOutcome> {
   const ref = refFor(workflowId, seq);
   const tree = await resolveCheckpointTree(cwd, gitDir, ref);
   if (!tree) {
     console.error(`[arco] gitSnapshots revert: checkpoint ${ref} not found (pruned?)`);
-    return null;
+    return { problem: 'missing' };
   }
-
-  // Scratch index — NEVER the user's. CRUCIAL: it must live OUTSIDE the working
-  // tree. `read-tree -u --reset` sweeps working-tree files (and now-empty dirs)
-  // absent from the target tree; an index under cwd/.arco would get deleted
-  // mid-operation ("unable to write new index file"). The OS temp dir sidesteps
-  // that. (The snapshot path keeps its index under .arco because it never
-  // runs `-u`, so no worktree sweep happens there.)
-  const revertIndex = path.join(
-    tmpdir(),
-    `arco-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
+  const index = scratchIndex(cwd, workflowId, seq);
+  const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: index };
+  await fs.rm(index, { force: true }).catch(() => {});
+  // Seed the scratch index from the LIVE working tree so every currently
+  // present file (tracked + untracked) is registered there. `read-tree -u
+  // --reset <target>` will then delete the ones absent from the target tree
+  // — that's what makes "files created after the checkpoint are removed"
+  // work. HEAD seeds tracked files; `add -A` folds in untracked + deletions.
+  //
+  // Exclude .arco (live workflow state — our own dir) and .git from the
+  // seed so a revert never sweeps them even if a project failed to gitignore
+  // .arco. Checkpoint trees normally don't contain .arco anyway (it's
+  // gitignored in a project cwd), so the target tree won't re-create it.
+  const headExists = (await runGit(cwd, ['--git-dir', gitDir, 'rev-parse', '--verify', 'HEAD'], env)).code === 0;
+  if (headExists) {
+    const rt = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', 'HEAD'], env);
+    if (rt.code !== 0) {
+      console.error(`[arco] gitSnapshots revert seed read-tree failed: ${rt.stderr.trim()}`);
+      await fs.rm(index, { force: true }).catch(() => {});
+      return { problem: 'failed' };
+    }
+  }
+  // NOTE: this used to be `add -A -- ':!.arco' ':!.git'`, but an
+  // exclude-only pathspec makes git treat matched-but-IGNORED dirs as
+  // explicitly requested — with a global `**/.arco/` ignore rule (the operator's
+  // ~/.config/git/ignore) the add REFUSED (.arco "ignored by one of your
+  // .gitignore files") and every revert in a repo containing .arco failed
+  // (found 2026-08-19). Plain `add -A` skips ignored files silently; the
+  // follow-up `rm --cached` then drops .arco from the seed where a project
+  // does NOT ignore it. Both must succeed — a seeded .arco would be swept
+  // from the working tree by `read-tree -u --reset` (it's absent from every
+  // checkpoint tree).
+  const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], env);
+  if (add.code !== 0) {
+    console.error(`[arco] gitSnapshots revert seed add -A failed: ${add.stderr.trim()}`);
+    await fs.rm(index, { force: true }).catch(() => {});
+    return { problem: 'failed' };
+  }
+  const drop = await runGit(
+    cwd,
+    ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.arco'],
+    env,
   );
-  const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: revertIndex };
+  if (drop.code !== 0) {
+    console.error(`[arco] gitSnapshots revert seed .arco drop failed: ${drop.stderr.trim()}`);
+    await fs.rm(index, { force: true }).catch(() => {});
+    return { problem: 'failed' };
+  }
+  return { gitDir, workTree: [], ref, tree, env, index };
+}
 
-  try {
-    await fs.rm(revertIndex, { force: true }).catch(() => {});
-
-    // Seed the scratch index from the LIVE working tree so every currently
-    // present file (tracked + untracked) is registered there. `read-tree -u
-    // --reset <target>` will then delete the ones absent from the target tree
-    // — that's what makes "files created after the checkpoint are removed"
-    // work. HEAD seeds tracked files; `add -A` folds in untracked + deletions.
-    //
-    // Exclude .arco (live workflow state — our own dir) and .git from the
-    // seed so a revert never sweeps them even if a project failed to gitignore
-    // .arco. Checkpoint trees normally don't contain .arco anyway (it's
-    // gitignored in a project cwd), so the target tree won't re-create it.
-    const headExists = (await runGit(cwd, ['--git-dir', gitDir, 'rev-parse', '--verify', 'HEAD'], env)).code === 0;
-    if (headExists) {
-      const rt = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', 'HEAD'], env);
-      if (rt.code !== 0) {
-        console.error(`[arco] gitSnapshots revert seed read-tree failed: ${rt.stderr.trim()}`);
-        return null;
-      }
-    }
-    // NOTE: this used to be `add -A -- ':!.arco' ':!.git'`, but an
-    // exclude-only pathspec makes git treat matched-but-IGNORED dirs as
-    // explicitly requested — with a global `**/.arco/` ignore rule (the operator's
-    // ~/.config/git/ignore) the add REFUSED (.arco "ignored by one of your
-    // .gitignore files") and every revert in a repo containing .arco failed
-    // (found 2026-08-19). Plain `add -A` skips ignored files silently; the
-    // follow-up `rm --cached` then drops .arco from the seed where a project
-    // does NOT ignore it. Both must succeed — a seeded .arco would be swept
-    // from the working tree by `read-tree -u --reset` (it's absent from every
-    // checkpoint tree).
-    const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], env);
-    if (add.code !== 0) {
-      console.error(`[arco] gitSnapshots revert seed add -A failed: ${add.stderr.trim()}`);
-      return null;
-    }
-    const drop = await runGit(
-      cwd,
-      ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.arco'],
-      env,
+// Shadow store: the scratch index is seeded from the current capped walk plus
+// the target ref's skipped-path manifest. This is load-bearing: seeding an
+// out-of-scope path would make `read-tree -u --reset` DELETE it, while
+// restoring over a currently capped path would destroy bytes the safety
+// snapshot cannot hold.
+async function prepareShadowRestore(cwd: string, workflowId: string, seq: number): Promise<PrepareOutcome> {
+  const gitDir = shadowGitDir(cwd);
+  const hasShadow = await fs.access(path.join(gitDir, 'HEAD')).then(() => true, () => false);
+  const ref = refFor(workflowId, seq);
+  const tree = hasShadow ? await resolveCheckpointTree(cwd, gitDir, ref) : null;
+  if (!tree) {
+    // Not in the shadow store: a legacy tar checkpoint, or pruned.
+    const tar = await fs.access(path.join(checkpointStoreRoot(cwd), `${workflowId}.${seq}.tar`)).then(() => true, () => false);
+    return { problem: tar ? 'legacy' : 'missing' };
+  }
+  const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
+  if (walk.exceededTotal) {
+    console.error('[arco] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
+    return { problem: 'too-large' };
+  }
+  const targetPaths = await listTreePaths(cwd, gitDir, tree);
+  if (!targetPaths) return { problem: 'failed' };
+  // Never overwrite a file that is currently over cap. If the target tree
+  // contains that path, the safe action is to abort: neither the target nor
+  // the handler's safety snapshot can recover the current large bytes.
+  const unsafeCurrent = walk.skippedLargePaths.filter((skipped) =>
+    targetPaths.some((targetPath) => pathsOverlap(skipped, targetPath)));
+  if (unsafeCurrent.length > 0) {
+    console.error(
+      `[arco] gitSnapshots shadow revert aborted: ${unsafeCurrent.length} currently capped path(s) overlap the target tree`,
     );
-    if (drop.code !== 0) {
-      console.error(`[arco] gitSnapshots revert seed .arco drop failed: ${drop.stderr.trim()}`);
-      return null;
-    }
+    return { problem: 'capped-overlap' };
+  }
+  // Paths skipped when the target was captured remain out of scope even if
+  // they are small now; omitting them from the seed prevents read-tree from
+  // deleting them merely because they are absent from the checkpoint tree.
+  const targetSkipped = await readSkippedManifest(cwd, workflowId, seq);
+  if (!targetSkipped) {
+    console.error('[arco] gitSnapshots shadow revert aborted: skipped-path manifest is unreadable');
+    return { problem: 'failed' };
+  }
+  const seedFiles = walk.files.filter((file) =>
+    !targetSkipped.some((skipped) => pathsOverlap(file, skipped)));
+  const index = scratchIndex(cwd, workflowId, seq);
+  await fs.rm(index, { force: true }).catch(() => {});
+  if (!(await stagePathspecs(cwd, gitDir, index, seedFiles))) {
+    await fs.rm(index, { force: true }).catch(() => {});
+    return { problem: 'failed' };
+  }
+  return { gitDir, workTree: ['--work-tree', cwd], ref, tree, env: { GIT_INDEX_FILE: index }, index };
+}
 
+async function prepareRestore(cwd: string, workflowId: string, seq: number): Promise<PrepareOutcome> {
+  const { isRepo, gitDir } = await isGitRepo(cwd);
+  return isRepo && gitDir ? prepareGitRestore(cwd, gitDir, workflowId, seq) : prepareShadowRestore(cwd, workflowId, seq);
+}
+
+// The live tree a restore would replace, as a tree object (written into the
+// same object store; unreferenced, so ordinary gc reclaims it).
+async function liveTree(cwd: string, p: PreparedRestore): Promise<string | null> {
+  const out = await runGit(cwd, ['--git-dir', p.gitDir, 'write-tree'], p.env);
+  return out.code === 0 && out.stdout.trim() ? out.stdout.trim() : null;
+}
+
+async function countRestoreChanges(cwd: string, p: PreparedRestore): Promise<CheckpointRestoreChanges | null> {
+  const live = await liveTree(cwd, p);
+  if (!live) return null;
+  const diff = await runGit(cwd, ['--git-dir', p.gitDir, 'diff-tree', '-r', '-z', '--no-renames', '--name-status', live, p.tree]);
+  if (diff.code !== 0) return null;
+  const parts = diff.stdout.split('\0');
+  const changes: CheckpointRestoreChanges = { changed: 0, removed: 0, restored: 0, unchanged: 0, paths: [], pathsTruncated: false };
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const status = parts[i], file = parts[i + 1];
+    if (!status || !file) continue;
+    // live -> target: D = only live has it (created later, removed by the
+    // restore); A = only the checkpoint has it (written back); else changed.
+    const change = status === 'D' ? 'removed' : status === 'A' ? 'restored' : 'changed';
+    changes[change] += 1;
+    if (changes.paths.length < CHECKPOINT_CHANGE_PATHS_MAX) changes.paths.push({ path: file, change });
+    else changes.pathsTruncated = true;
+  }
+  const targetFiles = await countTreeFiles(cwd, p.gitDir, p.tree);
+  changes.unchanged = Math.max(0, targetFiles - changes.changed - changes.restored);
+  return changes;
+}
+
+const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem'], string> = {
+  missing: 'This checkpoint is no longer stored (older checkpoints are pruned).',
+  legacy: 'This older checkpoint cannot be previewed. REVERT still restores its files but does not remove files created after it.',
+  failed: 'The working tree could not be read for a comparison.',
+  'too-large': 'The folder is larger than the checkpoint size limit, so it cannot be compared or restored.',
+  'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
+};
+
+/** What REVERT TO HERE would change, without changing anything. */
+export async function previewCheckpointRevert(args: RevertCheckpointArgs): Promise<CheckpointRevertPreview> {
+  const { cwd, workflowId, seq } = args;
+  validateWfid(workflowId);
+  if (!cwd || !Number.isSafeInteger(seq) || seq < 0) return { ok: false, error: 'Unknown checkpoint.' };
+  const p = await prepareRestore(cwd, workflowId, seq);
+  if ('problem' in p) return { ok: false, error: PREVIEW_PROBLEMS[p.problem] };
+  try {
+    const changes = await countRestoreChanges(cwd, p);
+    return changes ? { ok: true, changes } : { ok: false, error: PREVIEW_PROBLEMS.failed };
+  } finally {
+    await fs.rm(p.index, { force: true }).catch(() => {});
+  }
+}
+
+/**
+ * Unified diff from a checkpoint to the files a restore of it covers now
+ * (VIEW DIFF VS NOW). Works the same in Git and non-Git folders: untracked
+ * files count as present and ignored files and .arco are left out, exactly as
+ * in the restore.
+ */
+export async function diffCheckpointToNow(cwd: string, workflowId: string, seq: number): Promise<{ patch: string } | { problem: string }> {
+  validateWfid(workflowId);
+  const p = await prepareRestore(cwd, workflowId, seq);
+  if ('problem' in p) return { problem: p.problem };
+  try {
+    const live = await liveTree(cwd, p);
+    if (!live) return { problem: 'failed' };
+    const diff = await runGit(cwd, ['--git-dir', p.gitDir, 'diff', '--no-ext-diff', '--no-textconv', '--no-color', p.tree, live]);
+    return diff.code === 0 ? { patch: diff.stdout } : { problem: 'failed' };
+  } finally {
+    await fs.rm(p.index, { force: true }).catch(() => {});
+  }
+}
+
+async function revertPrepared(cwd: string, p: PreparedRestore): Promise<RevertResult | null> {
+  try {
+    const changes = await countRestoreChanges(cwd, p);
     // The load-bearing call: update the working tree to match the checkpoint
     // tree, removing tracked-in-scratch-index files that the target tree lacks.
     // `-u` writes files out; `--reset` permits overwriting/removing local
     // changes (this IS a destructive revert — the handler already took the
     // safety snapshot). Operates against the scratch index only.
-    const restore = await runGit(cwd, ['--git-dir', gitDir, 'read-tree', '-u', '--reset', tree], env);
+    const restore = await runGit(cwd, ['--git-dir', p.gitDir, ...p.workTree, 'read-tree', '-u', '--reset', p.tree], p.env);
     if (restore.code !== 0) {
       console.error(`[arco] gitSnapshots revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
       return null;
     }
-
-    const fileCount = await countTreeFiles(cwd, gitDir, tree);
-    return { fileCount, backend: 'git', restoredFrom: ref };
+    const fileCount = await countTreeFiles(cwd, p.gitDir, p.tree);
+    return { fileCount, backend: 'git', restoredFrom: p.ref, ...(changes ? { changes } : {}) };
   } finally {
-    await fs.rm(revertIndex, { force: true }).catch(() => {});
+    await fs.rm(p.index, { force: true }).catch(() => {});
   }
 }
 
@@ -798,90 +942,6 @@ async function revertTarCheckpoint(
   };
 }
 
-// Shadow-store revert: same faithful tree-restore as the real-repo path (files
-// created after the checkpoint ARE deleted), against the per-cwd shadow repo.
-// The scratch index is seeded from the current capped walk plus the target
-// ref's skipped-path manifest. This is load-bearing: seeding an out-of-scope
-// path would make `read-tree -u --reset` DELETE it, while restoring over a
-// currently capped path would destroy bytes the safety snapshot cannot hold.
-async function revertShadowGitCheckpoint(
-  cwd: string,
-  workflowId: string,
-  seq: number,
-): Promise<RevertResult | null> {
-  const gitDir = shadowGitDir(cwd);
-  const hasShadow = await fs.access(path.join(gitDir, 'HEAD')).then(() => true, () => false);
-  const ref = refFor(workflowId, seq);
-  const tree = hasShadow ? await resolveCheckpointTree(cwd, gitDir, ref) : null;
-  if (!tree) {
-    // Not in the shadow store — try the legacy tar reader before giving up.
-    return revertTarCheckpoint(cwd, workflowId, seq);
-  }
-
-  // Scratch index OUTSIDE the working tree — same rule as the real-repo revert
-  // (`read-tree -u` sweeps worktree files absent from the target tree).
-  const revertIndex = path.join(
-    tmpdir(),
-    `arco-revert-${cwdHash(cwd)}-${workflowId}-${seq}-${randomUUID()}.index`,
-  );
-  const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: revertIndex };
-
-  try {
-    await fs.rm(revertIndex, { force: true }).catch(() => {});
-
-    const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
-    if (walk.exceededTotal) {
-      console.error('[arco] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
-      return null;
-    }
-
-    const targetPaths = await listTreePaths(cwd, gitDir, tree);
-    if (!targetPaths) return null;
-    // Never overwrite a file that is currently over cap. If the target tree
-    // contains that path, the safe action is to abort: neither the target nor
-    // the handler's safety snapshot can recover the current large bytes.
-    const unsafeCurrent = walk.skippedLargePaths.filter((skipped) =>
-      targetPaths.some((targetPath) => pathsOverlap(skipped, targetPath)));
-    if (unsafeCurrent.length > 0) {
-      console.error(
-        `[arco] gitSnapshots shadow revert aborted: ${unsafeCurrent.length} currently capped path(s) overlap the target tree`,
-      );
-      return null;
-    }
-
-    // Paths skipped when the target was captured remain out of scope even if
-    // they are small now; omitting them from the seed prevents read-tree from
-    // deleting them merely because they are absent from the checkpoint tree.
-    const targetSkipped = await readSkippedManifest(cwd, workflowId, seq);
-    if (!targetSkipped) {
-      console.error('[arco] gitSnapshots shadow revert aborted: skipped-path manifest is unreadable');
-      return null;
-    }
-    const seedFiles = walk.files.filter((file) =>
-      !targetSkipped.some((skipped) => pathsOverlap(file, skipped)));
-    if (!(await stagePathspecs(cwd, gitDir, revertIndex, seedFiles))) return null;
-
-    const restore = await runGit(
-      cwd,
-      ['--git-dir', gitDir, '--work-tree', cwd, 'read-tree', '-u', '--reset', tree],
-      env,
-    );
-    if (restore.code !== 0) {
-      console.error(`[arco] gitSnapshots shadow revert read-tree -u --reset failed: ${restore.stderr.trim()}`);
-      return null;
-    }
-
-    const fileCount = await countTreeFiles(cwd, gitDir, tree);
-    return {
-      fileCount,
-      backend: 'git',
-      restoredFrom: ref,
-    };
-  } finally {
-    await fs.rm(revertIndex, { force: true }).catch(() => {});
-  }
-}
-
 // Restore the working tree to a checkpoint. Returns null if the checkpoint
 // could not be found (pruned) or the restore failed — the caller treats null
 // as "revert failed, do not emit success". The caller MUST take a safety
@@ -895,11 +955,9 @@ export async function revertToCheckpoint(args: RevertCheckpointArgs): Promise<Re
   }
 
   try {
-    const { isRepo, gitDir } = await isGitRepo(cwd);
-    if (isRepo && gitDir) {
-      return await revertGitCheckpoint(cwd, gitDir, workflowId, seq);
-    }
-    return await revertShadowGitCheckpoint(cwd, workflowId, seq);
+    const p = await prepareRestore(cwd, workflowId, seq);
+    if ('problem' in p) return p.problem === 'legacy' ? await revertTarCheckpoint(cwd, workflowId, seq) : null;
+    return await revertPrepared(cwd, p);
   } catch (err) {
     console.error(`[arco] [${workflowId.slice(0, 8)}] revertToCheckpoint failed:`, err);
     return null;

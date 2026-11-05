@@ -98,7 +98,7 @@ controls. For installation and first session, see
 | Local-services discovery | Machine-wide browser of local web services | Listening ports and heuristics; open in Preview action. SYSTEM -> SERVICES. See [Local services](LOCAL_SERVICES.md) |
 | Remote management | Link a workflow or cluster to a hub for lifecycle commands | **REMOTE**, remote review gates, and **CLOUD** snapshot controls appear only while the management hub is connected. Local snapshots stay available when disconnected. See [Remote management](REMOTE_MANAGEMENT.md) |
 | Notifications | In-app center and toasts; opt-in desktop and phone alerts | Settings > Notifications: desktop and phone switches start off; REQUEST PERMISSION and TEST DESKTOP check browser alerts; quiet BELL notices for other tabs follow SHOW IN BELL; ntfy server, topic, optional token and TEST; the window title shows a waiting count such as `(2) ARCO`. Desktop alerts appear only when Arco is not the focused window. See [Notifications](NOTIFICATIONS.md) |
-| Checkpoints | Git-snapshot working-tree checkpoints and one-click revert | Revert to a known-good point without manual stashing. See [Checkpoints](CHECKPOINTS.md) |
+| Checkpoints | Git-snapshot working-tree checkpoints and one-click revert | Revert to a known-good point without manual stashing; the confirmation counts the files it would change back, remove and restore, and VIEW DIFF VS NOW works in Git and non-Git folders. See [Checkpoints](CHECKPOINTS.md) |
 
 ## Preview, Git workbench, history, and GitHub
 
