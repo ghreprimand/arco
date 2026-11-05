@@ -1122,7 +1122,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'HISTORY',
     body: (
       <>
-        <p>Past events and checkpoints of the member in view: the member whose card or tab you selected, or the director until you select one. The line at the top names the member; pick another there to switch (the same as clicking its card).</p>
+        <p>Past events and checkpoints of the member in view: the member whose card or tab you selected, or the director until you select one. The line at the top names the member; pick another there to switch (the same as clicking its card). The choice is kept when the page reloads, as long as that member is still in the cluster.</p>
         <p>A cluster with no members shows a placeholder until a worker is added from MEMBERS.</p>
       </>
     ),
@@ -1132,7 +1132,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'PREVIEW',
     body: (
       <>
-        <p>A live view of a local app, bound through the member in view (named at the top, the director until you select another). Setting a port here sets it on that member.</p>
+        <p>A live view of a local app, bound through the member in view (named at the top, the director until you select another). Setting a port here sets it on that member. The member in view is kept when the page reloads, as long as it is still in the cluster.</p>
         <p>Most clusters need one app view because members share one project folder. If several members run their own servers, use each member&apos;s own PREVIEW panel.</p>
       </>
     ),

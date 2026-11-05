@@ -777,7 +777,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       </>
     ),
   },
-  'storage.move-project': { title: 'MOVE TO PROJECT', manualSection: 'archive-explorer', body: <p>Choose KEEP IT PRIVATE or review a copy into a project folder. The original stays. Git status, repository visibility, size and text findings appear before the copy; Arco never stages or commits it.</p> },
+  'storage.move-project': { title: 'MOVE TO PROJECT', manualSection: 'archive-explorer', body: <p>Choose KEEP IT PRIVATE or review a copy into a project folder. The original stays. Git status, repository visibility, size and text findings appear before the copy; binary files other than images and recordings are scanned for readable text only and listed as not fully scanned, as are files past the findings limit. Arco never stages or commits the copy.</p> },
   'storage.keep-artifact': { title: 'KEEP artifact', manualSection: 'archive-explorer', body: <p>Keep the artifact in Arco and protect it from cleanup, archive and later size warnings.</p> },
   'storage.choose-folder': { title: 'CHOOSE ANOTHER FOLDER', manualSection: 'archive-explorer', body: <p>Choose a different destination inside this project and review its checks.</p> },
   'storage.ignore-copy': { title: 'ADD TO .GITIGNORE', manualSection: 'archive-explorer', body: <p>Add a rule for this destination to the project's ignore file, then check it again. This does not stage or commit anything.</p> },

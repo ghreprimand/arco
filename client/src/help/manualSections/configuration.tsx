@@ -535,7 +535,12 @@ export const configuration: Section[] = [
   <Code>.arco</Code>. <strong>SHARE WITH REPOSITORY</strong> lists the files that
   would become visible to Git, then adds an exception for that one skill to{' '}
   <Code>.arco/.gitignore</Code>. Arco does not stage or commit. A public project
-  gets a warning first. Arco ships no third-party skills.
+  gets a warning first.
+  </p>
+  <p>
+  If Git still ignores the files after that (a project <Code>.gitignore</Code>{' '}
+  line, or a global ignore file on this computer), SHARE refuses and names the
+  rule. Arco ships no third-party skills.
   </p>
   </>
   ),

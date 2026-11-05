@@ -381,7 +381,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.share': {
     title: 'SHARE WITH REPOSITORY',
-    body: <p>Project skills sit in <C>.arco</C>, which Git ignores. <C>SHARE WITH REPOSITORY</C> lists the files that would become visible to Git and, after you confirm, adds an exception for this one skill to <C>.arco/.gitignore</C>. Arco does not stage or commit them. For a public project it warns that anyone will be able to read the skill.</p>,
+    body: <p>Project skills sit in <C>.arco</C>, which Git ignores. <C>SHARE WITH REPOSITORY</C> lists the files that would become visible to Git and, after you confirm, adds an exception for this one skill to <C>.arco/.gitignore</C>. Arco does not stage or commit them. For a public project it warns that anyone will be able to read the skill. If Git still ignores the files (for example through a global ignore file), SHARE refuses and names the rule.</p>,
     manualSection: 'skills',
   },
   'settings.handoff-prompts': {

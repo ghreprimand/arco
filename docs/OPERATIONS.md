@@ -62,6 +62,12 @@ come from `ARCO_HOME`, `ARCO_PORT`, `ARCO_HOST`, and the other supported
 environment values saved at first install. Existing unowned or modified service
 definitions are refused.
 
+If `npm install -g arco-workbench` fails with `EEXIST` because an `arco` link
+already exists in the global bin folder (for example from an earlier source
+checkout's `npm link`), remove that link or run `npm uninstall -g` for the old
+package, then install again. For `EACCES` on Linux or macOS, use nvm or a
+user-owned npm prefix (for example under Homebrew's Node).
+
 The package starts on port 3001 when available and chooses the next free port
 through 3099, then an operating-system-assigned port. It saves and reuses the
 selection. If a saved port becomes occupied, the next start moves and reports

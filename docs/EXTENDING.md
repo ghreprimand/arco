@@ -202,7 +202,7 @@ Update [`docs/PRIMITIVES.md`](PRIMITIVES.md) with a new section, and [`docs/PROT
 
 ## Authoring an Arco skill
 
-Operators create and manage skills in Settings > SKILLS (NEW, EDIT, IMPORT, UPDATE, TURN OFF/ON, MOVE, DUPLICATE, SHARE WITH REPOSITORY). The on-disk shape is also hand-editable. Project skills live under `.arco/skills/`, which Git ignores with the rest of `.arco`; SHARE WITH REPOSITORY adds an exception in `.arco/.gitignore` for one skill and never stages or commits.
+Operators create and manage skills in Settings > SKILLS (NEW, EDIT, IMPORT, UPDATE, TURN OFF/ON, MOVE, DUPLICATE, SHARE WITH REPOSITORY). The on-disk shape is also hand-editable. Project skills live under `.arco/skills/`, which Git ignores with the rest of `.arco`; SHARE WITH REPOSITORY adds an exception in `.arco/.gitignore` for one skill and never stages or commits. If Git still ignores the files (including through a global ignore file), SHARE refuses and names the rule.
 
 Layout:
 
