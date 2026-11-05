@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { brotliCompressSync } from 'node:zlib';
 import path from 'node:path';
 import { archiveConversation, archivePath, restoreConversation } from './storageArchive.js';
 import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from './storageActions.js';
 import { sealWorkflowLogNow } from './workflowStore.js';
+import { linkFolder } from './testSupport/links.js';
 
 // Links at the workflows folder, the archive folder, and paths packed inside
 // an archive. Plans stay byte-identical and a refused action changes nothing.
@@ -72,7 +73,7 @@ test('a linked workflows folder is refused by scratch, archive, delete, compress
     const log = Array.from({ length: 4000 }, (_, i) => JSON.stringify({ seq: i + 1, type: 'primary_text', text: 'z'.repeat(300) })).join('\n') + '\n';
     await writeFile(path.join(hidden, 'events.jsonl'), log);
     await rm(workflows, { recursive: true });
-    await symlink(outside, workflows, 'dir');
+    await linkFolder(outside, workflows);
     await assert.rejects(emptyScratch(cwd, ID, { busy: false }), unsafe);
     await assert.rejects(archiveConversation(cwd, ID, closed), unsafe);
     await assert.rejects(restoreConversation(cwd, ID), unsafe);
@@ -96,7 +97,7 @@ test('a linked archive folder is not a place delete or restore will write or rem
     await writeFile(path.join(plans, `${ID}.arcoarchive`), archiveBody);
     // The plans folder now holds the file reached through the link.
     const before = await hashTree(plans);
-    await symlink(plans, path.join(cwd, '.arco', 'archive'), 'dir');
+    await linkFolder(plans, path.join(cwd, '.arco', 'archive'));
     const purge = async () => ({ ok: true as const });
     await assert.rejects(deleteConversation(cwd, ID, {
       open: false, busy: false, purge, archiveFile: archivePath(cwd, ID),
@@ -114,7 +115,7 @@ test('a path inside an archive cannot restore through a link or outside the conv
   const { cwd, dir, plans, before } = await project();
   try {
     await rm(path.join(dir, 'artifacts'), { recursive: true });
-    await symlink(plans, path.join(dir, 'artifacts'), 'dir');
+    await linkFolder(plans, path.join(dir, 'artifacts'));
     await mkdir(path.join(cwd, '.arco', 'archive'), { recursive: true });
     const throughLink = archiveBytes([{ path: 'artifacts/planted.md', body: Buffer.from('planted') }], ID);
     await writeFile(archivePath(cwd, ID), throughLink);

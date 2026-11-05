@@ -264,7 +264,9 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
         try {
           const sealed = await sealLiveLog(path.dirname(filePath), threshold);
           if (sealed) buf.liveBytes = sealed.liveBytes;
-          buf.sealRetryAt = 0;
+          // A live file that could not be replaced yet (held open on Windows)
+          // is tried again after a little more growth, not on every flush.
+          buf.sealRetryAt = sealed && !sealed.liveReplaced ? buf.liveBytes + Math.max(1024, Math.floor(threshold / 4)) : 0;
         } catch (err) {
           console.error(`[arco] sealing the log of ${buf.wfid.slice(0, 8)} failed; it stays a plain file:`, err);
           buf.sealRetryAt = buf.liveBytes + threshold;

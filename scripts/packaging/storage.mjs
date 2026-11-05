@@ -55,7 +55,8 @@ export async function unsealLog(dir) {
   const tmp = join(dir, `events.jsonl.${randomUUID()}.tmp`);
   const fh = await fs.open(tmp, 'wx', 0o600);
   try { await fh.writeFile(text); await fh.sync(); } finally { await fh.close(); }
-  await fs.rename(tmp, live);
+  try { await renameWithRetry(tmp, live); }
+  catch (error) { await fs.rm(tmp, { force: true }).catch(() => {}); throw error; }
   if (await fs.readFile(live, 'utf8') !== text) throw new Error(`The exported log in ${dir} did not read back correctly; its sealed segments were kept.`);
   for (const seg of segments) await fs.rm(seg.file, { force: true });
   await fs.rm(join(dir, 'log-format.json'), { force: true });
@@ -80,12 +81,25 @@ export async function knownProjects(home) {
   return [...out];
 }
 
+// Windows refuses a rename over a file another program holds open (a virus
+// scanner, the indexer) for a short moment; retry briefly there.
+async function renameWithRetry(from, to) {
+  const started = Date.now();
+  for (let delay = 5; ; delay = Math.min(delay * 2, 100)) {
+    try { await fs.rename(from, to); return; }
+    catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || Date.now() - started > 5000) throw error;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
 async function isLink(p) {
   try { return (await fs.lstat(p)).isSymbolicLink(); } catch { return false; }
 }
 
 export async function unsealProjects(projects, log = console.log) {
-  let conversations = 0, records = 0;
+  let conversations = 0, records = 0, failed = 0;
   for (const project of projects) {
     const root = join(project, '.arco', 'workflows');
     // Links are never followed: a linked .arco, .arco/workflows or
@@ -96,11 +110,16 @@ export async function unsealProjects(projects, log = console.log) {
     for (const name of names) {
       if (!WFID_RE.test(name)) continue;
       if (await isLink(join(root, name))) { log(`Skipped conversation ${name}: its folder is a link.`); continue; }
-      const result = await unsealLog(join(root, name));
+      let result;
+      // One conversation that cannot be written back (a file held open, a
+      // damaged segment) keeps its segments and does not stop the others.
+      try { result = await unsealLog(join(root, name)); }
+      catch (error) { failed++; log(`Kept the sealed log of conversation ${name}: ${error.message}`); continue; }
       if (!result) continue;
       conversations++; records += result.records;
     }
   }
   log(conversations ? `Wrote ${conversations} sealed conversation logs back to plain events.jsonl files (${records} records).` : 'No sealed conversation logs found.');
+  if (failed) throw new Error(`${failed} conversation logs could not be written back and were left sealed; close other programs using them and run arco storage unseal again.`);
   return { conversations, records };
 }

@@ -143,8 +143,8 @@ function CompressButton({ path, onDone, onError }: { path: string; onDone: (m: s
     if (!window.confirm(`Compress the logs of closed conversations in ${baseName(path)}? Nothing is deleted; open conversations are skipped.`)) return;
     setBusy(true);
     try {
-      const r = await post('compress-logs', { path }) as { sealed?: number; skippedOpen?: string[]; beforeBytes?: number; afterBytes?: number };
-      onDone(`Compressed ${r.sealed ?? 0} logs in ${baseName(path)}: ${formatBytes(r.beforeBytes ?? 0)} to ${formatBytes(r.afterBytes ?? 0)}${r.skippedOpen?.length ? `; ${r.skippedOpen.length} open conversations skipped` : ''}.`);
+      const r = await post('compress-logs', { path }) as { sealed?: number; skippedOpen?: string[]; deferred?: number; beforeBytes?: number; afterBytes?: number };
+      onDone(`Compressed ${r.sealed ?? 0} logs in ${baseName(path)}: ${formatBytes(r.beforeBytes ?? 0)} to ${formatBytes(r.afterBytes ?? 0)}${r.skippedOpen?.length ? `; ${r.skippedOpen.length} open conversations skipped` : ''}${r.deferred ? `; ${r.deferred} logs were in use by another program and finish on the next COMPRESS OLD LOGS` : ''}.`);
     } catch (e) { onError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }}>{busy ? 'COMPRESSING...' : 'COMPRESS OLD LOGS'}</button>;

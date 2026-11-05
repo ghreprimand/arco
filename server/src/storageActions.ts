@@ -172,13 +172,15 @@ export async function deleteConversation(
 // Lossless: the same sealing as during writes, inside each conversation's
 // flush chain. Nothing is deleted.
 export const COMPRESS_MIN_BYTES = 1024 * 1024;
-export interface CompressResult { sealed: number; skippedOpen: string[]; failed: number; beforeBytes: number; afterBytes: number }
+// deferred: segments written but the live file is still held open (Windows);
+// the next COMPRESS OLD LOGS or seal finishes it.
+export interface CompressResult { sealed: number; skippedOpen: string[]; failed: number; deferred: number; beforeBytes: number; afterBytes: number }
 export async function compressOldLogs(
   cwd: string,
   opts: { isOpen: (id: string) => boolean; isBusy: (id: string) => boolean; seal: (cwd: string, id: string) => Promise<unknown> },
 ): Promise<CompressResult> {
   const root = path.join(cwd, '.arco', 'workflows');
-  const out: CompressResult = { sealed: 0, skippedOpen: [], failed: 0, beforeBytes: 0, afterBytes: 0 };
+  const out: CompressResult = { sealed: 0, skippedOpen: [], failed: 0, deferred: 0, beforeBytes: 0, afterBytes: 0 };
   let names: string[] = [];
   try { names = await fs.readdir(root); } catch { names = []; }
   for (const id of names.sort()) {
@@ -191,12 +193,14 @@ export async function compressOldLogs(
     if (size < COMPRESS_MIN_BYTES) continue;
     if (opts.isOpen(id) || opts.isBusy(id)) { out.skippedOpen.push(id); continue; }
     const before = await logBytes(path.join(root, id));
-    try { await opts.seal(cwd, id); }
+    let result: unknown;
+    try { result = await opts.seal(cwd, id); }
     catch (err) { out.failed++; console.error(`[arco] compress logs: ${id.slice(0, 8)} not sealed:`, err); continue; }
+    if (result && typeof result === 'object' && (result as { liveReplaced?: boolean }).liveReplaced === false) { out.deferred++; continue; }
     const after = await logBytes(path.join(root, id));
     if (after < before) { out.sealed++; out.beforeBytes += before; out.afterBytes += after; }
   }
-  await recordStorageAction(cwd, { action: 'compress_logs', sealed: out.sealed, skippedOpen: out.skippedOpen.length, failed: out.failed, beforeBytes: out.beforeBytes, afterBytes: out.afterBytes });
+  await recordStorageAction(cwd, { action: 'compress_logs', sealed: out.sealed, skippedOpen: out.skippedOpen.length, failed: out.failed, deferred: out.deferred, beforeBytes: out.beforeBytes, afterBytes: out.afterBytes });
   return out;
 }
 

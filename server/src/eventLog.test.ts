@@ -9,7 +9,7 @@ import {
   flushWorkflowBuffer, forgetWorkflowBuffer, getHeadSeq, initWorkflowStore, persistAndStampSeq,
   readEventsPageBefore, readFirstSeq, replayEvents, replayEventsWithTs, replayTailEvents, scanEventsOfTypes,
 } from './workflowStore.js';
-import { listSegments, readLogHeadSync, readLogLines, readLogTail, readLogTailSync, readLogText, readLogTextSync, sealLiveLog, segmentName } from './eventLog.js';
+import { listSegments, readLogHeadSync, readLogLines, readLogTail, readLogTailSync, readLogText, readLogTextSync, sealLiveLog, sealTestHooks, segmentName } from './eventLog.js';
 import { readCatchUpEvents } from './catchUp.js';
 import { scanOperatorMessages } from './workflows/sessionIndex.js';
 import { readMemberActivity } from './management/clusterActivity.js';
@@ -295,5 +295,47 @@ test('a seal with every live record already in sound segments only replaces the 
     assert.deepEqual((await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean).map((l) => JSON.parse(l).seq), [20]);
     assert.equal(await sealLiveLog(dir(id), 1 << 20), null, 'a live file holding only the copied record is left alone');
     assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 20));
+  });
+});
+
+// Windows refuses a rename over a live file a reader holds open. Simulated
+// here on every system: the seal keeps segments and the complete live file,
+// the appends are never affected, and a later seal finishes the job.
+test('a live file that cannot be replaced is kept complete, appends continue, and a later seal replaces it', async () => {
+  const { compressOldLogs } = await import('./storageActions.js');
+  const { sealWorkflowLogNow } = await import('./workflowStore.js');
+  await withProject(async (cwd, dir) => {
+    const id = 'seal-0013';
+    const refused = Object.assign(new Error('operation not permitted'), { code: 'EPERM' });
+    const original = console.error; console.error = () => {};
+    sealTestHooks.beforeLiveReplace = async () => { throw refused; };
+    try {
+      await writeTurns(cwd, id, 30);
+      assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 150), 'every append was saved');
+      assert.ok((await listSegments(dir(id))).length >= 1, 'segments are in place');
+      const live = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean);
+      assert.equal(JSON.parse(live[0]).seq, 1, 'the live file is still complete');
+      assert.deepEqual((await readdir(dir(id))).filter((n) => n.endsWith('.tmp')), []);
+      assert.deepEqual(seqsOfText(readLogTailSync(dir(id), 1 << 20).text), range(1, 150));
+      const again = await sealWorkflowLogNow(cwd, id);
+      assert.equal(again?.liveReplaced, false, 'COMPRESS OLD LOGS meets the same refusal');
+      // COMPRESS OLD LOGS reports such a log as deferred, not sealed or failed.
+      const big = path.join(dir('seal-0014'));
+      await mkdir(big, { recursive: true });
+      await writeFile(path.join(big, 'events.jsonl'), recordsText(1, 12000));
+      const compressed = await compressOldLogs(cwd, { isOpen: (w) => w === id, isBusy: () => false, seal: sealWorkflowLogNow });
+      assert.deepEqual([compressed.deferred, compressed.sealed, compressed.failed], [1, 0, 0]);
+    } finally {
+      sealTestHooks.beforeLiveReplace = undefined;
+      console.error = original;
+    }
+    const finished = await sealWorkflowLogNow(cwd, id);
+    assert.ok(finished && finished.liveReplaced);
+    const live = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).split('\n').filter(Boolean);
+    assert.deepEqual(live.map((l) => JSON.parse(l).seq), [150]);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 150));
+    persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'after' } as unknown as ServerMessage);
+    await flushWorkflowBuffer(cwd, id);
+    assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 151));
   });
 });

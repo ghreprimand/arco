@@ -1297,7 +1297,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.compress-logs': {
     title: 'COMPRESS OLD LOGS',
-    body: <p>Seals the conversation logs of this project's closed conversations into compressed pieces, after a confirmation. Nothing is deleted and every view still shows the whole history. Open or working conversations and logs under 1 MiB are skipped.</p>,
+    body: <p>Seals the conversation logs of this project's closed conversations into compressed pieces, after a confirmation. Nothing is deleted and every view still shows the whole history. Open or working conversations and logs under 1 MiB are skipped. A log that another program holds open (Windows) keeps its full plain copy and finishes on the next use.</p>,
     manualSection: 'storage-view',
   },
   'storage.keep': {

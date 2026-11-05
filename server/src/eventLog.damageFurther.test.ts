@@ -53,15 +53,25 @@ test('a damaged middle segment is moved aside while a reader holds it, and a lat
     await writeFile(path.join(dir, segmentName(21, 30)), brotliCompressSync(text(21, 30)));
     await writeFile(path.join(dir, 'events.jsonl'), text(1, 35));
     const reader = await open(damaged, 'r');
+    let replaced = true;
     const live = await open(path.join(dir, 'events.jsonl'), 'r');
     try {
       await reader.read(Buffer.alloc(8), 0, 8, 0);
       await live.read(Buffer.alloc(8), 0, 8, 0);
       const sealed = await quiet(() => sealLiveLog(dir, 1 << 20));
       assert.ok(sealed && sealed.movedAside.length === 1);
+      // Windows refuses to replace the live file while it is open; the seal
+      // then keeps it complete (see eventLog.adversarial.test.ts).
+      if (process.platform !== 'win32') assert.equal(sealed.liveReplaced, true);
+      replaced = sealed.liveReplaced;
     } finally {
       await reader.close();
       await live.close();
+    }
+    if (!replaced) {
+      assert.deepEqual(await history(cwd), Array.from({ length: 35 }, (_, i) => i + 1));
+      const finished = await quiet(() => sealLiveLog(dir, 1 << 20));
+      assert.ok(finished && finished.liveReplaced);
     }
     assert.deepEqual(await history(cwd), Array.from({ length: 35 }, (_, i) => i + 1));
     const names = await readdir(dir);

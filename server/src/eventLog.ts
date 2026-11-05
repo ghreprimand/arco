@@ -422,8 +422,10 @@ async function writeDurable(dir: string, finalName: string, data: Buffer | strin
   if (verify) {
     try { await verify(tmp); } catch (err) { await fs.rm(tmp, { force: true }); throw err; }
   }
-  // Windows briefly refuses a rename over a file a reader holds open.
-  await renameWithRetry(tmp, path.join(dir, finalName));
+  // Windows briefly refuses a rename over a file a reader holds open, and
+  // keeps refusing while the reader stays. The temporary file never stays.
+  try { await renameWithRetry(tmp, path.join(dir, finalName)); }
+  catch (err) { await fs.rm(tmp, { force: true }).catch(() => undefined); throw err; }
   await fsyncDir(dir);
 }
 
@@ -435,7 +437,14 @@ async function removeLeftovers(dir: string): Promise<void> {
   }
 }
 
-export interface SealResult { segments: string[]; sealedRecords: number; liveBytes: number; movedAside: string[] }
+// liveReplaced false: the segments are in place but the live file could not be
+// replaced yet (Windows refuses a rename over a file a reader holds open). The
+// live file stays complete, readers skip what is sealed, and the next seal
+// replaces it.
+export interface SealResult { segments: string[]; sealedRecords: number; liveBytes: number; movedAside: string[]; liveReplaced: boolean }
+
+// Test seam: runs just before the live file is replaced.
+export const sealTestHooks: { beforeLiveReplace?: () => Promise<void> } = {};
 
 // A segment whose content does not match its name is renamed out of the
 // segment list (kept on disk for inspection, never deleted).
@@ -524,8 +533,16 @@ export async function sealLiveLog(dir: string, segmentBytes = sealThresholdBytes
   }
   const rest = pendingNoSeq.length ? pendingNoSeq.join('\n') + '\n' : '';
   const nextLive = topLine + '\n' + rest;
-  await writeDurable(dir, LIVE_LOG, nextLive, `${LIVE_LOG}.${randomUUID()}.tmp`);
-  return { segments: written, sealedRecords: records, liveBytes: Buffer.byteLength(nextLive), movedAside };
+  try {
+    await sealTestHooks.beforeLiveReplace?.();
+    await writeDurable(dir, LIVE_LOG, nextLive, `${LIVE_LOG}.${randomUUID()}.tmp`);
+  } catch (err) {
+    console.error(`[arco] sealed log segments are in place, but the live log could not be replaced yet (${(err as NodeJS.ErrnoException).code ?? 'error'}); it stays complete and the next seal replaces it`);
+    let liveBytes = 0;
+    try { liveBytes = (await fs.stat(file)).size; } catch { /* gone */ }
+    return { segments: written, sealedRecords: records, liveBytes, movedAside, liveReplaced: false };
+  }
+  return { segments: written, sealedRecords: records, liveBytes: Buffer.byteLength(nextLive), movedAside, liveReplaced: true };
 }
 
 // Write the whole history back to one plain events.jsonl and remove the

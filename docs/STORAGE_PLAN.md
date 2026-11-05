@@ -228,6 +228,7 @@ The copied last record keeps sequence numbers continuous for a release that read
 | After some segments, before the live file is replaced | Segments and the full live file | Readers skip the live records already read from a segment; the next seal checks those segments and continues after them. |
 | A segment whose content does not match its name (disk damage, or a release before this check) | That segment and the full live file | The next seal moves the segment aside and seals its records again from the live file. |
 | During the live file replacement | The old or the new live file, never half of one | Both are valid. |
+| Live file replacement refused (Windows, a reader holds it open) | Segments and the full live file; the temporary file removed | Reported; readers skip what is sealed; the next seal replaces the live file. |
 
 Sequence numbers come from `readLatestSeq`, which reads the live file's tail, and from the highest `lastSeq` in any segment name, including segments moved aside as damaged. They stay monotonic across seals, crashes, restarts and damaged segments.
 

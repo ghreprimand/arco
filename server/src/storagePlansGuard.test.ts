@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { archiveConversation, archivePath, restoreConversation } from './storageArchive.js';
 import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from './storageActions.js';
 import { sealWorkflowLogNow } from './workflowStore.js';
+import { linkFile, linkFolder } from './testSupport/links.js';
 
 // P7.4/P7.5: KEEP survives archive, scratch cleanup, compress, restore and
 // delete. Plans stay byte-for-byte, including when scratch points at them.
@@ -103,7 +104,7 @@ test('EMPTY SCRATCH does not follow a scratch symlink into the plans folder', as
     await mkdir(path.join(plans, 'refs'), { recursive: true });
     await writeFile(path.join(plans, 'plan.md'), '# Permanent plan\n');
     await writeFile(path.join(plans, 'refs', 'storage.md'), 'Plans are never cleaned up.\n');
-    await symlink(path.relative(dir, plans), path.join(dir, 'scratch'));
+    await linkFolder(plans, path.join(dir, 'scratch'));
     const before = await hashTree(plans);
     // Refused: a linked scratch folder is never followed.
     await assert.rejects(emptyScratch(cwd, ID, { busy: false }), (error: unknown) => error instanceof StorageActionError && error.code === 'unsafe');
@@ -120,7 +121,7 @@ test('a symlink inside scratch is removed as a link and the plan it names stays'
     await mkdir(path.join(dir, 'scratch'), { recursive: true });
     await mkdir(plans, { recursive: true });
     await writeFile(path.join(plans, 'plan.md'), '# Permanent plan\n');
-    await symlink(path.relative(path.join(dir, 'scratch'), path.join(plans, 'plan.md')), path.join(dir, 'scratch', 'plan-link'));
+    if (!(await linkFile(path.relative(path.join(dir, 'scratch'), path.join(plans, 'plan.md')), path.join(dir, 'scratch', 'plan-link')))) return;
     await emptyScratch(cwd, ID, { busy: false });
     assert.equal(await readFile(path.join(plans, 'plan.md'), 'utf8'), '# Permanent plan\n');
   } finally { await rm(cwd, { recursive: true, force: true }); }

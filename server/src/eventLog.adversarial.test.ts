@@ -118,11 +118,25 @@ test('sealing while a reader holds the live file open keeps one ordered history 
     if (batch.length) await writer.write(batch.join(''));
     await writer.close();
     const reader = await open(live, 'r');
+    let replaced = true;
     try {
       await reader.read(Buffer.alloc(64), 0, 64, 0);
-      const sealed = await sealLiveLog(dir);
+      const original = console.error; console.error = () => {};
+      let sealed;
+      try { sealed = await sealLiveLog(dir); } finally { console.error = original; }
       assert.ok(sealed && sealed.segments.length >= 1);
+      // POSIX renames over the open file. Windows refuses: the seal keeps its
+      // segments and the complete live file, and leaves no temporary file.
+      if (process.platform !== 'win32') assert.equal(sealed.liveReplaced, true);
+      replaced = sealed.liveReplaced;
+      assert.deepEqual((await readdir(dir)).filter((n) => n.endsWith('.tmp')), []);
+      if (!replaced) await assertHistory(cwd, id, seq);
     } finally { await reader.close(); }
+    if (!replaced) {
+      // Once the reader is gone, the next seal replaces the live file.
+      const finished = await sealLiveLog(dir);
+      assert.ok(finished && finished.liveReplaced);
+    }
     await assertHistory(cwd, id, seq);
     const plainTail = (await readFile(live, 'utf8')).trim().split('\n').at(-1);
     assert.equal(JSON.parse(plainTail!).seq, seq);
