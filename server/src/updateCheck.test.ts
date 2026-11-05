@@ -23,6 +23,40 @@ function fixture(response: () => Promise<Response> = async () => Response.json(r
   return { checker, settings, messages, logs, debug, calls: () => calls, env: (s?: string) => { environment = s; } };
 }
 
+test('0.1.5 is offered to an install at 0.1.5-rc.1, which is newer than 0.1.4', async () => {
+  assert.equal(compareVersions('0.1.5-rc.1', '0.1.4'), 1);
+  assert.equal(compareVersions('v0.1.5-rc.1', '0.1.4'), 1);
+  assert.equal(compareVersions('0.1.5-rc.1', '0.1.5'), -1);
+  assert.equal(compareVersions('0.1.5', 'v0.1.5-rc.1'), 1);
+  assert.equal(compareVersions('v0.1.5', '0.1.5-rc.1'), 1);
+  const messages: AppUpdateAvailableMessage[] = [];
+  const checker = createUpdateChecker({
+    current: '0.1.5-rc.1',
+    settings: async () => ({ updateCheck: true }),
+    environment: () => undefined,
+    broadcast: (message) => messages.push(message),
+    fetch: async () => Response.json(release('v0.1.5')),
+    now: () => new Date('2026-11-05T12:00:00Z'),
+  });
+  const offered = await checker.check();
+  assert.equal(offered.current, '0.1.5-rc.1');
+  assert.equal(offered.latest, 'v0.1.5');
+  assert.equal(offered.updateAvailable, true);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].current, '0.1.5-rc.1');
+  assert.equal(messages[0].latest, 'v0.1.5');
+  const older = createUpdateChecker({
+    current: '0.1.5-rc.1',
+    settings: async () => ({ updateCheck: true }),
+    environment: () => undefined,
+    broadcast: () => { throw new Error('an older stable release must not be announced'); },
+    fetch: async () => Response.json(release('v0.1.4')),
+    now: () => new Date('2026-11-05T12:00:00Z'),
+  });
+  const held = await older.check();
+  assert.equal(held.updateAvailable, false);
+  assert.equal(held.latest, 'v0.1.4');
+});
 test('semver precedence includes prerelease ordering and ignores build metadata', () => {
   const ordered = ['1.0.0-alpha', '1.0.0-alpha.1', '1.0.0-alpha.beta', '1.0.0-beta', '1.0.0-beta.2', '1.0.0-beta.11', '1.0.0-rc.1', '1.0.0', '1.0.1', '1.1.0', '2.0.0'];
   ordered.forEach((v, i) => { assert.equal(compareVersions(v, v), 0); if (i) { assert.equal(compareVersions(v, ordered[i-1]), 1); assert.equal(compareVersions(ordered[i-1], v), -1); } });

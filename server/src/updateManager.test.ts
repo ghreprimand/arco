@@ -53,6 +53,26 @@ test('concurrent requests cannot launch two updaters', async (t) => {
   unblock(); assert.equal((await first).status, 202); assert.equal(launches, 1);
 });
 
+test('UPDATE AND RESTART from 0.1.5-rc.1 accepts stable v0.1.5 and refuses an older stable tag', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'arco-update-rc-')); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const calls: Array<[string, string[]]> = [];
+  const manager = createUpdateManager({
+    home: () => home, mode: () => 'service', root: home, env: {}, version: '0.1.5-rc.1',
+    check: async () => ({ latest: 'v0.1.5', updateAvailable: true }),
+    launch: (cmd, args) => { calls.push([cmd, args]); return { status: 0 }; },
+  });
+  const started = await manager.start({ expectedLatest: 'v0.1.5' });
+  assert.equal(started.status, 202);
+  assert.ok(calls[0][1].includes('--expected-release'));
+  assert.ok(calls[0][1].includes('v0.1.5'));
+  assert.equal(JSON.parse(readFileSync(join(home, 'update-result.json'), 'utf8')).fromVersion, '0.1.5-rc.1');
+  const olderHome = mkdtempSync(join(tmpdir(), 'arco-update-rc-older-')); t.after(() => rmSync(olderHome, { recursive: true, force: true }));
+  const older = createUpdateManager({
+    home: () => olderHome, mode: () => 'service', root: olderHome, env: {}, version: '0.1.5-rc.1',
+    check: async () => ({ latest: 'v0.1.4', updateAvailable: false }),
+  });
+  assert.equal((await older.start({ expectedLatest: 'v0.1.4' })).status, 409);
+});
 test('a service name cannot be interpreted as a systemctl option', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'arco-update-manager-')); t.after(() => rmSync(home, { recursive: true, force: true }));
   const manager = createUpdateManager({ home: () => home, mode: () => 'service', env: { ARCO_SYSTEMD_UNIT: '--bad.service' }, check: async () => ({ latest: 'v1.2.3', updateAvailable: true }) });

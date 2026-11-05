@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync,
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runWindowsProbe } from './services.mjs';
-import { globalPrefix, updatePackage, waitForRecordedPid, windowsArcoRunning, writeUpdateResult } from './update.mjs';
+import { compareVersions, globalPrefix, updatePackage, waitForRecordedPid, windowsArcoRunning, writeUpdateResult } from './update.mjs';
 
 const manifest = { name: '@scope/arco', version: '1.0.0' };
 function fixture(t) {
@@ -31,6 +31,23 @@ test('global prefix resolves both unscoped and legacy scoped installs', () => {
   assert.equal(globalPrefix(join(windowsModules, 'arco-workbench'), 'win32'), prefix);
   assert.equal(globalPrefix(join(windowsModules, '@scope', 'arco'), 'win32'), prefix);
   assert.throws(() => globalPrefix(join(prefix, 'other', 'arco-workbench')), /not a global npm installation/);
+});
+
+test('a packaged 0.1.5-rc.1 install updates to 0.1.5 and refuses 0.1.4', async (t) => {
+  assert.equal(compareVersions('0.1.5', '0.1.5-rc.1'), 1);
+  assert.equal(compareVersions('0.1.4', '0.1.5-rc.1'), -1);
+  const f = fixture(t);
+  const calls = [];
+  const run = (version) => (_command, args) => {
+    calls.push(args.slice(1));
+    if (args[1] === 'view') return { status: 0, stdout: JSON.stringify(version) };
+    return { status: 0, stdout: '' };
+  };
+  const offered = await updatePackage({ name: 'arco-workbench', version: '0.1.5-rc.1' }, f.root, { ...f.deps, managed: false, run: run('0.1.5') });
+  assert.equal(offered.outcome, 'updated');
+  assert.match(offered.message, /v0\.1\.5/);
+  assert.equal(calls.at(-1).at(-1), 'arco-workbench@0.1.5');
+  await assert.rejects(updatePackage({ name: 'arco-workbench', version: '0.1.5-rc.1' }, f.root, { ...f.deps, managed: false, run: run('0.1.4') }), /older than this installation/);
 });
 
 test('unscoped updates use the installed package name', async (t) => {

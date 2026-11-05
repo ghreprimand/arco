@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { update, parseArgs, compareTags, npmCommand, windowsServerRunning, checkoutFingerprint, canonicalCheckoutPath } from '../arco-update.mjs';
+import { update, parseArgs, compareTags, compareVersions, npmCommand, windowsServerRunning, checkoutFingerprint, canonicalCheckoutPath } from '../arco-update.mjs';
 
 function git(cwd, ...args) { const r = spawnSync('git', args, { cwd, encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); }
 function fixture(t, autocrlf = false) {
@@ -202,6 +202,39 @@ test('untracked collisions created during confirmation are not overwritten', asy
   assert.equal(git(f.checkout, 'rev-parse', 'HEAD'), before);
 });
 
+
+test('an install at 0.1.5-rc.1 is offered stable 0.1.5 and refuses 0.1.4', async (t) => {
+  assert.equal(compareVersions('0.1.5-rc.1', '0.1.4'), 1);
+  assert.equal(compareVersions('0.1.5-rc.1', '0.1.5'), -1);
+  const dir = mkdtempSync(join(tmpdir(), 'arco-update-rc-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const remote = join(dir, 'origin.git'), source = join(dir, 'source'), checkout = join(dir, 'checkout');
+  mkdirSync(remote); git(remote, 'init', '--bare'); mkdirSync(source); git(source, 'init', '-b', 'main');
+  git(source, 'config', 'user.name', 'Fixture'); git(source, 'config', 'user.email', 'fixture@example.invalid');
+  const save = (version, tag) => {
+    writeFileSync(join(source, 'package.json'), JSON.stringify({ version }, null, 2) + '\n');
+    git(source, 'add', 'package.json'); git(source, 'commit', '-m', `release ${version}`);
+    if (tag) git(source, 'tag', tag);
+  };
+  save('0.1.4', 'v0.1.4');
+  save('0.1.5-rc.1', 'v0.1.5-rc.1');
+  git(source, 'remote', 'add', 'origin', remote);
+  git(source, 'push', '-u', 'origin', 'main', '--tags');
+  git(dir, 'clone', '--branch', 'main', remote, checkout);
+  save('0.1.5', 'v0.1.5');
+  git(source, 'push', 'origin', 'main', '--tags');
+  const lines = [];
+  const run = (cmd, args, options = {}) => cmd === 'fake-npm' ? { status: 0, stdout: '', stderr: '' } : spawnSync(cmd, args, { cwd: checkout, encoding: 'utf8', ...options });
+  const deps = { cwd: checkout, platform: 'linux', run, npm: { command: 'fake-npm', prefix: [] }, serviceMode: async () => null, report: (line) => lines.push(line) };
+  await update(parseArgs(['--check']), deps);
+  assert.match(lines.at(-1), /0\.1\.5-rc\.1 .+ -> 0\.1\.5, v0\.1\.5/);
+  assert.doesNotMatch(lines.at(-1), /Downgrade/);
+  const result = await update(parseArgs([]), deps);
+  assert.equal(result.outcome, 'updated');
+  assert.equal(JSON.parse(readFileSync(join(checkout, 'package.json'), 'utf8')).version, '0.1.5');
+  await assert.rejects(update(parseArgs(['--ref', 'v0.1.4']), deps), /Downgrade refused/);
+  assert.equal(JSON.parse(readFileSync(join(checkout, 'package.json'), 'utf8')).version, '0.1.5');
+});
 
 test('a newer prerelease cannot silently downgrade to the newest stable tag', async (t) => {
   const f = fixture(t);
