@@ -454,7 +454,7 @@ Subprocess supervision in `server/src/workers/`. Invariants are tracked in [GOTC
 Deterministic, always-on guards (not the model's judgment) that bound what a Native turn can do; all operator-undoable or override-gated:
 
 - **MCP env allowlist** - `npx`/`uvx` MCP children spawn through a scrubbed env: they no longer inherit the Claude OAuth token or the GitHub PAT.
-- **Hardline command floor** - the Native Bash tool refuses Arco self-restart / self-kill and `rm -rf` of the repo / home / root, via `detectHardlineCommand` / `checkHardlineCommand` in `providers/claude-native/pretoolGuards.ts`.
+- **Hardline command floor** - the Native Bash tool refuses Arco self-restart / self-kill and `rm -rf` of the repo / home / root, via `detectHardlineCommand` / `checkHardlineCommand` in `providers/claude-native/pretoolGuards.ts`. The Native guards run in the order of `PRE_TOOL_GUARDS` in `providers/claude-native/toolChecks.ts` (hardline, config protection, fact-force; the first block wins), after PreToolUse hooks and their input rewrites and before the review gate. After the tool, `postToolSteps` runs the output filter, the partial-read note and PostToolUse hooks, in that order.
 - **Sensitive-path write floor** - Native Write/Edit refuse a small set of sensitive paths.
 - **OSV malware pre-check** - MCP registry-add runs an OSV malware check (block-with-override, fail-open).
 - **Operator skill security audit** - operator-triggered invisible-unicode + threat scan over skills (`POST /api/skills/audit` + the editor AUDIT button). Diagnostic only - it flags, never blocks.

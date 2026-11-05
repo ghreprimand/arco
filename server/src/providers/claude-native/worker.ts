@@ -22,7 +22,8 @@ import type { AuthRecoveryContext } from '@arco/shared';
 import { ensureLiveTokens, forceRefreshTokens, markClaudeAuthProblem, ClaudeNativeNoAuthError } from './oauth.js';
 import { resolveTrustStatus } from '../../projectTrust.js';
 import { discoverHooks, fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
-import { checkConfigProtection, checkFactForceFirstEdit, checkPartialReadFullWrite, checkHardlineCommand } from './pretoolGuards.js';
+import { checkPartialReadFullWrite } from './pretoolGuards.js';
+import { firstBlockingGuard, postToolSteps, runPostToolSteps } from './toolChecks.js';
 import { evaluateGate, gateOutcome } from './gateReview.js';
 import { recordPendingGate, clearPendingGate, readGateStore, hasStandingApproval, addStandingApproval } from './gateStore.js';
 import { getCachedModelCapabilities, getCatalog, hasCatalogCache, resolveClaudeAliasFromCatalog } from './catalog.js';
@@ -3023,76 +3024,32 @@ export class ClaudeNativeWorker extends EventEmitter {
       toolCallsSinceCompact: this.toolCallCountSinceCompact,
     });
 
-    // docs/PROVIDERS.md - pre-tool-use guards in a
-    // deterministic order. Cheap path-shape check first (config-protection
-    // never touches state), then the state-bearing fact-force gate. Both
-    // emit `tool_gate_triggered`; only the first blocking decision returns
-    // a synthetic tool_result. Documented in `docs/GOTCHAS.md § Efficiency`.
-    // Config-protection defaults ON (safety gate); the operator can relax it
-    // per-tab via `efficiencyConfigProtection: 'off'` when a legitimate config
-    // edit is needed. Absent field ⇒ gate ON, so opting out is always explicit.
-    // H17 — hardline command floor. ALWAYS ON (not operator-disablable) and
-    // checked FIRST: a self-restart/self-kill/rm -rf of the repo would take down
-    // this turn + every other tab, so it can never run from an agent turn.
-    const hardline = checkHardlineCommand(block.name, input, ctx.cwd);
-    if (hardline.blocked) {
+    // docs/PROVIDERS.md - pre-tool-use guards in a deterministic order
+    // (toolChecks.ts PRE_TOOL_GUARDS): the hardline command floor (always on,
+    // first), config protection (on unless the tab opts out) and fact-force
+    // (operator opt-in). Each blocking decision emits `tool_gate_triggered`;
+    // only the first one returns a synthetic tool_result. Documented in
+    // `docs/GOTCHAS.md § Efficiency`.
+    const guardBlock = firstBlockingGuard({
+      name: block.name,
+      input,
+      cwd: ctx.cwd,
+      configProtection: (this.config.efficiencyConfigProtection ?? 'on') === 'on',
+      factForce: (this.config.efficiencyFactForce ?? 'off') === 'on',
+      filesEditedThisTurn: this.filesEditedThisTurn,
+    });
+    if (guardBlock) {
       this.workflowEventBroadcast({
         type: 'tool_gate_triggered',
         workflowId: this.workflowId,
         toolUseId: block.id,
         toolName: block.name,
-        gate: 'hardline-command-floor',
+        gate: guardBlock.gate,
         decision: 'blocked',
-        reason: hardline.reason,
+        reason: guardBlock.reason,
       });
-      this.emitToolActivity(block, input, 'failed', hardline.syntheticResult);
-      return { text: hardline.syntheticResult, isError: true };
-    }
-
-    const guard = (this.config.efficiencyConfigProtection ?? 'on') === 'on'
-      ? checkConfigProtection(block.name, input, ctx.cwd)
-      : { blocked: false as const };
-    if (guard.blocked) {
-      this.workflowEventBroadcast({
-        type: 'tool_gate_triggered',
-        workflowId: this.workflowId,
-        toolUseId: block.id,
-        toolName: block.name,
-        gate: 'config-protection',
-        decision: 'blocked',
-        reason: guard.reason,
-      });
-      this.emitToolActivity(block, input, 'failed', guard.syntheticResult);
-      return { text: guard.syntheticResult, isError: true };
-    }
-    // Fact-force runs on Edit/Write/MultiEdit only and never on read tools
-    // (the model needs to inspect first). Operator opt-in is per-tab via
-    // `efficiencyFactForce: 'on'`. Default 'off' for all tabs: this synthetic
-    // failure/retry is an operator opt-in because it adds transcript context
-    // without verifying the facts (see docs/PROVIDERS.md).
-    if ((this.config.efficiencyFactForce ?? 'off') === 'on') {
-      const ff = checkFactForceFirstEdit(block.name, input, ctx.cwd, this.filesEditedThisTurn);
-      if (ff.resolvedPath !== null) {
-        // Record the path BEFORE returning the synthetic result so the
-        // model's subsequent re-issued Edit on the same path passes through
-        // silently. Path is added on both blocked and allowed branches: a
-        // first-blocked-then-re-issued sequence within one turn only
-        // engages the gate once.
-        this.filesEditedThisTurn.add(ff.resolvedPath);
-      }
-      if (ff.blocked) {
-        this.workflowEventBroadcast({
-          type: 'tool_gate_triggered',
-          workflowId: this.workflowId,
-          toolUseId: block.id,
-          toolName: block.name,
-          gate: 'fact-force-first-edit',
-          decision: 'blocked',
-          reason: ff.reason,
-        });
-        this.emitToolActivity(block, input, 'failed', ff.syntheticResult);
-        return { text: ff.syntheticResult, isError: true };
-      }
+      this.emitToolActivity(block, input, 'failed', guardBlock.syntheticResult);
+      return { text: guardBlock.syntheticResult, isError: true };
     }
 
     // DEBAG (docs/PROVIDERS.md) - operator-armed durable review
@@ -3331,89 +3288,69 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     }
 
-    // docs/PROVIDERS.md - Native-side tool-result filter. Runs on
-    // the current turn's tool_result only (cache invariant: `messages[]`
-    // is never mutated retroactively). Filter runs BEFORE PostToolUse hook
-    // augmentation so operator-curated hook stderr / additionalContext
-    // stays untouched. When the filter actually shrinks output we gzip
-    // the raw bytes to artifacts/raw-tools/ so the operator can recover
-    // what the model didn't see — reversibility is non-negotiable.
+    // After the tool, in order (toolChecks.ts postToolSteps): the output
+    // filter, the partial-read note, then PostToolUse hooks.
+    const done = await runPostToolSteps(postToolSteps({
+      filter: (text, failed) => this.filterToolOutput(block, input, text, failed),
+      partialNote: partialWarn.warn ? partialWarn.note : null,
+      postHooks: (text) => fireHooks(this.hooks, 'PostToolUse', matcher,
+        { tool_name: block.name, tool_input: input, tool_response: text, workflow_id: this.workflowId },
+        { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
+      ),
+    }), { text: resultText, isError });
+    this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text);
+    return { text: done.text, isError: done.isError };
+  }
+
+  // docs/PROVIDERS.md - Native-side tool-result filter. Runs on
+  // the current turn's tool_result only (cache invariant: `messages[]`
+  // is never mutated retroactively). Filter runs BEFORE PostToolUse hook
+  // augmentation so operator-curated hook stderr / additionalContext
+  // stays untouched. When the filter actually shrinks output we gzip
+  // the raw bytes to artifacts/raw-tools/ so the operator can recover
+  // what the model didn't see — reversibility is non-negotiable.
+  private async filterToolOutput(block: ToolUseBlock, input: Record<string, unknown>, resultText: string, isError: boolean): Promise<string> {
     const filterMode = this.config.efficiencyToolFilter ?? 'off';
-    if (filterMode !== 'off') {
-      const pack = resolveFilterPack(block.name, input, filterMode);
-      if (pack) {
-        // Synthesize an exit code from the [error] sentinel so the pack's
-        // branch_on_exit can flip head_cap → tail_cap. true exit codes
-        // aren't surfaced by executeNativeTool (returns string only); the
-        // model's view of "did this fail" is what matters here.
-        const synthExit = isError ? 1 : 0;
-        const fr = filterToolResult(block.name, resultText, synthExit, pack);
-        if (fr.filteredBytes !== fr.originalBytes) {
-          let rawArtifactPath: string | undefined;
-          try {
-            rawArtifactPath = await this.persistRawArtifact(block.id, resultText);
-          } catch (err) {
-            console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] raw-tools artifact write failed:`, err);
-          }
-          this.workflowEventBroadcast({
-            type: 'tool_filtered',
-            workflowId: this.workflowId,
-            toolUseId: block.id,
-            toolName: block.name,
-            filterName: fr.filterName,
-            originalBytes: fr.originalBytes,
-            filteredBytes: fr.filteredBytes,
-            ...(rawArtifactPath ? { rawArtifactPath } : {}),
-          });
-          resultText = fr.filtered;
-        } else {
-          // No-op — still emit so transcript review can confirm the filter
-          // ran and chose to pass through.
-          this.workflowEventBroadcast({
-            type: 'tool_filtered',
-            workflowId: this.workflowId,
-            toolUseId: block.id,
-            toolName: block.name,
-            filterName: fr.filterName,
-            originalBytes: fr.originalBytes,
-            filteredBytes: fr.filteredBytes,
-          });
-        }
+    if (filterMode === 'off') return resultText;
+    const pack = resolveFilterPack(block.name, input, filterMode);
+    if (!pack) return resultText;
+    // Synthesize an exit code from the [error] sentinel so the pack's
+    // branch_on_exit can flip head_cap → tail_cap. true exit codes
+    // aren't surfaced by executeNativeTool (returns string only); the
+    // model's view of "did this fail" is what matters here.
+    const synthExit = isError ? 1 : 0;
+    const fr = filterToolResult(block.name, resultText, synthExit, pack);
+    if (fr.filteredBytes !== fr.originalBytes) {
+      let rawArtifactPath: string | undefined;
+      try {
+        rawArtifactPath = await this.persistRawArtifact(block.id, resultText);
+      } catch (err) {
+        console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] raw-tools artifact write failed:`, err);
       }
+      this.workflowEventBroadcast({
+        type: 'tool_filtered',
+        workflowId: this.workflowId,
+        toolUseId: block.id,
+        toolName: block.name,
+        filterName: fr.filterName,
+        originalBytes: fr.originalBytes,
+        filteredBytes: fr.filteredBytes,
+        ...(rawArtifactPath ? { rawArtifactPath } : {}),
+      });
+      return fr.filtered;
     }
-
-    // H62 — append the partial-read warning to a SUCCESSFUL Write result so the
-    // model sees it (a failed write already told the model something's wrong).
-    if (partialWarn.warn && !isError) {
-      resultText += `\n\n${partialWarn.note}`;
-    }
-
-    // PostToolUse hook — informational; stderr appended to result.
-    const post = await fireHooks(this.hooks, 'PostToolUse', matcher,
-      { tool_name: block.name, tool_input: input, tool_response: resultText, workflow_id: this.workflowId },
-      { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
-    );
-    for (const r of post) {
-      const stderr = r.stderr.trim();
-      if (stderr) resultText += `\n\n[PostToolUse hook stderr] ${stderr.slice(0, 500)}`;
-      // docs/PROVIDERS.md - additionalContext from PostToolUse
-      // hooks gets appended to the tool_result the model sees. `decision:
-      // "block"` triggers a model retry by surfacing the reason as an
-      // is_error tool_result; matches Claude Code semantics.
-      const parsed = parseHookOutput(r.stdout);
-      const extra = parsed.hookSpecificOutput?.additionalContext;
-      if (typeof extra === 'string' && extra.length > 0) {
-        resultText += `\n\n${extra}`;
-      }
-      if (parsed.decision === 'block') {
-        const reason = parsed.reason ?? 'PostToolUse hook requested retry';
-        const text = `[PostToolUse hook blocked] ${reason}`;
-        this.emitToolActivity(block, input, 'failed', text);
-        return { text, isError: true };
-      }
-    }
-    this.emitToolActivity(block, input, isError ? 'failed' : 'completed', resultText);
-    return { text: resultText, isError };
+    // No-op — still emit so transcript review can confirm the filter
+    // ran and chose to pass through.
+    this.workflowEventBroadcast({
+      type: 'tool_filtered',
+      workflowId: this.workflowId,
+      toolUseId: block.id,
+      toolName: block.name,
+      filterName: fr.filterName,
+      originalBytes: fr.originalBytes,
+      filteredBytes: fr.filteredBytes,
+    });
+    return resultText;
   }
 
   // ── Phase 7b tool handlers ──
