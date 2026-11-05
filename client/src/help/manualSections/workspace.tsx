@@ -505,7 +505,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="h2">HISTORY</strong>,
-              <>MEMORY &gt; HISTORY (single-worker, chat and cluster tabs). Read-only seq-stamped timeline with LABEL THIS, REVIEW FROM HERE, SPAWN FROM HERE, and REWIND CONVERSATION actions, plus a REWINDS filter and fork markers. REWIND CONVERSATION (Claude Native only) moves the live head back to a past point - the current branch is kept and can be returned to, so it is reversible; a two-click confirm guards it and it is blocked while a turn is in flight.</>,
+              <>MEMORY &gt; HISTORY (single-worker, chat and cluster tabs; a cluster follows the member in view). Read-only seq-stamped timeline with LABEL THIS, REVIEW FROM HERE, SPAWN FROM HERE, and REWIND CONVERSATION actions, plus a REWINDS filter and fork markers. REWIND CONVERSATION moves the live head back to a past point for Claude Native workers - the current branch is kept and can be returned to, so it is reversible; a two-click confirm guards it and it is blocked while a turn is in flight. For other providers and the Claude CLI the button stays visible, disabled, with the reason beside it.</>,
             ],
             [
               <strong key="us">USAGE</strong>,

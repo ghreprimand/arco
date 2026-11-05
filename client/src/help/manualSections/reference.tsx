@@ -236,7 +236,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   rows={[
   [<strong key="tp">Tool posture</strong>, 'A pill that limits which tools the model gets: full (default), coding, chat or review. Applies to the current session only and is not saved with the workflow settings.'],
   [<strong key="fold">Fold / auto-fold</strong>, <span>An instant trim of the transcript, with no model call. The composer <Code>FOLD</Code> button runs it by hand; the per-tab auto-fold toggle in CONFIG (off by default) runs it at a threshold.</span>],
-  [<strong key="rw">Rewind / restore point</strong>, <span>The HISTORY tab <Code>REWIND CONVERSATION</Code> action (not available on CLI or Codex). The next turn continues from the chosen point. A second rewind can undo it.</span>],
+  [<strong key="rw">Rewind / restore point</strong>, <span>The HISTORY tab <Code>REWIND CONVERSATION</Code> action for Claude Native workers. For other providers and the Claude CLI the button stays visible, disabled, with the reason beside it. The next turn continues from the chosen point. A second rewind can undo it.</span>],
   [<strong key="gate">Review-safe mode / gate</strong>, 'A per-tab option, off by default. When on, sensitive tool calls wait for the operator to approve, edit or revoke them before they run.'],
   ]}
   />

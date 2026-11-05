@@ -30,7 +30,7 @@ interface Conversation {
 interface ProjectReport { measuredAt: number; workflows: Conversation[]; archives?: Archive[] }
 interface Policy { autoArchiveClosedDays: number | null; budgetGiB: number; budgetNotice: boolean }
 
-// One label per server bucket (same as USAGE > MEASURE STORAGE).
+// One label per server bucket (same as MEMORY > USAGE > MEASURE STORAGE).
 const LABELS: Record<string, string> = {
   events: 'Conversation logs', artifacts: 'Artifacts', handoffs: 'Handoffs', checkpoints: 'Checkpoints',
   scratch: 'Scratch files', conversationFiles: 'Other conversation files', plans: 'Plans', boards: 'Task boards',

@@ -649,9 +649,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           to a prior event (persisted, survives replay), <C>REVIEW FROM HERE</C>{' '}
           dispatches a since-event Review, <C>SPAWN FROM HERE</C> opens a
           cutoff-aware Spawn dialog, and <C>REWIND CONVERSATION</C> moves the
-          live head back to a prior point (Claude Native only; the current branch
-          is kept and can be returned to, so the rewind is itself reversible:
-          two-click confirm). A <C>REWINDS</C> filter category surfaces the
+          live head back to a prior point for Claude Native workers (the current
+          branch is kept and can be returned to, so the rewind is itself
+          reversible: two-click confirm; for other providers and the Claude CLI
+          the button stays visible, disabled, with the reason beside it). A{' '}
+          <C>REWINDS</C> filter category surfaces the
           fork / leaf-move events. The filter strip (<C>ALL</C>, <C>TURNS ONLY</C>,{' '}
           <C>TOOL CALLS</C>, <C>LABELS</C>, <C>HANDOFFS</C>, <C>REVIEWS</C>,{' '}
           <C>CHECKPOINTS</C>, <C>REWINDS</C>) persists per workflow. Selecting an

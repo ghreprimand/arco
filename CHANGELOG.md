@@ -13,7 +13,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
-- Docs and help name the storage and token view as MEMORY > USAGE and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
+- Docs and help name MEMORY > USAGE on single-worker, chat and cluster tabs (a cluster covers every member in the project folder) and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
 - Cluster HISTORY and PREVIEW show the member in view (the selected card or tab, the director by default) and name it at the top, with a picker to switch. Before, they always showed the first member.
 - REWIND CONVERSATION stays visible for providers other than Claude Native, disabled with the reason beside it, instead of being hidden.
 

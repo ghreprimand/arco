@@ -726,7 +726,7 @@ When the operator arms the per-tab `reviewSafeMode` toggle (CONFIG, default OFF,
 
 ### Restore points / forks (Native-first)
 
-Clicking REWIND CONVERSATION on a HISTORY-tab event sends `revert_to_point_request`; the server appends a `leaf_move` event and sets `meta.leafSeq`, and the next turn forks a child of that leaf. The move is reversible; undo is another `leaf_move`. Branch-aware replay is byte-identical when `leafSeq` is unset; a lossy reconstructed rewind is surfaced, never silent. Rewind is rejected on CLI and Codex transports. `branch_summary` is reserved and un-emitted; forks ship via `leaf_move`. Code: `providers/claude-native/worker.ts` + `resumeSummary.ts`, `ws/workflowHandlers.ts`, `client/src/components/HistoryTab.tsx`.
+Clicking REWIND CONVERSATION on a HISTORY-tab event sends `revert_to_point_request`; the server appends a `leaf_move` event and sets `meta.leafSeq`, and the next turn forks a child of that leaf. The move is reversible; undo is another `leaf_move`. Branch-aware replay is byte-identical when `leafSeq` is unset; a lossy reconstructed rewind is surfaced, never silent. The button stays visible for every provider; for non-Native workers it is disabled with the reason beside it, and the server still refuses those requests. `branch_summary` is reserved and un-emitted; forks ship via `leaf_move`. Code: `providers/claude-native/worker.ts` + `resumeSummary.ts`, `ws/workflowHandlers.ts`, `client/src/components/HistoryTab.tsx`, `client/src/utils/rewindSupport.ts`.
 
 ### ARTIFACTS explorer (standalone artifact window)
 
