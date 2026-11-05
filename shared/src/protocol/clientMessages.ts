@@ -142,7 +142,7 @@ export interface UserMessage {
   // round-trip), so this is how operator-only skills (withheld from the model
   // manifest) get applied. Resolved + inlined in handleUserMessage; the chat
   // echo stays compact (the operator's raw text only).
-  pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>;
+  pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
 }
 
 export interface CancelMessage {

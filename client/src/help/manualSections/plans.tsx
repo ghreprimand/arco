@@ -266,6 +266,51 @@ export const plans: Section[] = [
     ),
   },
   {
+    id: 'architecture-review',
+    group: 'Plans & artifacts',
+    title: 'Architecture review',
+    body: (
+      <>
+        <p>
+          The Architecture review is a built-in skill that finds places where the
+          code is harder to change than it needs to be. Run it from the composer:{' '}
+          <Code>SKILLS</Code>, then <Code>RUN</Code> under BUILT-IN. It is
+          operator-only: the agent is never told it exists and cannot start it.
+        </p>
+        <p>
+          Before the agent starts, Arco measures the project without a model: the
+          largest source files, the files changed most often in the last 180 days
+          (Git projects), source files without a matching test, files with the
+          most exported names, and the decisions already recorded. The agent
+          reads these facts, explores the code and changes nothing.
+        </p>
+        <p>
+          The agent writes <Code>architecture-review-DATE.md</Code> and a matching{' '}
+          <Code>.json</Code> file to the conversation's artifacts. Each candidate
+          names its files, the problem, the proposed change, what it would improve
+          and a strength: Strong, Worth exploring or Speculative. The report ends
+          with a recommendation and a question; discuss the candidate you pick in
+          the chat.
+        </p>
+        <p>
+          In OUTPUTS, <Code>CANDIDATES</Code> on the report lists them.{' '}
+          <Code>ADD TO PLAN</Code> adds one to the attached plan as an unticked
+          item with its own reference doc. <Code>RECORD DECISION</Code> stores why
+          a candidate is not pursued in the plan's <Code>decisions</Code> doc,
+          which later reviews read. Both need a plan attached to the tab or its
+          cluster, and both ask first.
+        </p>
+        <p>
+          <Code>EDITABLE COPY</Code> saves the skill's text as your own
+          operator-only skill to adapt. Code reviews and the director also check
+          the shape of a change: a second copy of existing logic, a wrapper that
+          only passes calls through, tests that miss the module's interface, or
+          one change spread over many files. Those findings are advisory.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'plan-refs',
     group: 'Plans & artifacts',
     title: 'Plan reference docs',

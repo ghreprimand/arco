@@ -78,6 +78,8 @@ One paragraph: what the agent did / produced.
 ## Concerns
 Specific issues — correctness, clarity, security, missing considerations. Leave empty (just "None.") if nothing material.
 
+For code changes, also check the shape of the change (advisory; mention only what applies): does it add a second implementation of logic that already exists; does it add a wrapper that only passes calls through; are its tests at the changed module's interface rather than its internals; does one behavior change need edits in many places?
+
 ## Verdict
 One of: PASS / MINOR / BLOCKING. Followed by a one-line justification.
 
@@ -110,7 +112,7 @@ Before finalizing your verdict, walk through this checklist:
 
 A PASS verdict means you used the tools and nothing came back wrong. If you only read the diff, the right verdict is MINOR with "did not verify against the tree" as the justification.`;
 
-function buildFraming(provider: ProviderName): string {
+export function buildFraming(provider: ProviderName): string {
   if (provider === 'ollama' || provider === 'llamacpp' || provider === 'lmstudio' || (provider === 'strata' || provider === 'deepseek')) {
     return BASE_FRAMING + LOCAL_REVIEWER_ADDENDUM;
   }

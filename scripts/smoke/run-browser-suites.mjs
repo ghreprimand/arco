@@ -56,6 +56,7 @@ const SUITES = [
   { name: 'turn-changes', script: 'turn-changes-browser.py', port: 5234 },
   { name: 'storage-warning', script: 'storage-warning-browser.py', port: 5249 },
   { name: 'artifact-copy', script: 'artifact-copy-browser.py', isolatedServer: true },
+  { name: 'architecture-review', script: 'architecture-review-browser.py', isolatedServer: true },
   { name: 'plans-library', script: 'plans-library-browser.py', port: 5247 },
   { name: 'storage-view', script: 'storage-view-browser.py', isolatedServer: true },
   { name: 'public-project', script: 'public-project-browser.py', port: 5246 },

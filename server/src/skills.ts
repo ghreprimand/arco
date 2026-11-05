@@ -24,9 +24,23 @@ import path from 'path';
 
 import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
 import { arcoHome } from './arcoHome.js';
+import { ARCHITECTURE_REVIEW_SKILL } from './architectureSkill.js';
 
 export type SkillScope = 'project' | 'global';
 export interface SkillRef { scope: SkillScope; slug: string }
+// Skills shipped with Arco. They are read-only, operator-only and never in the
+// model manifest; the operator runs one from the SKILLS menu (a pick with
+// scope "builtin") or makes an editable copy.
+export type PickedSkillScope = SkillScope | 'builtin';
+export interface BuiltinSkillSummary { slug: string; name: string; description: string; scope: 'builtin'; operatorOnly: true }
+export function listBuiltinSkills(): BuiltinSkillSummary[] {
+  const s = ARCHITECTURE_REVIEW_SKILL;
+  return [{ slug: s.slug, name: s.name, description: s.description, scope: 'builtin', operatorOnly: true }];
+}
+export function readBuiltinSkill(slug: string): { slug: string; name: string; description: string; body: string } | null {
+  const s = ARCHITECTURE_REVIEW_SKILL;
+  return slug === s.slug ? { slug: s.slug, name: s.name, description: s.description, body: s.body } : null;
+}
 
 // Persistent pins are intentionally bounded. Eight full 64 KiB skills would
 // be pathological prompt bloat, so the aggregate block has its own tighter
@@ -219,6 +233,7 @@ export async function listSkills(
 ): Promise<{
   project: SkillSummary[];
   global: SkillSummary[];
+  builtin: BuiltinSkillSummary[];
 }> {
   // DD7 — an untrusted repo's project skills are suppressed from the turn (a
   // cloned repo could ship a SKILL.md the model would otherwise be told to read).
@@ -235,7 +250,7 @@ export async function listSkills(
     const u = usage[canonicalSkillKey(s.path)];
     return u ? { ...s, useCount: u.count, lastUsed: u.lastUsed } : s;
   };
-  return { project: project.map(attach), global: global.map(attach) };
+  return { project: project.map(attach), global: global.map(attach), builtin: listBuiltinSkills() };
 }
 
 export async function readSkillBody(
@@ -326,6 +341,14 @@ export async function writeSkill(
   };
 }
 
+// An editable copy of a built-in skill: an ordinary operator-only skill named
+// "<name> (copy)" in the chosen scope. The built-in itself stays unchanged.
+export async function copyBuiltinSkill(slug: string, scope: SkillScope, cwd: string): Promise<SkillSummary> {
+  const builtin = readBuiltinSkill(slug);
+  if (!builtin) throw new Error('built-in skill not found');
+  return writeSkill({ scope, name: `${builtin.name} (copy)`, description: builtin.description, body: builtin.body, operatorOnly: true }, cwd);
+}
+
 export async function deleteSkill(
   scope: SkillScope,
   slug: string,
@@ -378,7 +401,7 @@ export function buildSkillsManifest(
 // block text plus its byte size so the caller can log the delta (fence: visible
 // cost). Empty input ⇒ empty string (caller skips).
 export function buildPickedSkillsBlock(
-  skills: Array<{ name: string; scope: SkillScope; body: string }>,
+  skills: Array<{ name: string; scope: PickedSkillScope; body: string }>,
 ): { text: string; bytes: number } {
   if (skills.length === 0) return { text: '', bytes: 0 };
   const lines: string[] = [];

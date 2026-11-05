@@ -52,7 +52,7 @@ interface Props {
     kind?: 'steer' | 'follow-up' | 'interrupt',
     primitive?: 'docs' | 'git' | 'plan-review',
     // DD8 — operator-picked Arco skills to inline into this turn.
-    pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>,
+    pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   ) => boolean | void; // false ⇒ socket down, nothing sent: keep the draft
   onCancel: () => void;
   // Per-item cancel from the queue strip's [×] button.
@@ -356,6 +356,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const [skillCatalogRevision, setSkillCatalogRevision] = useState(0);
   const [availableSkills, setAvailableSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string; description: string; operatorOnly?: boolean }>>([]);
   const [skillCatalogStatus, setSkillCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // P8.5 — skills shipped with Arco: run once, or make an editable copy.
+  const [builtinSkills, setBuiltinSkills] = useState<Array<{ slug: string; name: string; description: string }>>([]);
+  const [builtinNote, setBuiltinNote] = useState('');
   const pinnedSkills = job.config.pinnedSkills ?? [];
   const pinnedSkillsKey = pinnedSkills.map((s) => `${s.scope}:${s.slug}`).join('|');
   useEffect(() => { setPickedSkills([]); setSkillMenuOpen(false); setShowSkillEditor(false); }, [job.id]);
@@ -376,9 +379,10 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     setSkillCatalogStatus('loading');
     fetch(`/api/skills${params}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data: { project?: typeof availableSkills; global?: typeof availableSkills }) => {
+      .then((data: { project?: typeof availableSkills; global?: typeof availableSkills; builtin?: typeof builtinSkills }) => {
         if (cancelled) return;
         setAvailableSkills([...(data.project ?? []), ...(data.global ?? [])]);
+        setBuiltinSkills(data.builtin ?? []);
         setSkillCatalogStatus('ready');
       })
       .catch(() => { if (!cancelled) { setAvailableSkills([]); setSkillCatalogStatus('error'); } });
@@ -403,6 +407,22 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       setPickedSkills((prev) => prev.filter((p) => !(p.scope === s.scope && p.slug === s.slug)));
     }
   }, [onUpdatePrimary, pinnedSkillsKey]);
+  const runBuiltinSkill = (s: { slug: string; name: string }) => {
+    const sent = onSend(`Run the ${s.name} on this project.`, undefined, isBusy ? 'follow-up' : undefined, undefined, [{ scope: 'builtin', slug: s.slug }]);
+    if (sent === false) { setBuiltinNote('Not connected; nothing was sent.'); return; }
+    setBuiltinNote(''); setSkillMenuOpen(false);
+  };
+  const copyBuiltinSkill = async (s: { slug: string; name: string }) => {
+    const cwd = job.config.workingDirectory ?? '';
+    const scope = cwd ? 'project' : 'global';
+    try {
+      const res = await fetch(`/api/skills/copy-builtin${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope, slug: s.slug }) });
+      const body = await res.json().catch(() => ({})) as { skill?: { name: string }; error?: string };
+      if (!res.ok) throw new Error(body.error || res.statusText);
+      setBuiltinNote(`Saved "${body.skill?.name ?? s.name}" to your ${scope} skills; edit it in Settings > SKILLS.`);
+      setSkillCatalogRevision((n) => n + 1);
+    } catch (err) { setBuiltinNote(`Could not copy: ${err instanceof Error ? err.message : String(err)}`); }
+  };
   const skillDisplayName = useCallback((scope: 'project' | 'global', slug: string) =>
     availableSkills.find((s) => s.scope === scope && s.slug === slug)?.name ?? slug,
   [availableSkills]);
@@ -2054,6 +2074,25 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
                       </div>
                     );
                   })
+                )}
+                {builtinSkills.length > 0 && (
+                  <div data-testid="builtin-skills">
+                    <div className="display-font" style={{ padding: '9px 10px 4px', color: 'var(--color-fg-muted)', fontSize: '9px', letterSpacing: '1px' }}>BUILT-IN</div>
+                    {builtinSkills.map((s) => (
+                      <div key={`builtin:${s.slug}`} style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-accent-secondary-a08)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-accent-secondary)', fontFamily: 'var(--font-display)', letterSpacing: '1px' }}>{s.name}</span>
+                          <span className="display-font" style={{ fontSize: '7px', letterSpacing: '1px', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '2px', padding: '0 3px' }}>OPERATOR</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>{s.description}</div>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '7px' }}>
+                          <button type="button" data-help="composer.skills.run-builtin" onClick={() => runBuiltinSkill(s)} title="Gather facts about this project and run the review in this conversation" className="display-font" style={{ flex: 1, padding: '3px 5px', borderRadius: '2px', cursor: 'pointer', border: '1px solid var(--color-accent-secondary)', background: 'transparent', color: 'var(--color-accent-secondary)', fontSize: '8px', letterSpacing: '0.8px' }}>RUN</button>
+                          <button type="button" data-help="composer.skills.copy-builtin" onClick={() => void copyBuiltinSkill(s)} title="Save an editable copy to your skills" className="display-font" style={{ flex: 1, padding: '3px 5px', borderRadius: '2px', cursor: 'pointer', border: '1px solid var(--color-accent-primary)', background: 'transparent', color: 'var(--color-accent-primary)', fontSize: '8px', letterSpacing: '0.8px' }}>EDITABLE COPY</button>
+                        </div>
+                      </div>
+                    ))}
+                    {builtinNote && <div role="status" style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)' }}>{builtinNote}</div>}
+                  </div>
                 )}
                 <ToolboxMenu
                   provider={job.config.primaryProvider ?? 'claude'}

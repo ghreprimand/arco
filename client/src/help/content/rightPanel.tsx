@@ -14,6 +14,26 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Open an output',
     body: <p>Click an output's name or image. Files with a preview open the viewer; types without one (PDF, office documents) open in the computer's default app. Programs and scripts are never opened from here; use <C>Download</C>.</p>,
   },
+  'architecture-review.candidates': {
+    title: 'CANDIDATES',
+    body: <p><C>CANDIDATES</C> appears on an architecture review report (<C>architecture-review-DATE.md</C>). It lists the report's candidates with their files, problem, proposed change and strength, and offers <C>ADD TO PLAN</C> and <C>RECORD DECISION</C> for each.</p>,
+    manualSection: 'architecture-review',
+  },
+  'architecture-review.dialog': {
+    title: 'Architecture review candidates',
+    body: <p>The candidates of one review report. Both actions write to the plan attached to this conversation, or to its cluster's plan; without one, attach a plan first. Nothing else in the project changes.</p>,
+    manualSection: 'architecture-review',
+  },
+  'architecture-review.add-to-plan': {
+    title: 'ADD TO PLAN',
+    body: <p><C>ADD TO PLAN</C> asks first, then adds the candidate to the attached plan as one unticked item under "Architecture review", linked to a new reference doc that holds its files, problem, proposed change and expected benefit. A board task follows from the plan item the usual way.</p>,
+    manualSection: 'architecture-review',
+  },
+  'architecture-review.record-decision': {
+    title: 'RECORD DECISION',
+    body: <p><C>RECORD DECISION</C> records why a candidate is not pursued. Type the reason and select <C>RECORD</C>; it is added to the attached plan's <C>decisions</C> reference doc with the date and files. Later reviews read that doc and do not suggest the candidate again.</p>,
+    manualSection: 'architecture-review',
+  },
   'rightpanel.outputs.open': {
     title: 'OPEN',
     body: <p><C>OPEN</C> hands the file to the default app of the computer Arco runs on. It is hidden when Arco has no desktop (Docker, headless) and for programs and scripts, which stay downloadable. Each open is logged.</p>,

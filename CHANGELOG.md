@@ -11,6 +11,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Large artifact warnings also arrive while a turn is still running (checked every 30 seconds), not only when it ends.
 - Cluster tabs have MEMORY > USAGE: token usage for every member's conversations in the project folder, with MEASURE STORAGE and MEASURE ARCO FOLDER.
 
+- Architecture review, a built-in operator-only skill (composer SKILLS > BUILT-IN > RUN). Arco measures the project first: largest files, most-changed files, files without tests, files with many exports, and decisions already recorded. The agent writes a report of candidates to the artifacts and changes no code. In OUTPUTS, CANDIDATES on the report offers ADD TO PLAN (a plan item with its own reference doc) and RECORD DECISION (kept in the plan's decisions doc so later reviews skip it). EDITABLE COPY saves the skill as your own.
+- Code reviews and the cluster director also check the shape of a change: duplicated logic, pass-through wrappers, tests that miss the interface, and changes spread over many places. Advisory only.
+
 ### Changed
 
 - Docs and help name MEMORY > USAGE on single-worker, chat and cluster tabs (a cluster covers every member in the project folder) and point to ARTIFACTS > STORAGE (MEASURE AGAIN) from anywhere.
@@ -22,6 +25,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - VIEW DIFF VS NOW on a checkpoint works in folders that are not Git repositories, and in Git folders it no longer shows untracked files as deleted and re-added.
 - REVERT TO HERE says what it will change before it runs: files changed back, files created since that are removed, files deleted since that are restored, and files unchanged, or that nothing would change. Afterwards a result line and the REVERTED row in HISTORY show the counts, with VIEW CHANGES for the diff. The dialog states that only files are restored, not the conversation, task board or other cluster members, and in a cluster that other members' edits in the folder are reverted too.
 - RESTORE IGNORE FILE and STOP TRACKING change only projects in the PROJECTS list, and refuse with a message when `.arco` or `.arco/.gitignore` is a link.
+- Skills picked with APPLY ONCE in a cluster tab now reach the member. Before, the cluster composer dropped them.
+- Saving a skill with the operator-only setting now keeps it. Before, the setting was not saved.
 - MOVE TO PROJECT no longer refuses large binary files such as archives and disk images. Only their readable text is scanned, and they are listed as not fully scanned. Random bytes no longer fill the findings list with false IPv6 addresses. A file or copy past the findings limit is listed as not fully scanned instead of stopping the review.
 - In the AUTO-PICKUP dialog, the "Advanced: model-assisted" heading sits above Smart: Observe-only. Before, it appeared between that radio button and its label.
 - TEST DESKTOP asks the browser for notification permission itself when it has not been asked, and shows the result beside the button: Sent, Blocked (with how to allow notifications in the site settings and browser profile), Not allowed, Not supported or Failed. Before, it only said that permission was needed.

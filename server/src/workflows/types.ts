@@ -200,7 +200,7 @@ export interface WorkflowState {
 export interface QueueItem {
   ollamaInputSeq?: number;
   interrupt?: boolean;
-  pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>;
+  pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
   content: string;
   attachments?: string[];
   clientMessageId?: string;

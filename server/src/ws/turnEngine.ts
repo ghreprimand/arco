@@ -94,8 +94,11 @@ buildPinnedSkillsBlock,
 resolvePinnedSkills,
 buildSkillsManifest,
 listSkills,
-readSkillBody
+readSkillBody,
+  readBuiltinSkill,
 } from '../skills.js';
+import { ARCHITECTURE_REVIEW_SLUG, architectureReviewFacts } from '../architectureReview.js';
+import { artifactsDir } from '../workers/limits.js';
 import {
 ensureMeta,readMeta,reconcileLatestCliSession,updateMeta,type WorkflowMeta
 } from '../workflowMeta.js';
@@ -1352,7 +1355,7 @@ export async function handleUserMessage(
   interjection: boolean,
   kind: 'steer' | 'follow-up' | 'interrupt' | undefined,
   primitive: 'docs' | 'git' | 'plan-review' | undefined,
-  pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>,
+  pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
   opts?: { fromQueue?: boolean; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
@@ -1716,10 +1719,21 @@ export async function handleUserMessage(
   // unreadable skill is skipped with a notice rather than failing the turn.
   async function resolvePickedSkillsBlock(picks: typeof pickedSkills): Promise<string> {
     if (!projectContextEnabled || !picks?.length) return '';
-    const resolved: Array<{ name: string; scope: 'project' | 'global'; body: string }> = [];
+    const resolved: Array<{ name: string; scope: 'project' | 'global' | 'builtin'; body: string }> = [];
     const missing: string[] = [];
     for (const pick of picks) {
       try {
+        if (pick.scope === 'builtin') {
+          // Built-in skills ship with Arco. The Architecture review also gets
+          // the facts Arco gathers now and the project's recorded decisions.
+          const builtin = readBuiltinSkill(pick.slug);
+          if (!builtin) { missing.push(`builtin:${pick.slug}`); continue; }
+          const extra = builtin.slug === ARCHITECTURE_REVIEW_SLUG
+            ? `\n\nArtifacts folder for this conversation: ${artifactsDir(cwd, workflowId)}\n\n${await architectureReviewFacts(cwd, wf?.planId ?? clusterStore.getPlanId(clusterStore.getClusterIdForWorkflow(workflowId) ?? ''))}`
+            : '';
+          resolved.push({ name: builtin.name, scope: 'builtin', body: builtin.body + extra });
+          continue;
+        }
         const full = await readSkillBody(pick.scope, pick.slug, cwd);
         if (full) resolved.push({ name: full.name, scope: full.scope, body: full.body });
         else missing.push(`${pick.scope}:${pick.slug}`);

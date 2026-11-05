@@ -18,7 +18,7 @@ import type { UploadResult } from '../utils/uploadAttachment';
 interface Props {
   job: JobState;
   onRenameWorkflow?: (id: string, name: string, requestId: string) => boolean;
-  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>) => boolean | void;
+  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => boolean | void;
   onCancel: () => void;
   onCompact?: () => void;
   onFold?: (engine?: 'server') => void;

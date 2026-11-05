@@ -40,7 +40,7 @@ interface Props {
   focused: boolean;
   // Wire these straight to the App.tsx-level helpers; the cluster tab plumbs
   // through the workflowId.
-  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review') => boolean | void;
+  onSend: (content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => boolean | void;
   onAttachPlan?: (planId: string) => void;
   onAttachToCluster?: (body: string) => void;
   onCancel: () => void;
@@ -183,7 +183,7 @@ export function MemberPane({
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         <TerminalInput
           job={job}
-          onSend={(content, attachments, kind, primitive) => onSend(content, attachments, kind, primitive)}
+          onSend={(content, attachments, kind, primitive, pickedSkills) => onSend(content, attachments, kind, primitive, pickedSkills)}
           onCancel={onCancel}
           onCancelQueued={onCancelQueued}
           onUpload={onUpload}

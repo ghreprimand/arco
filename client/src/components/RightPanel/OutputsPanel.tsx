@@ -5,6 +5,7 @@ import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { openImageForEdit, openMediaFile } from '../media/launchers';
 import { FileViewerModal } from '../FileViewerModal';
 import { ArtifactMoveDialog, artifactRelative } from '../ArtifactMoveDialog';
+import { ArchitectureReviewDialog, isArchitectureReport } from '../ArchitectureReviewDialog';
 import { UnkeepButton } from '../KeepButton';
 const CATEGORIES = ['all', 'images', 'documents', 'audio', 'video', 'other'] as const;
 const joinFolder = (folder: string, name: string) => folder.replace(/[\\/]+$/, '') + (folder.includes('\\') ? '\\' : '/') + name;
@@ -81,6 +82,7 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
   const [transfer, setTransfer] = useState<{ output: WorkflowOutput; action: 'copy' | 'move'; destination?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [artifactMove, setArtifactMove] = useState<WorkflowOutput | null>(null);
+  const [architectureReport, setArchitectureReport] = useState<WorkflowOutput | null>(null);
   const [desktopOpen, setDesktopOpen] = useState(true), [refusedExt, setRefusedExt] = useState<string[]>([]);
   const roots = useAppStore(s => s.settings?.projectRoots);
   const request = useRef(0);
@@ -185,6 +187,7 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
             {output.path && previewable(output) && ['images', 'documents', 'audio', 'video'].includes(output.category) && <button type="button" disabled={output.missing} onClick={() => open(output, true)}>Open in editor</button>}
             <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'copy' })}>Save a copy</button>
             {output.path && <button type="button" disabled={output.missing} onClick={() => setTransfer({ output, action: 'move' })}>Move</button>}
+            {output.path && artifactRelative(output.path, output.workflowId) && isArchitectureReport(output.name) && <button type="button" data-help="architecture-review.candidates" disabled={output.missing} onClick={() => setArchitectureReport(output)}>CANDIDATES</button>}
             {output.path && artifactRelative(output.path, output.workflowId) && <button data-help="storage.move-project" disabled={output.missing} onClick={() => setArtifactMove(output)}>MOVE TO PROJECT</button>}
             {output.keptBy && <><span data-help="storage.unkeep" style={{ color: 'var(--color-accent-primary)', alignSelf: 'center' }}>Kept</span>
               <UnkeepButton cwd={output.cwd} workflowId={output.workflowId} itemPath={output.keptBy} label={`UNKEEP ${label}`}
@@ -198,6 +201,7 @@ export function OutputsPanel({ cwd, workflowId, clusterId }: { cwd: string; work
       <p style={{ color: 'var(--color-fg-muted)', fontSize: 10 }}>For files that do not appear automatically, save them in this workflow's artifacts folder and refresh. Up to 2,000 entries.</p>
     </div>
     {viewer && <FileViewerModal initialEditing={viewerEditing} path={viewer.path || viewer.name} fallback={{ cwd: viewer.cwd, workflowId: viewer.workflowId }} readUrl={`/api/outputs/content?${paramsFor(viewer)}`} editContext={viewer.path ? { cwd: viewer.cwd, workflowId: viewer.workflowId } : undefined} saveRequest={{ url: '/api/outputs/text', body: { cwd: viewer.cwd, workflowId: viewer.workflowId, id: viewer.id } }} onClose={() => { setViewer(null); void load(true); }} />}
+    {architectureReport?.path && <ArchitectureReviewDialog cwd={architectureReport.cwd} workflowId={architectureReport.workflowId} report={artifactRelative(architectureReport.path, architectureReport.workflowId)!} onClose={() => setArchitectureReport(null)} />}
     {artifactMove?.path && <ArtifactMoveDialog cwd={artifactMove.cwd} workflowId={artifactMove.workflowId} itemPath={artifactRelative(artifactMove.path, artifactMove.workflowId)!} onClose={() => setArtifactMove(null)} />}
     {transfer && <TransferDialog transfer={transfer} roots={roots} busy={busy} error={error} onDestination={destination => setTransfer({ ...transfer, destination })} onConfirm={() => void finishTransfer()} onClose={() => { if (!busy) setTransfer(null); }} />}
   </section>;

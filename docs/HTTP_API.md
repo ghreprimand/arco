@@ -1395,6 +1395,7 @@ Lists all skills visible to a project + the global pool.
 {
   project: SkillSummary[],   // empty when cwd is missing
   global: SkillSummary[],
+  builtin: Array<{ slug, name, description, scope: 'builtin', operatorOnly: true }>, // shipped with Arco, read-only
 }
 
 interface SkillSummary {
@@ -1431,6 +1432,7 @@ Create or update a skill. Body:
   name: string,            // ≤80
   description: string,     // ≤240
   body: string,            // ≤64KB
+  operatorOnly?: boolean,  // writes `operator-only: true`
 }
 ```
 
@@ -1439,6 +1441,14 @@ Create or update a skill. Body:
 ### `DELETE /api/skills?cwd=<absolute path>&scope=<project|global>&slug=<slug>`
 
 Removes the skill's directory recursively. 404 if missing. Same validation rules as the GET-body endpoint.
+
+### `POST /api/skills/copy-builtin?cwd=<absolute path>`
+
+P8.5 - saves an editable copy of a built-in skill. Body `{ scope: 'project' | 'global', slug }`. Writes an ordinary operator-only skill named `<name> (copy)` with the built-in's description and body; the built-in stays unchanged. 404 for an unknown built-in; `cwd` is required for project scope. Returns `{ skill: SkillSummary }`.
+
+### `POST /api/architecture-review/candidates`, `/add-to-plan`, `/record-decision`
+
+P8.5 - actions on an architecture review report. Body: `path` (a registered project; 403 otherwise), `workflowId`, `report` (artifact path such as `artifacts/architecture-review-2026-11-05.md`; the candidates come from the `.json` file next to it). `candidates` returns `{ report, data, candidates, recommendation?, plan: { id, title } | null }`. `add-to-plan` and `record-decision` also need `candidateId` and `confirm: true` (400 without), and refuse with 409 when the conversation has no attached plan (its own or its cluster's). `add-to-plan` writes the reference doc `arch-<title>` and adds one unticked item under `### Architecture review`; it returns `{ ok, plan, slug, item }`. `record-decision` needs a non-empty `reason` and appends to the `decisions` reference doc. See [Architecture review](ARCHITECTURE_REVIEW.md).
 
 ### `POST /api/skills/audit`
 

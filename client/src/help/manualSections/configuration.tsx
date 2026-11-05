@@ -477,6 +477,11 @@ export const configuration: Section[] = [
   <strong>PIN TO TAB</strong> keeps reapplying the current body every turn
   until its visible chip is removed.
   </li>
+  <li>
+  Under <strong>BUILT-IN</strong>, skills shipped with Arco offer{' '}
+  <strong>RUN</strong> and <strong>EDITABLE COPY</strong>; see Architecture
+  review.
+  </li>
   </ul>
   <Sub>Handoff prompts</Sub>
   <p>

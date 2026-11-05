@@ -65,7 +65,7 @@ const RIGHT_PANEL_DEFAULT_FRACTION = 0.28;
 interface Props {
   clusterId: string;
   // Per-member dispatch (threaded through from App.tsx → useWebSocket).
-  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review') => boolean | void;
+  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => boolean | void;
   onCancelMember: (workflowId: string) => void;
   onCancelQueuedForMember: (workflowId: string, clientMessageId: string) => void;
   onUpload: (file: File) => Promise<UploadResult>;
@@ -578,10 +578,12 @@ export function ClusterTab({
     if (directorMember && targetId === directorMember.workflowId) return 'Message the director, your main contact...';
     return `Message ${cluster.members.find((m) => m.workflowId === targetId)?.displayName ?? 'the member'}...`;
   })();
-  const sendFromComposer = (viewId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review') => {
+  // Operator-picked skills go with a message to one member; a message to
+  // several members is sent without them.
+  const sendFromComposer = (viewId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => {
     const allIds = cluster.members.map((m) => m.workflowId);
     const sub = composerRecipients ? allIds.filter((id) => composerRecipients.includes(id)) : [];
-    if (sub.length === 0 || !onBroadcast) return onSendToMember(viewId, content, attachments, kind, primitive);
+    if (sub.length === 0 || !onBroadcast) return onSendToMember(viewId, content, attachments, kind, primitive, pickedSkills);
     const recipientList = sub.length < allIds.length ? sub : undefined;
     const clientMessageId = `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const targetSet = new Set(sub);
@@ -929,8 +931,8 @@ export function ClusterTab({
                       displayName={focusedMember.displayName}
                       status={focusedMember.status}
                       focused={true}
-                      onSend={(content, attachments, kind, primitive) =>
-                        sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive)
+                      onSend={(content, attachments, kind, primitive, pickedSkills) =>
+                        sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
                       }
                       clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: openNudgeModal }}
                       onAttachPlan={onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}

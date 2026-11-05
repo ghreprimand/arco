@@ -1,4 +1,5 @@
 import { tryHandleStorageRoutes } from './storageRoutes.js';
+import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
 import { removedProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { tryHandleSmartPickupRoutes } from './smartPickupRoutes.js';
@@ -110,6 +111,8 @@ deleteSkill,
 isValidSlug,
 listSkills,
 readSkillBody,
+readBuiltinSkill,
+copyBuiltinSkill,
 writeSkill,
 type SkillScope
 } from '../skills.js';
@@ -465,6 +468,7 @@ export async function handleHttpRequest(
   // /api/usage-stats prefix, so no collision with /api/usage or /api/recall.
   if (await tryHandleUsageStatsRoutes(req, res)) return;
   if (await tryHandleStorageRoutes(req, res)) return;
+  if (await tryHandleArchitectureReviewRoutes(req, res)) return;
 
   // D2 — Endpoint auto-discovery (tailscale peers + localhost, bounded ports).
   if (await tryHandleEndpointDiscoveryRoutes(req, res)) return;
@@ -628,6 +632,28 @@ export async function handleHttpRequest(
   // H35 — operator-triggered skill security audit. Read-only + diagnostic: scans
   // the supplied body for invisible unicode + threat patterns and returns the
   // findings. NO install gate (that judgment stays with the operator).
+  // P8.5 — an editable copy of a built-in skill, saved as an ordinary
+  // operator-only skill in the chosen scope (the built-in stays read-only).
+  if (req.url?.startsWith('/api/skills/copy-builtin') && req.method === 'POST') {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const cwd = url.searchParams.get('cwd') ?? '';
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      const parsed = JSON.parse(body || '{}') as { scope?: string; slug?: string };
+      if (parsed.scope !== 'project' && parsed.scope !== 'global') throw new Error('scope must be "project" or "global"');
+      if (parsed.scope === 'project' && !cwd) throw new Error('cwd query required for project scope');
+      if (!readBuiltinSkill(parsed.slug ?? '')) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'built-in skill not found' })); return; }
+      const summary = await copyBuiltinSkill(parsed.slug ?? '', parsed.scope, cwd);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ skill: summary }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    }
+    return;
+  }
+
   if (req.url?.startsWith('/api/skills/audit') && req.method === 'POST') {
     try {
       let body = '';
@@ -671,6 +697,7 @@ export async function handleHttpRequest(
         name?: string;
         description?: string;
         body?: string;
+        operatorOnly?: boolean;
       };
       if (parsed.scope !== 'project' && parsed.scope !== 'global') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -689,6 +716,7 @@ export async function handleHttpRequest(
           name: parsed.name ?? '',
           description: parsed.description ?? '',
           body: parsed.body ?? '',
+          operatorOnly: parsed.operatorOnly === true,
         },
         cwd,
       );
