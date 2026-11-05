@@ -94,7 +94,7 @@ async def main():
           function Surface(){const value=useAppStore(s=>s.usage);return React.createElement(React.Fragment,null,React.createElement(HeaderAuthChip),React.createElement(UsageBar,{usage:value}));}
           createRoot(document.getElementById('fixture')).render(React.createElement(Surface));
         }''')
-        dot = page.get_by_role('link', name='C usage page', exact=True)
+        dot = page.get_by_role('link', name='Claude usage page', exact=True)
         await dot.hover()
         tooltip = page.get_by_role('tooltip')
         mode = 'manual_hold'

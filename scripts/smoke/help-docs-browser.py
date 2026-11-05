@@ -81,7 +81,7 @@ async def main():
         await bar.wait_for()
         await page.evaluate("testStore.setState(st=>({settings:{...st.settings,providerAccounts:{codex:[{id:'work',label:'Work'}]}}}))")
         await page.evaluate('testStore.getState().setHelpMode(false)')
-        await page.get_by_label('X status details; open Providers').hover()
+        await page.get_by_label('Codex status details; open Providers').hover()
         popup = page.get_by_role('tooltip').filter(has_text='Codex')
         await popup.get_by_label('Account').hover()
         await popup.get_by_label('Account').select_option('work')
@@ -94,7 +94,7 @@ async def main():
         await popup.get_by_text('Camoufox fixture missing').wait_for()
         assert any(q.get('source') == ['camoufox'] for q in quota_queries)
         await page.evaluate('testStore.getState().setHelpMode(true)')
-        for name, letter in [('claude','C'),('codex','X'),('cursor','R'),('ollama','O')]:
+        for name, letter in [('claude','A'),('codex','C'),('cursor','X'),('ollama','O')]:
             await page.wait_for_function("letter => [...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
             await page.evaluate("name => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,[name]:false}}}))", name)
             if name != 'ollama':

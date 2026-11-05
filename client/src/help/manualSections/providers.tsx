@@ -388,7 +388,7 @@ export const providers: Section[] = [
   Arco drives it through <Code>cursor-agent acp</Code> (ACP = Agent Client
   Protocol, real JSON-RPC 2.0 over stdio). The design is cloned from the
   Codex <Code>app-server</Code> mechanics: a long-lived in-process worker plus
-  a per-turn wrapper. The badge letter is <Code>R</Code> (C and X are taken).
+  a per-turn wrapper. Its letter on dots and badges is <Code>X</Code>.
   </p>
   <Sub>Sign-in</Sub>
   <p>
@@ -493,14 +493,14 @@ export const providers: Section[] = [
   <Sub>Usage and context</Sub>
   <p>
   <strong>Usage.</strong> The ACP stream carries no token counts, so the
-  header <Code>R</Code> dot is live-status only. Billed MTD $/token detail
+  header <Code>X</Code> dot is live-status only. Billed MTD $/token detail
   lives on the Cursor dashboard; Arco&apos;s authed usage poll attributes
   spend per workflow via the ACP <Code>sessionId</Code>.
   </p>
   <p>
   The Usage tab shows a polled month-to-date spend card plus the{' '}
   <em>Included in Pro</em> allocation gauge. Hovering the header&apos;s{' '}
-  <Code>R</Code> status dot shows a compact version with two bars:
+  <Code>X</Code> status dot shows a compact version with two bars:
   </p>
   <ul>
   <li>The included-plan gauge (Cursor&apos;s blended percentage used).</li>
@@ -527,7 +527,7 @@ export const providers: Section[] = [
   <Sub>What ships</Sub>
   <p>All Cursor transports now ship. The current feature set:</p>
   <ul>
-  <li>Spawnable primary, the full model picker and badge R.</li>
+  <li>Spawnable primary, the full model picker and badge X.</li>
   <li>Steer, cancel, session resume and live model-swap (no respawn).</li>
   <li>The north-star system-prompt fold.</li>
   <li>

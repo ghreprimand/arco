@@ -110,6 +110,7 @@ export function WorkerCard({ jobId, worker }: Props) {
               padding: '0 3px',
             }}
             title={providerBadgeTitle(worker.provider)}
+            aria-label={providerBadgeTitle(worker.provider)}
           >
             {providerBadgeChar(worker.provider)}
           </span>
@@ -275,10 +276,13 @@ function effortBadgeTitle(e: WorkerState['effort'], p: WorkerState['provider']):
   return `effort=${e}`;
 }
 
+// The same letters as the top-bar dots and terminal sessions: A Claude
+// (Anthropic), C Codex, X Cursor, O Ollama, L llama.cpp.
 function providerBadgeChar(p: WorkerState['provider']): string {
   switch (p) {
+    case 'claude': return 'A';
     case 'codex': return 'C';
-    case 'cursor': return 'R';
+    case 'cursor': return 'X';
     case 'ollama': return 'O';
     case 'llamacpp': return 'L';
     default: return '?';
@@ -287,6 +291,7 @@ function providerBadgeChar(p: WorkerState['provider']): string {
 
 function providerBadgeTitle(p: WorkerState['provider']): string {
   switch (p) {
+    case 'claude': return 'Claude (Anthropic)';
     case 'codex': return 'Codex (OpenAI)';
     case 'cursor': return 'Cursor (ACP · ~153 models)';
     case 'ollama': return 'Ollama (local)';

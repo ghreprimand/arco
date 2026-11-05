@@ -513,10 +513,10 @@ export const powerFeatures: Section[] = [
   </p>
   <Sub>Subscription dots</Sub>
   <p>
-  The header's live-status dots are separate. Hover the <Code>C</Code> dot for
-  Claude's 5-hour and weekly subscription burn (not cost, refreshed every 3
-  minutes), or the <Code>R</Code> dot for Cursor's included-plan and Other Models
-  quota bars.
+  The header's live-status dots are separate. Hover the <Code>A</Code> (Claude)
+  dot for Claude's 5-hour and weekly subscription burn (not cost, refreshed
+  every 3 minutes), or the <Code>X</Code> (Cursor) dot for Cursor's
+  included-plan and Other Models quota bars.
   </p>
   <Sub>Fold (Claude Native)</Sub>
   <p>

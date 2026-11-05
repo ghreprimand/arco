@@ -61,7 +61,7 @@ test('Native credentials with CLI signed out keep the dot and avoid a false Nati
   const f = await fixture(status('present', false));
   try {
     assert.doesNotMatch(f.text(), /AUTH:/);
-    const dot = f.dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="C usage page"]')!; assert.ok(dot);
+    const dot = f.dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="Claude usage page"]')!; assert.ok(dot);
     await act(async () => dot.focus());
     assert.match(f.text(), /Claude/);
     assert.doesNotMatch(f.text(), /Native: Credentials present|CLI: Signed out|Allowance/);

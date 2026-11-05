@@ -18,6 +18,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Provider letters are the same everywhere: A Claude (Anthropic), C Codex, X Cursor, O Ollama, L llama.cpp, on the top-bar dots, worker cards and the terminal sessions list. Before, C meant Claude on the dots and in terminal sessions but Codex on worker cards. Hover text and screen-reader labels name the provider in full.
 - Architecture review facts count a source file as tested when a test file imports it, not only when a test file has the same name. A relative JavaScript or TypeScript import and a Python import both count.
 - Dialogs open at sizes suited to their content and remember the chosen size in the browser. Reset size restores the default. Create folder reveals the new-folder fields in output pickers.
 - Settings > SKILLS now says that project skills are ignored by Git (inside `.arco`) instead of "version with the repo".

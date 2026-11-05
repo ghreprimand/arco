@@ -31,7 +31,7 @@ export function TerminalSessions({ cwd, onOpen }: { cwd: string; onOpen: (sessio
         const age = Math.max(0, Date.now() - session.startedAt);
         const relative = age < 60000 ? 'just now' : age < 3600000 ? `${Math.floor(age / 60000)}m ago` : age < 86400000 ? `${Math.floor(age / 3600000)}h ago` : `${Math.floor(age / 86400000)}d ago`;
         return <li key={`${session.provider}:${session.sessionId}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0' }}>
-          <span aria-hidden="true" style={{ ...muted, border: '1px solid var(--color-border-hairline)', borderRadius: 3, padding: '1px 4px' }}>{session.provider === 'claude' ? 'C' : 'X'}</span>
+          <span aria-hidden="true" title={session.provider === 'claude' ? 'Claude' : 'Codex'} style={{ ...muted, border: '1px solid var(--color-border-hairline)', borderRadius: 3, padding: '1px 4px' }}>{session.provider === 'claude' ? 'A' : 'C'}</span>
           <span style={{ ...muted, flex: 1, overflowWrap: 'anywhere' }}>{session.provider === 'claude' ? 'Claude' : 'Codex'} / {session.name || 'Untitled session'} / {relative}</span>
           <button type="button" style={action} disabled={!connected || !cliReady} title={!cliReady ? `Connect the ${session.provider === 'claude' ? 'Claude CLI' : 'Codex'} to continue` : undefined} onClick={() => onOpen(session)} aria-label={`Open terminal session ${session.name || session.sessionId.slice(0, 8)}`}>OPEN</button>
         </li>;

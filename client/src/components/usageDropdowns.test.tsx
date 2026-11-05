@@ -25,11 +25,11 @@ test('Codex and Cursor dropdowns show a provider title and their usage only', as
   const text = () => dom.window.document.body.textContent!;
   try {
     await act(async () => root.render(createElement(UsageBar, { usage: null })));
-    await act(async () => dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="X usage page"]')!.focus());
+    await act(async () => dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="Codex usage page"]')!.focus());
     assert.match(text(), /Codex/); assert.match(text(), /5h limit/); assert.match(text(), /40%/);
     assert.doesNotMatch(text(), /checked|OPEN CODEX ANALYTICS|CHECK NOW|Account|Allowance/);
     assert.equal(dom.window.document.querySelectorAll('[role="tooltip"] button').length, 1);
-    await act(async () => dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="R usage page"]')!.focus());
+    await act(async () => dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="Cursor usage page"]')!.focus());
     assert.match(text(), /Cursor/); assert.match(text(), /1\.2k tokens/);
     assert.doesNotMatch(text(), /OPEN CURSOR DASHBOARD|polled|MONTH TO DATE/);
   } finally {
@@ -57,7 +57,7 @@ test('Ollama status details open on keyboard focus', async () => {
   const text = () => dom.window.document.body.textContent!;
   try {
     await act(async () => root.render(createElement(UsageBar, { usage: null })));
-    const focusable = dom.window.document.querySelector<HTMLElement>('[aria-label="O status details"]');
+    const focusable = dom.window.document.querySelector<HTMLElement>('[aria-label="Ollama status details"]');
     assert.ok(focusable);
     assert.equal(focusable!.tabIndex, 0);
     await act(async () => { focusable!.focus(); });

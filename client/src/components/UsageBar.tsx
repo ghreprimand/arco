@@ -53,7 +53,10 @@ export function UsageBar({ usage, onDotClick }: Props) {
 // `ready` = hollow ring (daemon up but idle), `down` = filled danger dot.
 type DotState = 'live' | 'ready' | 'down';
 
-function StatusDot({ letter, state, title, href }: { letter: string; state: DotState; title?: string; href?: string }) {
+// One letter per provider, the same everywhere a provider is marked: A Claude
+// (Anthropic), C Codex, X Cursor, O Ollama, L llama.cpp. Labels name the
+// provider in full.
+function StatusDot({ letter, name, state, title, href }: { letter: string; name: string; state: DotState; title?: string; href?: string }) {
   const onDotClick = useContext(DotClickContext);
   const color = state === 'down'
     ? 'var(--color-danger)'
@@ -85,7 +88,7 @@ function StatusDot({ letter, state, title, href }: { letter: string; state: DotS
       <span
         role="button"
         tabIndex={0}
-        aria-label={`${letter} status details; open Providers`}
+        aria-label={`${name} status details; open Providers`}
         data-testid="provider-dot"
         onClick={(e) => { e.stopPropagation(); onDotClick(); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDotClick(); } }}
@@ -102,7 +105,7 @@ function StatusDot({ letter, state, title, href }: { letter: string; state: DotS
       <span
         role="button"
         tabIndex={0}
-        aria-label={`${letter} status details`}
+        aria-label={`${name} status details`}
         style={{ display: 'inline-flex', outline: 'none' }}
       >
         {content}
@@ -114,7 +117,7 @@ function StatusDot({ letter, state, title, href }: { letter: string; state: DotS
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${letter} usage page`}
+      aria-label={`${name} usage page`}
       style={{ textDecoration: 'none', display: 'inline-flex' }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -170,7 +173,8 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
       onBlur={() => setOpen(false)}
     >
       <StatusDot
-        letter="R"
+        letter="X"
+        name="Cursor"
         state="live"
         title={pct ? `Cursor: LIVE · ${pct} (hover for usage, click for dashboard)` : 'Cursor: LIVE (ACP · ~153 models, hover for usage)'}
         href={CURSOR_USAGE_URL}
@@ -288,7 +292,7 @@ function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
       onFocus={() => setOpen(true)}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
     >
-      <StatusDot letter="X" state="live" title="Codex: LIVE (hover for usage, click for analytics)" href={CODEX_ANALYTICS_URL} />
+      <StatusDot letter="C" name="Codex" state="live" title="Codex: LIVE (hover for usage, click for analytics)" href={CODEX_ANALYTICS_URL} />
       {open && (
         <div
           ref={placeRef}
@@ -390,7 +394,8 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget) && !e.currentTarget.matches(':hover')) setOpen(false); }}
     >
       <StatusDot
-        letter="C"
+        letter="A"
+        name="Claude"
         state={status.dotState}
         title={`${status.label}: ${transport === 'native' ? status.nativeText : status.cliText}${sessionPct !== null ? `; usage limits session ${sessionPct}%` : ''} (hover for usage limits)`}
         href={CLAUDE_USAGE_URL}
@@ -460,7 +465,7 @@ function OllamaStatus({ daemonUp, live }: { daemonUp: boolean; live: OllamaLiveS
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
     >
-      <StatusDot letter="O" state={state} title={title} />
+      <StatusDot letter="O" name="Ollama" state={state} title={title} />
       {open && (
         <div
           ref={placeRef}

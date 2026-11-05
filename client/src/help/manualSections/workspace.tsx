@@ -59,8 +59,8 @@ export const workspace: Section[] = [
           </li>
           <li>
             <strong>Live-status dots</strong> - when at least one provider is
-            authed, a compact dot per provider (<Code>C</Code> Claude,{' '}
-            <Code>X</Code> Codex, <Code>R</Code> Cursor, <Code>O</Code> Ollama):
+            authed, a compact dot per provider (<Code>A</Code> Claude,{' '}
+            <Code>C</Code> Codex, <Code>X</Code> Cursor, <Code>O</Code> Ollama):
             green ● live, hollow ○ idle, red ● down. Click a dot to open the
             Providers panel. Hover a dot for its usage detail - Claude&apos;s 5-hour and weekly burn (polled every 3
             minutes), Codex usage, Cursor&apos;s included-plan and Other Models

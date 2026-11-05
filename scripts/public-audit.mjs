@@ -153,6 +153,7 @@ const reviewedCaptures = new Map([
     'e3c5bf21d9a68f1bb06f3268204d85795c2e7fecb8e52916018f364a9333b28b',
     '52da96e20a790aa0c2894dc2d3beed8e68ea22a88909e0ebb130b209acf9e97f',
     '5ee70c0953ecd23503019e635002e1940ae7157209a0be9767cf81522ddf86b8',
+    'a759b99454b994f95ba52afbf41ed35ff17471e950ae5c3adc67360a7ad5b102',
   ]],
   ['docs/images/cluster.webp', [
     '3f52d4451f7dab350a55070f43cbd900666ef2c49be8186648cb24c302b1ee5b',
@@ -163,6 +164,7 @@ const reviewedCaptures = new Map([
     '303f237f0b28bc99521018a0f14b04e706012ff042835454f984f18940780bfb',
     'ea7f3ce53d36a8593402dbb57c28ec537402175c51943b0733b9c0c3b84d7b1b',
     'd2ec4b30b011334d53120ed057d07e389040f0135d074a60bfe670a1caf2444e',
+    '0d6bf20ba59e92c37c5cdc577ae3302fc821421a5ccf2e00ffb4beb61b7aa9c3',
   ]],
 ]);
 function reviewedCaptureAllows(file, digest) {

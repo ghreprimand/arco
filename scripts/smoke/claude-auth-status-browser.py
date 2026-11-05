@@ -84,7 +84,7 @@ async def main():
             await browser.close()
             raise
         await expect(page.get_by_role('button', name='[AUTH: CLAUDE NATIVE]', exact=True)).to_have_count(0)
-        dot = page.get_by_role('link', name='C usage page', exact=True)
+        dot = page.get_by_role('link', name='Claude usage page', exact=True)
         await expect(dot).to_be_visible()
         await dot.hover()
         await expect(page.get_by_role('tooltip')).to_contain_text('Claude')

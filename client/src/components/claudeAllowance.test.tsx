@@ -37,7 +37,7 @@ test('usage limits dropdown: refresh, stale snapshot and no sign-in detail prese
   };
   try {
     await act(async () => root.render(createElement(Surface)));
-    const dot = dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="C usage page"]')!;
+    const dot = dom.window.document.querySelector<HTMLAnchorElement>('a[aria-label="Claude usage page"]')!;
     await act(async () => dot.focus());
     await clickCheck();
     assert.match(text(), /Claude/); assert.match(text(), /Session/); assert.match(text(), /55%/);

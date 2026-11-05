@@ -439,8 +439,10 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Compact provider dots show live, ready or down status. <C>C</C> is
-          Claude, <C>X</C> Codex, <C>R</C> Cursor and <C>O</C> Ollama.
+          Compact provider dots show live, ready or down status. <C>A</C> is
+          Claude (Anthropic), <C>C</C> Codex, <C>X</C> Cursor and <C>O</C>{' '}
+          Ollama; worker cards and terminal sessions use the same letters, with{' '}
+          <C>L</C> for llama.cpp.
         </p>
         <p>
           Hover or keyboard-focus a dot for the full detail it used to show as a boxed pill:

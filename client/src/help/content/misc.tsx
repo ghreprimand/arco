@@ -39,7 +39,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'terminal-sessions': {
     title: 'Continue a terminal session',
-    body: <p>Lists up to 50 recent Claude Code and 50 Codex sessions for this project, read from their configured local history folders. On Home, discovery starts when the project menu opens. Scans are bounded, so older records may not appear. OPEN starts a tab with the matching provider and session. Claude sessions use the CLI transport; connect Claude CLI first. Codex uses the terminal account even when other profiles are configured. Close the terminal session before continuing to avoid concurrent writers. Nothing is copied or uploaded by discovery. The list is hidden when no matching sessions are available, including in Docker without mounted history.</p>,
+    body: <p>Lists up to 50 recent Claude Code and 50 Codex sessions for this project, read from their configured local history folders, marked A (Claude) and C (Codex). On Home, discovery starts when the project menu opens. Scans are bounded, so older records may not appear. OPEN starts a tab with the matching provider and session. Claude sessions use the CLI transport; connect Claude CLI first. Codex uses the terminal account even when other profiles are configured. Close the terminal session before continuing to avoid concurrent writers. Nothing is copied or uploaded by discovery. The list is hidden when no matching sessions are available, including in Docker without mounted history.</p>,
     manualSection: 'home',
   },
   'chat.turn-changes': {
@@ -1758,7 +1758,9 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         One short-lived worker process spawned by a primitive (reviewer,
         handoff summarizer, primary turn). Shows status, last tool, model.
-        Click to open the detailed view with full output and event log.
+        A worker on another provider than Claude shows its letter: C Codex,
+        X Cursor, O Ollama, L llama.cpp. Click to open the detailed view with
+        full output and event log.
       </p>
     ),
   },
