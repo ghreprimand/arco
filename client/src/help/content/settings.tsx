@@ -426,7 +426,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           Choose which events notify you and where; desktop and phone alerts are off until you tick them. Events: a turn finished
           (after at least 15 seconds), a turn failed, and waiting for you (a question or an approval). <strong>This computer</strong> shows
           a system notification only while Arco is not the window you are looking at, once per event; clicking it opens
-          that tab. REQUEST PERMISSION and TEST DESKTOP show whether the browser can display an alert. BELL notices for other tabs, and for cluster members other than the one in view, are on by default; use SHOW IN BELL to choose them.
+          that tab. REQUEST PERMISSION asks the browser. TEST DESKTOP asks too when the browser has not been asked, sends a test and shows the result beside it: Sent, Blocked (with how to allow it in the site settings), Not allowed, Not supported or Failed. BELL notices for other tabs, and for cluster members other than the one in view, are on by default; use SHOW IN BELL to choose them.
         </p>
         <p>
           <strong>Phone</strong> sends a message through an ntfy server and needs no hub. Enter the server, a topic

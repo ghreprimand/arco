@@ -30,10 +30,12 @@ async def main():
         page = await browser.new_page(viewport={'width': 1200, 'height': 1000})
         await page.add_init_script('''
           window.notificationLog = [];
+          window.permissionAnswer = 'granted';
+          window.permissionRequests = 0;
           class MockNotification {
             static permission = 'default';
-            static async requestPermission() { this.permission = 'granted'; return this.permission; }
-            constructor(title, options) { window.notificationLog.push({title, options}); }
+            static async requestPermission() { window.permissionRequests++; this.permission = window.permissionAnswer; return this.permission; }
+            constructor(title, options) { window.notificationLog.push({title, options}); setTimeout(() => this.onshow && this.onshow(), 0); }
             close() {}
           }
           window.Notification = MockNotification;
@@ -84,13 +86,32 @@ async def main():
           createRoot(document.getElementById('fixture')).render(React.createElement(NotificationChannelsSettings));
         }''')
         await expect(page.get_by_text('Browser permission: not asked.')).to_be_visible()
+        # Not asked yet: TEST DESKTOP asks itself. A blocked answer is shown
+        # beside the button with what to do; nothing is sent.
+        await page.evaluate("window.permissionAnswer = 'denied'")
         await page.get_by_role('button', name='TEST DESKTOP').click()
-        await expect(page.get_by_text('Browser permission is needed', exact=False)).to_be_visible()
+        result = page.get_by_test_id('desktop-test-result')
+        await expect(result).to_have_text('Blocked')
+        await expect(page.get_by_text('set Notifications to Allow', exact=False)).to_be_visible()
+        await expect(page.get_by_text('Browser permission: denied.')).to_be_visible()
+        assert await page.evaluate('window.permissionRequests') == 1
+        assert await page.evaluate('window.notificationLog.length') == 0
+        # The operator allows notifications in the site settings and reloads:
+        # the browser is back to "not asked" and TEST DESKTOP asks and sends.
+        await page.evaluate("window.permissionAnswer = 'granted'; window.Notification.permission = 'default'")
+        await page.get_by_role('button', name='TEST DESKTOP').click()
+        await expect(result).to_have_text('Sent')
+        await expect(page.get_by_text('Test sent to the system.', exact=False)).to_be_visible()
+        await expect(page.get_by_text('Browser permission: granted.')).to_be_visible()
+        assert await page.evaluate('window.permissionRequests') == 2
+        assert await page.evaluate('window.notificationLog.length') == 1
+        # REQUEST PERMISSION stays for asking without a test.
+        await page.evaluate("window.Notification.permission = 'default'")
+        await page.get_by_role('button', name='TEST DESKTOP').focus()
+        await page.evaluate("window.dispatchEvent(new Event('focus'))")
+        await expect(page.get_by_text('Browser permission: not asked.')).to_be_visible()
         await page.get_by_role('button', name='REQUEST PERMISSION').click()
         await expect(page.get_by_text('Browser permission: granted.')).to_be_visible()
-        await page.get_by_role('button', name='TEST DESKTOP').click()
-        assert await page.evaluate('window.notificationLog.length') == 1
-        await expect(page.get_by_text('Test sent.', exact=False)).to_be_visible()
         await page.evaluate("""async () => {
           const React = (await import('/node_modules/.vite/deps/react.js')).default;
           const {createRoot} = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;

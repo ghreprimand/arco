@@ -60,7 +60,7 @@ workflow and event every 3 seconds, and does three things:
 Preferences live in `~/.arco/notification-channels.json` (mode 0600; the ntfy
 token is stored there and never returned to the browser). `GET`/`PUT
 /api/notification-channels` and `POST /api/notification-channels/test` serve
-Settings > Notifications, where REQUEST PERMISSION and TEST DESKTOP check the browser permission and notification path. Normal desktop alerts require an unfocused window; finished turns must last at least 15 seconds. The window title shows `(N) ` before the page title
+Settings > Notifications, where REQUEST PERMISSION and TEST DESKTOP check the browser permission and notification path. TEST DESKTOP asks for permission itself when the browser has not been asked, then shows its result beside the button: Sent (the system took the notification; if nothing appears, check the system notification service and do-not-disturb), Blocked (allow notifications in the site settings, in the browser profile the Arco window uses, then reload), Not allowed (the request was closed), Not supported or Failed. Normal desktop alerts require an unfocused window; finished turns must last at least 15 seconds. The window title shows `(N) ` before the page title
 while N tabs hold an unanswered question or approval (`client/src/alerts/waiting.ts`,
 the same definition any per-tab status uses).
 

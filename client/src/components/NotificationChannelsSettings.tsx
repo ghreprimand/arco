@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ATTENTION_KINDS, isValidNtfyTopic, normalizeNtfyServer, type AttentionKind, type NotificationChannels } from '@arco/shared';
 import { useNotificationChannelsStore } from '../stores/notificationChannelsStore';
+import { runDesktopTest, type DesktopTestOutcome, type NotificationApi } from '../alerts/desktopTest';
 
 // Settings > Notifications: which events raise a desktop notification (this
 // computer) and phone messages. BELL visibility is controlled in the top bar.
@@ -27,7 +28,8 @@ export function NotificationChannelsSettings() {
   const [token, setToken] = useState('');
   const [note, setNote] = useState('');
   const [testing, setTesting] = useState(false);
-  const [desktopNote, setDesktopNote] = useState('');
+  const [desktopTest, setDesktopTest] = useState<DesktopTestOutcome | null>(null);
+  const [desktopTesting, setDesktopTesting] = useState(false);
   const [permission, setPermission] = useState<string>(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
 
   useEffect(() => { void load(); }, [load]);
@@ -51,13 +53,15 @@ export function NotificationChannelsSettings() {
     }
     await save({ ...base(), desktop: { ...view.desktop, [kind]: on } });
   };
-  const testDesktop = () => {
-    if (typeof Notification === 'undefined') { setDesktopNote('This browser does not support desktop notifications.'); return; }
-    if (Notification.permission !== 'granted') { setDesktopNote('Browser permission is needed before a desktop notification can appear.'); return; }
+  const testDesktop = async () => {
+    setDesktopTesting(true); setDesktopTest(null);
     try {
-      new Notification('Arco notification test', { body: 'Desktop notifications are available.' });
-      setDesktopNote('Test sent. Normal alerts appear only when Arco is unfocused; finished turns must run at least 15 seconds.');
-    } catch { setDesktopNote('The browser could not show the test notification. Check its site and system notification settings.'); }
+      const api = typeof Notification === 'undefined' ? undefined : Notification as unknown as NotificationApi;
+      setDesktopTest(await runDesktopTest(api));
+    } finally {
+      setPermission(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+      setDesktopTesting(false);
+    }
   };
   const togglePhone = (kind: AttentionKind, on: boolean) => save({ ...base(), phone: { ...view.phone, [kind]: on } });
 
@@ -93,10 +97,11 @@ export function NotificationChannelsSettings() {
       <p style={{ margin: 0 }}>Browser permission: {permission === 'default' ? 'not asked' : permission}.</p>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="display-font" disabled={permission === 'unsupported' || permission === 'granted' || permission === 'denied'} onClick={async () => setPermission(await Notification.requestPermission())}>REQUEST PERMISSION</button>
-        <button type="button" className="display-font" onClick={testDesktop}>TEST DESKTOP</button>
+        <button type="button" className="display-font" disabled={desktopTesting} onClick={() => void testDesktop()}>TEST DESKTOP</button>
+        <span data-testid="desktop-test-result" data-result={desktopTest?.result ?? ''} style={{ alignSelf: 'center', color: desktopTest?.result === 'sent' ? 'var(--color-success)' : 'var(--color-warning)' }}>{desktopTesting ? 'Testing...' : desktopTest?.label ?? ''}</span>
       </div>
       <p style={{ margin: 0 }}>Normal desktop alerts need browser permission and an unfocused Arco window. Finished turns must run at least 15 seconds.</p>
-      <div aria-live="polite">{desktopNote}</div>
+      <div aria-live="polite">{desktopTest?.detail ?? ''}</div>
       <p style={{ margin: 0 }}>Use SHOW IN BELL in the top bar to choose which in-app notices appear.</p>
       <table style={{ borderCollapse: 'collapse' }}>
         <thead><tr><th style={{ textAlign: 'left', padding: '4px 10px' }}>Event</th><th style={cell}>This computer</th><th style={cell}>Phone</th></tr></thead>
