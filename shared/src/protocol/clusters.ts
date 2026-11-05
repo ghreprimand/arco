@@ -614,13 +614,28 @@ export interface ClusterSnapshotErrorMessage {
   snapshotId?: string;
 }
 
+// Member settings that ADD WORKERS and REPLACE take besides provider, model,
+// effort, account and access mode. Absent keeps the path's default: ADD
+// WORKERS starts from the first member's tab settings with no tier, focus or
+// own auto-compaction; REPLACE keeps the old member's. `tier: null`, an empty
+// `focus` and `autoCompaction: null` clear (null auto-compaction follows the
+// cluster default). OFF, NORMAL and fast mode false are stored as unset.
+export interface ClusterMemberTuning {
+  tier?: MemberTier | null;
+  focus?: string;
+  outputStyle?: 'normal' | 'lite' | 'terse';
+  efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
+  fastMode?: boolean;
+  autoCompaction?: AutoCompactionPolicy | null;
+}
+
 // Phase 2.5.1 — operator clicked "+ ADD WORKER" in ClusterRightPanel
 // Members tab and chose "spawn N fresh." Server creates N new workflows
 // inheriting the cluster's cwd + the first member's primary config, then
 // adds each to the cluster. `count` clamped to [1, 4]. Native-only fence
 // applies to the inherited template — if members[0] isn't Native Claude
 // the request is rejected.
-export interface ClusterAddFreshWorkersMessage {
+export interface ClusterAddFreshWorkersMessage extends ClusterMemberTuning {
   type: 'cluster_add_fresh_workers';
   clusterId: string;
   count: number;
@@ -646,10 +661,11 @@ export interface ClusterAddFreshWorkersMessage {
 
 // Operator replaces one cluster slot with a brand-new workflow. The new
 // workflow always gets a new workflowId/provider session. WorkflowConfig and
-// cluster metadata clone from `workflowId`, then the optional provider triple
-// and access mode override the clone. Prior context and active task ownership
-// are independent, explicit opt-ins.
-export interface ClusterMemberReplaceMessage {
+// cluster metadata clone from `workflowId`, then every field the request
+// carries (provider triple, account, access mode, name, role and the member
+// tuning) overrides the clone. Prior context and active task ownership are
+// independent, explicit opt-ins.
+export interface ClusterMemberReplaceMessage extends ClusterMemberTuning {
   type: 'cluster_member_replace';
   clusterId: string;
   workflowId: string;
@@ -658,6 +674,10 @@ export interface ClusterMemberReplaceMessage {
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | string;
   providerAccountRef?: string;
   accessMode?: ClusterMemberAccessMode;
+  // A non-empty name renames the new member; an empty or absent one keeps the old name.
+  name?: string;
+  // Absent keeps the old role; an empty string clears it.
+  role?: string;
   includeHistory?: boolean;
   transferActiveTasks?: boolean;
 }

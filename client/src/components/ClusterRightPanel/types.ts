@@ -119,7 +119,7 @@ export interface Props {
   onAddFreshWorkers?: (
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string },
+    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string } & import('@arco/shared').ClusterMemberTuning,
   ) => void;
   onAddExistingMember?: (clusterId: string, workflowId: string) => void;
   // Phase 2.6 — shared cluster plan + per-member role editors.

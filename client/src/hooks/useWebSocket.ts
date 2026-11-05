@@ -1112,13 +1112,20 @@ export function useWebSocket() {
   const addClusterFreshWorkers = useCallback((
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string },
+    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string } & import('@arco/shared').ClusterMemberTuning,
   ) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({
       type: 'cluster_add_fresh_workers',
       clusterId,
       count,
+      // Work size, focus and tuning travel as the dialog shows them.
+      ...(opts?.tier !== undefined ? { tier: opts.tier } : {}),
+      ...(opts?.focus !== undefined ? { focus: opts.focus } : {}),
+      ...(opts?.outputStyle !== undefined ? { outputStyle: opts.outputStyle } : {}),
+      ...(opts?.efficiencyToolFilter !== undefined ? { efficiencyToolFilter: opts.efficiencyToolFilter } : {}),
+      ...(opts?.fastMode !== undefined ? { fastMode: opts.fastMode } : {}),
+      ...(opts?.autoCompaction !== undefined ? { autoCompaction: opts.autoCompaction } : {}),
       ...(opts?.provider ? { provider: opts.provider } : {}),
       ...(opts?.model ? { model: opts.model } : {}),
       ...(opts?.effort ? { effort: opts.effort } : {}),

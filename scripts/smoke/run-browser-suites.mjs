@@ -24,6 +24,7 @@ const SUITES = [
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },
   { name: 'cluster-member-panels', script: 'cluster-member-panels-browser.py', port: 5203 },
   { name: 'add-worker-identity', script: 'add-worker-identity-browser.py', port: 5203 },
+  { name: 'member-settings', script: 'member-settings-browser.py', port: 5203 },
   { name: 'catch-me-up', script: 'catch-me-up-browser.py', port: 5225 },
   { name: 'tidy-composer', script: 'tidy-composer-browser.py', port: 5226 },
   { name: 'recall-close', script: 'recall-close-browser.py', port: 5227 },

@@ -3,6 +3,10 @@ import type { CSSProperties } from 'react';
 import {
   CLAUDE_MODELS,
   DEFAULT_CODEX_MODEL,
+  ROLE_PRESETS,
+  clusterDirectorProblem,
+  isClusterDirector,
+  presetForText,
   type ClusterMemberAccessMode,
   type ClusterMemberProvider,
   type ClusterStatePayload,
@@ -14,6 +18,8 @@ import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { effortsForModel } from '../../utils/format';
 import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
+import { MemberSettingsFields } from './MemberSettingsFields';
+import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 
 const menuStyle: CSSProperties = {
   flex: 1,
@@ -54,6 +60,13 @@ export function ReplaceMemberDialog({
   const [effort, setEffort] = useState<EffortLevel>(capDefaultEffort(originalEffort as EffortLevel));
   const [account, setAccount] = useState<string | undefined>(originalAccount);
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>(member.accessMode ?? 'standard');
+  // Name, role, work size, focus and tuning start from the old member; the
+  // request carries all of them, so nothing is forced to stay.
+  const originalName = job?.config.name ?? '';
+  const [name, setName] = useState(originalName);
+  const [role, setRole] = useState(member.role ?? '');
+  const [memberSettings, setMemberSettings] = useState<MemberSettings>(() => memberSettingsFrom(job?.config, { tier: member.tier, focus: member.focus, keepAutoCompaction: true }));
+  const otherDirector = cluster.members.some((m) => m.workflowId !== member.workflowId && isClusterDirector(m.role));
   const [includeHistory, setIncludeHistory] = useState(false);
   const [transferTasks, setTransferTasks] = useState(true);
   const codexAccounts = settings?.providerAccounts?.codex ?? [];
@@ -108,8 +121,10 @@ export function ReplaceMemberDialog({
     }
   };
 
+  const directorBlocked = isClusterDirector(role) && otherDirector;
+  const ready = !!model && !directorBlocked;
   const submit = () => {
-    if (!wsSendRaw || !model) return;
+    if (!wsSendRaw || !model || directorBlocked) return;
     wsSendRaw({
       type: 'cluster_member_replace',
       clusterId: cluster.clusterId,
@@ -119,6 +134,9 @@ export function ReplaceMemberDialog({
       ...(effort !== originalEffort ? { effort } : {}),
       ...(provider === 'codex' && account !== originalAccount ? { providerAccountRef: account } : {}),
       accessMode,
+      ...(name.trim() && name.trim() !== originalName ? { name: name.trim() } : {}),
+      role: role.trim(),
+      ...memberTuning(memberSettings, provider),
       includeHistory,
       transferActiveTasks: transferTasks,
     });
@@ -135,7 +153,7 @@ export function ReplaceMemberDialog({
         REPLACE WITH A NEW WORKER
       </div>
       <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>
-        Name, role, tier, focus, and all tab settings are cloned. The provider session and workflow ID are always new.
+        Every choice starts from the current member and can be changed. Tab settings not shown here are copied. The provider session and workflow ID are always new.
       </div>
       <label
         className="display-font"
@@ -207,6 +225,66 @@ export function ReplaceMemberDialog({
           </select>
         </label>
       )}
+      <label
+        className="display-font"
+        data-help="cluster.replace.name"
+        style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}
+      >
+        NAME
+        <input
+          type="text"
+          maxLength={64}
+          aria-label="Replacement name"
+          data-help="cluster.replace.name"
+          data-testid="replace-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ ...menuStyle, cursor: 'text' }}
+        />
+      </label>
+      <div data-help="cluster.replace.role" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', fontSize: '10px' }}>
+        <span className="display-font">ROLE</span>
+        {ROLE_PRESETS.map((p) => {
+          const active = presetForText(role)?.key === p.key;
+          const blocked = isClusterDirector(p.text) && otherDirector;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              disabled={blocked}
+              data-help="cluster.replace.role"
+              data-testid={`replace-role-${p.key}`}
+              onClick={() => setRole(active ? '' : p.text)}
+              title={blocked ? clusterDirectorProblem(['Director', 'Director'])! : p.text}
+              className="display-font"
+              style={{
+                padding: '3px 7px',
+                background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
+                border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
+                color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+                cursor: blocked ? 'not-allowed' : 'pointer',
+                opacity: blocked ? 0.35 : 1,
+                fontSize: '9px',
+                letterSpacing: '1px',
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+        <input
+          type="text"
+          maxLength={120}
+          placeholder="or custom role"
+          aria-label="Replacement custom role"
+          data-help="cluster.replace.role"
+          data-testid="replace-role-custom"
+          value={presetForText(role) ? '' : role}
+          onChange={(e) => setRole(e.target.value)}
+          style={{ ...menuStyle, cursor: 'text', minWidth: '100px' }}
+        />
+      </div>
+      <MemberSettingsFields value={memberSettings} onChange={setMemberSettings} provider={provider} clusterDefault={cluster.autoCompaction ?? null} testId="replace" />
       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
         {(['standard', 'blind', 'isolated'] as ClusterMemberAccessMode[]).map((mode) => (
           <button
@@ -288,15 +366,15 @@ export function ReplaceMemberDialog({
         <button
           type="button"
           onClick={submit}
-          disabled={!model}
+          disabled={!ready}
           data-help="cluster.replace.confirm"
           className="display-font"
           style={{
             padding: '4px 10px',
-            background: model ? 'var(--color-accent-primary)' : 'transparent',
-            border: model ? '1px solid var(--color-accent-primary)' : '1px solid var(--color-border-hairline)',
-            color: model ? 'var(--color-bg)' : 'var(--color-fg-muted)',
-            cursor: model ? 'pointer' : 'not-allowed',
+            background: ready ? 'var(--color-accent-primary)' : 'transparent',
+            border: ready ? '1px solid var(--color-accent-primary)' : '1px solid var(--color-border-hairline)',
+            color: ready ? 'var(--color-bg)' : 'var(--color-fg-muted)',
+            cursor: ready ? 'pointer' : 'not-allowed',
             fontSize: '10px',
             letterSpacing: '1px',
           }}

@@ -104,14 +104,14 @@ async def main():
             await page.locator('input[data-help="cluster.fresh.count"]').fill('2')
             await spawn.click()
             last=await page.evaluate('fresh.at(-1).slice(1)')
-            assert last[0]==2 and last[1]=={'name':'Scout'}, last
-        # Custom role, several workers, no name: only the typed fields are sent.
+            assert last[0]==2 and last[1].get('name')=='Scout' and 'role' not in last[1], last
+        # Custom role, several workers, no name: no name is sent.
         await page.locator('[data-help="cluster.add-fresh"]').click()
         await custom.fill('Migration reviewer')
         await page.locator('input[data-help="cluster.fresh.count"]').fill('2')
         await spawn.click()
         last=await page.evaluate('fresh.at(-1).slice(1)')
-        assert last[0]==2 and last[1]=={'role':'Migration reviewer'}, last
+        assert last[0]==2 and last[1].get('role')=='Migration reviewer' and 'name' not in last[1], last
         # An existing director disables the DIRECTOR preset.
         await page.evaluate("snapshot('cluster-a', {}, [{...members[0], role:'Director role. Delegate via peer_send, never Task; don\\'t write code; verify claims; plan = rules + tasks; you land.'}, members[1]])")
         await page.locator('[data-help="cluster.add-fresh"]').click()

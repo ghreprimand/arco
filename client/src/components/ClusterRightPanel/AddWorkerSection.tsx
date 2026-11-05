@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
-import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterStatePayload, EffortLevel, ModelName, ProviderName } from '@arco/shared';
+import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterMemberTuning, ClusterStatePayload, EffortLevel, ModelName, ProviderName } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { CursorModelSelect } from '../CursorModelSelect';
+import { MemberSettingsFields } from './MemberSettingsFields';
+import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
+
+export type AddFreshOptions = { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string } & ClusterMemberTuning;
 
 // Phase 2.5.1 — in-cluster add-worker affordance. Lives above the member
 // list in the Members sub-tab. Two modes:
@@ -25,7 +29,7 @@ export function AddWorkerSection({
   onAddFresh?: (
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string },
+    opts?: AddFreshOptions,
   ) => void;
   onAddExisting?: (clusterId: string, workflowId: string) => void;
 }) {
@@ -59,6 +63,10 @@ export function AddWorkerSection({
   const [model, setModel] = useState<string>(String(templateModel));
   const [effort, setEffort] = useState<string>(String(templateEffort));
   const [providerAccountRef, setProviderAccountRef] = useState<string | undefined>(templateAccountRef);
+  // Work size, focus and tuning: the template's tab settings, no tier, focus
+  // or own auto-compaction. Sent in full with every request.
+  const templateConfig = templateJob?.config;
+  const [memberSettings, setMemberSettings] = useState<MemberSettings>(() => memberSettingsFrom(templateConfig));
   // Account-scoped so a fresh Codex member's model list matches the chosen
   // account profile's entitlements (HOME vs WORK).
   const codexCatalog = useCodexCatalogFor(providerAccountRef);
@@ -72,7 +80,8 @@ export function AddWorkerSection({
     setModel(String(templateModel));
     setEffort(String(templateEffort));
     setProviderAccountRef(templateProvider === 'codex' ? templateAccountRef : undefined);
-  }, [templateProvider, templateModel, templateEffort, templateAccountRef]);
+    setMemberSettings(memberSettingsFrom(templateConfig));
+  }, [templateProvider, templateModel, templateEffort, templateAccountRef, templateConfig?.outputStyle, templateConfig?.efficiencyToolFilter, templateConfig?.fastMode]);
 
   // Per-provider model list — live catalog when available, static otherwise.
   // Cursor gets auto + the full frontier catalog, same picker depth as a
@@ -432,6 +441,7 @@ export function AddWorkerSection({
               style={{ flex: 1, minWidth: '120px', background: 'var(--color-bg)', color: 'var(--color-fg)', border: '1px solid var(--color-border-hairline)', padding: '4px 6px', fontSize: '11px', fontFamily: 'var(--font-code)' }}
             />
           </div>
+          <MemberSettingsFields value={memberSettings} onChange={setMemberSettings} provider={provider} clusterDefault={cluster.autoCompaction ?? null} testId="add-fresh" />
           {/* Row 2 — COUNT + SPAWN button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1px' }}>COUNT</span>
@@ -457,7 +467,7 @@ export function AddWorkerSection({
                 if (submitDisabled) return;
                 // Only forward overrides when they diverge from the template
                 // — undefined means "inherit" on the server.
-                const opts: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string } = {};
+                const opts: AddFreshOptions = { ...memberTuning(memberSettings, provider) };
                 if (provider !== templateProvider) opts.provider = provider;
                 if (model && model !== String(templateModel)) opts.model = model;
                 if (effort && effort !== String(templateEffort)) opts.effort = effort;
@@ -465,9 +475,10 @@ export function AddWorkerSection({
                 if (accessMode !== 'standard') opts.accessMode = accessMode;
                 if (workerName.trim()) opts.name = workerName.trim();
                 if (workerRole.trim()) opts.role = workerRole.trim();
-                onAddFresh(cluster.clusterId, count, Object.keys(opts).length > 0 ? opts : undefined);
+                onAddFresh(cluster.clusterId, count, opts);
                 setWorkerName('');
                 setWorkerRole('');
+                setMemberSettings(memberSettingsFrom(templateConfig));
                 setMode('idle');
               }}
               disabled={submitDisabled}

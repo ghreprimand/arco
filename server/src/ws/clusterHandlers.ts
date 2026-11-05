@@ -7,8 +7,6 @@ import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '.
 // startup via initClusterHandlers to avoid a cycle with the entry point.
 import { isClusterOpen, workspaceAdoptFormerMembers, workspaceCloseCluster, workspaceOpenCluster } from '../workspace.js';
 import {
-  CLAUDE_MODELS,
-  CODEX_MODELS,
   isClusterMemberProvider,
   isClusterMemberAccessMode,
   isClusterEfficiencyLevel,
@@ -49,8 +47,8 @@ import * as mcpConfigWriter from '../mcp/mcpConfigWriter.js';
 import { resolveRegistryWiring } from '../mcp/registryWiring.js';
 import { readMeta, latestCliSessionFor, workflowConfigFromMeta } from '../workflowMeta.js';
 import { isValidPlanId } from '../planStore.js';
-import { resolveProviderAccount } from '../providerAccounts.js';
-import { memberConfigFromSpec, memberConfigFromTemplate, memberModelProblem, type CodexAccountResolver } from './clusterMembers.js';
+import { configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
+import { inferClusterProviderFromModel, memberAccountRefusal, memberConfigFromSpec, memberConfigFromTemplate, memberModelRefusal, memberTuningRefusal, templateModelRefusal, type CodexAccountCheck, type CodexAccountResolver } from './clusterMembers.js';
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
 import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
 import {
@@ -1457,21 +1455,7 @@ export function catalogDriftProbe(provider: string, model: string): Promise<bool
     : Promise.resolve(true);
 }
 
-export function inferClusterProviderFromModel(modelId: string): ClusterMemberProvider | undefined {
-  const id = modelId.trim();
-  if (!id) return undefined;
-  // Cursor-exclusive ids first: bare `auto` (the Auto+Composer default) and the
-  // grok-* family only reach Arco through Cursor today. NOTE: Cursor also
-  // PROXIES the claude-*/gpt-*/glm-* families, so those prefixes below can't
-  // distinguish Cursor from the native provider — model-id-only inference for a
-  // Cursor member on a proxied model is impossible; the operator picks provider
-  // explicitly (AddWorkerSection) and resolveClusterOverrideProvider trusts that
-  // pick for Cursor rather than treating the proxied prefix as a mismatch.
-  if (id === 'auto' || id.startsWith('grok-') || id.startsWith('grok/')) return 'cursor';
-  if ((CLAUDE_MODELS as readonly string[]).includes(id) || id.startsWith('claude-')) return 'claude';
-  if ((CODEX_MODELS as readonly string[]).includes(id) || id.startsWith('gpt-')) return 'codex';
-  return undefined;
-}
+export { inferClusterProviderFromModel };
 
 export function resolveClusterOverrideProvider(
   inheritedProvider: ClusterMemberProvider,
@@ -1495,6 +1479,8 @@ export function resolveClusterOverrideProvider(
 // at every step.
 // Codex account lookup for a new member; a failed lookup keeps the reference.
 const resolveCodexAccount: CodexAccountResolver = async (ref, cwd) => (await resolveProviderAccount('codex', ref, cwd).catch(() => null))?.profile.id ?? null;
+// An operator-picked Codex account must be one of the configured accounts.
+const isKnownCodexAccount: CodexAccountCheck = async (ref, cwd) => (await configuredAccounts('codex', cwd).catch(() => [])).some((a) => a.id === ref);
 
 export async function handleClusterCreateWithFreshWorkers(
   ws: WebSocket,
@@ -1535,8 +1521,9 @@ export async function handleClusterCreateWithFreshWorkers(
     return;
   }
   const choice = { inherited: inheritedSourceProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
-  const modelProblem = await memberModelProblem({ op: 'cluster_create_with_fresh_workers', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: true, changedWithoutModel: 'unknown_model (provider changed without model)' });
-  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
+  const modelProblem = await templateModelRefusal(choice, msg.model, isKnownCatalogModel)
+    ?? await memberAccountRefusal(choice.provider, msg.providerAccountRef, sourceCwd, isKnownCodexAccount);
+  if (modelProblem) { send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: ${modelProblem}` }); return; }
   const n = Math.max(1, Math.min(4, Math.floor(msg.additionalCount)));
   const freshAdded = Array.from({ length: n }, () => providerResolution.provider as string);
   const freshDisabled = await disabledClusterProvider([inheritedSourceProvider, ...freshAdded]);
@@ -1653,17 +1640,10 @@ export async function handleClusterCreateFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] unknown_provider:${m.provider}` });
       return;
     }
-    if (typeof m.model !== 'string' || m.model.trim().length === 0) {
-      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] missing_model` });
-      return;
-    }
-    const modelProvider = inferClusterProviderFromModel(m.model);
-    if (modelProvider && modelProvider !== m.provider) {
-      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] provider_model_mismatch:${m.provider}:${m.model}` });
-      return;
-    }
-    if (!(await isKnownCatalogModel(m.provider, m.model))) {
-      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] unknown_model:${m.model}` });
+    const modelProblem = await memberModelRefusal(m.provider, m.model, isKnownCatalogModel)
+      ?? await memberAccountRefusal(m.provider, m.providerAccountRef, msg.cwd, isKnownCodexAccount);
+    if (modelProblem) {
+      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${modelProblem}` });
       return;
     }
     if (m.tier !== undefined && !clusterStore.isMemberTier(m.tier)) {
@@ -1785,8 +1765,10 @@ export async function handleClusterAddFreshWorkers(
     return;
   }
   const choice = { inherited: inheritedTemplateProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
-  const modelProblem = await memberModelProblem({ op: 'cluster_add_fresh_workers', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: true, changedWithoutModel: 'unknown_model (provider changed without model)' });
-  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
+  const modelProblem = await templateModelRefusal(choice, msg.model, isKnownCatalogModel)
+    ?? await memberAccountRefusal(choice.provider, msg.providerAccountRef, cluster.cwd, isKnownCodexAccount)
+    ?? memberTuningRefusal(msg);
+  if (modelProblem) { send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${modelProblem}` }); return; }
   if (accessMode === 'isolated' && providerResolution.provider !== 'claude') {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_requires_claude_native' });
     return;
@@ -1870,6 +1852,7 @@ export async function handleClusterAddFreshWorkers(
     const childConfig = await memberConfigFromTemplate({
       template: template.config, cwd: cluster.cwd, kind: 'fresh', name: childName, choice,
       model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+      tuning: msg,
     });
     try {
       const id = await deps.createBlankNativeWorkflow(ws, session, childConfig);
@@ -1887,6 +1870,8 @@ export async function handleClusterAddFreshWorkers(
         await clusterStore.setMemberAccessMode(msg.clusterId, newId, accessMode);
       }
       if (newRole) await clusterStore.setMemberRole(msg.clusterId, newId, newRole);
+      if (msg.tier) await clusterStore.setMemberTier(msg.clusterId, newId, msg.tier);
+      if (msg.focus?.trim()) await clusterStore.setMemberFocus(msg.clusterId, newId, msg.focus);
       // 2026-05-11 bug fix — fan out the cluster-side observer entry to
       // every WS already subscribed to this cluster (incl. the creating
       // WS via its own cluster sub) so per-member events surface in their
@@ -1898,6 +1883,8 @@ export async function handleClusterAddFreshWorkers(
         displayName: clusterStore.displayNameFor(newId),
         status: (newWf?.busy ? 'busy' : 'idle') as 'idle' | 'busy',
         role: (newRole || undefined) as string | undefined,
+        ...(clusterStore.tierFor(newId) ? { tier: clusterStore.tierFor(newId) } : {}),
+        ...(clusterStore.focusFor(newId) ? { focus: clusterStore.focusFor(newId) } : {}),
         ...(accessMode !== 'standard' ? { accessMode } : {}),
       };
       broadcastCluster(msg.clusterId, { type: 'cluster_member_added', clusterId: msg.clusterId, member });
@@ -1915,6 +1902,17 @@ export async function handleClusterAddFreshWorkers(
 }
 
 const REPLACEMENT_HISTORY_MAX_BYTES = 512 * 1024;
+
+// The name and role a REPLACE request carries, as a refusal code or null.
+function replaceIdentityRefusal(cluster: clusterStore.ClusterState, msg: import('@arco/shared').ClusterMemberReplaceMessage): string | null {
+  if (msg.name !== undefined && (typeof msg.name !== 'string' || msg.name.trim().length > 64)) return 'invalid_name';
+  if (msg.role === undefined) return null;
+  if (typeof msg.role !== 'string' || msg.role.trim().length > clusterStore.MEMBER_ROLE_MAX) return 'invalid_role';
+  const role = normalizeClusterRoleText(msg.role);
+  if (!isClusterDirector(role) || isClusterDirector(cluster.memberRoles?.[msg.workflowId])) return null;
+  const problem = clusterDirectorProblem([...cluster.members.filter((id) => id !== msg.workflowId).map((id) => cluster.memberRoles?.[id]), role]);
+  return problem ? `multiple_directors: ${problem}` : null;
+}
 
 // Replace a cluster slot without reusing the provider session. The cluster
 // metadata swap is one atomic meta.json write; old workflow persistence stays
@@ -1960,8 +1958,11 @@ export async function handleClusterMemberReplace(
     return;
   }
   const choice = { inherited: inheritedClusterProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
-  const modelProblem = await memberModelProblem({ op: 'cluster_member_replace', choice, model: msg.model, isKnownModel: isKnownCatalogModel, rejectEmptyModel: false, changedWithoutModel: 'provider_changed_without_model' });
-  if (modelProblem) { send(ws, { type: 'error', message: modelProblem }); return; }
+  const modelProblem = await templateModelRefusal(choice, msg.model, isKnownCatalogModel)
+    ?? await memberAccountRefusal(choice.provider, msg.providerAccountRef, cluster.cwd, isKnownCodexAccount)
+    ?? memberTuningRefusal(msg)
+    ?? replaceIdentityRefusal(cluster, msg);
+  if (modelProblem) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${modelProblem}` }); return; }
   if (providerResolution.provider !== inheritedProvider) {
     const replaced = [providerResolution.provider as string];
     const others = cluster.members.filter((id) => id !== msg.workflowId).map(memberProvider);
@@ -1993,8 +1994,9 @@ export async function handleClusterMemberReplace(
   }
 
   const childConfig = await memberConfigFromTemplate({
-    template: source.config, cwd: cluster.cwd, kind: 'replacement', choice,
+    template: source.config, cwd: cluster.cwd, kind: 'replacement', name: msg.name, choice,
     model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+    tuning: msg,
   });
 
   let newWorkflowId: string;
@@ -2007,6 +2009,11 @@ export async function handleClusterMemberReplace(
       accessMode,
     );
     if (!replaced) throw new Error('atomic_replace_failed');
+    // The slot's role, tier and focus moved with the replacement; the
+    // request's own values win. Checked above, so these cannot refuse.
+    if (msg.role !== undefined) await clusterStore.setMemberRole(msg.clusterId, newWorkflowId, msg.role);
+    if (msg.tier !== undefined) await clusterStore.setMemberTier(msg.clusterId, newWorkflowId, msg.tier);
+    if (msg.focus !== undefined) await clusterStore.setMemberFocus(msg.clusterId, newWorkflowId, msg.focus);
   } catch (err) {
     send(ws, {
       type: 'error',

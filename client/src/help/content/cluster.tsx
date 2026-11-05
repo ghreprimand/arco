@@ -316,7 +316,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.add-fresh': {
     title: 'ADD FRESH',
-    body: <p>Creates one or more new workers in this cluster&apos;s project folder. Opens choices for access, provider, model, effort, name, role and count. Every choice starts from the cluster&apos;s first member; only the ones you change differ from it.</p>,
+    body: <p>Creates one or more new workers in this cluster&apos;s project folder. Opens choices for access, provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and count. Provider, model, effort and the tab settings start from the cluster&apos;s first member; name, role, work size, focus and auto-compaction start empty.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.spawn': {
@@ -336,7 +336,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.fresh.count': {
     title: 'How many',
-    body: <p>How many identical workers to create at once, from 1 to 4. Each uses the provider, model and effort chosen above, and NAME and ROLE apply to all of them.</p>,
+    body: <p>How many identical workers to create at once, from 1 to 4. Every choice above applies to all of them.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.fresh.name': {
@@ -372,7 +372,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.fresh.model': {
     title: 'Fresh model',
-    body: <p>Which model the new workers run. The list is the provider&apos;s current catalog, or the installed models for Ollama and llama.cpp; until the catalog loads it falls back to the first member&apos;s model. Other settings still follow the first member. For Cursor the choice splits into model family and effort, with optional FAST and THINK, because Cursor builds effort into the model name.</p>,
+    body: <p>Which model the new workers run. The list is the provider&apos;s current catalog, or the installed models for Ollama and llama.cpp; until the catalog loads it falls back to the first member&apos;s model. Settings the dialog does not show follow the first member. An empty model, a model of another provider or one the catalog does not list is refused. For Cursor the choice splits into model family and effort, with optional FAST and THINK, because Cursor builds effort into the model name.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.fresh.effort': {
@@ -382,7 +382,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.fresh.account': {
     title: 'Fresh account',
-    body: <p>Which Codex account the new workers use. Shown for Codex when accounts are set up in Settings; the model list follows the chosen account.</p>,
+    body: <p>Which Codex account the new workers use. Shown for Codex when accounts are set up in Settings; the model list follows the chosen account. An account that is no longer set up is refused rather than replaced by another.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.fresh.access': {
@@ -404,7 +404,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Replace member',
     body: (
       <>
-        <p>Puts a brand-new worker into this member&apos;s slot in the roster. Name, role, work size, focus and all settings are copied first; then provider, model, effort, account and access can be changed.</p>
+        <p>Puts a brand-new worker into this member&apos;s slot in the roster. The dialog starts from this member, and every choice can be changed: provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and access. Settings the dialog does not show are copied.</p>
         <p>The new worker starts fresh rather than resuming the old session. Bringing over history and open tasks are separate choices. The old worker&apos;s files stay on disk, but it leaves the cluster.</p>
       </>
     ),
@@ -414,6 +414,46 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Detach member',
     body: <p>Removes this member from the cluster after a confirmation. Its conversation history stays on disk. From its next turn it no longer has cluster mail, plan or roster tools.</p>,
     manualSection: 'cluster-tab',
+  },
+  'cluster.replace.name': {
+    title: 'Replacement name',
+    body: <p>Name of the new worker, starting from the current one. Leave it as it is to keep the name; an empty field also keeps it. Up to 64 characters.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.replace.role': {
+    title: 'Replacement role',
+    body: <p>Role of the new worker, starting from the current one: pick a preset, type a custom role, or pick the active preset again to clear it. DIRECTOR is unavailable when another member is the director, and REPLACE is then unavailable while it is chosen.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.tier': {
+    title: 'Work size',
+    body: <p>A hint for the director about the size of work this member takes: LIGHT for quick edits, STANDARD for normal feature work, HEAVY for large or architectural changes. UNSET gives no hint. It does not change model or effort. REPLACE starts from the current member&apos;s; ADD FRESH starts unset.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.focus': {
+    title: 'Focus',
+    body: <p>Optional sub-specialty of this member, for example a part of the code it knows best. The director sees it in the member list to tell members with the same role apart. Up to 160 characters; empty clears it.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.fast-mode': {
+    title: 'Fast mode',
+    body: <p>Runs the Claude worker in fast mode, as the setting of the same name on a tab. Shown for Claude only; other providers start with it off.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.tool-filter': {
+    title: 'Tool filter',
+    body: <p>Shortens long tool results before the Claude Native worker reads them. OFF keeps them whole; CONSERVATIVE and AGGRESSIVE shorten more. Shown for Claude only; other providers start with it off.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.output-style': {
+    title: 'Output style',
+    body: <p>How wordy the worker&apos;s replies are: NORMAL, LITE or TERSE. Applies to Claude Native and to Codex through its app server; shown for Claude and Codex.</p>,
+    manualSection: 'cluster-member-replacement',
+  },
+  'cluster.member.auto-compaction': {
+    title: 'Auto-compaction',
+    body: <p>When the worker summarizes older context in place. CLUSTER DEFAULT follows the cluster&apos;s setting, shown in brackets. OFF and ON set the worker&apos;s own policy; ON shows the threshold slider. REPLACE starts from the current member&apos;s policy; ADD FRESH starts with the cluster default.</p>,
+    manualSection: 'cluster-member-replacement',
   },
   'cluster.replace.provider': {
     title: 'Replacement provider',

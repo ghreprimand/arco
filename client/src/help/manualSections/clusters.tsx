@@ -162,6 +162,13 @@ export const clusters: Section[] = [
   highest existing number for that name.
   </p>
   <p>
+    Below ROLE, ADD FRESH offers WORK SIZE, FOCUS, FAST MODE, TOOL
+  FILTER, OUTPUT STYLE and AUTO-COMPACT. They start from the first
+  member&apos;s tab settings, with no work size, focus or own
+  auto-compaction, and apply to every new worker. FAST MODE and TOOL
+  FILTER are shown for Claude, OUTPUT STYLE for Claude and Codex.
+  </p>
+  <p>
     With no
   name, the worker is called after its role (for example Builder #1) or
   Worker #1. ROLE offers the same presets and custom text as a member
@@ -169,9 +176,10 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li>
-  FRESH workers default to the anchor's provider/model/effort but
-  can be overridden at spawn time. Other config (cwd, advanced
-  flags, skipPermissions, etc.) still inherits from the anchor.
+  FRESH workers default to the anchor's settings, and every choice
+  in the dialog can be changed at spawn time. Config the dialog does
+  not show (cwd, advanced flags, skipPermissions, etc.) still
+  inherits from the anchor.
   </li>
   <li>
   Mixed clusters are supported for providers with peer-tool wiring.
@@ -601,12 +609,18 @@ export const clusters: Section[] = [
   </p>
   <h4 className="manual-sub">Replacing a member</h4>
   <p>
-  Arco creates a new workflow ID and provider session, clones the old
-  member&apos;s name, role, tier, focus, and complete tab
-  configuration, then atomically swaps the roster entry. The same
-  provider/model/effort/account may be kept, or new values chosen.{' '}The
-  old workflow remains on disk for audit or later resume, but it is no
-  longer a cluster member.
+  Arco creates a new workflow ID and provider session and swaps the
+  roster entry in one step. The dialog starts from the old member, and
+  every choice can be changed: provider, model, effort, account, access,
+  NAME, ROLE, WORK SIZE, FOCUS, FAST MODE, TOOL FILTER, OUTPUT STYLE and
+  AUTO-COMPACT. Settings the dialog does not show are copied. The old
+  workflow stays on disk but leaves the cluster.
+  </p>
+  <p>
+  REPLACE, ADD FRESH and the creator refuse an empty model, a model of
+  another provider and a model the catalog does not list with the same
+  message. A picked Codex account that is not set up in Settings is
+  refused; Arco never switches to another account.
   </p>
   <p>
   Two independent switches control what crosses the boundary:

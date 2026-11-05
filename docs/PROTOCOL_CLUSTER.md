@@ -255,13 +255,17 @@ The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validat
 }
 ```
 
-**New member settings.** `cluster_create_with_fresh_workers`, `cluster_add_fresh_workers` and `cluster_member_replace` build the new member's `WorkflowConfig` with `memberConfigFromTemplate` in `server/src/ws/clusterMembers.ts`; `cluster_create_from_scratch` uses `memberConfigFromSpec`; all four use `memberModelProblem` or the same checks for the model. A fresh member gets a new name, no resume and no auto-compaction override, and keeps an account only when it is Codex. A replacement keeps the old member's name, auto-compaction and a non-Codex account, and clears the spawn tokens. The handlers keep their own validation order and error codes.
+**New member settings.** `cluster_create_with_fresh_workers`, `cluster_add_fresh_workers` and `cluster_member_replace` build the new member's `WorkflowConfig` with `memberConfigFromTemplate` in `server/src/ws/clusterMembers.ts`; `cluster_create_from_scratch` uses `memberConfigFromSpec`; all four refuse a model with the same codes: `missing_model` (empty, or the provider changed without a model), `provider_model_mismatch:<provider>:<model>` (a Claude or Codex id on another provider; Cursor serves both families, so it never mismatches) and `unknown_model:<model>` (not in the catalog). A Codex account the operator picked (`providerAccountRef`) must be configured in Settings or the request is refused with `unknown_account:<ref>`; there is no fallback to another account. Without a pick, the template's own account is looked up as before. A fresh member gets a new name, no resume and no auto-compaction override unless the request sets one, and keeps an account only when it is Codex. A replacement keeps the old member's name, auto-compaction and a non-Codex account unless the request changes them, and clears the spawn tokens.
+
+**Member tuning (`ClusterMemberTuning`).** `cluster_add_fresh_workers` and `cluster_member_replace` also take `tier` (`null` clears), `focus` (empty clears), `outputStyle`, `efficiencyToolFilter`, `fastMode` and `autoCompaction` (`null` follows the cluster default). Absent fields keep the path's default; OFF, NORMAL and fast mode false are stored as unset. A malformed value is refused before anything is created (`invalid_tier:<v>`, `invalid_focus`, `invalid_output_style`, `invalid_tool_filter`, `invalid_fast_mode`, `invalid_auto_compaction`). Both dialogs send every value they show.
 
 ### `cluster_member_replace` -> / `cluster_member_replaced` <-
 
 Atomically replace one cluster slot with a new workflow ID and provider
 session. The server clones the source WorkflowConfig plus name/role/tier/focus,
-then applies optional provider/model/effort/account/access overrides.
+then applies every field the request carries: provider/model/effort/account,
+access, `name` (non-empty renames), `role` (empty clears; a second director is
+refused with `multiple_directors`) and the member tuning above.
 `includeHistory` and `transferActiveTasks` are independent opt-ins. ISOLATED
 members reject both options.
 
@@ -275,6 +279,14 @@ members reject both options.
   effort?: string,
   providerAccountRef?: string,
   accessMode?: 'standard' | 'blind' | 'isolated',
+  name?: string,                   // <= 64 chars; empty keeps the old name
+  role?: string,                   // <= 120 chars; empty clears
+  tier?: 'light' | 'standard' | 'heavy' | null,
+  focus?: string,                  // <= 160 chars; empty clears
+  outputStyle?: 'normal' | 'lite' | 'terse',
+  efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
+  fastMode?: boolean,
+  autoCompaction?: { enabled: boolean, thresholdPercent: number } | null,
   includeHistory?: boolean,
   transferActiveTasks?: boolean
 }
@@ -296,7 +308,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
 
 ### `cluster_create_from_scratch` ->
 
-2026-05-11 - operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow - every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. Provider is the full `ClusterMemberProvider` set (`claude / codex / ollama / llamacpp / cursor`). Create, add and replace paths that introduce a local member all run `localCapacityRefusal` and reject with `local_capacity: <reason>` when over `localClusterCapacity` (lift with `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`). Per-member validation also covers `unknown_provider` / `missing_model` / `provider_model_mismatch` / `unknown_model` / `invalid_tier`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
+2026-05-11 - operator picked CLUSTER mode in the `+NEW` WorkflowCreator. No source workflow - every member is minted fresh from the per-row config. Mirrors `cluster_create_with_fresh_workers` server-side but every member's provider / model / effort / role / tier is operator-picked up front. Provider is the full `ClusterMemberProvider` set (`claude / codex / ollama / llamacpp / cursor`). Create, add and replace paths that introduce a local member all run `localCapacityRefusal` and reject with `local_capacity: <reason>` when over `localClusterCapacity` (lift with `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1`). Per-member validation also covers `unknown_provider`, the shared model codes (`missing_model` / `provider_model_mismatch` / `unknown_model`), `unknown_account` and `invalid_tier`, each prefixed with `member[<i>]`. Server validates ≥1 member; client UI enforces ≥2. `name` is optional; empty = derived default. Per-member optional fields (`displayName` / `role` / `tier` / `focus`) are stamped into cluster meta in one shot.
 
 ```ts
 {
@@ -334,7 +346,7 @@ Cluster presets (operator-saved snapshots) are persisted at `~/.arco/cluster-pre
 
 ### `cluster_add_fresh_workers` ->
 
-operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Server: reads the target cluster, picks the template from `members[0]` (cwd + primary config), validates the template via `assertAllMembersClaudeOrCodex`, creates `count` new workflows (clamped to 1-4), adds each via `clusterStore.addMember`. Optional `name` is used as typed for one worker and gets ` #k` per worker after the highest existing suffix for that name when adding several; with no name, naming uses the role label (or `Worker`) plus the next free `#k` for that base, not the template member's name. Optional `role` is applied through the role-set path; a second director rejects the whole request (`multiple_directors`) before anything is spawned. Broadcasts `cluster_member_added` per add, then a final `cluster_state`.
+operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Server: reads the target cluster, picks the template from `members[0]` (cwd + primary config), validates the template via `assertAllMembersClaudeOrCodex`, creates `count` new workflows (clamped to 1-4), adds each via `clusterStore.addMember`. Optional `name` is used as typed for one worker and gets ` #k` per worker after the highest existing suffix for that name when adding several; with no name, naming uses the role label (or `Worker`) plus the next free `#k` for that base, not the template member's name. Optional `role` is applied through the role-set path; a second director rejects the whole request (`multiple_directors`) before anything is spawned. The member tuning (`tier`, `focus`, `outputStyle`, `efficiencyToolFilter`, `fastMode`, `autoCompaction`) applies to every new worker; tier and focus are saved as cluster metadata. Broadcasts `cluster_member_added` per add, then a final `cluster_state`.
 
 ```ts
 {
@@ -351,6 +363,12 @@ operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Ser
   accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude
   name?: string,                   // <= 64 chars (<= 60 when count > 1); generated names must also fit
   role?: string,                   // preset or custom text, <= 120 chars
+  tier?: 'light' | 'standard' | 'heavy' | null,
+  focus?: string,                  // <= 160 chars
+  outputStyle?: 'normal' | 'lite' | 'terse',
+  efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
+  fastMode?: boolean,
+  autoCompaction?: { enabled: boolean, thresholdPercent: number } | null,
 }
 ```
 

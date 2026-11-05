@@ -24,6 +24,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Install docs cover `EEXIST` when a leftover `arco` link blocks `npm install -g arco-workbench`. SHARE WITH REPOSITORY help notes the refusal when Git still ignores the skill (including a global ignore file) and names the rule.
 - Cluster HISTORY and PREVIEW show the member in view (the selected card or tab, the director by default) and name it at the top, with a picker to switch. The member in view is kept when the page reloads. Before, they always showed the first member.
 - REWIND CONVERSATION stays visible for providers other than Claude Native, disabled with the reason beside it, instead of being hidden.
+- REPLACE and ADD FRESH take the full member settings. REPLACE starts from the member it replaces, and every choice can be changed: provider, model, effort, account, access, name, role, work size, focus, fast mode, tool filter, output style and auto-compaction. ADD FRESH offers the same choices, starting from the first member's tab settings with no work size, focus or own auto-compaction; before, it could not set work size or focus at all.
+- Creating, adding and replacing members refuse an empty model, a model of another provider and a model the catalog does not list with the same message on every path. A picked Codex account that is not set up in Settings is refused instead of silently replaced by another account. A Cursor member in the creator may use a Claude or GPT model id that Cursor serves.
 
 ### Fixed
 

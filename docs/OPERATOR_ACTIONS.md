@@ -48,10 +48,17 @@ auto-turn). Clusters are about peer-comms plumbing, not auto-orchestration.
 - Right-click a cluster-capable tab -> **Add to cluster with...** or
   **Create cluster with N fresh workers...**.
 - From inside a cluster: **+ ADD WORKER** in the Members sub-tab.
-- **REPLACE** swaps one member slot to a brand-new workflow/provider session
-  while cloning its name, role, tier, focus, and tab configuration.
-  Provider/model/effort/account may be changed; prior transcript context and
-  active task assignments are independent choices.
+- **REPLACE** swaps one member slot to a brand-new workflow/provider session.
+  The dialog starts from the old member and every choice can be changed:
+  provider, model, effort, account, access, name, role, work size, focus, fast
+  mode, tool filter, output style and auto-compaction. Tab settings the dialog
+  does not show are copied. Prior transcript context and active task
+  assignments are independent choices.
+- **ADD FRESH** offers the same choices, starting from the first member's tab
+  settings with no work size, focus or own auto-compaction.
+- Every path refuses an empty model, a model of another provider and a model
+  the catalog does not list with the same message, and refuses a picked Codex
+  account that is not set up in Settings instead of using another one.
 - Fresh and replacement workers can be STANDARD, BLIND (project-visible but no
   cluster coordination context; mailbox only), or ISOLATED (Claude Native in a
   private scratch cwd with no project access; mailbox only). Isolated workers
