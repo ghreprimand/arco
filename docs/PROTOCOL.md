@@ -1258,8 +1258,8 @@ not persisted itself.
   reservedOutput: number,
   effectiveWindow: number,          // windowSize - reservedOutput
   pct: number,
-  thresholds: { warnAt: number, autoAt: number, foldAt?: number },
-  crossed: { warn: boolean, auto: boolean, fold: boolean },
+  thresholds: { foldAt?: number },
+  crossed: { fold: boolean },
 }
 ```
 
@@ -1334,7 +1334,7 @@ In-chat alert. Persisted so replay sees the warning.
 }
 ```
 
-Used for: rate-limit warnings, calibration progress, context-fill warnings, auto-handoff status, concurrent-writer guard, and provider out-of-band notices.
+Used for: rate-limit warnings, calibration progress, auto-handoff status (after N compactions), concurrent-writer guard, and provider out-of-band notices.
 
 ### Project-trust gate
 

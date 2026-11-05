@@ -643,8 +643,8 @@ CLI Claude transport manages its own context internally; Arco does not second-gu
 
 Three Native-only mechanisms (CLI / Codex unaffected) layered under the budget meter; all deterministic:
 
-1. **Token-budget meter** - `providers/claude-native/contextBudget.ts` emits a `context_budget` event (`{pct, crossed}`, where `crossed` flags the warn / auto / fold thresholds the turn just passed). The Fold and auto-fold triggers read it.
-2. **Fold + auto-fold** - `providers/claude-native/foldDigest.ts` does a deterministic in-place transcript trim that preserves the active working set, emitting `context_folded`. The operator fires it manually via the composer FOLD button (`fold_workflow`) or arms per-tab `WorkflowConfig.autoFold` (default OFF; `foldAt` seeds below `autoHandoff.warnAt`) in CONFIG; auto-fold config rides the `update_primary_config` message.
+1. **Token-budget meter** - `providers/claude-native/contextBudget.ts` emits a `context_budget` event (`{pct, thresholds: { foldAt? }, crossed: { fold } }`). The Fold and auto-fold triggers read it.
+2. **Fold + auto-fold** - `providers/claude-native/foldDigest.ts` does a deterministic in-place transcript trim that preserves the active working set, emitting `context_folded`. The operator fires it manually via the composer FOLD button (`fold_workflow`) or arms per-tab `WorkflowConfig.autoFold` (default OFF; `foldAt` is **FOLD AT** in CONFIG) in CONFIG; a Fold is not counted toward auto-handoff; auto-fold config rides the `update_primary_config` message.
 3. **Tool-result eviction** - `providers/claude-native/toolResultEviction.ts` spills the per-turn aggregate of large `tool_result`s and emits `tool_evicted`. A deterministic compaction floor also protects local providers.
 
 ### Ultracode (Claude, sticky subagent fan-out)
