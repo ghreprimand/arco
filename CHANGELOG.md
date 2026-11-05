@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.1.4 - 2026-11-05
+
 ### Added
 
 - KEEP a whole conversation from the STORAGE view.
