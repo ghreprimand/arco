@@ -4,6 +4,7 @@
 // crosses a configured zone and never delays the primary turn.
 
 import { registerWorkerPid, unregisterWorkerPid } from './workers/pidRegistry.js';
+import { isChildRunning } from './workers/processStartTime.js';
 import { commandArgs } from './windowsCommand.js';
 
 export type CalibrationZone = 'E' | 'A' | 'B' | 'C';
@@ -179,7 +180,10 @@ export async function runCalibration(
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-      if (child.pid !== undefined) registerWorkerPid(child.pid);
+      if (child.pid !== undefined) {
+        const spawned = child;
+        registerWorkerPid(spawned.pid!, { alive: () => isChildRunning(spawned) });
+      }
 
       child.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf-8'); });
       child.stderr?.on('data', () => { /* ignored — slash-command dispatcher may log auth hints */ });

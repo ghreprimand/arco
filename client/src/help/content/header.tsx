@@ -405,7 +405,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Opens the System window. <C>Actions</C> restarts or quits Arco; a restart stops running turns, and saved tabs come back from their history. <C>Diagnostics</C> runs read-only health and exposure checks. <C>Models</C> shows local models for Ollama and llama.cpp. <C>Services</C> lists local web and dev services on this computer.</p>
-        <p>After an unclean stop, Arco checks leftover worker and terminal processes against their start times before cleaning up. On Windows that check gives up after eight seconds; a process whose start time is unknown is left alone and checked again later.</p>
+        <p>After an unclean stop, Arco checks leftover worker and terminal processes against their start times before cleaning up. The start time of each new process is read in the background, so starting a worker or terminal never pauses Arco. A process whose start time is unknown is left alone and checked again later.</p>
         <p>Unavailable while offline.</p>
       </>
     ),

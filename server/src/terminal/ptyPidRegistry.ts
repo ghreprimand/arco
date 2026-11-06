@@ -20,82 +20,34 @@
 // with a legacy `{ "pids": [...] }` reader (unknown identity is not killed).
 // Written atomically; the file is authoritative, the in-memory cache mirrors it.
 
-import { readFileSync } from 'fs';
-import { homedir } from 'os';
 import { join } from 'path';
 
-import { readStartTime, type TrackedProc } from '../workers/processStartTime.js';
-import { atomicWriteFileSync } from '../atomicFile.js';
+import { type TrackedProc } from '../workers/processStartTime.js';
+import { DurablePidRegistry, type RegisterOptions } from '../workers/durablePidRegistry.js';
 import { arcoHome } from '../arcoHome.js';
 
-const DIR = arcoHome();
-const FILE = join(DIR, 'terminal-pids.json');
+export const terminalPidRegistry = new DurablePidRegistry(join(arcoHome(), 'terminal-pids.json'), 'terminal');
 
-let cache: Map<number, string | null> | null = null;
-
-function load(): Map<number, string | null> {
-  if (cache) return cache;
-  const m = new Map<number, string | null>();
-  try {
-    const raw = readFileSync(FILE, 'utf8');
-    const parsed = JSON.parse(raw) as { procs?: unknown; pids?: unknown };
-    if (Array.isArray(parsed.procs)) {
-      for (const p of parsed.procs) {
-        if (p && typeof (p as TrackedProc).pid === 'number' && (p as TrackedProc).pid > 0) {
-          const st = (p as TrackedProc).startTime;
-          m.set((p as TrackedProc).pid, typeof st === 'string' ? st : null);
-        }
-      }
-    } else if (Array.isArray(parsed.pids)) {
-      for (const pid of parsed.pids) {
-        if (typeof pid === 'number' && pid > 0) m.set(pid, null);
-      }
-    }
-  } catch {
-    /* missing / unparseable → empty */
-  }
-  cache = m;
-  return cache;
-}
-
-function save(): void {
-  if (!cache) return;
-  try {
-    const procs: TrackedProc[] = Array.from(cache, ([pid, startTime]) => ({ pid, startTime }));
-    atomicWriteFileSync(FILE, JSON.stringify({ procs }));
-  } catch (err) {
-    console.error('[arco] terminal pid registry save failed:', (err as Error).message);
-  }
-}
-
-export function registerTerminalPid(pid: number, probe: typeof readStartTime = readStartTime): void {
-  if (!(pid > 0)) return;
-  const c = load();
-  const startTime = probe(pid);
-  if (c.has(pid) && (startTime === null || c.get(pid) === startTime)) return;
-  c.set(pid, startTime);
-  save();
+export function registerTerminalPid(pid: number, opts: RegisterOptions = {}): void {
+  terminalPidRegistry.register(pid, opts);
 }
 
 export function unregisterTerminalPid(pid: number): void {
-  const c = load();
-  if (c.delete(pid)) save();
+  terminalPidRegistry.unregister(pid);
 }
 
 export function readRegisteredTerminalPids(): number[] {
-  return Array.from(load().keys());
+  return terminalPidRegistry.readPids();
 }
 
 export function readRegisteredTerminalProcs(): TrackedProc[] {
-  return Array.from(load(), ([pid, startTime]) => ({ pid, startTime }));
+  return terminalPidRegistry.readProcs();
 }
 
 export function clearRegisteredTerminalPids(): void {
-  cache = new Map();
-  save();
+  terminalPidRegistry.clear();
 }
 
 export function retainRegisteredTerminalProcs(procs: TrackedProc[]): void {
-  cache = new Map(procs.map(p => [p.pid, p.startTime]));
-  save();
+  terminalPidRegistry.retain(procs);
 }

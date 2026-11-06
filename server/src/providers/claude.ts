@@ -12,6 +12,7 @@ import { tmpdir } from 'os';
 import { join as joinPath, extname } from 'path';
 import { StreamParser } from '../workers/StreamParser.js';
 import { killProcessTree } from '../workers/processKill.js';
+import { isChildRunning } from '../workers/processStartTime.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markThrottled, markAvailable } from '../quota.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
@@ -194,6 +195,10 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
   get pid(): number | undefined {
     return this.process?.pid;
+  }
+
+  get processRunning(): boolean {
+    return isChildRunning(this.process);
   }
 
   spawn(prompt: string): void {

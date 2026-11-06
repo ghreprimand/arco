@@ -845,13 +845,13 @@ A plain JSON array. Appended (under `withFileLock`) on workflow create / rehydra
 
 ### worker-pids.json
 
-`server/src/workers/pidRegistry.ts`. Live worker PIDs for orphan reaping, each paired with its process start time, written atomically via `atomicWriteFileSync` (sync because shutdown reaping runs after the event loop has stopped):
+`server/src/workers/pidRegistry.ts`. Live worker PIDs for orphan reaping, each paired with its process start time, written atomically via `atomicWriteFileSync` (sync because shutdown reaping runs after the event loop has stopped). The format is unchanged since 0.1.4:
 
 ```json
 { "procs": [{ "pid": 12345, "startTime": "..." }, { "pid": 23456, "startTime": null }] }
 ```
 
-Updated synchronously on each worker spawn / settle. On boot, `reapOrphanWorkers` (`index.ts`) kills listed pids that are still alive **and** whose start time still matches - a recycled pid now owned by an unrelated process is spared; an unknown start time leaves the process untouched and retains the record for a later check. A legacy `{ "pids": [...] }` file is still read (start time unknown, so a live PID cannot be verified). Incognito workers are never registered. Without this, a server crash mid-turn would leave detached workers running. (A sibling `server/src/terminal/ptyPidRegistry.ts` keeps the same shape for terminal PTY pids.)
+Updated on each worker spawn / settle; on macOS and Windows the start time is filled in when the asynchronous query answers (null until then). On boot, `reapOrphanWorkers` (`index.ts`) kills listed pids that are still alive **and** whose start time still matches - a recycled pid now owned by an unrelated process is spared; an unknown start time leaves the process untouched and retains the record for a later check. A legacy `{ "pids": [...] }` file is still read (start time unknown, so a live PID cannot be verified). Incognito workers are never registered. Without this, a server crash mid-turn would leave detached workers running. (A sibling `server/src/terminal/ptyPidRegistry.ts` keeps the same shape for terminal PTY pids.)
 
 ### cli-snapshots/
 

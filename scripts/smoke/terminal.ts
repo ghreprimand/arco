@@ -23,8 +23,12 @@ import { step, assert, summary } from './lib.js';
 import { PtyManager, reapOrphanTerminals } from '../../server/src/terminal/ptyManager.js';
 import {
   registerTerminalPid,
+  unregisterTerminalPid,
   readRegisteredTerminalPids,
+  readRegisteredTerminalProcs,
+  retainRegisteredTerminalProcs,
   clearRegisteredTerminalPids,
+  terminalPidRegistry,
 } from '../../server/src/terminal/ptyPidRegistry.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn as spawnProc } from 'node:child_process';
@@ -166,9 +170,14 @@ async function main() {
     clearRegisteredTerminalPids();
     const child = spawnProc('sleep', ['30'], { stdio: 'ignore' });
     const orphanPid = child.pid!;
-    registerTerminalPid(orphanPid);
+    registerTerminalPid(orphanPid, { alive: () => child.exitCode === null && child.signalCode === null });
     assert(readRegisteredTerminalPids().includes(orphanPid), 'pid should be registered');
-    reapOrphanTerminals();
+    assert((await terminalPidRegistry.whenIdentified(orphanPid)) !== null, 'start time should be recorded');
+    // Leave the file as a crashed run would, without this run's hold on the pid.
+    const leftover = readRegisteredTerminalProcs();
+    unregisterTerminalPid(orphanPid);
+    retainRegisteredTerminalProcs(leftover);
+    await reapOrphanTerminals();
     const dead = await waitUntil(() => !alive(orphanPid));
     assert(dead, `orphan pid ${orphanPid} should be SIGKILLed by the boot sweep`);
     assert(readRegisteredTerminalPids().length === 0, 'registry should be cleared after the sweep');

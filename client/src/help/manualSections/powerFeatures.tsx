@@ -566,9 +566,10 @@ export const powerFeatures: Section[] = [
   <strong>Process-tree cleanup on cancel.</strong> Cancelling kills the entire
   descendant tree, not just the top process, and detached spawns ensure orphaned
   children come down. After an unclean restart, recorded worker and terminal
-  processes are checked against their start times. Windows start-time queries
-  have an eight-second limit; an unknown start time leaves the process alone and
-  keeps its record for a later check.
+  processes are checked against their start times. Each new process's start
+  time is read in the background, so starting a worker or terminal never pauses
+  Arco. An unknown start time leaves the process alone and keeps its record for
+  a later check.
   </li>
   <li>
   <strong>API overload retry.</strong> Transient overload errors get up to 3

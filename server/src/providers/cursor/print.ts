@@ -21,6 +21,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { killProcessTree } from '../../workers/processKill.js';
+import { isChildRunning } from '../../workers/processStartTime.js';
 import type { Provider, ProviderProcess } from '../types.js';
 import { goalBlock } from '../goalBlock.js';
 import { attachmentDirs, withAttachmentRefs } from '../attachments.js';
@@ -45,6 +46,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   get status(): WorkerStatus { return this._status; }
   get output(): string { return this._output; }
   get pid(): number | undefined { return this.proc?.pid; }
+  get processRunning(): boolean { return isChildRunning(this.proc); }
 
   spawn(prompt: string): void {
     this.startedAt = Date.now();

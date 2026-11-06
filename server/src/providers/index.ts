@@ -63,6 +63,10 @@ class QueuedLocalProcess extends EventEmitter implements ProviderProcess {
     return this.inner?.pid;
   }
 
+  get processRunning(): boolean {
+    return this.inner?.processRunning === true;
+  }
+
   spawn(prompt: string): void {
     const run = async (): Promise<void> => {
       if (localModelsUnloading()) {

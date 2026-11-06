@@ -11,6 +11,7 @@ import { extname, join } from 'path';
 import { homedir } from 'os';
 import { CodexStreamParser } from './codex-stream.js';
 import { killProcessTree } from '../workers/processKill.js';
+import { isChildRunning } from '../workers/processStartTime.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { getCachedCodexModelCapabilities } from './codex-appserver/catalog.js';
 import { markThrottled, markAvailable } from '../quota.js';
@@ -92,6 +93,10 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
 
   get pid(): number | undefined {
     return this.process?.pid;
+  }
+
+  get processRunning(): boolean {
+    return isChildRunning(this.process);
   }
 
   spawn(prompt: string): void {

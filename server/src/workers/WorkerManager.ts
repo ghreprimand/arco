@@ -535,7 +535,9 @@ export class WorkerManager {
     // fast shutdown after tab close still clears the entry).
     const spawnedPid = worker.pid;
     if (spawnedPid !== undefined && !options?.incognito) {
-      registerWorkerPid(spawnedPid);
+      registerWorkerPid(spawnedPid, {
+        alive: () => worker.pid === spawnedPid && worker.processRunning === true,
+      });
       const cleanup = (): void => unregisterWorkerPid(spawnedPid);
       worker.once('result', cleanup);
       worker.once('error', cleanup);

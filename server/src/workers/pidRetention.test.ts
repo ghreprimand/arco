@@ -11,7 +11,7 @@ const workers = await import('./pidRegistry.js');
 const terminals = await import('../terminal/ptyPidRegistry.js');
 const { reapOrphanTerminals } = await import('../terminal/ptyManager.js');
 
-test('unverified worker and terminal identities remain in their separate registries', () => {
+test('unverified worker and terminal identities remain in their separate registries', async () => {
   try {
     const one = [{pid:123,startTime:'recorded'}], two = [{pid:456,startTime:null}];
     workers.retainRegisteredProcs(one); terminals.retainRegisteredTerminalProcs(two);
@@ -20,17 +20,17 @@ test('unverified worker and terminal identities remain in their separate registr
     const state = join(root, 'home', '.arco');
     assert.deepEqual(JSON.parse(readFileSync(join(state,'worker-pids.json'),'utf8')).procs, one);
     assert.deepEqual(JSON.parse(readFileSync(join(state,'terminal-pids.json'),'utf8')).procs, two);
-    workers.registerWorkerPid(123, () => 'new-worker');
-    terminals.registerTerminalPid(456, () => 'new-terminal');
+    workers.registerWorkerPid(123, {cheap: () => 'new-worker'});
+    terminals.registerTerminalPid(456, {cheap: () => 'new-terminal'});
     assert.deepEqual(workers.readRegisteredProcs(), [{pid:123,startTime:'new-worker'}]);
     assert.deepEqual(terminals.readRegisteredTerminalProcs(), [{pid:456,startTime:'new-terminal'}]);
-    workers.registerWorkerPid(123, () => null);
-    terminals.registerTerminalPid(456, () => null);
+    workers.registerWorkerPid(123, {cheap: () => null});
+    terminals.registerTerminalPid(456, {cheap: () => null});
     assert.equal(workers.readRegisteredProcs()[0].startTime, 'new-worker');
     assert.equal(terminals.readRegisteredTerminalProcs()[0].startTime, 'new-terminal');
     const own = [{pid:process.pid,startTime:null}];
     terminals.retainRegisteredTerminalProcs(own);
-    reapOrphanTerminals();
+    await reapOrphanTerminals();
     assert.deepEqual(terminals.readRegisteredTerminalProcs(), own);
     assert.doesNotThrow(() => process.kill(process.pid, 0));
     workers.retainRegisteredProcs([]); terminals.retainRegisteredTerminalProcs([]);

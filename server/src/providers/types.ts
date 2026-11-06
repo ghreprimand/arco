@@ -54,6 +54,9 @@ export interface ProviderProcess extends EventEmitter {
   readonly output: string;
   // Process id for tree monitoring and cancellation; absent for in-process and HTTP/RPC providers.
   readonly pid?: number;
+  // True while the process behind `pid` has not been seen to exit. Until then
+  // its pid cannot be reused, so its start time may be read later.
+  readonly processRunning?: boolean;
   spawn(prompt: string): void;
   kill(): void;
   // Stronger than STOP: wait for teardown before resuming the same session.

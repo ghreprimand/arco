@@ -115,7 +115,7 @@ onSettingsChange,
 readSettings
 } from './settings.js';
 import { WorkerManager } from './workers/WorkerManager.js';
-import { retainRegisteredProcs,readRegisteredProcs,reapProc } from './workers/pidRegistry.js';
+import { readRegisteredProcs, reapAtShutdown, sweepRegistry, workerPidRegistry } from './workers/pidRegistry.js';
 import { captureBootRev } from './diagnostics/codeSkew.js';
 import { formatShutdownForensics } from './diagnostics/shutdownForensics.js';
 import { startMemoryMonitor, logMemorySample } from './memoryMonitor.js';
@@ -1871,10 +1871,13 @@ function onSignal(signal: string): void {
   const watchFlush = interruptComputerWatches();
   const live = readRegisteredProcs();
   console.log(`[arco] Received ${signal}, checking ${live.length} tracked worker(s) before exit`);
+  // No process probe here: children this server still holds are killed (their
+  // pids cannot have been reused); older records stay for the next boot sweep
+  // unless their start time is cheap to check (Linux).
   const reaped = { killed: 0, reused: 0, gone: 0, unverified: 0 };
-  const unverified = [];
-  for (const p of live) { const outcome = reapProc(p); reaped[outcome]++; if (outcome === 'unverified') unverified.push(p); }
-  retainRegisteredProcs(unverified);
+  const settled = [];
+  for (const p of live) { const outcome = reapAtShutdown(p, workerPidRegistry); reaped[outcome]++; if (outcome !== 'unverified') settled.push(p); }
+  for (const p of settled) workerPidRegistry.unregister(p.pid);
   // H42 part B — single forensics line recording what the stop interrupted.
   // Deliberately a server-log line, not per-workflow events (we're inside the
   // ~100 ms flush budget with the WS already closing). Operator greps it after.
@@ -1926,39 +1929,29 @@ process.on('uncaughtException', (err) => {
 });
 
 // Reap any worker subprocesses left alive by a crashed/force-quit previous
-// run. Signal only when the recorded and live start times match. Runs synchronously before listen() so
-// no new turns start while the old ones are still consuming tokens.
-function reapOrphanWorkers(): void {
-  const stale = readRegisteredProcs();
-  if (stale.length === 0) {
+// run. Signal only when the recorded and live start times match. The start-time
+// query is asynchronous (one batched query on macOS and Windows) and awaited
+// before listen(), so no new turns start while the old ones still consume tokens.
+async function reapOrphanWorkers(): Promise<void> {
+  if (readRegisteredProcs().length === 0) {
     console.log('[arco] Orphan sweep: registry clean, nothing to reap');
     return;
   }
-  // H44 — verify each pid's start time before SIGKILL so a recycled pid (now an
+  // H44 - verify each pid's start time before SIGKILL so a recycled pid (now an
   // unrelated process) is left alone; only genuinely-stale workers are reaped.
-  let killed = 0, reused = 0, gone = 0;
-  const unverified = [];
-  for (const p of stale) {
-    const outcome = reapProc(p);
-    if (outcome === 'killed') killed++;
-    else if (outcome === 'reused') reused++;
-    else if (outcome === 'unverified') unverified.push(p);
-    else gone++;
-  }
+  const c = await sweepRegistry(workerPidRegistry);
   console.log(
-    `[arco] Orphan worker sweep (${stale.length} tracked): reaped ${killed}, ` +
-    `already gone ${gone}, skipped ${reused} (pid recycled), unverified ${unverified.length}`,
+    `[arco] Orphan worker sweep (${c.tracked} tracked): reaped ${c.killed}, ` +
+    `already gone ${c.gone}, skipped ${c.reused} (pid recycled), unverified ${c.unverified}`,
   );
-  retainRegisteredProcs(unverified);
 }
 
 // ── Start ──
 
-reapOrphanWorkers();
-// §K2 — reap operator-terminal shells leaked by a crashed/force-quit prior run
+// §K2 - reap operator-terminal shells leaked by a crashed/force-quit prior run
 // (node-pty children reparent to init on a hard kill). Same durable-registry
-// pattern as workers; runs before listen() and retains unverified identities.
-reapOrphanTerminals();
+// pattern as workers; awaited before listen() and retains unverified identities.
+await Promise.all([reapOrphanWorkers(), reapOrphanTerminals()]);
 
 // Phase 7a — wire the Claude Native worker's todos_updated broadcast hook
 // onto the workflow-scoped transient bus. The Activity tab consumes

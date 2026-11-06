@@ -18,12 +18,12 @@
 import * as pty from 'node-pty';
 import { basename } from 'path';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
-import { reapProc } from '../workers/pidRegistry.js';
+import { sweepRegistry } from '../workers/pidRegistry.js';
 import {
   registerTerminalPid,
   unregisterTerminalPid,
   readRegisteredTerminalProcs,
-  retainRegisteredTerminalProcs,
+  terminalPidRegistry,
 } from './ptyPidRegistry.js';
 
 // Bounded per-session scrollback so a re-attaching window can repaint history
@@ -162,7 +162,9 @@ export class PtyManager {
 
     // Durable pid registry: a hard server kill reparents this child to init and
     // leaks it; the boot orphan sweep reaps anything still recorded here.
-    registerTerminalPid(proc.pid);
+    // The shell is ours until its exit is seen; the start time is read off the
+    // server thread where that read starts a process (macOS, Windows).
+    registerTerminalPid(proc.pid, { alive: () => !session.exited });
 
     this.sessions.set(id, session);
     return session;
@@ -296,26 +298,16 @@ export const ptyManager = new PtyManager();
 // time of the prior (unclean) death; verify identity before signalling. Reuses the worker
 // registry's `forceKillPid` (process-group SIGKILL, POSIX-portable) — node-pty
 // pids are real OS pids.
-export function reapOrphanTerminals(): void {
-  const stale = readRegisteredTerminalProcs();
-  if (stale.length === 0) {
+export async function reapOrphanTerminals(): Promise<void> {
+  if (readRegisteredTerminalProcs().length === 0) {
     console.log('[arco] Terminal orphan sweep: registry clean, nothing to reap');
     return;
   }
-  // H44 — start-time-verified reap so a recycled pid (now an unrelated process)
+  // H44 - start-time-verified reap so a recycled pid (now an unrelated process)
   // is left alone; only genuinely-leaked shells are SIGKILLed.
-  let killed = 0, reused = 0, gone = 0;
-  const unverified = [];
-  for (const p of stale) {
-    const outcome = reapProc(p);
-    if (outcome === 'killed') killed++;
-    else if (outcome === 'reused') reused++;
-    else if (outcome === 'unverified') unverified.push(p);
-    else gone++;
-  }
+  const c = await sweepRegistry(terminalPidRegistry);
   console.log(
-    `[arco] Terminal orphan sweep (${stale.length} tracked): reaped ${killed}, ` +
-    `already gone ${gone}, skipped ${reused} (pid recycled), unverified ${unverified.length}`,
+    `[arco] Terminal orphan sweep (${c.tracked} tracked): reaped ${c.killed}, ` +
+    `already gone ${c.gone}, skipped ${c.reused} (pid recycled), unverified ${c.unverified}`,
   );
-  retainRegisteredTerminalProcs(unverified);
 }
