@@ -146,8 +146,9 @@ export const configuration: Section[] = [
   <p>
   <strong>Layout</strong> (Appearance) is Automatic (default), Standard or
   Compact. Automatic fits the workspace to the window width; Standard keeps the
-  original layout; Compact uses the laptop layout at every width. Kept in this
-  browser only. See Window size and layout.
+  original layout; Compact uses the medium layout at every width, with the
+  narrow layout still under 1100 px. Kept in this browser only. See Window size
+  and layout.
   </p>
   <Sub>Message box size</Sub>
   <p>
