@@ -717,19 +717,27 @@ export const configuration: Section[] = [
   </ul>
   <Sub>Output and thinking</Sub>
   <p>
-  <strong>OUTPUT STYLE</strong> (Claude Native / Codex app-server) - appends a
-  small stable prompt addendum telling the model how terse to be:
+  <strong>OUTPUT STYLE</strong> (every provider) - adds a fixed instruction on
+  how replies are written:
   </p>
   <ul>
-  <li><Code>normal</Code> - no addendum.</li>
-  <li><Code>lite</Code> - drops fillers/hedging.</li>
-  <li><Code>terse</Code> - also drops articles (fragments OK).</li>
+  <li><Code>NORMAL</Code> - no instruction.</li>
+  <li><Code>PLAIN</Code> - the default. Clear, short sentences with articles,
+  the answer first, one name per thing, no filler or recap.</li>
+  <li><Code>TERSE</Code> - Plain, and articles may go where a sentence still
+  reads easily. Full sentences return for warnings, irreversible steps and
+  questions.</li>
   </ul>
   <p>
-  Code blocks, error strings, and file paths are preserved verbatim. Expect
-  ~10-25% output reduction on Opus 4.7; the Codex effect is model-dependent.
-  Review / Handoff / DOCS / GIT always run as <Code>normal</Code> regardless
-  of source tab.
+  A tab without a saved choice uses Plain; a saved Normal stays Normal, and a
+  tab saved as Lite before 0.1.5 uses Plain. Both styles keep every negation,
+  number and unit, and keep code, commands, paths and error text exact.
+  </p>
+  <p>
+  The style covers chat replies only. Code, comments, commits, docs, plans,
+  board tasks and messages to other agents are written in full. Review /
+  Handoff / DOCS / GIT always run as <Code>NORMAL</Code> regardless of the
+  source tab.
   </p>
   <p>
   <strong>THINKING VISIBILITY</strong> (Claude Native) - adaptive-thinking

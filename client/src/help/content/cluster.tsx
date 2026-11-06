@@ -464,7 +464,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member.output-style': {
     title: 'Output style',
-    body: <p>How wordy the worker&apos;s replies are: NORMAL, LITE or TERSE. Applies to Claude Native and to Codex through its app server; shown for Claude and Codex.</p>,
+    body: <p>How the worker&apos;s replies are written: NORMAL, PLAIN or TERSE. PLAIN is the default and is used when the member has no saved choice. Shown and applied for every provider.</p>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member.auto-compaction': {

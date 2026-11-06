@@ -14,7 +14,7 @@
 // Graceful degradation: if no language server is installed for the changed
 // file's language, the subsystem is a silent no-op — no message, no error.
 // The operator installs the upstream language server themselves (same pattern
-// as the caveman output style). See docs/LSP.md.
+// as other optional tools). See docs/LSP.md.
 
 export type DiagnosticSeverity = 'error' | 'warning' | 'info' | 'hint';
 

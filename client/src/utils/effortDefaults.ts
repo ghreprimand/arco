@@ -3,12 +3,13 @@
 // control (or by Ultracode, which pins XHIGH). Existing work (resume, restore,
 // running workflows) keeps its own effort; these helpers apply to values that
 // are filled in automatically for new work.
-import { EFFORT_RANK, type ClaudeCatalogSnapshot, type CodexCatalogSnapshot, type EffortLevel, type ModelName, type ProviderName, type WorkflowDefaults } from '@arco/shared';
+import { DEFAULT_OUTPUT_STYLE, EFFORT_RANK, resolveOutputStyle, type ClaudeCatalogSnapshot, type CodexCatalogSnapshot, type EffortLevel, type ModelName, type ProviderName, type WorkflowDefaults } from '@arco/shared';
 import { effortsForModel } from './format.js';
 
 export const DEFAULT_EFFORT_CAP: EffortLevel = 'high';
 export const DEFAULT_TOOL_FILTER = 'conservative' as const;
-export const DEFAULT_OUTPUT_STYLE = 'lite' as const;
+// One default for every read path; see shared/src/outputStyle.ts.
+export { DEFAULT_OUTPUT_STYLE };
 export const EFFORT_RESET_NOTE = 'Effort reset to HIGH after the model changed. Choose XHIGH or MAX again if needed.';
 export const EFFORT_SAVE_NOTE = 'Defaults store at most HIGH; saved effort as HIGH.';
 
@@ -36,7 +37,7 @@ export function initialCreatorDefaults(wd: WorkflowDefaults | undefined) {
   return {
     effort: capDefaultEffort(wd?.primaryEffort),
     efficiencyToolFilter: wd?.efficiencyToolFilter ?? DEFAULT_TOOL_FILTER,
-    outputStyle: wd?.outputStyle ?? DEFAULT_OUTPUT_STYLE,
+    outputStyle: resolveOutputStyle(wd?.outputStyle),
   };
 }
 

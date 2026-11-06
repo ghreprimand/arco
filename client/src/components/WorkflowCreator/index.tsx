@@ -1,12 +1,13 @@
 import { TerminalSessions } from '../TerminalSessions';
 import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
-import { TERMINAL_CODEX_ACCOUNT, CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
+import { TERMINAL_CODEX_ACCOUNT, DEFAULT_OUTPUT_STYLE, OUTPUT_STYLES, resolveOutputStyle, CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
 import { DEFAULT_CODEX_MODEL, PRIMARY_PROVIDERS, removedProviderReason, presetForText, CLUSTER_EFFICIENCY_LEVELS, CLUSTER_EFFICIENCY_LABELS, CLUSTER_EFFICIENCY_ADDENDUM_MAX } from '@arco/shared';
 import type { AuthLoginResult, ModelName, EffortLevel, SessionInfo, ProviderName, ArcoSettings, MemberTier, ClusterEfficiencyLevel, ClusterPreset, ClusterPresetMember, ClusterMemberProvider, WorkflowTemplate, WorkflowTemplateConfig } from '@arco/shared';
 import { effortsForModel, clampEffortForProvider, clampEffortForModel } from '../../utils/format';
+import { OUTPUT_STYLE_HINT } from '../../utils/outputStyleText';
 import { localCapacityProblem, localCapacityUsage, LOCAL_RUNTIME_LABELS, clusterDirectorProblem, isClusterDirector } from '@arco/shared';
 import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, isAboveDefaultCap, EFFORT_SAVE_NOTE } from '../../utils/effortDefaults';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
@@ -144,12 +145,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [fastMode, setFastMode] = useState(wd?.fastMode ?? false);
   // Efficiency/style defaults surfaced on the New-tab so the operator can
   // pick a default once. Tool filtering is Claude Native-only; output style
-  // is honored by Claude Native, Codex app-server. Stored under
-  // workflowDefaults regardless of the active provider so a transport flip
-  // mid-tab picks supported values up automatically. Renamed `caveman` →
-  // `terse` 2026-05-10 (see docs/PROVIDERS.md).
+  // is honored by every provider. Stored under workflowDefaults regardless
+  // of the active provider so a transport flip mid-tab picks supported
+  // values up automatically. Renamed `caveman` → `terse` 2026-05-10 and
+  // `lite` → `plain` in 0.1.5 (see docs/PROVIDERS.md).
   const [efficiencyToolFilter, setEfficiencyToolFilter] = useState<'off' | 'conservative' | 'aggressive'>(() => initialCreatorDefaults(wd).efficiencyToolFilter);
-  const [outputStyle, setOutputStyle] = useState<'normal' | 'lite' | 'terse'>(() => initialCreatorDefaults(wd).outputStyle);
+  const [outputStyle, setOutputStyle] = useState<import('@arco/shared').OutputStyle>(() => initialCreatorDefaults(wd).outputStyle);
   // docs/PROVIDERS.md - start a tab already in sticky ultracode. Enabling it
   // auto-sets xhigh (mirrors `/effort ultracode`) and forces CLI at turn time.
   const [ultracode, setUltracode] = useState(false);
@@ -205,7 +206,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (d.skipPermissions !== undefined) setSkipPermissions(d.skipPermissions);
     if (d.fastMode !== undefined) setFastMode(d.fastMode);
     if (d.efficiencyToolFilter !== undefined) setEfficiencyToolFilter(d.efficiencyToolFilter);
-    if (d.outputStyle !== undefined) setOutputStyle(d.outputStyle);
+    if (d.outputStyle !== undefined) setOutputStyle(resolveOutputStyle(d.outputStyle));
     appliedDefaultsRef.current = true;
   }, [settings]);
 
@@ -621,7 +622,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       skipPermissions: m.skipPermissions ?? skipPermissions,
       fastMode: m.fastMode ?? false,
       efficiencyToolFilter: m.efficiencyToolFilter ?? 'off',
-      outputStyle: m.outputStyle ?? 'normal',
+      outputStyle: resolveOutputStyle(m.outputStyle),
       expanded: false,
     }));
     setMembers(drafts);
@@ -668,7 +669,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       skipPermissions: m.skipPermissions,
       ...(m.fastMode ? { fastMode: true } : {}),
       ...(m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
-      ...(m.outputStyle !== 'normal' ? { outputStyle: m.outputStyle } : {}),
+      ...(m.outputStyle !== DEFAULT_OUTPUT_STYLE ? { outputStyle: m.outputStyle } : {}),
     }));
     try {
       await clusterPresets.save({
@@ -705,7 +706,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     setSkipPermissions(c.skipPermissions);
     setFastMode(c.fastMode ?? false);
     setEfficiencyToolFilter(c.efficiencyToolFilter ?? 'off');
-    setOutputStyle(c.outputStyle ?? 'normal');
+    setOutputStyle(resolveOutputStyle(c.outputStyle));
     if (c.workingDirectory) setWorkDir(c.workingDirectory);
     pendingTemplateRef.current = (t.seedPrompt || t.plan)
       ? { ...(t.seedPrompt ? { seedPrompt: t.seedPrompt } : {}), ...(t.plan ? { plan: t.plan } : {}) }
@@ -742,7 +743,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       ...(primaryProvider === 'codex' && providerAccountRef ? { providerAccountRef } : {}),
       ...(fastMode ? { fastMode: true } : {}),
       ...(efficiencyToolFilter !== 'off' ? { efficiencyToolFilter } : {}),
-      ...(outputStyle !== 'normal' ? { outputStyle } : {}),
+      ...(outputStyle !== DEFAULT_OUTPUT_STYLE ? { outputStyle } : {}),
     };
     try {
       await templates.save({ name: tn, config });
@@ -780,7 +781,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           skipPermissions: m.skipPermissions,
           ...(m.fastMode ? { fastMode: true } : {}),
           ...(m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
-          ...(m.outputStyle !== 'normal' ? { outputStyle: m.outputStyle } : {}),
+          ...(m.outputStyle !== DEFAULT_OUTPUT_STYLE ? { outputStyle: m.outputStyle } : {}),
         })),
       });
       return;
@@ -800,7 +801,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         ...(fastMode && { fastMode: true }),
         ...(providerAccountRef ? { providerAccountRef } : {}),
         ...(efficiencyToolFilter !== 'off' && { efficiencyToolFilter }),
-        ...(outputStyle !== 'normal' && { outputStyle }),
+        ...(outputStyle !== DEFAULT_OUTPUT_STYLE && { outputStyle }),
       });
       return;
     }
@@ -816,7 +817,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         workingDirectory: '',
         ...(incognito ? { incognito: true } : {}),
         ...(providerAccountRef ? { providerAccountRef } : {}),
-        ...(outputStyle !== 'normal' && { outputStyle }),
+        ...(outputStyle !== DEFAULT_OUTPUT_STYLE && { outputStyle }),
       });
       return;
     }
@@ -859,11 +860,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       ...(fastMode && { fastMode: true }),
       ...(providerAccountRef ? { providerAccountRef } : {}),
       // Efficiency/style knobs — only stamp on the new workflow when
-      // non-default (so a `normal` / `off` pick stays absent from meta.json
-      // and the server's cascade defaults apply). Stored regardless of
+      // non-default (so a default output style / `off` pick stays absent
+      // from meta.json and the server's defaults apply). Stored regardless of
       // provider so transport/provider changes still see supported values.
       ...(efficiencyToolFilter !== 'off' && { efficiencyToolFilter }),
-      ...(outputStyle !== 'normal' && { outputStyle }),
+      ...(outputStyle !== DEFAULT_OUTPUT_STYLE && { outputStyle }),
       // docs/PROVIDERS.md - only claude can host the WorkflowTool; stamp the
       // sticky flag so the tab starts in ultracode (turnEngine forces CLI).
       ...(ultracode && primaryProvider === 'claude' && { ultracode: true }),
@@ -959,9 +960,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const subtitleText = mode === 'cluster' ? 'NEW CLUSTER' : mode === 'genesis' ? 'NEW PROJECT · GENESIS' : mode === 'chat' ? 'NEW CONVERSATION' : 'NEW WORKFLOW';
   const cwdBasename = projectNameForDirectory(workDir, projectChoices);
   const headingText = cwdBasename.length > 28 ? `${cwdBasename.slice(0, 27)}…` : cwdBasename;
-  const outputStyleProvider = primaryProvider === 'claude' || primaryProvider === 'codex';
   // Collapsed tuning summary so the config stays visible but quiet.
-  // Claude has fast/filter/style; Codex app-server honor style only.
+  // Claude has fast/filter/style; every other provider has the style only.
   const runOptionsSummary = primaryProvider === 'claude' && mode !== 'chat'
     ? `Fast ${fastMode ? 'on' : 'off'} · ${efficiencyToolFilter} · ${outputStyle}`
     : `Output ${outputStyle}`;
@@ -1533,9 +1533,9 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         )}
 
         {/* I5 Band 3 — AGENT TUNING. Claude shows its Native-only fast/filter
-            controls plus output style; Codex app-server show output
-            style only. */}
-        {outputStyleProvider && (
+            controls plus output style; every other provider shows the
+            output style only. */}
+        {(
         <div style={bandStyle}>
           <button
             onClick={() => setShowRunOptions((v) => !v)}
@@ -1594,22 +1594,22 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         )}
 
             <div data-help="creator.output-style">
-              <label className="display-font" style={labelStyle} title="Appends a stable prompt addendum telling the model how terse to be.">
+              <label className="display-font" style={labelStyle} title="Adds a fixed instruction on how to write replies.">
                 OUTPUT STYLE
               </label>
               <div style={{ display: 'flex', gap: '6px' }}>
-                {(['normal', 'lite', 'terse'] as const).map((m) => (
+                {OUTPUT_STYLES.map((m) => (
                   <button
                     key={m}
                     onClick={() => setOutputStyle(m)}
                     style={{ ...selectStyle(m === outputStyle), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                   >
-                    {m}
+                    {m.toUpperCase()}
                   </button>
                 ))}
               </div>
               <div style={hintStyle}>
-                Cuts output tokens. <code>lite</code> drops fillers/hedging; <code>terse</code> also drops articles, fragments OK. Claude Native, Codex app-server honor this on normal turns. Review/Handoff/DOCS/GIT always run as <code>normal</code>.
+                {OUTPUT_STYLE_HINT}
               </div>
             </div>
             </div>

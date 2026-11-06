@@ -223,6 +223,32 @@ test('print mode passes the chosen catalog id, Auto included', { timeout: 30_000
   }
 });
 
+test('ACP and print mode close the prompt prefix with the output-style addendum', { timeout: 30_000 }, async () => {
+  const { outputStyleAddendum } = await import('../outputStyle.js');
+  const { goalBlock } = await import('../goalBlock.js');
+  const terse = outputStyleAddendum('terse')!;
+  setFake({});
+  const w = new worker.CursorAcpWorker('wf-style', { ...config('auto', 'wf-style'), outputStyle: 'terse', goal: 'Ship the fix' } as WorkerConfig, undefined);
+  try {
+    const settled = once(w, 'turn_settled');
+    await w.ensureStarted();
+    await w.beginTurn('hello');
+    await settled;
+    const prompt = requests().find((r) => r.method === 'session/prompt')?.params?.prompt as Array<{ type: string; text?: string }>;
+    assert.equal(prompt[0].text, `${goalBlock('Ship the fix')}\n\n${terse}\n\n---\n\nhello`);
+  } finally { await w.dispose(); }
+
+  const { CursorPrintProvider } = await import('./print.js');
+  for (const [style, expected] of [['plain', `${outputStyleAddendum('plain')}\n\n---\n\nhello`], ['normal', 'hello']] as const) {
+    setFake({});
+    const p = CursorPrintProvider.create(`p-style-${style}`, { ...config('auto'), outputStyle: style } as WorkerConfig);
+    const done = new Promise<void>((res, rej) => { p.once('result', () => res()); p.once('error', (e: string) => rej(new Error(e))); });
+    p.spawn('hello');
+    await done;
+    assert.equal((requests().find((r) => r.argv) as { stdin?: string }).stdin, expected, style);
+  }
+});
+
 test('Connections > Cursor runs the sign-in in Arco and shows its link', { timeout: 30_000 }, async () => {
   assert.ok(login.IN_APP_LOGIN.cursor, 'cursor has in-app login');
   const started = login.startLoginSession('cursor', 'env NO_OPEN_BROWSER=1 cursor-agent login');

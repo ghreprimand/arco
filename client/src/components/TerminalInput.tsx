@@ -2029,7 +2029,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
             setShowDocsDialog(false);
             // docs/PROVIDERS.md - DOCS in-tab dispatch tags the
             // user_message so the server forces outputStyle: normal for
-            // the upcoming turn even if the tab is pinned to lite/terse.
+            // the upcoming turn even if the tab is pinned to plain/terse.
             onSend(prompt, undefined, undefined, 'docs');
           }}
           onSpawn={(newConfig, newDirection, includePlan) => {

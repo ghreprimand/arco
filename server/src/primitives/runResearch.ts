@@ -255,7 +255,7 @@ export function runResearch(
         skipPermissions: leg.provider === 'ollama',
         sandbox: 'read-only',
         // docs/PROVIDERS.md - research reports are read carefully; never
-        // caveman/lite. Forced regardless of source-tab outputStyle.
+        // plain/terse. Forced regardless of source-tab outputStyle.
         outputStyle: 'normal',
         // Mechanical web-tool ceiling for Claude Native (other transports ignore;
         // see the Codex asymmetry note at the top of this file).

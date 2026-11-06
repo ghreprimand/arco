@@ -166,7 +166,7 @@ export const clusters: Section[] = [
   FILTER, OUTPUT STYLE and AUTO-COMPACT. They start from the first
   member&apos;s tab settings, with no work size, focus or own
   auto-compaction, and apply to every new worker. FAST MODE and TOOL
-  FILTER are shown for Claude, OUTPUT STYLE for Claude and Codex.
+  FILTER are shown for Claude, OUTPUT STYLE for every provider.
   </p>
   <p>
     With no

@@ -14,6 +14,8 @@ import {
   TERMINAL_CODEX_ACCOUNT,
   isAutoCompactionPolicy,
   isMemberTier,
+  normalizeOutputStyle,
+  storedOutputStyle,
   type ClusterMemberProvider,
   type ClusterMemberTuning,
   type EffortLevel,
@@ -99,7 +101,7 @@ export interface ScratchMemberSpec {
   skipPermissions?: boolean;
   fastMode?: boolean;
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('@arco/shared').OutputStyle;
   accessMode?: string;
 }
 
@@ -116,7 +118,7 @@ export async function memberConfigFromSpec(m: ScratchMemberSpec, index: number, 
     workingDirectory: cwd,
     ...(m.fastMode ? { fastMode: true } : {}),
     ...(m.efficiencyToolFilter && m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
-    ...(m.outputStyle && m.outputStyle !== 'normal' ? { outputStyle: m.outputStyle } : {}),
+    ...(storedOutputStyle(m.outputStyle) ? { outputStyle: storedOutputStyle(m.outputStyle) } : {}),
   };
   if (m.accessMode === 'isolated') {
     config.claudeTransport = 'native';
@@ -176,14 +178,14 @@ export async function memberAccountRefusal(provider: ClusterMemberProvider, ref:
   return (await isKnownAccount(ref, cwd)) ? null : `unknown_account:${ref}`;
 }
 
-const OUTPUT_STYLES = ['normal', 'lite', 'terse'];
 const TOOL_FILTERS = ['off', 'conservative', 'aggressive'];
 
 // Shape check of the member tuning in an ADD WORKERS or REPLACE request.
 export function memberTuningRefusal(t: ClusterMemberTuning): string | null {
   if (t.tier !== undefined && t.tier !== null && !isMemberTier(t.tier)) return `invalid_tier:${String(t.tier)}`;
   if (t.focus !== undefined && (typeof t.focus !== 'string' || t.focus.trim().length > MEMBER_FOCUS_MAX)) return 'invalid_focus';
-  if (t.outputStyle !== undefined && !OUTPUT_STYLES.includes(t.outputStyle)) return 'invalid_output_style';
+  // A stale client's 'lite' is accepted and stored as 'plain'.
+  if (t.outputStyle !== undefined && !normalizeOutputStyle(t.outputStyle)) return 'invalid_output_style';
   if (t.efficiencyToolFilter !== undefined && !TOOL_FILTERS.includes(t.efficiencyToolFilter)) return 'invalid_tool_filter';
   if (t.fastMode !== undefined && typeof t.fastMode !== 'boolean') return 'invalid_fast_mode';
   if (t.autoCompaction !== undefined && t.autoCompaction !== null && !isAutoCompactionPolicy(t.autoCompaction)) return 'invalid_auto_compaction';
@@ -191,10 +193,10 @@ export function memberTuningRefusal(t: ClusterMemberTuning): string | null {
 }
 
 // The tab settings of the tuning; tier and focus are cluster metadata and are
-// saved by the handler. OFF, NORMAL and fast mode off are stored as unset, as
-// CREATE FROM SCRATCH stores them.
+// saved by the handler. OFF, the default output style (DEFAULT_OUTPUT_STYLE)
+// and fast mode off are stored as unset, as CREATE FROM SCRATCH stores them.
 export function applyMemberTuning(config: WorkflowConfig, t: ClusterMemberTuning): void {
-  if (t.outputStyle !== undefined) config.outputStyle = t.outputStyle === 'normal' ? undefined : t.outputStyle;
+  if (t.outputStyle !== undefined) config.outputStyle = storedOutputStyle(t.outputStyle);
   if (t.efficiencyToolFilter !== undefined) config.efficiencyToolFilter = t.efficiencyToolFilter === 'off' ? undefined : t.efficiencyToolFilter;
   if (t.fastMode !== undefined) config.fastMode = t.fastMode ? true : undefined;
   if (t.autoCompaction !== undefined) config.autoCompaction = t.autoCompaction ?? undefined;

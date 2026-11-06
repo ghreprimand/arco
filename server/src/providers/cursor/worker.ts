@@ -20,6 +20,7 @@ import { isAbsolute, resolve as resolvePath } from 'path';
 import type { WorkerConfig } from '@arco/shared';
 import { killProcessTree } from '../../workers/processKill.js';
 import { goalBlock } from '../goalBlock.js';
+import { outputStyleAddendum } from '../outputStyle.js';
 import { awaitModelImages, loadImages, splitAttachmentPaths, withAttachmentRefs } from '../attachments.js';
 import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
 import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
@@ -373,11 +374,10 @@ export class CursorAcpWorker extends EventEmitter {
     // pass --append-system-prompt every turn. Ordering matches codex.ts: north-star
     // above appendSystemPrompt, both above the `---` prompt separator. goalBlock is
     // null-when-empty so the default path is byte-identical to pre-Phase-4.
-    const northStarBlock = goalBlock(this.config.goal);
-    const append = appendSystemPrompt && appendSystemPrompt.trim() ? appendSystemPrompt : undefined;
-    const prefix = northStarBlock
-      ? append ? `${northStarBlock}\n\n${append}` : northStarBlock
-      : append;
+    // The output-style addendum closes the prefix (null for normal).
+    const prefixParts = [goalBlock(this.config.goal), appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+    const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     // Operator attachments: images ride as ACP `image` content blocks when the
     // agent advertised promptCapabilities.image; everything else (and images on
     // an agent without the capability) folds to the `[attached file: …]` path

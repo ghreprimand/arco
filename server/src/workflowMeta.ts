@@ -1,5 +1,5 @@
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { normalizeAutoHandoff, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { normalizeAutoHandoff, normalizeOutputStyle, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
 // Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
@@ -170,11 +170,11 @@ export interface WorkflowMeta {
   // turns. Absent on rehydrate ⇒ gate OFF (opting in is always explicit).
   reviewSafeMode?: 'off' | 'on';
   // docs/PROVIDERS.md - per-tab output-style picker.
-  // `normal` (default), `lite`, `terse`. Persists across server restart;
-  // honored by Claude Native, Codex app-server turns. Renamed
-  // `caveman` → `terse` 2026-05-10; legacy `caveman` values are
-  // auto-aliased to `terse` on the rehydrate path in handleCreateWorkflow.
-  outputStyle?: 'normal' | 'lite' | 'terse' | 'caveman';
+  // `normal`, `plain` (the default when unset), `terse`. Persists across
+  // server restart; honored by every provider. Legacy values are aliased on
+  // every read (normalizeOutputStyle): `lite` (before 0.1.5) reads as
+  // `plain`, `caveman` (renamed 2026-05-10) as `terse`.
+  outputStyle?: import('@arco/shared').StoredOutputStyle;
   // docs/GOTCHAS.md - per-tab operator-set persistent north-star (short
   // free-text objective). Persists across server restart; injected as a stable
   // system block every turn on every transport that folds clusterPlan. Absent
@@ -290,8 +290,8 @@ export interface WorkflowMeta {
 // silently run a Native member on CLI, `codexTransport` an appserver member on
 // exec, etc. Client-only fields absent from meta (`advanced`, `fastMode`,
 // `allowedProviders`, `skipPermissions`) cannot be recovered — `skipPermissions`
-// defaults `true` (the cluster-member default) and the rest reset. `caveman`
-// output-style is aliased to `terse` (the config type dropped the legacy value).
+// defaults `true` (the cluster-member default) and the rest reset. Legacy
+// output-style values are aliased (`lite` to `plain`, `caveman` to `terse`).
 export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): WorkflowConfig {
   return {
     ...(meta.kind === 'chat' ? { kind: 'chat' as const } : {}),
@@ -311,7 +311,7 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     // — behavior / steering —
     ...(meta.goal && meta.goal.trim() ? { goal: meta.goal } : {}),
     ...(meta.pinnedSkills?.length ? { pinnedSkills: meta.pinnedSkills.map((s) => ({ ...s })) } : {}),
-    ...(meta.outputStyle ? { outputStyle: meta.outputStyle === 'caveman' ? 'terse' : meta.outputStyle } : {}),
+    ...(normalizeOutputStyle(meta.outputStyle) ? { outputStyle: normalizeOutputStyle(meta.outputStyle) } : {}),
     ...(typeof meta.webSearchMaxUses === 'number' ? { webSearchMaxUses: meta.webSearchMaxUses } : {}),
     ...(typeof meta.chatWebAccess === 'boolean' ? { chatWebAccess: meta.chatWebAccess } : {}),
     ...(meta.voiceOperator === true ? { voiceOperator: true } : {}),

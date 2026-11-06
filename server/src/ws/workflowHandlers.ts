@@ -1,4 +1,4 @@
-import { isAutoCompactionPolicy, normalizeAutoHandoff, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { isAutoCompactionPolicy, normalizeAutoHandoff, normalizeOutputStyle, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 import { stopTurnSizes } from '../storageTurnWatch.js';
 import { noteSmartPickupStop } from '../smartPickupObserver.js';
 import { isKnownProvider } from '../providers/index.js';
@@ -195,11 +195,9 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       ...(saved.efficiencyConfigProtection ? { efficiencyConfigProtection: saved.efficiencyConfigProtection } : {}),
       ...(saved.efficiencySandbox ? { efficiencySandbox: saved.efficiencySandbox } : {}),
       ...(saved.reviewSafeMode ? { reviewSafeMode: saved.reviewSafeMode } : {}),
-      ...(saved.outputStyle === 'normal' || saved.outputStyle === 'lite' || saved.outputStyle === 'terse'
-        ? { outputStyle: saved.outputStyle }
-        : saved.outputStyle === 'caveman'
-          ? { outputStyle: 'terse' as const }
-          : {}),
+      // 'lite' (before 0.1.5) reads as 'plain', 'caveman' as 'terse'; unset
+      // stays unset and runs with DEFAULT_OUTPUT_STYLE.
+      ...(normalizeOutputStyle(saved.outputStyle) ? { outputStyle: normalizeOutputStyle(saved.outputStyle) } : {}),
       // docs/GOTCHAS.md - restore the operator's north-star across restart
       // (into the client-bound config too, so a fresh client sees it).
       ...(typeof saved.goal === 'string' && saved.goal.trim() ? { goal: saved.goal } : {}),
@@ -541,15 +539,13 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       }
       // docs/PROVIDERS.md - restore the operator's per-tab output-style
       // pick across server restart. Pinned on wf.config so a transport flip
-      // on the same tab keeps the value. Legacy `'caveman'` (renamed to
-      // `'terse'` 2026-05-10) is auto-aliased so existing meta.json files
-      // don't lose the operator's pick.
-      if (savedMeta?.outputStyle === 'normal' || savedMeta?.outputStyle === 'lite' || savedMeta?.outputStyle === 'terse') {
+      // on the same tab keeps the value. Legacy values are aliased so
+      // existing meta.json files don't lose the operator's pick: `'lite'`
+      // (before 0.1.5) reads as `'plain'`, `'caveman'` as `'terse'`.
+      const restoredOutputStyle = normalizeOutputStyle(savedMeta?.outputStyle);
+      if (restoredOutputStyle) {
         const wf = workflows.get(workflowId);
-        if (wf) wf.config.outputStyle = savedMeta.outputStyle;
-      } else if (savedMeta?.outputStyle === 'caveman') {
-        const wf = workflows.get(workflowId);
-        if (wf) wf.config.outputStyle = 'terse';
+        if (wf) wf.config.outputStyle = restoredOutputStyle;
       }
       // docs/GOTCHAS.md - restore the per-tab north-star across restart.
       // Pinned on wf.config so the next turn's system-block builder injects it.

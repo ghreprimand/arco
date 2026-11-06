@@ -78,13 +78,14 @@ async def main():
         async def pressed(label):
             return await effort.get_by_role('button', name=label, exact=True).evaluate("e => e.style.border.includes('accent-primary)')")
 
-        # Fresh home: HIGH, conservative filter, lite output; members seeded at HIGH.
+        # Fresh home: HIGH, conservative filter, plain output (the default, sent as unset); members seeded at HIGH.
         assert await pressed('HIGH') and not await pressed('MAX')
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
         await page.wait_for_function('created.length===1')
         members = await page.evaluate('created[0].members')
         assert all(m['effort'] == 'high' for m in members), members
-        assert all(m.get('efficiencyToolFilter') == 'conservative' and m.get('outputStyle') == 'lite' for m in members), members
+        assert all(m.get('efficiencyToolFilter') == 'conservative' and 'outputStyle' not in m for m in members), members
+        assert await page.locator('[data-help="creator.output-style"] button', has_text='PLAIN').first.evaluate("e => e.style.border.includes('accent-primary)')")
 
         # Explicit MAX, then a model switch: back to HIGH with a visible note.
         await effort.get_by_role('button', name='MAX', exact=True).click()
@@ -110,11 +111,11 @@ async def main():
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
         await page.wait_for_function('created.length===2')
         members = await page.evaluate('created[1].members')
-        assert all(m['effort'] == 'high' and 'efficiencyToolFilter' not in m and 'outputStyle' not in m for m in members), members
+        assert all(m['effort'] == 'high' and 'efficiencyToolFilter' not in m and m.get('outputStyle') == 'normal' for m in members), members
 
         assert not blocked, blocked
         assert not errors, errors
         await browser.close()
-        print('PASS creator defaults: fresh HIGH/conservative/lite, explicit MAX reset with note, saved MAX loads and saves as HIGH, saved off/normal kept')
+        print('PASS creator defaults: fresh HIGH/conservative/plain, explicit MAX reset with note, saved MAX loads and saves as HIGH, saved off/normal kept')
 
 asyncio.run(main())

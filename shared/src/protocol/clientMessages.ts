@@ -342,7 +342,7 @@ export interface UpdatePrimaryConfigMessage {
   efficiencyConfigProtection?: 'on' | 'off';
   efficiencySandbox?: 'off' | 'on';
   reviewSafeMode?: 'off' | 'on';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('../outputStyle.js').OutputStyle;
   // docs/GOTCHAS.md - operator-set persistent north-star. Persists to
   // meta.json + WorkflowConfig.goal; injected as a stable system block every
   // turn on every transport that folds clusterPlan. An empty / whitespace-only

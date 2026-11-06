@@ -18,6 +18,7 @@ import { markThrottled, markAvailable } from '../quota.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
+import { outputStyleAddendum } from './outputStyle.js';
 import { reportCompaction } from '../compactionReport.js';
 import type { Provider, ProviderProcess } from './types.js';
 import { commandArgs } from '../windowsCommand.js';
@@ -45,11 +46,13 @@ const IMAGE_MEDIA_TYPE: Record<string, string> = {
   '.webp': 'image/webp',
 };
 
+// North star first, then the appended prompt, then the output-style addendum
+// last (the order Claude Native uses). Each part is stable for the tab, so the
+// appended system prompt stays byte-identical from turn to turn.
 function effectiveAppendSystemPrompt(config: WorkerConfig): string | undefined {
-  const northStarBlock = goalBlock(config.goal);
-  return northStarBlock
-    ? (config.appendSystemPrompt ? `${northStarBlock}\n\n${config.appendSystemPrompt}` : northStarBlock)
-    : config.appendSystemPrompt;
+  const parts = [goalBlock(config.goal), config.appendSystemPrompt, outputStyleAddendum(config.outputStyle)]
+    .filter((s): s is string => typeof s === 'string' && s.length > 0);
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
 }
 
 function classifyAttachment(path: string): { kind: 'image'; mediaType: string } | { kind: 'other' } {

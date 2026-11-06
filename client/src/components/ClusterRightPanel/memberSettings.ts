@@ -1,4 +1,4 @@
-import type { AutoCompactionPolicy, ClusterMemberProvider, ClusterMemberTuning, MemberTier, WorkflowConfig } from '@arco/shared';
+import { resolveOutputStyle, type AutoCompactionPolicy, type ClusterMemberProvider, type ClusterMemberTuning, type MemberTier, type WorkflowConfig } from '@arco/shared';
 
 // The member settings ADD WORKERS and REPLACE show besides provider, model,
 // effort, account and access. ADD WORKERS starts from the first member's tab
@@ -8,7 +8,7 @@ import type { AutoCompactionPolicy, ClusterMemberProvider, ClusterMemberTuning, 
 export interface MemberSettings {
   tier: MemberTier | '';
   focus: string;
-  outputStyle: 'normal' | 'lite' | 'terse';
+  outputStyle: import('@arco/shared').OutputStyle;
   efficiencyToolFilter: 'off' | 'conservative' | 'aggressive';
   fastMode: boolean;
   // null follows the cluster default.
@@ -24,7 +24,7 @@ export function memberSettingsFrom(
   return {
     tier: identity.tier ?? '',
     focus: identity.focus ?? '',
-    outputStyle: config?.outputStyle ?? 'normal',
+    outputStyle: resolveOutputStyle(config?.outputStyle),
     efficiencyToolFilter: config?.efficiencyToolFilter ?? 'off',
     fastMode: config?.fastMode === true,
     autoCompaction: identity.keepAutoCompaction ? config?.autoCompaction ?? null : null,
@@ -32,9 +32,9 @@ export function memberSettingsFrom(
 }
 
 // Which settings apply to a provider: fast mode and the tool-result filter
-// are Claude settings, the output style Claude and Codex.
+// are Claude settings; every provider applies the output style.
 export function memberSettingsShown(provider: ClusterMemberProvider): { fastMode: boolean; toolFilter: boolean; outputStyle: boolean } {
-  return { fastMode: provider === 'claude', toolFilter: provider === 'claude', outputStyle: provider === 'claude' || provider === 'codex' };
+  return { fastMode: provider === 'claude', toolFilter: provider === 'claude', outputStyle: true };
 }
 
 // The request fields. A setting the provider does not use is sent as off, so
@@ -44,7 +44,7 @@ export function memberTuning(v: MemberSettings, provider: ClusterMemberProvider)
   return {
     tier: v.tier || null,
     focus: v.focus.trim(),
-    outputStyle: shown.outputStyle ? v.outputStyle : 'normal',
+    outputStyle: v.outputStyle,
     efficiencyToolFilter: shown.toolFilter ? v.efficiencyToolFilter : 'off',
     fastMode: shown.fastMode ? v.fastMode : false,
     autoCompaction: v.autoCompaction,

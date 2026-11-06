@@ -255,10 +255,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Output style default',
     body: (
       <p>
-        Default response style for new Claude Native and Codex app-server
-        tabs: <C>normal</C>, <C>lite</C>, or <C>terse</C>. Applies to
-        primary turns; Review / Handoff / DOCS / GIT stay normal. A new home
-        starts at <C>lite</C>; a saved default, including <C>normal</C>, is kept.
+        Default reply style for new tabs, on every provider: <C>NORMAL</C>,{' '}
+        <C>PLAIN</C> or <C>TERSE</C>. Without a saved default, new tabs use
+        Plain. Applies to the tab&apos;s own turns; Review, Handoff, DOCS and
+        GIT stay Normal. A default saved as Lite before 0.1.5 loads as Plain.
       </p>
     ),
     manualSection: 'config-tab',

@@ -16,7 +16,8 @@ ART = Path('/tmp/arco-selected-contrast')
 ART.mkdir(exist_ok=True)
 HTML = """<!doctype html><html><body><main style="position:relative;z-index:1;padding:18px;display:flex;gap:20px;align-items:start">
 <div id="native" style="width:580px;padding:18px;background:var(--color-bg-panel)"></div>
-<div id="codex" style="width:580px;padding:18px;background:var(--color-bg-panel)"></div></main>
+<div id="codex" style="width:580px;padding:18px;background:var(--color-bg-panel)"></div>
+<div id="local" style="width:580px;padding:18px;background:var(--color-bg-panel)"></div></main>
 <div id="effects"></div><script type="module">import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;
 window.__vite_plugin_react_preamble_installed__=true;window.fixtureReady=true;</script></body></html>"""
@@ -78,8 +79,8 @@ async def main():
           s.setState({settings:{claude:{transport:'native'},themeId:'phosphor:arco:electric',fontPackOverride:'victor-mono-uniform',textBrightness:30,uiScale:1.1},jobs:{},activeJobId:null});
           const effects=createRoot(document.getElementById('effects'));
           const roots={};
-          for (const [id,provider] of [['native','claude'],['codex','codex']]) {
-            s.getState().createJob(id,{name:'Style fixture',workingDirectory:'/projects/fixture',primaryProvider:provider,primaryModel:provider==='claude'?'claude-opus-4-6':'gpt-5.5',primaryEffort:'high',skipPermissions:false,claudeTransport:'native',codexTransport:'appserver'});
+          for (const [id,provider] of [['native','claude'],['codex','codex'],['local','ollama']]) {
+            s.getState().createJob(id,{name:'Style fixture',workingDirectory:'/projects/fixture',primaryProvider:provider,primaryModel:provider==='claude'?'claude-opus-4-6':provider==='codex'?'gpt-5.5':'qwen3:8b',primaryEffort:'high',skipPermissions:false,claudeTransport:'native',codexTransport:'appserver'});
             d.getState().setDraft(id,'Keep the existing composer draft.');
             roots[id]=createRoot(document.getElementById(id));
           }
@@ -96,7 +97,7 @@ async def main():
           const lum=c=>c.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((v,x,i)=>v+x*[.2126,.7152,.0722][i],0);
           const ratio=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
           window.measure=()=>{
-            const selected=[...document.querySelectorAll('#native button,#codex button')].filter(b=>b.style.background.includes('color-accent-primary-dim'));
+            const selected=[...document.querySelectorAll('#native button,#codex button,#local button')].filter(b=>b.style.background.includes('color-accent-primary-dim'));
             return selected.map(b=>({group:b.parentElement.previousElementSibling?.textContent.trim(),buttons:[...b.parentElement.querySelectorAll('button')].filter(e=>e.classList.contains('filled-control')).map(e=>{
               const st=getComputedStyle(e),chain=[];for(let a=e;a;a=a.parentElement)chain.push(a);
               const bg=chain.reverse().reduce((v,a)=>over(rgb(getComputedStyle(a).backgroundColor),v),[255,255,255,1]);
@@ -174,6 +175,20 @@ async def main():
             after=await page.evaluate('s.getState().jobs.native.config')
             assert after=={**json.loads(before),key:value}
             await group.get_by_role('button',name=old_label,exact=True).click()
+        # OUTPUT STYLE: on every provider, PLAIN when nothing is saved, the
+        # hint reads with spaces, and a click sends only the chosen level.
+        for root in ['#native','#codex','#local']:
+            style=page.locator(f'{root} [data-help="rightpanel.config.output-style"]')
+            assert [t.strip() for t in await style.get_by_role('button').all_inner_texts()]==['NORMAL','PLAIN','TERSE'],root
+            await expect(style.get_by_role('button',name='PLAIN',exact=True)).to_have_attribute('aria-pressed','true')
+            hint=' '.join((await style.inner_text()).split())
+            assert 'PLAIN, the default, asks for clear, short sentences with the answer first.' in hint and 'Every provider applies it' in hint, hint
+            assert '%' not in hint and 'Opus' not in hint and 'lite' not in hint.lower(), hint
+        style=page.locator('#local [data-help="rightpanel.config.output-style"]')
+        for label,value in [('TERSE','terse'),('NORMAL','normal')]:
+            await style.get_by_role('button',name=label,exact=True).click()
+            await expect(style.get_by_role('button',name=label,exact=True)).to_have_attribute('aria-pressed','true')
+            assert await page.evaluate('updates.at(-1)')=={'id':'local','patch':{'outputStyle':value}}
         context=page.locator('#codex [data-help="rightpanel.config.codex-context"]')
         await context.get_by_role('button',name='STANDARD',exact=False).click()
         await expect(context.get_by_role('button',name='STANDARD',exact=False)).to_have_attribute('aria-pressed','true')

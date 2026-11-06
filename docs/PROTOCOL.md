@@ -291,7 +291,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   efficiencyConfigProtection?: 'on' | 'off',         // config-protection write-gate (Native, default 'on')
   efficiencySandbox?: 'off' | 'on',                  //  opt-in ctx_* tools
   reviewSafeMode?: 'off' | 'on',                     // DEBAG durable review gate (Native, default 'off')
-  outputStyle?: 'normal' | 'lite' | 'terse',         // - Claude Native, Codex app-server
+  outputStyle?: 'normal' | 'plain' | 'terse',        // - every provider; unset = plain
   goal?: string,                                     // - persistent per-tab north-star; empty/whitespace CLEARS. Cap 2048 bytes. Injected as a system block every turn on transports that fold the cluster plan; inherited by primitives (unlike outputStyle's forced 'normal')
   pinnedSkills?: Array<{ scope: 'project' | 'global'; slug: string }>, // replace the durable tab pin set; empty CLEARS. Full bodies are re-resolved + injected every turn
   remoteEnabled?: boolean,                            // REMOTE_MANAGEMENT - per-workflow hub opt-in
@@ -300,7 +300,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
 }
 ```
 
-Takes effect on the next primary turn. Persisted to `meta.json` (except `goalRun`, whose counters are memory-only - a restart ends any run). On an incognito chat only `model` / `effort` / `chatWebAccess` (`INCOGNITO_SAFE_CONFIG_FIELDS`) are accepted, held in memory; every other field is refused. Transport / efficiency fields are provider-specific knobs. `outputStyle` is honored by Claude Native, Codex app-server; other transports silently ignore it on turn dispatch. `outputStyle: 'caveman'` is accepted on the wire for back-compat with pre-2026-05-10 clients and aliased to `'terse'` server-side.
+Takes effect on the next primary turn. Persisted to `meta.json` (except `goalRun`, whose counters are memory-only - a restart ends any run). On an incognito chat only `model` / `effort` / `chatWebAccess` (`INCOGNITO_SAFE_CONFIG_FIELDS`) are accepted, held in memory; every other field is refused. Transport / efficiency fields are provider-specific knobs. `outputStyle` is honored by every provider; a tab with no saved value runs as `'plain'`, and `'plain'` is stored as unset. `'lite'` (before 0.1.5) and `'caveman'` (before 2026-05-10) are accepted on the wire from older clients and stored as `'plain'` and `'terse'`; an unknown value is ignored.
 
 ### `goal_set` <- - ack/visibility broadcast for a north-star set / edit / clear (the durable side of `update_primary_config { goal }`). **Persist-then-announce**: the server writes `meta.json` before emitting, so "`goal_set` observed ⇒ value already durable" holds. Persisted to `events.jsonl` (reviewable in the transcript per the four-question test). `goal` is `null` on clear; `byteLen` is the UTF-8 byte length of the stored text (0 on clear).
 

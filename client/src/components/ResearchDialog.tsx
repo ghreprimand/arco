@@ -52,7 +52,7 @@ export function ResearchDialog({ parentConfig, onConfirm, onSpawn, onCancel }: P
     } else {
       // spawnConfigFromRunAs forces outputStyle:'normal' for known one-off
       // suffixes; 'research' is treated the same way (reports are read
-      // carefully — never caveman/lite). Match docs/git by extending the
+      // carefully — never plain/terse). Match docs/git by extending the
       // suffix allowlist there; here we just pass 'research'.
       const spawnConfig = spawnConfigFromRunAs(parentConfig, runAs, 'research');
       onSpawn(spawnConfig, runAs, trimmed, clampedRounds);

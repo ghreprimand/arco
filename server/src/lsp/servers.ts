@@ -7,8 +7,8 @@
 //
 // Graceful degradation: when NO candidate resolves for a language, `resolveServer`
 // returns null and the caller no-ops — no error, no crash, no diagnostics.
-// The operator installs the language server themselves (same "bring your own
-// upstream tool" pattern as the caveman output style). In particular, TS
+// The operator installs the language server themselves (the "bring your own
+// upstream tool" pattern). In particular, TS
 // diagnostics require `typescript-language-server` (the LSP wrapper) on PATH —
 // the bare `tsserver` binary speaks the TSServer protocol, NOT LSP, so it is
 // deliberately NOT a candidate here.

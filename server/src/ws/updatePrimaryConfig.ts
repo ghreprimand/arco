@@ -8,7 +8,7 @@
 // (read on rehydrate). Keep the two blocks below in sync when adding a field.
 
 import { WebSocket } from 'ws';
-import { isAutoCompactionPolicy, normalizeAutoHandoff, type UpdatePrimaryConfigMessage } from '@arco/shared';
+import { isAutoCompactionPolicy, normalizeAutoHandoff, normalizeOutputStyle, storedOutputStyle, type UpdatePrimaryConfigMessage } from '@arco/shared';
 import { send, broadcastWorkflow, broadcastTransient } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { capGoal } from '../providers/goalBlock.js';
@@ -244,10 +244,13 @@ export async function handleUpdatePrimaryConfig(
   }
   // docs/PROVIDERS.md - operator-armed terseness picker. Stored
   // unconditionally so a transport/provider flip picks up the last pinned
-  if (msg.outputStyle !== undefined) {
-    const normalized = (msg.outputStyle as string) === 'caveman' ? 'terse' : msg.outputStyle;
-    wf.config.outputStyle = normalized;
-    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] output-style updated → ${normalized}`);
+  // A stale client's 'lite' means 'plain' and 'caveman' means 'terse'; an
+  // unknown value is ignored. meta.json stores the default (plain) as unset,
+  // so 0.1.4 never reads a value it does not know.
+  const outputStyle = msg.outputStyle !== undefined ? normalizeOutputStyle(msg.outputStyle) : undefined;
+  if (outputStyle) {
+    wf.config.outputStyle = outputStyle;
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] output-style updated → ${outputStyle}`);
   }
   // docs/GOTCHAS.md - operator-set persistent north-star. Trim + byte-cap;
   // empty / whitespace-only ⇒ clear (delete the field so pre-feature meta.json
@@ -360,10 +363,7 @@ export async function handleUpdatePrimaryConfig(
         if (msg.efficiencyConfigProtection !== undefined) meta.efficiencyConfigProtection = msg.efficiencyConfigProtection;
         if (msg.efficiencySandbox !== undefined) meta.efficiencySandbox = msg.efficiencySandbox;
         if (msg.reviewSafeMode !== undefined) meta.reviewSafeMode = msg.reviewSafeMode;
-        if (msg.outputStyle !== undefined) {
-          // Legacy `'caveman'` from a stale client → store `'terse'` on disk.
-          meta.outputStyle = (msg.outputStyle as string) === 'caveman' ? 'terse' : msg.outputStyle;
-        }
+        if (outputStyle) meta.outputStyle = storedOutputStyle(outputStyle);
         if (msg.goal !== undefined) {
           // Mirror the wf.config decision above: capped text persists, blank clears.
           const capped = capGoal(msg.goal);

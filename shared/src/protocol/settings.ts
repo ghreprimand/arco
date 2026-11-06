@@ -49,7 +49,7 @@ export interface WorkflowDefaults {
   skipPermissions?: boolean;
   fastMode?: boolean;
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('../outputStyle.js').OutputStyle;
 }
 
 export interface ProviderAccountBrowser {

@@ -1,4 +1,4 @@
-import { DEFAULT_CODEX_MODEL, MEMBER_TIERS, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, MEMBER_TIERS, OUTPUT_STYLES, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ModelName, MemberTier, ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { deriveDisplayNames } from './modelOptions';
@@ -470,18 +470,18 @@ export function ClusterMembersSection({
                   </div>
                 )}
 
-                {/* OUTPUT STYLE (Claude Native, Codex app-server) */}
-                {(m.provider === 'claude' || m.provider === 'codex') && (
+                {/* OUTPUT STYLE (every provider) */}
+                {(
                   <div>
                     <label className="display-font" style={labelStyle}>OUTPUT STYLE</label>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      {(['normal', 'lite', 'terse'] as const).map((opt) => (
+                      {OUTPUT_STYLES.map((opt) => (
                         <button
                           key={opt}
                           onClick={() => onUpdateMember(m.key, { outputStyle: opt })}
                           style={{ ...selectStyle(m.outputStyle === opt), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                         >
-                          {opt}
+                          {opt.toUpperCase()}
                         </button>
                       ))}
                     </div>

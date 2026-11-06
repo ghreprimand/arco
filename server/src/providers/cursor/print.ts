@@ -24,6 +24,7 @@ import { killProcessTree } from '../../workers/processKill.js';
 import { isChildRunning } from '../../workers/processStartTime.js';
 import type { Provider, ProviderProcess } from '../types.js';
 import { goalBlock } from '../goalBlock.js';
+import { outputStyleAddendum } from '../outputStyle.js';
 import { attachmentDirs, withAttachmentRefs } from '../attachments.js';
 import { commandArgs } from '../../windowsCommand.js';
 
@@ -74,13 +75,10 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // a cluster primitive supplies it) as a leading block, same ordering as the
     // ACP worker's beginTurn. goalBlock is null-when-empty so the default primitive
     // path is byte-identical to a bare prompt.
-    const northStarBlock = goalBlock(this.config.goal);
-    const append = this.config.appendSystemPrompt && this.config.appendSystemPrompt.trim()
-      ? this.config.appendSystemPrompt
-      : undefined;
-    const prefix = northStarBlock
-      ? append ? `${northStarBlock}\n\n${append}` : northStarBlock
-      : append;
+    // The output-style addendum closes the prefix (null for normal).
+    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+    const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const body = withAttachmentRefs(prompt, this.config.attachments ?? []);
     const fullPrompt = prefix ? `${prefix}\n\n---\n\n${body}` : body;
 

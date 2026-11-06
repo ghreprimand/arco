@@ -167,7 +167,7 @@ export function runCompare(
         skipPermissions: leg.provider === 'ollama',
         sandbox: 'read-only',
         // docs/PROVIDERS.md - compared answers are read carefully by the
-        // operator; never caveman/lite. Forced regardless of source-tab style.
+        // operator; never plain/terse. Forced regardless of source-tab style.
         outputStyle: 'normal',
         ...(leg.provider === 'codex' && args.codexHomes?.[legIndex]
           ? { providerAccountRef: leg.providerAccountRef, codexHome: args.codexHomes[legIndex] }

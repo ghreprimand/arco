@@ -266,10 +266,11 @@ After the switch:
 | Outputs copied or moved to a home folder outside the project | Stay on disk; OUTPUTS cannot open or preview them. |
 | HISTORY checkpoint reverts | Shown without change counts. |
 | SHARE WITH REPOSITORY projects | Do not use RESTORE IGNORE FILE or STOP TRACKING; either would undo the sharing. |
+| Output style | Plain does not exist in 0.1.4. Plain is saved as no choice, so tabs, members, presets and templates on Plain run as Normal, and a New-tab default of Plain falls back to Lite. Normal and Terse are kept. |
 
 Coming back to 0.1.5 later: if Settings were changed while on 0.1.4, set the App
 window browser choice and the default auto-handoff compaction count again (the
-count falls back to 5). Auto-handoff percentages changed on a tab in 0.1.4 are
+count falls back to 5). A Lite choice made in 0.1.4 reads as Plain. Auto-handoff percentages changed on a tab in 0.1.4 are
 kept.
 
 ### Source checkout

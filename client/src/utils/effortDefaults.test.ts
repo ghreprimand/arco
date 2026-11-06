@@ -5,9 +5,14 @@ import assert from 'node:assert/strict';
 import type { CodexCatalogSnapshot } from '@arco/shared';
 import { capDefaultEffort, effortAfterModelChange, initialCreatorDefaults, EFFORT_RESET_NOTE } from './effortDefaults.js';
 
-test('fresh home starts at HIGH with conservative tool filter and lite output', () => {
-  assert.deepEqual(initialCreatorDefaults(undefined), { effort: 'high', efficiencyToolFilter: 'conservative', outputStyle: 'lite' });
-  assert.deepEqual(initialCreatorDefaults({ primaryProvider: 'claude' }), { effort: 'high', efficiencyToolFilter: 'conservative', outputStyle: 'lite' });
+test('fresh home starts at HIGH with conservative tool filter and plain output', () => {
+  assert.deepEqual(initialCreatorDefaults(undefined), { effort: 'high', efficiencyToolFilter: 'conservative', outputStyle: 'plain' });
+  assert.deepEqual(initialCreatorDefaults({ primaryProvider: 'claude' }), { effort: 'high', efficiencyToolFilter: 'conservative', outputStyle: 'plain' });
+});
+
+test('a saved lite default from before 0.1.5 loads as plain', () => {
+  assert.equal(initialCreatorDefaults({ outputStyle: 'lite' as never }).outputStyle, 'plain');
+  assert.equal(initialCreatorDefaults({ outputStyle: 'caveman' as never }).outputStyle, 'terse');
 });
 
 test('saved off/normal tuning and saved efforts at or below HIGH are kept', () => {

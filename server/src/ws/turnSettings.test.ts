@@ -33,11 +33,22 @@ test('Native-only switches: their defaults on Native, off on every other transpo
 });
 
 test('output style, the north star and Ollama parameters', () => {
+  // Every provider and transport applies the tab's style.
   assert.equal(resolveTurnSettings(input({ config: { claudeTransport: 'native', outputStyle: 'terse' } })).outputStyle, 'terse');
-  assert.equal(resolveTurnSettings(input({ config: { claudeTransport: 'cli', outputStyle: 'terse' } })).outputStyle, 'normal');
-  assert.equal(resolveTurnSettings(input({ provider: 'codex', config: { outputStyle: 'lite' }, cascade: { codex: { transport: 'appserver' } } })).outputStyle, 'lite');
-  assert.equal(resolveTurnSettings(input({ provider: 'codex', config: { outputStyle: 'lite' } })).outputStyle, 'normal');
-  for (const primitive of ['docs', 'git']) assert.equal(resolveTurnSettings(input({ config: { claudeTransport: 'native', outputStyle: 'terse' }, primitive })).outputStyle, 'normal');
+  assert.equal(resolveTurnSettings(input({ config: { claudeTransport: 'cli', outputStyle: 'terse' } })).outputStyle, 'terse');
+  assert.equal(resolveTurnSettings(input({ provider: 'codex', config: { outputStyle: 'terse' } })).outputStyle, 'terse');
+  for (const provider of ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek']) {
+    // Unset means the default (plain); an explicit normal is kept; legacy values are aliased.
+    assert.equal(resolveTurnSettings(input({ provider, config: {} })).outputStyle, 'plain', provider);
+    assert.equal(resolveTurnSettings(input({ provider, config: { outputStyle: 'normal' } })).outputStyle, 'normal', provider);
+    assert.equal(resolveTurnSettings(input({ provider, config: { outputStyle: 'lite' as never } })).outputStyle, 'plain', provider);
+    assert.equal(resolveTurnSettings(input({ provider, config: { outputStyle: 'caveman' as never } })).outputStyle, 'terse', provider);
+  }
+  // DOCS and GIT turns are forced to normal, whatever the tab says or leaves unset.
+  for (const primitive of ['docs', 'git']) {
+    assert.equal(resolveTurnSettings(input({ config: { claudeTransport: 'native', outputStyle: 'terse' }, primitive })).outputStyle, 'normal');
+    assert.equal(resolveTurnSettings(input({ provider: 'cursor', config: {}, primitive })).outputStyle, 'normal');
+  }
   assert.equal(resolveTurnSettings(input({ config: { goal: 'Ship it' }, primitive: 'docs' })).goal, 'Ship it');
   assert.equal(resolveTurnSettings(input({ config: { goal: 'Ship it' }, isolatedMember: true })).goal, undefined);
   assert.deepEqual(resolveTurnSettings(input({ provider: 'ollama', config: { ollamaParams: { temperature: 0.2 } } })).ollamaParams, { temperature: 0.2 });

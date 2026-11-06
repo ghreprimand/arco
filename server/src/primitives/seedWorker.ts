@@ -286,8 +286,8 @@ export function runPrimaryTurn(
     efficiencySandbox?: 'off' | 'on';
     reviewSafeMode?: 'off' | 'on';
     // docs/PROVIDERS.md - output-style addendum level. Resolved from
-    // WorkflowConfig.outputStyle in handleUserMessage. Honored by Claude
-    outputStyle?: 'normal' | 'lite' | 'terse';
+    // WorkflowConfig.outputStyle in handleUserMessage. Honored by every provider.
+    outputStyle?: import('@arco/shared').OutputStyle;
     // docs/GOTCHAS.md - operator-set persistent north-star, resolved from
     // WorkflowConfig.goal in handleUserMessage. Injected as a stable system block
     // by every transport that folds clusterPlan. Unlike outputStyle, the Review /

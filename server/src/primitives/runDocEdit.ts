@@ -183,7 +183,7 @@ export function runDocEdit(
       // mode doesn't refuse the read tools (same rationale as runReviewer).
       skipPermissions: args.editor.provider === 'ollama',
       sandbox: 'read-only',
-      // §A7 proposals are read carefully as a diff — never caveman/lite.
+      // §A7 proposals are read carefully as a diff — never plain/terse.
       outputStyle: 'normal',
       ...(args.editor.provider === 'codex' && args.editor.codexHome
         ? { providerAccountRef: args.editor.providerAccountRef, codexHome: args.editor.codexHome }

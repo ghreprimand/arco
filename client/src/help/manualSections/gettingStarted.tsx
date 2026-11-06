@@ -263,12 +263,13 @@ export const gettingStarted: Section[] = [
   <strong>Effort</strong> - the reasoning budget; see the list below.
   </li>
   <li>
-  <strong>Tuning</strong> - a collapsible band shown for Claude and Codex
-  app-server. Claude tabs add <strong>FAST MODE</strong> and a{' '}
+  <strong>Tuning</strong> - a collapsible band shown for every provider.
+  Claude tabs add <strong>FAST MODE</strong> and a{' '}
   <strong>TOOL-RESULT FILTER</strong> beside an <strong>OUTPUT STYLE</strong>{' '}
-  picker (normal, lite or terse). The filter (off, conservative or aggressive)
-  trims noisy Bash and test output before it enters context, and is Native-only.
-  Codex shows OUTPUT STYLE only. See <em>Configuration</em> for detail.
+  picker (NORMAL, PLAIN or TERSE; PLAIN is the default). The filter (off,
+  conservative or aggressive) trims noisy Bash and test output before it enters
+  context, and is Native-only. Other providers show OUTPUT STYLE only. See{' '}
+  <em>Configuration</em> for detail.
   </li>
   </ul>
   <Sub>Effort levels by provider</Sub>

@@ -26,6 +26,7 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateConfig,
 } from '@arco/shared';
+import { normalizeOutputStyle } from '@arco/shared';
 import { atomicWriteFile } from '../atomicFile.js';
 import { arcoHome } from '../arcoHome.js';
 
@@ -71,7 +72,17 @@ function sorted(list: WorkflowTemplate[]): WorkflowTemplate[] {
 
 export async function listTemplates(): Promise<WorkflowTemplate[]> {
   const { templates } = await readFileSafe();
-  return sorted(templates);
+  return sorted(templates.map(withCurrentOutputStyle));
+}
+
+// A template saved before 0.1.5 may say 'lite' (now 'plain') or 'caveman'
+// (now 'terse'); unknown values read as unset (the default style).
+function withCurrentOutputStyle(t: WorkflowTemplate): WorkflowTemplate {
+  const raw = (t.config as { outputStyle?: unknown } | undefined)?.outputStyle;
+  if (raw === undefined) return t;
+  const { outputStyle: _old, ...rest } = t.config;
+  const outputStyle = normalizeOutputStyle(raw);
+  return { ...t, config: { ...rest, ...(outputStyle ? { outputStyle } : {}) } };
 }
 
 export interface TemplateSaveInput {
@@ -147,9 +158,9 @@ function normalizeConfig(raw: unknown): WorkflowTemplateConfig {
   if (r.efficiencyToolFilter === 'off' || r.efficiencyToolFilter === 'conservative' || r.efficiencyToolFilter === 'aggressive') {
     out.efficiencyToolFilter = r.efficiencyToolFilter;
   }
-  if (r.outputStyle === 'normal' || r.outputStyle === 'lite' || r.outputStyle === 'terse') {
-    out.outputStyle = r.outputStyle;
-  }
+  // 'lite' from before 0.1.5 reads as 'plain'; unset means the default style.
+  const outputStyle = normalizeOutputStyle(r.outputStyle);
+  if (outputStyle) out.outputStyle = outputStyle;
   if (r.codexTransport === 'exec' || r.codexTransport === 'appserver') out.codexTransport = r.codexTransport;
   if (r.claudeTransport === 'cli' || r.claudeTransport === 'native') out.claudeTransport = r.claudeTransport;
 

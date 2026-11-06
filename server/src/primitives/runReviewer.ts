@@ -291,7 +291,7 @@ export function runReviewer(
         // back to detectVerdict on the raw text.
         ...(leg.provider === 'ollama' ? { ollamaFormat: REVIEW_FORMAT_SCHEMA as Record<string, unknown> } : {}),
         // docs/PROVIDERS.md - hard exclusion. Reviewer output is read
-        // carefully by an operator; caveman/lite would regress comprehension.
+        // carefully by an operator; plain/terse would regress comprehension.
         // Forced regardless of source-tab `outputStyle`. Not a config knob.
         outputStyle: 'normal',
         // docs/GOTCHAS.md - inherit the source tab's north-star (unlike

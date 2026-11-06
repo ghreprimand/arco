@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { MEMBER_TIERS, type ClusterMemberProvider } from '@arco/shared';
+import { MEMBER_TIERS, OUTPUT_STYLES, type ClusterMemberProvider } from '@arco/shared';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { memberSettingsShown, type MemberSettings } from './memberSettings';
 
@@ -74,7 +74,7 @@ export function MemberSettingsFields({ value, onChange, provider, clusterDefault
       {shown.outputStyle && (
         <div style={rowStyle}>
           <span data-help="cluster.member.output-style" className="display-font" style={labelStyle}>OUTPUT STYLE</span>
-          {(['normal', 'lite', 'terse'] as const).map((opt) => (
+          {OUTPUT_STYLES.map((opt) => (
             <button key={opt} type="button" data-help="cluster.member.output-style" data-testid={`${testId}-style-${opt}`}
               className="display-font" onClick={() => set({ outputStyle: opt })} style={pill(value.outputStyle === opt)}>
               {opt.toUpperCase()}

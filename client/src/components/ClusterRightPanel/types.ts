@@ -45,7 +45,7 @@ export type ClusterMemberPrimaryUpdate = {
   efficiencyFactForce?: 'on' | 'off';
   efficiencyConfigProtection?: 'on' | 'off';
   efficiencySandbox?: 'off' | 'on';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('@arco/shared').OutputStyle;
   ollamaParams?: Record<string, unknown>;
 };
 

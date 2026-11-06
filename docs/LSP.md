@@ -22,9 +22,8 @@ Detection is a cross-platform **PATH lookup** (`server/src/lsp/servers.ts`
 `PATHEXT`/`.exe`/`.cmd` on win32. We do **not** shell out to `which`. The first
 candidate that resolves wins; the result is cached per process.
 
-**Bring your own upstream tool.** This is the same pattern as the caveman
-output style: Arco does not bundle or install language servers. If the server
-for a file's language is **not on PATH**, the subsystem is a **silent no-op**,
+**Bring your own upstream tool.** Arco does not bundle or install language
+servers. If the server for a file's language is **not on PATH**, the subsystem is a **silent no-op**,
 no message, no error, no crash, just no diagnostics.
 
 > **TS note:** TS diagnostics require **`typescript-language-server`** (the LSP

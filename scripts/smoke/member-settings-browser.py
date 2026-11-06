@@ -85,7 +85,8 @@ async def main():
         await expect(page.get_by_test_id('add-fresh-focus')).to_have_value('')
         await page.get_by_role('button', name='SPAWN', exact=True).click()
         sent = await page.evaluate('fresh.at(-1)[2]')
-        expected = {'tier': None, 'focus': '', 'outputStyle': 'lite', 'efficiencyToolFilter': 'conservative', 'fastMode': False, 'autoCompaction': None}
+        # The template tab was saved as 'lite' (before 0.1.5): it reads as PLAIN.
+        expected = {'tier': None, 'focus': '', 'outputStyle': 'plain', 'efficiencyToolFilter': 'conservative', 'fastMode': False, 'autoCompaction': None}
         assert {k: sent.get(k, 'missing') for k in expected} == expected, sent
         await page.locator('[data-help="cluster.add-fresh"]').click()
         await page.get_by_test_id('add-fresh-tier-heavy').click()

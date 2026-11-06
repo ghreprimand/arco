@@ -260,7 +260,7 @@ export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<
 // `developerInstructions` on `thread/start` — see §4 of the plan doc.
 // Folding mirrors exec mode's "byte-stable prefix + fresh tail per turn"
 // shape that Codex's prefix cache already exploits.
-function buildTurnInput(
+export function buildTurnInput(
   prompt: string,
   provider: Extract<ProviderName, 'codex'>,
   appendSystemPrompt: string | undefined,

@@ -1,7 +1,7 @@
 import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react';
-import { AUTO_HANDOFF_MAX_COMPACTIONS, AUTO_HANDOFF_MIN_COMPACTIONS, CLAUDE_MODEL_LABELS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffConfig } from '@arco/shared';
+import { AUTO_HANDOFF_MAX_COMPACTIONS, OUTPUT_STYLES, resolveOutputStyle, AUTO_HANDOFF_MIN_COMPACTIONS, CLAUDE_MODEL_LABELS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffConfig } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -10,6 +10,7 @@ import { CodebaseMemorySection } from './CodebaseMemorySection';
 import { RunAsPicker, type RunAsSelection } from '../RunAsPicker';
 import { CursorModelSelect } from '../CursorModelSelect';
 import { McpRegistrySection, type McpSenders } from './McpRegistrySection';
+import { OUTPUT_STYLE_HINT } from '../../utils/outputStyleText';
 import { useProjectTrust, type TrustStatus } from '../../hooks/useProjectTrust';
 import { modelsFor } from './format';
 
@@ -29,7 +30,7 @@ export function ConfigTab({
   mcp,
 }: {
   job: JobState;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: 'normal' | 'lite' | 'terse'; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   mcp?: McpSenders;
@@ -403,10 +404,9 @@ export function ConfigTab({
         <NorthStarSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* docs/PROVIDERS.md - operator-armed terseness picker. Honored by
-          Claude Native and Codex app-server providers.
-          Forced normal on Review / Handoff / DOCS / GIT regardless. */}
-      {(provider === 'claude' || provider === 'codex') && canEdit && (
+      {/* docs/PROVIDERS.md - OUTPUT STYLE picker. Honored by every
+          provider. Forced normal on Review / Handoff / DOCS / GIT regardless. */}
+      {canEdit && (
         <OutputStyleSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
@@ -1818,14 +1818,12 @@ function ClaudeNativeSandboxSection({
   );
 }
 
-// docs/PROVIDERS.md - operator-armed terseness picker. Honored by Claude
-// Native and Codex app-server providers (Codex). Hidden on transports
-// that do not consume it. Three discrete levels:
-// `normal` (default), `lite`, `terse`. Takes effect on the next turn.
-// Renamed `caveman` → `terse` after measuring ~10–25%
-// reduction on Opus 4.7 (well below upstream's 65–75% claim) — the
-// new label sets honest expectations. Review / Handoff / DOCS / GIT
-// primitives hard-code `normal` regardless of this picker — see plan §6.
+// docs/PROVIDERS.md - OUTPUT STYLE picker. Every provider applies it.
+// Three levels: `normal`, `plain` (DEFAULT_OUTPUT_STYLE, used when the tab
+// has no saved style) and `terse`. Takes effect on the next turn. `terse`
+// was named `caveman` before 2026-05-10, and `plain` replaced `lite` in
+// 0.1.5. Review / Handoff / DOCS / GIT primitives hard-code `normal`
+// regardless of this picker - see plan §6.
 // docs/GOTCHAS.md - operator-set persistent north-star. A short free-text
 // objective pinned into the system prompt every turn, durable across restarts.
 // Zero model authority — pure steering context. Cap mirrors the server's
@@ -2128,23 +2126,9 @@ function OutputStyleSection({
   onUpdatePrimary,
 }: {
   job: JobState;
-  onUpdatePrimary: (update: { outputStyle?: 'normal' | 'lite' | 'terse' }) => void;
+  onUpdatePrimary: (update: { outputStyle?: import('@arco/shared').OutputStyle }) => void;
 }) {
-  const settings = useAppStore((s) => s.settings);
-  const provider: ProviderName = job.config.primaryProvider ?? 'claude';
-  if (provider === 'claude') {
-    const cascadeDefault: 'cli' | 'native' = settings?.claude?.transport === 'native' ? 'native' : 'cli';
-    const transport: 'cli' | 'native' = job.config.claudeTransport ?? cascadeDefault;
-    if (transport !== 'native') return null;
-  }
-  if (provider === 'codex') {
-    const cascadeDefault: 'exec' | 'appserver' = settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
-    const transport: 'exec' | 'appserver' = job.config.codexTransport ?? cascadeDefault;
-    if (transport !== 'appserver') return null;
-  }
-  if (provider !== 'claude' && provider !== 'codex') return null;
-
-  const mode: 'normal' | 'lite' | 'terse' = job.config.outputStyle ?? 'normal';
+  const mode = resolveOutputStyle(job.config.outputStyle);
 
   return (
     <div style={{ marginTop: '18px' }} data-help="rightpanel.config.output-style">
@@ -2152,7 +2136,7 @@ function OutputStyleSection({
         OUTPUT STYLE
       </div>
       <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-        {(['normal', 'lite', 'terse'] as const).map((m) => (
+        {OUTPUT_STYLES.map((m) => (
           <button
             key={m}
             type="button"
@@ -2169,17 +2153,12 @@ function OutputStyleSection({
               borderRadius: '2px',
             }}
           >
-            {m}
+            {m.toUpperCase()}
           </button>
         ))}
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-        Appends a small stable prompt addendum telling the model how terse to be.
-        <code style={{ fontFamily: 'var(--font-code)' }}>lite</code> drops fillers/hedging;
-        <code style={{ fontFamily: 'var(--font-code)' }}>terse</code> also drops articles, fragments OK.
-        Measures ~10–25% output reduction on Opus 4.7; Codex effect is model-dependent.
-        Code blocks, error strings, file paths preserved verbatim.
-        Review / Handoff / DOCS / GIT always run as <code style={{ fontFamily: 'var(--font-code)' }}>normal</code>.
+        {OUTPUT_STYLE_HINT}
       </div>
     </div>
   );

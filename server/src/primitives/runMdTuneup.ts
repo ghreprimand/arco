@@ -367,7 +367,7 @@ export function runMdTuneup(
         // allowlist (skipPermissions so SAFE mode doesn't refuse the read tools).
         skipPermissions: args.editor.provider === 'ollama',
         sandbox: 'read-only',
-        // The proposal is read carefully as a diff — never caveman/lite.
+        // The proposal is read carefully as a diff — never plain/terse.
         outputStyle: 'normal',
         ...(args.editor.provider === 'codex' && args.editor.codexHome
           ? { providerAccountRef: args.editor.providerAccountRef, codexHome: args.editor.codexHome }

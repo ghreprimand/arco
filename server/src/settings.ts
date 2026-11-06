@@ -1,5 +1,5 @@
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { clampAutoHandoffCompactions, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
+import { clampAutoHandoffCompactions, normalizeOutputStyle, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
 // Three-layer operator-settings cascade.
 //
 // Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
@@ -76,16 +76,13 @@ function sanitizeWorkflowDefaults(raw: unknown): WorkflowDefaults | undefined {
   // Provider-supported efficiency/style defaults surfaced on the New-tab
   // picker. Stored even when the current default provider does not honor a
   // field so a later provider/transport flip can pick it up automatically.
-  // legacy `'caveman'` aliased to `'terse'` on read so a
-  // hand-edited settings.json from before the rename keeps working.
+  // The output style goes through normalizeOutputStyle: 'lite' (before 0.1.5)
+  // reads as 'plain' and the older 'caveman' as 'terse'.
   if (r.efficiencyToolFilter === 'off' || r.efficiencyToolFilter === 'conservative' || r.efficiencyToolFilter === 'aggressive') {
     out.efficiencyToolFilter = r.efficiencyToolFilter;
   }
-  if (r.outputStyle === 'normal' || r.outputStyle === 'lite' || r.outputStyle === 'terse') {
-    out.outputStyle = r.outputStyle;
-  } else if (r.outputStyle === 'caveman') {
-    out.outputStyle = 'terse';
-  }
+  const outputStyle = normalizeOutputStyle(r.outputStyle);
+  if (outputStyle) out.outputStyle = outputStyle;
 
   return Object.keys(out).length > 0 ? out : undefined;
 }

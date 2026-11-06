@@ -257,7 +257,7 @@ The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validat
 
 **New member settings.** `cluster_create_with_fresh_workers`, `cluster_add_fresh_workers` and `cluster_member_replace` build the new member's `WorkflowConfig` with `memberConfigFromTemplate` in `server/src/ws/clusterMembers.ts`; `cluster_create_from_scratch` uses `memberConfigFromSpec`; all four refuse a model with the same codes: `missing_model` (empty, or the provider changed without a model), `provider_model_mismatch:<provider>:<model>` (a Claude or Codex id on another provider; Cursor serves both families, so it never mismatches) and `unknown_model:<model>` (not in the catalog). A Codex account the operator picked (`providerAccountRef`) must be configured in Settings or the request is refused with `unknown_account:<ref>`; there is no fallback to another account. Without a pick, the template's own account is looked up as before. A fresh member gets a new name, no resume and no auto-compaction override unless the request sets one, and keeps an account only when it is Codex. A replacement keeps the old member's name, auto-compaction and a non-Codex account unless the request changes them, and clears the spawn tokens.
 
-**Member tuning (`ClusterMemberTuning`).** `cluster_add_fresh_workers` and `cluster_member_replace` also take `tier` (`null` clears), `focus` (empty clears), `outputStyle`, `efficiencyToolFilter`, `fastMode` and `autoCompaction` (`null` follows the cluster default). Absent fields keep the path's default; OFF, NORMAL and fast mode false are stored as unset. A malformed value is refused before anything is created (`invalid_tier:<v>`, `invalid_focus`, `invalid_output_style`, `invalid_tool_filter`, `invalid_fast_mode`, `invalid_auto_compaction`). Both dialogs send every value they show.
+**Member tuning (`ClusterMemberTuning`).** `cluster_add_fresh_workers` and `cluster_member_replace` also take `tier` (`null` clears), `focus` (empty clears), `outputStyle`, `efficiencyToolFilter`, `fastMode` and `autoCompaction` (`null` follows the cluster default). Absent fields keep the path's default; OFF, PLAIN (the default output style) and fast mode false are stored as unset, and an older client's `lite` is accepted as PLAIN. A malformed value is refused before anything is created (`invalid_tier:<v>`, `invalid_focus`, `invalid_output_style`, `invalid_tool_filter`, `invalid_fast_mode`, `invalid_auto_compaction`). Both dialogs send every value they show.
 
 ### `cluster_member_replace` -> / `cluster_member_replaced` <-
 
@@ -283,7 +283,7 @@ members reject both options.
   role?: string,                   // <= 120 chars; empty clears
   tier?: 'light' | 'standard' | 'heavy' | null,
   focus?: string,                  // <= 160 chars; empty clears
-  outputStyle?: 'normal' | 'lite' | 'terse',
+  outputStyle?: 'normal' | 'plain' | 'terse',
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
   fastMode?: boolean,
   autoCompaction?: { enabled: boolean, thresholdPercent: number } | null,
@@ -330,7 +330,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
     skipPermissions?: boolean,
     fastMode?: boolean,
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
-    outputStyle?: 'normal' | 'lite' | 'terse',
+    outputStyle?: 'normal' | 'plain' | 'terse',
     accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude
   }>,
 }
@@ -365,7 +365,7 @@ operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Ser
   role?: string,                   // preset or custom text, <= 120 chars
   tier?: 'light' | 'standard' | 'heavy' | null,
   focus?: string,                  // <= 160 chars
-  outputStyle?: 'normal' | 'lite' | 'terse',
+  outputStyle?: 'normal' | 'plain' | 'terse',
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
   fastMode?: boolean,
   autoCompaction?: { enabled: boolean, thresholdPercent: number } | null,

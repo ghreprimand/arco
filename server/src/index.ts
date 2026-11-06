@@ -23,7 +23,7 @@ ClientMessage,
 ServerMessage,
 WorkflowConfig
 } from '@arco/shared';
-import { isClusterMemberProvider } from '@arco/shared';
+import { isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
 import { spawnSync } from 'child_process';
 import { mkdir } from 'fs/promises';
 import { createServer,IncomingMessage,ServerResponse, type Server } from 'http';
@@ -2177,7 +2177,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
       // does (a runPrimaryTurn arg, NOT derivePrimaryConfig, which drops it).
       // Without this the child silently ran 'normal' regardless of the parent's
       // OUTPUT STYLE pick. Inherit the parent's setting.
-      outputStyle: parent.config.outputStyle,
+      outputStyle: resolveOutputStyle(parent.config.outputStyle),
       // docs/GOTCHAS.md - a Task child works in service of the parent's
       // objective, so it inherits the parent's north-star (like the Review /
       // Handoff / DOCS / GIT seeds do, and unlike outputStyle's forced normal

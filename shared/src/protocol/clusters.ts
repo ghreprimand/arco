@@ -462,7 +462,7 @@ export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings
     skipPermissions?: boolean;
     fastMode?: boolean;
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-    outputStyle?: 'normal' | 'lite' | 'terse';
+    outputStyle?: import('../outputStyle.js').OutputStyle;
     accessMode?: ClusterMemberAccessMode;
   }>;
 }
@@ -491,7 +491,7 @@ export interface ClusterPresetMember {
   skipPermissions?: boolean;
   fastMode?: boolean;
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('../outputStyle.js').OutputStyle;
   accessMode?: ClusterMemberAccessMode;
 }
 
@@ -619,11 +619,12 @@ export interface ClusterSnapshotErrorMessage {
 // WORKERS starts from the first member's tab settings with no tier, focus or
 // own auto-compaction; REPLACE keeps the old member's. `tier: null`, an empty
 // `focus` and `autoCompaction: null` clear (null auto-compaction follows the
-// cluster default). OFF, NORMAL and fast mode false are stored as unset.
+// cluster default). OFF, the default output style and fast mode false are
+// stored as unset.
 export interface ClusterMemberTuning {
   tier?: MemberTier | null;
   focus?: string;
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('../outputStyle.js').OutputStyle;
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   fastMode?: boolean;
   autoCompaction?: AutoCompactionPolicy | null;

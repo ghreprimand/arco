@@ -13,7 +13,7 @@ import path from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@arco/shared';
-import { MEMBER_TIERS, MEMBER_FOCUS_MAX, isClusterMemberAccessMode, clusterDirectorProblem } from '@arco/shared';
+import { MEMBER_TIERS, MEMBER_FOCUS_MAX, normalizeOutputStyle, isClusterMemberAccessMode, clusterDirectorProblem } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
@@ -60,7 +60,16 @@ function sorted(list: ClusterPreset[]): ClusterPreset[] {
 
 export async function listPresets(): Promise<ClusterPreset[]> {
   const { presets } = await readFileSafe();
-  return sorted(presets);
+  return sorted(presets.map((p) => ({ ...p, members: Array.isArray(p.members) ? p.members.map(withCurrentOutputStyle) : p.members })));
+}
+
+// A preset saved before 0.1.5 may say 'lite' (now 'plain') or 'caveman'
+// (now 'terse'); unknown values read as unset (the default style).
+function withCurrentOutputStyle(m: ClusterPresetMember): ClusterPresetMember {
+  if ((m as { outputStyle?: unknown }).outputStyle === undefined) return m;
+  const { outputStyle: raw, ...rest } = m;
+  const outputStyle = normalizeOutputStyle(raw);
+  return { ...rest, ...(outputStyle ? { outputStyle } : {}) };
 }
 
 export interface PresetSaveInput {
@@ -138,9 +147,9 @@ function normalizeMember(raw: unknown, idx: number): ClusterPresetMember {
   if (r.efficiencyToolFilter === 'conservative' || r.efficiencyToolFilter === 'aggressive' || r.efficiencyToolFilter === 'off') {
     out.efficiencyToolFilter = r.efficiencyToolFilter;
   }
-  if (r.outputStyle === 'lite' || r.outputStyle === 'terse' || r.outputStyle === 'normal') {
-    out.outputStyle = r.outputStyle;
-  }
+  // 'lite' from before 0.1.5 reads as 'plain'; unset means the default style.
+  const outputStyle = normalizeOutputStyle(r.outputStyle);
+  if (outputStyle) out.outputStyle = outputStyle;
   if (r.accessMode !== undefined) {
     if (!isClusterMemberAccessMode(r.accessMode)) {
       throw new PresetValidationError(400, `members[${idx}].accessMode must be standard/blind/isolated`);

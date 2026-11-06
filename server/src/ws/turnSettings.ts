@@ -4,7 +4,7 @@
 // every other transport. Pinned by turnSettings.test.ts; handleUserMessage in
 // turnEngine.ts reads the settings files and passes them in.
 
-import type { WorkflowConfig } from '@arco/shared';
+import { resolveOutputStyle, type WorkflowConfig } from '@arco/shared';
 
 export interface TurnSettingsInput {
   provider: string;
@@ -30,7 +30,7 @@ export interface TurnSettings {
   efficiencyConfigProtection: 'on' | 'off';
   efficiencySandbox: 'off' | 'on';
   reviewSafeMode: 'off' | 'on';
-  outputStyle: 'normal' | 'lite' | 'terse';
+  outputStyle: import('@arco/shared').OutputStyle;
   goal: string | undefined;
   ollamaParams: Record<string, unknown> | undefined;
 }
@@ -49,9 +49,8 @@ export function resolveTurnSettings({ provider, config, cascade, isolatedMember,
       ? config.claudeTransport
       : cascade?.claude?.transport === 'native' ? 'native' : 'cli';
   const native = claudeTransport === 'native';
-  // Terseness is honored by Claude Native and Codex app-server; DOCS and GIT
-  // turns always use normal output.
-  const outputStyleSupported = (provider === 'claude' && native) || (provider === 'codex' && codexTransport === 'appserver');
+  // Every provider applies the output style; a tab with no saved style uses
+  // DEFAULT_OUTPUT_STYLE. DOCS and GIT turns always use normal output.
   return {
     codexTransport,
     ultracode,
@@ -66,7 +65,7 @@ export function resolveTurnSettings({ provider, config, cascade, isolatedMember,
     efficiencyConfigProtection: native ? (config.efficiencyConfigProtection ?? 'on') : 'off',
     efficiencySandbox: native && !isolatedMember ? (config.efficiencySandbox ?? 'off') : 'off',
     reviewSafeMode: native ? (config.reviewSafeMode ?? 'off') : 'off',
-    outputStyle: primitive === 'docs' || primitive === 'git' ? 'normal' : outputStyleSupported ? (config.outputStyle ?? 'normal') : 'normal',
+    outputStyle: primitive === 'docs' || primitive === 'git' ? 'normal' : resolveOutputStyle(config.outputStyle),
     // The north star rides every path, DOCS and GIT included; an isolated member has none.
     goal: isolatedMember ? undefined : config.goal,
     // Only the Ollama request builder reads the param preset.

@@ -19,6 +19,7 @@
 import { WebSocket } from 'ws';
 import { publishActivity } from '../voice/activityBus.js';
 import type { CompactWorkflowMessage, FoldWorkflowMessage } from '@arco/shared';
+import { resolveOutputStyle } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import {
   claimBusy,
@@ -222,9 +223,8 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
         efficiencyFactForce: wf.config.efficiencyFactForce,
         efficiencyConfigProtection: wf.config.efficiencyConfigProtection,
         efficiencySandbox: wf.config.efficiencySandbox,
-        outputStyle: wf.config.outputStyle === 'normal' || wf.config.outputStyle === 'lite' || wf.config.outputStyle === 'terse'
-          ? wf.config.outputStyle
-          : undefined,
+        // The same level the tab's turns run with, so the system blocks match.
+        outputStyle: resolveOutputStyle(wf.config.outputStyle),
         codebaseMemoryAttached: wf.config.codebaseMemory?.attached === true,
         codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
           ? (wf.config.codebaseMemory.indexPath || cwd)

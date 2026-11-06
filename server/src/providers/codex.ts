@@ -17,6 +17,7 @@ import { getCachedCodexModelCapabilities } from './codex-appserver/catalog.js';
 import { markThrottled, markAvailable } from '../quota.js';
 import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
+import { outputStyleAddendum } from './outputStyle.js';
 import { codexContextWindowOverride } from './codexContextWindow.js';
 import { buildCodexMcpOverrides } from '../mcp/mcpConfigWriter.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
@@ -124,10 +125,10 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // byte-stable prefix, above appendSystemPrompt, so it rides Codex's
     // prefix cache like the rest of the framing. Covers operator turns AND
     // primitive seeds (both carry config.goal). Absent / blank ⇒ no change.
-    const northStarBlock = goalBlock(this.config.goal);
-    const prefixSp = northStarBlock
-      ? (this.config.appendSystemPrompt ? `${northStarBlock}\n\n${this.config.appendSystemPrompt}` : northStarBlock)
-      : this.config.appendSystemPrompt;
+    // The output-style addendum closes the prefix, as on app-server.
+    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0);
+    const prefixSp = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const fullPrompt = prefixSp
       ? `${prefixSp}\n\n---\n\n${promptWithAttachmentRefs}`
       : promptWithAttachmentRefs;

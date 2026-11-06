@@ -11,9 +11,10 @@ const mode = process.argv[2];
 const log = (entry) => { if (env.FAKE_CURSOR_LOG) appendFileSync(env.FAKE_CURSOR_LOG, JSON.stringify(entry) + '\n'); };
 
 if (process.argv.includes('-p')) {
-  log({ argv: process.argv.slice(2) });
-  process.stdin.resume();
-  process.stdin.on('end', () => { process.stdout.write('ok\n'); process.exit(0); });
+  let stdin = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => { stdin += chunk; });
+  process.stdin.on('end', () => { log({ argv: process.argv.slice(2), stdin }); process.stdout.write('ok\n'); process.exit(0); });
 } else if (mode === 'models') {
   process.stdout.write(fx.catalogStdout.join('\n') + '\n');
   process.exit(0);

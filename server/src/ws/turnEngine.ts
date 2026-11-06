@@ -1,4 +1,4 @@
-import { buildMessageGuardPolicy } from '@arco/shared';
+import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
@@ -1323,12 +1323,10 @@ export async function persistInitialMeta(
     ...(config.reviewSafeMode === 'on' || config.reviewSafeMode === 'off'
       ? { reviewSafeMode: config.reviewSafeMode }
       : {}),
-    ...((config.outputStyle === 'lite' || config.outputStyle === 'terse')
-      ? { outputStyle: config.outputStyle }
-      // Legacy `caveman` from a stale client → write `terse` to disk.
-      : (config.outputStyle as string) === 'caveman'
-        ? { outputStyle: 'terse' as const }
-        : {}),
+    // Only a style other than the default is written; unset means
+    // DEFAULT_OUTPUT_STYLE. Legacy `lite` / `caveman` from a stale client are
+    // written as `plain` / `terse` (plain being the default, it stays unset).
+    ...(storedOutputStyle(config.outputStyle) ? { outputStyle: storedOutputStyle(config.outputStyle) } : {}),
     // docs/GOTCHAS.md - persist a north-star seeded before the first turn
     // (e.g. a Spawn-from-here that inherited the parent's) so it survives a
     // restart even if the operator never re-sets it. Blank ⇒ omitted.

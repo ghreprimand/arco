@@ -340,7 +340,7 @@ export interface WorkflowConfig {
   efficiencyConfigProtection?: 'on' | 'off';
   efficiencySandbox?: 'off' | 'on';
   reviewSafeMode?: 'off' | 'on';
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  outputStyle?: import('../outputStyle.js').OutputStyle;
   // docs/GOTCHAS.md - operator-set persistent north-star. Short free-text
   // objective ("what is this whole session ultimately in service of") injected as
   // a high-priority stable system block on every turn until cleared. Durable
@@ -658,9 +658,9 @@ export interface WorkerConfig {
   // the worker so the system-block builder can append the matching addendum
   // text (`outputStyleAddendum`). Reviewers / Handoff seeds / DOCS / GIT
   // primitives hard-code `'normal'` regardless of source-tab value (plan §6).
-  // Spawn-from-here inherits parent's value. Only honored on Claude Native;
-  // other transports ignore. Renamed `caveman` → `terse` 2026-05-10.
-  outputStyle?: 'normal' | 'lite' | 'terse';
+  // Spawn-from-here inherits parent's value. Honored by every provider; an
+  // unset value adds no addendum (tab turns pass the resolved level).
+  outputStyle?: import('../outputStyle.js').OutputStyle;
   // docs/GOTCHAS.md - mirror of WorkflowConfig.goal threaded into the
   // worker so the system-block builder can push the operator's north-star block
   // (`goalBlock`) immediately after FORCED_FIRST_BLOCK, before the cluster plan.

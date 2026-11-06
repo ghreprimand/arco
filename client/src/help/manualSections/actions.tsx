@@ -279,8 +279,8 @@ export const actions: Section[] = [
           </li>
           <li>
             <strong>Output style</strong> - <Code>normal</Code> /{' '}
-            <Code>lite</Code> / <Code>terse</Code> system-prompt addendum to cut
-            output tokens (Native + Codex app-server).
+            <Code>plain</Code> (default) / <Code>terse</Code> instruction on
+            how replies are written (every provider).
           </li>
           <li>
             <strong>RSS guard</strong> opt-out - for workflows that

@@ -164,7 +164,7 @@ async def main():
                     role = label.split(' ')[0]
                     assert tier == ('light' if label.endswith('#1') else 'standard' if label == 'Builder #2' else None) and provider in connected and RANK[effort] <= RANK['high'], (home, name, got)
                     assert display.startswith(role), (home, name, display)
-                assert all(m.get('outputStyle') == 'lite' and m.get('efficiencyToolFilter') == 'conservative' for m in payload['members']), ('template members use the new-home tuning defaults', payload)
+                assert all('outputStyle' not in m and m.get('efficiencyToolFilter') == 'conservative' for m in payload['members']), ('template members use the new-home tuning defaults', payload)
             print(f'{home}: templates offer only {sorted(connected)}, models chosen by the operator, effort at most HIGH', flush=True)
 
         assert created == 21, created

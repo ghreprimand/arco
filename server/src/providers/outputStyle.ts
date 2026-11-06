@@ -1,88 +1,77 @@
-// docs/PROVIDERS.md - operator-armed terseness picker addendum.
+// docs/PROVIDERS.md - OUTPUT STYLE addendum.
 //
-// Returns a small block of provider prompt text that gets appended to the
-// stable per-turn prefix. The text instructs the model how terse to be on
-// this turn's output. Three discrete levels; `normal` returns null (no
-// addendum, status quo).
+// Returns a small block of provider prompt text that every provider appends to
+// its stable per-turn prefix (Claude Native as a system block; the others in
+// the system prompt or the prompt prefix they already build for the north
+// star). Three levels: `normal` returns null (no addendum), `plain` and
+// `terse` return fixed text. The level comes from the tab (see
+// shared/src/outputStyle.ts for the default and the legacy values);
+// primitives force `normal`.
 //
-// Design pattern is inspired by JuliusBrussee/caveman (MIT) —
-// https://github.com/JuliusBrussee/caveman — but the addendum text below
-// is written fresh in Arco's voice (terse, factual). Don't import or
-// fetch from upstream; this file is the source of truth and changes only
-// via code review + commit.
+// The text is checked into the repository and written for Arco. It changes
+// only through a reviewed commit; nothing at run time edits it. Each block is
+// a constant, so the bytes stay identical from turn to turn and the provider's
+// prompt cache keeps working.
 //
-// Token budget: each level pays its byte count on every turn's input. The
-// savings show up on `output`, not `input` — Phase A's
-// `primary_turn_token_usage` event is the metric. Floor: a new level must
-// be small enough that input growth doesn't eat the output saving on a
-// short turn. Concrete budgets by level: `lite` ~120 tokens; `terse`
-// ~280 tokens (the extra weight buys persistence + pattern + example +
-// persona, see 2026-05-10 decision in docs/PROVIDERS.md). Don't
-// push `terse` past ~300 tokens — diminishing returns vs. input cost.
-//
-// The legacy `caveman` value maps to `terse` when restoring saved settings.
-// The model-facing addendum remains unchanged for compatibility.
-//
-// Hard rule for level authors: any new level MUST preserve code blocks,
-// error strings, file paths, function names, API names verbatim, and
-// MUST NOT compress security warnings, irreversible operations, or
-// multi-step sequences where order matters. The auto-clarity escape hatch
-// in each level enforces this.
+// Rules the text keeps, whatever the level:
+// - clarity over brevity: current models already answer concisely, so a level
+//   is chosen for readability, and no saving is claimed without a measurement;
+// - negations (not, never, no, only, except), numbers and units are never
+//   dropped, because losing one costs more than any saving;
+// - code, commands, paths, identifiers and error text stay verbatim;
+// - text that persists outside the chat (code, comments, commits, docs, plans,
+//   board tasks, mail to other agents, skills, memory files) follows the
+//   project's conventions and is never compressed.
+// Keep `plain` near 200 tokens (about 180 words); `terse` adds only its own
+// lines.
 
-export type OutputStyle = 'normal' | 'lite' | 'terse';
+import type { OutputStyle } from '@arco/shared';
 
-const LITE_ADDENDUM = `<output-style level="lite">
-Output style for this turn: TERSE.
-Drop fillers: just / really / basically / actually / simply.
-Drop pleasantries: sure / certainly / happy to / let me / I'll go ahead.
-Drop hedging: I think / perhaps / it might be / it seems / probably.
-Keep grammar, articles, and full sentences. Professional, not curt.
+export type { OutputStyle };
 
-Auto-clarity (full prose, not terse): security warnings, irreversible
-operations, destructive commands, migrations, multi-step sequences where
-order matters, anything the operator must read carefully before acting.
+const ANSWER_ORDER = '- Answer first, then the reason, then the next step. No greeting, filler, hedging, recap or closing offer.';
 
-Verbatim (never compressed): code blocks, error strings, file paths,
-function names, API identifiers, command flags, regex patterns.
+const COMMON_RULES = [
+  '- Steps: imperative, one per sentence, in the order done.',
+  '- One name per thing, exactly as the UI or code shows it; no synonyms.',
+  '- Common words and standard acronyms; no invented abbreviations. Pronouns only with an obvious referent.',
+  '- Never drop not, never, no, only or except. Keep numbers and units exact.',
+  '- Code, commands, paths, identifiers and error text: verbatim.',
+  '- Tool runs: one short line per phase, no chatter between routine calls.',
+].join('\n');
+
+const PERSISTED_TEXT = `Text that persists outside the chat (code, comments, commits, docs, plans,
+board tasks and comments, mail to other agents, skills, memory files) follows
+the project's conventions and is never compressed. Never shorten or delete
+existing comments unless asked.`;
+
+const PRE_SEND_CHECK = 'Before sending: no opening announcement or closing recap; every negation and number present; no sentence with two readings.';
+
+const PLAIN_ADDENDUM = `<output-style level="plain">
+Chat replies: clarity first.
+${ANSWER_ORDER}
+- Full sentences with articles, questions and options for the operator included. One idea per sentence, at most about 20 words. Active voice.
+${COMMON_RULES}
+${PERSISTED_TEXT}
+${PRE_SEND_CHECK}
 </output-style>`;
 
 const TERSE_ADDENDUM = `<output-style level="terse">
-Persona: smart caveman. Terse declarative fragments, not eloquent prose.
-ACTIVE EVERY RESPONSE. No drift back to default prose after many turns.
-Still active if unsure. When in doubt, drop articles.
-
-Rules:
-- Drop articles (a / an / the). Fragments OK. Imperative for steps.
-- Short synonyms — fix not "implement a solution for", big not
-  "extensive", check not "verify the correctness of".
-- Skip transitions, recap, restating the question.
-- Drop fillers (just / really / basically / actually / simply),
-  pleasantries (sure / certainly / happy to / let me / I'll go ahead),
-  hedging (I think / perhaps / it might be / it seems / probably).
-
-Pattern: [thing] [action] [reason]. [next step].
-
-Example of the swap:
-  NOT: "I'll go ahead and update the function in handler.ts so that it
-        returns the correct error code, and then we can run the tests
-        to verify everything works as expected."
-  YES: "Update handler.ts. Returns wrong error code. Run tests after."
-
-Auto-clarity (FULL PROSE, not terse): security warnings, irreversible
-operations, destructive commands (rm -rf, DROP TABLE, force-push),
-migrations, multi-step sequences where order matters, anything the
-operator must read carefully before acting. Terse OFF for these.
-
-Verbatim (never compressed, never abbreviated): code blocks, error
-strings, file paths, function names, API identifiers, command flags,
-regex patterns. Terse applies to PROSE only.
+Chat replies: short and exact.
+${ANSWER_ORDER}
+- Articles may go and fragments are fine if the sentence still reads in one pass. Short words. One idea per sentence. Active voice. If a fragment is not shorter, use the full sentence.
+${COMMON_RULES}
+- Full sentences for: security warnings; irreversible actions; steps a fragment could put out of order; an operator who seems confused or repeats a question; questions and options for the operator.
+${PERSISTED_TEXT}
+${PRE_SEND_CHECK}
 </output-style>`;
 
-// Returns the addendum text for the given level, or null for `normal`
-// (status quo — no addendum, no extra input tokens).
+// Returns the addendum text for the given level, or null for `normal` and for
+// an unset level. Callers that run a tab's turn pass the resolved level
+// (resolveOutputStyle); workers spawned without one, such as primitives, get
+// no addendum.
 export function outputStyleAddendum(level: OutputStyle | undefined): string | null {
-  if (!level || level === 'normal') return null;
-  if (level === 'lite') return LITE_ADDENDUM;
+  if (level === 'plain') return PLAIN_ADDENDUM;
   if (level === 'terse') return TERSE_ADDENDUM;
   return null;
 }

@@ -42,12 +42,18 @@ test('a provider change sets the provider, model and effort; a picked account is
 
 test('tuning from the dialog overrides the template; a replacement can be renamed', async () => {
   const tuned = clean(await memberConfigFromTemplate({ template: { ...TEMPLATE, fastMode: true, outputStyle: 'terse', efficiencyToolFilter: 'aggressive' }, cwd: '/p', kind: 'replacement', name: ' Renamed ', choice: claude, isolated: false, resolveCodexAccount: accounts,
-    tuning: { fastMode: false, outputStyle: 'normal', efficiencyToolFilter: 'off', autoCompaction: null } }));
+    tuning: { fastMode: false, outputStyle: 'plain', efficiencyToolFilter: 'off', autoCompaction: null } }));
   assert.equal(tuned.name, 'Renamed');
+  // The default output style (plain) is stored as unset, like OFF.
   for (const key of ['fastMode', 'outputStyle', 'efficiencyToolFilter', 'autoCompaction']) assert.equal(key in tuned, false, key);
   const fresh = await memberConfigFromTemplate({ template: TEMPLATE, cwd: '/p', kind: 'fresh', name: 'W', choice: claude, isolated: false, resolveCodexAccount: accounts,
-    tuning: { fastMode: true, outputStyle: 'lite', efficiencyToolFilter: 'conservative', autoCompaction: { enabled: false, thresholdPercent: 60 } } });
-  assert.deepEqual([fresh.fastMode, fresh.outputStyle, fresh.efficiencyToolFilter, fresh.autoCompaction], [true, 'lite', 'conservative', { enabled: false, thresholdPercent: 60 }]);
+    tuning: { fastMode: true, outputStyle: 'terse', efficiencyToolFilter: 'conservative', autoCompaction: { enabled: false, thresholdPercent: 60 } } });
+  assert.deepEqual([fresh.fastMode, fresh.outputStyle, fresh.efficiencyToolFilter, fresh.autoCompaction], [true, 'terse', 'conservative', { enabled: false, thresholdPercent: 60 }]);
+  // An explicit NORMAL is kept, and a stale client's 'lite' becomes the default (unset).
+  const normal = await memberConfigFromTemplate({ template: { ...TEMPLATE, outputStyle: 'terse' }, cwd: '/p', kind: 'replacement', name: 'N', choice: claude, isolated: false, resolveCodexAccount: accounts, tuning: { outputStyle: 'normal' } });
+  assert.equal(normal.outputStyle, 'normal');
+  const stale = await memberConfigFromTemplate({ template: { ...TEMPLATE, outputStyle: 'terse' }, cwd: '/p', kind: 'replacement', name: 'N', choice: claude, isolated: false, resolveCodexAccount: accounts, tuning: { outputStyle: 'lite' as never } });
+  assert.equal(stale.outputStyle, undefined);
   // An empty name keeps the old one.
   assert.equal((await memberConfigFromTemplate({ template: TEMPLATE, cwd: '/p', kind: 'replacement', name: '  ', choice: claude, isolated: false, resolveCodexAccount: accounts })).name, 'Lead');
 });
@@ -66,12 +72,15 @@ test('an isolated member is a Claude Native tab without an account', async () =>
 test('a from-scratch member uses only its list entry, with defaults', async () => {
   assert.deepEqual(clean(await memberConfigFromSpec({ provider: 'claude', model: 'sonnet', displayName: '  ' }, 2, '/p', accounts)),
     { name: 'Member #3', primaryModel: 'sonnet', primaryEffort: 'medium', skipPermissions: true, workingDirectory: '/p' });
-  assert.deepEqual(clean(await memberConfigFromSpec({ provider: 'codex', model: 'gpt-5.5', displayName: 'Scout', effort: 'high', skipPermissions: false, fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'lite', providerAccountRef: 'known' }, 0, '/p', accounts)),
-    { name: 'Scout', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', skipPermissions: false, workingDirectory: '/p', fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'lite', providerAccountRef: 'known' });
+  assert.deepEqual(clean(await memberConfigFromSpec({ provider: 'codex', model: 'gpt-5.5', displayName: 'Scout', effort: 'high', skipPermissions: false, fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'terse', providerAccountRef: 'known' }, 0, '/p', accounts)),
+    { name: 'Scout', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', skipPermissions: false, workingDirectory: '/p', fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'terse', providerAccountRef: 'known' });
   const isolated = await memberConfigFromSpec({ provider: 'claude', model: 'sonnet', accessMode: 'isolated', efficiencyToolFilter: 'off', outputStyle: 'normal' }, 0, '/p', accounts);
   assert.equal(isolated.claudeTransport, 'native');
   assert.equal(isolated.efficiencyToolFilter, undefined);
-  assert.equal(isolated.outputStyle, undefined);
+  assert.equal(isolated.outputStyle, 'normal', 'an explicit NORMAL is kept');
+  for (const [given, stored] of [['plain', undefined], ['lite', undefined], [undefined, undefined], ['caveman', 'terse']] as const) {
+    assert.equal((await memberConfigFromSpec({ provider: 'ollama', model: 'm', outputStyle: given as never }, 0, '/p', accounts)).outputStyle, stored, String(given));
+  }
 });
 
 test('one model check for every path: missing, other provider, unknown', async () => {
@@ -102,7 +111,9 @@ test('a picked Codex account must exist; other providers ignore it', async () =>
 
 test('member tuning shape check', () => {
   assert.equal(memberTuningRefusal({}), null);
-  assert.equal(memberTuningRefusal({ tier: null, focus: '', outputStyle: 'lite', efficiencyToolFilter: 'off', fastMode: false, autoCompaction: null }), null);
+  assert.equal(memberTuningRefusal({ tier: null, focus: '', outputStyle: 'plain', efficiencyToolFilter: 'off', fastMode: false, autoCompaction: null }), null);
+  // A stale client's 'lite' is accepted (stored as plain).
+  assert.equal(memberTuningRefusal({ outputStyle: 'lite' as never }), null);
   assert.equal(memberTuningRefusal({ tier: 'huge' as never }), 'invalid_tier:huge');
   assert.equal(memberTuningRefusal({ focus: 'x'.repeat(161) }), 'invalid_focus');
   assert.equal(memberTuningRefusal({ outputStyle: 'loud' as never }), 'invalid_output_style');

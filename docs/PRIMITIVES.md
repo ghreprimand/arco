@@ -718,7 +718,7 @@ DOCS and GIT don't write artifacts, don't have verdicts, don't run ephemeral wor
 
 ### Output-style carveout
 
-The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'` (`shared/src/protocol/clientMessages.ts` `UserMessage.primitive?`); `handleUserMessage` honors the tag and overrides `outputStyle: 'normal'` for that turn only (as required by the primitive output rules). The new-tab dispatch path takes the equivalent carveout client-side via `spawnConfigFromRunAs`'s suffix override above. Both ends keep DOCS / GIT output legible regardless of the source tab's `lite` / `terse` setting.
+The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'` (`shared/src/protocol/clientMessages.ts` `UserMessage.primitive?`); `handleUserMessage` honors the tag and overrides `outputStyle: 'normal'` for that turn only (as required by the primitive output rules). The new-tab dispatch path takes the equivalent carveout client-side via `spawnConfigFromRunAs`'s suffix override above. Both ends keep DOCS / GIT output legible regardless of the source tab's `plain` / `terse` setting.
 
 **North-star is the opposite carveout.** Where `outputStyle` is forced to `'normal'`, the north-star is *inherited*: the in-tab path reads `wf.config.goal` on every turn (including DOCS/GIT), and the new-tab path preserves it because `spawnConfigFromRunAs` copies the parent config wholesale - it overrides `outputStyle` but not `goal`. Review / Handoff / Spawn / Task-children inherit it too (see each primitive's coupling note).
 

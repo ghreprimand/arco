@@ -78,8 +78,8 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [], errors: ['cluster_add_fresh_workers rejected: provider_model_mismatch:claude:gpt-5.5'] });
   // ADD WORKERS takes the full member settings: tier and focus as cluster
   // metadata, the tuning as tab settings over the template's.
-  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, tier: 'heavy', focus: ' tests ', efficiencyToolFilter: 'off', outputStyle: 'lite', fastMode: true, autoCompaction: { enabled: true, thresholdPercent: 85 } } as never)),
-    { configs: [{ name: 'Worker #3', ...KEPT, efficiencyToolFilter: undefined, researchSpawnToken: 'r', templateSpawnToken: 't', outputStyle: 'lite', fastMode: true, autoCompaction: { enabled: true, thresholdPercent: 85 } }].map((x) => JSON.parse(JSON.stringify(x))), errors: [] });
+  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, tier: 'heavy', focus: ' tests ', efficiencyToolFilter: 'off', outputStyle: 'normal', fastMode: true, autoCompaction: { enabled: true, thresholdPercent: 85 } } as never)),
+    { configs: [{ name: 'Worker #3', ...KEPT, efficiencyToolFilter: undefined, researchSpawnToken: 'r', templateSpawnToken: 't', outputStyle: 'normal', fastMode: true, autoCompaction: { enabled: true, thresholdPercent: 85 } }].map((x) => JSON.parse(JSON.stringify(x))), errors: [] });
   assert.equal(store.tierFor(await last(c.clusterId)), 'heavy');
   assert.equal(store.focusFor(await last(c.clusterId)), 'tests');
   assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, tier: 'huge' } as never)),
@@ -128,7 +128,7 @@ test('each creation path builds the new member from its request', async () => {
   ] } as never)), { configs: [
     { name: 'Lead', primaryModel: 'sonnet', primaryEffort: 'medium', skipPermissions: true },
     { name: 'Member #2', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', skipPermissions: false, fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'terse', providerAccountRef: 'acct-2' },
-    { name: 'Member #3', primaryModel: 'sonnet', primaryEffort: 'medium', skipPermissions: true, claudeTransport: 'native', ultracode: false },
+    { name: 'Member #3', primaryModel: 'sonnet', primaryEffort: 'medium', skipPermissions: true, outputStyle: 'normal', claudeTransport: 'native', ultracode: false },
   ], errors: [] });
   assert.ok(catalogChecks.includes('codex'), 'Codex model checks use the fixture catalog');
   const scratch = (await store.readCluster(createdCluster!))!;

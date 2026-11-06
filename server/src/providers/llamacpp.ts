@@ -15,6 +15,7 @@ import { llamacppManager, type LlamacppLoadedState } from './llamacppManager.js'
 import { decideLocalToolCall, dispatchLocalToolCalls, localUnknownToolResult, parseToolArguments, toolNotEnabledResult, truncateLocalToolResult, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { LLAMACPP_NOT_FOUND, resolveLlamaServer } from './llamacppBinary.js';
 import { goalBlock } from './goalBlock.js';
+import { outputStyleAddendum } from './outputStyle.js';
 import { awaitModelImages, modelImagePath } from './attachments.js';
 import { readCatalog, findModel, defaultModel } from '../llamacppCatalog.js';
 import {
@@ -321,10 +322,11 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     const noThink = this.config.effort === 'low';
     // docs/GOTCHAS.md - fold the operator's north-star at the top of the
     // system message. Covers operator turns AND primitive seeds. Blank ⇒ unchanged.
-    const northStarBlock = goalBlock(this.config.goal);
-    const baseSystem = northStarBlock
-      ? (this.config.systemPrompt ? `${northStarBlock}\n\n${this.config.systemPrompt}` : northStarBlock)
-      : (this.config.systemPrompt ?? '');
+    // The output-style addendum closes the system message (null for normal);
+    // it is fixed text, so the message stays the same from turn to turn.
+    const baseSystem = [goalBlock(this.config.goal), this.config.systemPrompt, outputStyleAddendum(this.config.outputStyle)]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      .join('\n\n');
     const systemContent = noThink
       ? (baseSystem ? `/no_think\n${baseSystem}` : '/no_think')
       : baseSystem;

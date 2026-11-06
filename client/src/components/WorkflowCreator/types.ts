@@ -18,7 +18,7 @@ export interface ClusterCreatePayload extends ClusterCreationSettings {
     skipPermissions?: boolean;
     fastMode?: boolean;
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
-    outputStyle?: 'normal' | 'lite' | 'terse';
+    outputStyle?: import('@arco/shared').OutputStyle;
   }>;
 }
 
@@ -52,7 +52,7 @@ export interface MemberDraft {
   skipPermissions: boolean;
   fastMode: boolean;
   efficiencyToolFilter: 'off' | 'conservative' | 'aggressive';
-  outputStyle: 'normal' | 'lite' | 'terse';
+  outputStyle: import('@arco/shared').OutputStyle;
   expanded: boolean;
 }
 
