@@ -2,7 +2,7 @@ import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, promises as fs, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
@@ -61,7 +61,7 @@ test('import from a folder: files listed with sizes, every text file audited, wr
   const dir = join(cwd, '.arco', 'skills', 'release-notes');
   assert.equal(readFileSync(join(dir, 'reference', 'style.md'), 'utf8'), `Write plainly.${ZWSP}\n`);
   if (process.platform !== 'win32') assert.equal(statSync(join(dir, 'LICENSE')).mode & 0o111, 0);
-  assert.deepEqual(JSON.parse(readFileSync(join(dir, '.arco-skill.json'), 'utf8')).source, { kind: 'folder', path: realpathSync(src) });
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, '.arco-skill.json'), 'utf8')).source, { kind: 'folder', path: await fs.realpath(src) });
   assert.equal(readFileSync(join(cwd, '.arco', '.gitignore'), 'utf8'), DEFAULT_PROJECT_IGNORE);
   await assert.rejects(m.confirmImport(preview.token, 'project', cwd), /expired or is unknown/);
   // A second import of the same name gets its own folder.
