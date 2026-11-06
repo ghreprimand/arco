@@ -16,6 +16,7 @@ import { getStrataBase, probeStrata } from './providers/strata.js';
 import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
 import { accountShortLabel, configuredAccounts, ensureCodexAccountHome, resolveProviderAccount } from './providerAccounts.js';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
+import { checkCursorLoginWithCli, cursorAuthRejection } from './providers/cursor/authState.js';
 import { commandArgs } from './windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +31,8 @@ export interface AuthStatus {
   orgName?: string;
   apiProvider?: string;
   error?: string;
+  // Cursor: a token is stored but Cursor rejected it.
+  signInRejected?: boolean;
   accountStatuses?: Array<{
     id: string;
     label: string;
@@ -329,13 +332,24 @@ async function getDeepSeekAuthStatus(): Promise<AuthStatus> {
 }
 
 // Cursor stores a cursor.com session JWT that `cursor-agent` refreshes in the
-// background — auth.json on Linux, the login keychain on macOS. loggedIn == a
-// token is readable. No `cursor-agent auth status --json` command exists, so
-// we inspect the store directly (readCursorAccessToken owns the platform split).
-async function getCursorAuthStatus(): Promise<AuthStatus> {
+// background - auth.json on Linux, the login keychain on macOS. A readable
+// token is not enough: when Cursor has rejected it (cursor/authState.ts) the
+// status reads not signed in until the token changes. `explicit` (the
+// Connections check) also runs one `cursor-agent status`; polls never do.
+async function getCursorAuthStatus(explicit = false): Promise<AuthStatus> {
   const result = await readCursorAccessToken();
   if (result.token === null) {
-    return { loggedIn: false, error: result.detail ?? 'Not signed in to Cursor — run `cursor-agent login`' };
+    return { loggedIn: false, error: result.detail ?? 'Not signed in to Cursor - run `cursor-agent login`' };
+  }
+  if (explicit) await checkCursorLoginWithCli();
+  const rejection = cursorAuthRejection(result.token);
+  if (rejection) {
+    return {
+      loggedIn: false,
+      signInRejected: true,
+      apiProvider: 'cursor-session',
+      error: `Cursor rejected the saved sign-in (seen in ${rejection.source}). Sign in again.`,
+    };
   }
   return { loggedIn: true, apiProvider: 'cursor-session', subscriptionType: 'cursor' };
 }
@@ -359,7 +373,7 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
 // This reuses provider-owned detection and never starts an inference turn.
 export async function getConnectionStatus(provider: AuthLoginTarget): Promise<AuthStatus> {
   const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
-    claude:getClaudeAuthStatus, codex:getCodexAuthStatus,  github:getGithubAuthStatus, cursor:getCursorAuthStatus,
+    claude:getClaudeAuthStatus, codex:getCodexAuthStatus,  github:getGithubAuthStatus, cursor:() => getCursorAuthStatus(true),
     ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
     llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus,
   };

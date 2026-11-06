@@ -52,3 +52,9 @@ test('Native credentials and CLI sign-in have separate evidence without inferred
   assert.equal(parseConnectionStatus(true, { claude: { ...status, native: { ...status.native, state: 'healthy' } } }), null);
   assert.equal(parseConnectionStatus(true, { claude: { ...status, cli: { ...status.cli, loggedIn: 'unknown' } } }), null);
 });
+test('a stored Cursor token that Cursor rejected reads as Sign-in rejected, not Connected',()=>{
+  const cursor=catalog.providers.find(p=>p.id==='cursor')!;
+  assert.equal(connectionState(cursor,{loggedIn:false,signInRejected:true,error:'Cursor rejected the saved sign-in. Sign in again.'},true,false),'Sign-in rejected');
+  assert.equal(connectionState(cursor,{loggedIn:true},true,false),'Connected');
+  assert.equal(connectionState(cursor,{loggedIn:false},true,false),'Not connected');
+});

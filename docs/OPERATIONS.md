@@ -785,7 +785,7 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Codex usage probe | `POST /api/codex-usage-login` (terminal-launched flow) | `GET /api/codex-usage` |
 | GitHub | `gh auth login` | `gh auth status` |
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
-| Cursor (ACP) | `cursor-agent login` (interactive  - launches a terminal for the browser OAuth flow) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll (no `cursor-agent auth status` command exists) |
+| Cursor (ACP) | Connections > Cursor runs `cursor-agent login` in Arco and shows the link (or run it in a terminal) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll. While Cursor has rejected that token the status reads not signed in (Sign in again); the explicit Connections check also runs `cursor-agent status` |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login  - Arco spawns/manages `llama-server`) | `llama-server` reachable |
@@ -1202,7 +1202,7 @@ Either the operator clicked Remove (the workflow directory was deleted), or `kno
 
 ### Cursor answers "Please sign in to continue"
 
-A long-lived `cursor-agent acp` child keeps the credentials (and CLI binary) it started with, so a fresh `cursor-agent login` or CLI update doesn't reach an already-running tab. Arco recognizes that exact reply, shows the `[AUTH:cursor]` re-login card instead of the bubble, and retires the cached worker; after logging in, resend  - the next turn starts a current process and resumes the ACP session where Cursor allows.
+A long-lived `cursor-agent acp` child keeps the credentials (and CLI binary) it started with, so a fresh `cursor-agent login` or CLI update doesn't reach an already-running tab. Arco recognizes that exact reply, shows the `[AUTH:cursor]` re-login card instead of the bubble, and retires the cached worker; after logging in, resend  - the next turn starts a current process and resumes the ACP session where Cursor allows. A rejected sign-in at session start (`Authentication required`) shows the same card and never counts toward the three-failure start breaker, so a tab is not left blocked after signing in again.
 
 ### Worker output exceeds the output cap
 

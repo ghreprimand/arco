@@ -28,6 +28,8 @@ import { SMART_PICKUP_EVALUATOR_PROVIDERS, SMART_PICKUP_REASONS } from '@arco/sh
 import { commandArgs } from './windowsCommand.js';
 import { killProcessTree } from './workers/processKill.js';
 import { AcpJsonRpcClient, AcpReplyError, type IncomingRequest, type JsonRpcNotification } from './providers/cursor/acpJsonRpc.js';
+import { resolveCatalogModel, setAcpSessionModel, type AcpModel } from './providers/cursor/modelMap.js';
+import { getCursorCatalog } from './providers/cursor/catalog.js';
 import { JsonRpcClient } from './providers/codex-appserver/jsonRpc.js';
 import { getOllamaBase } from './providers/ollama.js';
 import { ensureLiveTokens } from './providers/claude-native/oauth.js';
@@ -208,8 +210,12 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
   };
 }
 
-export function cursorAdapter(opts: { launch?: (model: string) => [string, string[]]; installed?: () => Promise<boolean> } = {}): EvaluatorAdapter {
-  const launch = opts.launch ?? ((model: string) => commandArgs('cursor-agent', ['acp', '--model', model]));
+export function cursorAdapter(opts: { launch?: (model: string) => [string, string[]]; installed?: () => Promise<boolean>; catalog?: () => Promise<string[]> } = {}): EvaluatorAdapter {
+  // `cursor-agent acp` ignores `--model`; the model is selected over ACP after
+  // session/new and confirmed, and the evaluator refuses rather than answer
+  // on any other model (providers/cursor/modelMap.ts).
+  const launch = opts.launch ?? ((_model: string) => commandArgs('cursor-agent', ['acp']));
+  const catalog = opts.catalog ?? (async () => (await getCursorCatalog()).models.map((m) => m.id));
   return {
     provider: 'cursor',
     async capability() {
@@ -288,9 +294,15 @@ export function cursorAdapter(opts: { launch?: (model: string) => [string, strin
         const run = (async () => {
           await rpc!.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
           phase('initialize');
-          const session = await rpc!.request<{ sessionId?: string; modes?: { availableModes?: { id?: string }[] } }>('session/new', { cwd, mcpServers: [] });
+          const session = await rpc!.request<{ sessionId?: string; modes?: { availableModes?: { id?: string }[] }; models?: { availableModels?: AcpModel[] } }>('session/new', { cwd, mcpServers: [] });
           phase('session_new');
           if (!session?.sessionId) throw new EvaluatorRefused('startup_no_session');
+          // The exact model asked for, confirmed, or no answer at all.
+          const offered = (session.models?.availableModels ?? []).filter((m) => typeof m?.modelId === 'string');
+          const pick = resolveCatalogModel(req.model, offered, await catalog().catch(() => []));
+          if (pick.kind !== 'exact') throw new EvaluatorRefused('startup_model_unavailable');
+          if (await setAcpSessionModel(rpc!, session.sessionId, pick.acpId) !== pick.acpId) throw new EvaluatorRefused('startup_model_unconfirmed');
+          phase('set_model');
           // Ask mode: no edits or command execution. Fail closed without it.
           if (!session.modes?.availableModes?.some((m) => m.id === 'ask')) throw new EvaluatorRefused('startup_no_ask_mode');
           await rpc!.request('session/set_mode', { sessionId: session.sessionId, modeId: 'ask' });

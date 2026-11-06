@@ -19,6 +19,7 @@
 import { spawn } from 'node:child_process';
 import type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 import { commandArgs } from '../../windowsCommand.js';
+import { isCursorAuthErrorText, noteCursorAuthRejected } from './authState.js';
 
 export type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
@@ -99,10 +100,14 @@ async function fetchCursorCatalog(): Promise<CursorCatalogSnapshot> {
     proc.on('close', (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(out);
-      else reject(new Error(`cursor-agent models exited ${code}: ${err.slice(0, 200)}`));
+      else {
+        if (isCursorAuthErrorText(err)) void noteCursorAuthRejected('model catalog');
+        reject(new Error(`cursor-agent models exited ${code}: ${err.slice(0, 200)}`));
+      }
     });
   });
   const models = parseCursorModels(stdout);
+  if (isCursorAuthErrorText(stdout)) void noteCursorAuthRejected('model catalog');
   if (models.length === 0) throw new Error('cursor-agent models returned no parseable rows');
   return { fetchedAt: Date.now(), models, fresh: true };
 }

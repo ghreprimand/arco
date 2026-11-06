@@ -58,6 +58,7 @@ export function connectionState(p: ConnectionDefinition, status: AuthStatus | un
   }
   if (!status || status.probeFailed) return 'Status unknown';
   if (p.id==='deepseek' && !status.loggedIn && !status.apiProvider) return 'Not set up';
+  if (status.signInRejected) return 'Sign-in rejected';
   if (status.loggedIn) return p.kind === 'local' ? 'Runtime detected' : p.kind === 'desktop' ? 'Desktop detected' : 'Connected';
   return p.kind === 'local' || p.kind === 'desktop' ? 'Needs attention' : 'Not connected';
 }

@@ -517,6 +517,22 @@ export const providers: Section[] = [
   <em>in-session</em> with no respawn. A &quot;model swapped&quot; notice
   appears on the next turn.
   </li>
+  <li>
+  <strong>Model check.</strong> Every new or resumed session selects the chosen
+  model and confirms it. Cursor runs each model with the settings saved for it
+  in the Cursor CLI (for example Grok 4.7 High Fast). When the chosen variant
+  differs, a notice names both models and the model chip shows the one in use.
+  To use another variant, choose it once in the Cursor CLI (<Code>/model</Code>),
+  then HANDOFF. Choosing a Cursor model in Arco also makes it the CLI&apos;s
+  default.
+  </li>
+  <li>
+  <strong>Sign-in.</strong> Connections &gt; Cursor signs in from Arco and shows
+  the link to open. When Cursor rejects the saved sign-in, the status reads
+  Sign-in rejected and the chat shows a sign-in notice; sign in again and
+  resend. Sign-in failures never stop a tab from retrying; three other start
+  failures in a row do, until HANDOFF.
+  </li>
   </ul>
   <Sub>North star and clusters</Sub>
   <p>

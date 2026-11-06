@@ -97,6 +97,10 @@ test('Claude utility requests resolve aliases and identify provider, auth and ti
   await assert.rejects(a.evaluate({ ...req, timeoutMs: 30 }), /timeout/);
 });
 
+// Cursor requests name a model the fake offers.
+const creq = { ...req, model: 'auto' };
+const CATALOG = ['auto', 'grok-4.7-medium', 'grok-4.7-high', 'grok-4.7-high-fast'];
+
 // A stand-in `cursor-agent acp` speaking newline-delimited JSON-RPC.
 const FAKE_CURSOR = `
 const mode = process.env.FAKE_CURSOR_MODE;
@@ -114,10 +118,11 @@ process.stdin.on('data', (c) => {
     if (log && m.method) fs.appendFileSync(log, JSON.stringify({ method: m.method, params: m.params, cwd: process.cwd(), argv: process.argv.slice(2) }) + '\\n');
     if (m.method === 'initialize') send({ id: m.id, result: { protocolVersion: 1 } });
     else if (m.method === 'session/new') {
-      const reply = () => send({ id: m.id, result: { sessionId: 's1', modes: { currentModeId: 'agent', availableModes: (mode === 'noask' ? ['agent'] : ['agent', 'plan', 'ask']).map((id) => ({ id })) } } });
+      const reply = () => send({ id: m.id, result: { sessionId: 's1', modes: { currentModeId: 'agent', availableModes: (mode === 'noask' ? ['agent'] : ['agent', 'plan', 'ask']).map((id) => ({ id })) }, models: { currentModelId: 'default[]', availableModels: [{ modelId: 'default[]', name: 'Auto' }, { modelId: 'grok-4.7[reasoning_effort=high,fast=true]', name: 'grok-4.7' }] } } });
       if (mode === 'slowstart') setTimeout(reply, Number(process.env.FAKE_CURSOR_START_MS)); else reply();
     }
     else if (m.method === 'session/set_mode') send({ id: m.id, result: {} });
+    else if (m.method === 'session/set_config_option') send({ id: m.id, result: { configOptions: [{ id: 'model', currentValue: mode === 'unconfirmed' ? 'default[]' : m.params.value }] } });
     else if (m.method === 'session/prompt') {
       if (mode === 'hang') return;
       if (mode === 'permission') { send({ id: 900, method: 'session/request_permission', params: { options: [{ optionId: 'allow-once', kind: 'allow_once' }] } }); return; }
@@ -137,10 +142,10 @@ test('Cursor: fresh ACP agent in an empty folder, no capabilities, refuses any t
   const make = (mode: string) => {
     process.env.FAKE_CURSOR_MODE = mode;
     process.env.FAKE_CURSOR_LOG = log;
-    return cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]] });
+    return cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]], catalog: async () => CATALOG });
   };
   try {
-    assert.equal(await make('answer').evaluate({ ...req, model: 'auto' }), ANSWER);
+    assert.equal(await make('answer').evaluate({ ...creq, model: 'auto' }), ANSWER);
     const calls = (await readFile(log, 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
     const init = calls.find((c) => c.method === 'initialize');
     assert.deepEqual(init.params.clientCapabilities, {}, 'no file or terminal capability');
@@ -153,12 +158,21 @@ test('Cursor: fresh ACP agent in an empty folder, no capabilities, refuses any t
     assert.ok(calls.findIndex((c) => c.method === 'session/set_mode') < calls.findIndex((c) => c.method === 'session/prompt'), 'mode set before the prompt');
     assert.ok(!calls.some((c) => c.method === 'session/load'), 'never resumes a session');
     for (const mode of ['permission', 'tool', 'fs']) {
-      await assert.rejects(make(mode).evaluate(req), (err: unknown) => err instanceof EvaluatorRefused && /tool_attempted/.test(err.message), mode);
+      await assert.rejects(make(mode).evaluate(creq), (err: unknown) => err instanceof EvaluatorRefused && /tool_attempted/.test(err.message), mode);
     }
     const started = Date.now();
-    await assert.rejects(make('hang').evaluate({ ...req, timeoutMs: 300 }), (err: unknown) => err instanceof Error && err.message === 'timeout');
+    await assert.rejects(make('hang').evaluate({ ...creq, timeoutMs: 300 }), (err: unknown) => err instanceof Error && err.message === 'timeout');
     assert.ok(Date.now() - started < 3000);
-    await assert.rejects(make('noask').evaluate(req), /startup_no_ask_mode/, 'fails closed without Ask mode');
+    await assert.rejects(make('noask').evaluate(creq), /startup_no_ask_mode/, 'fails closed without Ask mode');
+    // The model is selected over ACP and confirmed before the prompt; another
+    // variant, an unknown model or an unconfirmed switch gets no answer.
+    await writeFile(log, '');
+    assert.equal(await make('answer').evaluate({ ...creq, model: 'grok-4.7-high-fast' }), ANSWER);
+    const sets = (await readFile(log, 'utf8')).trim().split('\n').map((l) => JSON.parse(l)).filter((c) => c.method === 'session/set_config_option');
+    assert.deepEqual(sets.map((c) => c.params.value), ['grok-4.7[reasoning_effort=high,fast=true]']);
+    await assert.rejects(make('answer').evaluate({ ...creq, model: 'grok-4.7-medium' }), /startup_model_unavailable/);
+    await assert.rejects(make('answer').evaluate({ ...creq, model: 'no-such-model' }), /startup_model_unavailable/);
+    await assert.rejects(make('unconfirmed').evaluate({ ...creq, model: 'grok-4.7-high-fast' }), /startup_model_unconfirmed/);
   } finally {
     delete process.env.FAKE_CURSOR_MODE; delete process.env.FAKE_CURSOR_LOG;
   }
@@ -169,12 +183,12 @@ test('Cursor: start-up has its own allowance, separate from the answer time limi
   await writeFile(script, FAKE_CURSOR);
   process.env.FAKE_CURSOR_MODE = 'slowstart';
   process.env.FAKE_CURSOR_START_MS = '600';
-  const adapter = cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]] });
+  const adapter = cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]], catalog: async () => CATALOG });
   try {
     // A 600 ms start with a 300 ms answer limit still answers: start-up time is not answer time.
-    assert.equal(await adapter.evaluate({ ...req, timeoutMs: 300, startupTimeoutMs: 5000 }), ANSWER);
+    assert.equal(await adapter.evaluate({ ...creq, timeoutMs: 300, startupTimeoutMs: 5000 }), ANSWER);
     // A start beyond the start-up allowance is a start-up failure, not an answer timeout.
-    await assert.rejects(adapter.evaluate({ ...req, timeoutMs: 5000, startupTimeoutMs: 200 }), (err: unknown) => err instanceof EvaluatorRefused && err.message === 'startup_timeout' && isStartupFailure(err.message));
+    await assert.rejects(adapter.evaluate({ ...creq, timeoutMs: 5000, startupTimeoutMs: 200 }), (err: unknown) => err instanceof EvaluatorRefused && err.message === 'startup_timeout' && isStartupFailure(err.message));
     assert.equal(isStartupFailure('timeout'), false);
     assert.equal(isStartupFailure('tool_attempted'), false);
   } finally {
@@ -190,12 +204,12 @@ test('Cursor: a timeout stops the agent once, and --verbose tracing reports phas
   console.log = (...args: unknown[]) => { const line = args.map(String).join(' '); if (line.includes('smart-pickup:cursor')) kills.push(line); else original(...args); };
   try {
     process.env.FAKE_CURSOR_MODE = 'hang';
-    await assert.rejects(cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]] }).evaluate({ ...req, timeoutMs: 200 }), /timeout/);
+    await assert.rejects(cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]], catalog: async () => CATALOG }).evaluate({ ...creq, timeoutMs: 200 }), /timeout/);
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(kills.length, 1, `one kill per request, got ${kills.length}`);
     process.env.FAKE_CURSOR_MODE = 'answer';
     const lines: string[] = [];
-    await cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]] }).evaluate({ ...req, trace: (l) => lines.push(l) });
+    await cursorAdapter({ launch: (model) => [process.execPath, [script, 'acp', '--model', model]], catalog: async () => CATALOG }).evaluate({ ...creq, trace: (l) => lines.push(l) });
     for (const p of ['initialize', 'session_new', 'set_mode', 'first_token', 'prompt']) assert.ok(lines.some((l) => l.startsWith(`phase ${p} `)), p);
     assert.ok(lines.some((l) => l.startsWith('-> ') && l.includes('"session/set_mode"')));
     assert.ok(lines.some((l) => l.startsWith('<- ') && l.includes('agent_message_chunk')));

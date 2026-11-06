@@ -469,7 +469,7 @@ Per-service. Status discovered at boot and cached:
   - **Codex** - shells `codex login`
   - **GitHub** - `gh auth login`
   - **Ollama** - no login; just probes `OLLAMA_URL_BASE/api/tags`
-  - **Cursor** - opens a terminal emulator running `cursor-agent login` (browser OAuth). Status is read fresh from `~/.config/cursor/auth.json` (session JWT); there is no `cursor-agent auth status` command. A long-lived ACP child keeps its start-time credentials, so a `Please sign in to continue` answer is converted into the `[AUTH:cursor]` card and the cached worker is retired
+  - **Cursor** - Connections runs `cursor-agent login` inside Arco and shows its link (the terminal command stays as a fallback). Status is read fresh from `~/.config/cursor/auth.json` (session JWT) and reads not signed in while Cursor has rejected that token (`providers/cursor/authState.ts`). A long-lived ACP child keeps its start-time credentials, so a `Please sign in to continue` answer is converted into the `[AUTH:cursor]` card and the cached worker is retired
   - **Claude Native** - its own OAuth flow via `/api/auth/claude-native/*` (tokens in `~/.arco/auth.json`)
 
 The auth overlay blocks the UI only when no primary-capable provider is authed; specific tabs may still error if their pinned provider is unauthed.
@@ -679,7 +679,7 @@ The command-line surface for each provider's primary turn (full detail in [PROVI
 
 **Ollama:** `POST $OLLAMA_URL_BASE/api/chat` NDJSON streaming with structured `messages` (system + transcript-as-user/assistant pairs + final user). Native tool calling via /api/chat's `tools` field (server-side runtime in `ollamaTools.ts`: Read/Glob/Grep/Write/Bash/WebSearch/WebFetch). Multi-turn memory comes from `appendSystemPrompt` carrying the rendered workflow transcript so Ollama's prefix cache hits cleanly across turns. Reasoning blocks routed via `ThinkSplitter` (handles paired and orphan-close `<think>` tags). `keep_alive: '10m'` per request - model auto-evicts during idle gaps. Effort `low` injects `/no_think` for fast-mode; `high` keeps native thinking on. Override base URL with `OLLAMA_URL_BASE` (default `http://localhost:11434`).
 
-**Cursor:** No per-turn spawn. A long-lived `cursor-agent acp --model <model> --force` child holds the ACP session warm across turns; turns are driven by `session/prompt` JSON-RPC requests, live model swaps via `session/set_model`, resume via `session/load`. The read-only print path spawns `cursor-agent -p --output-format text --mode ask --force --trust` (prompt over stdin) per primitive.
+**Cursor:** No per-turn spawn. A long-lived `cursor-agent acp --force` child (the model is selected over ACP after `session/new` or `session/load` and confirmed; see PROVIDERS.md, Cursor model selection) holds the ACP session warm across turns; turns are driven by `session/prompt` JSON-RPC requests, live model swaps via `session/set_model`, resume via `session/load`. The read-only print path spawns `cursor-agent -p --output-format text --mode ask --force --trust` (prompt over stdin) per primitive.
 
 ---
 

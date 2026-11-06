@@ -1004,8 +1004,44 @@ ACP error. `CursorAcpTurn` narrowly recognizes that exact response, withholds on
 prefix from the normal stream, emits `[AUTH:cursor]` for the shared inline re-login UI, and disposes the
 cached worker. After the operator completes login and resends, `acquireWorker` starts the current CLI
 with the current credentials and attempts the normal `session/load` resume. Any longer answer that only
-mentions signing in falls through as normal assistant text. `POST /api/auth-login?provider=cursor`
-opens a terminal running `cursor-agent login`.
+mentions signing in falls through as normal assistant text.
+
+Connections > Cursor runs `cursor-agent login` inside Arco (`authLoginSession.ts`, with
+`NO_OPEN_BROWSER=1`) and shows the link it prints; the CLI finishes on its own once the page confirms.
+`POST /api/auth-login?provider=cursor` still returns the terminal command as a fallback.
+
+A readable token is not proof of a working sign-in. `providers/cursor/authState.ts` remembers the last
+rejection (`Authentication required` from `session/new`, the sign-in reply above, a `401` from the usage
+API, or an authentication error from the catalog refresh) with a fingerprint of the token it was seen
+with. While that token is unchanged, the Cursor status reads not signed in with `signInRejected` and
+Connections offers Sign in again; a new token (a fresh login) clears it. Status polls make no network
+call; the explicit Connections check also runs `cursor-agent status` once.
+
+Sign-in failures never count toward the start-failure breaker in `index.ts` (three failed starts in a
+row stop a tab from retrying until HANDOFF): they show the `[AUTH:cursor]` sign-in notice instead, so
+signing in again and resending is enough. A start that fails also ends its `cursor-agent acp` child.
+
+### Model selection
+
+`cursor-agent acp` ignores `--model`: every `session/new` reports `currentModelId: "default[]"`,
+whatever was passed (captured in `providers/cursor/fixtures/acp-models.json`). ACP advertises one id
+per model, carrying the settings saved for that model in the Cursor CLI, for example
+`grok-4.7[context=256k,reasoning_effort=high,fast=true]`, and `session/set_model` and
+`session/set_config_option` accept only those ids. The catalog that Arco's picker shows lists every
+variant separately (`grok-4.7-medium`, `grok-4.7-high-fast`).
+
+After every `session/new` and `session/load`, and whenever the CONFIG model changes, the worker maps
+the catalog id to the advertised id by model name, effort, fast and thinking (`modelMap.ts`), selects
+it with `session/set_config_option` (or `session/set_model` on a CLI without it) and checks the
+returned `currentValue`. When the advertised id carries other settings than the chosen variant, the
+session runs that variant and a notice names both models and how to change the saved setting (choose
+the variant once in the Cursor CLI with `/model`, then HANDOFF). A model Cursor does not offer, a
+refused or an unconfirmed switch also produce a notice naming the model the session runs on. The model
+chip shows the effective model. Selecting a model over ACP also saves it as the Cursor CLI's default
+model. The print transport passes the catalog id with `--model`, `auto` included, so a chat on Auto
+does not run the CLI's saved default. The Smart AUTO-PICKUP Cursor evaluator selects and confirms the
+exact model the same way and refuses (`startup_model_unavailable`, `startup_model_unconfirmed`)
+otherwise.
 
 ### Usage
 

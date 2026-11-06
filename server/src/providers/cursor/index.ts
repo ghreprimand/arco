@@ -13,6 +13,11 @@ import { EventEmitter } from 'events';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { CursorAcpWorker, type ToolUseEvent, type TurnSettleData } from './worker.js';
+import { isCursorAuthErrorText, noteCursorAuthOk, noteCursorAuthRejected } from './authState.js';
+
+// Shown when Cursor rejects the saved sign-in. The AUTH sentinel renders a
+// sign-in button; nothing counts toward the start-failure breaker.
+export const CURSOR_SIGN_IN_AGAIN_NOTICE = '[AUTH:cursor] Cursor rejected the saved sign-in. Sign in again (Connections > Cursor, or run `cursor-agent login`), then resend your message.';
 
 const workersByWorkflow = new Map<string, CursorAcpWorker>();
 
@@ -42,6 +47,8 @@ export function isCursorAuthRequiredPrefix(text: string): boolean {
 // Circuit breaker for repeated spawn failures. Lives at the dispatcher layer
 // (not the worker) because the cache entry is dropped on `fatal`; the counter
 // must survive that drop. Reset on a successful settle or operator dispose.
+// Authentication failures never count: signing in again must be enough to
+// unblock the tab.
 const MAX_CONSECUTIVE_SPAWN_FAILURES = 3;
 const failureStateByWorkflow = new Map<string, { count: number; lastError: string }>();
 
@@ -106,6 +113,12 @@ export class CursorAcpTurn extends EventEmitter implements ProviderProcess {
         // Bootstrap / turn-start failure that didn't arrive via `fatal`
         // (handshake RPC error, session/new throw). `fatal` paths already
         // bumped the breaker via the worker's own listener.
+        if (isCursorAuthErrorText(msg)) {
+          void noteCursorAuthRejected('session start');
+          this.emit('system_notice', CURSOR_SIGN_IN_AGAIN_NOTICE);
+          this.fail(msg);
+          return;
+        }
         if (!this.fatalSeen) bumpFailureCount(this.workflowId, msg);
         this.fail(msg);
       });
@@ -177,10 +190,11 @@ export class CursorAcpTurn extends EventEmitter implements ProviderProcess {
       if (isCursorAuthRequiredText(finalText)) {
         this._output = '';
         this.heldInitialText = '';
+        void noteCursorAuthRejected('turn reply');
         retireCursorWorker(this.workflowId, this.worker, 'authentication required');
         this.emit(
           'system_notice',
-          '[AUTH:cursor] Cursor authentication expired in the active session. Re-login, then resend your message; Arco discarded the stale Cursor process and will start a fresh one.',
+          '[AUTH:cursor] Cursor authentication expired in the active session. Sign in again (Connections > Cursor, or run `cursor-agent login`), then resend your message; Arco discarded the stale Cursor process and will start a fresh one.',
         );
         this.emit('result', {
           text: '',
@@ -194,6 +208,7 @@ export class CursorAcpTurn extends EventEmitter implements ProviderProcess {
         });
         return;
       }
+      noteCursorAuthOk();
       if (this.holdingAuthCandidate && this.heldInitialText) {
         this.holdingAuthCandidate = false;
         const held = this.heldInitialText;
@@ -217,6 +232,7 @@ export class CursorAcpTurn extends EventEmitter implements ProviderProcess {
     const onFatal = (reason: string) => {
       if (this.settled) return;
       this.fatalSeen = true;
+      if (isCursorAuthErrorText(reason)) this.emit('system_notice', CURSOR_SIGN_IN_AGAIN_NOTICE);
       this.fail(`cursor-agent acp died: ${reason}`);
     };
 
@@ -274,6 +290,11 @@ function acquireWorker(workflowId: string, config: WorkerConfig, resumeSessionId
     // Drop the cache entry so the next turn re-spawns; don't dispose() (the
     // worker already tore itself down in onChildDeath).
     if (workersByWorkflow.get(workflowId) === fresh) workersByWorkflow.delete(workflowId);
+    if (isCursorAuthErrorText(reason)) {
+      void noteCursorAuthRejected('cursor-agent exit');
+      console.warn(`[cursor:${workflowId.slice(0, 8)}] worker dropped from cache (${reason}); sign-in rejected, not counted`);
+      return;
+    }
     const count = bumpFailureCount(workflowId, reason);
     console.warn(`[cursor:${workflowId.slice(0, 8)}] worker dropped from cache (${reason}); consecutive failures=${count}`);
   });
@@ -350,7 +371,7 @@ export const CursorProvider: Provider = {
     if (!workflowId) throw new Error('cursor transport requires WorkerConfig.workflowId');
     const failure = failureStateByWorkflow.get(workflowId);
     if (failure && failure.count >= MAX_CONSECUTIVE_SPAWN_FAILURES) {
-      const notice = `[cursor] cursor-agent acp failed to spawn ${failure.count} times in a row — last error: ${failure.lastError}. Use Handoff to start fresh, or check that the Cursor CLI is healthy (\`cursor-agent login\`).`;
+      const notice = `[cursor] Cursor failed to start ${failure.count} times in a row (last error: ${failure.lastError}), so this tab stops retrying. Check that the Cursor CLI runs (\`cursor-agent status\` in a terminal), then use HANDOFF to start a fresh Cursor session. Sign-in problems do not count here; after signing in again, resend your message.`;
       return new CursorCircuitBrokenTurn(id, notice, `cursor acp circuit-broken: ${failure.lastError}`);
     }
     const worker = acquireWorker(workflowId, config, config.resumeSessionId);

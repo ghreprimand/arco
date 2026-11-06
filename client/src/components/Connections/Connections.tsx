@@ -191,7 +191,8 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
           </div>}
           {status?.accountStatuses?.length ? <ul aria-label="Configured account statuses">{status.accountStatuses.map(a=><li key={a.id}>{a.label}: {a.loggedIn?'connected':'not connected'}{a.email ? ` - ${a.email}`:''}</li>)}</ul>:null}
           {provider.environmentKey && catalog.environmentKeys.includes(provider.environmentKey) && <p role="note">{provider.environmentKey} is present in the server environment. It can change credential selection for some transports. Review the provider-reported source above; billing is not inferred.</p>}
-          {provider.login && !status?.accountStatuses?.length && <button type="button" disabled={unavailable || starting} onClick={()=>void startLogin()}>{starting?'Starting sign-in...':selected === 'claude' ? 'Sign in to Claude CLI' : status?.loggedIn?'Sign in again':`Sign in to ${provider.label}`}</button>}
+          {provider.login && !status?.accountStatuses?.length && <button type="button" disabled={unavailable || starting} onClick={()=>void startLogin()}>{starting?'Starting sign-in...':selected === 'claude' ? 'Sign in to Claude CLI' : status?.loggedIn || status?.signInRejected?'Sign in again':`Sign in to ${provider.label}`}</button>}
+          {status?.signInRejected && status.error && <p role="alert" data-testid="connection-signin-rejected">{status.error}</p>}
           {status?.accountStatuses?.length ? <p>Sign in to a specific configured profile in Accounts and profiles. Its credentials stay separate from the default account.</p>:null}
           {login && <div className="connection-login">{login.session ? <LoginFlow result={login} onRestart={()=>void startLogin()} onComplete={()=>void refresh(selected)} />:login.command ? <LoginCommand command={login.command} hostCommand={login.hostCommand}/>:null}</div>}
 

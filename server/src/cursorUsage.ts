@@ -1,5 +1,6 @@
 import type { CursorUsageInfo, CursorUsageEventRow, CursorIncludedUsage } from '@arco/shared';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
+import { noteCursorAuthRejected } from './providers/cursor/authState.js';
 
 // Cursor usage, read directly from cursor.com's private dashboard API using the
 // session JWT that `cursor-agent` already stores and auto-refreshes. No browser
@@ -124,6 +125,8 @@ export async function getCursorUsage(force = false): Promise<CursorUsageInfo> {
     });
   } catch (err) {
     const unauthorized = err instanceof HttpError && (err.status === 401 || err.status === 403);
+    // 403 can also mean a refused origin; only a 401 marks the sign-in rejected.
+    if (err instanceof HttpError && err.status === 401) void noteCursorAuthRejected('usage check');
     return cache({
       available: false,
       fetchedAt: Date.now(),

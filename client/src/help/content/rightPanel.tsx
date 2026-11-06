@@ -317,8 +317,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           (same tab) or Spawn (new tab) instead.
         </p>
         <p>
-          Cursor applies the swap <em>in-session</em> via <code>session/set_model</code>{' '}
-          (no respawn) and posts a "model swapped" notice on the next turn. Because
+          Cursor applies the swap <em>in-session</em> (no respawn), confirms it, and
+          posts a "model swapped" notice on the next turn. Cursor runs each model
+          with the settings saved for it in the Cursor CLI; when the chosen variant
+          differs, a notice names both models and the model chip shows the one in
+          use. Choosing a Cursor model also makes it the Cursor CLI's default. Because
           Cursor bakes reasoning effort into the model id, the picker splits into
           <b>family</b> + <b>effort</b> (plus optional FAST / THINK) and resolves to
           the exact catalog id: the EFFORT row below stays a note. The status chip's

@@ -12,9 +12,13 @@ const SESSION_TTL_MS = 15 * 60_000;
 const OUTPUT_CAP = 16 * 1024;
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
 
-export const IN_APP_LOGIN: Partial<Record<AuthLoginTarget, { needsCode: boolean }>> = {
+// `command` and `env` override the terminal command for the relayed session
+// (no `env VAR=...` prefix, which Windows shells lack).
+export const IN_APP_LOGIN: Partial<Record<AuthLoginTarget, { needsCode: boolean; command?: string; env?: Record<string, string> }>> = {
   codex: { needsCode: false },
   claude: { needsCode: true },
+  // Prints a link and finishes on its own once the page confirms, like Codex.
+  cursor: { needsCode: false, command: 'cursor-agent login', env: { NO_OPEN_BROWSER: '1' } },
 };
 
 export function parseLoginOutput(text: string): { url?: string; code?: string; awaitingCode: boolean } {
@@ -78,7 +82,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
     // No browser exists where the server runs; the CLIs print the link anyway.
     // detached on POSIX makes the shell a process-group leader, so a cancel or
     // timeout reaches the provider CLI it started, not only the shell.
-    child = spawn(command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'true', NO_BROWSER: 'true' } });
+    child = spawn(spec.command ?? command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'true', NO_BROWSER: 'true', ...(spec.env ?? {}) } });
   } catch (err) {
     finish(entry, 'failed', err instanceof Error ? err.message : String(err));
     return snapshot(entry);

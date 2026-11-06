@@ -712,6 +712,8 @@ export interface AuthStatus {
   orgName?: string;
   apiProvider?: string;
   error?: string;
+  // Cursor: a token is stored but Cursor rejected it; the UI offers "Sign in again".
+  signInRejected?: boolean;
   accountStatuses?: Array<{
     id: string;
     label: string;

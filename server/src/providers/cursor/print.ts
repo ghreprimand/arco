@@ -59,9 +59,11 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // parse; incremental chunks map straight to `text` events.
     const args = ['-p', '--output-format', 'text', '--mode', 'ask', '--force', '--trust'];
     if (this.config.interactionMode === 'chat') args.push('--stream-partial-output');
-    // Omit `--model` for auto so the CLI keeps its own default (there's no `auto`
-    // model id to pass). Any concrete catalog id is passed through verbatim.
-    if (model && model !== 'auto') args.push('--model', model);
+    // Always pass the catalog id, `auto` included: `cursor-agent models` lists
+    // `auto`, and without `--model` the CLI runs the model saved as its own
+    // default instead of the one chosen in Arco. In print mode the CLI takes
+    // catalog variant ids (`grok-4.7-medium`) directly.
+    args.push('--model', model);
     // `-p` has no image-input flag, so attachments go in as path refs and the
     // upload dir joins the workspace roots — ask-mode's read tool is fenced to
     // them, and it opens images natively. Chat tabs route here, so without

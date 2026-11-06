@@ -150,7 +150,7 @@ export const miscHelp: Record<string, HelpEntry> = {
 
   'auth.connections': {
     title: 'Connections', manualSection: 'settings-providers',
-    body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. A successful explicit connection check enables that provider for new work. Claude Native credentials and CLI sign-in are separate sign-ins with separate status and recovery controls. Native is the default transport, so Claude shows Native: sign-in needed until SIGN IN FOR NATIVE completes; Use Claude CLI instead switches the transport when the CLI is signed in; local credential presence does not verify execution or usage limits access. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
+    body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. A successful explicit connection check enables that provider for new work. Claude Native credentials and CLI sign-in are separate sign-ins with separate status and recovery controls. Native is the default transport, so Claude shows Native: sign-in needed until SIGN IN FOR NATIVE completes; Use Claude CLI instead switches the transport when the CLI is signed in; local credential presence does not verify execution or usage limits access. Cursor signs in from here and shows the link to open; when Cursor has rejected the saved sign-in, its status reads Sign-in rejected and the button reads Sign in again. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
   },
   'auth.login-flow': {
     title: 'Provider sign-in', manualSection: 'settings-providers',

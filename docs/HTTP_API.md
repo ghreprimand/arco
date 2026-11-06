@@ -1664,7 +1664,7 @@ Triggers the appropriate login flow. Optional `account=<profileId>` is passed th
 
 - **Claude** - spawns `claude auth login --claudeai` detached; returns immediately (`started: true`) and the operator completes browser OAuth.
 - **Codex** - opens a terminal with `codex login`. An optional `account` query selects a Codex account profile.
-- **Cursor** - opens a terminal with `cursor-agent login`. An expired long-lived ACP process is retired when its exact sign-in response is observed; the operator resends after completing OAuth and Arco starts a fresh process.
+- **Cursor** - with `inApp=1`, runs `cursor-agent login` (with `NO_OPEN_BROWSER=1`) in a relayed session that reports the printed link and finishes on its own; otherwise returns the terminal command. An expired long-lived ACP process is retired when its exact sign-in response is observed; the operator resends after completing OAuth and Arco starts a fresh process.
 - **GitHub** - opens a terminal with `gh auth login`.
 - **Ollama** - no auth; returns `started: false` + a `manual` hint ("run `ollama serve` ..."). (Reachability is reported by `/api/auth-status`, not here.)
 

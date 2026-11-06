@@ -247,9 +247,9 @@ export const actions: Section[] = [
         <ul>
           <li>
             <strong>Model</strong> - same provider, different model. Takes
-            effect next turn. (Cursor applies it in-session via{' '}
-            <Code>session/set_model</Code> with no respawn and posts a &quot;model
-            swapped&quot; notice.)
+            effect next turn. (Cursor applies it in-session with no respawn,
+            confirms it, and posts a &quot;model swapped&quot; notice; a notice
+            also names the model Cursor actually runs when it differs.)
           </li>
           <li>
             <strong>Effort</strong> - same model, different reasoning budget.

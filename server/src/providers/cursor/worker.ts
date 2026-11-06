@@ -22,9 +22,12 @@ import { killProcessTree } from '../../workers/processKill.js';
 import { goalBlock } from '../goalBlock.js';
 import { awaitModelImages, loadImages, splitAttachmentPaths, withAttachmentRefs } from '../attachments.js';
 import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
-import { AcpJsonRpcClient, AcpReplyError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
+import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
 import { commandArgs } from '../../windowsCommand.js';
 import { SegmentJoiner } from './acpSegments.js';
+import { describeAcpModel, isAutoModel, resolveCatalogModel, setAcpSessionModel } from './modelMap.js';
+import { getCursorCatalog } from './catalog.js';
+import { noteCursorAuthOk, noteCursorAuthRejected, isCursorAuthErrorText } from './authState.js';
 
 // Hard-kill fallback if `session/cancel` doesn't settle the turn (Codex parity).
 const INTERRUPT_ACK_TIMEOUT_MS = 5000;
@@ -100,12 +103,16 @@ export class CursorAcpWorker extends EventEmitter {
   // 2026.09 advertises true; if a build ever stops, images degrade to path refs
   // instead of a session/prompt the agent would reject.
   private promptImages = false;
+  // The model the session actually runs on (catalog id when one matches),
+  // shown on the model chip through `init`.
   private resolvedModel: string | null = null;
-  // Phase 3 — the ACP-form model list from session/new|load, and the bare
-  // catalog id currently applied to the session. `appliedModel === null` after
-  // a resume forces a set_model to the operator's configured model on the first
-  // turn (the loaded session may have ended on a different model).
+  // The ACP-form model list from session/new|load, the session's current ACP
+  // model, and the catalog id last applied. `appliedModel === null` after
+  // session/new or session/load forces an explicit model selection before the
+  // first turn: `--model` at spawn is not applied by `cursor-agent acp`, and a
+  // new session starts on `default[]` (fixtures/acp-models.json).
   private availableModels: Array<{ modelId: string; name?: string }> = [];
+  private currentAcpModelId: string | null = null;
   private appliedModel: string | null = null;
   private starting: Promise<void> | null = null;
   private bootstrapped = false;
@@ -188,9 +195,12 @@ export class CursorAcpWorker extends EventEmitter {
     if (this.bootstrapped && this.rpc) return;
     if (this.starting) return this.starting;
     this.starting = this.doStart().catch((err) => {
-      // Reset so a later turn can retry a fresh spawn.
+      // Reset so a later turn can retry a fresh spawn. End the child too: a
+      // failed handshake (a rejected sign-in, for example) otherwise leaves a
+      // cursor-agent running for every attempt.
       this.starting = null;
       this.closeLoopbackMcp();
+      this.hardKill();
       this.teardownProcess();
       throw err;
     });
@@ -200,7 +210,9 @@ export class CursorAcpWorker extends EventEmitter {
   private async doStart(): Promise<void> {
     const model = this.resolveModelId();
     // `--force` skips the CLI's interactive trust prompt for the cwd (spike).
-    const args = ['acp', '--model', model, '--force'];
+    // No `--model`: `cursor-agent acp` ignores it; the model is selected over
+    // ACP after session/new or session/load and confirmed (applyModelIfChanged).
+    const args = ['acp', '--force'];
     this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
@@ -208,11 +220,19 @@ export class CursorAcpWorker extends EventEmitter {
       detached: true,
     });
 
+    // Events from a child this worker already let go of (a failed start it
+    // ended itself) are not a new death.
+    const child = this.proc;
     this.proc.on('exit', (code, signal) => {
+      if (this.proc !== child) return;
       const reason = code !== null ? `code ${code}` : `signal ${signal ?? 'unknown'}`;
-      this.onChildDeath(`cursor-agent acp exited (${reason})`);
+      // A sign-in failure on stderr is named so the dispatcher treats it as
+      // one (a sign-in notice, not a count toward the start-failure breaker).
+      const auth = isCursorAuthErrorText(this.stderrBuf) ? ': Authentication required' : '';
+      this.onChildDeath(`cursor-agent acp exited (${reason})${auth}`);
     });
     this.proc.on('error', (err) => {
+      if (this.proc !== child) return;
       this.onChildDeath(`cursor-agent spawn error: ${err.message}`);
     });
     if (this.proc.stderr) {
@@ -225,7 +245,7 @@ export class CursorAcpWorker extends EventEmitter {
     if (!this.proc.stdin || !this.proc.stdout) {
       throw new Error('cursor-agent acp stdio not available');
     }
-    console.log(`[cursor:${this.workflowId.slice(0, 8)}] spawned pid=${this.proc.pid} model=${model}`);
+    console.log(`[cursor:${this.workflowId.slice(0, 8)}] spawned pid=${this.proc.pid} configured model=${model}`);
 
     this.rpc = new AcpJsonRpcClient(this.proc.stdin, this.proc.stdout);
     this.rpc.onRequest = (req) => this.handleAgentRequest(req);
@@ -267,8 +287,8 @@ export class CursorAcpWorker extends EventEmitter {
         });
         this.sessionId = this.resumeSessionId;
         this.captureModels(lr);
-        // Force a set_model to the operator's configured model on the first turn
-        // — the loaded session may have ended on a different one.
+        // Select and confirm the configured model before the first turn; the
+        // loaded session may have ended on a different one.
         this.appliedModel = null;
         loaded = true;
         console.log(`[cursor:${this.workflowId.slice(0, 8)}] resumed session ${this.resumeSessionId}`);
@@ -280,17 +300,25 @@ export class CursorAcpWorker extends EventEmitter {
     }
 
     if (!loaded) {
-      const s = await this.rpc.request<AcpSessionNewResult>('session/new', { cwd, mcpServers });
+      let s: AcpSessionNewResult;
+      try {
+        s = await this.rpc.request<AcpSessionNewResult>('session/new', { cwd, mcpServers });
+      } catch (err) {
+        const msg = rpcErrorText(err);
+        if (isCursorAuthErrorText(msg)) void noteCursorAuthRejected('session/new');
+        throw err;
+      }
       if (!s?.sessionId) throw new Error('cursor session/new returned no sessionId');
+      void noteCursorAuthOk();
       this.sessionId = s.sessionId;
       this.captureModels(s);
-      // Fresh session was spawned with `--model <model>`, so it already reflects
-      // the configured model — no swap needed until the operator changes it.
-      this.appliedModel = this.resolveModelId();
+      // A new session starts on Cursor's default (`default[]`), whatever was
+      // passed at spawn: select and confirm the configured model first.
+      this.appliedModel = null;
       console.log(`[cursor:${this.workflowId.slice(0, 8)}] session ${s.sessionId}`);
     }
 
-    this.resolvedModel = model;
+    this.resolvedModel = null;
     this.bootstrapped = true;
   }
 
@@ -620,7 +648,9 @@ export class CursorAcpWorker extends EventEmitter {
     // repopulates from the new session/new|load response.
     this.sessionId = null;
     this.availableModels = [];
+    this.currentAcpModelId = null;
     this.appliedModel = null;
+    this.resolvedModel = null;
   }
 
   private hardKill(): void {
@@ -633,8 +663,10 @@ export class CursorAcpWorker extends EventEmitter {
     return typeof m === 'string' && m.trim() ? m.trim() : 'auto';
   }
 
-  // Cache the ACP-form model list advertised by session/new|load.
+  // Cache the ACP-form model list and current model advertised by session/new|load.
   private captureModels(result: AcpSessionNewResult | undefined): void {
+    const current = result?.models?.currentModelId;
+    if (typeof current === 'string' && current) this.currentAcpModelId = current;
     const list = result?.models?.availableModels;
     if (!Array.isArray(list) || list.length === 0) return;
     this.availableModels = list
@@ -642,59 +674,79 @@ export class CursorAcpWorker extends EventEmitter {
       .map((m) => ({ modelId: m.modelId, name: m.name }));
   }
 
-  // Map a bare catalog id (from `cursor-agent models` — e.g. `grok-4.5`, `auto`)
-  // to the ACP bracket-param `modelId` that session/set_model requires (e.g.
-  // `grok-4.5[effort=high,fast=true]`, Auto = `default[]`). Returns null when we
-  // have no advertised list or no confident match.
-  private resolveAcpModelId(bare: string): string | null {
-    if (this.availableModels.length === 0) return null;
-    const norm = (s: string): string => s.trim().toLowerCase();
-    const baseOf = (id: string): string => (id.split('[')[0] ?? '').trim().toLowerCase();
-    const target = norm(bare);
-    const isAuto = target === 'auto' || target === 'default';
-    const pick = this.availableModels.find((m) => {
-      if (isAuto) return baseOf(m.modelId) === 'default' || norm(m.name ?? '') === 'auto';
-      return baseOf(m.modelId) === target || norm(m.name ?? '') === target;
-    });
-    return pick?.modelId ?? null;
+  // Catalog ids from `cursor-agent models` (cached for an hour); empty when
+  // the catalog cannot be read, which makes matching stricter, not looser.
+  private async catalogIds(): Promise<string[]> {
+    try { return (await getCursorCatalog()).models.map((m) => m.id); } catch { return []; }
   }
 
-  // Live model swap: if the configured model differs from what's applied to the
-  // session, issue session/set_model (no respawn — confirmed by the Phase-0
-  // spike). Best-effort and non-fatal: a swap that can't be mapped or is
-  // rejected leaves the session on its current model with an operator notice.
+  // Select the configured catalog model on the session and confirm it.
+  // `cursor-agent acp` accepts only the ids it advertises, one per model with
+  // the settings saved in the Cursor CLI, so a catalog variant with other
+  // settings runs as that advertised variant. Every case other than an exact,
+  // confirmed match produces a notice naming the requested and the effective
+  // model; nothing falls back silently. The model chip shows the effective one.
   private async applyModelIfChanged(): Promise<void> {
     if (!this.rpc || !this.sessionId) return;
     const want = this.resolveModelId();
     if (this.appliedModel !== null && want === this.appliedModel) return;
+    const tag = `[cursor:${this.workflowId.slice(0, 8)}]`;
+    const prev = this.appliedModel;
+    const catalog = await this.catalogIds();
+    const effectiveNow = (): string => (this.currentAcpModelId ? describeAcpModel(this.currentAcpModelId, catalog) : 'unknown');
+    const settle = (effective: string, notice?: string): void => {
+      this.appliedModel = want;
+      this.resolvedModel = effective;
+      if (notice) this.emit('system_notice', notice);
+    };
 
-    const acpId = this.resolveAcpModelId(want);
-    if (!acpId) {
-      // No mapping. On a fresh session the spawn `--model` already applied the
-      // configured model, so just record it; otherwise keep the current model.
-      if (this.appliedModel === null) {
-        this.appliedModel = want;
-      } else {
-        this.emit('system_notice', `Cursor: couldn't map model "${want}" to an ACP model id; staying on "${this.appliedModel}".`);
-      }
+    if (this.availableModels.length === 0) {
+      settle(effectiveNow(), `Cursor did not list its models, so "${want}" could not be selected or confirmed. This session runs on "${effectiveNow()}".`);
       return;
     }
-
-    try {
-      await this.rpc.request('session/set_model', { sessionId: this.sessionId, modelId: acpId });
-      const prev = this.appliedModel;
-      this.appliedModel = want;
-      this.resolvedModel = want;
-      if (prev !== null && prev !== want) {
-        this.emit('system_notice', `Cursor model swapped ${prev} → ${want} (in-session, no respawn).`);
-      }
-      console.log(`[cursor:${this.workflowId.slice(0, 8)}] model applied ${prev ?? '(resume)'} → ${want} (${acpId})`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (this.appliedModel === null) this.appliedModel = want; // spawn model stands
-      this.emit('system_notice', `Cursor: model swap to "${want}" failed (${msg}); continuing on the current model.`);
+    const r = resolveCatalogModel(want, this.availableModels, catalog);
+    if (r.kind === 'unavailable') {
+      settle(effectiveNow(), `Cursor does not offer "${want}" to this sign-in, so this session runs on "${effectiveNow()}". Choose another Cursor model.`);
+      return;
     }
+    // Always select on a new or loaded session (prev === null): what a fresh
+    // session reports is not proof of the model Cursor will bill.
+    if (prev === null || r.acpId !== this.currentAcpModelId) {
+      try {
+        const confirmed = await this.selectAcpModel(r.acpId);
+        if (!confirmed) {
+          settle(effectiveNow(), `Cursor did not confirm the switch to "${want}". This session runs on "${effectiveNow()}".`);
+          return;
+        }
+      } catch (err) {
+        settle(effectiveNow(), `Cursor refused the switch to "${want}" (${rpcErrorText(err)}). This session runs on "${effectiveNow()}".`);
+        return;
+      }
+    }
+    const effective = r.kind === 'exact' ? (isAutoModel(want) ? 'auto' : want) : r.effective;
+    console.log(`${tag} model applied ${prev ?? '(new session)'} -> ${effective} (${r.acpId})`);
+    if (r.kind === 'other-variant') {
+      settle(effective, `Cursor offers this model only as "${effective}" (the setting saved in the Cursor CLI), so "${want}" can't be selected here. This session runs on "${effective}". To use "${want}", choose it once in the Cursor CLI (run cursor-agent, then /model), then start a new Cursor session with HANDOFF.`);
+      return;
+    }
+    settle(effective, prev !== null && prev !== want ? `Cursor model swapped ${prev} → ${want} (in-session, no respawn).` : undefined);
   }
+
+  private async selectAcpModel(acpId: string): Promise<boolean> {
+    if (!this.rpc || !this.sessionId) return false;
+    const current = await setAcpSessionModel(this.rpc, this.sessionId, acpId);
+    if (current !== null) this.currentAcpModelId = current;
+    return current === acpId;
+  }
+}
+
+// JSON-RPC errors carry the useful detail in data.message.
+function rpcErrorText(err: unknown): string {
+  if (err instanceof JsonRpcRequestError) {
+    const data = err.rpcError.data as { message?: unknown } | undefined;
+    return typeof data?.message === 'string' && data.message ? `${err.rpcError.message}: ${data.message}` : err.rpcError.message;
+  }
+  return err instanceof Error ? err.message : String(err);
 }
 
 function describeAbnormalStop(stopReason: string | undefined): string | null {
