@@ -32,7 +32,7 @@ test('small log: full replay, not truncated, ts stripped', async () => {
   const { cwd, wfid } = await seed([...turn(1, 'a'), ...turn(4, 'b')]);
   const r = await replayTailEvents(cwd, wfid, 1024 * 1024);
   assert.equal(r.truncated, false);
-  assert.deepEqual(r.events.map((e) => (e as { seq: number }).seq), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(r.events.map((e) => (e as unknown as { seq: number }).seq), [1, 2, 3, 4, 5, 6]);
   assert.equal('ts' in (r.events[0] as object), false);
 });
 
@@ -44,7 +44,7 @@ test('big log: window starts at a turn boundary, never mid-turn', async () => {
   assert.equal(r.truncated, true);
   assert.ok(r.events.length > 0 && r.events.length < lines.length);
   assert.equal((r.events[0] as { type: string }).type, 'user_message_echo');
-  const seqs = r.events.map((e) => (e as { seq: number }).seq);
+  const seqs = r.events.map((e) => (e as unknown as { seq: number }).seq);
   assert.equal(seqs[seqs.length - 1], 600, 'reaches the head');
   for (let i = 1; i < seqs.length; i++) assert.equal(seqs[i], seqs[i - 1] + 1, 'contiguous');
 });

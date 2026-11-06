@@ -75,7 +75,7 @@ test('sealing on write keeps one ordered history for every reader, across a rest
     const tail = await replayTailEvents(cwd, id, SEAL * 2);
     assert.equal(tail.truncated, true);
     assert.equal((tail.events[0] as { type: string }).type, 'user_message_echo');
-    assert.equal((tail.events.at(-1) as { seq: number }).seq, 200);
+    assert.equal((tail.events.at(-1) as unknown as { seq: number }).seq, 200);
     assert.deepEqual(seqs(tail.events), range(seqs(tail.events)[0], 200));
     // Restart: the sequence continues from the segments and live file.
     forgetWorkflowBuffer(cwd, id);

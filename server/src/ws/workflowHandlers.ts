@@ -1377,7 +1377,7 @@ async function restoreAdmittedCheckpoint(
   broadcastWorkflow(msg.workflowId, {
     type: 'checkpoint_created',
     workflowId: msg.workflowId,
-    seq: safetyGuardSeq,
+    checkpointSeq: safetyGuardSeq,
     ref: safety.ref,
     label: safety.label,
     ts: safety.ts,
@@ -1397,7 +1397,6 @@ async function restoreAdmittedCheckpoint(
   broadcastWorkflow(msg.workflowId, {
     type: 'checkpoint_reverted',
     workflowId: msg.workflowId,
-    seq: msg.seq,
     restoredSeq: msg.seq,
     fileCount: result.fileCount,
     safetySnapshotRef: safety.ref,

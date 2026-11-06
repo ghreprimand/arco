@@ -2436,8 +2436,8 @@ export async function handleUserMessage(
       // the operator's tree. The operator-turn loop in turnEngine.handleUserMessage
       // is the only dispatch path that runs an operator-driven, file-mutating
       // turn, so the checkpoint belongs at this call site. The ref suffix uses
-      // the workflow's current event seq (the turn it guards); the
-      // checkpoint_created broadcast is itself stamped a fresh events.jsonl seq.
+      // the workflow's current event seq (the turn it guards), carried as
+      // `checkpointSeq`; the checkpoint_created event gets its own next seq.
       // Upload-time image downscaling runs in the background; a send right
       // after a paste can beat it. Wait (bounded) here so the sync providers
       // (Claude CLI / Native, Codex exec) read the model copy too — they call
@@ -2473,7 +2473,7 @@ export async function handleUserMessage(
       }
       if (checkpoint && checkpointGuardSeq !== undefined) {
         broadcastWorkflow(workflowId, {
-          type: 'checkpoint_created', workflowId, seq: checkpointGuardSeq,
+          type: 'checkpoint_created', workflowId, checkpointSeq: checkpointGuardSeq,
           ref: checkpoint.ref, label: checkpoint.label, ts: checkpoint.ts, fileCount: checkpoint.fileCount,
           ...(checkpoint.skippedLargeFiles ? { skippedLargeFiles: checkpoint.skippedLargeFiles } : {}),
         });

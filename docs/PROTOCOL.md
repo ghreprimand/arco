@@ -1954,7 +1954,7 @@ Emitted once per checkpoint. Persisted to `events.jsonl` so HISTORY/Activity ren
 {
   type: 'checkpoint_created',
   workflowId: string,
-  seq: number,          // the workflow event seq this checkpoint guards; also the ref suffix
+  checkpointSeq?: number,  // the workflow event seq this checkpoint guards; also the ref suffix (absent before 0.1.5: read it from ref)
   ref: string,          // refs/arco/<wfid>/<seq> (both backends; legacy events may carry <wfid>.<seq>.tar)
   label: string,        // e.g. "before turn 42"
   ts: number,

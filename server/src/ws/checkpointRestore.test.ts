@@ -14,7 +14,7 @@ installIsolatedTestHome(root);
 const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
 const closeRecall = trackRecallFixture();
 const { workflows, workflowCwds } = await import('../server/state.js');
-const { initWorkflowStore, flushAll } = await import('../workflowStore.js');
+const { initWorkflowStore, flushAll, forgetWorkflowBuffer, replayEvents } = await import('../workflowStore.js');
 const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
 const { createCheckpoint, checkpointRestoreScopes } = await import('../gitSnapshots.js');
 const { handleRevertToCheckpoint } = await import('./workflowHandlers.js');
@@ -62,6 +62,38 @@ test('idle requester cannot restore a checkout used by a busy peer', async () =>
 });
 
 function forget(id: string): void { workflows.delete(id); workflowCwds.delete(id); }
+
+test('REVERT TO HERE then more turns and a restart: every event gets a new, rising seq and shows once', async () => {
+  const f = await fixture();
+  const say = (content: string) => broadcastWorkflow(f.id, { type: 'user_message_echo', workflowId: f.id, content } as never);
+  try {
+    for (let i = 0; i < 5; i++) say(`before ${i}`);
+    await handleRevertToCheckpoint(f.ws, { type: 'revert_to_checkpoint', workflowId: f.id, seq: 1 });
+    say('after revert');
+    await flushAll();
+    // Restart: the store is primed again from disk.
+    forgetWorkflowBuffer(f.cwd, f.id);
+    await initWorkflowStore(f.cwd, f.id);
+    for (let i = 0; i < 3; i++) say(`after restart ${i}`);
+    await flushAll();
+    const lines = readFileSync(join(f.cwd, '.arco', 'workflows', f.id, 'events.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+    const seqs = lines.map((l) => l.seq as number);
+    for (let i = 1; i < seqs.length; i++) assert.ok(seqs[i] > seqs[i - 1], `seq on disk rises: ${seqs.join(',')}`);
+    const created = lines.filter((l) => l.type === 'checkpoint_created');
+    const reverted = lines.find((l) => l.type === 'checkpoint_reverted');
+    assert.equal(created.length, 1);
+    assert.equal(created[0].checkpointSeq, reverted?.safetySnapshotSeq, 'the safety snapshot keeps its checkpoint number in its own field');
+    assert.equal(reverted?.restoredSeq, 1);
+    assert.match(String(created[0].ref), new RegExp(`/${created[0].checkpointSeq}$`));
+    // The wire carried the same numbers, each once.
+    const wire = f.sent.filter((m) => typeof m.seq === 'number').map((m) => m.seq as number);
+    assert.deepEqual(wire, [...new Set(wire)]);
+    assert.deepEqual((await replayEvents(f.cwd, f.id, 0)).map((e) => (e as unknown as { seq: number }).seq), seqs);
+    // REVERT TO HERE on the safety snapshot still finds it.
+    await handleRevertToCheckpoint(f.ws, { type: 'revert_to_checkpoint', workflowId: f.id, seq: created[0].checkpointSeq as number });
+    assert.equal(readFileSync(join(f.cwd, 'file.txt'), 'utf8'), 'active work');
+  } finally { forget(f.id); }
+});
 function deferred() {
   let resolve!: () => void;
   const promise = new Promise<void>(done => { resolve = done; });

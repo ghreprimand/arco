@@ -54,10 +54,9 @@ checkpoint the operator's working tree. It is:
 
 - **Skipped when `armPlanMode` is true** (plan-mode turns are read-only until `ExitPlanMode`), for chat and isolated scratch sessions, and for an explicit Ollama allowlist containing only known read-only tools. Unknown or dynamic tools are treated as potentially mutating.
 - **Bounded pre-capture**: wait up to two seconds before starting the provider. A timeout or failure lets the turn proceed and omits its changed-files line; a late capture is never used as a baseline.
-- Followed by a `checkpoint_created { workflowId, seq, ref, label, ts, fileCount, skippedLargeFiles? }`
-  broadcast (`shared/src/protocol/checkpoints.ts`). The `seq` payload is the **guard seq** (the turn the
-  checkpoint protects, from `currentSeq()`); the broadcast itself is separately stamped a fresh
-  events.jsonl seq. `skippedLargeFiles` appears on shadow-store snapshots that excluded per-file-capped
+- Followed by a `checkpoint_created { workflowId, checkpointSeq, ref, label, ts, fileCount, skippedLargeFiles? }`
+  broadcast (`shared/src/protocol/checkpoints.ts`). `checkpointSeq` is the **guard seq** (the turn the
+  checkpoint protects, from `currentSeq()`); the event gets its own next events.jsonl `seq`. `skippedLargeFiles` appears on shadow-store snapshots that excluded per-file-capped
   files, so the marker is honest about what a revert covers.
 
 ## Invariants (do not regress)
@@ -140,17 +139,20 @@ reservation does not replace isolation through a separate worktree.
    **legacy tar reader** takes over (pre-2026-08-19 checkpoints): extract over the cwd
    (additive/overwrite), with the documented limitation that files created after the checkpoint are NOT
    removed, surfaced on `checkpoint_reverted.limitation` and in the UI. Nothing creates new tars.
-4. Emit `checkpoint_reverted { seq, restoredSeq, fileCount, safetySnapshotRef, safetySnapshotSeq, backend, limitation?, changes?, restoredRef?, ts }`.
+4. Emit `checkpoint_reverted { restoredSeq, fileCount, safetySnapshotRef, safetySnapshotSeq, backend, limitation?, changes?, restoredRef?, ts }`.
    `changes` is counted from the same scratch index just before `read-tree -u`: `write-tree` gives the
    live tree the restore covers, and `diff-tree --name-status` against the checkpoint tree counts files
    changed back (`M`/`T`), created since and removed (`D`), deleted since and restored (`A`), and the
    rest of the checkpoint as unchanged. Legacy tar restores carry no counts.
 
-**Guard-seq wire caveat.** `persistAndStampSeq` does `{ ...message, seq: <eventSeq> }`, which **overwrites**
-the guard-seq `seq` field on `checkpoint_created` / `checkpoint_reverted`. The client therefore recovers the
-guard seq from the **ref** (`refs/arco/<wfid>/<seq>` or `<wfid>.<seq>.tar`), not from `msg.seq`, see
-`client/src/utils/historyEvents.ts guardSeqFromRef`. The revert handler rebuilds the ref from the seq the
-client sends, so the round-trip is consistent.
+**Guard seq and event seq.** The guard seq travels in its own field (`checkpointSeq`, `restoredSeq`,
+`safetySnapshotSeq`); `seq` is always the event's own number, assigned by `persistAndStampSeq`, which drops
+any `seq` in the payload. Releases before 0.1.5 sent the guard seq as `seq`: on the wire it was replaced,
+but on disk it was kept, so each checkpoint record repeated a number and a revert record went back to an
+older one (see PERSISTENCE.md "Effective sequence numbers"). For those events the client recovers the guard
+seq from the **ref** (`refs/arco/<wfid>/<seq>` or `<wfid>.<seq>.tar`, `client/src/utils/historyEvents.ts
+guardSeqFromRef`). The revert handler rebuilds the ref from the seq the client sends, so the round-trip is
+consistent.
 
 **Other invariants:** revert is rejected while conflicting managed work is in flight, including a busy
 requester (`wf.busy`). execFile argv only; wfid/seq validated like A2/A3.

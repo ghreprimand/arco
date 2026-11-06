@@ -160,14 +160,12 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
     // carries the guard seq + ref so HISTORY can offer "Revert to here" and
     // "View diff vs now" (which open a ref-vs-WORKTREE diff).
     //
-    // NOTE: the message's own `seq` field is CLOBBERED on the wire by the
-    // broadcast's seq-stamp (`{...message, seq: <eventSeq>}` in
-    // persistAndStampSeq), so we CANNOT read the guard seq off `msg.seq`. The
-    // guard seq is recovered from the ref's trailing path segment
-    // (`refs/arco/<wfid>/<guardSeq>`), which is never overwritten — that is
-    // the value the server's revert handler needs to rebuild the ref.
+    // `seq` is the event's own number. The guard seq (the value the server's
+    // revert handler needs to rebuild the ref) is `checkpointSeq`; events
+    // written before 0.1.5 lack it, so it is recovered from the ref's trailing
+    // path segment (`refs/arco/<wfid>/<guardSeq>`).
     case 'checkpoint_created': {
-      const guardSeq = guardSeqFromRef(msg.ref);
+      const guardSeq = typeof msg.checkpointSeq === 'number' ? msg.checkpointSeq : guardSeqFromRef(msg.ref);
       return {
         seq,
         category: 'checkpoint',

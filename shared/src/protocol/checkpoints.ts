@@ -15,8 +15,11 @@ export interface CheckpointCreatedMessage {
   workflowId: string;
   // The workflow event seq this checkpoint was taken against (the turn it
   // guards). Doubles as the unique suffix of the git ref / tar filename, so
-  // a given turn maps deterministically to one checkpoint.
-  seq: number;
+  // a given turn maps deterministically to one checkpoint. The event itself
+  // gets its own next `seq` from the log. Events written before 0.1.5 lack
+  // this field (their `seq` on disk was the checkpoint's); readers recover it
+  // from `ref`.
+  checkpointSeq?: number;
   // Git ref (`refs/arco/<wfid>/<seq>`) — same format on both backends. Old
   // events may carry a legacy tar name (`<wfid>.<seq>.tar`) from the pre-shadow
   // non-git fallback; guardSeqFromRef parses both.
@@ -164,11 +167,9 @@ export interface RevertToCheckpointMessage {
 export interface CheckpointRevertedMessage {
   type: 'checkpoint_reverted';
   workflowId: string;
-  // The checkpoint that was restored (its guard seq).
-  seq: number;
-  // Same value as `seq`, kept under a name that survives the event envelope
-  // (which replaces `seq` with the event sequence) so history can tell which
-  // checkpoint was restored.
+  // The checkpoint that was restored (its guard seq). The event itself gets
+  // its own next `seq` from the log; events written before 0.1.5 carried the
+  // checkpoint's number there.
   restoredSeq?: number;
   // Number of files in the restored tree.
   fileCount: number;

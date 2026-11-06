@@ -49,6 +49,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Chat history stays complete and in order after REVERT TO HERE. Before, a checkpoint record was saved with its checkpoint's number instead of the next one, so after a revert and a restart new events reused numbers already in the log: older and newer rows interleaved, some new rows were missing after a reload, and a later log compression could set part of the history aside. Logs saved this way are read in file order with each row once; nothing on disk is rewritten.
 - View in Outputs on an artifact preview opens Outputs in the Narrow layout too. Before, it closed the preview and nothing opened, because the side panel there is a strip of buttons until one is clicked.
 - The OUTPUT STYLE text under CONFIG no longer runs words together before the style names.
 - Cursor tabs run the model chosen in Arco. Before, `cursor-agent acp` ignored the model passed at start, so a tab could run, and bill, the model saved as the Cursor CLI's default. Arco now selects the model on every new and resumed session and confirms it. Cursor runs each model only with the settings saved for it in the Cursor CLI, so when the chosen variant (for example Grok 4.7 Medium) differs, a notice names both models and the model chip shows the one in use. Choosing a Cursor model also makes it the Cursor CLI's default. Chats on Auto now run Auto instead of the CLI's default model.

@@ -24,7 +24,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import {
   LOG_FORMAT, firstSealedSeq, readLogFormat, readLogLines, readLogTail, sealLiveLog,
-  sealThresholdBytes, highestNamedSeq, type SealResult,
+  sealThresholdBytes, highestNamedSeq, lineSeq, listSegments, type SealResult,
 } from './eventLog.js';
 import type { ServerMessage } from '@arco/shared';
 
@@ -112,6 +112,75 @@ async function readLatestSeq(filePath: string): Promise<number> {
   }
 }
 
+// Effective sequence numbers. Releases before 0.1.5 wrote a checkpoint
+// record with its checkpoint's number instead of the next one, so a log can
+// repeat a number (every checkpoint) or go back to an older one (REVERT TO
+// HERE), and a restart right after such a record continued numbering from it,
+// reusing numbers already in the log. Nothing on disk is rewritten: readers
+// give every record, in file order, the effective number max(own, previous
+// effective + 1). A log in order keeps its numbers.
+type SeqStep = (raw: number) => { seq: number; parent: number | undefined };
+function seqStepper(prev = 0): SeqStep {
+  return (raw) => {
+    const parent = prev > 0 ? prev : undefined;
+    const seq = raw > prev ? raw : prev + 1;
+    prev = seq;
+    return { seq, parent };
+  };
+}
+// Rewrites a parsed record to its effective number (and its predecessor) when
+// the two differ.
+function applyStep(entry: { seq?: unknown; parentEventSeq?: unknown }, step: { seq: number; parent: number | undefined }): void {
+  if (entry.seq === step.seq) return;
+  entry.seq = step.seq;
+  if (step.parent !== undefined) entry.parentEventSeq = step.parent;
+  else delete entry.parentEventSeq;
+}
+
+// Per conversation folder: the last effective number, and whether effective
+// numbers differ from the written ones past a record the log already held
+// (`drift`). Without drift, a reader may start partway through (a tail, or
+// after the sealed segments it skips) and still get the same numbers as a
+// full read; with drift, readers read the whole history. Numbers written by
+// this release always follow the last effective one, so they never add drift.
+interface SeqScan { effEnd: number; drift: boolean }
+const seqScans = new Map<string, SeqScan>();
+async function scanSeqs(dir: string): Promise<SeqScan> {
+  const step = seqStepper();
+  let effEnd = 0, maxRaw = 0, drift = false;
+  for await (const line of readLogLines(dir)) {
+    const raw = lineSeq(line);
+    if (raw === null) continue;
+    const { seq } = step(raw);
+    if (raw < maxRaw || (raw > maxRaw && seq !== raw)) drift = true;
+    if (raw > maxRaw) maxRaw = raw;
+    effEnd = seq;
+  }
+  const scan = { effEnd, drift };
+  if (seqScans.size > 4096) seqScans.clear();
+  seqScans.set(dir, scan);
+  return scan;
+}
+async function historyDrift(dir: string): Promise<boolean> {
+  return (seqScans.get(dir) ?? await scanSeqs(dir)).drift;
+}
+
+// Every record line with its effective number, from `fromSeq` on (records at
+// or below it are still yielded; callers filter on the effective number).
+async function* effectiveLines(dir: string, fromSeq = 0): AsyncGenerator<{ line: string; raw: number | null; step?: { seq: number; parent: number | undefined } }> {
+  let start = 0;
+  if (fromSeq > 0 && !(await historyDrift(dir))) {
+    // Whole segments below fromSeq are skipped by readLogLines; the effective
+    // numbers carry on from the highest number they hold.
+    for (const seg of await listSegments(dir)) if (seg.lastSeq < fromSeq) start = Math.max(start, seg.lastSeq);
+  } else fromSeq = 0;
+  const step = seqStepper(start);
+  for await (const line of readLogLines(dir, { fromSeq })) {
+    const raw = lineSeq(line);
+    yield raw === null ? { line, raw } : { line, raw, step: step(raw) };
+  }
+}
+
 // Prime the in-memory buffer for a workflow. Must be called (and awaited)
 // before the first persistAndStampSeq for the pair. Idempotent: repeated
 // calls are cheap no-ops once initialized, and concurrent calls share one
@@ -149,7 +218,10 @@ async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
     // A live file that holds no record (all of it sealed) falls back to the
     // highest sequence number any segment name has claimed, damaged ones moved
     // aside included, so no number is ever reused.
-    buf.seq = Math.max(await readLatestSeq(eventsPath(cwd, wfid)), await highestNamedSeq(workflowDir(cwd, wfid)));
+    // Continue after the last effective number, so a log written by an older
+    // release never gets a number again that it already holds.
+    const scan = await scanSeqs(workflowDir(cwd, wfid));
+    buf.seq = Math.max(scan.effEnd, await readLatestSeq(eventsPath(cwd, wfid)), await highestNamedSeq(workflowDir(cwd, wfid)));
   } catch (err) {
     console.error(`[arco] workflowStore init failed for ${wfid.slice(0, 8)}:`, err);
     buf.seq = 0;
@@ -199,8 +271,13 @@ export function persistAndStampSeq(
   // `parentEventSeq` individually, but the wire convention (see protocol.ts
   // WorkflowEvent + ServerMessage comment) adds them to every workflow-scoped
   // broadcast. Client reads via an inline cast on the receive path.
+  // The log assigns the number. A `seq` or `parentEventSeq` in the payload
+  // (a re-sent event, or a field named like the envelope) never replaces it;
+  // releases before 0.1.5 let a checkpoint's own number through to disk.
+  const { seq: _payloadSeq, parentEventSeq: _payloadParent, ...body } = message as ServerMessage & { seq?: unknown; parentEventSeq?: unknown };
+  void _payloadSeq; void _payloadParent;
   const stamped = {
-    ...message,
+    ...body,
     seq,
     ...(parentEventSeq !== undefined ? { parentEventSeq } : {}),
   } as unknown as ServerMessage;
@@ -210,7 +287,7 @@ export function persistAndStampSeq(
     seq,
     ts,
     ...(parentEventSeq !== undefined ? { parentEventSeq } : {}),
-    ...message,
+    ...body,
   }) + '\n';
   buf.pending.push(line);
   buf.pendingBytes += line.length;
@@ -416,15 +493,16 @@ export async function replayEventsWithTs(
     await flushBuffer(buf);
   }
   const out: Array<{ ts: number; message: ServerMessage }> = [];
-  for await (const line of readLogLines(workflowDir(cwd, wfid), { fromSeq })) {
-    if (!line.trim()) continue;
+  for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid), fromSeq)) {
+    if (!step || step.seq <= fromSeq) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {
       entry = JSON.parse(line);
     } catch {
       continue;
     }
-    if (typeof entry.seq !== 'number' || entry.seq <= fromSeq) continue;
+    if (typeof entry.seq !== 'number') continue;
+    applyStep(entry, step);
     const ts = typeof entry.ts === 'number' ? entry.ts : 0;
     const { ts: _ts, ...rest } = entry;
     void _ts;
@@ -452,15 +530,16 @@ export async function replayEvents(
     await flushBuffer(buf);
   }
   const out: ServerMessage[] = [];
-  for await (const line of readLogLines(workflowDir(cwd, wfid), { fromSeq })) {
-    if (!line.trim()) continue;
+  for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid), fromSeq)) {
+    if (!step || step.seq <= fromSeq) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {
       entry = JSON.parse(line);
     } catch {
       continue;
     }
-    if (typeof entry.seq !== 'number' || entry.seq <= fromSeq) continue;
+    if (typeof entry.seq !== 'number') continue;
+    applyStep(entry, step);
     const { ts: _ts, ...rest } = entry;
     // `rest` carries seq + original message fields — the wire shape the
     // client expects from a live broadcast. Cast through unknown because
@@ -489,12 +568,18 @@ export async function replayTailEvents(
     await flushBuffer(buf);
   }
   // Live tail, plus the newest sealed segments when the live file is short.
+  // A log whose effective numbers drift (see scanSeqs) is read whole, so the
+  // numbers match every other reader's.
   const tail = await readLogTail(workflowDir(cwd, wfid), maxBytes);
-  if (!tail.truncated) return { events: await replayEvents(cwd, wfid, 0), truncated: false };
+  if (!tail.truncated || await historyDrift(workflowDir(cwd, wfid))) return { events: await replayEvents(cwd, wfid, 0), truncated: false };
   // The first line is almost certainly cut mid-record (and may start mid
   // UTF-8 sequence) — drop it.
   const lines = tail.text.split('\n').slice(1);
   const parsed: Array<{ type?: string; [k: string]: unknown }> = [];
+  // Without drift, the first record of the tail that is higher than every one
+  // before it in the tail keeps its number; repeated numbers after it are
+  // renumbered as a full read would.
+  let step: SeqStep | null = null;
   for (const line of lines) {
     if (!line.trim()) continue;
     let entry: { seq?: number; ts?: number; type?: string; [k: string]: unknown };
@@ -504,6 +589,8 @@ export async function replayTailEvents(
       continue;
     }
     if (typeof entry.seq !== 'number') continue;
+    if (!step) step = seqStepper(entry.seq - 1);
+    applyStep(entry, step(entry.seq));
     const { ts: _ts, ...rest } = entry;
     void _ts;
     parsed.push(rest);
@@ -534,8 +621,8 @@ export async function scanEventsOfTypes(
   const needles = types.map((t) => `"${t}"`);
   const out: ServerMessage[] = [];
   {
-    for await (const line of readLogLines(workflowDir(cwd, wfid))) {
-      if (!needles.some((n) => line.includes(n))) continue;
+    for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid))) {
+      if (!step || !needles.some((n) => line.includes(n))) continue;
       let entry: { seq?: number; ts?: number; type?: string; [k: string]: unknown };
       try {
         entry = JSON.parse(line);
@@ -543,6 +630,7 @@ export async function scanEventsOfTypes(
         continue;
       }
       if (typeof entry.seq !== 'number' || !entry.type || !types.includes(entry.type)) continue;
+      applyStep(entry, step);
       const { ts: _ts, ...rest } = entry;
       void _ts;
       const event = rest as unknown as ServerMessage;
@@ -570,8 +658,9 @@ export async function readEventsPageBefore(
     await flushBuffer(buf);
   }
   const parsed: ServerMessage[] = [];
-  for await (const line of readLogLines(workflowDir(cwd, wfid))) {
-    if (!line.trim()) continue;
+  for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid))) {
+    if (!step) continue;
+    if (Number.isFinite(beforeSeq) && step.seq >= beforeSeq) continue;
     let entry: { seq?: number; ts?: number; [k: string]: unknown };
     try {
       entry = JSON.parse(line);
@@ -579,7 +668,7 @@ export async function readEventsPageBefore(
       continue;
     }
     if (typeof entry.seq !== 'number') continue;
-    if (Number.isFinite(beforeSeq) && entry.seq >= beforeSeq) continue;
+    applyStep(entry, step);
     const { ts, ...rest } = entry;
     parsed.push({
       ...rest,

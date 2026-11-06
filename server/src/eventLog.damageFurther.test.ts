@@ -42,7 +42,7 @@ async function folder(): Promise<{ cwd: string; dir: string }> {
 }
 
 async function history(cwd: string): Promise<number[]> {
-  return (await replayEvents(cwd, 'damage-1', 0)).map((event) => (event as { seq: number }).seq);
+  return (await replayEvents(cwd, 'damage-1', 0)).map((event) => (event as unknown as { seq: number }).seq);
 }
 
 test('a damaged middle segment is moved aside while a reader holds it, and a later seal does not change the history', async () => {
