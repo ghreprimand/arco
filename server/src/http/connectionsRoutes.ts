@@ -27,7 +27,7 @@ export async function tryHandleConnectionsRoutes(req: IncomingMessage, res: Serv
   if(req.method!=='GET')return reply(405,{error:'method not allowed'});
   try {
     const shell=commandShell();
-    return reply(200,{...await readConnectionCatalog(),...(shell.ok?{}:{commandShellProblem:shell.problem})});
+    return reply(200,{...await readConnectionCatalog(),...(shell.ok?(shell.notice?{commandShellNotice:shell.notice}:{}):{commandShellProblem:shell.problem})});
   }
   catch {return reply(503,{error:'Connection setup details are unavailable. Retry or open provider settings.'});}
 }

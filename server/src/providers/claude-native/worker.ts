@@ -1840,10 +1840,15 @@ export class ClaudeNativeWorker extends EventEmitter {
     return { byEvent: found.byEvent };
   }
 
-  // A hook that did not run (no Git Bash on Windows, or it could not start)
-  // lets the action go ahead; the operator sees why once per reason.
-  private reportHooksNotRun<T extends { notRun?: string; command?: string }>(event: string, results: T[]): T[] {
+  // A hook that did not run (no shell, or it could not start) lets the action
+  // go ahead; the operator sees why once per reason. A hook that ran in
+  // PowerShell because Git Bash is missing gets one information notice.
+  private reportHooksNotRun<T extends { notRun?: string; command?: string; shellNotice?: string }>(event: string, results: T[]): T[] {
     for (const r of results) {
+      if (r.shellNotice && !this.hooksNotRunReported.has(r.shellNotice)) {
+        this.hooksNotRunReported.add(r.shellNotice);
+        this.emit('system_notice', `[HOOKS] ${r.shellNotice}`);
+      }
       if (!r.notRun || this.hooksNotRunReported.has(r.notRun)) continue;
       this.hooksNotRunReported.add(r.notRun);
       this.emit('system_notice', `[HOOKS] A ${event} hook did not run, so the action went ahead. ${r.notRun}${r.command ? ` Hook: ${r.command.slice(0, 200)}` : ''}`);

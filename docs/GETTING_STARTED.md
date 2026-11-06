@@ -110,9 +110,11 @@ In Docker, folders must be mounted before they can be selected.
   Native hooks run in its Git Bash, as in Claude Code. Arco finds it through
   `CLAUDE_CODE_GIT_BASH_PATH`, the Git install that `git` on `PATH` belongs to,
   or the standard install folders. It never uses the WSL `bash.exe` in the
-  Windows system folder. Without Git Bash the Bash tool reports what is missing,
-  hooks are skipped with a notice instead of blocking, and Connections > Claude
-  says so.
+  Windows system folder. Without Git Bash they run in PowerShell, as in Claude
+  Code: the Bash tool tells the model to write PowerShell, and Connections >
+  Claude shows a notice with how to get Git Bash. Hooks written for bash need
+  Git Bash; a hook can also name its shell with `"shell"` or skip the shell
+  with `"args"`.
 
 Provider requests are sent to the provider selected for a turn. API-key providers
 may bill according to their own terms. Arco does not submit a chat request until

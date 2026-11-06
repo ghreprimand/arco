@@ -17,7 +17,9 @@ export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null 
     ids.add(p.id);
   }
   if (ids.size !== IDS.length) return null;
-  return b.commandShellProblem === undefined || typeof b.commandShellProblem === 'string' ? b : { ...b, commandShellProblem: undefined };
+  const text = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  if ((b.commandShellProblem === undefined || typeof b.commandShellProblem === 'string') && (b.commandShellNotice === undefined || typeof b.commandShellNotice === 'string')) return b;
+  return { ...b, commandShellProblem: text(b.commandShellProblem), commandShellNotice: text(b.commandShellNotice) };
 }
 export function parseConnectionStatus(ok: boolean, body: unknown): AuthStatusByProvider | null {
   if (!ok || !body || typeof body !== 'object' || Array.isArray(body)) return null;

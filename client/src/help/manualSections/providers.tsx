@@ -176,10 +176,18 @@ export const providers: Section[] = [
   </p>
   <p>
   Hooks and the Bash tool run in <Code>/bin/sh</Code> on Linux and macOS and
-  in Git Bash on Windows, as in Claude Code. Without Git Bash, a hook is
-  skipped with one notice and the action goes ahead; the Bash tool reports
-  what is missing. Install Git for Windows, or set{' '}
-  <Code>CLAUDE_CODE_GIT_BASH_PATH</Code> to its <Code>bash.exe</Code>.
+  in Git Bash on Windows, as in Claude Code. Without Git Bash they run in
+  PowerShell: the Bash tool tells the model to write PowerShell, and the tab
+  shows one notice. Install Git for Windows, or set{' '}
+  <Code>CLAUDE_CODE_GIT_BASH_PATH</Code> to its <Code>bash.exe</Code>, to
+  use Git Bash.
+  </p>
+  <p>
+  A hook can name its shell with <Code>"shell": "bash"</Code> or{' '}
+  <Code>"shell": "powershell"</Code>. With <Code>"args"</Code> it starts{' '}
+  <Code>command</Code> as a program with those arguments and no shell, on
+  every system; <Code>{'${CLAUDE_PROJECT_DIR}'}</Code> is filled in. A hook
+  that cannot start is skipped with a notice and does not block.
   </p>
   <p>
   <strong>Tool postures (Native-only).</strong> A per-tab posture pill scopes
@@ -581,7 +589,7 @@ export const providers: Section[] = [
   [<Code key="g">Glob</Code>, 'Node 22 fs.promises.glob. Cwd-rooted.'],
   [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .arco. 64 KB output cap.'],
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
-  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
+  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows, PowerShell without Git Bash). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
   [<Code key="wf">WebFetch</Code>, <>Native <Code>fetch()</Code> fast path, Camoufox stealth fallback for Cloudflare-gated pages. SSRF guard blocks loopback/RFC1918.</>],
   ]}

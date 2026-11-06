@@ -74,7 +74,7 @@ function buildCommand(language: SupportedLanguage, scriptPath: string): { cmd: s
       // On Windows `bash` on PATH may be the WSL launcher; use Git Bash
       // (commandShell.ts). Elsewhere `bash` on PATH, as before.
       const shell = process.platform === 'win32' ? commandShell() : null;
-      return { cmd: shell?.ok ? shell.file : 'bash', args: [scriptPath] };
+      return { cmd: shell?.ok && shell.kind === 'git-bash' ? shell.file : 'bash', args: [scriptPath] };
     }
   }
 }
@@ -104,10 +104,12 @@ export async function executeSandboxed(
   const { cmd, args } = buildCommand(language, scriptPath);
   const startedAt = Date.now();
   if (language === 'shell' && process.platform === 'win32') {
+    // A shell script is bash, so the PowerShell fallback does not apply.
     const shell = commandShell();
-    if (!shell.ok) {
+    if (!shell.ok || shell.kind !== 'git-bash') {
+      const why = shell.ok ? 'Git Bash was not found, and shell scripts are bash scripts. Use language node or python, or install Git for Windows (https://git-scm.com/downloads/win), or set CLAUDE_CODE_GIT_BASH_PATH to its bash.exe, then restart Arco.' : shell.problem;
       try { rmSync(dirname(scriptPath), { recursive: true, force: true }); } catch { /* ignore */ }
-      return { stdout: '', stderr: `Shell scripts cannot run: ${shell.problem}`, exitCode: 127, timedOut: false, truncatedStdout: false, truncatedStderr: false, durationMs: 0 };
+      return { stdout: '', stderr: `Shell scripts cannot run: ${why}`, exitCode: 127, timedOut: false, truncatedStdout: false, truncatedStderr: false, durationMs: 0 };
     }
   }
 

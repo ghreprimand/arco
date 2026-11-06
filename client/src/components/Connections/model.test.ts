@@ -22,6 +22,10 @@ test('malformed runtime responses are rejected rather than replacing known statu
   const withShell={...catalog,commandShellProblem:'Git Bash was not found.'};
   assert.equal(parseConnectionCatalog(withShell),withShell);
   assert.equal(parseConnectionCatalog({...catalog,commandShellProblem:42})?.commandShellProblem,undefined);
+  const withNotice={...catalog,commandShellNotice:'Git Bash was not found, so shell commands and hooks run in PowerShell.'};
+  assert.equal(parseConnectionCatalog(withNotice),withNotice);
+  const junk=parseConnectionCatalog({...catalog,commandShellProblem:'Missing.',commandShellNotice:7});
+  assert.deepEqual([junk?.commandShellProblem,junk?.commandShellNotice],['Missing.',undefined]);
   for(const bad of [null,{}, {...catalog,version:2},{...catalog,providers:catalog.providers.slice(1)},{...catalog,environmentKeys:[true]}])assert.equal(parseConnectionCatalog(bad),null);
   assert.equal(parseConnectionStatus(false,{}),null);
   for (const bad of [{}, [], {error:'unavailable'}, {claude:{loggedIn:'yes'}}]) assert.equal(parseConnectionStatus(true,bad),null);

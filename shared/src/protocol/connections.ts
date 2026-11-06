@@ -24,4 +24,7 @@ export interface ConnectionCatalog {
   // Set when agent shell commands and Claude Native hooks have no shell on
   // this computer (Windows without Git Bash): what is missing and the fix.
   commandShellProblem?: string;
+  // Set on Windows when Git Bash is missing and PowerShell runs them instead:
+  // information, with how to get Git Bash.
+  commandShellNotice?: string;
 }

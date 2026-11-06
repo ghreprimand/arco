@@ -13,7 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
 import type { HookConfig } from './hooks.js';
-import { _setCommandShellForTest } from '../../commandShell.js';
+import { _powerShellFallbackForTest, _setCommandShellForTest } from '../../commandShell.js';
+import { getNativeToolDefinitions } from './tools.js';
 import { PRE_TOOL_GUARDS, firstBlockingGuard, postToolSteps, runPostToolSteps, type GuardInput, type PreToolGuard } from './toolChecks.js';
 
 type Result = { text: string; isError: boolean };
@@ -171,6 +172,40 @@ test('without a shell: hooks do not block and are reported once; the Bash tool s
     const bash = await s.call('Bash', { command: 'echo hi' });
     assert.equal(bash.isError, true);
     assert.match(bash.text, /The Bash tool cannot run: Git Bash was not found \(fixture\)\. Install Git for Windows\./);
+  } finally { _setCommandShellForTest(null); s.done(); }
+});
+
+// Windows without Git Bash, as Claude Code does: hooks and the Bash tool run in
+// PowerShell. Real on the Windows runner (Git Bash hidden from the lookup) and
+// wherever else pwsh is installed.
+const fallback = _powerShellFallbackForTest();
+test('without Git Bash: hooks and the Bash tool run in PowerShell, the model is told, one information notice', { skip: fallback ? false : 'PowerShell is not installed here' }, async () => {
+  const guard = '$in = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($in.tool_input.file_path -like "*blocked*") { [Console]::Error.WriteLine("refused in PowerShell " + $PSVersionTable.PSEdition); exit 2 }';
+  const s = setup({}, hook('PreToolUse', 'Write', guard));
+  const notices: string[] = [];
+  s.w.on('system_notice', (n) => notices.push(n));
+  _setCommandShellForTest(fallback);
+  try {
+    const ok = await s.call('Write', { file_path: join(s.cwd, 'a.txt'), content: 'x' });
+    assert.equal(ok.isError, false, ok.text);
+    const refused = await s.call('Write', { file_path: join(s.cwd, 'blocked.txt'), content: 'x' });
+    assert.equal(refused.isError, true);
+    assert.match(refused.text, /refused in PowerShell (Core|Desktop)/);
+    assert.equal(existsSync(join(s.cwd, 'blocked.txt')), false);
+    assert.deepEqual(notices, [`[HOOKS] ${fallback?.ok ? fallback.notice : ''}`], 'information, once');
+
+    const bash = getNativeToolDefinitions().find((d) => d.name === 'Bash');
+    assert.match(bash?.description ?? '', /via PowerShell, because Git Bash was not found on this Windows computer\. Write PowerShell commands, not bash or sh syntax\./);
+    const ps = await s.call('Bash', { command: 'Write-Output "edition $($PSVersionTable.PSEdition)"; exit 3' });
+    assert.match(ps.text, /exit code: 3/);
+    assert.match(ps.text, /edition (Core|Desktop)/);
+    // A failing program's exit code is the command's, as in sh.
+    const native = await s.call('Bash', { command: '& node -e "process.exit(5)"' });
+    assert.match(native.text, /exit code: 5/);
+    const started = Date.now();
+    const slow = await s.call('Bash', { command: 'Start-Sleep -Seconds 30', timeout: 1000 });
+    assert.match(slow.text, /^\[timed out after 1000ms\]/);
+    assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
   } finally { _setCommandShellForTest(null); s.done(); }
 });
 

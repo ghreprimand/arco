@@ -14,10 +14,19 @@
 // `timeout` field. SIGTERM then SIGKILL after 2s grace (on Windows the
 // process tree ends at once through taskkill).
 //
-// The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
-// Windows, as in Claude Code. A hook that cannot start (no Git Bash, or a
-// spawn error) does not run and does not block: its result carries `notRun`
-// with the reason, and the worker shows a notice.
+// How a command hook runs, as in Claude Code:
+// - Exec form (`args` set): `command` is started directly with `args` as its
+//   arguments, no shell, on every OS. ${CLAUDE_PROJECT_DIR} in `command` and
+//   in each argument is replaced by the project folder as plain text.
+// - Shell form (no `args`): the shell is the hook's `shell` field ("bash" or
+//   "powershell") when set, else commandShell(): /bin/sh on Linux and macOS,
+//   Git Bash on Windows, PowerShell on Windows without Git Bash. In a
+//   PowerShell command the ${CLAUDE_PROJECT_DIR}, ${CLAUDE_PLUGIN_ROOT} and
+//   ${CLAUDE_PLUGIN_DATA} placeholders become ${env:NAME}.
+// A hook that cannot start (no shell, or a spawn error) does not run and does
+// not block: its result carries `notRun` with the reason, and the worker shows
+// a notice. A hook run in PowerShell only because Git Bash is missing carries
+// `shellNotice`, shown once as information.
 //
 // CLAUDE_PROJECT_DIR is set to cfg.cwd; the per-event JSON payload is
 // passed on stdin. Subprocess inherits the worker's env minus
@@ -29,7 +38,7 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import type { ShellRegistry } from './tools.js';
-import { commandShell, commandShellArgs } from '../../commandShell.js';
+import { hookShell, shellInvocation } from '../../commandShell.js';
 import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 
 export type HookEvent =
@@ -43,11 +52,15 @@ export type HookEvent =
 
 export interface HookSpec {
   matcher?: string; // glob-like; for PreToolUse/PostToolUse this matches tool name
-  hooks: Array<{
-    type: 'command';
-    command: string;
-    timeout?: number; // seconds, per Claude Code's documented field
-  }>;
+  hooks: HookCommand[];
+}
+
+export interface HookCommand {
+  type: 'command';
+  command: string;
+  timeout?: number; // seconds, per Claude Code's documented field
+  args?: string[]; // exec form: `command` is the program, no shell
+  shell?: 'bash' | 'powershell'; // shell form only; ignored with `args`
 }
 
 interface HookSettings {
@@ -163,6 +176,9 @@ export interface HookFireResult {
   // Set when the hook did not run (no shell, or it could not start). Such a
   // result never blocks; the text says why, for the operator's notice.
   notRun?: string;
+  // Set when the hook ran in PowerShell only because Git Bash is missing on
+  // Windows: information for the operator, not an error.
+  shellNotice?: string;
 }
 
 // docs/PROVIDERS.md - Claude Code's documented hook stdout shape.
@@ -217,21 +233,67 @@ export function parseHookOutput(stdout: string): ParsedHookOutput {
   return out;
 }
 
+const POWERSHELL_PLACEHOLDER = /\$\{(CLAUDE_PROJECT_DIR|CLAUDE_PLUGIN_ROOT|CLAUDE_PLUGIN_DATA)\}/g;
+
+/** Claude Code's rewrite of path placeholders in a PowerShell shell-form command. */
+export function powerShellPlaceholders(command: string): string {
+  return command.replace(POWERSHELL_PLACEHOLDER, '${env:$1}');
+}
+
+type HookLaunch =
+  | { ok: true; file: string; args: string[]; cleanup: () => void; exec: boolean; shellNotice?: string }
+  | { ok: false; problem: string };
+
+/** What to start for a hook: exec form when `args` is set, else its shell. */
+export function hookLaunch(hook: HookCommand, projectDir: string): HookLaunch {
+  if (hook.args !== undefined) {
+    if (!Array.isArray(hook.args) || !hook.args.every((a) => typeof a === 'string')) {
+      return { ok: false, problem: 'The hook\'s "args" must be a list of strings.' };
+    }
+    const fill = (v: string): string => v.split('${CLAUDE_PROJECT_DIR}').join(projectDir);
+    return { ok: true, file: fill(hook.command), args: hook.args.map(fill), cleanup: () => {}, exec: true };
+  }
+  const requested = hook.shell === 'bash' || hook.shell === 'powershell' ? hook.shell : undefined;
+  const shell = hookShell(requested);
+  if (!shell.ok) return { ok: false, problem: shell.problem };
+  const command = shell.kind === 'powershell' ? powerShellPlaceholders(hook.command) : hook.command;
+  return { ok: true, ...shellInvocation(shell, command), exec: false, ...(shell.notice ? { shellNotice: shell.notice } : {}) };
+}
+
+function startFailure(err: Error, launch: { file: string; exec: boolean }): string {
+  const code = (err as NodeJS.ErrnoException).code;
+  if (launch.exec && code === 'ENOENT' && !/[\\/]/.test(launch.file) && /\s/.test(launch.file)) {
+    return `The hook could not start: ${err.message}. With "args" set, "command" is only the program; move its arguments into "args".`;
+  }
+  if (launch.exec && process.platform === 'win32' && (code === 'EINVAL' || /\.(cmd|bat)$/i.test(launch.file))) {
+    return `The hook could not start: ${err.message}. In exec form on Windows, "command" must be a real program such as node.exe; run a .cmd or .bat file in shell form instead.`;
+  }
+  return `The hook could not start: ${err.message}`;
+}
+
 async function runHookOnce(
-  command: string,
+  hook: HookCommand,
   payload: unknown,
   timeoutMs: number,
   opts: RunOpts,
 ): Promise<HookFireResult> {
-  const shell = commandShell();
-  if (!shell.ok) return Promise.resolve({ exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: shell.problem });
+  const launch = hookLaunch(hook, opts.cwd);
+  if (!launch.ok) return { exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: launch.problem };
+  const shellNotice = launch.shellNotice;
   return new Promise<HookFireResult>((resolveResult) => {
-    const child = spawn(shell.file, commandShellArgs(command), {
-      cwd: opts.cwd,
-      env: { ...scrubEnv(), CLAUDE_PROJECT_DIR: opts.cwd },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      ...shellChildSpawnOptions(),
-    });
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(launch.file, launch.args, {
+        cwd: opts.cwd,
+        env: { ...scrubEnv(), CLAUDE_PROJECT_DIR: opts.cwd },
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...shellChildSpawnOptions(),
+      });
+    } catch (err) {
+      launch.cleanup();
+      resolveResult({ exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: startFailure(err as Error, launch) });
+      return;
+    }
     let stdout = '';
     let stderr = '';
     let timedOut = false;
@@ -258,16 +320,18 @@ async function runHookOnce(
       if (killTimer) clearTimeout(killTimer);
       opts.abortSignal.removeEventListener('abort', onAbort);
       opts.shells.byId.delete(shellId);
+      launch.cleanup();
       // The hook could not start, so it did not run and does not block.
-      resolveResult({ exitCode: 0, stdout, stderr, timedOut: false, notRun: `The hook could not start: ${err.message}` });
+      resolveResult({ exitCode: 0, stdout, stderr, timedOut: false, notRun: startFailure(err, launch) });
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
       opts.abortSignal.removeEventListener('abort', onAbort);
       opts.shells.byId.delete(shellId);
+      launch.cleanup();
       const exitCode = code === null ? (signal === 'SIGKILL' || signal === 'SIGTERM' ? 137 : 1) : code;
-      resolveResult({ exitCode, stdout, stderr, timedOut });
+      resolveResult({ exitCode, stdout, stderr, timedOut, ...(shellNotice ? { shellNotice } : {}) });
     });
 
     // A hook may exit without reading its input (`exit 2` to block). Writing
@@ -300,7 +364,7 @@ export async function fireHooks(
     for (const hook of spec.hooks) {
       if (hook.type !== 'command' || !hook.command) continue;
       const timeoutMs = (hook.timeout ?? DEFAULT_TIMEOUT_MS / 1000) * 1000;
-      const result = await runHookOnce(hook.command, payload, timeoutMs, opts);
+      const result = await runHookOnce(hook, payload, timeoutMs, opts);
       results.push({ ...result, command: hook.command });
     }
   }

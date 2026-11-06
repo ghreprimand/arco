@@ -185,6 +185,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
             </>}
             {transport==='cli' && <button type="button" data-testid="claude-use-native" disabled={usingCli} onClick={()=>void setTransport('native')}>Use Native (default) instead</button>}
             {catalog.commandShellProblem && <p role="note" data-testid="claude-native-shell" data-help="connections.command-shell">Shell commands and hooks: {catalog.commandShellProblem} Until then the Bash tool reports this error and configured hooks are skipped with a notice.</p>}
+            {!catalog.commandShellProblem && catalog.commandShellNotice && <p role="note" data-testid="claude-native-shell-powershell" data-help="connections.command-shell">Shell commands and hooks: {catalog.commandShellNotice}</p>}
             <NativeLoginControls key={nativeLogin.session?.flow?.id} login={nativeLogin} />
             <button type="button" onClick={()=>advanced('claude-signin')}>Open Claude sign-in settings</button>
           </div>}

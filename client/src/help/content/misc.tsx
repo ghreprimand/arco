@@ -753,11 +753,13 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Shown on Windows when Git Bash was not found. The Bash tool and Claude
-        Native hooks run in Git Bash, as in Claude Code. Until it is found, the
-        Bash tool returns this message and a configured hook is skipped with a
-        notice in the tab, so the action goes ahead instead of being refused.
-        Install Git for Windows, or set <C>CLAUDE_CODE_GIT_BASH_PATH</C> to its{' '}
-        <C>bash.exe</C>, then restart Arco.
+        Native hooks run in Git Bash, as in Claude Code, and in PowerShell
+        without it: the Bash tool then tells the model to write PowerShell.
+        Only when PowerShell is missing too does the Bash tool return this
+        message and a configured hook is skipped with a notice, so the action
+        goes ahead. To use Git Bash, install Git for Windows, or set{' '}
+        <C>CLAUDE_CODE_GIT_BASH_PATH</C> to its <C>bash.exe</C>, then restart
+        Arco.
       </p>
     ),
   },

@@ -12,8 +12,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
-import { _setCommandShellForTest } from '../../commandShell.js';
+import { fireHooks, firstBlocking, hookLaunch, parseHookOutput, powerShellPlaceholders, type HookCommand, type HookConfig } from './hooks.js';
+import { _setCommandShellForTest, findPowerShell } from '../../commandShell.js';
 
 test('non-JSON / empty stdout → empty object (never throws)', () => {
   assert.deepEqual(parseHookOutput(''), {});
@@ -132,4 +132,66 @@ test('a hook that cannot start does not run and does not block', async () => {
     assert.match(noCwd.notRun ?? '', /^The hook could not start: /);
     assert.equal(firstBlocking([noCwd]), null);
   } finally { _setCommandShellForTest(null); rmSync(cwd, { recursive: true, force: true }); }
+});
+
+const withHook = (h: HookCommand): HookConfig => ({ byEvent: { PreToolUse: [{ matcher: 'Bash', hooks: [h] }] } });
+
+// Exec form runs for real on every platform: no shell, so nothing in the
+// arguments is interpreted, and "shell" is ignored.
+test('exec form: the program starts with its arguments as written, ${CLAUDE_PROJECT_DIR} filled in, no shell', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-exec-'));
+  const script = "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const i=JSON.parse(d);process.stdout.write(JSON.stringify(process.argv.slice(1)));if(i.tool_input.command.includes('rm')){process.stderr.write('exec refused');process.exit(2)}})";
+  const odd = "it's $HOME `id` & | ; %PATH% \"q\"";
+  try {
+    const h: HookCommand = { type: 'command', command: 'node', args: ['-e', script, '${CLAUDE_PROJECT_DIR}/x', odd], shell: 'powershell' };
+    const [blocked] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
+    assert.equal(blocked.notRun, undefined, blocked.notRun);
+    assert.deepEqual(JSON.parse(blocked.stdout), [`${cwd}/x`, odd]);
+    assert.deepEqual([blocked.exitCode, blocked.stderr, firstBlocking([blocked])], [2, 'exec refused', blocked]);
+    const [fine] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'ls' } }, runOpts(cwd));
+    assert.deepEqual([fine.exitCode, firstBlocking([fine])], [0, null]);
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('exec form: a program that cannot start does not block and says why', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-exec-missing-'));
+  try {
+    const [spaced] = await fireHooks(withHook({ type: 'command', command: 'node script.js', args: [] }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.match(spaced.notRun ?? '', /^The hook could not start: .*With "args" set, "command" is only the program; move its arguments into "args"\.$/);
+    assert.equal(firstBlocking([spaced]), null);
+    const [bad] = await fireHooks(withHook({ type: 'command', command: 'node', args: ['-e', 1] as unknown as string[] }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.equal(bad.notRun, 'The hook\'s "args" must be a list of strings.');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('shell form in PowerShell: placeholders become ${env:NAME}, the command is encoded, and the fallback notice rides along', () => {
+  assert.equal(powerShellPlaceholders('& "${CLAUDE_PROJECT_DIR}\\a.ps1" ${CLAUDE_PLUGIN_ROOT} ${CLAUDE_PLUGIN_DATA} $env:X ${OTHER}'), '& "${env:CLAUDE_PROJECT_DIR}\\a.ps1" ${env:CLAUDE_PLUGIN_ROOT} ${env:CLAUDE_PLUGIN_DATA} $env:X ${OTHER}');
+  _setCommandShellForTest({ ok: true, file: 'pwsh', kind: 'powershell', notice: 'Using PowerShell (fixture).' });
+  try {
+    const launch = hookLaunch({ type: 'command', command: 'Get-Content "${CLAUDE_PROJECT_DIR}/a"' }, '/p');
+    assert.ok(launch.ok);
+    if (!launch.ok) return;
+    assert.equal(launch.file, 'pwsh');
+    assert.equal(launch.shellNotice, 'Using PowerShell (fixture).');
+    assert.match(Buffer.from(launch.args.at(-1) ?? '', 'base64').toString('utf16le'), /\nGet-Content "\$\{env:CLAUDE_PROJECT_DIR\}\/a"\n/);
+    // Exec form ignores the shell entirely.
+    const exec = hookLaunch({ type: 'command', command: '${CLAUDE_PROJECT_DIR}/bin/check', args: ['${CLAUDE_PROJECT_DIR}'] }, '/p');
+    assert.deepEqual(exec.ok && [exec.file, exec.args, exec.exec, exec.shellNotice], ['/p/bin/check', ['/p'], true, undefined]);
+  } finally { _setCommandShellForTest(null); }
+});
+
+// Runs for real wherever PowerShell is installed (every hosted CI runner).
+const powershell = findPowerShell();
+test('"shell": "powershell" runs the hook in PowerShell, reading its JSON input in UTF-8', { skip: powershell ? false : 'PowerShell is not installed here' }, async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-pwsh-'));
+  const command = '$in = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($in.tool_input.command -match "rm") { [Console]::Error.WriteLine("no rm in " + "${CLAUDE_PROJECT_DIR}"); exit 2 }; Write-Output $in.tool_input.note';
+  try {
+    const h: HookCommand = { type: 'command', shell: 'powershell', command, timeout: 60 };
+    const [blocked] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
+    assert.equal(blocked.notRun, undefined, blocked.notRun);
+    assert.deepEqual([blocked.exitCode, blocked.stderr.trim(), firstBlocking([blocked])], [2, `no rm in ${cwd}`, blocked]);
+    assert.equal(blocked.shellNotice, undefined, 'asked for by the hook, so no fallback notice');
+    const [fine] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'ls', note: 'na\u00efve \u2713' } }, runOpts(cwd));
+    assert.deepEqual([fine.exitCode, fine.stdout.trim(), firstBlocking([fine])], [0, 'na\u00efve \u2713', null], fine.stderr);
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

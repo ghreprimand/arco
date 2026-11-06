@@ -2,7 +2,7 @@
 import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { commandShell, commandShellArgs } from '../commandShell.js';
+import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
 import { shellChildSpawnOptions, signalChildTree } from '../workers/processKill.js';
 import dns from 'node:dns/promises';
 
@@ -762,8 +762,8 @@ const WebFetchTool: OllamaToolEntry = {
 
 // ── Bash ──────────────────────────────────────────────────────────────────
 
-// Run `command` under /bin/sh -c (Git Bash on Windows, see commandShell.ts)
-// with the workflow cwd. Capped output (64
+// Run `command` under /bin/sh -c (Git Bash on Windows, PowerShell on Windows
+// without Git Bash; see commandShell.ts) with the workflow cwd. Capped output (64
 // KB combined stdout+stderr), capped wall time (default 60s, hard ceiling
 // 10min), no stdin (so accidental `read` calls don't hang). The child is
 // spawned `detached:true` and killed via `process.kill(-pid, SIGKILL)` on
@@ -791,7 +791,8 @@ async function runBashCommand(
     let timedOut = false;
     let aborted = false;
 
-    const child = spawn(shell.file, commandShellArgs(command), {
+    const run = shellInvocation(shell, command);
+    const child = spawn(run.file, run.args, {
       cwd: ctx.cwd,
       env: { ...process.env },
       // ignore stdin so commands that read from stdin don't hang waiting.
@@ -799,6 +800,7 @@ async function runBashCommand(
       // Unix: session leader, so process.kill(-pid) reaches all descendants.
       ...shellChildSpawnOptions(),
     });
+    child.once('close', run.cleanup);
 
     const killTree = (): void => signalChildTree(child, 'SIGKILL');
 
@@ -879,7 +881,7 @@ const BashTool: OllamaToolEntry = {
     function: {
       name: 'Bash',
       description:
-        'Run a shell command in the workflow cwd via sh -c (Git Bash on Windows). Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
+        'Run a shell command in the workflow cwd via sh -c. Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
       parameters: {
         type: 'object',
         properties: {
@@ -1113,7 +1115,14 @@ export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mail
   return Object.values(REGISTRY)
     .filter((entry) => !entry.clusterOnly || opts?.clusterEnabled === true)
     .filter((entry) => !opts?.mailboxOnly || !entry.clusterOnly || entry.def.function.name === 'peer_send' || entry.def.function.name === 'peer_read')
-    .map((entry) => entry.def);
+    .map((entry) => (entry === BashTool ? bashToolDef(entry.def) : entry.def));
+}
+
+// The Bash tool's description names the shell it really runs in (PowerShell
+// on Windows without Git Bash, so the model does not write bash for it).
+function bashToolDef(def: OllamaToolDefinition): OllamaToolDefinition {
+  const label = shellToolLabel();
+  return label === 'sh -c' ? def : { ...def, function: { ...def.function, description: def.function.description.replace('via sh -c.', `via ${label}.`) } };
 }
 
 export function isKnownOllamaTool(name: string): boolean {

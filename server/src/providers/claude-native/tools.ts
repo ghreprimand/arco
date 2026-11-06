@@ -21,7 +21,7 @@ import { resolveWithinCwd } from '../ollamaTools.js';
 import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
 import { applyEdit } from './editApply.js';
-import { commandShell, commandShellArgs } from '../../commandShell.js';
+import { commandShell, shellInvocation, shellToolLabel } from '../../commandShell.js';
 import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 
 export const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
@@ -574,16 +574,19 @@ interface BashRegistration {
 }
 
 // The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
-// Windows. Without one the call fails with the reason and the fix.
+// Windows, PowerShell on Windows without Git Bash (the tool description tells
+// the model which). Without any the call fails with the reason and the fix.
 function spawnShell(command: string, cwd: string): BashRegistration {
   const shell = commandShell();
   if (!shell.ok) throw new Error(`The Bash tool cannot run: ${shell.problem}`);
-  const child = spawn(shell.file, commandShellArgs(command), {
+  const run = shellInvocation(shell, command);
+  const child = spawn(run.file, run.args, {
     cwd,
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
     ...shellChildSpawnOptions(),
   });
+  child.once('close', run.cleanup);
   // DD2 — terminate gracefully (SIGTERM) then escalate to SIGKILL after a grace
   // period if the tree is still alive. A flat SIGKILL gives the child no chance
   // to flush/clean up (orphaned lockfiles, half-written output); SIGTERM-first
@@ -686,7 +689,7 @@ function runBashBackground(command: string, ctx: NativeToolContext): string {
 const BashTool: Entry = {
   def: {
     name: 'Bash',
-    description: 'Run a shell command in the workflow cwd via sh -c (Git Bash on Windows). Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
+    description: 'Run a shell command in the workflow cwd via sh -c. Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
     input_schema: {
       type: 'object',
       properties: {
@@ -931,7 +934,14 @@ export function getNativeToolDefinitions(opts?: { taskDisabled?: boolean; isolat
       if (opts?.isolated && (name === 'Bash' || name === 'KillShell' || name === 'Task' || name === 'TaskOutput')) return false;
       return true;
     })
-    .map(([, e]) => e.def);
+    .map(([name, e]) => (name === 'Bash' ? bashToolDef(e.def) : e.def));
+}
+
+// The Bash tool's description names the shell it really runs in (PowerShell
+// on Windows without Git Bash, so the model does not write bash for it).
+function bashToolDef(def: ClaudeToolDef): ClaudeToolDef {
+  const label = shellToolLabel();
+  return label === 'sh -c' ? def : { ...def, description: def.description.replace('via sh -c.', `via ${label}.`) };
 }
 
 export function isKnownNativeTool(name: string): boolean {
