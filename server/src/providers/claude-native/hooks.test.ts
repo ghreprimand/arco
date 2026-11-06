@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fireHooks, parseHookOutput, type HookConfig } from './hooks.js';
+import { fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
+import { _setCommandShellForTest } from '../../commandShell.js';
 
 test('non-JSON / empty stdout → empty object (never throws)', () => {
   assert.deepEqual(parseHookOutput(''), {});
@@ -69,7 +70,7 @@ test('empty hookSpecificOutput object → no field on result', () => {
 // A hook that exits without reading its input closes the pipe while Arco is
 // still writing the payload. The EPIPE that follows must not crash the
 // server, and the hook's real exit code and output must be kept.
-test('a hook that exits before reading a large payload keeps its exit code and output', { skip: process.platform === 'win32' && 'hooks run through /bin/sh' }, async () => {
+test('a hook that exits before reading a large payload keeps its exit code and output', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-epipe-'));
   let n = 0;
   const shells = { byId: new Map<string, { kill: () => void; backgrounded: boolean }>(), mintId: () => `hook-${n++}` };
@@ -85,4 +86,50 @@ test('a hook that exits before reading a large payload keeps its exit code and o
     }
     assert.equal(shells.byId.size, 0, 'every hook left the shell registry');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+const runOpts = (cwd: string) => {
+  let n = 0;
+  const shells = { byId: new Map<string, { kill: () => void; backgrounded: boolean }>(), mintId: () => `hook-${n++}` };
+  return { cwd, abortSignal: new AbortController().signal, shells };
+};
+const preHook = (command: string, timeout?: number): HookConfig => ({ byEvent: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command, ...(timeout ? { timeout } : {}) }] }] } });
+
+// Runs for real on every platform: /bin/sh on Linux and macOS, Git Bash on Windows.
+test('a hook reads its JSON input and blocks with its own message', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-run-'));
+  try {
+    const results = await fireHooks(preHook('read -r line; case "$line" in *rm*) echo "no rm" >&2; exit 2;; esac; echo ok'), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
+    assert.equal(results[0].exitCode, 2);
+    assert.equal(results[0].stderr.trim(), 'no rm');
+    assert.equal(firstBlocking(results), results[0]);
+    const fine = await fireHooks(preHook('read -r line; echo ok'), 'PreToolUse', 'Bash', { tool_input: { command: 'ls' } }, runOpts(cwd));
+    assert.deepEqual([fine[0].exitCode, fine[0].stdout.trim(), firstBlocking(fine)], [0, 'ok', null]);
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('a hook past its timeout is ended with its whole process tree and blocks', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-timeout-'));
+  try {
+    const started = Date.now();
+    const [r] = await fireHooks(preHook('sleep 30 & sleep 30; echo late', 1), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.equal(r.timedOut, true);
+    assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
+    assert.ok(!r.stdout.includes('late'));
+    assert.equal(firstBlocking([r]), r);
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('a hook that cannot start does not run and does not block', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-notrun-'));
+  try {
+    _setCommandShellForTest({ ok: false, problem: 'Git Bash was not found (fixture).' });
+    const [missing] = await fireHooks(preHook('exit 2'), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.equal(missing.notRun, 'Git Bash was not found (fixture).');
+    assert.equal(firstBlocking([missing]), null);
+    _setCommandShellForTest(null);
+    const [noCwd] = await fireHooks(preHook('exit 2'), 'PreToolUse', 'Bash', {}, runOpts(join(cwd, 'gone')));
+    assert.match(noCwd.notRun ?? '', /^The hook could not start: /);
+    assert.equal(firstBlocking([noCwd]), null);
+  } finally { _setCommandShellForTest(null); rmSync(cwd, { recursive: true, force: true }); }
 });

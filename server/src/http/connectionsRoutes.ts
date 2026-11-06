@@ -3,6 +3,7 @@ import type { ArcoSettings } from '@arco/shared';
 import { getConnectionStatus } from '../auth.js';
 import { patchSettings } from '../settings.js';
 import { readConnectionCatalog } from '../connectionCatalog.js';
+import { commandShell } from '../commandShell.js';
 
 export async function tryHandleConnectionsRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url=new URL(req.url || '/', 'http://localhost');
@@ -24,6 +25,9 @@ export async function tryHandleConnectionsRoutes(req: IncomingMessage, res: Serv
     } catch {return reply(503,{error:'Connection check failed. Review prerequisites and retry.'});}
   }
   if(req.method!=='GET')return reply(405,{error:'method not allowed'});
-  try {return reply(200,await readConnectionCatalog());}
+  try {
+    const shell=commandShell();
+    return reply(200,{...await readConnectionCatalog(),...(shell.ok?{}:{commandShellProblem:shell.problem})});
+  }
   catch {return reply(503,{error:'Connection setup details are unavailable. Retry or open provider settings.'});}
 }

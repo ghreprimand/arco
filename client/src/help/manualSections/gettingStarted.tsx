@@ -109,7 +109,8 @@ export const gettingStarted: Section[] = [
   body: (
   <>
   <p>
-  Install Node.js 24 or 26, then install and set up Arco. A new Arco home then
+  Install Node.js 24 or 26 (on Windows also Git for Windows, for shell
+  commands and hooks), then install and set up Arco. A new Arco home then
   opens <strong>Welcome to Arco</strong>, which walks through display name,
   folders and provider connection before any model prompt.
   </p>

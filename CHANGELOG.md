@@ -40,6 +40,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- On Windows, the Bash tool and Claude Native hooks run in Git Bash, as in Claude Code, instead of failing because `/bin/sh` does not exist. Arco finds Git Bash through `CLAUDE_CODE_GIT_BASH_PATH`, the Git install of `git` on `PATH`, or the standard install folders, and never uses the WSL `bash.exe`. Before, every tool call matched by a configured hook was refused. Without Git Bash a hook is now skipped with one notice and the action goes ahead, the Bash tool says what is missing, and Connections > Claude shows it. Timeouts and cancel end the whole command tree on Windows too.
 - A Claude Native hook that exits without reading its input (for example a PreToolUse hook that only runs `exit 2`) can no longer crash the server with a broken-pipe error. The hook's exit code and output are kept, so the block still applies.
 - Menus, dropdowns, usage cards and notices stay inside the window on small screens and at a larger interface text size. One placement rule for all of them opens a menu on the other side of its button or moves it along the edge when it would run past one, and lets a menu taller than the room left scroll inside itself. Before, the provider usage cards and the PROVIDERS panel could run off the left edge, and other menus off the right or bottom edge.
 - Inline output copies use owner-only permissions on systems with POSIX permissions.

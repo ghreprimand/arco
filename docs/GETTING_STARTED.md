@@ -106,6 +106,13 @@ In Docker, folders must be mounted before they can be selected.
 
 - Node.js 24 or 26
 - One provider account or local model endpoint
+- On Windows, Git for Windows. Agent shell commands (the Bash tool) and Claude
+  Native hooks run in its Git Bash, as in Claude Code. Arco finds it through
+  `CLAUDE_CODE_GIT_BASH_PATH`, the Git install that `git` on `PATH` belongs to,
+  or the standard install folders. It never uses the WSL `bash.exe` in the
+  Windows system folder. Without Git Bash the Bash tool reports what is missing,
+  hooks are skipped with a notice instead of blocking, and Connections > Claude
+  says so.
 
 Provider requests are sent to the provider selected for a turn. API-key providers
 may bill according to their own terms. Arco does not submit a chat request until

@@ -21,4 +21,7 @@ export interface ConnectionCatalog {
   providers: ConnectionDefinition[];
   // Presence and source only. Never include a credential value or reference.
   environmentKeys: string[];
+  // Set when agent shell commands and Claude Native hooks have no shell on
+  // this computer (Windows without Git Bash): what is missing and the fix.
+  commandShellProblem?: string;
 }

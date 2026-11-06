@@ -175,6 +175,13 @@ export const providers: Section[] = [
   <Code>Notification</Code> and <Code>PreCompact</Code>.
   </p>
   <p>
+  Hooks and the Bash tool run in <Code>/bin/sh</Code> on Linux and macOS and
+  in Git Bash on Windows, as in Claude Code. Without Git Bash, a hook is
+  skipped with one notice and the action goes ahead; the Bash tool reports
+  what is missing. Install Git for Windows, or set{' '}
+  <Code>CLAUDE_CODE_GIT_BASH_PATH</Code> to its <Code>bash.exe</Code>.
+  </p>
+  <p>
   <strong>Tool postures (Native-only).</strong> A per-tab posture pill scopes
   which Arco tools the model sees:
   </p>
@@ -574,7 +581,7 @@ export const providers: Section[] = [
   [<Code key="g">Glob</Code>, 'Node 22 fs.promises.glob. Cwd-rooted.'],
   [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .arco. 64 KB output cap.'],
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
-  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd. 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
+  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
   [<Code key="wf">WebFetch</Code>, <>Native <Code>fetch()</Code> fast path, Camoufox stealth fallback for Cloudflare-gated pages. SSRF guard blocks loopback/RFC1918.</>],
   ]}

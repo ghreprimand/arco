@@ -16,7 +16,8 @@ export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null 
     if (!p || !IDS.includes(p.id) || ids.has(p.id) || !KINDS.some(k=>k.id===p.kind) || !['label','access','prerequisite','recovery','settingsSection'].every(k=>typeof p[k as keyof ConnectionDefinition]==='string')) return null;
     ids.add(p.id);
   }
-  return ids.size === IDS.length ? b : null;
+  if (ids.size !== IDS.length) return null;
+  return b.commandShellProblem === undefined || typeof b.commandShellProblem === 'string' ? b : { ...b, commandShellProblem: undefined };
 }
 export function parseConnectionStatus(ok: boolean, body: unknown): AuthStatusByProvider | null {
   if (!ok || !body || typeof body !== 'object' || Array.isArray(body)) return null;

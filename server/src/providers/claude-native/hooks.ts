@@ -11,7 +11,13 @@
 // Notification, PreCompact (documented no-op pass-through). Non-zero
 // exit blocks PreToolUse / UserPromptSubmit; other events' exit codes
 // are informational. 30s default timeout; per-hook override via
-// `timeout` field. SIGTERM then SIGKILL after 2s grace.
+// `timeout` field. SIGTERM then SIGKILL after 2s grace (on Windows the
+// process tree ends at once through taskkill).
+//
+// The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
+// Windows, as in Claude Code. A hook that cannot start (no Git Bash, or a
+// spawn error) does not run and does not block: its result carries `notRun`
+// with the reason, and the worker shows a notice.
 //
 // CLAUDE_PROJECT_DIR is set to cfg.cwd; the per-event JSON payload is
 // passed on stdin. Subprocess inherits the worker's env minus
@@ -23,6 +29,8 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import type { ShellRegistry } from './tools.js';
+import { commandShell, commandShellArgs } from '../../commandShell.js';
+import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 
 export type HookEvent =
   | 'PreToolUse'
@@ -152,6 +160,9 @@ export interface HookFireResult {
   // review can attribute a rewrite back to its origin (e.g. rtk vs. a
   // bespoke project hook).
   command?: string;
+  // Set when the hook did not run (no shell, or it could not start). Such a
+  // result never blocks; the text says why, for the operator's notice.
+  notRun?: string;
 }
 
 // docs/PROVIDERS.md - Claude Code's documented hook stdout shape.
@@ -212,23 +223,20 @@ async function runHookOnce(
   timeoutMs: number,
   opts: RunOpts,
 ): Promise<HookFireResult> {
+  const shell = commandShell();
+  if (!shell.ok) return Promise.resolve({ exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: shell.problem });
   return new Promise<HookFireResult>((resolveResult) => {
-    const child = spawn('/bin/sh', ['-c', command], {
+    const child = spawn(shell.file, commandShellArgs(command), {
       cwd: opts.cwd,
       env: { ...scrubEnv(), CLAUDE_PROJECT_DIR: opts.cwd },
       stdio: ['pipe', 'pipe', 'pipe'],
-      detached: true,
+      ...shellChildSpawnOptions(),
     });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
     let killTimer: NodeJS.Timeout | null = null;
-    const killTree = (sig: NodeJS.Signals): void => {
-      try {
-        if (child.pid) process.kill(-child.pid, sig);
-        else child.kill(sig);
-      } catch { /* gone */ }
-    };
+    const killTree = (sig: NodeJS.Signals): void => signalChildTree(child, sig);
     const timer = setTimeout(() => {
       timedOut = true;
       killTree('SIGTERM');
@@ -250,7 +258,8 @@ async function runHookOnce(
       if (killTimer) clearTimeout(killTimer);
       opts.abortSignal.removeEventListener('abort', onAbort);
       opts.shells.byId.delete(shellId);
-      resolveResult({ exitCode: 127, stdout, stderr: stderr + `\n[hook spawn error] ${err.message}`, timedOut: false });
+      // The hook could not start, so it did not run and does not block.
+      resolveResult({ exitCode: 0, stdout, stderr, timedOut: false, notRun: `The hook could not start: ${err.message}` });
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
@@ -302,6 +311,7 @@ export async function fireHooks(
 // first blocking result so the caller can surface stderr.
 export function firstBlocking(results: HookFireResult[]): HookFireResult | null {
   for (const r of results) {
+    if (r.notRun) continue;
     if (r.exitCode !== 0 || r.timedOut) return r;
   }
   return null;

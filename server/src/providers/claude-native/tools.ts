@@ -21,6 +21,8 @@ import { resolveWithinCwd } from '../ollamaTools.js';
 import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
 import { applyEdit } from './editApply.js';
+import { commandShell, commandShellArgs } from '../../commandShell.js';
+import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 
 export const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const READ_BYTE_CAP = 256 * 1024;
@@ -571,12 +573,16 @@ interface BashRegistration {
   killTree: () => void;
 }
 
+// The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
+// Windows. Without one the call fails with the reason and the fix.
 function spawnShell(command: string, cwd: string): BashRegistration {
-  const child = spawn('/bin/sh', ['-c', command], {
+  const shell = commandShell();
+  if (!shell.ok) throw new Error(`The Bash tool cannot run: ${shell.problem}`);
+  const child = spawn(shell.file, commandShellArgs(command), {
     cwd,
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
+    ...shellChildSpawnOptions(),
   });
   // DD2 — terminate gracefully (SIGTERM) then escalate to SIGKILL after a grace
   // period if the tree is still alive. A flat SIGKILL gives the child no chance
@@ -584,12 +590,7 @@ function spawnShell(command: string, cwd: string): BashRegistration {
   // matches how a shell's Ctrl-C behaves. The escalation timer is unref'd so it
   // never keeps the server process alive on its own.
   const killTree = (): void => {
-    const signalTree = (sig: NodeJS.Signals): void => {
-      try {
-        if (child.pid) process.kill(-child.pid, sig);
-        else child.kill(sig);
-      } catch { /* already gone */ }
-    };
+    const signalTree = (sig: NodeJS.Signals): void => signalChildTree(child, sig);
     signalTree('SIGTERM');
     const t = setTimeout(() => signalTree('SIGKILL'), KILL_GRACE_MS);
     if (typeof t.unref === 'function') t.unref();
@@ -685,7 +686,7 @@ function runBashBackground(command: string, ctx: NativeToolContext): string {
 const BashTool: Entry = {
   def: {
     name: 'Bash',
-    description: 'Run a shell command in the workflow cwd via /bin/sh -c. Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
+    description: 'Run a shell command in the workflow cwd via sh -c (Git Bash on Windows). Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
     input_schema: {
       type: 'object',
       properties: {

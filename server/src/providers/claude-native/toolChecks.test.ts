@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
 import type { HookConfig } from './hooks.js';
+import { _setCommandShellForTest } from '../../commandShell.js';
 import { PRE_TOOL_GUARDS, firstBlockingGuard, postToolSteps, runPostToolSteps, type GuardInput, type PreToolGuard } from './toolChecks.js';
 
 type Result = { text: string; isError: boolean };
@@ -22,6 +23,7 @@ interface Internals {
   hooks: HookConfig;
   filesEditedThisTurn: Set<string>;
   partialReadSet: Set<string>;
+  on(event: 'system_notice', listener: (notice: string) => void): unknown;
 }
 
 function setup(config: Record<string, unknown> = {}, hooks: HookConfig = { byEvent: {} }) {
@@ -139,6 +141,37 @@ test('the output filter runs before the notes and reports what it did', async ()
     await off.call('Bash', { command: 'ls' });
     assert.equal(off.events.filter((e) => e.type === 'tool_filtered').length, 0);
   } finally { off.done(); }
+});
+
+test('the Bash tool runs in the platform shell and ends the whole tree on timeout', async () => {
+  const s = setup();
+  try {
+    const ok = await s.call('Bash', { command: 'echo "hello from $0" && exit 3' });
+    assert.match(ok.text, /exit code: 3/);
+    assert.match(ok.text, /hello from /);
+    const started = Date.now();
+    const slow = await s.call('Bash', { command: 'sleep 30 & sleep 30', timeout: 1000 });
+    assert.match(slow.text, /^\[timed out after 1000ms\]/);
+    assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
+  } finally { s.done(); }
+});
+
+test('without a shell: hooks do not block and are reported once; the Bash tool says what is missing', async () => {
+  const s = setup({}, hook('PreToolUse', 'Write', 'exit 2'));
+  const notices: string[] = [];
+  s.w.on('system_notice', (n) => notices.push(n));
+  _setCommandShellForTest({ ok: false, problem: 'Git Bash was not found (fixture). Install Git for Windows.' });
+  try {
+    for (const name of ['a.txt', 'b.txt']) {
+      const r = await s.call('Write', { file_path: join(s.cwd, name), content: 'x' });
+      assert.equal(r.isError, false, r.text);
+      assert.equal(existsSync(join(s.cwd, name)), true);
+    }
+    assert.deepEqual(notices, ['[HOOKS] A PreToolUse hook did not run, so the action went ahead. Git Bash was not found (fixture). Install Git for Windows. Hook: exit 2']);
+    const bash = await s.call('Bash', { command: 'echo hi' });
+    assert.equal(bash.isError, true);
+    assert.match(bash.text, /The Bash tool cannot run: Git Bash was not found \(fixture\)\. Install Git for Windows\./);
+  } finally { _setCommandShellForTest(null); s.done(); }
 });
 
 // --- The lists themselves, with stand-in checks ---------------------------------------

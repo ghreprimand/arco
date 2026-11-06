@@ -1,5 +1,5 @@
 
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 const DEFAULT_GRACE_MS = 5000;
 
@@ -47,4 +47,35 @@ function signalGroup(pid: number, signal: NodeJS.Signals): void {
       console.log(`[arco] killProcessTree pid=${pid} direct kill ${signal} failed: ${(err as Error).message}`);
     }
   }
+}
+
+// Signal a shell child spawned by a tool or hook together with everything it
+// started. Unix: the child was spawned `detached`, so it leads its own process
+// group and a negative pid reaches the whole tree; the direct child is the
+// fallback. Windows has no process groups or POSIX signals (`process.kill(-pid)`
+// does not exist there), so `taskkill /T /F` ends the tree at once whatever the
+// signal; the direct child is the fallback when taskkill cannot run.
+export function signalChildTree(child: ChildProcess, signal: NodeJS.Signals, platform: NodeJS.Platform = process.platform): void {
+  const pid = child.pid;
+  if (platform === 'win32') {
+    if (!pid) return;
+    try {
+      const killer = spawn('taskkill', windowsTreeKillArgs(pid), { stdio: 'ignore', windowsHide: true });
+      killer.on('error', () => { try { child.kill(signal); } catch { /* gone */ } });
+    } catch {
+      try { child.kill(signal); } catch { /* gone */ }
+    }
+    return;
+  }
+  try {
+    if (pid) process.kill(-pid, signal);
+    else child.kill(signal);
+  } catch {
+    try { child.kill(signal); } catch { /* gone */ }
+  }
+}
+
+/** Spawn options for such a child: its own process group on Unix, no console window on Windows. */
+export function shellChildSpawnOptions(platform: NodeJS.Platform = process.platform): { detached: boolean; windowsHide: true } {
+  return { detached: platform !== 'win32', windowsHide: true };
 }

@@ -18,6 +18,8 @@ import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 //     that writes ./out.txt doesn't pollute the operator's repo.
 
 import { spawn } from 'node:child_process';
+import { commandShell } from '../../commandShell.js';
+import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -68,8 +70,12 @@ function buildCommand(language: SupportedLanguage, scriptPath: string): { cmd: s
       return { cmd: 'node', args: [scriptPath] };
     case 'python':
       return { cmd: 'python3', args: [scriptPath] };
-    case 'shell':
-      return { cmd: 'bash', args: [scriptPath] };
+    case 'shell': {
+      // On Windows `bash` on PATH may be the WSL launcher; use Git Bash
+      // (commandShell.ts). Elsewhere `bash` on PATH, as before.
+      const shell = process.platform === 'win32' ? commandShell() : null;
+      return { cmd: shell?.ok ? shell.file : 'bash', args: [scriptPath] };
+    }
   }
 }
 
@@ -97,6 +103,13 @@ export async function executeSandboxed(
 
   const { cmd, args } = buildCommand(language, scriptPath);
   const startedAt = Date.now();
+  if (language === 'shell' && process.platform === 'win32') {
+    const shell = commandShell();
+    if (!shell.ok) {
+      try { rmSync(dirname(scriptPath), { recursive: true, force: true }); } catch { /* ignore */ }
+      return { stdout: '', stderr: `Shell scripts cannot run: ${shell.problem}`, exitCode: 127, timedOut: false, truncatedStdout: false, truncatedStderr: false, durationMs: 0 };
+    }
+  }
 
   return new Promise<SandboxExecResult>((resolve) => {
     let stdout = '';
@@ -109,21 +122,15 @@ export async function executeSandboxed(
     const child = spawn(cmd, args, {
       cwd: workdir,
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true,
+      ...shellChildSpawnOptions(),
       env: { ...process.env, ARCO_SANDBOX: '1' },
     });
 
+    // Unix: the child leads its own process group, so the whole group is
+    // signalled; Windows: taskkill /T /F (workers/processKill.ts).
     const killGroup = (signal: NodeJS.Signals): void => {
       if (!child.pid) return;
-      try {
-        // Negative PID targets the process group (we passed detached:true
-        // so the child is the leader of its own group).
-        process.kill(-child.pid, signal);
-      } catch {
-        // Group already gone or never had peer processes — fall back to
-        // killing the direct child.
-        try { child.kill(signal); } catch { /* gone */ }
-      }
+      signalChildTree(child, signal);
     };
 
     const timer = setTimeout(() => {

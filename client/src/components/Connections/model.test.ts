@@ -19,6 +19,9 @@ test('credential descriptions report evidence without inventing an account or bi
 });
 test('malformed runtime responses are rejected rather than replacing known status',()=>{
   assert.equal(parseConnectionCatalog(catalog),catalog);
+  const withShell={...catalog,commandShellProblem:'Git Bash was not found.'};
+  assert.equal(parseConnectionCatalog(withShell),withShell);
+  assert.equal(parseConnectionCatalog({...catalog,commandShellProblem:42})?.commandShellProblem,undefined);
   for(const bad of [null,{}, {...catalog,version:2},{...catalog,providers:catalog.providers.slice(1)},{...catalog,environmentKeys:[true]}])assert.equal(parseConnectionCatalog(bad),null);
   assert.equal(parseConnectionStatus(false,{}),null);
   for (const bad of [{}, [], {error:'unavailable'}, {claude:{loggedIn:'yes'}}]) assert.equal(parseConnectionStatus(true,bad),null);

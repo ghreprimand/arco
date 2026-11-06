@@ -316,6 +316,8 @@ export class ClaudeNativeWorker extends EventEmitter {
   private clientTokenObtainedAt: number | null = null;
   private messages: MessageParam[] = [];
   private hooks: HookConfig = { byEvent: {} };
+  // Reasons already shown for hooks that did not run (one notice per reason).
+  private hooksNotRunReported = new Set<string>();
   private replayed = false;
   private todos: Todo[] = [];
   // H54 — cache-stable workspace facts block (detected verify/build/test cmds +
@@ -1838,6 +1840,17 @@ export class ClaudeNativeWorker extends EventEmitter {
     return { byEvent: found.byEvent };
   }
 
+  // A hook that did not run (no Git Bash on Windows, or it could not start)
+  // lets the action go ahead; the operator sees why once per reason.
+  private reportHooksNotRun<T extends { notRun?: string; command?: string }>(event: string, results: T[]): T[] {
+    for (const r of results) {
+      if (!r.notRun || this.hooksNotRunReported.has(r.notRun)) continue;
+      this.hooksNotRunReported.add(r.notRun);
+      this.emit('system_notice', `[HOOKS] A ${event} hook did not run, so the action went ahead. ${r.notRun}${r.command ? ` Hook: ${r.command.slice(0, 200)}` : ''}`);
+    }
+    return results;
+  }
+
   // Operator clicks CANCEL / RSS guard / tab close.
   cancel(): void {
     this.cancelCompaction();
@@ -2159,13 +2172,13 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
 
     // UserPromptSubmit hook fires before the first messages.create.
-    const ups = await fireHooks(
+    const ups = this.reportHooksNotRun('UserPromptSubmit', await fireHooks(
       this.hooks,
       'UserPromptSubmit',
       'UserPromptSubmit',
       { prompt, workflow_id: this.workflowId, project_dir: this.config.cwd ?? '' },
       { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
-    );
+    ));
     const blocked = firstBlocking(ups);
     if (blocked) {
       this.emit('system_notice', `UserPromptSubmit hook blocked turn (exit ${blocked.exitCode}): ${blocked.stderr.trim().slice(0, 500)}`);
@@ -2574,7 +2587,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       'Stop',
       { workflow_id: this.workflowId, stop_reason: stopReason ?? 'unknown' },
       { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
-    ).catch((err) => console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] Stop hook failed:`, err));
+    ).then((r) => this.reportHooksNotRun('Stop', r)).catch((err) => console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] Stop hook failed:`, err));
     this.toolAbort = null;
   }
 
@@ -2976,10 +2989,10 @@ export class ClaudeNativeWorker extends EventEmitter {
     let input: Record<string, unknown> = initialInput;
 
     // PreToolUse hook — non-zero blocks; stderr surfaces as the tool result.
-    const pre = await fireHooks(this.hooks, 'PreToolUse', matcher,
+    const pre = this.reportHooksNotRun('PreToolUse', await fireHooks(this.hooks, 'PreToolUse', matcher,
       { tool_name: block.name, tool_input: input, workflow_id: this.workflowId },
       { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
-    );
+    ));
     const blocked = firstBlocking(pre);
     if (blocked) {
       const detail = blocked.stderr.trim() || `(hook exited ${blocked.exitCode}${blocked.timedOut ? ', timed out' : ''})`;
@@ -3293,10 +3306,10 @@ export class ClaudeNativeWorker extends EventEmitter {
     const done = await runPostToolSteps(postToolSteps({
       filter: (text, failed) => this.filterToolOutput(block, input, text, failed),
       partialNote: partialWarn.warn ? partialWarn.note : null,
-      postHooks: (text) => fireHooks(this.hooks, 'PostToolUse', matcher,
+      postHooks: async (text) => this.reportHooksNotRun('PostToolUse', await fireHooks(this.hooks, 'PostToolUse', matcher,
         { tool_name: block.name, tool_input: input, tool_response: text, workflow_id: this.workflowId },
         { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
-      ),
+      )),
     }), { text: resultText, isError });
     this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text);
     return { text: done.text, isError: done.isError };
@@ -3452,13 +3465,14 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   private async fireSubagentStop(payload: Record<string, unknown>): Promise<void> {
-    await fireHooks(
+    const results = await fireHooks(
       this.hooks,
       'SubagentStop',
       'SubagentStop',
       { workflow_id: this.workflowId, ...payload },
       { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
     );
+    this.reportHooksNotRun('SubagentStop', results);
   }
 
   private makeAbortSignal(which: 'inFlight' | 'toolAbort'): AbortSignal {

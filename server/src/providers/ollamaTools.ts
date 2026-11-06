@@ -2,6 +2,8 @@
 import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { commandShell, commandShellArgs } from '../commandShell.js';
+import { shellChildSpawnOptions, signalChildTree } from '../workers/processKill.js';
 import dns from 'node:dns/promises';
 
 // Server-side tool runtime for local Ollama workers. File access is resolved
@@ -760,7 +762,8 @@ const WebFetchTool: OllamaToolEntry = {
 
 // ── Bash ──────────────────────────────────────────────────────────────────
 
-// Run `command` under /bin/sh -c with the workflow cwd. Capped output (64
+// Run `command` under /bin/sh -c (Git Bash on Windows, see commandShell.ts)
+// with the workflow cwd. Capped output (64
 // KB combined stdout+stderr), capped wall time (default 60s, hard ceiling
 // 10min), no stdin (so accidental `read` calls don't hang). The child is
 // spawned `detached:true` and killed via `process.kill(-pid, SIGKILL)` on
@@ -778,6 +781,8 @@ async function runBashCommand(
   timeoutMs: number,
   ctx: OllamaToolContext,
 ): Promise<string> {
+  const shell = commandShell();
+  if (!shell.ok) return `[error] The Bash tool cannot run: ${shell.problem}`;
   return new Promise<string>((resolveResult) => {
     let stdout = '';
     let stderr = '';
@@ -786,21 +791,16 @@ async function runBashCommand(
     let timedOut = false;
     let aborted = false;
 
-    const child = spawn('/bin/sh', ['-c', command], {
+    const child = spawn(shell.file, commandShellArgs(command), {
       cwd: ctx.cwd,
       env: { ...process.env },
       // ignore stdin so commands that read from stdin don't hang waiting.
       stdio: ['ignore', 'pipe', 'pipe'],
-      // session leader → process.kill(-pid) reaches all descendants.
-      detached: true,
+      // Unix: session leader, so process.kill(-pid) reaches all descendants.
+      ...shellChildSpawnOptions(),
     });
 
-    const killTree = (): void => {
-      try {
-        if (child.pid) process.kill(-child.pid, 'SIGKILL');
-        else child.kill('SIGKILL');
-      } catch { /* already gone */ }
-    };
+    const killTree = (): void => signalChildTree(child, 'SIGKILL');
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -879,13 +879,13 @@ const BashTool: OllamaToolEntry = {
     function: {
       name: 'Bash',
       description:
-        'Run a shell command in the workflow cwd via /bin/sh -c. Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
+        'Run a shell command in the workflow cwd via sh -c (Git Bash on Windows). Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
       parameters: {
         type: 'object',
         properties: {
           command: {
             type: 'string',
-            description: 'Shell command. Pipes, redirects, and shell builtins are supported (passed verbatim to /bin/sh -c).',
+            description: 'Shell command. Pipes, redirects, and shell builtins are supported (passed verbatim to the shell).',
           },
           description: {
             type: 'string',

@@ -31,7 +31,10 @@ mounts.
 
 ### Native package
 
-**Prerequisite:** Node.js 24 or 26.
+**Prerequisite:** Node.js 24 or 26. On Windows, also Git for Windows: the Bash
+tool and Claude Native hooks run in its Git Bash, as in Claude Code. Arco finds
+it through `CLAUDE_CODE_GIT_BASH_PATH`, the `git` on `PATH`, or the standard
+install folders.
 
 ```sh
 npm install -g arco-workbench
