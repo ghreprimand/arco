@@ -123,6 +123,19 @@ test('Claude CLI: the addendum closes --append-system-prompt, after the north st
   assert.doesNotMatch(JSON.stringify(none), /output-style/);
 });
 
+test('Claude SAFE grants only built-in reads and retains configured tools', { timeout: 30_000 }, async () => {
+  const { ClaudeProvider, builtinReadRule } = await import('./claude.js');
+  const { builtinSkillsRoot } = await import('../skills.js');
+  const safe = await cliRun(ClaudeProvider.create, cfg('claude', { skipPermissions: false, tools: ['Read', 'Bash'] }));
+  assert.equal(safe.argv[safe.argv.indexOf('--allowedTools') + 1], builtinReadRule(builtinSkillsRoot()));
+  assert.equal(safe.argv[safe.argv.indexOf('--tools') + 1], 'Read,Bash');
+  const auto = await cliRun(ClaudeProvider.create, cfg('claude', { skipPermissions: true, tools: ['Read', 'Bash'] }));
+  assert.equal(auto.argv.includes('--allowedTools'), false);
+  assert.equal(auto.argv[auto.argv.indexOf('--tools') + 1], 'Read,Bash');
+  assert.equal(builtinReadRule('C:\\Users\\Example\\skills'), 'Read(//c/Users/Example/skills/**)');
+  assert.equal(builtinReadRule('/tmp/a[b]'), 'Read(//tmp/a\\[b\\]/**)');
+});
+
 test('Codex exec: the addendum closes the prompt prefix before the separator', { timeout: 30_000 }, async () => {
   const { CodexProvider } = await import('./codex.js');
   const run = await cliRun(CodexProvider.create, cfg('codex', { outputStyle: 'plain', appendSystemPrompt: 'APPENDED' }));

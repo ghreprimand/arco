@@ -1,9 +1,9 @@
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, chmodSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-builtin-test-'));
 installIsolatedTestHome(root);
@@ -49,4 +49,32 @@ test('editable copies include linked reference files', async () => {
     assert.equal(copy.name, slug);
     if (slug === 'tdd') assert.match(readFileSync(join(copy.path, '..', 'tests.md'), 'utf8'), /test/i);
   }
+});
+
+test('built-in files persist in Arco home and are restored for each catalog', async () => {
+  const { arcoHome } = await import('./arcoHome.js');
+  const { APP_VERSION } = await import('./appVersion.js');
+  const file = (await skills.listSkills(cwd)).builtin.find(s => s.slug === 'tdd')!.path!;
+  assert.ok(file.startsWith(join(arcoHome(), 'builtin-skills', APP_VERSION) + sep));
+  const original = readFileSync(file, 'utf8');
+  chmodSync(file, 0o600);
+  writeFileSync(file, 'changed');
+  await skills.listSkills(cwd);
+  assert.equal(readFileSync(file, 'utf8'), original);
+  rmSync(join(arcoHome(), 'builtin-skills'), { recursive: true, force: true });
+  await skills.listSkills(cwd);
+  assert.equal(readFileSync(file, 'utf8'), original);
+});
+
+test('built-in refresh refuses linked files without changing the target', { skip: process.platform === 'win32' }, async () => {
+  const catalog = await skills.listSkills(cwd);
+  const file = catalog.builtin.find(s => s.slug === 'tdd')!.path!;
+  const target = join(root, 'unrelated');
+  writeFileSync(target, 'keep');
+  rmSync(file);
+  symlinkSync(target, file);
+  await assert.rejects(skills.listSkills(cwd), /symbolic link/);
+  assert.equal(readFileSync(target, 'utf8'), 'keep');
+  rmSync(file);
+  await skills.listSkills(cwd);
 });

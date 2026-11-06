@@ -18,14 +18,14 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // is the directory name and is the stable identifier across edits — name
 // can change without renaming the directory.
 
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
-import { rmSync } from 'fs';
+import { mkdir, chmod, lstat, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
 import { randomUUID } from 'node:crypto';
-import { homedir, tmpdir } from 'os';
+import { homedir } from 'os';
 import path from 'path';
 
 import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
 import { arcoHome } from './arcoHome.js';
+import { APP_VERSION } from './appVersion.js';
 import { ARCHITECTURE_REVIEW_SKILL } from './architectureSkill.js';
 import { THIRD_PARTY_SKILL_FILES } from './thirdPartySkills.js';
 
@@ -52,26 +52,58 @@ export function readBuiltinSkill(slug: string): { slug: string; name: string; de
   return { slug, name: parsed.name || slug, description: parsed.description || '', body: parsed.body };
 }
 
-let builtinFilesPromise: Promise<string> | undefined;
 const builtinVirtualFiles = new Map<string, string>();
 export function readBuiltinVirtualFile(file: string): string | undefined {
   return path.isAbsolute(file) ? builtinVirtualFiles.get(path.resolve(file)) : undefined;
 }
+export function builtinSkillsRoot(): string {
+  return path.join(arcoHome(), 'builtin-skills', APP_VERSION);
+}
+// Serialize refreshes within a process, while still checking files on every
+// catalog read. A removed or edited file is restored before the next turn.
+let builtinRefresh: Promise<void> = Promise.resolve();
 async function materializeBuiltinSkills(): Promise<string> {
-  if (!builtinFilesPromise) builtinFilesPromise = (async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'arco-builtin-skills-'));
-    process.once('exit', () => { try { rmSync(root, { recursive: true, force: true }); } catch { /* temporary files may already be gone */ } });
+  const root = builtinSkillsRoot();
+  const refresh = builtinRefresh.catch(() => {}).then(async () => {
+    await mkdir(arcoHome(), { recursive: true, mode: 0o700 });
     for (const skill of THIRD_PARTY_SKILL_FILES) {
       for (const [name, content] of Object.entries(skill.files)) {
         const file = path.join(root, skill.slug, name);
-        await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-        await writeFile(file, content, { mode: 0o400 });
+        // Refuse links below the Arco home before opening or changing files.
+        let dir = arcoHome();
+        for (const part of path.relative(dir, path.dirname(file)).split(path.sep)) {
+          dir = path.join(dir, part);
+          await mkdir(dir, { mode: 0o700 }).catch((err: NodeJS.ErrnoException) => {
+            if (err.code !== 'EEXIST') throw err;
+          });
+          const info = await lstat(dir);
+          if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Invalid built-in skill directory');
+        }
+        const entry = await lstat(file).catch((err: NodeJS.ErrnoException) => {
+          if (err.code === 'ENOENT') return undefined;
+          throw err;
+        });
+        if (entry?.isSymbolicLink()) throw new Error('Built-in skill file is a symbolic link');
+        const current = await readFile(file, 'utf8').catch((err: NodeJS.ErrnoException) => {
+          if (err.code === 'ENOENT') return undefined;
+          throw err;
+        });
+        if (current !== content) {
+          const temp = `${file}.${randomUUID()}.tmp`;
+          try {
+            await writeFile(temp, content, { mode: 0o400, flag: 'wx' });
+            if (current !== undefined) await chmod(file, 0o600);
+            await rename(temp, file);
+          } finally { await rm(temp, { force: true }); }
+        }
+        await chmod(file, 0o400);
         builtinVirtualFiles.set(path.resolve(file), content);
       }
     }
-    return root;
-  })().catch((err) => { builtinFilesPromise = undefined; throw err; });
-  return builtinFilesPromise;
+  });
+  builtinRefresh = refresh;
+  await refresh;
+  return root;
 }
 
 export async function setBuiltinSkillOff(slug: string, off: boolean): Promise<void> {

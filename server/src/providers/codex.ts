@@ -250,6 +250,8 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     if (contextWindow) args.push('-c', `model_context_window=${contextWindow}`);
     if (!isResume && this.config.incognito) args.push('--ephemeral');
 
+    // Codex sandbox policies restrict writes; normal sandbox modes permit disk reads.
+    // Built-in skill paths therefore need no additional writable directory.
     // Explicit sandbox wins over the skipPermissions boolean. Reviewers pass
     // `sandbox: 'read-only'` so Codex actually refuses writes; primaries leave
     // it unset and fall back to workspace-write / danger-full-access.

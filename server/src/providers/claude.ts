@@ -22,6 +22,15 @@ import { outputStyleAddendum } from './outputStyle.js';
 import { reportCompaction } from '../compactionReport.js';
 import type { Provider, ProviderProcess } from './types.js';
 import { commandArgs } from '../windowsCommand.js';
+import { builtinSkillsRoot } from '../skills.js';
+
+// Claude normalizes Windows drive paths to /c/... before applying // rules.
+// Escape gitignore metacharacters so a home directory cannot widen this grant.
+export function builtinReadRule(root: string): string {
+  const normalized = root.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, drive: string) => `/${drive.toLowerCase()}`);
+  const escaped = normalized.replace(/([*?\[\]\\])/g, '\\$1');
+  return `Read(/${escaped}/**)`;
+}
 
 // Phase C.2 — above this char count we stop trying to pass
 // --append-system-prompt as a single CLI arg (Linux MAX_ARG_STRLEN is
@@ -497,6 +506,8 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // AUTO mode maps to --dangerously-skip-permissions; SAFE mode defaults.
     if (this.config.skipPermissions) {
       args.push('--dangerously-skip-permissions');
+    } else {
+      args.push('--allowedTools', builtinReadRule(builtinSkillsRoot()));
     }
 
     if (this.config.systemPrompt && !this.config.incognito) {
