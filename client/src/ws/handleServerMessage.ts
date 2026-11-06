@@ -102,6 +102,26 @@ function splitPrimaryText(workflowId: string): void {
     ref[phase] = null;
   }
 }
+// A row that sits between two parts of a turn's text: a question card, its
+// answer (a steer), a peer message or any system row. Text that arrives after
+// one starts a new row below it, so the chat keeps the event order live and on
+// replay. Queued follow-ups are excluded: they are shown when they are sent.
+function isTextBoundary(m: ChatMessage): boolean {
+  if (m.role === 'assistant') return false;
+  if (m.role === 'user') return m.queueKind === 'steer';
+  return true;
+}
+function hasBoundaryAfter(messages: ChatMessage[], rowId: string): boolean {
+  const idx = messages.findIndex((m) => m.id === rowId);
+  return idx !== -1 && messages.slice(idx + 1).some(isTextBoundary);
+}
+// The time an event was written (`eventTs`, set by the server on live
+// broadcasts and replays), or undefined for an older server.
+function eventTime(msg: unknown): number | undefined {
+  const t = (msg as { eventTs?: unknown }).eventTs;
+  return typeof t === 'number' ? t : undefined;
+}
+
 function turnReply(workflowId: string, turnId: string | null): string {
   const rows = useAppStore.getState().jobs[workflowId]?.messages ?? [];
   if (turnId) return rows.filter(m => m.role === 'assistant' && m.phase === 'passthrough' && m.parentTurnId === turnId && !m.toolUse).map(m => m.content).join('');
@@ -519,7 +539,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           const ref = getStreamRef(msg.workflowId);
           const echoSeq = (msg as { seq?: number }).seq;
           const splitFromStreaming = msg.kind === 'steer' && ref.passthrough !== null;
-          const splitTimestamp = Date.now();
+          const splitTimestamp = eventTime(msg) ?? Date.now();
           if (splitFromStreaming) {
             const oldId = ref.passthrough!;
             flushChatDelta(msg.workflowId, 'passthrough');
@@ -619,9 +639,16 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // the bracketing primary_turn_started was never re-sent). ref[key] is
           // cleared on the (eventual / replayed) primary_complete or
           // primary_turn_ended, so the next turn starts clean.
-          const job = useAppStore.getState().jobs[msg.workflowId];
+          let job = useAppStore.getState().jobs[msg.workflowId];
           const primarySeq = (msg as { seq?: number }).seq;
           if (typeof primarySeq === 'number' && job?.messages.some(m => m.role === 'assistant' && m.phase === key && m.eventSeq !== undefined && m.eventSeq <= primarySeq && m.eventEndSeq !== undefined && m.eventEndSeq >= primarySeq)) break;
+          // A question card, answer or other row arrived after the open text
+          // row: this text goes below it, in a new row.
+          if (ref[key] && job && hasBoundaryAfter(job.messages, ref[key]!)) {
+            splitPrimaryText(msg.workflowId);
+            job = useAppStore.getState().jobs[msg.workflowId];
+          }
+          const rowTime = eventTime(msg);
           const turnInProgress = job?.busy === true || job?.turnStartedAt !== undefined;
           if (!ref.parentTurnId && job?.turnStartedAt !== undefined) {
             ref.parentTurnId = [...job.messages].reverse().find(m => m.turnStartedAt === job.turnStartedAt && m.parentTurnId)?.parentTurnId ?? `turn-${msg.workflowId}-${job.turnStartedAt}`;
@@ -629,7 +656,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           if (!ref[key] && turnInProgress && ref.parentTurnId && primarySeq !== undefined) {
             const prior = [...(job?.messages ?? [])].reverse().find(m => m.role === 'assistant' && m.phase === key && m.parentTurnId === ref.parentTurnId);
             const boundary = Math.max(0, ...(job?.messages ?? []).filter(m => m.role.startsWith('peer-') || (m.role === 'user' && m.queueKind === 'steer')).map(m => m.eventSeq ?? 0), ...(job?.activity ?? []).filter(a => a.kind === 'tool_use' || (a.kind === 'thinking' && job?.config.primaryProvider === 'cursor')).map(a => a.eventSeq ?? 0));
-            if (prior?.eventEndSeq !== undefined && prior.eventEndSeq > boundary && prior.eventEndSeq < primarySeq) {
+            if (prior?.eventEndSeq !== undefined && prior.eventEndSeq > boundary && prior.eventEndSeq < primarySeq && !hasBoundaryAfter(job?.messages ?? [], prior.id)) {
               ref[key] = prior.id;
               store.updateMessage(msg.workflowId, prior.id, { isStreaming: true });
               store.finalizeStreamingExcept(msg.workflowId, prior.id);
@@ -650,7 +677,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 // finalize it.
                 isStreaming: false,
                 phase: msg.phase,
-                timestamp: job?.turnStartedAt ?? Date.now(),
+                // Each row shows the time of its own first event.
+                timestamp: rowTime ?? job?.turnStartedAt ?? Date.now(),
                 eventSeq: primarySeq, eventEndSeq: primarySeq,
                 parentTurnId: ref.parentTurnId ?? undefined,
                 turnStartedAt: job?.turnStartedAt,
@@ -675,7 +703,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               content: '',
               isStreaming: true,
               phase: msg.phase,
-              timestamp: job?.turnStartedAt ?? Date.now(),
+              // Without `eventTs` (an older server) the turn start, as before.
+              timestamp: rowTime ?? job?.turnStartedAt ?? Date.now(),
               eventSeq: primarySeq,
               turnStartedAt: job?.turnStartedAt,
               ...(ref.parentTurnId ? { parentTurnId: ref.parentTurnId } : {}),
@@ -1913,7 +1942,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
 
         case 'operator_question': {
           const known = store.jobs[msg.workflowId]?.messages.some((m) => m.id === questionMessageId(msg.question.requestId));
-          applyOperatorQuestion(msg.workflowId, msg.question);
+          applyOperatorQuestion(msg.workflowId, msg.question, (msg as { seq?: number }).seq);
           if (msg.question.status === 'pending' && !known && Date.now() - msg.question.createdAt < 10_000) notifyQuestion(msg.workflowId);
           break;
         }

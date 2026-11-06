@@ -52,7 +52,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - The composer stays steady as a running step changes. Long step names are shortened in the toolbar; hover to see the full name.
 
 - Theme colors and fonts now apply to browser choices, form controls, help, and workspace panels across the app. The Preview status wraps within narrow panels.
-
+- A question from the agent, its answer and other rows that arrive during a turn now appear in the chat where they happened: the reply text before them stays above, and the text after them starts a new row below. Before, the question card ended up below all of the turn's text. Each reply row now shows the time it started, not the time the turn started, and a reload shows the same order and times.
 - Settings text follows the theme everywhere: the built-in skill rows now look like your own skill rows (with an OPERATOR or MODEL badge), and the Notifications, DeepSeek, project location and Arco version text no longer falls back to the page's plain text color.
 - Chat history stays complete and in order after REVERT TO HERE. Before, a checkpoint record was saved with its checkpoint's number instead of the next one, so after a revert and a restart new events reused numbers already in the log: older and newer rows interleaved, some new rows were missing after a reload, and a later log compression could set part of the history aside. Logs saved this way are read in file order with each row once; nothing on disk is rewritten.
 - View in Outputs on an artifact preview opens Outputs in the Narrow layout too. Before, it closed the preview and nothing opened, because the side panel there is a strip of buttons until one is clicked.

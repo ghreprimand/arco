@@ -2,7 +2,7 @@ import type { OperatorQuestionState } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 
 export const questionMessageId = (requestId: string) => `operator-question-${requestId}`;
-export function applyOperatorQuestion(workflowId: string, question: OperatorQuestionState): void {
+export function applyOperatorQuestion(workflowId: string, question: OperatorQuestionState, eventSeq?: number): void {
   const store = useAppStore.getState();
   const id = questionMessageId(question.requestId);
   const prior = store.jobs[workflowId]?.messages.find((m) => m.id === id);
@@ -12,7 +12,7 @@ export function applyOperatorQuestion(workflowId: string, question: OperatorQues
     if (prior.operatorQuestion?.status !== 'pending' && question.status === 'pending') return;
     store.updateMessage(workflowId, id, { content, operatorQuestion: question, operatorQuestionError: undefined });
   } else {
-    store.addMessage(workflowId, { id, role: 'system', content, operatorQuestion: question, isStreaming: false, timestamp: question.createdAt });
+    store.addMessage(workflowId, { id, role: 'system', content, operatorQuestion: question, isStreaming: false, timestamp: question.createdAt, ...(eventSeq !== undefined ? { eventSeq } : {}) });
   }
 }
 

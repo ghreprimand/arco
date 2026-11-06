@@ -340,3 +340,27 @@ test('a live file that cannot be replaced is kept complete, appends continue, an
     assert.deepEqual(seqs(await replayEvents(cwd, id, 0)), range(1, 151));
   });
 });
+
+// Chat rows show the time of their own first event: a live broadcast carries
+// the time the event was written as `eventTs`, and every replay gives the same
+// value back from the log. The disk record keeps `ts` once, never `eventTs`.
+test('live and replayed events carry the time they were written as eventTs', async () => {
+  await withProject(async (cwd, dir) => {
+    const id = 'evts-0001';
+    await initWorkflowStore(cwd, id);
+    const before = Date.now();
+    const live = persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, text: 'first', eventTs: 1 } as unknown as ServerMessage) as unknown as { seq: number; eventTs: number };
+    const after = Date.now();
+    assert.ok(live.eventTs >= before && live.eventTs <= after, `live eventTs ${live.eventTs}`);
+    await flushWorkflowBuffer(cwd, id);
+    const disk = (await readFile(path.join(dir(id), 'events.jsonl'), 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+    assert.equal(disk.length, 1);
+    assert.equal(disk[0].ts, live.eventTs);
+    assert.equal('eventTs' in disk[0], false, 'eventTs is a wire field only');
+    const full = await replayEvents(cwd, id, 0) as unknown as Array<{ eventTs?: number; ts?: number }>;
+    assert.equal(full[0].eventTs, live.eventTs);
+    assert.equal('ts' in full[0], false);
+    const tail = (await replayTailEvents(cwd, id, 1 << 20)).events as unknown as Array<{ eventTs?: number }>;
+    assert.equal(tail[0].eventTs, live.eventTs);
+  });
+});

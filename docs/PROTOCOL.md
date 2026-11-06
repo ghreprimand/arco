@@ -49,7 +49,7 @@ For the higher-level lifecycle (when these messages fire), see [`ARCHITECTURE.md
 
 - **Direction**: `->` = client to server. `<-` = server to client.
 - **Persistence**: most workflow-scoped server-to-client messages are persisted to `events.jsonl` so they replay on reconnect. "Transient" means broadcast without persistence. Client-to-server messages are not persisted as such, but their server-side echoes (e.g. `user_message_echo`) usually are.
-- Every workflow-scoped server message is stamped with `{seq, ts, parentEventSeq?,...message}` before persistence. The `seq` and `parentEventSeq` fields appear on the wire too. `parentEventSeq` is the seq of the preceding event in the same workflow's `events.jsonl`; absent on the first event and on older (`schemaVersion: 1`) workflows. Readers should treat absent as "previous event in seq order".
+- Every workflow-scoped server message is stamped with `{seq, ts, parentEventSeq?,...message}` before persistence. The `seq` and `parentEventSeq` fields appear on the wire too, and the envelope `ts` appears on the wire as `eventTs` (the time the event was written), live and on every replay; `eventTs` is never written into the record itself. `parentEventSeq` is the seq of the preceding event in the same workflow's `events.jsonl`; absent on the first event and on older (`schemaVersion: 1`) workflows. Readers should treat absent as "previous event in seq order".
 - All messages are JSON. Tagged unions discriminated by `type`.
 
 ---
@@ -387,6 +387,8 @@ Server echoes the message back, stamped with `seq` and `timestamp`. The optimist
   kind?: 'steer' | 'follow-up' | 'interrupt', // present on queued echoes
 }
 ```
+
+**Chat order within a turn.** A turn's text is split by every row that arrives between two parts of it: an `operator_question` card, its answer (a `steer` echo), a peer message or a system row. Text before the row stays above it; text after it starts a new row below it. Live delivery and replay give the same rows in `seq` order, and each assistant row shows the `eventTs` of its first event, not the turn start. Queued follow-ups do not split the text.
 
 The client hides queued user messages from chat until the corresponding `session_entry` arrives (Claude's JSONL writes the merged drained prompt - see `docs/GOTCHAS.md / UI`). The `[steer]` / `[follow-up]` labels in PENDING read from `kind` so a reconnect's replay can label the list correctly even though the optimistic in-memory state was lost.
 
@@ -2858,6 +2860,7 @@ export type ClientMessage =
 export type WorkflowEvent<M extends ServerMessage = ServerMessage> = M & {
   seq: number;
   parentEventSeq?: number;
+  eventTs?: number;   // envelope ts on the wire (live and replay)
 };
 
 export type ServerMessage =
@@ -2966,8 +2969,8 @@ Dev/smoke-only hooks (`__debug_native_plan_set`, `__debug_native_auto_compact_pr
 - Sibling protocol docs (split out for doc-size, J2): [`PROTOCOL_PRIMITIVES.md`](PROTOCOL_PRIMITIVES.md) - Review / Deep Research / Compare / AI-collaborative document editing / Handoff / Spawn messages; [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) - cluster-mode messages.
 - Where messages are emitted server-side: inbound dispatch is the switch in `server/src/index.ts`; per-family WS handlers live under `server/src/ws/` (`workflowHandlers.ts`, `turnEngine.ts`, `updatePrimaryConfig.ts`, `clusterHandlers.ts`, `gateHandlers.ts`, `bakeoffHandlers.ts`, `mcpHandlers.ts`, `genesisHandlers.ts`, `taskLedgerHandlers.ts`, `compactHandlers.ts`, ...) and the fan-out / persistence primitives in `server/src/server/broadcast.ts`; primary turn events come from `server/src/primitives/seedWorker.ts`.
 - Where messages are handled client-side: `client/src/hooks/useWebSocket.ts` (socket lifecycle) -> `client/src/ws/handleServerMessage.ts` (the big switch) -> `client/src/stores/appStore.ts` (state mutations).
-- Persistence: `server/src/workflowStore.ts` `persistAndStampSeq` adds the seq+ts envelope.
-- Replay: `server/src/workflowStore.ts` `replayEvents(cwd, wfid, fromSeq)` streams `events.jsonl` lines past the cutoff.
+- Persistence: `server/src/workflowStore.ts` `persistAndStampSeq` adds the seq+ts envelope; the broadcast copy carries `ts` as `eventTs`.
+- Replay: `server/src/workflowStore.ts` `replayEvents(cwd, wfid, fromSeq)` streams `events.jsonl` lines past the cutoff, with the envelope `ts` as `eventTs`.
 
 ### Computer conditional mailbox rule projection
 

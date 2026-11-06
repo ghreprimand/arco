@@ -1608,4 +1608,7 @@ export type ServerMessage =
 export type WorkflowEvent<M extends ServerMessage = ServerMessage> = M & {
   seq: number;
   parentEventSeq?: number;
+  // The time the event was written (the record's `ts`), on live broadcasts
+  // and replays; never stored in the record body.
+  eventTs?: number;
 };

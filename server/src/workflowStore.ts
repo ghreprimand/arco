@@ -274,12 +274,15 @@ export function persistAndStampSeq(
   // The log assigns the number. A `seq` or `parentEventSeq` in the payload
   // (a re-sent event, or a field named like the envelope) never replaces it;
   // releases before 0.1.5 let a checkpoint's own number through to disk.
-  const { seq: _payloadSeq, parentEventSeq: _payloadParent, ...body } = message as ServerMessage & { seq?: unknown; parentEventSeq?: unknown };
-  void _payloadSeq; void _payloadParent;
+  // `eventTs` is the wire copy of the envelope `ts` (see replayEvents); it is
+  // never written into the body.
+  const { seq: _payloadSeq, parentEventSeq: _payloadParent, eventTs: _payloadTs, ...body } = message as ServerMessage & { seq?: unknown; parentEventSeq?: unknown; eventTs?: unknown };
+  void _payloadSeq; void _payloadParent; void _payloadTs;
   const stamped = {
     ...body,
     seq,
     ...(parentEventSeq !== undefined ? { parentEventSeq } : {}),
+    eventTs: ts,
   } as unknown as ServerMessage;
   // On-disk envelope keeps `ts` separate from the message body so the replay
   // path can reconstruct the original broadcast shape cleanly.
@@ -511,6 +514,14 @@ export async function replayEventsWithTs(
   return out;
 }
 
+// A replayed event in its live wire shape: the envelope `ts` (the time the
+// event was written) rides as `eventTs`, as on a live broadcast, so a reload
+// shows each chat row at the time of its own first event.
+function withEventTs(entry: { ts?: unknown; [k: string]: unknown }): { [k: string]: unknown } {
+  const { ts, ...rest } = entry;
+  return typeof ts === 'number' ? { ...rest, eventTs: ts } : rest;
+}
+
 // Replay all events with seq > fromSeq, in seq order. Caller streams each
 // returned ServerMessage to the newly-connected WS (stamped seq included on
 // the wire object). Flushes pending first so the replay is head-current.
@@ -540,12 +551,10 @@ export async function replayEvents(
     }
     if (typeof entry.seq !== 'number') continue;
     applyStep(entry, step);
-    const { ts: _ts, ...rest } = entry;
     // `rest` carries seq + original message fields — the wire shape the
     // client expects from a live broadcast. Cast through unknown because
     // ServerMessage is a tagged union and we've stripped nothing essential.
-    void _ts;
-    out.push(rest as unknown as ServerMessage);
+    out.push(withEventTs(entry) as unknown as ServerMessage);
   }
   return out;
 }
@@ -591,9 +600,7 @@ export async function replayTailEvents(
     if (typeof entry.seq !== 'number') continue;
     if (!step) step = seqStepper(entry.seq - 1);
     applyStep(entry, step(entry.seq));
-    const { ts: _ts, ...rest } = entry;
-    void _ts;
-    parsed.push(rest);
+    parsed.push(withEventTs(entry));
   }
   const boundary = parsed.findIndex((e) => e.type === 'user_message_echo');
   const events = (boundary >= 0 ? parsed.slice(boundary) : parsed) as unknown as ServerMessage[];
