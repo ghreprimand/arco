@@ -288,10 +288,10 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 - `arco.preview.aspect` - preview pane aspect ratio (global)
 - `arco.gitDialog.prefs.${cwd}` - per-repo GIT dialog choices
 - `arco.historyFilter.byWorkflow` - HISTORY tab filter strip
-- `arco.clusterRightPanelWidth` - outer cluster right-panel splitter (Standard layout; `.narrow`, `.medium` and `.wide` suffixes hold the other ranges, see [Layout ranges](#layout-ranges))
-- `arco.clusterGridSplit.medium` / `.wide` - member grid splitter outside the Standard layout
+- `arco.clusterRightPanelWidth` - outer cluster right-panel splitter (Standard layout; `.narrow` and `.medium` suffixes hold the other layouts, see [Layout ranges](#layout-ranges))
+- `arco.clusterGridSplit.medium` - Compact member grid splitter
 - `arco.sidePanelWidth` - single-tab right-panel splitter, with the same range suffixes
-- `arco.layoutMode` - Settings > Appearance > Layout (`auto`, `standard` or `compact`)
+- `arco.layoutMode` - Settings > Appearance > Layout (`auto`, `standard`, `compact` or `narrow`)
 - `arco.focusMode` - I3 focus-mode flag (`'1'`/`'0'`); read into the store's `focusMode` at init, written by `setFocusMode`
 - splitter widths (per-workflow + cluster) via `usePersistedSplitter`
 
@@ -1165,18 +1165,15 @@ State is not persisted (proposals are fetched from the server on subscribe). The
 
 `client/src/layout/layoutRange.ts` turns the window width and Settings > Appearance > Layout into the layout to draw. The width is `innerWidth` divided by the interface scale (`--ui-scale`, set by `applyUiScale`, which dispatches `arco:ui-scale`), so 1920 px at 150% counts as 1280.
 
-| Mode | Under 1100 px | 1100 to 1599 px | 1600 px and over |
-| --- | --- | --- | --- |
-| Automatic (default) | narrow | medium | wide |
-| Compact | narrow | medium | medium |
-| Standard | standard | standard | standard |
+Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size). Standard, Compact and Narrow stay fixed at every width. The top-bar layout switch cycles all four choices and shows the active layout and current interface width.
 
-`useLayout()` re-reads on `resize`, `arco:ui-scale`, `arco:layout-mode` (fired by `setLayoutMode`) and the `storage` event, so a change applies at once in every open tab. The mode is kept in `localStorage` (`arco.layoutMode`), never per project.
+`useLayout()` re-reads on `resize`, `arco:ui-scale`, `arco:layout-mode` (fired by `setLayoutMode`) and the `storage` event. The mode is kept in `localStorage` (`arco.layoutMode`), never per project.
 
-- **Standard:** the original layout; nothing below applies.
-- **Medium and wide:** `MemberCard` gets `density` `compact` (one row, the short id and role in the tooltip, a one-line reply) or `wide` (own height, a two-line reply), and the grid rows use `min-content`. The cluster settings bar in `ClusterRightPanel` folds into one summary line with SETTINGS (`compactSettings`). The no-plan hint is one line with MORE. The composer tool row stays on one line: `useToolbarOverflow` (`client/src/layout/ToolbarOverflow.tsx`) marks the optional tools that overflow with `data-overflowed` (hidden by a global CSS rule) from the end of the row, and `ToolbarMore` lists them and clicks the hidden button. FILE, PLAN and BRIEF are never hidden.
-- **Start widths:** without a dragged position for the range, the medium range uses a 250 px member grid and a 320 px cluster right panel (360 px in `WorkflowView`); the wide range uses a 380 px member grid and the default panel share. Dragging saves a fraction under the range key (`readRangeFraction` / `writeRangeFraction`). The wide range starts from a value saved before ranges existed: the unsuffixed key, or a grid split other than the store default.
-- **Narrow:** the member grid becomes a 46 px rail of initials (`layout.member-rail`) whose menu button opens the grid in a `SlideOut` on the left. The right panel becomes a 34 px `PanelStrip` (`layout.right-strip`); each button sends a `tabRequest` to `ClusterRightPanel` or `RightPanel` and opens it in a `SlideOut` on the right. Esc, CLOSE or the backdrop closes a slide-out; leaving the narrow range closes both.
+- **Standard:** the original layout and original splitter keys.
+- **Compact:** one-row member cards and fixed starting side widths of 250 px for the member grid and 320 px for the cluster right panel (360 px for a single tab). Cluster settings fold into a summary, the plan hint is one line, and optional composer tools move into MORE as needed.
+- **Narrow:** the member grid becomes a rail of initials and the right panel a strip of buttons. Each opens its panel over the chat. Esc, CLOSE or the backdrop closes a panel.
+
+Dragged splitter positions are saved separately for each layout. Old `.wide` positions are ignored.
 
 ## Menus and popovers inside the window
 

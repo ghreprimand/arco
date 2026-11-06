@@ -40,11 +40,11 @@ interface Props {
   dragProps?: HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   dragOver?: boolean;
   // Window-size layout (client/src/layout/layoutRange.ts). standard: the
-  // original card, at least 120 px tall, filling its grid cell. wide: own
-  // height, the latest reply capped at two lines. compact (medium range and
-  // the narrow member list): one row with the id in the tooltip and a
+  // original card, at least 120 px tall, filling its grid cell. compact
+  // (the compact layout and narrow member list): one row with the id in the
+  // tooltip and a
   // one-line reply.
-  density?: 'standard' | 'wide' | 'compact';
+  density?: 'standard' | 'compact';
 }
 
 function lastAssistantText(job: JobState | undefined): string | null {
@@ -62,7 +62,7 @@ function lastAssistantText(job: JobState | undefined): string | null {
 }
 
 export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver, density = 'standard' }: Props) {
-  const clamp = density === 'wide' ? 2 : density === 'compact' ? 1 : 0;
+  const clamp = density === 'compact' ? 1 : 0;
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';

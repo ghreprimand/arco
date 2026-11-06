@@ -184,6 +184,11 @@ export const headerHelp: Record<string, HelpEntry> = {
       Kokoro remains the offline fallback.</p>,
   },
   // ----------------------------------------------------------------- HEADER
+  'header.layout': {
+    title: 'Layout switch',
+    body: <p>Cycles Automatic, Standard, Compact and Narrow. Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size). The tooltip shows the current width. Fixed choices stay in place at every width.</p>,
+    manualSection: 'window-layout',
+  },
   'header.arco-mark': {
     title: 'ARCO',
     body: <p>The wordmark. Decorative; clicking does nothing.</p>,

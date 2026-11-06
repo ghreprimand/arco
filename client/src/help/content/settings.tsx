@@ -114,7 +114,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.layout': {
     title: 'Layout',
-    body: <p>How the workspace uses the window. <C>AUTOMATIC</C> (default) follows the window width, counted at the interface text size: narrow under 1100 px folds the member list and the right panel into strips, medium up to 1599 px uses compact member rows and fixed side widths, wide from 1600 px keeps cards short. <C>STANDARD</C> keeps the original layout at every width. <C>COMPACT</C> uses the medium layout at every width (narrow still applies under 1100 px). Kept in this browser only; it applies at once. Also in the command palette as Layout: Automatic, Standard or Compact.</p>,
+    body: <p>Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size). Standard, Compact and Narrow stay fixed at every width. The top-bar layout switch and command palette make the same choice. Saved in this browser only.</p>,
     manualSection: 'window-layout',
   },
   'settings.message-box-size': {

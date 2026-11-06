@@ -1,3 +1,4 @@
+import { AUTOMATIC_LAYOUT_DESCRIPTION, LAYOUT_MODES, setLayoutMode, useLayout } from '../layout/layoutRange';
 import { hasEnabledUsageProvider } from './usageVisibility';
 import { useStartupStore } from '../stores/startupStore';
 import { VoiceMenu } from './VoiceMenu';
@@ -43,6 +44,11 @@ function GroupDivider() {
 }
 
 export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onSetPreviewPort, onSetNotificationMutes, onHubLinkToggle }: Props) {
+  const layout = useLayout();
+  const visibleLayout = layout.range === 'medium' ? 'COMPACT' : layout.range.toUpperCase();
+  const layoutLabel = layout.mode === 'auto' ? `AUTO: ${visibleLayout}` : layout.mode.toUpperCase();
+  const tightHeader = layout.interfaceWidth < 1100;
+  const layoutTip = `Layout: ${layoutLabel}. Click to switch. ${AUTOMATIC_LAYOUT_DESCRIPTION} Current width: ${layout.interfaceWidth} interface pixels.`;
   const connected = useAppStore((s) => s.connected);
   // §C1 — richer overlay distinguishing a browser/network WS drop ('disconnected',
   // server alive → RECONNECT/RESTART helps) from a dead server process
@@ -153,12 +159,12 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
       }}
     >
       {/* Row 1: ARCO title + grouped controls */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 20px', gap: '8px', minHeight: '36px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: tightHeader ? '5px 8px' : '5px 20px', gap: tightHeader ? '4px' : '8px', minHeight: '36px', flexWrap: layout.interfaceWidth < 800 ? 'wrap' : 'nowrap' }}>
         {/* Left group: wordmark + the hub-link chip pinned right beside it.
             Moved here from the right status cluster (it was crowded there): the
             link state is identity-level, so it reads cleanly next to the mark.
             Renders nothing when no hub is configured. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: tightHeader ? '4px' : '10px', flexShrink: 0 }}>
           <h1
             data-help="header.arco-mark"
             className="display-font glow-text-bright arco-wordmark"
@@ -166,10 +172,13 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
           >
             ARCO
           </h1>
+          <button type="button" className="display-font" data-help="header.layout" data-testid="header-layout" title={layoutTip} aria-label={layoutTip} onClick={() => setLayoutMode(LAYOUT_MODES[(LAYOUT_MODES.findIndex((item) => item.id === layout.mode) + 1) % LAYOUT_MODES.length].id)} style={{ ...actionBtn, whiteSpace: 'nowrap', flexShrink: 0, fontSize: '10px' }}>
+            {layout.mode === 'auto' && layout.interfaceWidth < 1100 ? 'AUTO' : layoutLabel}
+          </button>
           <HubLinkChip onToggle={onHubLinkToggle} />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: '1px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: tightHeader ? '3px' : '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: tightHeader ? '0px' : '1px', flexWrap: layout.interfaceWidth < 800 ? 'wrap' : 'nowrap', justifyContent: 'flex-end', minWidth: 0 }}>
           {/* Status cluster — urgent runtime state, always visible: provider
               versions (folded into a popover), the provider throttling warning, and the Claude auth chip. */}
           {/* Provider throttling stays visible in focus mode —

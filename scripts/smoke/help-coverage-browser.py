@@ -87,7 +87,7 @@ PROBE = r'''
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME)
-        context = await browser.new_context(viewport={'width': 1600, 'height': 1100})
+        context = await browser.new_context(viewport={'width': 2200, 'height': 1100})
         await context.add_init_script("localStorage.setItem('arco_ui_scale', '1')")
         errors, writes, messages = [], [], []
         requested = set()

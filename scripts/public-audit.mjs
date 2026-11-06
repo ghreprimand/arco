@@ -147,6 +147,7 @@ const reviewedCaptures = new Map([
   ['client/dist/backgrounds/odytty-dark-waves.webp', '4660bbd363cd1b11027c8b51e7168340ab81f4b06af55e0dc2e054510a91b1cc'],
   ['server/dist/voice/capture-ready.wav', 'f063e9edc2ddd2789a69a8ddc16caf930734df73fcfaddf4a66714fdb6c3423a'],
   ['docs/images/home.webp', [
+    '1ff4fc44552b17531aa760082c23b0a8286b4f86bf98722f5fb3af9504380568', // Synthetic home fixture, refreshed layout switch.
     'f8a6647ee643b6aebe73a2218af3b8b818fa33d92b6e86ff4e2d6dabf6411512',
     'ecccf08fe0a6aba59c868ce0ef624022e347d4f221bbdfedc9b77bebbf498aca',
     'a55a86fbe001a5907026f838e28f42dfa460a4a9dc4b8b95e54574a68589e90d',
@@ -156,6 +157,7 @@ const reviewedCaptures = new Map([
     'a759b99454b994f95ba52afbf41ed35ff17471e950ae5c3adc67360a7ad5b102',
   ]],
   ['docs/images/cluster.webp', [
+    'eeb9ecc5a2d8aff787676f62a0f6917cca0e4b22d18c5fcede347e8776a358ed', // Synthetic cluster fixture, refreshed layout switch.
     '5611fd938130c3e3a884f32650e38d4a89e77d2b25a87f861e80500397e589af', // Synthetic cluster fixture, refreshed composer status.
     '3f52d4451f7dab350a55070f43cbd900666ef2c49be8186648cb24c302b1ee5b',
     'bcf48ec2227a0e496fc2cfb9c365d301cfddaa804abb7b985996ad90b3482e76',

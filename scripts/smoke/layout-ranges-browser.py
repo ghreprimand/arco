@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Window-size layout (Settings > Appearance > Layout) against the built client
 and a temporary server, with a synthetic cluster served by a fixture API and
-WebSocket. Automatic switches range at 1099/1100 and 1599/1600 interface
-pixels, the interface scale counts, Standard and Compact override it, the
+WebSocket. Automatic switches at 1500 and 2000 interface pixels; fixed
+layouts apply at every width, the interface scale counts, the
 choice survives a reload, the narrow rail and strip open their panels, the
 composer tools that do not fit move into MORE, the cluster settings fold, and
 splitter widths are kept per range. No provider or model calls."""
@@ -48,10 +48,12 @@ def job(wid, name, text):
             'totalWorkers': 0, 'snapshotReceived': True}
 
 
-NAMES = ['Director', 'Builder', 'Tester']
+NAMES = ['Director', 'Builder', 'Tester', 'Documenter', 'Reviewer']
 REPLIES = ['The release plan is ready.\nBuilder and Tester have the next tasks.\nI will review their results.\nThen the release notes.',
            'The workspace changes are complete. The focused checks pass and the patch is ready for review.',
-           'The browser checks cover the project list and the empty-state path. Both scenarios pass.']
+           'The browser checks cover the project list and the empty-state path. Both scenarios pass.',
+           'The manual has been checked against the controls.',
+           'The changes are ready for the final review.']
 
 
 def fixture_state():
@@ -65,7 +67,7 @@ def single_state():
     s = fixture_state()
     st = s['state']
     st.update({'activeClusterId': None, 'activeJobId': 'worker-1', 'clusters': {}})
-    for k in ['worker-0', 'worker-2']:
+    for k in ['worker-0', 'worker-2', 'worker-3', 'worker-4']:
         st['jobs'].pop(k)
     return s
 
@@ -88,19 +90,21 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False):
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False):
     context = await browser.new_context(viewport={'width': width, 'height': height})
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
+    fixture = single_state() if single else fixture_state()
+    if no_director: fixture['state']['clusters']['demo-cluster']['members'][0]['role'] = 'Builder'
     layout_line = f"localStorage.setItem('arco.layoutMode', {json.dumps(layout)});" if layout else ''
     await context.add_init_script(f"""if (!sessionStorage.getItem('fixture-seeded')) {{
         sessionStorage.setItem('fixture-seeded', '1');
-        localStorage.setItem('arco-jobs', {json.dumps(json.dumps(single_state() if single else fixture_state()))}); localStorage.setItem('arco_ui_scale', '{scale}');
+        localStorage.setItem('arco-jobs', {json.dumps(json.dumps(fixture))}); localStorage.setItem('arco_ui_scale', '{scale}');
         localStorage.setItem('arco.clusterSidePanelTab.byCluster', JSON.stringify({{'demo-cluster':'board'}}));
         {layout_line}
       }}
       class FixtureSocket {{
         static CONNECTING=0; static OPEN=1; static CLOSING=2; static CLOSED=3;
-        constructor() {{ this.readyState=0; setTimeout(()=>{{ this.readyState=1; this.onopen?.(new Event('open')); this.onmessage?.({{data:JSON.stringify({{type:'connected',sessionId:'demo'}})}}); setTimeout(()=>{{ for (let i=0;i<3;i++) this.onmessage?.({{data:JSON.stringify({{type:'workflow_state_snapshot',workflowId:'worker-'+i,workers:{{}},busy:false,transcriptTail:[]}})}}); this.onmessage?.({{data:{json.dumps(snapshot)}}}); }}, 250); }}, 20); }}
+        constructor() {{ this.readyState=0; setTimeout(()=>{{ this.readyState=1; this.onopen?.(new Event('open')); this.onmessage?.({{data:JSON.stringify({{type:'connected',sessionId:'demo'}})}}); setTimeout(()=>{{ for (let i=0;i<5;i++) this.onmessage?.({{data:JSON.stringify({{type:'workflow_state_snapshot',workflowId:'worker-'+i,workers:{{}},busy:false,transcriptTail:[]}})}}); this.onmessage?.({{data:{json.dumps(snapshot)}}}); }}, 250); }}, 20); }}
         send() {{}} close() {{this.readyState=3;}}
       }}
       window.WebSocket=FixtureSocket;""")
@@ -151,7 +155,7 @@ async def state(page):
 
 async def expect_range(page, name, width):
     await page.set_viewport_size({'width': width, 'height': 800})
-    want = {'narrow': (True, None), 'medium': (False, 'compact'), 'wide': (False, 'wide'), 'standard': (False, 'standard')}[name]
+    want = {'narrow': (True, None), 'medium': (False, 'compact'), 'standard': (False, 'standard')}[name]
     await page.wait_for_function("([rail, density]) => !!document.querySelector('[data-testid=\"member-rail\"]') === rail && (density === null || document.querySelector('[data-help=\"cluster.member-card\"]')?.getAttribute('data-density') === density)", arg=list(want), timeout=10000)
     s = await state(page)
     assert s['overflowX'] <= 0, (name, width, s)
@@ -159,8 +163,6 @@ async def expect_range(page, name, width):
         assert s['strip'] and s['grid'] is None, (width, s)
     elif name == 'medium':
         assert s['grid'] == 250 and s['summary'], (width, s)
-    elif name == 'wide':
-        assert s['grid'] == 380 and s['summary'], (width, s)
     else:
         assert not s['summary'] and not s['strip'], (width, s)
     return s
@@ -177,12 +179,14 @@ async def run(base):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         try:
-            # Automatic (default) at 100%: the range switches at 1099/1100 and 1599/1600.
+            # Automatic (default) follows the agreed interface-width boundaries.
             context, page, errors = await open_page(browser, base, 1280)
-            for width, name in [(1099, 'narrow'), (1100, 'medium'), (1599, 'medium'), (1600, 'wide'), (1280, 'medium')]:
+            for width, name in [(1499, 'narrow'), (1500, 'medium'), (1999, 'medium'), (2000, 'standard'), (1920, 'medium')]:
                 await expect_range(page, name, width)
 
-            # Medium: composer tools that do not fit move into MORE; FILE, PLAN and BRIEF stay.
+            # Compact at a laptop width forces the optional tools into MORE.
+            await palette(page, 'Layout: Compact')
+            await page.set_viewport_size({'width': 1280, 'height': 800})
             toolbar = page.get_by_test_id('composer-toolbar')
             more = page.get_by_test_id('composer-more')
             await expect(more).to_be_visible()
@@ -199,11 +203,11 @@ async def run(base):
             await page.keyboard.press('Escape')
             await expect(menu).to_be_hidden()
             # A wider window brings the tools back.
-            await page.set_viewport_size({'width': 1599, 'height': 800})
+            await page.set_viewport_size({'width': 1999, 'height': 800})
             await page.wait_for_function("() => document.querySelectorAll('[data-testid=\"composer-toolbar\"] > [data-overflowed=\"true\"]').length < %d" % (len(items) + 1), timeout=10000)
 
             # Cluster settings fold into one line; SETTINGS opens them.
-            await page.set_viewport_size({'width': 1280, 'height': 800})
+            await page.set_viewport_size({'width': 1920, 'height': 800})
             summary = page.get_by_test_id('cluster-settings-summary')
             await expect(summary).to_contain_text('MAIL ALERTS OFF')
             await expect(page.locator('button[aria-label^="Mail alerts"]')).to_have_count(0)
@@ -220,15 +224,16 @@ async def run(base):
             await page.mouse.up()
             keys = await page.evaluate("() => ({m: localStorage.getItem('arco.clusterRightPanelWidth.medium'), w: localStorage.getItem('arco.clusterRightPanelWidth.wide'), s: localStorage.getItem('arco.clusterRightPanelWidth')})")
             assert keys['m'] is not None and keys['w'] is None and keys['s'] is None, keys
-            await expect_range(page, 'wide', 1920)
-            wide_right = await page.evaluate("() => Math.round(document.querySelector('[data-help=\"cluster.right-panel-splitter\"]').nextElementSibling.getBoundingClientRect().width)")
-            assert 500 <= wide_right <= 560, wide_right  # the default share, not the medium drag
+            await palette(page, 'Layout: Automatic')
+            await expect_range(page, 'standard', 2560)
+            standard_right = await page.evaluate("() => Math.round(document.querySelector('[data-help=\"cluster.right-panel-splitter\"]').nextElementSibling.getBoundingClientRect().width)")
+            assert 650 <= standard_right <= 760, standard_right  # the default share, not the medium drag
 
             # Narrow: the rail opens the member list; a card puts that member in view.
             await expect_range(page, 'narrow', 1024)
             await page.get_by_test_id('member-list-open').click()
             slide = page.get_by_test_id('member-list-slide-out')
-            await expect(slide.locator('[data-help="cluster.member-card"]')).to_have_count(3)
+            await expect(slide.locator('[data-help="cluster.member-card"]')).to_have_count(5)
             await slide.locator('[data-help="cluster.member-card"]').nth(1).click()
             await expect(slide).to_have_count(0)
             await expect(page.locator('[data-testid="member-rail"] button[aria-pressed="true"]')).to_have_attribute('aria-label', 'Builder', timeout=5000)
@@ -245,13 +250,13 @@ async def run(base):
             for width in (1024, 1280, 1920):
                 await expect_range(page, 'standard', width)
             await expect(page.get_by_test_id('composer-more')).to_have_count(0)
-            # Compact from Settings > Appearance > Layout: medium at 1920, narrow under 1100.
+            # Compact from Settings stays compact at every width.
             await palette(page, 'Open Settings')
             await page.get_by_test_id('layout-mode-compact').click()
             await expect(page.get_by_test_id('layout-mode-compact')).to_have_attribute('aria-checked', 'true')
             await page.keyboard.press('Escape')
             await expect_range(page, 'medium', 1920)
-            await expect_range(page, 'narrow', 1099)
+            await expect_range(page, 'medium', 1099)
             # A reload keeps the choice.
             await page.set_viewport_size({'width': 1920, 'height': 800})
             await page.reload(wait_until='domcontentloaded')
@@ -261,13 +266,60 @@ async def run(base):
             assert not errors, errors
             await context.close()
 
-            # The interface scale counts: at 150%, 1649 px is 1099 and 1650 px is 1100.
+            # The interface scale counts at both thresholds.
             context, page, errors = await open_page(browser, base, 1920, scale=1.5)
             await page.wait_for_function("() => document.documentElement.style.getPropertyValue('--ui-scale').trim() === '1.5'", timeout=10000)
-            for width, name in [(1649, 'narrow'), (1650, 'medium'), (2399, 'medium'), (2400, 'wide')]:
+            for width, name in [(2249, 'narrow'), (2250, 'medium'), (2999, 'medium'), (3000, 'standard')]:
                 await expect_range(page, name, width)
             assert not errors, errors
             await context.close()
+            # The top-bar chip cycles and settings track the same saved choice.
+            context, page, errors = await open_page(browser, base, 1920, no_director=True)
+            chip = page.get_by_test_id('header-layout')
+            await expect(chip).to_have_text('AUTO: COMPACT')
+            await expect(page.get_by_test_id('plan-line-members')).to_be_visible()
+            await expect(page.locator('[data-help="cluster.no-plan-hint"]')).to_contain_text('Set a director in')
+            await page.get_by_label('Online', exact=True).first.wait_for(timeout=10000)
+            art = os.environ.get('ARCO_LAYOUT_ARTIFACTS')
+            if art: await page.screenshot(path=str(Path(art) / 'layout-no-director-1920.png'), animations='disabled')
+            await page.get_by_test_id('plan-line-members').click()
+            await expect(page.get_by_text('SAVED CLUSTERS', exact=True)).to_be_visible()
+            await page.set_viewport_size({'width': 1280, 'height': 800})
+            await page.get_by_test_id('member-list-open').click()
+            await page.get_by_test_id('member-list-slide-out').get_by_test_id('plan-line-members').click()
+            await expect(page.get_by_test_id('right-panel-slide-out').get_by_text('SAVED CLUSTERS', exact=True)).to_be_visible()
+            await page.keyboard.press('Escape')
+            await page.set_viewport_size({'width': 1920, 'height': 800})
+            for label in ('STANDARD', 'COMPACT', 'NARROW', 'AUTO: COMPACT'):
+                await chip.click()
+                await expect(chip).to_have_text(label)
+            await palette(page, 'Open Settings')
+            await expect(page.get_by_test_id('layout-mode-auto')).to_have_attribute('aria-checked', 'true')
+            await page.get_by_test_id('layout-mode-narrow').click()
+            await expect(chip).to_have_text('NARROW')
+            await page.keyboard.press('Escape')
+            assert not errors, errors
+            await context.close()
+            # Inspect five-member layouts and the whole top bar at representative sizes.
+            for width, height, scale in [(1280, 800, 1.0), (1280, 800, 1.5), (1366, 768, 1.0), (1920, 1080, 1.0), (1920, 1080, 1.2), (1920, 1080, 1.5), (2560, 1440, 1.0), (3840, 2160, 1.5), (1499, 800, 1.0), (1500, 800, 1.0), (1999, 800, 1.0), (2000, 800, 1.0)]:
+                context, page, errors = await open_page(browser, base, width, scale=scale, height=height)
+                chip = page.get_by_test_id('header-layout')
+                await page.get_by_label('Online', exact=True).first.wait_for(timeout=10000)
+                await expect(chip).to_be_visible()
+                expected = 'NARROW' if width / scale < 1500 else 'COMPACT' if width / scale < 2000 else 'STANDARD'
+                await expect(chip).to_have_text('AUTO' if width / scale < 1100 else 'AUTO: ' + expected)
+                dimensions = await page.evaluate("""() => {
+                  const word = document.querySelector('[data-help="header.arco-mark"]').getBoundingClientRect();
+                  const chip = document.querySelector('[data-testid="header-layout"]').getBoundingClientRect();
+                  const power = document.querySelector('[data-help="header.power"]').getBoundingClientRect();
+                  return {wordY: word.y, chipY: chip.y, powerY: power.y, powerRight: power.right, width: innerWidth};
+                }""")
+                assert abs(dimensions['wordY'] - dimensions['powerY']) < 20, dimensions
+                assert dimensions['powerRight'] <= dimensions['width'] + 1, dimensions
+                art = os.environ.get('ARCO_LAYOUT_ARTIFACTS')
+                if art: await page.screenshot(path=str(Path(art) / f'layout-{width}x{height}-{round(scale*100)}.png'), animations='disabled')
+                assert not errors, errors
+                await context.close()
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
             strip = page.get_by_test_id('layout-panel-strip')
@@ -277,11 +329,11 @@ async def run(base):
             await expect(right.locator('[data-help="rightpanel.tab.plan"]').first).to_be_visible()
             await right.get_by_role('button', name='CLOSE').click()
             await expect(right).to_have_count(0)
-            await page.set_viewport_size({'width': 1280, 'height': 800})
+            await page.set_viewport_size({'width': 1500, 'height': 800})
             await expect(strip).to_have_count(0)
             assert not errors, errors
             await context.close()
-            print('PASS: Automatic ranges at 1099/1100 and 1599/1600 with the interface scale counted; MORE, folded settings, per-range splitter, narrow rail and strip; Standard and Compact override; reload keeps the choice')
+            print('PASS: Automatic boundaries and scale, fixed modes, MORE, splitters and panels')
         finally:
             await browser.close()
 

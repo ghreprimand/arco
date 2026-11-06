@@ -144,11 +144,11 @@ export const configuration: Section[] = [
   </ul>
   <Sub>Layout</Sub>
   <p>
-  <strong>Layout</strong> (Appearance) is Automatic (default), Standard or
-  Compact. Automatic fits the workspace to the window width; Standard keeps the
-  original layout; Compact uses the medium layout at every width, with the
-  narrow layout still under 1100 px. Kept in this browser only. See Window size
-  and layout.
+  <strong>Layout</strong> (Appearance) offers Automatic, Standard, Compact and
+  Narrow. Automatic picks by window width: Narrow under 1500, Compact from 1500,
+  Standard from 2000 (interface pixels: window width divided by the text size).
+  Fixed choices apply at every width. The top-bar layout switch cycles them.
+  The choice is kept in this browser only.
   </p>
   <Sub>Message box size</Sub>
   <p>

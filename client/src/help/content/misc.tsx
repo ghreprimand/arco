@@ -4,7 +4,7 @@ import type { HelpEntry } from './shared';
 export const miscHelp: Record<string, HelpEntry> = {
   'layout.member-rail': {
     title: 'Member rail',
-    body: <p>In the narrow layout (a window under 1100 px) the member list folds into this rail of initials. The dot shows waiting mail (warning color) or a busy member. Click an initial to put that member in view; the hover text gives its name, role and state.</p>,
+    body: <p>In the Narrow layout the member list folds into this rail of initials. The dot shows waiting mail (warning color) or a busy member. Click an initial to put that member in view; the hover text gives its name, role and state.</p>,
     manualSection: 'window-layout',
   },
   'layout.member-list-open': {

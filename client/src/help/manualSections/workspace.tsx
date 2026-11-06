@@ -545,20 +545,18 @@ export const workspace: Section[] = [
     body: (
       <>
         <p>
-          <strong>Layout</strong> (Settings, Appearance) decides how the
-          workspace uses the window. <strong>Automatic</strong> (default) picks
-          one of three ranges by window width, counted at the interface text
-          size, so 1920 px at 150% counts as 1280. <strong>Standard</strong>{' '}
-          keeps the original layout at every width. <strong>Compact</strong>{' '}
-          uses the medium range at every width; under 1100 px the narrow range
-          still applies.
+          <strong>Layout</strong> (Settings, Appearance) offers Automatic,
+          Standard, Compact and Narrow. Automatic picks by window width: Narrow
+          under 1500, Compact from 1500, Standard from 2000 (interface pixels:
+          window width divided by the text size). Fixed choices apply at every width.
+          The top-bar layout switch cycles the choices and shows the current layout.
         </p>
         <Table
-          headers={['Range', 'Width', 'What changes']}
+          headers={['Layout', 'What changes']}
           rows={[
-            ['Narrow', 'under 1100 px', 'The member list becomes a rail of initials; its menu button opens the full list over the chat. The right panel becomes a strip of buttons that open it over the chat.'],
-            ['Medium', '1100 to 1599 px', 'Member cards are one row with a one-line reply. The member list starts at 250 px, the right panel at 320 px in a cluster and 360 px in a single tab.'],
-            ['Wide', '1600 px and over', 'Member cards take their own height with a two-line reply. The member list starts at 380 px; the right panel keeps a share of the window.'],
+            ['Narrow', 'The member list becomes a rail of initials and the right panel a strip of buttons. Both open over the chat.'],
+            ['Compact', 'Member cards are one row with a one-line reply. The member list starts at 250 px, the right panel at 320 px in a cluster and 360 px in a single tab.'],
+            ['Standard', 'The original layout, with full member cards and panels.'],
           ]}
         />
         <p>
@@ -570,10 +568,9 @@ export const workspace: Section[] = [
         </p>
         <p>
           A dragged splitter is remembered for each range, so a laptop window
-          and a desktop window keep their own widths. A width saved before
-          ranges existed becomes the start value of the wide range. The choice
-          is kept in this browser and applies at once; the command palette has
-          Layout: Automatic, Standard and Compact.
+          and a desktop window keep their own widths. Standard keeps the original saved width. The choice is kept in this browser
+          and applies at once; the command palette has Layout: Automatic,
+          Standard, Compact and Narrow.
         </p>
         <p>
           Menus, dropdowns, usage cards and notices stay inside the window in

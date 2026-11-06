@@ -66,12 +66,12 @@ const RIGHT_PANEL_MAX_FRACTION = 0.5;
 // the first paint stable across window widths.
 const RIGHT_PANEL_DEFAULT_FRACTION = 0.28;
 // Window-size layout (client/src/layout/layoutRange.ts): start widths in the
-// medium and wide ranges until the operator drags a splitter there. Each
+// compact range until the operator drags a splitter there. Each
 // range keeps its own dragged position.
 const MEDIUM_RIGHT_PANEL_PX = 320;
 const GRID_SPLIT_KEY = 'arco.clusterGridSplit';
 const GRID_SPLIT_STORE_DEFAULT = 0.35;
-const GRID_PX: Partial<Record<LayoutRange, number>> = { medium: 250, wide: 380 };
+const GRID_PX: Partial<Record<LayoutRange, number>> = { medium: 250 };
 const RIGHT_STRIP = [
   { id: 'board', label: 'BOARD' },
   { id: 'plan', label: 'PLAN' },
@@ -318,9 +318,7 @@ export function ClusterTab({
     if (r === 'standard') return gridSplit;
     if (r in gridByRange) return gridByRange[r] ?? null;
     const own = readRangeFraction(GRID_SPLIT_KEY, r, 0.05, 0.95);
-    if (own !== null) return own;
-    // The wide range starts from a split saved before ranges existed.
-    return r === 'wide' && gridSplit !== GRID_SPLIT_STORE_DEFAULT ? gridSplit : null;
+    return own;
   };
   const [memberListOpen, setMemberListOpen] = useState(false);
   const [rightSlide, setRightSlide] = useState<string | null>(null);
@@ -400,7 +398,7 @@ export function ClusterTab({
   const outerContainerRef = useRef<HTMLDivElement | null>(null);
   const outerDraggingRef = useRef(false);
   // Right panel position per range. null: no position saved for this range;
-  // Standard and wide then use the default share, medium a fixed width.
+  // Standard uses the default share, Compact a fixed width.
   const [rightByRange, setRightByRange] = useState<Partial<Record<LayoutRange, number | null>>>({});
   const rightSaved = widthRange in rightByRange
     ? rightByRange[widthRange] ?? null
@@ -824,7 +822,7 @@ export function ClusterTab({
                       gridTemplateColumns: `repeat(${balancedCardsPerRow}, minmax(0, 1fr))`,
                       gridAutoRows: 'minmax(120px, 1fr)',
                     };
-            // Medium and wide: cards take their own height instead of
+            // Compact cards take their own height instead of
             // stretching to fill the column.
             const cardRowsCss = compactLayout
               ? { gridTemplateRows: layout === 'columns' ? 'min-content' : 'none', gridAutoRows: 'min-content', alignContent: 'start' as const }
@@ -832,7 +830,7 @@ export function ClusterTab({
             const savedGrid = gridSavedForRange(widthRange);
             const gridFixedPx = liveSplit === null && savedGrid === null ? GRID_PX[widthRange] ?? null : null;
             const fraction = liveSplit ?? savedGrid ?? GRID_SPLIT_STORE_DEFAULT;
-            const cardDensity = widthRange === 'wide' ? 'wide' : compactLayout ? 'compact' : 'standard';
+            const cardDensity = compactLayout ? 'compact' : 'standard';
             const focusedMember =
               cluster.members.find((m) => m.workflowId === focusedMemberId) ?? cluster.members[0];
             const focusedJob = focusedMember ? jobs[focusedMember.workflowId] : undefined;
@@ -901,19 +899,20 @@ export function ClusterTab({
 
                   {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
                   {!cluster.plan && !planHintHidden && (() => {
-                    // Medium and wide: one line (DRAFT A PLAN, then MORE for the rest).
+                    // Compact: one line, with MORE for the rest.
                     const short = compactLayout && !planHintMore;
-                    return <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: short ? 'nowrap' : 'wrap', alignItems: 'center', gap: '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: '11px', overflow: short ? 'hidden' : undefined }}>
-                    <span style={short ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } : undefined} title={short ? 'A plan keeps every worker on the same list.' : undefined}>{short ? 'No plan yet.' : 'No plan yet: a plan keeps every worker on the same list.'}</span>
-                    {!short && !directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => setMembersTabRequest((value) => value + 1)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
-                    <button type="button" disabled={!directorMember} title={directorMember ? 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={() => {
+                    return <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: short ? 'nowrap' : 'wrap', alignItems: 'center', gap: short ? '3px' : '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: short ? '10px' : '11px', overflow: short ? 'hidden' : undefined }}>
+                    <span style={short ? { whiteSpace: 'nowrap', flexShrink: 0 } : undefined} title={short ? 'A plan keeps every worker on the same list.' : undefined}>{short ? 'No plan yet.' : 'No plan yet: a plan keeps every worker on the same list.'}</span>
+                    {short && !directorMember && <span style={{ display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}><span title="Set a director in Members" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Set a director in</span><button type="button" data-testid="plan-line-members" onClick={() => { setMembersTabRequest((value) => value + 1); if (widthRange === 'narrow') { setMemberListOpen(false); setRightSlide('more'); } }} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>Members</button></span>}
+                    {!short && !directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => { setMembersTabRequest((value) => value + 1); if (widthRange === 'narrow') { setMemberListOpen(false); setRightSlide('more'); } }} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
+                    {(!short || directorMember) && <button type="button" style={short ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } : undefined} disabled={!directorMember} title={directorMember ? 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={() => {
                       if (!directorMember) return;
                       const id = directorMember.workflowId;
                       const started = beginPlanReview(id, (prompt) => onSendToMember(id, prompt, undefined, undefined, 'plan-review'), '', true, effectivePublic(jobs[id]?.config.workingDirectory ?? ''));
                       if (started) setClusterFocusedMember(clusterId, id);
                       else useAppStore.getState().pushNotification('error', 'The director must be idle and ready before drafting a plan.');
-                    }}>DRAFT A PLAN</button>
-                    {short && <button type="button" data-help="layout.plan-hint-more" data-testid="plan-hint-more" onClick={() => setPlanHintMore(true)} style={{ flexShrink: 0 }}>MORE ▾</button>}
+                    }}>DRAFT A PLAN</button>}
+                    {short && <button type="button" data-help="layout.plan-hint-more" data-testid="plan-hint-more" onClick={() => setPlanHintMore(true)} style={{ flexShrink: 0, padding: '1px 3px', fontSize: '9px' }}>MORE ▾</button>}
                     {!short && directorMember && <PublicProjectBox cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} testId="cluster-public-project" />}
                     {!short && <button type="button" disabled={!onAttachClusterPlan} onClick={() => setPlanTabRequest((value) => value + 1)}>ATTACH EXISTING</button>}
                     {!short && <button type="button" onClick={() => { setPlanHintHidden(true); try { localStorage.setItem(`arco.clusterPlanHint.${clusterId}`, '1'); } catch { /* no-op */ } }}>NOT NOW</button>}

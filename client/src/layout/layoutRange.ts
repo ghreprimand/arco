@@ -2,48 +2,46 @@
 // browser, so a laptop and a desktop each keep their own; nothing is stored
 // per project. See docs/CLIENT.md "Layout ranges".
 //
-// - Automatic: the layout follows the window width, measured in interface
-//   pixels (window width divided by the interface scale, so 1920 px at 150%
-//   counts as 1280): narrow under 1100, medium from 1100 to 1599, wide from
-//   1600.
-// - Standard: the original layout at every width.
-// - Compact: the medium layout at every width; under 1100 the narrow layout
-//   still applies.
+// Automatic selects Narrow under 1500 interface pixels, Compact from 1500,
+// and Standard from 2000. Fixed modes apply at every width.
 
 import { useEffect, useState } from 'react';
 
-export type LayoutMode = 'auto' | 'standard' | 'compact';
-export type LayoutRange = 'standard' | 'narrow' | 'medium' | 'wide';
+export type LayoutMode = 'auto' | 'standard' | 'compact' | 'narrow';
+export type LayoutRange = 'standard' | 'narrow' | 'medium';
 
 export const LAYOUT_MODE_KEY = 'arco.layoutMode';
 export const LAYOUT_MODE_EVENT = 'arco:layout-mode';
 export const UI_SCALE_EVENT = 'arco:ui-scale';
-export const NARROW_BELOW = 1100;
-export const WIDE_FROM = 1600;
+export const COMPACT_FROM = 1500;
+export const STANDARD_FROM = 2000;
+export const AUTOMATIC_LAYOUT_DESCRIPTION = 'Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size).';
 
 export const LAYOUT_MODES: Array<{ id: LayoutMode; label: string; hint: string }> = [
-  { id: 'auto', label: 'Automatic', hint: 'By window width: narrow under 1100 px, medium to 1599 px, wide from 1600 px' },
+  { id: 'auto', label: 'Automatic', hint: AUTOMATIC_LAYOUT_DESCRIPTION },
   { id: 'standard', label: 'Standard', hint: 'The original layout at every width' },
-  { id: 'compact', label: 'Compact', hint: 'The medium layout at every width; the narrow layout under 1100 px' },
+  { id: 'compact', label: 'Compact', hint: 'Compact layout at every width' },
+  { id: 'narrow', label: 'Narrow', hint: 'Narrow layout at every width' },
 ];
 
 export function isLayoutMode(value: unknown): value is LayoutMode {
-  return value === 'auto' || value === 'standard' || value === 'compact';
+  return value === 'auto' || value === 'standard' || value === 'compact' || value === 'narrow';
 }
 
 // The layout to draw for a window `width` (CSS px of the window) at interface
 // `scale` under `mode`.
 export function layoutRange(width: number, scale: number, mode: LayoutMode): LayoutRange {
   if (mode === 'standard') return 'standard';
+  if (mode === 'compact') return 'medium';
+  if (mode === 'narrow') return 'narrow';
   const effective = width / (Number.isFinite(scale) && scale > 0 ? scale : 1);
-  if (effective < NARROW_BELOW) return 'narrow';
-  if (mode === 'compact' || effective < WIDE_FROM) return 'medium';
-  return 'wide';
+  if (effective < COMPACT_FROM) return 'narrow';
+  if (effective < STANDARD_FROM) return 'medium';
+  return 'standard';
 }
 
 // Splitter positions are saved per range so narrowing a panel on a laptop does
-// not change the desktop layout. Standard keeps the original key. The wide
-// range starts from the original key's value when it has none of its own.
+// not change the desktop layout. Standard keeps the original key.
 export function rangeWidthKey(baseKey: string, range: LayoutRange): string {
   return range === 'standard' ? baseKey : `${baseKey}.${range}`;
 }
@@ -56,9 +54,7 @@ export function readRangeFraction(baseKey: string, range: LayoutRange, min: numb
   };
   if (!storage) return null;
   try {
-    const own = valid(storage.getItem(rangeWidthKey(baseKey, range)));
-    if (own !== null || range !== 'wide') return own;
-    return valid(storage.getItem(baseKey));
+    return valid(storage.getItem(rangeWidthKey(baseKey, range)));
   } catch { return null; }
 }
 
@@ -92,20 +88,21 @@ function currentScale(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
-function snapshot(): { mode: LayoutMode; range: LayoutRange } {
+function snapshot(): { mode: LayoutMode; range: LayoutRange; interfaceWidth: number } {
   const mode = currentMode ?? (currentMode = readLayoutMode());
   const width = typeof window === 'undefined' ? 1280 : window.innerWidth;
-  return { mode, range: layoutRange(width, currentScale(), mode) };
+  const scale = currentScale();
+  return { mode, range: layoutRange(width, scale, mode), interfaceWidth: Math.floor(width / scale) };
 }
 
 // The layout mode and the range to draw now. Updates on window resize, on an
 // interface scale change and when the mode changes (in this tab or another).
-export function useLayout(): { mode: LayoutMode; range: LayoutRange } {
+export function useLayout(): { mode: LayoutMode; range: LayoutRange; interfaceWidth: number } {
   const [state, setState] = useState(snapshot);
   useEffect(() => {
     const update = () => setState((prev) => {
       const next = snapshot();
-      return prev.mode === next.mode && prev.range === next.range ? prev : next;
+      return prev.mode === next.mode && prev.range === next.range && prev.interfaceWidth === next.interfaceWidth ? prev : next;
     });
     const onStorage = (e: StorageEvent) => {
       if (e.key !== LAYOUT_MODE_KEY) return;

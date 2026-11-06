@@ -528,7 +528,7 @@ export function SettingsPanel({ onClose }: Props) {
             <div role="radiogroup" aria-label="Layout" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
               {LAYOUT_MODES.map((m) => <button key={m.id} type="button" role="radio" aria-checked={layoutMode === m.id} data-testid={`layout-mode-${m.id}`} title={m.hint} style={{ padding: '5px 8px', color: 'var(--color-accent-primary)', background: 'var(--color-bg-sunken)', border: `1px solid ${layoutMode === m.id ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, cursor: 'pointer' }} onClick={() => setLayoutMode(m.id)}>{m.label.toUpperCase()}</button>)}
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>Automatic follows the window width: narrow under 1100 px, medium to 1599 px, wide from 1600 px, counted at the interface text size. Standard keeps the original layout; Compact uses the medium layout at every width, and the narrow layout still applies under 1100 px. Saved in this browser only.</div>
+            <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size). Standard, Compact and Narrow stay fixed at every width. Saved in this browser only.</div>
           </div>
         </SettingsSection>
         <SettingsSection id="message-box-size">
