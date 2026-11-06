@@ -1,5 +1,6 @@
 """Turn visibility with synthetic provider events and an injected clock."""
 import asyncio
+import json
 import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
@@ -13,7 +14,7 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         page = await browser.new_page(viewport={'width': 400, 'height': 800})
-        errors = []
+        errors, messages = [], []
         page.on('pageerror', lambda error: errors.append(str(error)))
         async def api(route):
             path = urlparse(route.request.url).path
@@ -28,7 +29,7 @@ async def main():
         await page.route('**/api/**', api)
         await page.route('**/healthz', lambda route: route.fulfill(json={'status': 'live'}))
         await page.route('https://**/*', lambda route: route.abort())
-        await page.route_web_socket('**/*', lambda ws: None)
+        await page.route_web_socket('**/*', lambda ws: ws.on_message(lambda raw: messages.append(json.loads(raw))))
         await page.goto(URL)
         await page.locator('#home-title').wait_for()
         await page.evaluate('''async () => {
@@ -46,9 +47,14 @@ async def main():
         await page.locator('[data-help="composer.input"] textarea').press('Enter')
         await page.evaluate("sendFixture('queue_update',{steering:[{clientMessageId:'message-1',content:'Proceed'}],followUp:[]})")
         indicator = page.locator('[data-help="composer.turn-messages"]')
-        await expect(indicator).to_contain_text('QUEUED')
+        await expect(indicator.get_by_role('button', name='PENDING · 1')).to_be_visible()
+        await indicator.get_by_role('button', name='PENDING · 1').click()
+        await expect(page.get_by_text('STEER · QUEUED')).to_be_visible()
+        await expect(page.get_by_text('Proceed', exact=True)).to_be_visible()
+        await page.get_by_role('button', name='CANCEL', exact=True).last.click()
+        assert any(message.get('type') == 'cancel_queued_message' and message.get('clientMessageId') == 'message-1' for message in messages), messages
         await page.evaluate("sendFixture('queue_update',{steering:[],followUp:[]}); sendFixture('turn_messages_delivered',{clientMessageIds:['message-1']})")
-        await expect(indicator).to_contain_text('DELIVERED')
+        await expect(page.get_by_text('STEER · DELIVERED')).to_be_visible()
         await page.evaluate("window.clock += 61000")
         step = page.locator('[data-help="composer.turn-step"]')
         await expect(step).to_contain_text('Bash: npm test')
