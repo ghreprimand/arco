@@ -61,9 +61,6 @@ CASES = [
 # Set up before and undone after a case: the auth chip shows only while Claude is signed out.
 PRE = {'auth-chip': "s.setState(st=>({authStatus:{...st.authStatus, claude:{loggedIn:false, installed:true, cliInstalled:true, cli:{loggedIn:false}, native:{state:'missing', checkedAt:Date.now()}}}}))"}
 POST = {'auth-chip': "auth => s.setState({authStatus:auth})"}
-# Present only in some layouts: MORE appears when the composer tools do not fit.
-OPTIONAL = {'more': lambda w, s: w / s < 900}
-
 VISIBLE_BOX = '''(sel) => {
   const els=[...document.querySelectorAll(sel)].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;});
   if(!els.length) return null;
@@ -85,6 +82,18 @@ PIN = '''([el, where]) => {
     el.style.top = (parseFloat(el.style.top) + (y - r.top) / zoom) + 'px';
   }
 }'''
+# MORE disappears if its wrapper is removed from the toolbar's layout: the
+# test would remove the overflow it is trying to exercise. A transform moves
+# the wrapper visually while preserving its original space in the row.
+PIN_MORE = """([el, where]) => {
+  if (!el.dataset.ppStyle) el.dataset.ppStyle = el.getAttribute('style') || '';
+  const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+  const r = el.getBoundingClientRect(), gap = 2 * z;
+  const x = where.endsWith('left') ? gap : innerWidth - r.width - gap;
+  const y = where.startsWith('top') ? gap : innerHeight - r.height - gap;
+  el.style.zIndex = '99990';
+  el.style.transform = `translate(${(x-r.left)/z}px, ${(y-r.top)/z}px)`;
+}"""
 UNPIN = '''() => { for (const el of document.querySelectorAll('[data-pp-style]')) { el.setAttribute('style', el.dataset.ppStyle); delete el.dataset.ppStyle; } }'''
 FRAMES = 'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))'
 
@@ -138,6 +147,7 @@ async def open_app(browser, width, height, scale, state):
       s.setState({connected:true, connectionState:'connected'});
     }''')
     await page.wait_for_function('() => s.getState().authStatus && s.getState().settings')
+    await page.evaluate('document.fonts.ready')
     await page.evaluate('''auth => {
       s.setState({connected:true, connectionState:'connected', authStatus:auth,
         quotaState:{claude:{throttled:true, until:Date.now()+600000, reason:'fixture rate limit'}, codex:{throttled:true, until:Date.now()+600000, reason:'fixture rate limit'}},
@@ -238,7 +248,7 @@ async def open_case(page, case, where):
             await page.evaluate(FRAMES)
             if await parent.evaluate('p => !p || p === document.body'):
                 return False
-            await page.evaluate(PIN, [parent, where])
+            await page.evaluate(PIN_MORE if name == 'more' else PIN, [parent, where])
     if where == 'natural':
         await (loc.first.hover(timeout=4000) if how == 'hover' else loc.first.click(timeout=4000))
     else:
@@ -260,6 +270,31 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
             if name in PRE:
                 state['auth'] = SIGNED_OUT
                 await page.evaluate(PRE[name])
+            if name == 'more':
+                # Check the natural toolbar first if it has overflow. Font and
+                # scrollbar metrics decide whether MORE exists at this width.
+                await close_all(page)
+                await prepare(page, name)
+                if await visible(page, case[2]):
+                    await open_case(page, case, 'natural')
+                    box = await page.evaluate(VISIBLE_BOX, case[3])
+                    if not box:
+                        failures.append(f'{name}@{width}@{scale}@natural-unmodified: panel did not open')
+                    else:
+                        out = max(0, -box['left'], -box['top'], box['right'] - box['w'], box['bottom'] - box['h'])
+                        if out > 1:
+                            overflow.append((round(out), f'{name}@{width}@{scale}@natural-unmodified', box))
+                        if not box['marker']:
+                            failures.append(f'{name}@{width}@{scale}@natural-unmodified: no placement marker')
+                else:
+                    hidden = await page.locator('[data-testid="composer-toolbar"] > [data-overflowed="true"]:not([data-overflow-more])').count()
+                    if hidden:
+                        failures.append(f'{name}@{width}@{scale}@natural-unmodified: {hidden} tools hidden without MORE')
+                await close_all(page)
+                # Force enough overflow for the corner-placement checks on
+                # every platform, independent of system font metrics.
+                await page.locator('[data-testid="composer-toolbar"]').evaluate("e => { e.dataset.ppToolbarStyle = e.getAttribute('style') || ''; e.style.maxWidth = '400px'; }")
+                await page.evaluate(FRAMES)
             for where in WHERE:
                 tag = f'{name}@{width}@{scale}@{where}'
                 await close_all(page)
@@ -276,7 +311,7 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
                 if not opened:
                     if where != 'natural':
                         failures.append(f'{tag}: could not pin the trigger')
-                    elif not (name in OPTIONAL and not OPTIONAL[name](width, scale)):
+                    else:
                         failures.append(f'{tag}: trigger not found')
                     continue
                 box = await page.evaluate(VISIBLE_BOX, case[3])
@@ -291,6 +326,11 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
                     overflow.append((round(out), tag, {k: round(v) if isinstance(v, float) else v for k, v in box.items()}))
                 if not box['marker']:
                     failures.append(f'{tag}: no placement marker')
+            if name == 'more':
+                await close_all(page)
+                await page.evaluate(UNPIN)
+                await page.locator('[data-testid="composer-toolbar"]').evaluate("e => { e.setAttribute('style', e.dataset.ppToolbarStyle); delete e.dataset.ppToolbarStyle; }")
+                await page.evaluate(FRAMES)
             if name in POST:
                 state['auth'] = AUTH
                 await close_all(page)
