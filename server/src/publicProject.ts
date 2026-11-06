@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { DEFAULT_PROJECT_IGNORE } from './projectStateIgnore.js';
+import { DEFAULT_PROJECT_IGNORE, ignoreWithShares, sharedSkillSlugs } from './projectStateIgnore.js';
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 10_000;
@@ -93,32 +93,59 @@ export async function suggestFromRemote(cwd: string, opts: { fetchImpl?: FetchLi
 export interface ProjectStateReport {
   isGit: boolean;
   hasState: boolean;
+  // Tracked files in .arco, not counting the files of shared skills.
   tracked: number;
   trackedSample: string[];
   ignored: boolean;
+  // 'default' also when the only additions are SHARE WITH REPOSITORY blocks.
   ignoreFile: 'default' | 'missing' | 'edited';
+  // Skills shared with SHARE WITH REPOSITORY (read from .arco/.gitignore).
+  sharedSkills: string[];
+}
+
+// The ignore file's text, or '' when it is missing or not a plain file.
+function readIgnoreText(file: string): string {
+  try { return lstatSync(file).isFile() ? readFileSync(file, 'utf8') : ''; } catch { return ''; }
+}
+
+// A tracked path belongs to a shared skill when it lies under .arco/skills/<slug>/.
+function isSharedSkillPath(rel: string, shared: string[]): boolean {
+  return shared.some((slug) => rel.startsWith(`.arco/skills/${slug}/`));
+}
+
+// Pathspecs for `.arco` without the shared skills' folders.
+function stateOutsideSharedSkills(shared: string[]): string[] {
+  return ['.arco', ...shared.map((slug) => `:(exclude,literal).arco/skills/${slug}/`)];
 }
 
 export async function checkProjectState(cwd: string): Promise<ProjectStateReport> {
-  const base: ProjectStateReport = { isGit: false, hasState: false, tracked: 0, trackedSample: [], ignored: true, ignoreFile: 'default' };
+  const base: ProjectStateReport = { isGit: false, hasState: false, tracked: 0, trackedSample: [], ignored: true, ignoreFile: 'default', sharedSkills: [] };
   if (/[\\/]isolates[\\/]/.test(cwd)) return base;
   const inside = await git(cwd, ['rev-parse', '--is-inside-work-tree']);
   if (inside.code !== 0 || inside.stdout.trim() !== 'true') return base;
   base.isGit = true;
   const dir = join(cwd, '.arco');
   const file = join(dir, '.gitignore');
+  const ignoreText = readIgnoreText(file);
+  const shared = sharedSkillSlugs(ignoreText);
+  base.sharedSkills = shared;
   const listed = await git(cwd, ['ls-files', '--', '.arco']);
-  const tracked = listed.code === 0 ? listed.stdout.split('\n').filter(Boolean) : [];
+  const all = listed.code === 0 ? listed.stdout.split('\n').filter(Boolean) : [];
+  const tracked = all.filter((rel) => !isSharedSkillPath(rel, shared));
   base.tracked = tracked.length;
   base.trackedSample = tracked.slice(0, 5);
-  base.hasState = tracked.length > 0 || (existsSync(dir) && statSync(dir).isDirectory());
+  base.hasState = all.length > 0 || (existsSync(dir) && statSync(dir).isDirectory());
   if (!base.hasState) return base;
-  base.ignoreFile = !existsSync(file) ? 'missing' : readFileSync(file, 'utf8') === DEFAULT_PROJECT_IGNORE ? 'default' : 'edited';
+  base.ignoreFile = !existsSync(file) ? 'missing' : ignoreText === ignoreWithShares(DEFAULT_PROJECT_IGNORE, shared) ? 'default' : 'edited';
   base.ignored = (await git(cwd, ['check-ignore', '-q', '--no-index', '--', '.arco/workflows/.probe'])).code === 0;
   return base;
 }
 
-/** Write the default ignore file; an existing different file is moved aside first. */
+/**
+ * Write the default ignore file, followed by the SHARE WITH REPOSITORY blocks
+ * of the skills the current file shares; an existing different file is moved
+ * aside first.
+ */
 export function restoreIgnoreFile(cwd: string): { backup?: string } {
   const dir = join(cwd, '.arco');
   const file = join(dir, '.gitignore');
@@ -129,20 +156,28 @@ export function restoreIgnoreFile(cwd: string): { backup?: string } {
   try { if (!lstatSync(file).isFile()) throw new Error('.arco/.gitignore is not a plain file.'); }
   catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
   let backup: string | undefined;
+  let target = DEFAULT_PROJECT_IGNORE;
   if (existsSync(file)) {
-    if (readFileSync(file, 'utf8') === DEFAULT_PROJECT_IGNORE) return {};
+    const current = readFileSync(file, 'utf8');
+    target = ignoreWithShares(DEFAULT_PROJECT_IGNORE, sharedSkillSlugs(current));
+    if (current === target) return {};
     backup = `.gitignore.backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
     renameSync(file, join(dir, backup));
   }
-  writeFileSync(file, DEFAULT_PROJECT_IGNORE, { encoding: 'utf8', flag: 'wx' });
+  writeFileSync(file, target, { encoding: 'utf8', flag: 'wx' });
   return backup ? { backup } : {};
 }
 
-/** Remove .arco from the index only. Files stay on disk. */
+/**
+ * Remove .arco from the index only, except the files of skills shared with
+ * SHARE WITH REPOSITORY. Files stay on disk.
+ */
 export async function stopTrackingState(cwd: string): Promise<{ ok: boolean; removed: number; error?: string }> {
-  const before = await git(cwd, ['ls-files', '--', '.arco']);
-  const count = before.stdout.split('\n').filter(Boolean).length;
+  const shared = sharedSkillSlugs(readIgnoreText(join(cwd, '.arco', '.gitignore')));
+  const pathspecs = stateOutsideSharedSkills(shared);
+  const before = await git(cwd, ['ls-files', '--', ...pathspecs]);
+  const count = before.stdout.split('\n').filter((rel) => rel && !isSharedSkillPath(rel, shared)).length;
   if (count === 0) return { ok: true, removed: 0 };
-  const res = await git(cwd, ['rm', '-r', '-q', '--cached', '--', '.arco']);
+  const res = await git(cwd, ['rm', '-r', '-q', '--cached', '--', ...pathspecs]);
   return res.code === 0 ? { ok: true, removed: count } : { ok: false, removed: 0, error: 'git could not stop tracking the folder' };
 }

@@ -214,11 +214,12 @@ export const plans: Section[] = [
           Arco keeps its state for a project in a <Code>.arco</Code> folder that
           it asks Git to ignore. When Git tracks files in it, or the ignore file is
           missing or edited so the folder is no longer ignored, a quiet notice appears
-          once per project.
+          once per project. Files of a skill shared with SHARE WITH REPOSITORY
+          do not count.
         </p>
         <ul>
-          <li><Code>RESTORE IGNORE FILE</Code> writes the default ignore file. An edited file is first kept as a backup beside it.</li>
-          <li><Code>STOP TRACKING</Code> removes the folder from Git's index and keeps the files on disk. A commit is still needed. Anything already pushed stays in the remote's history, so rotate any secret that was in it.</li>
+          <li><Code>RESTORE IGNORE FILE</Code> writes the default ignore file and keeps the lines of skills shared with SHARE WITH REPOSITORY. An edited file is first kept as a backup beside it.</li>
+          <li><Code>STOP TRACKING</Code> removes the folder from Git's index, except shared skills, and keeps the files on disk. A commit is still needed. Anything already pushed stays in the remote's history, so rotate any secret that was in it.</li>
           <li><Code>DISMISS</Code> hides the notice for that project.</li>
         </ul>
         <p>

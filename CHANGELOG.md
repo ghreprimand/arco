@@ -45,6 +45,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - The top-bar auth chip panel ([AUTH: CLAUDE CLI] or [AUTH: CLAUDE NATIVE]) closes on a click outside it or Escape, like the other top-bar popovers, instead of only from the chip.
 - OUTPUTS can move or copy to an ordinary home folder, keeps each result visible in the dialog, and presents Download as a button.
 - An open page shows RELOAD when a restart leaves its session invalid or its build outdated, and reloads automatically when no unsaved work is detected.
+- The project-state notice no longer counts the files of a skill shared with SHARE WITH REPOSITORY. STOP TRACKING leaves them tracked and RESTORE IGNORE FILE keeps the share lines, so neither undoes the sharing; any other tracked file in `.arco` still raises the notice. A skill counts as shared when its exception lines are in `.arco/.gitignore`.
 - SHARE WITH REPOSITORY no longer leaves its exception lines in `.arco/.gitignore` when it refuses because Git still ignores the skill. The file is left exactly as it was.
 - llama.cpp Chat tabs and plan-review turns no longer run a tool call the model writes as `<tool_call>` text, even with AUTO on. Tools stay refused there, as on Ollama and LM Studio.
 - CATCH ME UP skips the model for empty ranges, offers wider ranges and keeps failed summaries out of chat.

@@ -22,7 +22,9 @@ will be)** beside the draft choices. The draft then also asks for a "Privacy
 and public safety" section. For a plan that already exists, **INSERT GUARDRAILS**
 adds the same section as an unsaved edit. A quiet notice offers **RESTORE IGNORE
 FILE**, **STOP TRACKING** and **DISMISS** when Git tracks or does not ignore the
-project's `.arco` folder. See the manual section "Working on a public project".
+project's `.arco` folder. Files of a skill shared with SHARE WITH REPOSITORY do
+not count, STOP TRACKING leaves them tracked, and RESTORE IGNORE FILE keeps the
+share lines. See the manual section "Working on a public project".
 
 For setup, see [Create a first cluster](GETTING_STARTED.md#create-a-first-cluster).
 For board controls, see [Task ledger](TASK_LEDGER.md).

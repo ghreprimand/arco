@@ -640,9 +640,9 @@ Request body (JSON):
 Route: `server/src/http/publicProjectRoutes.ts`; logic: `server/src/publicProject.ts`. The `path` is an absolute project folder; a missing or unsafe one answers **400**.
 
 - **`GET /api/public-project/remote?path=`** -> `{ state: 'none' }`, `{ state: 'hosted', host }` or `{ state: 'public', host }`. Reads `git remote -v`; for github.com only, one unauthenticated repository request, cached for a day (see [SECURITY.md](../SECURITY.md#public-project-checks)). Only confirmed public repositories answer `public`.
-- **`GET /api/public-project/state?path=`** -> `{ isGit, hasState, tracked, trackedSample, ignored, ignoreFile }`. `ignoreFile` is `default`, `missing` or `edited`; `ignored` is false when a probe path under `.arco/workflows/` is not ignored. Read-only.
-- **`POST /api/public-project/restore-ignore`** `{ path }` -> `{ ok, backup? }`. Writes the default `.arco/.gitignore`; an edited file is first renamed to `.gitignore.backup-<time>` in `.arco/`.
-- **`POST /api/public-project/stop-tracking`** `{ path }` -> `{ ok, removed }`. Runs `git rm -r --cached -- .arco`; files stay on disk and a commit is still needed.
+- **`GET /api/public-project/state?path=`** -> `{ isGit, hasState, tracked, trackedSample, ignored, ignoreFile, sharedSkills }`. `sharedSkills` lists the skills shared with SHARE WITH REPOSITORY, read from their exception lines (`!skills/<slug>/`, `!skills/<slug>/**`) in `.arco/.gitignore`; `tracked` and `trackedSample` leave out files under `.arco/skills/<slug>/` for those skills. `ignoreFile` is `default` (also when the only additions are share blocks), `missing` or `edited`; `ignored` is false when a probe path under `.arco/workflows/` is not ignored. Read-only.
+- **`POST /api/public-project/restore-ignore`** `{ path }` -> `{ ok, backup? }`. Writes the default `.arco/.gitignore` followed by the share blocks of the skills the current file shares; an edited file is first renamed to `.gitignore.backup-<time>` in `.arco/`.
+- **`POST /api/public-project/stop-tracking`** `{ path }` -> `{ ok, removed }`. Runs `git rm -r --cached -- .arco`, excluding the folders of shared skills; files stay on disk and a commit is still needed.
 - Both POST actions take registered projects only (`realpathWithinProjects`; **403** otherwise) and answer **409** without changing anything when `.arco` or `.arco/.gitignore` is a symbolic link or junction.
 
 ---
@@ -1467,7 +1467,7 @@ All matched before the plain `/api/skills` routes; `cwd` (query) is required for
 - `POST /api/skills/state` - `{ scope, slug, off }`. An off skill is left out of the model manifest and pins; `GET /api/skills` reports `off: true` and `source` per skill.
 - `POST /api/skills/move` - `{ scope, slug, to }`. `POST /api/skills/duplicate` - `{ scope, slug, name }` (the copy has no source).
 - `GET /api/skills/details` - `{ skills: [{ scope, slug, files: [{ path, bytes }], missing }] }`: extra files and referenced skill names that are not installed.
-- `POST /api/skills/share/preview` and `POST /api/skills/share` (`confirm: true`) - `{ slug }`, project scope, registered projects only (403 otherwise). Returns `{ slug, files, alreadyTrackable, publicRepository, lines }`; sharing appends the lines to `.arco/.gitignore` and verifies with `git check-ignore`.
+- `POST /api/skills/share/preview` and `POST /api/skills/share` (`confirm: true`) - `{ slug }`, project scope, registered projects only (403 otherwise). Returns `{ slug, files, alreadyTrackable, publicRepository, lines }`; sharing appends a `# Shared with the repository: <slug>` comment and the lines to `.arco/.gitignore` and verifies with `git check-ignore`. The project-state check reads those lines and leaves the shared skill's files alone.
 
 ### `POST /api/skills/copy-builtin?cwd=<absolute path>`
 

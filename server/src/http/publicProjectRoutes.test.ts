@@ -58,6 +58,25 @@ test('a registered project: restore and stop tracking work', async () => {
   assert.equal(git(cwd, 'ls-files', '--', '.arco'), '');
 });
 
+test('STOP TRACKING through the route leaves a shared skill tracked; RESTORE IGNORE FILE keeps its share lines', async () => {
+  const { appendShareBlock } = await import('../projectStateIgnore.js');
+  const cwd = await project('shared-skill', true);
+  mkdirSync(join(cwd, '.arco', 'skills', 'shared'), { recursive: true });
+  writeFileSync(join(cwd, '.arco', 'skills', 'shared', 'SKILL.md'), 'x');
+  const withShare = appendShareBlock(DEFAULT_PROJECT_IGNORE, 'shared');
+  writeFileSync(join(cwd, '.arco', '.gitignore'), `${withShare}# mine\n`);
+  writeFileSync(join(cwd, '.arco', 'note.txt'), 'x');
+  git(cwd, 'add', '--', '.arco/skills/shared/SKILL.md');
+  git(cwd, 'add', '-f', '--', '.arco/note.txt');
+  const stopped = await post('stop-tracking', cwd);
+  assert.deepEqual([stopped.code, stopped.body.removed], [200, 1]);
+  assert.equal(git(cwd, 'ls-files', '--', '.arco').trim(), '.arco/skills/shared/SKILL.md');
+  const restored = await post('restore-ignore', cwd);
+  assert.equal(restored.code, 200);
+  assert.ok(restored.body.backup);
+  assert.equal(readFileSync(join(cwd, '.arco', '.gitignore'), 'utf8'), withShare);
+});
+
 test('a linked .arco folder is refused', async () => {
   const cwd = join(root, 'linked-dir'); mkdirSync(cwd); git(cwd, 'init', '-q');
   const elsewhere = join(root, 'elsewhere-dir'); mkdirSync(elsewhere);

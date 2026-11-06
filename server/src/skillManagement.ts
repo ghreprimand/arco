@@ -16,7 +16,7 @@ import {
   BODY_MAX, DESCRIPTION_MAX, NAME_MAX, SKILL_SIDECAR, isValidSlug, listBuiltinSkills, listSkills, parseSkillFile, readSkillSidecar,
   renderSkillFile, rootForScope, slugify, type SkillScope, type SkillSidecar, type StoredSkillSource,
 } from './skills.js';
-import { ensureProjectStateIgnore } from './projectStateIgnore.js';
+import { appendShareBlock, ensureProjectStateIgnore, skillShareLines } from './projectStateIgnore.js';
 import { projectGitEnv, suggestFromRemote } from './publicProject.js';
 
 const run = promisify(execFile);
@@ -461,11 +461,6 @@ async function gitIgnored(cwd: string, rel: string): Promise<boolean | null> {
 
 export interface SharePreview { slug: string; files: string[]; alreadyTrackable: boolean; publicRepository: boolean; lines: string[] }
 
-function shareLines(slug: string, existing: string): string[] {
-  const have = new Set(existing.split('\n').map((l) => l.trim()));
-  return ['!skills/', 'skills/*', `!skills/${slug}/`, `!skills/${slug}/**`].filter((l) => !have.has(l));
-}
-
 export async function previewShare(cwd: string, slug: string): Promise<SharePreview> {
   const dir = await skillDir('project', slug, cwd);
   const r = await collectFromFolder(dir);
@@ -474,7 +469,7 @@ export async function previewShare(cwd: string, slug: string): Promise<SharePrev
   const states = await Promise.all(files.map((f) => gitIgnored(cwd, f)));
   if (states.some((s) => s === null)) throw new Error('This project is not a Git repository, so there is nothing to share.');
   const publicRepository = (await suggestFromRemote(cwd).catch(() => ({ state: 'unknown' }))).state === 'public';
-  return { slug, files, alreadyTrackable: states.every((s) => s === false), publicRepository, lines: shareLines(slug, ignore) };
+  return { slug, files, alreadyTrackable: states.every((s) => s === false), publicRepository, lines: skillShareLines(slug, ignore) };
 }
 
 // The ignore rule Git applies to `rel`, as text for an error message, or ''.
@@ -509,15 +504,13 @@ export async function shareSkill(cwd: string, slug: string): Promise<SharePrevie
   if (st && !st.isFile()) throw new Error('The project state ignore file is not a regular file.');
   const original = st ? await fs.readFile(file) : null;
   const existing = original ? original.toString('utf8') : '';
-  const add = shareLines(slug, existing);
-  const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
   const restore = async () => {
     if (original) await fs.writeFile(file, original);
     else await fs.rm(file, { force: true });
   };
   let after: SharePreview;
   try {
-    await fs.appendFile(file, `${prefix}# Shared with the repository: ${slug}\n${add.join('\n')}\n`);
+    await fs.appendFile(file, appendShareBlock(existing, slug).slice(existing.length));
     after = await previewShare(cwd, slug);
   } catch (err) {
     await restore();

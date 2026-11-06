@@ -233,6 +233,27 @@ test('SHARE WITH REPOSITORY adds an exception to .arco/.gitignore so only that s
   await assert.rejects(m.shareSkill(other, 'blocked'), /still ignores the skill's files through another ignore rule\. The rule is in \.gitignore line 1 \(\.arco\/\)\./);
 });
 
+test('a skill shared with SHARE WITH REPOSITORY and committed is left alone by the project-state check', async () => {
+  const pp = await import('./publicProject.js');
+  const cwd = project(); git(cwd, 'init', '-q');
+  await skills.writeSkill({ scope: 'project', name: 'Shared', description: 'x', body: 'y' }, cwd);
+  await skills.writeSkill({ scope: 'project', name: 'Private', description: 'x', body: 'y' }, cwd);
+  await m.shareSkill(cwd, 'shared');
+  git(cwd, 'add', '--', '.arco');
+  git(cwd, 'commit', '-q', '-m', 'share');
+  const tracked = git(cwd, 'ls-files', '--', '.arco').trim().split('\n');
+  assert.ok(tracked.length > 0 && tracked.every((f) => f.startsWith('.arco/skills/shared/')), tracked.join(','));
+  const report = await pp.checkProjectState(cwd);
+  assert.deepEqual([report.tracked, report.ignored, report.ignoreFile, report.sharedSkills], [0, true, 'default', ['shared']]);
+  // A second share keeps the file in the shape the check accepts.
+  await m.shareSkill(cwd, 'private');
+  const two = await pp.checkProjectState(cwd);
+  assert.deepEqual([two.ignoreFile, two.sharedSkills], ['default', ['shared', 'private']]);
+  assert.deepEqual(pp.restoreIgnoreFile(cwd), {});
+  assert.deepEqual(await pp.stopTrackingState(cwd), { ok: true, removed: 0 });
+  assert.deepEqual(git(cwd, 'ls-files', '--', '.arco').trim().split('\n'), tracked);
+});
+
 test('SHARE WITH REPOSITORY refused: .arco/.gitignore stays byte-identical, or absent when it was absent', async () => {
   const bytes = (cwd: string) => readFileSync(join(cwd, '.arco', '.gitignore'));
   const STILL = /still ignores the skill's files through another ignore rule\./;

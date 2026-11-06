@@ -1186,7 +1186,10 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>RESTORE IGNORE FILE</C> writes the default ignore file (an edited one
         is kept as a backup). <C>STOP TRACKING</C> removes the folder from Git's
         index and keeps the files; commit afterwards, and note that anything
-        already pushed stays in the remote's history. Both act only on projects
+        already pushed stays in the remote's history. Files of a skill shared
+        with <C>SHARE WITH REPOSITORY</C> do not count: <C>STOP TRACKING</C>{' '}
+        leaves them tracked and <C>RESTORE IGNORE FILE</C> keeps the share
+        lines. Both act only on projects
         in the PROJECTS list, and refuse when <C>.arco</C> or its ignore file is
         a link. <C>DISMISS</C> hides this for the project.
       </p>

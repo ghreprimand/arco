@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEFAULT_PROJECT_IGNORE } from './projectStateIgnore.js';
+import { DEFAULT_PROJECT_IGNORE, appendShareBlock } from './projectStateIgnore.js';
 import { checkProjectState, clearRemoteCache, githubIsPublic, parseRemotes, restoreIgnoreFile, stopTrackingState, suggestFromRemote } from './publicProject.js';
 
 const AT = '@';
@@ -105,6 +105,80 @@ test('restore backs up an edited ignore file; stop tracking keeps files', async 
     assert.equal(existsSync(join(dir, '.arco', 'settings.json')), true);
     assert.equal(g(dir, 'ls-files', '--', '.arco').trim(), '');
     assert.equal((await checkProjectState(dir)).ignored, true);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// A project with skill `shared` shared the way SHARE WITH REPOSITORY does it
+// and committed, plus a private skill that stays ignored.
+function sharedSkillRepo(): string {
+  const dir = repo();
+  mkdirSync(join(dir, '.arco', 'skills', 'shared'), { recursive: true });
+  mkdirSync(join(dir, '.arco', 'skills', 'private'), { recursive: true });
+  writeFileSync(join(dir, '.arco', 'skills', 'shared', 'SKILL.md'), '---\nname: Shared\n---\nbody\n');
+  writeFileSync(join(dir, '.arco', 'skills', 'shared', 'notes.md'), 'n\n');
+  writeFileSync(join(dir, '.arco', 'skills', 'private', 'SKILL.md'), '---\nname: Private\n---\nbody\n');
+  writeFileSync(join(dir, '.arco', '.gitignore'), appendShareBlock(DEFAULT_PROJECT_IGNORE, 'shared'));
+  g(dir, 'add', '--', '.arco');
+  g(dir, 'commit', '-q', '-m', 'share');
+  assert.deepEqual(g(dir, 'ls-files', '--', '.arco').trim().split('\n'), ['.arco/skills/shared/SKILL.md', '.arco/skills/shared/notes.md']);
+  return dir;
+}
+
+test('a skill shared with SHARE WITH REPOSITORY and committed gives no warning', async () => {
+  const dir = sharedSkillRepo();
+  try {
+    const report = await checkProjectState(dir);
+    assert.deepEqual([report.tracked, report.trackedSample, report.ignored, report.ignoreFile, report.sharedSkills], [0, [], true, 'default', ['shared']]);
+    assert.deepEqual(await stopTrackingState(dir), { ok: true, removed: 0 });
+    assert.deepEqual(restoreIgnoreFile(dir), {}, 'the ignore file with its share lines counts as restored');
+    assert.equal(g(dir, 'ls-files', '--', '.arco').trim().split('\n').length, 2);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a shared skill plus another tracked state file: only the other file warns, and STOP TRACKING untracks only it', async () => {
+  const dir = sharedSkillRepo();
+  try {
+    writeFileSync(join(dir, '.arco', 'settings.json'), '{}');
+    g(dir, 'add', '-f', '--', '.arco/settings.json');
+    const report = await checkProjectState(dir);
+    assert.deepEqual([report.tracked, report.trackedSample], [1, ['.arco/settings.json']]);
+    const stopped = await stopTrackingState(dir);
+    assert.deepEqual([stopped.ok, stopped.removed], [true, 1]);
+    assert.deepEqual(g(dir, 'ls-files', '--', '.arco').trim().split('\n'), ['.arco/skills/shared/SKILL.md', '.arco/skills/shared/notes.md']);
+    assert.equal(existsSync(join(dir, '.arco', 'settings.json')), true);
+    assert.equal((await checkProjectState(dir)).tracked, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RESTORE IGNORE FILE keeps the share lines and the shared skill stays trackable', async () => {
+  const dir = sharedSkillRepo();
+  try {
+    const file = join(dir, '.arco', '.gitignore');
+    const edited = appendShareBlock(DEFAULT_PROJECT_IGNORE, 'shared').replace('*\n', '# broken\n');
+    writeFileSync(file, edited);
+    const before = await checkProjectState(dir);
+    assert.deepEqual([before.ignored, before.ignoreFile, before.sharedSkills, before.tracked], [false, 'edited', ['shared'], 0]);
+    const restored = restoreIgnoreFile(dir);
+    assert.ok(restored.backup);
+    assert.equal(readFileSync(file, 'utf8'), appendShareBlock(DEFAULT_PROJECT_IGNORE, 'shared'));
+    assert.equal(readFileSync(join(dir, '.arco', restored.backup!), 'utf8'), edited);
+    const after = await checkProjectState(dir);
+    assert.deepEqual([after.ignored, after.ignoreFile, after.tracked], [true, 'default', 0]);
+    assert.equal(g(dir, 'status', '--porcelain', '--', '.arco').trim(), '', 'nothing about the shared skill changed');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('shared means the exception lines: a comment alone or a force-added skill still warns', async () => {
+  const dir = repo();
+  try {
+    mkdirSync(join(dir, '.arco', 'skills', 'forced'), { recursive: true });
+    writeFileSync(join(dir, '.arco', 'skills', 'forced', 'SKILL.md'), 'x\n');
+    writeFileSync(join(dir, '.arco', '.gitignore'), `${DEFAULT_PROJECT_IGNORE}# Shared with the repository: forced\n`);
+    g(dir, 'add', '-f', '--', '.arco/skills/forced/SKILL.md');
+    const report = await checkProjectState(dir);
+    assert.deepEqual([report.tracked, report.sharedSkills], [1, []]);
+    assert.deepEqual((await stopTrackingState(dir)).removed, 1);
+    assert.equal(g(dir, 'ls-files', '--', '.arco').trim(), '');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

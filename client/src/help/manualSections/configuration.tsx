@@ -550,6 +550,11 @@ export const configuration: Section[] = [
   rule and leaves <Code>.arco/.gitignore</Code> unchanged. Arco ships no
   third-party skills.
   </p>
+  <p>
+  A shared skill that is committed raises no project-state notice. STOP
+  TRACKING leaves its files tracked, and RESTORE IGNORE FILE keeps its
+  exception lines.
+  </p>
   </>
   ),
   },
