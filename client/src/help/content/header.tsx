@@ -365,8 +365,8 @@ export const headerHelp: Record<string, HelpEntry> = {
     manualSection: 'help-system',
   },
   'header.question-toast': {
-    title: 'Question notification',
-    body: <p>Select the notification to open the worker waiting for an answer.</p>,
+    title: 'Worker notification',
+    body: <p>Select the notification to open the worker it refers to. If its tab is closed, a message says it is no longer open.</p>,
     manualSection: 'tab-bar',
   },
   'header.notifications': {
@@ -381,7 +381,8 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>
           Use <strong>SHOW IN BELL</strong> to choose categories. A checked box
           means the category is shown; choices persist across restarts. Notices
-          are informational and never accept commands.
+          can be selected to open the worker they refer to. If its tab is closed,
+          a message says it is no longer open. Notices never send commands.
         </p>
       </>
     ),

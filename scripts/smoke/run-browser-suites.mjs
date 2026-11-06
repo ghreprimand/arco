@@ -87,6 +87,7 @@ const SUITES = [
   { name: 'selected-control-contrast', script: 'selected-control-contrast-browser.py', port: 5205 },
   { name: 'phosphor-production', script: 'phosphor-production-browser.py', port: 5179 },
   { name: 'dialog-opaque', script: 'dialog-opaque-browser.py', port: 5203 },
+  { name: 'notification-target', script: 'notification-target-browser.py', port: 5203 },
   { name: 'notifications-settings', script: 'notifications-settings-browser.py', port: 5203 },
   { name: 'voice', script: 'voice-browser.py', port: 5193 },
   { name: 'interrupt-send', script: 'interrupt-send-browser.py', port: 5194 },

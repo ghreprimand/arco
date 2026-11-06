@@ -1076,6 +1076,8 @@ Clusters don't have their own boot sequence  - they're recovered alongside regul
 **Idle nudger (default OFF):**
 The nudger (`server/src/clusterIdleNudger.ts`) fires a toast notification in the Arco UI when a cluster member has been idle longer than the configured floor (default 10s, test override via `ARCO_CLUSTER_IDLE_FLOOR_SECONDS`). It is **operator-armed per cluster** in the MAIL ALERTS toggle and is **toast-only**  - it never sends a prompt to any worker automatically. The toggle survives server restarts because the armed state is part of the cluster record.
 
+Select a worker-linked error pop-up or BELL notice to open that worker. If its tab has closed, Arco shows a message instead.
+
 **AUTO-PICKUP** (distinct from nudger) is also operator-armed per cluster
 (Off by default). Modes: Off; Rule-based (recommended deterministic wake on
 idle mail, with acknowledgement filtering, loop and adjustable wake-budget

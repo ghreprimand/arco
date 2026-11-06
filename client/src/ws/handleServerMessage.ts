@@ -1419,7 +1419,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // fallback. Without the toast, cluster-action rejections (e.g.
           // member_not_native from spawn-into-cluster with non-Native provider)
           // were invisible to the operator.
-          store.pushNotification('error', msg.message);
+          store.pushNotification('error', msg.message, msg.workflowId);
           {
             const targetWorkflowId = msg.workflowId ?? store.activeJobId;
             if (!targetWorkflowId || !store.jobs[targetWorkflowId]) break;

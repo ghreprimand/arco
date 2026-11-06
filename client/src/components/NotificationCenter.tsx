@@ -3,6 +3,7 @@ import { useNotificationStore, unreadCount } from '../stores/notificationStore';
 import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
 import type { WorkbenchNoticeCategory, WorkbenchNoticeSeverity } from '@arco/shared';
 import { useKeepInWindow } from '../layout/keepInWindow';
+import { focusNoticeWorkflow } from '../alerts/focusNotice';
 
 // docs/ARCHITECTURE.md - the header notice center: a bell with an unread
 // badge that opens the durable notice history + per-category show controls.
@@ -153,11 +154,17 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
             ) : (
               notices.map((n) => (
                 <div key={n.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border-hairline)' }}>
+                  {n.workflowId ? <button data-help="header.notifications" onClick={() => { focusNoticeWorkflow(n.workflowId!); setOpen(false); }} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
+                    <span className="display-font" style={{ fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}</span>
+                    <span style={{ float: 'right', color: 'var(--color-fg-muted)', fontSize: '9px' }}>{relativeTime(n.ts)}</span>
+                    {n.body && <div style={{ color: 'var(--color-fg-muted)', marginTop: '2px', lineHeight: 1.4 }}>{n.body}</div>}
+                  </button> : <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                     <span className="display-font" style={{ fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}</span>
                     <span style={{ color: 'var(--color-fg-muted)', fontSize: '9px', whiteSpace: 'nowrap' }}>{relativeTime(n.ts)}</span>
                   </div>
                   {n.body && <div style={{ color: 'var(--color-fg-muted)', marginTop: '2px', lineHeight: 1.4 }}>{n.body}</div>}
+                  </>}
                 </div>
               ))
             )}

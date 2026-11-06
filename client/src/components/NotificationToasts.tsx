@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { findDirector } from './clusterSurface.helpers';
 import { useKeepInWindow } from '../layout/keepInWindow';
+import { focusNoticeWorkflow } from '../alerts/focusNotice';
 
 const DISMISS_AFTER_MS = 6000;
 
@@ -17,12 +18,6 @@ export function NotificationToasts() {
   const notifications = useAppStore((s) => s.notifications);
   const dismiss = useAppStore((s) => s.dismissNotification);
   const placeRef = useKeepInWindow({ anchor: () => null });
-  const focusQuestion = (workflowId: string) => {
-    const state = useAppStore.getState();
-    const cluster = Object.values(state.clusters).find((c) => c.members.some((m) => m.workflowId === workflowId));
-    if (cluster) { state.setActiveCluster(cluster.clusterId); state.setClusterFocusedMember(cluster.clusterId, workflowId); }
-    else state.setActiveJob(workflowId);
-  };
 
   // GO TO DIRECTOR: offered on a question toast from a cluster member other
   // than the director. A click focuses the director; nothing moves on its own.
@@ -93,7 +88,7 @@ export function NotificationToasts() {
           >
             {n.level === 'error' ? 'ERROR' : 'INFO'}
           </span>
-          {n.workflowId ? <button data-help="header.question-toast" onClick={() => { focusQuestion(n.workflowId!); dismiss(n.id); }} style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word', color: 'inherit', background: 'none', border: 0, cursor: 'pointer' }}>{n.message}</button> : <span style={{ flex: 1, wordBreak: 'break-word' }}>{n.message}</span>}
+          {n.workflowId ? <button data-help="header.question-toast" onClick={() => { focusNoticeWorkflow(n.workflowId!); dismiss(n.id); }} style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word', color: 'inherit', background: 'none', border: 0, cursor: 'pointer' }}>{n.message}</button> : <span style={{ flex: 1, wordBreak: 'break-word' }}>{n.message}</span>}
           {n.action?.kind === 'open-recall' && (
             <button
               data-testid="toast-open-recall"
@@ -103,7 +98,7 @@ export function NotificationToasts() {
               {n.action.label}
             </button>
           )}
-          {n.workflowId && (() => {
+          {n.workflowId && n.level !== 'error' && (() => {
             const director = directorFor(n.workflowId!);
             return director ? <button type="button" data-testid="toast-go-to-director" className="display-font" onClick={() => { goToDirector(director); dismiss(n.id); }} style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', padding: '1px 5px' }}>GO TO DIRECTOR</button> : null;
           })()}
