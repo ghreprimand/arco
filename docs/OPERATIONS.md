@@ -532,7 +532,8 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_LOG_DIR` | `~/.arco/logs` | Override the file-log directory (also enables file logging when set) |
 | `ARCO_OAUTH_CALLBACK_HOST` | `127.0.0.1` | Loopback host for the Claude Native OAuth callback |
 | `ARCO_INSTANCE_NAME` | (hostname-derived) | Friendly instance name reported to the management hub |
-| `ARCO_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell |
+| `ARCO_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell. Ignored, with one log line, when the Arco home is inside the system temporary folder (see `ARCO_HUB_ALLOW_TEMP_HOME`) |
+| `ARCO_HUB_ALLOW_TEMP_HOME` | unset | Set `1` to let a server whose Arco home is inside the system temporary folder join the hub. Without it such a server never contacts the hub |
 | `ARCO_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present |
 | `ARCO_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
 | `ARCO_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |

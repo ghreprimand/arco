@@ -638,6 +638,12 @@ export const powerFeatures: Section[] = [
   switch.
   </p>
   <p>
+  An instance whose Arco home folder is inside the system temporary folder, such
+  as a test server, does not join the hub even when <Code>ARCO_HUB_URL</Code> is
+  set, and the chip stays hidden. Set <Code>ARCO_HUB_ALLOW_TEMP_HOME=1</Code> to
+  join anyway.
+  </p>
+  <p>
   Remote control is <strong>off by default</strong>, and the switches are shown
   only while this instance is connected to the hub.
   </p>

@@ -6,9 +6,12 @@
 // `npm run dev` / production boot is unchanged. When set, the live Arco
 // registers to the hub as a 'service', pushes its workflow snapshot, and applies
 // routed reply/stop/continue actions — re-validating against current state.
+// The hub guard (hubGuard.ts) holds the link back when the Arco home is inside
+// the temporary folder, unless ARCO_HUB_ALLOW_TEMP_HOME=1.
 
 import { WebSocket } from 'ws';
 import { join } from 'node:path';
+import { hubUrlForServer } from './hubGuard.js';
 import { workflows, workflowCwds } from '../server/state.js';
 import { handleUserMessage } from '../ws/turnEngine.js';
 import { handleCancel, handleCancelQueuedMessage } from '../ws/workflowHandlers.js';
@@ -773,7 +776,7 @@ let statusListener: ((s: HubLinkStatus) => void) | null = null;
 export interface HubLinkStatus {
   connected: boolean; // outbound link to the hub is open
   enabled: boolean; // operator hasn't killed it locally
-  hubUrl?: string; // present when ARCO_HUB_URL is configured
+  hubUrl?: string; // present when ARCO_HUB_URL is configured and the hub guard allows it
   // Header transparency (REMOTE_MANAGEMENT.md §9): how many of this instance's
   // workflows are opted in to remote (= reported to the hub). Lets the HUB chip
   // show "N monitored" instead of a bare connected/disconnected dot.
@@ -793,12 +796,13 @@ function countRemoteEnabled(): number {
 }
 
 export function getHubLinkStatus(): HubLinkStatus {
+  const hubUrl = hubUrlForServer();
   return {
     connected,
     enabled: link !== null,
     monitoredCount: countRemoteEnabled(),
     ...(connectedSince !== undefined ? { connectedSince } : {}),
-    ...(process.env.ARCO_HUB_URL ? { hubUrl: process.env.ARCO_HUB_URL } : {}),
+    ...(hubUrl ? { hubUrl } : {}),
   };
 }
 
@@ -822,8 +826,9 @@ function emitStatus(): void {
 }
 
 function startLink(): void {
-  const hubUrl = process.env.ARCO_HUB_URL;
-  if (!hubUrl || !cfg || link) return;
+  if (!cfg || link) return;
+  const hubUrl = hubUrlForServer();
+  if (!hubUrl) return;
   const instance = buildServiceInstanceDescriptor(cfg.repoRoot, cfg.version);
   link = createHubLink({
     hubUrl,

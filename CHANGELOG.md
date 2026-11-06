@@ -19,6 +19,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- A server whose Arco home is inside the system temporary folder (symbolic links resolved) no longer joins the management hub when `ARCO_HUB_URL` is set: no link, no registration, no heartbeat and no cloud vault requests, and the header hub chip stays hidden. One log line says so; `ARCO_HUB_ALLOW_TEMP_HOME=1` joins anyway. Homes outside the temporary folder are unchanged.
 - Docs and the CONFIG manual name auto-handoff after N compactions and FOLD AT, describe PENDING cancel instead of per-message queue chips with their own ×, and state when to choose HANDOFF versus compaction (three modes).
 - The composer groups the north star, pending messages, compaction continuation and skill notices in a compact status line. PENDING opens the message list and its cancellation controls. The tool-call handoff suggestion is removed.
 

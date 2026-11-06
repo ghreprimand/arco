@@ -22,6 +22,7 @@ import {
   importVaultKey,
   readVaultKey,
 } from '../clusterVaultCrypto.js';
+import { hubUrlForServer } from '../management/hubGuard.js';
 
 const MAX_HTTP_BYTES = MAX_CLUSTER_BUNDLE_BYTES + 1024 * 1024;
 
@@ -50,7 +51,7 @@ function readRaw(req: IncomingMessage, cap = MAX_HTTP_BYTES): Promise<Buffer> {
 }
 
 function hubBase(): URL | null {
-  const raw = process.env.ARCO_HUB_URL?.trim();
+  const raw = hubUrlForServer();
   if (!raw) return null;
   try {
     const url = new URL(raw);

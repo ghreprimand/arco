@@ -2594,7 +2594,7 @@ Whether this instance is linked to a management hub (and thus remotely controlla
 {
   type: 'hub_link_status',
   connected: boolean,
-  hubUrl?: string,           // present when ARCO_HUB_URL is configured
+  hubUrl?: string,           // present when ARCO_HUB_URL is configured and the hub guard allows it
   monitoredCount?: number,   // workflows opted in to remote (= reported to the hub)
   connectedSince?: number,
 }

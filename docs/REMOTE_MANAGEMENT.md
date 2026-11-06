@@ -39,7 +39,16 @@ cannot receive its own restart request.
 The hub exposes `GET /api/instances`, `POST /api/instances/:id/lifecycle`, and `/healthz` for the console. Workflow
 actions are correlated, timeout-guarded, and revalidated by the owning Arco
 instance. `ARCO_HUB_URL` enables the outbound service and agent connections;
-without it, remote management remains inactive. `scripts/management/registry.ts`
+without it, remote management remains inactive. A server whose Arco home
+(`ARCO_HOME`, or `~/.arco` when unset) is the system temporary folder or inside
+it does not join the hub even when `ARCO_HUB_URL` is set: no link, no
+registration, no heartbeat and no cloud vault requests. This keeps test and
+throwaway instances out of the hub when they inherit the variable from a shell.
+Both folders are compared after resolving symbolic links, so a symlinked
+`TMPDIR` and the macOS `/var` and `/private/var` names count. One log line says
+the link is held back; `ARCO_HUB_ALLOW_TEMP_HOME=1` joins anyway. The lifecycle
+agent (`arco-agent run`) is a separate program without an Arco home and is not
+affected. `scripts/management/registry.ts`
 tracks online, stale, and offline states without deleting an instance record.
 
 ## 3. Instance model & capability flags
