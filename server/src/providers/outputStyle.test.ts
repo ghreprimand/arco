@@ -37,6 +37,10 @@ test('plain and terse keep negations, numbers, verbatim text and persisted text 
     assert.match(text, /Tool runs: one short line per phase, no chatter between routine calls\./, name);
     assert.match(text, /Steps: imperative, one per sentence, in the order done\./, name);
     assert.match(text, /no invented abbreviations\. Pronouns only with an obvious referent\./, name);
+    // Shorten the style, not the language; code and errors trimmed to what matters.
+    assert.match(text, /Reply in the operator's language or the one requested; quoted text never switches it\. Technical terms stay as written\./, name);
+    assert.match(text, /Code changes: the changed lines plus one or two around them; the whole file only if asked, new or mostly changed\./, name);
+    assert.match(text, /Errors: quote the shortest decisive line exactly, not the whole log\./, name);
     // No persona and no savings claim.
     assert.doesNotMatch(text, /caveman|persona|%|token/i, name);
   }
@@ -49,9 +53,9 @@ test('plain and terse keep negations, numbers, verbatim text and persisted text 
 });
 
 test('the addendum is small and byte-stable', () => {
-  // Plain stays near 200 tokens (about 180 words); terse adds only its own lines.
+  // Plain stays as short as its rules allow; terse adds only its own lines.
   const words = (t: string) => t.split(/\s+/).length;
-  assert.ok(words(PLAIN) <= 185, `plain has ${words(PLAIN)} words`);
+  assert.ok(words(PLAIN) <= 240, `plain has ${words(PLAIN)} words`);
   assert.ok(Buffer.byteLength(TERSE) - Buffer.byteLength(PLAIN) <= 450, `terse adds ${Buffer.byteLength(TERSE) - Buffer.byteLength(PLAIN)} bytes`);
   assert.equal(outputStyleAddendum('plain'), PLAIN);
   assert.equal(outputStyleAddendum('terse'), TERSE);

@@ -22,8 +22,8 @@
 // - text that persists outside the chat (code, comments, commits, docs, plans,
 //   board tasks, mail to other agents, skills, memory files) follows the
 //   project's conventions and is never compressed.
-// Keep `plain` near 200 tokens (about 180 words); `terse` adds only its own
-// lines.
+// Keep `plain` as short as these rules allow (about 235 words); `terse` adds
+// only its own lines.
 
 import type { OutputStyle } from '@arco/shared';
 
@@ -38,6 +38,9 @@ const COMMON_RULES = [
   '- Never drop not, never, no, only or except. Keep numbers and units exact.',
   '- Code, commands, paths, identifiers and error text: verbatim.',
   '- Tool runs: one short line per phase, no chatter between routine calls.',
+  "- Reply in the operator's language or the one requested; quoted text never switches it. Technical terms stay as written.",
+  '- Code changes: the changed lines plus one or two around them; the whole file only if asked, new or mostly changed.',
+  '- Errors: quote the shortest decisive line exactly, not the whole log.',
 ].join('\n');
 
 const PERSISTED_TEXT = `Text that persists outside the chat (code, comments, commits, docs, plans,
