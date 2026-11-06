@@ -60,6 +60,12 @@ async def check(browser, scale, scenario):
         elif path == '/api/sessions':
             folder = parse_qs(urlparse(request.url).query).get('path', [''])[0]
             data = {'sessions': [{'sessionId': 'saved-fixture-session', 'name': 'Plan the next small release', 'provider': 'claude', 'cwd': folder, 'startedAt': 1793210400000}] if folder == '/projects/harbor' else []}
+        elif path == '/api/recall/search':
+            # Exercise a search that finishes after the dialog opens.
+            await asyncio.sleep(0.6)
+            data = {'hits': [{'wfid':'fixture','title':'Synthetic conversation','project':'Work','provider':'codex','cwd':'/projects','lastActiveAt':1,'summaryRef':'summary','snippet':'','matchedIn':'title','tags':[],'pinned':False,'links':[]}]}
+        elif path == '/api/recall/summary':
+            data = {'summary': 'Synthetic summary ' * 50}
         elif path == '/api/app/version':
             data = {'version': '0.1.0'}
         elif path == '/api/update-check':
@@ -265,8 +271,6 @@ async def check(browser, scale, scenario):
         await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setShowRecall(true)}")
         recall=page.get_by_role('dialog',name='Recall')
         await expect(recall).to_be_visible()
-        await page.wait_for_timeout(300)
-        await page.evaluate("""async()=>{const{useRecallStore:s}=await import('/src/stores/recallStore.ts');s.setState({hits:[{wfid:'fixture',title:'Synthetic conversation',project:'Work',provider:'codex',cwd:'/projects',lastActiveAt:1,summaryRef:'summary',snippet:'',matchedIn:'title',tags:[],pinned:false,links:[]}],summaryBodies:{fixture:'Synthetic summary '.repeat(50)}})}""")
         await recall.get_by_role('button',name='OPEN SUMMARY').click()
         await recall.get_by_role('button',name='DISTILL TO KB').click()
         await expect(recall.locator('[data-help="recall.summary-viewer"]')).to_be_visible()
