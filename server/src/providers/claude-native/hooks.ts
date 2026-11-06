@@ -206,6 +206,10 @@ interface RunOpts {
   // with this signal (the worker's lifetime) and report through onBackground.
   backgroundSignal?: AbortSignal;
   onBackground?: (done: BackgroundHookDone) => void;
+  // Every hook process started with these options is added here until it has
+  // exited and any tree kill sent to it has finished, so the worker can wait
+  // for its hooks when it is disposed.
+  running?: Set<Promise<void>>;
 }
 
 export interface BackgroundHookDone {
@@ -342,7 +346,9 @@ async function runHookOnce(
   const launch = hookLaunch(hook, opts.cwd);
   if (!launch.ok) return { exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: launch.problem, ...meta };
   const shellNotice = launch.shellNotice;
-  return new Promise<HookFireResult>((resolveResult) => {
+  // The last tree kill sent to the hook; it settles when the kill is done.
+  let killing: Promise<void> | null = null;
+  const result = new Promise<HookFireResult>((resolveResult) => {
     let child: ReturnType<typeof spawnShellChild>;
     try {
       child = spawnShellChild(launch, {
@@ -359,7 +365,12 @@ async function runHookOnce(
     let stderr = '';
     let timedOut = false;
     let killTimer: NodeJS.Timeout | null = null;
-    const killTree = (sig: NodeJS.Signals): void => signalChildTree(child, sig);
+    let killedHard = false;
+    const killTree = (sig: NodeJS.Signals): void => {
+      if (killedHard) return;
+      if (sig === 'SIGKILL') killedHard = true;
+      killing = signalChildTree(child, sig);
+    };
     // An async hook has no timeout (Claude Code does not enforce one).
     const timer = Number.isFinite(timeoutMs) ? setTimeout(() => {
       timedOut = true;
@@ -409,6 +420,15 @@ async function runHookOnce(
       /* the pipe close path will surface the failure */
     }
   });
+  const running = opts.running;
+  if (running) {
+    // Gone means the process has closed and a kill sent to its tree has
+    // finished (on Windows, taskkill has exited).
+    const gone: Promise<void> = result.then(() => killing ?? undefined).then(() => undefined, () => undefined);
+    running.add(gone);
+    void gone.then(() => running.delete(gone));
+  }
+  return result;
 }
 
 // True on Windows when Git Bash is missing (commandShell() fell back to

@@ -592,7 +592,7 @@ function spawnShell(command: string, cwd: string): BashRegistration {
   // matches how a shell's Ctrl-C behaves. The escalation timer is unref'd so it
   // never keeps the server process alive on its own.
   const killTree = (): void => {
-    const signalTree = (sig: NodeJS.Signals): void => signalChildTree(child, sig);
+    const signalTree = (sig: NodeJS.Signals): void => { void signalChildTree(child, sig); };
     signalTree('SIGTERM');
     const t = setTimeout(() => signalTree('SIGKILL'), KILL_GRACE_MS);
     if (typeof t.unref === 'function') t.unref();

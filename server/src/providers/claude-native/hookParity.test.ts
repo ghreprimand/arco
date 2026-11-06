@@ -84,7 +84,12 @@ function setup(hooks: HookConfig, replies: Array<() => AsyncGenerator<unknown>>,
   const errors: string[] = [];
   w.on('system_notice', (n: string) => notices.push(n));
   w.on('error', (e: string) => errors.push(e));
-  return { cwd, w, requests, events, notices, errors, done: () => { void w.dispose(); rmSync(cwd, { recursive: true, force: true }); } };
+  return { cwd, w, requests, events, notices, errors, done: async () => {
+    // dispose ends every hook process tree and waits for it, so the folder
+    // is free to delete; no retries that would hide a leftover process.
+    await w.dispose();
+    rmSync(cwd, { recursive: true, force: true });
+  } };
 }
 
 const on = (event: string, command: string | Record<string, unknown>, matcher?: string): HookConfig =>
@@ -112,14 +117,14 @@ test('UserPromptSubmit: exit 1 is a non-blocking error; exit 2 rejects the promp
     assert.equal(s.requests.length, 1, 'the prompt went through');
     assert.deepEqual(s.errors, []);
     assert.ok(s.notices.includes('[HOOKS] UserPromptSubmit hook error: [echo broke >&2; exit 1]: Failed with non-blocking status code 1: broke'), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('UserPromptSubmit', 'echo "no secrets" >&2; exit 2'), [end]);
   try {
     await s.w.runTurn('please print the deploy key');
     assert.equal(s.requests.length, 0, 'the prompt never reached the model');
     assert.deepEqual(s.errors, ['turn aborted by UserPromptSubmit hook']);
     assert.ok(s.notices.includes('UserPromptSubmit hook blocked the prompt: no secrets\nOriginal prompt: please print the deploy key'), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup({ byEvent: { UserPromptSubmit: [{ hooks: [
     { type: 'command', command: 'echo "plain stdout context"' },
     { type: 'command', command: `echo '${JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: 'json context' }, systemMessage: 'shown to you' })}'` },
@@ -131,7 +136,7 @@ test('UserPromptSubmit: exit 1 is a non-blocking error; exit 2 rejects the promp
     assert.match(sent, /UserPromptSubmit hook additional context:\nplain stdout context/);
     assert.match(sent, /UserPromptSubmit hook additional context:\njson context/);
     assert.ok(s.notices.includes('[HOOKS] shown to you'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 // ── Stop and SubagentStop ────────────────────────────────────────────────────
@@ -146,7 +151,7 @@ test('Stop: exit 2 keeps the model working with stderr as the next instruction; 
     assert.match(textOf(s.requests[1][s.requests[1].length - 1]), /^Stop hook feedback:\n\[.*\]: run the tests first$/);
     const inputs = readFileSync(join(s.cwd, 'stop.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     assert.deepEqual(inputs.map((i) => [i.hook_event_name, i.stop_hook_active, i.last_assistant_message]), [['Stop', false, 'first'], ['Stop', true, 'second']]);
-  } finally { s.done(); }
+  } finally { await s.done(); }
   // Always blocking: the consecutive-continuation cap ends the turn.
   process.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP = '2';
   s = setup(on('Stop', 'echo again >&2; exit 2'), [end]);
@@ -154,13 +159,13 @@ test('Stop: exit 2 keeps the model working with stderr as the next instruction; 
     await s.w.runTurn('go');
     assert.equal(s.requests.length, 3);
     assert.ok(s.notices.some((n) => /Stop hooks kept the model working 2 times in a row/.test(n)));
-  } finally { delete process.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP; s.done(); }
+  } finally { delete process.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP; await s.done(); }
   // continue:false takes precedence over decision "block".
   s = setup(on('Stop', `echo '${JSON.stringify({ continue: false, decision: 'block', reason: 'x' })}'`), [end]);
   try {
     await s.w.runTurn('go');
     assert.equal(s.requests.length, 1);
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('SubagentStop replaces Stop on a Task child\'s turn, matched against its agent type', async () => {
@@ -173,7 +178,7 @@ test('SubagentStop replaces Stop on a Task child\'s turn, matched against its ag
     assert.equal(s.requests.length, 2);
     assert.match(textOf(s.requests[1][s.requests[1].length - 1]), /^SubagentStop hook feedback:\n\[.*\]: add a summary$/);
     assert.doesNotMatch(JSON.stringify(s.requests), /stop-fired/);
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 // ── PreToolUse JSON and continue:false ───────────────────────────────────────
@@ -185,19 +190,19 @@ test('PreToolUse: exit 1 lets the tool run; deny refuses; updatedInput replaces 
     assert.match(r.text, /exit code: 0/);
     assert.match(r.text, /ran/);
     assert.ok(s.notices.some((n) => n.startsWith('[HOOKS] PreToolUse:Bash hook error: [echo warn >&2; exit 1]: Failed with non-blocking status code 1: warn')), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('PreToolUse', `echo '${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'no network' } })}'`, 'Bash'), [end]);
   try {
     const r = await s.w.dispatchTool({ id: 't2', name: 'Bash', input: { command: 'echo ran' } });
     assert.deepEqual(r, { text: 'PreToolUse:Bash hook denied this tool call: no network', isError: true });
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('PreToolUse', `echo '${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', updatedInput: { command: 'echo replaced' } } })}'`, 'Bash'), [end]);
   try {
     const r = await s.w.dispatchTool({ id: 't3', name: 'Bash', input: { command: 'echo original', description: 'kept only if the hook says so' } });
     assert.match(r.text, /replaced/);
     const rw = s.events.find((e) => e.type === 'hook_rewrote_input');
     assert.equal(rw?.rewrittenInput, JSON.stringify({ command: 'echo replaced' }));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('PreToolUse', `echo '${JSON.stringify({ continue: false, stopReason: 'budget spent' })}'`, 'Bash'), [
     reply([{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'echo one' } }, { type: 'tool_use', id: 'b', name: 'Bash', input: { command: 'echo two' } }]),
     end,
@@ -209,7 +214,7 @@ test('PreToolUse: exit 1 lets the tool run; deny refuses; updatedInput replaces 
     assert.match(results, /PreToolUse:Bash hook stopped processing: budget spent/);
     assert.match(results, /Not run: a hook stopped processing/);
     assert.ok(s.notices.includes('[HOOKS] A PreToolUse hook stopped processing: budget spent'), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('PreToolUse "ask" parks the call on the approval card; a reject refuses it', async () => {
@@ -224,7 +229,7 @@ test('PreToolUse "ask" parks the call on the approval card; a reject refuses it'
     const r = await pending;
     assert.equal(r.isError, true);
     assert.equal(existsSync(join(s.cwd, 'x.txt')), false);
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 // ── async and asyncRewake ────────────────────────────────────────────────────
@@ -239,7 +244,34 @@ test('async: the hook does not hold the turn, and its additionalContext reaches 
     await new Promise((r) => setTimeout(r, 1500));
     await s.w.runTurn('two');
     assert.match(textOf(s.requests[1][s.requests[1].length - 1]), /background result/);
-  } finally { s.done(); }
+  } finally { await s.done(); }
+});
+
+test('dispose ends a background hook that is still running, and waits until its process has ended', async () => {
+  // The hook has no timeout and would run for a minute. Its process id is the
+  // shell's own (exec replaces the shell with sleep).
+  const s = setup(on('UserPromptSubmit', { command: 'echo $$ > hook.pid; exec sleep 60', async: true }), [end]);
+  let disposed = false;
+  try {
+    await s.w.runTurn('one');
+    const pidFile = join(s.cwd, 'hook.pid');
+    await until(() => existsSync(pidFile) && readFileSync(pidFile, 'utf8').trim() !== '');
+    const pid = Number(readFileSync(pidFile, 'utf8').trim());
+    const started = Date.now();
+    await s.w.dispose();
+    disposed = true;
+    assert.ok(Date.now() - started < 10_000, 'dispose did not wait for the hook to finish by itself');
+    // Outside Windows the id is a real process id: by the time dispose
+    // returns, the process has ended and been collected. On Windows it is a
+    // Git Bash id; there the folder deletion in done() is the check, as a
+    // live hook would hold the folder.
+    if (process.platform !== 'win32') {
+      assert.throws(() => process.kill(pid, 0), (err: NodeJS.ErrnoException) => err.code === 'ESRCH', 'the hook process is gone');
+    }
+  } finally {
+    if (!disposed) await s.w.dispose();
+    rmSync(s.cwd, { recursive: true, force: true });
+  }
 });
 
 test('asyncRewake: exit 2 wakes an idle tab with the hook\'s stderr', async () => {
@@ -251,7 +283,7 @@ test('asyncRewake: exit 2 wakes an idle tab with the hook\'s stderr', async () =
     assert.equal(s.requests.length, 1, 'a background Stop hook does not keep the model working');
     await until(() => woke.length > 0);
     assert.equal(woke[0], 'Stop hook [sleep 1; echo "tests failed: 3" >&2; exit 2] reported (asyncRewake):\ntests failed: 3');
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 // ── Pure rules ───────────────────────────────────────────────────────────────
@@ -321,14 +353,14 @@ test('the PowerShell tool (Windows without Git Bash) gets every check Bash gets'
     assert.ok(s.events.some((e) => e.type === 'primary_tool_counter'), 'counted');
     // "Bash" is an unknown tool here, refused before any hook or tool.
     assert.deepEqual(await s.w.dispatchTool({ id: 'b', name: 'Bash', input: { command: 'echo hi' } }), { text: '[error] unknown tool "Bash". The shell tool here is PowerShell.', isError: true });
-  } finally { _setCommandShellForTest(null); s.done(); }
+  } finally { _setCommandShellForTest(null); await s.done(); }
   // With Git Bash (or on Linux and macOS) nothing changes: Bash, and "PowerShell" is unknown.
   const t = setup({ byEvent: {} }, [end]);
   try {
     const names = getNativeToolDefinitions().map((d) => d.name);
     assert.ok(names.includes('Bash') && !names.includes('PowerShell'));
     assert.deepEqual(await t.w.dispatchTool({ id: 'p', name: 'PowerShell', input: { command: 'echo hi' } }), { text: '[error] unknown tool "PowerShell". The shell tool here is Bash.', isError: true });
-  } finally { t.done(); }
+  } finally { await t.done(); }
 });
 
 // ── if, the common input fields, agent_type, PreCompact, Notification ───────
@@ -359,7 +391,7 @@ test('if: a handler runs only when the tool call matches its permission rule; on
     await s.w.runTurn('hello');
     assert.ok(lines(log).includes('stop-plain'));
     assert.ok(!lines(log).includes('stop-with-if'), 'a Stop handler with if never runs');
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('hook input: transcript_path is the tab\'s event log; file paths are absolute', async () => {
@@ -372,7 +404,7 @@ test('hook input: transcript_path is the tab\'s event log; file paths are absolu
     assert.equal(payload.session_id, 'wf-hook-parity');
     assert.equal(payload.agent_type, undefined, 'only inside a subagent');
     assert.equal(readFileSync(join(s.cwd, 'rel.txt'), 'utf8'), 'x');
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('a Task child\'s turn: agent_type is the type the parent asked for, SubagentStop matches it, both transcripts are named', async () => {
@@ -399,7 +431,7 @@ test('a Task child\'s turn: agent_type is the type the parent asked for, Subagen
     const pre = JSON.parse(readFileSync(join(s.cwd, 'pre.json'), 'utf8'));
     assert.equal(pre.agent_type, 'Explore', 'tool events inside the subagent carry it too');
     assert.ok(!lines(join(s.cwd, 'log.txt')).includes('wrong-type'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('PreCompact: matched against manual or auto; exit 2 or decision "block" blocks; systemMessage is discarded', async () => {
@@ -414,14 +446,14 @@ test('PreCompact: matched against manual or auto; exit 2 or decision "block" blo
     assert.equal(payload.hook_event_name, 'PreCompact');
     assert.equal(payload.trigger, 'auto');
     assert.equal(payload.custom_instructions, null);
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('PreCompact', `echo '${JSON.stringify({ decision: 'block', reason: 'snapshot first', systemMessage: 'shown nowhere', continue: false })}'`), [end]);
   try {
     assert.match(await s.w.preCompactBlock('manual') ?? '', /: snapshot first$/);
     assert.ok(!s.notices.some((n) => /shown nowhere|stopped processing/.test(n)), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(on('PreCompact', 'echo fine'), [end]);
-  try { assert.equal(await s.w.preCompactBlock('manual'), null); } finally { s.done(); }
+  try { assert.equal(await s.w.preCompactBlock('manual'), null); } finally { await s.done(); }
 });
 
 test('Notification: permission_prompt once an approval card has waited; nothing when it is answered sooner; exit codes ignored', async () => {
@@ -440,7 +472,7 @@ test('Notification: permission_prompt once an approval card has waited; nothing 
     s.w.resolveGate('n1', 'reject');
     await pending;
     assert.ok(!s.notices.some((x) => x.includes('ignored')), s.notices.join('\n'));
-  } finally { s.done(); }
+  } finally { await s.done(); }
   s = setup(hooks, [end]);
   try {
     s.w.notifyDelays.permissionMs = 800;
@@ -450,7 +482,7 @@ test('Notification: permission_prompt once an approval card has waited; nothing 
     await pending;
     await new Promise((r) => setTimeout(r, 1_200));
     assert.deepEqual(lines(join(s.cwd, 'n.jsonl')), [], 'answered before the wait: no notification');
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });
 
 test('Notification: idle_prompt after a finished turn with nothing sent since; a new turn resets the wait', async () => {
@@ -469,5 +501,5 @@ test('Notification: idle_prompt after a finished turn with nothing sent since; a
     assert.equal(lines(idle).length, 1, 'the first turn\'s wait was replaced by the second\'s');
     const n = JSON.parse(lines(idle)[0]);
     assert.deepEqual([n.notification_type, n.message], ['idle_prompt', 'Claude is waiting for your input']);
-  } finally { s.done(); }
+  } finally { await s.done(); }
 });

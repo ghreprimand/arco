@@ -131,7 +131,7 @@ export async function executeSandboxed(
     // signalled; Windows: taskkill /T /F (workers/processKill.ts).
     const killGroup = (signal: NodeJS.Signals): void => {
       if (!child.pid) return;
-      signalChildTree(child, signal);
+      void signalChildTree(child, signal);
     };
 
     const timer = setTimeout(() => {

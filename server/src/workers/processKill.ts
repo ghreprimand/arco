@@ -64,15 +64,18 @@ function signalGroup(pid: number, signal: NodeJS.Signals): void {
 // environment that every MSYS process of its tree inherits; the tree kill
 // first lists those processes through Git Bash's /proc (msysTreeSweep) and
 // ends them by their Windows process ids together with the child.
-export function signalChildTree(child: ChildProcess, signal: NodeJS.Signals, platform: NodeJS.Platform = process.platform): void {
+//
+// The returned promise settles once the signal has been delivered: at once on
+// Unix, and on Windows when taskkill has finished (or failed and the fallback
+// ran). It never rejects.
+export function signalChildTree(child: ChildProcess, signal: NodeJS.Signals, platform: NodeJS.Platform = process.platform): Promise<void> {
   const pid = child.pid;
   if (platform === 'win32') {
-    if (!pid) return;
+    if (!pid) return Promise.resolve();
     const fallback = (): void => { try { child.kill(signal); } catch { /* gone */ } };
     const tree = msysTrees.get(child);
-    if (!tree) { runTaskkill([pid], fallback); return; }
-    void listMsysTree(tree).then((found) => runTaskkill([pid, ...found], fallback));
-    return;
+    if (!tree) return runTaskkill([pid], fallback);
+    return listMsysTree(tree).then((found) => runTaskkill([pid, ...found], fallback), () => runTaskkill([pid], fallback));
   }
   try {
     if (pid) process.kill(-pid, signal);
@@ -80,6 +83,7 @@ export function signalChildTree(child: ChildProcess, signal: NodeJS.Signals, pla
   } catch {
     try { child.kill(signal); } catch { /* gone */ }
   }
+  return Promise.resolve();
 }
 
 /** taskkill arguments that end each process id with its descendants. */
@@ -87,13 +91,18 @@ export function windowsTreeKillArgsFor(pids: number[]): string[] {
   return ['/F', '/T', ...[...new Set(pids)].flatMap((p) => ['/PID', String(p)])];
 }
 
-function runTaskkill(pids: number[], fallback: () => void): void {
-  try {
-    const killer = spawn('taskkill', windowsTreeKillArgsFor(pids), { stdio: 'ignore', windowsHide: true });
-    killer.on('error', fallback);
-  } catch {
-    fallback();
-  }
+// Settles when taskkill has exited, or after the fallback when it could not run.
+function runTaskkill(pids: number[], fallback: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const killer = spawn('taskkill', windowsTreeKillArgsFor(pids), { stdio: 'ignore', windowsHide: true });
+      killer.on('error', () => { fallback(); resolve(); });
+      killer.on('exit', () => resolve());
+    } catch {
+      fallback();
+      resolve();
+    }
+  });
 }
 
 // ── Shell children that can be ended as a whole tree on Windows ──────────────

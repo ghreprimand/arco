@@ -801,7 +801,7 @@ async function runBashCommand(
     });
     child.once('close', run.cleanup);
 
-    const killTree = (): void => signalChildTree(child, 'SIGKILL');
+    const killTree = (): void => { void signalChildTree(child, 'SIGKILL'); };
 
     const timer = setTimeout(() => {
       timedOut = true;
