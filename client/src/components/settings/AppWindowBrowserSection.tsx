@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
+import { toReport, type Report } from './appWindowBrowserReport';
 
 // Settings > Advanced > App window browser. The list comes from the computer
 // that runs Arco (GET /api/app-browsers); the choice is saved globally and read
 // by `arco open`, the Arco shortcut and the explorer window.
-interface BrowserView { id: string; name: string; path: string }
-interface Report { platform: string; choice: string | null; browsers: BrowserView[]; using: BrowserView | null; missing: boolean; unsupported?: boolean }
 
 const OTHER = '__other__';
+
 const label = { fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' } as const;
 const note = { fontSize: '11px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 } as const;
 
@@ -23,7 +23,8 @@ export function AppWindowBrowserSection() {
     try {
       const res = await fetch('/api/app-browsers', { cache: 'no-store' });
       if (!res.ok) throw new Error('unavailable');
-      const next = (await res.json()) as Report;
+      const next = toReport(await res.json());
+      if (!next) throw new Error('unexpected reply');
       setReport(next);
       const known = next.choice && next.browsers.some((b) => b.id === next.choice);
       setSelected(!next.choice ? '' : known ? next.choice : OTHER);
