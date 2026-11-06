@@ -348,7 +348,7 @@ export const gettingStarted: Section[] = [
   <li>Model and effort (per-provider pickers).</li>
   <li>Role - free-form, up to 120 characters (for example "director" or "tester"); at most one director.</li>
   <li>Work size - light, standard, heavy or unset. It is a hint for the director and does not change model or effort.</li>
-  <li>Permissions (with the AUTO / SAFE explanation), fast mode, filter and output style, where the provider supports them.</li>
+  <li>Permissions (with the AUTO / SAFE explanation), fast mode and filter where the provider supports them, and output style on every provider.</li>
   </ul>
   <Note kind="tip">
   A cluster can have at most one director (roles beginning with Director or

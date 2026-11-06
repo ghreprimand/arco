@@ -567,10 +567,11 @@ export const workspace: Section[] = [
           <strong>MORE</strong>. FILE, PLAN and BRIEF always stay.
         </p>
         <p>
-          A dragged splitter is remembered for each range, so a laptop window
-          and a desktop window keep their own widths. Standard keeps the original saved width. The choice is kept in this browser
-          and applies at once; the command palette has Layout: Automatic,
-          Standard, Compact and Narrow.
+          A dragged splitter is remembered for each layout, so a laptop window
+          and a desktop window keep their own widths. Standard keeps the
+          original saved width. The choice is kept in this browser and applies
+          at once; the command palette has Layout: Automatic, Standard, Compact
+          and Narrow.
         </p>
         <p>
           Menus, dropdowns, usage cards and notices stay inside the window in

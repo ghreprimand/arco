@@ -1,6 +1,8 @@
 Skills from https://github.com/mattpocock/skills
 Commit 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d
 
+Bundled from that source: grill-me, grill-with-docs, wait-what, retro, grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. Architecture review is Arco's own built-in.
+
 MIT License
 
 Copyright (c) 2026 Matt Pocock

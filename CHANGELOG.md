@@ -7,7 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
-- Built-in skills for interviews, retrospectives, domain modeling, testing, diagnosis, design, prototypes and agent guidance. Operator-run skills have slash commands; model-invoked skills appear in the agent list. Settings can turn each on or off, and an editable copy takes precedence.
+- Built-in skills: grill-me, grill-with-docs, wait-what and retro (operator-run slash commands); grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype and writing-for-agents (model-invoked). Settings can turn each on or off, and an editable copy takes precedence. Architecture review stays its own built-in (slash alias /improve-codebase-architecture).
 
 - Connections > Cursor signs in from Arco: it runs `cursor-agent login` and shows the link to open, and finishes on its own, as for Codex.
 - Claude Native hooks read the rest of Claude Code's hook fields: `permissionDecision` `deny`, `ask` (the call waits on an approval card, HOOK ASKS TO CONFIRM) and `allow`; `additionalContext` on every event; `continue: false` with `stopReason`; `systemMessage`; `updatedToolOutput`; `suppressOriginalPrompt`; `onFailure` (`"block"` makes a failing hook block); `async` (runs in the background, its context reaches the model with the next request); `asyncRewake` (exit 2 wakes the model, starting a turn when the tab is idle). Closing or handing off a Claude Native tab ends background hooks and background Bash commands still running, with their processes, and waits until they have ended. `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` limits Stop-hook continuations in a row (default 8).

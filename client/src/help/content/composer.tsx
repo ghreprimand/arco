@@ -650,12 +650,12 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills.run-builtin': {
     title: 'RUN a built-in skill',
-    body: <p><C>RUN</C> sends one message that runs the built-in skill in this conversation. For Architecture review, Arco first measures the project: largest files, files changed most often, files no test covers (by name or by import), files with many exports, and decisions already recorded. The agent then writes a report of candidates to the artifacts and changes no code. Open the report in OUTPUTS and select <C>CANDIDATES</C>.</p>,
-    manualSection: 'architecture-review',
+    body: <p><C>RUN</C> sends one message that runs the built-in skill in this conversation. Most built-ins follow their own instructions. Architecture review is the special case: Arco first measures the project (largest files, files changed most often, files no test covers, files with many exports, and recorded decisions), then the agent writes a candidates report to the artifacts and changes no code; open the report in OUTPUTS and select <C>CANDIDATES</C>.</p>,
+    manualSection: 'skills',
   },
   'composer.skills.copy-builtin': {
     title: 'EDITABLE COPY',
     body: <p><C>EDITABLE COPY</C> saves the skill and its supporting files in this project or your global skills. Edit it in Settings &gt; SKILLS. A copy with the same name replaces the built-in; Architecture review uses a separate "(copy)" name.</p>,
-    manualSection: 'architecture-review',
+    manualSection: 'skills',
   },
 };

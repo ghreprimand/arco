@@ -52,7 +52,7 @@ Sections: 27.
 | `phosphor` | Appearance | Phosphor effects and softness | Global | Phosphor glow, effects and softness (shown with a Phosphor theme) |
 | `font-pack-override` | Appearance | Font pack override | Global | Font pack selector; default Victor Mono |
 | `interface-text-size` | Appearance | Interface text size | Global | 90% to 150%, default 100% |
-| `layout` | Appearance | Layout | Global (this browser) | Automatic (default: narrow under 1100 px, medium to 1599 px, wide from 1600 px of window width at the current interface scale), Standard or Compact |
+| `layout` | Appearance | Layout | Global (this browser) | Automatic (default: Narrow under 1500, Compact from 1500, Standard from 2000 interface pixels), Standard, Compact or Narrow. Fixed choices apply at every width. Top-bar switch and command palette make the same choice |
 | `message-box-size` | Appearance | Message box size | Global (this browser) | Small (default), Medium or Large starting height for every message box |
 | `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness (default +25) |
 | `crisp-text` | Appearance | Crisp text | Global | Crisp text toggle |
@@ -194,4 +194,4 @@ ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
 
 ### Built-in skills
 
-Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run commands are `/grill-me`, `/grill-with-docs`, `/wait-what` and `/retro`; `/improve-codebase-architecture` runs Architecture review. Model-invoked skills are available to an agent through the skill manifest. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).
+Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run (slash): grill-me, grill-with-docs, wait-what, retro; Architecture review via `/improve-codebase-architecture`. Model-invoked (manifest / MODEL badge): grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).

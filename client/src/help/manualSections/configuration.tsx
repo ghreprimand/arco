@@ -487,8 +487,7 @@ export const configuration: Section[] = [
   </li>
   <li>
   Under <strong>BUILT-IN</strong>, skills shipped with Arco offer{' '}
-  <strong>RUN</strong> and <strong>EDITABLE COPY</strong>; see Architecture
-  review.
+  <strong>RUN</strong> and <strong>EDITABLE COPY</strong>; see Skills.
   </li>
   </ul>
   <p>Importing, updating, turning off, moving and sharing skills: see Skills.</p>
@@ -518,20 +517,22 @@ export const configuration: Section[] = [
   <Sub>Built-in skills</Sub>
   <p>Built-ins are on by default. Settings can turn each off. A project or
   global skill with the same name replaces the built-in. EDITABLE COPY saves
-  the skill and its supporting files for editing.</p>
-  <p>Run <Code>/grill-me</Code> to examine a plan, <Code>/grill-with-docs</Code>
-  to also record terms and decisions, <Code>/wait-what</Code> to ask for a
-  clearer explanation, or <Code>/retro</Code> to review a session. Run
-  <Code>/improve-codebase-architecture</Code> for Architecture review.</p>
-  <p>The agent can also use these model-invoked skills:</p>
+  the skill and its supporting files for editing. Operator-run skills also
+  accept a slash form of the same name; Architecture review accepts
+  <Code>/improve-codebase-architecture</Code>.</p>
   <ul>
-    <li><Code>grilling</Code> examines a plan through questions.</li>
-    <li><Code>domain-modeling</Code> clarifies project terms and decisions.</li>
-    <li><Code>tdd</Code> guides test-driven development.</li>
-    <li><Code>diagnosing-bugs</Code> builds a feedback loop for a bug.</li>
-    <li><Code>codebase-design</Code> guides module and interface design.</li>
-    <li><Code>prototype</Code> explores a design with a disposable example.</li>
-    <li><Code>writing-for-agents</Code> improves instructions for agents.</li>
+    <li><Code>Architecture review</Code> - Use when looking for places where the code is harder to change than it needs to be; the agent reports candidates and changes no code.</li>
+    <li><Code>grill-me</Code> - Use for a relentless interview to sharpen a plan or design.</li>
+    <li><Code>grill-with-docs</Code> - Use for that interview while also recording glossary terms and decisions.</li>
+    <li><Code>wait-what</Code> - Use when the last message did not land and needs a re-pitch.</li>
+    <li><Code>retro</Code> - Use to run a retrospective on a coding session.</li>
+    <li><Code>grilling</Code> - Use when stress-testing a plan, decision or idea (model-invoked).</li>
+    <li><Code>domain-modeling</Code> - Use when discussing terminology or writing or editing a glossary or ADR (model-invoked).</li>
+    <li><Code>tdd</Code> - Use for test-first feature or bug work (model-invoked).</li>
+    <li><Code>diagnosing-bugs</Code> - Use for hard bugs or performance regressions (model-invoked).</li>
+    <li><Code>codebase-design</Code> - Use when designing or deepening module interfaces, seams or testability (model-invoked).</li>
+    <li><Code>prototype</Code> - Use when answering a design question with a throwaway logic or UI prototype (model-invoked).</li>
+    <li><Code>writing-for-agents</Code> - Use when creating or editing skills, AGENTS.md or CLAUDE.md (model-invoked).</li>
   </ul>
   <p>Public project files must exclude private material. These skills do not
   stage or commit project files. Third-party license terms ship with Arco.</p>

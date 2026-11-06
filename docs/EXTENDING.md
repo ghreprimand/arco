@@ -204,6 +204,8 @@ Update [`docs/PRIMITIVES.md`](PRIMITIVES.md) with a new section, and [`docs/PROT
 
 Operators create and manage skills in Settings > SKILLS (NEW, EDIT, IMPORT, UPDATE, TURN OFF/ON, MOVE, DUPLICATE, SHARE WITH REPOSITORY). The on-disk shape is also hand-editable. Project skills live under `.arco/skills/`, which Git ignores with the rest of `.arco`; SHARE WITH REPOSITORY adds an exception in `.arco/.gitignore` for one skill and never stages or commits. If Git still ignores the files (including through a global ignore file), SHARE refuses, names the rule and leaves `.arco/.gitignore` unchanged.
 
+Built-in skills ship with Arco: Architecture review (Arco's own); grill-me, grill-with-docs, wait-what, retro (operator-run); grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents (model-invoked, from mattpocock/skills under MIT - see THIRD_PARTY_NOTICES). A same-name project or global skill replaces the built-in.
+
 Layout:
 
 ```text

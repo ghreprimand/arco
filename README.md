@@ -215,7 +215,7 @@ director's draft, then review it before attaching. See [Plan or board?](docs/PLA
 - **Project knowledge:** store reviewed notes and retrieve useful context; search saved conversations through Recall. [Knowledge](docs/KNOWLEDGE.md)
 - **Computer and voice:** speak to Computer (it also accepts typed requests) with hands-free capture, local recognition, speech replies, and guided component setup. [Voice](docs/VOICE.md)
 - **Preview and media:** inspect a development server in Preview and edit images, audio, or video with optional media tools. [Preview verification](docs/PREVIEW_VERIFY.md)
-- **Appearance and help:** Classic and Phosphor themes, font packs, an in-app manual, and contextual help. [Settings](docs/SETTINGS.md)
+- **Appearance and help:** Classic and Phosphor themes, font packs, Layout (Automatic, Standard, Compact, Narrow; top-bar switch), an in-app manual, and contextual help. [Settings](docs/SETTINGS.md)
 
 The [complete feature reference](docs/FEATURES.md) retains the detailed tour,
 including context management, goal runs, safety gates, local services, and
