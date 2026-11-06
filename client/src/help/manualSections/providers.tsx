@@ -213,8 +213,8 @@ export const providers: Section[] = [
   model with the hook's message, starting a turn when the tab is idle.
   </p>
   <p>
-  Closing or handing off the tab ends background hooks that are still
-  running, together with the processes they started.
+  Closing or handing off the tab ends background hooks and background Bash
+  commands that are still running, together with the processes they started.
   </p>
   <p>
   Hooks and the Bash tool run in <Code>/bin/sh</Code> on Linux and macOS and

@@ -274,6 +274,26 @@ test('dispose ends a background hook that is still running, and waits until its 
   }
 });
 
+test('dispose ends a run_in_background Bash shell, and waits until its process has ended', async () => {
+  const s = setup({ byEvent: {} }, [end]);
+  let disposed = false;
+  try {
+    const r = await s.w.dispatchTool({ id: 'bg', name: 'Bash', input: { command: 'echo $$ > shell.pid; exec sleep 60', run_in_background: true } });
+    assert.match(r.text, /^started background shell/, r.text);
+    const pidFile = join(s.cwd, 'shell.pid');
+    await until(() => existsSync(pidFile) && readFileSync(pidFile, 'utf8').trim() !== '');
+    const pid = Number(readFileSync(pidFile, 'utf8').trim());
+    await s.w.dispose();
+    disposed = true;
+    if (process.platform !== 'win32') {
+      assert.throws(() => process.kill(pid, 0), (err: NodeJS.ErrnoException) => err.code === 'ESRCH', 'the shell process is gone');
+    }
+  } finally {
+    if (!disposed) await s.w.dispose();
+    rmSync(s.cwd, { recursive: true, force: true });
+  }
+});
+
 test('asyncRewake: exit 2 wakes an idle tab with the hook\'s stderr', async () => {
   const s = setup(on('Stop', { command: 'sleep 1; echo "tests failed: 3" >&2; exit 2', asyncRewake: true }), [end]);
   const woke: string[] = [];

@@ -58,8 +58,17 @@ const SKIP_DIRS = new Set([
 export interface ShellRegistry {
   // Map shellId → handle for registered Bash invocations (foreground +
   // background). KillShell and worker.cancel() both target this map.
-  byId: Map<string, { kill: () => void; backgrounded: boolean }>;
+  byId: Map<string, ShellRegistration>;
   mintId(): string;
+}
+
+export interface ShellRegistration {
+  kill: () => void;
+  backgrounded: boolean;
+  // Settles once the process has closed and every tree kill sent to it has
+  // finished (on Windows, taskkill has exited). The worker waits on it when
+  // it is disposed.
+  ended?: Promise<void>;
 }
 
 export interface NativeToolContext {
@@ -571,6 +580,7 @@ const GrepTool: Entry = {
 interface BashRegistration {
   child: ChildProcess;
   killTree: () => void;
+  ended: Promise<void>;
 }
 
 // The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
@@ -591,13 +601,20 @@ function spawnShell(command: string, cwd: string): BashRegistration {
   // to flush/clean up (orphaned lockfiles, half-written output); SIGTERM-first
   // matches how a shell's Ctrl-C behaves. The escalation timer is unref'd so it
   // never keeps the server process alive on its own.
+  const kills: Promise<void>[] = [];
+  const exited = new Promise<void>((resolve) => {
+    child.once('close', () => resolve());
+    child.once('error', () => resolve());
+  });
   const killTree = (): void => {
-    const signalTree = (sig: NodeJS.Signals): void => { void signalChildTree(child, sig); };
+    const signalTree = (sig: NodeJS.Signals): void => { kills.push(signalChildTree(child, sig)); };
     signalTree('SIGTERM');
     const t = setTimeout(() => signalTree('SIGKILL'), KILL_GRACE_MS);
     if (typeof t.unref === 'function') t.unref();
   };
-  return { child, killTree };
+  // Closed, and the kills sent until then have finished.
+  const ended = exited.then(() => Promise.all(kills)).then(() => undefined, () => undefined);
+  return { child, killTree, ended };
 }
 
 async function runBashForeground(
@@ -605,9 +622,9 @@ async function runBashForeground(
   timeoutMs: number,
   ctx: NativeToolContext,
 ): Promise<string> {
-  const { child, killTree } = spawnShell(command, ctx.cwd);
+  const { child, killTree, ended } = spawnShell(command, ctx.cwd);
   const shellId = ctx.shells.mintId();
-  ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: false });
+  ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: false, ended });
 
   return new Promise<string>((resolveResult) => {
     let timedOut = false;
@@ -671,9 +688,9 @@ async function runBashForeground(
 }
 
 function runBashBackground(command: string, ctx: NativeToolContext): string {
-  const { child, killTree } = spawnShell(command, ctx.cwd);
+  const { child, killTree, ended } = spawnShell(command, ctx.cwd);
   const shellId = ctx.shells.mintId();
-  ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: true });
+  ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: true, ended });
   // Auto-deregister on natural exit so KillShell on a finished bg job
   // returns the "no such shell" message rather than reporting success.
   child.on('close', () => { ctx.shells.byId.delete(shellId); });

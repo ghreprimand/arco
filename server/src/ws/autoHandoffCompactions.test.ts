@@ -2,24 +2,45 @@
 // boundary, migration of saved percent settings, and which providers can count.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 import type { WorkflowState, Session } from '../workflows/types.js';
 import type { WebSocket } from 'ws';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-auto-handoff-'));
 installIsolatedTestHome(root);
-// Windows refuses to remove a folder while a file in it is still open: wait
-// for the background project writes and any file operation still in flight
-// (settings and counter saves), then retry briefly.
+// Windows refuses to remove a folder while a file in it is still open. The
+// folder is also the test's Arco home, and writeMeta opens the machine-wide
+// recall index (home/.arco/recall/recall.db, with its -wal and -shm files)
+// there and keeps it open, as the server does for its whole life. Teardown
+// waits for the background project writes and the pending recall updates,
+// closes the index, and only then removes the folder.
+const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 after(async () => {
   const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
   await settleProjectWrites();
-  for (let i = 0; i < 40 && process.getActiveResourcesInfo().some((r) => r.startsWith('FSReq')); i++) await new Promise((r) => setTimeout(r, 50));
-  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  await closeRecall();
+  // Linux can list this process's open files: nothing may still be open in
+  // the folder (on Windows, the removal below is the check).
+  assert.deepEqual(openFilesUnder(root), [], 'files still open in the test folder');
+  rmSync(root, { recursive: true, force: true });
 });
+
+function openFilesUnder(dir: string): string[] {
+  if (process.platform !== 'linux') return [];
+  const real = realpathSync(dir);
+  const open: string[] = [];
+  for (const fd of readdirSync('/proc/self/fd')) {
+    try {
+      const target = readlinkSync(`/proc/self/fd/${fd}`);
+      if (target === real || target.startsWith(real + sep)) open.push(target.slice(real.length));
+    } catch { /* closed meanwhile */ }
+  }
+  return open;
+}
 const shared = await import('@arco/shared');
 const engine = await import('./turnEngine.js');
 const counter = await import('../compactionCounter.js');

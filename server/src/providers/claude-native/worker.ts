@@ -168,9 +168,10 @@ const FORCED_FIRST_BLOCK = "You are Claude Code, Anthropic's official CLI for Cl
 // message. Tuned to mirror Claude Code CLI's `/compact`: a dense continuation
 // brief, not chatty prose. Bounded output so the summary itself stays small.
 const COMPACT_SUMMARY_MAX_TOKENS = 8192;
-// How long dispose waits for hook processes to end. The Windows tree kill
-// lists the tree first (up to 5 s) and then runs taskkill.
-const HOOK_EXIT_WAIT_MS = 15_000;
+// How long dispose waits for hook and shell processes to end. A shell gets
+// SIGTERM and, 2 s later, SIGKILL; the Windows tree kill lists the tree first
+// (up to 5 s) and then runs taskkill.
+const PROCESS_EXIT_WAIT_MS = 15_000;
 // NATIVE_COMPACTION_PLAN Phase 2 — keep-last-N verbatim tail for compactInPlace.
 // After summarizing the older prefix, the last few user/assistant messages are
 // kept verbatim (projected to the clean resume shape) so the freshly-active
@@ -2028,9 +2029,11 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.cancel();
     this.clearIdleNotification();
     this.hookLifetime.abort();
-    // Kill any leftover background shells.
+    // Kill any leftover background shells, and wait below until they have ended.
+    const shellsEnding: Promise<void>[] = [];
     for (const reg of this.shells.byId.values()) {
       try { reg.kill(); } catch { /* gone */ }
+      if (reg.ended) shellsEnding.push(reg.ended);
     }
     this.shells.byId.clear();
     this.tasksByTaskId.clear();
@@ -2043,18 +2046,20 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.client = null;
     this.messages = [];
     this.replayed = false;
-    // Background hooks (async, asyncRewake, Notification) have no timeout, so
-    // dispose waits until the kills above have ended every hook process tree:
-    // a leftover hook would keep running and, on Windows, keep the project
-    // folder in use. Capped so a stuck taskkill cannot hold dispose forever.
-    if (this.runningHooks.size > 0) {
+    // Background hooks (async, asyncRewake, Notification) have no timeout and
+    // run_in_background shells run until they finish, so dispose waits until
+    // the kills above have ended every hook and shell process tree: a leftover
+    // process would keep running and, on Windows, keep the project folder in
+    // use. Capped so a stuck taskkill cannot hold dispose forever.
+    const ending = [...this.runningHooks, ...shellsEnding];
+    if (ending.length > 0) {
       let capTimer: NodeJS.Timeout | undefined;
       const capped = await Promise.race([
-        Promise.all(this.runningHooks).then(() => false),
-        new Promise<boolean>((resolve) => { capTimer = setTimeout(() => resolve(true), HOOK_EXIT_WAIT_MS); }),
+        Promise.all(ending).then(() => false),
+        new Promise<boolean>((resolve) => { capTimer = setTimeout(() => resolve(true), PROCESS_EXIT_WAIT_MS); }),
       ]);
       if (capTimer) clearTimeout(capTimer);
-      if (capped) console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] ${this.runningHooks.size} hook process(es) still ending ${HOOK_EXIT_WAIT_MS}ms after dispose`);
+      if (capped) console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] hook or shell processes still ending ${PROCESS_EXIT_WAIT_MS}ms after dispose`);
     }
   }
 
