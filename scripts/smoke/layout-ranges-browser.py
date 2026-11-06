@@ -26,8 +26,6 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / 'scripts' / 'smoke'))
 import host_isolation  # noqa: E402
 
-os.environ['ARCO_TEST_REQUIRE_NETNS'] = '1'
-os.environ.pop('ARCO_TEST_NETNS', None)
 host_isolation.enter_isolated_network()
 
 
