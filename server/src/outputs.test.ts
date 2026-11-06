@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSy
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
+import { randomUUID } from 'node:crypto';
 const sandbox = realpathSync(mkdtempSync(path.join(tmpdir(), 'arco-outputs-')));
 const home = path.join(sandbox, 'home'), project = path.join(sandbox, 'mounted-project'), copies = path.join(sandbox, 'copies');
 const workflowId = '11111111-2222-4333-8444-555555555555';
@@ -193,11 +194,35 @@ test('outputs reported in records that were sealed into compressed segments are 
   assert.equal((await outputs.listOutputs(sealedCtx)).length, 3);
 });
 
+// Each destination scenario gets its own workflow and destination folder.
+// The synthetic HOME is process-wide; grant records are scoped by workflow.
+async function destinationFixture() {
+  const id = randomUUID();
+  const wf = path.join(project, '.arco', 'workflows', id);
+  mkdirSync(path.join(wf, 'artifacts'), { recursive: true });
+  writeFileSync(path.join(wf, 'meta.json'), JSON.stringify({ name: 'Destination fixture', cwd: project }));
+  writeFileSync(path.join(wf, 'events.jsonl'), JSON.stringify({ type: 'primary_artifact', kind: 'text', artifactId: 'inline', title: 'Inline', content: 'Inline fixture' }) + '\n');
+  const folder = mkdtempSync(path.join(home, 'destination-'));
+  const context = await outputs.outputContext(project, id);
+  const source = path.join(project, `destination-${id}.txt`);
+  writeFileSync(source, 'synthetic output');
+  await outputs.trackOutputFile(context, source);
+  const entry = (await outputs.listOutputs(context)).find(row => row.path === source)!;
+  return { id, folder, context, source, entry };
+}
+
+async function movedDestinationFixture() {
+  const fixture = await destinationFixture();
+  const moved = path.join(fixture.folder, 'moved.txt');
+  await outputs.transferOutput(fixture.context, fixture.entry.id, moved, true);
+  return { ...fixture, moved };
+}
+
 test('operator can copy and move output to ordinary folders inside home while protected state stays refused', async () => {
-  const documents = path.join(home, 'Documents'); mkdirSync(documents);
-  const source = path.join(project, 'home-destination.txt'); writeFileSync(source, 'synthetic output');
-  await outputs.trackOutputFile(ctx, source);
-  const entry = (await outputs.listOutputs(ctx)).find(x => x.path === source)!;
+  // Reproduce the earlier fixture collision on any filesystem: an unrelated
+  // home folder already exists before this scenario starts.
+  mkdirSync(path.join(home, 'Documents'), { recursive: true });
+  const { folder: documents, source, entry, context: ctx, id: workflowId } = await destinationFixture();
   const copied = path.join(documents, 'copy.txt');
   await outputs.transferOutput(ctx, entry.id, copied, false);
   assert.equal(readFileSync(copied, 'utf8'), 'synthetic output');
@@ -226,9 +251,10 @@ test('operator can copy and move output to ordinary folders inside home while pr
 });
 
 test('a modified project output index cannot grant access to an unchosen home file', async () => {
-  const target = path.join(home, 'Documents', 'not-chosen.txt'); writeFileSync(target, 'synthetic private content');
+  const { folder, moved, context: ctx, id: workflowId } = await movedDestinationFixture();
+  const target = path.join(folder, 'not-chosen.txt'); writeFileSync(target, 'synthetic private content');
   const index = await store.readOutputIndex(project, workflowId);
-  const original = index.entries.find(entry => entry.path === path.join(home, 'Documents', 'moved.txt'))!;
+  const original = index.entries.find(entry => entry.path === moved)!;
   const forged = { ...original, id: 'e'.repeat(32), path: target, originPath: target, aliases: [], name: 'not-chosen.txt' };
   index.entries.push(forged); await store.writeOutputIndex(project, workflowId, index);
   assert.equal((await outputs.listOutputs(ctx)).some(row => row.id === forged.id), false);
@@ -236,21 +262,23 @@ test('a modified project output index cannot grant access to an unchosen home fi
 });
 
 test('a home destination grant survives a server restart', async () => {
+  const { id: workflowId, moved, source } = await movedDestinationFixture();
   const { execFile } = await import('node:child_process');
   const { promisify } = await import('node:util');
-  const code = `const m=await import(${JSON.stringify(new URL('./outputs.ts', import.meta.url).href)}); const cwd=process.argv[1],id=process.argv[2]; process.stdout.write(await m.resolveTrackedOutput(cwd,id,'home-destination.txt'));`;
-  const { stdout } = await promisify(execFile)(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--input-type=module', '-e', code, project, workflowId], { timeout: 15000 });
-  assert.equal(stdout, path.join(home, 'Documents', 'moved.txt'));
+  const code = `const m=await import(${JSON.stringify(new URL('./outputs.ts', import.meta.url).href)}); const cwd=process.argv[1],id=process.argv[2]; process.stdout.write(await m.resolveTrackedOutput(cwd,id,process.argv[3]));`;
+  const { stdout } = await promisify(execFile)(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--input-type=module', '-e', code, project, workflowId, source], { timeout: 15000 });
+  assert.equal(stdout, moved);
 });
 
 test('a linked destination grant store is refused without losing the source', async () => {
+  const { folder, moved, context: ctx, id: workflowId } = await movedDestinationFixture();
   const grants = path.join(home, '.arco', 'output-destinations'), backup = grants + '.backup';
   const victimDir = path.join(sandbox, 'grant-victim'); mkdirSync(victimDir);
   const victim = path.join(victimDir, 'fixture.json'); writeFileSync(victim, 'fixture');
   renameSync(grants, backup); symlinkSync(victimDir, grants, process.platform === 'win32' ? 'junction' : 'dir');
   try {
-    const entry = (await store.readOutputIndex(project, workflowId)).entries.find(row => row.path === path.join(home, 'Documents', 'moved.txt'))!;
-    const destination = path.join(home, 'Documents', 'blocked-copy.txt');
+    const entry = (await store.readOutputIndex(project, workflowId)).entries.find(row => row.path === moved)!;
+    const destination = path.join(folder, 'blocked-copy.txt');
     await assert.rejects(outputs.transferOutput(ctx, entry.id, destination, false));
     assert.equal(existsSync(entry.path!), true); assert.equal(existsSync(destination), false);
     assert.equal(readFileSync(victim, 'utf8'), 'fixture');
@@ -258,20 +286,21 @@ test('a linked destination grant store is refused without losing the source', as
 });
 
 test('separate processes retain independently chosen destinations', async () => {
+  const { folder, id: workflowId } = await destinationFixture();
   const { execFile } = await import('node:child_process');
   const { promisify } = await import('node:util');
   const grants = await import('./outputGrants.js');
   const code = `const m=await import(${JSON.stringify(new URL('./outputGrants.ts', import.meta.url).href)}); await m.addOutputGrant({cwd:process.argv[1],workflowId:process.argv[2],file:process.argv[3]});`;
-  const paths = ['one.txt', 'two.txt'].map(name => path.join(home, 'Documents', name));
+  const paths = ['one.txt', 'two.txt'].map(name => path.join(folder, name));
   await Promise.all(paths.map(file => promisify(execFile)(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--input-type=module', '-e', code, project, workflowId, file], { timeout: 15000 })));
   for (const file of paths) assert.equal(await grants.hasOutputGrant({ cwd: project, workflowId, file }), true);
 });
 
 test('inline text saves and file copies are owner-only under umask 022', async () => {
   if (process.platform === 'win32') return;
-  const folder = path.join(home, 'documents'); mkdirSync(folder, { recursive: true });
+  const { folder, context: ctx } = await destinationFixture();
   const inline = (await outputs.listOutputs(ctx)).find(x => x.inline)!;
-  const loose = path.join(project, 'world-readable.txt');
+  const loose = path.join(project, `world-readable-${randomUUID()}.txt`);
   writeFileSync(loose, 'visible source'); chmodSync(loose, 0o666);
   await outputs.trackOutputFile(ctx, loose);
   const entry = (await outputs.listOutputs(ctx)).find(x => x.path === loose)!;
