@@ -388,7 +388,7 @@ Server echoes the message back, stamped with `seq` and `timestamp`. The optimist
 }
 ```
 
-The client hides queued user messages from chat until the corresponding `session_entry` arrives (Claude's JSONL writes the merged drained prompt - see `docs/GOTCHAS.md / UI`). The `[steer]` / `[follow-up]` pill in the queue strip reads from `kind` so a reconnect's replay can colour the strip correctly even though the optimistic in-memory state was lost.
+The client hides queued user messages from chat until the corresponding `session_entry` arrives (Claude's JSONL writes the merged drained prompt - see `docs/GOTCHAS.md / UI`). The `[steer]` / `[follow-up]` labels in PENDING read from `kind` so a reconnect's replay can label the list correctly even though the optimistic in-memory state was lost.
 
 ### `primary_turn_started` <-
 
@@ -604,7 +604,7 @@ reversible.
 
 ### `primary_tool_counter` <-
 
- Worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Updates the client `toolCallsSinceCompact` counter; the separate `toolCallsSinceHandoff` recount remains available. Native-only.
+ Worker-authoritative tool-call counter since the last context-reshape (auto-threshold `compact` emission OR worker rebuild after handoff). Emitted from Claude Native's `dispatchTool` after every increment AND after every reset. Updates the client `toolCallsSinceCompact` counter. A separate `toolCallsSinceHandoff` recount may still exist in client state for audit; it is not shown as a composer banner. Native-only.
 
 ```ts
 {
@@ -1579,7 +1579,7 @@ connection). See `docs/TERMINAL.md`.
 
 ## events (declared, with phase-specific emitters)
 
-Three event kinds were declared ahead of their emitters so later features could use them without a second schema bump. `operator_label` is emitted by the HISTORY tab labels; `queue_update` by the queue strip. **Forks ultimately shipped on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
+Three event kinds were declared ahead of their emitters so later features could use them without a second schema bump. `operator_label` is emitted by the HISTORY tab labels; `queue_update` by the PENDING queue list. **Forks ultimately shipped on a NEW `leaf_move` message - not `branch_summary`**, which remains declared-but-unemitted (no server code emits it). The two fork messages (`revert_to_point_request ->`, `leaf_move <-`) are documented below alongside the legacy reserved kind.
 
 ### `operator_label` <-
 
@@ -1610,7 +1610,7 @@ Persisted.
 
 ### `queue_update` <-
 
-Snapshot of the visible message queue. Arco emits on every queue mutation (enqueue, drain, cancel-one, cancel-all). Replay can reconstruct the queue strip from the latest `queue_update`, but it is a historical projection, not a durable executable queue. A browser reconnect to the same server process attaches to the existing in-memory workflow. After a cold server restart, the workflow is rehydrated with an empty executable queue; replay can still display an older queue snapshot as pending-looking work. Do not infer that displayed entries will run or that absent entries were never submitted.
+Snapshot of the visible message queue. Arco emits on every queue mutation (enqueue, drain, cancel-one, cancel-all). Replay can reconstruct the PENDING list from the latest `queue_update`, but it is a historical projection, not a durable executable queue. A browser reconnect to the same server process attaches to the existing in-memory workflow. After a cold server restart, the workflow is rehydrated with an empty executable queue; replay can still display an older queue snapshot as pending-looking work. Do not infer that displayed entries will run or that absent entries were never submitted.
 
 ```ts
 {
@@ -1621,7 +1621,7 @@ Snapshot of the visible message queue. Arco emits on every queue mutation (enque
 }
 ```
 
-`clientMessageId` survives in the snapshot so the queue-strip `[×]` button can target individual items by id after a reload (the optimistic chat message that originally minted the id may have been pruned by the client's 30 s `onRehydrateStorage` rule). IDs correlate entries; duplicate submissions are not deduplicated. After a cold restart, an old displayed ID may no longer refer to an executable item.
+`clientMessageId` survives in the snapshot so PENDING's cancel control can target individual items by id after a reload (the optimistic chat message that originally minted the id may have been pruned by the client's 30 s `onRehydrateStorage` rule). IDs correlate entries; duplicate submissions are not deduplicated. After a cold restart, an old displayed ID may no longer refer to an executable item.
 
 Steering hooks deliver at supported provider boundaries; follow-ups wait for completion. `interrupt:true` entries live in `steering` for backward-compatible queue snapshots but are excluded from provider steer drains. `takeQueuedTurn` selects pending interrupts first as their own turn, then merges the remaining steering and follow-up buckets. Queue entries, including their attachments, expanded context and picked skills, are held in workflow memory. The replayed echo and queue snapshot do not reconstruct that executable payload after a cold restart. Echoes, queue snapshots and interruption notices are written through the buffered workflow event path (memory-only for Incognito); they do not provide a durable queue or exactly-once delivery guarantee.
 

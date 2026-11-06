@@ -19,6 +19,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- Docs and the CONFIG manual name auto-handoff after N compactions and FOLD AT, describe PENDING cancel instead of per-message queue chips with their own ×, and state when to choose HANDOFF versus compaction (three modes).
 - The composer groups the north star, pending messages, compaction continuation and skill notices in a compact status line. PENDING opens the message list and its cancellation controls. The tool-call handoff suggestion is removed.
 
 - Auto-handoff now counts compactions instead of watching a context percentage. Auto-compaction handles the context fill; with CONFIG > AUTO-HANDOFF > Hand off after N compactions ticked (default 5, 1 to 20; off by default), Arco starts a fresh session at the end of a turn once the conversation has been compacted N times, in the chosen mode. No warning comes first; afterwards one chat line ("Handed off after 5 compactions") links the handoff document, and the count starts again. Counted: Claude Native and Ollama compactions (auto-compaction must be on), and the compactions the Claude CLI and Codex app-server report. Not counted: Fold. Cursor, Codex exec and providers without compaction cannot be counted; the control says why. The WARN and AUTO percentage sliders and the 75% context warning are gone. Tabs and Settings > Auto-handoff defaults saved with percentages keep their on or off state with 5 compactions.

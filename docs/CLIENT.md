@@ -557,7 +557,7 @@ The sort handles out-of-order frame arrivals on the wire (long pauses between te
 3. For each `job.messages` entry, decide its fate:
    - **System notice** - keep as-is.
    - **Streaming bubble** - try to trim the prefix that sessionChat has already materialized. If the suffix is empty after trim, drop the bubble. If trim fails but normalized whitespace matches, drop. If the streaming content has genuinely diverged from sessionChat, keep but pin to bottom (`timestamp = lastSessionTs + 1`).
-   - **Queued user message** - drop (surfaces in `QueuedMessagesIndicator`'s strip above the composer; the strip's source of truth is `job.queue`, kept in sync via the `queue_update` WS event).
+   - **Queued user message** - drop (surfaces in the composer status line as **PENDING**; open it to inspect or cancel. Source of truth is `job.queue`, kept in sync via the `queue_update` WS event).
    - **Operator user message** - keep if there's no sessionChat echo within 5s (proximity-based dedup).
 4. Build `optimisticUserMetaByKey` to merge optimistic-add metadata (timestamp + attachments) onto the matching sessionChat echo. Only merge if within `DEDUP_WINDOW_MS = 5000`.
 5. Concat `enrichedSession + extras`, sort by timestamp.
@@ -689,9 +689,9 @@ When `isBusy`:
   - `Alt+↑` -> recall most recently queued message into the editor (replaces draft; takes the last follow-up if any, otherwise the last steer)
   - `Esc` -> cancel the in-flight turn; if the queue is non-empty the client confirms via `window.confirm("Drop N queued messages?")` first
   - `Shift+Esc` -> force-cancel without the prompt
-- Steering drains at provider boundaries on Codex app-server, Claude Native and local tool loops; single-shot transports deliver it after completion. Interrupt uses a separate cancellation path. Its queue entry carries `interrupt:true`, and the queue strip/modal labels it **INTERRUPT & SEND**.
+- Steering drains at provider boundaries on Codex app-server, Claude Native and local tool loops; single-shot transports deliver it after completion. Interrupt uses a separate cancellation path. Its queue entry carries `interrupt:true`, and the PENDING list labels it **INTERRUPT & SEND**.
 
-The send hook (`useWebSocket.sendMessage`) takes an optional `kind` argument. Explicit `interrupt` survives a stale client busy flag; the server starts normally if already idle. Other idle sends bypass the queue. The optimistic add's `queueKind` field drives the per-message [steer] / [follow-up] pill in the queue strip and modal.
+The send hook (`useWebSocket.sendMessage`) takes an optional `kind` argument. Explicit `interrupt` survives a stale client busy flag; the server starts normally if already idle. Other idle sends bypass the queue. The optimistic add's `queueKind` field drives the per-message [steer] / [follow-up] label in the PENDING list.
 
 `Esc` in an empty composer (idle) still cancels the most-recent queued message via `onCancelQueued` for muscle-memory parity, but with the busy-path Esc cancelling the whole turn this is rare.
 

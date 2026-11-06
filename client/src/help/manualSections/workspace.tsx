@@ -526,7 +526,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="c">CONFIG</strong>,
-              <>Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-compaction, auto-handoff and auto-fold thresholds, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn - no rotation needed for same-provider swaps.</>,
+              <>Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-compaction, auto-handoff after N compactions, auto-fold FOLD AT, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn - no rotation needed for same-provider swaps.</>,
             ],
             [
               <strong key="g">GITHUB</strong>,

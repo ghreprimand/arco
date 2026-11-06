@@ -165,7 +165,7 @@ Since 0.1.4 a live `events.jsonl` that passes 16 MiB (`ARCO_EVENT_SEGMENT_BYTES`
 Persisted event kinds introduced with the schema bump (no emitters at the time they were added):
 
 - `operator_label` - operator-attached note targeting a prior event by its seq. Surfaces in HISTORY.
-- `queue_update` - snapshot of the visible message queue (`steering[]`, `followUp[]`). Arco emits on every queue mutation so replay reconstructs the queue strip.
+- `queue_update` - snapshot of the visible message queue (`steering[]`, `followUp[]`). Arco emits on every queue mutation so replay reconstructs the PENDING list.
 - `branch_summary` - declared but still reserved/unemitted; forks/rewind instead shipped via `leaf_move` (below).
 - `leaf_move` (Native-first) - durable head move over the immutable log, emitted by HISTORY's REWIND CONVERSATION action. Persisted to events.jsonl **and** sets `meta.leafSeq` via atomic `writeMeta`. The branch-aware replay pre-pass treats it as a REDIRECT node - walking ancestry from the leaf jumps to its `targetSeq`, pruning the abandoned span - while the abandoned branch stays byte-identical on disk. Carries `source` (`BranchSource`; v1 only emits `'revert'`) and optional `reconstructed: true` (set when the pre-`targetSeq` events had rotated off the size-capped log, so the branch was summary-reconstructed rather than byte-replayed - hygiene-B: surface lossy rewinds, never silent).
 
