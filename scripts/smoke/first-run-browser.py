@@ -22,6 +22,17 @@ spec.loader.exec_module(h)
 ANSWER = 'Synthetic setup conversation is working.'
 
 
+def same_path(actual, expected):
+    """True when both paths are the same folder after symlink resolution."""
+    return os.path.realpath(actual) == os.path.realpath(expected)
+
+
+async def expect_path(locator, expected):
+    await expect(locator).to_be_visible()
+    actual = await locator.input_value()
+    assert same_path(actual, expected), (actual, expected)
+
+
 class Model(h.FakeModel):
     def __init__(self):
         super().__init__()
@@ -114,7 +125,7 @@ async def setup_chat(playwright):
         await page.get_by_role('button', name='+ NEW', exact=True).wait_for(timeout=30000)
         frames = await page.evaluate('window.__sent.map(s=>{try{return JSON.parse(s)}catch{return {}}})')
         created = next(m for m in frames if m.get('type') == 'create_workflow')
-        assert created['config']['workingDirectory'] == str(server.projects / 'app'), created
+        assert same_path(created['config']['workingDirectory'], server.projects / 'app'), created
         assert created['config']['primaryProvider'] == 'ollama', created
         composer = page.locator('textarea:visible').first
         await composer.fill('Reply with the synthetic setup confirmation.')
@@ -222,7 +233,7 @@ async def folder_browser(playwright):
         shortcuts = page.get_by_label('Folder shortcuts', exact=True)
         assert await shortcuts.get_by_role('button').count() <= 6
         await shortcuts.get_by_role('button', name='src', exact=True).click()
-        await expect(page.get_by_label('Browse folder path', exact=True)).to_have_value(str(server.home / 'src'))
+        await expect_path(page.get_by_label('Browse folder path', exact=True), server.home / 'src')
         await shortcuts.get_by_role('button', name='Projects', exact=True).click()
         region = page.get_by_role('region', name='Project folders', exact=True)
         await expect(region.get_by_role('button')).to_have_count(150)
@@ -242,7 +253,7 @@ async def folder_browser(playwright):
         await page.get_by_role('button', name='Continue', exact=True).click()
         await page.get_by_role('heading', name='Welcome - Connections', exact=True).wait_for()
         settings = json.loads((server.home / '.arco/settings.json').read_text())
-        assert settings.get('projects') == [str(root / 'new-project')]
+        assert [os.path.realpath(p) for p in settings.get('projects', [])] == [os.path.realpath(root / 'new-project')]
         assert not settings.get('defaultWorkingDirectory')
         assert len(json.loads((server.home / '.arco/projects.json').read_text())['records']) == 1
         await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()

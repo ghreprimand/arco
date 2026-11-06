@@ -10,6 +10,28 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 
+def same_path(actual, expected):
+    """True when both paths are the same folder after symlink resolution."""
+    return os.path.realpath(actual) == os.path.realpath(expected)
+
+def same_paths(actuals, expecteds):
+    return [os.path.realpath(p) for p in actuals] == [os.path.realpath(p) for p in expecteds]
+
+async def expect_path(locator, expected):
+    await expect(locator).to_be_visible()
+    actual = await locator.input_value()
+    assert same_path(actual, expected), (actual, expected)
+
+def card_for(page, folder):
+    # The card title and the fixture folder are compared after resolution, and the
+    # locator stays live so a later search can show that this card is gone.
+    return page.locator('.home-project-card').filter(has=page.get_by_title(os.path.realpath(folder), exact=True))
+
+async def select_folder(locator, folder):
+    # Option values are the stored paths. Resolution makes a symlinked temporary
+    # directory match, and select_option waits until that option exists.
+    await locator.select_option(os.path.realpath(folder))
+
 spec = importlib.util.spec_from_file_location('root_harness', Path(__file__).with_name('connections-browser.py'))
 h = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(h)
@@ -53,7 +75,7 @@ async def main():
             await page.get_by_label('Location name', exact=True).fill('Workspaces')
             await page.get_by_role('button', name='Save location', exact=True).click()
             await expect(page.get_by_role('button', name='Edit location Workspaces', exact=True)).to_be_visible()
-            assert (await api(page, '/api/projects'))['roots'][0]['path'] == str(work)
+            assert same_path((await api(page, '/api/projects'))['roots'][0]['path'], work)
             await page.get_by_role('button', name='Edit location Workspaces', exact=True).click()
             await page.get_by_label('Location name', exact=True).fill('Work')
             await page.get_by_role('button', name='Save location', exact=True).click()
@@ -64,8 +86,8 @@ async def main():
             await page.wait_for_timeout(300)
             body = await api(page, '/api/projects')
             assert len(body['roots']) == 4
-            assert next(x for x in body['projects'] if x['path'] == str(work / 'team' / 'tool'))['rootPath'] == str(work / 'team')
-            assert not any(x['path'] == str(outside / 'one-off') for x in body['projects'])
+            assert same_path(next(x for x in body['projects'] if same_path(x['path'], work / 'team' / 'tool'))['rootPath'], work / 'team')
+            assert not any(same_path(x['path'], outside / 'one-off') for x in body['projects'])
             assert not next(root for root in body['roots'] if root['name'] == 'Offline')['exists']
             for scale in [1.1, 1.5]:
                 # The production build applies the saved scale on the next reload too.
@@ -80,8 +102,8 @@ async def main():
             locations = page.get_by_label('Location', exact=True)
             for name in ['Work', 'Personal', 'Team', 'Offline (unavailable)']:
                 await expect(locations.locator('option', has_text=name)).to_have_count(1)
-            work_card = page.locator('.home-project-card').filter(has=page.get_by_title(str(work / 'alpha'), exact=True))
-            notes_card = page.locator('.home-project-card').filter(has=page.get_by_title(str(personal / 'notes'), exact=True))
+            work_card = card_for(page, work / 'alpha')
+            notes_card = card_for(page, personal / 'notes')
             await expect(work_card).to_contain_text('Location: Work')
             await expect(notes_card).to_contain_text('Location: Personal')
             await page.get_by_label('Search folders (press /)', exact=True).fill('notes')
@@ -100,12 +122,12 @@ async def main():
             await expect(field).to_have_value('')
             await field.fill(str(outside / 'one-off'))
             release.set()
-            await page.get_by_label('Project location', exact=True).select_option(str(work))
-            await expect(field).to_have_value(str(outside / 'one-off'))
+            await select_folder(page.get_by_label('Project location', exact=True), work)
+            await expect_path(field, outside / 'one-off')
             await page.unroute('**/api/projects', hold)
             await page.get_by_role('button', name='Browse this location', exact=True).click()
             browser = page.locator('.first-run-browser')
-            await expect(browser.get_by_label('Browse folder path', exact=True)).to_have_value(str(work))
+            await expect_path(browser.get_by_label('Browse folder path', exact=True), work)
             await browser.get_by_label('Browse folder path', exact=True).fill(str(outside))
             await browser.get_by_role('button', name='Go', exact=True).click()
             await expect(browser.get_by_role('button', name='one-off/', exact=True)).to_be_visible()
@@ -113,18 +135,18 @@ async def main():
             await browser.get_by_role('button', name='+ FOLDER', exact=True).click()
             await browser.get_by_role('button', name='fresh-session/', exact=True).click()
             await browser.get_by_role('button', name='Use for this session', exact=True).click()
-            await expect(field).to_have_value(str(outside / 'fresh-session'))
+            await expect_path(field, outside / 'fresh-session')
             stored = await api(page, '/api/settings')
-            assert stored['projects'] == [str(server.projects / 'app')]
+            assert same_paths(stored['projects'], [server.projects / 'app'])
             await page.get_by_role('button', name='Bookmark folder', exact=True).click()
             await expect(page.get_by_role('button', name='Bookmark folder', exact=True)).to_have_count(0)
-            assert (await api(page, '/api/settings'))['projects'] == [str(server.projects / 'app'), str(outside / 'fresh-session')]
+            assert same_paths((await api(page, '/api/settings'))['projects'], [server.projects / 'app', outside / 'fresh-session'])
             await home(page)
             # Explicit caller prefill survives project loading and root filtering.
             await page.get_by_role('button', name='New session in app', exact=True).click()
-            await expect(field).to_have_value(str(server.projects / 'app'))
-            await page.get_by_label('Project location', exact=True).select_option(str(personal))
-            await expect(field).to_have_value(str(server.projects / 'app'))
+            await expect_path(field, server.projects / 'app')
+            await select_folder(page.get_by_label('Project location', exact=True), personal)
+            await expect_path(field, server.projects / 'app')
             print('PASS: no implicit cwd, typed/prefilled selections survive loading, one-off browser/create destination and explicit Bookmark folder')
 
             await home(page)
@@ -142,7 +164,8 @@ async def main():
             await page.get_by_role('button',name='Add a single project folder',exact=True).click()
             await page.get_by_label('Project folder path', exact=True).fill(str(personal / 'notes'))
             await page.locator('.first-run-path').get_by_role('button', name='Bookmark folder', exact=True).click()
-            await expect(summary).to_contain_text(str(personal / 'notes'))
+            folder = personal / 'notes'
+            await expect(summary).to_contain_text(re.compile('|'.join(re.escape(text) for text in dict.fromkeys([os.path.realpath(folder), str(folder)]))))
             for scale in [1.1, 1.5]:
                 await page.evaluate('value => {document.documentElement.style.setProperty("--ui-scale", String(value));document.documentElement.style.zoom=String(value);}', scale)
                 await page.get_by_role('button', name='Continue', exact=True).scroll_into_view_if_needed()
@@ -152,7 +175,7 @@ async def main():
             await page.get_by_role('button', name='Continue', exact=True).click()
             await page.get_by_role('button', name='SKIP FOR NOW', exact=True).click()
             await expect(page.get_by_role('heading', name='Setup complete', exact=True)).to_be_visible()
-            await expect(page.get_by_label('Chat folder', exact=True)).to_have_value(str(personal / 'notes'))
+            await expect_path(page.get_by_label('Chat folder', exact=True), personal / 'notes')
             await page.get_by_role('button', name='Go to Home', exact=True).click()
             after = await api(page, '/api/settings')
             assert all(root in after['projectRoots'] for root in before['projectRoots'])
@@ -164,13 +187,13 @@ async def main():
             assert not b.errors, b.errors
             print('PASS: multi-add setup stays on folder step, rerun preserves earlier roots/projects/settings and launches nothing')
             added = await api(page, '/api/projects', {'path': str(work / 'alpha')})
-            alpha = next(p for p in added['projects'] if p['path'] == str(work / 'alpha'))
+            alpha = next(p for p in added['projects'] if same_path(p['path'], work / 'alpha'))
             await page.get_by_role('button', name=re.compile('SETTINGS')).click()
             await page.get_by_role('button', name='Projects', exact=True).click()
             await page.get_by_role('button', name='Remove location Work', exact=True).click()
             await expect(page.get_by_role('button', name='Remove location Work', exact=True)).to_have_count(0)
             removed = await api(page, '/api/projects')
-            kept = next(p for p in removed['projects'] if p['path'] == str(work / 'alpha'))
+            kept = next(p for p in removed['projects'] if same_path(p['path'], work / 'alpha'))
             assert kept['id'] == alpha['id'] and kept['source'] == 'registered' and not kept.get('rootPath')
             assert (work / 'alpha').is_dir()
             print('PASS: root name editing preserves path/order; removing a root retains explicit projects and their identity')
@@ -190,7 +213,7 @@ async def main():
                 await expect(page.get_by_role('button', name=f'New session in {label}', exact=True)).to_be_visible()
             await expect(page.locator('.home-project-card')).to_have_count(3)
             await page.get_by_role('button', name='New session in fixture-repository', exact=True).click()
-            await expect(field).to_have_value(str(repo))
+            await expect_path(field, repo)
             workflow_name = page.locator('[data-help="creator.name"] input')
             await expect(workflow_name).to_have_value('fixture-repository')
             choices = page.get_by_role('list', name='Project choices')

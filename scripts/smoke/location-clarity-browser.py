@@ -9,6 +9,14 @@ from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
+
+def same_path(actual, expected):
+    """True when both paths are the same folder after symlink resolution."""
+    return os.path.realpath(actual) == os.path.realpath(expected)
+
+def card_for(page, folder):
+    # The card title and the fixture folder are compared after resolution.
+    return page.locator('.home-project-card').filter(has=page.get_by_title(os.path.realpath(folder), exact=True))
 spec=importlib.util.spec_from_file_location('clarity_harness',Path(__file__).with_name('connections-browser.py'))
 h=importlib.util.module_from_spec(spec);spec.loader.exec_module(h)
 ART=Path(os.environ.get('ARCO_LOCATION_VISUAL_ARTIFACTS','/tmp/arco-location-clarity-settings'))
@@ -60,8 +68,8 @@ async def main():
             await expect(page.get_by_role('button',name='Edit location Main',exact=True)).to_be_visible()
             await page.screenshot(path=str(ART/'renamed-location-150.png'))
             await page.get_by_role('button',name='Close settings',exact=True).click()
-            main_card=page.locator('.home-project-card').filter(has=page.get_by_title(str(server.root/'work'/'alpha'), exact=True))
-            personal_card=page.locator('.home-project-card').filter(has=page.get_by_title(str(server.root/'personal'/'alpha'), exact=True))
+            main_card=card_for(page, server.root/'work'/'alpha')
+            personal_card=card_for(page, server.root/'personal'/'alpha')
             await expect(main_card).to_contain_text('Location: Main')
             await expect(personal_card).to_contain_text('Location: Personal')
             await page.get_by_label('Location', exact=True).select_option(label='Main')
@@ -87,7 +95,8 @@ async def main():
             await expect(page.get_by_role('alert')).to_contain_text('both locations are unchanged')
             await expect(page.get_by_label('Location name',exact=True)).to_have_value('Main alias')
             roots=(await (await page.request.get(server.base+'/api/settings')).json())['projectRoots']
-            assert roots==[{'name':'Main alias','path':str(server.root/'work')},{'name':'Personal','path':str(server.root/'personal')}]
+            assert [root['name'] for root in roots]==['Main alias','Personal']
+            assert same_path(roots[0]['path'], server.root/'work') and same_path(roots[1]['path'], server.root/'personal')
             await page.get_by_role('button',name='Cancel',exact=True).click()
             print('PASS: duplicate and alias adds preserve drafts, explicit rename survives reload, edit collision preserves both locations')
             await page.get_by_role('button',name='Run setup again',exact=True).click()
