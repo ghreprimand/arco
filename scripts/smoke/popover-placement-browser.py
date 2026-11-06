@@ -121,6 +121,10 @@ async def open_app(browser, width, height, scale, state):
             data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': '2.1.0', 'codexVersion': '0.9.0', 'latestVersions': {'claude': '2.1.0', 'codex': '0.9.0'}}
         elif path == '/api/update-check':
             data = {'current': '0.1.4', 'latest': '0.1.5', 'url': 'https://example.invalid/release', 'publishedAt': None, 'checkedAt': None, 'enabled': True, 'updateAvailable': True}
+        elif path == '/api/skills':
+            # Exercise the loading-to-catalog size change before measuring.
+            await asyncio.sleep(0.15)
+            data = {'project': [], 'global': [], 'builtin': []}
         elif path == '/api/voice/setup':
             data = {'ready': False, 'install': {'running': False}}
         elif path in ('/api/usage', '/api/codex-usage', '/api/cursor-usage'):
@@ -249,7 +253,20 @@ async def open_case(page, case, where):
             if await parent.evaluate('p => !p || p === document.body'):
                 return False
             await page.evaluate(PIN_MORE if name == 'more' else PIN, [parent, where])
-    if where == 'natural':
+    if name == 'skills':
+        # Its catalog changes the panel height after opening. Wait for the
+        # real fixture response and rendered result before measuring placement.
+        async with page.expect_response(lambda response: urlparse(response.url).path == '/api/skills'):
+            if where == 'natural':
+                await loc.first.click(timeout=4000)
+            else:
+                await loc.first.dispatch_event('click')
+            await page.evaluate(FRAMES)
+            loading = await page.evaluate(VISIBLE_BOX, panel)
+            assert loading and loading['marker'], 'skills loading panel did not open or has no placement marker'
+            assert loading['left'] >= -1 and loading['top'] >= -1 and loading['right'] <= loading['w'] + 1 and loading['bottom'] <= loading['h'] + 1, f'skills loading panel left the window: {loading}'
+        await page.get_by_text("A skill is reusable guidance for an agent.", exact=False).wait_for()
+    elif where == 'natural':
         await (loc.first.hover(timeout=4000) if how == 'hover' else loc.first.click(timeout=4000))
     else:
         # A pinned trigger can sit under the composer or a panel (it keeps its
