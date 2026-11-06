@@ -116,7 +116,7 @@ arco service install|uninstall|start|stop|restart|status|logs|refresh
 arco update  # update the installed package
 arco voice setup  # install local voice components
 arco doctor  # check runtime, providers, port and service
-arco storage unseal  # plain logs again, before installing an older release
+arco storage unseal  # plain logs again, before a release older than 0.1.4
 arco version`}</Pre>
   <ul>
   <li>

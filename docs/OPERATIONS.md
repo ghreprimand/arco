@@ -14,6 +14,7 @@ For the normal native install and run modes, see [`../README.md`](../README.md) 
 | --- |
 | [Running locally](#running-locally) |
 | [Updating Arco](#updating-arco) |
+| [Going back to 0.1.4](#going-back-to-014) |
 | [Uninstall](#uninstall) |
 | [Recovering a submitted turn](#recovering-a-submitted-turn) |
 | [Ports](#ports) |
@@ -221,7 +222,55 @@ arco storage unseal
 Add `--project <path>` (repeatable) to limit it to some projects. In a source
 checkout, run `npm run storage:unseal`. See
 [Persistence](PERSISTENCE.md#sealed-segments). See [Service mode](SERVICE_MODE.md#packaged-service) for the
-working-directory requirements.
+working-directory requirements. Going back from 0.1.5 to 0.1.4 does not need
+this step; see [Going back to 0.1.4](#going-back-to-014).
+
+### Going back to 0.1.4
+
+Use these steps to leave a packaged 0.1.5 install for 0.1.4. Conversations,
+settings, KEEP lists and skills stay on disk; nothing is deleted.
+
+1. Stop Arco.
+
+```sh
+arco service stop
+```
+
+Or press Ctrl+C on a foreground `arco start`.
+
+2. Install 0.1.4.
+
+```sh
+npm install -g arco-workbench@0.1.4
+```
+
+3. Start Arco and reload open pages.
+
+```sh
+arco service start
+```
+
+Or run `arco start` in the foreground.
+
+4. Do not run `arco storage unseal`. 0.1.4 reads sealed conversation log segments
+itself. Run unseal only when installing a release older than 0.1.4.
+
+After the switch:
+
+| Area | What 0.1.4 does with 0.1.5 saved state |
+| --- | --- |
+| Auto-handoff | Uses context percentages again. Tabs that had it on warn at 75% and hand off at 90%. Tabs that had it off show the warning only. |
+| Skills turned off in 0.1.5 | Listed and offered to the model again (0.1.4 has no off switch). Delete or move a skill out of the skills folder if it must not be used. |
+| App window browser, Layout, saved dialog sizes, browser notice | Not used. |
+| Compaction count for auto-handoff | Not used. |
+| Outputs copied or moved to a home folder outside the project | Stay on disk; OUTPUTS cannot open or preview them. |
+| HISTORY checkpoint reverts | Shown without change counts. |
+| SHARE WITH REPOSITORY projects | Do not use RESTORE IGNORE FILE or STOP TRACKING; either would undo the sharing. |
+
+Coming back to 0.1.5 later: if Settings were changed while on 0.1.4, set the App
+window browser choice and the default auto-handoff compaction count again (the
+count falls back to 5). Auto-handoff percentages changed on a tab in 0.1.4 are
+kept.
 
 ### Source checkout
 
