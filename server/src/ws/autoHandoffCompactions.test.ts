@@ -160,6 +160,32 @@ test('which providers can count, and auto-compaction is required where Arco comp
   assert.equal(avail({ provider: 'claude', claudeTransport: 'native', compaction: resolve(undefined, undefined) }).available, true, 'provider default is on');
 });
 
+test('N of 1 fires on the first compaction, and a thrown handoff is not retried', async () => {
+  const { wf, sent, cwd } = fixture('once', { autoHandoff: { enabled: true, afterCompactions: 1, compactions: 0, fired: false } });
+  let calls = 0;
+  engine.initTurnEngine({ previewAutoDetect: {} as never, handleCreateWorkflow: async () => {}, handleHandoffRequest: async () => { calls += 1; throw new Error('fixture handoff failed'); } });
+  try {
+    assert.equal(await engine.maybeAutoHandoff('once', wf, cwd), false, 'nothing is due before the first compaction');
+    reportCompaction({ workflowId: 'once', source: 'claude-native' });
+    assert.equal(await engine.maybeAutoHandoff('once', wf, cwd), true);
+    assert.equal(calls, 1);
+    assert.match(notices(sent).at(-1) ?? '', /AUTO-HANDOFF FAILED/);
+    assert.equal(await engine.maybeAutoHandoff('once', wf, cwd), false, 'a failed handoff does not run again in this conversation');
+    assert.equal(calls, 1);
+  } finally { workflows.delete('once'); }
+});
+
+test('a Fold does not count and a native compaction does', async () => {
+  const { wf } = fixture('fold-count');
+  const { broadcastWorkflow } = await import('../server/broadcast.js');
+  try {
+    broadcastWorkflow('fold-count', { type: 'context_folded', workflowId: 'fold-count' } as never);
+    assert.equal(counter.compactionsThisConversation(wf), 0, 'Fold keeps the conversation and does not count');
+    broadcastWorkflow('fold-count', { type: 'native_compacted', workflowId: 'fold-count' } as never);
+    assert.equal(counter.compactionsThisConversation(wf), 1);
+  } finally { workflows.delete('fold-count'); }
+});
+
 test('an unavailable provider never hands off, whatever the count', async () => {
   const { wf, cwd } = fixture('cursor', { primary: { provider: 'cursor', model: 'm', effort: 'high' } } as never);
   let handoffs = 0;

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync, existsSync, appendFileSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync, existsSync, appendFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
@@ -265,4 +265,42 @@ test('separate processes retain independently chosen destinations', async () => 
   const paths = ['one.txt', 'two.txt'].map(name => path.join(home, 'Documents', name));
   await Promise.all(paths.map(file => promisify(execFile)(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--input-type=module', '-e', code, project, workflowId, file], { timeout: 15000 })));
   for (const file of paths) assert.equal(await grants.hasOutputGrant({ cwd: project, workflowId, file }), true);
+});
+
+test('inline text saves and file copies are owner-only under umask 022', async () => {
+  if (process.platform === 'win32') return;
+  const folder = path.join(home, 'documents'); mkdirSync(folder, { recursive: true });
+  const inline = (await outputs.listOutputs(ctx)).find(x => x.inline)!;
+  const loose = path.join(project, 'world-readable.txt');
+  writeFileSync(loose, 'visible source'); chmodSync(loose, 0o666);
+  await outputs.trackOutputFile(ctx, loose);
+  const entry = (await outputs.listOutputs(ctx)).find(x => x.path === loose)!;
+  const previous = process.umask(0o022);
+  try {
+    const text = path.join(folder, 'umask-inline.txt');
+    await outputs.transferOutput(ctx, inline.id, text, false);
+    assert.equal(readFileSync(text, 'utf8'), inline.inline?.content);
+    assert.equal(statSync(text).mode & 0o777, 0o600, 'an inline save is 0600 when umask would otherwise leave it group-readable');
+    assert.ok((await outputs.listOutputs(ctx)).find(x => x.id === inline.id)?.inline, 'the inline source stays inline');
+
+    const copied = path.join(folder, 'umask-file.txt');
+    await outputs.transferOutput(ctx, entry.id, copied, false);
+    assert.equal(readFileSync(copied, 'utf8'), 'visible source');
+    assert.equal(statSync(copied).mode & 0o777, 0o600, 'a file copy does not keep the source mode');
+    assert.equal(statSync(loose).mode & 0o777, 0o666, 'the source file is left unchanged');
+    assert.ok(existsSync(loose));
+
+    process.umask(0);
+    const wide = path.join(folder, 'umask-zero.txt');
+    await outputs.transferOutput(ctx, inline.id, wide, false);
+    assert.equal(statSync(wide).mode & 0o777, 0o600, 'umask 000 does not widen an inline save');
+    const wideFile = path.join(folder, 'umask-zero-file.txt');
+    await outputs.transferOutput(ctx, entry.id, wideFile, false);
+    assert.equal(statSync(wideFile).mode & 0o777, 0o600, 'umask 000 does not widen a file copy');
+
+    await assert.rejects(outputs.transferOutput(ctx, inline.id, text, false), /EEXIST/);
+    assert.equal(readFileSync(text, 'utf8'), inline.inline?.content);
+  } finally {
+    process.umask(previous);
+  }
 });

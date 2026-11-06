@@ -263,6 +263,25 @@ test('SHARE WITH REPOSITORY refused: .arco/.gitignore stays byte-identical, or a
   assert.equal(existsSync(join(c, '.arco', '.gitignore')), false);
 });
 
+test('SHARE WITH REPOSITORY does not write through a symlinked .arco/.gitignore', async () => {
+  const cwd = project(); git(cwd, 'init', '-q');
+  await skills.writeSkill({ scope: 'project', name: 'Blocked', description: 'x', body: 'y' }, cwd);
+  const target = join(cwd, 'ignore-target');
+  const link = join(cwd, '.arco', '.gitignore');
+  writeFileSync(target, readFileSync(link));
+  rmSync(link);
+  if (!await linkFile(target, link)) return;
+  const before = readFileSync(target);
+  // Git does not apply a symlinked ignore file, so the skill is already not
+  // ignored. Sharing must still not replace or append to the link target.
+  const preview = await m.shareSkill(cwd, 'blocked');
+  assert.equal(preview.alreadyTrackable, true);
+  assert.deepEqual(readFileSync(target), before);
+  writeFileSync(join(cwd, '.gitignore'), '.arco/\n');
+  await assert.rejects(m.shareSkill(cwd, 'blocked'), /Nothing was changed/);
+  assert.deepEqual(readFileSync(target), before);
+});
+
 async function call(method: string, url: string, payload?: unknown): Promise<{ code: number; body: Record<string, unknown> }> {
   const req = Object.assign(Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]), { method, url }) as IncomingMessage;
   let code = 0, text = '';

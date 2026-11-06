@@ -62,3 +62,50 @@ test('idle ignores queue kind and successful send clears the draft', () => {
   submitComposer(options);
   assert.deepEqual(events, [['plan', false], ['send', 'hello', undefined, undefined, undefined, undefined], ['draft', ''], ['clear', 'test'], ['skills', []]]);
 });
+
+test('cursor compression waits out a busy turn and refuses when the view cannot compact', () => {
+  const busy = fixture({ provider: 'cursor', isBusy: true, readDraft: () => '/compress', onCompact: () => { throw new Error('must not compact'); } });
+  submitComposer(busy.options);
+  assert.match((busy.events[0][2] as { content: string }).content, /Wait for the current turn/);
+  assert.deepEqual(busy.events.slice(1), [['draft', ''], ['clear', 'test']]);
+  const missing = fixture({ provider: 'cursor', readDraft: () => '/compress' });
+  submitComposer(missing.options);
+  assert.match((missing.events[0][2] as { content: string }).content, /not available in this view/);
+  assert.equal(missing.events.some((event) => event[0] === 'send'), false);
+});
+
+test('terminal-only commands, goal edges and an attachment-only send keep their old routes', () => {
+  const compact = fixture({ provider: 'cursor', readDraft: () => '/compact' });
+  submitComposer(compact.options);
+  assert.match((compact.events[0][2] as { content: string }).content, /terminal-only/);
+  assert.equal(compact.events.some((event) => event[0] === 'send'), false);
+
+  const named = fixture({ readDraft: () => '/goalkeeper' });
+  submitComposer(named.options);
+  assert.equal(named.events.some((event) => event[0] === 'send'), true);
+
+  const shown = fixture({ readDraft: () => '/goal', job: { id: 'test', config: { goal: 'ship' } } as Options['job'] });
+  submitComposer(shown.options);
+  assert.match((shown.events[0][2] as { content: string }).content, /ship/);
+  assert.equal(shown.events.some((event) => event[0] === 'send'), false);
+
+  const stopped: unknown[] = [];
+  const stop = fixture({ readDraft: () => '/goal run stop', onUpdatePrimary: (change) => { stopped.push(change); } });
+  submitComposer(stop.options);
+  assert.deepEqual(stopped, [{ goalRun: { enabled: false } }]);
+
+  const bare: unknown[] = [];
+  const noStar = fixture({ readDraft: () => '/goal run 4', onUpdatePrimary: (change) => { bare.push(change); } });
+  submitComposer(noStar.options);
+  assert.deepEqual(bare, []);
+  assert.match((noStar.events[0][2] as { content: string }).content, /Set a north star first/);
+
+  const files = fixture({ readDraft: () => '   ', attachments: [{ path: '/sample.png' }] as Options['attachments'] });
+  submitComposer(files.options);
+  assert.deepEqual(files.events.filter((event) => event[0] === 'send'), [['send', '', ['/sample.png'], undefined, undefined, undefined]]);
+
+  const hidden = fixture({ planModeArmed: true, planModeToggleVisible: false, onArmPlanMode: () => { hidden.events.push(['arm']); } });
+  submitComposer(hidden.options);
+  assert.equal(hidden.events.some((event) => event[0] === 'arm'), false);
+  assert.equal(hidden.events.some((event) => event[0] === 'send'), true);
+});

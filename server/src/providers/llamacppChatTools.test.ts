@@ -72,6 +72,29 @@ test('llama.cpp Chat tab: an XML tool call in the reply is extracted and still r
   }
 });
 
+test('llama.cpp Chat and plan review refuse shell and file calls, and a plan review refuses web calls too', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-llamacpp-chat-'));
+  const call = (name: string, args: Record<string, string>) => ({ id: 'c1', type: 'function' as const, function: { name, arguments: JSON.stringify(args) } });
+  const refused = async (label: string, extra: Partial<WorkerConfig>, name: string, args: Record<string, string>) => {
+    const out = await worker(dir, extra).dispatchToolCalls([call(name, args)], true, new ToolLoopDetector());
+    assert.equal(existsSync(join(dir, 'ran.txt')), false, label);
+    assert.match(out[0].content, /not enabled for this turn/, `${label}: ${out[0].content}`);
+  };
+  const planReview = { interactionMode: 'chat' as const, chatWebAccess: false, disableProviderHooks: true };
+  const armed = { interactionMode: 'chat' as const, chatWebAccess: true };
+  try {
+    for (const name of ['Bash', 'Read', 'WebFetch', 'WebSearch']) {
+      const args = name === 'Bash' ? { command: 'touch ran.txt' } : name === 'Read' ? { file_path: join(dir, 'ran.txt') } : { url: 'http://127.0.0.1:9/fixture' };
+      await refused(`plan review ${name}`, planReview, name, args);
+      await refused(`disarmed chat ${name}`, { interactionMode: 'chat', chatWebAccess: false }, name, args);
+    }
+    await refused('armed chat Bash', armed, 'Bash', { command: 'touch ran.txt' });
+    await refused('armed chat Read', armed, 'Read', { file_path: join(dir, 'ran.txt') });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('llama.cpp agent turn with AUTO still runs the call', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'arco-llamacpp-chat-'));
   try {

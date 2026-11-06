@@ -63,6 +63,9 @@ async def main():
                 line = page.get_by_test_id('composer-status-line')
                 await expect(line).to_be_visible()
                 await expect(line.get_by_role('button', name='PENDING · 1')).to_be_visible()
+                await expect(line.get_by_role('button', name='COMPACTED: CONTINUE')).to_be_visible()
+                await expect(line.get_by_role('button', name='Dismiss compacted notice')).to_be_visible()
+                await expect(line.get_by_role('button', name='Finish the synthetic project')).to_be_visible()
                 await expect(page.get_by_text('TOOL CALLS SINCE HANDOFF')).to_have_count(0)
                 assert await line.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1')
         await page.get_by_role('button', name='PENDING · 1').click()
@@ -71,11 +74,20 @@ async def main():
         await page.get_by_role('button', name='CANCEL', exact=True).last.click()
         assert any(m.get('type') == 'cancel_queued_message' for m in messages), messages
         await page.keyboard.press('Escape')
+        await expect(page.get_by_role('button', name='COMPACTED: CONTINUE')).to_be_disabled()
+        await page.get_by_role('button', name='Dismiss compacted notice').click()
+        await expect(page.get_by_role('button', name='COMPACTED: CONTINUE')).to_have_count(0)
         await page.evaluate("""() => { const s=window.testStore; const j=s.getState().jobs['interrupt-ui']; s.setState({jobs:{...s.getState().jobs, 'interrupt-ui':{...j, config:{...j.config,primaryProvider:'claude',ultracode:true}}}}); }""")
         await page.get_by_role('button', name='ULTRACODE', exact=False).click()
         await expect(page.get_by_text('TRANSPORT', exact=True).last).to_be_visible()
         gauge = page.locator('[data-help="worker.header.ctx"] [title]').first
         assert 'FRESH SUMMARIZER' in (await gauge.get_attribute('title'))
+        await page.evaluate("""() => { const s=window.testStore; const j=s.getState().jobs['interrupt-ui']; s.setState({jobs:{...s.getState().jobs, 'interrupt-ui':{...j, projectTrustPrompt:{cwd:'/tmp/synthetic', resources:['CLAUDE.md']}}}}); }""")
+        trust = page.locator('[data-help="composer.project-trust"]')
+        await expect(trust).to_be_visible()
+        await expect(trust.get_by_role('button', name='TRUST')).to_be_visible()
+        await expect(trust.get_by_role('button', name='NEVER')).to_be_visible()
+        assert await page.get_by_test_id('composer-status-line').locator('[data-help="composer.project-trust"]').count() == 0
         assert not errors, errors
         await browser.close()
         print('PASS: status chips wrap, open pending messages and cancel at six viewport scales')

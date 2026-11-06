@@ -95,6 +95,14 @@ test('a Windows choice accepts drive paths and program names without .exe', () =
   assert.equal(resolveBrowser('C:\\Missing\\x.exe', 'win32', env, fs(files)).missing, true);
 });
 
+test('a url or profile that looks like extra flags stays one argument', () => {
+  const url = 'http://127.0.0.1:3001/?app=explorer --no-sandbox';
+  const profile = '/tmp/profile --disable-gpu';
+  const [command, args] = launchCommand({ command: '/bin/chromium' }, url, profile);
+  assert.equal(command, '/bin/chromium');
+  assert.deepEqual(args, [`--user-data-dir=${profile}`, `--app=${url}`]);
+});
+
 test('launch arguments use the profile only when one is given', () => {
   assert.deepEqual(launchCommand({ command: '/b/chrome' }, 'http://h/', '/p'), ['/b/chrome', ['--user-data-dir=/p', '--app=http://h/']]);
   assert.deepEqual(launchCommand({ command: '/b/chrome' }, 'http://h/'), ['/b/chrome', ['--app=http://h/']]);

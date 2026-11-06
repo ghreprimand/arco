@@ -25,6 +25,20 @@ test('the App window browser setting is saved, cleared by Automatic and refuses 
   assert.equal((await patchSettings({ appWindowBrowser: '' })).appWindowBrowser, undefined);
 });
 
+test('GET /api/app-browsers returns the report and other requests pass through', async () => {
+  const { tryHandleAppBrowserRoutes } = await import('./http/appBrowserRoutes.js');
+  const captured: { status?: number; body?: string; cache?: string } = {};
+  const res = { writeHead(status: number, headers: Record<string, string>) { captured.status = status; captured.cache = headers['Cache-Control']; }, end(body: string) { captured.body = body; } };
+  assert.equal(await tryHandleAppBrowserRoutes({ url: '/api/app-browsers', method: 'GET' } as never, res as never), true);
+  assert.equal(captured.status, 200);
+  assert.equal(captured.cache, 'no-store');
+  const report = JSON.parse(captured.body ?? '{}') as { browsers: unknown; choice: unknown; missing: unknown };
+  assert.equal(Array.isArray(report.browsers), true);
+  assert.equal('choice' in report && 'missing' in report, true);
+  assert.equal(await tryHandleAppBrowserRoutes({ url: '/api/app-browsers', method: 'POST' } as never, res as never), false);
+  assert.equal(await tryHandleAppBrowserRoutes({ url: '/api/settings', method: 'GET' } as never, res as never), false);
+});
+
 test('the report and the server window follow the shared browser rules', async () => {
   const bin = path.join(fixture, 'bin');
   mkdirSync(bin, { recursive: true });
