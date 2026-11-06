@@ -112,6 +112,10 @@ export interface NotificationChannelsView extends Omit<NotificationChannels, 'nt
   ntfy: { server: string; topic: string; tokenSet: boolean };
   // True when ARCO_NTFY_URL supplies the phone address because none is saved.
   ntfyFromEnvironment: boolean;
+  // True when ARCO_NTFY_URL is set and no address is saved, but the Arco home is
+  // inside the temporary folder, so the inherited address is not used
+  // (server/src/management/hubGuard.ts). Absent from older servers.
+  ntfyEnvironmentHeldBack?: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_CHANNELS: NotificationChannels = {

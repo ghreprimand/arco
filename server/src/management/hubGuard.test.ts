@@ -1,11 +1,13 @@
 // Hub guard decision: a server whose Arco home is inside the temporary folder
-// does not join the hub unless ARCO_HUB_ALLOW_TEMP_HOME=1.
+// does not join the hub, and sends no phone notices to an inherited
+// ARCO_NTFY_URL, unless ARCO_ALLOW_TEMP_HOME=1 (or the older
+// ARCO_HUB_ALLOW_TEMP_HOME=1).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { decideHubLink, hubUrlForServer, isSameOrInside, realpathLoose } from './hubGuard.js';
+import { _resetGuardNotesForTest, decideHubLink, environmentNtfyAllowed, hubUrlForServer, isSameOrInside, realpathLoose } from './hubGuard.js';
 
 const HUB = 'ws://127.0.0.1:9/agent';
 
@@ -122,17 +124,50 @@ test('hubUrlForServer reads ARCO_HOME and the system temporary folder, and logs 
   const original = console.log;
   console.log = (...args: unknown[]) => { logged.push(args.join(' ')); };
   try {
+    _resetGuardNotesForTest();
     process.env.ARCO_HOME = path.join(tmpdir(), 'arco-hub-guard-home');
     assert.equal(hubUrlForServer({ ARCO_HUB_URL: HUB }), undefined);
     assert.equal(hubUrlForServer({ ARCO_HUB_URL: HUB }), undefined);
-    assert.equal(hubUrlForServer({ ARCO_HUB_URL: HUB, ARCO_HUB_ALLOW_TEMP_HOME: '1' }), HUB);
+    assert.equal(hubUrlForServer({ ARCO_HUB_URL: HUB, ARCO_ALLOW_TEMP_HOME: '1' }), HUB);
+    assert.equal(hubUrlForServer({ ARCO_HUB_URL: HUB, ARCO_HUB_ALLOW_TEMP_HOME: '1' }), HUB, 'the older override name still works');
     assert.equal(hubUrlForServer({}), undefined);
-    const notes = logged.filter((line) => line.includes('ARCO_HUB_ALLOW_TEMP_HOME=1'));
+    const notes = logged.filter((line) => line.includes('[hub-link]') && line.includes('ARCO_ALLOW_TEMP_HOME=1'));
     assert.equal(notes.length, 1);
     assert.ok(!notes[0].includes(tmpdir()), 'the log line names no local path');
   } finally {
     console.log = original;
     if (saved === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = saved;
+    f.cleanup();
+  }
+});
+
+test('environmentNtfyAllowed holds back an inherited ARCO_NTFY_URL only for a temporary home, and logs once', () => {
+  const f = fixture();
+  const logged: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => { logged.push(args.join(' ')); };
+  try {
+    _resetGuardNotesForTest();
+    const NTFY = 'http://127.0.0.1:9/arco-topic';
+    const tempHome = path.join(f.temp, 'home', '.arco');
+    const normalHome = path.join(f.outside, '.arco');
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome }, f.temp), true, 'nothing set, nothing held back');
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome, ARCO_NTFY_URL: NTFY }, f.temp), false);
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome, ARCO_NTFY_URL: NTFY }, f.temp), false);
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome, ARCO_NTFY_URL: NTFY, ARCO_ALLOW_TEMP_HOME: '1' }, f.temp), true);
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome, ARCO_NTFY_URL: NTFY, ARCO_HUB_ALLOW_TEMP_HOME: '1' }, f.temp), true);
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: tempHome, ARCO_NTFY_URL: NTFY, ARCO_ALLOW_TEMP_HOME: '0' }, f.temp), false);
+    assert.equal(environmentNtfyAllowed({ ARCO_HOME: normalHome, ARCO_NTFY_URL: NTFY }, f.temp), true, 'a normal home is unchanged');
+    const linked = path.join(f.root, 'linked-tmp');
+    let linkMade = true;
+    try { symlinkSync(f.temp, linked, process.platform === 'win32' ? 'junction' : 'dir'); } catch { linkMade = false; }
+    if (linkMade) assert.equal(environmentNtfyAllowed({ ARCO_HOME: path.join(linked, 'home'), ARCO_NTFY_URL: NTFY }, f.temp), false, 'a symlinked path to the temporary folder counts');
+    const notes = logged.filter((line) => line.includes('[ntfy]'));
+    assert.equal(notes.length, 1);
+    assert.ok(notes[0].includes('ARCO_ALLOW_TEMP_HOME=1'));
+    assert.ok(!notes[0].includes(f.root), 'the log line names no local path');
+  } finally {
+    console.log = original;
     f.cleanup();
   }
 });

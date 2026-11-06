@@ -126,7 +126,7 @@ export function NotificationChannelsSettings() {
       </label>
 
       <span className="display-font" style={{ fontSize: 11, letterSpacing: 2, color: 'var(--color-accent-primary-dim)', marginTop: 6 }}>PHONE (NTFY)</span>
-      <p style={{ margin: 0 }}>Phone messages go through an ntfy server and need no hub. Install the ntfy app, subscribe to your topic, then TEST. Anyone who knows the topic can read what is sent to it, so keep it private, or use an access token with a protected topic.{view.ntfyFromEnvironment ? ' An address from ARCO_NTFY_URL is in use until you save one here.' : ''}</p>
+      <p style={{ margin: 0 }}>Phone messages go through an ntfy server and need no hub. Install the ntfy app, subscribe to your topic, then TEST. Anyone who knows the topic can read what is sent to it, so keep it private, or use an access token with a protected topic.{view.ntfyFromEnvironment ? ' An address from ARCO_NTFY_URL is in use until you save one here.' : ''}{view.ntfyEnvironmentHeldBack ? ' ARCO_NTFY_URL is set, but this Arco home is inside the temporary folder, so it is not used. An address saved here works.' : ''}</p>
       <label>Server <input className="arco-field" aria-label="ntfy server" value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://ntfy.sh" style={{ width: 280 }} /></label>
       <label>Topic <input className="arco-field" aria-label="ntfy topic" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 280 }} />
         <button type="button" className="display-font" onClick={() => setTopic(randomTopic())}>GENERATE</button></label>

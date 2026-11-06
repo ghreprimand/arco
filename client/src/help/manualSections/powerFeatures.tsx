@@ -640,8 +640,9 @@ export const powerFeatures: Section[] = [
   <p>
   An instance whose Arco home folder is inside the system temporary folder, such
   as a test server, does not join the hub even when <Code>ARCO_HUB_URL</Code> is
-  set, and the chip stays hidden. Set <Code>ARCO_HUB_ALLOW_TEMP_HOME=1</Code> to
-  join anyway.
+  set, and the chip stays hidden. It also sends no phone messages to an
+  inherited <Code>ARCO_NTFY_URL</Code>. Set <Code>ARCO_ALLOW_TEMP_HOME=1</Code>
+  to use both anyway.
   </p>
   <p>
   Remote control is <strong>off by default</strong>, and the switches are shown
@@ -704,7 +705,7 @@ export const powerFeatures: Section[] = [
   </p>
   <ul>
   <li><strong>Desktop.</strong> Alerts appear only while Arco is not the focused window, one per event. The window title also shows a waiting count such as (2) ARCO.</li>
-  <li><strong>Phone.</strong> Enter an ntfy server and topic (GENERATE makes one) and an optional access token, then press TEST. Message text is left out unless you turn it on. No hub is needed. <Code>ARCO_NTFY_URL</Code> still works when nothing is saved.</li>
+  <li><strong>Phone.</strong> Enter an ntfy server and topic (GENERATE makes one) and an optional access token, then press TEST. Message text is left out unless you turn it on. No hub is needed. <Code>ARCO_NTFY_URL</Code> still works when nothing is saved, except on an instance whose Arco home folder is inside the system temporary folder.</li>
   </ul>
   <p>
   Alerts are a one-way prompt, never a command channel. Answering one always goes

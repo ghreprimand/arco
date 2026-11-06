@@ -54,7 +54,8 @@ workflow and event every 3 seconds, and does three things:
   switch). Title is `<tab name> finished | hit an error | is waiting for you`; the
   body is generic unless `phoneText` is on, then the question, error or first
   200 characters of the reply. An address from `ARCO_NTFY_URL` / `ARCO_NTFY_TOKEN`
-  is used when none is saved. While the phone "finished" switch is on, the older
+  is used when none is saved, unless the Arco home is inside the system
+  temporary folder (see "Temporary homes" below). While the phone "finished" switch is on, the older
   `turn-finished` notice transport skips that category so it is not sent twice.
 
 Preferences live in `~/.arco/notification-channels.json` (mode 0600; the ntfy
@@ -177,6 +178,23 @@ title/body/priority + a tap-link to the management console; nothing inbound is r
  priority-by-severity; the chokepoint fans out to a transport for surviving
  notices and **suppresses muted ones**; `initNtfyTransport` inert-without-env /
  active-with-env drives exactly one POST. `npm run smoke:ntfy`.
+
+### Temporary homes
+
+A server whose Arco home is the system temporary folder or inside it (both
+compared after resolving symbolic links) is a test or throwaway instance. It
+does not use phone settings it inherited from the environment: the ntfy
+transport stays inert, the phone alerts ignore `ARCO_NTFY_URL` and
+`ARCO_NTFY_TOKEN`, and no console link is derived from `ARCO_HUB_URL`. One log
+line per process says so. A phone address saved in that home's Settings >
+Notifications is not inherited and still works, so a check of the phone
+feature against a local fake ntfy server keeps working. The settings page says
+when `ARCO_NTFY_URL` is set but not used (`ntfyEnvironmentHeldBack` in the
+view). `ARCO_ALLOW_TEMP_HOME=1` lifts the rule, for the hub link as well; the
+older name `ARCO_HUB_ALLOW_TEMP_HOME=1` is still accepted. The decision is
+`environmentNtfyAllowed()` in `server/src/management/hubGuard.ts`, used by
+`ntfyTransport.ts` and `attention.ts`. Homes outside the temporary folder are
+unchanged.
 
 ### Per-workflow gate (Remote Management opt-in)
 

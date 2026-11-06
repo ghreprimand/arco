@@ -16,6 +16,7 @@
 
 import { registerNoticeTransport } from './notifications.js';
 import { phoneHandlesFinished } from './attention.js';
+import { environmentNtfyAllowed } from './management/hubGuard.js';
 import type { WorkbenchNotice, WorkbenchNoticeSeverity } from '@arco/shared';
 
 export interface NtfyConfig {
@@ -122,7 +123,8 @@ export function getNtfyConfig(): NtfyConfig | null {
 
 /**
  * Initialize the ntfy transport. INERT (no-op, returns false) unless
- * ARCO_NTFY_URL is set. Idempotent-ish: registers exactly one sink the first
+ * ARCO_NTFY_URL is set, and on a server whose Arco home is inside the
+ * temporary folder unless ARCO_ALLOW_TEMP_HOME=1. Idempotent-ish: registers exactly one sink the first
  * time it activates. `opts` lets the smoke inject a fake fetch + env + label.
  */
 export function initNtfyTransport(opts?: {
@@ -139,6 +141,9 @@ export function initNtfyTransport(opts?: {
   const env = opts?.env ?? process.env;
   const topicUrl = (env.ARCO_NTFY_URL || '').trim();
   if (!topicUrl) return false; // inert — ordinary dev run
+  // A server whose Arco home is inside the temporary folder does not use the
+  // inherited ntfy address, token or console link (management/hubGuard.ts).
+  if (!environmentNtfyAllowed(env)) return false;
 
   if (opts?.fetchImpl) fetchImpl = opts.fetchImpl;
   const isRemoteEnabled = opts?.isRemoteEnabled;

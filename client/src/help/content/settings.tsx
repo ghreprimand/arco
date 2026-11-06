@@ -469,7 +469,9 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           <strong>Phone</strong> sends a message through an ntfy server and needs no hub. Enter the server, a topic
           (GENERATE makes a private-looking random one) and, for a protected topic, an access token, then press TEST. Anyone
-          who knows the topic can read its messages. Message text is left out unless you turn it on. In a cluster,
+          who knows the topic can read its messages. Message text is left out unless you turn it on. An address from
+          <C>ARCO_NTFY_URL</C> is used while none is saved here, except when Arco&apos;s home folder is inside the system
+          temporary folder (a test server, for example); an address saved here always works. In a cluster,
           "finished" comes from the director only unless you choose every member. The tab count in the window title,
           such as "(2) ARCO", always shows how many tabs are waiting on you.
         </p>

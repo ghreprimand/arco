@@ -321,7 +321,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Shows whether this Arco is linked to a remote management hub. A <strong>filled dot</strong> means connected; a hollow dot means set up but disconnected. <C>N monitored</C> is how many of your tabs are shared with the phone console; only those appear there and send phone notifications. Share a tab with <C>REMOTE</C> in its message box.</p>
-        <p>Click to <C>disconnect</C>, which cuts all remote control until you reconnect, or to reconnect. Shown only when a hub is configured (<C>ARCO_HUB_URL</C>). Hidden when Arco&apos;s home folder is inside the system temporary folder, because such an instance does not join the hub unless <C>ARCO_HUB_ALLOW_TEMP_HOME=1</C> is set.</p>
+        <p>Click to <C>disconnect</C>, which cuts all remote control until you reconnect, or to reconnect. Shown only when a hub is configured (<C>ARCO_HUB_URL</C>). Hidden when Arco&apos;s home folder is inside the system temporary folder, because such an instance does not join the hub unless <C>ARCO_ALLOW_TEMP_HOME=1</C> is set.</p>
       </>
     ),
   },

@@ -961,6 +961,7 @@ export const configuration: Section[] = [
   <ul>
   <li>Anyone who knows the topic can read its messages.</li>
   <li>Existing <Code>ARCO_NTFY_URL</Code> and <Code>ARCO_NTFY_TOKEN</Code> settings keep working until you save an address here.</li>
+  <li>An instance whose Arco home folder is inside the system temporary folder, such as a test server, ignores <Code>ARCO_NTFY_URL</Code> and says so here. An address saved here still works. <Code>ARCO_ALLOW_TEMP_HOME=1</Code> uses the variable anyway.</li>
   </ul>
   <p>The window title shows how many tabs are waiting on you, for example "(2) ARCO". It needs no setting.</p>
   </>

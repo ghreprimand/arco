@@ -7,7 +7,7 @@
 // registers to the hub as a 'service', pushes its workflow snapshot, and applies
 // routed reply/stop/continue actions — re-validating against current state.
 // The hub guard (hubGuard.ts) holds the link back when the Arco home is inside
-// the temporary folder, unless ARCO_HUB_ALLOW_TEMP_HOME=1.
+// the temporary folder, unless ARCO_ALLOW_TEMP_HOME=1.
 
 import { WebSocket } from 'ws';
 import { join } from 'node:path';

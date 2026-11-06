@@ -1,8 +1,9 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 import type { ServerMessage } from '@arco/shared';
 import { initNotifications, _setMutesPathForTest, _resetTransportsForTest, registerNoticeTransport, onTurnStarted, onTurnEnded } from './notifications.js';
 import {
@@ -90,8 +91,14 @@ test('failures raise an alert for the failed event only', async () => {
   assert.equal((sent[0] as unknown as { kind: string }).kind, 'failed');
 });
 
+// A home outside the temporary folder. It is never created; the guard only
+// compares paths.
+async function normalHome(): Promise<string> {
+  return join(parse(tmpdir()).root, 'arco-attn-normal-home', '.arco');
+}
+
 test('saved settings win; ARCO_NTFY_URL keeps working when none is saved; the token never reaches the view', async () => {
-  const env = { ARCO_NTFY_URL: 'https://hub.example.org/topic', ARCO_NTFY_TOKEN: 'envtok' } as NodeJS.ProcessEnv;
+  const env = { ARCO_HOME: await normalHome(), ARCO_NTFY_URL: 'https://hub.example.org/topic', ARCO_NTFY_TOKEN: 'envtok' } as NodeJS.ProcessEnv;
   assert.deepEqual(resolvePhoneTarget(await saveChannels({}), env), { url: 'https://hub.example.org/topic', token: 'envtok' });
   assert.equal(channelsView(await saveChannels({}), env).ntfyFromEnvironment, true);
   const cfg = await saveChannels({ ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t3', token: 'secret' } });
@@ -136,4 +143,23 @@ test('long turn reaches legacy transports without a second workbench notice', ()
     assert.deepEqual(delivered, ['turn-finished']);
     assert.equal(sent.some((message) => message.type === 'workbench_notice'), false);
   } finally { Date.now = now; }
+});
+
+test('a home inside the temporary folder ignores ARCO_NTFY_URL, keeps a saved address, and the override lifts the rule', async () => {
+  const tempHome = join(tmpdir(), `arco-attn-temp-home-${seq++}`, '.arco');
+  mkdirSync(tempHome, { recursive: true });
+  const inherited = { ARCO_HOME: tempHome, ARCO_NTFY_URL: 'https://hub.example.org/topic', ARCO_NTFY_TOKEN: 'envtok' } as NodeJS.ProcessEnv;
+  const none = await saveChannels({ phone: { waiting: true } });
+  assert.equal(resolvePhoneTarget(none, inherited), null, 'the inherited address is not used');
+  const heldView = channelsView(none, inherited);
+  assert.equal(heldView.ntfyFromEnvironment, false);
+  assert.equal(heldView.ntfyEnvironmentHeldBack, true);
+  assert.deepEqual(resolvePhoneTarget(none, { ...inherited, ARCO_ALLOW_TEMP_HOME: '1' }), { url: 'https://hub.example.org/topic', token: 'envtok' }, 'the override sends');
+  assert.deepEqual(resolvePhoneTarget(none, { ...inherited, ARCO_HUB_ALLOW_TEMP_HOME: '1' }), { url: 'https://hub.example.org/topic', token: 'envtok' }, 'the older override name sends');
+  const normal = { ...inherited, ARCO_HOME: await normalHome() };
+  assert.deepEqual(resolvePhoneTarget(none, normal), { url: 'https://hub.example.org/topic', token: 'envtok' }, 'a normal home is unchanged');
+  assert.equal(channelsView(none, normal).ntfyEnvironmentHeldBack, false);
+  const saved = await saveChannels({ phone: { waiting: true }, ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t9' } });
+  assert.deepEqual(resolvePhoneTarget(saved, inherited), { url: 'https://ntfy.example.org/arco-t9' }, 'an address saved in Settings still works');
+  assert.equal(channelsView(saved, inherited).ntfyEnvironmentHeldBack, false);
 });

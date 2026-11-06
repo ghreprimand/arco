@@ -12,6 +12,7 @@ import type { AttentionKind, NotificationChannels, NotificationChannelsView, Ser
 import { DEFAULT_NOTIFICATION_CHANNELS, isValidNtfyTopic, normalizeNtfyServer, sanitizeNotificationChannels } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
+import { environmentNtfyAllowed } from './management/hubGuard.js';
 import { broadcastToClients } from './notifications.js';
 import * as clusterStore from './clusterStore.js';
 import { isClusterDirector } from '@arco/shared';
@@ -56,21 +57,27 @@ export async function saveChannels(value: unknown): Promise<NotificationChannels
   return channels;
 }
 
-/** The phone address in use: saved settings win; ARCO_NTFY_* still works when none is saved. */
+/**
+ * The phone address in use: saved settings win; ARCO_NTFY_* still works when
+ * none is saved, except on a server whose Arco home is inside the temporary
+ * folder (environmentNtfyAllowed in management/hubGuard.ts).
+ */
 export function resolvePhoneTarget(cfg: NotificationChannels = channels, env: NodeJS.ProcessEnv = process.env): { url: string; token?: string } | null {
   if (cfg.ntfy.topic && isValidNtfyTopic(cfg.ntfy.topic)) {
     const server = normalizeNtfyServer(cfg.ntfy.server);
     if (server) return { url: `${server}/${cfg.ntfy.topic}`, ...(cfg.ntfy.token ? { token: cfg.ntfy.token } : {}) };
   }
   const envUrl = (env.ARCO_NTFY_URL || '').trim();
-  if (envUrl) return { url: envUrl, ...((env.ARCO_NTFY_TOKEN || '').trim() ? { token: env.ARCO_NTFY_TOKEN!.trim() } : {}) };
+  if (envUrl && environmentNtfyAllowed(env)) return { url: envUrl, ...((env.ARCO_NTFY_TOKEN || '').trim() ? { token: env.ARCO_NTFY_TOKEN!.trim() } : {}) };
   return null;
 }
 
 export function channelsView(cfg: NotificationChannels = channels, env: NodeJS.ProcessEnv = process.env): NotificationChannelsView {
   const { ntfy, ...rest } = cfg;
   const saved = !!(ntfy.topic && isValidNtfyTopic(ntfy.topic));
-  return { ...rest, ntfy: { server: ntfy.server, topic: ntfy.topic, tokenSet: !!ntfy.token }, ntfyFromEnvironment: !saved && !!(env.ARCO_NTFY_URL || '').trim() };
+  const inherited = !saved && !!(env.ARCO_NTFY_URL || '').trim();
+  const allowed = !inherited || environmentNtfyAllowed(env);
+  return { ...rest, ntfy: { server: ntfy.server, topic: ntfy.topic, tokenSet: !!ntfy.token }, ntfyFromEnvironment: inherited && allowed, ntfyEnvironmentHeldBack: inherited && !allowed };
 }
 
 /** True when the phone path will send "finished" itself, so the older notice transport can skip it. */

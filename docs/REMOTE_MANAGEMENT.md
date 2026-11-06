@@ -46,7 +46,8 @@ registration, no heartbeat and no cloud vault requests. This keeps test and
 throwaway instances out of the hub when they inherit the variable from a shell.
 Both folders are compared after resolving symbolic links, so a symlinked
 `TMPDIR` and the macOS `/var` and `/private/var` names count. One log line says
-the link is held back; `ARCO_HUB_ALLOW_TEMP_HOME=1` joins anyway. The lifecycle
+the link is held back; `ARCO_ALLOW_TEMP_HOME=1` joins anyway (the older name
+`ARCO_HUB_ALLOW_TEMP_HOME=1` is still accepted). The lifecycle
 agent (`arco-agent run`) is a separate program without an Arco home and is not
 affected. `scripts/management/registry.ts`
 tracks online, stale, and offline states without deleting an instance record.
@@ -280,7 +281,10 @@ the desktop UI.
 
 The management console can be linked from one-way notices. The ntfy transport
 uses the same notification event contract as the in-app notice center, sends no
-commands, and is inactive unless `ARCO_NTFY_URL` is configured. Workflow notices
+commands, and is inactive unless `ARCO_NTFY_URL` is configured. A server whose
+Arco home is inside the temporary folder ignores `ARCO_NTFY_URL`, its token and
+the console link derived from `ARCO_HUB_URL`, under the same rule and override
+as the hub link; a phone address saved in that home's Settings still works. Workflow notices
 are sent only when remote access is enabled for that workflow; instance-level
 notices are unaffected by that per-workflow gate. Category mutes suppress both
 in-app broadcasts and external notices. See [`NOTIFICATIONS.md`](NOTIFICATIONS.md)

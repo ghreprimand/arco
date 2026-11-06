@@ -541,7 +541,8 @@ void initNotifications((msg) => {
   }
 });
 
-// J2 — ntfy external push. Inert unless ARCO_NTFY_URL is set; when active it
+// J2 — ntfy external push. Inert unless ARCO_NTFY_URL is set, and on a server
+// whose Arco home is inside the temporary folder (management/hubGuard.ts); when active it
 // hangs a fire-and-forget POST off the J1 notice chokepoint, labeled with this
 // workstation's friendly name and click-linking to the K2 console.
 initNtfyTransport({
@@ -2362,7 +2363,7 @@ function onListening() {
   // Workflow-reporting layer (docs/REMOTE_MANAGEMENT.md §2). Inert unless
   // ARCO_HUB_URL is set and the hub guard (management/hubGuard.ts) allows it,
   // i.e. the Arco home is outside the temporary folder or
-  // ARCO_HUB_ALLOW_TEMP_HOME=1. When it is, this live Arco registers to the
+  // ARCO_ALLOW_TEMP_HOME=1. When it is, this live Arco registers to the
   // management hub as a 'service', pushes its workflow snapshot, and applies
   // routed reply/stop/continue actions (re-validating locally).
   // Broadcast hub-link status to every client so the desktop header can show a
