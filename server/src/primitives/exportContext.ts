@@ -32,6 +32,7 @@ import { probeProjectFacts } from '../providers/claude-native/workspaceFacts.js'
 import { seedClaudeNativeWorkerFromForeignEvents } from '../providers/claude-native/index.js';
 import { releaseCodexAppServerWorker } from '../providers/codex-appserver/index.js';
 import { buildQuickHandoff } from './quickHandoff.js';
+import { isShellToolName } from '@arco/shared';
 import type {
   ServerMessage,
   ProviderName,
@@ -699,7 +700,7 @@ export function summarizePriorTurns(events: ServerMessage[]): string {
         if ((name === 'Write' || name === 'Edit') && typeof args.file_path === 'string') {
           cur.filesWritten.add(args.file_path);
         }
-        if (name === 'Bash' && typeof args.command === 'string') {
+        if (isShellToolName(name) && typeof args.command === 'string') {
           cur.bashCmds.push((args.command as string).split('\n')[0].slice(0, 120));
         }
       } catch { /* malformed input, skip extraction */ }

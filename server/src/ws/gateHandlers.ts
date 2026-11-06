@@ -25,6 +25,7 @@ import { broadcastWorkflow } from '../server/broadcast.js';
 import { handleUserMessage } from './turnEngine.js';
 import { readGateStore, clearPendingGate, removeStandingApproval, type PendingGateRecord } from '../providers/claude-native/gateStore.js';
 import type { GateCategory } from '@arco/shared';
+import { isShellToolName } from '@arco/shared';
 
 const rehydratedGates = new Set<string>();
 
@@ -78,7 +79,7 @@ export async function rehydrateGatesOnce(workflowId: string, cwd: string): Promi
 // Render the approved call for the synthetic re-issue prompt: a Bash command
 // shows its command line; any other tool shows pretty JSON of its input.
 function renderCall(toolName: string, args: Record<string, unknown>): string {
-  if (toolName === 'Bash' && typeof args.command === 'string') return args.command;
+  if (isShellToolName(toolName) && typeof args.command === 'string') return args.command;
   try {
     return JSON.stringify(args, null, 2);
   } catch {

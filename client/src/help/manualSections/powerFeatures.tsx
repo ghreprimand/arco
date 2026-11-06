@@ -256,6 +256,11 @@ export const powerFeatures: Section[] = [
   and an editable approval card appears in chat. A fixed classifier decides what
   counts as sensitive; no model judges it.
   </p>
+  <p>
+  The same card appears, with or without review-safe mode, when a Claude Native
+  <Code>PreToolUse</Code> hook answers <Code>ask</Code>: it is labelled HOOK
+  ASKS TO CONFIRM and shows the hook's reason.
+  </p>
   <ul>
   <li><strong>Edit then approve.</strong> The card pre-fills the proposed tool input in a text box. Edit it if needed, then approve, or deny and revoke.</li>
   <li><strong>Standing approval.</strong> On an unedited approve you can arm "approve all like this". Arco stores an exact signature of what ran and skips the gate only for an exact match on later calls.</li>

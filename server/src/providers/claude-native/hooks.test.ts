@@ -12,7 +12,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fireHooks, firstBlocking, hookLaunch, parseHookOutput, powerShellPlaceholders, type HookCommand, type HookConfig } from './hooks.js';
+import { evaluateHooks, fireHooks, hookLaunch, parseHookOutput, powerShellPlaceholders, type HookCommand, type HookConfig, type HookFireResult } from './hooks.js';
+
+const blocks = (r: HookFireResult[], event: 'PreToolUse' | 'Stop' = 'PreToolUse') => evaluateHooks(event, 'Bash', r).blocks;
 import { _setCommandShellForTest, findPowerShell } from '../../commandShell.js';
 
 test('non-JSON / empty stdout → empty object (never throws)', () => {
@@ -102,13 +104,15 @@ test('a hook reads its JSON input and blocks with its own message', async () => 
     const results = await fireHooks(preHook('read -r line; case "$line" in *rm*) echo "no rm" >&2; exit 2;; esac; echo ok'), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
     assert.equal(results[0].exitCode, 2);
     assert.equal(results[0].stderr.trim(), 'no rm');
-    assert.equal(firstBlocking(results), results[0]);
+    assert.deepEqual(blocks(results).map((b) => [b.via, b.reason]), [['exit2', 'no rm']]);
     const fine = await fireHooks(preHook('read -r line; echo ok'), 'PreToolUse', 'Bash', { tool_input: { command: 'ls' } }, runOpts(cwd));
-    assert.deepEqual([fine[0].exitCode, fine[0].stdout.trim(), firstBlocking(fine)], [0, 'ok', null]);
+    assert.deepEqual([fine[0].exitCode, fine[0].stdout.trim(), blocks(fine)], [0, 'ok', []]);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test('a hook past its timeout is ended with its whole process tree and blocks', async () => {
+// Claude Code: a timed-out PreToolUse hook does not block (unless onFailure
+// is "block"); its output is discarded and the operator sees a notice.
+test('a hook past its timeout is ended with its whole process tree and does not block', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-timeout-'));
   try {
     const started = Date.now();
@@ -116,21 +120,35 @@ test('a hook past its timeout is ended with its whole process tree and blocks', 
     assert.equal(r.timedOut, true);
     assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
     assert.ok(!r.stdout.includes('late'));
-    assert.equal(firstBlocking([r]), r);
+    const v = evaluateHooks('PreToolUse', 'Bash', [r]);
+    assert.deepEqual(v.blocks, []);
+    assert.match(v.notices[0] ?? '', /^PreToolUse:Bash hook error: \[sleep 30 & sleep 30; echo late\]: timed out; its output was discarded\.$/);
+    const [blocking] = await fireHooks(withHook({ type: 'command', command: 'sleep 30', timeout: 1, onFailure: 'block' }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.match(blocks([blocking])[0]?.reason ?? '', /^timed out; blocking because onFailure is "block"\./);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test('a hook that cannot start does not run and does not block', async () => {
+test('a hook that cannot start does not block, except a shell-form PreToolUse hook on Windows without Git Bash', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-notrun-'));
   try {
+    // Windows without Git Bash or PowerShell (forced): Claude Code counts only
+    // exit 0 or 2 as the verdict there, so a hook that cannot start blocks...
     _setCommandShellForTest({ ok: false, problem: 'Git Bash was not found (fixture).' });
     const [missing] = await fireHooks(preHook('exit 2'), 'PreToolUse', 'Bash', {}, runOpts(cwd));
     assert.equal(missing.notRun, 'Git Bash was not found (fixture).');
-    assert.equal(firstBlocking([missing]), null);
+    assert.equal(missing.strictFailure, true);
+    assert.deepEqual(blocks([missing]).map((b) => b.reason), ["failed; blocking because Git Bash wasn't found, so only exit code 0 or 2 counts as this hook's verdict.\nGit Bash was not found (fixture)."]);
+    // ...unless the hook sets onFailure, and never on Stop.
+    const [lenient] = await fireHooks(withHook({ type: 'command', command: 'exit 2', onFailure: 'continue' }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    assert.deepEqual(blocks([lenient]), []);
+    assert.deepEqual(blocks([missing], 'Stop'), []);
     _setCommandShellForTest(null);
+    // Elsewhere a hook that cannot start is a non-blocking error.
     const [noCwd] = await fireHooks(preHook('exit 2'), 'PreToolUse', 'Bash', {}, runOpts(join(cwd, 'gone')));
     assert.match(noCwd.notRun ?? '', /^The hook could not start: /);
-    assert.equal(firstBlocking([noCwd]), null);
+    assert.deepEqual(blocks([noCwd]), []);
+    const [strict] = await fireHooks(withHook({ type: 'command', command: 'exit 2', onFailure: 'block' }), 'PreToolUse', 'Bash', {}, runOpts(join(cwd, 'gone')));
+    assert.match(blocks([strict])[0]?.reason ?? '', /^failed; blocking because onFailure is "block"\.\nThe hook could not start: /);
   } finally { _setCommandShellForTest(null); rmSync(cwd, { recursive: true, force: true }); }
 });
 
@@ -147,9 +165,9 @@ test('exec form: the program starts with its arguments as written, ${CLAUDE_PROJ
     const [blocked] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
     assert.equal(blocked.notRun, undefined, blocked.notRun);
     assert.deepEqual(JSON.parse(blocked.stdout), [`${cwd}/x`, odd]);
-    assert.deepEqual([blocked.exitCode, blocked.stderr, firstBlocking([blocked])], [2, 'exec refused', blocked]);
+    assert.deepEqual([blocked.exitCode, blocked.stderr, blocks([blocked]).map((b) => b.reason)], [2, 'exec refused', ['exec refused']]);
     const [fine] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'ls' } }, runOpts(cwd));
-    assert.deepEqual([fine.exitCode, firstBlocking([fine])], [0, null]);
+    assert.deepEqual([fine.exitCode, blocks([fine])], [0, []]);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
@@ -158,7 +176,7 @@ test('exec form: a program that cannot start does not block and says why', async
   try {
     const [spaced] = await fireHooks(withHook({ type: 'command', command: 'node script.js', args: [] }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
     assert.match(spaced.notRun ?? '', /^The hook could not start: .*With "args" set, "command" is only the program; move its arguments into "args"\.$/);
-    assert.equal(firstBlocking([spaced]), null);
+    assert.deepEqual(blocks([spaced]), []);
     const [bad] = await fireHooks(withHook({ type: 'command', command: 'node', args: ['-e', 1] as unknown as string[] }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
     assert.equal(bad.notRun, 'The hook\'s "args" must be a list of strings.');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
@@ -189,9 +207,9 @@ test('"shell": "powershell" runs the hook in PowerShell, reading its JSON input 
     const h: HookCommand = { type: 'command', shell: 'powershell', command, timeout: 60 };
     const [blocked] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'rm -rf x' } }, runOpts(cwd));
     assert.equal(blocked.notRun, undefined, blocked.notRun);
-    assert.deepEqual([blocked.exitCode, blocked.stderr.trim(), firstBlocking([blocked])], [2, `no rm in ${cwd}`, blocked]);
+    assert.deepEqual([blocked.exitCode, blocked.stderr.trim(), blocks([blocked]).map((b) => b.reason)], [2, `no rm in ${cwd}`, [`no rm in ${cwd}`]]);
     assert.equal(blocked.shellNotice, undefined, 'asked for by the hook, so no fallback notice');
     const [fine] = await fireHooks(withHook(h), 'PreToolUse', 'Bash', { tool_input: { command: 'ls', note: 'na\u00efve \u2713' } }, runOpts(cwd));
-    assert.deepEqual([fine.exitCode, fine.stdout.trim(), firstBlocking([fine])], [0, 'na\u00efve \u2713', null], fine.stderr);
+    assert.deepEqual([fine.exitCode, fine.stdout.trim(), blocks([fine])], [0, 'na\u00efve \u2713', []], fine.stderr);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

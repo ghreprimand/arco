@@ -30,6 +30,7 @@ import * as stuckBreaker from '../workers/stuckBreaker.js';
 import { extractReadPath, recordSkillRead } from '../skillUsage.js';
 import { addGoalRunTokens } from '../goalRun.js';
 import { workflows } from '../server/state.js';
+import { isShellToolName } from '@arco/shared';
 
 export interface PrimaryConfig {
   provider: ProviderName;
@@ -563,7 +564,7 @@ export function runPrimaryTurn(
           const target = extractReadPath(ev.input);
           if (target) void recordSkillRead(target, Date.now());
         }
-        if (ev.tool === 'Bash') {
+        if (isShellToolName(ev.tool)) {
           // The Bash input shape is {command, description?, run_in_background?, ...}.
           // A malformed/non-JSON input (shouldn't happen from Claude, but cheap
           // to guard) silently skips both the bg-tracker hint and the

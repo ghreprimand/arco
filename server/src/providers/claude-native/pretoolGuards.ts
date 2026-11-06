@@ -24,7 +24,7 @@
 // (`config-protection` / `fact-force-first-edit`) so transcript review can
 // distinguish them.
 
-import { resolve, basename, parse, sep } from 'node:path';
+import path, { resolve, basename, parse, sep } from 'node:path';
 
 // Paths considered config that the model should not edit. Matched on the
 // resolved absolute path's basename — so any depth in the tree counts (a
@@ -277,6 +277,58 @@ function isCatastrophicRm(segment: string, cwd: string): boolean {
   return false;
 }
 
+// The same hazard in PowerShell or cmd, for the PowerShell tool on Windows
+// without Git Bash (and Git Bash calling them): Remove-Item and its aliases
+// with -Recurse (any unique abbreviation), or rd/rmdir /s, on the drive root,
+// home, everything here, or the repo root or an ancestor of it. -Force is not
+// required: Remove-Item -Recurse alone deletes the tree.
+const PS_DELETE_COMMANDS = new Set(['remove-item', 'ri', 'rm', 'del', 'erase', 'rd', 'rmdir']);
+const PS_CATASTROPHIC = new Set(['~', '.', '.\\', './', '*', '$home', '${home}', '$pwd', '${pwd}', '$env:userprofile', '${env:userprofile}', '$env:homepath', '$env:systemdrive', '\\', '/']);
+
+function isCatastrophicPowerShellDelete(segment: string, cwd: string): boolean {
+  const tokens = segment.split(/\s+/).map((t) => t.replace(/^&/, '')).filter(Boolean);
+  const idx = tokens.findIndex((t) => PS_DELETE_COMMANDS.has(t.toLowerCase().replace(/\.exe$/, '')));
+  if (idx === -1) return false;
+  const cmd = tokens[idx].toLowerCase();
+  let recursive = false;
+  const targets: string[] = [];
+  const rest = tokens.slice(idx + 1);
+  for (let i = 0; i < rest.length; i++) {
+    const t = rest[i];
+    const lower = t.toLowerCase();
+    if (lower.startsWith('-')) {
+      const name = lower.slice(1).split(':')[0];
+      if (name.length > 0 && 'recurse'.startsWith(name)) recursive = true;
+      // -Path / -LiteralPath take the next token as a target.
+      if (name.length > 0 && ('path'.startsWith(name) || 'literalpath'.startsWith(name))) {
+        const v = lower.includes(':') ? t.slice(t.indexOf(':') + 1) : rest[++i];
+        if (v) targets.push(v);
+      }
+      continue;
+    }
+    if ((cmd === 'rd' || cmd === 'rmdir') && lower.startsWith('/')) {
+      if (lower === '/s') recursive = true;
+      if (lower.length === 2) continue;
+    }
+    targets.push(t);
+  }
+  if (!recursive) return false;
+  for (const raw of targets.flatMap((t) => t.split(','))) {
+    const t = raw.replace(/^["']|["']$/g, '').trim();
+    if (!t) continue;
+    if (PS_CATASTROPHIC.has(t.toLowerCase())) return true;
+    if (/^[a-z]:[\\/]?$/i.test(t)) return true; // a drive root
+    const win = /^[a-z]:/i.test(t) || t.includes('\\') || /^[a-z]:/i.test(cwd);
+    const p = win ? path.win32 : path.posix;
+    let abs: string;
+    try { abs = p.resolve(cwd, t); } catch { continue; }
+    const root = p.resolve(cwd);
+    const norm = (x: string) => (win ? x.toLowerCase() : x);
+    if (norm(abs) === norm(p.parse(abs).root) || norm(abs) === norm(root) || norm(root + p.sep).startsWith(norm(abs.endsWith(p.sep) ? abs : abs + p.sep))) return true;
+  }
+  return false;
+}
+
 // Pure detector — returns a human reason when the command hits the floor, else
 // null. Exported for the unit test.
 export function detectHardlineCommand(command: string, cwd: string): string | null {
@@ -285,25 +337,30 @@ export function detectHardlineCommand(command: string, cwd: string): string | nu
   if (/\bsystemctl\b[^\n]*\barco(?:\.service)?\b/i.test(c)) {
     return 'restarting/stopping the Arco service would kill this turn and every other tab';
   }
-  if (/\b(?:pkill|killall)\b[^\n]*\barco\b/i.test(c)) {
+  // Windows: the Arco logon task (schtasks / ScheduledTasks cmdlets).
+  if (/\bschtasks(?:\.exe)?\b[^\n]*\/(?:end|delete|change)\b[^\n]*\barco/i.test(c) || /\b(?:Stop|Disable|Unregister)-ScheduledTask\b[^\n]*\barco/i.test(c)) {
+    return 'stopping the Arco service would kill this turn and every other tab';
+  }
+  if (/\b(?:pkill|killall)\b[^\n]*\barco\b/i.test(c) || /\b(?:Stop-Process|spps|taskkill(?:\.exe)?)\b[^\n]*\barco\b/i.test(c)) {
     return 'killing the Arco process would terminate this turn and every other tab';
   }
   for (const seg of shellSegments(c)) {
-    if (isCatastrophicRm(seg, cwd)) {
+    if (isCatastrophicRm(seg, cwd) || isCatastrophicPowerShellDelete(seg, cwd)) {
       return 'a recursive force-delete of the repo root / home / filesystem root is irreversible';
     }
   }
   return null;
 }
 
-// Inspect a Bash tool_use; block when it trips the hardline floor. Other tools
-// pass through (the floor is about shell commands).
+// Inspect a shell tool_use (Bash, or PowerShell on Windows without Git Bash);
+// block when it trips the hardline floor. Other tools pass through (the floor
+// is about shell commands).
 export function checkHardlineCommand(
   toolName: string,
   input: Record<string, unknown>,
   cwd: string,
 ): HardlineResult {
-  if (toolName !== 'Bash') return { blocked: false };
+  if (toolName !== 'Bash' && toolName !== 'PowerShell') return { blocked: false };
   const command = typeof input.command === 'string' ? input.command : '';
   const reason = detectHardlineCommand(command, cwd);
   if (!reason) return { blocked: false };

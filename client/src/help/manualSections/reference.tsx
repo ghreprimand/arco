@@ -83,6 +83,7 @@ export const reference: Section[] = [
   [<Code key="sx">ARCO_SEARXNG_URL</Code>, 'http://127.0.0.1:8888', 'Local SearXNG used by the WebSearch tool.'],
   [<Code key="cf">ARCO_CAMOUFOX_PYTHON</Code>, '/opt/camoufox/bin/python', 'Camoufox Python for stealth WebFetch.'],
   [<Code key="rk">ARCO_RSS_KILL_BYTES</Code>, '32 GB', 'Memory limit per worker process tree; a worker over it is stopped. Lower it on machines with less than 64 GB RAM.'],
+  [<Code key="stopcap">CLAUDE_CODE_STOP_HOOK_BLOCK_CAP</Code>, '8', 'Claude Native: how many times in a row Stop hooks may keep the model working before the turn ends.'],
   [<Code key="gitbash">CLAUDE_CODE_GIT_BASH_PATH</Code>, '(unset)', 'Windows only: the Git Bash bash.exe for shell commands and hooks. Without it Arco uses the Git install of git on PATH, then the standard install folders, then PowerShell.'],
   [<Code key="hub">ARCO_HUB_URL</Code>, '(unset)', 'Tailnet management-hub URL; set to link this instance for remote control. Inert when unset, and ignored when the Arco home is inside the system temporary folder.'],
   [<Code key="hubtmp">ARCO_ALLOW_TEMP_HOME</Code>, '(unset)', 'Set to 1 to let an instance whose Arco home is inside the system temporary folder join the hub and send phone alerts to ARCO_NTFY_URL anyway. The older name ARCO_HUB_ALLOW_TEMP_HOME also works.'],

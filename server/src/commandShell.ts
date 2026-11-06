@@ -265,6 +265,16 @@ export function shellInvocation(shell: { file: string; kind: ShellKind }, comman
   };
 }
 
+/**
+ * The model's shell tool name: "PowerShell" on Windows without Git Bash, as in
+ * Claude Code (which registers a PowerShell tool there and no Bash tool), so
+ * hooks matching "PowerShell" fire for it and "Bash" matchers do not.
+ * "Bash" everywhere else.
+ */
+export function shellToolName(shell: CommandShell = commandShell()): 'Bash' | 'PowerShell' {
+  return shell.ok && shell.kind === 'powershell' && shell.notice !== undefined ? 'PowerShell' : 'Bash';
+}
+
 /** What the model is told about the shell its Bash tool runs in. */
 export function shellToolLabel(shell: CommandShell = commandShell()): string {
   if (!shell.ok) return 'sh -c (no shell was found on this computer, so commands fail until one is installed)';

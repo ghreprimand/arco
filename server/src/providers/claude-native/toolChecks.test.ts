@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
-import type { HookConfig } from './hooks.js';
+import { evaluateHooks, type HookConfig, type HookFireResult } from './hooks.js';
 import { _powerShellFallbackForTest, _setCommandShellForTest } from '../../commandShell.js';
 import { getNativeToolDefinitions } from './tools.js';
 import { PRE_TOOL_GUARDS, firstBlockingGuard, postToolSteps, runPostToolSteps, type GuardInput, type PreToolGuard } from './toolChecks.js';
@@ -80,7 +80,7 @@ test('a blocking PreToolUse hook comes before every guard; a rewrite is what the
   let s = setup({}, hook('PreToolUse', 'Bash', 'echo nope >&2; exit 2'));
   try {
     const r = await s.call('Bash', { command: `rm -rf ${s.cwd}` });
-    assert.equal(r.text, '[blocked by PreToolUse hook] nope');
+    assert.equal(r.text, 'PreToolUse:Bash hook error: [echo nope >&2; exit 2]: nope');
     assert.deepEqual(s.gates(), []);
     assert.equal(s.events.filter((e) => e.type === 'primary_tool_counter').length, 0, 'a hook block is not counted');
   } finally { s.done(); }
@@ -93,7 +93,7 @@ test('a blocking PreToolUse hook comes before every guard; a rewrite is what the
   } finally { s.done(); }
 });
 
-test('after the tool: the partial-read note, then PostToolUse stderr and context, in that order', async () => {
+test('after the tool: the partial-read note, then PostToolUse context; exit-0 stderr is not for the model', async () => {
   const s = setup();
   s.w.hooks = hook('PostToolUse', 'Write', `echo warn >&2; echo '${JSON.stringify({ hookSpecificOutput: { additionalContext: 'extra context' } })}'`);
   try {
@@ -104,13 +104,13 @@ test('after the tool: the partial-read note, then PostToolUse stderr and context
     assert.equal(r.isError, false);
     const parts = r.text.split('\n\n');
     assert.match(parts[1], /partial/i);
-    assert.deepEqual(parts.slice(2), ['[PostToolUse hook stderr] warn', 'extra context']);
+    assert.deepEqual(parts.slice(2), ['PostToolUse:Write hook additional context: extra context']);
     assert.deepEqual(s.gates(), ['partial-read-full-write:allowed']);
     assert.equal(s.w.partialReadSet.has(file), false, 'warned once');
   } finally { s.done(); }
 });
 
-test('a failed tool gets no partial-read note; a PostToolUse block replaces the result', async () => {
+test('a failed tool gets no partial-read note; a PostToolUse block adds its reason next to the result', async () => {
   let s = setup();
   try {
     const dir = join(s.cwd, 'adir'); mkdirSync(dir);
@@ -122,7 +122,7 @@ test('a failed tool gets no partial-read note; a PostToolUse block replaces the 
   s = setup({}, hook('PostToolUse', 'Write', `echo '${JSON.stringify({ decision: 'block', reason: 'try again' })}'`));
   try {
     const r = await s.call('Write', { file_path: join(s.cwd, 'c.txt'), content: 'c' });
-    assert.deepEqual(r, { text: '[PostToolUse hook blocked] try again', isError: true });
+    assert.deepEqual(r, { text: `wrote 1 bytes to c.txt\n\nPostToolUse:Write hook feedback: [echo '{"decision":"block","reason":"try again"}']: try again`, isError: false });
   } finally { s.done(); }
 });
 
@@ -157,18 +157,25 @@ test('the Bash tool runs in the platform shell and ends the whole tree on timeou
   } finally { s.done(); }
 });
 
-test('without a shell: hooks do not block and are reported once; the Bash tool says what is missing', async () => {
-  const s = setup({}, hook('PreToolUse', 'Write', 'exit 2'));
+// Windows with no shell at all (forced): Claude Code counts only exit 0 or 2
+// as a shell-form PreToolUse hook's verdict there, so one that cannot start
+// blocks unless it sets onFailure; the Bash tool says what is missing.
+test('without a shell: a PreToolUse hook that cannot start blocks unless onFailure says otherwise; the Bash tool says what is missing', async () => {
+  const s = setup({}, hook('PreToolUse', 'Write', 'exit 0'));
   const notices: string[] = [];
   s.w.on('system_notice', (n) => notices.push(n));
   _setCommandShellForTest({ ok: false, problem: 'Git Bash was not found (fixture). Install Git for Windows.' });
   try {
-    for (const name of ['a.txt', 'b.txt']) {
+    const refused = await s.call('Write', { file_path: join(s.cwd, 'a.txt'), content: 'x' });
+    assert.equal(refused.isError, true);
+    assert.equal(refused.text, "PreToolUse:Write hook error: [exit 0]: failed; blocking because Git Bash wasn't found, so only exit code 0 or 2 counts as this hook's verdict.\nGit Bash was not found (fixture). Install Git for Windows.");
+    assert.equal(existsSync(join(s.cwd, 'a.txt')), false);
+    s.w.hooks = { byEvent: { PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'exit 0', onFailure: 'continue' }] }] } } as HookConfig;
+    for (const name of ['b.txt', 'c.txt']) {
       const r = await s.call('Write', { file_path: join(s.cwd, name), content: 'x' });
       assert.equal(r.isError, false, r.text);
-      assert.equal(existsSync(join(s.cwd, name)), true);
     }
-    assert.deepEqual(notices, ['[HOOKS] A PreToolUse hook did not run, so the action went ahead. Git Bash was not found (fixture). Install Git for Windows. Hook: exit 2']);
+    assert.deepEqual(notices, ['[HOOKS] A PreToolUse hook did not run, so the action went ahead. Git Bash was not found (fixture). Install Git for Windows. Hook: exit 0']);
     const bash = await s.call('Bash', { command: 'echo hi' });
     assert.equal(bash.isError, true);
     assert.match(bash.text, /The Bash tool cannot run: Git Bash was not found \(fixture\)\. Install Git for Windows\./);
@@ -179,9 +186,14 @@ test('without a shell: hooks do not block and are reported once; the Bash tool s
 // PowerShell. Real on the Windows runner (Git Bash hidden from the lookup) and
 // wherever else pwsh is installed.
 const fallback = _powerShellFallbackForTest();
-test('without Git Bash: hooks and the Bash tool run in PowerShell, the model is told, one information notice', { skip: fallback ? false : 'PowerShell is not installed here' }, async () => {
+test('without Git Bash: the shell tool is PowerShell, hooks run in PowerShell and match "PowerShell", one information notice', { skip: fallback ? false : 'PowerShell is not installed here' }, async () => {
   const guard = '$in = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($in.tool_input.file_path -like "*blocked*") { [Console]::Error.WriteLine("refused in PowerShell " + $PSVersionTable.PSEdition); exit 2 }';
-  const s = setup({}, hook('PreToolUse', 'Write', guard));
+  const s = setup({}, { byEvent: { PreToolUse: [
+    { matcher: 'Write', hooks: [{ type: 'command', command: guard }] },
+    // Claude Code's names: a "Bash" matcher does not fire for the PowerShell tool.
+    { matcher: 'Bash', hooks: [{ type: 'command', command: '[Console]::Error.WriteLine("bash matcher fired"); exit 2' }] },
+    { matcher: 'PowerShell', hooks: [{ type: 'command', command: '$in = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($in.tool_input.command -match "forbidden") { [Console]::Error.WriteLine("powershell matcher: " + $in.tool_name); exit 2 }' }] },
+  ] } } as HookConfig);
   const notices: string[] = [];
   s.w.on('system_notice', (n) => notices.push(n));
   _setCommandShellForTest(fallback);
@@ -194,16 +206,23 @@ test('without Git Bash: hooks and the Bash tool run in PowerShell, the model is 
     assert.equal(existsSync(join(s.cwd, 'blocked.txt')), false);
     assert.deepEqual(notices, [`[HOOKS] ${fallback?.ok ? fallback.notice : ''}`], 'information, once');
 
-    const bash = getNativeToolDefinitions().find((d) => d.name === 'Bash');
-    assert.match(bash?.description ?? '', /via PowerShell, because Git Bash was not found on this Windows computer\. Write PowerShell commands, not bash or sh syntax\./);
-    const ps = await s.call('Bash', { command: 'Write-Output "edition $($PSVersionTable.PSEdition)"; exit 3' });
+    const defs = getNativeToolDefinitions();
+    assert.equal(defs.some((d) => d.name === 'Bash'), false, 'no Bash tool');
+    const pwsh = defs.find((d) => d.name === 'PowerShell');
+    assert.match(pwsh?.description ?? '', /^Run a PowerShell command in the workflow cwd\. Git Bash was not found on this Windows computer, so this tool replaces Bash: write PowerShell commands, not bash or sh syntax\./);
+    const ps = await s.call('PowerShell', { command: 'Write-Output "edition $($PSVersionTable.PSEdition)"; exit 3' });
     assert.match(ps.text, /exit code: 3/);
     assert.match(ps.text, /edition (Core|Desktop)/);
+    const hooked = await s.call('PowerShell', { command: 'Write-Output forbidden' });
+    assert.equal(hooked.text, 'PreToolUse:PowerShell hook error: [$in = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($in.tool_input.command -match "forbidden") { [Console]::Error.WriteLine("powershell matcher: " + $in.tool_name); exit 2 }]: powershell matcher: PowerShell');
+    // A "Bash" call is an unknown tool here, refused before any hook.
+    const bash = await s.call('Bash', { command: 'echo hi' });
+    assert.deepEqual(bash, { text: '[error] unknown tool "Bash". The shell tool here is PowerShell.', isError: true });
     // A failing program's exit code is the command's, as in sh.
-    const native = await s.call('Bash', { command: '& node -e "process.exit(5)"' });
+    const native = await s.call('PowerShell', { command: '& node -e "process.exit(5)"' });
     assert.match(native.text, /exit code: 5/);
     const started = Date.now();
-    const slow = await s.call('Bash', { command: 'Start-Sleep -Seconds 30', timeout: 1000 });
+    const slow = await s.call('PowerShell', { command: 'Start-Sleep -Seconds 30', timeout: 1000 });
     assert.match(slow.text, /^\[timed out after 1000ms\]/);
     assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
   } finally { _setCommandShellForTest(null); s.done(); }
@@ -225,20 +244,31 @@ test('the first blocking guard wins and later guards do not run', () => {
   assert.equal(firstBlockingGuard(x, [fake('hardline-command-floor', false)]), null);
 });
 
-test('after the tool: filter, note, hooks; a hook block ends the list', async () => {
+test('after the tool: filter, note, hooks; hook text is added next to the result, as in Claude Code', async () => {
   const order: string[] = [];
+  const run = (r: Partial<HookFireResult>) => async (_text: string, failed: boolean) =>
+    evaluateHooks(failed ? 'PostToolUseFailure' : 'PostToolUse', 'Bash', [{ exitCode: 0, stdout: '', stderr: '', timedOut: false, command: 'h', ...r }]);
   const steps = postToolSteps({
     filter: async (text) => { order.push('filter'); return text.toUpperCase(); },
     partialNote: 'note',
-    postHooks: async (text) => { order.push(`hooks saw: ${text}`); return [{ exitCode: 0, stdout: '', stderr: 'w', timedOut: false }] as never; },
+    toolName: 'Bash',
+    postHooks: async (text, failed) => { order.push(`hooks saw: ${text}`); return run({ stderr: 'exit-0 stderr is not for the model' })(text, failed); },
   });
-  assert.deepEqual(await runPostToolSteps(steps, { text: 'ok', isError: false }), { text: 'OK\n\nnote\n\n[PostToolUse hook stderr] w', isError: false });
+  assert.deepEqual(await runPostToolSteps(steps, { text: 'ok', isError: false }), { text: 'OK\n\nnote', isError: false });
   assert.deepEqual(order, ['filter', 'hooks saw: OK\n\nnote']);
-  const failed = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: 'note', postHooks: async () => [] }), { text: '[error] x', isError: true });
-  assert.deepEqual(failed, { text: '[error] x', isError: true });
-  const blocked = await runPostToolSteps([
-    ...postToolSteps({ filter: async (t) => t, partialNote: null, postHooks: async () => [{ exitCode: 0, stdout: '{"decision":"block"}', stderr: '', timedOut: false }] as never }),
-    async () => { throw new Error('a step after a final result ran'); },
-  ], { text: 'ok', isError: false });
-  assert.deepEqual(blocked, { text: '[PostToolUse hook blocked] PostToolUse hook requested retry', isError: true, final: true });
+  // Exit 2: stderr goes to the model; the tool already ran, so the result stays.
+  const exit2 = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: null, toolName: 'Bash', postHooks: run({ exitCode: 2, stderr: 'lint failed' }) }), { text: 'ok', isError: false });
+  assert.deepEqual(exit2, { text: 'ok\n\nPostToolUse:Bash hook error: [h]: lint failed', isError: false });
+  // decision "block" adds its reason; nothing after the hooks is skipped.
+  const blocked = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: null, toolName: 'Bash', postHooks: run({ stdout: '{"decision":"block","reason":"fix the tests"}' }) }), { text: 'ok', isError: false });
+  assert.deepEqual(blocked, { text: 'ok\n\nPostToolUse:Bash hook feedback: [h]: fix the tests', isError: false });
+  // Exit 1 is a non-blocking error for the operator, not text for the model.
+  const exit1 = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: null, toolName: 'Bash', postHooks: run({ exitCode: 1, stderr: 'oops' }) }), { text: 'ok', isError: false });
+  assert.deepEqual(exit1, { text: 'ok', isError: false });
+  // updatedToolOutput replaces what the model sees; continue:false asks to stop.
+  const replaced = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: null, toolName: 'Bash', postHooks: run({ stdout: '{"continue":false,"stopReason":"enough","hookSpecificOutput":{"hookEventName":"PostToolUse","updatedToolOutput":{"stdout":"[redacted]","stderr":""},"additionalContext":"ctx"}}' }) }), { text: 'secret', isError: false });
+  assert.deepEqual(replaced, { text: '[redacted]\n\nPostToolUse:Bash hook additional context: ctx', isError: false, stop: 'enough' });
+  // A failed tool runs PostToolUseFailure and gets no partial-read note.
+  const failed = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: 'note', toolName: 'Bash', postHooks: run({ exitCode: 2, stderr: 'saw it' }) }), { text: '[error] x', isError: true });
+  assert.deepEqual(failed, { text: '[error] x\n\nPostToolUseFailure:Bash hook error: [h]: saw it', isError: true });
 });

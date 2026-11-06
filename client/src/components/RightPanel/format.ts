@@ -80,7 +80,8 @@ export function abbreviateToolInput(tool: string | undefined, input: string | un
       return `${String(pattern)}${glob}`;
     }
     case 'Glob': return String(obj.pattern ?? '');
-    case 'Bash': return truncate(String(obj.command ?? ''), 180);
+    case 'Bash':
+    case 'PowerShell': return truncate(String(obj.command ?? ''), 180);
     case 'WebFetch': return String(obj.url ?? '');
     case 'WebSearch': return String(obj.query ?? '');
     case 'PermissionRequest':
@@ -110,6 +111,7 @@ export function displayToolLabel(tool: string | undefined): string {
   switch (tool) {
     case 'WebSearch': return 'WEB SEARCH';
     case 'Bash': return 'BASH';
+    case 'PowerShell': return 'POWERSHELL';
     case 'ReadFile': return 'READ FILE';
     case 'WriteFile': return 'WRITE FILE';
     case 'PermissionRequest': return 'PERMISSION';

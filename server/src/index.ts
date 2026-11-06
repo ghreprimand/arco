@@ -65,6 +65,7 @@ routeClaudeNativeGateReply,
 setClaudeNativeClusterEventBroadcast,
 setClaudeNativePlanBroadcast,
 setClaudeNativeTaskHandler,
+setClaudeNativeHookWakeHandler,
 setClaudeNativeTodosBroadcast,
 setClaudeNativeWorkflowEventBroadcast,
 debugSeedNativeCompactProbe,
@@ -190,7 +191,9 @@ maybeAutoCompactPolicy,
 claimBusy,
 releaseBusy,
 persistInitialMeta,
-writeCalibrationToMeta
+writeCalibrationToMeta,
+broadcastQueueUpdate,
+drainQueueIfIdle
 } from './ws/turnEngine.js';
 import {
   handleBakeoffCleanup,
@@ -619,6 +622,17 @@ setStrataSwitchActivityCheck(() => [...workflows.values()].some((wf) =>
 setDeepSeekActivityCheck((includeDeepSeek) => [...workflows.values()].some((wf) =>
   (wf.busy && ['ollama', 'llamacpp', 'lmstudio', 'strata', ...(includeDeepSeek ? ['deepseek'] : [])].includes(wf.primary.provider)) ||
   Object.values(wf.manager.snapshotWorkers()).some((w) => ['ollama', 'llamacpp', 'lmstudio', 'strata', ...(includeDeepSeek ? ['deepseek'] : [])].includes(w.provider ?? '') && (w.status === 'running' || w.status === 'spawning'))));
+// A Claude Native asyncRewake hook exited 2: its report is queued as a
+// follow-up for the model and runs now if the tab is idle (Claude Code wakes
+// the session the same way). The echo makes it visible in the chat.
+setClaudeNativeHookWakeHandler((workflowId, text) => {
+  const wf = workflows.get(workflowId);
+  if (!wf) return;
+  wf.queue.followUp.push({ content: text });
+  broadcastWorkflow(workflowId, { type: 'user_message_echo', workflowId, content: text, timestamp: Date.now(), kind: 'follow-up' });
+  broadcastQueueUpdate(workflowId);
+  void drainQueueIfIdle(workflowId).catch((err) => console.warn(`[arco] [${workflowId.slice(0, 8)}] hook wake dispatch failed:`, err));
+});
 setOperatorQuestionPublisher((workflowId, question) => broadcastWorkflow(workflowId, { type: 'operator_question', workflowId, question }));
 // docs/VOICE.md - voice tool calls go to the Computer chat's observers;
 // the browser with the hands-free session answers (others ignore the call).

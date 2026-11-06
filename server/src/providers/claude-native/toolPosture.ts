@@ -29,8 +29,10 @@ import { TOOL_POSTURE_DEFAULT, type ToolPosture } from '@arco/shared';
 // bundle omits is genuinely DROPPED; a name NOT here is a dynamic opt-in and
 // passes through. web_search/web_fetch/code_execution are the Anthropic server
 // tools (kept only in 'full').
+// PowerShell is the shell tool's name on Windows without Git Bash; it is kept
+// and dropped exactly where Bash is.
 const KNOWN_CORE = new Set([
-  'Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob', 'Task', 'TaskOutput',
+  'Read', 'Write', 'Edit', 'Bash', 'PowerShell', 'Grep', 'Glob', 'Task', 'TaskOutput',
   'TodoWrite', 'KillShell', 'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
 ]);
 const KNOWN_SERVER = new Set(['web_search', 'web_fetch', 'code_execution']);
@@ -41,11 +43,11 @@ const BUNDLE: Record<ToolPosture, Set<string> | null> = {
   full: null,
   // Coding: the full local toolset minus web research noise.
   coding: new Set([
-    'Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob', 'Task', 'TaskOutput',
+    'Read', 'Write', 'Edit', 'Bash', 'PowerShell', 'Grep', 'Glob', 'Task', 'TaskOutput',
     'TodoWrite', 'KillShell', 'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
   ]),
   // Review: read + inspect + run (tests/git), no mutation, no fan-out, no web.
-  review: new Set(['Read', 'Grep', 'Glob', 'Bash', 'TodoWrite', 'AskUserQuestion']),
+  review: new Set(['Read', 'Grep', 'Glob', 'Bash', 'PowerShell', 'TodoWrite', 'AskUserQuestion']),
   // Chat: conversational + light lookup only — no mutation, no shell, no web.
   chat: new Set(['Read', 'Grep', 'Glob', 'TodoWrite', 'AskUserQuestion']),
 };

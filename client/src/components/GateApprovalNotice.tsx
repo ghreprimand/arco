@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { buildGateFinalArgs, renderGateArgs } from '../utils/gateArgs';
+import { isShellToolName } from '@arco/shared';
 
 interface Props {
   workflowId: string;
@@ -23,6 +24,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   'git-destructive': 'DESTRUCTIVE GIT',
   'write-outside-cwd': 'WRITE OUTSIDE PROJECT',
   'kill-shell': 'KILL BACKGROUND SHELL',
+  'hook-ask': 'HOOK ASKS TO CONFIRM',
 };
 
 export function GateApprovalNotice({ workflowId, input }: Props) {
@@ -159,7 +161,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
         />
         {text !== original && (
           <div style={{ fontSize: '10px', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', marginBottom: '6px' }}>
-            edited: approving will run your edited {toolName === 'Bash' ? 'command' : 'args'}
+            edited: approving will run your edited {isShellToolName(toolName) ? 'command' : 'args'}
           </div>
         )}
         {parseError && (
@@ -170,7 +172,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
         {!edited && (
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ cursor: 'pointer' }} />
-            approve all identical {toolName === 'Bash' ? 'commands' : `${toolName} calls`} this session (skip the gate for an exact match)
+            approve all identical {isShellToolName(toolName) ? 'commands' : `${toolName} calls`} this session (skip the gate for an exact match)
           </label>
         )}
         <div style={{ display: 'flex', gap: '6px' }}>

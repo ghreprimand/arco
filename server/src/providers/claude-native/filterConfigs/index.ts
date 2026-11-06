@@ -23,6 +23,7 @@ import { bashGitStatus } from './bash-git-status.js';
 import { bashFind } from './bash-find.js';
 import { bashGrep } from './bash-grep.js';
 import { bashLs } from './bash-ls.js';
+import { isShellToolName } from '@arco/shared';
 
 export type FilterMode = 'off' | 'conservative' | 'aggressive';
 
@@ -63,7 +64,7 @@ export function resolveFilterPack(
   // Grep tool, distinct from a `Bash(grep ...)` shell-out) are already
   // bounded by `MAX_TOOL_OUTPUT_BYTES`; layering a pack on top changes
   // their semantics for marginal byte savings.
-  if (toolName === 'Bash') {
+  if (isShellToolName(toolName)) {
     const command = typeof toolInput.command === 'string' ? toolInput.command : '';
     if (!command) return null;
     return classifyBashCommand(command);

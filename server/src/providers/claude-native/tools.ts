@@ -21,7 +21,7 @@ import { resolveWithinCwd } from '../ollamaTools.js';
 import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
 import { applyEdit } from './editApply.js';
-import { commandShell, shellInvocation, shellToolLabel } from '../../commandShell.js';
+import { commandShell, shellInvocation, shellToolLabel, shellToolName } from '../../commandShell.js';
 import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
 
 export const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
@@ -913,6 +913,8 @@ const REGISTRY: Record<string, Entry> = {
   Write: WriteTool,
   Edit: EditTool,
   Bash: BashTool,
+  // The same tool under Claude Code's Windows name (shellToolName()).
+  PowerShell: BashTool,
   Grep: GrepTool,
   Glob: GlobTool,
   KillShell: KillShellTool,
@@ -927,20 +929,32 @@ const REGISTRY: Record<string, Entry> = {
 export function getNativeToolDefinitions(opts?: { taskDisabled?: boolean; isolated?: boolean }): ClaudeToolDef[] {
   return Object.entries(REGISTRY)
     .filter(([name]) => {
+      // One shell tool is offered: Bash, or PowerShell (see bashToolDef).
+      if (name === 'PowerShell') return false;
       if (opts?.taskDisabled && name === 'Task') return false;
       // The shell can escape a cwd boundary with absolute paths. ISOLATED
       // therefore exposes only path-fenced file/search tools plus harmless
       // interaction tools; there is no Bash/KillShell escape hatch.
-      if (opts?.isolated && (name === 'Bash' || name === 'KillShell' || name === 'Task' || name === 'TaskOutput')) return false;
+      if (opts?.isolated && (name === 'Bash' || name === 'PowerShell' || name === 'KillShell' || name === 'Task' || name === 'TaskOutput')) return false;
       return true;
     })
     .map(([name, e]) => (name === 'Bash' ? bashToolDef(e.def) : e.def));
 }
 
-// The Bash tool's description names the shell it really runs in (PowerShell
-// on Windows without Git Bash, so the model does not write bash for it).
+// The shell tool names the shell it really runs in. On Windows without Git
+// Bash it is the PowerShell tool, as in Claude Code, so the model does not
+// write bash for it and hooks see "PowerShell".
 function bashToolDef(def: ClaudeToolDef): ClaudeToolDef {
-  const label = shellToolLabel();
+  const shell = commandShell();
+  if (shellToolName(shell) === 'PowerShell') {
+    return {
+      ...def,
+      name: 'PowerShell',
+      description: def.description
+        .replace('Run a shell command in the workflow cwd via sh -c.', 'Run a PowerShell command in the workflow cwd. Git Bash was not found on this Windows computer, so this tool replaces Bash: write PowerShell commands, not bash or sh syntax.'),
+    };
+  }
+  const label = shellToolLabel(shell);
   return label === 'sh -c' ? def : { ...def, description: def.description.replace('via sh -c.', `via ${label}.`) };
 }
 

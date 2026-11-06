@@ -21,10 +21,12 @@ import { loadTokens, nativeCredentialBinding } from './auth.js';
 import type { AuthRecoveryContext } from '@arco/shared';
 import { ensureLiveTokens, forceRefreshTokens, markClaudeAuthProblem, ClaudeNativeNoAuthError } from './oauth.js';
 import { resolveTrustStatus } from '../../projectTrust.js';
-import { discoverHooks, fireHooks, firstBlocking, parseHookOutput, type HookConfig } from './hooks.js';
+import { isShellToolName } from '@arco/shared';
+import { shellToolName } from '../../commandShell.js';
+import { discoverHooks, evaluateHooks, fireHooks, readHookStdout, type BackgroundHookDone, type HookConfig, type HookEvent, type HookFireResult, type HookVerdict } from './hooks.js';
 import { checkPartialReadFullWrite } from './pretoolGuards.js';
 import { firstBlockingGuard, postToolSteps, runPostToolSteps } from './toolChecks.js';
-import { evaluateGate, gateOutcome } from './gateReview.js';
+import { evaluateGate, gateOutcome, gateSignature, type GateProposal } from './gateReview.js';
 import { recordPendingGate, clearPendingGate, readGateStore, hasStandingApproval, addStandingApproval } from './gateStore.js';
 import { getCachedModelCapabilities, getCatalog, hasCatalogCache, resolveClaudeAliasFromCatalog } from './catalog.js';
 import { filterToolResult } from './filterToolResult.js';
@@ -300,6 +302,13 @@ interface PendingGate {
   reject: (err: Error) => void;
 }
 
+// Claude Code ends the turn after Stop hooks keep the model working this many
+// times in a row (the count resets when the model calls a tool).
+function stopHookBlockCap(): number {
+  const n = Number(process.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP);
+  return Number.isInteger(n) && n > 0 ? n : 8;
+}
+
 export class ClaudeNativeWorker extends EventEmitter {
   readonly workflowId: string;
   private config: WorkerConfig;
@@ -318,6 +327,17 @@ export class ClaudeNativeWorker extends EventEmitter {
   private hooks: HookConfig = { byEvent: {} };
   // Reasons already shown for hooks that did not run (one notice per reason).
   private hooksNotRunReported = new Set<string>();
+  // Background hooks (async / asyncRewake) live as long as the worker.
+  private hookLifetime = new AbortController();
+  // Hook output for the model's next request: async hook context, and an
+  // asyncRewake report when it arrived during a turn (`wake`).
+  private pendingHookContext: Array<{ text: string; wake: boolean }> = [];
+  private turnRunning = false;
+  // A Task child's first turn ends with SubagentStop instead of Stop.
+  private subagentTurnPending = false;
+  // Set by a hook's continue:false; the turn ends after the current round.
+  private hookStopRequested: string | null = null;
+  private hookWakeHandler: ((text: string) => void) | null = null;
   private replayed = false;
   private todos: Todo[] = [];
   // H54 — cache-stable workspace facts block (detected verify/build/test cmds +
@@ -470,6 +490,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.workflowId = opts.workflowId;
     this.config = opts.config;
     this.taskDisabled = opts.taskDisabled === true;
+    this.subagentTurnPending = this.taskDisabled;
   }
 
   setTodosBroadcast(fn: (todos: Todo[]) => void): void {
@@ -482,6 +503,11 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   setTaskHandler(fn: TaskSpawnHandler): void {
     this.taskHandler = fn;
+  }
+
+  // Starts a turn for an asyncRewake hook that exits 2 while the tab is idle.
+  setHookWakeHandler(fn: (text: string) => void): void {
+    this.hookWakeHandler = fn;
   }
 
   setWorkflowEventBroadcast(fn: (msg: ServerMessage) => void): void {
@@ -1718,10 +1744,10 @@ export class ClaudeNativeWorker extends EventEmitter {
       blocks.push({
         type: 'text',
         text:
-          'You have ctx_execute / ctx_search / ctx_fetch available alongside Read / Bash. Prefer them when:\n' +
+          `You have ctx_execute / ctx_search / ctx_fetch available alongside Read / ${shellToolName()}. Prefer them when:\n` +
           '  - Reading large files where you only need a small section (pipe through head/grep/jq in the script and console.log only the slice).\n' +
           "  - Running shell commands whose output is mostly noise — you can filter inside the script and only print what's relevant.\n" +
-          'The full Read / Bash tools remain available — use them when the operator asked for full output, or when the section you need is small. ' +
+          `The full Read / ${shellToolName()} tools remain available — use them when the operator asked for full output, or when the section you need is small. ` +
           'To stash content for later retrieval print lines as `[chunk] <text>` (or open `[chunk]` / close `[/chunk]` for multi-line); each becomes a searchable chunk. ' +
           'Retrieve via ctx_search (BM25) and ctx_fetch (exact id).',
       });
@@ -1729,7 +1755,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (!isolated) blocks.push({
       type: 'text',
       text:
-        'You have two execution environments. Use Arco local tools (Read, Bash, Edit, Write, Grep, Glob) for the operator workspace and machine state. ' +
+        `You have two execution environments. Use Arco local tools (Read, ${shellToolName()}, Edit, Write, Grep, Glob) for the operator workspace and machine state. ` +
         'The Anthropic code_execution server tool is a separate sandbox; use it only for web_search/web_fetch dynamic filtering or isolated computation that does not require local files/processes.',
     });
     // Place turn-completion guidance before operator instructions, which
@@ -1840,20 +1866,80 @@ export class ClaudeNativeWorker extends EventEmitter {
     return { byEvent: found.byEvent };
   }
 
-  // A hook that did not run (no shell, or it could not start) lets the action
-  // go ahead; the operator sees why once per reason. A hook that ran in
-  // PowerShell because Git Bash is missing gets one information notice.
-  private reportHooksNotRun<T extends { notRun?: string; command?: string; shellNotice?: string }>(event: string, results: T[]): T[] {
+  // The common hook input fields Claude Code sends, plus Arco's workflow_id.
+  private hookInput(extra: Record<string, unknown>): Record<string, unknown> {
+    return {
+      session_id: this.workflowId,
+      cwd: this.config.cwd ?? process.cwd(),
+      permission_mode: this.planMode ? 'plan' : 'default',
+      workflow_id: this.workflowId,
+      ...extra,
+    };
+  }
+
+  private hookRunOpts(cwd: string, abortSignal: AbortSignal): Parameters<typeof fireHooks>[4] {
+    return {
+      cwd,
+      abortSignal,
+      shells: this.shells,
+      workflowId: this.workflowId,
+      backgroundSignal: this.hookLifetime.signal,
+      onBackground: (done) => this.onBackgroundHook(done),
+    };
+  }
+
+  // Runs the hooks for one event, shows the operator what Claude Code shows
+  // (non-blocking errors, systemMessage, not-run reasons, the PowerShell
+  // notice) and returns the verdict.
+  private async runHooks(event: HookEvent, target: string, extra: Record<string, unknown>, cwd: string, abortSignal: AbortSignal): Promise<HookVerdict> {
+    const results = await fireHooks(this.hooks, event, target, this.hookInput(extra), this.hookRunOpts(cwd, abortSignal));
+    const verdict = evaluateHooks(event, target, results);
+    this.reportHooks(event, results, verdict);
+    return verdict;
+  }
+
+  private reportHooks(event: string, results: HookFireResult[], verdict: HookVerdict): void {
+    const blockedBy = new Set(verdict.blocks.filter((b) => b.via === 'failure').map((b) => b.command));
     for (const r of results) {
       if (r.shellNotice && !this.hooksNotRunReported.has(r.shellNotice)) {
         this.hooksNotRunReported.add(r.shellNotice);
         this.emit('system_notice', `[HOOKS] ${r.shellNotice}`);
       }
-      if (!r.notRun || this.hooksNotRunReported.has(r.notRun)) continue;
+      if (!r.notRun || blockedBy.has(r.command ?? '') || this.hooksNotRunReported.has(r.notRun)) continue;
       this.hooksNotRunReported.add(r.notRun);
       this.emit('system_notice', `[HOOKS] A ${event} hook did not run, so the action went ahead. ${r.notRun}${r.command ? ` Hook: ${r.command.slice(0, 200)}` : ''}`);
     }
-    return results;
+    for (const n of verdict.notices) this.emit('system_notice', `[HOOKS] ${n.slice(0, 1500)}`);
+    for (const m of verdict.systemMessages) this.emit('system_notice', `[HOOKS] ${m.slice(0, 2000)}`);
+    if (verdict.stop) this.emit('system_notice', `[HOOKS] A ${event} hook stopped processing${verdict.stop.reason ? `: ${verdict.stop.reason.slice(0, 1000)}` : '.'}`);
+  }
+
+  // async: its additionalContext and systemMessage reach the model with the
+  // next request. asyncRewake: exit 2 wakes the model with stderr (or stdout).
+  private onBackgroundHook({ event, target, hook, result }: BackgroundHookDone): void {
+    const label = event === 'UserPromptSubmit' || event === 'Stop' ? event : `${event}:${target}`;
+    if (hook.asyncRewake === true) {
+      if (result.exitCode !== 2) return;
+      const said = (result.stderr.trim() || result.stdout.trim()).slice(0, 4000);
+      const text = `${label} hook [${hook.command}] reported (asyncRewake):\n${said || '(no output)'}`;
+      if (this.turnRunning) this.pendingHookContext.push({ text, wake: true });
+      else this.hookWakeHandler?.(text);
+      return;
+    }
+    const json = readHookStdout(result.stdout).json;
+    if (!json) return;
+    const hso = json.hookSpecificOutput && typeof json.hookSpecificOutput === 'object' ? json.hookSpecificOutput as Record<string, unknown> : {};
+    for (const value of [hso.additionalContext, json.systemMessage]) {
+      if (typeof value === 'string' && value.trim()) this.pendingHookContext.push({ text: `${label} hook [${hook.command}] (async):\n${value.slice(0, 10_000)}`, wake: false });
+    }
+  }
+
+  // Hook text waiting for the model, as one block; empties the queue.
+  private takeHookContext(): string | null {
+    if (this.pendingHookContext.length === 0) return null;
+    const text = this.pendingHookContext.map((c) => c.text).join('\n\n');
+    this.pendingHookContext = [];
+    return text;
   }
 
   // Operator clicks CANCEL / RSS guard / tab close.
@@ -1882,6 +1968,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   async dispose(): Promise<void> {
     this.cancel();
+    this.hookLifetime.abort();
     // Kill any leftover background shells.
     for (const reg of this.shells.byId.values()) {
       try { reg.kill(); } catch { /* gone */ }
@@ -2113,6 +2200,24 @@ export class ClaudeNativeWorker extends EventEmitter {
   turnInputAccepted = false;
 
   async runTurn(prompt: string): Promise<void> {
+    this.turnRunning = true;
+    this.hookStopRequested = null;
+    try {
+      await this.runTurnInner(prompt);
+    } finally {
+      this.turnRunning = false;
+      this.subagentTurnPending = false;
+      // An asyncRewake report that arrived during the turn and was not sent
+      // with a later request wakes the model now.
+      const wakes = this.pendingHookContext.filter((c) => c.wake);
+      if (wakes.length > 0) {
+        this.pendingHookContext = this.pendingHookContext.filter((c) => !c.wake);
+        this.hookWakeHandler?.(wakes.map((w) => w.text).join('\n\n'));
+      }
+    }
+  }
+
+  private async runTurnInner(prompt: string): Promise<void> {
     // Reset synchronously, before the first await: the adapter calls runTurn
     // from spawn() and any kill() can only land after this line.
     this.cancelRequested = false;
@@ -2176,17 +2281,16 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.planMode = true;
     }
 
-    // UserPromptSubmit hook fires before the first messages.create.
-    const ups = this.reportHooksNotRun('UserPromptSubmit', await fireHooks(
-      this.hooks,
-      'UserPromptSubmit',
-      'UserPromptSubmit',
-      { prompt, workflow_id: this.workflowId, project_dir: this.config.cwd ?? '' },
-      { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
-    ));
-    const blocked = firstBlocking(ups);
-    if (blocked) {
-      this.emit('system_notice', `UserPromptSubmit hook blocked turn (exit ${blocked.exitCode}): ${blocked.stderr.trim().slice(0, 500)}`);
+    // UserPromptSubmit hooks run before the first messages.create. Exit 2 or
+    // decision "block" (or continue:false) rejects the prompt and shows the
+    // reason to the operator only; other non-zero exits are non-blocking
+    // errors. additionalContext and plain stdout ride with the prompt.
+    const ups = await this.runHooks('UserPromptSubmit', 'UserPromptSubmit',
+      { prompt, project_dir: this.config.cwd ?? '' },
+      this.config.cwd ?? process.cwd(), this.makeAbortSignal('toolAbort'));
+    if (ups.blocks.length > 0 || ups.stop) {
+      const why = ups.blocks.length > 0 ? ups.blocks.map((b) => b.reason).join('\n') : (ups.stop?.reason || 'a hook stopped processing');
+      this.emit('system_notice', `UserPromptSubmit hook blocked the prompt: ${why.slice(0, 1500)}${ups.suppressOriginalPrompt ? '' : `\nOriginal prompt: ${prompt.slice(0, 2000)}`}`);
       this.emit('error', 'turn aborted by UserPromptSubmit hook');
       return;
     }
@@ -2236,6 +2340,13 @@ export class ClaudeNativeWorker extends EventEmitter {
     const skippedImages: SkippedImage[] = [];
     this.messages.push({ role: 'user', content: buildUserMessageContent(prompt, this.config.attachments, skippedImages) });
     this.turnInputAccepted = true;
+    // UserPromptSubmit context and waiting async hook output ride with the
+    // operator's message (never in `system`, so the cached prefix is kept).
+    const promptHookText = [
+      ...ups.context.map((c) => `UserPromptSubmit hook additional context:\n${c.slice(0, 10_000)}`),
+      ...(() => { const t = this.takeHookContext(); return t ? [t] : []; })(),
+    ].join('\n\n');
+    if (promptHookText) appendTextToLastUserMessage(this.messages, promptHookText);
     const skippedNotice = describeSkippedImages(skippedImages);
     if (skippedNotice) this.emit('system_notice', skippedNotice);
     // docs/PROVIDERS.md - per-turn operator notice (mailbox
@@ -2274,6 +2385,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const turnMessageStart = this.messages.length - 1;
 
     let iterations = 0;
+    let stopHookContinuations = 0;
     while (iterations++ < MAX_TOOL_TURNS) {
       const round = await this.streamOneRound();
       if (!round) {
@@ -2341,7 +2453,18 @@ export class ClaudeNativeWorker extends EventEmitter {
       // Gating on stop_reason alone silently abandons the tools: the model
       // narrates intent, the tool calls show in Activity, but nothing runs
       // (`tools 0B`) and the orphaned client tool_use is pruned next turn.
-      if (!shouldContinueNativeToolLoop(round.contentBlocks, stopReason)) break;
+      if (!shouldContinueNativeToolLoop(round.contentBlocks, stopReason)) {
+        // Stop (SubagentStop for a Task child's turn) hooks: exit 2, decision
+        // "block" or additionalContext keep the model working with the reason
+        // as its next instruction, at most STOP_HOOK_BLOCK_CAP times in a row.
+        const feedback = await this.runStopHooks(round.text, stopReason, stopHookContinuations);
+        if (feedback === null) break;
+        stopHookContinuations += 1;
+        const extra = this.takeHookContext();
+        this.messages.push({ role: 'user', content: [{ type: 'text', text: extra ? `${feedback}\n\n${extra}` : feedback }] as unknown as AnyContentBlock[] });
+        continue;
+      }
+      if (round.contentBlocks.some((b) => b.type === 'tool_use')) stopHookContinuations = 0;
 
       // ── Tool-use round-trip ──
       this.toolAbort = new AbortController();
@@ -2365,6 +2488,11 @@ export class ClaudeNativeWorker extends EventEmitter {
       // tool tripped; handled (graceful abort) once this round's results are in.
       let loopStopRequested = false;
       for (const block of otherBlocks) {
+        // A hook returned continue:false: the rest of this round does not run.
+        if (this.hookStopRequested !== null) {
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Not run: a hook stopped processing.', is_error: true });
+          continue;
+        }
         const result = await this.dispatchTool(block);
         toolResults.push({
           type: 'tool_result',
@@ -2409,7 +2537,16 @@ export class ClaudeNativeWorker extends EventEmitter {
         // operator arms ARCO_TOOL_EVICT — like clear_tool_uses it can spill a
         // result the model still needs. Cross-turn tail eviction lives in Fold.
         await this.maybeSpillTurnResults(round.contentBlocks, toolResults);
-        this.messages.push({ role: 'user', content: toolResults as unknown as AnyContentBlock[] });
+        const hookText = this.takeHookContext();
+        const content = hookText ? [...toolResults, { type: 'text', text: hookText }] : toolResults;
+        this.messages.push({ role: 'user', content: content as unknown as AnyContentBlock[] });
+      }
+
+      // A hook returned continue:false: end the turn now that every tool_use
+      // of this round has its result.
+      if (this.hookStopRequested !== null) {
+        this.hookStopRequested = null;
+        break;
       }
 
       // H9 — graceful hard-stop (armed only). The tool_results are appended above
@@ -2579,21 +2716,43 @@ export class ClaudeNativeWorker extends EventEmitter {
       serverToolResultBytes,
     });
 
-    // Stop hook (informational).
+    // Stop hooks ran in the loop above, before the turn ended.
     // Clear the per-turn controller before returning to idle. `streamOneRound`
     // installs a fresh AbortController for every provider round; leaving the
     // final successful controller in place made later operator COMPACT clicks
     // look like a live turn even after `wf.busy` had cleared.
     this.inFlight = null;
     this.toolAbort = null;
-    void fireHooks(
-      this.hooks,
-      'Stop',
-      'Stop',
-      { workflow_id: this.workflowId, stop_reason: stopReason ?? 'unknown' },
-      { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
-    ).then((r) => this.reportHooksNotRun('Stop', r)).catch((err) => console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] Stop hook failed:`, err));
-    this.toolAbort = null;
+  }
+
+  // Stop hooks when the model finished responding (SubagentStop on a Task
+  // child's turn, matched against its agent type). Returns the feedback for
+  // the model's next request when a hook keeps it working, else null. Not run
+  // for a truncated, refused or cancelled response (Claude Code fires
+  // StopFailure there, which Arco does not run).
+  private async runStopHooks(lastText: string, stopReason: string | null, continuations: number): Promise<string | null> {
+    if (stopReason === 'model_context_window_exceeded' || stopReason === 'refusal' || stopReason === 'max_tokens') return null;
+    if (this.cancelRequested || this.inFlight?.signal.aborted) return null;
+    const subagent = this.subagentTurnPending;
+    const event: HookEvent = subagent ? 'SubagentStop' : 'Stop';
+    const extra: Record<string, unknown> = {
+      stop_hook_active: continuations > 0,
+      last_assistant_message: lastText,
+      stop_reason: stopReason ?? 'unknown',
+      ...(subagent ? { agent_id: this.workflowId, agent_type: 'general-purpose' } : {}),
+    };
+    const v = await this.runHooks(event, subagent ? 'general-purpose' : 'Stop', extra, this.config.cwd ?? process.cwd(), this.makeAbortSignal('toolAbort'));
+    if (v.stop) return null;
+    const parts = [...v.blocks.map((b) => `[${b.command}]: ${b.reason}`), ...v.context];
+    if (parts.length === 0) return null;
+    const cap = stopHookBlockCap();
+    if (continuations >= cap) {
+      this.emit('system_notice', `[HOOKS] ${event} hooks kept the model working ${cap} times in a row, so the turn ends here. CLAUDE_CODE_STOP_HOOK_BLOCK_CAP raises the limit.`);
+      return null;
+    }
+    const text = parts.join('\n\n').slice(0, 20_000);
+    this.emit('system_notice', `[HOOKS] ${event} hook feedback; the model keeps working:\n${text.slice(0, 1500)}`);
+    return `${event} hook feedback:\n${text}`;
   }
 
   private async countCurrentContextTokens(): Promise<number | undefined> {
@@ -2944,6 +3103,14 @@ export class ClaudeNativeWorker extends EventEmitter {
     // a local tool from that older prefix after the switch.
     if (this.config.interactionMode === 'chat') return { text: '[error] tools are unavailable in chat mode', isError: true };
     const matcher = block.name;
+    // One shell tool is offered (Bash, or PowerShell on Windows without Git
+    // Bash). The other name is an unknown tool, as in Claude Code: refused
+    // before any hook, so a "Bash" call cannot slip past "PowerShell" hooks.
+    if (isShellToolName(block.name) && block.name !== shellToolName()) {
+      const text = `[error] unknown tool "${block.name}". The shell tool here is ${shellToolName()}.`;
+      this.emitToolActivity(block, (block.input ?? {}) as Record<string, unknown>, 'failed', text);
+      return { text, isError: true };
+    }
     const ctx: NativeToolContext = {
       cwd: this.config.cwd ?? process.cwd(),
       abortSignal: this.makeAbortSignal('toolAbort'),
@@ -2993,40 +3160,43 @@ export class ClaudeNativeWorker extends EventEmitter {
     const initialInput = (block.input && typeof block.input === 'object' ? block.input : {}) as Record<string, unknown>;
     let input: Record<string, unknown> = initialInput;
 
-    // PreToolUse hook — non-zero blocks; stderr surfaces as the tool result.
-    const pre = this.reportHooksNotRun('PreToolUse', await fireHooks(this.hooks, 'PreToolUse', matcher,
-      { tool_name: block.name, tool_input: input, workflow_id: this.workflowId },
-      { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
-    ));
-    const blocked = firstBlocking(pre);
-    if (blocked) {
-      const detail = blocked.stderr.trim() || `(hook exited ${blocked.exitCode}${blocked.timedOut ? ', timed out' : ''})`;
-      const text = `[blocked by PreToolUse hook] ${detail.slice(0, 1000)}`;
+    // PreToolUse hooks, as in Claude Code: exit 2 or permissionDecision
+    // "deny" refuses the call with the reason as the tool result; "ask" parks
+    // it for the operator (below, after the guards); updatedInput replaces the
+    // input; continue:false refuses it and ends the turn. Other non-zero exits
+    // are non-blocking errors. "allow" skips no Arco check: the guards and the
+    // operator's review gate still apply, like Claude Code's deny and ask rules.
+    const pre = await this.runHooks('PreToolUse', matcher,
+      { tool_name: block.name, tool_input: input, tool_use_id: block.id },
+      ctx.cwd, ctx.abortSignal);
+    const preContext = pre.context.map((c) => `PreToolUse:${block.name} hook additional context: ${c.slice(0, 10_000)}`);
+    if (pre.blocks.length > 0 || pre.permission === 'deny' || pre.stop) {
+      const lines = pre.blocks.length > 0
+        ? pre.blocks.map((b) => `PreToolUse:${block.name} hook error: [${b.command}]: ${b.reason.slice(0, 1000)}`)
+        : pre.permission === 'deny'
+          ? [`PreToolUse:${block.name} hook denied this tool call: ${(pre.permissionReason ?? '').slice(0, 1000)}`]
+          : [`PreToolUse:${block.name} hook stopped processing${pre.stop?.reason ? `: ${pre.stop.reason.slice(0, 1000)}` : '.'}`];
+      if (pre.stop) this.hookStopRequested = pre.stop.reason;
+      const text = [...lines, ...preContext].join('\n\n');
       this.emitToolActivity(block, input, 'failed', text);
       return { text, isError: true };
     }
 
-    // docs/PROVIDERS.md - fold any PreToolUse hook's
-    // hookSpecificOutput.updatedInput into the dispatched input. Last-write-
-    // wins matches Claude Code's documented behavior. Each rewrite emits a
-    // hook_rewrote_input event so transcript review can attribute the
-    // mutation back to its origin (e.g. rtk vs. a bespoke project hook).
-    for (const r of pre) {
-      const parsed = parseHookOutput(r.stdout);
-      const next = parsed.hookSpecificOutput?.updatedInput;
-      if (!next) continue;
-      const rewritten = { ...input, ...next };
+    // updatedInput replaces the whole input (Claude Code's contract). Each
+    // rewrite emits a hook_rewrote_input event so transcript review can
+    // attribute the change to its hook (e.g. rtk vs. a bespoke project hook).
+    for (const rw of pre.rewrites) {
       this.workflowEventBroadcast({
         type: 'hook_rewrote_input',
         workflowId: this.workflowId,
         toolUseId: block.id,
         toolName: block.name,
-        hookCommand: r.command ?? '(unknown)',
+        hookCommand: rw.command || '(unknown)',
         originalInput: JSON.stringify(input),
-        rewrittenInput: JSON.stringify(rewritten),
+        rewrittenInput: JSON.stringify(rw.input),
       });
-      input = rewritten;
     }
+    if (pre.updatedInput) input = pre.updatedInput;
 
     // docs/PROVIDERS.md - tool-call counter for the auto-
     // threshold opt-in. Counts every dispatched tool call (including
@@ -3083,7 +3253,16 @@ export class ClaudeNativeWorker extends EventEmitter {
     // writing it after reopens the lost-on-crash hole). Sequential tool dispatch
     // means the for-loop simply waits here (plan §4.4). Sub-phase 4: the sidecar
     // record lets rehydrateGatesOnce re-surface this gate after a restart.
-    const gate = evaluateGate((this.config.reviewSafeMode ?? 'off') === 'on', block.name, input, ctx.cwd);
+    const reviewGate = evaluateGate((this.config.reviewSafeMode ?? 'off') === 'on', block.name, input, ctx.cwd);
+    // A PreToolUse hook's "ask" parks the call through the same approval card.
+    const gate: GateProposal | null = pre.permission === 'ask'
+      ? {
+        category: 'hook-ask',
+        reason: `A PreToolUse hook asks for confirmation: ${pre.permissionReason ?? ''}${reviewGate ? ` (${reviewGate.reason})` : ''}`.slice(0, 1000),
+        signature: gateSignature(block.name, input),
+        proposedArgs: input,
+      }
+      : reviewGate;
     if (gate) {
       const liveArgsAtFire = gate.proposedArgs;
       const createdAt = Date.now();
@@ -3184,7 +3363,7 @@ export class ClaudeNativeWorker extends EventEmitter {
             signature: gate.signature,
             toolName: block.name,
             approvedAt: Date.now(),
-            sample: block.name === 'Bash' && typeof input.command === 'string' ? String(input.command).slice(0, 200) : undefined,
+            sample: isShellToolName(block.name) && typeof input.command === 'string' ? String(input.command).slice(0, 200) : undefined,
           }).catch((e) => console.warn(`[arco] [${this.workflowId.slice(0, 8)}] standing-approval write failed:`, e));
           await this.broadcastStandingApprovals(ctx.cwd);
         }
@@ -3311,11 +3490,15 @@ export class ClaudeNativeWorker extends EventEmitter {
     const done = await runPostToolSteps(postToolSteps({
       filter: (text, failed) => this.filterToolOutput(block, input, text, failed),
       partialNote: partialWarn.warn ? partialWarn.note : null,
-      postHooks: async (text) => this.reportHooksNotRun('PostToolUse', await fireHooks(this.hooks, 'PostToolUse', matcher,
-        { tool_name: block.name, tool_input: input, tool_response: text, workflow_id: this.workflowId },
-        { cwd: ctx.cwd, abortSignal: ctx.abortSignal, shells: this.shells, workflowId: this.workflowId },
-      )),
+      postHooks: (text, failed) => this.runHooks(failed ? 'PostToolUseFailure' : 'PostToolUse', matcher,
+        failed
+          ? { tool_name: block.name, tool_input: input, tool_use_id: block.id, error: text, is_interrupt: ctx.abortSignal.aborted }
+          : { tool_name: block.name, tool_input: input, tool_use_id: block.id, tool_response: text },
+        ctx.cwd, ctx.abortSignal),
+      toolName: block.name,
+      preContext,
     }), { text: resultText, isError });
+    if (done.stop !== undefined) this.hookStopRequested = done.stop;
     this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text);
     return { text: done.text, isError: done.isError };
   }
@@ -3440,9 +3623,6 @@ export class ClaudeNativeWorker extends EventEmitter {
         elapsedMs: Date.now() - startedAt,
         summary: msg.slice(0, 200),
       });
-      // SubagentStop hook fires regardless of success/failure (informational).
-      void this.fireSubagentStop({ taskId: handle.taskId, childWorkflowId: handle.childWorkflowId, status: 'error', error: msg })
-        .catch((e) => console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] SubagentStop hook failed:`, e));
       return `[error] Task ${handle.taskId} failed: ${msg.slice(0, 500)}`;
     }
     this.emit('task_status', {
@@ -3452,8 +3632,6 @@ export class ClaudeNativeWorker extends EventEmitter {
       elapsedMs: Date.now() - startedAt,
       summary: finalText.slice(0, 200),
     });
-    void this.fireSubagentStop({ taskId: handle.taskId, childWorkflowId: handle.childWorkflowId, status: 'completed', finalTextLength: finalText.length })
-      .catch((e) => console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] SubagentStop hook failed:`, e));
     return finalText;
   }
 
@@ -3467,17 +3645,6 @@ export class ClaudeNativeWorker extends EventEmitter {
       ? output
       : `[…truncated head ${output.length - TAIL_CAP} bytes]\n` + output.slice(output.length - TAIL_CAP);
     return `${head} task ${taskId} (child ${handle.childWorkflowId.slice(0, 8)})\n\n${tail || '(no output yet)'}`;
-  }
-
-  private async fireSubagentStop(payload: Record<string, unknown>): Promise<void> {
-    const results = await fireHooks(
-      this.hooks,
-      'SubagentStop',
-      'SubagentStop',
-      { workflow_id: this.workflowId, ...payload },
-      { cwd: this.config.cwd ?? process.cwd(), abortSignal: this.makeAbortSignal('toolAbort'), shells: this.shells, workflowId: this.workflowId },
-    );
-    this.reportHooksNotRun('SubagentStop', results);
   }
 
   private makeAbortSignal(which: 'inFlight' | 'toolAbort'): AbortSignal {

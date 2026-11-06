@@ -15,6 +15,7 @@
 // is actually being removed from context) rather than events.jsonl — same
 // information categories, no new worker→disk dependency, and it summarizes
 // exactly what the fold drops.
+import { isShellToolName } from '@arco/shared';
 
 export interface FoldDigestTodo {
   content: string;
@@ -81,7 +82,7 @@ export function buildFoldDigest(prefix: FoldMessage[], activeTodos: FoldDigestTo
         } else if (name === 'Read') {
           const f = input.file_path ?? input.path;
           if (typeof f === 'string') filesRead.add(f);
-        } else if (name === 'Bash' && typeof input.command === 'string') {
+        } else if (isShellToolName(name) && typeof input.command === 'string') {
           bashCmds.push(input.command.split('\n')[0].slice(0, 120));
         } else if ((name === 'Grep' || name === 'Glob') && typeof input.pattern === 'string') {
           searches.push(input.pattern.slice(0, 80));

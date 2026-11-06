@@ -754,7 +754,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Shown on Windows when Git Bash was not found. The Bash tool and Claude
         Native hooks run in Git Bash, as in Claude Code, and in PowerShell
-        without it: the Bash tool then tells the model to write PowerShell.
+        without it: the model then gets a PowerShell tool instead of Bash.
         Only when PowerShell is missing too does the Bash tool return this
         message and a configured hook is skipped with a notice, so the action
         goes ahead. To use Git Bash, install Git for Windows, or set{' '}

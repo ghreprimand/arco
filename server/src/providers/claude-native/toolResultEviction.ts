@@ -127,7 +127,8 @@ export function summarizeToolResultLine(
   const label = toolName || 'Tool';
   let head: string;
   switch (toolName) {
-    case 'Bash': {
+    case 'Bash':
+    case 'PowerShell': {
       const cmd = firstField(inputJson, ['command']);
       const status = isError ? 'error' : 'ok';
       head = cmd ? `[Bash] ${shorten(cmd, 80)} → ${status}` : `[Bash] → ${status}`;

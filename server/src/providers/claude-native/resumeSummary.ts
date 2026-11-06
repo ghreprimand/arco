@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { atomicWriteFile } from '../../atomicFile.js';
 import { listSegments, readLogText } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
+import { isShellToolName } from '@arco/shared';
 
 const SUMMARY_CACHE_VERSION = 1;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
@@ -456,7 +457,7 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[]): SummaryB
         if ((name === 'Write' || name === 'Edit') && typeof args.file_path === 'string') {
           cur.filesWritten.add(args.file_path);
         }
-        if (name === 'Bash' && typeof args.command === 'string') {
+        if (isShellToolName(name) && typeof args.command === 'string') {
           cur.bashCmds.push(args.command.split('\n')[0].slice(0, 120));
         }
       } catch {

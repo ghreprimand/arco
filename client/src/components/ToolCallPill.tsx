@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FileViewerModal } from './FileViewerModal';
+import { isShellToolName } from '@arco/shared';
 
 interface Props {
   tool: string;
@@ -30,7 +31,7 @@ function summarizeInput(tool: string, input: unknown, filePath: string | undefin
   if (filePath) return shortenPath(filePath);
   if (!input || typeof input !== 'object') return '';
   const rec = input as Record<string, unknown>;
-  if (tool === 'Bash') {
+  if (isShellToolName(tool)) {
     const desc = typeof rec.description === 'string' ? rec.description : '';
     const cmd = typeof rec.command === 'string' ? rec.command : '';
     return desc || oneLine(cmd, 90);

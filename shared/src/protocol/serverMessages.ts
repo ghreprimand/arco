@@ -1095,7 +1095,7 @@ export interface CodexTokenSnapshotMessage {
 // key (DEBAG §4.1 — never reuse the digit-lossy `outputHash`). `category`/`reason`
 // drive the operator-facing card; `proposedArgs` is the effective (post-hook)
 // tool input the operator will see and (later sub-phases) edit.
-export type GateCategory = 'bash' | 'git-destructive' | 'write-outside-cwd' | 'kill-shell';
+export type GateCategory = 'bash' | 'git-destructive' | 'write-outside-cwd' | 'kill-shell' | 'hook-ask';
 
 export interface GateRequiredMessage {
   type: 'gate_required';

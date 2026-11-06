@@ -7,7 +7,7 @@
 // Pinned by toolChecks.test.ts.
 
 import { checkConfigProtection, checkFactForceFirstEdit, checkHardlineCommand } from './pretoolGuards.js';
-import { parseHookOutput, type HookFireResult } from './hooks.js';
+import type { HookVerdict } from './hooks.js';
 
 export type GuardGate = 'hardline-command-floor' | 'config-protection' | 'fact-force-first-edit';
 export interface GuardBlock { gate: GuardGate; reason: string; syntheticResult: string }
@@ -57,7 +57,7 @@ export function firstBlockingGuard(x: GuardInput, guards: readonly PreToolGuard[
   return null;
 }
 
-export interface ToolOutcome { text: string; isError: boolean; final?: boolean }
+export interface ToolOutcome { text: string; isError: boolean; final?: boolean; stop?: string }
 export type PostToolStep = (o: ToolOutcome) => Promise<ToolOutcome>;
 
 export interface PostToolDeps {
@@ -66,8 +66,24 @@ export interface PostToolDeps {
   filter: (text: string, isError: boolean) => Promise<string>;
   // The partial-read warning for this call, if any.
   partialNote: string | null;
-  // Runs the PostToolUse hooks with the result so far.
-  postHooks: (text: string) => Promise<HookFireResult[]>;
+  // Runs the PostToolUse hooks (PostToolUseFailure when the tool failed) with
+  // the result so far, and returns their verdict.
+  postHooks: (text: string, isError: boolean) => Promise<HookVerdict>;
+  // The tool's name, for the hook labels the model sees.
+  toolName?: string;
+  // PreToolUse additionalContext, which rides with the tool result.
+  preContext?: string[];
+}
+
+// updatedToolOutput: a string, or for a shell tool Claude Code's
+// { stdout, stderr } shape. Anything else does not fit Arco's text results.
+export function toolOutputText(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const o = value as Record<string, unknown>;
+    if (typeof o.stdout === 'string') return [o.stdout, typeof o.stderr === 'string' ? o.stderr : ''].filter(Boolean).join('\n');
+  }
+  return null;
 }
 
 export function postToolSteps(deps: PostToolDeps): PostToolStep[] {
@@ -76,19 +92,26 @@ export function postToolSteps(deps: PostToolDeps): PostToolStep[] {
     async (o) => ({ ...o, text: await deps.filter(o.text, o.isError) }),
     // Only on success: a failed write already told the model something is wrong.
     async (o) => (deps.partialNote && !o.isError ? { ...o, text: `${o.text}\n\n${deps.partialNote}` } : o),
-    // stderr and additionalContext are appended; a "block" decision replaces
-    // the result with an error so the model retries.
+    // The hooks, as in Claude Code: updatedToolOutput replaces what the model
+    // sees; exit 2 stderr and a "block" reason are added next to the result
+    // (the tool already ran, so nothing is undone); additionalContext follows.
+    // continue:false ends the turn after this round.
     async (o) => {
+      const v = await deps.postHooks(o.text, o.isError);
+      const event = o.isError ? 'PostToolUseFailure' : 'PostToolUse';
+      const label = `${event}:${deps.toolName ?? 'tool'}`;
       let text = o.text;
-      for (const r of await deps.postHooks(text)) {
-        const stderr = r.stderr.trim();
-        if (stderr) text += `\n\n[PostToolUse hook stderr] ${stderr.slice(0, 500)}`;
-        const parsed = parseHookOutput(r.stdout);
-        const extra = parsed.hookSpecificOutput?.additionalContext;
-        if (typeof extra === 'string' && extra.length > 0) text += `\n\n${extra}`;
-        if (parsed.decision === 'block') return { text: `[PostToolUse hook blocked] ${parsed.reason ?? 'PostToolUse hook requested retry'}`, isError: true, final: true };
+      if (v.updatedToolOutput !== undefined) {
+        const replaced = toolOutputText(v.updatedToolOutput);
+        if (replaced !== null) text = replaced;
       }
-      return { ...o, text };
+      for (const b of v.blocks) {
+        text += b.via === 'decision'
+          ? `\n\n${label} hook feedback: [${b.command}]: ${b.reason.slice(0, 2000)}`
+          : `\n\n${label} hook error: [${b.command}]: ${b.reason.slice(0, 2000)}`;
+      }
+      for (const c of [...(deps.preContext ?? []), ...v.context.map((x) => `${label} hook additional context: ${x.slice(0, 10_000)}`)]) text += `\n\n${c}`;
+      return { ...o, text, ...(v.stop ? { stop: v.stop.reason } : {}) };
     },
   ];
 }

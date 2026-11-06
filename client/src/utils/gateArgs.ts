@@ -5,6 +5,7 @@
 // place; any other tool edits pretty JSON of its full input. Returns undefined
 // when the text is unchanged (a plain approve, not an edit) and throws on
 // invalid JSON so the caller can surface the error instead of sending garbage.
+import { isShellToolName } from '@arco/shared';
 
 export function buildGateFinalArgs(
   toolName: string,
@@ -13,7 +14,7 @@ export function buildGateFinalArgs(
   proposedArgs: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
   if (editedText === originalText) return undefined;
-  if (toolName === 'Bash') return { ...proposedArgs, command: editedText };
+  if (isShellToolName(toolName)) return { ...proposedArgs, command: editedText };
   const parsed = JSON.parse(editedText);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('edited args must be a JSON object');
@@ -24,7 +25,7 @@ export function buildGateFinalArgs(
 // Render the proposed args into the editable textarea: a Bash command shows its
 // command line; any other tool shows pretty JSON of its input.
 export function renderGateArgs(toolName: string, args: Record<string, unknown>): string {
-  if (toolName === 'Bash' && typeof args.command === 'string') return args.command;
+  if (isShellToolName(toolName) && typeof args.command === 'string') return args.command;
   try {
     return JSON.stringify(args, null, 2);
   } catch {

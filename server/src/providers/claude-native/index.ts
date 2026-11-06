@@ -40,6 +40,13 @@ export function setClaudeNativeTaskHandler(fn: TaskSpawnHandler): void {
   taskHandlerFn = fn;
 }
 
+// An asyncRewake hook that exits 2 while the tab is idle starts a turn with
+// its report. Server wires this to the workflow's follow-up queue.
+let hookWakeFn: ((workflowId: string, text: string) => void) | null = null;
+export function setClaudeNativeHookWakeHandler(fn: (workflowId: string, text: string) => void): void {
+  hookWakeFn = fn;
+}
+
 // docs/PROVIDERS.md - generic workflow-scoped event broadcaster.
 // The Native worker uses this for every event whose lifecycle isn't already
 // covered by a WorkerManager-routed channel: `hook_rewrote_input` (B0),
@@ -267,6 +274,7 @@ function acquireWorker(workflowId: string, config: WorkerConfig): ClaudeNativeWo
   });
   if (planBroadcastFactory) fresh.setPlanBroadcast(planBroadcastFactory(workflowId));
   if (taskHandlerFn) fresh.setTaskHandler(taskHandlerFn);
+  fresh.setHookWakeHandler((text) => hookWakeFn?.(workflowId, text));
   if (workflowEventBroadcast) {
     const wfid = workflowId;
     fresh.setWorkflowEventBroadcast((msg) => { workflowEventBroadcast?.(wfid, msg); });

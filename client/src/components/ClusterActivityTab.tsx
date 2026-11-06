@@ -763,6 +763,7 @@ function toolSummary(e: ActivityEntry): string {
     case 'Glob':
       return String(obj.pattern ?? '');
     case 'Bash':
+    case 'PowerShell':
       return truncate(String(obj.command ?? ''), 140);
     case 'WebFetch':
       return String(obj.url ?? '');

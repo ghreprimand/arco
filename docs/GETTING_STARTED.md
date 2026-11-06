@@ -111,7 +111,7 @@ In Docker, folders must be mounted before they can be selected.
   `CLAUDE_CODE_GIT_BASH_PATH`, the Git install that `git` on `PATH` belongs to,
   or the standard install folders. It never uses the WSL `bash.exe` in the
   Windows system folder. Without Git Bash they run in PowerShell, as in Claude
-  Code: the Bash tool tells the model to write PowerShell, and Connections >
+  Code: the model gets a PowerShell tool instead of Bash, and Connections >
   Claude shows a notice with how to get Git Bash. Hooks written for bash need
   Git Bash; a hook can also name its shell with `"shell"` or skip the shell
   with `"args"`.

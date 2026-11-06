@@ -169,25 +169,53 @@ export const providers: Section[] = [
   <Sub>Tools and hooks (Native)</Sub>
   <p>
   <strong>Native hooks.</strong> Native walks project and user{' '}
-  <Code>.claude/settings.json</Code> hook files and runs Claude-Code-style
-  hooks: <Code>PreToolUse</Code>, <Code>PostToolUse</Code>,{' '}
-  <Code>UserPromptSubmit</Code>, <Code>Stop</Code>, <Code>SubagentStop</Code>,{' '}
-  <Code>Notification</Code> and <Code>PreCompact</Code>.
+  <Code>.claude/settings.json</Code> hook files and runs command hooks as
+  Claude Code's hooks reference describes: <Code>UserPromptSubmit</Code>,{' '}
+  <Code>PreToolUse</Code>, <Code>PostToolUse</Code>,{' '}
+  <Code>PostToolUseFailure</Code>, <Code>Stop</Code> and{' '}
+  <Code>SubagentStop</Code> (a Task child). <Code>Notification</Code> and{' '}
+  <Code>PreCompact</Code> are not fired.
+  </p>
+  <p>
+  Exit code 2 blocks where Claude Code blocks: it rejects a prompt, refuses a
+  tool call, or keeps the model working after <Code>Stop</Code>. After a tool
+  has run, the hook's reason is added next to the result. Any other non-zero
+  exit is a non-blocking error shown in the tab, and the action goes ahead.
+  </p>
+  <p>
+  JSON on stdout works as documented: <Code>permissionDecision</Code>{' '}
+  <Code>deny</Code> refuses, <Code>ask</Code> parks the call on an approval
+  card, <Code>updatedInput</Code> replaces the input, and{' '}
+  <Code>additionalContext</Code> reaches the model.{' '}
+  <Code>continue: false</Code> ends the turn and <Code>systemMessage</Code> is
+  shown to you.
+  </p>
+  <p>
+  <Code>onFailure: "block"</Code> makes a hook that fails, times out or cannot
+  start block the action. <Code>async</Code> runs a hook in the background,
+  and its context reaches the model with the next request.{' '}
+  <Code>asyncRewake</Code> also runs in the background; exit code 2 wakes the
+  model with the hook's message, starting a turn when the tab is idle.
   </p>
   <p>
   Hooks and the Bash tool run in <Code>/bin/sh</Code> on Linux and macOS and
   in Git Bash on Windows, as in Claude Code. Without Git Bash they run in
-  PowerShell: the Bash tool tells the model to write PowerShell, and the tab
-  shows one notice. Install Git for Windows, or set{' '}
-  <Code>CLAUDE_CODE_GIT_BASH_PATH</Code> to its <Code>bash.exe</Code>, to
-  use Git Bash.
+  PowerShell: the model gets a <Code>PowerShell</Code> tool instead of{' '}
+  <Code>Bash</Code>, hooks that match <Code>PowerShell</Code> fire for it,
+  and the tab shows one notice. Every safety check applies to it as to Bash.
+  </p>
+  <p>
+  To use Git Bash, install Git for Windows, or set{' '}
+  <Code>CLAUDE_CODE_GIT_BASH_PATH</Code> to its <Code>bash.exe</Code>.
   </p>
   <p>
   A hook can name its shell with <Code>"shell": "bash"</Code> or{' '}
   <Code>"shell": "powershell"</Code>. With <Code>"args"</Code> it starts{' '}
   <Code>command</Code> as a program with those arguments and no shell, on
   every system; <Code>{'${CLAUDE_PROJECT_DIR}'}</Code> is filled in. A hook
-  that cannot start is skipped with a notice and does not block.
+  that cannot start is skipped with a notice and does not block, unless it
+  sets <Code>onFailure: "block"</Code>, or it is a shell-form{' '}
+  <Code>PreToolUse</Code> hook on Windows without Git Bash.
   </p>
   <p>
   <strong>Tool postures (Native-only).</strong> A per-tab posture pill scopes
@@ -589,7 +617,7 @@ export const providers: Section[] = [
   [<Code key="g">Glob</Code>, 'Node 22 fs.promises.glob. Cwd-rooted.'],
   [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .arco. 64 KB output cap.'],
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
-  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows, PowerShell without Git Bash). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
+  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
   [<Code key="wf">WebFetch</Code>, <>Native <Code>fetch()</Code> fast path, Camoufox stealth fallback for Cloudflare-gated pages. SSRF guard blocks loopback/RFC1918.</>],
   ]}

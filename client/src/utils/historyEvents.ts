@@ -1,6 +1,7 @@
 import { describeRestoreChanges } from './checkpointChanges';
 import type { ServerMessage } from '@arco/shared';
 import type { HistoryEventEntry } from '../stores/appStore';
+import { isShellToolName } from '@arco/shared';
 
 export function trim80(s: string): string {
   const oneLine = s.replace(/\s+/g, ' ').trim();
@@ -16,7 +17,7 @@ function summarizeToolInput(tool: string, inputJson: string): string {
   }
   if (!rec || typeof rec !== 'object') return '';
   if (typeof rec.file_path === 'string') return rec.file_path;
-  if (tool === 'Bash') {
+  if (isShellToolName(tool)) {
     const desc = typeof rec.description === 'string' ? rec.description : '';
     const cmd = typeof rec.command === 'string' ? rec.command : '';
     return desc || trim80(cmd);
