@@ -15,6 +15,7 @@ import type { TaskLedgerPatch } from './RightPanel/types';
 import type { UploadResult } from '../utils/uploadAttachment';
 import { readRangeFraction, useLayout, writeRangeFraction } from '../layout/layoutRange';
 import { PanelStrip, SlideOut } from '../layout/SlideOut';
+import { useOutputNavigationOpener } from '../utils/outputNavigation';
 
 interface Props {
   job: JobState;
@@ -143,6 +144,8 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   const [tabRequest, setTabRequest] = useState<{ tab: string; n: number } | null>(null);
   useEffect(() => { if (widthRange !== 'narrow') setSlide(null); }, [widthRange]);
   const narrow = widthRange === 'narrow';
+  // View in Outputs: the narrow layout opens the side panel slide-out first.
+  useOutputNavigationOpener([job.id], narrow && !focusMode, () => setSlide('files'));
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);

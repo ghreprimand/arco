@@ -83,11 +83,14 @@ async def main():
             await skills.click()
             builtin = page.get_by_test_id('builtin-skills')
             await expect(builtin.get_by_text('Architecture review', exact=True)).to_be_visible(timeout=30000)
-            await builtin.get_by_role('button', name='EDITABLE COPY').click()
+            # Several built-in skills are listed; act on the Architecture review row.
+            review_row = builtin.locator(':scope > div').filter(has=page.get_by_text('Architecture review', exact=True))
+            await expect(review_row).to_have_count(1)
+            await review_row.get_by_role('button', name='EDITABLE COPY').click()
             await expect(builtin.get_by_text('Saved "Architecture review (copy)" to your project skills', exact=False)).to_be_visible(timeout=15000)
             copied = (project / '.arco' / 'skills' / 'architecture-review-copy' / 'SKILL.md').read_text()
             assert 'operator-only: true' in copied and 'Deletion test' in copied
-            await builtin.get_by_role('button', name='RUN').click()
+            await review_row.get_by_role('button', name='RUN').click()
             sent = await page.evaluate('window.sent')
             assert sent == [['Run the Architecture review on this project.', None, None, None, [{'scope': 'builtin', 'slug': 'architecture-review'}]]], sent
 

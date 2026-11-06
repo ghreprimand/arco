@@ -5,7 +5,8 @@ preview, copy or move them within approved folders.
 
 Open **Workspace > Files > Outputs** in a workflow or cluster. Outputs stays
 available after a generated-file preview is dismissed. **View in Outputs** on an
-artifact preview opens the producing workflow's collection. A cluster combines
+artifact preview opens the producing workflow's collection; in the Narrow
+layout it first opens the side panel over the chat. A cluster combines
 its members' outputs and identifies the producer; unrelated workflows in the same
 project are excluded. Incognito and voice-operator workflows are excluded.
 

@@ -49,6 +49,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- View in Outputs on an artifact preview opens Outputs in the Narrow layout too. Before, it closed the preview and nothing opened, because the side panel there is a strip of buttons until one is clicked.
 - The OUTPUT STYLE text under CONFIG no longer runs words together before the style names.
 - Cursor tabs run the model chosen in Arco. Before, `cursor-agent acp` ignored the model passed at start, so a tab could run, and bill, the model saved as the Cursor CLI's default. Arco now selects the model on every new and resumed session and confirms it. Cursor runs each model only with the settings saved for it in the Cursor CLI, so when the chosen variant (for example Grok 4.7 Medium) differs, a notice names both models and the model chip shows the one in use. Choosing a Cursor model also makes it the Cursor CLI's default. Chats on Auto now run Auto instead of the CLI's default model.
 - Cursor shows "Sign-in rejected" and offers Sign in again when Cursor has rejected the saved sign-in, instead of reporting connected because a token is stored. A rejected sign-in no longer counts toward the limit of three failed starts, so a tab works again as soon as the sign-in is fixed, and a failed start no longer leaves a `cursor-agent` process running.

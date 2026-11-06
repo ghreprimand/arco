@@ -299,6 +299,10 @@ async def check(browser, scale, scenario):
             await page.set_viewport_size({'width':width,'height':height})
             assert await page.locator('.home-page').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
             if width in [900, 1920]:
+                # The header adapts to the window width (tighter under 1100
+                # interface pixels); measure it only after it has re-rendered
+                # for this size.
+                await page.wait_for_function("() => { const b = document.querySelector('[data-testid=header-layout]'); const s = parseFloat(document.documentElement.style.getPropertyValue('--ui-scale')) || 1; return !!b && b.title.includes('Current width: ' + Math.floor(innerWidth / s) + ' ') }")
                 before = await page.locator('header > div').first.evaluate('el => {const p=el.getBoundingClientRect(); return Array.from(el.children, c => {const r=c.getBoundingClientRect(); return [r.x-p.x,r.y-p.y,r.width,r.height]})}')
                 await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().showJobCreator();}")
                 await expect(mark).to_be_visible()

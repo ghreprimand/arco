@@ -554,7 +554,7 @@ export const workspace: Section[] = [
         <Table
           headers={['Layout', 'What changes']}
           rows={[
-            ['Narrow', 'The member list becomes a rail of initials and the right panel a strip of buttons. Both open over the chat.'],
+            ['Narrow', 'The member list becomes a rail of initials and the right panel a strip of buttons. Both open over the chat; View in Outputs opens the right panel at Outputs.'],
             ['Compact', 'Member cards are one row with a one-line reply. The member list starts at 250 px, the right panel at 320 px in a cluster and 360 px in a single tab.'],
             ['Standard', 'The original layout, with full member cards and panels.'],
           ]}

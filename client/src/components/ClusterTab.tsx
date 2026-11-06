@@ -41,6 +41,7 @@ import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { UploadResult } from '../utils/uploadAttachment';
 import { readRangeFraction, useLayout, writeRangeFraction, type LayoutRange } from '../layout/layoutRange';
 import { PanelStrip, SlideOut } from '../layout/SlideOut';
+import { useOutputNavigationOpener } from '../utils/outputNavigation';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
 // docs/CLIENT.md - splitter min widths (px). Detail favored - its
@@ -325,6 +326,8 @@ export function ClusterTab({
   const [rightTabRequest, setRightTabRequest] = useState<{ tab: string; n: number } | null>(null);
   const [planHintMore, setPlanHintMore] = useState(false);
   useEffect(() => { if (widthRange !== 'narrow') { setMemberListOpen(false); setRightSlide(null); } }, [widthRange]);
+  // View in Outputs: the narrow layout opens the cluster panel slide-out first.
+  useOutputNavigationOpener((cluster?.members ?? []).map((member) => member.workflowId), widthRange === 'narrow', () => setRightSlide('files'));
   // docs/CLIENT.md - splitter drag, mirrors WorkflowView.tsx
   // pattern (mouse + capture-phase pointerup + pointercancel + blur +
   // visibilitychange cleanup; defensive body-style restore on mount).
