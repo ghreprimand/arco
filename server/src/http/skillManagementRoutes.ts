@@ -9,7 +9,7 @@ import {
   confirmImport, confirmUpdate, duplicateSkill, moveSkill, previewImport, previewShare, previewUpdate, setSkillOff, shareSkill, skillDetails,
   type FetchLike, type ImportSource,
 } from '../skillManagement.js';
-import type { SkillScope } from '../skills.js';
+import { setBuiltinSkillOff, type SkillScope } from '../skills.js';
 
 let fetchImpl: FetchLike = fetch as unknown as FetchLike;
 /** Test surface: replace the network used for GitHub imports. */
@@ -78,6 +78,11 @@ export async function tryHandleSkillManagementRoutes(req: IncomingMessage, res: 
         return true;
       }
       case 'state': {
+        if (body.scope === 'builtin' && typeof body.slug === 'string' && typeof body.off === 'boolean') {
+          await setBuiltinSkillOff(body.slug, body.off);
+          json(res, 200, { ok: true });
+          return true;
+        }
         if (!scope || typeof body.slug !== 'string' || typeof body.off !== 'boolean' || needsCwd(scope)) { json(res, 400, { error: 'scope, slug and off required' }); return true; }
         await setSkillOff(scope, body.slug, cwd, body.off);
         json(res, 200, { ok: true });

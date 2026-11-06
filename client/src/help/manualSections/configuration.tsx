@@ -511,10 +511,30 @@ export const configuration: Section[] = [
   <p>
   A skill is a folder with a <Code>SKILL.md</Code> (name and description at the
   top, then the instructions) and any files it refers to. Settings &gt; SKILLS
-  lists project and global skills. Each row shows the extra files, where an
+  lists project and global skills. Descriptions can be up to 300 characters. Each row shows the extra files, where an
   imported skill came from, and skill names its text mentions that are not
-  installed, such as "Refers to grilling, not installed".
+  installed, such as "Refers to release-notes, not installed".
   </p>
+  <Sub>Built-in skills</Sub>
+  <p>Built-ins are on by default. Settings can turn each off. A project or
+  global skill with the same name replaces the built-in. EDITABLE COPY saves
+  the skill and its supporting files for editing.</p>
+  <p>Run <Code>/grill-me</Code> to examine a plan, <Code>/grill-with-docs</Code>
+  to also record terms and decisions, <Code>/wait-what</Code> to ask for a
+  clearer explanation, or <Code>/retro</Code> to review a session. Run
+  <Code>/improve-codebase-architecture</Code> for Architecture review.</p>
+  <p>The agent can also use these model-invoked skills:</p>
+  <ul>
+    <li><Code>grilling</Code> examines a plan through questions.</li>
+    <li><Code>domain-modeling</Code> clarifies project terms and decisions.</li>
+    <li><Code>tdd</Code> guides test-driven development.</li>
+    <li><Code>diagnosing-bugs</Code> builds a feedback loop for a bug.</li>
+    <li><Code>codebase-design</Code> guides module and interface design.</li>
+    <li><Code>prototype</Code> explores a design with a disposable example.</li>
+    <li><Code>writing-for-agents</Code> improves instructions for agents.</li>
+  </ul>
+  <p>Public project files must exclude private material. These skills do not
+  stage or commit project files. Third-party license terms ship with Arco.</p>
   <Sub>IMPORT</Sub>
   <p>
   <strong>IMPORT</strong> (also in the composer SKILLS menu) takes a public
@@ -548,8 +568,7 @@ export const configuration: Section[] = [
   <p>
   If Git still ignores the files after that (a project <Code>.gitignore</Code>{' '}
   line, or a global ignore file on this computer), SHARE refuses, names the
-  rule and leaves <Code>.arco/.gitignore</Code> unchanged. Arco ships no
-  third-party skills.
+  rule and leaves <Code>.arco/.gitignore</Code> unchanged.
   </p>
   <p>
   A shared skill that is committed raises no project-state notice. STOP

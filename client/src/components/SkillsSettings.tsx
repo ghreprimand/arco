@@ -55,7 +55,7 @@ function Findings({ findings }: { findings: Finding[] }) {
 }
 
 export function SkillsSettings({ cwd }: { cwd: string }) {
-  const [skills, setSkills] = useState<{ project: SkillSummary[]; global: SkillSummary[] } | null>(null);
+  const [skills, setSkills] = useState<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; off?: boolean; replaced?: boolean }> } | null>(null);
   const [details, setDetails] = useState<Record<string, Details>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -67,7 +67,7 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
   const refresh = async () => {
     setError(null);
     try {
-      setSkills(await api<{ project: SkillSummary[]; global: SkillSummary[] }>(`/api/skills${q(cwd)}`));
+      setSkills(await api<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; off?: boolean; replaced?: boolean }> }>(`/api/skills${q(cwd)}`));
       const d = await api<{ skills: Details[] }>(`/api/skills/details${q(cwd)}`).catch(() => ({ skills: [] as Details[] }));
       setDetails(Object.fromEntries(d.skills.map((x) => [`${x.scope}:${x.slug}`, x])));
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -148,6 +148,11 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
           {skills.project.map(row)}
           {skills.global.length > 0 && <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginTop: '6px', marginBottom: '2px' }}>(GLOBAL)</div>}
           {skills.global.map(row)}
+          {(skills.builtin ?? []).length > 0 && <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginTop: '6px' }}>(BUILT-IN)</div>}
+          {(skills.builtin ?? []).map((s) => <div key={s.slug} data-testid="builtin-skill-row" style={{ padding: '6px 10px', border: '1px solid var(--color-border-hairline)', opacity: s.off || s.replaced ? 0.55 : 1 }}>
+            <div>{s.name}{s.replaced ? ' - replaced by your copy' : ''}</div><div style={muted}>{s.description}</div>
+            <button type="button" style={small} data-help="settings.skills.toggle" onClick={() => void act(() => post(`/api/skills/state${q(cwd)}`, { scope: 'builtin', slug: s.slug, off: !s.off }), `${s.name} is ${s.off ? 'on' : 'off'}.`)}>{s.off ? 'TURN ON' : 'TURN OFF'}</button>
+          </div>)}
         </div>
       )}
       {editor && <SkillEditorDialog cwd={cwd} target={editor} onClose={() => setEditor(null)} onSaved={() => { void refresh(); }} />}

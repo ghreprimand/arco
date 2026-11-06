@@ -21,6 +21,7 @@ The operator chooses providers, models, tools, and which automation to enable;
 Computer is the voice operator for the same workbench; it also accepts typed requests.
 Arco runs locally and connects to provider accounts or local model services.
 A model, provider subscription, and credentials are not bundled.
+Built-in skills include third-party playbooks; see [third-party notices](THIRD_PARTY_NOTICES).
 
 ## Install
 

@@ -39,7 +39,7 @@ async def main():
         subprocess.run(['git', 'init', '-q', str(project)], check=True, env=GIT_ENV)
         source = server.root / 'fixture-skill'
         (source / 'reference').mkdir(parents=True)
-        (source / 'SKILL.md').write_text('---\nname: "Release checklist"\ndescription: "Steps before a release"\n---\n\nFollow the steps, then use the grilling skill.\n')
+        (source / 'SKILL.md').write_text('---\nname: "Release checklist"\ndescription: "Steps before a release"\n---\n\nFollow the steps, then use the release-notes skill.\n')
         (source / 'reference' / 'steps.md').write_text('1. Build' + ZWSP + '\n')
         port = h.host_isolation.closed_port()
         env = {**server.env, 'ARCO_CLIENT_PORT': str(port), 'ARCO_PORT': str(server.port)}
@@ -97,7 +97,14 @@ async def main():
             assert (skill / 'reference' / 'steps.md').exists()
             row = page.locator('[data-testid="skill-row"][data-skill="release-checklist"]')
             await expect(row.get_by_test_id('skill-contents')).to_contain_text('Also 1 file: reference/steps.md')
-            await expect(row.get_by_test_id('skill-contents')).to_contain_text('Refers to grilling, not installed.')
+            await expect(row.get_by_test_id('skill-contents')).to_contain_text('Refers to release-notes, not installed.')
+
+            # A built-in can be switched off and back on without deleting it.
+            builtin = page.get_by_test_id('builtin-skill-row').filter(has_text='domain-modeling')
+            await builtin.get_by_role('button', name='TURN OFF').click()
+            await expect(builtin.get_by_role('button', name='TURN ON')).to_be_visible(timeout=15000)
+            await builtin.get_by_role('button', name='TURN ON').click()
+            await expect(builtin.get_by_role('button', name='TURN OFF')).to_be_visible(timeout=15000)
 
             # TURN OFF: shown greyed with OFF, left out of the composer SKILLS menu.
             await row.get_by_role('button', name='TURN OFF').click()

@@ -191,3 +191,7 @@ turns one at a time per runtime unless `ARCO_LOCAL_PROVIDER_SERIAL_QUEUE=0`, and
 Ollama's `OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_NUM_PARALLEL` decide what the
 runtime accepts. Saving one runtime keeps the other's value; invalid values are
 ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
+
+### Built-in skills
+
+Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run commands are `/grill-me`, `/grill-with-docs`, `/wait-what` and `/retro`; `/improve-codebase-architecture` runs Architecture review. Model-invoked skills are available to an agent through the skill manifest. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).

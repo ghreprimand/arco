@@ -189,7 +189,7 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                maxLength={240}
+                maxLength={300}
                 spellCheck={false}
                 style={inputStyle}
                 placeholder="One-line summary the agent reads to decide when to apply this skill"

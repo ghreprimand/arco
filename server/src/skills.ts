@@ -18,28 +18,73 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // is the directory name and is the stable identifier across edits — name
 // can change without renaming the directory.
 
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
-import { homedir } from 'os';
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
+import { rmSync } from 'fs';
+import { randomUUID } from 'node:crypto';
+import { homedir, tmpdir } from 'os';
 import path from 'path';
 
 import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
 import { arcoHome } from './arcoHome.js';
 import { ARCHITECTURE_REVIEW_SKILL } from './architectureSkill.js';
+import { THIRD_PARTY_SKILL_FILES } from './thirdPartySkills.js';
 
 export type SkillScope = 'project' | 'global';
 export interface SkillRef { scope: SkillScope; slug: string }
-// Skills shipped with Arco. They are read-only, operator-only and never in the
-// model manifest; the operator runs one from the SKILLS menu (a pick with
-// scope "builtin") or makes an editable copy.
+// Skills shipped with Arco are read-only. Operator-only entries are picked
+// from the SKILLS menu; model-invoked entries also appear in the manifest.
 export type PickedSkillScope = SkillScope | 'builtin';
-export interface BuiltinSkillSummary { slug: string; name: string; description: string; scope: 'builtin'; operatorOnly: true }
+export interface BuiltinSkillSummary { slug: string; name: string; description: string; scope: 'builtin'; operatorOnly: boolean; off?: boolean; replaced?: boolean; path?: string }
+const OPERATOR_BUILTINS = new Set(['grill-me', 'grill-with-docs', 'wait-what', 'retro']);
 export function listBuiltinSkills(): BuiltinSkillSummary[] {
   const s = ARCHITECTURE_REVIEW_SKILL;
-  return [{ slug: s.slug, name: s.name, description: s.description, scope: 'builtin', operatorOnly: true }];
+  return [{ slug: s.slug, name: s.name, description: s.description, scope: 'builtin', operatorOnly: true }, ...THIRD_PARTY_SKILL_FILES.map(({ slug, files }) => {
+    const parsed = parseSkillFile(files['SKILL.md']);
+    return { slug, name: parsed.name || slug, description: parsed.description || '', scope: 'builtin' as const, operatorOnly: OPERATOR_BUILTINS.has(slug) };
+  })];
 }
 export function readBuiltinSkill(slug: string): { slug: string; name: string; description: string; body: string } | null {
   const s = ARCHITECTURE_REVIEW_SKILL;
-  return slug === s.slug ? { slug: s.slug, name: s.name, description: s.description, body: s.body } : null;
+  if (slug === s.slug || slug === 'improve-codebase-architecture') return { slug: s.slug, name: s.name, description: s.description, body: s.body };
+  const files = THIRD_PARTY_SKILL_FILES.find((item) => item.slug === slug)?.files;
+  if (!files) return null;
+  const parsed = parseSkillFile(files['SKILL.md']);
+  return { slug, name: parsed.name || slug, description: parsed.description || '', body: parsed.body };
+}
+
+let builtinFilesPromise: Promise<string> | undefined;
+const builtinVirtualFiles = new Map<string, string>();
+export function readBuiltinVirtualFile(file: string): string | undefined {
+  return path.isAbsolute(file) ? builtinVirtualFiles.get(path.resolve(file)) : undefined;
+}
+async function materializeBuiltinSkills(): Promise<string> {
+  if (!builtinFilesPromise) builtinFilesPromise = (async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'arco-builtin-skills-'));
+    process.once('exit', () => { try { rmSync(root, { recursive: true, force: true }); } catch { /* temporary files may already be gone */ } });
+    for (const skill of THIRD_PARTY_SKILL_FILES) {
+      for (const [name, content] of Object.entries(skill.files)) {
+        const file = path.join(root, skill.slug, name);
+        await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+        await writeFile(file, content, { mode: 0o400 });
+        builtinVirtualFiles.set(path.resolve(file), content);
+      }
+    }
+    return root;
+  })().catch((err) => { builtinFilesPromise = undefined; throw err; });
+  return builtinFilesPromise;
+}
+
+export async function setBuiltinSkillOff(slug: string, off: boolean): Promise<void> {
+  if (!listBuiltinSkills().some((s) => s.slug === slug)) throw new Error('built-in skill not found');
+  const dir = path.join(arcoHome(), 'builtin-skill-state', slug);
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, SKILL_SIDECAR);
+  if (off) {
+    const temp = `${file}.${randomUUID()}.tmp`;
+    try { await writeFile(temp, '{"off":true}\n', { mode: 0o600, flag: 'wx' }); await rename(temp, file); }
+    finally { await rm(temp, { force: true }); }
+  }
+  else await rm(file, { force: true });
 }
 
 // Persistent pins are intentionally bounded. Eight full 64 KiB skills would
@@ -78,7 +123,7 @@ export interface SkillFull extends SkillSummary {
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const NAME_MAX = 80;
-export const DESCRIPTION_MAX = 240;
+export const DESCRIPTION_MAX = 300;
 export const BODY_MAX = 64 * 1024;
 
 // P8.6 — per-skill sidecar: where an imported skill came from and whether it
@@ -276,7 +321,15 @@ export async function listSkills(
     const u = usage[canonicalSkillKey(s.path)];
     return u ? { ...s, useCount: u.count, lastUsed: u.lastUsed } : s;
   };
-  return { project: project.map(attach), global: global.map(attach), builtin: listBuiltinSkills() };
+  const root = await materializeBuiltinSkills();
+  const userNames = new Set([...project, ...global].flatMap((s) => [s.slug.toLowerCase(), s.name.trim().toLowerCase()]));
+  const builtin = await Promise.all(listBuiltinSkills().map(async (s) => ({
+    ...s,
+    off: Boolean((await readSkillSidecar(path.join(arcoHome(), 'builtin-skill-state', s.slug))).off),
+    replaced: userNames.has(s.slug.toLowerCase()) || userNames.has(s.name.toLowerCase()),
+    ...(!s.operatorOnly ? { path: path.join(root, s.slug, 'SKILL.md') } : {}),
+  })));
+  return { project: project.map(attach), global: global.map(attach), builtin };
 }
 
 export async function readSkillBody(
@@ -372,7 +425,16 @@ export async function writeSkill(
 export async function copyBuiltinSkill(slug: string, scope: SkillScope, cwd: string): Promise<SkillSummary> {
   const builtin = readBuiltinSkill(slug);
   if (!builtin) throw new Error('built-in skill not found');
-  return writeSkill({ scope, name: `${builtin.name} (copy)`, description: builtin.description, body: builtin.body, operatorOnly: true }, cwd);
+  const definition = listBuiltinSkills().find((s) => s.slug === slug);
+  const thirdParty = THIRD_PARTY_SKILL_FILES.find((s) => s.slug === slug);
+  const copy = await writeSkill({ scope, name: thirdParty ? builtin.name : `${builtin.name} (copy)`, description: builtin.description, body: builtin.body, operatorOnly: definition?.operatorOnly }, cwd);
+  if (thirdParty) for (const [name, content] of Object.entries(thirdParty.files)) {
+    if (name === 'SKILL.md') continue;
+    const target = path.join(path.dirname(copy.path), name);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, content, { mode: 0o644 });
+  }
+  return copy;
 }
 
 export async function deleteSkill(
@@ -399,15 +461,15 @@ export async function deleteSkill(
 // the manifest sits at the top of the system prompt where invalidation
 // is rare in practice.
 export function buildSkillsManifest(
-  catalog: { project: SkillSummary[]; global: SkillSummary[] },
+  catalog: { project: SkillSummary[]; global: SkillSummary[]; builtin?: BuiltinSkillSummary[] },
 ): string {
   // DD8 — operator-only skills are withheld from the model manifest entirely.
   // The model is never told they exist; the operator inlines them on pick.
   // P8.6 — skills turned off are left out as well.
-  const all = [...catalog.project, ...catalog.global].filter((s) => !s.operatorOnly && !s.off);
+  const all = [...catalog.project, ...catalog.global, ...(catalog.builtin ?? []).filter((s): s is BuiltinSkillSummary & { path: string } => Boolean(s.path) && !s.replaced)].filter((s) => !s.operatorOnly && !s.off);
   if (all.length === 0) return '';
   const lines: string[] = [];
-  lines.push('You have access to operator-defined skills — short reusable playbooks for recurring tasks. Each entry below lists a skill\'s name, scope, and a one-line description. To apply a skill, use your Read tool on its `path` attribute to load the full SKILL.md, then follow it.');
+  lines.push('You have access to skills — short reusable playbooks for recurring tasks. Each entry below lists a skill\'s name, scope, and a one-line description. To apply a skill, use your Read tool on its `path` attribute to load the full SKILL.md, then follow it.');
   lines.push('');
   lines.push('<arco-skills>');
   for (const s of all) {

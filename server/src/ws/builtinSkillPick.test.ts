@@ -50,5 +50,10 @@ test('a builtin pick inlines the Architecture review with its facts; an unknown 
     assert.ok(task.includes(`Artifacts folder for this conversation: ${join(cwd, '.arco', 'workflows', id, 'artifacts')}`));
     assert.match(task, /<arco-architecture-facts>[\s\S]*- src\/big\.ts: 50[\s\S]*<\/arco-architecture-facts>/);
     assert.ok(notices.some((n) => /Inlined 1 operator-picked skill .*Architecture review.*Skipped \(not found\): builtin:no-such-skill/.test(n)), notices.join('\n'));
+    for (let i = 0; i < 200 && wf.busy; i++) await new Promise((r) => setTimeout(r, 10));
+    await engine.handleUserMessage(ws, session, id, '/improve-codebase-architecture', randomUUID(), undefined, false, undefined, undefined);
+    for (let i = 0; i < 200 && tasks.length < 2; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.match(tasks[1] ?? '', /<arco-skill name="Architecture review" scope="builtin">/);
+    assert.match(tasks[1] ?? '', /<arco-architecture-facts>/);
   } finally { workflows.delete(id); workflowCwds.delete(id); }
 });

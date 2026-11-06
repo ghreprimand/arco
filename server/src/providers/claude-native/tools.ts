@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { resolve, relative, join, isAbsolute } from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { resolveWithinCwd } from '../ollamaTools.js';
+import { readBuiltinVirtualFile } from '../../skills.js';
 import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
 import { applyEdit } from './editApply.js';
@@ -253,7 +254,7 @@ function runUnderMutationLock<T>(
 const ReadTool: Entry = {
   def: {
     name: 'Read',
-    description: 'Read the contents of a file at the given path. Path must resolve inside the workflow cwd. Default returns up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
+    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Default returns up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
     input_schema: {
       type: 'object',
       properties: {
@@ -269,11 +270,10 @@ const ReadTool: Entry = {
     const offset = Math.max(1, Math.floor(asOptNumber(args.offset, 'offset') ?? 1));
     const rawLimit = asOptNumber(args.limit, 'limit');
     const limit = rawLimit !== undefined && rawLimit >= 1 ? Math.floor(rawLimit) : undefined;
-    const abs = resolveWithinCwd(ctx.cwd, filePath);
-    const stat = await fs.stat(abs);
-    if (stat.isDirectory()) throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
-    const buf = await fs.readFile(abs);
-    const text = buf.toString('utf8');
+    const builtin = readBuiltinVirtualFile(filePath);
+    const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
+    if (builtin === undefined && (await fs.stat(abs)).isDirectory()) throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
+    const text = builtin ?? (await fs.readFile(abs)).toString('utf8');
     let body = text;
     let totalLines = -1;
     if (offset > 1 || limit !== undefined) {

@@ -361,7 +361,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const [showSkillImport, setShowSkillImport] = useState(false);
   const [skillCatalogStatus, setSkillCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   // P8.5 — skills shipped with Arco: run once, or make an editable copy.
-  const [builtinSkills, setBuiltinSkills] = useState<Array<{ slug: string; name: string; description: string }>>([]);
+  const [builtinSkills, setBuiltinSkills] = useState<Array<{ slug: string; name: string; description: string; operatorOnly?: boolean; off?: boolean; replaced?: boolean }>>([]);
   const [builtinNote, setBuiltinNote] = useState('');
   const pinnedSkills = job.config.pinnedSkills ?? [];
   const pinnedSkillsKey = pinnedSkills.map((s) => `${s.scope}:${s.slug}`).join('|');
@@ -1870,11 +1870,11 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
                       <div key={`builtin:${s.slug}`} style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-accent-secondary-a08)', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                           <span style={{ fontSize: '11px', color: 'var(--color-accent-secondary)', fontFamily: 'var(--font-display)', letterSpacing: '1px' }}>{s.name}</span>
-                          <span className="display-font" style={{ fontSize: '7px', letterSpacing: '1px', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '2px', padding: '0 3px' }}>OPERATOR</span>
+                          <span className="display-font" style={{ fontSize: '7px', letterSpacing: '1px', color: 'var(--color-warning)', border: '1px solid var(--color-warning)', borderRadius: '2px', padding: '0 3px' }}>{s.replaced ? 'REPLACED BY YOUR COPY' : s.off ? 'OFF' : s.operatorOnly ? 'OPERATOR' : 'MODEL'}</span>
                         </div>
                         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>{s.description}</div>
                         <div style={{ display: 'flex', gap: '6px', marginTop: '7px' }}>
-                          <button type="button" data-help="composer.skills.run-builtin" onClick={() => runBuiltinSkill(s)} title="Gather facts about this project and run the review in this conversation" className="display-font" style={{ flex: 1, padding: '3px 5px', borderRadius: '2px', cursor: 'pointer', border: '1px solid var(--color-accent-secondary)', background: 'transparent', color: 'var(--color-accent-secondary)', fontSize: '8px', letterSpacing: '0.8px' }}>RUN</button>
+                          <button type="button" data-help="composer.skills.run-builtin" disabled={s.off || s.replaced} onClick={() => runBuiltinSkill(s)} title="Run this skill in this conversation" className="display-font" style={{ flex: 1, padding: '3px 5px', borderRadius: '2px', cursor: 'pointer', border: '1px solid var(--color-accent-secondary)', background: 'transparent', color: 'var(--color-accent-secondary)', fontSize: '8px', letterSpacing: '0.8px' }}>RUN</button>
                           <button type="button" data-help="composer.skills.copy-builtin" onClick={() => void copyBuiltinSkill(s)} title="Save an editable copy to your skills" className="display-font" style={{ flex: 1, padding: '3px 5px', borderRadius: '2px', cursor: 'pointer', border: '1px solid var(--color-accent-primary)', background: 'transparent', color: 'var(--color-accent-primary)', fontSize: '8px', letterSpacing: '0.8px' }}>EDITABLE COPY</button>
                         </div>
                       </div>

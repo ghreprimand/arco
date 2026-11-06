@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Build the audited release tarball from all six collected native artifacts.
-import { cpSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -25,6 +25,7 @@ try {
   if (!/^[A-Za-z0-9._-]+\.tgz$/.test(packed)) throw new Error('Unexpected npm pack output.');
   const audit = resolve(scratch, 'audit'); mkdirSync(audit);
   run('tar', ['-xzf', resolve(scratch, packed), '-C', audit, '--strip-components=1']);
+  if (!existsSync(resolve(audit, 'THIRD_PARTY_NOTICES'))) throw new Error('The package is missing THIRD_PARTY_NOTICES.');
   run(process.execPath, ['scripts/public-audit.mjs', '--package', audit]);
   cpSync(resolve(scratch, packed), destination, { errorOnExist: true, force: false });
   console.log(`Audited release package: ${destination}`);

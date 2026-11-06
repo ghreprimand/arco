@@ -641,7 +641,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills': {
     title: 'Skills',
-    body: <p><C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. <C>NEW SKILL</C> opens the editor. Under BUILT-IN are the skills shipped with Arco, such as Architecture review. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
+    body: <p><C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. <C>NEW SKILL</C> opens the editor. BUILT-IN lists the shipped skills. RUN applies one; EDITABLE COPY saves your version. Skills marked MODEL also appear in the agent list. Turn built-ins on or off in Settings; a same-name personal skill replaces the built-in. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
   },
   'composer.skills.import': {
     title: 'IMPORT a skill',
@@ -655,7 +655,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills.copy-builtin': {
     title: 'EDITABLE COPY',
-    body: <p><C>EDITABLE COPY</C> saves the built-in skill's text as your own operator-only skill named "(copy)", in this project's skills (or your global skills when the tab has no folder). Edit it in Settings &gt; SKILLS. The built-in skill stays as shipped.</p>,
+    body: <p><C>EDITABLE COPY</C> saves the skill and its supporting files in this project or your global skills. Edit it in Settings &gt; SKILLS. A copy with the same name replaces the built-in; Architecture review uses a separate "(copy)" name.</p>,
     manualSection: 'architecture-review',
   },
 };

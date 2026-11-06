@@ -198,11 +198,11 @@ test('MOVE and DUPLICATE keep every file; a duplicate gets the new name and no s
 test('needs: skill names the text refers to that are not installed', async () => {
   assert.deepEqual(m.missingSkillRefs('First use the grilling skill. Then see skills/release-notes/SKILL.md. Use this skill. Apply skill: "checks".', new Set(['checks'])), ['grilling', 'release-notes']);
   const cwd = project();
-  await skills.writeSkill({ scope: 'project', name: 'Planner', description: 'Plans', body: 'Run the grilling skill, then the architecture-review skill.' }, cwd);
+  await skills.writeSkill({ scope: 'project', name: 'Planner', description: 'Plans', body: 'Run the release-notes skill, then the architecture-review skill.' }, cwd);
   await m.confirmImport((await m.previewImport({ kind: 'folder', path: folder({ 'SKILL.md': SKILL('Extras'), 'docs/a.md': 'A' }) })).token, 'project', cwd);
   const details = await m.skillDetails(cwd);
   const planner = details.find((d) => d.slug === 'planner')!;
-  assert.deepEqual(planner.missing, ['grilling']);
+  assert.deepEqual(planner.missing, ['release-notes']);
   assert.deepEqual(details.find((d) => d.slug === 'extras')!.files, [{ path: 'docs/a.md', bytes: 1 }]);
 });
 

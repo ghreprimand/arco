@@ -351,7 +351,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <p>
         Project and global skills: a folder with a <C>SKILL.md</C> and any files
         it needs. Arco lists names and descriptions to the agent each turn; the
-        agent reads a full skill only when needed. Each row shows the extra files,
+        agent reads a full skill only when needed. Descriptions can have up to 300 characters. Built-in skills can be turned on or off. Each row shows the extra files,
         where an imported skill came from, and skill names its text refers to that
         are not installed. Project skills are in <C>.arco/skills/</C>, which Git
         ignores unless you use <C>SHARE WITH REPOSITORY</C>.
@@ -371,7 +371,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.toggle': {
     title: 'TURN OFF / TURN ON',
-    body: <p><C>TURN OFF</C> keeps the skill but leaves it out of the agent's list, of tab pins and of the composer SKILLS menu. It is shown greyed with OFF. <C>TURN ON</C> brings it back.</p>,
+    body: <p><C>TURN OFF</C> keeps the skill but leaves it out of the agent's list, of tab pins and of the composer SKILLS menu. It is shown greyed with OFF. Built-in skills stay visible in the composer but cannot run. <C>TURN ON</C> brings it back.</p>,
     manualSection: 'skills',
   },
   'settings.skills.move': {

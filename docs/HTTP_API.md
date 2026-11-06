@@ -1445,7 +1445,7 @@ Create or update a skill. Body:
   scope: 'project' | 'global',
   slug?: string,           // omit to create; required to update
   name: string,            // ≤80
-  description: string,     // ≤240
+  description: string,     // ≤300
   body: string,            // ≤64KB
   operatorOnly?: boolean,  // writes `operator-only: true`
 }
@@ -1471,7 +1471,7 @@ All matched before the plain `/api/skills` routes; `cwd` (query) is required for
 
 ### `POST /api/skills/copy-builtin?cwd=<absolute path>`
 
-P8.5 - saves an editable copy of a built-in skill. Body `{ scope: 'project' | 'global', slug }`. Writes an ordinary operator-only skill named `<name> (copy)` with the built-in's description and body; the built-in stays unchanged. 404 for an unknown built-in; `cwd` is required for project scope. Returns `{ skill: SkillSummary }`.
+P8.5 - saves an editable copy of a built-in skill. Body `{ scope: 'project' | 'global', slug }`. Writes an editable skill with the built-in's description, body and supporting files; Architecture review uses the name `<name> (copy)` and other built-ins use their original name; the built-in stays unchanged. 404 for an unknown built-in; `cwd` is required for project scope. Returns `{ skill: SkillSummary }`.
 
 ### `POST /api/architecture-review/candidates`, `/add-to-plan`, `/record-decision`
 

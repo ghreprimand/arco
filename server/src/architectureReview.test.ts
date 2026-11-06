@@ -192,7 +192,8 @@ test('RECORD DECISION appends to the decisions doc, which the next review reads'
 test('the built-in skill is listed as built-in and operator-only, in Arco\'s words', async () => {
   const cwd = repo('skills', false);
   const catalog = await listSkills(cwd);
-  assert.deepEqual(catalog.builtin, [{ slug: 'architecture-review', name: 'Architecture review', description: review.ARCHITECTURE_REVIEW_SKILL.description, scope: 'builtin', operatorOnly: true }]);
+  assert.deepEqual(catalog.builtin.find((s) => s.slug === 'architecture-review'), { slug: 'architecture-review', name: 'Architecture review', description: review.ARCHITECTURE_REVIEW_SKILL.description, scope: 'builtin', operatorOnly: true, off: false, replaced: false });
+  assert.equal(readBuiltinSkill('improve-codebase-architecture')?.body, readBuiltinSkill('architecture-review')?.body);
   const body = readBuiltinSkill('architecture-review')!.body;
   for (const word of ['Deletion test', 'Seam', 'architecture-review-YYYY-MM-DD.json', 'one question at a time', 'ADD TO PLAN', 'RECORD DECISION']) assert.ok(body.includes(word), word);
   assert.equal(readBuiltinSkill('other'), null);

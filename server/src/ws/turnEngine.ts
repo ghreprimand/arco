@@ -1419,6 +1419,26 @@ export async function handleUserMessage(
     return;
   }
 
+  // Explicit built-in slash commands are resolved before queueing, so queued
+  // turns retain the same pick. A trusted project or global copy takes priority.
+  if (projectContextEnabled && !fromQueue) {
+    const invocation = /^\/(grill-me|grill-with-docs|wait-what|retro|improve-codebase-architecture)(?:\s|$)/i.exec(content);
+    if (invocation) {
+      const requested = invocation[1].toLowerCase();
+      const slug = requested === 'improve-codebase-architecture' ? 'architecture-review' : requested;
+      const include = await projectTrust.resolveTrustStatus(managedTrustSource ?? cwd).catch(() => 'ask' as const) === 'always';
+      const catalog = await listSkills(cwd, { includeProject: include });
+      const own = [...catalog.project, ...catalog.global].find((s) => s.slug.toLowerCase() === requested || s.name.toLowerCase() === requested);
+      const builtin = catalog.builtin.find((s) => s.slug === slug);
+      if (own?.off || (!own && builtin?.off)) {
+        send(ws, { type: 'error', workflowId, message: `/${requested} is turned off.` });
+        return;
+      }
+      if (own) pickedSkills = [...(pickedSkills ?? []), { scope: own.scope, slug: own.slug }];
+      else if (builtin && !builtin.replaced) pickedSkills = [...(pickedSkills ?? []), { scope: 'builtin', slug }];
+    }
+  }
+
   // DD10 — parameterized `/prompt` command expansion. Runs FIRST (before
   // context-refs + before any echo/record) so events.jsonl carries the expanded
   // turn, and so `@`-refs inside an expanded template still expand below. A
@@ -1743,9 +1763,12 @@ export async function handleUserMessage(
           // the facts Arco gathers now and the project's recorded decisions.
           const builtin = readBuiltinSkill(pick.slug);
           if (!builtin) { missing.push(`builtin:${pick.slug}`); continue; }
+          const catalog = await listSkills(cwd, { includeProject });
+          const summary = catalog.builtin.find((s) => s.slug === builtin.slug);
+          if (!summary || summary.off || summary.replaced) { missing.push(`builtin:${pick.slug}`); continue; }
           const extra = builtin.slug === ARCHITECTURE_REVIEW_SLUG
             ? `\n\nArtifacts folder for this conversation: ${artifactsDir(cwd, workflowId)}\n\n${await architectureReviewFacts(cwd, wf?.planId ?? clusterStore.getPlanId(clusterStore.getClusterIdForWorkflow(workflowId) ?? ''))}`
-            : '';
+            : `\n\nThe available skill files are listed in the skill manifest.`;
           resolved.push({ name: builtin.name, scope: 'builtin', body: builtin.body + extra });
           continue;
         }
@@ -1959,6 +1982,7 @@ export async function handleUserMessage(
         primarySkillsManifest = buildSkillsManifest({
           project: catalog.project.filter((s) => !pinnedKeys.has(`project:${s.slug}`)),
           global: catalog.global.filter((s) => !pinnedKeys.has(`global:${s.slug}`)),
+          builtin: catalog.builtin,
         });
       } catch (err) {
         console.error(`[arco] [${workflowId.slice(0, 8)}] skills scan failed:`, err);

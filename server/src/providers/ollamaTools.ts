@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
 import { signalChildTree, spawnShellChild } from '../workers/processKill.js';
 import dns from 'node:dns/promises';
+import { readBuiltinVirtualFile } from '../skills.js';
 
 // Server-side tool runtime for local Ollama workers. File access is resolved
 // against the workflow working directory and bounded output limits keep large
@@ -144,13 +145,13 @@ const ReadTool: OllamaToolEntry = {
     function: {
       name: 'Read',
       description:
-        'Read the contents of a file at the given path. The path must be inside the workflow cwd (relative paths are resolved against cwd). Default returns up to 32 KB; for larger files use `offset` + `limit` to read a specific line range. Don\'t fire many parallel Reads of large files — the local context window is finite and 5 large Reads will overflow it.',
+        'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Relative paths resolve against cwd. Default returns up to 32 KB; for larger files use `offset` + `limit` to read a specific line range. Don\'t fire many parallel Reads of large files — the local context window is finite and 5 large Reads will overflow it.',
       parameters: {
         type: 'object',
         properties: {
           file_path: {
             type: 'string',
-            description: 'Path to the file. Relative paths resolve against cwd; absolute paths must still resolve to a location inside cwd.',
+            description: 'Path to the file. Relative paths resolve against cwd; built-in skill files use the absolute paths in their manifest.',
           },
           offset: {
             type: 'number',
@@ -175,13 +176,10 @@ const ReadTool: OllamaToolEntry = {
     const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit >= 1
       ? Math.floor(rawLimit)
       : undefined;
-    const abs = resolveWithinCwd(ctx.cwd, filePath);
-    const stat = await fs.stat(abs);
-    if (stat.isDirectory()) {
-      throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
-    }
-    const buf = await fs.readFile(abs);
-    const text = buf.toString('utf8');
+    const builtin = readBuiltinVirtualFile(filePath);
+    const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
+    if (builtin === undefined && (await fs.stat(abs)).isDirectory()) throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
+    const text = builtin ?? (await fs.readFile(abs)).toString('utf8');
     // Line-slice when offset/limit given. Otherwise return whole file but cap.
     let body = text;
     let totalLines = -1;
