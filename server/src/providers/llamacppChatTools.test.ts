@@ -84,7 +84,7 @@ test('llama.cpp Chat and plan review refuse shell and file calls, and a plan rev
   const armed = { interactionMode: 'chat' as const, chatWebAccess: true };
   try {
     for (const name of ['Bash', 'Read', 'WebFetch', 'WebSearch']) {
-      const args = name === 'Bash' ? { command: 'touch ran.txt' } : name === 'Read' ? { file_path: join(dir, 'ran.txt') } : { url: 'http://127.0.0.1:9/fixture' };
+      const args: Record<string, string> = name === 'Bash' ? { command: 'touch ran.txt' } : name === 'Read' ? { file_path: join(dir, 'ran.txt') } : { url: 'http://127.0.0.1:9/fixture' };
       await refused(`plan review ${name}`, planReview, name, args);
       await refused(`disarmed chat ${name}`, { interactionMode: 'chat', chatWebAccess: false }, name, args);
     }

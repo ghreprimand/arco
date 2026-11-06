@@ -61,7 +61,7 @@ let viewObservers: Array<{ cb: () => void }> = [];
 
 class FakeEl {
   style = { maxHeight: '', maxWidth: '', overflowY: '', translate: '', width: '', height: '' };
-  position: 'absolute';
+  position = 'absolute';
   isConnected = true;
   parent: FakeEl | null = null;
   offsetParent: FakeEl | null = null;
