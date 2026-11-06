@@ -229,7 +229,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
         codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
           ? (wf.config.codebaseMemory.indexPath || cwd)
           : undefined,
-      }, () => ownsBusy(wf, busyToken) && wf.primary.provider === provider && wf.primarySessionId === expectedSessionId);
+      }, () => ownsBusy(wf, busyToken) && wf.primary.provider === provider && wf.primarySessionId === expectedSessionId, autoDetail ? 'auto' : 'manual');
     }
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : String(err) };

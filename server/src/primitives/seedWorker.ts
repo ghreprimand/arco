@@ -249,6 +249,7 @@ export function runPrimaryTurn(
     // worker drops `Task` from its tool registry (depth-1 cap). Operator-
     // driven turns and reviewers / handoff seeds leave this unset.
     claudeNativeTaskDisabled?: boolean;
+    claudeNativeSubagent?: { agentType: string; parentWorkflowId: string };
     // Phase 7c-followup — Claude Native server-side compaction. Resolved
     // by handleUserMessage from WorkflowConfig.claudeNativeCompact. Only
     // honored on Claude Native turns; reviewers / handoff seeds always
@@ -352,7 +353,7 @@ export function runPrimaryTurn(
     webSearchMaxUses?: number;
   },
 ): TurnHandle {
-  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, disableProviderHooks, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, onSteerDelivered, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, claudeNativeTaskDisabled, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, claudeNativePlanModeArmed, turnNotice, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
+  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, disableProviderHooks, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, onSteerDelivered, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, claudeNativeTaskDisabled, claudeNativeSubagent, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, claudeNativePlanModeArmed, turnNotice, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
 
   const workerId = `primary-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -404,6 +405,7 @@ export function runPrimaryTurn(
     claudeTransport,
     ultracode,
     claudeNativeTaskDisabled,
+    claudeNativeSubagent,
     claudeNativeCompact,
     claudeNativeForceInterleavedThinkingBeta,
     claudeNativeThinkingDisplay,

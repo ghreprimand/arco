@@ -22,7 +22,7 @@ import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
 import { applyEdit } from './editApply.js';
 import { commandShell, shellInvocation, shellToolLabel, shellToolName } from '../../commandShell.js';
-import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
+import { signalChildTree, spawnShellChild } from '../../workers/processKill.js';
 
 export const MAX_TOOL_OUTPUT_BYTES = 64 * 1024;
 const READ_BYTE_CAP = 256 * 1024;
@@ -580,11 +580,10 @@ function spawnShell(command: string, cwd: string): BashRegistration {
   const shell = commandShell();
   if (!shell.ok) throw new Error(`The Bash tool cannot run: ${shell.problem}`);
   const run = shellInvocation(shell, command);
-  const child = spawn(run.file, run.args, {
+  const child = spawnShellChild(run, {
     cwd,
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    ...shellChildSpawnOptions(),
   });
   child.once('close', run.cleanup);
   // DD2 — terminate gracefully (SIGTERM) then escalate to SIGKILL after a grace

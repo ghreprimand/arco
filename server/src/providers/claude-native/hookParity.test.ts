@@ -27,6 +27,8 @@ type W = {
   runTurn(prompt: string): Promise<void>;
   dispatchTool(block: { id: string; name: string; input: Record<string, unknown> }): Promise<{ text: string; isError: boolean }>;
   resolveGate(gateId: string, decision: 'approve' | 'reject', finalArgs?: Record<string, unknown>): unknown;
+  preCompactBlock(trigger: 'manual' | 'auto', customInstructions?: string | null): Promise<string | null>;
+  notifyDelays: { permissionMs: number; idleMs: number };
   setHookWakeHandler(fn: (text: string) => void): void;
   dispose(): Promise<void>;
   messages: MessageParam[];
@@ -59,9 +61,9 @@ function reply(blocks: Block[], stop = blocks.some((b) => b.type === 'tool_use')
   };
 }
 
-function setup(hooks: HookConfig, replies: Array<() => AsyncGenerator<unknown>>, opts: { taskDisabled?: boolean } = {}) {
+function setup(hooks: HookConfig, replies: Array<() => AsyncGenerator<unknown>>, opts: { taskDisabled?: boolean; config?: Record<string, unknown> } = {}) {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arco-hook-parity-')));
-  const w = new ClaudeNativeWorker({ workflowId: 'wf-hook-parity', config: { model: 'claude-opus-4-8', effort: 'high', cwd }, taskDisabled: opts.taskDisabled }) as unknown as W;
+  const w = new ClaudeNativeWorker({ workflowId: 'wf-hook-parity', config: { model: 'claude-opus-4-8', effort: 'high', cwd, ...opts.config }, taskDisabled: opts.taskDisabled }) as unknown as W;
   const requests: MessageParam[][] = [];
   const client = {
     messages: {
@@ -72,6 +74,7 @@ function setup(hooks: HookConfig, replies: Array<() => AsyncGenerator<unknown>>,
     },
   };
   w.hooks = hooks;
+  (w as unknown as { hooksLoaded: boolean }).hooksLoaded = true;
   w.ensureStarted = async () => { w.client = client; w.hooks = hooks; };
   w.reconcileMcpSessions = async () => {};
   w.hydrateContextManagementCapabilities = async () => {};
@@ -326,4 +329,145 @@ test('the PowerShell tool (Windows without Git Bash) gets every check Bash gets'
     assert.ok(names.includes('Bash') && !names.includes('PowerShell'));
     assert.deepEqual(await t.w.dispatchTool({ id: 'p', name: 'PowerShell', input: { command: 'echo hi' } }), { text: '[error] unknown tool "PowerShell". The shell tool here is Bash.', isError: true });
   } finally { t.done(); }
+});
+
+// ── if, the common input fields, agent_type, PreCompact, Notification ───────
+
+const lines = (file: string): string[] => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean) : []);
+// A hook that appends one line (its name) to log.txt in the project folder.
+const mark = (name: string, extra: Record<string, unknown> = {}) => ({ type: 'command', command: `echo ${name} >> "$CLAUDE_PROJECT_DIR/log.txt"`, ...extra });
+
+test('if: a handler runs only when the tool call matches its permission rule; on other events it never runs', async () => {
+  const s = setup({ byEvent: {
+    PreToolUse: [
+      { matcher: 'Bash', hooks: [mark('printf-rule', { if: 'Bash(printf *)' }), mark('git-log-rule', { if: 'Bash(git log *)' })] },
+      { matcher: 'Write', hooks: [mark('ts-rule', { if: 'Edit(*.ts)' })] },
+    ],
+    Stop: [{ hooks: [mark('stop-with-if', { if: 'Bash(*)' }), mark('stop-plain')] }],
+  } } as HookConfig, [end]);
+  const log = join(s.cwd, 'log.txt');
+  try {
+    await s.w.dispatchTool({ id: 'i1', name: 'Bash', input: { command: 'echo hi' } });
+    assert.deepEqual(lines(log), [], 'no rule matches echo hi');
+    await s.w.dispatchTool({ id: 'i2', name: 'Bash', input: { command: 'X=1 printf ok' } });
+    assert.deepEqual(lines(log), ['printf-rule'], 'leading assignments are stripped');
+    await s.w.dispatchTool({ id: 'i3', name: 'Bash', input: { command: 'echo $(printf x) && true' } });
+    assert.deepEqual(lines(log).slice(1).sort(), ['git-log-rule', 'printf-rule'], 'a command inside $() is checked; a longer pattern runs on $() anyway');
+    await s.w.dispatchTool({ id: 'i4', name: 'Write', input: { file_path: 'src/a.md', content: 'x' } });
+    await s.w.dispatchTool({ id: 'i5', name: 'Write', input: { file_path: 'src/a.ts', content: 'x' } });
+    assert.equal(lines(log).filter((l) => l === 'ts-rule').length, 1, 'Edit(*.ts) covers a Write to a .ts file only');
+    await s.w.runTurn('hello');
+    assert.ok(lines(log).includes('stop-plain'));
+    assert.ok(!lines(log).includes('stop-with-if'), 'a Stop handler with if never runs');
+  } finally { s.done(); }
+});
+
+test('hook input: transcript_path is the tab\'s event log; file paths are absolute', async () => {
+  const s = setup(on('PreToolUse', 'cat > "$CLAUDE_PROJECT_DIR/payload.json"', 'Write'), [end]);
+  try {
+    await s.w.dispatchTool({ id: 'p1', name: 'Write', input: { file_path: 'rel.txt', content: 'x' } });
+    const payload = JSON.parse(readFileSync(join(s.cwd, 'payload.json'), 'utf8'));
+    assert.equal(payload.transcript_path, join(s.cwd, '.arco', 'workflows', 'wf-hook-parity', 'events.jsonl'));
+    assert.equal(payload.tool_input.file_path, join(s.cwd, 'rel.txt'));
+    assert.equal(payload.session_id, 'wf-hook-parity');
+    assert.equal(payload.agent_type, undefined, 'only inside a subagent');
+    assert.equal(readFileSync(join(s.cwd, 'rel.txt'), 'utf8'), 'x');
+  } finally { s.done(); }
+});
+
+test('a Task child\'s turn: agent_type is the type the parent asked for, SubagentStop matches it, both transcripts are named', async () => {
+  const s = setup({ byEvent: {
+    PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'cat > "$CLAUDE_PROJECT_DIR/pre.json"' }] }],
+    SubagentStop: [
+      { matcher: 'general-purpose', hooks: [mark('wrong-type')] },
+      { matcher: 'Explore', hooks: [{ type: 'command', command: 'cat > "$CLAUDE_PROJECT_DIR/stop.json"' }] },
+    ],
+  } } as HookConfig, [reply([{ type: 'tool_use', id: 'c1', name: 'Bash', input: { command: 'echo child' } }]), end], {
+    taskDisabled: true,
+    config: { claudeNativeSubagent: { agentType: 'Explore', parentWorkflowId: 'wf-parent' } },
+  });
+  try {
+    await s.w.runTurn('look around');
+    const stop = JSON.parse(readFileSync(join(s.cwd, 'stop.json'), 'utf8'));
+    assert.equal(stop.hook_event_name, 'SubagentStop');
+    assert.equal(stop.agent_type, 'Explore');
+    assert.equal(stop.agent_id, 'wf-hook-parity');
+    assert.equal(stop.session_id, 'wf-parent');
+    assert.equal(stop.transcript_path, join(s.cwd, '.arco', 'workflows', 'wf-parent', 'events.jsonl'));
+    assert.equal(stop.agent_transcript_path, join(s.cwd, '.arco', 'workflows', 'wf-hook-parity', 'events.jsonl'));
+    assert.equal(stop.last_assistant_message, 'done');
+    const pre = JSON.parse(readFileSync(join(s.cwd, 'pre.json'), 'utf8'));
+    assert.equal(pre.agent_type, 'Explore', 'tool events inside the subagent carry it too');
+    assert.ok(!lines(join(s.cwd, 'log.txt')).includes('wrong-type'));
+  } finally { s.done(); }
+});
+
+test('PreCompact: matched against manual or auto; exit 2 or decision "block" blocks; systemMessage is discarded', async () => {
+  let s = setup({ byEvent: { PreCompact: [
+    { matcher: 'auto', hooks: [{ type: 'command', command: 'cat > "$CLAUDE_PROJECT_DIR/pc.json"; echo "not during the release" >&2; exit 2' }] },
+  ] } } as HookConfig, [end]);
+  try {
+    assert.equal(await s.w.preCompactBlock('manual'), null, 'the auto matcher skips a manual compaction');
+    assert.equal(existsSync(join(s.cwd, 'pc.json')), false);
+    assert.equal(await s.w.preCompactBlock('auto'), '[cat > "$CLAUDE_PROJECT_DIR/pc.json"; echo "not during the release" >&2; exit 2]: not during the release');
+    const payload = JSON.parse(readFileSync(join(s.cwd, 'pc.json'), 'utf8'));
+    assert.equal(payload.hook_event_name, 'PreCompact');
+    assert.equal(payload.trigger, 'auto');
+    assert.equal(payload.custom_instructions, null);
+  } finally { s.done(); }
+  s = setup(on('PreCompact', `echo '${JSON.stringify({ decision: 'block', reason: 'snapshot first', systemMessage: 'shown nowhere', continue: false })}'`), [end]);
+  try {
+    assert.match(await s.w.preCompactBlock('manual') ?? '', /: snapshot first$/);
+    assert.ok(!s.notices.some((n) => /shown nowhere|stopped processing/.test(n)), s.notices.join('\n'));
+  } finally { s.done(); }
+  s = setup(on('PreCompact', 'echo fine'), [end]);
+  try { assert.equal(await s.w.preCompactBlock('manual'), null); } finally { s.done(); }
+});
+
+test('Notification: permission_prompt once an approval card has waited; nothing when it is answered sooner; exit codes ignored', async () => {
+  const ask = { type: 'command', command: `echo '${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: 'check' } })}'` };
+  const hooks = { byEvent: {
+    PreToolUse: [{ matcher: 'Write', hooks: [ask] }],
+    Notification: [{ matcher: 'permission_prompt', hooks: [{ type: 'command', command: 'cat >> "$CLAUDE_PROJECT_DIR/n.jsonl"; echo >> "$CLAUDE_PROJECT_DIR/n.jsonl"; echo ignored >&2; exit 2' }] }],
+  } } as HookConfig;
+  let s = setup(hooks, [end]);
+  try {
+    s.w.notifyDelays.permissionMs = 150;
+    const pending = s.w.dispatchTool({ id: 'n1', name: 'Write', input: { file_path: join(s.cwd, 'x.txt'), content: 'x' } });
+    await until(() => lines(join(s.cwd, 'n.jsonl')).length > 0);
+    const n = JSON.parse(lines(join(s.cwd, 'n.jsonl'))[0]);
+    assert.deepEqual([n.hook_event_name, n.notification_type, n.message, n.title], ['Notification', 'permission_prompt', 'Claude needs your permission to use Write', 'Permission needed']);
+    s.w.resolveGate('n1', 'reject');
+    await pending;
+    assert.ok(!s.notices.some((x) => x.includes('ignored')), s.notices.join('\n'));
+  } finally { s.done(); }
+  s = setup(hooks, [end]);
+  try {
+    s.w.notifyDelays.permissionMs = 800;
+    const pending = s.w.dispatchTool({ id: 'n2', name: 'Write', input: { file_path: join(s.cwd, 'y.txt'), content: 'y' } });
+    await until(() => s.events.some((e) => e.type === 'gate_required'));
+    s.w.resolveGate('n2', 'approve');
+    await pending;
+    await new Promise((r) => setTimeout(r, 1_200));
+    assert.deepEqual(lines(join(s.cwd, 'n.jsonl')), [], 'answered before the wait: no notification');
+  } finally { s.done(); }
+});
+
+test('Notification: idle_prompt after a finished turn with nothing sent since; a new turn resets the wait', async () => {
+  const s = setup({ byEvent: {
+    Notification: [{ matcher: 'idle_prompt', hooks: [{ type: 'command', command: 'cat >> "$CLAUDE_PROJECT_DIR/idle.jsonl"; echo >> "$CLAUDE_PROJECT_DIR/idle.jsonl"' }] }],
+  } } as HookConfig, [end]);
+  const idle = join(s.cwd, 'idle.jsonl');
+  try {
+    s.w.notifyDelays.idleMs = 1_000;
+    await s.w.runTurn('one');
+    await s.w.runTurn('two');
+    await new Promise((r) => setTimeout(r, 600));
+    assert.deepEqual(lines(idle), [], 'not yet');
+    await until(() => lines(idle).length > 0);
+    await new Promise((r) => setTimeout(r, 1_000));
+    assert.equal(lines(idle).length, 1, 'the first turn\'s wait was replaced by the second\'s');
+    const n = JSON.parse(lines(idle)[0]);
+    assert.deepEqual([n.notification_type, n.message], ['idle_prompt', 'Claude is waiting for your input']);
+  } finally { s.done(); }
 });

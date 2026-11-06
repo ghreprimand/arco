@@ -606,6 +606,10 @@ export interface WorkerConfig {
   // orchestration trees). The parent never sets it. In-process callback path
   // only — never JSON-serialized over the wire.
   claudeNativeTaskDisabled?: boolean;
+  // A Task child: the agent type the parent asked for (default
+  // "general-purpose") and the parent tab, so hooks during the child's turn
+  // get agent_type, agent_id and both transcript paths, as in Claude Code.
+  claudeNativeSubagent?: { agentType: string; parentWorkflowId: string };
   // Phase 7c-followup — unless explicitly false, the Claude Native worker
   // appends the `compact-2026-01-12` beta to its anthropic-beta header per
   // request and includes `context_management.edits =

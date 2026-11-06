@@ -144,7 +144,9 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           <strong>Claude (native):</strong> runs one summarization round, then
           replaces the worker's in-memory history with the summary and continues
-          in the same tab. The summary is persisted so it survives a reload.
+          in the same tab. The summary is persisted so it survives a reload. A{' '}
+          <C>PreCompact</C> hook that exits with code 2 skips the compaction,
+          and the notice gives its reason.
         </p>
         <p>
           <strong>Cursor (ACP):</strong> sends Cursor's native <C>/compress</C>{' '}
@@ -554,7 +556,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           The raw transcript stays intact in <C>events.jsonl</C>; only the
           worker's in-memory prompt shrinks. Claude-native only. Runs between
           turns: disabled while a turn is in flight. An auto-fold toggle (default
-          OFF) lives in CONFIG.
+          OFF) lives in CONFIG. A <C>PreCompact</C> hook that exits with code 2
+          skips the fold.
         </p>
       </>
     ),
@@ -575,8 +578,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           Costs one summarization call: the token spend is shown in the
           notice and added to the tab&apos;s token total. If the API refuses the
           beta (account/model) or no summary comes back, it falls back to the
-          deterministic Fold automatically. Claude Native Agent tabs only,
-          between turns. Undo: HISTORY → rewind to before the fold; the full
+          deterministic Fold automatically. A <C>PreCompact</C> hook that exits
+          with code 2 skips it. Claude Native Agent tabs only, between turns. Undo: HISTORY → rewind to before the fold; the full
           transcript stays in <C>events.jsonl</C>.
         </p>
       </>

@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
-import { shellChildSpawnOptions, signalChildTree } from '../workers/processKill.js';
+import { signalChildTree, spawnShellChild } from '../workers/processKill.js';
 import dns from 'node:dns/promises';
 
 // Server-side tool runtime for local Ollama workers. File access is resolved
@@ -792,13 +792,12 @@ async function runBashCommand(
     let aborted = false;
 
     const run = shellInvocation(shell, command);
-    const child = spawn(run.file, run.args, {
+    const child = spawnShellChild(run, {
       cwd: ctx.cwd,
       env: { ...process.env },
       // ignore stdin so commands that read from stdin don't hang waiting.
-      stdio: ['ignore', 'pipe', 'pipe'],
       // Unix: session leader, so process.kill(-pid) reaches all descendants.
-      ...shellChildSpawnOptions(),
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.once('close', run.cleanup);
 

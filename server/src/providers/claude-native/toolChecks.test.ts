@@ -151,9 +151,12 @@ test('the Bash tool runs in the platform shell and ends the whole tree on timeou
     assert.match(ok.text, /exit code: 3/);
     assert.match(ok.text, /hello from /);
     const started = Date.now();
-    const slow = await s.call('Bash', { command: 'sleep 30 & sleep 30', timeout: 1000 });
+    // A background job that would leave a file behind if it outlived the kill.
+    const slow = await s.call('Bash', { command: '(sleep 2; echo alive > alive.txt) & sleep 30', timeout: 1000 });
     assert.match(slow.text, /^\[timed out after 1000ms\]/);
     assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
+    await new Promise((r) => setTimeout(r, 3_000));
+    assert.equal(existsSync(join(s.cwd, 'alive.txt')), false, 'the background job was ended with the tree');
   } finally { s.done(); }
 });
 

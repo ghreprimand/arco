@@ -339,13 +339,22 @@ export async function compactClaudeNativeWorker(
   workflowId: string,
   config?: WorkerConfig,
   stillOwner?: () => boolean,
+  trigger: 'manual' | 'auto' = 'manual',
 ): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
   const worker = workersByWorkflow.get(workflowId) ?? (config ? acquireWorker(workflowId, config) : undefined);
   if (!worker) {
     return { ok: false, error: 'no active Claude Native worker for this workflow — run a turn first' };
   }
   if (config) worker.updateConfig(config);
+  const blocked = await worker.preCompactBlock(trigger);
+  if (blocked) return { ok: false, error: preCompactRefusal(blocked) };
   return worker.compactInPlace(stillOwner);
+}
+
+// PreCompact hooks run once before each COMPACT or FOLD, by hand ("manual")
+// or automatic ("auto"), as in Claude Code; a block skips the compaction.
+function preCompactRefusal(reason: string): string {
+  return `a PreCompact hook blocked the compaction, so the conversation was left as it was. ${reason}`;
 }
 
 // §2.1 — operator/auto Fold. Same acquire-or-reuse contract as
@@ -360,6 +369,8 @@ export async function foldClaudeNativeWorker(
     return { ok: false, error: 'no active Claude Native worker for this workflow — run a turn first' };
   }
   if (config) worker.updateConfig(config);
+  const blocked = await worker.preCompactBlock(opts?.trigger === 'auto' ? 'auto' : 'manual');
+  if (blocked) return { ok: false, error: preCompactRefusal(blocked) };
   return worker.foldInPlace(opts);
 }
 
@@ -387,6 +398,8 @@ export async function serverFoldClaudeNativeWorker(
     return { ok: false, error: 'no active Claude Native worker for this workflow — run a turn first' };
   }
   if (config) worker.updateConfig(config);
+  const blocked = await worker.preCompactBlock('manual');
+  if (blocked) return { ok: false, error: preCompactRefusal(blocked) };
   const res = await worker.serverFoldInPlace();
   if (res.ok || !res.fallback) return res;
   const fold = await worker.foldInPlace({ trigger: 'operator' });

@@ -6,13 +6,14 @@
 // worker; refreshed on ensureStarted (operators can pick up edits by
 // closing/reopening the tab).
 //
-// Events honored in 7a: PreToolUse, PostToolUse, UserPromptSubmit, Stop,
-// SubagentStop (call site wired but never fires until 7b's Task lands),
-// Notification, PreCompact (documented no-op pass-through). Non-zero
-// exit blocks PreToolUse / UserPromptSubmit; other events' exit codes
-// are informational. 30s default timeout; per-hook override via
-// `timeout` field. SIGTERM then SIGKILL after 2s grace (on Windows the
-// process tree ends at once through taskkill).
+// Events fired: PreToolUse, PostToolUse, PostToolUseFailure,
+// UserPromptSubmit, Stop, SubagentStop (a Task child's first turn),
+// PreCompact (COMPACT, FOLD and their automatic runs) and Notification
+// (permission_prompt, idle_prompt). How exit codes and JSON output decide is
+// below (evaluateHooks). Claude Code's default timeouts; per-hook override
+// via `timeout`. SIGTERM then SIGKILL after 2s grace (on Windows the process
+// tree ends at once, workers/processKill.ts). A handler's `if` rule narrows a
+// tool event further (hookIf.ts).
 //
 // How a command hook runs, as in Claude Code:
 // - Exec form (`args` set): `command` is started directly with `args` as its
@@ -34,12 +35,12 @@
 // into hook scripts).
 
 import { promises as fs } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import { spawn } from 'node:child_process';
 import type { ShellRegistry } from './tools.js';
+import { IF_EVENTS, ifMatches } from './hookIf.js';
 import { commandShell, hookShell, shellInvocation } from '../../commandShell.js';
-import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
+import { signalChildTree, spawnShellChild } from '../../workers/processKill.js';
 
 export type HookEvent =
   | 'PreToolUse'
@@ -65,6 +66,15 @@ export interface HookCommand {
   async?: boolean; // run in the background; output reaches the model next turn
   asyncRewake?: boolean; // background; exit 2 wakes the model with stderr
   onFailure?: 'continue' | 'block'; // whether a failed hook lets the action go ahead
+  if?: string; // one permission rule; tool events only (hookIf.ts)
+}
+
+// Where a rule path with one leading "/" in a handler's `if` is anchored: the
+// project folder of the settings file it came from, or ~/.claude for the
+// user's own settings.
+const ruleAnchors = new WeakMap<HookCommand, string>();
+export function hookRuleAnchor(hook: HookCommand): string | undefined {
+  return ruleAnchors.get(hook);
 }
 
 interface HookSettings {
@@ -108,7 +118,7 @@ export async function discoverHooks(
   const includeProject = opts?.includeProject !== false;
   const home = resolve(opts?.homeDir ?? homedir());
   const userPath = join(home, '.claude', 'settings.json');
-  const collected: HookSettings[] = [];
+  const collected: Array<{ settings: HookSettings; anchor: string }> = [];
   const suppressedProjectFiles: string[] = [];
   if (cwd) {
     let dir = resolve(cwd);
@@ -117,7 +127,7 @@ export async function discoverHooks(
       if (path !== userPath) {
         const data = await readSettingsFile(path);
         if (data?.hooks && !includeProject) suppressedProjectFiles.push(path);
-        else if (data) collected.push(data);
+        else if (data) collected.push({ settings: data, anchor: dir });
       }
       const parent = dirname(dir);
       if (parent === dir) break;
@@ -125,19 +135,35 @@ export async function discoverHooks(
     }
   }
   const userData = await readSettingsFile(userPath);
-  if (userData) collected.push(userData);
+  if (userData) collected.push({ settings: userData, anchor: dirname(userPath) });
 
   const merged: HookConfig = { byEvent: {} };
-  for (const settings of collected) {
+  for (const { settings, anchor } of collected) {
     if (!settings.hooks) continue;
     for (const [event, specs] of Object.entries(settings.hooks) as Array<[HookEvent, HookSpec[]]>) {
       if (!Array.isArray(specs)) continue;
+      for (const spec of specs) {
+        for (const hook of Array.isArray(spec?.hooks) ? spec.hooks : []) {
+          if (hook && typeof hook === 'object') ruleAnchors.set(hook, anchor);
+        }
+      }
       const dest = merged.byEvent[event] ?? [];
       dest.push(...specs);
       merged.byEvent[event] = dest;
     }
   }
   return { ...merged, suppressedProjectFiles };
+}
+
+// The tool input as hooks see it: file paths absolute, as Claude Code sends
+// them (Arco's file tools also accept paths relative to the project folder).
+export function hookToolInput(input: Record<string, unknown>, cwd: string): Record<string, unknown> {
+  let out = input;
+  for (const key of ['file_path', 'notebook_path']) {
+    const v = input[key];
+    if (typeof v === 'string' && v && !isAbsolute(v)) out = { ...out, [key]: resolve(cwd, v) };
+  }
+  return out;
 }
 
 // Claude Code's matcher rules: "*", "" or none match everything; only
@@ -275,7 +301,7 @@ export function powerShellPlaceholders(command: string): string {
 }
 
 type HookLaunch =
-  | { ok: true; file: string; args: string[]; cleanup: () => void; exec: boolean; shellNotice?: string }
+  | { ok: true; file: string; args: string[]; cleanup: () => void; exec: boolean; msys?: boolean; shellNotice?: string }
   | { ok: false; problem: string };
 
 /** What to start for a hook: exec form when `args` is set, else its shell. */
@@ -317,13 +343,12 @@ async function runHookOnce(
   if (!launch.ok) return { exitCode: 0, stdout: '', stderr: '', timedOut: false, notRun: launch.problem, ...meta };
   const shellNotice = launch.shellNotice;
   return new Promise<HookFireResult>((resolveResult) => {
-    let child: ReturnType<typeof spawn>;
+    let child: ReturnType<typeof spawnShellChild>;
     try {
-      child = spawn(launch.file, launch.args, {
+      child = spawnShellChild(launch, {
         cwd: opts.cwd,
         env: { ...scrubEnv(), CLAUDE_PROJECT_DIR: opts.cwd },
         stdio: ['pipe', 'pipe', 'pipe'],
-        ...shellChildSpawnOptions(),
       });
     } catch (err) {
       launch.cleanup();
@@ -394,7 +419,7 @@ function gitBashMissing(): boolean {
 }
 
 function handlerKey(hook: HookCommand): string {
-  return JSON.stringify([hook.command, hook.args ?? null, hook.shell ?? null, !!hook.async, !!hook.asyncRewake]);
+  return JSON.stringify([hook.command, hook.args ?? null, hook.shell ?? null, !!hook.async, !!hook.asyncRewake, hook.if ?? null]);
 }
 
 // Runs the command hooks for `event` whose matcher fits `matcherTarget`, as
@@ -412,11 +437,19 @@ export async function fireHooks(
   if (!Array.isArray(specs) || specs.length === 0) return [];
   const seen = new Set<string>();
   const handlers: HookCommand[] = [];
+  const call = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
   for (const spec of specs) {
     if (!spec || !Array.isArray(spec.hooks)) continue;
     if (!NO_MATCHER_EVENTS.has(event) && !matcherMatches(spec.matcher, matcherTarget)) continue;
     for (const hook of spec.hooks) {
       if (!hook || hook.type !== 'command' || typeof hook.command !== 'string' || !hook.command) continue;
+      // `if`: only tool events read it; elsewhere such a handler never runs.
+      if (hook.if !== undefined) {
+        if (!IF_EVENTS.has(event) || typeof hook.if !== 'string') continue;
+        const toolInput = call.tool_input && typeof call.tool_input === 'object' ? call.tool_input as Record<string, unknown> : {};
+        const toolName = typeof call.tool_name === 'string' ? call.tool_name : matcherTarget;
+        if (!ifMatches(hook.if, { toolName, toolInput, cwd: opts.cwd, anchorDir: ruleAnchors.get(hook) ?? opts.cwd })) continue;
+      }
       const key = handlerKey(hook);
       if (seen.has(key)) continue;
       seen.add(key);

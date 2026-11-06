@@ -17,9 +17,8 @@ import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 //     `<arcoHome>/.arco/workflows/<wfid>/sandbox-tmp/<id>` so a script
 //     that writes ./out.txt doesn't pollute the operator's repo.
 
-import { spawn } from 'node:child_process';
 import { commandShell } from '../../commandShell.js';
-import { shellChildSpawnOptions, signalChildTree } from '../../workers/processKill.js';
+import { signalChildTree, spawnShellChild } from '../../workers/processKill.js';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -64,7 +63,7 @@ export function normalizeLanguage(input: string): SupportedLanguage | null {
   return LANG_ALIASES[key] ?? null;
 }
 
-function buildCommand(language: SupportedLanguage, scriptPath: string): { cmd: string; args: string[] } {
+function buildCommand(language: SupportedLanguage, scriptPath: string): { cmd: string; args: string[]; msysShell?: boolean } {
   switch (language) {
     case 'node':
       return { cmd: 'node', args: [scriptPath] };
@@ -74,7 +73,8 @@ function buildCommand(language: SupportedLanguage, scriptPath: string): { cmd: s
       // On Windows `bash` on PATH may be the WSL launcher; use Git Bash
       // (commandShell.ts). Elsewhere `bash` on PATH, as before.
       const shell = process.platform === 'win32' ? commandShell() : null;
-      return { cmd: shell?.ok && shell.kind === 'git-bash' ? shell.file : 'bash', args: [scriptPath] };
+      const gitBash = shell?.ok === true && shell.kind === 'git-bash';
+      return { cmd: gitBash ? shell.file : 'bash', args: [scriptPath], msysShell: gitBash };
     }
   }
 }
@@ -101,7 +101,7 @@ export async function executeSandboxed(
   const scriptPath = join(workdir, `script${extensionFor(language)}`);
   writeFileSync(scriptPath, code, { encoding: 'utf8', mode: 0o600 });
 
-  const { cmd, args } = buildCommand(language, scriptPath);
+  const { cmd, args, msysShell } = buildCommand(language, scriptPath);
   const startedAt = Date.now();
   if (language === 'shell' && process.platform === 'win32') {
     // A shell script is bash, so the PowerShell fallback does not apply.
@@ -121,10 +121,9 @@ export async function executeSandboxed(
     let timedOut = false;
     let settled = false;
 
-    const child = spawn(cmd, args, {
+    const child = spawnShellChild({ file: cmd, args, msys: msysShell }, {
       cwd: workdir,
       stdio: ['ignore', 'pipe', 'pipe'],
-      ...shellChildSpawnOptions(),
       env: { ...process.env, ARCO_SANDBOX: '1' },
     });
 

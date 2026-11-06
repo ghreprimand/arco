@@ -11,7 +11,15 @@ import type { WebSocket } from 'ws';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-auto-handoff-'));
 installIsolatedTestHome(root);
-after(() => rmSync(root, { recursive: true, force: true }));
+// Windows refuses to remove a folder while a file in it is still open: wait
+// for the background project writes and any file operation still in flight
+// (settings and counter saves), then retry briefly.
+after(async () => {
+  const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
+  await settleProjectWrites();
+  for (let i = 0; i < 40 && process.getActiveResourcesInfo().some((r) => r.startsWith('FSReq')); i++) await new Promise((r) => setTimeout(r, 50));
+  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+});
 const shared = await import('@arco/shared');
 const engine = await import('./turnEngine.js');
 const counter = await import('../compactionCounter.js');

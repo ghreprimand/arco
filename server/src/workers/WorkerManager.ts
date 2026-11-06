@@ -168,6 +168,7 @@ export class WorkerManager {
       // Phase 7b — set on a Task-spawned child so its Claude Native worker
       // refuses to spawn another Task. Parents leave this unset.
       claudeNativeTaskDisabled?: WorkerConfig['claudeNativeTaskDisabled'];
+      claudeNativeSubagent?: WorkerConfig['claudeNativeSubagent'];
       // Phase 7c-followup — Claude Native server-side compaction toggle.
       // Resolved by handleUserMessage from WorkflowConfig.claudeNativeCompact;
       // ignored by other transports.
@@ -292,6 +293,7 @@ export class WorkerManager {
       claudeTransport: options?.claudeTransport,
       ultracode: options?.ultracode,
       claudeNativeTaskDisabled: options?.claudeNativeTaskDisabled,
+      claudeNativeSubagent: options?.claudeNativeSubagent,
       claudeNativeCompact: options?.claudeNativeCompact,
       claudeNativeForceInterleavedThinkingBeta: options?.claudeNativeForceInterleavedThinkingBeta,
       claudeNativeThinkingDisplay: options?.claudeNativeThinkingDisplay,

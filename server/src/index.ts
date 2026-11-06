@@ -2078,7 +2078,7 @@ setClaudeNativePlanBroadcast((workflowId): PlanBroadcast => ({
 // the prompt, and resolves the parent's awaiting tool result with the child's
 // final assistant text. Depth-1 only — the child carries `claudeNativeTaskDisabled`
 // so its tool registry drops `Task`.
-setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model }): Promise<TaskSpawnHandle> => {
+setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model }): Promise<TaskSpawnHandle> => {
   const parent = workflows.get(parentWorkflowId);
   if (!parent) throw new Error(`Task: parent workflow ${parentWorkflowId.slice(0, 8)} not found`);
   const parentCwd = parent.config.workingDirectory;
@@ -2179,6 +2179,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, model
       claudeNativeForceInterleavedThinkingBeta: parent.config.claudeNativeForceInterleavedThinkingBeta === true,
       claudeNativeThinkingDisplay: parent.config.claudeNativeThinkingDisplay,
       claudeNativeTaskDisabled: true,
+      claudeNativeSubagent: { agentType: subagentType?.trim() || 'general-purpose', parentWorkflowId },
       // H30 — the child turn threads outputStyle the same way the normal turn
       // does (a runPrimaryTurn arg, NOT derivePrimaryConfig, which drops it).
       // Without this the child silently ran 'normal' regardless of the parent's

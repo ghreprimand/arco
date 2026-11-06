@@ -172,9 +172,24 @@ export const providers: Section[] = [
   <Code>.claude/settings.json</Code> hook files and runs command hooks as
   Claude Code's hooks reference describes: <Code>UserPromptSubmit</Code>,{' '}
   <Code>PreToolUse</Code>, <Code>PostToolUse</Code>,{' '}
-  <Code>PostToolUseFailure</Code>, <Code>Stop</Code> and{' '}
-  <Code>SubagentStop</Code> (a Task child). <Code>Notification</Code> and{' '}
-  <Code>PreCompact</Code> are not fired.
+  <Code>PostToolUseFailure</Code>, <Code>Stop</Code>,{' '}
+  <Code>SubagentStop</Code> (a Task child, matched against its agent type),{' '}
+  <Code>PreCompact</Code> and <Code>Notification</Code>.
+  </p>
+  <p>
+  <Code>PreCompact</Code> runs before COMPACT and FOLD, matched against{' '}
+  <Code>manual</Code> or <Code>auto</Code>; exit code 2 skips that
+  compaction. <Code>Notification</Code> runs when an approval card has
+  waited 6 seconds (<Code>permission_prompt</Code>) and 60 seconds after a
+  turn ends with nothing sent since (<Code>idle_prompt</Code>); it cannot
+  block anything.
+  </p>
+  <p>
+  A hook's <Code>if</Code> field takes one permission rule, such as{' '}
+  <Code>Bash(git *)</Code> or <Code>Edit(*.ts)</Code>, and the hook runs only
+  for tool calls that match it. On events other than tool events, a hook
+  with <Code>if</Code> never runs. Hook input includes{' '}
+  <Code>transcript_path</Code>, the tab's event log.
   </p>
   <p>
   Exit code 2 blocks where Claude Code blocks: it rejects a prompt, refuses a

@@ -23,7 +23,7 @@ import { ensureLiveTokens, forceRefreshTokens, markClaudeAuthProblem, ClaudeNati
 import { resolveTrustStatus } from '../../projectTrust.js';
 import { isShellToolName } from '@arco/shared';
 import { shellToolName } from '../../commandShell.js';
-import { discoverHooks, evaluateHooks, fireHooks, readHookStdout, type BackgroundHookDone, type HookConfig, type HookEvent, type HookFireResult, type HookVerdict } from './hooks.js';
+import { discoverHooks, evaluateHooks, fireHooks, hookToolInput, readHookStdout, type BackgroundHookDone, type HookConfig, type HookEvent, type HookFireResult, type HookVerdict } from './hooks.js';
 import { checkPartialReadFullWrite } from './pretoolGuards.js';
 import { firstBlockingGuard, postToolSteps, runPostToolSteps } from './toolChecks.js';
 import { evaluateGate, gateOutcome, gateSignature, type GateProposal } from './gateReview.js';
@@ -325,6 +325,12 @@ export class ClaudeNativeWorker extends EventEmitter {
   private clientTokenObtainedAt: number | null = null;
   private messages: MessageParam[] = [];
   private hooks: HookConfig = { byEvent: {} };
+  // Set once discoverTrustedHooks has run (ensureStarted, or a FOLD before any turn).
+  private hooksLoaded = false;
+  // Notification hooks: permission_prompt after a parked approval has waited,
+  // idle_prompt after a finished turn with nothing sent since (Claude Code's timings).
+  notifyDelays = { permissionMs: 6_000, idleMs: 60_000 };
+  private idleNotifyTimer: NodeJS.Timeout | null = null;
   // Reasons already shown for hooks that did not run (one notice per reason).
   private hooksNotRunReported = new Set<string>();
   // Background hooks (async / asyncRewake) live as long as the worker.
@@ -1213,7 +1219,10 @@ export class ClaudeNativeWorker extends EventEmitter {
     // unrelated to auth; replay only ever runs once per worker; 'init'
     // is for first-time wiring on the consumer side.
     if (isRebuild) return;
-    this.hooks = await this.discoverTrustedHooks();
+    if (!this.hooksLoaded) {
+      this.hooks = await this.discoverTrustedHooks();
+      this.hooksLoaded = true;
+    }
     if (!this.replayed) {
       const cwd = this.config.persistenceCwd ?? this.config.cwd;
       if (cwd) {
@@ -1867,14 +1876,55 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   // The common hook input fields Claude Code sends, plus Arco's workflow_id.
+  // transcript_path is this tab's event log (JSON lines in Arco's own format,
+  // written in the background, so it can lag the current turn as Claude
+  // Code's transcript can). During a Task child's turn the hooks also get
+  // agent_id and agent_type, and transcript_path is the parent's log.
   private hookInput(extra: Record<string, unknown>): Record<string, unknown> {
+    const sub = this.subagentTurnPending ? this.config.claudeNativeSubagent : undefined;
     return {
-      session_id: this.workflowId,
+      session_id: sub?.parentWorkflowId ?? this.workflowId,
+      transcript_path: this.transcriptPath(sub?.parentWorkflowId ?? this.workflowId),
       cwd: this.config.cwd ?? process.cwd(),
       permission_mode: this.planMode ? 'plan' : 'default',
       workflow_id: this.workflowId,
+      ...(sub ? { agent_id: this.workflowId, agent_type: sub.agentType } : {}),
       ...extra,
     };
+  }
+
+  private transcriptPath(workflowId: string): string {
+    return join(this.config.persistenceCwd ?? this.config.cwd ?? process.cwd(), '.arco', 'workflows', workflowId, 'events.jsonl');
+  }
+
+  // Notification hooks run in the background; their exit code, output and
+  // stderr are ignored, as in Claude Code. Only a hook that could not start
+  // is reported.
+  private fireNotification(type: 'permission_prompt' | 'idle_prompt', message: string, title: string): void {
+    if (!this.hooks.byEvent.Notification?.length) return;
+    const cwd = this.config.cwd ?? process.cwd();
+    void fireHooks(this.hooks, 'Notification', type, this.hookInput({ message, title, notification_type: type }), this.hookRunOpts(cwd, this.hookLifetime.signal))
+      .then((results) => this.reportHooks('Notification', results, evaluateHooks('Notification', type, [])))
+      .catch(() => { /* reported through the results */ });
+  }
+
+  private clearIdleNotification(): void {
+    if (this.idleNotifyTimer) clearTimeout(this.idleNotifyTimer);
+    this.idleNotifyTimer = null;
+  }
+
+  // PreCompact hooks before COMPACT and FOLD, manual or automatic, matched
+  // against the trigger. Exit 2, decision "block" or a failure with onFailure
+  // "block" skips the compaction; the reason comes back for the notice.
+  async preCompactBlock(trigger: 'manual' | 'auto', customInstructions: string | null = null): Promise<string | null> {
+    if (!this.hooksLoaded) {
+      this.hooks = await this.discoverTrustedHooks();
+      this.hooksLoaded = true;
+    }
+    if (!this.hooks.byEvent.PreCompact?.length) return null;
+    const v = await this.runHooks('PreCompact', trigger, { trigger, custom_instructions: customInstructions }, this.config.cwd ?? process.cwd(), this.hookLifetime.signal);
+    if (v.blocks.length === 0) return null;
+    return v.blocks.map((b) => `[${b.command}]: ${b.reason}`).join('\n').slice(0, 2000);
   }
 
   private hookRunOpts(cwd: string, abortSignal: AbortSignal): Parameters<typeof fireHooks>[4] {
@@ -1910,6 +1960,8 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.emit('system_notice', `[HOOKS] A ${event} hook did not run, so the action went ahead. ${r.notRun}${r.command ? ` Hook: ${r.command.slice(0, 200)}` : ''}`);
     }
     for (const n of verdict.notices) this.emit('system_notice', `[HOOKS] ${n.slice(0, 1500)}`);
+    // Claude Code discards systemMessage and continue on these events.
+    if (event === 'PreCompact' || event === 'Notification') return;
     for (const m of verdict.systemMessages) this.emit('system_notice', `[HOOKS] ${m.slice(0, 2000)}`);
     if (verdict.stop) this.emit('system_notice', `[HOOKS] A ${event} hook stopped processing${verdict.stop.reason ? `: ${verdict.stop.reason.slice(0, 1000)}` : '.'}`);
   }
@@ -1968,6 +2020,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   async dispose(): Promise<void> {
     this.cancel();
+    this.clearIdleNotification();
     this.hookLifetime.abort();
     // Kill any leftover background shells.
     for (const reg of this.shells.byId.values()) {
@@ -2202,11 +2255,22 @@ export class ClaudeNativeWorker extends EventEmitter {
   async runTurn(prompt: string): Promise<void> {
     this.turnRunning = true;
     this.hookStopRequested = null;
+    this.clearIdleNotification();
+    const subagentTurn = this.subagentTurnPending;
     try {
       await this.runTurnInner(prompt);
     } finally {
       this.turnRunning = false;
       this.subagentTurnPending = false;
+      // idle_prompt: the turn finished and nothing was sent for a while. Not
+      // after a cancel, and not for a Task child's own turn.
+      if (!subagentTurn && !this.cancelRequested && this.hooks.byEvent.Notification?.length) {
+        this.idleNotifyTimer = setTimeout(() => {
+          this.idleNotifyTimer = null;
+          this.fireNotification('idle_prompt', 'Claude is waiting for your input', 'Claude Code');
+        }, this.notifyDelays.idleMs);
+        this.idleNotifyTimer.unref?.();
+      }
       // An asyncRewake report that arrived during the turn and was not sent
       // with a later request wakes the model now.
       const wakes = this.pendingHookContext.filter((c) => c.wake);
@@ -2734,14 +2798,15 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (stopReason === 'model_context_window_exceeded' || stopReason === 'refusal' || stopReason === 'max_tokens') return null;
     if (this.cancelRequested || this.inFlight?.signal.aborted) return null;
     const subagent = this.subagentTurnPending;
+    const agentType = this.config.claudeNativeSubagent?.agentType ?? 'general-purpose';
     const event: HookEvent = subagent ? 'SubagentStop' : 'Stop';
     const extra: Record<string, unknown> = {
       stop_hook_active: continuations > 0,
       last_assistant_message: lastText,
       stop_reason: stopReason ?? 'unknown',
-      ...(subagent ? { agent_id: this.workflowId, agent_type: 'general-purpose' } : {}),
+      ...(subagent ? { agent_id: this.workflowId, agent_type: agentType, agent_transcript_path: this.transcriptPath(this.workflowId) } : {}),
     };
-    const v = await this.runHooks(event, subagent ? 'general-purpose' : 'Stop', extra, this.config.cwd ?? process.cwd(), this.makeAbortSignal('toolAbort'));
+    const v = await this.runHooks(event, subagent ? agentType : 'Stop', extra, this.config.cwd ?? process.cwd(), this.makeAbortSignal('toolAbort'));
     if (v.stop) return null;
     const parts = [...v.blocks.map((b) => `[${b.command}]: ${b.reason}`), ...v.context];
     if (parts.length === 0) return null;
@@ -3167,7 +3232,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // are non-blocking errors. "allow" skips no Arco check: the guards and the
     // operator's review gate still apply, like Claude Code's deny and ask rules.
     const pre = await this.runHooks('PreToolUse', matcher,
-      { tool_name: block.name, tool_input: input, tool_use_id: block.id },
+      { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id },
       ctx.cwd, ctx.abortSignal);
     const preContext = pre.context.map((c) => `PreToolUse:${block.name} hook additional context: ${c.slice(0, 10_000)}`);
     if (pre.blocks.length > 0 || pre.permission === 'deny' || pre.stop) {
@@ -3312,6 +3377,9 @@ export class ClaudeNativeWorker extends EventEmitter {
           createdAt,
         });
         let resolution: { decision: 'approve' | 'reject'; finalArgs?: Record<string, unknown>; remember?: boolean };
+        // Notification hooks (permission_prompt) once the card has waited.
+        const permissionTimer = setTimeout(() => this.fireNotification('permission_prompt', `Claude needs your permission to use ${block.name}`, 'Permission needed'), this.notifyDelays.permissionMs);
+        permissionTimer.unref?.();
         try {
           resolution = await new Promise((resolve, reject) => {
             this.pendingGates.set(block.id, {
@@ -3335,6 +3403,8 @@ export class ClaudeNativeWorker extends EventEmitter {
           const m = err instanceof Error ? err.message : String(err);
           this.emitToolActivity(block, input, 'failed', `[review gate aborted] ${m}`);
           return { text: `[review gate aborted] ${m}`, isError: true };
+        } finally {
+          clearTimeout(permissionTimer);
         }
         await clearPendingGate(ctx.cwd, this.workflowId, block.id).catch(() => { /* ignore */ });
         const outcome = gateOutcome(resolution.decision, block.name, input, resolution.finalArgs);
@@ -3492,8 +3562,8 @@ export class ClaudeNativeWorker extends EventEmitter {
       partialNote: partialWarn.warn ? partialWarn.note : null,
       postHooks: (text, failed) => this.runHooks(failed ? 'PostToolUseFailure' : 'PostToolUse', matcher,
         failed
-          ? { tool_name: block.name, tool_input: input, tool_use_id: block.id, error: text, is_interrupt: ctx.abortSignal.aborted }
-          : { tool_name: block.name, tool_input: input, tool_use_id: block.id, tool_response: text },
+          ? { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id, error: text, is_interrupt: ctx.abortSignal.aborted }
+          : { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id, tool_response: text },
         ctx.cwd, ctx.abortSignal),
       toolName: block.name,
       preContext,

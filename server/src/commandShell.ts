@@ -229,6 +229,8 @@ export function _powerShellFallbackForTest(): CommandShell | null {
 export interface ShellInvocation {
   file: string;
   args: string[];
+  /** Git Bash: spawnShellChild quotes for MSYS and tags the process tree on Windows. */
+  msys?: boolean;
   /** Removes the temporary script of a long PowerShell command; call after the child exits. */
   cleanup: () => void;
 }
@@ -249,6 +251,7 @@ export function powerShellScript(command: string): string {
 /** How to run `command` in `shell`: `-c` for sh and bash; for PowerShell an encoded command (or a temporary script file when long). */
 export function shellInvocation(shell: { file: string; kind: ShellKind }, command: string): ShellInvocation {
   const none = (): void => {};
+  if (shell.kind === 'git-bash') return { file: shell.file, args: ['-c', command], cleanup: none, msys: true };
   if (shell.kind !== 'powershell') return { file: shell.file, args: ['-c', command], cleanup: none };
   const script = powerShellScript(command);
   const base = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'];

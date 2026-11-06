@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { evaluateHooks, fireHooks, hookLaunch, parseHookOutput, powerShellPlaceholders, type HookCommand, type HookConfig, type HookFireResult } from './hooks.js';
@@ -116,13 +116,16 @@ test('a hook past its timeout is ended with its whole process tree and does not 
   const cwd = mkdtempSync(join(tmpdir(), 'arco-hook-timeout-'));
   try {
     const started = Date.now();
-    const [r] = await fireHooks(preHook('sleep 30 & sleep 30; echo late', 1), 'PreToolUse', 'Bash', {}, runOpts(cwd));
+    const command = '(sleep 2; echo alive > alive.txt) & sleep 30; echo late';
+    const [r] = await fireHooks(preHook(command, 1), 'PreToolUse', 'Bash', {}, runOpts(cwd));
     assert.equal(r.timedOut, true);
     assert.ok(Date.now() - started < 15_000, `ended after ${Date.now() - started} ms`);
     assert.ok(!r.stdout.includes('late'));
     const v = evaluateHooks('PreToolUse', 'Bash', [r]);
     assert.deepEqual(v.blocks, []);
-    assert.match(v.notices[0] ?? '', /^PreToolUse:Bash hook error: \[sleep 30 & sleep 30; echo late\]: timed out; its output was discarded\.$/);
+    assert.equal(v.notices[0], `PreToolUse:Bash hook error: [${command}]: timed out; its output was discarded.`);
+    await new Promise((res) => setTimeout(res, 3_000));
+    assert.equal(existsSync(join(cwd, 'alive.txt')), false, 'the background job was ended with the tree');
     const [blocking] = await fireHooks(withHook({ type: 'command', command: 'sleep 30', timeout: 1, onFailure: 'block' }), 'PreToolUse', 'Bash', {}, runOpts(cwd));
     assert.match(blocks([blocking])[0]?.reason ?? '', /^timed out; blocking because onFailure is "block"\./);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
