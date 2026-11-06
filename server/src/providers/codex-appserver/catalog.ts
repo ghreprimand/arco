@@ -142,6 +142,11 @@ async function fetchCodexCatalog(codexHome?: string): Promise<CodexCatalogSnapsh
     detached: true,
   });
 
+  // spawn failures arrive asynchronously on the child, even with piped stdio.
+  // Close the RPC so callers can use the usual unavailable-catalog fallback.
+  let rpc: JsonRpcClient | undefined;
+  proc.on('error', (err) => rpc?.close(`Could not start Codex CLI: ${err.message}`));
+
   // Drain stderr so the pipe doesn't fill and block; only log on real errors.
   let stderrBuf = '';
   proc.stderr?.on('data', (chunk: Buffer) => {
@@ -154,9 +159,9 @@ async function fetchCodexCatalog(codexHome?: string): Promise<CodexCatalogSnapsh
     throw new Error('codex app-server stdio not available');
   }
 
-  const rpc = new JsonRpcClient(proc.stdin, proc.stdout);
+  rpc = new JsonRpcClient(proc.stdin, proc.stdout);
   const cleanup = () => {
-    rpc.close('catalog probe done');
+    rpc?.close('catalog probe done');
     safeKill(proc);
   };
 

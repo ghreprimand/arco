@@ -309,7 +309,9 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         <p>
           Switch the model for the next turn. Same-provider swaps don't rotate the
           session: they take effect immediately on the following turn. The list
-          is the live provider catalog. Strata also lists prepared local profiles,
+          is the live provider catalog. If the Codex CLI is missing, its picker
+          uses the last available catalog or a fallback list, and the server
+          keeps running. Strata also lists prepared local profiles,
           including Original and SC117 Abliterated; loading happens on the next
           message and only one is resident. To change <em>provider</em>, use Handoff
           (same tab) or Spawn (new tab) instead.

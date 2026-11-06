@@ -82,7 +82,7 @@ move the pane. This is UI intent, never worker/background activity.
 - `codexUsage: CodexUsageInfo | null` - Codex billing snapshot
 - `cursorUsage: CursorUsageInfo | null` - dashboard-polled Cursor MTD usage (ACP exposes no per-turn tokens)
 - `ollamaLive: OllamaLiveStatus | null` / `llamacppLive: LlamacppLiveStatus | null` - live daemon snapshots; null while polling is disabled or the daemon is down
-- `claudeNativeCatalog: ClaudeCatalogSnapshot | null` / `codexCatalog: CodexCatalogSnapshot | null` - server-fetched model catalogs (Anthropic / OpenAI), 1-hour lazy cache; pickers fall back to the static `CLAUDE_MODELS` / `CODEX_MODELS` lists when null · `cursorCatalog: CursorCatalogSnapshot | null` - Cursor's ~153-model roster (30-min poll)
+- `claudeNativeCatalog: ClaudeCatalogSnapshot | null` / `codexCatalog: CodexCatalogSnapshot | null` - server-fetched model catalogs (Anthropic / OpenAI), 1-hour lazy cache; pickers fall back to the static `CLAUDE_MODELS` / `CODEX_MODELS` lists when null or unavailable; a missing Codex CLI does not stop the server · `cursorCatalog: CursorCatalogSnapshot | null` - Cursor's ~153-model roster (30-min poll)
 - `codexCatalogByAccount: Record<profileId, CodexCatalogSnapshot>` - per-Codex-account catalogs (HOME/WORK entitlements differ; read via `useCodexCatalog(accountRef)`)
 - `settings: ArcoSettings | null` - operator preferences (theme, default provider, font-pack override, tab order, etc.)
 - `shutdown: boolean` + `shutdownReason: string | null` - server is shutting down/restarting

@@ -34,7 +34,8 @@ test('each creation path builds the new member from its request', async () => {
   const session = { id: 's', workflowIds: new Set(), clusterIds: new Set(), clusterObserved: new Map() } as never;
   const captured: Array<Record<string, unknown>> = [];
   const tab = (config: Record<string, unknown>) => { const id = randomUUID(); workflows.set(id, { config: { workingDirectory: cwd, ...config }, busy: false, observers: new Set(), primary: { provider: (config.primaryProvider as string) ?? 'claude' } } as never); return id; };
-  h.initClusterHandlers({ handleUserMessage: async () => {}, handleRemoveWorkflow: () => {}, assertAllMembersClaudeOrCodex: async () => null, createBlankNativeWorkflow: async (_w, _s, config) => { captured.push(config as never); return tab(config as never); } });
+  const catalogChecks: string[] = [];
+  h.initClusterHandlers({ catalogModelKnown: async (provider) => { catalogChecks.push(provider); return true; }, handleUserMessage: async () => {}, handleRemoveWorkflow: () => {}, assertAllMembersClaudeOrCodex: async () => null, createBlankNativeWorkflow: async (_w, _s, config) => { captured.push(config as never); return tab(config as never); } });
   const run = async (f: () => Promise<void>) => {
     captured.length = 0; const n = errors.length; await f();
     for (const c of captured) assert.equal(c.workingDirectory, cwd);
@@ -129,6 +130,7 @@ test('each creation path builds the new member from its request', async () => {
     { name: 'Member #2', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', skipPermissions: false, fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'terse', providerAccountRef: 'acct-2' },
     { name: 'Member #3', primaryModel: 'sonnet', primaryEffort: 'medium', skipPermissions: true, claudeTransport: 'native', ultracode: false },
   ], errors: [] });
+  assert.ok(catalogChecks.includes('codex'), 'Codex model checks use the fixture catalog');
   const scratch = (await store.readCluster(createdCluster!))!;
   assert.deepEqual(scratch.members.map((id) => [scratch.memberRoles?.[id] ?? null, store.tierFor(id) ?? null, store.focusFor(id) ?? null, store.getMemberAccessMode(scratch.clusterId, id)]),
     [['Director', 'heavy', 'releases', 'standard'], [null, null, null, 'standard'], [null, null, null, 'isolated']]);

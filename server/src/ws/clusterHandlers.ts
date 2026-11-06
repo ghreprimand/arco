@@ -78,6 +78,7 @@ export interface ClusterHandlerDeps {
   handleRemoveWorkflow: (workflowId: string) => void;
   createBlankNativeWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<string>;
   assertAllMembersClaudeOrCodex: (memberIds: string[]) => Promise<string | null>;
+  catalogModelKnown?: (provider: ClusterMemberProvider, modelId: string) => Promise<boolean>;
 }
 let deps: ClusterHandlerDeps;
 export function initClusterHandlers(d: ClusterHandlerDeps): void { deps = d; }
@@ -1421,6 +1422,7 @@ export async function handleClusterMemberAdd(ws: WebSocket, clusterId: string, w
 // "leave to spawn path" pattern noted in `update_primary_config`.
 export async function isKnownCatalogModel(provider: ClusterMemberProvider, modelId: string): Promise<boolean> {
   if (typeof modelId !== 'string' || modelId.trim().length === 0) return false;
+  if (deps?.catalogModelKnown) return deps.catalogModelKnown(provider, modelId);
   try {
     if (provider === 'claude') {
       const snap = await getClaudeNativeCatalog(false);

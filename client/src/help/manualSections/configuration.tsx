@@ -584,7 +584,8 @@ export const configuration: Section[] = [
   <li>
   Codex tabs read from the live <Code>codex app-server model/list</Code>{' '}
   catalog (hourly cache); the picker shows each model&apos;s one-line
-  description as a tooltip.
+  description as a tooltip. If the Codex CLI is missing, the picker uses its
+  last available catalog or its fallback list, and the server keeps running.
   </li>
   <li>
   Strata lists prepared Original/SC117 profiles and loads the selection for

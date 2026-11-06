@@ -496,6 +496,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           live Anthropic <C>/v1/models</C> catalog; Codex reads from the live
           <C>codex app-server model/list</C> catalog. Both refresh hourly,
           with per-model effort gating against the catalog's reported support.
+          If the Codex CLI is missing, the picker uses the last available
+          catalog or its fallback list, and the server keeps running.
           Codex pills show each model's one-line description on hover. Takes
           effect on the next turn; same-provider swaps don't rotate the session.
           Strata lists prepared Original/SC117 profiles: one is resident at a
