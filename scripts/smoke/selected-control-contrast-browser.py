@@ -182,7 +182,7 @@ async def main():
             assert [t.strip() for t in await style.get_by_role('button').all_inner_texts()]==['NORMAL','PLAIN','TERSE'],root
             await expect(style.get_by_role('button',name='PLAIN',exact=True)).to_have_attribute('aria-pressed','true')
             hint=' '.join((await style.inner_text()).split())
-            assert 'PLAIN, the default, asks for clear, short sentences with the answer first.' in hint and 'Every provider applies it' in hint, hint
+            assert 'PLAIN, the default, asks for clear sentences with the answer first and a complete final reply' in hint and 'Every provider applies it' in hint, hint
             assert '%' not in hint and 'Opus' not in hint and 'lite' not in hint.lower(), hint
         style=page.locator('#local [data-help="rightpanel.config.output-style"]')
         for label,value in [('TERSE','terse'),('NORMAL','normal')]:

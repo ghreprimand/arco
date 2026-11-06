@@ -724,11 +724,14 @@ export const configuration: Section[] = [
   </p>
   <ul>
   <li><Code>NORMAL</Code> - no instruction.</li>
-  <li><Code>PLAIN</Code> - the default. Clear, short sentences with articles,
-  the answer first, one name per thing, no filler or recap.</li>
-  <li><Code>TERSE</Code> - Plain, and articles may go where a sentence still
-  reads easily. Full sentences return for warnings, irreversible steps and
-  questions.</li>
+  <li><Code>PLAIN</Code> - the default. Clear sentences with articles, short
+  where possible, the answer first, one name per thing, no filler, and no
+  repeating of earlier messages. The last reply of each turn is complete:
+  what was done, what was checked and how, what was found, assumptions,
+  risks, what is left and the next step, and anything that needs you.</li>
+  <li><Code>TERSE</Code> - the same rules in short sentences of about 20
+  words, with no recap or closing summary and one short line per tool
+  phase.</li>
   </ul>
   <p>
   A tab without a saved choice uses Plain; a saved Normal stays Normal, and a

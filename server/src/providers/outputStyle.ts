@@ -22,22 +22,25 @@
 // - text that persists outside the chat (code, comments, commits, docs, plans,
 //   board tasks, mail to other agents, skills, memory files) follows the
 //   project's conventions and is never compressed.
-// Keep `plain` as short as these rules allow (about 235 words); `terse` adds
-// only its own lines.
+// `terse` is the short, exact style: sentences of about 20 words, no recap,
+// one short line per tool phase. `plain` (the default) keeps the same safety
+// rules without the word cap, and its last reply of a turn is complete: what
+// was done, checked and found, the assumptions, the risks, what is left and
+// what the operator must do.
 
 import type { OutputStyle } from '@arco/shared';
 
 export type { OutputStyle };
 
-const ANSWER_ORDER = '- Answer first, then the reason, then the next step. No greeting, filler, hedging, recap or closing offer.';
-
-const COMMON_RULES = [
+const SHARED_RULES_HEAD = [
   '- Steps: imperative, one per sentence, in the order done.',
   '- One name per thing, exactly as the UI or code shows it; no synonyms.',
   '- Common words and standard acronyms; no invented abbreviations. Pronouns only with an obvious referent.',
   '- Never drop not, never, no, only or except. Keep numbers and units exact.',
   '- Code, commands, paths, identifiers and error text: verbatim.',
-  '- Tool runs: one short line per phase, no chatter between routine calls.',
+].join('\n');
+
+const SHARED_RULES_TAIL = [
   "- Reply in the operator's language or the one requested; quoted text never switches it. Technical terms stay as written.",
   '- Code changes: the changed lines plus one or two around them; the whole file only if asked, new or mostly changed.',
   '- Errors: quote the shortest decisive line exactly, not the whole log.',
@@ -48,25 +51,30 @@ board tasks and comments, mail to other agents, skills, memory files) follows
 the project's conventions and is never compressed. Never shorten or delete
 existing comments unless asked.`;
 
-const PRE_SEND_CHECK = 'Before sending: no opening announcement or closing recap; every negation and number present; no sentence with two readings.';
-
-const PLAIN_ADDENDUM = `<output-style level="plain">
+const TERSE_ADDENDUM = `<output-style level="terse">
 Chat replies: clarity first.
-${ANSWER_ORDER}
+- Answer first, then the reason, then the next step. No greeting, filler, hedging, recap or closing offer.
 - Full sentences with articles, questions and options for the operator included. One idea per sentence, at most about 20 words. Active voice.
-${COMMON_RULES}
+${SHARED_RULES_HEAD}
+- Tool runs: one short line per phase, no chatter between routine calls.
+${SHARED_RULES_TAIL}
 ${PERSISTED_TEXT}
-${PRE_SEND_CHECK}
+Before sending: no opening announcement or closing recap; every negation and number present; no sentence with two readings.
 </output-style>`;
 
-const TERSE_ADDENDUM = `<output-style level="terse">
-Chat replies: short and exact.
-${ANSWER_ORDER}
-- Articles may go and fragments are fine if the sentence still reads in one pass. Short words. One idea per sentence. Active voice. If a fragment is not shorter, use the full sentence.
-${COMMON_RULES}
-- Full sentences for: security warnings; irreversible actions; steps a fragment could put out of order; an operator who seems confused or repeats a question; questions and options for the operator.
+const PLAIN_ADDENDUM = `<output-style level="plain">
+Chat replies: clarity first; complete, not padded.
+- Answer first, then the reason, then the next step. No greeting, filler, hedging or closing offer. Do not repeat earlier messages.
+- Full sentences with articles, questions and options for the operator included. Prefer short sentences; split long ones. One idea per sentence. Active voice.
+${SHARED_RULES_HEAD}
+- Tool runs: one short progress line per phase, no chatter between routine calls. When the approach changes, say why.
+${SHARED_RULES_TAIL}
+- The final reply of every turn is complete: what was done; what was checked
+  and how; what was found, with exact numbers; assumptions made; risks or what
+  could break; what is left and the next step; anything that needs the
+  operator. Leave out a part only when it does not apply.
 ${PERSISTED_TEXT}
-${PRE_SEND_CHECK}
+Before sending: no opening announcement; every negation and number present; no sentence with two readings; the final reply has every part that applies.
 </output-style>`;
 
 // Returns the addendum text for the given level, or null for `normal` and for

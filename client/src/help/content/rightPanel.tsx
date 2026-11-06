@@ -297,7 +297,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <>
         <p>Settings for this tab that apply while it runs: model, effort, Codex sandbox, Claude tool list, automatic handoff thresholds and the memory guard. A red dot means the provider&apos;s command-line tool changed what it supports since you last looked.</p>
         <p>Claude tabs choose a <C>TRANSPORT</C>: <C>cli</C> starts the command-line tool for each turn, while <C>native</C> keeps a long-running worker that adds compaction, automatic handoff, plan mode and subtasks. Codex tabs choose <C>exec</C> or <C>app-server</C>; app-server adds clean interrupts and steering during a turn. Reviews and handoff notes for Claude and Codex always use the command-line tool.</p>
-        <p>Every tab has <C>OUTPUT STYLE</C>: <C>NORMAL</C>, <C>PLAIN</C> (clear, short sentences with the answer first) and <C>TERSE</C> (articles may go). It changes how replies are written, not what is sent. Plain is the default: a tab without a saved choice uses it, and a tab saved as Lite before 0.1.5 uses Plain. Code, error text and file paths stay exact, and Review, Handoff, DOCS and GIT always use Normal.</p>
+        <p>Every tab has <C>OUTPUT STYLE</C>: <C>NORMAL</C>, <C>PLAIN</C> (clear sentences with the answer first, and a complete final reply) and <C>TERSE</C> (short sentences, no summary). It changes how replies are written, not what is sent. Plain is the default: a tab without a saved choice uses it, and a tab saved as Lite before 0.1.5 uses Plain. Code, error text and file paths stay exact, and Review, Handoff, DOCS and GIT always use Normal.</p>
       </>
     ),
     manualSection: 'config-tab',
@@ -447,9 +447,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         How this tab&apos;s replies are written, on every provider.{' '}
-        <C>PLAIN</C>, the default, asks for clear, short sentences with the
-        answer first; a tab without a saved choice uses it. <C>TERSE</C> also
-        lets articles go where a sentence still reads easily. <C>NORMAL</C> adds
+        <C>PLAIN</C>, the default, asks for clear sentences with the answer
+        first, and ends every turn with a complete reply: what was done,
+        checked and found, assumptions, risks, what is left and what needs
+        you. A tab without a saved choice uses it. <C>TERSE</C> asks for
+        short sentences of about 20 words and leaves out that summary. <C>NORMAL</C> adds
         no instruction. Negations, numbers, code, error text and file paths
         stay exact, and code, files, commits and messages to other agents are
         written in full. Review, Handoff, DOCS and GIT always use{' '}

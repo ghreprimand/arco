@@ -33,8 +33,11 @@ test('plain and terse keep negations, numbers, verbatim text and persisted text 
     assert.match(text, /Never shorten or delete\s+existing comments unless asked\./, name);
     assert.match(text, /Answer first, then the reason, then the next step\./, name);
     assert.match(text, /One name per thing/, name);
-    assert.match(text, /Before sending: no opening announcement or closing recap; every negation and number present; no sentence with two readings\./, name);
-    assert.match(text, /Tool runs: one short line per phase, no chatter between routine calls\./, name);
+    assert.match(text, /Before sending: no opening announcement[;a-z ]*; every negation and number present; no sentence with two readings/, name);
+    assert.match(text, /Tool runs: one short (progress )?line per phase, no chatter between routine calls\./, name);
+    assert.match(text, /Full sentences with articles, questions and options for the operator included\./, name);
+    // Neither style lets articles go or allows fragments.
+    assert.doesNotMatch(text, /Articles may go|fragments/i, name);
     assert.match(text, /Steps: imperative, one per sentence, in the order done\./, name);
     assert.match(text, /no invented abbreviations\. Pronouns only with an obvious referent\./, name);
     // Shorten the style, not the language; code and errors trimmed to what matters.
@@ -44,19 +47,29 @@ test('plain and terse keep negations, numbers, verbatim text and persisted text 
     // No persona and no savings claim.
     assert.doesNotMatch(text, /caveman|persona|%|token/i, name);
   }
-  assert.match(PLAIN, /Full sentences with articles, questions and options for the operator included\. One idea per sentence, at most about 20 words\. Active voice\./);
-  assert.doesNotMatch(PLAIN, /fragments/i);
-  assert.match(TERSE, /Articles may go and fragments are fine if the sentence still reads in one pass/);
-  assert.match(TERSE, /If a fragment is not shorter, use the full sentence\./);
-  assert.match(TERSE, /Full sentences for: security warnings; irreversible actions; steps a fragment could put out of order; an operator who seems confused or repeats a question; questions and options for the operator\./);
-  assert.doesNotMatch(TERSE, /when in doubt/i);
+  // Terse is the short style: about 20 words a sentence, no recap, one line
+  // per tool phase, no final-reply list.
+  assert.match(TERSE, /One idea per sentence, at most about 20 words\. Active voice\./);
+  assert.match(TERSE, /No greeting, filler, hedging, recap or closing offer\./);
+  assert.match(TERSE, /Tool runs: one short line per phase, no chatter between routine calls\./);
+  assert.match(TERSE, /Before sending: no opening announcement or closing recap; every negation and number present; no sentence with two readings\./);
+  assert.doesNotMatch(TERSE, /final reply/i);
+  // Plain: short sentences without a word cap, no repetition of earlier
+  // messages, a reason when the approach changes, and a complete final reply.
+  assert.match(PLAIN, /Prefer short sentences; split long ones\. One idea per sentence\. Active voice\./);
+  assert.doesNotMatch(PLAIN, /20 words|recap/i);
+  assert.match(PLAIN, /No greeting, filler, hedging or closing offer\. Do not repeat earlier messages\./);
+  assert.match(PLAIN, /When the approach changes, say why\./);
+  assert.match(PLAIN, /The final reply of every turn is complete: what was done; what was checked\s+and how; what was found, with exact numbers; assumptions made; risks or what\s+could break; what is left and the next step; anything that needs the\s+operator\. Leave out a part only when it does not apply\./);
+  assert.match(PLAIN, /Before sending: no opening announcement; every negation and number present; no sentence with two readings; the final reply has every part that applies\./);
 });
 
 test('the addendum is small and byte-stable', () => {
-  // Plain stays as short as its rules allow; terse adds only its own lines.
+  // Each block stays small; terse is the shorter one.
   const words = (t: string) => t.split(/\s+/).length;
-  assert.ok(words(PLAIN) <= 240, `plain has ${words(PLAIN)} words`);
-  assert.ok(Buffer.byteLength(TERSE) - Buffer.byteLength(PLAIN) <= 450, `terse adds ${Buffer.byteLength(TERSE) - Buffer.byteLength(PLAIN)} bytes`);
+  assert.ok(words(TERSE) <= 240, `terse has ${words(TERSE)} words`);
+  assert.ok(words(PLAIN) <= 320, `plain has ${words(PLAIN)} words`);
+  assert.ok(Buffer.byteLength(TERSE) < Buffer.byteLength(PLAIN));
   assert.equal(outputStyleAddendum('plain'), PLAIN);
   assert.equal(outputStyleAddendum('terse'), TERSE);
 });
