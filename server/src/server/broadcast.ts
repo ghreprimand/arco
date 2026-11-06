@@ -467,7 +467,7 @@ function onTurnEnded(workflowId: string, wf: WorkflowState): void {
           clusterId: endedClusterId,
           senderWfid: pending[0].fromWorkflowId,
           recipientWfid: workflowId,
-          incomingChainDepth: clusterAutoTurn.pendingChainDepth(workflowId),
+          incomingChainDepth: clusterAutoTurn.heldMailDepth(workflowId, pending),
         });
       })();
     });

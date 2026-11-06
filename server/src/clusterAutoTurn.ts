@@ -201,7 +201,7 @@ async function sweep(): Promise<void> {
         clusterId,
         senderWfid: pending[0].fromWorkflowId,
         recipientWfid: m.workflowId,
-        incomingChainDepth: pendingChainDepth(m.workflowId),
+        incomingChainDepth: heldMailDepth(m.workflowId, pending),
       });
     }
   }
@@ -260,6 +260,20 @@ export function dropMember(workflowId: string): void {
 // Chain depth the resume sweeps use for a member's pending mail.
 export function pendingChainDepth(workflowId: string): number {
   return pendingDepth.get(workflowId) ?? 0;
+}
+
+// Chain depth of held mail for the resume sweeps (turn end and periodic). A
+// peer_send writes the mail file first and broadcasts peer_message_sent
+// after, and only the broadcast records the depth (pendingDepth). Mail found
+// in between still comes from a sender whose turn is running, so the depth
+// that turn stamps on its peer_message_sent counts too. Without it the resume
+// treated such mail as depth 0, and a loop held at the depth cap started over
+// at depth 1. A sender's marker can only be higher than its older mail's
+// depth, which holds that mail until the sender's turn ends.
+export function heldMailDepth(workflowId: string, pending: ReadonlyArray<{ fromWorkflowId: string }>): number {
+  let depth = pendingChainDepth(workflowId);
+  for (const m of pending) depth = Math.max(depth, currentAutoTurnDepth(m.fromWorkflowId));
+  return depth;
 }
 
 // The member's turn started: it reads its mailbox, so held mail no longer

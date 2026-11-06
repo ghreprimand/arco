@@ -146,6 +146,42 @@ test('idle-resume sweep: mail that arrived mid-turn wakes the member once its tu
   await clusterStore.deleteCluster(cluster.clusterId);
 });
 
+// A peer_send writes the mail first and broadcasts peer_message_sent after.
+// A recipient whose turn ends in between finds the mail before its chain
+// depth is known; the resume must use the depth the sender's turn will stamp
+// on it, not 0, or a capped loop starts over at depth 1.
+test('mail found by the turn-end resume before its peer_message_sent keeps the sender\'s chain depth', async () => {
+  const sender = member(); const recipient = member();
+  const cluster = await clusterStore.createCluster({ cwd: path.join(root, randomUUID()), memberWorkflowIds: [sender.id, recipient.id] });
+  await clusterStore.setAutoPickup(cluster.clusterId, { mode: 'rule', ruleLimits: { maxChainDepth: 3, pingPongWakes: 10, wakesPerMemberHour: 30, wakesPerArming: 200 } });
+  const outcomes: Array<{ fired: boolean; reason?: string; chainDepth: number }> = [];
+  const dispatched: string[] = [];
+  autoTurn.configure({
+    broadcastWorkflow: (id, msg) => { if (msg.type === 'cluster_auto_turn_fired' && msg.workflowId === recipient.id) outcomes.push({ fired: msg.fired, reason: msg.fired ? undefined : msg.reason, chainDepth: msg.chainDepth }); broadcastWorkflow(id, msg); },
+    dispatchAutoTurn: (id) => { dispatched.push(id); },
+    isBusy: (id) => !!(workflows.get(id) as { busy?: boolean } | undefined)?.busy,
+  });
+  try {
+    // The sender is in an auto-turn at depth 3, the last one the cap allows.
+    boundary(sender, 'send', 'primary_turn_started');
+    autoTurn.stampSharedGuards(cluster.clusterId, sender.id, 2);
+    assert.equal(autoTurn.currentAutoTurnDepth(sender.id), 3);
+    // The recipient is mid-turn when the mail file is written...
+    recipient.wf.busy = true;
+    boundary(recipient, 'send', 'primary_turn_started');
+    await mailbox.enqueue(recipient.id, { msgId: randomUUID(), fromWorkflowId: sender.id, fromDisplayName: 'Builder', toWorkflowId: recipient.id, content: 'Your turn: please continue the review.', createdAt: new Date().toISOString(), delivered: false });
+    // ...and its turn ends before the sender's peer_message_sent goes out.
+    recipient.wf.busy = false;
+    boundary(recipient, 'send', 'primary_turn_ended');
+    await until(() => outcomes.length > 0, 'the turn-end resume looked at the held mail');
+    assert.deepEqual(outcomes, [{ fired: false, reason: 'depth_capped', chainDepth: 3 }]);
+    assert.deepEqual(dispatched, []);
+  } finally {
+    boundary(sender, 'send', 'primary_turn_ended');
+    await clusterStore.deleteCluster(cluster.clusterId);
+  }
+});
+
 // A ring of three members whose every turn mails the next one. Each woken
 // turn starts and ends through send(), like a real turn, and drains its mail
 // at the start; turns overlap, so mail also arrives mid-turn. The chain must

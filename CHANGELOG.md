@@ -68,7 +68,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - In the AUTO-PICKUP dialog, the "Advanced: model-assisted" heading sits above Smart: Observe-only. Before, it appeared between that radio button and its label.
 - TEST DESKTOP asks the browser for notification permission itself when it has not been asked, and shows the result beside the button: Sent, Blocked (with how to allow notifications in the site settings and browser profile), Not allowed, Not supported or Failed. Before, it only said that permission was needed.
 - Real turns now reset the idle nudge count and mark the member idle for MAIL ALERTS, clear the AUTO-PICKUP chain depth when they end, get the end-of-turn artifact size check, and wake the member again when mail arrived during the turn. Before, only some internal turns did.
-- Mail stopped by the AUTO-PICKUP chain-depth limit stays in the mailbox. Before, the periodic re-check woke the member again as if the chain had started over.
+- Mail stopped by the AUTO-PICKUP chain-depth limit stays in the mailbox. Before, the periodic re-check woke the member again as if the chain had started over. The same holds for mail that arrives just as the recipient's turn ends, before the message's chain depth is recorded.
 - Turn-finished BELL notices and desktop alerts now appear for real turns. Before, only test turns produced them, so no operator, auto-pickup or peer-mail turn on any provider raised one. In a cluster tab, members other than the one in view now count as another tab for BELL notices.
 
 ## v0.1.4 - 2026-11-05
