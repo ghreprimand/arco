@@ -55,7 +55,7 @@ function Findings({ findings }: { findings: Finding[] }) {
 }
 
 export function SkillsSettings({ cwd }: { cwd: string }) {
-  const [skills, setSkills] = useState<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; off?: boolean; replaced?: boolean }> } | null>(null);
+  const [skills, setSkills] = useState<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; operatorOnly?: boolean; off?: boolean; replaced?: boolean }> } | null>(null);
   const [details, setDetails] = useState<Record<string, Details>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -67,7 +67,7 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
   const refresh = async () => {
     setError(null);
     try {
-      setSkills(await api<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; off?: boolean; replaced?: boolean }> }>(`/api/skills${q(cwd)}`));
+      setSkills(await api<{ project: SkillSummary[]; global: SkillSummary[]; builtin: Array<{ slug: string; name: string; description: string; operatorOnly?: boolean; off?: boolean; replaced?: boolean }> }>(`/api/skills${q(cwd)}`));
       const d = await api<{ skills: Details[] }>(`/api/skills/details${q(cwd)}`).catch(() => ({ skills: [] as Details[] }));
       setDetails(Object.fromEntries(d.skills.map((x) => [`${x.scope}:${x.slug}`, x])));
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -149,9 +149,19 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
           {skills.global.length > 0 && <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginTop: '6px', marginBottom: '2px' }}>(GLOBAL)</div>}
           {skills.global.map(row)}
           {(skills.builtin ?? []).length > 0 && <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', marginTop: '6px' }}>(BUILT-IN)</div>}
-          {(skills.builtin ?? []).map((s) => <div key={s.slug} data-testid="builtin-skill-row" style={{ padding: '6px 10px', border: '1px solid var(--color-border-hairline)', opacity: s.off || s.replaced ? 0.55 : 1 }}>
-            <div>{s.name}{s.replaced ? ' - replaced by your copy' : ''}</div><div style={muted}>{s.description}</div>
-            <button type="button" style={small} data-help="settings.skills.toggle" onClick={() => void act(() => post(`/api/skills/state${q(cwd)}`, { scope: 'builtin', slug: s.slug, off: !s.off }), `${s.name} is ${s.off ? 'on' : 'off'}.`)}>{s.off ? 'TURN ON' : 'TURN OFF'}</button>
+          {(skills.builtin ?? []).map((s) => <div key={s.slug} data-testid="builtin-skill-row" data-skill={s.slug} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px 10px', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', background: 'var(--color-bg-sunken)', opacity: s.off || s.replaced ? 0.55 : 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <span className="display-font" style={{ flex: 1, fontSize: '11px', letterSpacing: '1.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {s.name}
+                <span className="display-font" title={s.operatorOnly ? 'Operator-only: withheld from the model manifest; run it from the composer SKILLS menu' : 'Listed for the model, which reads it when a task matches'} style={{ marginLeft: '8px', fontSize: '8px', letterSpacing: '1px', color: s.operatorOnly ? 'var(--color-warning)' : 'var(--color-accent-secondary)', border: `1px solid ${s.operatorOnly ? 'var(--color-warning)' : 'var(--color-accent-secondary)'}`, borderRadius: '2px', padding: '1px 4px' }}>{s.operatorOnly ? 'OPERATOR' : 'MODEL'}</span>
+                {s.off && <span className="display-font" style={{ marginLeft: '8px', fontSize: '8px', letterSpacing: '1px', color: 'var(--color-fg-muted)', border: '1px solid var(--color-fg-muted)', borderRadius: '2px', padding: '1px 4px' }}>OFF</span>}
+              </span>
+            </div>
+            <span style={{ ...muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.description}>{s.description || <em style={{ opacity: 0.6 }}>(no description)</em>}</span>
+            {s.replaced && <span style={muted}>Replaced by your copy.</span>}
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button type="button" style={small} data-help="settings.skills.toggle" onClick={() => void act(() => post(`/api/skills/state${q(cwd)}`, { scope: 'builtin', slug: s.slug, off: !s.off }), `${s.name} is ${s.off ? 'on' : 'off'}.`)}>{s.off ? 'TURN ON' : 'TURN OFF'}</button>
+            </div>
           </div>)}
         </div>
       )}

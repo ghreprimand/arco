@@ -24,3 +24,9 @@
 .settings-section-help summary{text-align:right}
 @media(max-width:640px){.settings-backdrop{padding:8px}.settings-dialog{padding:14px;max-height:calc(100vh / var(--ui-scale, 1) - 16px)}.settings-layout{grid-template-columns:minmax(0,1fr);gap:10px}.settings-layout nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.settings-section-meta{flex-wrap:wrap}.settings-section-help{max-width:100%}}
 .settings-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Text with no color of its own would take the page default (Phosphor's plain
+   text color, near white in most palettes); scripts/smoke/settings-text-color-browser.py. */
+.settings-header h2,.settings-content>h3,.settings-dialog .project-folders-ui h3{color:var(--color-accent-primary)}
+.settings-dialog .project-folders-ui label{color:var(--color-accent-primary-dim)}
+.settings-dialog .saved-project-management p{color:var(--color-fg-muted)}
+.settings-dialog .saved-project-management summary{color:var(--color-accent-primary)}

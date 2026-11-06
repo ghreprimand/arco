@@ -515,7 +515,8 @@ export const configuration: Section[] = [
   installed, such as "Refers to release-notes, not installed".
   </p>
   <Sub>Built-in skills</Sub>
-  <p>Built-ins are on by default. Settings can turn each off. A project or
+  <p>Built-ins are on by default. Settings lists each with an OPERATOR or MODEL
+  badge and can turn each off. A project or
   global skill with the same name replaces the built-in. EDITABLE COPY saves
   the skill and its supporting files for editing. Operator-run skills also
   accept a slash form of the same name; Architecture review accepts

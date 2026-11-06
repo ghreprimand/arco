@@ -711,7 +711,7 @@ export function SettingsPanel({ onClose }: Props) {
             useStartupStore.getState().setFirstRunOpen(true);
             onClose();
           }} className="display-font" style={{ padding: '6px 12px', border: '1px solid var(--color-border-hairline)', borderRadius: 4, background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', cursor: 'pointer' }}>Run setup again</button>
-          <p>Review project locations, single folders and provider connections, then return to Home or the normal creator. Existing choices and saved work stay intact unless explicitly changed.</p>
+          <p style={{ color: 'var(--color-fg-muted)' }}>Review project locations, single folders and provider connections, then return to Home or the normal creator. Existing choices and saved work stay intact unless explicitly changed.</p>
         </div>
         </SettingsSection>
 
@@ -1678,7 +1678,7 @@ function BoardAutoDoneSection() {
       <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
         BOARD AUTO-DONE
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--color-fg)', cursor: saving ? 'default' : 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--color-accent-primary)', cursor: saving ? 'default' : 'pointer' }}>
         <input
           type="checkbox"
           checked={enabled}

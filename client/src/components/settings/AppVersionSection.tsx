@@ -23,14 +23,14 @@ export function AppVersionSection() {
       await refresh();
     } catch { setError('Could not save release-check preference'); } finally { setBusy(false); }
   };
-  return <div data-help="settings.app-updates" style={{ fontSize: '12px', lineHeight: 1.7, marginBottom: '16px' }}>
+  return <div data-help="settings.app-updates" style={{ fontSize: '12px', lineHeight: 1.7, marginBottom: '16px', color: 'var(--color-accent-primary)' }}>
     <strong>Arco</strong>: {status ? `v${status.current.replace(/^v/, '')}` : 'version unavailable'}
-    <div>{status?.latest ? `Latest release: ${status.latest}${status.publishedAt ? ` (${status.publishedAt.slice(0, 10)})` : ''}` : 'No release information yet'}</div>
+    <div style={{ color: 'var(--color-fg-muted)' }}>{status?.latest ? `Latest release: ${status.latest}${status.publishedAt ? ` (${status.publishedAt.slice(0, 10)})` : ''}` : 'No release information yet'}</div>
     <UpdateAction latest={status?.updateAvailable ? status.latest : null} url={status?.url ?? null} />
     <button type="button" disabled={busy || !status?.enabled} onClick={() => void check()}>CHECK NOW</button>
     <label style={{ display: 'block' }}><input type="checkbox" checked={settings?.updateCheck !== false} disabled={busy || !settings} onChange={(e) => void toggle(e.target.checked)} /> Check for new releases</label>
-    {status?.enabled === false && settings?.updateCheck !== false && <div>Release checks are disabled by ARCO_UPDATE_CHECK=0.</div>}
+    {status?.enabled === false && settings?.updateCheck !== false && <div style={{ color: 'var(--color-fg-muted)' }}>Release checks are disabled by ARCO_UPDATE_CHECK=0.</div>}
     <a href="https://github.com/ghreprimand/arco/blob/main/docs/OPERATIONS.md#updating-arco" target="_blank" rel="noopener noreferrer">Updating Arco</a>
-    {error && <div role="alert">{error}</div>}
+    {error && <div role="alert" style={{ color: 'var(--color-warning)' }}>{error}</div>}
   </div>;
 }

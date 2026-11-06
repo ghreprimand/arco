@@ -40,7 +40,7 @@ export function NotificationChannelsSettings() {
   }, []);
   useEffect(() => { if (view) { setServer(view.ntfy.server); setTopic(view.ntfy.topic); } }, [view?.ntfy.server, view?.ntfy.topic]);
 
-  if (!view) return <p>{error || 'Loading notification settings...'}</p>;
+  if (!view) return <p style={{ margin: 0, color: 'var(--color-fg-muted)' }}>{error || 'Loading notification settings...'}</p>;
 
   const base = (): Omit<NotificationChannels, 'ntfy'> & { ntfy: { server: string; topic: string; token?: string | null } } => ({
     desktop: view.desktop, phone: view.phone, phoneText: view.phoneText, clusterFinished: view.clusterFinished,
@@ -90,25 +90,28 @@ export function NotificationChannelsSettings() {
   };
 
   const cell: React.CSSProperties = { padding: '4px 10px', textAlign: 'center' };
+  const head: React.CSSProperties = { padding: '4px 10px', color: 'var(--color-accent-primary-dim)' };
+  const fieldLabel: React.CSSProperties = { color: 'var(--color-accent-primary-dim)' };
+  const para: React.CSSProperties = { margin: 0, color: 'var(--color-fg-muted)' };
   return (
-    <div data-help="settings.notification-channels" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div data-help="settings.notification-channels" style={{ display: 'flex', flexDirection: 'column', gap: 10, color: 'var(--color-accent-primary)' }}>
       <span className="display-font" style={{ fontSize: 11, letterSpacing: 2, color: 'var(--color-accent-primary-dim)' }}>NOTIFICATIONS</span>
-      <p style={{ margin: 0 }}>Choose which events notify you and where. Desktop and phone alerts are off until you tick them. Desktop notifications appear only while Arco is not the window you are looking at; one is shown per event, and clicking it opens that tab.</p>
-      <p style={{ margin: 0 }}>Browser permission: {permission === 'default' ? 'not asked' : permission}.</p>
+      <p style={para}>Choose which events notify you and where. Desktop and phone alerts are off until you tick them. Desktop notifications appear only while Arco is not the window you are looking at; one is shown per event, and clicking it opens that tab.</p>
+      <p style={para}>Browser permission: {permission === 'default' ? 'not asked' : permission}.</p>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="display-font" disabled={permission === 'unsupported' || permission === 'granted' || permission === 'denied'} onClick={async () => setPermission(await Notification.requestPermission())}>REQUEST PERMISSION</button>
         <button type="button" className="display-font" disabled={desktopTesting} onClick={() => void testDesktop()}>TEST DESKTOP</button>
         <span data-testid="desktop-test-result" data-result={desktopTest?.result ?? ''} style={{ alignSelf: 'center', color: desktopTest?.result === 'sent' ? 'var(--color-success)' : 'var(--color-warning)' }}>{desktopTesting ? 'Testing...' : desktopTest?.label ?? ''}</span>
       </div>
-      <p style={{ margin: 0 }}>Normal desktop alerts need browser permission and an unfocused Arco window. Finished turns must run at least 15 seconds.</p>
+      <p style={para}>Normal desktop alerts need browser permission and an unfocused Arco window. Finished turns must run at least 15 seconds.</p>
       <div aria-live="polite">{desktopTest?.detail ?? ''}</div>
-      <p style={{ margin: 0 }}>Use SHOW IN BELL in the top bar to choose which in-app notices appear.</p>
+      <p style={para}>Use SHOW IN BELL in the top bar to choose which in-app notices appear.</p>
       <table style={{ borderCollapse: 'collapse' }}>
-        <thead><tr><th style={{ textAlign: 'left', padding: '4px 10px' }}>Event</th><th style={cell}>This computer</th><th style={cell}>Phone</th></tr></thead>
+        <thead><tr><th style={{ ...head, textAlign: 'left' }}>Event</th><th style={{ ...head, textAlign: 'center' }}>This computer</th><th style={{ ...head, textAlign: 'center' }}>Phone</th></tr></thead>
         <tbody>
           {ATTENTION_KINDS.map((kind) => (
             <tr key={kind}>
-              <td style={{ padding: '4px 10px' }} title={LABEL[kind].hint}>{LABEL[kind].name}<div style={{ fontSize: 10, color: 'var(--color-fg-muted)' }}>{LABEL[kind].hint}</div></td>
+              <td style={{ padding: '4px 10px', color: 'var(--color-accent-primary)' }} title={LABEL[kind].hint}>{LABEL[kind].name}<div style={{ fontSize: 10, color: 'var(--color-fg-muted)' }}>{LABEL[kind].hint}</div></td>
               <td style={cell}><input type="checkbox" aria-label={`${LABEL[kind].name}: this computer`} checked={view.desktop[kind]} onChange={(e) => void toggleDesktop(kind, e.target.checked)} /></td>
               <td style={cell}><input type="checkbox" aria-label={`${LABEL[kind].name}: phone`} checked={view.phone[kind]} onChange={(e) => void togglePhone(kind, e.target.checked)} /></td>
             </tr>
@@ -126,11 +129,11 @@ export function NotificationChannelsSettings() {
       </label>
 
       <span className="display-font" style={{ fontSize: 11, letterSpacing: 2, color: 'var(--color-accent-primary-dim)', marginTop: 6 }}>PHONE (NTFY)</span>
-      <p style={{ margin: 0 }}>Phone messages go through an ntfy server and need no hub. Install the ntfy app, subscribe to your topic, then TEST. Anyone who knows the topic can read what is sent to it, so keep it private, or use an access token with a protected topic.{view.ntfyFromEnvironment ? ' An address from ARCO_NTFY_URL is in use until you save one here.' : ''}{view.ntfyEnvironmentHeldBack ? ' ARCO_NTFY_URL is set, but this Arco home is inside the temporary folder, so it is not used. An address saved here works.' : ''}</p>
-      <label>Server <input className="arco-field" aria-label="ntfy server" value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://ntfy.sh" style={{ width: 280 }} /></label>
-      <label>Topic <input className="arco-field" aria-label="ntfy topic" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 280 }} />
+      <p style={para}>Phone messages go through an ntfy server and need no hub. Install the ntfy app, subscribe to your topic, then TEST. Anyone who knows the topic can read what is sent to it, so keep it private, or use an access token with a protected topic.{view.ntfyFromEnvironment ? ' An address from ARCO_NTFY_URL is in use until you save one here.' : ''}{view.ntfyEnvironmentHeldBack ? ' ARCO_NTFY_URL is set, but this Arco home is inside the temporary folder, so it is not used. An address saved here works.' : ''}</p>
+      <label style={fieldLabel}>Server <input className="arco-field" aria-label="ntfy server" value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://ntfy.sh" style={{ width: 280 }} /></label>
+      <label style={fieldLabel}>Topic <input className="arco-field" aria-label="ntfy topic" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 280 }} />
         <button type="button" className="display-font" onClick={() => setTopic(randomTopic())}>GENERATE</button></label>
-      <label>Access token (optional) <input className="arco-field" type="password" aria-label="ntfy access token" value={token} onChange={(e) => setToken(e.target.value)} placeholder={view.ntfy.tokenSet ? 'A token is saved; type to replace it' : ''} autoComplete="off" style={{ width: 280 }} />
+      <label style={fieldLabel}>Access token (optional) <input className="arco-field" type="password" aria-label="ntfy access token" value={token} onChange={(e) => setToken(e.target.value)} placeholder={view.ntfy.tokenSet ? 'A token is saved; type to replace it' : ''} autoComplete="off" style={{ width: 280 }} />
         {view.ntfy.tokenSet && <button type="button" className="display-font" onClick={() => void saveAddress(true)}>REMOVE TOKEN</button>}</label>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="display-font" onClick={() => void saveAddress()}>SAVE ADDRESS</button>
