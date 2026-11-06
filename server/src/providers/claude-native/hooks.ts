@@ -261,6 +261,12 @@ async function runHookOnce(
       resolveResult({ exitCode, stdout, stderr, timedOut });
     });
 
+    // A hook may exit without reading its input (`exit 2` to block). Writing
+    // to the closed pipe then fails asynchronously with EPIPE as an 'error'
+    // event on stdin, which the try/catch cannot see and which would crash
+    // the server if unhandled. The hook's own exit code and output arrive
+    // through 'close' as usual, so the write error is only swallowed here.
+    child.stdin?.on('error', () => { /* EPIPE or ECONNRESET from an early exit */ });
     try {
       child.stdin?.write(JSON.stringify(payload));
       child.stdin?.end();
