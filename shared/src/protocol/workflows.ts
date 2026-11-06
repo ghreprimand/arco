@@ -50,6 +50,19 @@ export interface AutoHandoffConfig {
   afterCompactions?: number;
   mode?: AutoHandoffMode;
   summarizer?: { provider: ProviderName; model?: ModelName; effort?: EffortLevel };
+  // The context percentages Arco 0.1.4 used. Kept and written only so that
+  // after going back to 0.1.4 a tab still hands off (0.1.4 needs both and
+  // never fires without them). Arco 0.1.5 does not read them.
+  warnAt?: number;
+  autoAt?: number;
+}
+
+// Arco 0.1.4's defaults and slider ranges for the legacy percentages.
+export const AUTO_HANDOFF_LEGACY_WARN_AT = 75;
+export const AUTO_HANDOFF_LEGACY_AUTO_AT = 90;
+function legacyPercent(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
 export function clampAutoHandoffCompactions(value: unknown): number {
@@ -59,12 +72,19 @@ export function clampAutoHandoffCompactions(value: unknown): number {
 
 // Saved configs from before 0.1.5 carry `warnAt` / `autoAt` percentages. An
 // auto-handoff that was on stays on with N = 5; one that was off stays off.
-// The percentage fields are dropped. Anything malformed reads as absent.
+// The percentages have no effect in 0.1.5 but are always present in the
+// result (the saved pair, else 75 and 90), so every saved form also works in
+// 0.1.4. Anything malformed reads as absent.
 export function normalizeAutoHandoff(raw: unknown): AutoHandoffConfig | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
   if (typeof r.enabled !== 'boolean') return undefined;
-  const out: AutoHandoffConfig = { enabled: r.enabled, afterCompactions: clampAutoHandoffCompactions(r.afterCompactions) };
+  const out: AutoHandoffConfig = {
+    enabled: r.enabled,
+    afterCompactions: clampAutoHandoffCompactions(r.afterCompactions),
+    warnAt: legacyPercent(r.warnAt, AUTO_HANDOFF_LEGACY_WARN_AT, 60, 85),
+    autoAt: legacyPercent(r.autoAt, AUTO_HANDOFF_LEGACY_AUTO_AT, 75, 95),
+  };
   if (r.mode === 'quick' || r.mode === 'original-worker' || r.mode === 'fresh-summarizer') out.mode = r.mode;
   const s = r.summarizer as Record<string, unknown> | undefined;
   if (s && typeof s === 'object' && typeof s.provider === 'string') {

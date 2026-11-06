@@ -289,7 +289,7 @@ interface WorkflowMeta {
   lastEventSeq: number | null;           // bookmark
   lastTranscriptSeq: number | null;
   compactedAt: number | null;
-  autoHandoff?: { enabled, afterCompactions?, mode?: 'quick' | 'original-worker' | 'fresh-summarizer', summarizer?: { provider, model?, effort? } };
+  autoHandoff?: { enabled, afterCompactions?, warnAt?, autoAt?, mode?: 'quick' | 'original-worker' | 'fresh-summarizer', summarizer?: { provider, model?, effort? } };
   autoHandoffCount?: { session?, count };
   claudeTransport?: 'cli' | 'native';
   codexTransport?: 'exec' | 'appserver';
@@ -385,8 +385,8 @@ Why each part:
 - **`operator`** - currently always `'operator'`; multi-user support is unimplemented.
 - **`lastEventSeq` / `lastTranscriptSeq`** - bookmarks; rarely read in Lite. Vestigial from earlier autonomous version's recovery flows.
 - **`compactedAt`** - null in Lite. Vestigial.
-- **`autoHandoff`** - `{ enabled: bool, afterCompactions: 1-20 }` plus optional `mode` and `summarizer`. Persisted from the CONFIG tab. Read by `maybeAutoHandoff` at each turn boundary. Files from before 0.1.5 carry `warnAt` / `autoAt` instead; they are read as the same `enabled` with 5 compactions and the percentages are dropped on the next write.
-- **`autoHandoffCount`** - `{ session?, count }`, the compactions counted in the conversation `session` (the primary session id), so a restart keeps the count. A different session reads as 0; a completed handoff resets it.
+- **`autoHandoff`** - `{ enabled: bool, afterCompactions: 1-20 }` plus optional `mode` and `summarizer`. Persisted from the CONFIG tab. Read by `maybeAutoHandoff` at each turn boundary. Files from before 0.1.5 carry `warnAt` / `autoAt` instead; they are read as the same `enabled` with 5 compactions. Every write keeps `warnAt` / `autoAt` (the saved pair, else 75 and 90, within 0.1.4's ranges of 60-85 and 75-95) and 0.1.5 ignores them: Arco 0.1.4 hands off only when both are present, so a tab that is on keeps handing off at 90% after going back.
+- **`autoHandoffCount`** - `{ session?, count }`, the compactions counted in the conversation `session` (the primary session id), so a restart keeps the count. A different session reads as 0; a completed handoff resets it. Arco 0.1.4 ignores it.
 - **`autoFold`** - `{ enabled, foldAt, tailBudget? }`. Per-tab arming of the deterministic in-place Fold auto-trigger (Claude Native). Persisted so arming survives restart; default OFF.
 - **`reviewSafeMode`** - `'off' | 'on'` (DEBAG). Arms the durable edit-before-approve gate. Default OFF; **absent on rehydrate ⇒ OFF** (opting in is always explicit). Native-only. Drives whether `gate-approvals.json` is written.
 - **`leafSeq`** - fork head. Absent ⇒ head is the physical file tail (byte-identical, no-regression invariant). When set, the Native branch-aware replay walks lineage following `leaf_move` redirects so a rewound head replays only its own branch.

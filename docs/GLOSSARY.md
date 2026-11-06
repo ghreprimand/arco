@@ -34,7 +34,7 @@ independent. See [PHOSPHOR_DEMO.md](PHOSPHOR_DEMO.md).
 
 Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits during chat; renders as inline-expand pills (`ArtifactPill.tsx`) and persists as `PrimaryArtifactMessage` events.
 
-**Auto-handoff** - Off by default. When enabled, the workflow generates a handoff document and rotates to a fresh session at a turn boundary after N compactions in one conversation (`afterCompactions`, default 5, 1 to 20). Auto-compaction handles fill; Fold is not counted. Claude Native and Ollama need auto-compaction on; Claude CLI and Codex app-server report their own compactions. Unavailable where Arco cannot count (Cursor, Codex exec). Saved `warnAt` / `autoAt` percentages from before 0.1.5 keep on/off and use 5 compactions.
+**Auto-handoff** - Off by default. When enabled, the workflow generates a handoff document and rotates to a fresh session at a turn boundary after N compactions in one conversation (`afterCompactions`, default 5, 1 to 20). Auto-compaction handles fill; Fold is not counted. Claude Native and Ollama need auto-compaction on; Claude CLI and Codex app-server report their own compactions. Unavailable where Arco cannot count (Cursor, Codex exec). Saved `warnAt` / `autoAt` percentages from before 0.1.5 keep on/off and use 5 compactions; they are still written so 0.1.4 reads a tab that is on as on.
 
 **Broadcast** - Server-side fan-out of a server message to every observer of a workflow. `send(ws, message)` first persists the message to `events.jsonl` (if `workflowId` is set) then writes to every member of `wf.observers`. See also: **transient broadcast**.
 

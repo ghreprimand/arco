@@ -615,7 +615,8 @@ function AutoHandoffSection({
   const resolvedMode: 'quick' | 'original-worker' | 'fresh-summarizer' = ah.mode ?? gd?.mode ?? 'quick';
 
   const setAh = (patch: Partial<AutoHandoffConfig>) => {
-    const next: AutoHandoffConfig = { ...ah, afterCompactions: after, ...patch };
+    // Normalized so the saved config also carries the fields 0.1.4 needs.
+    const next: AutoHandoffConfig = normalizeAutoHandoff({ ...ah, afterCompactions: after, ...patch }) ?? { ...ah, afterCompactions: after, ...patch };
     onUpdatePrimary({ autoHandoff: next });
   };
   const commitAfter = () => {

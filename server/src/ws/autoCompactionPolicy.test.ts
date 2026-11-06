@@ -90,7 +90,7 @@ test('new tabs keep auto-handoff disabled unless explicitly enabled', async () =
   assert.equal(deriveAutoHandoff(config).enabled, false);
   assert.equal(deriveAutoHandoff(config).afterCompactions, 5);
   applyAutoHandoffDefault(config, { afterCompactions: 7 });
-  assert.deepEqual(config.autoHandoff, { enabled: false, afterCompactions: 7 });
+  assert.deepEqual(config.autoHandoff, { enabled: false, afterCompactions: 7, warnAt: 75, autoAt: 90 });
   const explicit = { ...config, autoHandoff: { enabled: true, afterCompactions: 3 } };
   applyAutoHandoffDefault(explicit, { enabled: false });
   assert.equal(explicit.autoHandoff.enabled, true);

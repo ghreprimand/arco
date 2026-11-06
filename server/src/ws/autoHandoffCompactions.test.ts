@@ -33,9 +33,9 @@ function fixture(id: string, extra: Partial<WorkflowState> = {}): { wf: Workflow
 const notices = (sent: string[]) => sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'system_notice').map((m) => m.content as string);
 
 test('saved percent settings migrate: on stays on with 5 compactions, off stays off', () => {
-  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, warnAt: 75, autoAt: 90 }), { enabled: true, afterCompactions: 5 });
-  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: false, warnAt: 60, autoAt: 80, mode: 'fresh-summarizer' }), { enabled: false, afterCompactions: 5, mode: 'fresh-summarizer' });
-  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, afterCompactions: 2, summarizer: { provider: 'claude', model: 'opus' } }), { enabled: true, afterCompactions: 2, summarizer: { provider: 'claude', model: 'opus' } });
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, warnAt: 75, autoAt: 90 }), { enabled: true, afterCompactions: 5, warnAt: 75, autoAt: 90 });
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: false, warnAt: 60, autoAt: 80, mode: 'fresh-summarizer' }), { enabled: false, afterCompactions: 5, warnAt: 60, autoAt: 80, mode: 'fresh-summarizer' });
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, afterCompactions: 2, summarizer: { provider: 'claude', model: 'opus' } }), { enabled: true, afterCompactions: 2, warnAt: 75, autoAt: 90, summarizer: { provider: 'claude', model: 'opus' } });
   assert.equal(shared.normalizeAutoHandoff({ enabled: true, afterCompactions: 0 })?.afterCompactions, 1);
   assert.equal(shared.normalizeAutoHandoff({ enabled: true, afterCompactions: 99 })?.afterCompactions, 20);
   for (const bad of [undefined, null, 'on', {}, { enabled: 'yes' }]) assert.equal(shared.normalizeAutoHandoff(bad), undefined);
@@ -43,7 +43,41 @@ test('saved percent settings migrate: on stays on with 5 compactions, off stays 
   assert.deepEqual({ enabled: live.enabled, after: live.afterCompactions, count: live.compactions }, { enabled: true, after: 5, count: 0 });
   const config = { name: 'x', autoHandoff: { enabled: true, warnAt: 70, autoAt: 85 } } as never as import('@arco/shared').WorkflowConfig;
   engine.applyAutoHandoffDefault(config, { enabled: false });
-  assert.deepEqual(config.autoHandoff, { enabled: true, afterCompactions: 5 }, 'creation drops the percent fields');
+  assert.deepEqual(config.autoHandoff, { enabled: true, afterCompactions: 5, warnAt: 70, autoAt: 85 }, 'creation keeps the saved percentages for 0.1.4');
+});
+
+test('every saved auto-handoff keeps the percentages 0.1.4 needs to hand off', () => {
+  // 0.1.4 fires only when the context percentage reaches autoAt; without the
+  // field a tab that is on never hands off there.
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, afterCompactions: 4 }), { enabled: true, afterCompactions: 4, warnAt: 75, autoAt: 90 });
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, warnAt: 10, autoAt: 200 }), { enabled: true, afterCompactions: 5, warnAt: 60, autoAt: 95 }, 'clamped to the 0.1.4 slider ranges');
+  assert.deepEqual(shared.normalizeAutoHandoff({ enabled: true, warnAt: 'x', autoAt: Number.NaN }), { enabled: true, afterCompactions: 5, warnAt: 75, autoAt: 90 });
+});
+
+test('meta.json always carries the 0.1.4 percentages with a saved auto-handoff', async () => {
+  const { writeMeta } = await import('../workflowMeta.js');
+  const cwd = join(root, 'legacy-meta'); mkdirSync(cwd, { recursive: true });
+  const workflowId = '0f0e0d0c-0b0a-4908-8706-050403020100';
+  await writeMeta(cwd, { workflowId, cwd, name: 'legacy', kind: 'chat', cliSessions: [], primaryProvider: 'claude', primaryModel: 'sonnet', createdAt: 1, lastActiveAt: 1, autoHandoff: { enabled: true, afterCompactions: 4 } } as never);
+  const saved = JSON.parse(readFileSync(join(cwd, '.arco', 'workflows', workflowId, 'meta.json'), 'utf8'));
+  assert.deepEqual(saved.autoHandoff, { enabled: true, afterCompactions: 4, warnAt: 75, autoAt: 90 });
+});
+
+test('a 0.1.5 change keeps the 0.1.4 percentages the tab already has', async () => {
+  const { writeMeta, readMeta } = await import('../workflowMeta.js');
+  const { handleUpdatePrimaryConfig } = await import('./updatePrimaryConfig.js');
+  const cwd = join(root, 'keep-percent'); mkdirSync(cwd, { recursive: true });
+  const id = '1f0e0d0c-0b0a-4908-8706-050403020100';
+  const ws = { readyState: 1, send: () => undefined } as unknown as WebSocket;
+  const wf = { config: { name: 'keep', workingDirectory: cwd, autoHandoff: { enabled: true, afterCompactions: 5, warnAt: 80, autoAt: 92 } },
+    primary: { provider: 'claude', model: 'sonnet', effort: 'low' }, observers: new Set([ws]), bootMaterialized: true,
+    autoHandoff: { enabled: true, afterCompactions: 5, compactions: 0, fired: false } } as unknown as WorkflowState;
+  workflows.set(id, wf);
+  try {
+    await writeMeta(cwd, { workflowId: id, name: 'keep', cwd, kind: 'chat', createdAt: 1, lastActiveAt: 1, primaryProvider: 'claude', primaryModel: 'sonnet', cliSessions: [], autoHandoff: wf.config.autoHandoff } as never);
+    await handleUpdatePrimaryConfig(ws, {} as Session, { type: 'update_primary_config', workflowId: id, autoHandoff: { enabled: true, afterCompactions: 6 } } as never);
+    assert.deepEqual((await readMeta(cwd, id))?.autoHandoff, { enabled: true, afterCompactions: 6, warnAt: 80, autoAt: 92 });
+  } finally { workflows.delete(id); }
 });
 
 test('saved global defaults from before 0.1.5 keep enabled and drop the percentages', async () => {
@@ -57,7 +91,7 @@ test('saved global defaults from before 0.1.5 keep enabled and drop the percenta
   assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')).autoHandoffDefaults, { enabled: true, afterCompactions: 8 });
   const config = { name: 'x' } as import('@arco/shared').WorkflowConfig;
   engine.applyAutoHandoffDefault(config, (await readSettings()).autoHandoffDefaults);
-  assert.deepEqual(config.autoHandoff, { enabled: true, afterCompactions: 8 });
+  assert.deepEqual(config.autoHandoff, { enabled: true, afterCompactions: 8, warnAt: 75, autoAt: 90 });
   await patchSettings({ autoHandoffDefaults: { enabled: false, afterCompactions: 5 } });
 });
 

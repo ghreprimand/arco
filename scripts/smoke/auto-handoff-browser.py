@@ -78,9 +78,9 @@ async def main():
         await expect(line).to_have_text('Counts Claude Native compactions (automatic and COMPACT).')
         await expect(page.get_by_text('WARN', exact=True)).to_have_count(0)
         await box.check()
-        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 5}, await updates()
+        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 5, 'warnAt': 75, 'autoAt': 90}, await updates()
         await count.fill('3'); await count.press('Enter')
-        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 3}, await updates()
+        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 3, 'warnAt': 75, 'autoAt': 90}, await updates()
         await count.fill('40'); await count.blur()
         await expect(count).to_have_value('20')
         assert (await updates())[-1]['afterCompactions'] == 20
@@ -115,7 +115,7 @@ async def main():
         await page.evaluate("show('legacy', {claudeTransport:'native', autoHandoff:{enabled:true, warnAt:75, autoAt:90}})")
         await expect(box).to_be_checked(); await expect(count).to_have_value('5')
         await count.fill('6'); await count.press('Enter')
-        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 6}, await updates()
+        assert (await updates())[-1] == {'enabled': True, 'afterCompactions': 6, 'warnAt': 75, 'autoAt': 90}, await updates()
         print('PASS saved percent setting reads as on with 5; the next save drops the percentages')
 
         assert not errors, errors

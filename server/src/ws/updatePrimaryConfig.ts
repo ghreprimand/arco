@@ -77,8 +77,12 @@ export async function handleUpdatePrimaryConfig(
   // Update the auto-handoff config. Mirrors into wf.config so the client
   // receives the updated config on next rehydrate. The compaction count of
   // the current conversation is kept: lowering N to or below it hands off at
-  // the next turn boundary. A malformed value is ignored.
-  const autoHandoff = msg.autoHandoff !== undefined ? normalizeAutoHandoff(msg.autoHandoff) : undefined;
+  // the next turn boundary. A malformed value is ignored. The 0.1.4
+  // percentages the tab already has are kept when the update leaves them out.
+  const previous = wf.config.autoHandoff;
+  const raw: unknown = msg.autoHandoff;
+  const autoHandoff = raw === undefined ? undefined
+    : normalizeAutoHandoff(raw && typeof raw === 'object' ? { warnAt: previous?.warnAt, autoAt: previous?.autoAt, ...raw } : raw);
   if (autoHandoff) {
     wf.config.autoHandoff = autoHandoff;
     const live = deriveAutoHandoff(wf.config);

@@ -435,12 +435,13 @@ export function applyAutoHandoffDefault(
     && defaults.mode === undefined
     && defaults.summarizer === undefined
   ) return false;
-  config.autoHandoff = {
+  // Through normalizeAutoHandoff so the saved form carries the 0.1.4 fields too.
+  config.autoHandoff = normalizeAutoHandoff({
     enabled: defaults.enabled ?? false,
     afterCompactions: clampAutoHandoffCompactions(defaults.afterCompactions),
     ...(defaults.mode !== undefined ? { mode: defaults.mode } : {}),
     ...(defaults.summarizer !== undefined ? { summarizer: defaults.summarizer } : {}),
-  };
+  });
   return true;
 }
 

@@ -90,7 +90,8 @@ export interface WorkflowMeta {
   lastTranscriptSeq: number | null;
   compactedAt: number | null;
   // Read through normalizeAutoHandoff: files from before 0.1.5 carry
-  // warnAt/autoAt percentages instead of afterCompactions.
+  // warnAt/autoAt percentages instead of afterCompactions. Written with both
+  // (writeMeta) so 0.1.4 can still read a 0.1.5 file.
   autoHandoff?: AutoHandoffConfig;
   // Compactions counted toward auto-handoff in the conversation `session`
   // (the primary session id), so a restart keeps the count.
@@ -401,6 +402,9 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
   if (meta.schemaVersion !== CURRENT_SCHEMA_VERSION) {
     meta.schemaVersion = CURRENT_SCHEMA_VERSION;
   }
+  // Every saved auto-handoff carries the percentages 0.1.4 reads, so a tab
+  // that is on still hands off after going back to 0.1.4.
+  if (meta.autoHandoff) meta.autoHandoff = normalizeAutoHandoff(meta.autoHandoff) ?? meta.autoHandoff;
   ensureProjectStateIgnore(cwd);
   await atomicWriteFile(metaPath(cwd, meta.workflowId), JSON.stringify(meta, null, 2) + '\n');
   // Workbench Expansion §F1 — keep the machine-global Recall index current as
