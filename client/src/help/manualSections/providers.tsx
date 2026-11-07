@@ -757,6 +757,7 @@ export const providers: Section[] = [
   when a model feature, such as a new vision architecture, has not reached
   Ollama yet.
   </p>
+  <p>Catalog aliases must stay unique, including renames. A save, delete or diagnosis fix refuses a changed catalog rather than replacing later work. Reload it and review the change again; a refused fix does not reload the model.</p>
   <p>
   The catalog at <Code>~/.arco/llamacpp.json</Code> declares each loadout up
   front (alias / GGUF path / context size / GPU layers / capability flags). A

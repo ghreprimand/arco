@@ -1,3 +1,4 @@
+import { updatePlanBody, PlanBodySaveError } from './plans/planBodySave';
 import { PublicProjectBox } from './PublicProjectBox';
 import { rememberPublicChoice, usePublicProject } from '../utils/publicProject';
 // docs/PROTOCOL_CLUSTER.md - shared cluster plan editor. Lives as a
@@ -19,7 +20,7 @@ import { rememberPublicChoice, usePublicProject } from '../utils/publicProject';
 // attached plan).
 
 import type { SpawnMemberIdentity } from '@arco/shared';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ClusterStatePayload,
   ClusterMember,
@@ -135,6 +136,9 @@ type PendingPick =
 export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, onSpawnPhase, onReviewMember, onReviewViaMember, onAttachPlanToMember }: Props) {
   const { checked: publicProject } = usePublicProject(cluster.cwd ?? '');
   const remoteBody = cluster.plan?.body ?? '';
+  const tickKey = JSON.stringify([cluster.cwd, cluster.plan?.id]);
+  const ticks = useRef({ key: tickKey, generation: 0 });
+  if (ticks.current.key !== tickKey) ticks.current = { key: tickKey, generation: 0 };
   const jobs = useAppStore((s) => s.jobs);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
 
@@ -337,18 +341,25 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   // re-broadcasts cluster_state which lands the same value. If the server
   // rejects (over hard cap is the only realistic reason), we revert on
   // the next remoteBody sync.
-  const onToggleCheckbox = (lineIndex: number) => {
-    if (!onSetPlan) return;
-    const lines = remoteBody.split('\n');
-    const m = lines[lineIndex]?.match(CHECKBOX_RE);
-    if (!m) return;
-    const [, indent, mark, rest] = m;
-    const next = mark.toLowerCase() === 'x' ? ' ' : 'x';
-    lines[lineIndex] = `${indent}- [${next}] ${rest}`;
-    const newBody = lines.join('\n');
-    setDraft(newBody);
-    setLastRemote(newBody);
-    onSetPlan(cluster.clusterId, newBody);
+  const onToggleCheckbox = async (lineIndex: number) => {
+    if (!onSetPlan || !cluster.plan?.id) return;
+    const submitted = remoteBody, context = ticks.current, request = ++context.generation;
+    const lines = submitted.split('\n'), match = lines[lineIndex]?.match(CHECKBOX_RE);
+    if (!match) return;
+    lines[lineIndex] = `${match[1]}- [${match[2].toLowerCase() === 'x' ? ' ' : 'x'}] ${match[3]}`;
+    const apply = (saved: import('@arco/shared').PlanFull) => {
+      if (ticks.current !== context || context.generation !== request) return;
+      const store = useAppStore.getState(), live = store.clusters[cluster.clusterId];
+      if (live?.plan?.id === saved.id && live.plan.body === submitted) {
+        store.setClusterState(cluster.clusterId, { ...live, plan: { ...live.plan, body: saved.body, title: saved.title, updatedAt: saved.updatedAt } });
+      }
+    };
+    try { apply(await updatePlanBody(cluster.cwd, cluster.plan.id, submitted, lines.join('\n'))); }
+    catch (err) {
+      if (ticks.current !== context || context.generation !== request) return;
+      if (err instanceof PlanBodySaveError && err.plan) apply(err.plan);
+      useAppStore.getState().pushNotification('error', err instanceof Error ? err.message : String(err));
+    }
   };
 
   // SPAWN PHASE — open the existing SpawnDialog. Cluster context: the new

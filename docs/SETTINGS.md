@@ -26,6 +26,8 @@ The default fresh summarizer stays unpinned until an explicit picker choice. Ope
 
 Skill names and descriptions retain quotes and backslashes through repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation reserve room for numeric collision suffixes within the 64-character folder-name limit.
 
+Skill UPDATE binds its preview to every installed file, including hidden files and metadata. A local edit after REVIEW, or while the replacement is staged, refuses the update and keeps that edit. REVIEW again before confirming. Skill editor saves and folder operations share the same mutation lock.
+
 ## Addresses
 
 `#settings/<category>` opens a category and `#settings/<category>/<section>`

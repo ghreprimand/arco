@@ -14,6 +14,8 @@ board tracks the work in progress.
 
 Moving a plan detaches its source workflows only after the move succeeds. A refused move, including choosing the same project again or an existing destination plan, keeps those attachments.
 
+Checkbox clicks in workflow, cluster and library plan views compare the displayed body with the current saved body. A changed plan produces a conflict instead of replacing accepted edits. The current plan is refreshed where available; review it and retry. Plan and reference fields wait while their submitted save is pending. Reference links fetch the saved document before treating it as missing, and creating a ref never replaces an existing one.
+
 The composer's PLAN button explains in its hover text that a plan keeps the next
 steps in one place.
 A cluster without a plan offers DRAFT A PLAN, ATTACH EXISTING, and NOT NOW;

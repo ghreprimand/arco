@@ -34,12 +34,12 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'architecture-review.add-to-plan': {
     title: 'ADD TO PLAN',
-    body: <p><C>ADD TO PLAN</C> asks first, then adds the candidate to the attached plan as one unticked item under "Architecture review", linked to a new reference doc that holds its files, problem, proposed change and expected benefit. A board task follows from the plan item the usual way.</p>,
+    body: <p><C>ADD TO PLAN</C> asks first, then adds the candidate to the attached plan as one unticked item under "Architecture review", linked to a new reference doc that holds its files, problem, proposed change and expected benefit. A board task follows from the plan item the usual way. Concurrent plan edits and recorded decisions are preserved.</p>,
     manualSection: 'architecture-review',
   },
   'architecture-review.record-decision': {
     title: 'RECORD DECISION',
-    body: <p><C>RECORD DECISION</C> records why a candidate is not pursued. Type the reason and select <C>RECORD</C>; it is added to the attached plan's <C>decisions</C> reference doc with the date and files. Later reviews read that doc and do not suggest the candidate again.</p>,
+    body: <p><C>RECORD DECISION</C> records why a candidate is not pursued. Type the reason and select <C>RECORD</C>; it is added to the attached plan's <C>decisions</C> reference doc with the date and files. Later reviews read that doc and do not suggest the candidate again. Concurrent plan edits and recorded decisions are preserved.</p>,
     manualSection: 'architecture-review',
   },
   'rightpanel.outputs.open': {

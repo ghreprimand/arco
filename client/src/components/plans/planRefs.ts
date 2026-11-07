@@ -3,7 +3,7 @@
 // thin wrappers over /api/plans/refs plus the link syntax the plan body uses
 // to point at one: `[label](ref:slug)` or `[[ref:slug]]`.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlanRefFull, PlanRefSummary } from '@arco/shared';
 
 export const REF_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -39,7 +39,7 @@ const q = (cwd: string, planId: string, slug?: string) =>
 
 async function asJson<T>(r: Response): Promise<T> {
   const d = await r.json().catch(() => ({})) as T & { error?: string };
-  if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(d.error ?? `HTTP ${r.status}`), { status: r.status });
   return d;
 }
 
@@ -51,11 +51,11 @@ export async function fetchPlanRef(cwd: string, planId: string, slug: string): P
   return (await asJson<{ ref: PlanRefFull }>(await fetch(`/api/plans/refs/body?${q(cwd, planId, slug)}`))).ref;
 }
 
-export async function savePlanRef(cwd: string, planId: string, slug: string, body: string): Promise<void> {
+export async function savePlanRef(cwd: string, planId: string, slug: string, body: string, opts: { createOnly?: boolean } = {}): Promise<void> {
   await asJson(await fetch(`/api/plans/refs?${q(cwd, planId, slug)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, ...opts }),
   }));
 }
 
@@ -67,17 +67,27 @@ export async function removePlanRef(cwd: string, planId: string, slug: string): 
 // ref write/delete made through the REST routes. Refs an agent writes with
 // plain file tools don't bump it, so focus also refetches.
 export function usePlanRefs(cwd: string | undefined, planId: string | undefined, updatedAt?: number) {
-  const [refs, setRefs] = useState<PlanRefSummary[] | null>(null);
+  const key = JSON.stringify([cwd, planId]);
+  const active = useRef({ key, generation: 0 });
+  if (active.current.key !== key) active.current = { key, generation: active.current.generation + 1 };
+  const [listed, setListed] = useState<{ key: string; refs: PlanRefSummary[] } | null>(null);
   const reload = useCallback(async () => {
-    if (!cwd || !planId) { setRefs(null); return; }
-    try { setRefs(await fetchPlanRefs(cwd, planId)); } catch { /* keep prior */ }
-  }, [cwd, planId]);
-  useEffect(() => { setRefs(null); }, [cwd, planId]);
-  useEffect(() => { void reload(); }, [reload, updatedAt]);
+    if (active.current.key !== key) return;
+    const request = ++active.current.generation;
+    if (!cwd || !planId) { setListed(null); return; }
+    try {
+      const refs = await fetchPlanRefs(cwd, planId);
+      if (active.current.key === key && active.current.generation === request) setListed({ key, refs });
+    } catch { /* Keep this plan's prior list on a failed refresh. */ }
+  }, [cwd, planId, key]);
+  useEffect(() => {
+    void reload();
+    return () => { active.current.generation++; };
+  }, [reload, updatedAt]);
   useEffect(() => {
     const onFocus = () => { void reload(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [reload]);
-  return { refs, reload };
+  return { refs: listed?.key === key ? listed.refs : null, reload };
 }

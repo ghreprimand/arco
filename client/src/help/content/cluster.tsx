@@ -82,7 +82,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Encrypted cluster cloud',
     body: (
       <>
-        <p><C>SAVE CLOUD</C> and the <C>CLOUD</C> button on a local row encrypt the snapshot on this computer, then upload only the sealed copy to the management hub. Cloud controls appear only while the hub is connected. Saving and restoring are always manual.</p>
+        <p><C>SAVE CLOUD</C> and the <C>CLOUD</C> button on a local row encrypt the snapshot on this computer, then upload only the sealed copy to the management hub. Cloud controls appear only while the hub is connected. Saving and restoring are always manual. Replacement keeps the previous readable cloud copy until the new entry is published successfully.</p>
         <p>Every computer that restores a cloud snapshot needs the same vault key. The key stays on each computer and is never uploaded; use <C>COPY VAULT KEY</C> and <C>SET VAULT KEY</C> to share it. A cloud save with an existing name asks before replacing that entry instead of adding a duplicate.</p>
       </>
     ),
@@ -658,7 +658,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           The shared plan holds up to <strong>32 KB</strong> and warns at 28 KB.
           Standard members receive it in their turn context; blind and isolated
           members do not. Attach an existing plan or create one here.
-        </p>
+         Checkbox changes compare the displayed plan with the saved version; an intervening edit is preserved and a conflict asks for a fresh review. Member ticks match task text against the version being saved.</p>
         <p>
           Edits take effect on the next turn; in-flight turns are not stopped.
           <C>CLEAR PLAN</C> detaches the plan after confirmation and leaves its

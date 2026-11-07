@@ -12,7 +12,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import type { LlamacppModelDef } from '@arco/shared';
-import { atomicWriteFile } from './atomicFile.js';
+import { createHash } from 'node:crypto';
+import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
 const CATALOG_PATH = path.join(arcoHome(), 'llamacpp.json');
@@ -56,7 +57,8 @@ export async function ensureCatalog(): Promise<void> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
-  await fs.writeFile(CATALOG_PATH, BOOTSTRAP, 'utf8');
+  try { await fs.writeFile(CATALOG_PATH, BOOTSTRAP, { encoding: 'utf8', flag: 'wx' }); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err; }
 }
 
 function isLlamacppModelDef(raw: unknown): raw is LlamacppModelDef {
@@ -69,9 +71,8 @@ function isLlamacppModelDef(raw: unknown): raw is LlamacppModelDef {
 // Read + validate. Bad JSON or a missing file returns an empty catalog
 // rather than throwing — the auth probe surfaces "no models" cleanly that
 // way and the operator can fix the file without having to restart Arco.
-export async function readCatalog(): Promise<LlamacppCatalog> {
+function parseCatalog(raw: string): LlamacppCatalog {
   try {
-    const raw = await fs.readFile(CATALOG_PATH, 'utf8');
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return emptyCatalog();
     const models = (parsed as { models?: unknown }).models;
@@ -88,19 +89,52 @@ export async function readCatalog(): Promise<LlamacppCatalog> {
     }
     return { models: valid };
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return emptyCatalog();
     console.error('[arco] llamacpp.json malformed; treating as empty:', err instanceof Error ? err.message : err);
     return emptyCatalog();
   }
 }
 
-export async function writeCatalog(catalog: LlamacppCatalog): Promise<void> {
-  const body = JSON.stringify(catalog, null, 2) + '\n';
-  const bytes = Buffer.byteLength(body, 'utf8');
-  if (bytes > MAX_CATALOG_BYTES) {
-    throw new Error(`llamacpp.json too large (${bytes} bytes > ${MAX_CATALOG_BYTES} cap)`);
+export class LlamacppCatalogError extends Error {
+  constructor(readonly status: 400 | 409, message: string) { super(message); }
+}
+
+async function catalogBytes(): Promise<string | null> {
+  try { return await fs.readFile(CATALOG_PATH, 'utf8'); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null; throw err; }
+}
+const revisionOf = (raw: string | null) => raw === null ? 'missing' : createHash('sha256').update(raw).digest('hex');
+
+export async function readCatalogSnapshot(): Promise<LlamacppCatalog & { revision: string }> {
+  const raw = await catalogBytes();
+  return { ...(raw === null ? emptyCatalog() : parseCatalog(raw)), revision: revisionOf(raw) };
+}
+
+export async function readCatalog(): Promise<LlamacppCatalog> {
+  try { const { models } = await readCatalogSnapshot(); return { models }; }
+  catch (err) {
+    console.error('[arco] llamacpp.json could not be read:', err instanceof Error ? err.message : err);
+    return emptyCatalog();
   }
-  await atomicWriteFile(CATALOG_PATH, body);
+}
+
+export async function writeCatalog(catalog: LlamacppCatalog, expectedRevision?: string): Promise<void> {
+  if (!catalog || !Array.isArray(catalog.models)) throw new LlamacppCatalogError(400, 'Expected a model catalog.');
+  const aliases = new Set<string>();
+  for (const model of catalog.models) {
+    if (!isLlamacppModelDef(model) || !model.alias.trim()) throw new LlamacppCatalogError(400, 'Every model needs an alias and GGUF path.');
+    if (aliases.has(model.alias)) throw new LlamacppCatalogError(400, `Model alias "${model.alias}" already exists.`);
+    aliases.add(model.alias);
+  }
+  const body = JSON.stringify({ models: catalog.models }, null, 2) + '\n';
+  const bytes = Buffer.byteLength(body, 'utf8');
+  if (bytes > MAX_CATALOG_BYTES) throw new LlamacppCatalogError(400, `llamacpp.json too large (${bytes} bytes > ${MAX_CATALOG_BYTES} cap)`);
+  await withFileLock(CATALOG_PATH, async () => {
+    const raw = await catalogBytes();
+    if ((raw !== null || expectedRevision !== undefined) && expectedRevision !== revisionOf(raw)) {
+      throw new LlamacppCatalogError(409, 'The catalog changed or needs a fresh review. Reload it before saving again.');
+    }
+    await atomicWriteFile(CATALOG_PATH, body);
+  });
 }
 
 export function findModel(catalog: LlamacppCatalog, alias: string): LlamacppModelDef | undefined {

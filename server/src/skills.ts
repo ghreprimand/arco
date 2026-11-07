@@ -1,3 +1,4 @@
+import { withSkillMutation } from './skillMutation.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Arco-managed operator skills. Distinct from `toolbox.ts`, which scans the
 // Claude CLI's plugin/user skill caches for the toolbox-menu chips. These
@@ -410,6 +411,7 @@ export async function writeSkill(
   input: WriteSkillInput,
   cwd: string,
 ): Promise<SkillSummary> {
+  return withSkillMutation(async () => {
   const name = (input.name ?? '').trim();
   if (!name) throw new Error('name required');
   if (name.length > NAME_MAX) throw new Error(`name too long (>${NAME_MAX})`);
@@ -458,6 +460,7 @@ export async function writeSkill(
     path: filePath,
     ...(input.operatorOnly ? { operatorOnly: true } : {}),
   };
+  });
 }
 
 // An editable copy of a built-in skill: an ordinary operator-only skill named
@@ -482,6 +485,7 @@ export async function deleteSkill(
   slug: string,
   cwd: string,
 ): Promise<boolean> {
+  return withSkillMutation(async () => {
   const filePath = skillFilePath(scope, slug, cwd);
   const dir = path.dirname(filePath);
   try {
@@ -491,6 +495,7 @@ export async function deleteSkill(
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw err;
   }
+  });
 }
 
 // Manifest text injected into the primary's system prompt. Only name +

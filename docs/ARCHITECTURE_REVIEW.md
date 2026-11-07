@@ -34,6 +34,8 @@ In OUTPUTS, the report has **CANDIDATES**, which lists the candidates from the `
 - **ADD TO PLAN** writes a reference doc `arch-<title>` with the candidate and adds `- [ ] <title> [Architecture](ref:arch-<title>)` as the last item under `### Architecture review` in the plan (the heading is added at the end when missing). A board task follows from the plan item the usual way.
 - **RECORD DECISION** asks for the reason and appends a "Not pursued" entry with the date, files and reason to the plan's `decisions` reference doc. The next review's facts include that doc, and the skill tells the agent not to suggest those candidates again unless it names the decision and what changed.
 
+Both actions preserve intervening plan edits and concurrent decisions. Candidate reference names are reserved without replacing an existing reference. Text-matched member ticks resolve against the plan version being saved.
+
 Without an attached plan both actions are refused with a message.
 
 ## Review checklist

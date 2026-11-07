@@ -135,16 +135,30 @@ export async function createPlan(
   });
 }
 
+export type PlanPatch = { title?: string; body?: string; completedAt?: number | null };
+export class PlanConflictError extends Error {
+  constructor() { super('The plan changed since it was displayed. Reload it before saving again.'); }
+}
+
 export async function updatePlan(
   cwd: string,
   planId: string,
-  patch: { title?: string; body?: string; completedAt?: number | null },
+  input: PlanPatch | ((current: PlanFull) => PlanPatch),
+  opts: { expectedBody?: string } = {},
 ): Promise<PlanFull | null> {
   if (!cwd || !isValidPlanId(planId)) return null;
   return withIndexLock(cwd, async () => {
     const idx = await readIndex(cwd);
     const i = idx.plans.findIndex((p) => p.id === planId);
     if (i === -1) return null;
+    let currentBody: string | undefined;
+    if (typeof input === 'function' || opts.expectedBody !== undefined) {
+      currentBody = await fs.readFile(bodyPath(cwd, planId), 'utf8');
+      if (opts.expectedBody !== undefined && currentBody !== opts.expectedBody) throw new PlanConflictError();
+    }
+    // Callbacks run under the canonical index lock and must not call another
+    // plan mutator. They derive their patch from the version being saved.
+    const patch = typeof input === 'function' ? input({ ...idx.plans[i], body: currentBody! }) : input;
     const now = Date.now();
     let nextTitle = idx.plans[i].title;
     if (typeof patch.title === 'string') {
@@ -502,19 +516,35 @@ export type WritePlanRefResult =
 // Create or replace. Refuses (rather than truncating, as plan bodies do) an
 // over-cap body: a silently clipped spec is worse than an error the agent can
 // act on by splitting the doc.
-export async function writePlanRef(cwd: string, planId: string, slug: string, body: string): Promise<WritePlanRefResult> {
+export async function writePlanRef(
+  cwd: string, planId: string, slug: string,
+  input: string | ((current: string | null) => string),
+  opts: { createOnly?: boolean } = {},
+): Promise<WritePlanRefResult> {
   if (!cwd || !isValidPlanId(planId)) return { ok: false, error: 'invalid plan id' };
-  if (!isValidRefSlug(slug)) return { ok: false, error: 'invalid slug — use lowercase letters, digits, and dashes (max 64)' };
-  if (Buffer.byteLength(body, 'utf8') > REF_BODY_MAX) return { ok: false, error: `ref body exceeds ${REF_BODY_MAX} bytes — split it into several refs` };
-  // Under the plan index lock, so MOVE never removes a source whose reference
-  // documents changed after it copied them.
+  if (!isValidRefSlug(slug)) return { ok: false, error: 'invalid slug - use lowercase letters, digits, and dashes (max 64)' };
   return withIndexLock(cwd, async (): Promise<WritePlanRefResult> => {
     if (!(await readPlanSummary(cwd, planId))) return { ok: false, error: 'plan not found' };
+    const body = typeof input === 'function' ? input((await readPlanRef(cwd, planId, slug))?.body ?? null) : input;
+    if (Buffer.byteLength(body, 'utf8') > REF_BODY_MAX) return { ok: false, error: `ref body exceeds ${REF_BODY_MAX} bytes - split it into several refs` };
     const existing = await listPlanRefs(cwd, planId);
     const created = !existing.some((r) => r.slug === slug);
+    if (opts.createOnly && !created) return { ok: false, error: 'ref already exists' };
     if (created && existing.length >= REF_COUNT_MAX) return { ok: false, error: `plan already has ${REF_COUNT_MAX} refs` };
-    await atomicWriteFile(refPath(cwd, planId, slug), body);
-    const st = await fs.stat(refPath(cwd, planId, slug));
+    const file = refPath(cwd, planId, slug);
+    if (opts.createOnly) {
+      const temp = `${file}.create-${randomUUID()}`;
+      try {
+        await atomicWriteFile(temp, body);
+        // Link the completed file exclusively. Existing files and links are
+        // refused even if an unreadable ref was absent from the listing.
+        await fs.link(temp, file);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'EEXIST') return { ok: false, error: 'ref already exists' };
+        throw err;
+      } finally { await fs.rm(temp, { force: true }).catch(() => undefined); }
+    } else await atomicWriteFile(file, body);
+    const st = await fs.stat(file);
     return { ok: true, created, ref: { slug, title: extractTitleFromBody(body.slice(0, 4096)) || slug, bytes: st.size, updatedAt: Math.round(st.mtimeMs) } };
   });
 }

@@ -787,6 +787,8 @@ A `.bak-phase1` file may be present from earlier migrations.
 
 Operator-maintained GGUF catalog at `~/.arco/llamacpp.json`: `{ models: LlamacppModelDef[] }` (each `{ alias, ggufPath, ctxSize?, ngl?, extraArgs?,... }` plus optional capability flags; the first entry is the default; 64 KB cap; a commented stub is seeded on first read). Managed by `server/src/llamacppCatalog.ts`. Editable via the CONFIG tab's llama.cpp section or by hand. Arco reads it at boot and on capabilities refresh; each alias becomes a selectable model in the llama.cpp provider's model dropdown. Version-mtime cache in `llamacppManager` skips re-probing the binary when its mtime hasn't changed.
 
+Catalog GET responses include a content revision; a replacement must send that reviewed revision. The server checks it under the catalog mutation lock and refuses stale writes or duplicate aliases. The `llamacpp.json` file format remains `{ models: [...] }`; the revision is not stored in that file.
+
 ### notification-mutes.json / cluster-presets.json / templates.json / mcp/registry.json
 
 Small global JSON stores, each written through `atomicFile.ts` (`notification-mutes.json` uses the `advisory` tier - the in-memory set is authoritative for the session):
@@ -797,6 +799,12 @@ Small global JSON stores, each written through `atomicFile.ts` (`notification-mu
 - **`cluster-vault.key`** (`server/src/clusterVaultCrypto.ts`) - base64url 32-byte AES-GCM key, mode 0600. Generated on first cloud save or explicitly installed from another computer. It is never included in a snapshot bundle or hub request and must not be committed to source control.
 - **`templates.json`** (`server/src/templates/store.ts`) - workflow templates (`{ version: 1, templates: [...] }`), the single-tab analogue of cluster presets; carries optional seedPrompt + plan body.
 - **`mcp/registry.json`** (`server/src/mcp/registry.ts`) - operator-registered MCP server defs (`{ servers: [...] }`). Per-workflow allow-lists live in `meta.json` (`mcpAllow`), keyed by serverId. Honors `ARCO_HOME` env override.
+
+### Management-hub cloud snapshot publication
+
+The hub stores encrypted blobs as `<id>.<sha256>.bin`. The existing `<id>.json` metadata selects the active blob through its checksum. A complete, flushed blob is published without replacement before the metadata is atomically switched. Same-name saves, reads and deletions serialize; failed metadata publication leaves the previous pair readable. Previous blob cleanup follows successful publication, so an interrupted cleanup can leave an unused blob but cannot break the active snapshot.
+
+Readers also accept legacy `<id>.bin` plus `<id>.json` pairs. Client downloads and encryption envelopes are unchanged. Older hub versions do not understand the checksum-named layout: keep a compatible hub when restoring new cloud uploads after a downgrade. Local snapshot and exported bundle formats are unchanged.
 
 ### skill-usage.json
 

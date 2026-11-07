@@ -4,7 +4,7 @@ import type { LlamacppModelDef } from '@arco/shared';
 
 // Operator-facing editor for ~/.arco/llamacpp.json. Reads the catalog
 // over /api/llamacpp/catalog (full GET / full POST replace, same
-// wholesale-not-merge pattern as the models.md editor), and exposes
+// replacement requires the reviewed revision), and exposes
 // per-row Load / Unload / Edit / Delete plus an Add form.
 //
 // Why surface this in-app rather than just letting operators hand-edit
@@ -14,6 +14,7 @@ import type { LlamacppModelDef } from '@arco/shared';
 
 interface CatalogResponse {
   models: LlamacppModelDef[];
+  revision: string;
 }
 
 interface BlankForm {
@@ -73,6 +74,7 @@ function formToDef(f: BlankForm, prior?: LlamacppModelDef): LlamacppModelDef {
 export function LlamacppCatalogEditor() {
   const llamacppLive = useAppStore((s) => s.llamacppLive);
   const setLlamacppLive = useAppStore((s) => s.setLlamacppLive);
+  const [revision, setRevision] = useState<string | undefined>();
   const [models, setModels] = useState<LlamacppModelDef[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingAlias, setEditingAlias] = useState<string | null>(null); // null = closed; '' = adding new
@@ -86,6 +88,7 @@ export function LlamacppCatalogEditor() {
       const res = await fetch('/api/llamacpp/catalog');
       const data = await res.json() as CatalogResponse;
       setModels(data.models);
+      setRevision(data.revision);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
@@ -110,6 +113,10 @@ export function LlamacppCatalogEditor() {
       const prior = editingAlias ? models.find((m) => m.alias === editingAlias) : undefined;
       const next = formToDef(form, prior);
       let updated: LlamacppModelDef[];
+      if (models.some((m) => m.alias === next.alias && m.alias !== editingAlias)) {
+        setActionError(`alias "${next.alias}" already exists`);
+        return;
+      }
       if (editingAlias) {
         // Replace by alias. If the operator renamed it, the new alias still
         // sits in the same slot — the catalog has no separate identity beyond
@@ -128,7 +135,7 @@ export function LlamacppCatalogEditor() {
       const res = await fetch('/api/llamacpp/catalog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ models: updated }),
+        body: JSON.stringify({ models: updated, revision }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -136,6 +143,7 @@ export function LlamacppCatalogEditor() {
       }
       const data = await res.json() as CatalogResponse;
       setModels(data.models);
+      setRevision(data.revision);
       cancelForm();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -154,7 +162,7 @@ export function LlamacppCatalogEditor() {
       const res = await fetch('/api/llamacpp/catalog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ models: updated }),
+        body: JSON.stringify({ models: updated, revision }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -162,6 +170,7 @@ export function LlamacppCatalogEditor() {
       }
       const data = await res.json() as CatalogResponse;
       setModels(data.models);
+      setRevision(data.revision);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
     } finally {

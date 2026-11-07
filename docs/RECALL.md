@@ -391,6 +391,8 @@ new LLM call**, the summary is the source:
    confirmation. The KNOWLEDGE tab then shows the conversation under the
    article's **Linked conversations** back-links.
 
+**Save to KB** saves the submitted distillation draft. Edits made while that save is pending remain open and unsaved; completing an earlier save does not close a newer draft.
+
 ### Graceful degradation (E-track not built)
 
 Task links (`type: 'task'`) persist and round-trip through `addLink` /

@@ -29,15 +29,22 @@ export function PlanRefsSection({ cwd, planId, refs, reload, openSlug, onOpenSlu
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const context = JSON.stringify([cwd, planId]);
+  const activeContext = useRef({ key: context, generation: 0 });
+  if (activeContext.current.key !== context) activeContext.current = { key: context, generation: 0 };
+  useEffect(() => { setBusy(false); }, [context]);
 
   const create = async () => {
+    const owner = activeContext.current, request = ++owner.generation;
+    const current = () => activeContext.current === owner && owner.generation === request;
     const slug = newSlug.trim();
     if (!REF_SLUG_RE.test(slug)) { setError('slug: lowercase letters, digits, dashes'); return; }
     if (refs?.some((r) => r.slug === slug)) { setError('a ref with that slug exists'); return; }
     setBusy(true);
     setError(null);
     try {
-      await savePlanRef(cwd, planId, slug, `# ${newTitle.trim() || slug}\n\n`);
+      await savePlanRef(cwd, planId, slug, `# ${newTitle.trim() || slug}\n\n`, { createOnly: true });
+      if (!current()) return;
       setCreating(false);
       setNewTitle('');
       setNewSlug('');
@@ -47,7 +54,7 @@ export function PlanRefsSection({ cwd, planId, refs, reload, openSlug, onOpenSlu
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   };
 
@@ -59,7 +66,7 @@ export function PlanRefsSection({ cwd, planId, refs, reload, openSlug, onOpenSlu
         </span>
         <span style={{ flex: 1 }} />
         {!creating && (
-          <button className="display-font" style={miniBtn} onClick={() => { setCreating(true); setError(null); }} title="Add a reference doc to this plan">
+          <button className="display-font" style={miniBtn} onClick={() => { setCreating(true); setError(null); }} title="Add a reference doc to this plan" disabled={busy}>
             + REF
           </button>
         )}
@@ -72,17 +79,17 @@ export function PlanRefsSection({ cwd, planId, refs, reload, openSlug, onOpenSlu
             value={newTitle}
             onChange={(e) => { setNewTitle(e.target.value); if (!slugTouched) setNewSlug(slugify(e.target.value)); }}
             onKeyDown={(e) => { if (e.key === 'Enter') void create(); if (e.key === 'Escape') setCreating(false); }}
-            style={{ ...inputStyle, flex: '2 1 140px' }}
+            style={{ ...inputStyle, flex: '2 1 140px' }} disabled={busy}
           />
           <input
             placeholder="slug"
             value={newSlug}
             onChange={(e) => { setNewSlug(e.target.value); setSlugTouched(true); }}
             onKeyDown={(e) => { if (e.key === 'Enter') void create(); if (e.key === 'Escape') setCreating(false); }}
-            style={{ ...inputStyle, flex: '1 1 90px' }}
+            style={{ ...inputStyle, flex: '1 1 90px' }} disabled={busy}
           />
           <button className="display-font" style={miniBtn} disabled={busy} onClick={() => void create()}>CREATE</button>
-          <button className="display-font" style={miniBtn} onClick={() => { setCreating(false); setError(null); }}>CANCEL</button>
+          <button className="display-font" style={miniBtn} onClick={() => { setCreating(false); setError(null); }} disabled={busy}>CANCEL</button>
         </div>
       )}
       {error && <div style={{ color: 'var(--color-warning)', fontSize: '10px' }}>{error}</div>}
@@ -161,7 +168,7 @@ export function PlanRefChips({ refs, onOpenSlug }: { refs: PlanRefSummary[] | nu
 
 // Exported for surfaces that open one ref without the full section (the
 // cluster board's task drawer).
-export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }: {
+export function PlanRefViewer({ cwd, planId, slug, onClose, onChanged }: {
   cwd: string; planId: string; slug: string; exists: boolean; onClose: () => void; onChanged: () => void;
 }) {
   const surface = useRef<HTMLDivElement>(null);
@@ -171,24 +178,28 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [creatingRef, setCreatingRef] = useState(false);
+  const identity = JSON.stringify([cwd, planId, slug]);
+  const active = useRef({ key: identity, generation: 0 });
+  if (active.current.key !== identity) active.current = { key: identity, generation: 0 };
 
   useEffect(() => {
     let cancelled = false;
     setBody(null);
     setError(null);
     setEditing(false);
-    if (!exists) {
-      // A link to a ref nobody wrote yet — offer to create it in place.
-      setBody('');
-      setDraft(`# ${slug}\n\n`);
-      setEditing(true);
-      return;
-    }
+    setSaving(false);
+    setCreatingRef(false);
     fetchPlanRef(cwd, planId, slug)
       .then((r) => { if (!cancelled) { setBody(r.body); setTitle(r.title); setDraft(r.body); } })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
+      .catch((err) => {
+        if (cancelled) return;
+        if ((err as { status?: number }).status === 404) {
+          setBody(''); setDraft(`# ${slug}\n\n`); setEditing(true); setCreatingRef(true);
+        } else setError(err instanceof Error ? err.message : String(err));
+      });
     return () => { cancelled = true; };
-  }, [cwd, planId, slug, exists]);
+  }, [cwd, planId, slug]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !editing) onClose(); };
@@ -197,17 +208,21 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
   }, [editing, onClose]);
 
   const save = async () => {
+    const owner = active.current, request = ++owner.generation;
+    const current = () => active.current === owner && owner.generation === request;
     setSaving(true);
     setError(null);
     try {
-      await savePlanRef(cwd, planId, slug, draft);
+      await savePlanRef(cwd, planId, slug, draft, { createOnly: creatingRef });
+      if (!current()) return;
       setBody(draft);
       setEditing(false);
+      setCreatingRef(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (current()) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSaving(false);
+      if (current()) setSaving(false);
     }
   };
 
@@ -243,10 +258,10 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
           </span>
           <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>ref:{slug}</span>
           {!editing && body !== null && (
-            <button className="display-font" style={miniBtn} onClick={() => { setDraft(body); setEditing(true); }}>EDIT</button>
+            <button className="display-font" style={miniBtn} onClick={() => { setDraft(body); setEditing(true); }} disabled={saving}>EDIT</button>
           )}
-          {!editing && exists && <button className="display-font" style={dangerBtn} onClick={() => void del()}>✕</button>}
-          {!editing && <button onClick={onClose} title="Close (Esc)" style={closeBtn}>×</button>}
+          {!editing && body !== null && !creatingRef && <button className="display-font" style={dangerBtn} onClick={() => void del()}>✕</button>}
+          {!editing && <button onClick={onClose} title="Close (Esc)" style={closeBtn} disabled={saving}>×</button>}
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: editing ? '10px 14px' : '16px', minHeight: 0 }}>
           {error && <div style={{ color: 'var(--color-warning)', fontSize: '11px', marginBottom: '8px' }}>{error}</div>}
@@ -255,7 +270,7 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
               autoFocus
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              style={{ width: '100%', minHeight: 'calc(52vh / var(--ui-scale, 1))', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', padding: '8px', fontSize: '12px', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', minHeight: 'calc(52vh / var(--ui-scale, 1))', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', padding: '8px', fontSize: '12px', fontFamily: 'var(--font-body)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} disabled={saving}
             />
           ) : body === null ? (
             !error && <div style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>loading…</div>
@@ -267,8 +282,8 @@ export function PlanRefViewer({ cwd, planId, slug, exists, onClose, onChanged }:
         </div>
         {editing && (
           <div style={{ padding: '10px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-            {!exists && <span style={{ flex: 1, fontSize: '10px', color: 'var(--color-fg-muted)', alignSelf: 'center' }}>This ref doesn't exist yet: saving creates it.</span>}
-            <button className="display-font" style={miniBtn} onClick={() => { if (exists) setEditing(false); else onClose(); }}>CANCEL</button>
+            {creatingRef && <span style={{ flex: 1, fontSize: '10px', color: 'var(--color-fg-muted)', alignSelf: 'center' }}>This ref doesn't exist yet: saving creates it.</span>}
+            <button className="display-font" style={miniBtn} onClick={() => { if (!creatingRef) setEditing(false); else onClose(); }} disabled={saving}>CANCEL</button>
             <button className="display-font" style={miniBtn} disabled={saving} onClick={() => void save()}>{saving ? 'SAVING…' : 'SAVE'}</button>
           </div>
         )}

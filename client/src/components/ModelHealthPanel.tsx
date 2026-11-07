@@ -114,13 +114,13 @@ function OllamaSection({ h }: { h: OllamaHealth }) {
 
 // DD13 — apply a one-click serve-failure fix. Mirrors LlamacppCatalogEditor's
 // apply+reload path EXACTLY: GET the catalog, mutate the failed loadout's
-// ctxSize / ngl / extraArgs, POST the full catalog (wholesale replace), then
+// ctxSize / ngl / extraArgs, POST the catalog with its reviewed revision, then
 // reload the alias. Reversible — it's an ordinary catalog edit the operator can
 // re-edit in CONFIG. Throws on any HTTP failure so the caller surfaces it.
 async function applyLlamacppFix(alias: string, fix: LlamacppServeFix): Promise<void> {
   const res = await fetch('/api/llamacpp/catalog');
   if (!res.ok) throw new Error(`could not read catalog (HTTP ${res.status})`);
-  const { models } = (await res.json()) as { models: LlamacppModelDef[] };
+  const { models, revision } = (await res.json()) as { models: LlamacppModelDef[]; revision: string };
   const target = models.find((m) => m.alias === alias);
   if (!target) throw new Error(`loadout "${alias}" not found in the catalog`);
 
@@ -137,7 +137,7 @@ async function applyLlamacppFix(alias: string, fix: LlamacppServeFix): Promise<v
   const save = await fetch('/api/llamacpp/catalog', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ models }),
+    body: JSON.stringify({ models, revision }),
   });
   if (!save.ok) {
     const err = await save.json().catch(() => ({ error: `HTTP ${save.status}` }));

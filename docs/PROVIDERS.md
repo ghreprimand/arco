@@ -1676,6 +1676,8 @@ Two non-obvious differences from Ollama:
 1. **Operator-declared model registry, not auto-discovery.** llama-server is one model per process and needs explicit `-m` / `--mmproj` / `-c` / `-ngl` flags. The catalog at `~/.arco/llamacpp.json` names each loadout up front; the lifecycle manager spawns `llama-server` with the right flags on first use.
 2. **Arco owns the daemon process.** Ollama runs as its own systemd / homebrew daemon; llama-server is spawned + babysat by Arco. Switching models is SIGTERM old → wait → spawn new. Idle eviction reclaims VRAM after `ARCO_LLAMACPP_KEEPALIVE_MS` (default 10 minutes).
 
+Catalog edits and deletions use the version that was reviewed. Duplicate aliases are refused, including renames. If another change wins first, reload the registry and review the pending edit again. A diagnosis fix follows the same rule and does not reload a model when its catalog save conflicts.
+
 ### Spawn
 
 `POST /v1/chat/completions` with `stream: true`. OpenAI SSE format (not Ollama NDJSON). Workers always go through `llamacppManager.ensureLoaded(alias)` first, which blocks 20-30s on the cold-start of a 17GB GGUF and is a no-op once loaded.

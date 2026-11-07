@@ -59,7 +59,7 @@ type HandoffPromptMode,
 type HandoffPromptScope,
 } from '../handoffPrompts.js';
 import type { LlamacppCatalog } from '../llamacppCatalog.js';
-import { readCatalog as readLlamacppCatalog,writeCatalog as writeLlamacppCatalog } from '../llamacppCatalog.js';
+import { readCatalogSnapshot as readLlamacppCatalog, writeCatalog as writeLlamacppCatalog, LlamacppCatalogError } from '../llamacppCatalog.js';
 import { probeOnce as probePreviewPort } from '../previewAutoDetect.js';
 import { tryHandlePreviewRequest } from '../previewProxy.js';
 import { clearTokens as clearClaudeNativeTokens } from '../providers/claude-native/auth.js';
@@ -1502,9 +1502,8 @@ export async function handleHttpRequest(
   }
 
   // Catalog CRUD. GET returns the operator-managed model registry; POST
-  // accepts the full catalog and atomic-writes it. Same pattern as the
-  // models.md catalog endpoint — wholesale replace, not patch, so the
-  // editor UI never has to merge concurrent edits.
+  // accepts the full catalog plus its reviewed revision. Stale replacements
+  // are refused under the store lock; the editor keeps the pending draft.
   if (req.url === '/api/llamacpp/catalog' && req.method === 'GET') {
     try {
       const catalog = await readLlamacppCatalog();
@@ -1523,24 +1522,24 @@ export async function handleHttpRequest(
       for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw || '{}') as unknown;
       // Server-side shape validation: enforce {models: LlamacppModelDef[]}.
-      // We're permissive on the model fields themselves (catalog read does
-      // its own filter on bad entries) — the strict gate here is just the
-      // top-level shape so an obviously-broken POST doesn't overwrite the
-      // operator's working file.
+      // The store also validates entry shape, unique aliases and the review
+      // revision before replacing the operator's working file.
       if (!body || typeof body !== 'object' || !Array.isArray((body as { models?: unknown }).models)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'expected { models: [...] }' }));
         return;
       }
       const next: LlamacppCatalog = { models: (body as { models: LlamacppModelDef[] }).models };
-      await writeLlamacppCatalog(next);
+      const revision = (body as { revision?: unknown }).revision;
+      if (typeof revision !== 'string') throw new LlamacppCatalogError(409, 'Reload the catalog before saving; a review revision is required.');
+      await writeLlamacppCatalog(next, revision);
       // Re-read so the response reflects what hit disk after validation.
       const persisted = await readLlamacppCatalog();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(persisted));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead(err instanceof LlamacppCatalogError ? err.status : 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: message }));
     }
     return;

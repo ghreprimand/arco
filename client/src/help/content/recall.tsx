@@ -215,17 +215,17 @@ export const recallHelp: Record<string, HelpEntry> = {
   },
   'recall.distill-kb': {
     title: 'Distill-to-KB draft',
-    body: <p>An editable knowledge-article draft pre-filled from the summary. Nothing is saved until you click Save to KB.</p>,
+    body: <p>An editable knowledge-article draft pre-filled from the summary. Nothing is saved until you click Save to KB. The save uses the submitted draft. Later edits remain open and unsaved after it completes.</p>,
     manualSection: 'recall-search',
   },
   'recall.distill-kb.title': {
     title: 'Article title',
-    body: <p>The knowledge-base article title (pre-filled from the conversation title; editable).</p>,
+    body: <p>The knowledge-base article title (pre-filled from the conversation title; editable). The save uses the submitted draft. Later edits remain open and unsaved after it completes.</p>,
     manualSection: 'recall-search',
   },
   'recall.distill-kb.body': {
     title: 'Article body',
-    body: <p>The knowledge-base article body (pre-filled from the saved summary; edit freely before saving).</p>,
+    body: <p>The knowledge-base article body (pre-filled from the saved summary; edit freely before saving). The save uses the submitted draft. Later edits remain open and unsaved after it completes.</p>,
     manualSection: 'recall-search',
   },
   'recall.distill-kb.save': {
@@ -235,7 +235,7 @@ export const recallHelp: Record<string, HelpEntry> = {
         Creates the knowledge-base article in this conversation's project (the
         existing create flow) and links it back to the conversation. This is the
         only persist step: there is no auto-save.
-      </p>
+       The save uses the submitted draft. Later edits remain open and unsaved after it completes.</p>
     ),
     manualSection: 'recall-search',
   },

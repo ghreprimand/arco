@@ -18,6 +18,7 @@ import {
   readPlanSummary,
   touchPlan,
   updatePlan,
+  PlanConflictError,
   writePlanRef,
 } from '../planStore.js';
 import * as clusterStore from '../clusterStore.js';
@@ -55,7 +56,7 @@ import { listSavedChats } from '../chatMode.js';
 // A ref write/delete is a plan change: bump updatedAt and tell every attached
 // workflow (plan_attached doubles as "plan changed") and every cluster bound
 // to the plan (cluster_state), so open Plan tabs refetch their refs list.
-async function announcePlanTouched(cwd: string, planId: string): Promise<void> {
+async function announcePlanTouched(cwd: string, planId: string, changedBody?: string): Promise<void> {
   const summary = await touchPlan(cwd, planId);
   if (!summary) return;
   for (const [wfid, wf] of workflows) {
@@ -65,6 +66,7 @@ async function announcePlanTouched(cwd: string, planId: string): Promise<void> {
   for (const cid of clusterStore.listKnownClusterIds()) {
     const cluster = await clusterStore.readCluster(cid).catch(() => null);
     if (!cluster || cluster.cwd !== cwd || cluster.planId !== planId) continue;
+    if (changedBody !== undefined) broadcastCluster(cid, { type: 'cluster_plan_changed', clusterId: cid, body: changedBody, updatedAt: summary.updatedAt, bodyLength: changedBody.length });
     const payload = await buildClusterStatePayload(cid);
     if (payload) broadcastCluster(cid, { type: 'cluster_state', clusterId: cid, state: payload });
   }
@@ -577,10 +579,10 @@ export async function tryHandleWorkflowDataRoutes(
         if (!slug) { jsonReply(res, 400, { error: 'slug query required' }); return true; }
         let body = '';
         for await (const chunk of req) body += chunk;
-        const parsed = JSON.parse(body || '{}') as { body?: unknown };
+        const parsed = JSON.parse(body || '{}') as { body?: unknown; createOnly?: unknown };
         if (typeof parsed.body !== 'string') { jsonReply(res, 400, { error: 'body (string) required' }); return true; }
-        const result = await writePlanRef(cwd, planId, slug, parsed.body);
-        if (!result.ok) { jsonReply(res, result.error === 'plan not found' ? 404 : 400, { error: result.error }); return true; }
+        const result = await writePlanRef(cwd, planId, slug, parsed.body, { createOnly: parsed.createOnly === true });
+        if (!result.ok) { jsonReply(res, result.error === 'plan not found' ? 404 : result.error === 'ref already exists' ? 409 : 400, { error: result.error }); return true; }
         await announcePlanTouched(cwd, planId);
         jsonReply(res, 200, { ref: result.ref, created: result.created });
         return true;
@@ -777,7 +779,7 @@ export async function tryHandleWorkflowDataRoutes(
       }
       let body = '';
       for await (const chunk of req) body += chunk;
-      const parsed = JSON.parse(body || '{}') as { title?: string; body?: string; completedAt?: number | null };
+      const parsed = JSON.parse(body || '{}') as { title?: string; body?: string; completedAt?: number | null; expectedBody?: string };
       // Tell the plans watcher to ignore the next file change for this id —
       // we're about to write the body ourselves and broadcast plan_attached
       // directly; without the skip the watcher would fire a second redundant
@@ -785,7 +787,7 @@ export async function tryHandleWorkflowDataRoutes(
       // .md write happens in that case.)
       const watcherState = plansWatchers.get(cwd);
       if (watcherState && typeof parsed.body === 'string') watcherState.skipNext.add(planId);
-      const plan = await updatePlan(cwd, planId, parsed);
+      const plan = await updatePlan(cwd, planId, parsed, { expectedBody: parsed.expectedBody });
       if (!plan) {
         if (watcherState) watcherState.skipNext.delete(planId);
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -814,12 +816,17 @@ export async function tryHandleWorkflowDataRoutes(
           });
         }
       }
+      if (typeof parsed.expectedBody === 'string') await announcePlanTouched(cwd, planId, plan.body);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ plan }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: message }));
+      const url = new URL(req.url!, 'http://localhost');
+      const failedCwd = url.searchParams.get('path'), failedPlan = url.searchParams.get('planId');
+      if (failedCwd && failedPlan) plansWatchers.get(failedCwd)?.skipNext.delete(failedPlan);
+      const current = err instanceof PlanConflictError ? await readPlan(url.searchParams.get('path') ?? '', url.searchParams.get('planId') ?? '') : null;
+      res.writeHead(err instanceof PlanConflictError ? 409 : 400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: message, ...(current ? { plan: current } : {}) }));
     }
     return true;
   }

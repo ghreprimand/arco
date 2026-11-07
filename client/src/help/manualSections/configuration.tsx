@@ -516,6 +516,7 @@ export const configuration: Section[] = [
   imported skill came from, and skill names its text mentions that are not
   installed, such as "Refers to release-notes, not installed".
   </p>
+  <p>UPDATE checks every installed file against its REVIEW snapshot before replacing the folder. A later local edit refuses the update and remains intact. REVIEW again before applying.</p>
   <p>Quotes and backslashes in skill names and descriptions survive repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation keep collision suffixes within the 64-character folder-name limit.</p>
   <Sub>Built-in skills</Sub>
   <p>Built-ins are on by default. Settings lists each with an OPERATOR or MODEL

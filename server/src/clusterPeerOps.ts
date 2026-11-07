@@ -487,26 +487,13 @@ export async function peerPlanTick(
   broadcastCluster: (msg: ServerMessage) => void,
 ): Promise<PeerPlanTickOk | PeerPlanTickRejection> {
   if (mailboxOnly(ctx)) return { ok: false, code: 'access_denied', message: 'blind members cannot update cluster plans' };
-  // Resolve the matcher to a concrete lineIndex.
-  let lineIndex: number;
-  if ('lineIndex' in matcher && typeof matcher.lineIndex === 'number') {
-    lineIndex = matcher.lineIndex;
-  } else if ('taskText' in matcher && typeof matcher.taskText === 'string') {
-    const resolved = await clusterPlanBridge.resolvePlanTask(ctx.clusterId, matcher.taskText);
-    if (!resolved.ok) {
-      return { ok: false, code: resolved.code, message: resolved.message, matches: resolved.matches };
-    }
-    lineIndex = resolved.lineIndex;
-  } else {
-    return {
-      ok: false,
-      code: 'invalid_matcher',
-      message: 'matcher must be either { lineIndex: number } or { taskText: string }.',
-    };
-  }
+  let selected: number | { taskText: string };
+  if ('lineIndex' in matcher && typeof matcher.lineIndex === 'number') selected = matcher.lineIndex;
+  else if ('taskText' in matcher && typeof matcher.taskText === 'string') selected = { taskText: matcher.taskText };
+  else return { ok: false, code: 'invalid_matcher', message: 'matcher must be either { lineIndex: number } or { taskText: string }.' };
   let result: clusterPlanBridge.PlanTickResult;
   try {
-    result = await clusterPlanBridge.togglePlanItem(ctx.clusterId, lineIndex);
+    result = await clusterPlanBridge.togglePlanItem(ctx.clusterId, selected);
   } catch (err) {
     return {
       ok: false,
@@ -514,7 +501,7 @@ export async function peerPlanTick(
       message: `togglePlanItem failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
-  if (!result.ok) return { ok: false, code: result.code, message: result.message };
+  if (!result.ok) return { ok: false, code: result.code, message: result.message, ...(result.matches ? { matches: result.matches } : {}) };
   broadcastCluster({
     type: 'cluster_plan_changed',
     clusterId: ctx.clusterId,

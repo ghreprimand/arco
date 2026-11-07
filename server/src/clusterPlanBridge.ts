@@ -145,51 +145,39 @@ export type PlanTickResult =
       body: string;
       updatedAt: number;
     }
-  | { ok: false; code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line'; message: string };
+  | { ok: false; code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line' | 'task_not_found' | 'ambiguous_task'; message: string; matches?: number[] };
 
-export async function togglePlanItem(clusterId: string, lineIndex: number): Promise<PlanTickResult> {
-  // Whole read→flip→write under the lock so concurrent ticks don't clobber.
-  return withClusterPlanLock(clusterId, () => togglePlanItemUnlocked(clusterId, lineIndex));
+class TickRejected extends Error {
+  constructor(readonly result: Extract<PlanTickResult, { ok: false }>) { super(result.message); }
 }
 
-async function togglePlanItemUnlocked(clusterId: string, lineIndex: number): Promise<PlanTickResult> {
-  const rec = await readClusterPlanUnlocked(clusterId);
-  if (!rec) {
-    return { ok: false, code: 'no_plan', message: 'no cluster plan is attached; nothing to toggle.' };
-  }
-  const lines = rec.body.split('\n');
-  if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) {
-    return {
-      ok: false,
-      code: 'out_of_range',
-      message: `lineIndex ${lineIndex} is out of range (plan has ${lines.length} lines, 0-based).`,
-    };
-  }
-  const target = lines[lineIndex];
-  const m = CHECKBOX_RE.exec(target);
-  if (!m) {
-    return {
-      ok: false,
-      code: 'not_a_checkbox_line',
-      message: `line ${lineIndex} is not a checkbox line (no leading "- [ ]" / "- [x]").`,
-    };
-  }
-  const prefix = m[1];
-  const wasChecked = m[2] === 'x' || m[2] === 'X';
-  const rest = m[3];
-  const before: '[ ]' | '[x]' = wasChecked ? '[x]' : '[ ]';
-  const after: '[ ]' | '[x]' = wasChecked ? '[ ]' : '[x]';
-  lines[lineIndex] = `${prefix}${after}${rest}`;
-  const updated = await setClusterPlanBodyUnlocked(clusterId, lines.join('\n'));
-  if (!updated) return { ok: false, code: 'no_plan', message: 'cluster disappeared while updating plan.' };
-  return {
-    ok: true,
-    toggledLine: lineIndex,
-    before,
-    after,
-    body: updated.body,
-    updatedAt: updated.updatedAt,
-  };
+export async function togglePlanItem(clusterId: string, matcher: number | { taskText: string }): Promise<PlanTickResult> {
+  return withClusterPlanLock(clusterId, async () => {
+    const rec = await readClusterPlanUnlocked(clusterId);
+    const state = await clusterStore.readCluster(clusterId);
+    if (!rec || !state) return { ok: false, code: 'no_plan', message: 'no cluster plan is attached; nothing to toggle.' };
+    let tick: Extract<PlanTickResult, { ok: true }> | undefined;
+    try {
+      const saved = await updatePlan(state.cwd, rec.planId, (current) => {
+        const resolved = typeof matcher === 'number' ? { ok: true as const, lineIndex: matcher } : resolvePlanTaskBody(current.body, matcher.taskText);
+        if (!resolved.ok) throw new TickRejected(resolved);
+        const lines = current.body.split('\n'), lineIndex = resolved.lineIndex;
+        if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) {
+          throw new TickRejected({ ok: false, code: 'out_of_range', message: `lineIndex ${lineIndex} is out of range (plan has ${lines.length} lines, 0-based).` });
+        }
+        const match = CHECKBOX_RE.exec(lines[lineIndex]);
+        if (!match) throw new TickRejected({ ok: false, code: 'not_a_checkbox_line', message: `line ${lineIndex} is not a checkbox line.` });
+        const checked = match[2].toLowerCase() === 'x';
+        lines[lineIndex] = `${match[1]}[${checked ? ' ' : 'x'}]${match[3]}`;
+        const body = lines.join('\n');
+        assertBodyWritable(body);
+        tick = { ok: true, toggledLine: lineIndex, before: checked ? '[x]' : '[ ]', after: checked ? '[ ]' : '[x]', body, updatedAt: 0 };
+        return { body };
+      });
+      if (!saved || !tick) return { ok: false, code: 'no_plan', message: 'cluster plan disappeared while updating.' };
+      return { ...tick, body: saved.body, updatedAt: saved.updatedAt };
+    } catch (err) { if (err instanceof TickRejected) return err.result; throw err; }
+  });
 }
 
 export type PlanTaskResolution =
@@ -201,11 +189,15 @@ export async function resolvePlanTask(clusterId: string, taskText: string): Prom
   if (!rec) {
     return { ok: false, code: 'no_plan', message: 'no cluster plan is attached; nothing to match against.' };
   }
+  return resolvePlanTaskBody(rec.body, taskText);
+}
+
+function resolvePlanTaskBody(body: string, taskText: string): PlanTaskResolution {
   const needle = taskText.trim().toLowerCase();
   if (needle.length === 0) {
     return { ok: false, code: 'task_not_found', message: 'taskText is empty after trim.' };
   }
-  const lines = rec.body.split('\n');
+  const lines = body.split('\n');
   const hits: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     const m = CHECKBOX_RE.exec(lines[i]);

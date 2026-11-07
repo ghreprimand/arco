@@ -151,6 +151,7 @@ export const clusters: Section[] = [
   <li><Code>FILE</Code> exports an integrity-checked <Code>.arcocluster</Code> bundle.</li>
   <li>CLOUD snapshots are AES-256-GCM encrypted before upload to the tailnet management hub. The hub-host vault never receives the key.</li>
   <li>Saving under an existing name asks before replacement. Local replacement is staged completely before the old copy is swapped; SAVE CLOUD also replaces the same-name cloud entry.</li>
+  <li>Cloud replacement keeps the previous readable copy until the new entry is published. A failed replacement leaves that copy available.</li>
   <li>Use <Code>COPY VAULT KEY</Code> on one computer and <Code>SET VAULT KEY</Code> on the other. The project itself and provider credentials are never included.</li>
   <li>Restore mints fresh IDs. Runtime arming (REMOTE, remote gates, auto-pickup, idle nudges, and task dispatcher) remains OFF until explicitly re-enabled.</li>
   </ul>
@@ -707,6 +708,7 @@ export const clusters: Section[] = [
   <strong>32 KB</strong> (soft-warns at 28 KB) that every member sees
   on each turn.
   </p>
+  <p>Checkbox saves preserve intervening edits through a plan-version check. A conflict asks for a fresh review before retrying. Member ticks match task text against the version being saved.</p>
   <h4 className="manual-sub">Using the plan</h4>
   <p>During cluster creation, an optional project purpose can ask the selected director to draft a plan. The director draft box starts unchecked. The draft is shown for review and is not attached automatically.</p>
   <p>A cluster with no plan also offers DRAFT A PLAN, ATTACH EXISTING and NOT NOW. The last choice is remembered for that cluster in this browser. In the compact hint, DRAFT A PLAN first opens the public-project choice.</p>

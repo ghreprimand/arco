@@ -335,7 +335,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           One row per alias: <C>ggufPath</C>, <C>mmprojPath</C> (vision projector,
           optional), <C>ctxSize</C>, <C>ngl</C> (GPU layers: 999 = all on GPU),
           plus capability flags (tools / vision / thinking).
-        </p>
+         Aliases must be unique, including after EDIT. If another save changed the registry, reload and review the edit again; the later change is kept.</p>
         <p>
           Per-row <C>Load now</C> pre-warms the singleton <C>llama-server</C> so
           the next workflow turn doesn't pay the 20-30s cold-start. <C>Unload</C>{' '}
@@ -367,7 +367,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.update': {
     title: 'UPDATE',
-    body: <p><C>UPDATE</C> appears for a skill imported from GitHub or a folder. It fetches the source again and shows, per file, what was added, removed or changed, with the security check. <C>APPLY UPDATE</C> replaces the skill's files; whether it is on or off stays as it was.</p>,
+    body: <p><C>UPDATE</C> appears for a skill imported from GitHub or a folder. It fetches the source again and shows, per file, what was added, removed or changed, with the security check. <C>APPLY UPDATE</C> replaces the skill's files; whether it is on or off stays as it was. A local change after REVIEW refuses the update and preserves the installed files. REVIEW again before applying.</p>,
     manualSection: 'skills',
   },
   'settings.skills.toggle': {

@@ -6,7 +6,9 @@ import { getPublicProjectChoice } from './publicProjectChoice.js';
 // memory, checked (limits, paths, the skill audit on every text file) and
 // written only on confirm. Arco ships no third-party skills.
 
-import { randomBytes } from 'node:crypto';
+import { readFileVersion } from './fileVersion.js';
+import { withSkillMutation } from './skillMutation.js';
+import { createHash, randomBytes } from 'node:crypto';
 import { promises as fs, constants } from 'node:fs';
 import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -32,7 +34,7 @@ export type ImportSource = { kind: 'github'; url: string } | { kind: 'folder'; p
 interface Tree { files: Map<string, Buffer>; skipped: string[] }
 export interface PreviewFile { path: string; bytes: number; text: boolean; findings: AuditFinding[] }
 export interface ImportPreview { token: string; name: string; description: string; operatorOnly: boolean; files: PreviewFile[]; skipped: string[]; source: StoredSkillSource; findingCount: number }
-interface Staged { kind: 'import' | 'update'; files: Map<string, Buffer>; source: StoredSkillSource; name: string; expires: number; target?: { scope: SkillScope; slug: string; cwd: string } }
+interface Staged { kind: 'import' | 'update'; files: Map<string, Buffer>; source: StoredSkillSource; name: string; expires: number; target?: { scope: SkillScope; slug: string; cwd: string }; installedRevision?: string }
 const staged = new Map<string, Staged>();
 
 function stage(entry: Omit<Staged, 'expires'>): string {
@@ -320,12 +322,14 @@ async function writeFolder(root: string, slug: string, files: Map<string, Buffer
 }
 
 export async function confirmImport(token: string, scope: SkillScope, cwd: string): Promise<{ scope: SkillScope; slug: string; name: string }> {
+  return withSkillMutation(async () => {
   const s = takeStaged(token, 'import');
   const root = rootForScope(scope, cwd);
   if (scope === 'project') ensureProjectStateIgnore(cwd);
   const slug = await freeSlug(root, slugify(s.name));
   await writeFolder(root, slug, s.files, { source: s.source, importedAt: Date.now() });
   return { scope, slug, name: s.name };
+  });
 }
 
 // --- update -----------------------------------------------------------------
@@ -336,16 +340,40 @@ async function readFolderFiles(dir: string): Promise<Map<string, Buffer>> {
   return r.files;
 }
 
+// Include hidden files, sidecars, empty folders and links in the installed
+// revision. Import collection intentionally skips some of these; replacement
+// must still refuse to discard a later local change to any of them.
+async function installedRevision(dir: string): Promise<string> {
+  const hash = createHash('sha256');
+  const walk = async (folder: string, prefix: string): Promise<void> => {
+    const entries = await fs.readdir(folder, { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const relative = prefix + entry.name, file = path.join(folder, entry.name);
+      hash.update(JSON.stringify(relative));
+      if (entry.isDirectory()) { hash.update('directory'); await walk(file, relative + '/'); }
+      else if (entry.isSymbolicLink()) { hash.update('link'); hash.update(await fs.readlink(file)); }
+      else if (entry.isFile()) {
+        const version = await readFileVersion(file);
+        hash.update(JSON.stringify([version.signature, version.sha256]));
+      } else throw new Error('The installed skill contains an unsupported file. Review it before updating.');
+    }
+  };
+  await walk(dir, '');
+  return hash.digest('hex');
+}
+
 export interface UpdateFile { path: string; status: 'added' | 'removed' | 'changed' | 'unchanged'; text: boolean; before?: string; after?: string; findings: AuditFinding[] }
 export interface UpdatePreview { token: string; name: string; files: UpdateFile[]; changed: boolean; source: StoredSkillSource; findingCount: number }
 
 export async function previewUpdate(scope: SkillScope, slug: string, cwd: string, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<UpdatePreview> {
+  return withSkillMutation(async () => {
   const dir = await skillDir(scope, slug, cwd);
   const side = await readSkillSidecar(dir);
   if (!side.source || side.source.kind === 'zip') throw new Error('This skill was not imported from a GitHub link or a folder, so there is nothing to update from.');
   const from: ImportSource = side.source.kind === 'github' ? { kind: 'github', url: side.source.url } : { kind: 'folder', path: side.source.path };
   const { tree, stored } = await collect(from, fetchImpl);
   const meta = describe(tree);
+  const revision = await installedRevision(dir);
   const current = await readFolderFiles(dir);
   const names = [...new Set([...current.keys(), ...tree.files.keys()])].sort();
   let findingCount = 0;
@@ -357,30 +385,40 @@ export async function previewUpdate(scope: SkillScope, slug: string, cwd: string
     findingCount += findings.length;
     return { path: p, status, text, ...(text && status !== 'unchanged' ? { before: a?.toString('utf8') ?? '', after: b?.toString('utf8') ?? '' } : {}), findings };
   });
-  const token = stage({ kind: 'update', files: tree.files, source: stored, name: meta.name, target: { scope, slug, cwd } });
+  if (await installedRevision(dir) !== revision) throw new Error('The installed skill changed during preview. Review the update again.');
+  const token = stage({ kind: 'update', installedRevision: revision, files: tree.files, source: stored, name: meta.name, target: { scope, slug, cwd } });
   return { token, name: meta.name, files, changed: files.some((f) => f.status !== 'unchanged'), source: stored, findingCount };
+  });
 }
 
 // Replaces the skill folder with the reviewed files. The off state stays.
 export async function confirmUpdate(token: string): Promise<{ scope: SkillScope; slug: string }> {
+  return withSkillMutation(async () => {
   const s = takeStaged(token, 'update');
   const { scope, slug, cwd } = s.target!;
   const dir = await skillDir(scope, slug, cwd);
   const side = await readSkillSidecar(dir);
+  if (await installedRevision(dir) !== s.installedRevision) throw new Error('The installed skill changed since preview. Review the update again.');
   const root = path.dirname(dir);
   const old = path.join(root, `.replaced-${randomBytes(6).toString('hex')}`);
   const tempSlug = `.updating-${randomBytes(6).toString('hex')}`;
   await writeFolder(root, tempSlug, s.files, { ...side, source: s.source, updatedAt: Date.now() });
+  if (await installedRevision(dir) !== s.installedRevision) {
+    await fs.rm(path.join(root, tempSlug), { recursive: true, force: true });
+    throw new Error('The installed skill changed since preview. Review the update again.');
+  }
   await fs.rename(dir, old);
   try { await fs.rename(path.join(root, tempSlug), dir); }
   catch (err) { await fs.rename(old, dir); await fs.rm(path.join(root, tempSlug), { recursive: true, force: true }); throw err; }
   await fs.rm(old, { recursive: true, force: true });
   return { scope, slug };
+  });
 }
 
 // --- on/off, move, duplicate --------------------------------------------------
 
 export async function setSkillOff(scope: SkillScope, slug: string, cwd: string, off: boolean): Promise<void> {
+  return withSkillMutation(async () => {
   const dir = await skillDir(scope, slug, cwd);
   const side = await readSkillSidecar(dir);
   const next: SkillSidecar = { ...side };
@@ -390,9 +428,11 @@ export async function setSkillOff(scope: SkillScope, slug: string, cwd: string, 
   const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`;
   await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o644 });
   await fs.rename(tmp, file);
+  });
 }
 
 export async function moveSkill(scope: SkillScope, slug: string, cwd: string, to: SkillScope): Promise<{ scope: SkillScope; slug: string }> {
+  return withSkillMutation(async () => {
   if (scope === to) throw new Error('The skill is already there.');
   const dir = await skillDir(scope, slug, cwd);
   const files = await readFolderFiles(dir);
@@ -403,9 +443,11 @@ export async function moveSkill(scope: SkillScope, slug: string, cwd: string, to
   await writeFolder(root, nextSlug, files, side);
   await fs.rm(dir, { recursive: true, force: true });
   return { scope: to, slug: nextSlug };
+  });
 }
 
 export async function duplicateSkill(scope: SkillScope, slug: string, cwd: string, name: string): Promise<{ scope: SkillScope; slug: string; name: string }> {
+  return withSkillMutation(async () => {
   const clean = name.trim();
   if (!clean || clean.length > NAME_MAX) throw new Error(`Give a name of 1 to ${NAME_MAX} characters.`);
   const dir = await skillDir(scope, slug, cwd);
@@ -417,6 +459,7 @@ export async function duplicateSkill(scope: SkillScope, slug: string, cwd: strin
   // A duplicate is the operator's own starting point: no import source.
   await writeFolder(root, nextSlug, files, {});
   return { scope, slug: nextSlug, name: clean };
+  });
 }
 
 // --- contents and needs -------------------------------------------------------
@@ -499,6 +542,7 @@ const NOTHING_CHANGED = ' Nothing was changed.';
 // before anything is written. Any other refusal or error after the write puts
 // the file back byte for byte (or removes it if it did not exist).
 export async function shareSkill(cwd: string, slug: string): Promise<SharePreview> {
+  return withSkillMutation(async () => {
   const before = await previewShare(cwd, slug);
   if (before.alreadyTrackable) return before;
   // `.arco` without a trailing slash: with one, Git also applies the rules of
@@ -531,4 +575,5 @@ export async function shareSkill(cwd: string, slug: string): Promise<SharePrevie
     throw new Error(`${STILL_IGNORED}${rule}${NOTHING_CHANGED}`);
   }
   return after;
+  });
 }

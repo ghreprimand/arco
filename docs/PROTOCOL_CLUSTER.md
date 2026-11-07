@@ -1044,7 +1044,7 @@ Cloud names follow the same conflict contract. A first same-name upload returns
 HTTP 409; after operator confirmation,
 `?replaceSnapshotId=<existing.id>` pins the exact existing hub id in
 `X-Arco-Vault-Replace-Id`. The hub validates the id/name pair and updates
-that row rather than creating a duplicate.
+that row rather than creating a duplicate. The encrypted blob is published under its checksum first; one atomic metadata switch selects it. A failed replacement preserves the previous readable pair. Legacy hub blobs remain readable; new checksum-named blobs require a compatible hub version.
 
 ### Lost-tab recovery
 

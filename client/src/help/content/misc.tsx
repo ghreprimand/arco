@@ -1193,7 +1193,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>INSERT GUARDRAILS</C> adds a "Privacy and public safety" section before
         the first phase as an unsaved edit. Review it, then save. Disabled when
         the plan already has that section.
-      </p>
+       Plan fields and changes to the draft wait while its save is pending.</p>
     ),
     manualSection: 'public-project',
   },
@@ -1228,6 +1228,11 @@ export const miscHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
+  'plan.checkbox': {
+    title: 'Plan checkbox',
+    body: <p>Marks this task done or not done. The save checks the plan version you saw. If another edit arrived first, it is kept and a conflict asks for a fresh review before retrying.</p>,
+    manualSection: 'plan-checklists',
+  },
   'plan.new': {
     title: 'New plan',
     body: (
@@ -1235,7 +1240,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Open the inline plan editor: type a title and body, then click{' '}
         <C>CREATE & ATTACH</C> to save and attach in one step. Bypasses the
         agent draft flow.
-      </p>
+       Plan fields and changes to the draft wait while its save is pending.</p>
     ),
   },
   'plan.toggle-completed': {
@@ -1249,7 +1254,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Opens the title + body editor for the active plan. Save commits to{' '}
         <C>.arco/plans/&lt;id&gt;.md</C>; the body re-injects on the next
         turn so the agent sees your edits.
-      </p>
+       Plan fields and changes to the draft wait while its save is pending.</p>
     ),
   },
   'plan.detach': {
@@ -1312,7 +1317,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
         before working it.
-      </p>
+       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p>
     ),
     manualSection: 'plan-refs',
   },
@@ -1417,7 +1422,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Opens the plans library (ARTIFACTS → PLANS): every plan across all
         projects, reviewable without attaching one to this tab.
-      </p>
+       Checkbox saves preserve later edits by refusing a changed plan instead of replacing it.</p>
     ),
     manualSection: 'plans-library',
   },
@@ -1957,7 +1962,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         the loaded loadout's catalog entry and reloads <C>llama-server</C>.
         Disabled when no alias is currently loaded: apply it by hand in
         Settings &gt; Providers and models &gt; llama.cpp model registry instead.
-      </p>
+       A catalog change while the fix is being saved refuses the save; the model is not reloaded. Refresh and review the fix again.</p>
     ),
     manualSection: 'diagnostics',
   },

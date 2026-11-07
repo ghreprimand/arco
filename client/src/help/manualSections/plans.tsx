@@ -113,6 +113,7 @@ export const plans: Section[] = [
           agent. The composer's PLAN button explains in its hover text that a plan
           keeps the next steps in one place; no hint line is shown in the composer.
         </p>
+  <p>Plan title and body fields wait while CREATE &amp; ATTACH or SAVE is pending. Switching to another plan does not apply an earlier save result to the new view.</p>
         <Sub>From the composer</Sub>
         <p>
           The <Code>PLAN</Code> button in the composer opens a modal with two paths:
@@ -250,6 +251,7 @@ export const plans: Section[] = [
           hollow box. Clicking it flips it to <Code>[x]</Code>, strikes the text
           through and dims it, and updates the file.
         </p>
+  <p>Checkbox saves compare the displayed plan with the current saved body. If another edit arrived first, it is preserved and a conflict asks for a fresh review before retrying.</p>
         <ul>
           <li>When the agent flips a box, the panel updates live.</li>
           <li>When you flip a box in the panel, the agent sees it on the next turn. The header flags that the plan was edited, prompting the agent to re-read the file.</li>
@@ -286,6 +288,7 @@ export const plans: Section[] = [
           <Code>SKILLS</Code>, then <Code>RUN</Code> under BUILT-IN. It is
           operator-only: the agent is never told it exists and cannot start it.
         </p>
+  <p>ADD TO PLAN preserves intervening edits and reserves a new reference name. Concurrent RECORD DECISION actions append without replacing each other. Members match task text against the current plan when ticking it.</p>
         <p>
           Before the agent starts, Arco measures the project without a model: the
           largest source files, the files changed most often in the last 180 days
@@ -332,6 +335,7 @@ export const plans: Section[] = [
           attached to a plan and stored at{' '}
           <Code>&lt;cwd&gt;/.arco/plans/&lt;id&gt;.refs/&lt;slug&gt;.md</Code>.
         </p>
+  <p>Reference lists follow the selected plan. Opening a link fetches its saved body before offering creation. Creating a reference refuses an existing document. Fields and Cancel wait while a save is pending.</p>
         <Sub>Linking and managing refs</Sub>
         <p>
           A task links a ref as <Code>[label](ref:slug)</Code>,{' '}

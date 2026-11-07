@@ -199,8 +199,8 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
       const created = (await res.json()) as { article?: { id?: string } };
       const id = created.article?.id;
       if (id) await addLink(distillDraft.wfid, { type: 'kb', id });
-      pushNotification('info', 'Saved to the knowledge base and linked to this conversation.');
-      setDistillDraft(null);
+      pushNotification('info', 'Saved the submitted draft to the knowledge base and linked it to this conversation.');
+      setDistillDraft((current) => current === distillDraft ? null : current);
     } catch {
       pushNotification('error', 'Could not save the knowledge article.');
     } finally {

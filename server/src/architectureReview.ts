@@ -304,10 +304,14 @@ export async function addCandidateToPlan(cwd: string, planId: string, report: Ar
   const existing = new Set((await listPlanRefs(cwd, planId)).map((r) => r.slug));
   const base = `arch-${slugify(c.title)}`.slice(0, 56).replace(/-+$/, '');
   let slug = base; for (let i = 2; existing.has(slug); i++) slug = `${base}-${i}`;
-  const written = await writePlanRef(cwd, planId, slug, candidateDoc(c, report.report));
-  if (!written.ok) throw new Error(written.error);
+  for (let n = 2; ; n++) {
+    const written = await writePlanRef(cwd, planId, slug, candidateDoc(c, report.report), { createOnly: true });
+    if (written.ok) break;
+    if (written.error !== 'ref already exists') throw new Error(written.error);
+    slug = `${base}-${n}`;
+  }
   const item = `- [ ] ${plainTitle(c.title)} [Architecture](ref:${slug})`;
-  const saved = await updatePlan(cwd, planId, { body: insertUnderHeading(plan.body, '### Architecture review', item) });
+  const saved = await updatePlan(cwd, planId, (current) => ({ body: insertUnderHeading(current.body, '### Architecture review', item) }));
   if (!saved) throw new Error('The attached plan was not found.');
   return { slug, item };
 }
@@ -320,8 +324,8 @@ export async function recordCandidateDecision(cwd: string, planId: string, repor
   const why = reason.replace(/\s+/g, ' ').trim().slice(0, 1000);
   if (!why) throw new Error('Give the reason for the decision.');
   if (!(await readPlan(cwd, planId))) throw new Error('The attached plan was not found.');
-  const prior = (await readPlanRef(cwd, planId, DECISIONS_REF).catch(() => null))?.body ?? '# Decisions\n\nRecorded by RECORD DECISION in an architecture review. Later reviews read this list and do not suggest these again.\n';
+  const initial = '# Decisions\n\nRecorded by RECORD DECISION in an architecture review. Later reviews read this list and do not suggest these again.\n';
   const entry = ['', `## Not pursued: ${plainTitle(c.title)}`, `- Date: ${now.toISOString().slice(0, 10)}`, `- Files: ${c.files.length ? c.files.map((f) => `\`${f}\``).join(', ') : '(none listed)'}`, `- Reason: ${why}`, `- From: \`${report.report}\``, ''].join('\n');
-  const written = await writePlanRef(cwd, planId, DECISIONS_REF, `${prior.replace(/\s+$/, '')}\n${entry}`);
+  const written = await writePlanRef(cwd, planId, DECISIONS_REF, (prior) => `${(prior ?? initial).replace(/\s+$/, '')}\n${entry}`);
   if (!written.ok) throw new Error(written.error);
 }

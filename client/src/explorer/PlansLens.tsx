@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { updatePlanBody, PlanBodySaveError } from '../components/plans/planBodySave';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { hasGuardrails, insertGuardrails, type PlanFull, type PlanLibraryEntry, type PlanLibraryProject } from '@arco/shared';
 import { PublicProjectBox } from '../components/PublicProjectBox';
 import { usePublicProject } from '../utils/publicProject';
@@ -179,6 +180,10 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
   cwd: string; projectName: string; entry: PlanLibraryEntry; onChanged: () => void; onDeleted: () => void;
 }) {
   const [plan, setPlan] = useState<PlanFull | null>(null);
+  const tickKey = JSON.stringify([cwd, entry.id]);
+  const ticks = useRef({ key: tickKey, generation: 0 });
+  if (ticks.current.key !== tickKey) ticks.current = { key: tickKey, generation: 0 };
+  const shown = useRef(plan); shown.current = plan;
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const { checked: publicProject } = usePublicProject(cwd);
@@ -229,7 +234,7 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
         </div>
         {!editing && plan && (
           <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-            <button className="display-font" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(plan.body); setEditing(true); }}>EDIT</button>
+            <button className="display-font" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(plan.body); setEditing(true); }} disabled={saving}>EDIT</button>
             {done ? (
               <button className="display-font" style={btn} onClick={() => void patch({ completedAt: null })}>REOPEN</button>
             ) : (
@@ -254,20 +259,20 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
         )}
       </div>
       <PublicProjectBox cwd={cwd} testId="plans-library-public-project" />
-      {publicProject && plan && !hasGuardrails(editing ? draftBody : plan.body) && <button className="display-font" data-help="plan.insert-guardrails" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : plan.body)); setEditing(true); }}>INSERT GUARDRAILS</button>}
+      {publicProject && plan && !hasGuardrails(editing ? draftBody : plan.body) && <button className="display-font" data-help="plan.insert-guardrails" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : plan.body)); setEditing(true); }} disabled={saving}>INSERT GUARDRAILS</button>}
       {error && <div style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{error}</div>}
       {!editing && <PlanRefChips refs={refs} onOpenSlug={setOpenRef} />}
       {editing ? (
         <>
-          <input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} style={searchStyle} />
-          <textarea value={draftBody} onChange={(e) => setDraftBody(e.target.value)} rows={24} style={{ ...searchStyle, fontSize: '13px', resize: 'vertical', minHeight: 'calc(45vh / var(--ui-scale, 1))' }} />
+          <input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} style={searchStyle} disabled={saving} />
+          <textarea value={draftBody} onChange={(e) => setDraftBody(e.target.value)} rows={24} style={{ ...searchStyle, fontSize: '13px', resize: 'vertical', minHeight: 'calc(45vh / var(--ui-scale, 1))' }} disabled={saving} />
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="display-font" style={btn} disabled={saving || !draftTitle.trim()} onClick={async () => {
               setSaving(true);
               if (await patch({ title: draftTitle, body: draftBody })) setEditing(false);
               setSaving(false);
             }}>{saving ? 'SAVING…' : 'SAVE'}</button>
-            <button className="display-font" style={btn} onClick={() => setEditing(false)}>CANCEL</button>
+            <button className="display-font" style={btn} onClick={() => setEditing(false)} disabled={saving}>CANCEL</button>
           </div>
         </>
       ) : (
@@ -277,17 +282,29 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
           errorMessage={error}
           onOpenRef={setOpenRef}
           refSlugs={refSlugs}
-          onToggleCheckbox={(lineIndex) => {
-            if (!plan) return;
-            const lines = plan.body.split('\n');
-            const m = lines[lineIndex]?.match(CHECKBOX_RE);
-            if (!m) return;
-            const [, indent, mark, rest] = m;
-            lines[lineIndex] = `${indent}- [${mark.toLowerCase() === 'x' ? ' ' : 'x'}] ${rest}`;
-            const prev = plan;
-            setPlan({ ...plan, body: lines.join('\n') });
-            void patch({ body: lines.join('\n') }).then((ok) => { if (!ok) setPlan(prev); });
-          }}
+          onToggleCheckbox={async (lineIndex) => {
+              if (!cwd || !plan) return;
+              const submitted = plan.body, context = ticks.current, request = ++context.generation;
+              const lines = submitted.split('\n'), match = lines[lineIndex]?.match(CHECKBOX_RE);
+              if (!match) return;
+              lines[lineIndex] = `${match[1]}- [${match[2].toLowerCase() === 'x' ? ' ' : 'x'}] ${match[3]}`;
+              const current = () => ticks.current === context && context.generation === request;
+              const apply = (saved: PlanFull) => {
+                if (!current() || shown.current?.body !== submitted) return;
+                shown.current = saved;
+                setPlan(saved);
+              };
+              try {
+                const saved = await updatePlanBody(cwd, entry.id, submitted, lines.join('\n'));
+                apply(saved);
+                if (current()) setError(null);
+                onChanged();
+              } catch (err) {
+                if (!current()) return;
+                if (err instanceof PlanBodySaveError && err.plan) apply(err.plan);
+                setError(err instanceof Error ? err.message : String(err));
+              }
+            }}
         />
       )}
       <PlanRefsSection cwd={cwd} planId={entry.id} refs={refs} reload={reload} openSlug={openRef} onOpenSlug={setOpenRef} />

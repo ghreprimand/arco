@@ -831,6 +831,7 @@ export const powerFeatures: Section[] = [
   body: (
   <>
   <p>When searches overlap, only the newest request changes the visible results, loading state or error.</p>
+  <p>Save to KB saves the submitted draft. Edits made while that save is pending remain open and unsaved. Completing an earlier save does not close a newer draft.</p>
   <p>
   <strong>Recall</strong> searches every conversation Arco has ever run, across
   all projects and providers, not just the open tabs. Use it for "find the

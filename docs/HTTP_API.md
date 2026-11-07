@@ -1256,10 +1256,11 @@ Move a plan from `path` (source cwd) to another cwd. Body: `{ targetCwd }` (requ
 Partial update. Body:
 
 ```ts
-{ title?: string, body?: string, completedAt?: number | null }
+{ title?: string, body?: string, completedAt?: number | null, expectedBody?: string }
 ```
 
 - `title` / `body` - straightforward edits; bumps `updatedAt`.
+- `expectedBody` - optional compare-and-swap precondition for a body change. Checked under the plan lock; a mismatch returns `409 { error, plan }` with the current plan and writes nothing.
 - `completedAt: <timestamp>` - **mark complete**. Auto-detaches the plan from every workflow currently attached (closes attachment spans, broadcasts `plan_detached`, clears `meta.planId`, releases the watcher refs).
 - `completedAt: null` - **reopen**. Just clears the timestamp; does NOT auto-attach.
 
@@ -1279,7 +1280,7 @@ Long-form docs attached to one plan, stored as `<cwd>/.arco/plans/<planId>.refs/
 
 - `GET /api/plans/refs?path=<cwd>&planId=<id>` -> `{ refs: PlanRefSummary[] }` (`{ slug, title, bytes, updatedAt }`, slug-sorted).
 - `GET /api/plans/refs/body?path=<cwd>&planId=<id>&slug=<slug>` -> `{ ref: PlanRefFull }` or `404`.
-- `PUT /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` body `{ body: string }` -> `{ ref, created }`. `404` if the plan doesn't exist, `400` for a bad slug / over-cap body / count cap.
+- `PUT /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` body `{ body: string, createOnly?: boolean }` -> `{ ref, created }`. `createOnly: true` atomically refuses existing files or links with `409`; omission keeps ordinary replacement behavior. `404` if the plan doesn't exist, `400` for a bad slug / over-cap body / count cap.
 - `DELETE /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` -> `{ deleted: true }` or `404`.
 
 PUT and DELETE bump the plan's `updatedAt` and re-broadcast `plan_attached` to attached workflows and `cluster_state` to bound clusters, so open Plan tabs refetch their refs list. Direct file writes don't (the plans watcher ignores the `.refs` dir); the UI also refetches on window focus.
@@ -1962,11 +1963,11 @@ Preload a registered alias into VRAM explicitly, before any workflow turn. `llam
 
 ### `GET /api/llamacpp/catalog`
 
-Read the operator-managed llama.cpp model registry (`~/.arco/llamacpp.json`). Returns `{ models: LlamacppModelDef[] }`.
+Read the operator-managed llama.cpp model registry (`~/.arco/llamacpp.json`). Returns `{ models: LlamacppModelDef[], revision: string }`. Treat the revision as opaque and send it with a replacement.
 
 ### `POST /api/llamacpp/catalog`
 
-Wholesale replace the catalog. Body must match `{ models: LlamacppModelDef[] }` (top-level shape validated server-side -> else `400`; individual entry fields are permissive - invalid entries are silently skipped on read). Re-reads and returns the persisted catalog after write.
+Replace the reviewed catalog. Body: `{ models: LlamacppModelDef[], revision: string }`. Each model needs a nonempty alias and GGUF path, and aliases must be unique (`400` otherwise). A missing or stale revision returns `409` before replacing anything. Revision comparison and publication share the catalog lock. Returns the persisted models and their new revision after success.
 
 ---
 

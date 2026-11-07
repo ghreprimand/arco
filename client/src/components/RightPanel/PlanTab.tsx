@@ -1,3 +1,4 @@
+import { updatePlanBody, PlanBodySaveError } from '../plans/planBodySave';
 import { PublicProjectBox } from '../PublicProjectBox';
 import { rememberPublicChoice, usePublicProject } from '../../utils/publicProject';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
@@ -79,6 +80,10 @@ export function PlanTab({
   const [moveTarget, setMoveTarget] = useState<{ planId: string; title: string } | null>(null);
   const [list, setList] = useState<PlanSummary[] | null>(null);
   const [body, setBody] = useState<string | null>(null);
+  const tickKey = JSON.stringify([cwd, plan?.id]);
+  const ticks = useRef({ key: tickKey, generation: 0 });
+  if (ticks.current.key !== tickKey) ticks.current = { key: tickKey, generation: 0 };
+  const shown = useRef(body); shown.current = body;
   const [bodyLoading, setBodyLoading] = useState(false);
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -88,6 +93,10 @@ export function PlanTab({
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
   const [saving, setSaving] = useState(false);
+  const saveKey = JSON.stringify([job.id, cwd, plan?.id]);
+  const saves = useRef({ key: saveKey, generation: 0 });
+  if (saves.current.key !== saveKey) saves.current = { key: saveKey, generation: 0 };
+  useEffect(() => { setSaving(false); }, [saveKey]);
   const [error, setError] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -320,7 +329,7 @@ export function PlanTab({
                   </div>
                 </>
               )}
-              <button onClick={() => setCreating(true)} data-help="plan.new" className="display-font" style={planMiniBtn}>
+              <button onClick={() => setCreating(true)} data-help="plan.new" className="display-font" style={planMiniBtn} disabled={saving}>
                 + NEW PLAN
               </button>
               {completedPlans.length > 0 && (
@@ -366,21 +375,23 @@ export function PlanTab({
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Plan title"
-              style={planInputStyle}
+              style={planInputStyle} disabled={saving}
             />
             <PublicProjectBox cwd={cwd ?? ''} testId="new-plan-public-project" />
-            {publicProject && !hasGuardrails(newBody) && <button type="button" data-help="plan.insert-guardrails" onClick={() => setNewBody(insertGuardrails(newBody))} className="display-font" style={planMiniBtn}>INSERT GUARDRAILS</button>}
+            {publicProject && !hasGuardrails(newBody) && <button type="button" data-help="plan.insert-guardrails" onClick={() => setNewBody(insertGuardrails(newBody))} className="display-font" style={planMiniBtn} disabled={saving}>INSERT GUARDRAILS</button>}
             <textarea
               value={newBody}
               onChange={(e) => setNewBody(e.target.value)}
               placeholder="# Goal&#10;# Constraints&#10;# Open questions"
               rows={14}
-              style={planTextareaStyle}
+              style={planTextareaStyle} disabled={saving}
             />
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 disabled={saving || !newTitle.trim()}
                 onClick={async () => {
+                  const owner = saves.current, request = ++owner.generation;
+                  const current = () => saves.current === owner && owner.generation === request;
                   setSaving(true);
                   setError(null);
                   try {
@@ -392,14 +403,15 @@ export function PlanTab({
                     });
                     if (!res.ok) throw new Error(await res.text());
                     const d = (await res.json()) as { plan: PlanFull };
+                    if (!current()) return;
                     onAttach?.(d.plan.id);
                     setCreating(false);
                     setNewTitle('');
                     setNewBody('');
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : String(err));
+                    if (current()) setError(err instanceof Error ? err.message : String(err));
                   } finally {
-                    setSaving(false);
+                    if (current()) setSaving(false);
                   }
                 }}
                 className="display-font"
@@ -410,7 +422,7 @@ export function PlanTab({
               <button
                 onClick={() => { setCreating(false); setNewTitle(''); setNewBody(''); setError(null); }}
                 className="display-font"
-                style={planMiniBtn}
+                style={planMiniBtn} disabled={saving}
               >
                 CANCEL
               </button>
@@ -425,7 +437,7 @@ export function PlanTab({
   return (
     <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <PublicProjectBox cwd={cwd ?? ''} testId="active-plan-public-project" />
-      {publicProject && body !== null && !hasGuardrails(editing ? draftBody : body) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. <button type="button" data-testid="public-plan-insert-guardrails" data-help="plan.insert-guardrails" className="display-font" style={planMiniBtn} onClick={() => { if (!editing) setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : body)); setEditing(true); }}>INSERT GUARDRAILS</button></div>}
+      {publicProject && body !== null && !hasGuardrails(editing ? draftBody : body) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. <button type="button" data-testid="public-plan-insert-guardrails" data-help="plan.insert-guardrails" className="display-font" style={planMiniBtn} onClick={() => { if (!editing) setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : body)); setEditing(true); }} disabled={saving}>INSERT GUARDRAILS</button></div>}
       <div>
         <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)' }}>
           ACTIVE PLAN
@@ -440,7 +452,7 @@ export function PlanTab({
           {!editing && (
             <span data-help="plan.edit" style={{ display: 'inline-flex' }}>
             <button
-              disabled={bodyLoading}
+              disabled={saving || (bodyLoading)}
               onClick={() => setEditing(true)}
               className="display-font"
               style={planMiniBtn}
@@ -456,7 +468,7 @@ export function PlanTab({
               <span data-help="plan.insert-guardrails" style={{ display: 'inline-flex' }}>
                 <button
                   data-testid="plan-insert-guardrails"
-                  disabled={present || bodyLoading}
+                  disabled={saving || (present || bodyLoading)}
                   title={present ? 'Already in this plan' : 'Insert a Privacy and public safety section as an unsaved edit'}
                   onClick={() => {
                     if (!editing) setDraftTitle(plan.title);
@@ -576,12 +588,12 @@ export function PlanTab({
 
       {editing ? (
         <>
-          <input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} style={planInputStyle} />
+          <input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} style={planInputStyle} disabled={saving} />
           <textarea
             value={draftBody}
             onChange={(e) => setDraftBody(e.target.value)}
             rows={20}
-            style={planTextareaStyle}
+            style={planTextareaStyle} disabled={saving}
           />
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -589,6 +601,8 @@ export function PlanTab({
               className="display-font"
               style={planMiniBtn}
               onClick={async () => {
+                const owner = saves.current, request = ++owner.generation;
+                const current = () => saves.current === owner && owner.generation === request;
                 setSaving(true);
                 setError(null);
                 try {
@@ -599,12 +613,13 @@ export function PlanTab({
                   });
                   if (!res.ok) throw new Error(await res.text());
                   const d = (await res.json()) as { plan: PlanFull };
+                  if (!current()) return;
                   setBody(d.plan.body);
                   setEditing(false);
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : String(err));
+                  if (current()) setError(err instanceof Error ? err.message : String(err));
                 } finally {
-                  setSaving(false);
+                  if (current()) setSaving(false);
                 }
               }}
             >
@@ -618,7 +633,7 @@ export function PlanTab({
                 setError(null);
               }}
               className="display-font"
-              style={planMiniBtn}
+              style={planMiniBtn} disabled={saving}
             >
               CANCEL
             </button>
@@ -651,32 +666,25 @@ export function PlanTab({
             onOpenRef={setOpenRefSlug}
             refSlugs={refSlugs}
             onToggleCheckbox={async (lineIndex) => {
-              if (!cwd || body === null) return;
-              const lines = body.split('\n');
-              const m = lines[lineIndex]?.match(CHECKBOX_RE);
-              if (!m) return;
-              const [, indent, mark, rest] = m;
-              const next = mark.toLowerCase() === 'x' ? ' ' : 'x';
-              const newLine = `${indent}- [${next}] ${rest}`;
-              const newLines = [...lines];
-              newLines[lineIndex] = newLine;
-              const newBody = newLines.join('\n');
-              const prev = body;
-              // Optimistic flip — server PATCH below will re-broadcast
-              // plan_attached, which refetches and confirms the same value.
-              setBody(newBody);
+              if (!cwd || body === null || !plan) return;
+              const submitted = body, context = ticks.current, request = ++context.generation;
+              const lines = submitted.split('\n'), match = lines[lineIndex]?.match(CHECKBOX_RE);
+              if (!match) return;
+              lines[lineIndex] = `${match[1]}- [${match[2].toLowerCase() === 'x' ? ' ' : 'x'}] ${match[3]}`;
+              const current = () => ticks.current === context && context.generation === request;
+              const apply = (saved: PlanFull) => {
+                if (!current() || shown.current !== submitted) return;
+                shown.current = saved.body;
+                setBody(saved.body);
+              };
               try {
-                const res = await fetch(
-                  `/api/plans?path=${encodeURIComponent(cwd)}&planId=${encodeURIComponent(plan.id)}`,
-                  {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ body: newBody }),
-                  },
-                );
-                if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+                const saved = await updatePlanBody(cwd, plan.id, submitted, lines.join('\n'));
+                apply(saved);
+                if (current()) setBodyError(null);
+
               } catch (err) {
-                setBody(prev);
+                if (!current()) return;
+                if (err instanceof PlanBodySaveError && err.plan) apply(err.plan);
                 setBodyError(err instanceof Error ? err.message : String(err));
               }
             }}

@@ -177,6 +177,7 @@ export function PlanBodyRenderer({
               <span style={{ whiteSpace: 'pre' }}>{indent}- </span>
               <button
                 type="button"
+                data-help="plan.checkbox"
                 onClick={() => onToggleCheckbox(i)}
                 title={checked ? 'Mark as not done' : 'Mark as done'}
                 style={{
