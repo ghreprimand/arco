@@ -44,6 +44,16 @@ body:
   attributes:
     label: Validation approach
     description: Describe how the result could be checked with synthetic data or provider fixtures.
+- type: dropdown
+  id: implementation_intent
+  attributes:
+    label: Do you want to implement this?
+    options:
+    - Yes - confirm approach
+    - Maybe - guidance wanted
+    - No - report only
+  validations:
+    required: true
 - type: checkboxes
   id: checks
   attributes:

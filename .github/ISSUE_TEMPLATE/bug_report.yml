@@ -72,6 +72,16 @@ body:
       applicable. No account identifiers or credentials.
   validations:
     required: true
+- type: dropdown
+  id: implementation_intent
+  attributes:
+    label: Do you want to implement this?
+    options:
+    - Yes - confirm approach
+    - Maybe - guidance wanted
+    - No - report only
+  validations:
+    required: true
 - type: textarea
   id: logs
   attributes:

@@ -24,69 +24,62 @@ The storage report (in a single-worker, chat or cluster tab, **MEMORY > USAGE** 
 - A project state folder inside another state folder (chat and Genesis projects inside Arco's own folder) is skipped there and measured as its own project.
 - Links to other places are never followed. Nothing is written.
 
-Two sets of state folders on one machine were measured, read-only. Set A is Arco's own state. Set B is state with the same folder layout, written by an earlier version of the software over several months of heavy use. Set B shows what Arco's state grows into; Set A is still small.
+Two state-folder samples were measured read-only. The first was a small installation. The second was a large, long-used installation with the same folder layout, written by an earlier version of Arco. The figures below are rounded and describe storage patterns relevant to the recommendations.
 
 ### Totals
 
-| | Set A | Set B |
+| | Small installation | Large, long-used installation |
 | --- | --- | --- |
-| Project state folders | 45 | 144 |
-| Project state, logical | 5.4 MB | 116.5 GB |
-| Extra hard links (not counted again) | 0 | 7.8 GB |
-| Arco's own folder | 1.71 GB | 58.8 GB |
-| Nested project state folders skipped in Arco's own folder | 1 | 28 |
+| Project state folders | about 50 | about 140 |
+| Project state, logical | about 5 MB | about 120 GB |
+| Extra hard links (not counted again) | 0 | about 8 GB |
+| Arco's own folder | about 2 GB | about 60 GB |
+| Nested project state folders skipped in Arco's own folder | 1 | about 30 |
 
 The earlier report counted hard links twice and counted the chat projects inside Arco's own folder twice. The figures above remove both.
 
-### Project state by bucket (Set B)
+### Project state by bucket (large installation)
 
 | Bucket | Bytes | Share |
 | --- | --- | --- |
-| Worktrees and isolated copies | 62.0 GB | 53% |
-| Artifacts | 43.9 GB | 38% |
-| Conversation logs | 8.0 GB | 7% |
-| Other (an audit folder and built programs) | 1.8 GB | 2% |
-| Scratch files | 0.48 GB | under 1% |
-| Other conversation files | 0.33 GB | under 1% |
-| Task boards | 0.02 GB | under 1% |
-| Plans | under 0.01 GB | under 1% |
+| Worktrees and isolated copies | about 60 GB | about 50% |
+| Artifacts | about 45 GB | about 40% |
+| Conversation logs | about 8 GB | about 7% |
+| Other files | about 2 GB | about 2% |
+| Scratch files and other conversation data | under 1 GB | under 1% each |
+| Task boards and plans | under 1 GB each | under 1% each |
 
-### The largest project (Set B)
+### The largest project (large installation)
 
 | Bucket | Bytes |
 | --- | --- |
-| Worktrees and isolated copies | 61.9 GB (about 54.5 GB of it compiler output in six build folders) |
-| Artifacts | 35.5 GB |
-| Conversation logs | 5.2 GB |
-| Other | 1.6 GB (an audit folder 1.5 GB, built programs 0.2 GB) |
-| Total | 104.3 GB (110.9 GB before removing 6.5 GB of extra hard links) |
+| Worktrees and isolated copies | about 60 GB |
+| Artifacts | about 35 GB |
+| Conversation logs | about 5 GB |
+| Other | about 2 GB |
+| Total | about 100 GB |
 
-The 70 GB that the first report could not explain is the worktrees bucket (agents made Git worktrees inside the project's state folder and built in them), the audit folder, and hard links counted twice. The largest project has no nested state folder.
+The previously unexplained storage was mostly worktrees inside project state folders, along with other files and hard links counted more than once. The largest project has no nested state folder.
 
 ### Arco's own folder
 
-| Bucket | Set A | Set B |
+| Bucket | Small installation | Large, long-used installation |
 | --- | --- | --- |
-| Caches and browser profiles | 0.27 GB | 29.0 GB (one browser profile cache) |
-| Voice and media models | 1.40 GB | 18.7 GB (16.4 GB of it Python environments) |
-| Provider account data | 0 | 9.7 GB (session files of a separate provider home) |
-| Checkpoints | 0.03 GB | 0.84 GB |
-| Saved clusters | under 0.01 GB | 0.33 GB |
-| Server logs | 0.01 GB | 0.03 GB |
-| Other | under 0.01 GB | 0.27 GB |
+| Caches and browser profiles | about 0.3 GB | about 30 GB |
+| Voice and media models | about 1 GB | about 20 GB |
+| Provider account data | 0 | about 10 GB |
+| Checkpoints | about 0.03 GB | about 1 GB |
+| Saved clusters | under 0.1 GB | under 1 GB |
+| Server logs and other | under 0.1 GB | under 1 GB each |
 
-### Conversation logs (Set B)
+### Conversation logs (large installation)
 
-- 1,885 logs. The median log is 0.39 MB. 207 logs are above 8 MiB; 42 logs are above 32 MiB and hold 3.5 GB together. The largest is 463 MB.
-- By event type: full task board copies 49.7%, tool calls 28.4%, streamed text 9.6%, reasoning 4.6%, plan bodies 0.9%. In Set A, board copies are 5.2%.
-- The largest log is 463 MB, of which all but 742 bytes are board copies.
+- About 1,900 logs were measured. Board snapshots made up about half of the log bytes; tool calls made up about a quarter. This supports removing repeated snapshots while retaining the individual task changes.
+- Some logs exceeded 30 MiB, and the largest was several hundred MiB. This supports lossless rotation and compression without relying on a single log size.
 
-### Artifacts (Set B)
+### Artifacts (large installation)
 
-- 674 of 1,895 conversations have artifacts.
-- 24 artifact files are 100 MiB or larger, 15 are 500 MiB or larger, 7 are 1 GiB or larger, 1 is larger than 5 GiB.
-- Disk images account for 21.2 GB of the large files.
-- Two conversations hold more than 5 GiB of artifacts each.
+- About one third of conversations had artifacts. A small number of files reached hundreds of MiB or more, supporting per-file and per-conversation warnings.
 
 ### Compression of logs
 
@@ -94,9 +87,9 @@ Measured on real logs with Node's built-in `zlib`, without writing anything:
 
 | Sample | Uncompressed | gzip | Brotli (quality 5, 16 MiB window) |
 | --- | --- | --- | --- |
-| 12 logs between 2 and 40 MB | 80 MB | 4.3x smaller | 14.3x smaller |
-| A 116 MB log without board copies | 116 MB | 3.8x | 146x |
-| The 463 MB board-copy log | 463 MB | 3.4x (5.9 s) | 3,240x (0.8 s) |
+| About a dozen logs, a few to several dozen MB each | about 80 MB | about 4x smaller | about 14x smaller |
+| A log over 100 MB without board copies | about 120 MB | about 4x | about 150x |
+| A large board-copy log | about 460 MB | about 3x | over 3,000x |
 
 gzip only finds repeats within 32 KB, so repeated board copies and long tool outputs do not shrink much. Brotli with a 16 MiB window finds them. Brotli is part of `node:zlib`; it needs no new dependency.
 
@@ -119,7 +112,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 
 - **Recommendation:** stop writing full board copies to conversation logs. Keep writing the per-change `task_ledger_event` records. Send board copies to open tabs live only.
 - **Trade-off:** a log no longer shows the whole board at a past moment. The board at any point can still be rebuilt from the change records. Old logs keep their copies.
-- **Effect:** about half of all log bytes in Set B.
+- **Effect:** about half of the log bytes in the large, long-used installation.
 
 ### 2. Plan bodies in logs (P7.2)
 
@@ -145,7 +138,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 
 ### 6. Artifact warnings and scratch (P7.4, approved with conditions)
 
-- **Recommendation:** warn at write time when one artifact file reaches 1 GiB, or a conversation's artifacts reach 5 GiB. In Set B this would have warned for 7 files and 2 conversations out of 1,895. Approving a warning sets **KEEP** on that file or folder, and it never warns again.
+- **Recommendation:** warn at write time when one artifact file reaches 1 GiB, or a conversation's artifacts reach 5 GiB. These thresholds would have warned on a small number of files and conversations in the large, long-used installation. Approving a warning sets **KEEP** on that file or folder, and it never warns again.
 - **Scratch:** each conversation gets `scratch/` beside `artifacts/`, not inside it. Agent guidance says to put large intermediate files there. **EMPTY SCRATCH** deletes it, only on the operator's click and after a confirmation. Kept items are skipped.
 - **Trade-off:** files under the thresholds never warn, even when many of them add up. The per-conversation total covers most of that.
 - **Checked when:** every 30 seconds while a turn runs and again when it ends (`server/src/storageTurnWatch.ts`); each item still warns once. `ARCO_ARTIFACT_WARN_FILE_BYTES` and `ARCO_ARTIFACT_WARN_CONVERSATION_BYTES` override the thresholds and `ARCO_ARTIFACT_WARN_INTERVAL_MS` the interval.
@@ -162,7 +155,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 
 ### 9. Worktrees and caches (new, needs a decision)
 
-- **Finding:** in Set B the largest bucket is not logs or artifacts but agent-made worktrees inside a project's state folder, mostly compiler output (62 GB). Arco's own folder holds a 29 GB browser cache and 16 GB of voice Python environments.
+- **Finding:** in the large, long-used installation, the largest project-state bucket was worktrees and isolated copies (about 60 GB). Arco's own folder held tens of gigabytes of caches and voice environments.
 - **Recommendation:** show these rows on the STORAGE page with their size and, for worktrees, whether they have uncommitted changes. Any clean-up action (deleting a worktree with no uncommitted changes, clearing the browser cache) is a separate decision and is not part of P7.4 or P7.5.
 
 ## P7.2 design: stop writing waste
@@ -311,7 +304,7 @@ One file per conversation, `<project>/.arco/workflows/<id>/keep.json`, written t
 
 ## Limits of these numbers
 
-- They are one point-in-time scan of the folders found on one machine. Files can change during a scan.
+- They are one point-in-time scan of the folders found in each sample. Files can change during a scan.
 - Logical sizes can exceed the space used on disk (sparse disk images) or fall below it (small files).
 - Git objects shared with a project's own history cannot be assigned to single conversations.
 - Compression ratios come from a sample of real logs; they are not guarantees.
