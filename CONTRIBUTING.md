@@ -10,6 +10,15 @@ Vulnerabilities are reported privately through the process in
 [SECURITY.md](SECURITY.md#reporting-a-vulnerability); public issues and pull
 requests must not disclose unresolved security vulnerabilities.
 
+## Quick guide
+
+1. Open a bug report or change proposal issue using the matching form. For substantial work, read this guide first and describe the problem and smallest useful change.
+2. Choose whether to implement the change, ask for guidance, or report it only. Wait for maintainers to confirm the approach before starting implementation.
+3. Comment "I'll work on this" on the issue before starting, so others do not duplicate the work. If work stops, say so on the issue.
+4. Comment on the issue with the agreed scope, then open a pull request that links the issue. Pull requests are welcome after the approach is agreed.
+
+Report security vulnerabilities through the private process in [SECURITY.md](SECURITY.md#reporting-a-vulnerability), never in a public issue or pull request.
+
 ---
 
 ## Setup
@@ -281,17 +290,11 @@ See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the persisted-vs-transient breakd
 
 ---
 
-## Propose a change
-
-1. Open a bug report or change proposal issue using the matching form. For substantial work, read this guide first and describe the problem and smallest useful change.
-2. Choose whether to implement the change, ask for guidance, or report it only. Wait for maintainers to confirm the approach before starting implementation.
-3. Comment on the issue with the agreed scope, then open a pull request that links the issue. Pull requests are welcome after the approach is agreed.
-
-Report security vulnerabilities through the private process in [SECURITY.md](SECURITY.md#reporting-a-vulnerability), never in a public issue or pull request.
-
 ## Coordination
 
 Keep each issue and pull request focused on one change. Describe affected behavior, compatibility constraints, and the checks run. Use synthetic projects and provider fixtures; do not use paid provider calls or copy credentials. Maintainers review the full change and may ask for one correction round before accepting it.
+
+Before starting, comment "I'll work on this" on the issue so others do not duplicate the work. If work stops, say so on the issue.
 
 ## Commit / PR conventions
 
