@@ -173,6 +173,7 @@ export class WorkerManager {
       // Resolved by handleUserMessage from WorkflowConfig.claudeNativeCompact;
       // ignored by other transports.
       claudeNativeCompact?: WorkerConfig['claudeNativeCompact'];
+      claudeNativeInTurnCompactPercent?: WorkerConfig['claudeNativeInTurnCompactPercent'];
       // Native-only debug override for forcing the legacy interleaved-thinking
       // beta on adaptive Claude models.
       claudeNativeForceInterleavedThinkingBeta?: WorkerConfig['claudeNativeForceInterleavedThinkingBeta'];
@@ -295,6 +296,7 @@ export class WorkerManager {
       claudeNativeTaskDisabled: options?.claudeNativeTaskDisabled,
       claudeNativeSubagent: options?.claudeNativeSubagent,
       claudeNativeCompact: options?.claudeNativeCompact,
+      claudeNativeInTurnCompactPercent: options?.claudeNativeInTurnCompactPercent,
       claudeNativeForceInterleavedThinkingBeta: options?.claudeNativeForceInterleavedThinkingBeta,
       claudeNativeThinkingDisplay: options?.claudeNativeThinkingDisplay,
       claudeNativePlanModeArmed: options?.claudeNativePlanModeArmed,

@@ -252,3 +252,71 @@ export function sleepWithSignal(ms: number, signal: AbortSignal | undefined): Pr
     signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
+
+// Summary request headroom. A conservative token estimate for projected
+// conversation text (about three characters per token, so code-heavy text is
+// not underestimated).
+export function estimateSummaryTokens(text: string): number {
+  return Math.ceil(text.length / 3);
+}
+
+function resumeMessageText(msg: ClaudeResumeMessage): string {
+  return typeof msg.content === 'string' ? msg.content : msg.content.map((b) => b.text).join('');
+}
+
+// Split the projected prefix for a compaction summary into parts that each fit
+// `maxTokens` (estimated). Parts break before a `user` message where they can;
+// a single message larger than the budget (a long turn's narration is one
+// merged assistant message) is cut into consecutive slices, one part each.
+// One part is the normal case; more parts are summarized in order, each with
+// the previous part's summary in front (worker.summarizeInParts), so nothing
+// in the prefix is left out. Only the first part is guaranteed to start on a
+// user message; the worker puts the running summary in front of the others.
+export function splitSummaryParts(messages: ClaudeResumeMessage[], maxTokens: number): ClaudeResumeMessage[][] {
+  const budget = Math.max(1_000, Math.floor(maxTokens));
+  const sliceChars = budget * 3;
+  const withText = (role: ClaudeResumeMessage['role'], text: string): ClaudeResumeMessage =>
+    role === 'user' ? { role: 'user', content: text } : { role: 'assistant', content: [{ type: 'text', text }] };
+  const parts: ClaudeResumeMessage[][] = [];
+  let current: ClaudeResumeMessage[] = [];
+  let used = 0;
+  const flush = () => { if (current.length > 0) parts.push(current); current = []; used = 0; };
+  for (const msg of messages) {
+    const text = resumeMessageText(msg);
+    const cost = estimateSummaryTokens(text);
+    if (cost > budget) {
+      flush();
+      for (let at = 0; at < text.length; at += sliceChars) {
+        const n = Math.floor(at / sliceChars) + 1, of = Math.ceil(text.length / sliceChars);
+        parts.push([withText(msg.role, `[part ${n} of ${of} of one long message]\n${text.slice(at, at + sliceChars)}`)]);
+      }
+      continue;
+    }
+    if (current.length > 0 && (used + cost > budget) && (msg.role === 'user' || used + cost > budget * 1.5)) flush();
+    current.push(msg);
+    used += cost;
+  }
+  flush();
+  return parts;
+}
+
+// The history after an in-turn compaction: the summary seed and its projected
+// tail, a user note that the compaction was automatic, then the round that was
+// in progress kept raw (the assistant's tool_use blocks with their thinking and
+// the user message carrying every tool_result), so no tool call is lost and
+// every tool_use keeps its result. The note joins the tail's last user message
+// when the tail ends on one, so roles keep alternating.
+export function inTurnCompactedHistory(
+  seed: ClaudeResumeMessage[],
+  note: string,
+  inProgressRound: MessageParam[],
+): MessageParam[] {
+  const out = seed.map((m) => ({ ...m })) as unknown as MessageParam[];
+  const last = out[out.length - 1] as unknown as ClaudeResumeMessage | undefined;
+  if (last && last.role === 'user') {
+    setResumeMessageText(last, `${resumeMessageText(last)}\n\n${note}`);
+  } else {
+    out.push({ role: 'user', content: note } as MessageParam);
+  }
+  return [...out, ...inProgressRound];
+}

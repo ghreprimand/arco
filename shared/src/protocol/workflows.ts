@@ -617,6 +617,11 @@ export interface WorkerConfig {
   // dispatcher from WorkflowConfig.claudeNativeCompact and gated against the
   // model's catalog capability. Other transports ignore the field.
   claudeNativeCompact?: boolean;
+  // Claude Native in-turn auto-compaction: the percent of the model's context
+  // window at which the worker compacts between two requests of one turn and
+  // continues the same turn. Absent = off. Resolved per operator turn by the
+  // dispatcher (resolveNativeInTurnCompactPercent); primitives leave it unset.
+  claudeNativeInTurnCompactPercent?: number;
   // Mirror of WorkflowConfig.claudeNativeForceInterleavedThinkingBeta.
   // Native-only debug override; other transports ignore the field.
   claudeNativeForceInterleavedThinkingBeta?: boolean;

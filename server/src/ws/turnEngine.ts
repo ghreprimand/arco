@@ -82,7 +82,7 @@ withPreviewNudge
 } from '../server/prompts.js';
 import { buildGenesisSystemBlock } from '../genesis/prompts.js';
 import { CHAT_PROVIDERS, chatSystemPrompt, chatWebArmed, isChatWorkflow } from '../chatMode.js';
-import { resolveTurnSettings } from './turnSettings.js';
+import { resolveNativeInTurnCompactPercent, resolveTurnSettings } from './turnSettings.js';
 import { composeBasePrompts } from './turnPrompt.js';
 import { runAfterTurn } from './afterTurn.js';
 import {
@@ -1834,6 +1834,18 @@ export async function handleUserMessage(
     claudeNativeThinkingDisplay, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection,
     efficiencySandbox, reviewSafeMode, outputStyle, goal, ollamaParams,
   } = resolveTurnSettings({ provider: wf.primary.provider, config: wf.config, cascade, isolatedMember, primitive });
+  // In-turn compaction follows the tab's or cluster's auto-compaction policy
+  // (the plan-review step, a Chat-style request, leaves it off below).
+  const inTurnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  const claudeNativeInTurnCompactPercent = wf.primary.provider === 'claude'
+    ? resolveNativeInTurnCompactPercent({
+      native: claudeTransport === 'native',
+      chat: isChatWorkflow(wf.config),
+      claudeNativeCompact,
+      worker: wf.config.autoCompaction ?? undefined,
+      cluster: inTurnClusterId ? clusterStore.getAutoCompaction(inTurnClusterId) : undefined,
+    })
+    : undefined;
   const providerAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
     : null;
@@ -2523,6 +2535,7 @@ export async function handleUserMessage(
           claudeTransport,
           ultracode,
           claudeNativeCompact,
+          ...(claudeNativeInTurnCompactPercent !== undefined && !(firstIteration && primitive === 'plan-review') ? { claudeNativeInTurnCompactPercent } : {}),
           claudeNativeForceInterleavedThinkingBeta,
           claudeNativeThinkingDisplay,
           claudeNativePlanModeArmed: armPlanMode,

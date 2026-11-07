@@ -1298,10 +1298,11 @@ function NativeCompactAutoContinueSection({
         <span style={{ color: 'var(--color-fg-muted)' }}>Auto-continue after compaction</span>
       </label>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-        After an in-place compaction (manual COMPACT or between-turn auto), default is to PARK
-        on the summary and wait for you to click Continue. Turn this ON to auto-send a short
-        continuance prompt and resume immediately: CLI-style. Off by default: between-turn
-        compaction ends the turn, so auto-continuing is autonomous continuation.
+        After an automatic compaction between turns, default is to PARK on the summary and
+        wait for you to click Continue. Turn this ON to auto-send a short continuance prompt
+        and resume immediately: CLI-style. The COMPACT button never continues by itself, and a
+        compaction inside a running turn continues that turn without a prompt. Off by default:
+        between-turn compaction ends the turn, so auto-continuing is autonomous continuation.
       </div>
     </div>
   );

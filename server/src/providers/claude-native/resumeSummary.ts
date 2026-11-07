@@ -55,6 +55,10 @@ type ReplayEvent = {
   // compaction's summary. Replay resets to this point (like a handoff) and
   // seeds the summary, so a compact survives restart.
   summary?: string;
+  // An in-turn auto-compaction (`native_compacted` with inTurn) and the note
+  // the live worker added after the seed.
+  inTurn?: boolean;
+  continueNote?: string;
   // NATIVE_COMPACTION_PLAN Phase 2 — keep-last-N verbatim tail. The live
   // `compactInPlace` keeps the last few user/assistant messages after the
   // seed so the active working set survives the fold. Those messages occur
@@ -370,6 +374,20 @@ export function buildMessagesFromReplayEvents(
       }
       const tail = Array.isArray(entry.keptTail) ? entry.keptTail : [];
       for (const m of compactSummarySeed(entry.summary, tail)) messages.push(m);
+      // An in-turn compaction lands in the middle of a turn: the live worker
+      // added its note (joined to the tail's last user message when there is
+      // one) and the turn's later text answered it. Rebuild that user side so
+      // the rest of the turn pairs with it.
+      if (t === 'native_compacted' && entry.inTurn === true && typeof entry.continueNote === 'string') {
+        const last = messages[messages.length - 1];
+        if (last && last.role === 'user' && messages.length > 2) {
+          messages.pop();
+          const text = typeof last.content === 'string' ? last.content : last.content.map((b) => b.text).join('');
+          userBuf = `${text}\n\n${entry.continueNote}`;
+        } else {
+          userBuf = entry.continueNote;
+        }
+      }
     } else if (t === 'user_message_echo' && typeof entry.content === 'string') {
       flushPair();
       userBuf = entry.content;

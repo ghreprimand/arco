@@ -469,7 +469,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member.auto-compaction': {
     title: 'Auto-compaction',
-    body: <p>When the worker summarizes older context in place. CLUSTER DEFAULT follows the cluster&apos;s setting, shown in brackets. OFF and ON set the worker&apos;s own policy; ON shows the threshold slider. REPLACE starts from the current member&apos;s policy; ADD FRESH starts with the cluster default.</p>,
+    body: <p>When the worker summarizes older context in place. CLUSTER DEFAULT follows the cluster&apos;s setting, shown in brackets. OFF and ON set the worker&apos;s own policy; ON shows the threshold slider. REPLACE starts from the current member&apos;s policy; ADD FRESH starts with the cluster default. On Claude Native the same threshold (70% under the default) also compacts inside a long turn, which then continues.</p>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.replace.provider': {

@@ -1,0 +1,309 @@
+// Claude Native in-turn auto-compaction: when one request of a long turn
+// crosses the threshold, the worker compacts at the next clean boundary (tool
+// results appended, next request not sent) and the same turn continues.
+//
+// Run: node --conditions development --import tsx --test src/providers/claude-native/inTurnCompaction.test.ts
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ClaudeNativeWorker } from './worker.js';
+import type { MessageParam } from './contentBlocks.js';
+import { buildMessagesFromReplayEvents } from './resumeSummary.js';
+import { splitSummaryParts, inTurnCompactedHistory } from './workerHelpers.js';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type W = {
+  on(event: string, fn: (...args: any[]) => void): unknown;
+  runTurn(prompt: string): Promise<void>;
+  cancel(): void;
+  dispose(): Promise<void>;
+  messages: MessageParam[];
+  client: unknown;
+  workflowEventBroadcast: (m: Record<string, unknown>) => void;
+  ensureStarted(): Promise<void>;
+  reconcileMcpSessions(): Promise<void>;
+  hydrateContextManagementCapabilities(): Promise<void>;
+  hooksLoaded: boolean;
+};
+
+type Block = { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
+const WINDOW = 1_000_000; // claude-opus-4-8
+
+// One streamed assistant message; `prompt` is the request's prompt size.
+function reply(blocks: Block[], prompt: number, model = 'claude-opus-4-8') {
+  const stop = blocks.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn';
+  return async function* (): AsyncGenerator<unknown> {
+    yield { type: 'message_start', message: { model, usage: { input_tokens: prompt, output_tokens: 1 } } };
+    for (const [index, b] of blocks.entries()) {
+      if (b.type === 'text') {
+        yield { type: 'content_block_start', index, content_block: { type: 'text', text: '' } };
+        yield { type: 'content_block_delta', index, delta: { type: 'text_delta', text: b.text } };
+      } else {
+        yield { type: 'content_block_start', index, content_block: { type: 'tool_use', id: b.id, name: b.name, input: {} } };
+        yield { type: 'content_block_delta', index, delta: { type: 'input_json_delta', partial_json: JSON.stringify(b.input) } };
+      }
+      yield { type: 'content_block_stop', index };
+    }
+    yield { type: 'message_delta', delta: { stop_reason: stop }, usage: { input_tokens: prompt, output_tokens: 20 } };
+    yield { type: 'message_stop' };
+  };
+}
+const tool = (id: string, prompt: number, text = `step ${id}`, model?: string) => reply([{ type: 'text', text }, { type: 'tool_use', id, name: 'Bash', input: { command: `echo ${id}` } }], prompt, model);
+const done = (prompt: number, model?: string) => reply([{ type: 'text', text: 'all done' }], prompt, model);
+function summaryStream(text: string) {
+  return async function* (): AsyncGenerator<unknown> {
+    yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } };
+  };
+}
+
+interface Setup {
+  w: W; cwd: string; requests: MessageParam[][]; summaries: MessageParam[][];
+  events: Array<Record<string, unknown>>; notices: string[]; errors: string[]; results: unknown[];
+  done(): Promise<void>;
+}
+
+function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
+  config?: Record<string, unknown>;
+  summary?: (messages: MessageParam[], w: W) => Promise<AsyncGenerator<unknown>>;
+  countTokens?: number;
+  steer?: () => Array<{ content: string }>;
+} = {}): Setup {
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arco-in-turn-compact-')));
+  const w = new ClaudeNativeWorker({
+    workflowId: 'wf-in-turn-compact',
+    config: { model: 'claude-opus-4-8', effort: 'high', cwd, skipPermissions: true, claudeNativeInTurnCompactPercent: 70, ...(opts.steer ? { drainSteer: opts.steer } : {}), ...opts.config },
+  }) as unknown as W;
+  const requests: MessageParam[][] = [];
+  const summaries: MessageParam[][] = [];
+  const client = {
+    messages: {
+      create: async (body: { system?: unknown; messages: MessageParam[] }) => {
+        const system = JSON.stringify(body.system ?? '');
+        if (system.includes('compacting the conversation')) {
+          summaries.push(JSON.parse(JSON.stringify(body.messages)));
+          return opts.summary ? opts.summary(body.messages, w) : summaryStream('Summary: the operator asked for a long task; steps a and b ran.')();
+        }
+        requests.push(JSON.parse(JSON.stringify(body.messages)));
+        return replies[Math.min(requests.length - 1, replies.length - 1)]();
+      },
+      ...(opts.countTokens ? { countTokens: async () => ({ input_tokens: opts.countTokens }) } : {}),
+    },
+  };
+  w.hooksLoaded = true;
+  w.ensureStarted = async () => { w.client = client; };
+  w.reconcileMcpSessions = async () => {};
+  w.hydrateContextManagementCapabilities = async () => {};
+  const events: Array<Record<string, unknown>> = [];
+  w.workflowEventBroadcast = (m) => events.push(m);
+  const notices: string[] = []; const errors: string[] = []; const results: unknown[] = [];
+  w.on('system_notice', (n: string) => notices.push(n));
+  w.on('error', (e: string) => errors.push(e));
+  w.on('result', (r: unknown) => results.push(r));
+  return { w, cwd, requests, summaries, events, notices, errors, results, done: async () => { await w.dispose(); rmSync(cwd, { recursive: true, force: true }); } };
+}
+
+// Every tool_use in a request has its tool_result in the following message.
+function assertPairsIntact(messages: MessageParam[]): void {
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.role !== 'assistant' || !Array.isArray(m.content)) continue;
+    const ids = (m.content as Array<{ type: string; id?: string }>).filter((b) => b.type === 'tool_use').map((b) => b.id);
+    if (ids.length === 0) continue;
+    const next = messages[i + 1];
+    assert.ok(next && next.role === 'user' && Array.isArray(next.content), `tool_use at ${i} is followed by a user message`);
+    const results = (next.content as Array<{ type: string; tool_use_id?: string }>).filter((b) => b.type === 'tool_result').map((b) => b.tool_use_id);
+    for (const id of ids) assert.ok(results.includes(id), `tool_use ${id} has its result`);
+  }
+  for (let i = 1; i < messages.length; i++) assert.notEqual(messages[i].role === 'assistant' && messages[i - 1].role === 'assistant', true, `no two assistant messages in a row at ${i}`);
+}
+const textOf = (m: MessageParam | undefined): string => {
+  const c = m?.content;
+  if (typeof c === 'string') return c;
+  return (Array.isArray(c) ? c : []).map((b) => (b as { text?: string }).text ?? '').join('\n');
+};
+
+test('a request past the threshold compacts between requests and the same turn continues', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 720_000), tool('c', 150_000), done(160_000)], { countTokens: 120_000 });
+  try {
+    await s.w.runTurn('do the long task');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.results.length, 1, 'the turn completed');
+    assert.equal(s.summaries.length, 1, 'one summary request');
+    assert.equal(s.requests.length, 4, 'no request was repeated or dropped');
+    // The summary saw the operator's instruction.
+    assert.match(JSON.stringify(s.summaries[0]), /do the long task/);
+    // The request after the compaction: seed, note, then the in-progress round raw.
+    const after = s.requests[2];
+    assert.match(textOf(after[0]), /Summary of the conversation so far/);
+    assert.ok(after.some((m) => m.role === 'user' && textOf(m).includes('compacted automatically in the middle of this turn')), 'the automatic note is there');
+    const lastAssistant = after[after.length - 2];
+    assert.ok(JSON.stringify(lastAssistant.content).includes('"id":"b"'), 'the tool call that crossed the threshold is kept');
+    assert.ok(JSON.stringify(after[after.length - 1].content).includes('"tool_use_id":"b"'), 'its result is kept');
+    assertPairsIntact(after);
+    assert.ok(!JSON.stringify(after).includes('"id":"a"'), 'older rounds are summarized');
+    for (const r of s.requests) assertPairsIntact(r);
+    // Visible: events with the reason, chat notices, CTX after.
+    const compacting = s.events.find((e) => e.type === 'native_compacting');
+    assert.equal(compacting?.trigger, 'auto-in-turn');
+    assert.equal(compacting?.percent, 72);
+    assert.equal(compacting?.thresholdPercent, 70);
+    const compacted = s.events.find((e) => e.type === 'native_compacted');
+    assert.equal(compacted?.inTurn, true);
+    assert.equal(compacted?.promptTokensAfter, 120_000);
+    assert.equal(compacted?.contextWindow, WINDOW);
+    assert.ok(s.notices.includes('Compacting automatically (context 72%)'));
+    assert.ok(s.notices.some((n) => n.startsWith('Compacted, continuing')));
+  } finally { await s.done(); }
+});
+
+test('a compaction that leaves usage above the threshold warns once and does not loop', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 750_000), tool('c', 760_000), tool('d', 770_000), done(780_000)]);
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 1, 'no second compaction');
+    assert.equal(s.notices.filter((n) => n.includes('still at')).length, 1, 'one warning');
+    assert.equal(s.results.length, 1);
+  } finally { await s.done(); }
+});
+
+test('a failed summary leaves the history unchanged, warns and the turn continues', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 750_000), done(760_000)], { summary: async () => { throw new Error('summary service down'); } });
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.results.length, 1);
+    assert.ok(s.notices.some((n) => /Automatic compaction in this turn failed: summary service down/.test(n)));
+    assert.ok(!s.events.some((e) => e.type === 'native_compacted'));
+    const last = s.requests[2];
+    assert.equal(last[0].role, 'user');
+    assert.equal(textOf(last[0]), 'go', 'history starts with the original prompt');
+    assert.ok(JSON.stringify(last).includes('"id":"a"') && JSON.stringify(last).includes('"id":"b"'));
+    assertPairsIntact(last);
+  } finally { await s.done(); }
+});
+
+test('cancel during the summary ends the turn cleanly with history intact', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 750_000), done(100_000)], {
+    summary: async (_m, w) => { w.cancel(); throw Object.assign(new Error('Request was aborted.'), { name: 'AbortError' }); },
+  });
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, ['Worker killed']);
+    assert.equal(s.results.length, 0);
+    assert.equal(s.requests.length, 2, 'no request after the cancel');
+    assert.ok(!s.events.some((e) => e.type === 'native_compacted'));
+    assertPairsIntact(s.w.messages);
+    assert.ok(JSON.stringify(s.w.messages).includes('"tool_use_id":"b"'));
+  } finally { await s.done(); }
+});
+
+test('Off, or the Claude API compaction beta, means no in-turn compaction', async () => {
+  for (const config of [{ claudeNativeInTurnCompactPercent: undefined }, { claudeNativeCompact: true }]) {
+    const s = setup([tool('a', 300_000), tool('b', 900_000), done(950_000)], { config });
+    try {
+      await s.w.runTurn('go');
+      assert.deepEqual(s.errors, []);
+      assert.equal(s.summaries.length, 0, JSON.stringify(config));
+      assert.equal(s.results.length, 1);
+    } finally { await s.done(); }
+  }
+});
+
+test('a steer queued during the compaction is delivered after the compacted history', async () => {
+  let drains = 0;
+  const s = setup([tool('a', 300_000), tool('b', 750_000), done(100_000)], {
+    steer: () => (++drains === 2 ? [{ content: 'also update the README' }] : []),
+  });
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, []);
+    const after = s.requests[2];
+    assert.equal(textOf(after[after.length - 1]), 'also update the README');
+    assertPairsIntact(after);
+    assert.match(textOf(after[0]), /Summary of the conversation so far/);
+  } finally { await s.done(); }
+});
+
+test('replay rebuilds the in-turn note so the rest of the turn pairs with it', () => {
+  const note = 'Note from Arco: compacted automatically.';
+  const messages = buildMessagesFromReplayEvents([
+    { type: 'user_message_echo', content: 'do the long task' },
+    { type: 'primary_text', text: 'step a' },
+    { type: 'native_compacted', summary: 'S', inTurn: true, continueNote: note, keptTail: [{ role: 'user', content: 'do the long task' }, { role: 'assistant', content: [{ type: 'text', text: 'step a' }] }] },
+    { type: 'primary_text', text: 'all done' },
+    { type: 'primary_complete' },
+    { type: 'user_message_echo', content: 'next' },
+    { type: 'primary_text', text: 'ok' },
+    { type: 'primary_complete' },
+  ] as never);
+  assert.deepEqual(messages.map((m) => m.role), ['user', 'assistant', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']);
+  assert.equal(messages[4].content, note);
+  assert.equal(textOf(messages[5] as MessageParam), 'all done');
+  // A tail that ends on the operator's message carries the note in it.
+  const joined = buildMessagesFromReplayEvents([
+    { type: 'native_compacted', summary: 'S', inTurn: true, continueNote: note, keptTail: [{ role: 'user', content: 'task' }] },
+    { type: 'primary_text', text: 'done' },
+    { type: 'primary_complete' },
+  ] as never);
+  assert.deepEqual(joined.map((m) => m.role), ['user', 'assistant', 'user', 'assistant']);
+  assert.equal(joined[2].content, `task\n\n${note}`);
+});
+
+test('the compacted history keeps roles alternating whichever way the tail ends', () => {
+  const round = [{ role: 'assistant', content: [{ type: 'tool_use', id: 'x', name: 'Bash', input: {} }] }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }] }] as MessageParam[];
+  const seedEndsAssistant = [{ role: 'user', content: 'S' }, { role: 'assistant', content: [{ type: 'text', text: 'ack' }] }] as never;
+  const a = inTurnCompactedHistory(seedEndsAssistant, 'NOTE', round);
+  assert.deepEqual(a.map((m) => m.role), ['user', 'assistant', 'user', 'assistant', 'user']);
+  const seedEndsUser = [{ role: 'user', content: 'S' }, { role: 'assistant', content: [{ type: 'text', text: 'ack' }] }, { role: 'user', content: 'task' }] as never;
+  const b = inTurnCompactedHistory(seedEndsUser, 'NOTE', round);
+  assert.deepEqual(b.map((m) => m.role), ['user', 'assistant', 'user', 'assistant', 'user']);
+  assert.equal(b[2].content, 'task\n\nNOTE');
+});
+
+test('a prefix too large for one summary request is split into parts', () => {
+  const big = 'x'.repeat(30_000); // ~10k estimated tokens each
+  const msgs = Array.from({ length: 6 }, (_, i) => (i % 2 === 0 ? { role: 'user' as const, content: big } : { role: 'assistant' as const, content: [{ type: 'text' as const, text: big }] }));
+  const parts = splitSummaryParts(msgs, 25_000);
+  assert.ok(parts.length >= 2);
+  for (const p of parts) assert.equal(p[0].role, 'user', 'parts break before user messages');
+  assert.equal(parts.flat().length, 6);
+  // One message larger than the budget (a long turn's narration) is cut into
+  // consecutive slices; nothing is left out.
+  const body = `HEAD${'y'.repeat(200_000)}TAIL`;
+  const sliced = splitSummaryParts([{ role: 'user', content: 'task' }, { role: 'assistant', content: [{ type: 'text', text: body }] }], 10_000);
+  assert.ok(sliced.length >= 7);
+  assert.equal(sliced[0][0].content, 'task');
+  const joined = sliced.slice(1).map((p) => (p[0].content as Array<{ text: string }>)[0].text.replace(/^\[part \d+ of \d+ of one long message\]\n/, '')).join('');
+  assert.equal(joined, body);
+  assert.equal(splitSummaryParts([{ role: 'user', content: 'small' }], 25_000).length, 1);
+});
+
+test('a summary request that would not fit the window is made in parts, oldest first', async () => {
+  const long = 'n'.repeat(700_000); // ~233k estimated tokens of narration, over a 200k window
+  const H = 'claude-haiku-4-5';
+  const s = setup([tool('a', 30_000, `A ${long}`, H), tool('b', 60_000, 'B', H), tool('c', 150_000, 'C', H), done(20_000, H)]);
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, []);
+    assert.ok(s.summaries.length >= 2, `summarized in ${s.summaries.length} parts`);
+    assert.match(textOf(s.summaries[1][0]), /^Summary of the earlier part of this conversation:/);
+    for (const req of s.summaries) assert.equal(req[0].role, 'user');
+    assert.equal(s.results.length, 1);
+  } finally { await s.done(); }
+});
+
+test('a PreCompact hook that blocks skips the in-turn compaction and the turn continues', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 750_000), done(760_000)]);
+  (s.w as unknown as { preCompactBlock: (t: string) => Promise<string | null> }).preCompactBlock = async (t) => (t === 'auto' ? '[hook]: keep everything' : null);
+  try {
+    await s.w.runTurn('go');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0);
+    assert.ok(s.notices.some((n) => /PreCompact hook blocked the compaction/.test(n)));
+    assert.equal(s.results.length, 1);
+  } finally { await s.done(); }
+});

@@ -4,7 +4,25 @@
 // every other transport. Pinned by turnSettings.test.ts; handleUserMessage in
 // turnEngine.ts reads the settings files and passes them in.
 
-import { resolveOutputStyle, type WorkflowConfig } from '@arco/shared';
+import { resolveAutoCompactionPolicy, resolveOutputStyle, type AutoCompactionPolicy, type WorkflowConfig } from '@arco/shared';
+
+// Claude Native compacts inside a long turn at this share of the context
+// window when the tab and its cluster leave auto-compaction on Provider.
+export const NATIVE_IN_TURN_COMPACT_DEFAULT_PERCENT = 70;
+
+// The in-turn compaction threshold for one Claude Native turn, or undefined
+// when it is off: the tab's or cluster's Arco auto-compaction threshold when
+// one is set (Off means off), 70% under Provider, and never while the Claude
+// API compaction beta is on (the provider compacts then) or on Chat turns.
+export function resolveNativeInTurnCompactPercent(input: {
+  native: boolean; chat: boolean; claudeNativeCompact: boolean;
+  worker: AutoCompactionPolicy | undefined; cluster: AutoCompactionPolicy | undefined;
+}): number | undefined {
+  if (!input.native || input.chat || input.claudeNativeCompact) return undefined;
+  const explicit = resolveAutoCompactionPolicy(input.worker, input.cluster);
+  if (explicit) return explicit.enabled ? explicit.thresholdPercent : undefined;
+  return NATIVE_IN_TURN_COMPACT_DEFAULT_PERCENT;
+}
 
 export interface TurnSettingsInput {
   provider: string;

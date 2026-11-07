@@ -841,6 +841,23 @@ export const configuration: Section[] = [
   Claude Native and Ollama, leaving room for a summary. Claude CLI and Codex
   compact themselves.
   </p>
+  <p>
+  Claude Native also compacts inside one long turn. When a request reaches the
+  threshold (70% under Provider), Arco summarizes the earlier history before
+  the next request, keeps the tool call in progress and its result, and the
+  same turn continues. Chat shows Compacting automatically (context N%) and
+  then Compacted, continuing; CTX updates at once.
+  </p>
+  <p>
+  It runs at most once per crossing: if the context stays above the threshold,
+  one notice says so. A failed summary changes nothing and the turn continues.
+  Off turns it off, and so does Claude API compaction (beta).
+  </p>
+  <p>
+  <strong>COMPACTION AUTO-CONTINUE</strong> applies only to automatic
+  compactions between turns. The COMPACT button never sends a continue
+  message; use COMPACTED: CONTINUE in the composer.
+  </p>
   <ul>
   <li>Choose Off or On with a threshold to override the default.</li>
   <li>A worker can inherit its cluster.</li>

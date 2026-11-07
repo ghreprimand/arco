@@ -7,6 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Claude Native compacts inside a long turn. When one request reaches the auto-compaction threshold (the tab's or cluster's, 70% under Provider), Arco summarizes the earlier history before the next request, keeps the tool call in progress with its result, and the same turn continues. Chat shows "Compacting automatically (context N%)" and "Compacted, continuing"; CTX updates at once. Off, and Claude API compaction (beta), turn it off.
 - Built-in skills: grill-me, grill-with-docs, wait-what and retro (operator-run slash commands); grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype and writing-for-agents (model-invoked). Settings can turn each on or off, and an editable copy takes precedence. Architecture review stays its own built-in (slash alias /improve-codebase-architecture).
 
 - Connections > Cursor signs in from Arco: it runs `cursor-agent login` and shows the link to open, and finishes on its own, as for Codex.
@@ -50,6 +51,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- The COMPACT button no longer sends a continue message when COMPACTION AUTO-CONTINUE is on; the switch applies to automatic compactions only.
 - Concurrent preset saves and knowledge article changes retain accepted updates. Unreadable pending peer messages remain on disk and report an error instead of being discarded. Failed member replacements keep pending mail reachable. Concurrent image saves refuse unconfirmed collisions, and a failed media export cannot delete another export.
 
 - The CONFIG tab's Ollama auto-compaction note and fit warning name the real place of the utility model: Settings > Providers and models > Sign-in, accounts and local endpoints, field OLLAMA COMPACTION UTILITY MODEL.

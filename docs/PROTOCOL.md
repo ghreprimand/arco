@@ -794,8 +794,13 @@ divider; the composer greys + disables send). Persisted to `events.jsonl`;
 `native_compacted` / a compaction-failure `system_notice` / the next
 `primary_turn_started` / `turn_cancelled`), so replay never re-opens it.
 
+An automatic compaction inside a running Claude Native turn also emits it,
+with `trigger: 'auto-in-turn'`, the `percent` that crossed and the
+`thresholdPercent`; the client shows no takeover for it (the turn keeps
+running and steers stay possible), only an Activity line.
+
 ```ts
-{ type: 'native_compacting', workflowId: string, foldedTurns?: number }
+{ type: 'native_compacting', workflowId: string, foldedTurns?: number, trigger?: 'auto-in-turn', percent?: number, thresholdPercent?: number }
 ```
 
 ### `native_compacted` <-
@@ -810,8 +815,16 @@ The client renders no chat bubble for it (the `ctx_action` divider +
 the `compacting` takeover, and opens the post-compaction "Continue"
 affordance (`compactedResume`).
 
+For an in-turn compaction the event adds `inTurn: true`, `trigger`,
+`percent`, `thresholdPercent`, the `continueNote` the worker put after the seed
+(replay rebuilds that user message so the rest of the turn pairs with it) and,
+when measured, `promptTokensAfter` with `contextWindow`. The client opens no
+Continue affordance for it and refreshes CTX from those two numbers.
+
 ```ts
-{ type: 'native_compacted', workflowId: string, summary: string, foldedTurns?: number, keptTail?:... }
+{ type: 'native_compacted', workflowId: string, summary: string, foldedTurns?: number, keptTail?:...,
+  inTurn?: boolean, trigger?: 'auto-in-turn', percent?: number, thresholdPercent?: number,
+  continueNote?: string, promptTokensAfter?: number, contextWindow?: number }
 ```
 
 ### `fold_workflow` -> - operator hit the composer `FOLD` button. A deterministic, instant

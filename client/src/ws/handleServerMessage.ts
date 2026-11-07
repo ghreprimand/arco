@@ -957,6 +957,13 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // ctx_action divider) and the composer greys its send. Cleared on
           // native_compacted (success) / a compaction-failure system_notice /
           // the turn boundary so it can never stick on.
+          // An automatic compaction inside a running turn has no takeover:
+          // the turn keeps running and steers stay possible; the worker's
+          // chat notices say what happens.
+          if (msg.trigger === 'auto-in-turn') {
+            appendNativeActivity(msg.workflowId, 'COMPACT', `automatic, in turn · context ${msg.percent ?? '?'}% · threshold ${msg.thresholdPercent ?? '?'}%`);
+            break;
+          }
           store.beginCompacting(msg.workflowId, msg.foldedTurns);
           appendNativeActivity(msg.workflowId, 'COMPACT', `started · folding ${msg.foldedTurns} turn${msg.foldedTurns === 1 ? '' : 's'}`);
           break;
@@ -989,6 +996,24 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // the client only tracks the live UX here. When the operator opted into
           // `nativeCompactAutoContinue`, the server auto-sends a continuance turn
           // and the next primary_turn_started clears this banner anyway.
+          if (msg.inTurn) {
+            // The turn continues by itself: no Continue banner. Refresh CTX
+            // from the measured size of the compacted history.
+            if (typeof msg.promptTokensAfter === 'number' && msg.promptTokensAfter > 0 && typeof msg.contextWindow === 'number' && msg.contextWindow > 0) {
+              store.setContextUsage(msg.workflowId, {
+                estimatedTokens: msg.promptTokensAfter,
+                percentOfWindow: Math.min(100, Math.round((msg.promptTokensAfter / msg.contextWindow) * 100)),
+                windowSize: msg.contextWindow,
+                method: 'ground-truth',
+                messagesTokens: msg.promptTokensAfter,
+                overheadTokens: 0,
+                jsonlBytes: 0,
+                receivedAt: Date.now(),
+              });
+            }
+            appendNativeActivity(msg.workflowId, 'COMPACT', `completed in turn · continuing`);
+            break;
+          }
           store.endCompacting(msg.workflowId, msg.foldedTurns);
           appendNativeActivity(msg.workflowId, 'COMPACT', `completed · folded ${msg.foldedTurns} turn${msg.foldedTurns === 1 ? '' : 's'}`);
           break;

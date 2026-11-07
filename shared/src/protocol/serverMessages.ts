@@ -485,6 +485,11 @@ export interface NativeCompactingMessage {
   // Operator turns about to be folded into the summary, for the takeover copy
   // ("folding N turns"). Advisory; the takeover renders without it.
   foldedTurns?: number;
+  // Set on an automatic compaction inside a running Claude Native turn: the
+  // trigger, the context percent that crossed the threshold, and the threshold.
+  trigger?: 'auto-in-turn';
+  percent?: number;
+  thresholdPercent?: number;
 }
 
 // Operator-triggered in-place compaction for native transports — the in-Arco
@@ -510,6 +515,17 @@ export interface NativeCompactedMessage {
   // replay sites, so live and replayed workers land byte-identical. Replay is
   // load-bearing on this (docs/GOTCHAS.md § Claude Native transport).
   keptTail?: Array<{ role: 'user' | 'assistant'; content: string | Array<{ type: 'text'; text: string }> }>;
+  // In-turn auto-compaction (Claude Native): the compaction ran between two
+  // requests of a running turn, which then continued. `continueNote` is the
+  // user note the worker added after the seed (replay rebuilds it);
+  // `promptTokensAfter` / `contextWindow` refresh the CTX reading at once.
+  inTurn?: boolean;
+  trigger?: 'auto-in-turn';
+  percent?: number;
+  thresholdPercent?: number;
+  continueNote?: string;
+  promptTokensAfter?: number;
+  contextWindow?: number;
 }
 
 // §2.1 — Fold marker. PERSISTED to events.jsonl and load-bearing on replay:

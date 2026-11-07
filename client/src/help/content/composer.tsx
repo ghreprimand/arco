@@ -178,7 +178,9 @@ export const composerHelp: Record<string, HelpEntry> = {
           Resume is manual by default: between-turn compaction has already ended
           the operator turn, so Arco does not auto-continue. Turn on{' '}
           <C>COMPACTION AUTO-CONTINUE</C> in CONFIG to have the continuance
-          prompt fire automatically instead.
+          prompt fire automatically after automatic compactions. The COMPACT
+          button never continues by itself. A compaction inside a running turn
+          shows no COMPACTED: CONTINUE: that turn simply goes on.
         </p>
       </>
     ),

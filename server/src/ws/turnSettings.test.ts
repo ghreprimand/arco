@@ -54,3 +54,17 @@ test('output style, the north star and Ollama parameters', () => {
   assert.deepEqual(resolveTurnSettings(input({ provider: 'ollama', config: { ollamaParams: { temperature: 0.2 } } })).ollamaParams, { temperature: 0.2 });
   assert.equal(resolveTurnSettings(input({ provider: 'llamacpp', config: { ollamaParams: { temperature: 0.2 } } })).ollamaParams, undefined);
 });
+
+test('in-turn compaction follows the auto-compaction policy, 70% under Provider', async () => {
+  const { resolveNativeInTurnCompactPercent, NATIVE_IN_TURN_COMPACT_DEFAULT_PERCENT } = await import('./turnSettings.js');
+  const base = { native: true, chat: false, claudeNativeCompact: false, worker: undefined, cluster: undefined };
+  assert.equal(NATIVE_IN_TURN_COMPACT_DEFAULT_PERCENT, 70);
+  assert.equal(resolveNativeInTurnCompactPercent(base), 70, 'Provider');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, worker: { enabled: true, thresholdPercent: 82 } }), 82, 'the tab threshold');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, cluster: { enabled: true, thresholdPercent: 60 } }), 60, 'the cluster threshold');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, worker: { enabled: false, thresholdPercent: 80 }, cluster: { enabled: true, thresholdPercent: 60 } }), undefined, 'Off on the tab');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, cluster: { enabled: false, thresholdPercent: 60 } }), undefined, 'Off on the cluster');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, claudeNativeCompact: true }), undefined, 'the Claude API compaction beta');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, chat: true }), undefined, 'Chat');
+  assert.equal(resolveNativeInTurnCompactPercent({ ...base, native: false }), undefined, 'Claude CLI');
+});

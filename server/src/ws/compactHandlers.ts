@@ -280,7 +280,9 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   // their existing manual-resume behavior. Kept behind the per-tab flag because
   // auto-continuing after a between-turn compaction is autonomous continuation
   // (CLAUDE.md autonomy fence).
-  if ((!claimGuard || autoDetail) && owned && result.ok && provider === 'claude' && wf.config.nativeCompactAutoContinue === true) {
+  // Only automatic compactions continue by themselves: the manual COMPACT
+  // button never sends a continue message (the composer offers Continue).
+  if (autoDetail && owned && result.ok && provider === 'claude' && wf.config.nativeCompactAutoContinue === true) {
     await maybeAutoContinueAfterCompact(workflowId, ws, session);
   }
   // Messages typed during the compaction queued behind busy; nothing else

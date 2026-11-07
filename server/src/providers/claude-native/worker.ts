@@ -95,6 +95,8 @@ import {
   projectKeptTail,
   projectKeptTailByTokens,
   sleepWithSignal,
+  splitSummaryParts,
+  inTurnCompactedHistory,
 } from './workerHelpers.js';
 import { buildFoldDigest } from './foldDigest.js';
 import { CLAUDE_CLI_USER_AGENT } from './wireFingerprint.js';
@@ -168,6 +170,11 @@ const FORCED_FIRST_BLOCK = "You are Claude Code, Anthropic's official CLI for Cl
 // message. Tuned to mirror Claude Code CLI's `/compact`: a dense continuation
 // brief, not chatty prose. Bounded output so the summary itself stays small.
 const COMPACT_SUMMARY_MAX_TOKENS = 8192;
+// Room in a summary request for the system blocks, the summarizer prompt and
+// the estimate's error margin.
+const COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS = 16_000;
+// The user note after an in-turn compaction (see inTurnCompactedHistory).
+const IN_TURN_COMPACT_NOTE = 'Note from Arco: the context was compacted automatically in the middle of this turn. The summary above replaces the earlier history. Continue the task you were doing; your latest tool calls and their results follow.';
 // How long dispose waits for hook and shell processes to end. A shell gets
 // SIGTERM and, 2 s later, SIGKILL; the Windows tree kill lists the tree first
 // (up to 5 s) and then runs taskkill.
@@ -319,6 +326,10 @@ export class ClaudeNativeWorker extends EventEmitter {
   private client: Anthropic | null = null;
   private compactAbort?: AbortController;
   private compactInProgress = false;
+  // In-turn auto-compaction: `fired` is set when one runs and cleared once a
+  // request's prompt is below the threshold again, so a compaction that did not
+  // bring usage down is not repeated (one warning instead of a loop).
+  private inTurnCompact = { fired: false, warned: false };
   // The Anthropic SDK pins the OAuth token at construction time. When the
   // operator runs RE-LOGIN against a long-lived tab, new tokens land on
   // disk but the cached client still holds the stale token, so every
@@ -861,12 +872,13 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
     let summary: string;
     try {
-      summary = await this.generateCompactSummary(prefix);
+      summary = await this.summarizeInParts(prefix);
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     if (!summary.trim()) return { ok: false, error: 'summary came back empty' };
     if (stillOwner && !stillOwner()) return { ok: false, error: 'compaction cancelled before history replacement' };
+    this.inTurnCompact = { fired: false, warned: false };
     if (pruned.droppedAssistantMessages > 0) {
       this.workflowEventBroadcast({ type: 'ctx_action', workflowId: this.workflowId, action: 'prune_orphan_tool_use', trigger: 'recovery', detail: `dropped ${pruned.droppedAssistantMessages} orphan assistant message(s) before compact; unpaired tool_use ids: ${pruned.droppedIds.join(', ')}` });
     }
@@ -1142,6 +1154,153 @@ export class ClaudeNativeWorker extends EventEmitter {
   // streaming the text out (we don't surface it as a chat turn). The OAuth
   // endpoint requires the Claude Code identity, so FORCED_FIRST_BLOCK leads the
   // system exactly as on a normal round.
+  // Headroom for the summary request: the projected prefix plus the summarizer
+  // instructions and the summary itself must fit the model's window. When the
+  // prefix is too large for one request it is summarized in parts, oldest
+  // first, each part carrying the previous part's summary in front.
+  private async summarizeInParts(prefix: MessageParam[]): Promise<string> {
+    const win = lookupCtx(this.capModel()) ?? 200_000;
+    const budget = win - COMPACT_SUMMARY_MAX_TOKENS - COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS;
+    const parts = splitSummaryParts(prefix as unknown as Parameters<typeof splitSummaryParts>[0], budget);
+    if (parts.length <= 1) return this.generateCompactSummary(prefix);
+    let running = '';
+    for (const part of parts) {
+      const messages = part.map((m) => ({ ...m })) as unknown as MessageParam[];
+      if (running) {
+        const intro = `Summary of the earlier part of this conversation:\n\n${running}`;
+        const first = messages[0] as unknown as { role: string; content: string | Array<{ text: string }> };
+        if (first.role === 'user') {
+          const firstText = typeof first.content === 'string' ? first.content : first.content.map((b) => b.text).join('');
+          first.content = `${intro}\n\n${firstText}`;
+        } else {
+          messages.unshift({ role: 'user', content: intro } as MessageParam);
+        }
+      }
+      running = await this.generateCompactSummary(messages);
+      if (!running.trim()) return '';
+    }
+    return running;
+  }
+
+  // Claude Native in-turn auto-compaction. Called by the turn loop at a clean
+  // boundary: the round's tool results are appended and the next request has
+  // not been sent. Compares that round's prompt size with the threshold and,
+  // once per crossing, compacts the history before the in-progress round and
+  // continues the same turn. Returns 'cancelled' when the operator cancelled
+  // the turn during the summary.
+  private async maybeCompactInTurn(roundUsage: Record<string, number> | undefined): Promise<'continue' | 'cancelled' | number> {
+    const threshold = this.config.claudeNativeInTurnCompactPercent;
+    if (typeof threshold !== 'number' || !(threshold > 0) || this.config.claudeNativeCompact === true || this.config.interactionMode === 'chat') return 'continue';
+    const win = lookupCtx(this.capModel());
+    const prompt = roundUsage
+      ? (roundUsage.cache_read_input_tokens ?? 0) + (roundUsage.cache_creation_input_tokens ?? 0) + (roundUsage.input_tokens ?? 0)
+      : 0;
+    if (!win || !(prompt > 0)) return 'continue';
+    const ratio = (prompt / win) * 100;
+    const percent = Math.min(100, Math.round(ratio));
+    if (ratio < threshold) {
+      this.inTurnCompact = { fired: false, warned: false };
+      return 'continue';
+    }
+    if (this.inTurnCompact.fired) {
+      if (!this.inTurnCompact.warned) {
+        this.inTurnCompact.warned = true;
+        this.emit('system_notice', `[AUTO-COMPACT] Context is still at ${percent}% after compacting automatically in this turn; Arco will not compact again until it falls below ${threshold}%. Fold or Handoff this tab if the context fills up.`);
+      }
+      return 'continue';
+    }
+    this.inTurnCompact = { fired: true, warned: false };
+    if (this.compactInProgress) return 'continue';
+    this.compactInProgress = true;
+    try {
+      const outcome = await this.compactInTurnLocked(percent, threshold);
+      if (this.cancelRequested) return 'cancelled';
+      if (!outcome.ok) {
+        this.emit('system_notice', `[AUTO-COMPACT] Automatic compaction in this turn failed: ${outcome.error ?? 'unknown error'}. History left unchanged; the turn continues.`);
+        return 'continue';
+      }
+      return outcome.noteIndex ?? 'continue';
+    } finally {
+      this.compactInProgress = false;
+    }
+  }
+
+  private async compactInTurnLocked(percent: number, threshold: number): Promise<{ ok: boolean; error?: string; noteIndex?: number }> {
+    // The in-progress round: the last assistant message (its tool_use blocks
+    // and their thinking) and the user message with the tool results. It is
+    // kept raw; everything before it is summarized.
+    let roundStart = -1;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'assistant') { roundStart = i; break; }
+    }
+    if (roundStart <= 0) return { ok: false, error: 'nothing before the current request to compact' };
+    const originalMessages = this.messages;
+    const inProgressRound = originalMessages.slice(roundStart);
+    let foldedTurns: number;
+    let prefix: MessageParam[];
+    let tailForSeed: ReturnType<typeof projectKeptTail>;
+    try {
+      this.messages = structuredClone(originalMessages.slice(0, roundStart));
+      demoteLeadingServerFoldBlock(this.messages, (t) => compactSummarySeed(t) as MessageParam[]);
+      foldedTurns = this.messages.filter((m) => m.role === 'user').length;
+      this.pruneOrphanToolUse();
+      this.scrubEmptyTextContent();
+      this.stripTrailingThinkingBlocks();
+      const keptTail = projectKeptTail(this.messages, COMPACT_KEEP_LAST_MESSAGES);
+      const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
+        ? this.messages.slice(0, this.messages.length - keptTail.length) : this.messages;
+      prefix = projectCompactSummaryMessages(rawPrefix) as MessageParam[];
+      tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
+    } finally {
+      this.messages = originalMessages;
+    }
+    if (prefix.length === 0) return { ok: false, error: 'nothing before the current request to summarize' };
+    // PreCompact hooks run as for every automatic compaction; a block skips it.
+    const blocked = await this.preCompactBlock('auto');
+    if (blocked) return { ok: false, error: `a PreCompact hook blocked the compaction. ${blocked}` };
+    if (this.cancelRequested) return { ok: false, error: 'cancelled' };
+    const reason = { trigger: 'auto-in-turn' as const, percent, thresholdPercent: threshold };
+    this.emit('system_notice', `Compacting automatically (context ${percent}%)`);
+    this.workflowEventBroadcast({ type: 'native_compacting', workflowId: this.workflowId, foldedTurns, ...reason });
+    let summary: string;
+    try {
+      summary = await this.summarizeInParts(prefix);
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    if (this.cancelRequested) return { ok: false, error: 'cancelled' };
+    if (!summary.trim()) return { ok: false, error: 'summary came back empty' };
+    // The history may only have grown by nothing while the summary ran: the
+    // loop is paused here, so the in-progress round is still the last one.
+    if (this.messages !== originalMessages || this.messages.length !== roundStart + inProgressRound.length) {
+      return { ok: false, error: 'history changed during the summary' };
+    }
+    const seed = compactSummarySeed(summary, tailForSeed);
+    this.messages = inTurnCompactedHistory(seed, IN_TURN_COMPACT_NOTE, inProgressRound);
+    this.resetPrefixFreeze('compact');
+    this.toolCallCountSinceCompact = 0;
+    this.readSet.clear();
+    this.partialReadSet.clear();
+    const after = await this.countCurrentContextTokens();
+    const win = lookupCtx(this.capModel());
+    this.workflowEventBroadcast({
+      type: 'native_compacted',
+      workflowId: this.workflowId,
+      summary,
+      foldedTurns,
+      ...(tailForSeed.length > 0 ? { keptTail: tailForSeed } : {}),
+      ...reason,
+      inTurn: true,
+      continueNote: IN_TURN_COMPACT_NOTE,
+      ...(typeof after === 'number' && after > 0 ? { promptTokensAfter: after } : {}),
+      ...(win ? { contextWindow: win } : {}),
+    });
+    this.workflowEventBroadcast({ type: 'primary_tool_counter', workflowId: this.workflowId, toolCallsSinceCompact: 0 });
+    const afterPercent = typeof after === 'number' && after > 0 && win ? ` (context now ${Math.min(100, Math.round((after / win) * 100))}%)` : '';
+    this.emit('system_notice', `Compacted, continuing${afterPercent}`);
+    return { ok: true, noteIndex: this.messages.length - inProgressRound.length - 1 };
+  }
+
   private async generateCompactSummary(toSummarize: MessageParam[] = this.messages): Promise<string> {
     // ARCO_TEST compact-probe: return a canned summary instead of calling the
     // Anthropic API, so the smoke can exercise the real compactInPlace keep-tail
@@ -2470,7 +2629,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // docs/PROVIDERS.md - index where this turn's appended messages
     // start, so the end-of-turn telemetry walk only counts blocks added on
     // this turn (not the entire session).
-    const turnMessageStart = this.messages.length - 1;
+    let turnMessageStart = this.messages.length - 1;
 
     let iterations = 0;
     let stopHookContinuations = 0;
@@ -2647,6 +2806,22 @@ export class ClaudeNativeWorker extends EventEmitter {
         this.inFlight = null;
         this.toolAbort = null;
         return;
+      }
+
+      // In-turn auto-compaction at a clean boundary: every tool_use of this
+      // round has its result and the next request has not been sent. Runs
+      // before the steer drain so a steer lands after the compacted history.
+      if (toolResults.length > 0) {
+        const compacted = await this.maybeCompactInTurn(round.usage);
+        if (compacted === 'cancelled') {
+          this.emit('error', 'Worker killed');
+          this.scrubServerToolEvidenceOnAbort(turnMessageStart);
+          this.inFlight = null;
+          this.toolAbort = null;
+          return;
+        }
+        // The rebuilt history starts this turn's own messages at the note.
+        if (typeof compacted === 'number') turnMessageStart = compacted;
       }
 
       // Phase 5 hook — same placement as ollama.ts. Drained items become
