@@ -102,6 +102,7 @@ export const providers: Section[] = [
   </p>
   <p>Claude Native token-count telemetry stops after five seconds or when STOP is clicked. The context display then uses response usage, so a stalled count cannot delay turn completion.</p>
   <p>Native reconnects failed or closed MCP sessions at the next turn. Changed server commands, arguments or environment settings replace the old connection then; healthy unchanged sessions stay open.</p>
+  <p>Claude CLI reconnects and handoffs retain only the current session watcher. A delayed load of an older session cannot mix its rows into the conversation.</p>
   <Sub>Sign-in</Sub>
   <ul>
   <li>

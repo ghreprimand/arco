@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Delayed Claude CLI session loads no longer replace a newer watcher or replay an older session after reconnect or handoff.
+
 - Deterministic Fold preserves the newest complete question and answer even when they exceed its tail token target.
 
 - FOLD and S-FOLD restore saved Claude Native conversations after restart without requiring a new turn first.

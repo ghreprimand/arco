@@ -2039,3 +2039,5 @@ Claude Native checks MCP session health and launch settings at each turn boundar
 FOLD and S-FOLD can restore a saved Claude Native conversation after a server restart, before its next turn. Deterministic Fold replays the saved log without needing provider credentials; Server Fold retains its normal request and fallback behavior.
 
 Deterministic Fold keeps the newest complete question and answer together, even when that exchange exceeds the tail token target or is the whole saved conversation.
+
+Claude CLI session watching belongs to the current workflow and session generation. A delayed load from an older reconnect or handoff cannot replay rows or replace a newer watcher.

@@ -294,20 +294,25 @@ export async function resolveClaudeTransport(wf: WorkflowState, cwd: string): Pr
 // synthetic "No response requested." rows — render as agent replies while
 // ChatPanel's sessionChat-canonical mode hid every real finalized answer
 // otherwise stale session entries could hide finalized answers.
+const sessionWatcherEpochs = new WeakMap<WorkflowState, number>();
+
 export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: string, initialWs?: WebSocket): void {
-  if (wf.primary.provider !== 'claude') return;
+  const epoch = (sessionWatcherEpochs.get(wf) ?? 0) + 1;
+  sessionWatcherEpochs.set(wf, epoch);
   const sessionId = wf.primarySessionId;
-  if (!sessionId) return;
   if (wf.sessionWatcher) {
     wf.sessionWatcher();
     wf.sessionWatcher = null;
   }
+  if (wf.primary.provider !== 'claude' || !sessionId) return;
+  const current = () => workflows.get(workflowId) === wf && wf.primarySessionId === sessionId
+    && sessionWatcherEpochs.get(wf) === epoch && wf.primary.provider === 'claude';
   const path = resolveSessionJsonlPath(cwd, sessionId);
   resolveClaudeTransport(wf, cwd).then((transport) => {
-    if (transport === 'native') return null;
+    if (!current() || transport === 'native') return null;
     return loadSessionJsonl(path);
   }).then((loaded) => {
-    if (!loaded) return;
+    if (!loaded || !current()) return;
     const { entries, byteLength } = loaded;
     // Tail-first: only the last N raw entries go out immediately. Anything
     // older sits on wf.pendingEarlierEntries until the operator pages back
@@ -339,6 +344,7 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
     }
     if (!workflows.has(workflowId)) return; // workflow removed while loading
     const dispose = watchSessionJsonl(path, byteLength, (raw) => {
+      if (!current()) return;
       // Concurrent-session detection. Live writes with an entrypoint other
       // than 'sdk-cli' mean a native `claude --resume` terminal is writing
       // to this same JSONL. Flag the workflow, and emit a debounced chat
@@ -368,7 +374,7 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
       }
     });
     const wfNow = workflows.get(workflowId);
-    if (wfNow) {
+    if (wfNow && current()) {
       wfNow.sessionWatcher = dispose;
     } else {
       dispose(); // workflow gone — clean up immediately

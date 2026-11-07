@@ -245,7 +245,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.tab.handoffs': {
     title: 'HANDOFFS',
-    body: <p>Handoff notes written when this tab moved to a fresh session. They are kept with the tab&apos;s saved work. A handoff still running shows a cancel mark on its row; cancelling stops it and frees the tab.</p>,
+    body: <p>Handoff notes written when this tab moved to a fresh session. Claude CLI ignores delayed loads from the earlier session after a handoff or reconnect. They are kept with the tab&apos;s saved work. A handoff still running shows a cancel mark on its row; cancelling stops it and frees the tab.</p>,
     manualSection: 'handoff-action',
   },
   'rightpanel.tab.plan': {
