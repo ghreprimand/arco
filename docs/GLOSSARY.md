@@ -316,7 +316,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Role preset** - One of the six canonical cluster-member role hints (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER) defined in [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts). Operator picks via the `SET` popover on a `MemberRow`; written to `cluster_member_role_set` as the preset's body text. `presetForText` round-trips a stored body back to its preset id (used to highlight the active preset on EDIT and to label the `MemberCard` chip - free-form text labels as `CUSTOM`).
 
-**ATTACH TO CLUSTER** - Third button on `PlanCandidateBanner` when the active workflow is a cluster member. Routes the plan candidate to the cluster's shared PLAN via `cluster_plan_set` instead of attaching to the worker's per-tab plan slot. See [`PRIMITIVES.md section Cluster-attached plan + role hints`](PRIMITIVES.md).
+**ATTACH TO CLUSTER** - Save button on `PlanCandidateBanner` when the active workflow is a cluster member; it takes the place of SAVE & ATTACH. Routes the plan candidate to the cluster's shared PLAN via `cluster_plan_set` instead of attaching to the worker's per-tab plan slot. See [`PRIMITIVES.md section Cluster-attached plan + role hints`](PRIMITIVES.md).
 
 **BACK TO CLUSTER** - Button in `TerminalInput`'s status row, mounted only on cluster-member tabs. Switches the active top-level tab back to the parent cluster tab via `setActiveCluster(clusterId)`.
 

@@ -15,10 +15,7 @@ The shared shell. Operator-facing behavior lives in the in-app manual (`media-st
 
 **Functional now:** the image viewer (zoom/pan/fit/1:1 + dimensions; on-disk via the guarded `GET /api/file-content`, imported via browser object URL); the audio editor + FFmpeg ops (H5/H6) and the video editor + FFmpeg ops for both imported AND on-disk files (on-disk via the guarded `GET /api/media/raw` Range-able serve route).
 
-**Honestly deferred (not faked):**
-- **EXIF metadata**, needs an image-metadata dependency; deferred to H2.
-- **FFmpeg ops on an imported (object-URL) file**, ffmpeg can't read a browser blob, so audio/video ops are enabled only for an on-disk (contextual) open; an imported file plays but disables the ops with an inline note. No blob upload yet.
-- **Editing** (layers/brush, H2), not part of the shipped editor.
+**Not available:** EXIF metadata (it needs an image-metadata dependency). FFmpeg ops on an imported file and image editing, deferred when H1 shipped, arrived later: imported files are staged to scratch (N2) and the raster editor is H2.
 
 ## H5, audio editor (shipped)
 
@@ -59,7 +56,7 @@ The real edits: trim/clip to the region, convert format, normalize, mono/stereo,
 - **On-disk audio now plays:** `MediaModalHost` points the `AudioEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) audio open; imported audio still uses its object URL. The video on-disk note is kept.
 - **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx`, CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch -> server kills the child), and on success the output path + **REVEAL IN FILES** (a `arco:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
 
-**Honest constraint (load-bearing):** FFmpeg needs an **on-disk** source, it can't read a browser object URL. So ops are enabled only for an on-disk (contextual) open; an **imported** file disables the ops with an inline note ("Open this file from the Files panel to run FFmpeg ops"). The blob is **not** uploaded in this phase.
+**Constraint (load-bearing):** FFmpeg needs an **on-disk** source; it can't read a browser object URL. When H6 shipped, an imported file disabled the ops. Since N2 an imported file is first uploaded to Arco scratch and the op runs on that copy (see N2 below).
 
 ## H7, video converter / clipper (FFmpeg) (shipped)
 
@@ -78,7 +75,7 @@ The video half of the FFmpeg studio: preview + scrub + in/out markers, then **cl
 - **On-disk video now plays:** `MediaModalHost` points the `VideoEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) video open (same Range-able serve route H6 added); imported video uses its object URL. `onDiskMediaUnsupported` no longer fires for video, it's now only the rare contextual-open-without-fileContext edge (no cwd to confine against) for either audio or video.
 - **Editor:** `client/src/components/media/VideoEditor/`, `VideoEditor.tsx` (native `<video>` preview + scrub + editable `IN`/`OUT` markers in `mm:ss.mmm` + SET IN/OUT from playhead; emits `onRegionChange` the host holds in a ref) and `VideoOpsPanel.tsx` (CLIP + re-encode toggle, CONVERT + format/resolution pickers, EXTRACT AUDIO + audio-format picker; POSTs `/api/media/op`, spinner + CANCEL, success path + REVEAL IN FILES via the `arco:reveal-in-files` event). Mirrors `AudioOpsPanel` one-for-one.
 
-**Honest constraint (load-bearing):** same as H6, FFmpeg needs an **on-disk** source, so the video ops are enabled only for an on-disk (contextual) open; an **imported** video plays but disables the ops with an inline note. No blob upload this phase.
+**Constraint (load-bearing):** same as H6; since N2 an imported video is staged to scratch before an op runs.
 
 ## H2, layer-based raster editor (port Odysseus's MIT editor) (shipped)
 
@@ -210,8 +207,8 @@ in CONFIG -> TRANSPORT (or set the Codex transport default).
 
 ### LIVE-SHAPE CAVEAT (read before trusting this end-to-end)
 
-The Codex `image_generation_call` RPC shape is flagged **"unproven"** in the
-upstream manual. This phase is implemented against the vendored binding
+The Codex `image_generation_call` RPC shape has not been confirmed against a
+live generation. This phase is implemented against the vendored binding
 (`server/src/providers/codex-appserver/bindings/v2/ThreadItem.ts`: `{ type:'imageGeneration', id, status, revisedPrompt,
 result, savedPath? }`) and is **validated against a synthetic/captured fixture**
 (`scripts/smoke/image-gen-codex.ts`), **not** a live Codex generation. The
@@ -290,7 +287,7 @@ Eight new **render ops** fold into the existing typed-spec -> argv path (`buildA
 
 ### Smoke
 
-`scripts/smoke/media-advanced-ops.ts` (`npm run smoke:media-advanced-ops`, ffmpeg-optional), a PURE half (validateSpec accepts good / rejects out-of-range + bad enums + malformed multi-input; `buildArgs` emits the **exact** argv per op; `targetOutputExt` per op) and a REAL-ffmpeg half (each op produces a correct output on a generated fixture; `inspect` returns curated facts and writes no file; a join whose extra input is out-of-cwd is rejected when locked, accepted when unconfined). 20/20.
+`scripts/smoke/media-advanced-ops.ts` (`npm run smoke:media-advanced-ops`, ffmpeg-optional), a PURE half (validateSpec accepts good / rejects out-of-range + bad enums + malformed multi-input; `buildArgs` emits the **exact** argv per op; `targetOutputExt` per op) and a REAL-ffmpeg half (each op produces a correct output on a generated fixture; `inspect` returns curated facts and writes no file; a join whose extra input is out-of-cwd is rejected when locked, accepted when unconfined).
 
 ## N4, Demucs stem separation
 

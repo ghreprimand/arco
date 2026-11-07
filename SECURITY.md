@@ -127,7 +127,7 @@ route answers with an error where no desktop is available (Docker, headless).
 
 ## Public-project checks
 
-When a plan-draft control is shown for a project folder, the server reads the folder's Git remotes (`git remote -v`, local only). For a remote on github.com it makes one unauthenticated request to `https://api.github.com/repos/<owner>/<repo>` with a five-second limit and no token, and caches the answer per folder for a day. A repository is treated as public only when GitHub answers 200 with `private: false`; any other answer, error or timeout counts as unknown. GitHub sees the server's public IP address and the owner and repository names from the remote; no project paths, prompts or conversation content are sent. Other hosts (GitLab, Bitbucket, Codeberg) are recognized from the remote text only and receive no request.
+When a plan-draft control is shown for a project folder, the server reads the folder's Git remotes (`git remote -v`, local only). For a remote on github.com it makes one unauthenticated request to `https://api.github.com/repos/<owner>/<repo>` with a four-second limit and no token, and caches the answer per folder for a day. A repository is treated as public only when GitHub answers 200 with `private: false`; any other answer, error or timeout counts as unknown. GitHub sees the server's public IP address and the owner and repository names from the remote; no project paths, prompts or conversation content are sent. Other hosts (GitLab, Bitbucket, Codeberg) are recognized from the remote text only and receive no request.
 
 The project state check runs `git ls-files` and `git check-ignore` inside a Git project folder and reads the `.arco/.gitignore` file. It changes nothing by itself. RESTORE IGNORE FILE writes the default ignore file after moving an edited one aside as a backup in `.arco/`; STOP TRACKING runs `git rm -r --cached -- .arco`, which removes the folder from the index only and keeps the files on disk. Anything already pushed stays in the remote's history.
 
@@ -155,9 +155,13 @@ versions, or supply `ARCO_UPDATE_CHECK=0` to the server process. The environment
 setting wins, including for manual checks. DISMISS saves only the dismissed
 release version in global settings; later versions can notify again. Release
 announcements use the server log, not workflow transcripts. A confirmed
-**UPDATE AND RESTART** in Linux user-service mode starts a separate local updater.
-It fetches the release tags from the checkout's `origin` and uses npm to install
-the selected release's dependencies, then restarts the service. Those operations
-use the configured Git and npm network endpoints. The updater refuses tracked
-edits and unpushed local commits and attempts rollback on failure. Other modes
-show commands for the operator to run. See [Updating Arco](docs/OPERATIONS.md#updating-arco).
+**UPDATE AND RESTART** starts a separate local updater. For a package install
+running as a user service (Linux, macOS or Windows) it copies the installed
+package aside, stops the service, installs the new version of `arco-workbench`
+globally with npm (install scripts off), starts the service again and restores
+the copy on failure. For a source checkout running as a Linux user service it
+fetches the release tags from the checkout's `origin`, uses npm to install the
+selected release's dependencies and restarts the service; it refuses tracked
+edits and unpushed local commits and attempts rollback on failure. Those
+operations use the configured Git and npm network endpoints. Other modes show
+commands for the operator to run. See [Updating Arco](docs/OPERATIONS.md#updating-arco).

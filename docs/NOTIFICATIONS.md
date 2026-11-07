@@ -14,8 +14,11 @@ A `WorkbenchNotice` is `{ id, category, severity, title, body?, ts, workflowId?,
 
 | category | when | severity (typical) |
 |---|---|---|
+| `port-change` | a package start moved to another free port (sent to each browser as it connects) | warning |
+| `computer-watch` | a watch armed through the Computer voice agent finished or stopped | success / warning |
 | `turn-finished` | a primary turn completed in another tab | info |
 | `attention` | a turn failed or is waiting on the operator in another tab | info / error |
+| `cluster-nudge` | a member of a remote-shared cluster is idle with peer mail, or Smart AUTO-PICKUP needs a decision | info / warning |
 | `quota-recovered` | a throttled provider became available again | success |
 | `auth-expired` | a provider's auth needs re-login | warning |
 | `terminal-exited` | a terminal session exited non-zero | warning |
@@ -104,14 +107,21 @@ One chokepoint so every source is a one-liner and external transports can use th
  state there is a recovery -> `notifyQuotaRecovered`.
 - **`terminal-exited`**, `index.ts`'s `setTerminalExitHook`: a non-zero shell
  exit emits a `terminal-exited` notice (a clean `exit 0` stays quiet).
+- **`cluster-nudge`**, `clusterIdleNudger.ts` for a remote-shared cluster's
+ idle member with mail, and the Smart AUTO-PICKUP observer in `index.ts` when an
+ evaluator cannot settle a wake.
+- **`computer-watch`**, `server/src/voice/watches.ts` and `mailRules.ts`.
+- **`auth-expired`**, `server/src/management/initHubLink.ts` when Claude sign-in
+ stops working (not gated on the hub link).
+- **`port-change`**, sent by `index.ts` to each browser as it connects, not
+ through `emit()`, so it is not muted and not forwarded.
 
 ### Contract-ready sources (follow-up)
 
-`auth-expired`, `preview-failed`, `pr-status`, and `backup` are first-class
+`preview-failed`, `pr-status`, and `backup` are first-class
 categories with copy + severity conventions in the hub; wiring each is an
-additive `emit({ category, ... })` at the corresponding source (auth-status flip,
-preview health check, GitHub PR/check poll, backup CLI completion). No contract
-or UI change needed, they already render + mute like the wired three. ntfy reuses
+additive `emit({ category, ... })` at the corresponding source (preview health check, GitHub PR/check poll, backup CLI completion). No contract
+or UI change needed, they already render + mute like the wired categories. ntfy reuses
 the identical `emit()`.
 
 ## Client
@@ -140,7 +150,7 @@ every category emits a `workbench_notice`; a muted category is suppressed before
 broadcast (`emit` returns `null`, zero wire messages); `setMutes` persists to
 disk + re-broadcasts `notification_mutes` and a fresh `init` reloads it (survives
 a restart); the long-turn helper sends only to legacy transports past its threshold; `notifyQuotaRecovered`
-emits. `npm run smoke:notifications` (26 asserts).
+emits. `npm run smoke:notifications`.
 
 ## External transport (ntfy)
 
@@ -216,8 +226,9 @@ token out of tracked files and logs. Set `ARCO_NTFY_TOKEN` when the server
 requires bearer authentication. `ARCO_CONSOLE_URL` can provide an explicit
 console link; otherwise the link is derived from `ARCO_HUB_URL`.
 
-The optional upstream wakeup service can carry an opaque notification ID, while
-notice content remains on the configured private server. Category mutes and the
+An ntfy server set up with an upstream base URL for phone push wakeups sends only
+an opaque message ID through that relay; notice content remains on the
+configured private server. Category mutes and the
 per-workflow remote-access setting are applied before the transport sends a
 notice.
 

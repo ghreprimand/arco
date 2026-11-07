@@ -259,7 +259,7 @@ The `pulls` tab gains a `+ NEW PR` toggle (`PullsPane` -> `NewPrForm` in
 `RepoView.tsx`): title (required), base (required, merge *into*), head
 (required, branch *from*), body (optional, multiline). `base` pre-fills with
 the repo default branch and `head` with the current ref when available. The
-explicit `CREATE PR` submit **is** The operator confirmation for this outward
+explicit `CREATE PR` submit **is** the operator confirmation for this outward
 action, there is no auto-create and no agent path. On success the panel
 navigates straight to the new PR; on failure the `{error}` shows inline.
 
@@ -295,8 +295,8 @@ binary/no-patch files excluded).
 ## I5, Worktree bake-off
 
 The **AGENT -> BAKE-OFF** tab races one implementation prompt through 2-5
-provider/model configurations. Unlike the existing COMPARE primitive (bounded,
-read-only answer panes), every bake-off leg is a normal visible Arco workflow
+provider/model configurations. Unlike SECOND OPINION (bounded,
+read-only draft replies), every bake-off leg is a normal visible Arco workflow
 with tools, transcript, and its own git worktree. All legs start from the exact
 same source `HEAD`.
 

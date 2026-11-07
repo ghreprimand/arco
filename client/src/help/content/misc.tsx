@@ -1216,11 +1216,12 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Draft & auto-save',
     body: (
       <p>
-        The agent's reply is captured as the plan automatically: no review
-        step. Faster but no chance to redirect before commit. Best for quick
-        plan drafts on simple workflows. <strong>Cluster members:</strong>{' '}
-        AUTOSAVE re-routes through the choice banner (REVIEW mode) so you can
-        pick between attaching to the worker or the cluster's shared PLAN.
+        The agent's reply is saved and attached as this tab's plan with no
+        review step. Faster, but there is no chance to change the draft
+        first. <strong>Cluster members:</strong> auto-save is not used; the
+        draft opens in the review banner, where <C>ATTACH TO CLUSTER</C> sets
+        it as the cluster's shared PLAN, or <C>REFINE</C> and{' '}
+        <C>DISCARD</C> apply.
       </p>
     ),
   },

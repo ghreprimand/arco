@@ -139,7 +139,8 @@ implements an identical security sandbox.
 Incognito additionally suppresses Arco transcript/meta/index writes, operational
 logs, notifications, hub reporting, worker PID registration and browser-persisted
 chat/drafts. Claude CLI uses `--no-session-persistence` with its private framing on
-stdin; Codex is forced to `exec --ephemeral` to Native, without
+stdin; Codex is forced to `exec --ephemeral` (the Computer voice agent instead
+uses an ephemeral app-server thread for Codex and Native for Claude), without
 overwriting global transport preferences. The only config edits an incognito
 chat accepts are `INCOGNITO_SAFE_CONFIG_FIELDS` (model / effort / chatWebAccess) -
 they choose what the next turn spawns and persist nothing. Never attach a real

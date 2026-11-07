@@ -122,7 +122,7 @@ controls. For installation and first session, see
 | Two theme families with font-pack override | Classic and Phosphor themes plus font packs | 43 Arco Classic selections (42 color/font/shader-driven palettes such as Matrix, Sentinel, Cherenkov, Aurora, Red Planet, Everforest, DSKY, Noir, plus the `provider-auto` sentinel) backed by 29 GLSL shaders; 68 Arco Phosphor CRT palettes; 29 font packs substitute display/body/code typography on top of any theme. Each Classic theme carries an inspiration backstory in the User Manual |
 | Window-size layout | The workspace fits laptop and desktop windows | Settings > Appearance > **Layout**: **Automatic** (default; Narrow under 1500, Compact from 1500, Standard from 2000, in interface pixels), **Standard**, **Compact** or **Narrow**. Fixed choices apply at every width. The top-bar switch cycles the same four. Composer tools that do not fit move into **MORE**; cluster settings fold into one line. Saved per browser; also in the command palette |
 | Remote-friendly | Single forwarded port design | Run Arco on a local host and connect through a forwarded port |
-| In-app help system | Manual and contextual help | Header **MANUAL** opens the full operator reference; floating `?` toggle enables contextual help mode (dashed outline + click-for-popover on annotated elements). Inline file references open in a stacked DocViewer reading from the local repo |
+| In-app help system | Manual and contextual help | Header **HELP** menu: **USER MANUAL** opens the full operator reference; **POINT AT THINGS** turns on contextual help mode (dashed outline + click-for-popover on annotated elements; Esc exits); **KEYBOARD SHORTCUTS** lists the shortcuts. Inline file references open in a stacked DocViewer reading from the local repo |
 
 ## Safety and resilience
 
@@ -141,7 +141,7 @@ controls. For installation and first session, see
 | --- | --- |
 | No silent autonomous routing | Arco never picks models, providers, effort levels, or task completion without an operator-armed surface and an inspectable event trail |
 | No hidden orchestrator authority | No meta-agent owns a workflow. Model-assisted decomposition, assignment, recovery, or synthesis is eligible only as a visible proposal or through bounded task tools the operator enabled |
-| No hidden auto-synthesis | Review, Compare, and Research outputs remain separate artifacts. Any synthesis is an operator-chosen bounded action or a visible proposal for inspection before applying |
+| No hidden auto-synthesis | Review, SECOND OPINION, and Research outputs remain separate artifacts. Any synthesis is an operator-chosen bounded action or a visible proposal for inspection before applying |
 | No LLM-curated project memory that edits itself | Knowledge/codebase memory is operator-triggered and operator-reviewed; session traces do not rewrite project instruction files |
 | No opaque "smart" anything | Automatic or model-assisted behavior must be operator-armed, bounded by readable mechanics, logged, and reversible; existing cluster automations are off by default, deterministically capped, logged, and reversible |
 

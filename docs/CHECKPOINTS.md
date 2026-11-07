@@ -115,7 +115,7 @@ reservation does not replace isolation through a separate worktree.
    - Use a **scratch index file OUTSIDE the working tree** (`$TMPDIR/arco-revert-...index`). This is
      load-bearing: `read-tree -u --reset` sweeps working-tree files (and now-empty dirs) absent from the
      target tree, so a scratch index under `cwd/.arco` would get deleted mid-operation ("unable to write
-     new index file"). The snapshot path keeps its index under `.arco` because it never runs `-u`.
+     new index file"). The snapshot path uses the same kind of `$TMPDIR` scratch index (see above).
    - Seed the scratch index from the LIVE tree: `read-tree HEAD` (if HEAD exists), then a plain `add -A`,
      then `rm --cached -r --ignore-unmatch -- .arco` to drop our state dir from the seed. **Do not
      "simplify" this back to `add -A -- ':!.arco' ':!.git'`**, an exclude-only pathspec makes git treat

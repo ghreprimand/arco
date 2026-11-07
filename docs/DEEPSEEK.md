@@ -163,9 +163,9 @@ these profiles to `strata-profiles.json`: Qwen's `--max-context`, `--pack`,
 
 ## Version tracking
 
-PROVIDERS -> STRATA reads the live engine version, falling back to the prepared
-engine's adjacent `BUILD.json` while stopped. This fixes the stopped-service row
-disappearing as "unknown." Upstream engine versions come from the release's
+PROVIDERS -> STRATA reads the prepared engine's adjacent `BUILD.json` (the full
+package version), falling back to the live engine's `/status` build version, so
+the row stays filled while the service is stopped. Upstream engine versions come from the release's
 component feed, with release-note/legacy-tag fallbacks. The 0.2 app version is
 not an engine version. Both Strata and Xolotl version rows open themed history
 inside Arco, like Ollama; GitHub is an explicit external link.
@@ -200,8 +200,8 @@ For missing profiles inspect the registry, mount, config and assets. For a
 guard refusal resolve the named GPU-workload/model/memory conflict. For a failed
 switch read both service journals and refresh status; do not start a second
 profile or raise limits to force a load. Runtime updates and Arco updates are
-separate. Arco production deployment uses build, deploy preflight, and restart;
-restart terminates active Arco turns and must wait for them to settle.
+separate. Restarting Arco ends active turns; in a source checkout,
+`npm run deploy:preflight` lists the primary turns still running before a restart.
 
 ## Verification
 
