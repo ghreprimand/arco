@@ -157,7 +157,7 @@ import { tryHandleExplorerRoutes } from './explorerRoutes.js';
 import { tryHandleAppBrowserRoutes } from './appBrowserRoutes.js';
 import { isReady, readinessSnapshot } from '../server/readiness.js';
 import { checkRequestOrigin } from './originGuard.js';
-import { checkHttpAuth, checkMintRequest, describePeer, mintToken, sessionCookieHeader, wsAuthEnabled } from './wsAuth.js';
+import { checkHttpAuth, checkMintRequest, isCanonicalRequestPath, describePeer, mintToken, sessionCookieHeader, wsAuthEnabled } from './wsAuth.js';
 
 // Inline HTTP request router, extracted from index.ts in Phase 4 Milestone C.
 // Cross-cutting state/primitives arrive via leaf-module imports
@@ -201,6 +201,13 @@ export async function handleHttpRequest(
   res: ServerResponse,
   deps: HttpDeps,
 ): Promise<void> {
+  // One form of the path for every decision below (wsAuth.ts).
+  if (!isCanonicalRequestPath(req.url)) {
+    console.warn(`[arco] refused ${req.method} with a non-canonical path (${describePeer(req)})`);
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Bad request path' }));
+    return;
+  }
   // Was `Access-Control-Allow-Origin: *` — any page in the operator's browser
   // could drive the file/terminal surface. See originGuard.ts.
   const guard = checkRequestOrigin(req);

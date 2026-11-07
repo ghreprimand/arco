@@ -88,4 +88,23 @@ test('a notification test to another server does not carry the saved token', asy
   assert.equal(attention.getChannels().ntfy.token, 'second', 'the same server keeps its token');
 });
 
+test('a path with dot segments or another non-canonical form cannot reach a protected route without the cookie', async () => {
+  assert.equal((await send('GET', '/api/storage/policy')).status, 401);
+  for (const url of [
+    '/x/../api/storage/policy',
+    '/x/%2e%2e/api/storage/policy',
+    '/x/%2E%2E/api/storage/policy',
+    '/./api/storage/policy',
+    '/x\\..\\api/storage/policy',
+    '//host/api/storage/policy',
+    'http://127.0.0.1:3001/api/storage/policy',
+    '/x/../api/notification-channels',
+  ]) {
+    const reply = await send('GET', url);
+    assert.ok(reply.status === 400 || reply.status === 401, `${url}: ${reply.status} ${reply.body}`);
+  }
+  // An ordinary page path and a probe still work.
+  assert.equal((await send('GET', '/healthz')).status, 200);
+});
+
 test.after(() => { setImmediate(() => process.exit(process.exitCode ?? 0)); });

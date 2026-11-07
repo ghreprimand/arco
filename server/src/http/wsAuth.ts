@@ -92,6 +92,17 @@ function needsHttpAuth(path: string): boolean {
   return !isAgentToolRoute(path);
 }
 
+// A request path every security decision and every route reads the same way.
+// Route modules that parse `req.url` with `new URL()` resolve dot segments
+// (also as %2e), backslashes and a leading `//` (read as a host), while the
+// checks here read the raw path; such a path could name one route here and
+// another there. Browsers never send these forms, so they are refused.
+export function isCanonicalRequestPath(url: string | undefined): boolean {
+  const raw = (url ?? '/').split(/[?#]/)[0];
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) return false;
+  return !raw.split('/').some((seg) => { const s = seg.replace(/%2e/gi, '.'); return s === '.' || s === '..'; });
+}
+
 export function checkHttpAuth(req: IncomingMessage): AuthVerdict {
   if (!wsAuthEnabled()) return { ok: true };
   const path = (req.url ?? '/').split('?')[0];
