@@ -307,6 +307,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         <p>Chooses whether idle members start a turn on their own when mail arrives. The chip shows the current mode; click it to change it. <strong>Off</strong> is the default, and clusters armed before the modes existed are Rule-based.</p>
         <p><strong>Rule-based (recommended)</strong> wakes an idle member for mail that asks for something and leaves plain acknowledgements waiting. Limits stop two members waking each other back and forth and cap wakes per member and per arming. <C>RESUME</C> starts a fresh allowance.</p>
         <p><strong>Smart</strong> modes ask a model you choose whether to wake the member, wait, or ask you. <strong>Observe-only</strong> only records the answers. <strong>Automatic</strong> may start the member&apos;s normal turn, but only after Arco checks again that the member is idle, the mail is unchanged and every limit allows it. <C>STOP</C> on a member holds its current mail until new mail arrives. A Smart session ends at its time limit, or after a restart when its limit record cannot be read, and must then be armed again.</p>
+        <p><strong>Also remind busy members</strong> optionally sends busy members the existing NUDGE for actionable unread mail, once per batch with a five-minute gap per member. It is off by default and works only under Rule-based and Smart: Automatic.</p>
         <p><strong>Distinct from MAIL ALERTS and NUDGE.</strong> MAIL ALERTS only notify you; NUDGE wakes members you pick by hand.</p>
       </>
     ),
@@ -1266,6 +1267,11 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Config member',
     body: <p>Chooses which member the settings below change. Only members whose details have loaded are listed, each with its provider.</p>,
     manualSection: 'cluster-tab',
+  },
+  'cluster.auto-pickup-remind-busy': {
+    title: 'Also remind busy members',
+    body: <p>Off by default and saved for this cluster. Under Rule-based or Smart: Automatic, send the existing busy NUDGE for new actionable unread mail, once per batch and at most once every five minutes per member. Plain acknowledgements do not trigger it. Off and Observe-only send none. Idle pickup keeps its usual rules.</p>,
+    manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-rule-limits': {
     title: 'Rule-based limits',

@@ -1392,6 +1392,18 @@ export async function writeCalibrationToMeta(
   });
 }
 
+// Automatic busy reminders use the same steering queue as a manual nudge.
+// Losing the busy turn during async preparation drops the reminder instead
+// of creating a new turn or steering a newer generation.
+export async function enqueueBusyReminder(workflowId: string, content: string, allow?: () => boolean): Promise<boolean> {
+  let accepted = false;
+  const ws = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
+  const session = { id: 'busy-reminder', workflowIds: new Set([workflowId]), clusterIds: new Set<string>(), clusterObserved: new Map() } as Session;
+  await handleUserMessage(ws,session,workflowId,content,undefined,undefined,true,'steer',undefined,undefined,
+    { busyOnly: true, busyOnlyGuard: allow, onBusyQueued: () => { accepted = true; } });
+  return accepted;
+}
+
 export async function handleUserMessage(
   ws: WebSocket,
   session: Session,
@@ -1405,7 +1417,7 @@ export async function handleUserMessage(
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
-  opts?: { fromQueue?: boolean; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
+  opts?: { fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
 ): Promise<void> {
   const fromQueue = opts?.fromQueue === true;
   const wf = workflows.get(workflowId);
@@ -1413,6 +1425,8 @@ export async function handleUserMessage(
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
     return;
   }
+  const busyOnlyClaim = lastBusyClaim.get(wf);
+  if (opts?.busyOnly && !wf.busy) return;
   const interruptEpoch = busyRevocations.get(wf) ?? 0;
   const cwd = wf.config.workingDirectory;
   if (!cwd) {
@@ -1557,6 +1571,7 @@ export async function handleUserMessage(
   // the closest fit). Phase 4 ships visible/rebindable; both kinds still
   // drain post-turn — Phases 5–7 turn on real mid-turn delivery for steer
   // per provider.
+  if (opts?.busyOnly && (!wf.busy || wf.computerResetting || lastBusyClaim.get(wf) !== busyOnlyClaim || (opts.busyOnlyGuard && !opts.busyOnlyGuard()))) return;
   if (opts?.claimGuard && (wf.busy || wf.computerResetting)) return;
   if (wf.busy || wf.computerResetting) {
     if (primitive === 'plan-review') {
@@ -1583,6 +1598,7 @@ export async function handleUserMessage(
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedItem = { content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
+    opts?.onBusyQueued?.();
     send(ws, {
       type: 'user_message_echo',
       workflowId,

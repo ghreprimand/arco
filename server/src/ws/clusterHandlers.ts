@@ -2527,7 +2527,7 @@ export async function handleClusterAutoTurnToggle(
 // Rule-based end any Smart session. Pushes cluster_state on success.
 export async function handleClusterAutoPickupSet(
   ws: WebSocket,
-  msg: { clusterId: string; mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean },
+  msg: { clusterId: string; mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
 ): Promise<void> {
   const settings = await readSettings().catch(() => null);
   const result = await applyAutoPickup(

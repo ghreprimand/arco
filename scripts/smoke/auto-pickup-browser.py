@@ -117,6 +117,9 @@ async def main():
             assert layout['headingBottom'] <= layout['radioTop'] + 0.5, (scale, layout)
             assert layout['nameTop'] <= layout['radioMid'] <= layout['nameBottom'], (scale, layout)
         await page.evaluate("() => { document.documentElement.style.zoom = ''; document.documentElement.style.removeProperty('--ui-scale'); }")
+        reminder = rule_dialog.get_by_role('checkbox', name='Also remind busy members', exact=True)
+        await expect(reminder).not_to_be_checked()
+        await reminder.check()
         await expect(rule_dialog.get_by_text('Rule-based limits')).to_be_visible()
         pair_limit = rule_dialog.get_by_label('Alternating wakes before pause (2 to 10 wakes)')
         await pair_limit.fill('7')
@@ -128,6 +131,13 @@ async def main():
         await rule_dialog.get_by_label('Maximum chain depth (1 to 20 depth)').fill('10')
         await rule_dialog.get_by_role('button', name='APPLY', exact=True).click()
         assert (await page.evaluate('sent.at(-1)'))['ruleLimits'] == {'pingPongWakes': 5, 'wakesPerMemberHour': 9, 'wakesPerArming': 50, 'maxChainDepth': 10}
+        assert (await page.evaluate('sent.at(-1)'))['remindBusy'] is True
+        await page.evaluate("snapshot({autoPickup:{mode:'rule',limits,remindBusy:true}})")
+        await chip.click()
+        await expect(page.get_by_role('checkbox', name='Also remind busy members', exact=True)).to_be_checked()
+        await page.get_by_role('checkbox', name='Also remind busy members', exact=True).uncheck()
+        await page.get_by_role('button', name='APPLY', exact=True).click()
+        assert (await page.evaluate('sent.at(-1)'))['remindBusy'] is False
         await page.evaluate('emitPause()')
         assert await page.evaluate("s.getState().notifications.some(n => n.message.includes('Alternating wakes paused between Alpha and Beta.'))")
         await page.evaluate("snapshot({autoPickup:{mode:'rule',limits,ruleStatus:{wakes:40,budgetPaused:true}}})")
@@ -146,6 +156,7 @@ async def main():
         await expect(dialog).to_be_visible()
         await expect(dialog.get_by_role('radio', name='Off')).to_be_checked()
         await dialog.get_by_role('radio', name='Smart: Observe-only').check()
+        await expect(dialog.get_by_role('checkbox', name='Also remind busy members', exact=True)).to_have_count(0)
         await expect(dialog.get_by_text('a large or high-effort model adds cost without benefit', exact=False)).to_be_visible()
         provider = dialog.get_by_label('Evaluator provider')
         await expect(provider).to_have_value('')

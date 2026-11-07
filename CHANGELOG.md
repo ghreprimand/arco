@@ -16,6 +16,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Choose, preview, and attach plans from one project in the PLAN tabs and cluster creator. ALL PLANS can attach to the tab or cluster that opened it.
 - Cluster creation offers an existing plan, a director draft, or a Genesis draft while keeping the creator form on return.
+- AUTO-PICKUP offers "Also remind busy members" under Rule-based and Smart: Automatic. Off by default and saved per cluster, it sends one busy nudge for actionable unread mail with a five-minute gap per member.
 
 - Genesis can save a plan and reference documents for an existing folder, creating SPEC.md and TODO.md only when missing and preserving existing files.
 - Claude Native compacts inside a long turn. When one request reaches the auto-compaction threshold (the tab's or cluster's, 70% under Provider), Arco summarizes the earlier history before the next request, keeps the tool call in progress with its result, and the same turn continues. Chat shows "Compacting automatically (context N%)" and "Compacted, continuing"; CTX updates at once. Off, and Claude API compaction (beta), turn it off.

@@ -187,6 +187,7 @@ import {
 deriveAutoHandoff,
 derivePrimaryConfig,
 handleUserMessage,
+enqueueBusyReminder,
 initTurnEngine,
 maybeAutoCompactPolicy,
 claimBusy,
@@ -2254,6 +2255,7 @@ function onListening() {
   // same persistence path).
   clusterAutoTurn.configure({
     broadcastWorkflow,
+    dispatchBusyReminder: enqueueBusyReminder,
     isBusy: (wfid) => workflows.get(wfid)?.busy === true,
     resolveMembers: () => {
       const out = new Map<string, { workflowId: string; busy: boolean }[]>();

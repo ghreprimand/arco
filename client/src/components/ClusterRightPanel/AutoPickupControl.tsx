@@ -56,8 +56,8 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const connected = useAppStore((s) => s.connected);
   const [open, setOpen] = useState(false);
-  const send = (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>) => {
-    wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(ruleLimits ? { ruleLimits } : {}) });
+  const send = (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean) => {
+    wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(ruleLimits ? { ruleLimits } : {}), ...(remindBusy !== undefined ? { remindBusy } : {}) });
   };
   const on = state.mode !== 'off';
   const remaining = state.session ? Math.max(0, Math.ceil((state.session.expiresAt - Date.now()) / 60_000)) : null;
@@ -104,7 +104,7 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
           TURN OFF
         </button>
       )}
-      {open && <AutoPickupDialog state={state} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits) => { send(mode, evaluator, limits, ruleLimits); setOpen(false); }} />}
+      {open && <AutoPickupDialog state={state} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits, remindBusy) => { send(mode, evaluator, limits, ruleLimits, remindBusy); setOpen(false); }} />}
     </>
   );
 }
@@ -112,7 +112,7 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
 function AutoPickupDialog({ state, onClose, onApply }: {
   state: ClusterAutoPickupState;
   onClose: () => void;
-  onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>) => void;
+  onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean) => void;
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const authStatus = useAppStore((s) => s.authStatus);
@@ -145,6 +145,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
   useEffect(() => {
     if (capabilities && provider && !capable(provider)) { setProvider(''); setModel(''); }
   }, [capabilities]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [remindBusy, setRemindBusy] = useState(state.remindBusy === true);
   const [ruleLimits, setRuleLimits] = useState<RulePickupLimits>(state.ruleLimits ?? DEFAULT_RULE_PICKUP_LIMITS);
   const [limits, setLimits] = useState<SmartPickupLimits>(state.limits);
   const first = useRef<HTMLInputElement>(null);
@@ -191,6 +192,10 @@ function AutoPickupDialog({ state, onClose, onApply }: {
           ))}
         </fieldset>
 
+        {(mode === 'rule' || mode === 'smart-auto') && <label data-help="cluster.auto-pickup-remind-busy" style={{ display: 'flex', gap: '8px', alignItems: 'center', margin: '12px 0', color: 'var(--color-fg)' }}>
+          <input type="checkbox" checked={remindBusy} onChange={(e) => setRemindBusy(e.target.checked)} />
+          <span>Also remind busy members</span>
+        </label>}
         {mode === 'rule' && <section data-help="cluster.auto-pickup-rule-limits">
           <h3>Rule-based limits</h3>
           {RULE_PICKUP_LIMIT_KEYS.map((k) => { const spec = RULE_PICKUP_LIMIT_SPECS[k]; return <label key={k} className="arco-field-label" style={field}>{spec.label} ({spec.min} to {spec.max} {spec.unit})
@@ -267,7 +272,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
         {problem && <p role="alert" style={{ color: 'var(--color-accent-secondary-dim)' }}>{problem}</p>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
           <button type="button" onClick={onClose} className="display-font">CANCEL</button>
-          <button type="button" disabled={problem !== null} onClick={() => onApply(mode, smart ? evaluator : undefined, Object.keys(changedLimits).length ? changedLimits : undefined, mode === 'rule' ? ruleLimits : undefined)} className="display-font">
+          <button type="button" disabled={problem !== null} onClick={() => onApply(mode, smart ? evaluator : undefined, Object.keys(changedLimits).length ? changedLimits : undefined, mode === 'rule' ? ruleLimits : undefined, (mode === 'rule' || mode === 'smart-auto') && remindBusy !== (state.remindBusy === true) ? remindBusy : undefined)} className="display-font">
             {smart ? (mode === 'smart-auto' ? 'ARM AUTOMATIC' : 'ARM OBSERVE-ONLY') : 'APPLY'}
           </button>
         </div>

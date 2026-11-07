@@ -1047,6 +1047,7 @@ export const clusters: Section[] = [
   <Code>ARM AUTOMATIC</Code>.
   </li>
   </ul>
+  <p><strong>Also remind busy members</strong> is off by default and saved for this cluster. Under Rule-based or Smart: Automatic, it sends the busy NUDGE for new actionable unread mail, once per batch and at most once every five minutes per member. Plain acknowledgements do not trigger it. Off and Observe-only send none; idle pickup follows the same rules as before.</p>
   <h4 className="manual-sub">Rule-based limits</h4>
   <p>
     Adjustable limits pause
@@ -2124,6 +2125,7 @@ export const clusters: Section[] = [
   actually sees the content.
   </p>
   <h4 className="manual-sub">Nudges and automatic pickup</h4>
+  <p>In AUTO-PICKUP, <strong>Also remind busy members</strong> adds the busy nudge below to Rule-based and Smart: Automatic. It is off by default, saved per cluster and sends once for new actionable unread mail with a five-minute gap per member. Off and Observe-only never send these reminders.</p>
   <p>Operator nudges and automatic pickup start with a fixed tag and the same guidance line:</p>
   <ul>
     <li>An idle member under NUDGE gets <em>"(nudge) Read pending peer messages and act on their contents. ..."</em></li>

@@ -112,6 +112,7 @@ export interface ClusterState {
   // Rule-based), so clusters saved before the modes existed keep their
   // behavior. autoTurnOnMailboxEnabled is kept equal to "mode is rule".
   autoPickupMode?: AutoPickupMode;
+  remindBusy?: boolean;
   rulePickupLimits?: Partial<RulePickupLimits>;
   // Smart pickup choices kept across disarm: the active evaluator, the last
   // explicit choice, adjusted limits and the armed session.
@@ -996,7 +997,7 @@ export async function setAutoTurnOnMailbox(
 // limits persist across disarm so re-arming can offer them again.
 export async function setAutoPickup(
   clusterId: string,
-  opts: { mode: AutoPickupMode; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; ruleLimits?: Partial<RulePickupLimits>; now?: number },
+  opts: { mode: AutoPickupMode; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; ruleLimits?: Partial<RulePickupLimits>; remindBusy?: boolean; now?: number },
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
@@ -1024,6 +1025,7 @@ export async function setAutoPickup(
     const next: ClusterState = {
       ...state,
       rulePickupLimits: opts.ruleLimits ? sanitizeRulePickupLimits({ ...sanitizeRulePickupLimits(state.rulePickupLimits), ...opts.ruleLimits }) : state.rulePickupLimits,
+      remindBusy: typeof opts.remindBusy === 'boolean' ? opts.remindBusy : state.remindBusy,
       autoPickupMode: opts.mode === 'off' ? undefined : opts.mode,
       autoTurnOnMailboxEnabled: opts.mode === 'rule' ? true : undefined,
       smartPickup: hasSmart ? smartPickup : undefined,

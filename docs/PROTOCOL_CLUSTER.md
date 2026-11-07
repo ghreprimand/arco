@@ -810,10 +810,13 @@ Operator chose an AUTO-PICKUP mode in the cluster dialog. Modes: `off` (default)
   limits?: Partial<SmartPickupLimits>,   // only changed limits; each bounded
   ruleLimits?: Partial<RulePickupLimits>,
   resumeRule?: boolean,
+  remindBusy?: boolean, // Also remind busy members; default false, saved per cluster
 }
 ```
 
 Smart modes require an evaluator whose provider is enabled and whose adapter reports itself available (`GET /api/smart-pickup/evaluators`; Codex only while it is enabled and signed in), and a readable budget ledger, and every arming starts a new session (`id`, `armedAt`, `expiresAt` from `sessionMinutes`). Off and Rule-based end the session; the evaluator choice is kept as `lastEvaluator` and adjusted limits persist. Refusals return `error` with `cluster_auto_pickup_set rejected: <problem>` (`invalid_mode`, `unknown_cluster`, `evaluator_required`, `evaluator_provider_disabled`, `evaluator_unavailable`, `ledger_unreadable`).
+
+**Also remind busy members** is available under Rule-based and Smart: Automatic. It is off by default and saved per cluster as `remindBusy`; state echoes include `autoPickup.remindBusy`. When enabled, actionable unread mail sends the existing busy NUDGE through the member's steering path once per unread batch, with at least five minutes between reminders for that member. Acknowledgement-only batches stay pending without a reminder. New mail held by the gap is checked again by the resume sweep. Off, Observe-only and expired Smart sessions send none. A reminder whose busy turn ends or changes during preparation is dropped. Idle pickup keeps its usual rules.
 
 `SmartPickupLimits` (defaults and bounds in `shared/src/protocol/autoPickup.ts`): `maxInFlight` 1 (1-4), `callsPerClusterHour` 12 (1-120), `callsPerMemberHour` 3 (1-60), `wakesPerMemberHour` 3 (1-60), `wakesPerSession` 12 (1-200), `sessionMinutes` 30 (5-480), `timeoutSeconds` 30 (5-120), `maxInputBytes` 12288 (2048-65536), `maxOutputTokens` 64 (16-512). Out-of-range or non-integer values read as the default.
 

@@ -147,6 +147,7 @@ export interface SmartPickupCounters {
 }
 
 export interface ClusterAutoPickupState {
+  remindBusy?: boolean;
   mode: AutoPickupMode;
   limits: SmartPickupLimits;
   evaluator?: SmartPickupEvaluator;
@@ -170,6 +171,7 @@ export interface ClusterAutoPickupSetMessage {
   limits?: Partial<SmartPickupLimits>;
   ruleLimits?: Partial<RulePickupLimits>;
   resumeRule?: boolean;
+  remindBusy?: boolean;
 }
 
 export interface RulePickupLimits {

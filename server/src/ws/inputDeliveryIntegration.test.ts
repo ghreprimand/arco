@@ -100,3 +100,22 @@ test('an accepted late steer retains its original provider delivery policy after
  f.wf.primary.provider='claude';options.onSteerDelivered(items);await flushAll();const events=await replayEvents(f.cwd,f.id,0);assert.equal(events.filter(e=>e.type==='turn_messages_delivered').length,1);const replay=buildMessagesFromReplayEvents(events as any);assert.equal(replay[2].content,'STEER_TASK');
  }finally{f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
 });
+
+test('a busy reminder enters steering and never starts a turn when the member is idle',async()=>{
+ const f=await fixture('claude');let run:Promise<void>|undefined;
+ try{
+  assert.equal(await engine.enqueueBusyReminder(f.id,'REMINDER'),false);assert.equal(f.pending.length,0);
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST_TASK','first',undefined,false,undefined,undefined);await f.wait(1);
+  assert.equal(await engine.enqueueBusyReminder(f.id,'REMINDER'),true);assert.equal(f.wf.queue.steering[0].content,'REMINDER');
+  f.pending[0].options.drainSteer();f.pending[0].finish('fixture answer');await run;
+ }finally{f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const p of f.pending)p.finish('cleanup');await run;await f.close();}
+});
+test('a busy reminder abandoned during preparation cannot steer a replacement turn',async()=>{
+ const f=await fixture('claude');let run:Promise<void>|undefined,token:number|undefined;
+ try{
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST_TASK','first',undefined,false,undefined,undefined);await f.wait(1);
+  const reminder=engine.enqueueBusyReminder(f.id,'STALE_REMINDER');engine.revokeBusy(f.wf);token=engine.claimBusy(f.wf);
+  assert.equal(await reminder,false);assert.equal(f.wf.queue.steering.length,0);
+  f.pending[0].finish('fixture answer');await run;
+ }finally{f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const p of f.pending)p.finish('cleanup');await run;if(token!==undefined)engine.releaseBusy(f.wf,token);await f.close();}
+});

@@ -38,7 +38,7 @@ export type ArmProblem = 'unknown_cluster' | 'invalid_mode' | 'evaluator_require
 // always starts a fresh session. Every change is logged in the ledger.
 export async function applyAutoPickup(
   clusterId: string,
-  request: { mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean },
+  request: { mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
   isProviderEnabled: (provider: SmartPickupEvaluator['provider']) => boolean,
   now = Date.now(),
 ): Promise<{ ok: true; mode: AutoPickupMode } | { ok: false; problem: ArmProblem }> {
@@ -63,7 +63,7 @@ export async function applyAutoPickup(
     ? pickLimits(request.limits as Record<string, unknown>)
     : undefined;
   const ruleLimits = request.ruleLimits && typeof request.ruleLimits === 'object' ? pickRuleLimits(request.ruleLimits as Record<string, unknown>) : undefined;
-  const updated = await clusterStore.setAutoPickup(clusterId, { mode, evaluator, limits, ruleLimits, now });
+  const updated = await clusterStore.setAutoPickup(clusterId, { mode, evaluator, limits, ruleLimits, remindBusy: request.remindBusy, now });
   if (!updated) return { ok: false, problem: 'unknown_cluster' };
   try {
     if (mode === 'rule' && (request.resumeRule === true || clusterStore.autoPickupModeOf(state) !== 'rule')) ruleAutoTurn.resumeRulePickup(clusterId);
@@ -99,6 +99,7 @@ export async function autoPickupStateFor(state: clusterStore.ClusterState, now =
   const smart = state.smartPickup ?? {};
   const out: ClusterAutoPickupState = {
     mode,
+    remindBusy: state.remindBusy === true,
     limits: sanitizeSmartPickupLimits(smart.limits),
     ruleLimits: sanitizeRulePickupLimits(state.rulePickupLimits),
     ruleStatus: ruleAutoTurn.rulePickupStatus(state.clusterId),
