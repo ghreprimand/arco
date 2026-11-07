@@ -57,7 +57,7 @@ checks, expand the cluster allowlist, or grant director authority.
 
 ## Verification
 
-`npm run test:codex-code-mode` covers model-catalog detection, cache refresh,
+`npm run test:codex-code-mode -w server` covers model-catalog detection, cache refresh,
 fail-open behavior, direct-model exclusion, and the addendum's exact tool names
 and send arguments. When upgrading Codex CLI, verify the tool names exposed in
 an `exec` cell and confirm that the catalog still uses the fields above. If the
