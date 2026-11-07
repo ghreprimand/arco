@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { ProjectRootsSettings } from './ProjectRootsSettings';
 import { WorkingDirectoryDefault } from './WorkingDirectoryDefault';
 import type { ProjectEntry } from './WorkflowCreator/ProjectPicker';
+import { parsePickerProjects } from '../utils/homeModel';
 
 // Settings -> PROJECTS. The registered project folders (absolute paths that can
 // live anywhere), plus the optional scan folder below. Own file to keep
 // SettingsPanel under the size budget.
 export function ProjectsSettings() {
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
+  const [pickerProjects, setPickerProjects] = useState<ProjectEntry[]>([]);
   const [draft, setDraft] = useState('');
+  const [relocations, setRelocations] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,6 +20,7 @@ export function ProjectsSettings() {
       const res = await fetch('/api/projects');
       const data = (await res.json()) as { projects?: ProjectEntry[] };
       setProjects(Array.isArray(data.projects) ? data.projects : []);
+      setPickerProjects(parsePickerProjects(data) ?? []);
     } catch { /* keep the previous list */ }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -30,6 +34,7 @@ export function ProjectsSettings() {
       const data = (await res.json()) as { projects?: ProjectEntry[]; error?: string };
       if (!res.ok) { setError(data.error || 'Request failed'); return; }
       setProjects(Array.isArray(data.projects) ? data.projects : []);
+      setPickerProjects(parsePickerProjects(data) ?? []);
       if (method === 'POST') setDraft('');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -38,12 +43,32 @@ export function ProjectsSettings() {
     }
   }
 
+  async function relocate(id: string, newPath: string) {
+    if (!newPath.trim() || busy) return;
+    setBusy(true); setError('');
+    try {
+      const res = await fetch('/api/projects/relocate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, path: newPath.trim() }) });
+      const data = await res.json() as { projects?: ProjectEntry[]; error?: string };
+      if (!res.ok) { setError(data.error || 'Relocation failed'); return; }
+      setProjects(Array.isArray(data.projects) ? data.projects : []);
+      setPickerProjects(parsePickerProjects(data) ?? []);
+      setRelocations(current => ({ ...current, [id]: '' }));
+    } catch { setError('Relocation could not be completed.'); }
+    finally { setBusy(false); }
+  }
+
   const registered = projects.filter((p) => p.source === 'registered');
-  const others = projects.filter((p) => p.source !== 'registered');
+  const others = pickerProjects.filter((p) => p.source !== 'registered');
+  const missing = projects.filter((p) => p.source !== 'registered' && !p.exists);
   const row = (p: ProjectEntry, removable: boolean) => (
     <div key={p.path} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', borderBottom: '1px solid var(--color-accent-primary-a05)', fontSize: '11px', fontFamily: 'var(--font-code)', color: p.exists ? 'var(--color-accent-primary-dim)' : 'var(--color-fg-muted)' }}>
       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.path}>{p.path}</span>
       <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>{p.exists ? (p.source === 'scanned' ? 'FOLDER' : p.source === 'recent' ? 'USED' : '') : 'MISSING'}</span>
+      {!p.exists && p.id && <details>
+        <summary>Relocate</summary>
+        <label>New folder path <input className="arco-field" value={relocations[p.id] ?? ''} onChange={e => setRelocations(current => ({ ...current, [p.id!]: e.target.value }))} /></label>
+        <button type="button" disabled={busy || !(relocations[p.id] ?? '').trim()} onClick={() => void relocate(p.id!, relocations[p.id!] ?? '')}>Save new location</button>
+      </details>}
       {removable ? (
         <button onClick={() => { void mutate('DELETE', p.path); }} disabled={busy} title="Remove bookmark" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '11px' }}>Remove bookmark</button>
       ) : (
@@ -83,6 +108,7 @@ export function ProjectsSettings() {
           <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>No bookmarked folders. Enter a path above, or bookmark a folder below.</div>
         )}
         <details><summary>Other available folders ({others.length})</summary>{others.map((p) => row(p, false))}</details>
+        {missing.length > 0 && <details><summary>Missing folder references ({missing.length})</summary>{missing.map((p) => row(p, false))}</details>}
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '14px', lineHeight: 1.5 }}>
         Bookmarks do not control saved chats or files. Removing a bookmark deletes neither.

@@ -1707,9 +1707,11 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
   const setSettings = useAppStore((s) => s.setSettings);
   const { snapshot, busy, refresh, setTrust } = useProjectTrust();
   const [draft, setDraft] = useState('');
+  const [trustSearch, setTrustSearch] = useState('');
   const [savingDefault, setSavingDefault] = useState(false);
 
   const entries = snapshot?.entries ?? [];
+  const matchingEntries = entries.filter(entry => entry.path.toLowerCase().includes(trustSearch.trim().toLowerCase()));
   const fallback = snapshot?.defaultProjectTrust ?? settings?.defaultProjectTrust ?? 'ask';
 
   const commitDefault = async (next: 'ask' | 'always' | 'never') => {
@@ -1820,12 +1822,14 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
         </button>
       </div>
 
+      <label style={{ color: 'var(--color-fg-muted)' }}>Search trust decisions <input className="arco-field" type="search" aria-label="Search trust decisions" value={trustSearch} onChange={event => setTrustSearch(event.target.value)} /></label>
+      <div role="region" aria-label="Trust decisions" tabIndex={0} style={{ height: 240, overflowY: 'auto', marginTop: 8 }}>
       {entries.length === 0 ? (
         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
           No decisions recorded: every repo follows the default above.
         </div>
       ) : (
-        entries.map((e) => (
+        matchingEntries.length === 0 ? <p>No matching trust decisions.</p> : matchingEntries.map((e) => (
           <div
             key={e.path}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', borderTop: '1px solid var(--color-border-hairline)' }}
@@ -1865,6 +1869,7 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
           </div>
         ))
       )}
+      </div>
     </div>
   );
 }

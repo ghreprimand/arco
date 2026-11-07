@@ -368,7 +368,7 @@ export const powerFeatures: Section[] = [
   It is reversible. CONFIG &gt; PROJECT TRUST sets TRUSTED, BLOCKED or ASK for the
   tab's folder (the nearest ancestor wins, so it covers every tab and cluster
   member there). SETTINGS &gt; PROJECT TRUST lists, flips, forgets or adds
-  decisions in one place.
+  decisions in one place. Search trust decisions filters the scrollable list by path.
   </p>
   <Sub>Skill audit</Sub>
   <p>

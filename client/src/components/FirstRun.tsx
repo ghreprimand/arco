@@ -9,7 +9,7 @@ import { ProjectLocationForm } from './ProjectLocationForm';
 import { DirectoryBrowser } from './media/DirectoryPicker';
 import { anyPrimaryProviderConnected, PROVIDER_LABELS } from '../utils/startupGate';
 import { Connections } from './Connections/Connections';
-import { parseProjects, rootsOf, type HomeProject, type HomeRoot } from '../utils/homeModel';
+import { parsePickerProjects, rootsOf, type HomeProject, type HomeRoot } from '../utils/homeModel';
 import { addFolder, removeFromList } from './Home/projectApi';
 
 // Sequence the existing folder registration, Connections and creator surfaces.
@@ -46,7 +46,7 @@ export function FirstRun() {
       const body = await r.json();
       if (alive) {
         const roots = Array.isArray(body.scanCandidates) ? body.scanCandidates.filter((p: unknown): p is string => typeof p === 'string').slice(0, 6) : [];
-        setRoots(rootsOf(body) ?? []); setProjects((parseProjects(body) ?? []).filter(p => p.source === 'registered')); setLoaded(true);
+        setRoots(rootsOf(body) ?? []); setProjects((parsePickerProjects(body) ?? []).filter(p => p.source === 'registered')); setLoaded(true);
         setScanCandidates(roots);
         setBrowserRoot(roots[0] ?? body.homeFolder ?? '');
       }
@@ -68,7 +68,7 @@ export function FirstRun() {
     try {
       const reply = await addFolder(folder.trim());
       if (!reply.ok) throw new Error(reply.error);
-      setProjects((parseProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
+      setProjects((parsePickerProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
       setProject(folder.trim());
       setPath(''); setNote('Bookmarked. Add another folder or continue when ready.');
     } catch (error) { setNote(error instanceof Error ? error.message : 'Folder was not bookmarked.'); }
@@ -81,7 +81,7 @@ export function FirstRun() {
       else {
         const reply = await removeFromList(folder);
         if (!reply.ok) throw new Error(reply.error);
-        setProjects((parseProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
+        setProjects((parsePickerProjects(reply.body) ?? []).filter(p => p.source === 'registered'));
         if (project === folder) setProject('');
       }
     } catch (err) { setNote(err instanceof Error ? err.message : 'Choice was not removed.'); }
@@ -147,7 +147,7 @@ export function FirstRun() {
         <div className="location-mode"><h2>{kind === 'root' ? 'Add project location' : 'Add a single project folder'}</h2>
           <button type="button" disabled={busy} onClick={() => { setKind(kind === 'root' ? 'project' : 'root'); setNote(''); }}>{kind === 'root' ? 'Add a single project folder' : 'Add project location'}</button>
         </div>
-        {kind === 'root' ? <ProjectLocationForm autoFocus={false} key={locationKey} initialPath={browserRoot || ''} resetAfterSave onBusyChange={value => { setBusy(value); if (value) setNote(''); }} shortcuts={scanCandidates.map(path => ({ name: path.split(/[\\/]/).filter(Boolean).at(-1) || path, path }))} onSaved={saved => { setRoots(rootsOf(saved.list) ?? []); setProjects((parseProjects(saved.list) ?? []).filter(p => p.source === 'registered')); setNote(saved.message + ' Add another location or continue.'); }} /> : <>
+        {kind === 'root' ? <ProjectLocationForm autoFocus={false} key={locationKey} initialPath={browserRoot || ''} resetAfterSave onBusyChange={value => { setBusy(value); if (value) setNote(''); }} shortcuts={scanCandidates.map(path => ({ name: path.split(/[\\/]/).filter(Boolean).at(-1) || path, path }))} onSaved={saved => { setRoots(rootsOf(saved.list) ?? []); setProjects((parsePickerProjects(saved.list) ?? []).filter(p => p.source === 'registered')); setNote(saved.message + ' Add another location or continue.'); }} /> : <>
           <form className="first-run-path" onSubmit={e => { e.preventDefault(); void chooseFolder(path); }}>
             <label htmlFor="first-run-folder">Project folder path</label>
             <input id="first-run-folder" value={path} onChange={e => setPath(e.target.value)} required placeholder="Absolute folder path" />

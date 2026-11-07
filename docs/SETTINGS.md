@@ -59,7 +59,7 @@ Sections: 27.
 | `frosted-glass` | Appearance | Frosted glass and opacity | Global | Frosted glass override, opacity (default 80%) |
 | `operator-name` | Appearance | Operator name in chat | Global | Operator label shown in chat |
 | `projects` | Projects | Project locations and bookmarks | Global | Project locations with folded Add/Edit and duplicate/alias rename feedback; Bookmarked folders for optional Bookmark folder/Remove bookmark controls; Advanced folder options for independent browsing defaults; non-destructive multi-location Run setup again |
-| `project-trust` | Projects | Project trust | Project, rules kept globally | Trusted and never-trusted project list, default trust |
+| `project-trust` | Projects | Project trust | Project, rules kept globally | Searchable, scrollable trusted and blocked project list, default trust |
 | `enabled-providers` | Providers and models | Enabled providers | Global | Per-provider on/off toggles |
 | `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | A Claude group (Native sign-in first, then CLI sign-in), Codex accounts and profiles, Cursor, then Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl, and the Ollama, llama.cpp, LM Studio, Strata and GitHub rows |
 | `llamacpp-catalog` | Providers and models | llama.cpp model registry | Global | llama.cpp registry editor and preload (shown when llama.cpp is enabled and installed) |

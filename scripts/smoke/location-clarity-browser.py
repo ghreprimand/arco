@@ -75,7 +75,7 @@ async def main():
             await page.get_by_label('Location', exact=True).select_option(label='Main')
             await expect(main_card).to_be_visible()
             await expect(personal_card).to_have_count(0)
-            await page.get_by_label('Location', exact=True).select_option(label='All locations')
+            await page.get_by_label('Location', exact=True).select_option(label='All folders')
             await page.get_by_role('button',name=re.compile('SETTINGS')).click()
             await page.get_by_role('button',name='Projects',exact=True).click()
             await page.reload()

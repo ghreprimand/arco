@@ -217,13 +217,13 @@ export const workspace: Section[] = [
           running work. Resume returns to a tab; Show all expands the two-row list.
         </p>
         <p>
-          The project grid puts pins first and orders the rest by recent activity.
+          The project grid lists available location folders and bookmarks alphabetically. Recently used lists existing folders separately by activity. Pinned shows pinned folders. Temporary folders are excluded.
           It shows two rows; Show all opens the rest, and a search lists every match.
         </p>
         <p>
           Filter by location or search by name or path (press <Kbd>/</Kbd>).
           New session opens a creator with the folder prefilled. The project menu
-          offers New cluster, Saved sessions, Pin and Manage.
+          offers New cluster, Saved sessions, Pin and Manage. A display name appears below the folder name.
         </p>
         <h4 className="manual-sub">Locations and terminal sessions</h4>
         <p>
@@ -247,8 +247,7 @@ export const workspace: Section[] = [
           <Code>docs/SETTINGS.md</Code>.
         </p>
         <Note kind="tip">
-          If a folder is missing, its project card offers{' '}
-          <Code>Relocate...</Code>. Saved work stays associated with the project
+          Settings &gt; Projects &gt; Bookmarked folders can relocate a missing folder reference. Saved work stays associated with the project
           record; choose the folder&apos;s new location to resume from it.
         </Note>
       </>

@@ -10,7 +10,8 @@
 // HOME is the data volume and projects are bind-mounted elsewhere.
 import { mkdir, readFile, readdir, stat } from 'fs/promises';
 import { realpathSync } from 'node:fs';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
+import { listWorkflowMetas } from './workflowMeta.js';
 import path from 'path';
 import { readKnownCwds } from './crashRecovery.js';
 import { chatRootDir } from './chatMode.js';
@@ -37,6 +38,7 @@ export interface ProjectEntry {
   archived?: boolean;
   previousPaths?: string[];
   rootPath?: string;
+  locationPaths?: string[];
 }
 
 export interface ProjectRoot { name: string; path: string; exists: boolean; }
@@ -46,6 +48,8 @@ export interface ProjectList {
   scanCandidates?: string[];
   homeFolder?: string;
   projects: ProjectEntry[];
+  pickerProjects?: ProjectEntry[];
+  recentProjects?: ProjectEntry[];
   scanFolder: string | null;
   // False while ~/.arco/projects.json is unreadable: no ids, no organizing.
   organization?: boolean;
@@ -199,7 +203,51 @@ export async function listProjects(): Promise<ProjectList> {
     const candidate = path.join(homedir(), name);
     try { return safeDirectory(candidate); } catch { return null; }
   }))).filter((p): p is string => p !== null);
-  return { ...merged!, scanCandidates, homeFolder: homedir(), projects: withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records), organization };
+  const projects = withRecordFields(merged!.projects.filter((p) => shown.has(p.path)), records);
+  // Picker discovery is independent of the containment list above: a folder
+  // can be both scanned and present in history. Never narrow listFolders().
+  const scanGroups = await Promise.all((merged!.roots ?? []).map(root => scanFolderProjects(root.exists ? root.path : null)));
+  const scans = scanGroups.flat();
+  const locations = new Map<string, string[]>();
+  scanGroups.forEach((folders, index) => folders.forEach(folder => {
+    const key = canonicalProjectPath(folder);
+    locations.set(key, [...(locations.get(key) ?? []), merged!.roots![index].path]);
+  }));
+  const byPath = new Map(projects.map(p => [canonicalProjectPath(p.path), p]));
+  const tempRoot = canonicalProjectPath(tmpdir());
+  const usable = (p: ProjectEntry) => p.exists && !isPathWithin(tempRoot, canonicalProjectPath(p.path));
+  const registered = projects.filter(p => p.source === 'registered');
+  const discovered = await Promise.all(scans.map(async folder => {
+    const prior = byPath.get(canonicalProjectPath(folder));
+    return prior ? { ...prior, source: 'scanned' as const } : {
+      path: folder, name: await projectDisplayName(folder), source: 'scanned' as const,
+      exists: await isDirectory(folder), rootPath: projectRootFor(folder, merged!.roots ?? [])?.path,
+    };
+  }));
+  const pickerProjects = pickerFolderList([...registered, ...discovered].filter(usable).map(entry => ({ ...entry, locationPaths: locations.get(canonicalProjectPath(entry.path)) ?? [] })));
+  const history = await readKnownCwds();
+  const seenRecent = new Set<string>();
+  const recentProjects = (await Promise.all(history.map(async folder => {
+    const entry = byPath.get(canonicalProjectPath(folder));
+    if (!entry || !usable(entry)) return null;
+    const activity = await listWorkflowMetas(folder);
+    return { ...pickerFolderList([entry])[0], lastUsedAt: activity[0]?.lastActiveAt ?? 0 };
+  }))).filter((p): p is ProjectEntry & { lastUsedAt: number } => p !== null)
+    .sort((a, b) => b.lastUsedAt - a.lastUsedAt || a.name.localeCompare(b.name))
+    .filter(entry => { const key = canonicalProjectPath(entry.path); if (seenRecent.has(key)) return false; seenRecent.add(key); return true; });
+  return { ...merged!, scanCandidates, homeFolder: homedir(), projects, pickerProjects, recentProjects, organization };
+}
+
+// Picker labels use folder names and remain alphabetical regardless of pin state.
+export function pickerFolderList(entries: ProjectEntry[]): ProjectEntry[] {
+  const seen = new Set<string>();
+  return entries.filter(entry => {
+    const key = canonicalProjectPath(entry.path);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map(entry => ({ ...entry, name: path.basename(entry.path) === 'projects' && process.env.ARCO_DEPLOYMENT === 'docker' && canonicalProjectPath(entry.path) === canonicalProjectPath('/projects') ? (entry.derivedName || entry.name) : path.basename(entry.path) || entry.path }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.path.localeCompare(b.path));
 }
 
 // Pure: overlay record metadata on the merged list.

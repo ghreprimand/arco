@@ -41,12 +41,11 @@ project folder, and first conversation (any chat, session or cluster) are availa
 current step for running work. Each Continue card shows a status word: Working, Needs you, New reply (a turn finished while you were elsewhere) or Idle. Tabs show a status dot; hover over a tab for its status. Idle has no dot. **Resume** returns to a tab. Two rows show at
 first; **Show all** opens the rest in a bounded scrolling area.
 
-The project grid shows pinned folders first, then recent activity, in two rows; **Show all** opens the rest in a bounded scrolling area, and a search shows every match. Filter it by
+The project grid lists available folders alphabetically in two rows; **Show all** opens the rest in a bounded scrolling area, and a search shows every match. Filter it by
 location or search names and paths (press `/` to focus search). A project card
 shows its folder, activity, and open tabs. **New session** opens the creator
 with that folder. The **...** menu offers **New cluster**, **Saved sessions**,
-**Pin** or **Unpin**, and **Manage** for rename, archive, bookmark removal, or
-missing-folder relocation. None of these actions moves or deletes files.
+**Pin** or **Unpin**, and **Manage** for rename, archive, or bookmark removal. Use **Pinned** in the location filter to show pins. Relocate a missing folder under **Settings > Projects > Bookmarked folders** or **Missing folder references**. None of these actions moves or deletes files.
 
 Use **Add project location** for a named parent folder and **Open another
 folder** for a one-off session or an optional bookmark. The location filter
@@ -91,13 +90,13 @@ stays empty.
 ### Creator folder controls
 
 In the creator, **Project location** filters **All folders**,
-**Pinned and recent**, or one named location. Search by name or path. Filtering
+**Recently used**, **Pinned**, or one named location. All folders combines location folders and bookmarks. Recently used lists existing folders separately, newest first; temporary folders are excluded. Search by name or path. Filtering
 never replaces a typed working folder. **Browse this location** starts
 navigation there. **Browse another folder** can reach other directories. The
 browser offers an editable path, UP, shortcuts, and new-folder creation at the
 displayed parent. **Use for this session** selects a folder without bookmarking
 it. **Bookmark folder** explicitly keeps it listed independently of locations.
-The workflow name defaults to the selected project's display name and remains
+The workflow name defaults to the selected folder name and remains
 editable.
 In Docker, folders must be mounted before they can be selected.
 
@@ -250,9 +249,9 @@ Use **HOME** to find or add work.
 - Select **New session** on a project card to open the workflow creator with its
   folder prefilled.
 - Use **Saved sessions** to resume prior work.
-- Use **Manage...** to pin, rename, archive, relocate, or remove a project
+- Use **Manage...** to pin, rename, archive, or remove a project
   registration. These actions do not move or delete project files.
-- A missing folder offers **Relocate...**.
+- In **Settings > Projects**, use **Relocate** for a missing bookmark or folder reference.
 - When opening the creator directly, the folder control is **PROJECT FOLDER** or
   **SHARED PROJECT FOLDER**. **Browse another folder** opens the folder picker,
   and **Project location** filters the list.

@@ -57,6 +57,12 @@ async def main():
     work, personal, outside = server.root / 'work', server.root / 'personal', server.root / 'outside'
     for folder in [work / 'alpha', work / 'team' / 'tool', personal / 'notes', outside / 'one-off']:
         folder.mkdir(parents=True, exist_ok=True)
+    old_history, new_history, temp_history = server.root / 'used-old', server.root / 'used-new', server.tmp / 'excluded'
+    for folder, at in [(old_history, 100), (new_history, 200), (temp_history, 300)]:
+        meta = folder / '.arco' / 'workflows' / 'fixture'
+        meta.mkdir(parents=True, exist_ok=True)
+        (meta / 'meta.json').write_text(json.dumps({'workflowId':'fixture','name':'Fixture','cwd':str(folder),'createdAt':1,'lastActiveAt':at,'cliSessions':[]}))
+    (server.home / '.arco' / 'known-cwds.json').write_text(json.dumps([str(server.projects / 'app'), str(old_history), str(new_history), str(server.root / 'missing'), str(temp_history)]))
     b = None
     try:
         async with async_playwright() as p:
@@ -123,6 +129,8 @@ async def main():
             await field.fill(str(outside / 'one-off'))
             release.set()
             await select_folder(page.get_by_label('Project location', exact=True), work)
+            choice_names = await page.get_by_role('list', name='Project choices').locator('strong').all_text_contents()
+            assert choice_names == ['alpha', 'team'], choice_names
             await expect_path(field, outside / 'one-off')
             await page.unroute('**/api/projects', hold)
             await page.get_by_role('button', name='Browse this location', exact=True).click()
@@ -209,20 +217,75 @@ async def main():
             await home(page)
             await page.get_by_role('button', name='Reload list', exact=True).click()
             await page.get_by_label('Location', exact=True).select_option(label='Repository location')
-            for label in ['fixture-repository', 'child-one', 'child-two']:
+            for label in ['repository-location', 'child-one', 'child-two']:
                 await expect(page.get_by_role('button', name=f'New session in {label}', exact=True)).to_be_visible()
             await expect(page.locator('.home-project-card')).to_have_count(3)
-            await page.get_by_role('button', name='New session in fixture-repository', exact=True).click()
+            await page.get_by_role('button', name='New session in repository-location', exact=True).click()
             await expect_path(field, repo)
             workflow_name = page.locator('[data-help="creator.name"] input')
-            await expect(workflow_name).to_have_value('fixture-repository')
+            await expect(workflow_name).to_have_value('repository-location')
             choices = page.get_by_role('list', name='Project choices')
             await expect(choices.get_by_role('button', name=re.compile('child-one'))).to_be_visible()
             await expect(choices.get_by_role('button', name=re.compile('child-two'))).to_be_visible()
             await workflow_name.fill('Custom name')
             await choices.get_by_role('button', name=re.compile('child-one')).click()
             await expect(workflow_name).to_have_value('Custom name')
-            print('PASS: repository location and children appear in Home and creator; default and edited workflow names are preserved')
+            await page.get_by_label('Project location', exact=True).select_option('all')
+            names = await choices.locator('strong').all_text_contents()
+            assert names == sorted(names, key=str.casefold), names
+            assert 'fixture-repository' not in names and 'used-old' not in names and 'used-new' not in names
+            await page.get_by_label('Project location', exact=True).select_option('recent')
+            recent_names = await choices.locator('strong').all_text_contents()
+            assert recent_names[:2] == ['used-new', 'used-old'], recent_names
+            assert 'excluded' not in recent_names
+            assert await choices.get_by_text('Missing', exact=True).count() == 0
+            print('PASS: repository location and children appear alphabetically with folder names; recently used is separate')
+
+            for i in range(18):
+                await api(page, '/api/project-trust', {'cwd': str(server.root / f'trust-{i:02}'), 'decision': 'always'})
+            await page.goto(server.base + '/#settings/projects/project-trust')
+            trust_list = page.get_by_role('region', name='Trust decisions')
+            await expect(trust_list).to_be_visible()
+            await expect(trust_list.locator('code')).to_have_count(18)
+            assert await trust_list.evaluate('(el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY === "auto"')
+            await page.get_by_label('Search trust decisions').fill('trust-17')
+            await expect(trust_list.locator('code')).to_have_count(1)
+            await expect(trust_list.locator('code')).to_contain_text('trust-17')
+            print('PASS: trust decisions scroll in their own area and search filters by path')
+
+            old = server.root / 'relocate-old'
+            new = server.root / 'relocate-new'
+            old.mkdir()
+            await api(page, '/api/projects', {'path': str(old)})
+            old.rename(new)
+            missing_entry = next(item for item in (await api(page, '/api/projects'))['projects'] if same_path(item['path'], old))
+            assert not missing_entry['exists'] and missing_entry.get('id'), missing_entry
+            await page.goto(server.base + '/#settings/projects/projects')
+            await page.reload()
+            await page.get_by_text(re.compile(r'^Bookmarked folders')).click()
+            available = page.locator('details').filter(has=page.locator('summary').filter(has_text=re.compile(r'^Other available folders'))).last
+            await available.locator('summary').click()
+            assert await available.get_by_title(str(old_history), exact=True).count() == 0
+            assert await available.get_by_title(str(new_history), exact=True).count() == 0
+            assert await available.get_by_title(str(temp_history), exact=True).count() == 0
+            row = page.get_by_title(str(old), exact=True).locator('..')
+            await expect(row.get_by_text('MISSING', exact=True)).to_be_visible()
+            await row.get_by_text('Relocate', exact=True).click()
+            await row.get_by_label('New folder path').fill(str(new))
+            await row.get_by_role('button', name='Save new location').click()
+            await expect(page.get_by_title(str(new), exact=True)).to_be_visible()
+            assert str(new) in (await api(page, '/api/settings'))['projects']
+            print('PASS: a missing bookmark can be relocated from Settings')
+
+            await api(page, '/api/settings', {'projectRoots': [], 'projects': []})
+            await page.get_by_role('button', name='Close settings', exact=True).click()
+            await page.reload()
+            await home(page)
+            await page.get_by_label('Location', exact=True).select_option('recent')
+            await expect(page.get_by_role('button', name='New session in used-new', exact=True)).to_be_visible()
+            await expect(page.get_by_role('button', name='New session in used-old', exact=True)).to_be_visible()
+            print('PASS: Home offers recently used folders without locations or bookmarks')
+            await page.wait_for_timeout(1000)
     finally:
         if b: await b.close()
         server.close()

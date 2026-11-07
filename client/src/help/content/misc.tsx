@@ -78,7 +78,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        The project grid puts pinned folders first and sorts others by recent activity. Search by name or path, or filter by location. Cards show their location when several locations are configured. The grid shows two rows of cards at first; Show all opens the rest in a bounded scrolling list, and a search shows every match. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
+        The project grid lists available location folders and bookmarks alphabetically. Recently used is a separate choice, ordered by activity. Temporary folders are excluded. Search by name or path, or filter by location. Cards show their location when several locations are configured. The grid shows two rows of cards at first; Show all opens the rest in a bounded scrolling list, and a search shows every match. New session opens the creator with the folder prefilled. The project menu contains New cluster, Saved sessions, Pin and Manage. Add project location adds a named parent; Open another folder opens a one-off folder browser.
       </p>
     ),
     manualSection: 'home',
@@ -96,12 +96,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'home.locations': {
     title: 'Project location filter',
-    body: <p>Choose All locations or a named location to filter the project grid. The folder browser starts at the selected location. An unavailable location is marked in the list.</p>,
+    body: <p>Choose All folders, Recently used, Pinned or a named location to filter the project grid. The folder browser starts at a selected location. An unavailable location is marked in the list.</p>,
     manualSection: 'home',
   },
   'home.project-actions': {
     title: 'Project actions',
-    body: <p>The menu offers New cluster, Saved sessions, Pin or Unpin, and Manage. Manage contains rename, archive, bookmark removal and missing-folder relocation when available. These controls do not move or delete project files.</p>,
+    body: <p>The menu offers New cluster, Saved sessions, Pin or Unpin, and Manage. Manage contains rename, archive and bookmark removal when available. Settings &gt; Projects offers relocation for missing folders. These controls do not move or delete project files.</p>,
     manualSection: 'home',
   },
 
@@ -109,10 +109,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Manage a project',
     body: (
       <p>
-        Rename changes only the name Arco shows; leave it empty to use the
-        folder name. Archive keeps a project out of the main lists without
-        touching its folder or sessions. Remove bookmark forgets an individual folder bookmark; files and saved chats are not touched. Relocate, for a missing folder, points
-        the project at its new location and keeps its name, pin and the
+        Rename changes the secondary display name; the folder name remains the card title. Leave it empty to clear the display name. Archive keeps a project out of the main lists without
+        touching its folder or sessions. Remove bookmark forgets an individual folder bookmark; files and saved chats are not touched. Relocate in Settings &gt; Projects points a missing folder at its new location and keeps its name, pin and the
         sessions listed under the old location. Nothing here moves or deletes
         files.
       </p>
@@ -143,7 +141,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Filter All folders, Pinned and recent, or a project location, then search by name or path. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without bookmarking it; Bookmark folder keeps it listed independently of locations. Settings / Projects manages project locations and bookmarked folders.
+        Filter All folders, Recently used, Pinned, or a project location, then search by folder name or path. All folders combines location folders and bookmarks in alphabetical order; Recently used lists existing folders by activity and excludes temporary folders. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without bookmarking it; Bookmark folder keeps it listed independently of locations. Settings / Projects manages project locations and bookmarked folders.
       </p>
     ),
   },
@@ -540,7 +538,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Short label for the new tab, shown in the tab bar. In cluster mode it
         names the cluster; in Genesis it is the working name and is required
-        to start. Otherwise it is optional and the project display name is used when
+        to start. Otherwise it is optional and the folder name is used when
         blank. Workflows are keyed by id, not name, so renaming later is
         harmless.
       </p>

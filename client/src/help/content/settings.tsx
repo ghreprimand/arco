@@ -10,7 +10,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Project locations are named parent folders, such as Work or Personal. Add location and Edit open their forms only when requested. Adding an existing path or alias keeps the typed name and offers explicit rename; an edit collision changes neither location. Removing a location never deletes files or saved work. Bookmarked folders holds optional individual-folder controls: Bookmark folder and Remove bookmark. Folders inside project locations already appear automatically; bookmarks keep individual folders listed independently of locations and do not control saved chats or files. Advanced folder options contains the independent Default browsing location. Setup uses the same locations and allows a secondary single-folder choice. Home shows folder counts and useful first choices without requiring setup to run again.
+        Project locations are named parent folders, such as Work or Personal. Add location and Edit open their forms only when requested. Adding an existing path or alias keeps the typed name and offers explicit rename; an edit collision changes neither location. Removing a location never deletes files or saved work. Bookmarked folders holds optional individual-folder controls: Bookmark folder and Remove bookmark. Relocate a missing bookmark or a folder under Missing folder references by entering its new path. Folders inside project locations already appear automatically; bookmarks keep individual folders listed independently of locations and do not control saved chats or files. Advanced folder options contains the independent Default browsing location. Setup uses the same locations and allows a secondary single-folder choice. Home shows folder counts and useful first choices without requiring setup to run again.
       </p>
     ),
   },
@@ -72,7 +72,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           you vouch for a repo they stay suppressed from every turn.
         </p>
         <p>
-          Decisions are keyed by directory, nearest ancestor wins, and cover
+          Search trust decisions filters the scrollable list by path. Decisions are keyed by directory, nearest ancestor wins, and cover
           every tab and cluster member pointed at that path. <C>FLIP</C> swaps
           trusted ↔ blocked; <C>FORGET</C> drops the decision so the next turn in
           that repo prompts again. The <C>DEFAULT</C> row is the fallback for

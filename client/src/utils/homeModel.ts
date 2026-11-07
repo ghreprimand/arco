@@ -20,6 +20,7 @@ export interface HomeProject {
   archived?: boolean;
   previousPaths?: string[];
   rootPath?: string;
+  locationPaths?: string[];
 }
 
 export interface HomeGroup {
@@ -80,6 +81,7 @@ export function parseProjects(body: unknown): HomeProject[] | null {
     seen.add(p.path);
     const project: HomeProject = { path: p.path, name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : p.path.replace(/\\/g, '/').split('/').pop() || p.path, source, exists: p.exists === true };
     if (typeof p.rootPath === 'string' && absolutePath(p.rootPath)) project.rootPath = p.rootPath;
+    if (Array.isArray(p.locationPaths)) project.locationPaths = p.locationPaths.filter((v): v is string => typeof v === 'string' && absolutePath(v));
     if (typeof p.id === 'string' && ID.test(p.id)) project.id = p.id;
     if (typeof p.derivedName === 'string' && p.derivedName.trim()) project.derivedName = p.derivedName.trim();
     if (typeof p.displayName === 'string' && p.displayName.trim()) project.displayName = p.displayName.trim();
@@ -92,6 +94,13 @@ export function parseProjects(body: unknown): HomeProject[] | null {
     out.push(project);
   }
   return out;
+}
+
+// The server keeps picker lists separate from history used for file access.
+export function parsePickerProjects(body: unknown, recent = false): HomeProject[] | null {
+  const value = body as { pickerProjects?: unknown; recentProjects?: unknown } | null;
+  const selected = recent ? value?.recentProjects : value?.pickerProjects;
+  return parseProjects({ projects: selected ?? (body as { projects?: unknown } | null)?.projects });
 }
 
 // Whether the server can store organization (pin, rename, archive, relocate).
@@ -127,8 +136,7 @@ export function projectLabels(projects: HomeProject[]): Map<string, string> {
 export function searchProjects(projects: HomeProject[], query: string): HomeProject[] {
   const q = query.trim().toLowerCase();
   if (!q) return projects;
-  return projects.filter((p) => p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q)
-    || !!p.derivedName?.toLowerCase().includes(q));
+  return projects.filter((p) => p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q));
 }
 
 // Pinned first, then by source; archived projects only when asked for.

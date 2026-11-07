@@ -65,7 +65,7 @@ test('project cards offer organization only when the server can store it, and re
   const live = render({ id, pinned: true, displayName: 'Budget', derivedName: 'app' }, true);
   assert.match(live, /aria-label="Unpin app"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*aria-label="Unpin app"/);
   assert.match(live, /aria-label="Manage app"/);
-  assert.match(live, /Folder name: app/);
+  assert.match(live, /Display name: Budget/);
   assert.match(live, />Pinned</);
   const unavailable = render({ id }, false);
   assert.doesNotMatch(unavailable, /Pin app|Manage app/, 'no organization controls without a record store');

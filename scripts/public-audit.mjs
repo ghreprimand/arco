@@ -147,6 +147,7 @@ const reviewedCaptures = new Map([
   ['client/dist/backgrounds/odytty-dark-waves.webp', '4660bbd363cd1b11027c8b51e7168340ab81f4b06af55e0dc2e054510a91b1cc'],
   ['server/dist/voice/capture-ready.wav', 'f063e9edc2ddd2789a69a8ddc16caf930734df73fcfaddf4a66714fdb6c3423a'],
   ['docs/images/home.webp', [
+    '865584466ee8aec0652b8aad8b6062faeeb6d83f3cbf9517e478f11cb57e39f7', // Synthetic home fixture, folder list.
     '8684cf6873e24b260b37b9a530560fac62ac7ac868ce3d9d924783a6a1a8b74e', // Synthetic home fixture, refreshed theme controls.
     '1ff4fc44552b17531aa760082c23b0a8286b4f86bf98722f5fb3af9504380568', // Synthetic home fixture, refreshed layout switch.
     'f8a6647ee643b6aebe73a2218af3b8b818fa33d92b6e86ff4e2d6dabf6411512',

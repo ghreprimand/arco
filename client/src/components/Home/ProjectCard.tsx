@@ -132,8 +132,8 @@ export function ProjectCard({ project, label, work, organization, onOpen, onStar
           </h4>
           {locationName && <div className="home-card-line" style={muted}>Location: {locationName}</div>}
           <div style={{ ...muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={project.path}>{project.path}</div>
-          {project.displayName && project.derivedName && project.derivedName !== project.displayName && (
-            <div className="home-card-line" style={muted} title={project.derivedName}>Folder name: {project.derivedName}</div>
+          {project.displayName && project.displayName !== project.name && (
+            <div className="home-card-line" style={muted} title={project.displayName}>Display name: {project.displayName}</div>
           )}
           {project.previousPaths?.length ? <div className="home-card-line" style={muted} title={project.previousPaths[0]}>Moved from {project.previousPaths[0]}</div> : null}
           <div style={muted}>

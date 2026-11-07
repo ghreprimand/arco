@@ -131,11 +131,12 @@ test('pinned projects lead, archived ones only appear when asked for', () => {
   assert.deepEqual(groupProjects(list, true).map((g) => g.key), ['pinned', 'registered', 'scanned', 'archived']);
 });
 
-test('shared names get the parent folder; renamed projects stay findable by folder name', () => {
+test('shared names get the parent folder; search uses the shown folder name or path', () => {
   const labels = projectLabels([project('/work/one/app'), project('/work/two/app'), project('/work/site')]);
   assert.deepEqual([...labels.values()], ['app  /  one', 'app  /  two', 'site']);
-  const renamed = { ...project('/projects/app'), name: 'Budget', derivedName: 'tally' };
-  assert.equal(searchProjects([renamed], 'tally').length, 1);
+  const renamed = { ...project('/projects/app'), name: 'app', derivedName: 'tally' };
+  assert.equal(searchProjects([renamed], 'tally').length, 0);
+  assert.equal(searchProjects([renamed], 'app').length, 1);
 });
 
 test('work under a previous location stays with the relocated project', () => {

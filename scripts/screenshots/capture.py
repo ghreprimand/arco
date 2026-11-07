@@ -85,7 +85,9 @@ def api_data(path):
     if path == '/api/auth-status':
         return {key: {'loggedIn': key == 'claude'} for key in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
     if path == '/api/installation-history': return {'used': True}
-    if path == '/api/projects': return {'roots': roots, 'projects': projects, 'organization': True, 'homeFolder': '/projects'}
+    if path == '/api/projects':
+        picker = sorted([dict(project, name=project['path'].rsplit('/', 1)[-1], locationPaths=['/projects']) for project in projects], key=lambda item: item['name'].casefold())
+        return {'roots': roots, 'projects': projects, 'pickerProjects': picker, 'recentProjects': [], 'organization': True, 'homeFolder': '/projects'}
     if path == '/api/sessions': return {'sessions': [{'sessionId': 'demo-session', 'name': 'Plan the next release', 'provider': 'claude', 'cwd': '/projects/harbor', 'startedAt': 1793400000000}]}
     if path == '/api/app/version': return {'version': VERSION}
     if path == '/api/update-check': return {'current': VERSION, 'latest': None, 'url': None, 'publishedAt': None, 'checkedAt': None, 'enabled': False, 'updateAvailable': False}

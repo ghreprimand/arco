@@ -6,7 +6,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import type { CreatorPrefill } from '../../stores/appStore.types';
 import {
-  openWork, boundProjects, conversationStarted, organizationAvailable, parseProjects, projectLabels, scanFolderOf, rootsOf, searchProjects, workForProject,
+  openWork, boundProjects, conversationStarted, organizationAvailable, parsePickerProjects, projectLabels, scanFolderOf, rootsOf, searchProjects, workForProject,
   type HomeProject, type HomeRoot, type OpenWorkItem,
 } from '../../utils/homeModel';
 import { ProjectCard } from './ProjectCard';
@@ -53,6 +53,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState('');
+  const [recentProjects, setRecentProjects] = useState<HomeProject[]>([]);
   const [hasChatted, setHasChatted] = useState(() => readHomeMarker('arco-home-started-chat'));
   const [savedChats, setSavedChats] = useState(0);
   const [savedClusters, setSavedClusters] = useState(0);
@@ -98,9 +99,9 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
   // Every list reply (load or change) replaces the whole list.
   const applyList = useCallback((body: unknown): boolean => {
-    const parsed = parseProjects(body);
+    const parsed = parsePickerProjects(body);
     if (!parsed) return false;
-    listRequest.current++; setLoadError('');
+    listRequest.current++; setLoadError(''); setRecentProjects(parsePickerProjects(body, true) ?? []);
     setProjects(parsed); setOrganization(organizationAvailable(body)); setScanFolder(scanFolderOf(body)); setRoots(rootsOf(body));
     const home = (body as { homeFolder?: unknown }).homeFolder;
     setBrowserRoot(scanFolderOf(body) ?? (typeof home === 'string' ? home : ''));
@@ -168,22 +169,20 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const workLimit = workColumns * WORK_ROWS;
   const workShown = workExpanded ? work : work.slice(0, workLimit);
   const shown = useMemo(() => {
-    const all = projects ?? [], found = searchProjects(all, query);
+    const all = location === 'recent' ? recentProjects : projects ?? [], found = searchProjects(all, query);
     const q = query.trim().toLowerCase();
     if (!q) return found;
     const locations = new Set((roots ?? []).filter(root => root.name.toLowerCase().includes(q)).map(root => root.path));
     const matches = new Set(found.map(project => project.path));
     return all.filter(project => matches.has(project.path) || !!project.rootPath && locations.has(project.rootPath));
-  }, [projects, query, roots]);
+  }, [projects, recentProjects, query, roots, location]);
   const filtered = useMemo(() => {
-    const visible = shown.filter(p => (showArchived || !p.archived) && (!location || p.rootPath === location));
-    const latest = new Map(visible.map(project => [project.path, Math.max(activity[project.path] ?? 0, ...workForProject(project, projects ?? [], work).map(item => item.lastActivity))]));
-    return visible.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || (latest.get(b.path) ?? 0) - (latest.get(a.path) ?? 0));
-  }, [shown, showArchived, location, activity, projects, work]);
+    return shown.filter(p => p.exists && (showArchived || !p.archived) && (!location || location === 'recent' || (location === 'pinned' ? !!p.pinned : (p.locationPaths?.includes(location) ?? p.rootPath === location))));
+  }, [shown, showArchived, location]);
   const labels = useMemo(() => projectLabels(projects ?? []), [projects]);
   const availableCount = (projects ?? []).filter(p => p.exists && !p.archived).length;
   const archivedCount = (projects ?? []).filter((p) => p.archived).length;
-  const showProjects = availableCount > 0 || !gettingStarted || !!loadError || archivedCount > 0;
+  const showProjects = availableCount > 0 || recentProjects.some(p => p.exists && !p.archived) || !gettingStarted || !!loadError || archivedCount > 0;
   useEffect(() => {
     const probe = projectProbe.current;
     if (!probe || typeof ResizeObserver === 'undefined') return;
@@ -257,12 +256,12 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
       {showProjects && <section aria-labelledby="home-projects" data-help="home.projects">
         <div className="home-project-tools"><h2 id="home-projects">Projects</h2>
-          <label data-help="home.locations">Location <select aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); setBrowserRoot(e.target.value || scanFolder || ''); }}><option value="">All locations</option>{roots?.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (unavailable)'}</option>)}</select></label>
+          <label data-help="home.locations">Location <select aria-label="Location" value={location} onChange={e => { setLocation(e.target.value); setBrowserRoot((e.target.value === 'recent' || e.target.value === 'pinned') ? scanFolder || '' : e.target.value || scanFolder || ''); }}><option value="">All folders</option><option value="recent">Recently used</option><option value="pinned">Pinned</option>{roots?.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (unavailable)'}</option>)}</select></label>
           <button type="button" className="home-primary" data-add-location onClick={() => setLocationOpen(true)}>Add project location</button>
           <button type="button" data-open-folder onClick={() => setAddOpen(true)}>Open another folder</button>
         </div>
         {projects && projects.length === 0 && !roots?.length && <p className="home-location-intro">Add a location containing your projects, such as Work or Personal, or open a single folder. In Docker, mount folders first.</p>}
-        {projects?.length !== 0 && <div className="home-search"><label htmlFor="home-search">Search folders (press /)</label>
+        {(projects === null || projects.length > 0 || recentProjects.length > 0) && <div className="home-search"><label htmlFor="home-search">Search folders (press /)</label>
           <input id="home-search" ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setQuery(''); }} placeholder="Name or folder" />
           <button type="button" onClick={() => void load()}>Reload list</button>
           {archivedCount > 0 && <button type="button" aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}</button>}
@@ -272,7 +271,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         {loadError && <p role="alert" className="home-feedback">{loadError}</p>}
         {projects && !organization && <p role="alert" className="home-feedback">Pinning, renaming, archiving and relocating are unavailable because the project record file could not be read or saved. Folders are still listed; nothing was changed.</p>}
         {projects && availableCount === 0 && projects.length > 0 && !query && <p className="home-feedback">No available folders. Reconnect a missing location or open another folder.</p>}
-        {projects && projects.length > 0 && shown.length === 0 && <p className="home-feedback">No folder matches "{query}".</p>}
+        {projects && query && shown.length === 0 && <p className="home-feedback">No folder matches "{query}".</p>}
         <div ref={projectProbe} className="home-project-probe" aria-hidden="true" />
         <div id="home-project-list" className={bound.scrolls ? 'home-bounded expanded' : 'home-bounded'}>
         <ul className="home-project-grid">

@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Moving an artifact into a project works when the project path uses a folder alias.
+- Project folder choices now list existing location folders and bookmarks alphabetically, with recently used folders separate and temporary folders excluded. Project trust decisions have search and a bounded scrolling list.
 
 ### Added
 
