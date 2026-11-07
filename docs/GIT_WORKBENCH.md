@@ -308,13 +308,13 @@ same source `HEAD`.
 3. `bakeoffHandlers.ts` creates background workflow tabs and concurrently sends
    the same prompt plus fixed isolation rules. Sticky Ultracode and Goal Run
    are disabled on attempt tabs so one bounded fan-out cannot multiply.
-4. The operator opens any attempt tab for its transcript or clicks **DIFF** in
+4. The operator opens any attempt tab for its transcript or clicks **VIEW DIFF** in
    BAKE-OFF. `GET /api/git/bakeoffs/diff` feeds the shared `DiffView`.
 5. The operator explicitly clicks **PROMOTE**. Arco stages candidate project
    files, creates a candidate commit when needed, and performs a
    no-fast-forward merge into the source checkout.
-6. **CLEAN LOSERS / CLEAN ALL** closes the selected attempt tabs and removes
-   only their managed worktrees. Their branches are deliberately preserved.
+6. **REMOVE LOSING WORKTREES** (after a promotion) or **REMOVE ALL WORKTREES**
+   closes the attempt tabs and removes only their managed worktrees. Their branches are deliberately preserved.
 
 There is no automatic ranking, winner, merge, push, or cleanup. Promotion
 refuses while the attempt is busy, when the source checkout is dirty, or when

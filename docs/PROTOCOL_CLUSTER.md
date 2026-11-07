@@ -1050,7 +1050,7 @@ that row rather than creating a duplicate.
 `cluster_not_found { clusterId }` message. The client removes only that stale
 local mirror, preventing a generic "Unknown cluster" toast on every reconnect.
 This does not affect intact clusters: `GET /api/clusters` catalogs durable live
-records, and `+NEW -> CLUSTER -> LIVE CLUSTERS ON THIS COMPUTER -> REOPEN` sends
+records, and `+NEW -> CLUSTER -> CLOSED CLUSTERS -> REOPEN` sends
 the normal `cluster_subscribe` for the original id. Snapshot restore remains a
 separate fork operation with new ids.
 

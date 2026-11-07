@@ -213,7 +213,7 @@ Append-only prefix delivery is a current Native transport invariant. The in-proc
 
 ### Spawn
 
-`spawn('claude', args, { detached: true, env: { ...process.env, ARCO_INVOKER: 'sdk-cli' } })`. The `ARCO_INVOKER` env var lets the concurrent-writer guard distinguish Arco-issued writes from foreign `claude --resume` terminal writes hitting the same JSONL.
+`spawn('claude', args, { detached: true, env: { ...process.env } })` (through `commandArgs`, so Windows resolves the command shim). The concurrent-writer guard reads the `entrypoint` field the Claude CLI writes on each session JSONL row: `sdk-cli` for turns Arco started, any other value for a `claude --resume` terminal writing to the same JSONL (`server/src/ws/turnEngine.ts`).
 
 ### Argv (primary)
 

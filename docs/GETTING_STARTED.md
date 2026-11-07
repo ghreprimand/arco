@@ -56,7 +56,8 @@ also sets the folder browser's starting location.
 
 Larger browsing and work dialogs offer **Maximize** and **Restore**. Drag
 **Resize**, or focus it and use arrow keys to adjust the dialog (Shift makes
-larger steps; Home resets its size). These adjustments are temporary and do not
+larger steps). The chosen size is remembered for that kind of dialog in this
+browser; **Reset size** or Home restores the default. Dialog sizes do not
 change the saved interface text size.
 
 ### Settings > Projects
@@ -309,7 +310,8 @@ Coordinator count). Existing clusters that already have two directors remain
 intact, show a warning on MEMBERS, and still allow REPLACE that preserves both
 roles. Work size is a hint for the director and does not change model or effort.
 Arco does not otherwise auto-route work from role or work size. AUTO-PICKUP on
-the cluster header stays Off until armed. Rule-based is the recommended
+the cluster right-panel header (under SETTINGS in the Compact and Narrow
+layouts) stays Off until armed. Rule-based is the recommended
 automatic mode; Smart Observe-only and Smart Automatic need an evaluator on
 Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl. See the in-app manual for modes and limits.
 See [TASK_LEDGER.md](TASK_LEDGER.md) for cluster boards, messages, and saved
@@ -344,11 +346,10 @@ The setup downloads speech components to the configured voice home and writes a
 `NOTICES.md` file there with component licenses and upstream sources. Review that
 notice and [VOICE.md](VOICE.md) before enabling hands-free mode.
 
-1. Open Arco's **COMPUTER** controls.
-2. Enable hands-free.
-3. Allow browser microphone access.
-4. Say "Computer" followed by a short request.
-5. Say "over" to submit. Silence does not send a directive.
+1. Click **VOICE** in the header to turn hands-free on.
+2. Allow browser microphone access.
+3. Say "Computer" followed by a short request.
+4. Say "over" to submit. Silence does not send a directive.
 
 ## Where state lives
 

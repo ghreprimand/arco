@@ -126,7 +126,8 @@ Arco downloads these components at the request and does not redistribute them.
 Re-running the command skips models already present. About 1 GB is downloaded on
 a first Linux or macOS run.
 
-Open **VOICE OFF** in the header and choose **ENABLE HANDS-FREE**. Allow
+Click **VOICE** in the header to turn hands-free on (or choose **ENABLE
+HANDS-FREE** under **VOICE CONTROLS** in the menu beside it). Allow
 microphone access. The page must use localhost or HTTPS.
 `Ctrl/Cmd+Shift+Space` also toggles the mode. The indicator remains visible in
 focus mode. The controls show status, dictation recipient, errors and live Luna
@@ -786,8 +787,9 @@ license it declares. Arco downloads these components at the request
 and does not redistribute them. Re-running the command skips models already
 present. About 1 GB is downloaded on a first Linux or macOS run.
 
-Open **VOICE OFF** in the header and choose **ENABLE
-HANDS-FREE**. Allow microphone access. The page must use localhost or HTTPS.
+Click **VOICE** in the header to turn hands-free on (or choose **ENABLE
+HANDS-FREE** under **VOICE CONTROLS** in the menu beside it). Allow microphone
+access. The page must use localhost or HTTPS.
 `Ctrl/Cmd+Shift+Space` also toggles the mode. The indicator remains visible in
 focus mode. The controls show status, dictation recipient, errors and live
 Luna usage. Spoken feedback and unfamiliar-command interpretation can each

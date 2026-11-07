@@ -530,6 +530,15 @@ servers for the smoke harness use): `ARCO_WS_AUTH=off`, e.g. an
 `Environment=ARCO_WS_AUTH=off` line in the unit's `override.conf`, then
 restart.
 
+Every HTTP request and socket upgrade also passes a Host and Origin check
+(`server/src/http/originGuard.ts`) that stops other web pages and DNS
+rebinding from reaching the server through the browser. Allowed names are
+loopback names, IP addresses, this computer's host name, Tailscale MagicDNS
+names (`*.ts.net`) and the names in `ARCO_ALLOWED_HOSTS` (comma-separated;
+`*.example.com` allows every subdomain). Set `ARCO_ALLOWED_HOSTS` when a
+reverse proxy or tunnel reaches Arco under another name. Requests without an
+Origin header, such as `curl`, pass this check.
+
 To use Arco remotely, **prefer an SSH or Vite tunnel** (forward `5173`/`3001`
 over SSH, or `ssh -L`) so the bind stays loopback and only your authenticated
 SSH session reaches it. Set `ARCO_HOST=0.0.0.0` **only** when you deliberately
@@ -562,6 +571,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
 | `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual GitHub release checks; overrides Settings |
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default  - the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
+| `ARCO_ALLOWED_HOSTS` | unset | Extra host names the Host and Origin check accepts (comma-separated, `*.suffix` wildcards), for a reverse proxy or tunnel name. Kept by the package service |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only  - never leave it on `arco.service` |
 | `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
 | `ARCO_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset -> Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |
@@ -1088,7 +1098,8 @@ wakes before a pair pause, six wakes per member per hour, 40 wakes per arming,
 and chain-depth eight. Env overrides for shared guards:
 `ARCO_CLUSTER_AUTO_TURN_COOLDOWN_MS`, `ARCO_CLUSTER_AUTO_TURN_RATE_CAP_PER_MINUTE`,
 `ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH`. Smart modes need an evaluator on Claude
-Native, Cursor, or Ollama; Codex is never available. See
+Native, Codex, Cursor, Ollama, LM Studio, llama.cpp, or Strata or DeepSeek
+through Xolotl. See
 [SETTINGS.md](SETTINGS.md#auto-pickup) and
 [PROTOCOL_CLUSTER.md](PROTOCOL_CLUSTER.md).
 
@@ -1229,7 +1240,7 @@ What to do: read the `system_notice`  - the worker is repeating a failing comman
 
 ### Project CLAUDE.md / skills / settings aren't being applied
 
-The project-trust gate (`server/src/projectTrust.ts`) suppresses a repo's project-local `CLAUDE.md`, project skills, and `<cwd>/.arco/settings.json` from the agent's system prompt until you explicitly trust the repo  - a cloned repo can otherwise inject instructions into your agent the moment you point a tab at it. When a cwd is untrusted, the composer shows an inline **WARNING UNTRUSTED PROJECT** banner listing the suppressed resources with **> TRUST** / **NEVER** buttons. The first turn runs with the resources suppressed; clicking TRUST records the decision in `~/.arco/trust.json` (keyed by canonical absolute path, deepest recorded ancestor wins) and folds them in on the **next** turn. Reversible  - edit or delete the entry in `trust.json` by hand. Default posture is `ask`; a global `defaultProjectTrust` (`ask`/`always`/`never`) in `~/.arco/settings.json` changes it, resolved from user/global scope only so a cloned repo can't self-grant trust.
+The project-trust gate (`server/src/projectTrust.ts`) suppresses a repo's project-local `CLAUDE.md`, project skills, and `<cwd>/.arco/settings.json` from the agent's system prompt until you explicitly trust the repo  - a cloned repo can otherwise inject instructions into your agent the moment you point a tab at it. When a cwd is untrusted, the composer shows an inline **⚠ UNTRUSTED PROJECT** banner listing the suppressed resources with **▸ TRUST** / **NEVER** buttons. The first turn runs with the resources suppressed; clicking TRUST records the decision in `~/.arco/trust.json` (keyed by canonical absolute path, deepest recorded ancestor wins) and folds them in on the **next** turn. Reversible  - edit or delete the entry in `trust.json` by hand. Default posture is `ask`; a global `defaultProjectTrust` (`ask`/`always`/`never`) in `~/.arco/settings.json` changes it, resolved from user/global scope only so a cloned repo can't self-grant trust.
 
 ### A tab is parked on a review gate
 
@@ -1265,7 +1276,7 @@ ssh -L 5173:localhost:5173 <ssh-target>
 
 Only port 5173 needs forwarding  - Vite proxies WS and API to the server. **Do not forward port 3001 directly** unless you're aware that the WS endpoint has no auth.
 
-The server binds `127.0.0.1` by default (`ARCO_HOST`, see [environment variables](#environment-variables)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token  - none of it is authed. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
+The server binds `127.0.0.1` by default (`ARCO_HOST`, see [environment variables](#environment-variables)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token. There are no user accounts: the browser session check and the Host and Origin check described under [Exposure posture](#exposure-posture) are the only gates. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
 
 The auth model assumes single-operator local-only usage. Multi-user / public deployment isn't supported.
 

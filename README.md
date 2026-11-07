@@ -104,8 +104,8 @@ launchd procedure.
 
 ### Docker
 
-**Prerequisites:** Docker with Compose support. Clone the repository as above and
-enter its directory. Fetch the stable release tags, list them, and check out the
+**Prerequisites:** Docker with Compose support. Clone the repository
+(`git clone https://github.com/ghreprimand/arco.git`) and enter its directory. Fetch the stable release tags, list them, and check out the
 newest release tag from the list before building. Replace `vX.Y.Z` with that tag:
 
 ```sh
@@ -165,7 +165,7 @@ generated LaunchAgent. Source checkouts continue to update with
 ## Run and configure
 
 Open **Settings** for Appearance, Projects, Providers and models, Agents and
-clusters, Voice, Files and media, and Advanced. Search finds controls across
+clusters, Voice, Notifications, Files and media, and Advanced. Search finds controls across
 categories, and each section explains its scope. Per-workflow provider, model,
 effort, and tool controls live in **CONFIG**. The
 [Settings guide](docs/SETTINGS.md) maps every control to its location.
@@ -198,18 +198,17 @@ making it reachable elsewhere.
 - **Home:** the start page for project locations, bookmarks, open work, and saved sessions. Pin or archive projects, recover moved folders, and resume work. [Getting started](docs/GETTING_STARTED.md)
 - **Provider choice:** Claude, Codex, Cursor, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
 - **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
-- **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts only Claude with Native sign-in, Cursor, or Ollama; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
+- **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts Claude with Native sign-in, Codex, Cursor, Ollama, LM Studio, llama.cpp, and Strata or DeepSeek through Xolotl; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the working indicator names the current step and its elapsed time. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
 - **Operator actions:** Review, Compare, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
 - **Clusters and plans:** size-ordered templates, at most one director, shared
   task boards, peer messages, plans, and optional operator-armed AUTO-PICKUP
-  (Rule-based recommended; Smart modes need an evaluator on Claude Native,
-  Cursor, or Ollama).
-  [Task ledger](docs/TASK_LEDGER.md) | [Getting started](docs/GETTING_STARTED.md)
-
-A plan gives a workflow or cluster its shared direction; the board tracks who
-is doing each task. Describe a cluster's purpose during creation to request a
-director's draft, then review it before attaching. See [Plan or board?](docs/PLAN_OR_BOARD.md).
+  (Rule-based recommended; Smart modes need an evaluator from the same
+  providers as the utility agent). A plan gives a workflow or cluster its
+  shared direction; the board tracks who is doing each task. Describe a
+  cluster's purpose during creation to request a director's draft, then review
+  it before attaching.
+  [Task ledger](docs/TASK_LEDGER.md) | [Plan or board?](docs/PLAN_OR_BOARD.md) | [Getting started](docs/GETTING_STARTED.md)
 - **Updates and shortcuts:** the top-bar version box shows the running version and opens the update dialog; package installs use `arco update` or **UPDATE AND RESTART**; `arco open` and per-user shortcuts open a dedicated app window. [Updating Arco](docs/OPERATIONS.md#updating-arco) | [Service mode](docs/SERVICE_MODE.md)
 - **Working tools:** an embedded terminal and Git workbench keep commands, diffs, checkpoints, and reviews beside the conversation. [Git workbench](docs/GIT_WORKBENCH.md)
 - **Project knowledge:** store reviewed notes and retrieve useful context; search saved conversations through Recall. [Knowledge](docs/KNOWLEDGE.md)

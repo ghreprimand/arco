@@ -5,15 +5,15 @@ and sorted alphabetically after the short Chat and theme primers below.
 
 **Chat tab** - Projectless conversation (`kind:'chat'`, reaching workers as
 `interactionMode:'chat'`), with a lightweight composer and no Agent workbench.
-Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata.
-The per-tab **web toggle** (`chatWebAccess`, Claude/Codex/Ollama/Strata; decided by
+Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, DeepSeek.
+The per-tab **web toggle** (`chatWebAccess`, Claude/Codex/Ollama/Strata/DeepSeek; decided by
 `chatWebArmed()`) adds web search + fetch and nothing else. Saved chats reopen via
 PAST CHATS. Not the same as Claude Native's `chat` tool posture. See [CHAT.md](CHAT.md).
 
 **Incognito Chat** - Memory-only Chat with no Arco transcript/meta/operational
 log/notification/browser persistence; attachments are refused and web defaults off.
 Close, refresh or restart loses it. Provider retention remains provider-controlled;
-Cursor, llama.cpp and Strata are excluded.
+Cursor, llama.cpp, Strata and DeepSeek are excluded.
 
 **Arco Classic / Arco Phosphor** - Separate theme families. Classic preserves
 43 original selections; Phosphor generates 68 `phosphor:arco:<id>` variants from
