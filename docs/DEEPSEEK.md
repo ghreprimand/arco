@@ -31,7 +31,7 @@ workflows, settings and API routes; its user-facing provider name is Xolotl.
 ## Select, load and unload
 
 Enable XOLOTL in Settings. The primary-agent selector reads
-`XOLOTL, DeepSeek · Exact / Light`: runtime first, then the model family. Both registered profiles appear even when stopped.
+`XOLOTL: DeepSeek · Exact / Light`: runtime first, then the model family. Both registered profiles appear even when stopped.
 Select a profile in the Agent creator, composer model picker, CONFIG, saved
 Chat, or a primitive's RUN AS picker. Selection applies on the next message;
 changing a dropdown alone does not load a model. Settings -> XOLOTL · DEEPSEEK

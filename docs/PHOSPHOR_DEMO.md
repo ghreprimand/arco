@@ -19,7 +19,6 @@ python3 scripts/smoke/phosphor-demo-browser.py
 
 The development server binds loopback on port 5178, with strict port selection.
 Build output goes to ignored `client/dist-phosphor-demo/`, never `client/dist/`.
-The production service was left running throughout this work.
 
 ## Inspecting the preview
 
@@ -31,7 +30,7 @@ The production service was left running throughout this work.
   stack; 0 removes text glow only. Crisp text/effects-off override and disable
   the slider without forgetting its value. Reduced motion retains the setting.
 - **FONTS / BRIGHTNESS** opens the display settings, including all existing font
-  packs, separate text brightness (−30...+80) and background brightness (−30...+30).
+  packs, separate text brightness (-30 to +80) and background brightness (-30 to +30).
   The background dimmer uses Arco's existing token adjustment and feeds the
   adjusted base into the ambient renderer; static fallback uses the same tokens.
 - **BROWSE / SETTINGS** searches all palettes by readable name or full ID, with
@@ -127,8 +126,9 @@ border renderers on production-specific panels are not exercised by this shell.
 
 **Phosphor:** 68 palette variants share one typography/density/effects contract.
 IDs are `phosphor:arco:<original-id>`, including `phosphor:arco:everforest`
-and `phosphor:arco:red-planet`; neither collides with Classic. These IDs are
-intentionally absent from both production registries. There is no migration.
+and `phosphor:arco:red-planet`; neither collides with Classic. The same IDs
+are in the production `PHOSPHOR_THEME_REGISTRY` (`client/src/themes/registry.ts`);
+new homes default to `phosphor:arco:electric`. There is no migration.
 
 The preview clears all previous theme token keys before applying another family,
 including reference-only aliases. Family/palette changes do not key/remount the

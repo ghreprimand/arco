@@ -61,11 +61,11 @@ unique pid** (not per socket) to bound spawns; resolvers run concurrently.
 - **Local-only:** keep loopback / wildcard / private bind addresses
  (`127.0.0.1` / `::1` / `0.0.0.0` / `::` / `127.*`); these are **listed**, not
  filtered out.
-- **Privileged-port skip:** drop ports `< 1024` (`scanner.py` line ~230).
+- **Privileged-port skip:** drop ports `< 1024`.
 - **Dedup** by `(pid, host, port)`.
 - **Sort:** port asc, then `processName`, then `pid`.
 
-### Heuristics (ported verbatim from `scanner.py`)
+### Heuristics (ported verbatim from the earlier implementation)
 
 - **Framework table**, a 27-entry `(substring, label, emoji)` list
  (`vite` -> Vite, `next` -> Next.js, `flask` -> Flask, `tsx` -> TSX, ...). First-match
@@ -103,6 +103,8 @@ unique pid** (not per socket) to bound spawns; resolvers run concurrently.
 - **A single unreadable / exited process:** partial info, `cmdline` becomes `''`,
  `cwd` becomes `null`, and `processName` falls back to `lsof`'s COMMAND column.
  Never fails the whole scan.
+- **Windows:** there is no `lsof`, so the list is empty with the same
+ `detail` notice. Discovery runs on Linux and macOS only.
 
 ### Secrets
 

@@ -3,7 +3,7 @@
 ```text
 Arco/
   shared/src/
-    protocol/                    # ~41 domain WS-message modules (chat, clusters, compare,
+    protocol/                    # ~50 domain WS-message modules (chat, clusters, compare,
                                  #   diagnostics, genesis, gitOps, handoffs,
                                  #   knowledge, mcp, media, models, notifications, plans,
                                  #   providers, recall, remoteManagement, research, reviews,

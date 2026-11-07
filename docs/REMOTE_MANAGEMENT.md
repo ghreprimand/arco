@@ -104,7 +104,7 @@ The UI distinguishes a stopped Arco process with a reachable agent or SSH target
 
 - On boot, each Arco service (and its `arco-agent`) opens an **outbound** tailnet WebSocket to the hub
   and sends `instance_register { instance: ManagedArcoInstance }`.
-- Thereafter `instance_heartbeat { instanceId, at, rollup }` on a fixed interval (suggest 15s; tunable).
+- Thereafter `instance_heartbeat { instanceId, at, rollup }` on a fixed interval (15 s by default; `DEFAULT_HEARTBEAT_MS` in `server/src/management/hubLink.ts`).
 - The hub marks **online** (`now - lastHeartbeatAt < 2×interval`), **stale** (within a grace window), then
   **offline**. Offline never deletes the instance, it shows last-seen so the operator knows *which* machine
   is asleep.
@@ -239,8 +239,7 @@ Primary screens:
 >   Arco *service* is connected, each card grows a **Workflows** section listing each workflow (title,
 >   running/idle, provider/model) with **Reply / Continue** (idle) and **Stop** (running) wired to
 >   `POST /api/instances/:id/workflow-action`. The away-from-desk approval loop now works end-to-end.
-> - **Workflow context:** each workflow row shows the last assistant message (operator
->   directive: length is fine), in a scrollable block (<=60vh so a long one doesn't bury the other workflows),
+> - **Workflow context:** each workflow row shows the whole last assistant message, in a scrollable block (<=60vh so a long one doesn't bury the other workflows),
 >   plus last-activity time and last-turn duration. Source: the server tails the workflow's `events.jsonl`
 >   (bounded **1MB**; walks back collecting `primary_text`, skipping thinking, to the last
 >   `primary_turn_started`; message capped at `MAX_MESSAGE_CHARS=200k` only to bound a runaway). A workflow

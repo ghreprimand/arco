@@ -1,7 +1,7 @@
 # Genesis: staged project ideation
 
 Genesis turns a vague idea into a defined, scaffoldable project through a short staged
-conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucination field prompts, readiness checks, and a scaffold writer. It does not add a separate agent loop. Genesis uses Arco's existing primary agent, assembling its system blocks plus a next-field prompt. **No new loop, no second model, no separate orchestration layer, no new database.** It follows the operator-reviewed scaffolding and scope rules in `CLAUDE.md`: operator-initiated, deterministic, visible in `events.jsonl`, and reversible.
+conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucination field prompts, readiness checks, and a scaffold writer. It does not add a separate agent loop. Genesis uses Arco's existing primary agent, assembling its system blocks plus a next-field prompt. **No new loop, no second model, no separate orchestration layer, no new database.** It follows Arco's rules for operator-reviewed scaffolding: operator-initiated, deterministic, visible in `events.jsonl`, and reversible.
 
 ## The seed
 

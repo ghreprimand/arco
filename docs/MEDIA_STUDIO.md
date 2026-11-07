@@ -227,7 +227,7 @@ worker tweak.
 The studio becomes a **general media tool**, not one fenced to a workflow folder. Two long-standing blockers, both fixed:
 
 1. **An imported (object-URL) file could play but not be operated on**, ffmpeg reads files, not blobs. Now an imported file is **staged to Arco scratch** (`POST /api/media/scratch`) and the op runs against the on-disk copy.
-2. **A file outside the workflow cwd couldn't be reached at all**, both the op route and `/raw` confined every path to the cwd. Now a tiered access fence permits arbitrary paths when the operator opts in.
+2. **A file outside the workflow cwd couldn't be reached at all**, both the op route and `/raw` confined every path to the cwd. Now a tiered access fence permits listed outside folders when the operator opts in.
 
 Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes in [HTTP API: Media ops](HTTP_API.md#media-ops-workbench-expansion-h6--h7); the load-bearing invariants are in [Gotchas: Media access fence](GOTCHAS.md#media-access-fence).
 
@@ -237,9 +237,9 @@ Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes
 
 1. **Inside the workflow cwd** -> always allowed (the pre-N2 behavior, unchanged).
 2. **Inside Arco's media-scratch** (`~/.arco/media-scratch/`) -> always allowed regardless of the setting, the operator put the file there through the upload endpoint.
-3. **Anywhere else** -> allowed **only** when `mediaUnconfined !== false` (Settings -> Media; default open). Otherwise rejected with `code: 'bad-path'`.
+3. **Inside an allowed folder** -> allowed **only** when `mediaUnconfined === true` and the folder is in `mediaAllowedRoots` (Settings > Files and media > Media folder access; default confined, up to 32 folders). Anything else is rejected with `code: 'bad-path'`.
 
-`unconfined: false` reproduces the pre-N2 fence **exactly** (cwd + scratch only), which is why the positional `runMediaOp(cwd, path, spec)` form the audio/video smokes use, no `opts` => `unconfined` defaults to `false`, still rejects `/etc/hosts` and `../../` escapes. The setting is read per-op from the cascade (`readSettings(cwd)`), so a project `.arco/settings.json` can pin it. **Default-open matters because Arco can be tunnelled**, the operator switches to CONFINED on an exposed instance.
+`unconfined: false` reproduces the pre-N2 fence **exactly** (cwd + scratch only), which is why the positional `runMediaOp(cwd, path, spec)` form the audio/video smokes use, no `opts` => `unconfined` defaults to `false`, still rejects `/etc/hosts` and `../../` escapes. Both settings are read per op from the global settings only (`readSettings()` without a cwd), so a project `.arco/settings.json` cannot widen access. Confined is the default because Arco can be tunnelled.
 
 ### Scratch storage
 
@@ -254,7 +254,7 @@ Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes
 - **Shared op helper:** `client/src/components/media/postMediaOp.ts`, resolves the input (on-disk path as-is, or upload the imported `File` to scratch first), then POSTs the op with the chosen output. Used by both ops panels.
 - **Save controls:** `client/src/components/media/MediaSaveControls.tsx`, a collapsed "SAVE TO..." row (destination dir + filename), shared by audio + video panels.
 - **Imported files now enable ops:** `AudioOpsPanel` / `VideoOpsPanel` take an `importedFile` prop; `MediaModalHost` holds the imported `File` and passes it through. `enabled` is true for an on-disk **or** imported source.
-- **Settings toggle:** `SettingsPanel` -> MEDIA ACCESS (`● UNCONFINED` / `○ CONFINED`), POSTs `{ mediaUnconfined }`.
+- **Settings controls:** Settings > Files and media > Media folder access (`MediaAccessSettings.tsx`): `● OUTSIDE-FOLDER ACCESS ON` / `○ OUTSIDE-FOLDER ACCESS OFF`, `+ ADD FOLDER` and `REVOKE ALL`, saving `{ mediaUnconfined, mediaAllowedRoots }`. Confined is the default; outside paths need access on and the folder listed.
 
 ### Smoke
 

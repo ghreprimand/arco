@@ -1,9 +1,10 @@
 # Diagnostics
 
 A read-only surface showing which system components are available. It lives in
-the **System** modal, opened from the header. Three tabs: **Actions**
-(RESTART / QUIT), **Diagnostics** (A1/A2 status checks + support bundle), and
-**Models** (A3 local model health).
+the **System** modal, opened from the header power button (`⏻`). Four tabs:
+**ACTIONS** (RESTART / QUIT), **DIAGNOSTICS** (A1/A2 status checks + support
+bundle), **MODELS** (A3 local model health) and **SERVICES** (local services,
+see [Local services](LOCAL_SERVICES.md)).
 
 ## Where it lives
 
@@ -53,9 +54,9 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
   value instead of throwing.
 - Probes run **concurrently** (`Promise.all` across all groups) and each binary
   probe is individually time-bounded, so one slow binary can't hang the call.
-- Cross-platform (Linux + macOS): POSIX only. The lone platform-specific probe
-  is the hardware GPU probe (already degrades to a CPU/Metal profile without
-  `nvidia-smi`). No hardcoded `/usr` paths, no Linux-only binaries.
+- Cross-platform: no hardcoded `/usr` paths and no Linux-only binaries. The lone
+  platform-specific probe is the hardware GPU probe (it degrades to a CPU/Metal
+  profile without `nvidia-smi`).
 
 ## Groups + checks
 
@@ -84,7 +85,7 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `local-tools.gh` | `gh` on PATH + `gh auth token` (token never logged). |
 | `local-tools.ffmpeg` | `ffmpegAvailable()`. |
 | `local-tools.ffprobe` | `ffprobeAvailable()`. |
-| `local-tools.lsp` | PATH lookup for `typescript-language-server` / `pyright-langserver` / `gopls` / `rust-analyzer`. **Partial detection degrades to `warn`, never `error`** (this box has `rust-analyzer` but not `typescript-language-server`). |
+| `local-tools.lsp` | PATH lookup for `typescript-language-server` / `pyright-langserver` / `gopls` / `rust-analyzer`. **Partial detection degrades to `warn`, never `error`** (for example `rust-analyzer` on PATH but not `typescript-language-server`). |
 | `local-tools.pty` | `node-pty` importable + `spawn()` present (integrated terminal). |
 
 ### Workbench

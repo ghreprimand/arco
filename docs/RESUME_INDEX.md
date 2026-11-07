@@ -24,9 +24,9 @@ read in one `fs.readFile` with no DB open. Recall provides global search and fil
 
 It is a **rebuildable projection, never a source of truth.** `meta.json` +
 `events.jsonl` remain authoritative; deleting `session-index.json` costs nothing,
-the next turn or resume-discovery rebuilds it. Because it's ephemeral, the
-`.arco/.gitignore` Arco drops on first-workflow-init lists it alongside
-`workflows/` (and in this repo `.arco/` is wholly ignored).
+the next turn or resume-discovery rebuilds it. Because it's ephemeral, it stays out of Git: the `.arco/.gitignore` Arco
+writes ignores everything in `.arco` (`*`; `DEFAULT_PROJECT_IGNORE` in
+`server/src/projectStateIgnore.ts`), and older ignore files list it by name.
 
 ## Shape (`shared/src/protocol/workflows.ts`)
 
@@ -67,7 +67,7 @@ highest-ranked one available; `titleSource` records which it is.
    **No model is ever spawned by this module**, it only *applies* a string the
    caller generated (`applyModelTitle`). The only live caller is the opt-in
    `settings.ollama.utility.titles` trigger (`workflows/modelTitles.ts`,
-   2026-09-29, local utility model, one-shot per session; see PROVIDERS.md
+   local utility model, one-shot per session; see PROVIDERS.md
    §Utility / task model). Derived titles remain the default. Title generation uses the configured local utility model and makes no automatic cloud call.
 4. **`operator`**, a manual rename. Always wins.
 
@@ -118,7 +118,7 @@ append-only `title-events.jsonl` rather than minting a new per-workflow
 (`{ ts, workflowId, provider, sessionId, from, to, source, sourceHash? }`).
 Currently emitted only when a `model` title is applied (the generation event);
 Operator renames are also logged. Like `session-index.json` it's a rebuildable
-projection, so the `.arco/.gitignore` seed lists it.
+projection that the `.arco/.gitignore` keeps out of Git.
 
 ## Update triggers
 

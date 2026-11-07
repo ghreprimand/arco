@@ -210,8 +210,8 @@ The configured service and model profile determine the commands and paths.
 | High memory / slow cold prompt | Inspect cgroup pressure, available RAM, NVMe reads and fresh prefill, not just decode tok/s. Avoid raising context/cache/encoder budgets together. |
 | Newer Strata version | PROVIDERS refreshes the prepared engine's `BUILD.json` when opened, falling back to `/v1/status.engine` for unmanaged endpoints. Upstream engine package versions refresh at boot/every four hours; click opens in-app release notes. It does not install an engine update. |
 
-FREE VRAM targets loopback Ollama, Strata, Arco-managed llama.cpp and LM Studio
-LLMs (even hidden providers), skips remote endpoints and embedding instances,
+FREE VRAM targets loopback Ollama, Strata, DeepSeek through Xolotl, Arco-managed
+llama.cpp and LM Studio LLMs (even hidden providers), skips remote endpoints and embedding instances,
 and reports unloaded/idle/unavailable/failure per runtime. It refuses active
 local primaries/reviewers and a concurrent profile switch. It is an immediate
 action with a busy refusal, not a scheduled unload. It leaves the Strata Python

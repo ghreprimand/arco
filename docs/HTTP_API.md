@@ -136,7 +136,7 @@ become an invalid Anthropic image block and poison a long-lived Native worker's 
 {
   fileId: string,           // 8-char hex prefix
   filename: string,         // resolved filename (original name + inferred ext if needed)
-  path: string,             // absolute path <server cwd>/uploads/<fileId>-<filename> (UPLOADS_DIR; the repo root in dev + the systemd unit)
+  path: string,             // absolute path <server cwd>/uploads/<fileId>-<filename> (UPLOADS_DIR: `ARCO_UPLOADS_DIR`, else the server's working directory, which is the Arco home for a package install and the repository root for a source run; Docker uses `/data/uploads`)
 }
 ```
 

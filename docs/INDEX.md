@@ -14,8 +14,7 @@
 - [Feature reference](FEATURES.md): complete feature tour and explicit operating boundaries, including the utility agent, BRIEF, CATCH ME UP, TIDY, and the version box.
 - [Operator actions](OPERATOR_ACTIONS.md): actions, right-panel tabs, clusters, and plans.
 - [Settings guide](SETTINGS.md): categories, controls, scope, and the utility agent.
-
-
+- [Plan or board?](PLAN_OR_BOARD.md): when to use a plan, a task board, or both.
 - [Genesis](GENESIS.md): staged ideation, operator-reviewed scaffolding, and Creative mode for exploring alternatives in an existing project.
 - [Chat](CHAT.md): saved Chat and Incognito behavior.
 - [Terminal](TERMINAL.md): terminal sessions, command prefill, and output sharing.
@@ -57,19 +56,18 @@
 - [Persistence](PERSISTENCE.md): global and project state, formats, and lifecycle.
 - [Backup](BACKUP.md): archive contents, verification, and restore behavior.
 - [Checkpoints](CHECKPOINTS.md): project snapshots and recovery.
+- [Storage plan](STORAGE_PLAN.md): where disk space goes, the storage report, log sealing, archive and purge.
 - [Diagnostics](DIAGNOSTICS.md): runtime health and security posture.
 
 ## Internals
 
 - [Repository layout](REPO_LAYOUT.md): source directories and module responsibilities.
-
 - [Architecture](ARCHITECTURE.md): server, client, and subsystem map.
 - [Client](CLIENT.md): client state, views, and interaction flows.
 - [HTTP API](HTTP_API.md): HTTP endpoints and request/response contracts.
 - [Protocol](PROTOCOL.md): client and server WebSocket messages.
 - [Primitives](PRIMITIVES.md): Review, Handoff, Spawn, and bounded workflows.
 - [LSP diagnostics](LSP.md): language-server integration.
-
 - [Glossary](GLOSSARY.md): product and implementation terms.
 - [Gotchas](GOTCHAS.md): load-bearing behavior and regression cautions.
 - [Phosphor demo](PHOSPHOR_DEMO.md): isolated theme preview.

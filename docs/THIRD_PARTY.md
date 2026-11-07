@@ -21,9 +21,7 @@ The vendored Odysseus image editor is MIT-licensed. Preserve its [`LICENSE`](../
 
 ## npm dependencies
 
-The lockfile contains 534 third-party package records. Its declared metadata includes permissive licenses and alternatives, including MIT-0, `(MIT OR WTFPL)`, and `(BSD-2-Clause OR MIT OR Apache-2.0)`. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse). No GPL, LGPL, AGPL, MPL, EPL, SSPL, or source-available license is declared for a third-party npm package in the current lockfile. Workspace packages use the root project's GPL-3.0-only license. Lockfile metadata is an inventory aid; it does not replace review of the package's distributed files and notices.
-
-## Integration registration provenance
+The lockfile contains 501 third-party package records. Their declared licenses are MIT, ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0 and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse). No GPL, LGPL, AGPL, MPL, EPL, SSPL, or source-available license is declared for a third-party npm package in the current lockfile. Workspace packages use the root project's GPL-3.0-only license. Lockfile metadata is an inventory aid; it does not replace review of the package's distributed files and notices.
 
 ## Optional Codex usage browser
 

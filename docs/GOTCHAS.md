@@ -90,7 +90,7 @@ For the architecture map, see [Architecture](ARCHITECTURE.md). For chronological
 
 These guardrails bound worker memory use and prevent a runaway subprocess from destabilizing the server. Do not loosen them without reviewing the risk.
 
-- `MAX_WORKER_OUTPUT_BYTES = 5MB` per-worker (capped in per-provider accumulators).
+- `MAX_WORKER_OUTPUT_BYTES` = 50 MB per worker by default (`ARCO_MAX_WORKER_OUTPUT_BYTES`; capped in per-provider accumulators).
 - `RSS_KILL_BYTES = 32GB` tree-RSS auto-kill via `WorkerManager.startActivityPoll`. Per-workflow opt-out exists via `meta.json` `disableRssGuard` for legitimate heavy jobs (kernel compiles, big LTO links). Reviewers and handoff reflections always run under the global cap regardless.
 - Subprocesses spawn `detached: true`; `killProcessTree` takes down descendants on cancel.
 - Linux `/proc`-based activity probe (`processActivity.ts`, polled 1.5s) drives the CPU-pulse UI + silent-exit supervision. See `server/src/workers/limits.ts`.
@@ -342,9 +342,9 @@ These guardrails bound worker memory use and prevent a runaway subprocess from d
 
 `server/src/media/ffmpeg.ts::resolveMediaInput` / `resolveMediaOutputDir` widen the studio from "cwd-only" to a general tool - **carefully**. The fence is the security core; don't loosen a tier or skip a gate.
 
-- **Three tiers, in order:** (1) inside the workflow cwd → always; (2) inside Arco's `media-scratch` (`server/src/media/scratch.ts::isWithinScratch`) → always; (3) anywhere else → **only** when `mediaUnconfined !== false`. A path clearing none throws `bad-path`. The output dir is gated by the **same** `gate()`.
+- **Three tiers, in order:** (1) inside the workflow cwd → always; (2) inside Arco's `media-scratch` (`server/src/media/scratch.ts::isWithinScratch`) → always; (3) inside a folder listed in `mediaAllowedRoots` → **only** when `mediaUnconfined === true`. A path clearing none throws `bad-path`. The output dir is gated by the **same** `gate()`.
 - **`unconfined: false` MUST reproduce the pre-N2 fence exactly** (cwd + scratch only). The positional `runMediaOp(cwd, path, spec)` form passes no `opts`, so `unconfined` defaults to `false` - this is what keeps the `audio-ops`/`video-ops` smokes' path-escape assertions (`/etc/hosts`, `../../`) green. Don't flip the default to open.
-- **Default-OPEN is deliberate but tunnel-sensitive.** `mediaUnconfined` undefined ⇒ open (`!== false`); the route reads it per-op from the cascade (`readSettings(cwd)`) so a project `.arco/settings.json` can pin it. The operator switches to CONFINED on an exposed instance - keep the Settings toggle + the `bad-path` message that points at it.
+- **Default-CONFINED, and global settings only.** `mediaUnconfined` undefined ⇒ confined (the routes test `=== true`), and outside access also needs the folder in `mediaAllowedRoots` (at most 32). The routes read both from the global settings (`readSettings()` without a cwd), so a project `.arco/settings.json` cannot widen access. Keep the Settings controls + the `bad-path` message that points at them.
 - **Scratch is always allowed but bounded.** Upload writes to a **fresh per-upload dir** under a **sanitized** basename (can't escape regardless of `?name=`), with a per-upload byte cap, a 24h TTL, and a total-size cap (oldest evicted). `isWithinScratch` is a pure path-containment check - we wrote the bytes, so no symlink-following is needed. Don't gate uploads behind `mediaUnconfined` (imported-file conversion must work even when CONFINED).
 - **Operator-chosen output never escapes the never-overwrite invariant.** `outputBasenameFor` keeps the stem but **forces** the op's target ext (`targetOutputExt`); `uniqueBasename` + the `outputAbs === inputAbs` refusal + ffmpeg `-n` still hold. `relPath` is returned **only** for an in-cwd output (drives REVEAL IN FILES); out-of-cwd returns the absolute `outputPath` only.
 
