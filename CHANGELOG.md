@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Mid-turn steering retains selected one-shot skills instead of silently dropping their instructions.
+
 - STOP cancels normal messages still preparing prompt or file context instead of allowing them to start afterward.
 
 - Automatic Claude CLI context calibration cannot start alongside a newer primary turn.

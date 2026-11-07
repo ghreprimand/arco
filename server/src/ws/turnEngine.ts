@@ -1524,6 +1524,14 @@ export async function handleUserMessage(
   }
   let expandedContext = contextExpansion.block || undefined;
 
+  // A synchronous provider drain cannot load one-shot skills. Resolve them
+  // before admitting a busy send; both drain paths then carry the same block.
+  if (wf.busy && pickedSkills?.length) {
+    const selectedBlock = await resolvePickedSkillsBlock(pickedSkills);
+    if (selectedBlock) expandedContext = `${expandedContext ?? ''}\n\n${selectedBlock}`;
+    pickedSkills = undefined;
+  }
+
   // STOP/removal during async ref/trust preparation revokes every pending
   // send, before it can claim a fresh busy token or enter either queue.
   if (workflows.get(workflowId) !== wf || (busyRevocations.get(wf) ?? 0) !== interruptEpoch) {
@@ -1786,7 +1794,8 @@ export async function handleUserMessage(
           // the facts Arco gathers now and the project's recorded decisions.
           const builtin = readBuiltinSkill(pick.slug);
           if (!builtin) { missing.push(`builtin:${pick.slug}`); continue; }
-          const catalog = await listSkills(cwd, { includeProject });
+          const trust = await projectTrust.resolveTrustStatus(managedTrustSource ?? cwd).catch(() => 'ask' as const);
+          const catalog = await listSkills(cwd, { includeProject: trust === 'always' });
           const summary = catalog.builtin.find((s) => s.slug === builtin.slug);
           if (!summary || summary.off || summary.replaced) { missing.push(`builtin:${pick.slug}`); continue; }
           const extra = builtin.slug === ARCHITECTURE_REVIEW_SLUG

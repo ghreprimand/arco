@@ -2045,3 +2045,5 @@ Claude CLI session watching belongs to the current workflow and session generati
 Automatic Claude CLI calibration starts only while the same session remains idle. A new primary turn or cancellation during estimation or probe admission prevents a concurrent context probe.
 
 STOP also revokes a normal message still preparing prompt or file context. It cannot enter a queue or start a provider turn after that cancellation.
+
+A busy message resolves its selected one-shot skills before entering the queue. The same skill context is delivered once whether the provider consumes it as mid-turn steering or the queue runs it after the turn.

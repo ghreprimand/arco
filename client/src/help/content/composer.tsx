@@ -35,7 +35,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.turn-messages': {
     title: 'Turn message state',
-    body: <p>Select PENDING to inspect or cancel queued messages. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn.</p>,
+    body: <p>Select PENDING to inspect or cancel queued messages. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p>,
     manualSection: 'composer',
   },
   'composer.turn-step': {
