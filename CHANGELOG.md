@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Moving an artifact into a project works when the project path uses a folder alias.
+
 ### Added
 
 - Genesis can save a plan and reference documents for an existing folder, creating SPEC.md and TODO.md only when missing and preserving existing files.

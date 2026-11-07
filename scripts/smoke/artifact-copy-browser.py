@@ -26,6 +26,11 @@ async def main():
     try:
         subprocess.run(['git', 'init', '-q', str(project)], check=True)
         (project / '.gitignore').write_text('.arco/\n')
+        outside = server.root / 'other-project'
+        outside.mkdir()
+        (project / 'outside-link').symlink_to(outside, target_is_directory=True)
+        alias = server.root / 'project-alias'
+        alias.symlink_to(project.resolve(), target_is_directory=True)
         conv = project / '.arco' / 'workflows' / 'conv-1'
         (conv / 'artifacts').mkdir(parents=True)
         (conv / 'meta.json').write_text(json.dumps({'name': 'Fixture'}))
@@ -68,7 +73,21 @@ async def main():
               const review = await fetch('/api/storage/copy-review', {method:'POST', headers, body:JSON.stringify({path:cwd,workflowId:'conv-1',itemPath:'artifacts',destinationFolder:cwd,publicProject:false,confirm:true})});
               return {ok:choice.ok, data:await review.json()};
             }''', str(project))
-            assert saved['ok'] and saved['data']['publicRepository'] is True, saved
+            assert saved['ok'] and saved['data'].get('publicRepository') is True, saved
+            alias_review = await page.evaluate('''async ({cwd, original}) => {
+              const headers = {'Content-Type':'application/json'};
+              await fetch('/api/settings', {method:'POST', headers, body:JSON.stringify({projects:[cwd]})});
+              const res = await fetch('/api/storage/copy-review', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:cwd,workflowId:'conv-1',itemPath:'artifacts',destinationFolder:cwd,confirm:true})});
+              const result = {status: res.status, data: await res.json()};
+              await fetch('/api/settings', {method:'POST', headers, body:JSON.stringify({projects:[original]})});
+              return result;
+            }''', {'cwd': str(alias), 'original': str(project)})
+            assert alias_review['status'] == 200 and alias_review['data'].get('publicRepository') is True, alias_review
+            escaped = await page.evaluate('''async ({cwd, destination}) => {
+              const res = await fetch('/api/storage/copy-review', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:cwd,workflowId:'conv-1',itemPath:'artifacts',destinationFolder:destination,confirm:true})});
+              return res.status;
+            }''', {'cwd': str(project), 'destination': str(project / 'outside-link')})
+            assert escaped == 400 and not (outside / 'artifacts').exists(), escaped
             await page.evaluate('''async (cwd) => {
               const React = (await import('/node_modules/.vite/deps/react.js')).default;
               const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { arcoHome } from '../arcoHome.js';
 import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
+import { confinedPath } from '../fileAccessPolicy.js';
 import { lstat, readFile } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
 import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
@@ -64,15 +65,20 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
     }
     if (action === 'copy-review' || action === 'copy-confirm' || action === 'copy-ignore') {
       if (typeof body.itemPath !== 'string' || typeof body.destinationFolder !== 'string') return json(res, 400, { error: 'invalid' });
+      // Keep the requested project spelling while validating the destination.
+      // projectFor returns the canonical root, while a picker may send a path
+      // under an alias of that root. The confinement check still rejects links
+      // that leave this project, even when they point at another project.
+      const destination = confinedPath(body.destinationFolder, [body.path as string], 'directory');
       const declaredPublic = body.publicProject === true || await getPublicProjectChoice(project) === true;
-      const review = await inspectArtifactCopy(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic);
+      const review = await inspectArtifactCopy(project, workflowId, body.itemPath, destination, declaredPublic);
       if (action === 'copy-review') return json(res, 200, review);
       if (typeof body.token !== 'string' || body.token !== review.token) return json(res, 409, { error: 'The artifact or destination changed. Review it again.' });
       if (action === 'copy-ignore') {
         await ignoreCopyDestination(project, review.target);
         return json(res, 200, { ok: true });
       }
-      await copyReviewedArtifact(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic, body.token, undefined, body.confirmUnscanned === true);
+      await copyReviewedArtifact(project, workflowId, body.itemPath, destination, declaredPublic, body.token, undefined, body.confirmUnscanned === true);
       return json(res, 200, { ok: true });
     }
     if (action === 'keep') {
