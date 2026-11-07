@@ -1,6 +1,7 @@
 import { useOutputNavigation } from '../../utils/outputNavigation';
 import { useWorktreeNavigation } from '../../utils/worktreeNavigation';
 import { useVoicePanelRequest } from '../../voice/panels';
+import { usePlanGenesisStore } from '../../stores/planGenesisStore';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import type { TaskLink } from '@arco/shared';
 import { GitHubPanel } from '../GitHubPanel';
@@ -136,6 +137,9 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
     if (tabRequest && TABS.some((t) => t.id === tabRequest.tab)) setTab(tabRequest.tab as RightTab);
   }, [tabRequest, setTab]);
   const voicePanel = useVoicePanelRequest((s) => s.request);
+  const genesisResults = usePlanGenesisStore(s => s.results);
+  const genesisOfferId = Object.entries(genesisResults).find(([, result]) => result.origin.kind === 'workflow' && result.origin.workflowId === job.id && result.origin.cwd === job.config.workingDirectory)?.[0];
+  useEffect(() => { if (genesisOfferId) setTab('plan'); }, [genesisOfferId, setTab]);
   useEffect(() => {
     if (voicePanel?.id === job.id && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as RightTab);
   }, [voicePanel, job.id, setTab]);
@@ -229,6 +233,7 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
   const wfCwd = job.config.workingDirectory ?? '';
   const inScratch = /[\\/]\.arco[\\/]genesis[\\/]/.test(wfCwd);
   const isGenesisScratch = !!job.genesisSeed && inScratch;
+  const isPlanGenesis = !!(job.genesisSeed ?? job.config.genesisSeed)?.planOnly;
   const hasRealCwd = wfCwd.trim().length > 0 && !inScratch;
   // Visible for the from-nothing flow, for any real-cwd workflow (to arm Creative
   // mode), or once Creative mode is armed.
@@ -241,7 +246,7 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
   // auto-open GENESIS (the operator opts in by arming). If the persisted tab is one
   // that's no longer visible, fall through to FILES so the body never renders empty.
   const effectiveTab: RightTab =
-    isGenesisScratch && !tabsByWorkflow[job.id] ? 'genesis'
+    (isGenesisScratch || isPlanGenesis) && !tabsByWorkflow[job.id] ? 'genesis'
     : tab === 'tasks' && !hasTaskChildren ? 'files'
     : tab === 'genesis' && !isGenesisActive ? 'files'
     : tab;

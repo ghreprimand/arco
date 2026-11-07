@@ -34,6 +34,9 @@ async def main():
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path == '/api/public-project/choice':
                 await route.fulfill(json={'choice': None} if route.request.method == 'GET' else {'choice': route.request.post_data_json['value']})
                 return
+            if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path == '/api/explorer/plans/attach' and route.request.method == 'POST':
+                await route.fulfill(json={'ok': True})
+                return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
                 if url.path == '/api/cluster-snapshots/cloud':
                     await route.fulfill(json={'snapshots': []})
@@ -220,7 +223,32 @@ async def main():
         plan_hint=page.locator('[data-help="cluster.no-plan-hint"]')
         await expect(plan_hint).to_be_visible()
         await plan_hint.get_by_role('button', name='ATTACH EXISTING').click()
-        await expect(page.get_by_text('No existing plans are available in this project.')).to_be_visible()
+        await expect(page.get_by_text('No open plans in this folder.')).to_be_visible()
+        await expect(page.get_by_role('button', name='DRAFT IN GENESIS', exact=True)).to_be_visible()
+        await expect(page.get_by_role('button', name='ALL PLANS', exact=True)).to_be_visible()
+        await page.evaluate("window.open=(url)=>{window.archiveUrl=url;return {focus:()=>{}}}")
+        await page.get_by_role('button', name='ALL PLANS', exact=True).click()
+        assert await page.evaluate("archiveUrl.includes('targetKind=cluster') && archiveUrl.includes('targetId=cluster-a') && archiveUrl.includes('targetCwd=%2Fprojects%2Ffixture')")
+        await page.evaluate("window.rawMessages=[]; s.setState({connected:true,wsSendRaw:m=>rawMessages.push(m)});")
+        plan_editor = page.get_by_placeholder('# Cluster plan\n- step 1: …\n- step 2: …', exact=True)
+        await plan_editor.fill('Unsaved plan text')
+        page.once('dialog', lambda dialog: dialog.dismiss())
+        await page.get_by_role('button', name='DRAFT IN GENESIS', exact=True).click()
+        assert not await page.evaluate("rawMessages.some(m=>m.type==='create_workflow')")
+        await expect(plan_editor).to_have_value('Unsaved plan text')
+        await plan_editor.fill('')
+        await page.get_by_role('button', name='DRAFT IN GENESIS', exact=True).click()
+        genesis = await page.evaluate("rawMessages.find(m=>m.type==='create_workflow')")
+        assert genesis['config']['genesisSeed']['planOnly'] is True
+        assert genesis['config']['workingDirectory'] == '/projects/fixture'
+        await page.evaluate('''(config) => {
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'workflow_created',workflowId:'genesis-fixture',config},d);
+          receive({type:'genesis_plan_saved',workflowId:'genesis-fixture',cwd:'/projects/fixture',planId:'plan-fixture',written:[]},d);
+        }''', genesis['config'])
+        await expect(page.get_by_text('Genesis saved a plan for this project.')).to_be_visible()
+        await page.get_by_role('button', name='ATTACH', exact=True).click()
+        await expect(page.get_by_text('Genesis saved a plan for this project.')).to_have_count(0)
         await page.get_by_test_id('cluster-public-project').check()
         await plan_hint.get_by_role('button', name='DRAFT A PLAN').click()
         await page.wait_for_function("sent.at(-1)?.[4] === 'plan-review'")

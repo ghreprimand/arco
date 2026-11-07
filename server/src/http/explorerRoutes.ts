@@ -8,13 +8,19 @@
 // fallback engages). Later phases add GET /artifacts, /recents, /changed.
 
 import { IncomingMessage, ServerResponse } from 'http';
+import { realpath } from 'fs/promises';
 import { launchExplorerWindow } from '../explorerLaunch.js';
 import { collectArtifacts } from '../explorerArtifacts.js';
 import { collectDocs } from '../explorerDocs.js';
 import { readRecent } from '../recentFilesLedger.js';
 import { scanChanged } from '../explorerChanged.js';
 import { collectPlanLibrary } from '../explorerPlans.js';
-import { PORT } from '../server/constants.js';
+import * as clusterStore from '../clusterStore.js';
+import { attachExistingPlan } from '../clusterPlanBridge.js';
+import { isValidPlanId } from '../planStore.js';
+import { broadcastCluster, buildClusterStatePayload } from '../server/broadcast.js';
+import { workflowCwds } from '../server/state.js';
+import { PORT, UUID_PATTERN } from '../server/constants.js';
 
 function sendJson(res: ServerResponse, code: number, body: unknown): true {
   res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -40,6 +46,46 @@ export async function tryHandleExplorerRoutes(
 ): Promise<boolean> {
   const url = req.url || '';
 
+  if (new URL(url, 'http://localhost').pathname === '/api/explorer/plans/target' && req.method === 'GET') {
+    try {
+      const params = new URL(url, 'http://localhost').searchParams;
+      const cwd = params.get('path');
+      const kind = params.get('kind');
+      const id = params.get('id');
+      if (!cwd || !id || (kind !== 'workflow' && kind !== 'cluster')) return sendJson(res, 400, { error: 'Invalid attachment target.' });
+      const targetCwd = kind === 'cluster' && UUID_PATTERN.test(id)
+        ? (await clusterStore.readCluster(id))?.cwd
+        : kind === 'workflow' ? workflowCwds.get(id) : undefined;
+      if (!targetCwd) return sendJson(res, 404, { error: 'Target is no longer available.' });
+      const [projectPath, targetPath] = await Promise.all([realpath(cwd), realpath(targetCwd)]);
+      return sendJson(res, 200, { sameProject: projectPath === targetPath });
+    } catch {
+      return sendJson(res, 400, { error: 'Could not compare project folders.' });
+    }
+  }
+
+  // This operator-only route attaches a plan to a cluster, not to a member.
+  // Recheck the target folder on the server before looking up the plan.
+  if (new URL(url, 'http://localhost').pathname === '/api/explorer/plans/attach' && req.method === 'POST') {
+    try {
+      const params = new URL(url, 'http://localhost').searchParams;
+      const cwd = params.get('path');
+      const clusterId = params.get('clusterId');
+      const planId = params.get('planId');
+      if (!cwd || !clusterId || !UUID_PATTERN.test(clusterId) || !planId || !isValidPlanId(planId)) return sendJson(res, 400, { error: 'Invalid attachment target.' });
+      const cluster = await clusterStore.readCluster(clusterId);
+      if (!cluster || await realpath(cluster.cwd) !== await realpath(cwd)) return sendJson(res, 400, { error: 'The cluster belongs to another project.' });
+      const plan = await attachExistingPlan(clusterId, planId, cluster.cwd);
+      if (!plan) return sendJson(res, 404, { error: 'Plan not found in this project.' });
+      broadcastCluster(clusterId, { type: 'cluster_plan_changed', clusterId, body: plan.body, updatedAt: plan.updatedAt, bodyLength: plan.body.length });
+      const state = await buildClusterStatePayload(clusterId);
+      if (state) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state });
+      return sendJson(res, 200, { ok: true });
+    } catch (err) {
+      return sendJson(res, 400, { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   // POST /api/explorer/open — spawn the chromeless browser window (§3). Never
   // throws / never 5xxs on a launch failure: a `no-browser` / `spawn-failed`
   // result comes back 200 with { ok:false, code } so the client falls back to
@@ -47,7 +93,8 @@ export async function tryHandleExplorerRoutes(
   if (url.startsWith('/api/explorer/open') && req.method === 'POST') {
     try {
       const params = new URL(url, 'http://localhost').searchParams;
-      const result = await launchExplorerWindow(deriveOrigin(req), { lens: params.get('lens') === 'plans' ? 'plans' : undefined, cwd: params.get('cwd') || undefined });
+      const targetKind = params.get('targetKind');
+      const result = await launchExplorerWindow(deriveOrigin(req), { lens: params.get('lens') === 'plans' ? 'plans' : undefined, cwd: params.get('cwd') || undefined, targetKind: targetKind === 'workflow' || targetKind === 'cluster' ? targetKind : undefined, targetId: params.get('targetId') || undefined, targetName: params.get('targetName') || undefined, targetCwd: params.get('targetCwd') || undefined });
       return sendJson(res, 200, result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);

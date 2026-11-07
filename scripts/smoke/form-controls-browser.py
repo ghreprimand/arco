@@ -70,6 +70,8 @@ async def main():
             if u.scheme == 'http' and u.netloc == '127.0.0.1:' + PORT:
                 if u.path == '/fixture':
                     await route.fulfill(content_type='text/html', body=HTML); return
+                if u.path == '/api/public-project/choice':
+                    await route.fulfill(json={'choice': route.request.post_data_json['value']} if route.request.method == 'POST' else {'choice': None}); return
                 if u.path.startswith('/api/'):
                     if route.request.method != 'GET':
                         body = route.request.post_data_json
@@ -77,7 +79,7 @@ async def main():
                         assert u.path == '/api/voice/activity', writes
                         if body.get('agent_updates'):
                             activity['policy']['agentUpdates'] = body['agent_updates']
-                    data = {'items': [], 'projects': [], 'roots': [], 'sessions': [], 'presets': [], 'templates': [], 'skills': [], 'models': [], 'clusters': [], 'entries': [], 'files': []}
+                    data = {'items': [], 'projects': [], 'roots': [], 'sessions': [], 'presets': [], 'templates': [], 'skills': [], 'models': [], 'clusters': [], 'entries': [], 'files': [], 'plans': []}
                     if u.path == '/api/outputs': data = {'outputs': outputs}
                     if u.path == '/api/voice/activity': data = activity
                     await route.fulfill(json=data); return
@@ -173,6 +175,7 @@ async def main():
         await page.keyboard.press('Escape')
 
         # Shared checkbox styling keeps the native keyboard toggle and focus.
+        await page.locator('#creator').get_by_label('Attach an existing plan', exact=True).check()
         checkbox = page.locator('#creator input[type="checkbox"]').first
         await expect(checkbox).to_be_visible()
         was_checked = await checkbox.is_checked()
@@ -187,6 +190,7 @@ async def main():
         await page.emulate_media(forced_colors='active')
         assert await checkbox.evaluate("e => getComputedStyle(e).appearance") == 'auto'
         await page.emulate_media(forced_colors='none')
+        await page.locator('#creator').get_by_label('No plan', exact=True).check()
 
         # Values still save through the existing handlers.
         await page.evaluate("chooseTheme('phosphor:arco:electric',1.1)")

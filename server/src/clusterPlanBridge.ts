@@ -96,10 +96,10 @@ async function readClusterPlanUnlocked(clusterId: string): Promise<ClusterPlanRe
   return toRecord(created);
 }
 
-export async function attachExistingPlan(clusterId: string, planId: string): Promise<ClusterPlanRecord | null> {
+export async function attachExistingPlan(clusterId: string, planId: string, expectedCwd?: string): Promise<ClusterPlanRecord | null> {
   return withClusterPlanLock(clusterId, async () => {
     const state = await clusterStore.readCluster(clusterId);
-    if (!state) return null;
+    if (!state || (expectedCwd !== undefined && state.cwd !== expectedCwd)) return null;
     const plan = await readPlan(state.cwd, planId);
     if (!plan) return null;
     if (plan.body.length > PLAN_MAX_BYTES) throw new PlanTooLargeError(plan.body.length);

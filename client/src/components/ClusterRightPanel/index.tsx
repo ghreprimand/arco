@@ -3,6 +3,7 @@ import { useOutputNavigation } from '../../utils/outputNavigation';
 import { useWorktreeNavigation } from '../../utils/worktreeNavigation';
 import { useVoicePanelRequest } from '../../voice/panels';
 import { clearBoardTaskRequest, useBoardTaskRequest } from '../../stores/boardTaskRequest';
+import { usePlanGenesisStore } from '../../stores/planGenesisStore';
 // docs/PROTOCOL_CLUSTER.md - replaces the per-member RightPanel for
 // cluster tabs. Later phases added shared-cwd mirrors and a member-scoped
 // CONFIG view so operators do not have to leave the cluster tab for routine
@@ -95,6 +96,11 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
     });
   };
   const voicePanel = useVoicePanelRequest((s) => s.request);
+  const genesisResults = usePlanGenesisStore((s) => s.results);
+  const genesisOfferId = Object.entries(genesisResults).find(([, result]) => result.origin.kind === 'cluster' && result.origin.clusterId === cluster.clusterId)?.[0];
+  useEffect(() => {
+    if (genesisOfferId) setTab('plan');
+  }, [genesisOfferId, cluster.clusterId]);
   useEffect(() => { if (planTabRequest) setTab('plan'); }, [planTabRequest, cluster.clusterId]);
   useEffect(() => { if (membersTabRequest) setTab('members'); }, [membersTabRequest, cluster.clusterId]);
   useEffect(() => { if (tabRequest && TABS.some((t) => t.id === tabRequest.tab)) setTab(tabRequest.tab as SubTab); }, [tabRequest, cluster.clusterId]);

@@ -6,6 +6,7 @@ export interface ClusterCreatePayload extends ClusterCreationSettings {
   cwd: string;
   name?: string;
   initialPlanGoal?: string;
+  initialPlanId?: string;
   members: Array<{
     provider: ClusterMemberProvider;
     model: string;

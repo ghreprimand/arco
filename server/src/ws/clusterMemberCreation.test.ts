@@ -137,6 +137,15 @@ test('each creation path builds the new member from its request', async () => {
   const scratch = (await store.readCluster(createdCluster!))!;
   assert.deepEqual(scratch.members.map((id) => [scratch.memberRoles?.[id] ?? null, store.tierFor(id) ?? null, store.focusFor(id) ?? null, store.getMemberAccessMode(scratch.clusterId, id)]),
     [['Director', 'heavy', 'releases', 'standard'], [null, null, null, 'standard'], [null, null, null, 'isolated']]);
+  const plans = await import('../planStore.js');
+  const selectedPlan = await plans.createPlan(cwd, { title: 'Selected plan', body: '- [ ] First task' });
+  await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, initialPlanId: selectedPlan.id, members: [
+    { provider: 'claude', model: 'sonnet' }, { provider: 'claude', model: 'sonnet' },
+  ] } as never));
+  assert.equal((await store.readCluster(createdCluster!))?.planId, selectedPlan.id, 'an existing plan attaches without a director');
+  assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, initialPlanId: randomUUID(), members: [
+    { provider: 'claude', model: 'sonnet' }, { provider: 'claude', model: 'sonnet' },
+  ] } as never)), { configs: [], errors: ['cluster_create_from_scratch rejected: initial_plan_unavailable'] });
   assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'claude', model: 'gpt-5.5' }] } as never)),
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] provider_model_mismatch:claude:gpt-5.5'] });
   assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'codex', model: ' ' }] } as never)),

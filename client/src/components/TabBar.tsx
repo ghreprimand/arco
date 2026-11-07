@@ -21,6 +21,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, type JobState } from '../stores/appStore';
 import { standaloneTabJobs } from '../utils/homeModel';
 import { useRecallStore } from '../stores/recallStore';
+import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { closeSummaryPlan } from '../recall/closeSummary';
 import { TabContextMenu } from './TabContextMenu';
 import type { ClusterMemberProvider, ClusterStatePayload, ArcoSettings, ProviderName } from '@arco/shared';
@@ -145,8 +146,19 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
   // shows a toast.
   const closeWorkflow = (wfid: string) => {
     const plan = closeSummaryPlan(useAppStore.getState().jobs[wfid], useRecallStore.getState().summarizeOnClose);
+    const origin = usePlanGenesisStore.getState().cancel(wfid);
     onRemoveWorkflow(wfid);
     removeJob(wfid);
+    if (origin?.kind === 'cluster') useAppStore.getState().setActiveCluster(origin.clusterId);
+    if (origin?.kind === 'creator') useAppStore.getState().showJobCreator();
+    if (origin?.kind === 'workflow') {
+      const original = useAppStore.getState().jobs[origin.workflowId];
+      if (original?.config.workingDirectory === origin.cwd) useAppStore.getState().setActiveJob(origin.workflowId);
+      else {
+        usePlanGenesisStore.getState().clearResult(wfid);
+        useAppStore.getState().pushNotification('error', 'The original tab is unavailable or uses another project.');
+      }
+    }
     if (!plan) return;
     const { pushNotification } = useAppStore.getState();
     let sent = false;

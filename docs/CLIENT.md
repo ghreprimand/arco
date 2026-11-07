@@ -916,7 +916,7 @@ calls `releasePendingClusterMembers`. The flag is not kept across a reload.
 
 **CONFIG tab - `INDEXES & MEMORY` section (Codebase-memory integration).** `CodebaseMemorySection` (`client/src/components/RightPanel/CodebaseMemorySection.tsx`) is mounted at the bottom of `ConfigTab` for every provider (Claude / Codex / etc.) since the MCP is provider-agnostic. Operator toggles attach, types an index path (default = cwd), clicks "Re-index now." The Re-index button POSTs `/api/workflows/:wfId/codebase-memory/reindex` - on 503 (`binary_not_installed`) the existing top-right `NotificationToasts` surface gets a push pointing at `docs/OPERATIONS.md`. The attach toggle dispatches `attach_codebase_memory` / `detach_codebase_memory`; the server's `codebase_memory_state` push mirrors onto `job.config.codebaseMemory` via the `setCodebaseMemoryState` store action.
 
-CONFIG carries a red dot when `cliChanges.length > 0`. The PLAN tab supports attach/detach (`plan_attach` / `plan_detach` WS), inline create/edit (REST `POST` / `PATCH`), mark-complete + reopen + hard-delete (REST `PATCH { completedAt }` / `DELETE`). List view splits active vs completed (collapsed by default) and surfaces "active in <workflowName>" badges per plan; detail view shows a "WORKFLOWS USING THIS PLAN" section with active spans inline + collapsed past spans.
+CONFIG carries a red dot when `cliChanges.length > 0`. The PLAN tab supports attach/detach (`plan_attach` / `plan_detach` WS), inline create/edit (REST `POST` / `PATCH`), mark-complete + reopen + hard-delete (REST `PATCH { completedAt }` / `DELETE`). The shared chooser lists open plans first and keeps finished plans under Show finished. Each row shows age, task count, preview, attachment, and active-use information. The plan detail shows active and past workflow attachments.
 
 `PlanBodyRenderer` renders the body as preformatted markdown but parses `- [ ]` / `- [x]` lines into clickable checkboxes. Click -> optimistic body update + `PATCH /api/plans { body }` to persist; the server's plan_attached re-broadcast confirms the change. The body fetch only clears the visible body when `plan.id` changes (operator switched plans); on a same-plan refetch (after the agent edited the file -> watcher reconcile -> `updatedAt` bumped) the prior body stays on screen until the new content lands, so the panel doesn't flicker through "loading..." on every agent edit. Tracked via a `lastPlanIdRef` ref.
 
@@ -1305,6 +1305,8 @@ MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headin
 ## Plans library
 
 ARTIFACTS > PLANS groups plans by project, remembers expanded projects and opens search matches. The current project opens by default. Repeated titles expand into versions. A group with an attached version stays in the normal list, where its unattached versions offer MARK DONE. In-use labels name attached tabs or clusters. Unattached plans with all checkboxes checked or no edits for 30 days appear under Probably finished; MARK DONE moves a selected plan to Completed. Nothing is marked done automatically. The counts follow the current filter.
+
+When ALL PLANS opens from a PLAN tab, the library remembers the tab or cluster. ATTACH TO connects a selected plan from the same project to that target. A plan from another project cannot be attached. Opening the library from the header has no target.
 
 ## Artifact copy review
 

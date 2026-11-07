@@ -1,6 +1,10 @@
 import { updatePlanBody, PlanBodySaveError } from './plans/planBodySave';
 import { PublicProjectBox } from './PublicProjectBox';
 import { rememberPublicChoice, usePublicProject } from '../utils/publicProject';
+import { openArchive } from '../explorer/launch';
+import { usePlanGenesisStore } from '../stores/planGenesisStore';
+import { PlanChooser } from './plans/PlanChooser';
+import { startPlanGenesis } from './plans/startPlanGenesis';
 // docs/PROTOCOL_CLUSTER.md - shared cluster plan editor. Lives as a
 // sub-tab inside ClusterRightPanel. The body is injected into every cluster
 // member's per-turn system block by the Native worker; edits propagate on
@@ -141,6 +145,13 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   if (ticks.current.key !== tickKey) ticks.current = { key: tickKey, generation: 0 };
   const jobs = useAppStore((s) => s.jobs);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
+  const settings = useAppStore((s) => s.settings);
+  const genesisResults = usePlanGenesisStore((s) => s.results);
+  const genesisOffer = Object.entries(genesisResults).find(([, result]) => result.origin.kind === 'cluster' && result.origin.clusterId === cluster.clusterId);
+  const genesisResult = genesisOffer?.[1];
+  useEffect(() => {
+    if (genesisOffer && genesisResult?.planId === null) usePlanGenesisStore.getState().clearResult(genesisOffer[0]);
+  }, [genesisOffer?.[0], genesisResult?.planId]);
 
   // §10.7 P12.5 — plan→task bridge. Promote a plan checkbox into a durable
   // board task via the operator task_ledger_create path (first member is the
@@ -166,6 +177,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   const refSlugs = useMemo(() => (refs ? new Set(refs.map((r) => r.slug)) : null), [refs]);
   const [openRefSlug, setOpenRefSlug] = useState<string | null>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(remoteBody ? 'view' : 'edit');
+  const [choosing, setChoosing] = useState(false);
   const [draft, setDraft] = useState(remoteBody);
   const [error, setError] = useState<string | null>(null);
 
@@ -222,6 +234,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
 
   const handleAttachExisting = useCallback(async (planId: string, title: string) => {
     if (!onAttachPlan || !cluster.cwd) return;
+    if (dirty && !window.confirm('Discard the unsaved plan edits and attach another plan?')) return;
     if (remoteBody && cluster.plan?.id !== planId && !window.confirm(`Attach "${title}" as the cluster plan?\n\nThe current cluster plan will be detached, but its .md file will remain available.`)) return;
     setImporting(true);
     setError(null);
@@ -230,23 +243,22 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
       if (!r.ok) throw new Error((await r.text().catch(() => '')) || `HTTP ${r.status}`);
       const d = (await r.json()) as { plan: PlanFull };
       const body = d.plan.body;
-      if (body.trim().length === 0) {
-        window.alert('That plan has an empty body: nothing to import.');
-        return;
-      }
       if (body.length > PLAN_MAX_BYTES) {
         window.alert(`Plan body is ${body.length} chars; cluster plan cap is ${PLAN_MAX_BYTES}. Trim it in the source plan first.`);
         return;
       }
-      onAttachPlan(cluster.clusterId, planId);
+      const params = new URLSearchParams({ path: cluster.cwd, clusterId: cluster.clusterId, planId });
+      const attached = await fetch(`/api/explorer/plans/attach?${params}`, { method: 'POST' });
+      if (!attached.ok) throw new Error((await attached.text()) || `HTTP ${attached.status}`);
       setDraft(body);
       setMode('view');
+      setChoosing(false);
     } catch (err) {
       setError(`Failed to attach: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setImporting(false);
     }
-  }, [onAttachPlan, cluster.clusterId, cluster.cwd, cluster.plan?.id, remoteBody]);
+  }, [onAttachPlan, cluster.clusterId, cluster.cwd, cluster.plan?.id, remoteBody, dirty]);
 
   const createStandardPlanFromClusterBody = useCallback(async (): Promise<PlanFull | null> => {
     if (!cluster.cwd || saveAsTitle === null) return null;
@@ -457,6 +469,25 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         </div>
       )}
 
+      {genesisResult?.planId && genesisResult.origin.kind === 'cluster' && genesisResult.origin.clusterId === cluster.clusterId && (
+        <div role="status" style={{ color: 'var(--color-fg)', display: 'flex', gap: 6, alignItems: 'center' }}>
+          Genesis saved a plan for this project.
+          <button type="button" data-help="plan.chooser-attach" style={headerBtn} disabled={!cluster.cwd} onClick={async () => {
+            if (!cluster.cwd || !genesisResult.planId) return;
+            if (cluster.plan?.id && cluster.plan.id !== genesisResult.planId && !window.confirm('Attach the Genesis plan? The current cluster plan will be detached but kept in the project.')) return;
+            const params = new URLSearchParams({ path: cluster.cwd, clusterId: cluster.clusterId, planId: genesisResult.planId });
+            setError(null);
+            try {
+              const response = await fetch(`/api/explorer/plans/attach?${params}`, { method: 'POST' });
+              if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+              if (genesisOffer) usePlanGenesisStore.getState().clearResult(genesisOffer[0]);
+            } catch (err) { setError(`Failed to attach: ${err instanceof Error ? err.message : String(err)}`); }
+          }}>ATTACH</button>
+          <button type="button" data-help="plan.chooser-dismiss" style={headerBtn} onClick={() => { if (genesisOffer) usePlanGenesisStore.getState().clearResult(genesisOffer[0]); }}>DISMISS</button>
+        </div>
+      )}
+
+      {error && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>{error}</div>}
       <PublicProjectBox cwd={cluster.cwd ?? ''} testId="cluster-plan-public-project" />
       {publicProject && remoteBody && !hasGuardrails(mode === 'edit' ? draft : remoteBody) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. Use INSERT GUARDRAILS to review one.</div>}
 
@@ -464,9 +495,11 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
           textarea + SAVE / CANCEL. Both modes share the CLEAR PLAN button
           and the byte-count footer below. */}
       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {mode === 'view' && remoteBody && <button type="button" data-help="plan.choose" className="display-font" style={headerBtn} aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>CHOOSE PLAN</button>}
+        {cluster.cwd && !choosing && (remoteBody || mode !== 'edit') && <button type="button" data-help="plan.library" className="display-font" style={headerBtn} onClick={() => { void openArchive('plans', cluster.cwd, { kind: 'cluster', id: cluster.clusterId, cwd: cluster.cwd, name: cluster.name || 'cluster' }); }}>ALL PLANS</button>}
         {mode === 'view' && remoteBody && (
           <button
-            onClick={() => { setDraft(remoteBody); setMode('edit'); }}
+            onClick={() => { setChoosing(false); setDraft(remoteBody); setMode('edit'); }}
             data-help="cluster.plan-tab.edit"
             className="display-font"
             style={headerBtn}
@@ -634,43 +667,26 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         </div>
       )}
 
-      {/* EXISTING PLANS — surfaced in edit mode when there's no cluster body
-          yet, mirroring the per-workflow PlanTab's empty-state list. Clicking
-          a row attaches that existing plan id to the cluster. */}
-      {mode === 'edit' && !remoteBody && onAttachPlan && plansList && plansList.filter((p) => p.completedAt == null).length === 0 && <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>No existing plans are available in this project.</div>}
-      {mode === 'edit' && !remoteBody && onAttachPlan && plansList && plansList.filter((p) => p.completedAt == null).length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-accent-secondary-dim)' }}>
-            ATTACH EXISTING PLAN
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.4 }}>
-            Uses the same <code>.arco/plans/</code> file workers can attach.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {plansList.filter((p) => p.completedAt == null).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleAttachExisting(p.id, p.title)}
-                disabled={importing}
-                data-help="cluster.plan-tab.import-existing"
-                className="display-font"
-                style={{
-                  textAlign: 'left',
-                  padding: '6px 8px',
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--color-border-hairline)',
-                  color: importing ? 'var(--color-fg-muted)' : 'var(--color-fg)',
-                  fontSize: '11px',
-                  letterSpacing: '0.5px',
-                  cursor: importing ? 'wait' : 'pointer',
-                }}
-                title="Click to attach this plan to the cluster"
-              >
-                {p.title}
-              </button>
-            ))}
-          </div>
-        </div>
+      {((mode === 'edit' && !remoteBody) || (mode === 'view' && choosing)) && onAttachPlan && cluster.cwd && (
+        <PlanChooser
+          cwd={cluster.cwd}
+          disabled={importing}
+          refreshKey={JSON.stringify(plansList)}
+          onAttach={plan => { void handleAttachExisting(plan.id, plan.title); }}
+          onGenesis={() => {
+            if (dirty && !window.confirm('Discard the unsaved plan edits and start Genesis?')) return;
+            const defaults = settings?.workflowDefaults;
+            const template = templateJob?.config ?? {
+              name: 'Plan in Genesis', workingDirectory: cluster.cwd,
+              primaryProvider: defaults?.primaryProvider,
+              primaryModel: defaults?.primaryModel ?? 'sonnet',
+              primaryEffort: defaults?.primaryEffort ?? 'high',
+              skipPermissions: defaults?.skipPermissions ?? true,
+            };
+            startPlanGenesis({ kind: 'cluster', cwd: cluster.cwd!, clusterId: cluster.clusterId }, template);
+          }}
+          onAllPlans={() => { void openArchive('plans', cluster.cwd, { kind: 'cluster', id: cluster.clusterId, cwd: cluster.cwd!, name: cluster.name || 'cluster' }); }}
+        />
       )}
 
       {mode === 'edit' ? (
@@ -714,10 +730,6 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
               <span style={{ marginLeft: 'auto', color: 'var(--color-accent-secondary)' }}>● unsaved</span>
             )}
           </div>
-
-          {error && (
-            <div style={{ color: 'var(--color-warning)', fontSize: '11px' }}>{error}</div>
-          )}
 
           <div style={{ display: 'flex', gap: '6px' }}>
             {onSetPlan && (

@@ -25,6 +25,7 @@ import { TabBar } from './components/TabBar';
 import { NotificationToasts } from './components/NotificationToasts';
 import { StorageWarnings } from './components/StorageWarnings';
 import { WorkflowCreator } from './components/WorkflowCreator';
+import { usePlanGenesisStore } from './stores/planGenesisStore';
 import { WorkflowView } from './components/WorkflowView';
 import { ChatModeView } from './components/ChatModeView';
 import { ClusterTab } from './components/ClusterTab';
@@ -109,6 +110,7 @@ function AppBody() {
   const { renameWorkflow, createWorkflow, genesisSeedUpdate, genesisScaffold, genesisCreativeArm, genesisAssistRequest, sendMessage, cancel, compactWorkflow, cancelQueuedMessage, removeWorkflow, listBakeoffs, startBakeoff, promoteBakeoff, cleanupBakeoff, requestReview, cancelReview, requestResearch, cancelResearch, requestRecallSummary, requestHandoff, cancelHandoff, clearHandoffLock, requestSpawnFromHere, updatePrimaryConfig, foldWorkflow, setToolPosture, setProjectTrust, loadEarlierMessages, requestRecalibrate, attachPlan, detachPlan, setPreviewPort, clearPreviewPort, previewCapture, taskLedgerCreate, taskLedgerUpdate, taskLedgerDelete, taskLedgerList, taskRunRecover, taskWorktreeCreate, taskWorktreeRemove, armPlanMode, openTerminal, killTerminal, logTerminalCommand, listTerminalSessions, uploadFile, createCluster, deleteCluster, subscribeCluster, broadcastToCluster, operatorPeerSend, renameCluster, removeClusterMember, addClusterMember, createClusterWithFreshWorkers, createClusterFromScratch, addClusterFreshWorkers, setClusterPlan, attachClusterPlan, clearClusterPlan, setClusterMemberRole, setClusterMemberTier, setClusterMemberFocus, toggleClusterIdleNudger, toggleClusterAutoTurn, setClusterTaskBoardAttached, setClusterTaskBoardMode, setClusterEfficiency, setClusterAutoCompaction, setClusterRemote, setClusterGates, reorderClusterMembers, setClusterProgress, dispatchClusterOnce, toggleClusterDispatcher, updateClusterDispatcherSettings, createClusterSwarm, attachCodebaseMemory, detachCodebaseMemory, mcpRegistryList, mcpRegistryCreate, mcpRegistryUpdate, mcpRegistryDelete, mcpWorkflowAllow, mcpProbe, setNotificationMutes, hubLinkSetEnabled, reconnect, reconnectState } = useWebSocket();
   const showHome = useAppStore((s) => s.showHome);
   const showCreator = useAppStore((s) => s.showCreator);
+  const retainCreator = usePlanGenesisStore(s => Object.values(s.pending).some(origin => origin.kind === 'creator') || Object.values(s.active).some(origin => origin.kind === 'creator') || Object.values(s.results).some(result => result.origin.kind === 'creator'));
   const computerOpen = useComputerStore((s) => s.open);
   const activeJobId = useAppStore((s) => s.activeJobId);
   const activeClusterId = useAppStore((s) => s.activeClusterId);
@@ -689,6 +691,20 @@ ${scopeBody}
         <VoiceControl sendMessage={sendMessage} cancel={cancel} createWorkflow={createWorkflow} />
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {((!showGithub && !showHome && !activeClusterId && (showCreator || !activeJob)) || retainCreator) && (
+            <div style={{ display: !showGithub && !showHome && !activeClusterId && (showCreator || !activeJob) ? 'contents' : 'none' }}>
+              <ErrorBoundary label="creator">
+                <WorkflowCreator
+                  onCreate={createWorkflow}
+                  onCreateCluster={createClusterFromScratch}
+                  onReopenCluster={(clusterId) => {
+                    subscribeCluster(clusterId);
+                    useAppStore.getState().setActiveCluster(clusterId);
+                  }}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
           <ErrorBoundary key={showHome && !showGithub ? 'home' : activeClusterId ?? activeJob?.id ?? (showGithub ? 'github' : 'creator')}>
           {showGithub ? (
             <GitHubPanel />
@@ -800,16 +816,7 @@ ${scopeBody}
               }}
               onAttachPlanToMember={(workflowId, planId) => attachPlan(workflowId, planId)}
             />
-          ) : showCreator || !activeJob ? (
-            <WorkflowCreator
-              onCreate={createWorkflow}
-              onCreateCluster={createClusterFromScratch}
-              onReopenCluster={(clusterId) => {
-                subscribeCluster(clusterId);
-                useAppStore.getState().setActiveCluster(clusterId);
-              }}
-            />
-          ) : activeJob.config.kind === 'chat' ? (
+          ) : showCreator || !activeJob ? null : activeJob.config.kind === 'chat' ? (
             <ChatModeView
               onRenameWorkflow={renameWorkflow}
               key={activeJob.id}

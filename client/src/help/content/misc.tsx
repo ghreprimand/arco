@@ -373,10 +373,15 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   // ----------------------------------------- WORKFLOW CREATOR / RESUME
   'creator.cluster-plan-goal': {
-    title: 'Project purpose and plan',
-    body: <p>Optionally describe the project. The director draft option starts unchecked. Check it and choose a director in the member list to request a draft; review the draft before attaching it.</p>,
+    title: 'Cluster plan',
+    body: <p>Choose no plan, attach a project plan, ask the director to draft after creation, or draft in Genesis first. A director draft needs a director and a detailed project description.</p>,
     manualSection: 'cluster-plan',
   },
+  'creator.plan-none': { title: 'No plan', body: <p>Create the cluster without an attached plan.</p>, manualSection: 'cluster-plan' },
+  'creator.plan-existing': { title: 'Attach an existing plan', body: <p>Choose a plan from this project to attach when the cluster is created.</p>, manualSection: 'cluster-plan' },
+  'creator.plan-director': { title: 'Director draft', body: <p>Ask the director to draft a plan after creation. Review it before attaching it.</p>, manualSection: 'cluster-plan' },
+  'creator.plan-genesis': { title: 'Draft in Genesis first', body: <p>Draft a plan for this folder in Genesis. The creator keeps its fields and selects the saved plan on return.</p>, manualSection: 'cluster-plan' },
+  'creator.plan-description': { title: 'Project description', body: <p>Describe the goal, completion, constraints, and what must not change so the director can draft a useful plan.</p>, manualSection: 'cluster-plan' },
   'creator.cluster-mode': {
     title: 'Mode: Agent, Chat, Cluster or Genesis',
     body: (
@@ -1244,10 +1249,6 @@ export const miscHelp: Record<string, HelpEntry> = {
        Plan fields and changes to the draft wait while its save is pending.</p>
     ),
   },
-  'plan.toggle-completed': {
-    title: 'Show completed plans',
-    body: <p>Reveals/hides the archive of plans marked complete. Click any to reopen if needed.</p>,
-  },
   'plan.edit': {
     title: 'Edit plan',
     body: (
@@ -1325,6 +1326,66 @@ export const miscHelp: Record<string, HelpEntry> = {
   'plans.project-group': {
     title: 'Project plans',
     body: <p>Expand or collapse this project's plans. The choice is remembered in this browser. Search opens matching projects.</p>,
+    manualSection: 'plans-library',
+  },
+  'plans.attach-target': {
+    title: 'Attach this plan',
+    body: <p>Attach this plan to the tab or cluster that opened ALL PLANS. Only plans from the same project can be attached.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-preview': {
+    title: 'Preview a plan',
+    body: <p>Show this plan before attaching it. Preview does not change the plan.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.choose': {
+    title: 'Choose a plan',
+    body: <p>Open the project plan chooser to preview or attach another plan. The current plan stays in the project when detached.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-attach': {
+    title: 'Attach a plan',
+    body: <p>Attach this plan to the selected tab or cluster.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-finished': {
+    title: 'Show finished plans',
+    body: <p>Show or hide completed plans from this folder.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-genesis': {
+    title: 'Draft a plan in Genesis',
+    body: <p>Open Genesis for this project, then return to the plan choice when the plan is saved.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-create': {
+    title: 'Create and attach',
+    body: <p>Save the new plan in this project and choose it for the current target.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-reopen': {
+    title: 'Reopen a finished plan',
+    body: <p>Move this plan back to the open list. Reopening does not attach it.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-title': {
+    title: 'Plan title',
+    body: <p>Name the plan before saving it in this project.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-body': {
+    title: 'Plan body',
+    body: <p>Write the plan and its checklist. Reference documents can hold longer details.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-cancel': {
+    title: 'Cancel plan creation',
+    body: <p>Close the new-plan form without saving it.</p>,
+    manualSection: 'plans-library',
+  },
+  'plan.chooser-dismiss': {
+    title: 'Dismiss the saved-plan offer',
+    body: <p>Hide this offer. The saved plan remains available in the project.</p>,
     manualSection: 'plans-library',
   },
   'plans.probably-finished': {
@@ -1421,9 +1482,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'All plans',
     body: (
       <p>
-        Opens the plans library (ARTIFACTS → PLANS): every plan across all
-        projects, reviewable without attaching one to this tab.
-       Checkbox saves preserve later edits by refusing a changed plan instead of replacing it.</p>
+        Opens the plans library in ARTIFACTS. A plan from this project can be
+        attached to the tab or cluster that opened the library. Checkbox saves
+        refuse a changed plan instead of replacing later edits.
+      </p>
     ),
     manualSection: 'plans-library',
   },

@@ -385,6 +385,80 @@ async def check(browser, scale, scenario):
             assert await page.evaluate("""async () => {const {useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().jobs['history-worker-fixture'].workers['saved-worker'].provider;}""") == provider
             await page.keyboard.press('Escape')
             await expect(page.get_by_text('Preserved worker output', exact=True)).to_have_count(0)
+        # Keep the actual App creator mounted while a Genesis workflow opens.
+        await page.evaluate("""async () => {
+          const {useAppStore:s}=await import('/src/stores/appStore.ts');
+          window.planRaw=[]; s.setState({connected:true,wsSendRaw:m=>planRaw.push(m)});
+          s.getState().openCreatorWith({mode:'cluster',workDir:'/projects/harbor'});
+        }""")
+        name = page.get_by_placeholder('Optional. Leave empty to name it after the folder.')
+        await name.fill('Kept cluster name')
+        await page.get_by_label('Draft in Genesis first', exact=True).check()
+        await page.get_by_role('button', name='OPEN GENESIS', exact=True).click()
+        await page.wait_for_function("planRaw.some(m=>m.type==='create_workflow')")
+        config = await page.evaluate("planRaw.find(m=>m.type==='create_workflow').config")
+        await page.evaluate("""async config => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'workflow_created',workflowId:'genesis-return-fixture',config},d);
+        }""", config)
+        await expect(name).to_be_hidden()
+        await page.evaluate("""async () => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          receive({type:'genesis_plan_saved',workflowId:'genesis-return-fixture',cwd:'/projects/harbor',planId:'saved-plan',written:[]},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }""")
+        await expect(name).to_have_value('Kept cluster name')
+        await expect(page.get_by_text('Selected plan: Genesis plan', exact=True)).to_be_visible()
+        await page.get_by_label('Draft in Genesis first', exact=True).check()
+        await page.get_by_role('button', name='OPEN GENESIS', exact=True).click()
+        await page.wait_for_function("planRaw.filter(m=>m.type==='create_workflow').length===2")
+        config2 = await page.evaluate("planRaw.filter(m=>m.type==='create_workflow').at(-1).config")
+        await page.evaluate("""async config => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          receive({type:'workflow_created',workflowId:'genesis-cancel-fixture',config},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }""", config2)
+        await expect(name).to_be_hidden()
+        page.once('dialog', lambda dialog: dialog.accept())
+        await page.get_by_role('button', name='Close Plan in Genesis', exact=True).last.click()
+        await expect(name).to_have_value('Kept cluster name')
+        await expect(page.get_by_label('No plan', exact=True)).to_be_checked()
+        await expect(page.get_by_text('Selected plan: Genesis plan', exact=True)).to_have_count(0)
+
+        # A single-tab draft returns to that tab's PLAN view on save and close.
+        await page.evaluate("""async () => {
+          const {useAppStore:s}=await import('/src/stores/appStore.ts');
+          localStorage.setItem('arco.sidePanelTab.byWorkflow', JSON.stringify({'original-plan-tab':'plan'}));
+          s.getState().createJob('original-plan-tab', {name:'Original tab',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',workingDirectory:'/projects/harbor',skipPermissions:false});
+          s.getState().setActiveJob('original-plan-tab');
+          window.planRaw=[]; s.setState({connected:true,wsSendRaw:m=>planRaw.push(m)});
+        }""")
+        await expect(page.get_by_text('NO PLAN ATTACHED', exact=True)).to_be_visible()
+        await page.get_by_role('button', name='DRAFT IN GENESIS', exact=True).click()
+        await page.wait_for_function("planRaw.some(m=>m.type==='create_workflow')")
+        single_config = await page.evaluate("planRaw.find(m=>m.type==='create_workflow').config")
+        await page.evaluate("""async config => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'workflow_created',workflowId:'single-genesis-save',config},d);
+          receive({type:'genesis_plan_saved',workflowId:'single-genesis-save',cwd:'/projects/harbor',planId:'saved-plan',written:[]},d);
+        }""", single_config)
+        assert await page.evaluate("async()=>{const {useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().activeJobId}") == 'original-plan-tab'
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_be_visible()
+        await page.get_by_role('button', name='DISMISS', exact=True).click()
+        await page.evaluate('window.planRaw=[]')
+        await page.get_by_role('button', name='DRAFT IN GENESIS', exact=True).click()
+        await page.wait_for_function("planRaw.some(m=>m.type==='create_workflow')")
+        single_config2 = await page.evaluate("planRaw.find(m=>m.type==='create_workflow').config")
+        await page.evaluate("""async config => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          receive({type:'workflow_created',workflowId:'single-genesis-close',config},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }""", single_config2)
+        page.once('dialog', lambda dialog: dialog.accept())
+        await page.get_by_role('button', name='Close Plan in Genesis', exact=True).last.click()
+        assert await page.evaluate("async()=>{const {useAppStore:s}=await import('/src/stores/appStore.ts');return s.getState().activeJobId}") == 'original-plan-tab'
+        await expect(page.get_by_text('NO PLAN ATTACHED', exact=True)).to_be_visible()
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_have_count(0)
+        assert '/api/plans' not in writes
         assert not any(message.get('type') in ('create_workflow','send_prompt','create_cluster') for message in state['messages'])
     assert not errors, errors
     await context.close()

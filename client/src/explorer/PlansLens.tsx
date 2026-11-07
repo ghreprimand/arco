@@ -9,6 +9,7 @@ import { PlanWorkflowsSection } from '../components/RightPanel/PlanWorkflowsSect
 import { PlanRefsSection, PlanRefChips } from '../components/plans/PlanRefsSection';
 import { usePlanRefs } from '../components/plans/planRefs';
 import { probablyFinished, foldVersions } from './plansGrouping';
+import type { PlanAttachTarget } from './launch';
 
 // PLANS lens — the plans library. Every plan across every known project
 // (GET /api/explorer/plans), browsable and reviewable without attaching it to
@@ -23,6 +24,14 @@ type StatusFilter = 'active' | 'completed' | 'all';
 interface Selection { cwd: string; planId: string }
 
 const CURRENT_PROJECT = new URLSearchParams(window.location.search).get('cwd');
+const TARGET: PlanAttachTarget | null = (() => {
+  const params = new URLSearchParams(window.location.search);
+  const kind = params.get('targetKind');
+  const id = params.get('targetId');
+  const cwd = params.get('targetCwd');
+  const name = params.get('targetName');
+  return (kind === 'workflow' || kind === 'cluster') && id && cwd && name ? { kind, id, cwd, name } : null;
+})();
 const EXPANDED_KEY = 'arco_plans_expanded_projects';
 
 export function PlansLens({ focusTick }: { focusTick: number }) {
@@ -142,6 +151,7 @@ export function PlansLens({ focusTick }: { focusTick: number }) {
             cwd={selectedEntry.project.cwd}
             projectName={selectedEntry.project.name}
             entry={selectedEntry.plan}
+            target={TARGET}
             onChanged={() => setTick((t) => t + 1)}
             onDeleted={() => { setSel(null); setTick((t) => t + 1); }}
           />
@@ -176,8 +186,8 @@ function PlanRow({ plan, active, onClick }: { plan: PlanLibraryEntry; active: bo
   );
 }
 
-function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
-  cwd: string; projectName: string; entry: PlanLibraryEntry; onChanged: () => void; onDeleted: () => void;
+function PlanDetail({ cwd, projectName, entry, target, onChanged, onDeleted }: {
+  cwd: string; projectName: string; entry: PlanLibraryEntry; target: PlanAttachTarget | null; onChanged: () => void; onDeleted: () => void;
 }) {
   const [plan, setPlan] = useState<PlanFull | null>(null);
   const tickKey = JSON.stringify([cwd, entry.id]);
@@ -190,6 +200,8 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [saving, setSaving] = useState(false);
+  const [attachResult, setAttachResult] = useState('');
+  const [targetMatch, setTargetMatch] = useState<'checking' | 'same' | 'other' | 'unavailable'>('checking');
   const [showPast, setShowPast] = useState(false);
   const [openRef, setOpenRef] = useState<string | null>(null);
   const { refs, reload } = usePlanRefs(cwd, entry.id, entry.updatedAt);
@@ -204,6 +216,18 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
     return () => { cancelled = true; };
   }, [cwd, entry.id, entry.updatedAt]);
+
+  useEffect(() => {
+    if (!target) return;
+    let cancelled = false;
+    setTargetMatch('checking');
+    const params = new URLSearchParams({ path: cwd, kind: target.kind, id: target.id });
+    void fetch(`/api/explorer/plans/target?${params}`)
+      .then(async response => { if (!response.ok) throw new Error('Target is unavailable.'); return response.json() as Promise<{ sameProject: boolean }>; })
+      .then(result => { if (!cancelled) setTargetMatch(result.sameProject ? 'same' : 'other'); })
+      .catch(() => { if (!cancelled) setTargetMatch('unavailable'); });
+    return () => { cancelled = true; };
+  }, [cwd, target]);
 
   const patch = async (body: Record<string, unknown>): Promise<boolean> => {
     try {
@@ -259,6 +283,20 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
         )}
       </div>
       <PublicProjectBox cwd={cwd} testId="plans-library-public-project" />
+      {target && (targetMatch === 'checking' ? <div role="status">Checking project...</div> : targetMatch === 'unavailable' ? <div role="status">Attachment target is unavailable.</div> : targetMatch === 'other' ? <div role="status">Belongs to another project</div> : <div>
+        <button className="display-font" data-help="plans.attach-target" style={btn} onClick={async () => {
+          setAttachResult('');
+          const params = new URLSearchParams({ path: target.kind === 'workflow' ? target.cwd : cwd, planId: entry.id, ...(target.kind === 'cluster' ? { clusterId: target.id } : { workflowId: target.id }) });
+          const endpoint = target.kind === 'cluster' ? '/api/explorer/plans/attach' : '/api/plans/attach';
+          try {
+            const response = await fetch(`${endpoint}?${params}`, { method: 'POST' });
+            if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+            setAttachResult(`Attached to ${target.name}.`);
+            onChanged();
+          } catch (err) { setAttachResult(`Could not attach: ${err instanceof Error ? err.message : String(err)}`); }
+        }}>ATTACH TO {target.name}</button>
+        {attachResult && <span role="status">{attachResult}</span>}
+      </div>)}
       {publicProject && plan && !hasGuardrails(editing ? draftBody : plan.body) && <button className="display-font" data-help="plan.insert-guardrails" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : plan.body)); setEditing(true); }} disabled={saving}>INSERT GUARDRAILS</button>}
       {error && <div style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{error}</div>}
       {!editing && <PlanRefChips refs={refs} onOpenSlug={setOpenRef} />}

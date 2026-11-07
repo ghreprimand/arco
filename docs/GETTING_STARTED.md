@@ -300,9 +300,11 @@ at least two members, each with a model selected.
    added later; they do not replace existing rows. By default a cluster accepts
    one member per local runtime (Ollama, llama.cpp). Raise "Cluster members that
    may use this runtime at once" in Connections to allow more.
-5. Optionally describe the project purpose. To request a plan draft, check **Have the director draft a plan for review** and choose a director in the member list. The box starts unchecked. After creation, review the draft before attaching it. For a public project, tick **This project is public (or will be)** beside it. See [Plan or board?](PLAN_OR_BOARD.md).
+5. Under **Plan**, choose no plan, attach an existing project plan, have the director draft after creation, or draft in Genesis first. A director draft needs a director and a description of the goal, completion, constraints, and what must not change. Review the draft before attaching it. For a public project, tick **This project is public (or will be)**.
 6. Select **CREATE CLUSTER**. The cluster tab opens with its members. Member
    cards default to the **ROWS** layout (AUTO, COLS, and GRID remain available).
+
+See [Plan or board?](PLAN_OR_BOARD.md) for how the two work together.
 
 A cluster may have at most one director (roles beginning with Director or
 Coordinator count). Existing clusters that already have two directors remain

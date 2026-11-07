@@ -31,6 +31,7 @@ async def main():
         page = await browser.new_page(viewport={'width': 1300, 'height': 1000})
         errors, blocked, writes = [], [], []
         public_choices = {}
+        delayed_choice = {'enabled': False, 'entered': asyncio.Event(), 'release': asyncio.Event()}
 
         async def isolate(route):
             u = urlparse(route.request.url)
@@ -42,17 +43,27 @@ async def main():
                 if u.path == '/api/public-project/choice':
                     if route.request.method == 'POST':
                         body = route.request.post_data_json
+                        if delayed_choice['enabled']:
+                            delayed_choice['entered'].set()
+                            await delayed_choice['release'].wait()
                         public_choices[body['path']] = body['value']
                         await route.fulfill(json={'choice': body['value']}); return
                     await route.fulfill(json={'choice': None}); return
                 if u.path.startswith('/api/'):
                     if route.request.method != 'GET':
                         writes.append(u.path)
+                    if u.path == '/api/plans' and route.request.method == 'POST':
+                        body = route.request.post_data_json
+                        await route.fulfill(json={'plan': {'id': 'new-plan', 'title': body['title'], 'body': body['body'], 'createdAt': 1, 'updatedAt': 1}}); return
                     data = {'items': [], 'projects': [], 'roots': [], 'sessions': [], 'presets': [], 'templates': [], 'skills': [], 'models': [], 'clusters': [], 'chats': []}
                     if u.path == '/api/cluster-presets':
                         data['presets'] = [PRESET, LEGACY_PRESET]
                     if u.path == '/api/sessions':
                         data['sessions'] = SESSIONS
+                    if u.path == '/api/plans':
+                        data['plans'] = [{'id': 'fixture-plan', 'title': 'Fixture plan', 'createdAt': 1, 'updatedAt': 1}]
+                    if u.path == '/api/plans/body':
+                        data = {'plan': {'id': 'fixture-plan', 'title': 'Fixture plan', 'createdAt': 1, 'updatedAt': 1, 'body': '- [ ] Task'}}
                     await route.fulfill(json=data); return
                 path = unquote(u.path)
                 local = path.startswith('/@fs/') and fs_path(path).resolve().is_relative_to(ROOT)
@@ -213,29 +224,86 @@ async def main():
 
         # A purpose requests a reviewable director draft; no director is never chosen silently.
         await page.evaluate("show('cluster')")
-        goal = page.get_by_label('What is this project for? (optional)')
-        toggle = page.get_by_label('Have the director draft a plan for review')
+        toggle = page.get_by_label('Have the director draft a plan after creation')
         await expect(toggle).not_to_be_checked()
         await toggle.check()
+        goal = page.get_by_label('Project description')
         await page.get_by_test_id('creator-public-project').check()
         await goal.fill('Build a fixture tool')
         await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_disabled()
-        await expect(page.get_by_text('Choose a director below to draft the plan.', exact=True)).to_be_visible()
+        await expect(page.get_by_text('Add more detail: the goal, what done looks like, constraints, and what must not change.', exact=False)).to_be_visible()
+        await expect(page.get_by_text('Choose a director below to draft the plan.', exact=False)).to_be_visible()
         rows = page.locator('[data-help="creator.cluster-members"] > div[style*="border"]')
         await rows.first.get_by_role('button', name='↓ EDIT').click()
         await rows.first.get_by_role('button', name='DIRECTOR', exact=True).click()
         await rows.first.get_by_role('button', name='↑ COLLAPSE').click()
+        await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_disabled()
+        description = 'Build a fixture tool that tracks work for a small team and keeps saved project data intact while working entirely offline.'
+        await goal.fill(description)
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
         await page.wait_for_function('clusters.length===2')
-        assert (await page.evaluate('clusters[1].initialPlanGoal')) == 'Build a fixture tool'
+        assert (await page.evaluate('clusters[1].initialPlanGoal')) == description
         assert public_choices['/projects/fixture'] is True
         await page.evaluate("show('cluster')")
-        await page.get_by_label('What is this project for? (optional)').fill('Do not draft')
-        await page.get_by_label('Have the director draft a plan for review').uncheck()
+        await expect(page.get_by_label('No plan', exact=True)).to_be_checked()
         await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_enabled()
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
         await page.wait_for_function('clusters.length===3')
         assert 'initialPlanGoal' not in (await page.evaluate('clusters[2]'))
+
+        # An existing plan attaches without requiring a director.
+        await page.evaluate("show('cluster')")
+        await page.get_by_label('Attach an existing plan', exact=True).check()
+        await page.get_by_role('button', name='Attach Fixture plan', exact=True).click()
+        await expect(page.get_by_text('Selected plan: Fixture plan', exact=True)).to_be_visible()
+        folder = page.get_by_placeholder('Pick a project below, or type a folder path', exact=True)
+        await folder.fill('/projects/other')
+        await expect(page.get_by_label('No plan', exact=True)).to_be_checked()
+        await folder.fill('/projects/fixture')
+        await page.get_by_label('Attach an existing plan', exact=True).check()
+        await page.get_by_role('button', name='Attach Fixture plan', exact=True).click()
+        await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
+        await page.wait_for_function('clusters.length===4')
+        assert (await page.evaluate('clusters[3].initialPlanId')) == 'fixture-plan'
+
+        await page.evaluate("show('cluster')")
+        await page.get_by_label('Attach an existing plan', exact=True).check()
+        await page.get_by_role('button', name='+ NEW PLAN', exact=True).click()
+        await page.get_by_label('Plan title', exact=True).fill('New plan')
+        await page.get_by_label('Plan body', exact=True).fill('### Phase\n- [ ] Task')
+        await page.get_by_role('button', name='CREATE AND ATTACH', exact=True).click()
+        await expect(page.get_by_text('Selected plan: New plan', exact=True)).to_be_visible()
+
+        # The saved-message contract returns to the kept creator with the plan selected.
+        await page.evaluate("show('cluster'); window.rawMessages=[]; s.setState({wsSendRaw:m=>rawMessages.push(m)});")
+        name = page.get_by_placeholder('Optional. Leave empty to name it after the folder.')
+        await name.fill('Kept creator')
+        await page.get_by_label('Draft in Genesis first', exact=True).check()
+        await expect(page.get_by_test_id('creator-public-project')).to_be_visible()
+        await page.get_by_role('button', name='OPEN GENESIS', exact=True).click()
+        await page.wait_for_function("rawMessages.some(m=>m.type==='create_workflow')")
+        config = await page.evaluate("rawMessages.find(m=>m.type==='create_workflow').config")
+        assert config['workingDirectory'] == '/projects/fixture' and config['genesisSeed']['planOnly'] is True
+        await page.evaluate('''async config => {
+          const {handleServerMessage: receive}=await import('/src/ws/handleServerMessage.ts');
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'workflow_created',workflowId:'genesis-creator',config},d);
+          receive({type:'genesis_plan_saved',workflowId:'genesis-creator',cwd:'/projects/fixture',planId:'fixture-plan',written:[]},d);
+        }''', config)
+        await expect(page.get_by_text('Selected plan: Fixture plan', exact=True)).to_be_visible()
+        await expect(name).to_have_value('Kept creator')
+
+        # A delayed choice save must not open Genesis for a folder left behind.
+        await page.evaluate("show('cluster'); window.rawMessages=[]; s.setState({wsSendRaw:m=>rawMessages.push(m)});")
+        delayed_choice['enabled'] = True
+        await page.get_by_label('Draft in Genesis first', exact=True).check()
+        await page.get_by_role('button', name='OPEN GENESIS', exact=True).click()
+        await asyncio.wait_for(delayed_choice['entered'].wait(), 5)
+        await page.get_by_placeholder('Pick a project below, or type a folder path', exact=True).fill('/projects/other')
+        delayed_choice['release'].set()
+        delayed_choice['enabled'] = False
+        await page.wait_for_timeout(150)
+        assert not await page.evaluate("rawMessages.some(m=>m.type==='create_workflow')")
 
         # Codex-only home, no saved provider: single and chat start on Codex.
         codex_only = "{claude:{loggedIn:false},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:false},llamacpp:{loggedIn:false}}"
@@ -288,7 +356,7 @@ async def main():
         await expect(page.get_by_role('button', name='START GENESIS', exact=True)).to_be_disabled()
         assert await page.evaluate('created.length') == before + 1, 'nothing launched without a connected provider'
 
-        assert writes == [], writes
+        assert writes == ['/api/plans'], writes
         assert not blocked, blocked
         assert not errors, errors
         await browser.close()

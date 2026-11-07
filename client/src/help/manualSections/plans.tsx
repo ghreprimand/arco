@@ -143,10 +143,15 @@ export const plans: Section[] = [
 - **Next steps** - as a markdown checklist (- [ ] item)`}</Pre>
         <Sub>From the PLAN tab</Sub>
         <p>
-          The PLAN tab in the right panel lists every plan in this folder (for
-          example "active in &lt;workflow&gt; + 1 other · 3 past"). Active plans are
-          inline, and completed plans hide behind a <Code>▶ N completed</Code>{' '}
-          toggle. Click a plan to attach it to the current workflow.
+          The PLAN tab lists plans in this folder. Each row shows its age and
+          task count, with <Code>PREVIEW</Code> and <Code>ATTACH</Code> buttons.
+          Completed plans are under <Code>Show finished</Code>. The same chooser
+          is used for cluster plans and the cluster creator.
+        </p>
+        <p>
+          <Code>DRAFT IN GENESIS</Code> opens Genesis for this folder. Saving or
+          closing it returns to the original PLAN tab. A saved plan is offered
+          for attachment; it is not attached until <Code>ATTACH</Code> is clicked.
         </p>
         <Sub>Asking the agent directly</Sub>
         <p>
@@ -428,11 +433,15 @@ export const plans: Section[] = [
     body: (
       <>
         <p>
-          The plans library lists every plan across projects, so you can review one
-          without attaching it to a workflow. It is the <strong>PLANS</strong> lens
+          The plans library lists every plan across projects. It is the <strong>PLANS</strong> lens
           in the ARTIFACTS window, which lists every plan in every project Arco
           knows about. Open it from <Code>PLANS</Code> in the header KNOWLEDGE menu or the{' '}
-          <Code>⌸ ALL PLANS</Code> button on an empty PLAN tab.
+          <Code>ALL PLANS</Code> button in a PLAN tab.
+        </p>
+        <p>
+          When opened from a tab or
+          cluster, <Code>ATTACH TO</Code> attaches a plan from that same project.
+          Plans from another project cannot be attached to that target.
         </p>
   <p>Moving a plan detaches its source workflows only after success. Choosing the same project or an existing destination plan leaves those attachments unchanged.</p>
         <p>

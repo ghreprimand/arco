@@ -24,8 +24,8 @@ async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page()
-        errors, unexpected, posts = [], [], []
-        state = {'tracked': 2, 'ignored': True}
+        errors, unexpected, posts, plan_attaches = [], [], [], []
+        state = {'tracked': 2, 'ignored': True, 'plans': [], 'cluster_attach_status': 500}
         choices = {}
         page.on('pageerror', lambda e: errors.append(str(e)))
         async def route_request(route):
@@ -35,8 +35,13 @@ async def main():
                 await route.fulfill(status=200, content_type='text/html', body=HTML); return
             if here and u.path == '/api/plans/body':
                 await route.fulfill(json={'plan': {'id':'agent-plan', 'title':'Agent plan', 'body':'# Agent plan\n\n### Phase\n- [ ] Task', 'createdAt':1, 'updatedAt':1}}); return
+            if here and u.path == '/api/plans/attach' and route.request.method == 'POST':
+                plan_attaches.append(parse_qs(u.query))
+                await route.fulfill(json={'ok': True}); return
+            if here and u.path == '/api/explorer/plans/attach' and route.request.method == 'POST':
+                await route.fulfill(status=state['cluster_attach_status'], json={'error': 'fixture failure'} if state['cluster_attach_status'] != 200 else {'ok': True}); return
             if here and u.path in ('/api/plans', '/api/plans/refs'):
-                await route.fulfill(json={'plans': [], 'refs': []}); return
+                await route.fulfill(json={'plans': state['plans'], 'refs': []}); return
             if here and u.path == '/api/public-project/choice':
                 if route.request.method == 'POST':
                     data = route.request.post_data_json
@@ -118,6 +123,22 @@ async def main():
         await expect(insert).to_be_disabled()
         await expect(insert).to_have_attribute('title', 'Already in this plan')
         assert await page.evaluate('saved.length') == 0
+        # A failed Genesis-plan attachment remains visible in view mode and can be retried.
+        await page.get_by_role('button', name='CANCEL', exact=True).click()
+        await expect(page.locator('textarea')).to_have_count(0)
+        await page.evaluate('''async () => {
+          const {usePlanGenesisStore:g}=await import('/src/stores/planGenesisStore.ts');
+          g.setState({results:{'genesis-result':{origin:{kind:'cluster',cwd:'/p/none',clusterId:'c1'},planId:'new-plan'}}});
+        }''')
+        page.once('dialog', lambda dialog: dialog.accept())
+        await page.get_by_role('button', name='ATTACH', exact=True).click()
+        await expect(page.get_by_role('alert').filter(has_text='Failed to attach')).to_be_visible()
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_be_visible()
+        state['cluster_attach_status'] = 200
+        page.once('dialog', lambda dialog: dialog.accept())
+        await page.get_by_role('button', name='ATTACH', exact=True).click()
+        await expect(page.get_by_role('alert').filter(has_text='Failed to attach')).to_have_count(0)
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_have_count(0)
         # Single-tab manual creation and a proposed plan both expose the choice.
         await page.evaluate('''async () => {
           const React=(await import('/node_modules/.vite/deps/react.js')).default;
@@ -130,7 +151,7 @@ async def main():
           window.showPlanCase=(name)=>{
             const Component=()=>{
               const job=s(st=>st.jobs['plan-fixture']);
-              if(name==='manual') return React.createElement(PlanTab,{job,onAttach:()=>{}});
+              if(name==='manual') return React.createElement(PlanTab,{job,onAttach:id=>{window.planAttached=id}});
               if(name==='dialog') return React.createElement(PlanComposerDialog,{job,onConfirm:()=>{},onCancel:()=>{}});
               if(name==='genesis') return React.createElement(GenesisTab,{job,onScaffold:(...args)=>window.scaffoldArgs=args});
               return React.createElement(PlanCandidateBanner,{job,onAttachPlan:()=>{},onSend:()=>true});
@@ -139,7 +160,30 @@ async def main():
           };
           window.planStore=s;
         }''')
+        state['plans'] = [{'id':'agent-plan', 'title':'Agent plan', 'createdAt':1, 'updatedAt':1}]
         await page.evaluate("showPlanCase('manual')")
+        await page.evaluate("window.open=(url)=>{window.archiveUrl=url;return {focus:()=>{}}}")
+        await page.get_by_role('button', name='ALL PLANS', exact=True).click()
+        assert await page.evaluate("archiveUrl.includes('targetKind=workflow') && archiveUrl.includes('targetId=plan-fixture') && archiveUrl.includes('targetCwd=%2Fp%2Fhosted')")
+        await page.get_by_role('button', name='Preview Agent plan', exact=True).click()
+        await expect(page.locator('pre')).to_contain_text('- [ ] Task')
+        await page.get_by_role('button', name='Attach Agent plan', exact=True).click()
+        assert await page.evaluate('planAttached') == 'agent-plan'
+        await page.evaluate("window.rawMessages=[]; planStore.setState({connected:true,wsSendRaw:m=>rawMessages.push(m)});")
+        await page.get_by_role('button', name='DRAFT IN GENESIS', exact=True).click()
+        config = await page.evaluate("rawMessages.find(m=>m.type==='create_workflow').config")
+        assert config['workingDirectory'] == '/p/hosted' and config['genesisSeed']['planOnly'] is True
+        await page.evaluate('''async config => {
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          const d={wsRef:{current:null},scheduleReconnect:()=>{}};
+          receive({type:'workflow_created',workflowId:'genesis-single',config},d);
+          receive({type:'genesis_plan_saved',workflowId:'genesis-single',cwd:'/p/hosted',planId:'agent-plan',written:[]},d);
+        }''', config)
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_be_visible()
+        await page.get_by_role('button', name='ATTACH', exact=True).click()
+        await expect(page.get_by_text('Genesis saved a plan for this project.', exact=False)).to_have_count(0)
+        assert plan_attaches[-1]['workflowId'] == ['plan-fixture']
+        assert plan_attaches[-1]['planId'] == ['agent-plan']
         await page.get_by_role('button', name='+ NEW PLAN').click()
         await expect(page.get_by_test_id('new-plan-public-project')).to_be_checked()
         await page.get_by_role('button', name='INSERT GUARDRAILS').click()

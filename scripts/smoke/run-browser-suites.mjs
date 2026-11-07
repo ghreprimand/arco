@@ -197,7 +197,8 @@ const runPython = (suite, env = process.env) => spawnSync('python3', [join(root,
   env,
   encoding: 'utf8',
   maxBuffer: 20 * 1024 * 1024,
-  timeout: 240_000,
+  // The full theme inventory visits every surface at four theme/viewport pairs.
+  timeout: suite.name === 'theme-controls' ? 420_000 : 240_000,
 });
 async function runSuite(suite, env = process.env) {
   const result = await runWithCiRetry(() => runPython(suite, env), { ci: hostedCi });

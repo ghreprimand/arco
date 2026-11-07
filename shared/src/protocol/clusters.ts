@@ -446,6 +446,8 @@ export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings
   name?: string;
   // Operator-requested initial draft; returned to the creating client only.
   initialPlanGoal?: string;
+  // Existing project plan selected during cluster creation.
+  initialPlanId?: string;
   // New creation defaults apply only here, never when reading saved metadata.
   efficiencyLevel?: ClusterEfficiencyLevel;
   efficiencyAddendum?: string;

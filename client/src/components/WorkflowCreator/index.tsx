@@ -29,6 +29,10 @@ import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingT
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
 import { PublicProjectBox } from '../PublicProjectBox';
+import { PlanChooser } from '../plans/PlanChooser';
+import { startPlanGenesis } from '../plans/startPlanGenesis';
+import { usePlanGenesisStore } from '../../stores/planGenesisStore';
+import { openArchive } from '../../explorer/launch';
 import { rememberPublicChoice } from '../../utils/publicProject';
 import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import { availableMemberProviders, firstAvailablePrimaryProvider, memberProviderAvailable, MEMBER_PROVIDER_NAMES, primaryProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders';
@@ -302,7 +306,22 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // cluster-only optional name (≤64; empty = derived default).
   const [clusterName, setClusterName] = useState('');
   const [clusterPlanGoal, setClusterPlanGoal] = useState('');
-  const [draftInitialPlan, setDraftInitialPlan] = useState(false);
+  const [planChoice, setPlanChoice] = useState<'none' | 'existing' | 'director' | 'genesis'>('none');
+  const [selectedPlan, setSelectedPlan] = useState<{ id: string; title: string; cwd: string } | null>(null);
+  const [creatorDraftKey] = useState(mintTemplateSpawnToken);
+  const genesisAttempt = useRef(0);
+  const genesisStarting = useRef(false);
+  const [openingGenesis, setOpeningGenesis] = useState(false);
+  useEffect(() => () => { genesisAttempt.current += 1; }, []);
+  useEffect(() => {
+    if (mode !== 'cluster') {
+      genesisAttempt.current += 1;
+      usePlanGenesisStore.getState().cancelCreator(creatorDraftKey);
+    }
+  }, [mode, creatorDraftKey]);
+  const genesisResults = usePlanGenesisStore(s => s.results);
+  const creatorGenesisPending = usePlanGenesisStore(s => Object.values(s.pending).some(origin => origin.kind === 'creator' && origin.creatorDraftKey === creatorDraftKey));
+  const draftInitialPlan = planChoice === 'director';
   // per-cluster efficiency level chosen at create time (cluster-
   // wide, not per-member). New creation uses Balanced independently of the
   // message guard; the optional NOTE appends to the generated policy.
@@ -376,6 +395,36 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const prefill = useAppStore.getState().creatorPrefill;
     return prefill && prefill.mode !== 'chat' && prefill.mode !== 'genesis' ? prefill.workDir ?? '' : '';
   });
+  const lastPlanFolder = useRef(workDir);
+  const currentPlanFolder = useRef(workDir);
+  currentPlanFolder.current = workDir;
+  useEffect(() => {
+    if (lastPlanFolder.current !== workDir) {
+      lastPlanFolder.current = workDir;
+      usePlanGenesisStore.getState().cancelCreator(creatorDraftKey);
+      setSelectedPlan(null);
+      if (planChoice === 'existing' || planChoice === 'genesis') setPlanChoice('none');
+    }
+  }, [workDir, planChoice, creatorDraftKey]);
+  useEffect(() => {
+    const found = Object.entries(genesisResults).find(([, result]) => result.origin.kind === 'creator' && result.origin.creatorDraftKey === creatorDraftKey);
+    if (!found) return;
+    const [workflowId, result] = found;
+    if (result.origin.cwd === workDir && result.planId) {
+      const planId = result.planId;
+      setSelectedPlan({ id: planId, title: 'Genesis plan', cwd: workDir });
+      setPlanChoice('existing');
+      void fetch(`/api/plans/body?path=${encodeURIComponent(workDir)}&planId=${encodeURIComponent(planId)}`)
+        .then(async response => response.ok ? await response.json() as { plan?: { title?: string } } : null)
+        .then(data => {
+          if (data?.plan?.title) setSelectedPlan(current => current?.id === planId ? { ...current, title: data.plan!.title! } : current);
+        }).catch(() => {});
+    } else {
+      setSelectedPlan(null);
+      setPlanChoice('none');
+    }
+    usePlanGenesisStore.getState().clearResult(workflowId);
+  }, [genesisResults, creatorDraftKey, workDir]);
   const [browserPath, setBrowserPath] = useState('');
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -587,7 +636,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (members.length < 2) problems.push('Cluster needs at least 2 members.');
     const directorProblem = clusterDirectorProblem(members.map((m) => m.role));
     if (directorProblem) problems.push(directorProblem);
-    if (draftInitialPlan && clusterPlanGoal.trim() && !members.some((member) => isClusterDirector(member.role))) problems.push('Choose a director below to draft the plan.');
+    if (draftInitialPlan && clusterPlanGoal.trim().split(/\s+/).filter(Boolean).length < 20) problems.push('Add more detail: the goal, what done looks like, constraints, and what must not change.');
+    if (draftInitialPlan && !members.some((member) => isClusterDirector(member.role))) problems.push('Choose a director below to draft the plan.');
+    if (planChoice === 'existing' && (!selectedPlan || selectedPlan.cwd !== workDir)) problems.push('Choose a plan to attach.');
+    if (planChoice === 'genesis') problems.push('Finish or cancel the Genesis draft before creating the cluster.');
     // Mirrors the server's local capacity check (Connections > Ollama / llama.cpp).
     const localProblem = localCapacityProblem(members.map((m) => m.provider), settings?.localClusterCapacity);
     if (localProblem) problems.push(localProblem);
@@ -759,10 +811,34 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }
   };
 
+  const openPlanGenesis = async () => {
+    if (genesisStarting.current) return;
+    if (!workDir) { window.alert('Choose a project folder first.'); return; }
+    const member = members[0];
+    if (!member) { window.alert('Add a member before starting Genesis.'); return; }
+    if (!member.model || !memberProviderAvailable(member.provider, authStatus, isProviderEnabled)) {
+      window.alert('Choose an enabled and connected provider and model for the first member before starting Genesis.'); return;
+    }
+    const attempt = ++genesisAttempt.current;
+    genesisStarting.current = true; setOpeningGenesis(true);
+    try {
+      await rememberPublicChoice(workDir);
+      if (attempt !== genesisAttempt.current || currentPlanFolder.current !== workDir) return;
+      startPlanGenesis({ kind: 'creator', cwd: workDir, creatorDraftKey }, {
+        name: 'Plan in Genesis', workingDirectory: workDir,
+        primaryProvider: member.provider, primaryModel: member.model, primaryEffort: member.effort,
+        skipPermissions: member.skipPermissions,
+        ...(member.providerAccountRef ? { providerAccountRef: member.providerAccountRef } : {}),
+      });
+    } catch {
+      if (attempt === genesisAttempt.current && currentPlanFolder.current === workDir) window.alert('Could not save the public-project choice. Try again.');
+    } finally { genesisStarting.current = false; setOpeningGenesis(false); }
+  };
+
   const handleCreate = async () => {
     if (mode === 'cluster') {
       if (!canLaunchCluster || !onCreateCluster) return;
-      if (draftInitialPlan && clusterPlanGoal.trim()) {
+      if (planChoice !== 'none') {
         try { await rememberPublicChoice(workDir); }
         catch { window.alert('Could not save the public-project choice. Try again.'); return; }
       }
@@ -771,6 +847,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         cwd: workDir,
         ...(clusterName.trim().length > 0 ? { name: clusterName.trim() } : {}),
         ...(draftInitialPlan && clusterPlanGoal.trim() ? { initialPlanGoal: clusterPlanGoal.trim() } : {}),
+        ...(planChoice === 'existing' && selectedPlan?.cwd === workDir ? { initialPlanId: selectedPlan.id } : {}),
         efficiencyLevel: clusterEfficiency,
         messageGuard,
         taskBoardMode: clusterBoard,
@@ -1237,13 +1314,24 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {mode === 'single' && templateHasPlan && <PublicProjectBox cwd={workDir} testId="template-plan-public-project" />}
 
         {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
-        {mode === 'cluster' && <div data-help="creator.cluster-plan-goal" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
-          <label htmlFor="cluster-plan-goal" style={labelStyle}>What is this project for? (optional)</label>
-          <textarea id="cluster-plan-goal" value={clusterPlanGoal} onChange={(event) => setClusterPlanGoal(event.target.value)} maxLength={4000} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '11px', color: 'var(--color-fg-muted)' }}><input type="checkbox" checked={draftInitialPlan} onChange={(event) => setDraftInitialPlan(event.target.checked)} /> Have the director draft a plan for review</label>
-          <PublicProjectBox cwd={workDir} testId="creator-public-project" />
-          {draftInitialPlan && clusterPlanGoal.trim() && !members.some((member) => isClusterDirector(member.role)) && <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>Choose a director in the member list before creating the cluster.</span>}
-        </div>}
+        {mode === 'cluster' && <fieldset data-help="creator.cluster-plan-goal" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, color: 'var(--color-fg)', border: '1px solid var(--color-border-hairline)' }}>
+          <legend>Plan</legend>
+          <label data-help="creator.plan-none"><input type="radio" name="cluster-plan-choice" checked={planChoice === 'none'} onChange={() => { genesisAttempt.current += 1; usePlanGenesisStore.getState().cancelCreator(creatorDraftKey); setPlanChoice('none'); }} /> No plan</label>
+          <label data-help="creator.plan-existing"><input type="radio" name="cluster-plan-choice" checked={planChoice === 'existing'} onChange={() => { genesisAttempt.current += 1; usePlanGenesisStore.getState().cancelCreator(creatorDraftKey); setPlanChoice('existing'); }} /> Attach an existing plan</label>
+          <label data-help="creator.plan-director"><input type="radio" name="cluster-plan-choice" checked={planChoice === 'director'} onChange={() => { genesisAttempt.current += 1; usePlanGenesisStore.getState().cancelCreator(creatorDraftKey); setPlanChoice('director'); }} /> Have the director draft a plan after creation</label>
+          <label data-help="creator.plan-genesis"><input type="radio" name="cluster-plan-choice" checked={planChoice === 'genesis'} onChange={() => setPlanChoice('genesis')} /> Draft in Genesis first</label>
+          {planChoice !== 'none' && <PublicProjectBox cwd={workDir} testId="creator-public-project" />}
+          {planChoice === 'existing' && <>
+            {selectedPlan?.cwd === workDir && <div role="status">Selected plan: {selectedPlan.title}</div>}
+            {workDir ? <PlanChooser cwd={workDir} onAttach={plan => { if (currentPlanFolder.current === workDir) setSelectedPlan({ id: plan.id, title: plan.title, cwd: workDir }); }} onGenesis={() => { setPlanChoice('genesis'); void openPlanGenesis(); }} onAllPlans={() => { void openArchive('plans', workDir); }} /> : <span>Choose a project folder first.</span>}
+          </>}
+          {planChoice === 'director' && <>
+            <label htmlFor="cluster-plan-goal" style={labelStyle}>Project description</label>
+            <p style={{ color: 'var(--color-fg-muted)', fontSize: 11 }}>The director drafts from this text. Be specific: the goal, what done looks like, constraints, and what must not change.</p>
+            <textarea id="cluster-plan-goal" data-help="creator.plan-description" value={clusterPlanGoal} onChange={(event) => setClusterPlanGoal(event.target.value)} maxLength={4000} rows={3} placeholder="Build a task tracker for a small team. Done means tasks can be created, assigned, and reviewed. Keep existing project data and work offline." style={{ ...inputStyle, resize: 'vertical' }} />
+          </>}
+          {planChoice === 'genesis' && <button type="button" data-help="plan.chooser-genesis" disabled={creatorGenesisPending || openingGenesis} onClick={() => void openPlanGenesis()}>{creatorGenesisPending || openingGenesis ? 'OPENING GENESIS...' : 'OPEN GENESIS'}</button>}
+        </fieldset>}
         {mode === 'cluster' && (
           <ClusterTemplatePicker
             providers={availableMemberProviders(authStatus, isProviderEnabled)}

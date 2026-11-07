@@ -1075,6 +1075,7 @@ export function useWebSocket() {
     cwd: string;
     name?: string;
     initialPlanGoal?: string;
+    initialPlanId?: string;
     efficiencyLevel?: ClusterEfficiencyLevel;
     efficiencyAddendum?: string;
     messageGuard?: import('@arco/shared').ClusterMessageGuard;
@@ -1101,6 +1102,7 @@ export function useWebSocket() {
       cwd: payload.cwd,
       ...(payload.name && payload.name.trim().length > 0 ? { name: payload.name.trim() } : {}),
       ...(payload.initialPlanGoal?.trim() ? { initialPlanGoal: payload.initialPlanGoal.trim() } : {}),
+      ...(payload.initialPlanId ? { initialPlanId: payload.initialPlanId } : {}),
       ...(payload.efficiencyLevel ? { efficiencyLevel: payload.efficiencyLevel } : {}),
       ...(payload.messageGuard ? { messageGuard: payload.messageGuard } : {}),
       ...(payload.taskBoardMode ? { taskBoardMode: payload.taskBoardMode } : {}),

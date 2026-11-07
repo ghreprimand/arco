@@ -710,7 +710,8 @@ export const clusters: Section[] = [
   </p>
   <p>Checkbox saves preserve intervening edits through a plan-version check. A conflict asks for a fresh review before retrying. Member ticks match task text against the version being saved.</p>
   <h4 className="manual-sub">Using the plan</h4>
-  <p>During cluster creation, an optional project purpose can ask the selected director to draft a plan. The director draft box starts unchecked. The draft is shown for review and is not attached automatically.</p>
+  <p>During cluster creation, choose no plan, attach an existing project plan, have the director draft after creation, or draft in Genesis first. A director draft needs a director and a detailed description. The draft is shown for review before attachment.</p>
+  <p>Genesis returns to the creator with its saved plan selected. The other creator fields stay as entered. Closing Genesis returns without selecting a plan.</p>
   <p>A cluster with no plan also offers DRAFT A PLAN, ATTACH EXISTING and NOT NOW. The last choice is remembered for that cluster in this browser. In the compact hint, DRAFT A PLAN first opens the public-project choice.</p>
   <p>
   The plan is routed as a forced system block with{' '}

@@ -61,7 +61,7 @@ test('cookie is session-only (never written to the on-disk store) and HttpOnly/S
 
 test('http: operator routes need the cookie; agent tool routes, mint, and non-api paths do not', () => {
   const cookie = `${SESSION_COOKIE}=${mintToken()}`;
-  for (const url of ['/api/shutdown', '/api/restart', '/api/update-manager', '/api/file-content?path=/x', '/api/clusters/abc/members', '/api/plans/xyz', '/upload', '/api']) {
+  for (const url of ['/api/shutdown', '/api/restart', '/api/update-manager', '/api/file-content?path=/x', '/api/clusters/abc/members', '/api/plans/xyz', '/api/explorer/plans/target', '/api/explorer/plans/attach', '/upload', '/api']) {
     assert.equal(checkHttpAuth(req({}, 'POST', url)).ok, false, url);
     assert.equal(checkHttpAuth(req({ cookie }, 'POST', url)).ok, true, url);
   }

@@ -1,6 +1,7 @@
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
 import { effectivePublic } from '../utils/publicProject';
+import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { receiveComputerActivityChanged } from '../voice/activity';
 import { useComputerStore } from '../stores/computerStore';
@@ -281,6 +282,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             restored,
             msg.clusterMemberPending,
           );
+          if (msg.config.templateSpawnToken && usePlanGenesisStore.getState().bind(msg.config.templateSpawnToken, msg.workflowId)) {
+            store.setActiveJob(msg.workflowId);
+          }
           if (msg.claudeSessionId) store.setClaudeSessionId(msg.workflowId, msg.claudeSessionId);
           // docs/ARCHITECTURE.md - a research run dispatched to a
           // fresh tab carries a one-shot spawn token on its config. When the
@@ -2410,6 +2414,19 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
         case 'genesis_plan_saved':
           store.setGenesisScaffold(msg.workflowId, { cwd: msg.cwd, written: msg.written, planId: msg.planId });
+          {
+            const origin = usePlanGenesisStore.getState().finish(msg.workflowId, msg.cwd, msg.planId);
+            if (origin?.kind === 'cluster') store.setActiveCluster(origin.clusterId);
+            if (origin?.kind === 'creator') store.showJobCreator();
+            if (origin?.kind === 'workflow') {
+              const original = useAppStore.getState().jobs[origin.workflowId];
+              if (original?.config.workingDirectory === origin.cwd) store.setActiveJob(origin.workflowId);
+              else {
+                usePlanGenesisStore.getState().clearResult(msg.workflowId);
+                store.pushNotification('error', 'The original tab is unavailable or uses another project. The saved plan remains in its project.');
+              }
+            }
+          }
           store.pushNotification('info', 'Genesis plan saved. Existing project files were preserved.');
           break;
         case 'genesis_scaffolded':

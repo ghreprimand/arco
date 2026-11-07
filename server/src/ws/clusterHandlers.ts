@@ -47,7 +47,7 @@ import { readCatalog as readLlamacppCatalog } from '../llamacppCatalog.js';
 import * as mcpConfigWriter from '../mcp/mcpConfigWriter.js';
 import { resolveRegistryWiring } from '../mcp/registryWiring.js';
 import { readMeta, latestCliSessionFor, workflowConfigFromMeta } from '../workflowMeta.js';
-import { isValidPlanId } from '../planStore.js';
+import { isValidPlanId, readPlan } from '../planStore.js';
 import { configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
 import { inferClusterProviderFromModel, memberAccountRefusal, memberConfigFromSpec, memberConfigFromTemplate, memberModelRefusal, memberTuningRefusal, templateModelRefusal, type CodexAccountCheck, type CodexAccountResolver } from './clusterMembers.js';
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
@@ -1638,6 +1638,15 @@ export async function handleClusterCreateFromScratch(
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_plan_goal' }); return;
   }
   const goal = msg.initialPlanGoal?.trim() ?? '';
+  if (msg.initialPlanId !== undefined) {
+    if (typeof msg.initialPlanId !== 'string' || !isValidPlanId(msg.initialPlanId) || goal) {
+      send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_initial_plan' }); return;
+    }
+    const existingPlan = await readPlan(msg.cwd, msg.initialPlanId).catch(() => null);
+    if (!existingPlan || existingPlan.body.length > clusterPlanBridge.PLAN_MAX_BYTES) {
+      send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: initial_plan_unavailable' }); return;
+    }
+  }
   const directorIndex = msg.members.findIndex((member) => isClusterDirector(member.role));
   if (goal && directorIndex < 0) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: plan_draft_requires_director' }); return;
@@ -1723,6 +1732,14 @@ export async function handleClusterCreateFromScratch(
   }
   if (msg.name && msg.name.trim().length > 0) {
     await clusterStore.renameCluster(cluster.clusterId, msg.name).catch(() => { /* best-effort */ });
+  }
+  if (msg.initialPlanId) {
+    try {
+      const attached = await clusterPlanBridge.attachExistingPlan(cluster.clusterId, msg.initialPlanId, msg.cwd);
+      if (!attached) throw new Error('Plan is no longer available.');
+    } catch {
+      send(ws, { type: 'error', message: 'The cluster was created, but its plan could not be attached. Attach it from the PLAN tab.' });
+    }
   }
   session.clusterIds.add(cluster.clusterId);
   attachClusterObservers(ws, session, cluster.clusterId, cluster.members);

@@ -10,7 +10,9 @@ import { PlanReviewPicker } from '../PlanReviewPicker';
 import { PlanBodyRenderer, CHECKBOX_RE } from '../PlanBodyRenderer';
 import { EmptyState } from './FilesTab';
 import { MoveTargetModal } from './MoveTargetModal';
-import { PlanListRow } from './PlanListRow';
+import { PlanChooser } from '../plans/PlanChooser';
+import { startPlanGenesis } from '../plans/startPlanGenesis';
+import { usePlanGenesisStore } from '../../stores/planGenesisStore';
 import { PlanWorkflowsSection } from './PlanWorkflowsSection';
 import { PlanRefsSection, PlanRefChips } from '../plans/PlanRefsSection';
 import { usePlanRefs } from '../plans/planRefs';
@@ -47,6 +49,13 @@ export function PlanTab({
   const cwd = job.config.workingDirectory;
   const { checked: publicProject } = usePublicProject(cwd ?? '');
   const plan = job.plan ?? null;
+  const genesisResults = usePlanGenesisStore(s => s.results);
+  const genesisOffer = Object.entries(genesisResults).find(([, result]) => result.origin.kind === 'workflow' && result.origin.workflowId === job.id && result.origin.cwd === cwd);
+  const genesisPlanId = genesisOffer?.[1].planId;
+  const [offerError, setOfferError] = useState('');
+  useEffect(() => {
+    if (genesisOffer && genesisPlanId === null) usePlanGenesisStore.getState().clearResult(genesisOffer[0]);
+  }, [genesisOffer?.[0], genesisPlanId]);
   // Phase 2.6 — PROMOTE TO CLUSTER gating. The button is visible only when
   // this workflow is currently a cluster member; we read the cluster map
   // straight from the store rather than threading a flag.
@@ -90,6 +99,7 @@ export function PlanTab({
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [creating, setCreating] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
   const [saving, setSaving] = useState(false);
@@ -99,7 +109,6 @@ export function PlanTab({
   useEffect(() => { setSaving(false); }, [saveKey]);
   const [error, setError] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
   // When set, opens SpawnDialog prefilled with the task line text. Cleared
   // on confirm/cancel. Local to PlanTab so dismissing the dialog doesn't
   // also tear down the body fetch.
@@ -286,88 +295,44 @@ export function PlanTab({
 
   if (!cwd) return <EmptyState text="No working directory bound to this tab." />;
 
+  const offer = genesisOffer && genesisPlanId ? <div role="status" style={{ color: 'var(--color-fg)', display: 'flex', gap: 6, alignItems: 'center' }}>
+    Genesis saved a plan for this project.
+    <button type="button" data-help="plan.chooser-attach" style={planMiniBtn} onClick={async () => {
+      if (plan?.id && plan.id !== genesisPlanId && !window.confirm('Attach the Genesis plan? The current plan will be detached but kept in the project.')) return;
+      const params = new URLSearchParams({ path: cwd, workflowId: job.id, planId: genesisPlanId });
+      try {
+        const response = await fetch(`/api/plans/attach?${params}`, { method: 'POST' });
+        if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+        setOfferError(''); usePlanGenesisStore.getState().clearResult(genesisOffer[0]);
+      } catch (err) { setOfferError(`Failed to attach: ${err instanceof Error ? err.message : String(err)}`); }
+    }}>ATTACH</button>
+    <button type="button" data-help="plan.chooser-dismiss" style={planMiniBtn} onClick={() => usePlanGenesisStore.getState().clearResult(genesisOffer[0])}>DISMISS</button>
+    {offerError && <span role="alert">{offerError}</span>}
+  </div> : null;
+
   if (!plan) {
     return (
       <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        {offer}
         <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
           NO PLAN ATTACHED
         </div>
         <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
           A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.arco/plans/</code>.
         </div>
-        <button
-          onClick={() => { void openArchive('plans', cwd); }}
-          data-help="plan.library"
-          className="display-font"
-          style={{ ...planMiniBtn, marginBottom: '14px' }}
-          title="Browse and review every plan across all projects, without attaching one"
-        >
-          ⌸ ALL PLANS
-        </button>
-
-        {!creating && (() => {
-          const activePlans = (list ?? []).filter((p) => p.completedAt == null);
-          const completedPlans = (list ?? []).filter((p) => p.completedAt != null);
-          return (
-            <>
-              {list === null && <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>loading…</div>}
-              {activePlans.length > 0 && (
-                <>
-                  <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-accent-secondary-dim)', marginBottom: '6px' }}>
-                    EXISTING PLANS
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-                    {activePlans.map((p) => (
-                      <PlanListRow
-                        key={p.id}
-                        plan={p}
-                        onAttach={() => onAttach?.(p.id)}
-                        onComplete={() => handleMarkComplete(p.id, p.title)}
-                        onDelete={() => handleDelete(p.id, p.title)}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-              <button onClick={() => setCreating(true)} data-help="plan.new" className="display-font" style={planMiniBtn} disabled={saving}>
-                + NEW PLAN
-              </button>
-              {completedPlans.length > 0 && (
-                <div style={{ marginTop: '14px' }}>
-                  <button
-                    onClick={() => setShowCompleted((v) => !v)}
-                    data-help="plan.toggle-completed"
-                    className="display-font"
-                    style={{
-                      padding: '4px 0',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--color-fg-muted)',
-                      fontSize: '10px',
-                      letterSpacing: '1.2px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {showCompleted ? '▼' : '▶'} {completedPlans.length} completed
-                  </button>
-                  {showCompleted && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-                      {completedPlans.map((p) => (
-                        <PlanListRow
-                          key={p.id}
-                          plan={p}
-                          onReopen={() => handleReopen(p.id)}
-                          onDelete={() => handleDelete(p.id, p.title)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          );
-        })()}
+        {!creating && <PlanChooser
+          cwd={cwd}
+          disabled={!onAttach}
+          busy={saving}
+          refreshKey={JSON.stringify(list)}
+          onAttach={choice => onAttach?.(choice.id)}
+          onNew={() => setCreating(true)}
+          onGenesis={() => { startPlanGenesis({ kind: 'workflow', cwd, workflowId: job.id }, job.config); }}
+          onAllPlans={() => { void openArchive('plans', cwd, { kind: 'workflow', id: job.id, cwd, name: job.config.name || 'tab' }); }}
+          onComplete={choice => { void handleMarkComplete(choice.id, choice.title); }}
+          onReopen={choice => { void handleReopen(choice.id); }}
+          onDelete={choice => { void handleDelete(choice.id, choice.title); }}
+        />}
 
         {creating && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -436,6 +401,7 @@ export function PlanTab({
 
   return (
     <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {offer}
       <PublicProjectBox cwd={cwd ?? ''} testId="active-plan-public-project" />
       {publicProject && body !== null && !hasGuardrails(editing ? draftBody : body) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. <button type="button" data-testid="public-plan-insert-guardrails" data-help="plan.insert-guardrails" className="display-font" style={planMiniBtn} onClick={() => { if (!editing) setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : body)); setEditing(true); }} disabled={saving}>INSERT GUARDRAILS</button></div>}
       <div>
@@ -449,6 +415,7 @@ export function PlanTab({
           edited {formatRelativeTime(plan.updatedAt)}
         </div>
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
+          {!editing && <button type="button" data-help="plan.choose" className="display-font" style={planMiniBtn} aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>CHOOSE PLAN</button>}
           {!editing && (
             <span data-help="plan.edit" style={{ display: 'inline-flex' }}>
             <button
@@ -585,6 +552,21 @@ export function PlanTab({
           )}
         </div>
       </div>
+
+      {choosing && !editing && <PlanChooser
+        cwd={cwd}
+        disabled={!onAttach}
+        refreshKey={JSON.stringify(list)}
+        onAttach={choice => {
+          if (choice.id !== plan.id && !window.confirm(`Attach "${choice.title}"? The current plan will be detached but kept in the project.`)) return;
+          onAttach?.(choice.id); setChoosing(false);
+        }}
+        onGenesis={() => { startPlanGenesis({ kind: 'workflow', cwd, workflowId: job.id }, job.config); }}
+        onAllPlans={() => { void openArchive('plans', cwd, { kind: 'workflow', id: job.id, cwd, name: job.config.name || 'tab' }); }}
+        onComplete={choice => { void handleMarkComplete(choice.id, choice.title); }}
+        onReopen={choice => { void handleReopen(choice.id); }}
+        onDelete={choice => { void handleDelete(choice.id, choice.title); }}
+      />}
 
       {editing ? (
         <>

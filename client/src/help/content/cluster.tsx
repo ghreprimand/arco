@@ -1081,16 +1081,6 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'cluster-plan',
   },
-  'cluster.plan-tab.import-existing': {
-    title: 'Attach existing plan',
-    body: (
-      <p>
-        Attaches an existing plan from <C>.arco/plans/</C> to this cluster.
-        The cluster and workflows that attach the same plan use the same file.
-      </p>
-    ),
-    manualSection: 'cluster-plan',
-  },
   'cluster.plan-tab.member-picker': {
     title: 'Pick a member to anchor',
     body: (

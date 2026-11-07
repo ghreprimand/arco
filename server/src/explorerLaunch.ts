@@ -89,8 +89,8 @@ function spawnDetachedProbe(bin: string, args: string[], env: NodeJS.ProcessEnv)
 // by the route from the request Host/Origin so dev (5173) and prod (3001)
 // both resolve without config. Fail-soft: every non-launch path returns a
 // structured result so the client engages its popup fallback (never a throw).
-export async function launchExplorerWindow(origin: string, options: { lens?: 'plans'; cwd?: string } = {}): Promise<ExplorerLaunchResult> {
-  const params = new URLSearchParams({ app: 'explorer', ...(options.lens ? { lens: options.lens } : {}), ...(options.cwd ? { cwd: options.cwd } : {}) });
+export async function launchExplorerWindow(origin: string, options: { lens?: 'plans'; cwd?: string; targetKind?: 'workflow' | 'cluster'; targetId?: string; targetName?: string; targetCwd?: string } = {}): Promise<ExplorerLaunchResult> {
+  const params = new URLSearchParams({ app: 'explorer', ...(options.lens ? { lens: options.lens } : {}), ...(options.cwd ? { cwd: options.cwd } : {}), ...(options.targetKind ? { targetKind: options.targetKind } : {}), ...(options.targetId ? { targetId: options.targetId } : {}), ...(options.targetName ? { targetName: options.targetName } : {}), ...(options.targetCwd ? { targetCwd: options.targetCwd } : {}) });
   const url = `${origin.replace(/\/$/, '')}/?${params}`;
   // Prefer the service/desktop env so a systemd user unit inherits DISPLAY /
   // WAYLAND_DISPLAY / DBUS; fall back to DISPLAY=:0 when the unit carries
