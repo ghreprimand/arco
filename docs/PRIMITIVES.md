@@ -2,7 +2,7 @@
 
 The three core operator-triggered primitives - **Review**, **Handoff**, **Spawn** - plus the implicit **primary turn** that powers normal chat, and the later bounded job primitives (Deep Research, Compare, doc-edit, tune-up, ...,+). The worker-running pieces live under `server/src/primitives/` (`seedWorker.ts`, `runReviewer.ts` + `reviewContent.ts` + `reviewSchema.ts` + `parseReviewFindings.ts`, `exportContext.ts`, `runResearch.ts`, `runCompare.ts`, `runDocEdit.ts`, `runMdTuneup.ts`); the WS dispatchers live under `server/src/ws/` (`turnEngine.ts`, `workflowHandlers.ts`, `handoffHandlers.ts`, `compareHandlers.ts`, `compactHandlers.ts`, ...) - **not** `server/src/index.ts`, which is now just boot + routing.
 
-> **Peer messaging is NOT a primitive** (no ephemeral worker, no artifact). The substrate lives in `server/src/clusterStore.ts` / `clusterMailbox.ts` / `clusterBudget.ts` / `clusterPeerOps.ts` and the Native peer tools (`peer_list` / `peer_send` / `peer_read` / `cluster_plan_tick` / `cluster_plan_write`) at `server/src/providers/claude-native/peerTools.ts`. The pre-turn helper `drainPeerMailbox` in `server/src/primitives/seedWorker.ts` survives for the legacy "auto-drain into a system block" path but is no longer called from `handleUserMessage` - the live path peeks `clusterMailbox.depthFor` and tells the worker to call `peer_read` itself (see cluster note).
+> **Peer messaging is NOT a primitive** (no ephemeral worker, no artifact). The substrate lives in `server/src/clusterStore.ts` / `clusterMailbox.ts` / `clusterBudget.ts` / `clusterPeerOps.ts` and the Native peer tools (`peer_list` / `peer_send` / `peer_read`, the `cluster_plan_*` plan tools and the `cluster_task_*` board tools) at `server/src/providers/claude-native/peerTools.ts`. The pre-turn helper `drainPeerMailbox` in `server/src/primitives/seedWorker.ts` survives for the legacy "auto-drain into a system block" path but is no longer called from `handleUserMessage` - the live path peeks `clusterMailbox.depthFor` and tells the worker to call `peer_read` itself (see cluster note).
 
 This doc covers each one end-to-end: trigger, server flow, events emitted, client handling, persistence, cancel/error paths, and the non-obvious coupling. For protocol-level message shapes see [`PROTOCOL.md`](PROTOCOL.md). For the bigger lifecycle context see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -73,8 +73,9 @@ The same machinery drafts replies for a worker. The request adds `purpose: 'repl
    - **Claude (resume)** - pass `--resume <wf.primarySessionId>`.
    - **Codex (first turn)** - pass nothing; capture `thread_id` from the `thread.started` init event, then reconcile the placeholder UUID in `meta.json`.
    - **Codex (resume)** - pass `codex exec resume <wf.primarySessionId> <prompt>`.
-   - **Ollama** - no session concept; each turn is fresh.
-3. Inject the attached plan (if any) as a header prefix to the prompt - `wf.planId` set ⇒ `buildPlanPrefix` reads from `<cwd>/.arco/plans/<planId>.md`. The plan body re-injects on every turn so operator edits propagate.
+   - **Ollama and llama.cpp** - no CLI session; Arco builds each request from the stored conversation.
+   - **Claude Native, Codex app-server, Cursor and the other transports** - see [`PROVIDERS.md`](PROVIDERS.md).
+3. Add the plan header to the prompt. `buildPlanPrefix` (`server/src/ws/turnEngine.ts`) adds one line that names the attached plan file `<cwd>/.arco/plans/<planId>.md`, says whether it is newly attached or edited since the last turn, and lists its reference docs; the agent reads the file itself. The body is never injected. With no plan attached, the line says how to create one.
 4. Spawn via `WorkerManager.spawn(spec)`. Returns a `TurnHandle`: `{ workerId, initialSessionId, onSessionDiscovered, settled: Promise }`.
 5. Stream events. The seedWorker's job is to translate each `WorkerEvent` (`text`/`thinking`/`tool_use`/`result`/`system_notice`) into the corresponding `primary_*` protocol message and broadcast it.
 6. Settle. `await turn.settled` collects the final outcome. For Claude, also call `estimateContextFill` and broadcast `context_usage`.
@@ -101,7 +102,7 @@ system_notice               (auto-handoff only: "Handed off after N compactions"
 
 - `cancel` WS -> `handleCancel` calls `wf.manager.killAll`. Server unconditionally broadcasts `turn_cancelled` + `primary_turn_ended` even if the worker had gone "ghost" (silently exited mid-turn - would otherwise leave the UI stuck on busy).
 - Worker crash mid-turn -> `worker_error` event -> seedWorker marks the turn failed -> `primary_turn_ended` still fires.
-- API overload (Claude) -> caught by the retry loop in `runReviewer`/`seedWorker`, surfaced as a `worker_system_notice` -> 15s/30s/60s backoff, up to 3 attempts. Same session id so retries are idempotent.
+- Transient API error on the Claude CLI transport (`server/src/providers/claude.ts`) -> retried after 15s, 30s and 60s, up to 3 attempts, each announced as a `worker_system_notice`. An attempt that already reached `init` on a pinned session resumes it with a short continuation prompt instead of re-sending the turn, so the user message is not duplicated.
 
 ### Persistence
 
@@ -148,9 +149,9 @@ client -> server: review_request {
    - `full` - the entire `events.jsonl`.
    - `git-diff` - runs `git diff HEAD` in the workflow cwd; reviewer sees the diff alone (no transcript). Operator surface: the SCOPE picker in `ReviewDialog`.
    - `since-event` - slices the transcript from `anchorEventSeq` onward. Wired from the HISTORY tab's "REVIEW FROM HERE" pin; `ReviewDialog` collapses the SCOPE row to a locked label and hides the VERIFY/CRITIQUE picker (since-event has no plan-mode distinction).
-   - `preview-capture` (Preview-verification integration) - no transcript: `buildPreviewCaptureReviewContent(cwd, workflowId, reportName)` reads a Preview-verification report artifact (path-confined to the workflow's `artifacts/` via `path.basename` + `.md` check) and frames it as "judge a running UI from captured evidence". Reachable **only** from the Preview tab's `ATTACH TO REVIEW` button (not the SCOPE picker); the reviewer defaults to the tab's primary provider/model/effort. See `docs/PREVIEW_VERIFY.md to Review`.
+   - `preview-capture` (Preview-verification integration) - no transcript: `buildPreviewCaptureReviewContent(cwd, workflowId, reportName)` reads a Preview-verification report artifact (path-confined to the workflow's `artifacts/` via `path.basename` + `.md` check) and frames it as "judge a running UI from captured evidence". Reachable **only** from the Preview tab's `ATTACH TO REVIEW` button (not the SCOPE picker); the reviewer defaults to the tab's primary provider/model/effort. See [`PREVIEW_VERIFY.md`](PREVIEW_VERIFY.md).
 3. Optionally append `git diff HEAD` if `includeGitDiff` is true and the slice doesn't already include diffs.
-4. Build the reviewer prompt with `REVIEW_FRAMING`: instructs the reviewer to produce a Summary / Concerns / Verdict structure ending in `Verdict: PASS | MINOR | BLOCKING`.
+4. Build the reviewer prompt with `buildFraming(provider)` (`BASE_FRAMING`, plus `LOCAL_REVIEWER_ADDENDUM` for local providers): instructs the reviewer to produce a Summary / Concerns / Verdict structure ending in `Verdict: PASS | MINOR | BLOCKING`.
 5. Spawn the reviewer worker:
    - **Claude** - tools restricted to `READ_ONLY_CLAUDE_TOOLS` (`['Read', 'Grep', 'Glob', 'LSP']`).
    - **Codex** - `sandbox: 'read-only'` via `WorkerConfig.sandbox`. `-s read-only` argv.
@@ -201,7 +202,7 @@ The Review tab renders one row per review with the reviewer config, verdict badg
 
 ### Inline review findings
 
-The reviewer framing (`runReviewer.ts_FRAMING`) asks the model to append an optional fenced **findings block** after the Summary/Concerns/Verdict prose - a ` ```findings ` (or ` ```json `) fence wrapping a JSON array of `{ file, line, severity, note }`, where `severity ∈ {info, warning, error}`. The artifact storage shape is unchanged; findings are parsed from the existing body on read.
+The reviewer framing (`BASE_FRAMING` in `runReviewer.ts`) asks the model to append an optional fenced **findings block** after the Summary/Concerns/Verdict prose - a ` ```findings ` (or ` ```json `) fence wrapping a JSON array of `{ file, line, severity, note }`, where `severity ∈ {info, warning, error}`. The artifact storage shape is unchanged; findings are parsed from the existing body on read.
 
 - **Parser:** `server/src/primitives/parseReviewFindings.ts` exports the pure, total `parseReviewFindings(body): Finding[]`. It extracts the **last** matching fence (so an in-prose JSON example can't shadow the real block), `JSON.parse`s it defensively, and validates each entry individually (non-empty `file`, positive-int `line` - stringified ints coerced, severity in the enum with a few synonyms tolerated, non-empty `note`). **Tolerant by contract: it never throws and never hides the prose** - an absent/malformed/non-array block yields `[]` and the body still renders verbatim, so pre-D5 reviews and non-compliant models are unaffected. The client mirrors this parser byte-for-byte at `client/src/components/RightPanel/reviewFindings.ts` (kept in lockstep by hand; the client file is outside the server tsconfig rootDir - same duplication discipline as D1's `contextRefs.ts`). The smoke (`scripts/smoke/review-findings.ts`, `npm run smoke:review-findings`) unit-tests the server copy directly.
 - **Render + click:** `ReviewTab` parses the lazily-fetched body and renders a `FINDINGS (n)` list under the prose. Clicking a finding opens the A3 `FileViewerModal` scrolled to `finding.line` (a new optional `startLine` prop; the modal estimates the scroll offset by line-height across its markdown/code/plain render paths). Repo-relative finding paths are anchored to the workflow `cwd` before the fetch.
@@ -222,12 +223,12 @@ The reviewer framing (`runReviewer.ts_FRAMING`) asks the model to append an opti
 
 - Verdict regex is fragile. If the reviewer's markdown deviates from `Verdict: PASS|MINOR|BLOCKING`, the `verdict` field stays undefined and the badge shows `?`. The body is still readable.
 - `current-session` scope depends on the `[HANDOFF U+2014` prefix. If that string changes server-side, this scope silently degrades to `full`.
-- Reviewers always honor RSS guard even if the primary has it disabled. Review crashes can't take down the operator's primary.
+- Reviewers run under the same `WorkerManager` limits as every worker (output cap, RSS kill at `ARCO_RSS_KILL_BYTES`, default 32 GB). A reviewer crash ends the review, not the operator's primary.
 - **North-star inherited (not forced normal).** The reviewer worker config carries `goal: wf.config.goal` so the reviewer judges against the operator's standing objective. This is the deliberate divergence from `outputStyle`, which reviewers force to `'normal'`; the goal is inherited instead of suppressed; see [TASK_LEDGER.md](TASK_LEDGER.md) for task context.
 
 ### Local-reviewer addendum
 
-When the reviewer's provider is `ollama` or `llamacpp`, `runReviewer.ts` builds the framing as `BASE_FRAMING + LOCAL_REVIEWER_ADDENDUM` instead of `BASE_FRAMING` alone. The addendum exists because frontier reviewers (Claude / Codex) routinely pull files via tools to verify diff claims; smaller local models tend to opine on the diff text alone and miss orphan files / seed-data drift / broken wiring / typos in identifiers.
+When the reviewer's provider is `ollama`, `llamacpp`, `lmstudio`, `strata` or `deepseek`, `runReviewer.ts` (`buildFraming`) builds the framing as `BASE_FRAMING + LOCAL_REVIEWER_ADDENDUM` instead of `BASE_FRAMING` alone. The addendum exists because frontier reviewers (Claude / Codex) routinely pull files via tools to verify diff claims; smaller local models tend to opine on the diff text alone and miss orphan files / seed-data drift / broken wiring / typos in identifiers.
 
 The addendum:
 
@@ -235,7 +236,7 @@ The addendum:
 - Verification checklist: orphans / dead code, seed / fixture sanity, wiring (was the new code actually called?), typos in identifiers.
 - Verdict rule: "A PASS verdict means you used the tools and nothing came back wrong. If you only read the diff, the right verdict is MINOR with 'did not verify against the tree' as the justification."
 
-The local reviewer also receives a tools allowlist (`READ_ONLY_OLLAMA_TOOLS` or `READ_ONLY_LLAMACPP_TOOLS`) and `skipPermissions: true` to make those tools execute server-side rather than return SAFE-mode denial strings.
+The Ollama, llama.cpp and LM Studio reviewers also receive a tools allowlist (`READ_ONLY_OLLAMA_TOOLS`, `READ_ONLY_LLAMACPP_TOOLS`, `READ_ONLY_LMSTUDIO_TOOLS`). Only Ollama gets `skipPermissions: true`, so its tools execute server-side rather than return SAFE-mode denial strings.
 
 ### Plan-scoped review
 
@@ -247,11 +248,11 @@ A separate dispatch path inside the Review primitive: instead of slicing workflo
 |---|---|---|---|---|
 | Whole plan, structure | `REVIEW PLAN` button at top of Plan tab | `plan-whole` | `critique` | - |
 | Whole plan, claims | `VERIFY WORK` button next to REVIEW PLAN | `plan-whole` | `verify` | yes |
-| Per-section, structure | `▷ REVIEW PHASE PLAN` pill under each `### Phase` heading | `plan-section` (carries `heading`) | `critique` | - |
-| Per-section, claims | `▷ VERIFY PHASE WORK` pill under each `### Phase` heading | `plan-section` (carries `heading`) | `verify` | yes |
+| Per-section, structure | `▷ REVIEW PHASE PLAN` pill under each `### Phase` heading | `plan-phase` (carries `heading`) | `critique` | - |
+| Per-section, claims | `▷ VERIFY PHASE WORK` pill under each `### Phase` heading | `plan-phase` (carries `heading`) | `verify` | yes |
 | Custom items | `CUSTOM REVIEW` button -> `PlanReviewPicker` modal (tree with tri-state per-section checkboxes) | `plan-items` (carries `itemIds: string[]`) | `verify` | - |
 
-The REVIEW / VERIFY split is presentational - both buttons in each pair dispatch the same `plan-*` ref kind, only `mode` (and the dialog's INCLUDE GIT DIFF default via `initialIncludeGitDiff`) differ. Operators can flip mode and toggle git diff inside the dialog; the buttons just preset the common intent. The MODE row is always visible for `plan-*` refs.
+The REVIEW / VERIFY split is presentational - both buttons in each pair dispatch the same `plan-*` ref kind, only `mode` (and the dialog's INCLUDE GIT DIFF default via `initialIncludeGitDiff`) differ. Operators can toggle git diff inside the dialog. The mode is fixed by the button: for `plan-*` refs the MODE row shows it as a locked label (VERIFY WORK or CRITIQUE PLAN).
 
 **ContextRef shape** (`shared/src/protocol/reviews.ts`):
 
@@ -272,9 +273,9 @@ type PlanReviewMode = 'verify' | 'critique';
 
 **For `plan-items` the operator's selection is authoritative.** Mode affects framing only; items render regardless of check state. The picker emits stable item IDs in the form `${phaseIdx}/${taskIdx}` (zero-based, slash-delimited). These are stable across check-state toggles but break on reorder/delete. If the operator edits the plan between selection and submission, unresolvable IDs trigger a reject naming the missing items so the operator can re-pick.
 
-**ReviewDialog UI changes.** When invoked with `prefilledPlanRef + prefilledScopeLabel`, the SCOPE row collapses to a locked label (e.g. `PLAN PHASE: 3. Categories + auto-assignment`), and a MODE row (VERIFY / CRITIQUE) appears in its place. The provider/model/effort row works the same as for transcript reviews.
+**ReviewDialog UI changes.** When invoked with `prefilledPlanRef + prefilledScopeLabel`, the SCOPE row collapses to a locked label (e.g. `PLAN PHASE: 3. Categories + auto-assignment`), and a locked MODE row (VERIFY WORK / CRITIQUE PLAN) appears below it. The provider/model/effort row works the same as for transcript reviews.
 
-**Plan parser invariants** (`reviewContent.ts` `parsePlan`). Three load-bearing rules - see also `docs/GOTCHAS.md-review parsing invariants`:
+**Plan parser invariants** (`reviewContent.ts` `parsePlan`). Three load-bearing rules - see also the plan-review parsing invariants in [`GOTCHAS.md`](GOTCHAS.md):
 
 1. **H2 closes the current plan sections.** An `##` header inside a plan section ends that section; intervening prose is discarded. Without this, headers like `## Open Questions` between plan sections leak into the preceding section's preamble and corrupt review bodies.
 2. **Numbered-bullet fallback.** Parser recognizes `- **N.M** Task` (naked numbered bullet, no checkbox) as an unchecked task. Foot-gun mitigation - agents (especially Qwen) sometimes strip checkboxes when "updating" a plan. Indented variant ` - **1**` is a subtask; non-numbered indented bullets like ` - Some text` are continuation prose, not separate tasks.
@@ -284,7 +285,7 @@ type PlanReviewMode = 'verify' | 'critique';
 
 ### Cluster-plan-scoped review (2026-05-11)
 
-First-class cluster surface: instead of "review the worker's per-cwd plan," operators can review the **shared cluster plan body** directly. The cluster plan lives in `~/.arco/clusters/<id>/plan.md` (loaded into `clusterStore` + carried on `cluster_state.plan.body`), not in the per-cwd plans index. Two new ContextRef kinds:
+First-class cluster surface: instead of "review the worker's per-cwd plan," operators can review the **shared cluster plan body** directly. The cluster's plan is a normal plan file, `<cwd>/.arco/plans/<planId>.md`; the cluster's `meta.json` stores only its `planId`, and `server/src/clusterPlanBridge.ts` resolves it (a legacy `~/.arco/clusters/<id>/plan.md` is migrated into the plan store on first read). The body is carried on `cluster_state.plan.body`. Two new ContextRef kinds:
 
 ```ts
 type ReviewContextRef =
@@ -293,15 +294,15 @@ type ReviewContextRef =
   | { kind: 'cluster-plan-phase'; clusterId: string; heading: string; mode: PlanReviewMode };
 ```
 
-Wired through `buildClusterPlanReviewContent` in `server/src/primitives/reviewContent.ts`. It reads the body via `clusterPlanStore.readPlan(clusterId)` (not `readPlan(cwd, planId)`), then runs the same `parsePlan` / mode-filter / git-diff machinery as `buildPlanReviewContent`. Same parser invariants (H2 closes the current plan section, numbered-bullet fallback, preamble-in-VERIFY).
+Wired through `buildClusterPlanReviewContent` in `server/src/primitives/reviewContent.ts`. The caller resolves the body through `clusterPlanBridge` and passes it in; the function then runs the same `parsePlan` / mode-filter / git-diff machinery as `buildPlanReviewContent`. Same parser invariants (H2 closes the current plan section, numbered-bullet fallback, preamble-in-VERIFY).
 
-**Worker selection.** The cluster plan tab's `REVIEW PLAN` / `VERIFY WORK` / `CUSTOM REVIEW` buttons pop a `ClusterMemberPicker` first - the reviewer has to run on some workflow, and that worker also lends its transcript + git-diff context when VERIFY mode includes diff. The picked member's `workflowId` rides on the outbound `review_request`; `contextRef.clusterId` names the plan body to review. The two are independent - operator can review the cluster plan as critiqued by Member A while Member B is the one that did the implementation, etc.
+**Worker selection.** `REVIEW PLAN` and `VERIFY WORK` in the cluster PLAN tab header, and the per-phase `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` pills, need no member pick: the review runs on the cluster's first member, which only roots the artifact and the WS channel, and `contextRef.clusterId` names the plan body. The review dialog that follows still offers SUB-WORKER or a cluster peer as the reviewer.
 
-**Trigger surfaces.** Header pill bar in `ClusterPlanTab.tsx` (VIEW mode): `REVIEW PLAN` -> `cluster-plan-whole` + `critique`; `VERIFY WORK` -> `cluster-plan-whole` + `verify` + auto git-diff; per-section `▷ REVIEW PLAN` / `▷ VERIFY WORK` -> `cluster-plan-phase` with `heading`; `CUSTOM REVIEW` reuses the existing `PlanReviewPicker` against the picked member's promoted plan (no per-item slicer for the cluster body itself today - operator picks a member first, then their plan slice).
+**Trigger surfaces** (`client/src/components/ClusterPlanTab.tsx`, VIEW mode): `REVIEW PLAN` -> `cluster-plan-whole` + `critique`; `VERIFY WORK` -> `cluster-plan-whole` + `verify` + INCLUDE GIT DIFF on; per-phase `▷ REVIEW PHASE PLAN` / `▷ VERIFY PHASE WORK` -> `cluster-plan-phase` with `heading`. `CUSTOM REVIEW` first opens `ClusterMemberPicker` ("Whose work to review?") and then a transcript-scoped review dialog on the picked member (last turn, last N, full and so on).
 
-**No `cluster-plan-items` variant.** The cluster body doesn't carry stable per-item IDs the way per-cwd plans do (no `.md` round-trip; the parse-and-reflect cycle happens on every read). CUSTOM REVIEW is the workaround: pick a member, review their plan slice - which on a cluster-member tab is typically the cluster plan (PROMOTE TO CLUSTER detaches the worker plan; see "Worker plan vs cluster plan" below).
+**No `cluster-plan-items` variant.** There is no per-item picker for the cluster plan; CUSTOM REVIEW reviews a member's transcript instead.
 
-**Worker plan vs cluster plan.** A cluster member can still attach a per-cwd plan to its own tab (`plan_attach` -> `worker.config.plan`), but the `PROMOTE TO CLUSTER` button on the per-workflow PLAN tab now **detaches the worker's local plan** after `setClusterPlan` writes through. Rationale: the cluster plan is the single source of truth post-promote - without the detach the worker would inject BOTH plans (cluster plan as a system block + worker plan in `appendSystemPrompt`), doubling cost and surfacing two conflicting "the plan" framings. See `GOTCHAS.md mode` for the load-bearing invariant.
+**Worker plan vs cluster plan.** A cluster member can still attach a per-cwd plan to its own tab (`plan_attach`), but `PROMOTE TO CLUSTER` on the per-workflow PLAN tab writes the body to the cluster plan and then **detaches the worker's local plan** (`App.tsx`). Without the detach, the tab's own plan file would linger as a stale copy that the agent's Read tools still see after `cluster_plan_tick` changes the cluster plan.
 
 ### Operator transcript-send - `-> TRANSCRIPT` (2026-05-11)
 
@@ -315,9 +316,9 @@ A new operator-driven peer-substrate surface, NOT a primitive in the formal sens
 
 **FORWARD.** Each chat message has a select box (`useMessageSelectionStore`, transient and per tab). A bar above the composer shows the count with FORWARD (cluster members with a peer) and CLEAR. FORWARD opens `ForwardDialog` (`client/src/components/ForwardMessages.tsx`): recipients, covering note and a 32 KB preview of the selected rows in chat order, delivered with the same `operator_peer_send` path and the same guard exemptions.
 
-**Wire shape.** Client sends `operator_peer_send` (see `PROTOCOL_CLUSTER.md_peer_send`); server dispatches via `clusterPeerOps.peerSend` with `{ bypassBudget: true, bypassDedupe: true, maxContentBytes: 32_768 }`. Server emits the usual `peer_message_sent` event on the chosen sender's workflow channel - recipient sees no difference between operator-driven and model-driven sends.
+**Wire shape.** Client sends `operator_peer_send` (see `operator_peer_send` in [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md)); server dispatches via `clusterPeerOps.peerSend` with `{ bypassBudget: true, bypassDedupe: true, maxContentBytes: OPERATOR_PEER_SEND_MAX_BYTES }` (32 KB, `server/src/ws/clusterHandlers.ts`). Server emits the usual `peer_message_sent` event on the chosen sender's workflow channel - recipient sees no difference between operator-driven and model-driven sends.
 
-**Why it bypasses budget + dedupe.** The operator is in direct control; both gates exist to constrain model-issued sends (per-turn budget) or catch retry-loop pathologies (dedupe). An operator clicking SEND TRANSCRIPT twice is presumed intentional. The 32 KB cap matches the cluster-plan body cap.
+**Why it bypasses budget + dedupe.** The operator is in direct control; both gates exist to constrain model-issued sends (per-turn budget) or catch retry-loop pathologies (dedupe). An operator sending the same transcript twice is presumed intentional. The 32 KB cap matches the cluster-plan body cap.
 
 **Relationship to peer_send.** `peer_send` is a model tool; `operator_peer_send` is an operator surface that reuses the same enqueue path. Substrate code lives once in `clusterPeerOps.peerSend` - the bypass opts make it parametric. Do NOT route model-driven sends through the operator path.
 
@@ -325,7 +326,7 @@ A new operator-driven peer-substrate surface, NOT a primitive in the formal sens
 
 Review dialog gained a second reviewer family. The default `SUB-WORKER` path still spawns a one-shot disposable subprocess (the existing primitive shape). The new alternative dispatches the review as a **regular operator turn on an existing cluster peer**, which does the review as a normal visible turn - output streams into the peer's chat + activity feed; no `.md` artifact, no `review_artifact_ready` event.
 
-**Trigger.** When the dialog opens from a cluster member's pane, `ReviewDialog` receives `clusterContext` + `onConfirmViaMember` props. The top of the dialog renders a `STEP 2 - WHO DOES THE REVIEW?` pill row: `SUB-WORKER` (default) + one pill per cluster peer. Selecting a peer hides the provider / model / effort pickers (the peer's existing primary config is the reviewer) and changes the submit button to `SEND REVIEW TASK`.
+**Trigger.** When the dialog opens from a cluster member's pane, `ReviewDialog` receives `clusterContext` + `onConfirmViaMember` props. The top of the dialog renders a `STEP 2: WHO DOES THE REVIEW?` pill row: `SUB-WORKER` (default) + one pill per cluster peer. Selecting a peer hides the provider / model / effort pickers (the peer's existing primary config is the reviewer) and changes the submit button to `SEND REVIEW TASK`.
 
 **Reviewer eligibility.**
 
@@ -333,7 +334,7 @@ Review dialog gained a second reviewer family. The default `SUB-WORKER` path sti
 - For **transcript-scoped refs** (`last-turn` / `last-n` / `current-session` / `full`) self is **excluded** - self IS the target being reviewed.
 - `git-diff` scope auto-falls-back to `SUB-WORKER` (server holds the diff; peer-routed dispatch would send an empty payload).
 
-**Dispatch path.** `App.tsx -> onReviewViaMember` calls `buildClusterReviewTask(targetWfid, contextRef, includeGitDiff)` to assemble a directive-styled review task - a `# Review request from operator` header, mode-specific instructions, and the content slice - then dispatches as a real `sendMessage` to the reviewer. **Important: this uses `sendMessage`, NOT `operator_peer_send`.** `peer_send` would silently queue the task in the reviewer's mailbox; with AUTO-PICKUP off (the default) the reviewer would never start a turn on it. `sendMessage` starts a turn immediately and the response streams into the reviewer's chat + the cluster ACTIVITY feed. See `GOTCHAS.md primitive`.
+**Dispatch path.** `App.tsx -> onReviewViaMember` calls `buildClusterReviewTask(targetWfid, contextRef, includeGitDiff)` to assemble a directive-styled review task - a `# Review request from operator` header, mode-specific instructions, and the content slice - then dispatches as a real `sendMessage` to the reviewer. **Important: this uses `sendMessage`, NOT `operator_peer_send`.** `peer_send` would silently queue the task in the reviewer's mailbox; with AUTO-PICKUP off (the default) the reviewer would never start a turn on it. `sendMessage` starts a turn immediately and the response streams into the reviewer's chat + the cluster ACTIVITY feed. See [`GOTCHAS.md`](GOTCHAS.md).
 
 **Mode-specific prompts.**
 
@@ -349,7 +350,7 @@ The task explicitly tells the reviewer **NOT to forward findings**: _"Produce yo
 
 ### Cluster PLAN tab - target picker bypass
 
-Pre-2026-05-11, every PLAN-tab review button (REVIEW PLAN, VERIFY WORK, per-section REVIEW / VERIFY) opened a `ClusterMemberPicker` first ("STEP 1 - Whose work to review?"). For cluster-plan-scoped refs that picker was confusing - the plan body is shared, the picker was a routing-anchor decision and operators kept hesitating. `ClusterPlanTab.dispatchPlanReview` now goes straight to `RUN REVIEW` for plan-scoped buttons, using the cluster's first member as the routing anchor; the operator can re-route via the dialog's STEP 2 pill row. `CUSTOM REVIEW` still opens the target picker (it's transcript-scoped, so whose transcript matters). The picker copy is clearer too: "STEP 1 of 2 - Whose work to review?" / "Whose plan critique?" / "Whose phase work to verify?".
+Pre-2026-05-11, every PLAN-tab review button (REVIEW PLAN, VERIFY WORK, per-section REVIEW / VERIFY) opened a `ClusterMemberPicker` first ("STEP 1 - Whose work to review?"). For cluster-plan-scoped refs that picker was confusing - the plan body is shared, the picker was a routing-anchor decision and operators kept hesitating. `ClusterPlanTab.dispatchPlanReview` now goes straight to `RUN REVIEW` for plan-scoped buttons, using the cluster's first member as the routing anchor; the operator can re-route via the dialog's STEP 2 pill row. `CUSTOM REVIEW` still opens the target picker (it's transcript-scoped, so whose transcript matters). The picker title is "STEP 1 of 2: Whose work to review?".
 
 ### Review body inlines in chat (2026-05-11)
 
@@ -523,6 +524,7 @@ Both the `original-worker` reflection prompt and the `fresh-summarizer` framing 
 - `{{wfid}}` - workflow id
 - `{{handoffPath}}` - absolute path the artifact must land at (`<cwd>/.arco/workflows/<wfid>/handoffs/handoff-<ts>.md`)
 - `{{seedPrefix}}` - the literal `[HANDOFF U+2014` (a load-bearing string Review's `current-session` scope detects; exposed as a variable so operator-edited prompts reference it instead of forking the constant)
+- `{{verifyCommand}}` - the project's detected verify command, `npm run dev` when none was found
 
 Validation is advisory: the editor warns if an `original-worker` override omits `[HANDOFF_COMPLETE]`. Arco saves the returned text for either written mode. Quick does not use a writer prompt.
 
@@ -621,16 +623,16 @@ Three operator-facing surfaces dispatch `spawn_from_here_request` with a prefill
 |---|---|---|
 | Per-task | `▷ SPAWN` next to each unchecked checkbox row | `planTaskSpawnDirection(taskBlock)` - task line + sub-items, framed "complete this ONE task; do not start unrelated tasks" |
 | Per-section | `▷ SPAWN PHASE` pill under each `### Phase` heading | `planPhaseSpawnDirection(phaseBlock)` - full phase block (heading + every line up to the next H1/H2/H3), framed "walk every `[ ]` task in this section" |
-| HISTORY-anchored | `SPAWN FROM HERE` button after selecting a row in the HISTORY tab | (no plan-specific direction; carries `cutoffEventSeq` instead - see 8 cutoff below) |
+| HISTORY-anchored | `SPAWN FROM HERE` button after selecting a row in the HISTORY tab | (no plan-specific direction; carries `cutoffEventSeq` instead - see the cutoff note below) |
 
 The plan-section extractor (`extractPhaseBlock` in `PlanBodyRenderer.tsx`, shared by the per-workflow and cluster PLAN tabs) walks from the H3 line forward, stopping at the next H1/H2/H3 - so each plan section stays self-contained and the spawned worker doesn't pull in adjacent sections or footer prose.
 
 ### Coupling worth knowing
 
 - For `original-worker` mode, the parent must have a resumable handle: a live `primarySessionId` (CLI Claude / Codex) or `claudeTransport='native'` (the child's worker is seeded from parent's `events.jsonl`). Non-resumable parents get the same translation as Handoff (parent's own model re-reads the transcript; overflow -> configured summarizer); a resumable parent with no session yet falls back to `fresh-summarizer`.
-- ** cutoff (HISTORY tab "SPAWN FROM HERE"):** when `cutoffEventSeq` is set, `runExportContext` filters the transcript to events with `seq <= cutoffEventSeq` before rendering, and `seedClaudeNativeWorkerFromForeignEvents` stops walking parent's `events.jsonl` past the same seq. The fresh-summarizer mode and Native original-worker both honor the cutoff cleanly. CLI original-worker silently ignores it - `claude --resume` carries the parent's full session and there's no clean way to retroactively trim its view; operators who want a hard cutoff on a CLI parent should choose fresh-summarizer.
+- **Cutoff (HISTORY tab "SPAWN FROM HERE"):** when `cutoffEventSeq` is set, `runExportContext` filters the transcript to events with `seq <= cutoffEventSeq` before rendering, and `seedClaudeNativeWorkerFromForeignEvents` stops walking parent's `events.jsonl` past the same seq. The fresh-summarizer mode and Native original-worker both honor the cutoff cleanly. CLI original-worker silently ignores it - `claude --resume` carries the parent's full session and there's no clean way to retroactively trim its view; operators who want a hard cutoff on a CLI parent should choose fresh-summarizer.
 - The new tab auto-activates on `spawn_from_here_complete`. If the operator clicks back to the parent mid-spawn, the auto-activate still fires and pulls focus to the new tab once it completes.
-- The summarizer config resolves request -> `settings.handoffSummarizer` -> the new workflow's `primaryProvider/Model/Effort` (not the parent's). So absent a pinned summarizer, a Spawn into a Codex tab uses Codex. (The `SpawnFromHereRequestMessage` comment says "defaults to parent's primary config" - stale; the handler uses `newPrimary`.)
+- The summarizer config resolves request -> `settings.handoffSummarizer` -> the new workflow's `primaryProvider/Model/Effort` (not the parent's). So absent a pinned summarizer, a Spawn into a Codex tab uses Codex.
 - **North-star durably inherited.** When the operator doesn't set one at spawn time, `parent.config.goal` is copied into `msg.newConfig.goal`, so every post-seed turn of the new tab - not just the seed - carries the standing objective, persisted with the new tab's meta. Reversible: clear it on the new tab.
 - Parent.busy is briefly set during reflection (for `original-worker` mode). The operator can't send messages to the parent during this window.
 
@@ -695,16 +697,16 @@ Optional operator note appended verbatim to the base prompt (e.g. "focus on the 
 
 Combines a live git status view, branch picker, action picker, and structured prompt builder.
 
-**On dialog open:** fetches `GET /api/git/status?path=<cwd>` (see HTTP_API.md operations). Returns `currentBranch`, `upstream`, ahead/behind counts, dirty/staged counts, branch list (current first then alphabetical), remotes, `hasGitHubRemote` flag, `defaultBranch` (from `origin/HEAD` or first of main/master).
+**On dialog open:** fetches `GET /api/git/status?path=<cwd>` (see [`HTTP_API.md`](HTTP_API.md)). Returns `currentBranch`, `upstream`, ahead/behind counts, dirty/staged counts, branch list (current first then alphabetical), remotes, `hasGitHubRemote` flag, `defaultBranch` (from `origin/HEAD` or first of main/master).
 
 **Branch dropdown:** all local branches. Inline `+ NEW BRANCH` form to create from a chosen base. Server-side `POST /api/git/checkout` is dispatched **before** the agent prompt if the operator picked a different branch - this means the agent finds itself already on the target branch and never needs to handle checkout. Server refuses checkout on dirty trees; the dialog surfaces this refusal as a UI warning before the operator confirms.
 
 **Action picker:** `commit` / `commit + push` / `commit + push + PR (gh pr create)`. The PR option is auto-disabled when no GitHub remote is detected. Smart default (`inferDefaultAction(status)`):
 
-- PR if on a non-protected branch with a GitHub remote.
+- PR if on a branch that is neither protected nor the default branch, with a GitHub remote.
 - Otherwise commit-push.
 
-**Protected-branch pattern:** `/^(main|master|release\/.*|prod|production)$/i`. UI shows a warning when the target matches; the prompt itself includes an explicit "pause and confirm intent before pushing to protected" instruction.
+**Protected-branch pattern:** `PROTECTED_BRANCH_RE` in `shared/src/protocol/gitOps.ts`, `/^(main|master|release\/.*|prod|production)$/i`. UI shows a warning when the target matches; the prompt itself includes an explicit "pause and confirm intent before pushing to protected" instruction.
 
 **Per-repo prefs:** `localStorage[\`arco.gitDialog.prefs.\${cwd}\`]` stores the chosen action when the operator checks `SAVE AS DEFAULT FOR THIS REPO`. Loaded on next dialog open for the same cwd.
 
@@ -718,7 +720,7 @@ DOCS and GIT don't write artifacts, don't have verdicts, don't run ephemeral wor
 
 ### Output-style carveout
 
-The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'` (`shared/src/protocol/clientMessages.ts` `UserMessage.primitive?`); `handleUserMessage` honors the tag and overrides `outputStyle: 'normal'` for that turn only (as required by the primitive output rules). The new-tab dispatch path takes the equivalent carveout client-side via `spawnConfigFromRunAs`'s suffix override above. Both ends keep DOCS / GIT output legible regardless of the source tab's `plain` / `terse` setting.
+The in-tab dispatch path tags the `user_message` with `primitive: 'docs' | 'git'` (`shared/src/protocol/clientMessages.ts` `UserMessage.primitive?`, which also allows `'plan-review'`); `handleUserMessage` honors the tag and overrides `outputStyle: 'normal'` for that turn only (as required by the primitive output rules). The new-tab dispatch path takes the equivalent carveout client-side via `spawnConfigFromRunAs`'s suffix override above. Both ends keep DOCS / GIT output legible regardless of the source tab's `plain` / `terse` setting.
 
 **North-star is the opposite carveout.** Where `outputStyle` is forced to `'normal'`, the north-star is *inherited*: the in-tab path reads `wf.config.goal` on every turn (including DOCS/GIT), and the new-tab path preserves it because `spawnConfigFromRunAs` copies the parent config wholesale - it overrides `outputStyle` but not `goal`. Review / Handoff / Spawn / Task-children inherit it too (see each primitive's coupling note).
 
@@ -759,7 +761,7 @@ Branch-aware replay (`server/src/providers/claude-native/resumeSummary.ts`) walk
 
 ## 7. Cluster-aware behavior
 
-Cluster mode (shipped end-to-end as of 2026-05-10) lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read` / `cluster_plan_tick` / `cluster_plan_write`) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config arco-cluster` children, on Codex via `-c mcp_servers.arco-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
+Cluster mode lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read`, the `cluster_plan_*` plan tools and the `cluster_task_*` board tools) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config arco-cluster` children, on Codex via `-c mcp_servers.arco-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
 
 ### HANDOFF inside a cluster
 
@@ -808,7 +810,7 @@ The reviewer sees what context arrived between turns and what the agent emitted 
 
 ### PLAN / DOCS / GIT inside a cluster (pass-through)
 
-PLAN is per-workflow (`planStore.ts` keys on workflowId); each cluster member has its own plan store. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No Arco code changes are needed; this is a verified pass-through.
+PLAN is per-workflow: plans are stored per cwd (`<cwd>/.arco/plans/`), and each tab attaches at most one by `planId`, so members can attach different plans while the cluster plan is shared. DOCS and GIT both write to `wf.config.workingDirectory`, which for cluster members is the cluster's shared cwd - concurrent writes from two members hit the same files, same as two operators editing the same repo on disk. No Arco code changes are needed; this is a verified pass-through.
 
 ### Cluster management UX from the TabBar
 
@@ -818,25 +820,25 @@ Right-clicking a cluster-capable tab opens `TabContextMenu` with three modes:
 - **ADD TO EXISTING** - only enabled when same-cwd clusters exist AND the anchor isn't already a member. Radio-pick which cluster; dispatches `cluster_member_add { clusterId, workflowId }`.
 - **CREATE WITH FRESH** - pick N (1-4) and an optional name; dispatches `cluster_create_with_fresh_workers { sourceWorkflowId, additionalCount, name? }`. Server creates N new workflows (cwd + primary inherited from source) via `createBlankNativeWorkflow`, then calls `clusterStore.createCluster`.
 
-The membership fence (`assertAllMembersClaudeOrCodex` in `server/src/index.ts`, name kept from) is enforced server-side in every mode; despite the name it now admits every `CLUSTER_MEMBER_PROVIDERS` entry - `claude` (cli + native), `codex` (exec + appserver), `ollama`, `llamacpp`, `cursor` (fresh-only membership) - and rejects others with `member_not_supported`. The `isolated` access mode additionally requires Claude Native (`isolated_requires_claude_native`). ClusterRightPanel's new `REVIEWS` sub-tab aggregates `job.reviews[]` across all members for the operator working from inside the cluster tab.
+The membership fence (`assertAllMembersClaudeOrCodex` in `server/src/index.ts`, an older name) is enforced server-side in every mode; despite the name it now admits every `CLUSTER_MEMBER_PROVIDERS` entry - `claude` (cli + native), `codex` (exec + appserver), `ollama`, `llamacpp`, `cursor` (fresh-only membership) - and rejects others with `member_not_supported`. The `isolated` access mode additionally requires Claude Native (`isolated_requires_claude_native`). ClusterRightPanel's new `REVIEWS` sub-tab aggregates `job.reviews[]` across all members for the operator working from inside the cluster tab.
 
 ### Cluster-attached plan + role hints
 
 Two operator-armed surfaces overlay onto every member's per-turn system context (forced system blocks on Native; string-form folds elsewhere - see **Cross-provider** below).
 
-**Shared cluster plan.** One markdown body per cluster, persisted at `~/.arco/clusters/<id>/plan.md`. Three operator entry points:
+**Shared cluster plan.** One plan per cluster: a normal plan file `<cwd>/.arco/plans/<planId>.md` whose id is stored in the cluster's `meta.json` (`server/src/clusterPlanBridge.ts`). Three operator entry points:
 
 - The `PLAN` sub-tab in `ClusterRightPanel` (textarea + char-count; soft warn at 28672 chars, hard reject at 32768).
 - The `PROMOTE TO CLUSTER` button on a per-workflow PLAN tab (gated on cluster membership, confirms via `window.confirm`).
 - The `ATTACH TO CLUSTER` button on a worker's `PlanCandidateBanner` (mounts only on cluster-member tabs). Saves the plan record per-cwd and routes the body to the cluster's shared PLAN via `cluster_plan_set`. It is the only save button in a member tab (`ATTACH TO CLUSTER` / `REFINE` / `DISCARD`); standalone tabs see `SAVE & ATTACH` / `REFINE` / `DISCARD`.
 
-The body is injected as a forced system block immediately after the worker's `FORCED_FIRST_BLOCK` and before the operator's `appendSystemPrompt` / `systemPrompt` - every member's next turn reads it. `CLEAR PLAN` deletes `plan.md` from disk; subsequent turns no longer see the block. Hard cap `PLAN_MAX_BYTES = 32768` enforced server-side; oversize requests are rejected with a `NotificationToasts` error.
+For members with Standard access, the body (plus a trailing line naming its reference docs) is injected as a forced system block immediately after the worker's `FORCED_FIRST_BLOCK` and before the operator's `appendSystemPrompt` / `systemPrompt` - every member's next turn reads it. `CLEAR PLAN` detaches the plan from the cluster (`clusterStore.clearPlanId`); the plan file stays in the project's plans, and subsequent turns no longer see the block. Hard cap `PLAN_MAX_BYTES = 32768` enforced server-side; oversize requests are rejected with a `NotificationToasts` error.
 
 **Role hint per member.** Free-form text (≤120 chars, `MEMBER_ROLE_MAX`). Stored sparsely on `ClusterMeta.memberRoles`. When set, the Native worker injects a second forced system block (`Your role in this cluster: <role>`) immediately after the plan block. Empty / whitespace clears. The operator surface is a popover on each `MemberRow` in the Members sub-tab anchored to the `SET` button: six canonical presets from [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts) - DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER - plus `CLEAR` and `Custom...` (falls back to a free-form inline editor). The wire shape is unchanged: a preset is just a known string the UI drops into the editor; `presetForText` round-trips a stored body back to its preset id so EDIT reopens with the matching preset highlighted and `MemberCard` chips can label known presets vs free-form `CUSTOM`. Director-vs-worker is **emergent through operator conversation** - the role string is a framing nudge, not a permission flag. Cross-member coordination still happens through the existing peer_* substrate.
 
 **Plan-changed propagation.** Editing the plan mid-turn for member A does NOT tear down A's running turn - the new body lands on the NEXT turn only (the worker reads `this.config.clusterPlan` once at `buildSystemBlocks` per `messages.create`). Member B (idle at edit time) picks up the new body on its next turn naturally.
 
-**Model-driven plan mutation.** Workers can tick checkboxes via `cluster_plan_tick` (matchers: case-insensitive unique `taskText` substring, or `lineIndex`; structured errors `task_not_found / ambiguous_task / not_a_checkbox_line / out_of_range / invalid_matcher`) and write the body via `cluster_plan_write` (32 KB cap, body cannot be empty). Once a plan exists, `cluster_plan_write` is additive: `clusterPlanStore.validatePlanWritePreservesCheckboxes` rejects writes that remove existing checkbox task text or change its `[ ]` / `[x]` state (`destructive_write_requires_operator`). Convention is still "only the director calls `cluster_plan_write`"; the constraint lives in the DIRECTOR role preset, while preservation is server-enforced. Destructive replace/clear stays operator-only from the PLAN tab. `clusterPlanStore.togglePlanItem` / `writePlan` broadcast `cluster_plan_changed` so every member's next-turn system block + the cluster tab re-render.
+**Model-driven plan mutation.** Workers can tick checkboxes via `cluster_plan_tick` (matchers: case-insensitive unique `taskText` substring, or `lineIndex`; structured errors `task_not_found / ambiguous_task / not_a_checkbox_line / out_of_range / invalid_matcher`) and write the body via `cluster_plan_write` (32 KB cap, body cannot be empty). Once a plan exists, `cluster_plan_write` is additive: `validatePlanWritePreservesCheckboxes` (`server/src/clusterPlanStore.ts`) rejects writes that remove existing checkbox task text or change its `[ ]` / `[x]` state (`destructive_write_requires_operator`). Convention is still "only the director calls `cluster_plan_write`"; the constraint lives in the DIRECTOR role preset, while preservation is server-enforced. Destructive replace/clear stays operator-only from the PLAN tab. Tick and write go through `clusterPlanBridge` and broadcast `cluster_plan_changed` so every member's next-turn system block + the cluster tab re-render.
 
 **Wire shape.** Three client->server WS messages (`cluster_plan_set` / `cluster_plan_clear` / `cluster_member_role_set`) + one server->client audit event (`cluster_plan_changed`). Plan body rides inline on `cluster_state.plan`; per-member role rides inline on `cluster_state.members[i].role`. See `docs/PROTOCOL_CLUSTER.md`.
 
@@ -846,7 +848,7 @@ The body is injected as a forced system block immediately after the worker's `FO
 
 ## 8. Pre-tool-use guards (NOT a primitive - transport-level)
 
-Cross-reference. Pre-tool-use guards (`server/src/providers/claude-native/pretoolGuards.ts`) sit inside the Claude Native worker's `dispatchTool` and intercept individual tool calls before they execute. They're transport-level (Native-only at first ship; CLI parity remains deferred) - no ephemeral worker is spawned, no chat artifact is produced, no operator click drives one call. The model emits a tool_use block, the guard returns a synthetic tool_result, the model adapts and re-issues, the turn continues. Today's rules: `checkConfigProtection` (blocks edits to lint/format/type-check config files) and `checkFactForceFirstEdit` (first edit of a turn per path emits a synthetic prompt asking the model to state importers + API surface + operator instruction before re-issuing). Both emit `tool_gate_triggered` events with distinct `gate` values so transcript review can distinguish them. Per-tab toggles in CONFIG: `efficiencyFactForce: 'on' | 'off'` (default off; explicit opt-in). Related guard behavior is described in [GOTCHAS.md](GOTCHAS.md)
+Cross-reference. Pre-tool-use guards (`server/src/providers/claude-native/pretoolGuards.ts`, run in order from `PRE_TOOL_GUARDS` in `toolChecks.ts`) sit inside the Claude Native worker's `dispatchTool` and intercept individual tool calls before they execute. They're transport-level (Native-only; CLI parity remains deferred) - no ephemeral worker is spawned, no chat artifact is produced, no operator click drives one call. The model emits a tool_use block, the guard returns a synthetic tool_result, the model adapts and re-issues, the turn continues. The rules, in order: `checkHardlineCommand` (always on; refuses shell commands that would stop or kill the Arco service or recursively force-delete the repository, home or filesystem root), `checkConfigProtection` (blocks edits to lint/format/type-check config files; `efficiencyConfigProtection`, default on) and `checkFactForceFirstEdit` (first edit of a turn per path emits a synthetic prompt asking the model to state importers + API surface + operator instruction before re-issuing; `efficiencyFactForce`, default off). Each emits `tool_gate_triggered` with its own `gate` value (`hardline-command-floor`, `config-protection`, `fact-force-first-edit`); a separate warning, `partial-read-full-write`, flags a full-file write after a partial read. The checks after the tool run are the ordered `postToolSteps` in the same file. Related guard behavior is described in [GOTCHAS.md](GOTCHAS.md).
 
 ---
 
@@ -856,7 +858,7 @@ A general, agent-agnostic research primitive: one operator-initiated, bounded tu
 
 ### Trigger
 
-The `⌕ RESEARCH` button near the composer (`client/src/components/TerminalInput.tsx`, handler factored into `client/src/components/terminalInput/research.ts` to respect the 2000-line cap) opens `ResearchDialog`: a topic brief, a hard round cap (clamped `[1, RESEARCH_MAX_ROUNDS_CEILING=10]`, default `RESEARCH_DEFAULT_ROUNDS=4`), and the shared RUN AS picker. RUN AS == current primary ⇒ in-tab dispatch (`research_request` against this workflow). RUN AS != primary ⇒ the client mints a one-shot `researchSpawnToken`, stamps it on the new tab's `WorkflowConfig`, registers a pending research, creates the workflow, and the `workflow_created` handler fires the deferred `research_request` against the new id.
+The `⌕ RESEARCH` button near the composer (`client/src/components/TerminalInput.tsx`, handler factored into `client/src/components/terminalInput/research.ts`) opens `ResearchDialog`: a topic brief, a hard round cap (clamped `[1, RESEARCH_MAX_ROUNDS_CEILING=10]`, default `RESEARCH_DEFAULT_ROUNDS=4`), and the shared RUN AS picker. RUN AS == current primary ⇒ in-tab dispatch (`research_request` against this workflow). RUN AS != primary ⇒ the client mints a one-shot `researchSpawnToken`, stamps it on the new tab's `WorkflowConfig`, registers a pending research, creates the workflow, and the `workflow_created` handler fires the deferred `research_request` against the new id.
 
 ### Server-side flow
 
@@ -893,11 +895,11 @@ A durable, searchable recap per conversation - "a point in time I can go back to
 
 ### Trigger
 
-The **Summarize** action on a `RecallResultRow` (in the top-level Recall view). When the hit has no `summaryRef`, the button generates a summary (`recall_summary_request` over WS); when one exists it reads `GET /api/recall/summary?wfid=` and renders it inline. There is also a footer **"summarize on tab close"** toggle (default OFF, localStorage-backed) - the on-close *offer* hook itself is a documented graceful TODO at the `TabBar` close handler; the toggle's existence + default-OFF and the per-row button are shipped.
+The **Summarize** action on a `RecallResultRow` (in the top-level Recall view). When the hit has no `summaryRef`, the button generates a summary (`recall_summary_request` over WS); when one exists it reads `GET /api/recall/summary?wfid=` and renders it inline. There is also a footer **"summarize on tab close"** toggle (default OFF, localStorage-backed). When it is on, closing a tab that has a saved session and is not incognito starts the same summary request (`closeSummaryPlan` in `client/src/recall/closeSummary.ts`, called from the `TabBar` close handler). The tab closes first; a failure only shows a toast.
 
 ### Server-side flow
 
-`handleRecallSummaryRequest` (`server/src/ws/workflowHandlers.ts`) resolves the summarizer Codex account like the reviewer/research path, picks the open tab's `WorkerManager` (or a transient one for archived conversations), and calls `summarizeWorkflow` (`server/src/recall/summarize.ts`). `summarizeWorkflow` loads the transcript (`replayEvents`), runs ONE short-lived read-only worker over a `renderTranscript` of the events (recall-summary framing; `tools: ['Read','Grep','Glob']` for claude/ollama; `outputStyle: 'normal'`; codex account passthrough), and writes `~/.arco/recall/<wfid>/summary.md` (machine-global recall home - **not** the per-cwd handoff dir). On **any** failure (spawn error, empty body, no provider authed) it writes the deterministic `summarizePriorTurns` digest to the same file instead. Then `RecallIndex.setSummary` records `summaryRef` (and indexes the body into FTS for). `summarizeWorkflow` never throws and never blocks.
+`handleRecallSummaryRequest` (`server/src/ws/workflowHandlers.ts`) resolves the summarizer Codex account like the reviewer/research path, picks the open tab's `WorkerManager` (or a transient one for archived conversations), and calls `summarizeWorkflow` (`server/src/recall/summarize.ts`). `summarizeWorkflow` loads the transcript (`replayEvents`), runs ONE short-lived read-only worker over a `renderTranscript` of the events (recall-summary framing; `tools: ['Read','Grep','Glob']` for claude/ollama; `outputStyle: 'normal'`; codex account passthrough), and writes `~/.arco/recall/<wfid>/summary.md` (machine-global recall home - **not** the per-cwd handoff dir). On **any** failure (spawn error, empty body, no provider authed) it writes the deterministic `summarizePriorTurns` digest to the same file instead. Then `RecallIndex.setSummary` records `summaryRef` (and indexes the body into the full-text search index). `summarizeWorkflow` never throws and never blocks.
 
 ### Events emitted
 
@@ -954,11 +956,11 @@ Send ONE prompt to N providers concurrently, stream each answer into its own pan
 
 ### Trigger
 
-The `⚖ SECOND OPINION` button near the composer (formerly COMPARE; internal ids, routes and message names keep the `compare` name) (`client/src/components/TerminalInput.tsx`; the handler is factored into `client/src/components/terminalInput/compare.ts` to respect the 2000-line cap - the button only calls `openCompareDialog(job.id)`). The button is store-driven (no prop): it flips `compareStore.dialogOpen`. The globally-mounted `CompareDialogHost` renders `CompareDialog` - one prompt textarea, 2..`COMPARE_MAX_LEGS` legs each picked via the shared **RUN AS** picker (seeded with the current primary + one "other" default), and a **blind** checkbox (default on). Confirm dispatches `compare_request` and the results stream into the globally-mounted `CompareOverlay`.
+The `⚖ SECOND OPINION` button near the composer (formerly COMPARE; internal ids, routes and message names keep the `compare` name) (`client/src/components/TerminalInput.tsx`; the handler is factored into `client/src/components/terminalInput/compare.ts` - the button only calls `openCompareDialog(job.id)`). The button is store-driven (no prop): it flips `compareStore.dialogOpen`. The globally-mounted `CompareDialogHost` renders `CompareDialog` - one prompt textarea, 2..`COMPARE_MAX_LEGS` legs each picked via the shared **RUN AS** picker (seeded with the current primary + one "other" default), and a **blind** checkbox (default on). Confirm dispatches `compare_request` and the results stream into the globally-mounted `CompareOverlay`.
 
 ### Server-side flow
 
-`handleCompareRequest` (`server/src/ws/compareHandlers.ts`) clamps the leg count to `[COMPARE_MIN_LEGS=2, COMPARE_MAX_LEGS=6]`, resolves each Codex leg's account positionally (CODEX_HOME, like the reviewer path, but per leg), seeds an in-memory `CompareRecord` (kept alive past settle for the vote/synthesize join), and calls `runCompare`. `runCompare` fans **N independent `WorkerManager.spawn` calls**, each with a **unique worker id** (`<compareId>-leg<i>`) and **NO shared session**: there is no `resumeSessionId`/`sessionId`, no transcript prepend, and the prompt is each leg's *entire* input - the legs never see each other. Each leg is **read-only / no-tools by default** (empty `tools` allowlist for every leg; Codex / Ollama / llama.cpp / LM Studio are additionally gated by `sandbox: 'read-only'`, and Ollama runs with `skipPermissions: true`; `outputStyle: 'normal'` forced) - stricter than the reviewer's read-only set, because the race is meant to be a cheap, side-effect-free answer comparison, not a tool-using agent run. Each leg's `worker_text` is streamed out as a `compare_leg_delta` keyed by `legIndex`, accumulated into the record's `answers`, and finalized with `compare_leg_complete`. One failed leg never blocks the others (`Promise.all` over per-leg promises that each resolve to ok/fail). When all settle, `compare_complete` carries `succeededLegs`.
+`handleCompareRequest` (`server/src/ws/compareHandlers.ts`) clamps the leg count to `[COMPARE_MIN_LEGS=2, COMPARE_MAX_LEGS=6]`, resolves each Codex leg's account positionally (CODEX_HOME, like the reviewer path, but per leg), seeds an in-memory `CompareRecord` (kept alive past settle for the vote/synthesize join), and calls `runCompare`. `runCompare` fans **N independent `WorkerManager.spawn` calls**, each with a **unique worker id** (`<compareId>-leg<i>`) and **NO shared session**: there is no `resumeSessionId`/`sessionId`, no transcript prepend, and the prompt is each leg's *entire* input - the legs never see each other. Each leg is **read-only / no-tools by default** (empty `tools` allowlist for every leg unless a reply draft turns on file access, which gives Read, Grep and Glob; Codex / Ollama / llama.cpp / LM Studio are additionally gated by `sandbox: 'read-only'`, and Ollama runs with `skipPermissions: true`; `outputStyle: 'normal'` forced) - stricter than the reviewer's read-only set, because the race is meant to be a cheap, side-effect-free answer comparison, not a tool-using agent run. Each leg's `worker_text` is streamed out as a `compare_leg_delta` keyed by `legIndex`, accumulated into the record's `answers`, and finalized with `compare_leg_complete`. One failed leg never blocks the others (`Promise.all` over per-leg promises that each resolve to ok/fail). When all settle, `compare_complete` carries `succeededLegs`.
 
 ### Vote + synthesize (operator-only)
 
@@ -998,7 +1000,7 @@ A per-cwd, **operator-owned** knowledge store at `<cwd>/.arco/knowledge/` - a cu
 
 ### Fence note
 
-This is the sanctioned, operator-in-the-loop **replacement** for the rejected self-writing memory / curator pattern (Appendix B). **Nothing is ever auto-saved to the KB by an LLM** - the distill worker has no write tool and no store access; the only persist path is the operator's explicit Save. Always-include articles fold into the next turn's system prompt as a **bounded** block (hard-capped at `KNOWLEDGE_INJECT_BUDGET`, truncation-noticed, byte counts emitted to `events.jsonl`), so the KB can never silently bloat context. Operator-initiated + deterministic + visible + reversible (unflag/edit/delete) ⇒ clears the four-question test.
+This is the sanctioned, operator-in-the-loop **replacement** for a self-writing memory or curator pattern, which Arco does not have. **Nothing is ever auto-saved to the KB by an LLM** - the distill worker has no write tool and no store access; the only persist path is the operator's explicit Save. Always-include articles fold into the next turn's system prompt as a **bounded** block (hard-capped at `KNOWLEDGE_INJECT_BUDGET`, truncation-noticed, byte counts emitted to `events.jsonl`), so the KB can never silently bloat context. Operator-initiated + deterministic + visible + reversible (unflag/edit/delete) ⇒ clears the four-question test.
 
 ---
 
@@ -1012,13 +1014,13 @@ runs it in a hidden scratch dir (`~/.arco/genesis/<wfid>`) and injects a staged-
 block each turn (`buildGenesisSystemBlock`, gated on the scratch cwd). The operator shapes the seed
 in the `GENESIS` right-panel tab through four stages (Spark -> Concept -> Case -> Build-direction);
 **CREATE & SCAFFOLD** (operator-confirmed) creates the real project folder, writes seed docs via the
-Appendix-D hardened writer, optionally a GitHub repo, then **rebinds the cwd in place** - moving the
+hardened seed-doc writer, optionally a GitHub repo, then **rebinds the cwd in place** - moving the
 on-disk store so the transcript + monotonic seq carry over - and seeds a plan.
 
-**In-workflow Creative mode ** runs the same staged process inside an **existing** project to
+**In-workflow Creative mode** runs the same staged process inside an **existing** project to
 explore an alternative direction. The operator arms it from the `GENESIS` tab (`genesis_creative_arm`);
 the server snapshots the project as grounding context + assesses codebase size (an established
-codebase raises an advisory warning), and the seed carries `creative: true` so the engine injects the
+codebase raises an advisory warning; DISARM stays available while armed), and the seed carries `creative: true` so the engine injects the
 block on that flag instead of the scratch cwd. **CREATE ALTERNATIVE** scaffolds into a sibling
 `ALTERNATIVE/<slug>/` dir + a **separate** plan - it never edits the existing project, never rebinds
 the cwd, and offers Spawn-from-here to fork a sharply diverging direction into a fresh tab.
@@ -1148,7 +1150,7 @@ are stored in `OrchestrationAssistModelRef` but are never applied by the server 
 
 ## 16. Review safe-mode gate (durable HITL approval - DEBAG)
 
-A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a primitive - no ephemeral worker, no artifact; like it is transport-level). The operator arms it with the **REVIEW SAFE-MODE** toggle in CONFIG (`WorkflowConfig.reviewSafeMode: 'off' | 'on'`, default `off`, Native-only - CLI / Codex ignore it). When armed, the Native worker consults a deterministic classifier before running each tool and **parks** sensitive calls for operator approval instead of running them.
+A per-tab, operator-armed pre-tool-use approval gate for Claude Native (NOT a primitive - no ephemeral worker, no artifact; like the pre-tool-use guards it is transport-level). The operator arms it with the **REVIEW SAFE-MODE** toggle in CONFIG (`WorkflowConfig.reviewSafeMode: 'off' | 'on'`, default `off`, Native-only - CLI / Codex ignore it). When armed, the Native worker consults a deterministic classifier before running each tool and **parks** sensitive calls for operator approval instead of running them.
 
 **Classifier** (`server/src/providers/claude-native/gateReview.ts` - a static allowlist, no model judgment, modeled on `pretoolGuards.ts`). `classifyGate(toolName, input, cwd)` flags: `Bash` -> category `bash` (any shell command), or `git-destructive` when the command matches `git push` / `git reset --hard` / `git clean -fd`; `KillShell` -> `kill-shell`; `Write` / `Edit` / `MultiEdit` whose resolved `file_path` escapes the workflow cwd -> `write-outside-cwd` (in-cwd writes are inert). Firing is two-condition: a call gates only if it is sensitive AND safe-mode is armed (`evaluateGate(armed, ...)`); with safe-mode off the module is never consulted, so the hot path is untouched.
 
@@ -1168,7 +1170,7 @@ A propose-only primitive that compacts a long-lived agent-instruction file (`CLA
 
 ### Trigger
 
-The operator opens the **TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFilesWithLinks` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (Claude->`CLAUDE.md`, Codex->`AGENTS.md`). Recognized links to a listed in-project candidate appear as other names on its card and in VIEW; links outside the project or to unlisted or unresolved targets are shown as skipped. Links are never write targets. The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
+The operator opens the **✦ TUNE MD** dialog (`client/src/components/MdTuneupDialog.tsx`), which fires `md_tuneup_candidates_request`. The server answers with `md_tuneup_candidates { candidates[], defaultPath? }` - `discoverInstructionFilesWithLinks` (`server/src/primitives/runMdTuneup.ts`) walks the cwd (bounded depth 6, skipping `node_modules` / `.git` / `.arco` / build dirs) and collects every `INSTRUCTION_FILE_NAMES` match, shallowest-first; `defaultPath` pre-selects the file matching the tab's primary provider (Claude->`CLAUDE.md`, Codex->`AGENTS.md`). Recognized links to a listed in-project candidate appear as other names on its card and in VIEW; links outside the project or to unlisted or unresolved targets are shown as skipped. Links are never write targets. The operator picks the target + an agent via the **RUN AS picker** and dispatches `md_tuneup_request { editor, target }` (`target` is `'auto'` or a repo-relative path).
 
 Before dispatch, each candidate shows its line count, approximate tokens (UTF-8 bytes divided by four), and deterministic hints for dated or session-log headings, repeated nontrivial lines, and length over 200 lines or approximately 2,000 tokens. VIEW fetches the current text through the existing guarded file-content route. Files over 2 MiB show a limit notice instead of a text preview or complete analysis.
 
@@ -1192,7 +1194,7 @@ This is the operator-reviewed narrowing of the "LLM-mutated instructions across 
 
 Not ephemeral-worker primitives - both act on the **live** session - but operator-triggered and cheaper than Handoff (no fresh worker, no portable doc, no resume re-feed). Handlers: `server/src/ws/compactHandlers.ts`.
 
-- **COMPACT** (`compact_workflow` -> `handleCompactWorkflow`, composer `⊟ COMPACT`), provider-routed: Codex app-server fire `thread/compact/start` on the live thread and stay locked until the **matching** compact turn's `turn/completed` (a 120 s timer once unlocked early and let sends bounce off `ActiveTurnNotSteerable` - the ceiling is now 10 min and a timeout reports failure + recycles the child, never success); Cursor sends the advertised `/compress` as an unprefixed prompt; Claude Native Native run ONE summarization round that **replaces** retained history and persist a `native_compacted` marker so replay re-seeds it after restart; Ollama arms a forced compaction for the next turn. Idle-gated. Visible as `ctx_action` / `native_compacted`; the client mirrors the lock via `compacting` + the `⊟ COMPACTED` banner. Opt-in `nativeCompactAutoContinue` may send one deterministic continue turn afterward (`maybeAutoContinueAfterCompact`).
+- **COMPACT** (`compact_workflow` -> `handleCompactWorkflow`, composer `⊟ COMPACT`), provider-routed: Codex app-server fires `thread/compact/start` on the live thread and stays locked until the **matching** compact turn's `turn/completed` (a 120 s timer once unlocked early and let sends bounce off `ActiveTurnNotSteerable` - the ceiling is now 10 min and a timeout reports failure + recycles the child, never success); Cursor sends the advertised `/compress` as an unprefixed prompt; Claude Native runs ONE summarization round that **replaces** retained history and persists a `native_compacted` marker so replay re-seeds it after restart; Ollama arms a forced compaction for the next turn. Idle-gated. Visible as `ctx_action` / `native_compacted`; the client mirrors the lock via `compacting`, and afterward the composer shows `COMPACTED: CONTINUE` to resume the parked conversation. Opt-in `nativeCompactAutoContinue` may send one deterministic continue turn afterward (`maybeAutoContinueAfterCompact`).
 - **FOLD** (`fold_workflow` -> `handleFoldWorkflow`, composer `⊞ FOLD`; Claude Native only, idle) - deterministic, instant, no LLM round: `foldClaudeNativeWorker` trims the transcript in place to a digest + tail; the worker emits the durable `context_folded` marker itself. Opt-in `autoFold` (`maybeAutoFold`, default OFF) fires it at `foldAt` (**FOLD AT** in CONFIG). A Fold is not counted toward auto-handoff.
 - **S-FOLD / Server Fold** (`fold_workflow {engine:'server'}` -> same handler, composer `⊞ S-FOLD`; Claude Native Agent tabs, idle, operator-only - no auto trigger) - `serverFoldClaudeNativeWorker` -> `worker.serverFoldInPlace`: one on-demand compaction call (`compact-2026-09-04`), last 2 turns kept verbatim with thinking, persisted as `context_folded {engine:'server'}`. Any failure runs the deterministic Fold instead. Reversible via HISTORY rewind to a seq before the marker.
 
@@ -1208,7 +1210,7 @@ Fence: operator-initiated or operator-armed, deterministic gating, persisted mar
 
 ## 20. Worktree bake-offs (operator-armed attempt batch)
 
-The BAKE-OFF right-panel tab sends one `bakeoff_start` with 2-5 `RunAsPicker` legs (`MAX_ATTEMPTS = 5`, prompt ≤ 64 KB). `server/src/ws/bakeoffHandlers.ts` -> `gitBakeoff.ts createBakeoffAttempts` creates each attempt in its own managed git worktree from an **exact, clean base** and starts it as an ordinary visible workflow (`workflow_created.backgroundCreated` keeps a batch from stealing the active tab). State is an out-of-repo manifest (`bakeoffStore.ts`) projected to clients as `bakeoff_state` / `bakeoff_list_result`. Only an explicit operator `bakeoff_promote` merges a winner - there is no model judge - and `bakeoff_cleanup` removes selected worktrees inside the managed-root fence while preserving branches. Invariants: `docs/GOTCHAS.md bake-offs`; detail: `docs/GIT_WORKBENCH.md`.
+The BAKE-OFF right-panel tab sends one `bakeoff_start` with 2-5 `RunAsPicker` legs (`MAX_ATTEMPTS = 5`, prompt ≤ 64 KB). `server/src/ws/bakeoffHandlers.ts` -> `gitBakeoff.ts createBakeoffAttempts` creates each attempt in its own managed git worktree from an **exact, clean base** and starts it as an ordinary visible workflow (`workflow_created.backgroundCreated` keeps a batch from stealing the active tab). State is an out-of-repo manifest (`bakeoffStore.ts`) projected to clients as `bakeoff_state` / `bakeoff_list_result`. Only an explicit operator `bakeoff_promote` merges a winner - there is no model judge - and `bakeoff_cleanup` removes selected worktrees inside the managed-root fence while preserving branches. Invariants: [`GOTCHAS.md`](GOTCHAS.md); detail: [`GIT_WORKBENCH.md`](GIT_WORKBENCH.md).
 
 ---
 
