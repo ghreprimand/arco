@@ -25,7 +25,7 @@ command-list era; it is not a list of phrases the client recognizes.
 5. Open **COMPUTER** for agent, conversation, context, activity, watches, and scripts. **VOICE CONTROLS -> DETAILS** holds auditions, speech sensitivity, and capture diagnostics. Reload disarms the mic.
 6. To type instead, use the COMPUTER message field. If no conversation exists, choose an agent and press **USE AGENT** first. Mic may stay off. Use **STOP REQUEST** while processing, or a script's **PAUSE** / **CANCEL SCRIPT**.
 
-Guided checks: **Settings > VOICE SETUP** (voice home, `uv`/Python status, packages, models, notices). **INSTALL** / **REINSTALL / REPAIR** run setup with live log and cancel. **TEST MICROPHONE** shows input level without recording or sending. **SAY A PHRASE** samples the local recognizer. In Docker, voice needs the native run; install and microphone actions are not offered there.
+Guided checks: **Settings > Voice > Voice setup** (voice home, `uv`/Python status, packages, models, notices). **INSTALL** / **REINSTALL / REPAIR** run setup with live log and cancel. **TEST MICROPHONE** shows input level without recording or sending. **SAY A PHRASE** samples the local recognizer. In Docker, voice needs the native run; install and microphone actions are not offered there.
 
 ### Find a topic
 
@@ -134,7 +134,7 @@ focus mode. The controls show status, dictation recipient, errors and live Luna
 usage. Spoken feedback and unfamiliar-command interpretation can each be disabled
 independently.
 
-**DISABLE / MIC OFF**, "Computer, stop listening", page close/reload, microphone
+**DISABLE · MIC OFF**, "Computer, stop listening", page close/reload, microphone
 loss or an Arco WebSocket disconnect stops the microphone and session.
 Re-enabling requires a button or shortcut: the off state does not listen for a
 wake word. Voice status occupies a compact row beneath the workflow tabs,
@@ -415,7 +415,7 @@ records facts for follow-up questions and replies Done; the server refuses ALL
 user tools in these background turns. Operator directives arriving during an
 update enter the follow-up queue and run with normal tools afterwards. Automated
 updates do not replace or speak over user answers. No worker content is
-interpreted as an user directive or an authorization to create conditions.
+interpreted as a user directive or an authorization to create conditions.
 
 Monitoring/condition evaluation uses no model calls. Enabling agent updates
 spends normal selected-provider usage: at most 12 update turns per rolling hour,
@@ -731,7 +731,7 @@ auth). Real-agent scenarios use canned tools, never real worker/UI actions.
 |---|---|
 | Browser audio capture and speech segmentation | [`voice-capture.js`](../client/public/voice-capture.js), [`recognizer.py`](../server/src/voice/recognizer.py) |
 | Wake/capture boundaries, playback and interruption | [`reservedPhrases.ts`](../client/src/voice/reservedPhrases.ts), [`commandBuffer.ts`](../client/src/voice/commandBuffer.ts), [`runtime.ts`](../client/src/voice/runtime.ts) |
-| Intent handling and the shared tool catalog | [`userPrompt.ts`](../server/src/voice/operatorPrompt.ts), [`toolDefinitions.ts`](../server/src/voice/toolDefinitions.ts) |
+| Intent handling and the shared tool catalog | [`operatorPrompt.ts`](../server/src/voice/operatorPrompt.ts), [`toolDefinitions.ts`](../server/src/voice/toolDefinitions.ts) |
 | Approved MCP child and HTTP/browser relay | [`voiceMcpServer.ts`](../server/src/mcp/voiceMcpServer.ts), [`voiceRoutes.ts`](../server/src/http/voiceRoutes.ts), [`executor.ts`](../client/src/voice/executor.ts) |
 | Generic screen controls and text reading | [`screen.ts`](../client/src/voice/screen.ts) |
 | Agent/context controls and Computer panel | [`computerControl.ts`](../client/src/voice/computerControl.ts), [`computerContext.ts`](../server/src/voice/computerContext.ts), [`ComputerPanel.tsx`](../client/src/components/ComputerPanel.tsx) |

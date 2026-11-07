@@ -81,8 +81,8 @@ type ReviewContextRef =
   // (`clusterPlanBridge.readClusterPlan(clusterId)`, canonical under
   // <cwd>/.arco/plans/<planId>.md) instead of `readPlan(cwd, planId)`.
   // `workflowId` on the request still names
-  // the worker that runs the review (a member, the cluster plan tab's REVIEW
-  // PLAN / VERIFY WORK buttons pop a ClusterMemberPicker); `clusterId` names
+  // the worker that runs the review (the cluster plan tab's REVIEW PLAN /
+  // VERIFY WORK buttons use the first member); `clusterId` names
   // the plan body being reviewed. Server-side content builder is
   // `buildClusterPlanReviewContent` in primitives/reviewContent.ts. See
   // `PRIMITIVES.md-plan-scoped review`.
@@ -108,7 +108,7 @@ For plan-scoped variants:
 - **`plan-whole`** - the whole plan body, filtered by mode.
 - **`plan-phase`** - the named phase only. `heading` must match the exact `### Phase Name` text from the plan body. Filtered by mode.
 - **`plan-items`** - operator-selected items via the `PlanReviewPicker`. `itemIds` are stable IDs of the form `${phaseIdx}/${taskIdx}` (zero-based). Mode affects framing/instructions only - selected items render regardless of check state.
-- **`cluster-plan-whole`** / **`cluster-plan-phase`** - same shape as `plan-whole` / `plan-phase`, but the body is resolved by cluster id (`clusterPlanBridge.readClusterPlan`) rather than by plan id; an empty body rejects. No `plan-items` variant for the cluster surface today - the cluster plan tab's CUSTOM REVIEW button picks per-item via the existing `PlanReviewPicker` against a synthesized `planId` after the picked member's plan is promoted (the cluster body itself has no stable per-item slice yet).
+- **`cluster-plan-whole`** / **`cluster-plan-phase`** - same shape as `plan-whole` / `plan-phase`, but the body is resolved by cluster id (`clusterPlanBridge.readClusterPlan`) rather than by plan id; an empty body rejects. No `plan-items` variant for the cluster surface today - the cluster plan tab's CUSTOM REVIEW button asks for a member and opens an ordinary transcript-scoped review of that member, with no plan reference.
 
 For the preview-capture variant:
 
@@ -484,13 +484,13 @@ There is no cancel message - the single bounded turn settles on its own (same as
 {
   type: 'handoff_request',
   workflowId: string,
-  mode: 'original-worker' | 'fresh-summarizer' | 'fresh-agent',
+  mode: ExportContextMode,          // 'quick' | 'original-worker' | 'fresh-summarizer' | 'fresh-agent'
   summarizer?: { provider: ProviderName, model: ModelName, effort: EffortLevel },  // for fresh-summarizer; defaults to the tab's primary config
   newPrimary?: { provider: ProviderName, model: ModelName, effort: EffortLevel, providerAccountRef?: string },  // optional provider/model swap on rotation; providerAccountRef for Codex account routing
 }
 ```
 
-`'fresh-agent'` currently rejects with "not implemented yet".
+`'quick'` builds a deterministic seed with no model call (the QUICK choice). `'fresh-agent'` currently rejects with "not implemented yet".
 
 ### `handoff_cancel` ->
 
@@ -591,7 +591,7 @@ Fires after handoff. Announces the new CLI session ID and prepares the client to
   type: 'spawn_from_here_request',
   parentWorkflowId: string,
   newConfig: WorkflowConfig,
-  mode: 'original-worker' | 'fresh-summarizer' | 'fresh-agent',
+  mode: ExportContextMode,          // 'quick' | 'original-worker' | 'fresh-summarizer' | 'fresh-agent'
   newDirection?: string,            // optional new direction prompt
   summarizer?: { provider: ProviderName, model: ModelName, effort: EffortLevel },
   includePlan?: boolean,            // copy parent's attached plan onto the spawn
