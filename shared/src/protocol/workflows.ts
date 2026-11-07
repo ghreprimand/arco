@@ -499,6 +499,8 @@ export interface SavedChatSummary {
 // user-message text as `[attached file: <path>]` references — mid-turn image
 // re-encoding into provider-specific shapes is intentionally out of scope.
 export interface SteerItem {
+  // Server-side delivery attempt identity; never part of model text.
+  deliveryId?: string;
   content: string;
   clientMessageId?: string;
   attachments?: string[];
@@ -579,6 +581,9 @@ export interface WorkerConfig {
   // pass it through too — reviewers always run with `codexTransport:
   // 'exec'` so the per-workflow cache never picks them up.
   workflowId?: string;
+  // Server-generated UUID for an auxiliary provider cache/replay scope.
+  // Event attribution remains workflowId; this is never a saved tab setting.
+  sessionScopeId?: string;
   // Phase 6 — Codex transport selector. `'exec'` (default, undefined) keeps
   // the existing per-turn `codex exec --json` worker. `'appserver'` opts
   // into the long-lived `codex app-server` worker (mid-turn steer + structured

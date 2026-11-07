@@ -829,6 +829,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <>
         <p>HANDOFF starts a fresh session with a seed. Choose it for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit; the plan, board, goal, artifacts and Git remain outside the conversation.</p>
         <p>QUICK builds a deterministic seed. ORIGINAL WORKER writes a reflection. FRESH SUMMARIZER uses a separate worker to write the seed. STOP during preparation prevents that worker from starting; cancellation never publishes a successful handoff.</p>
+      <p>Cancelled preparation and pre-warm cannot later seed or complete into a newer turn, or dispose its provider worker.</p>
       </>
     ),
     manualSection: 'handoff-action',
@@ -836,11 +837,11 @@ export const miscHelp: Record<string, HelpEntry> = {
   'actions.spawn': {
     title: 'Spawn from here',
     body: (
-      <p>
+      <><p>
         Forks the conversation to a new tab with configurable model/effort and
         an optional new direction. The original tab continues in parallel:
         useful for "what if?" branches. HISTORY cutoffs retain the selected earlier conversation, including points outside the recent replay tail.
-      </p>
+      </p><p>The child remains reserved through preparation and pre-warm. Revoked work cannot seed or finish into a newer child turn.</p></>
     ),
     manualSection: 'spawn-action',
   },
@@ -1650,12 +1651,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   'terminal.switcher': {
     title: 'Session switcher',
     body: (
-      <p>
+      <><p>
         Picks which shell session this window views. Sessions are
         workflow-scoped, long-lived resources; two windows may point at the same
         session (both render the same live output). The list survives a client
         reconnect: the server re-sends it on rehydrate.
-       Refreshing this workflow does not detach other workflows' terminal windows.</p>
+       Refreshing this workflow does not detach other workflows' terminal windows.</p><p>A restarted server sends an empty live-session list, clearing old selector entries.</p></>
     ),
     manualSection: 'integrated-terminal',
   },

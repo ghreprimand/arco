@@ -562,6 +562,12 @@ export function ownsBusy(wf: WorkflowState, token: number): boolean {
   return busyOwners.get(wf) === token;
 }
 
+// A released claim remains current until another claim or STOP supersedes it.
+// Background completion metadata can use this without retaining busy.
+export function isCurrentBusyClaim(wf: WorkflowState, token: number): boolean {
+  return lastBusyClaim.get(wf) === token;
+}
+
 // Returns false (and leaves wf.busy alone) when the claim was revoked or
 // superseded — the caller is a stale holder and must not touch busy/queue.
 export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished' | 'interrupted' | 'failed' = 'interrupted', workerActivity = true): boolean {
@@ -1168,8 +1174,8 @@ export function broadcastQueueUpdate(workflowId: string): void {
 // shape the post-turn drain uses. The `user_message_echo` was already
 // emitted at enqueue time (handleUserMessage) so we don't re-echo here;
 // the persisted echo at the original timestamp is the authoritative
-// transcript record. Replay therefore renders the steer as a normal
-// user-message at its enqueue position with `kind: 'steer'`.
+// audit record. Delivery attempt metadata places the input at its confirmed
+// boundary for provider replay and review, while the live chat keeps the echo.
 //
 // Retry safety: the drain is destructive (splice) so a same-iteration
 // re-call would return []. Provider-side retry loops that call drainSteer
@@ -1177,27 +1183,30 @@ export function broadcastQueueUpdate(workflowId: string): void {
 // results and the next streamOneTurn) cannot double-deliver. Recovery
 // paths in llamacpp.ts inject their own synthetic user messages and skip
 // past the hook — by design.
-export function drainSteerForWorker(workflowId: string, ws: WebSocket): SteerItem[] {
+export function drainSteerForWorker(workflowId: string, ws: WebSocket, deliveryProvider?: WorkflowConfig['primaryProvider']): SteerItem[] {
   const wf = workflows.get(workflowId);
   if (!wf || wf.queue.steering.length === 0 || wf.primaryTurn?.holdSteer || wf.queue.steering.some((q) => q.interrupt)) return [];
   const drained = wf.queue.steering.splice(0);
+  const deliveryId = randomUUID();
   broadcastQueueUpdate(workflowId);
   const drainedClientIds = drained
     .map((d) => d.clientMessageId)
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  if (drainedClientIds.length > 0 && wf.primary.provider !== 'codex') {
-    broadcastTransient(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds: drainedClientIds });
+  if (drainedClientIds.length > 0 && (deliveryProvider ?? wf.primary.provider) !== 'codex') {
+    broadcastWorkflow(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds: drainedClientIds, deliveryId });
   }
   if (drainedClientIds.length > 0) {
     send(ws, {
       type: 'queued_messages_drained',
       workflowId,
+      deliveryId,
       clientMessageIds: drainedClientIds,
       drainedAt: Date.now(),
     });
   }
   console.log(`[arco] [${workflowId.slice(0, 8)}] mid-turn steer drained (${drained.length} item${drained.length === 1 ? '' : 's'}; follow-up bucket untouched)`);
   return drained.map((d) => ({
+    deliveryId,
     // §D1 — mid-turn steer is delivered as a single `content` string through
     // the provider steer APIs (SteerItem has no separate context block), so a
     // steer message's expanded `@`-refs ride appended to its content. The echo
@@ -1414,7 +1423,7 @@ export async function handleUserMessage(
   const chatMode = isChatWorkflow(wf.config);
   const incognito = chatMode && wf.config.incognito === true;
   const trackOllama = wf.primary.provider === 'ollama' && !chatMode;
-  if (trackOllama && !clientMessageId) clientMessageId = randomUUID();
+  if (!clientMessageId) clientMessageId = randomUUID();
   // Chat tabs expose no project tools; web_search/web_fetch is the one
   // exception the operator can arm (default on for a saved Chat). Computed per
   // turn so the header toggle takes effect on the next message, and passed
@@ -1582,6 +1591,7 @@ export async function handleUserMessage(
       clientMessageId,
       timestamp: Date.now(),
       kind: interrupt ? 'interrupt' : bucket,
+      deliveryTracked: true,
       ...(trackOllama ? { ollamaReplayInput: true } : {}),
     });
     if (trackOllama) queuedItem.ollamaInputSeq = currentWorkflowSeq(cwd, workflowId);
@@ -1648,6 +1658,7 @@ export async function handleUserMessage(
   // must leave the queue available for an explicit later attempt.
   assertCheckoutAvailable(workflowWritePaths(wf));
   let activeOllamaInputSeqs: number[] = [];
+  let activeInputClientIds: string[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
@@ -1659,6 +1670,7 @@ export async function handleUserMessage(
     if (drainedClientIds.length > 0) {
       send(ws, { type: 'queued_messages_drained', workflowId, clientMessageIds: drainedClientIds, drainedAt: Date.now() });
     }
+    activeInputClientIds = drained.flatMap(item => item.clientMessageId ? [item.clientMessageId] : []);
     activeOllamaInputSeqs = drained.every(d => d.ollamaInputSeq) ? drained.map(d => d.ollamaInputSeq!) : [];
     content = drained.map((d) => d.content).join('\n\n');
     const mergedAttachments = drained.flatMap((d) => d.attachments ?? []);
@@ -1723,6 +1735,7 @@ export async function handleUserMessage(
     const ids = drained.flatMap((d) => d.clientMessageId ? [d.clientMessageId] : []);
     if (ids.length) send(ws, { type: 'queued_messages_drained', workflowId,
       clientMessageIds: ids, drainedAt: Date.now() });
+    activeInputClientIds = [...(append ? activeInputClientIds : []), ...drained.flatMap(item => item.clientMessageId ? [item.clientMessageId] : [])];
     activeOllamaInputSeqs = drained.every(d => d.ollamaInputSeq) ? [...(append ? activeOllamaInputSeqs : []), ...drained.map(d => d.ollamaInputSeq!)] : [];
     prompt = [...(append ? [prompt] : []), ...drained.map((d) => d.content)].join('\n\n');
     const files = [...(append ? promptAttachments ?? [] : []), ...drained.flatMap((d) => d.attachments ?? [])];
@@ -1935,9 +1948,11 @@ export async function handleUserMessage(
           content: prompt,
           attachments: promptAttachments,
           clientMessageId: promptClientMessageId,
+          deliveryTracked: true,
           timestamp: Date.now(),
           ...(trackOllama ? { ollamaReplayInput: true } : {}),
         });
+        if (!fromQueue) activeInputClientIds = promptClientMessageId ? [promptClientMessageId] : [];
         if (!fromQueue && trackOllama) activeOllamaInputSeqs = [currentWorkflowSeq(cwd, workflowId)];
         if (chatMode && !incognito) {
           // Keep the global Past Chats list useful without rescanning a growing
@@ -2264,7 +2279,7 @@ export async function handleUserMessage(
         );
       }
 
-      if (turnClusterId && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp')) {
+      if (turnClusterId && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek')) {
         if (clusterAccessMode === 'standard') {
           finalSystemPrompt = buildLocalClusterSystemPrompt({
             base: finalSystemPrompt,
@@ -2528,15 +2543,23 @@ export async function handleUserMessage(
       const policyTurnProvider = wf.primary.provider;
       const ollamaExecutionId = trackOllama ? randomUUID() : undefined;
       const executionInputSeqs = [...activeOllamaInputSeqs];
+      const executionInputClientIds = [...activeInputClientIds];
+      let dispatchedWorkerId: string | undefined;
+      const dispatchCurrent = () => workflows.get(workflowId) === wf && ownsBusy(wf, busyToken) && (dispatchedWorkerId === undefined || primaryTurn.workerId === dispatchedWorkerId);
       const turn = runPrimaryTurn(
         {
           workflowId,
           cwd,
           manager: wf.manager,
-          broadcast: (msg) => send(ws, ollamaExecutionId ? stampOllamaExecution(msg, ollamaExecutionId, executionInputSeqs) : msg),
+          broadcast: (msg) => {
+            if (!dispatchCurrent()) return;
+            const delivery = msg.type === 'primary_turn_started' && executionInputClientIds.length
+              ? { ...msg, inputClientMessageIds: executionInputClientIds } : msg;
+            send(ws, ollamaExecutionId ? stampOllamaExecution(delivery, ollamaExecutionId, executionInputSeqs) : delivery);
+          },
           bgTracker: chatMode ? undefined : wf.bgTracker,
-          notePotentialDevServerStart: chatMode ? undefined : (cmd, toolUseId) => deps.previewAutoDetect.notePotentialDevServerStart(workflowId, cmd, toolUseId),
-          noteAgentText: chatMode ? undefined : (text) => deps.previewAutoDetect.noteAgentText(workflowId, text),
+          notePotentialDevServerStart: chatMode ? undefined : (cmd, toolUseId) => { if (dispatchCurrent()) deps.previewAutoDetect.notePotentialDevServerStart(workflowId, cmd, toolUseId); },
+          noteAgentText: chatMode ? undefined : (text) => { if (dispatchCurrent()) deps.previewAutoDetect.noteAgentText(workflowId, text); },
         },
         {
           primary: wf.primary,
@@ -2551,11 +2574,16 @@ export async function handleUserMessage(
           chatWebAccess: firstIteration && primitive === 'plan-review' ? false : chatWeb,
           voiceOperator: chatMode && wf.config.voiceOperator === true,
           incognito,
-          drainSteer: () => drainSteerForWorker(workflowId, ws),
-          requeueSteer: (items, bucket) => requeueSteerForWorker(workflowId, ws, items, bucket),
+          drainSteer: () => {
+            if (!dispatchCurrent()) return [];
+            return drainSteerForWorker(workflowId, ws, policyTurnProvider);
+          },
+          requeueSteer: (items, bucket) => {
+            if (workflows.get(workflowId) === wf && (busyRevocations.get(wf) ?? 0) === interruptEpoch) requeueSteerForWorker(workflowId, ws, items, bucket);
+          },
           onSteerDelivered: (items) => {
             const clientMessageIds = items.flatMap((item) => item.clientMessageId ? [item.clientMessageId] : []);
-            if (clientMessageIds.length) broadcastTransient(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds });
+            if (clientMessageIds.length && policyTurnProvider === 'codex') broadcastWorkflow(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds, ...(items[0]?.deliveryId ? { deliveryId: items[0].deliveryId } : {}) });
           },
           codexTransport,
           codexContextPolicy: wf.config.codexContextPolicy,
@@ -2609,6 +2637,7 @@ export async function handleUserMessage(
         },
       );
 
+      dispatchedWorkerId = turn.workerId;
       activeTurnObservation?.setPrimaryWorker(turn.workerId);
       primaryTurn.workerId = turn.workerId;
 
@@ -2630,10 +2659,10 @@ export async function handleUserMessage(
 
       // Codex emits thread_id at init. Capture on first fire, persist to meta.
       turn.onSessionDiscovered((sid) => {
-        if (incognito) return;
+        if (incognito || !dispatchCurrent() || wf.primary.provider !== policyTurnProvider) return;
         if (!wf.primarySessionId) wf.primarySessionId = sid;
 
-        reconcileLatestCliSession(cwd, workflowId, wf.primary.provider, sid, providerAccount?.profile.id).catch((err) => {
+        reconcileLatestCliSession(cwd, workflowId, policyTurnProvider, sid, providerAccount?.profile.id).catch((err) => {
           console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (${wf.primary.provider}) failed:`, err);
         });
       });

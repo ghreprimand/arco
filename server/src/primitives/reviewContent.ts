@@ -1,3 +1,4 @@
+import { projectDeliveredInputs } from '../inputDeliveryHistory.js';
 // Transcript-slicing + git-diff collection for the Review primitive.
 // Extracted from handleReviewRequest so the scope logic is testable in
 // isolation and the server handler can stay readable.
@@ -48,6 +49,8 @@ const HANDOFF_SEED_PREFIX = '[HANDOFF — new session initialized for this tab.'
 // (when the agent calls peer_send), so they're collected inside the j-loop
 // alongside `primary_text`.
 function extractTurns(events: ServerMessage[]): Turn[] {
+  events = projectDeliveredInputs(events);
+  const consumedSteers = new Set<number>();
   const turns: Turn[] = [];
   // Running buffer of peer_message_received events seen since the last
   // user_message_echo. Attached to the next echoed turn.
@@ -61,14 +64,18 @@ function extractTurns(events: ServerMessage[]): Turn[] {
       });
       continue;
     }
-    if (e.type !== 'user_message_echo') continue;
+    if (e.type !== 'user_message_echo' || consumedSteers.has(i)) continue;
+    let prompt = e.content;
     let reply = '';
     let sawComplete = false;
     let completeSeq = 0;
     const peerSentDuring: Array<{ toName: string; content: string }> = [];
     for (let j = i + 1; j < events.length; j++) {
       const e2 = events[j];
-      if (e2.type === 'user_message_echo') break;
+      if (e2.type === 'user_message_echo') {
+        if (e2.kind === 'steer') { prompt += '\n\n[Steering]\n' + e2.content; consumedSteers.add(j); continue; }
+        break;
+      }
       if (e2.type === 'primary_text' && e2.phase === 'passthrough') reply += e2.text;
       if (e2.type === 'peer_message_sent') {
         peerSentDuring.push({
@@ -87,7 +94,7 @@ function extractTurns(events: ServerMessage[]): Turn[] {
       continue;
     }
     turns.push({
-      prompt: e.content,
+      prompt,
       reply,
       isHandoffSeed: e.content.startsWith(HANDOFF_SEED_PREFIX),
       completeSeq,

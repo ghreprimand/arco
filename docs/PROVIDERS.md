@@ -122,6 +122,8 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+Native Task model overrides are applied to the child workflow configuration before deriving its primary. The live child, emitted tab configuration and saved metadata therefore name the same requested model, including after promotion or reopen.
+
 Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
 
 Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
@@ -1479,6 +1481,8 @@ When a retriever lands, it calls `fuseRRF` (`Σ 1/(k+rank)`, `RRF_DEFAULT_K`=60 
 ---
 
 ## LM Studio
+
+Standard cluster members using LM Studio, Strata or DeepSeek receive the same shared plan, assigned role and coordination instructions as the other local HTTP providers, once each. Blind members keep the existing restricted context and do not receive the shared plan.
 
 `server/src/providers/lmstudio.ts`. Pure HTTP, no subprocess - a standalone module that talks LM Studio's **OpenAI-compatible** REST API .
 

@@ -266,6 +266,7 @@ codex exec resume <thread-id> "next prompt"
   title: 'Genesis - idea to scaffolded project',
   body: (
   <>
+  <p>Field assistance uses a separate provider session while keeping the selected transport and account. Suggestions belong to this Genesis tab, while the primary conversation keeps its existing context and worker.</p>
   <p>
   <strong>Genesis</strong> starts a project from a vague idea instead of a folder.
   Pick <Code>GENESIS</Code> in the new-workflow mode toggle, give a working name and

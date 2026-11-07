@@ -373,13 +373,13 @@ export const clusterHelp: Record<string, HelpEntry> = {
   'cluster.fresh.role': {
     title: 'FRESH spawn - role',
     body: (
-      <p>
+      <><p>
         Optional role for the new worker: pick a preset or type a custom role,
         the same choices as SET on a member row. Pick the same preset again to
         clear it. A cluster may have at most one director, so DIRECTOR is
         unavailable when one exists or when more than one worker is spawned; the
         server refuses such a request before spawning anything.
-      </p>
+      </p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>
     ),
     manualSection: 'cluster-tab',
   },
@@ -440,7 +440,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.replace.role': {
     title: 'Replacement role',
-    body: <p>Role of the new worker, starting from the current one: pick a preset, type a custom role, or pick the active preset again to clear it. DIRECTOR is unavailable when another member is the director, and REPLACE is then unavailable while it is chosen.</p>,
+    body: <><p>Role of the new worker, starting from the current one: pick a preset, type a custom role, or pick the active preset again to clear it. DIRECTOR is unavailable when another member is the director, and REPLACE is then unavailable while it is chosen.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member.tier': {
@@ -592,7 +592,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.role-set': {
     title: 'Set role',
-    body: <p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER and DOCUMENTER, plus CLEAR and CUSTOM. The current role is highlighted. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p>,
+    body: <><p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER and DOCUMENTER, plus CLEAR and CUSTOM. The current role is highlighted. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
     manualSection: 'cluster-roles',
   },
   'cluster.right-panel.role-preset': {
@@ -602,7 +602,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.role-custom': {
     title: 'Custom role',
-    body: <p><C>CUSTOM</C> swaps the role for a text box so you can write your own, up to 120 characters. <C>Enter</C> or <C>SAVE</C> keeps it; <C>Esc</C> discards. The row then shows the text and the button changes to EDIT.</p>,
+    body: <><p><C>CUSTOM</C> swaps the role for a text box so you can write your own, up to 120 characters. <C>Enter</C> or <C>SAVE</C> keeps it; <C>Esc</C> discards. The row then shows the text and the button changes to EDIT.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
     manualSection: 'cluster-roles',
   },
   'cluster.right-panel.role-clear': {

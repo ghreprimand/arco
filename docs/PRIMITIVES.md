@@ -52,6 +52,8 @@ Two additional surfaces, DOCS and GIT, reuse the primary-turn machinery to dispa
 
 ## 1. Primary turn (the seed worker)
 
+Queued follow-ups enter replay and review at their execution boundary, rather than splitting the reply that was still streaming when they were sent. Multiple inputs dispatched together remain one combined prompt. Steering stays at its confirmed delivery attempt, even when its acknowledgement arrives later. Cancelled input is not silently requeued after STOP.
+
 `server/src/primitives/seedWorker.ts` defines `runPrimaryTurn(ctx, args)`. This is the **only** path for normal chat work; everything else (Review/Handoff/Spawn) is layered on top.
 
 ### Trigger
@@ -405,6 +407,8 @@ sequenceDiagram
 
 ## 3. Handoff
 
+Handoff preparation, pre-warm callbacks and final cleanup verify their operation ownership. STOP aborts the owned operation and frees its admission. A revoked handoff cannot start a later seed, announce completion, bind an old preview or dispose a newer provider worker.
+
 `server/src/primitives/exportContext.ts` `runExportContext`, dispatched by `handleHandoffRequest` in `server/src/ws/handoffHandlers.ts`. Quick and the two written modes share the rotation machinery; `fresh-agent` is a stub.
 
 ### Modes
@@ -559,6 +563,8 @@ sequenceDiagram
 ---
 
 ## 4. Spawn from here
+
+The child keeps its own admission through preparation and pre-warm. Cancelling the child stops its pending preparation; cancelling an original-worker reflection also revokes that reflection. Once the parent is released, later parent turns are independent of the child's pre-warm. Stale callbacks cannot seed or complete into a newer child turn.
 
 `handleSpawnFromHere` in `server/src/ws/handoffHandlers.ts`. Reuses `runExportContext` but writes artifacts into a **new** workflow. The parent stays alive in parallel.
 

@@ -111,12 +111,12 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.genesis.seed': {
     title: 'Genesis: the seed',
     body: (
-      <p>
+      <><p>
         The staged seed for this project. Edit the fields as the idea takes
         shape; each downstream field is anchored to the one above it. Edits save
         automatically and shape the agent's next turn. Pending edits are sent when leaving the tab and before scaffolding. Nothing is invented for
         you: empty fields stay unknown.
-      </p>
+      </p><p>Field assistance uses its own provider context and keeps the primary conversation unchanged. The selected provider transport and account are retained.</p></>
     ),
     manualSection: 'genesis-workflow',
   },
@@ -264,6 +264,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           via tree picker). REVIEW means CRITIQUE; VERIFY means audit claimed
           done work against the tree and diff.
         </p>
+      <p>Reconnect restores the active plan independently of context estimation, including when its original attachment event is outside the recent history tail.</p>
       </>
     ),
     manualSection: 'plan-review',
@@ -329,6 +330,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           the exact catalog id: the EFFORT row below stays a note. The status chip's
           effort is read back out of that id, so it's always the real one.
         </p>
+      <p>Native Task children show the model requested for that child, consistently with its saved metadata.</p>
       </>
     ),
     manualSection: 'live-config-swap',
@@ -613,7 +615,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.tab.tasks': {
     title: 'TASKS',
-    body: <p>Subtasks the agent started with its Task tool. Each card shows whether the subtask is running, done, failed or cancelled, how long it has run, and <C>PROMOTE</C> to open it as its own tab. The tab appears only when this agent has started subtasks; subtasks of subtasks are not shown.</p>,
+    body: <><p>Subtasks the agent started with its Task tool. Each card shows whether the subtask is running, done, failed or cancelled, how long it has run, and <C>PROMOTE</C> to open it as its own tab. The tab appears only when this agent has started subtasks; subtasks of subtasks are not shown.</p><p>The model requested by a Native Task is reflected in the child settings and remains set after promotion or reopen.</p></>,
     manualSection: 'tasks-tab',
   },
   'rightpanel.tab.ledger': {
@@ -716,6 +718,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           completes today; tool calls / handoffs / reviews are listed but
           don't flash).
         </p>
+      <p>Saved conversation resume restores recent messages as one batch. Rewind reserves this tab during validation, and a failed branch-metadata write leaves its head unchanged.</p>
       </>
     ),
     manualSection: 'history-tab',
@@ -754,14 +757,14 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.history.rewind': {
     title: 'REWIND CONVERSATION',
     body: (
-      <p>
+      <><p>
         Moves the selected worker&apos;s conversation head back to the selected
         event; the current branch is kept and can be returned to, so a rewind is
         reversible. Two clicks confirm. It works for Claude Native workers only.
         For other providers and the Claude CLI the button stays visible but
         disabled, with the reason beside it. It does not touch files; use{' '}
         <C>REVERT TO HERE</C> on a checkpoint row for those.
-      </p>
+      </p><p>The tab is reserved before validation starts. Revoked work cannot dispose a newer turn, and the head is published only after branch metadata is saved.</p></>
     ),
     manualSection: 'history-tab',
   },

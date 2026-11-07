@@ -8,6 +8,7 @@ export const powerFeatures: Section[] = [
   title: 'The TASKS tab - Native sub-agent fan-out',
   body: (
   <>
+  <p>Native Task children keep the requested model in their live settings, saved metadata and promoted tab.</p>
   <p>
   When a Claude Native tab calls the <Code>Task</Code> tool, the spawned
   sub-agent runs as its own Arco workflow, scoped to its parent. Use the TASKS
@@ -57,6 +58,7 @@ export const powerFeatures: Section[] = [
   title: 'The HISTORY tab - read-only timeline',
   body: (
   <>
+  <p>Saved conversations restore their recent messages together, with their active plan and current terminal list. REWIND CONVERSATION reserves the tab while validating the target. A failed branch-metadata write leaves the conversation head unchanged; cancelled work cannot dispose a newer turn.</p>
   <p>Replayed events retain their saved event time. Reopening HISTORY does not make older events appear newly received.</p>
   <p>
   The <strong>HISTORY</strong> tab in the right pane is a read-only timeline of
@@ -623,6 +625,7 @@ export const powerFeatures: Section[] = [
   title: 'Remote-friendly operation',
   body: (
   <>
+  <p>Long remote conversations keep updating when older messages leave the retained window. Growing replies update their existing row. The recent window is refreshed together while unsent text and retained scroll positions are kept. Earlier history remains on the computer.</p>
   <p>
   Arco needs only <strong>one forwarded port</strong>, so you can run it on a dev
   machine and use it from anywhere over SSH. A separate, much narrower hub path
@@ -776,6 +779,7 @@ export const powerFeatures: Section[] = [
   title: 'The integrated terminal',
   body: (
   <>
+  <p>The live-session list is authoritative after reconnect. An empty list clears sessions that did not survive a server restart.</p>
   <p>Refreshing one workflow's session list keeps terminal windows for other workflows attached to their own sessions.</p>
   <p>
   Arco includes a real terminal, so you can run system commands without leaving

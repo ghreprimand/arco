@@ -159,6 +159,8 @@ export interface WorkflowCreatedMessage {
 // seq-stamped and appended to events.jsonl. Makes user prompts durable on
 // reconnect / replay.
 export interface UserMessageEchoMessage {
+  // Dispatch/delivery records establish the input position for replay.
+  deliveryTracked?: boolean;
   // Server-owned input identity is this echo's stamped workflow sequence.
   ollamaReplayInput?: boolean;
   type: 'user_message_echo';
@@ -738,6 +740,7 @@ export interface PrimaryActivityMessage {
 // runPrimaryTurn. Client uses this to drive the composer status indicator
 // (animated verb + elapsed timer) instead of inferring from streaming text.
 export interface PrimaryTurnStartedMessage {
+  inputClientMessageIds?: string[];
   ollamaInputSeqs?: number[];
   ollamaExecutionId?: string;
   type: 'primary_turn_started';
@@ -1043,6 +1046,7 @@ export interface QueuedMessageCancelledMessage {
 // session_entry's removeMessage loop misses (whitespace drift, prompt
 // framing).
 export interface QueuedMessagesDrainedMessage {
+  deliveryId?: string;
   type: 'queued_messages_drained';
   workflowId: string;
   clientMessageIds: string[];
@@ -1432,6 +1436,7 @@ export interface AppUpdateAvailableMessage {
 }
 
 export interface TurnMessagesDeliveredMessage {
+  deliveryId?: string;
   type: 'turn_messages_delivered';
   workflowId: string;
   clientMessageIds: string[];

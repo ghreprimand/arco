@@ -78,6 +78,12 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Source app, agent and management service units preserve paths containing spaces and use the installed runtime.
 - GitHub README text preserves UTF-8, superseded code reads cannot replace the current selection, and relative document links open decoded paths at their sections.
 - Member memory drafts, completed review reports, quiet-worker warnings and slow service scans follow their current state. Pending microphone tests are cancelled on close, native /compact reaches COMPACT, and closing active synthesis requests cancellation.
+
+- Saved conversations restore their recent messages together, retain the active plan and clear dead terminal entries after restart. Rewind reserves the tab and keeps its head unchanged when branch metadata cannot be saved.
+- Cancelled handoff and spawn work cannot seed, complete, bind a preview or dispose a newer turn. Genesis field assistance uses a separate provider session, and Native Task children retain their requested model.
+- LM Studio, Strata and DeepSeek cluster members receive their role and shared plan. Queued input keeps its execution and reply boundaries in restored context and reviews, including delayed steering acknowledgements.
+- Remote chats continue updating beyond the retained history window, replace growing reply rows and preserve unsent input during refresh.
+
 - Replay preserves older HISTORY cutoffs, cancelled handoffs and literal USER/AGENT labels. Stateless local turns keep the new handoff brief without reintroducing archived context. Cancelling fresh-summarizer preparation starts no worker and publishes no success.
 - Codex app-server ignores late turn replies, saves generated images before completion and receives enabled registry servers. Cursor preserves multibyte streamed text and settles compression cancellation before a later turn.
 - Output Move retains both files when the source changes; ARCHIVE cancels removal when a conversation reopens or receives new writes.

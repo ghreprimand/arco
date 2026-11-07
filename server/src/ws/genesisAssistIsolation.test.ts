@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { after,test } from 'node:test';
+import { mkdtempSync,mkdirSync,rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
+const root=mkdtempSync(join(tmpdir(),'arco-genesis-isolation-'));installIsolatedTestHome(root);
+const {handleGenesisAssistRequest}=await import('./genesisHandlers.js');
+const {workflows,workflowCwds}=await import('../server/state.js');
+const {initWorkflowStore}=await import('../workflowStore.js');
+const {settleProjectWrites}=await import('../testSupport/projectWrites.js');
+const {trackRecallFixture}=await import('../testSupport/recallFixture.test-support.js');const closeRecall=trackRecallFixture();
+const {ClaudeNativeProvider}=await import('../providers/claude-native/index.js');
+const {CodexAppServerProvider}=await import('../providers/codex-appserver/index.js');
+const {computeMcpSignature,bootstrapSurfaceKey}=await import('../providers/codex-appserver/worker.js');
+const {disposeProviderResources}=await import('../providers/index.js');
+after(async()=>{await settleProjectWrites();await closeRecall();rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
+for(const provider of ['claude','codex'] as const)test(`${provider} Genesis assistance keeps its transport and attribution but uses a separate provider session`,async(t)=>{
+ const id=randomUUID(),cwd=join(root,id);mkdirSync(cwd,{recursive:true});const messages:any[]=[];const ws={readyState:1,bufferedAmount:0,send:(raw:string)=>messages.push(JSON.parse(raw))} as any;
+ const config={provider,model:provider==='claude'?'haiku':'gpt-6-luna',effort:'low',workflowId:id,cwd,claudeTransport:'native',codexTransport:'appserver'} as any;
+ const factory=provider==='claude'?ClaudeNativeProvider:CodexAppServerProvider;
+ const primary=factory.create('primary',config) as any;let primaryDisposed=0,auxDisposed=0;let auxiliary:any,scope:string|undefined,options:any;
+ t.mock.method(primary.worker,'dispose',async()=>{primaryDisposed++;});
+ if(provider==='codex')primary.worker.bootstrappedSignature=computeMcpSignature(undefined,false,undefined,undefined,undefined,undefined,undefined,config.model,undefined,undefined,bootstrapSurfaceKey(config));
+ const manager={spawn:async(spec:any,_callback:any,opts:any)=>{options=opts;scope=opts.sessionScopeId;auxiliary=factory.create(spec.id,{...config,...opts,sessionScopeId:scope}) as any;t.mock.method(auxiliary.worker,'dispose',async()=>{auxDisposed++;});return {id:spec.id,text:'{"suggestion":"Fixture direction"}',costUsd:0,durationMs:1};}};
+ const wf={config:{workingDirectory:cwd,claudeTransport:'native',codexTransport:'appserver'},primary:{provider,model:config.model,effort:'low'},busy:false,manager,observers:new Set([ws]),queue:{steering:[],followUp:[]}} as any;
+ workflows.set(id,wf);workflowCwds.set(id,cwd);await initWorkflowStore(cwd,id);
+ try{await handleGenesisAssistRequest(ws,{type:'genesis_assist_request',workflowId:id,requestId:'fixture-request',field:'theCase',intent:'improve',seed:{title:'Fixture',spark:'Fixture spark',concept:'Fixture concept',theCase:'Fixture case',buildDirection:'Fixture direction',stack:'',scope:''}} as any);await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(auxiliary);assert.notEqual(auxiliary.worker,primary.worker);assert.equal(options.workflowId,id);
+ assert.equal(options[provider==='claude'?'claudeTransport':'codexTransport'],provider==='claude'?'native':'appserver');
+ assert.match(scope!,/^[a-f0-9-]{36}$/);assert.equal(auxDisposed,1);assert.equal(primaryDisposed,0);
+ assert.equal((factory.create('next-primary',config) as any).worker,primary.worker);
+ assert.equal(messages.some(m=>m.type==='genesis_assist_proposed'&&m.workflowId===id),true);
+ assert.equal(messages.some(m=>m.type==='primary_complete'||m.type==='primary_text'),false);
+ }finally{t.mock.restoreAll();disposeProviderResources(id);if(scope)disposeProviderResources(scope);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
+});

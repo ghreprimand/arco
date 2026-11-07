@@ -107,7 +107,7 @@ export interface Hub {
   routeInstanceAction(instanceId: string, action: InstanceActionRequest): Promise<InstanceActionResult>;
   requestClusterRead(instanceId: string, clusterId: string, kind: ClusterReadKind): Promise<ClusterReadResponseMessage | null>;
   routeClusterAction(instanceId: string, clusterId: string, action: ClusterActionRequest): Promise<ClusterActionResult>;
-  requestTranscript(instanceId: string, workflowId: string, sinceTurn?: number): Promise<TranscriptResponseMessage | null>;
+  requestTranscript(instanceId: string, workflowId: string, sinceTurn?: number, sinceSeq?: number): Promise<TranscriptResponseMessage | null>;
 }
 
 const DEFAULT_PORT = 3500;
@@ -468,6 +468,7 @@ export function createHub(opts: HubOptions): Hub {
     instanceId: string,
     workflowId: string,
     sinceTurn?: number,
+    sinceSeq?: number,
   ): Promise<TranscriptResponseMessage | null> {
     const socket = serviceSockets.get(instanceId);
     if (!socket || socket.readyState !== socket.OPEN) return Promise.resolve(null);
@@ -488,6 +489,7 @@ export function createHub(opts: HubOptions): Hub {
         requestId,
         workflowId,
         ...(typeof sinceTurn === 'number' ? { sinceTurn } : {}),
+        ...(typeof sinceSeq === 'number' ? { sinceSeq } : {}),
       }));
     });
   }
@@ -674,7 +676,9 @@ export function createHub(opts: HubOptions): Hub {
       const workflowId = decodeURIComponent(convoMatch[2]);
       const sinceRaw = url.searchParams.get('since');
       const since = sinceRaw !== null ? Number(sinceRaw) : undefined;
-      requestTranscript(instanceId, workflowId, Number.isFinite(since) ? since : undefined)
+      const afterRaw = url.searchParams.get('after');
+      const after = afterRaw !== null ? Number(afterRaw) : undefined;
+      requestTranscript(instanceId, workflowId, Number.isFinite(since) ? since : undefined, Number.isFinite(after) ? after : undefined)
         .then((resp) => {
           if (!resp) {
             sendJson(503, { error: 'instance unreachable' });
@@ -684,6 +688,7 @@ export function createHub(opts: HubOptions): Hub {
             title: resp.title,
             turns: resp.turns,
             totalTurns: resp.totalTurns ?? resp.turns.length,
+            cursor: resp.cursor, startCursor: resp.startCursor, resync: resp.resync,
             busy: resp.busy === true,
           });
         })

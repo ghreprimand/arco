@@ -1272,6 +1272,8 @@ const sendEl = document.getElementById('send');
 let inputRevision = 0;
 inputEl.addEventListener('input', () => { inputRevision += 1; });
 let known = 0;
+let cursor = 0;
+let windowStart;
 let sawUserSince = false;
 const apiBase = '/api/instances/' + encodeURIComponent(CFG.instanceId) + '/workflows/' + encodeURIComponent(CFG.workflowId);
 
@@ -1281,6 +1283,7 @@ function nearBottom() {
 function bubble(turn) {
   const d = document.createElement('div');
   d.className = 't-turn ' + turn.role;
+  if (Number.isSafeInteger(turn.seq)) d.dataset.seq = String(turn.seq);
   const r = document.createElement('div');
   r.className = 't-role'; r.textContent = turn.role === 'user' ? 'you' : 'agent';
   const t = document.createElement('div');
@@ -1292,23 +1295,41 @@ let polling = false;
 async function poll() {
   if (polling) return; polling = true;
   try {
-    const res = await fetch(apiBase + '/convo?since=' + known);
+    const res = await fetch(apiBase + '/convo?since=' + known + '&after=' + cursor);
     if (!res.ok) { throw new Error('instance unreachable'); }
-    const data = await res.json();
-    errorEl.textContent = '';
-    if (data.totalTurns < known) {
-      // Indexes shifted (rotation/compaction) — full resync.
-      known = 0;
-      turnsEl.innerHTML = '';
-      polling = false;
-      return poll();
+    let data = await res.json();
+    const windowMoved = cursor > 0 && windowStart !== undefined && Number.isSafeInteger(data.startCursor) && data.startCursor !== windowStart && !data.resync;
+    const legacyMoved = typeof data.cursor !== 'number' && data.totalTurns < known;
+    if (windowMoved || legacyMoved) {
+      const full = await fetch(apiBase + '/convo?since=0&after=0');
+      if (!full.ok) throw new Error('instance unreachable');
+      data = await full.json();
+      if (legacyMoved) known = 0;
     }
+    errorEl.textContent = '';
+    if (data.resync || (typeof data.cursor === 'number' && data.cursor < cursor)) {
+      known = 0; turnsEl.innerHTML = '';
+    }
+    if (cursor === 0 && known > 0 && typeof data.cursor === 'number') known = 0;
     if (known === 0) turnsEl.innerHTML = '';
     const pin = nearBottom();
+    const viewportTop = turnsEl.getBoundingClientRect().top;
+    const anchor = Array.from(turnsEl.querySelectorAll('.t-turn')).find(el => el.getBoundingClientRect().bottom >= viewportTop);
+    const anchorOffset = anchor ? anchor.offsetTop - turnsEl.scrollTop : 0;
     for (const t of (data.turns || [])) {
-      turnsEl.appendChild(bubble(t));
+      const existing = Number.isSafeInteger(t.seq) ? turnsEl.querySelector('.t-turn[data-seq=\"' + t.seq + '\"]') : null;
+      if (existing) { const text = existing.querySelector('.t-text'); if (text.textContent !== t.text) text.textContent = t.text; }
+      else {
+        const next = Number.isSafeInteger(t.seq) ? Array.from(turnsEl.querySelectorAll('.t-turn[data-seq]')).find(row => Number(row.dataset.seq) > t.seq) : null;
+        turnsEl.insertBefore(bubble(t), next || null);
+      }
       if (t.role === 'user') sawUserSince = true;
     }
+    if (Number.isSafeInteger(data.startCursor)) {
+      for (const row of turnsEl.querySelectorAll('.t-turn[data-seq]')) if (Number(row.dataset.seq) < data.startCursor) row.remove();
+    }
+    cursor = Number.isSafeInteger(data.cursor) ? data.cursor : 0;
+    windowStart = Number.isSafeInteger(data.startCursor) ? data.startCursor : undefined;
     known = data.totalTurns;
     if (known === 0 && !turnsEl.children.length) {
       turnsEl.innerHTML = '<div class="c-empty">No conversation turns yet — say something below.</div>';
@@ -1317,6 +1338,7 @@ async function poll() {
     busyEl.textContent = data.busy ? 'running' : 'idle';
     busyEl.classList.toggle('on', !!data.busy);
     if (pin && data.turns && data.turns.length) turnsEl.scrollTop = turnsEl.scrollHeight;
+    else if (!pin && anchor) turnsEl.scrollTop = anchor.isConnected ? anchor.offsetTop - anchorOffset : 0;
   } catch (e) {
     errorEl.textContent = '✗ ' + e.message + ' — retrying…';
   } finally { polling = false; }

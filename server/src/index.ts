@@ -2084,10 +2084,10 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
   const childName = description.length > 60 ? description.slice(0, 57) + '…' : description;
   const childConfig: WorkflowConfig = {
     ...parent.config,
+    ...(model ? { primaryModel: model as WorkflowConfig['primaryModel'] } : {}),
     name: `Task: ${childName}`,
   };
   const childPrimary = derivePrimaryConfig(childConfig);
-  if (model) childPrimary.model = model as typeof childPrimary.model;
   const childManager = new WorkerManager();
 
   workflows.set(childWorkflowId, {

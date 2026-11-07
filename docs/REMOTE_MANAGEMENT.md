@@ -213,6 +213,8 @@ SSH lifecycle commands use the configured command deadline after connecting, ter
 
 ## 8. Mobile management console
 
+Conversation polling uses stable event cursors and row identities. Growing assistant replies update their existing row. When the retained window advances, the console obtains a complete replacement window, keeps rows in order and preserves unsent input. The service retains up to 800 messages from an 8 MiB event tail; older messages remain in local history. Unsequenced legacy recordings request a full resynchronization.
+
 Console refresh preserves unsent broadcasts, recipient selections and question answers. A completed chat send clears only the submitted draft; text typed while it was pending stays in the composer.
 
 The console is mobile-first and provides quick controls from a phone without exposing the desktop workbench. One-handed layout, large tap targets, no hover-only interactions, no dense tab rows, fast over

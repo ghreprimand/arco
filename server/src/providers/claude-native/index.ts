@@ -1,3 +1,4 @@
+import { providerSessionScope } from '../sessionScope.js';
 // Phase 7a — Claude Native dispatcher.
 //
 // One ClaudeNativeWorker is cached per workflowId. Each operator turn
@@ -430,7 +431,8 @@ export function debugSeedNativeCompactProbe(
 
 export const ClaudeNativeProvider: Provider = {
   create(id, config) {
-    const workflowId = config.workflowId;
+    const workflowId = providerSessionScope(config);
+    if (config.sessionScopeId) config = { ...config, sessionId: undefined, resumeSessionId: undefined };
     if (!workflowId) {
       throw new Error('claude-native transport requires WorkerConfig.workflowId');
     }

@@ -116,6 +116,7 @@ export class WorkerManager {
       additionalDirectories?: string[];
       fallbackModel?: WorkerConfig['fallbackModel'];
       workflowId?: string;
+      sessionScopeId?: WorkerConfig['sessionScopeId'];
       providerAccountRef?: WorkerConfig['providerAccountRef'];
       codexHome?: WorkerConfig['codexHome'];
       sessionId?: string;
@@ -287,6 +288,7 @@ export class WorkerManager {
       // (Codex app-server caches the long-lived child by workflowId). Other
       // providers ignore it.
       workflowId: options?.workflowId,
+      sessionScopeId: options?.sessionScopeId,
       providerAccountRef: options?.providerAccountRef,
       codexHome: options?.codexHome,
       codexTransport: options?.codexTransport,

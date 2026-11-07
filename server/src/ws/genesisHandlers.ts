@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { disposeProviderResources } from '../providers/index.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // -- Genesis WS handlers (docs/ARCHITECTURE.md) --
 //
@@ -417,6 +419,7 @@ export async function handleGenesisAssistRequest(ws: WebSocket, msg: GenesisAssi
       : cascade?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
   const task = buildGenesisAssistPrompt(msg.seed, msg.field, msg.intent, msg.instruction);
   let collected = '';
+  const sessionScopeId = randomUUID();
   wf.manager.spawn(
     {
       id: requestId,
@@ -435,6 +438,7 @@ export async function handleGenesisAssistRequest(ws: WebSocket, msg: GenesisAssi
     {
       cwd,
       workflowId: msg.workflowId,
+      sessionScopeId,
       sandbox: 'read-only',
       skipPermissions: wf.primary.provider === 'ollama',
       outputStyle: 'normal',
@@ -478,7 +482,7 @@ export async function handleGenesisAssistRequest(ws: WebSocket, msg: GenesisAssi
       suggestion: '',
       error: err instanceof Error ? err.message : String(err),
     });
-  });
+  }).finally(() => disposeProviderResources(sessionScopeId));
 }
 
 // Best-effort local git init + initial commit so the scaffolded folder is a repo.

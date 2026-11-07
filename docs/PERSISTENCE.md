@@ -203,6 +203,12 @@ The client notices the gap on next reconnect: it sent `lastSeq = X`, the server'
 
 ### Replay
 
+Explicit saved-conversation resume and reconnect use the same bounded recent-tail replay batch. The client receives the retained messages together before its snapshot cursor advances. Active-plan and live-terminal snapshots are independent echoes; an empty terminal list clears sessions that did not survive a restart.
+
+Input echoes remain at enqueue time in the audit log. Optional `deliveryTracked` and `primary_turn_started.inputClientMessageIds` identify actual dispatched input. Confirmed steering uses `deliveryId` on the drain and delivery records, so a delayed acknowledgement stays at its original boundary. Readers combine queued batches in dispatch order and retain the original request when steering arrives before a visible reply. Legacy recordings retain their completed-turn fallback.
+
+Native resume-summary cache version 3 adds only the input and delivery records needed across the summary/tail boundary. Earlier derived caches rebuild from the unchanged event log. Ollama execution projections retain accepted steering within the same completed execution and its eligible compaction cut.
+
 `scanEventsOfTypes` supports a synchronous visitor for bounded projections.
 With a visitor it returns an empty array, streams only matching event types to
 the callback and retains no matching-event history. Existing array callers keep
@@ -219,7 +225,9 @@ the read flushes the existing pending append buffer and never rewrites history.
 
 Used by `handleRehydrateWorkflows` to fill the gap between client `lastSeq` and server head.
 
-**Branch-aware pre-pass (Native).** When `meta.leafSeq` is set, the Claude Native resume path (`resumeSummary.ts`) does *not* replay flat seq order: `walkBranchSeqs` / `filterEventsToBranch` walk the lineage from `leafSeq`, treating each `leaf_move` they land on as a redirect to that event's `targetSeq`, and filter the event stream to just the live branch's seqs. `leafSeq` ABSENT ⇒ identity (events returned unchanged) ⇒ byte-identical to flat replay behavior - the load-bearing no-regression invariant. This feeds the Native worker's `messages[]` cold-rebuild only; CLI/Codex (session-id / rollout resume) ignore `leafSeq`, which is why REWIND CONVERSATION is gated Native-only in v1.
+**Branch-aware pre-pass (Native).** When `meta.leafSeq` is set, the Claude Native resume path (`resumeSummary.ts`) does *not* replay flat seq order: `walkBranchSeqs` / `filterEventsToBranch` walk the lineage from the physical tail, with `leafSeq` enabling branch mode and supplying a fallback, treating each `leaf_move` they land on as a redirect to that event's `targetSeq`, and filter the event stream to just the live branch's seqs. `leafSeq` ABSENT ⇒ identity (events returned unchanged) ⇒ byte-identical to flat replay behavior - the load-bearing no-regression invariant. This feeds the Native worker's `messages[]` cold-rebuild only; CLI/Codex (session-id / rollout resume) ignore `leafSeq`, which is why REWIND CONVERSATION is gated Native-only in v1.
+
+REWIND CONVERSATION reserves primary admission before asynchronous validation. Branch mode is saved before the head move is published; failed metadata writes leave the head unchanged. The final ownership check, head publication and cached-worker disposal run together. Revoked work cannot dispose a newer turn.
 
 ### First-seq detection (snapshot-only fallback)
 

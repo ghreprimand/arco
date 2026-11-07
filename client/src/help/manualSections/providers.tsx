@@ -51,6 +51,7 @@ export const providers: Section[] = [
   title: 'Claude',
   body: (
   <>
+  <p>A Native Task child shows and saves the model requested by the Task call. Queued follow-ups keep their own replies in restored context and reviews. Steering before the first visible reply retains the original request as well as the new instruction.</p>
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native Read keeps the partial-read warning when output is capped. A complete later read clears it. Grep reports invalid patterns and search failures as errors. If Bash cannot save full output, its newest tail remains available and the result explains the storage failure. Registry MCP schemas retain their referenced definitions.</p>
   <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
@@ -353,6 +354,7 @@ export const providers: Section[] = [
   title: 'Codex',
   body: (
   <>
+  <p>Delayed steering acknowledgements stay with the turn that received the instruction. A rejected old steer cannot reappear after STOP. Cancelled work cannot pin an old session onto a newer provider.</p>
   <p>Late turn acknowledgements cannot restart a completed turn. Generated images are saved and announced before completion. App-server receives enabled registry servers and restarts its child before the next turn when a launch definition changes.</p>
   <p>Context and code-mode metadata follow the selected account home, then <Code>CODEX_HOME</Code>, then the CLI default. Concurrent catalog refresh failures use the same saved snapshot or normal picker fallback for every caller.</p>
   <p>
@@ -967,6 +969,7 @@ export const providers: Section[] = [
   title: 'LM Studio (local models, OpenAI-compatible endpoint)',
   body: (
   <>
+  <p>Standard LM Studio, Strata and DeepSeek cluster members receive their shared plan, role and coordination instructions. Blind members keep restricted context without the shared plan.</p>
   <p>
   LM Studio serves local models from its own app, reached over its{' '}
   <strong>OpenAI-compatible REST API</strong> rather than a native SDK. Use it

@@ -154,6 +154,7 @@ export const actions: Section[] = [
     title: 'Handoff - rotate within the same tab',
     body: (
       <>
+  <p>STOP cancels preparation and pre-warm for the owned handoff. Its later callbacks cannot complete the rotation, bind an old preview or dispose a newer turn. The earlier conversation remains available for replay after cancellation.</p>
       <p>STOP during fresh-summarizer preparation starts no worker. A cancelled summary is not saved or announced as successful, and cancelled handoffs keep the earlier conversation available for replay, including cancellation after the handoff document was prepared.</p>
         <p>
           Choose HANDOFF for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit. Plans, board, goal, artifacts and Git remain outside the conversation.
@@ -201,6 +202,7 @@ export const actions: Section[] = [
     title: 'Spawn from here - fork to a new tab',
     body: (
       <>
+  <p>The new child stays reserved through preparation and pre-warm. Cancelled work cannot start a later seed or finish into a newer child turn. After the parent reflection finishes, later parent turns are independent of the child.</p>
         <p>
           Spawn splits the workflow at a decision point: keep the main thread
           running while sending a separate agent down a side path.

@@ -3053,6 +3053,16 @@ Messages in the `ClientMessage` / `ServerMessage` unions that the sections above
 | `output_saved` | <- (persisted) | `workflowId`, `path`, `sourcePath?`, `ts` | An editor or image save wrote a file; OUTPUTS records it as an editor export of `sourcePath`. |
 | `app_update_available` | <- (all clients) | `current`, `latest`, `url`, `publishedAt` | Sent once per newer release found by the release check, unless that version was dismissed (`server/src/updateCheck.ts`); the client shows the release toast. |
 
+## Input delivery and restored snapshots
+
+`user_message_echo.deliveryTracked` marks echoes whose provider position is recorded separately. `primary_turn_started.inputClientMessageIds` lists the inputs dispatched together. `queued_messages_drained.deliveryId` and `turn_messages_delivered.deliveryId` correlate a steering attempt with its acknowledgement; they preserve the original delivery position even if the acknowledgement is late. These optional fields leave older recordings readable. Incognito conversations keep the same reconstruction metadata only in memory.
+
+Saved-conversation resume uses the reconnect replay batch and authoritative plan and terminal echoes. An empty `terminal_sessions.sessions` array clears dead session entries.
+
+Remote `transcript_request.sinceSeq` is an event cursor and takes precedence over the legacy positional `sinceTurn`. Responses include `cursor`, `startCursor` and optional `resync`; transcript rows carry `seq` and `lastSeq` for replacement of growing rows. The legacy `totalTurns` remains the retained row count. The hub forwards these fields without changing action authorization.
+
+`WorkerConfig.sessionScopeId` is a server-generated auxiliary cache/replay identity. It does not replace workflow event attribution and is not a saved tab setting. Genesis field assistance uses it for separate Native and Codex app-server sessions.
+
 ## Related links
 
 - [Architecture](ARCHITECTURE.md)

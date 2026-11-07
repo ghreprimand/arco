@@ -1,3 +1,4 @@
+import { projectDeliveredInputs } from '../inputDeliveryHistory.js';
 import { revokedHandoffIds } from '../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Phase 6 Lite — the Handoff primitive's context-export core.
@@ -645,7 +646,7 @@ export function renderTranscript(
   events: ServerMessage[],
   opts?: { preserveThinking?: boolean },
 ): string {
-  events = currentHandoffEvents(events);
+  events = currentHandoffEvents(projectDeliveredInputs(events));
   const parts: Array<{ role: 'USER' | 'AGENT'; content: string }> = [];
   let thinkBuf: string[] = [];
   let replyBuf: string[] = [];
@@ -691,7 +692,7 @@ export function renderTranscript(
 // Deterministic: no LLM call, just walks events and extracts file paths /
 // commands / counts. Cheap enough to run on every spawn.
 export function summarizePriorTurns(events: ServerMessage[]): string {
-  events = currentHandoffEvents(events);
+  events = currentHandoffEvents(projectDeliveredInputs(events));
   interface Turn {
     userText: string;
     toolCounts: Map<string, number>;

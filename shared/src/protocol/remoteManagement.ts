@@ -239,6 +239,9 @@ export interface TranscriptTurn {
   role: 'user' | 'assistant';
   text: string;
   at?: number;
+  // Stable first and latest event positions for row upserts.
+  seq?: number;
+  lastSeq?: number;
 }
 export interface TranscriptRequestMessage {
   type: 'transcript_request';
@@ -247,6 +250,8 @@ export interface TranscriptRequestMessage {
   // R2 — incremental poll for the interactive chat screen: return only
   // turns[sinceTurn..]. Absent ⇒ the full (bounded) conversation.
   sinceTurn?: number;
+  // Stable event cursor; takes precedence over the legacy positional offset.
+  sinceSeq?: number;
 }
 export interface TranscriptResponseMessage {
   type: 'transcript_response';
@@ -254,10 +259,12 @@ export interface TranscriptResponseMessage {
   workflowId: string;
   title?: string;
   turns: TranscriptTurn[];
-  // R2 — the full turn count BEFORE any sinceTurn slice. The chat screen's
-  // resync anchor: if this drops below the client's known count (log rotation /
-  // compaction shifted indexes), the client re-fetches from zero.
+  // Retained row count before the legacy positional slice. Stable polling
+  // uses cursor/startCursor; older clients can still resync on a count drop.
   totalTurns?: number;
+  cursor?: number;
+  startCursor?: number;
+  resync?: boolean;
   // R2 — live busy flag so the chat screen shows "running…" without waiting
   // for the next snapshot push.
   busy?: boolean;

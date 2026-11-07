@@ -334,6 +334,7 @@ export const workspace: Section[] = [
     title: 'The composer (terminal input)',
     body: (
       <>
+  <p>Follow-ups are associated with the turn that actually receives them. Inputs dispatched together stay together in restored context and reviews. Steering retains its delivery position; a late acknowledgement does not move it into a newer turn.</p>
         <p>
           The composer is the prompt box at the bottom of the chat panel. It has
           two modes. A status line groups the north star, pending messages,

@@ -1,3 +1,4 @@
+import { providerSessionScope } from '../sessionScope.js';
 // Phase 6a + 6b — Codex `app-server` transport entry.
 //
 // The long-lived `CodexAppServerWorker` is cached per workflowId. Each
@@ -466,7 +467,8 @@ class CodexAppServerCircuitBrokenTurn extends EventEmitter implements ProviderPr
 
 export const CodexAppServerProvider: Provider = {
   create(id, config) {
-    const workflowId = config.workflowId;
+    const workflowId = providerSessionScope(config);
+    if (config.sessionScopeId) config = { ...config, sessionId: undefined, resumeSessionId: undefined };
     if (!workflowId) {
       throw new Error('codex app-server transport requires WorkerConfig.workflowId');
     }

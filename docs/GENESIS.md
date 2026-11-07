@@ -5,6 +5,8 @@ conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucinat
 
 ## The seed
 
+Field assistance keeps the selected provider, model, account and transport while using a separate provider session. Its suggestions remain attributed to the visible Genesis tab. The primary conversation and its cached worker stay unchanged, and the auxiliary session is disposed when the request settles.
+
 A `GenesisSeed` (`shared/src/protocol/genesis.ts`) is the whole state - folded into a
 workflow's metadata, never a separate store. It compresses the source ideation model into
 a **4-rung narrative ladder**, one primary field per rung:

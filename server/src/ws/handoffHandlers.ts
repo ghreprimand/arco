@@ -27,7 +27,7 @@ import { buildClusterDirectorDoctrine, joinClusterDoctrines } from '../clusterDi
 import { composeClusterAppend, APPEND_CLUSTER_MAX } from '../clusterStringFold.js';
 import { planOutline } from '../clusterPlanOutline.js';
 import { codexCodeModeClusterAddendum, codexModelUsesCodeMode } from '../providers/codexCodeMode.js';
-import { estimateContextFill, promptContextEstimate } from '../contextEstimator.js';
+import { estimateContextFill, nativeContextEstimate, promptContextEstimate } from '../contextEstimator.js';
 import { rememberCwd } from '../crashRecovery.js';
 import { assessGenesisReadiness } from '../genesis/stages.js';
 import { nextFieldPrompt } from '../genesis/prompts.js';
@@ -51,6 +51,7 @@ import {
   broadcastHandoffLockSnapshot,
   broadcastTransient,
   broadcastWorkflow,
+  recordContextUsage,
   buildClusterStatePayload,
   send,
 } from '../server/broadcast.js';
@@ -100,6 +101,9 @@ import {
   deriveAutoHandoff,
   derivePrimaryConfig,
   claimBusy,
+  ownsBusy,
+  isCurrentBusyClaim,
+  revokeBusy,
   drainQueueIfIdle,
   persistInitialMeta,
   releaseBusy,
@@ -217,10 +221,14 @@ export async function handleHandoffRequest(
   // Set once runExportContext returns; used in finally to clear wf.activeHandoff
   // only if it's still ours (handoffs per cwd are serialized via the chain).
   let myHandoffId: string | undefined;
+  let prewarmWorkerId: string | undefined;
+  const handoffCurrent = () => workflows.get(msg.workflowId) === wf && isCurrentBusyClaim(wf, busyToken) && !myHandoffSlotRecord.cancelled;
+  const handoffOwned = () => handoffCurrent() && ownsBusy(wf, busyToken);
 
   try {
 
   const transcript = await replayWorkflowEvents(cwd, msg.workflowId, 0);
+  if (!handoffOwned()) return;
   if (myHandoffSlotRecord.cancelled) {
     send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: '[HANDOFF CLEARED] Handoff was cleared before it started.' });
     return;
@@ -241,6 +249,7 @@ export async function handleHandoffRequest(
   // optional — fill them from the tab's primary so a provider-only pin still
   // resolves to a concrete config.
   const summarizerSettings = await readSettings(cwd).catch(() => null);
+  if (!handoffOwned()) return;
   const summarizer = msg.summarizer ?? (summarizerSettings?.handoffSummarizer
     ? {
         provider: summarizerSettings.handoffSummarizer.provider,
@@ -266,6 +275,7 @@ export async function handleHandoffRequest(
   // primary, which the operator can swap mid-dialog; re-resolve it against the
   // live catalog at dispatch and flag (don't block) if it drifted out.
   const handoffDrift = msg.mode === 'quick' ? { drifted: false } : await checkModelDrift(effectiveSummarizer.provider, effectiveSummarizer.model, catalogDriftProbe);
+  if (!handoffOwned()) return;
   if (handoffDrift.drifted) {
     broadcastWorkflow(msg.workflowId, {
       type: 'system_notice',
@@ -289,6 +299,7 @@ export async function handleHandoffRequest(
       claudeTransport = tab;
     } else {
       const cascade = await readSettings(cwd).catch(() => null);
+      if (!handoffOwned()) return;
       claudeTransport = cascade?.claude?.transport === 'native' ? 'native' : 'cli';
     }
   }
@@ -370,12 +381,13 @@ export async function handleHandoffRequest(
     effectiveMode = 'fresh-summarizer';
   }
 
+  if (!handoffOwned()) return;
   const handle = runExportContext(
     {
       workflowId: msg.workflowId,
       cwd,
       manager: wf.manager,
-      broadcast: (m) => send(ws, m),
+      broadcast: (m) => { if (handoffCurrent()) send(ws, m); },
     },
     {
       mode: effectiveMode,
@@ -411,7 +423,14 @@ export async function handleHandoffRequest(
   // Expose the handle so handoff_cancel can abort the reflection/summarizer
   // worker. Killing it makes handle.settled resolve with an error, which falls
   // through the normal cleanup below (busy=false + slot release).
-  wf.activeHandoff = { handoffId: handle.handoffId, artifactName: handle.artifactName, abort: handle.abort };
+  wf.activeHandoff = { handoffId: handle.handoffId, artifactName: handle.artifactName, abort: () => {
+    myHandoffSlotRecord.cancelled = true;
+    handle.abort();
+    if (prewarmWorkerId) wf.manager.kill(prewarmWorkerId);
+    if (ownsBusy(wf, busyToken)) revokeBusy(wf);
+    releaseHandoffSlot();
+    if (wf.activeHandoff?.handoffId === handle.handoffId) wf.activeHandoff = undefined;
+  } };
   myHandoffId = handle.handoffId;
   myHandoffSlotRecord.handoffId = handle.handoffId;
   broadcastHandoffLockSnapshot(cwd);
@@ -421,6 +440,7 @@ export async function handleHandoffRequest(
   let handoffBody: string | null = null;
   try {
     const r = await handle.settled;
+    if (!handoffOwned()) return;
     if (r.error || !r.body) {
       releaseHandoffBusy();
       return;
@@ -461,6 +481,7 @@ export async function handleHandoffRequest(
   }
 
   // Clear the pinned session id so the next primary turn mints fresh.
+  if (!handoffOwned()) return;
   wf.primarySessionId = undefined;
 
   // Dispose the long-lived in-process Native worker (if any) BEFORE the
@@ -500,13 +521,16 @@ export async function handleHandoffRequest(
     wf.config.providerAccountRef = nextProviderAccountRef;
     try {
       const meta = await readMeta(cwd, msg.workflowId);
+      if (!handoffOwned()) return;
       if (meta) {
         meta.primaryProvider = msg.newPrimary.provider;
         meta.primaryModel = msg.newPrimary.model;
         meta.primaryEffort = msg.newPrimary.effort;
         meta.providerAccountRef = nextProviderAccountRef;
         meta.lastActiveAt = Date.now();
+        if (!handoffOwned()) return;
         await writeMeta(cwd, meta);
+        if (!handoffOwned()) return;
       }
     } catch (err) {
       console.error(`[arco] [${msg.workflowId.slice(0, 8)}] handoff newPrimary meta write failed:`, err);
@@ -522,9 +546,12 @@ export async function handleHandoffRequest(
   if (wf.planId) {
     try {
       const meta = await readMeta(cwd, msg.workflowId);
+      if (!handoffOwned()) return;
       if (meta) {
         meta.planLastSeenUpdatedAt = 0;
+        if (!handoffOwned()) return;
         await writeMeta(cwd, meta);
+        if (!handoffOwned()) return;
       }
     } catch (err) {
       console.error(`[arco] [${msg.workflowId.slice(0, 8)}] handoff plan-lastSeen reset failed:`, err);
@@ -535,6 +562,7 @@ export async function handleHandoffRequest(
   // the seed to events.jsonl so replay sees it as a normal user prompt (the
   // operator can see exactly what the new session was fed). The primary
   // will reply, typically with a short ack.
+  if (!handoffOwned()) return;
   const seedPrompt = `[HANDOFF — new session initialized for this tab. Read the document below carefully. Then in 2-3 sentences: (1) state where the project stands right now, and (2) what you believe the most useful next step is. Await the operator's instruction before beginning any work.]\n\n${handoffBody}`;
   send(ws, {
     type: 'user_message_echo',
@@ -590,6 +618,7 @@ export async function handleHandoffRequest(
   const handoffAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
     : null;
+  if (!handoffOwned()) return;
   const previewNudge = withPreviewNudge(undefined);
   let prewarmAppend = previewNudge;
   const prewarmNeedsStringCluster = !!prewarmClusterId && (
@@ -617,14 +646,15 @@ export async function handleHandoffRequest(
     }
     if (folded.combined) prewarmAppend = `${folded.combined}\n\n${previewNudge}`;
   }
+  if (!handoffOwned()) return;
   const primaryTurn = runPrimaryTurn(
     {
       workflowId: msg.workflowId,
       cwd,
       manager: wf.manager,
-      broadcast: (m) => send(ws, m),
-      notePotentialDevServerStart: (cmd, toolUseId) => deps.previewAutoDetect.notePotentialDevServerStart(msg.workflowId, cmd, toolUseId),
-      noteAgentText: (text) => deps.previewAutoDetect.noteAgentText(msg.workflowId, text),
+      broadcast: (m) => { if (handoffCurrent()) send(ws, m); },
+      notePotentialDevServerStart: (cmd, toolUseId) => { if (handoffCurrent()) deps.previewAutoDetect.notePotentialDevServerStart(msg.workflowId, cmd, toolUseId); },
+      noteAgentText: (text) => { if (handoffCurrent()) deps.previewAutoDetect.noteAgentText(msg.workflowId, text); },
     },
     {
       primary: wf.primary,
@@ -658,6 +688,7 @@ export async function handleHandoffRequest(
     });
   }
   primaryTurn.onSessionDiscovered((sid) => {
+    if (!handoffCurrent()) return;
     if (!wf.primarySessionId) {
       wf.primarySessionId = sid;
       // Same rotation fix for providers that discover their session id
@@ -677,6 +708,7 @@ export async function handleHandoffRequest(
     console.error(`[arco] handoff ${handle.handoffId} pre-warm settle error:`, err);
   }
 
+  if (!handoffOwned()) return;
   send(ws, {
     type: 'handoff_complete',
     workflowId: msg.workflowId,
@@ -713,7 +745,7 @@ export async function handleHandoffRequest(
   // reflects the reset without waiting for the first operator turn.
   if (wf.primarySessionId && wf.primary.provider === 'claude') {
     estimateContextFill(cwd, wf.primarySessionId, wf.primary.model).then((est) => {
-      if (!est) return;
+      if (!est || !handoffCurrent()) return;
       broadcastTransient(msg.workflowId, { type: 'context_usage', workflowId: msg.workflowId, ...est, claudeSessionId: wf.primarySessionId });
     }).catch(() => { /* best-effort */ });
   }
@@ -889,7 +921,11 @@ export async function handleSpawnFromHere(
   });
   // Token the new tab's busy too: it's observable (and STOPpable) during
   // summarize + pre-warm, so a STOP + send there must not be cleared below.
-  const newBusyToken = claimBusy(workflows.get(newWorkflowId)!);
+  const childAtAdmission = workflows.get(newWorkflowId)!;
+  const newBusyToken = claimBusy(childAtAdmission);
+  let prewarmWorkerId: string | undefined;
+  const spawnCurrent = () => workflows.get(newWorkflowId) === childAtAdmission && isCurrentBusyClaim(childAtAdmission, newBusyToken);
+  const spawnOwned = () => spawnCurrent() && ownsBusy(childAtAdmission, newBusyToken);
   session.workflowIds.add(newWorkflowId);
 
   workflowCwds.set(newWorkflowId, newCwd);
@@ -897,7 +933,9 @@ export async function handleSpawnFromHere(
   rememberCwd(newCwd).catch(() => { /* best-effort */ });
   try {
     await initWorkflowStore(newCwd, newWorkflowId);
+    if (!spawnOwned()) return;
     await persistInitialMeta(newCwd, newWorkflowId, msg.newConfig, newPrimary);
+    if (!spawnOwned()) return;
   } catch (err) {
     console.error(`[arco] spawn init failed for ${newWorkflowId.slice(0, 8)}:`, err);
     send(ws, { type: 'error', message: 'Failed to initialize spawned workflow.' });
@@ -950,6 +988,7 @@ export async function handleSpawnFromHere(
   // the spawn's primary. A degraded source worker shouldn't be the one to
   // summarize itself into the spawn's seed handoff. Optional model/effort on
   // the configured summarizer fill from newPrimary.
+  if (!spawnOwned()) return;
   const spawnSummarizerSettings = await readSettings(parentCwd).catch(() => null);
   const summarizer = msg.summarizer ?? (spawnSummarizerSettings?.handoffSummarizer
     ? {
@@ -1076,6 +1115,7 @@ export async function handleSpawnFromHere(
   // and hard-setting busy=false there cleared a live parent turn's flag.
   // Token-scoped so a parent STOP (revokeBusy) + resend during the reflection
   // isn't clobbered when the reflection settles.
+  if (!spawnOwned()) return;
   let parentBusyToken: number | null;
   try {
     parentBusyToken = effectiveMode === 'original-worker' ? claimBusy(parent) : null;
@@ -1089,8 +1129,10 @@ export async function handleSpawnFromHere(
     });
     return;
   }
+  let parentHandoffId: string | undefined;
   const releaseParent = () => {
     if (parentBusyToken === null) return;
+    if (parentHandoffId && parent.activeHandoff?.handoffId === parentHandoffId) parent.activeHandoff = undefined;
     if (!releaseBusy(parent, parentBusyToken)) return;
     // Flush anything the operator queued on the parent during the reflection.
     void drainQueueIfIdle(msg.parentWorkflowId);
@@ -1103,7 +1145,7 @@ export async function handleSpawnFromHere(
       workflowId: newWorkflowId,
       cwd: newCwd,
       manager: newManager,
-      broadcast: (m) => send(ws, m),
+      broadcast: (m) => { if (spawnCurrent()) send(ws, m); },
     },
     {
       mode: effectiveMode,
@@ -1120,11 +1162,25 @@ export async function handleSpawnFromHere(
     },
   );
 
+  const abortSpawn = () => {
+    exp.abort();
+    if (prewarmWorkerId) newManager.kill(prewarmWorkerId);
+    if (ownsBusy(childAtAdmission, newBusyToken)) revokeBusy(childAtAdmission);
+    if (parentBusyToken !== null && ownsBusy(parent, parentBusyToken)) revokeBusy(parent);
+    if (childAtAdmission.activeHandoff?.handoffId === exp.handoffId) childAtAdmission.activeHandoff = undefined;
+    if (parent.activeHandoff?.handoffId === exp.handoffId) parent.activeHandoff = undefined;
+  };
+  parentHandoffId = exp.handoffId;
+  const active = { handoffId: exp.handoffId, artifactName: exp.artifactName, abort: abortSpawn };
+  childAtAdmission.activeHandoff = active;
+  if (parentBusyToken !== null) parent.activeHandoff = active;
+  try {
   console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} started from parent ${msg.parentWorkflowId.slice(0, 8)} (mode=${effectiveMode})`);
 
   let handoffBody: string | null = null;
   try {
     const r = await exp.settled;
+    if (!spawnOwned()) return;
     // Reflection done — parent is free to take operator turns again.
     releaseParent();
     if (r.error || !r.body) {
@@ -1163,6 +1219,7 @@ export async function handleSpawnFromHere(
     return;
   }
 
+  if (!spawnOwned()) return;
   const seedPrompt = msg.newDirection && msg.newDirection.trim()
     ? `${handoffBody}\n\n---\n\nNew direction: ${msg.newDirection.trim()}`
     : `${handoffBody}\n\n---\n\nRead the handoff above. Acknowledge with "READY" and wait for the operator's next instruction.`;
@@ -1177,10 +1234,12 @@ export async function handleSpawnFromHere(
     const newWf = workflows.get(newWorkflowId);
     if (newWf) {
       const summary = await readPlanSummary(newCwd, parent.planId).catch(() => null);
+      if (!spawnOwned()) return;
       if (summary) {
         newWf.planId = parent.planId;
         try {
           const newMeta = await readMeta(newCwd, newWorkflowId);
+          if (!spawnOwned()) return;
           if (newMeta) {
             newMeta.planId = parent.planId;
             newMeta.planLastSeenUpdatedAt = 0;
@@ -1217,19 +1276,21 @@ export async function handleSpawnFromHere(
       newClaudeTransport = tab;
     } else {
       const cascade = await readSettings(newCwd).catch(() => null);
+      if (!spawnOwned()) return;
       newClaudeTransport = cascade?.claude?.transport === 'native' ? 'native' : 'cli';
     }
   }
   const spawnAccount = initialSpawnAccount;
 
+  if (!spawnOwned()) return;
   const primaryTurn = runPrimaryTurn(
     {
       workflowId: newWorkflowId,
       cwd: newCwd,
       manager: newManager,
-      broadcast: (m) => send(ws, m),
-      notePotentialDevServerStart: (cmd, toolUseId) => deps.previewAutoDetect.notePotentialDevServerStart(newWorkflowId, cmd, toolUseId),
-      noteAgentText: (text) => deps.previewAutoDetect.noteAgentText(newWorkflowId, text),
+      broadcast: (m) => { if (spawnCurrent()) send(ws, m); },
+      notePotentialDevServerStart: (cmd, toolUseId) => { if (spawnCurrent()) deps.previewAutoDetect.notePotentialDevServerStart(newWorkflowId, cmd, toolUseId); },
+      noteAgentText: (text) => { if (spawnCurrent()) deps.previewAutoDetect.noteAgentText(newWorkflowId, text); },
     },
     {
       primary: newPrimary,
@@ -1260,6 +1321,7 @@ export async function handleSpawnFromHere(
     });
   }
   primaryTurn.onSessionDiscovered((sid) => {
+    if (!spawnCurrent()) return;
     const wf = workflows.get(newWorkflowId);
     if (wf && !wf.primarySessionId) {
       wf.primarySessionId = sid;
@@ -1277,6 +1339,7 @@ export async function handleSpawnFromHere(
   }
 
   const wf = workflows.get(newWorkflowId);
+  if (!spawnOwned()) return;
   const newBusyOwned = wf ? releaseBusy(wf, newBusyToken) : false;
 
   send(ws, {
@@ -1291,6 +1354,13 @@ export async function handleSpawnFromHere(
   if (newBusyOwned) void drainQueueIfIdle(newWorkflowId);
 
   console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} complete`);
+  } finally {
+    releaseParent();
+    if (childAtAdmission.activeHandoff?.handoffId === exp.handoffId) childAtAdmission.activeHandoff = undefined;
+    if (parent.activeHandoff?.handoffId === exp.handoffId) parent.activeHandoff = undefined;
+    if (workflows.get(newWorkflowId) === childAtAdmission && releaseBusy(childAtAdmission, newBusyToken)) void drainQueueIfIdle(newWorkflowId);
+  }
+
 }
 
 // Re-apply handleCreateWorkflow's incognito rules to a client-supplied config
@@ -1673,6 +1743,13 @@ export async function rehydrateOneWorkflow(
   opts: { tail?: boolean } = {},
 ): Promise<void> {
   const cwd = wf.config.incognito ? '' : wf.config.workingDirectory;
+  let latestNativeLastPromptTokens: number | undefined;
+  const captureReplayTokens = (events: ServerMessage[]): void => {
+    for (const event of events) {
+      const value = event as { type?: string; lastPromptTokens?: number };
+      if (value.type === 'primary_complete' && typeof value.lastPromptTokens === 'number') latestNativeLastPromptTokens = value.lastPromptTokens;
+    }
+  };
   let snapshotOnly = false;
   let snapshotReason: string | undefined;
 
@@ -1682,6 +1759,7 @@ export async function rehydrateOneWorkflow(
     // replayTailEvents. Identical to a full replay when the log is small. One
     // batch — the client ingests it atomically.
     const { events, truncated } = await replayTailEvents(cwd, workflowId, TAIL_REPLAY_BYTES);
+    captureReplayTokens(events);
     const filtered = events.filter((ev) => (ev as { type?: string }).type !== 'workflow_created');
     if (ws.readyState === WebSocket.OPEN) {
       if (truncated) {
@@ -1770,7 +1848,6 @@ export async function rehydrateOneWorkflow(
   }
 
   const lastSeq = cwd ? await getWorkflowHeadSeq(cwd, workflowId) : 0;
-  let latestNativeLastPromptTokens: number | undefined;
 
   const snapshotAccount = wf.primary.provider === 'codex'
     ? await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null)
@@ -1822,14 +1899,21 @@ export async function rehydrateOneWorkflow(
 
   // Phase 2 — emit a context estimate immediately so the client has a fill
   // reading as soon as the snapshot arrives (not only after the next turn).
-  if (cwd && wf.primary.provider === 'claude' && wf.primarySessionId) {
+  if (cwd && wf.primary.provider === 'claude' && typeof latestNativeLastPromptTokens === 'number' && latestNativeLastPromptTokens > 0) {
+    const estimate = nativeContextEstimate(wf.primary.model, latestNativeLastPromptTokens);
+    if (estimate && ws.readyState === WebSocket.OPEN) {
+      const usage = { type: 'context_usage' as const, workflowId, ...estimate };
+      recordContextUsage(workflowId, usage);
+      ws.send(JSON.stringify(usage));
+    }
+  } else if (cwd && wf.primary.provider === 'claude' && wf.primarySessionId) {
     estimateContextFill(cwd, wf.primarySessionId, wf.primary.model, wf.calibration).then((est) => {
       if (!est) return;
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est, claudeSessionId: wf.primarySessionId }));
       }
     }).catch(() => { /* best-effort */ });
-  } else
+  }
 
   // Re-emit plan_attached so the rehydrated client knows the active plan
   // even if its events.jsonl-replay context was rotated/truncated. meta.json
@@ -1861,7 +1945,7 @@ export async function rehydrateOneWorkflow(
   // of truth; send only the sessions that are actually still alive. Per-socket
   // (the reconnecting ws) — matches the rehydrate fan-out posture.
   const liveSessions = ptyManager.infoForWorkflow(workflowId);
-  if (liveSessions.length > 0 && ws.readyState === WebSocket.OPEN) {
+  if (ws.readyState === WebSocket.OPEN) {
     send(ws, { type: 'terminal_sessions', workflowId, sessions: liveSessions });
   }
 

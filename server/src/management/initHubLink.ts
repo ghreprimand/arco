@@ -519,63 +519,65 @@ const MAX_TURNS = 800;
 // Reconstruct a workflow's full conversation from events.jsonl for the "open in
 // a new tab" view: user_message_echo = operator turns, primary_text = assistant
 // (skip thinking), grouped by turn. Bounded + best-effort.
-// R2 — `sinceTurn` slices for the chat screen's incremental poll; the wrapper
-// below adds totalTurns + busy.
-function getTranscript(
+// Stable event cursors replace shifting bounded-array offsets. sinceTurn
+// remains available for older clients; current clients also upsert row ids.
+export function getTranscript(
   wfid: string,
   sinceTurn?: number,
-): { title?: string; turns: TranscriptTurn[]; totalTurns?: number; busy?: boolean } {
+  sinceSeq?: number,
+): { title?: string; turns: TranscriptTurn[]; totalTurns?: number; busy?: boolean; cursor?: number; startCursor?: number; resync?: boolean } {
   const full = readFullTranscript(wfid);
-  const totalTurns = full.turns.length;
-  const busy = workflows.get(wfid)?.busy === true;
-  const turns =
-    typeof sinceTurn === 'number' && sinceTurn > 0 ? full.turns.slice(sinceTurn) : full.turns;
-  return { ...(full.title ? { title: full.title } : {}), turns, totalTurns, busy };
+  const modern = typeof sinceSeq === 'number' && Number.isFinite(sinceSeq) && sinceSeq >= 0;
+  const resync = full.resync || (modern && (sinceSeq > (full.cursor ?? 0) || (sinceSeq > 0 && sinceSeq < (full.startCursor ?? 0))));
+  const turns = modern
+    ? resync || sinceSeq === 0 ? full.turns : full.turns.filter((turn) => (turn.lastSeq ?? turn.seq ?? 0) > sinceSeq)
+    : typeof sinceTurn === 'number' && sinceTurn > 0 ? full.turns.slice(sinceTurn) : full.turns;
+  return { ...(full.title ? { title: full.title } : {}), turns, totalTurns: full.turns.length,
+    busy: workflows.get(wfid)?.busy === true, cursor: full.cursor, startCursor: full.startCursor, ...(resync ? { resync: true } : {}) };
 }
 
-function readFullTranscript(wfid: string): { title?: string; turns: TranscriptTurn[] } {
+function readFullTranscript(wfid: string): { title?: string; turns: TranscriptTurn[]; cursor?: number; startCursor?: number; resync?: boolean } {
   const wf = workflows.get(wfid);
   const title = wf?.config.name;
   const cwd = workflowCwds.get(wfid) ?? wf?.config.workingDirectory;
-  if (!cwd) return { ...(title ? { title } : {}), turns: [] };
+  if (!cwd) return { ...(title ? { title } : {}), turns: [], cursor: 0 };
   try {
     const tail = readLogTailSync(join(cwd, '.arco', 'workflows', wfid), MAX_TRANSCRIPT_BYTES);
-    if (!tail.text) return { ...(title ? { title } : {}), turns: [] };
+    if (!tail.text) return { ...(title ? { title } : {}), turns: [], cursor: 0 };
     const lines = tail.text.split('\n');
     if (tail.truncated) lines.shift();
-
     const turns: TranscriptTurn[] = [];
-    let asst: string[] = [];
-    let asstAt = 0;
+    let asst: string[] = [], asstAt = 0;
+    let asstSeq: number | undefined, asstLastSeq: number | undefined;
+    let cursor = 0, reliable = true;
     const flush = () => {
       if (!asst.length) return;
       const text = asst.join('').trim();
-      if (text) turns.push({ role: 'assistant', text, ...(asstAt ? { at: asstAt } : {}) });
-      asst = [];
-      asstAt = 0;
+      if (text) turns.push({ role: 'assistant', text, ...(asstAt ? { at: asstAt } : {}), seq: asstSeq, lastSeq: asstLastSeq });
+      asst = []; asstAt = 0; asstSeq = undefined; asstLastSeq = undefined;
     };
     for (const line of lines) {
       if (!line) continue;
-      let ev: { type?: string; ts?: number; text?: string; phase?: string; content?: string; timestamp?: number };
-      try {
-        ev = JSON.parse(line);
-      } catch {
-        continue;
-      }
+      let ev: { type?: string; seq?: number; ts?: number; text?: string; phase?: string; content?: string; timestamp?: number };
+      try { ev = JSON.parse(line); } catch { continue; }
+      if (typeof ev.seq !== 'number' || !Number.isSafeInteger(ev.seq) || ev.seq <= cursor) reliable = false;
+      else cursor = ev.seq;
       if (ev.type === 'user_message_echo' && typeof ev.content === 'string') {
         flush();
-        turns.push({ role: 'user', text: ev.content, ...(ev.timestamp || ev.ts ? { at: ev.timestamp ?? ev.ts } : {}) });
+        turns.push({ role: 'user', text: ev.content, ...(ev.timestamp || ev.ts ? { at: ev.timestamp ?? ev.ts } : {}), seq: ev.seq, lastSeq: ev.seq });
       } else if (ev.type === 'primary_text' && ev.phase !== 'thinking' && typeof ev.text === 'string') {
-        asst.push(ev.text);
+        if (asst.length === 0) asstSeq = ev.seq;
+        asst.push(ev.text); asstLastSeq = ev.seq;
         if (typeof ev.ts === 'number') asstAt = ev.ts;
       } else if (ev.type === 'primary_turn_ended') {
-        flush();
+        asstLastSeq = ev.seq; flush();
       }
     }
     flush();
-    return { ...(title ? { title } : {}), turns: turns.length > MAX_TURNS ? turns.slice(-MAX_TURNS) : turns };
+    const retained = turns.length > MAX_TURNS ? turns.slice(-MAX_TURNS) : turns;
+    return { ...(title ? { title } : {}), turns: retained, ...(reliable ? { cursor, startCursor: retained[0]?.seq ?? cursor } : { resync: true }) };
   } catch {
-    return { ...(title ? { title } : {}), turns: [] };
+    return { ...(title ? { title } : {}), turns: [], resync: true };
   }
 }
 

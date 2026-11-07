@@ -84,7 +84,10 @@ function recordIncognitoEvent(workflowId: string, message: ServerMessage): void 
   if (!(wf.config.voiceOperator && message.type === 'primary_tool_use') && message.type !== 'user_message_echo'
       && message.type !== 'primary_text'
       && message.type !== 'primary_thinking'
-      && message.type !== 'primary_complete') return;
+      && message.type !== 'primary_complete'
+      && message.type !== 'primary_turn_started'
+      && message.type !== 'turn_messages_delivered'
+      && message.type !== 'queued_messages_drained') return;
   const last = events[events.length - 1];
   if (message.type === 'primary_text' && last?.type === 'primary_text' && last.phase === message.phase) {
     last.text += message.text;

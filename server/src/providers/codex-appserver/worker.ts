@@ -945,10 +945,12 @@ export class CodexAppServerWorker extends EventEmitter {
   //   - mismatched turnId / turn already ended → re-enqueue as follow-up
   //   - any other transport error → re-enqueue to follow-up + system_notice
   private async dispatchSteer(items: SteerItem[]): Promise<void> {
+    const config = this.config;
+    const turn = this.current;
     if (!this.rpc || !this.threadId || !this.current.turnId) {
       // No live turn — push everything back into follow-up so the operator
       // sees their messages reappear after the next user_message arrives.
-      this.requeueSteer(items, 'follow-up', 'turn ended before steer dispatched');
+      this.requeueSteer(items, 'follow-up', 'turn ended before steer dispatched', config);
       return;
     }
     const params: TurnSteerParams = {
@@ -959,8 +961,8 @@ export class CodexAppServerWorker extends EventEmitter {
     };
     try {
       const res = await this.rpc.request<TurnSteerResponse>('turn/steer', params);
-      this.config.onSteerDelivered?.(items);
-      this.current.steerCount += 1;
+      config.onSteerDelivered?.(items);
+      turn.steerCount += 1;
       console.log(`[appserver:${this.workflowId.slice(0, 8)}] steer landed (turnId=${res.turnId.slice(0, 8)}, items=${items.length})`);
     } catch (err) {
       const rpc = (err instanceof JsonRpcRequestError) ? err.rpcError : null;
@@ -968,16 +970,16 @@ export class CodexAppServerWorker extends EventEmitter {
       const info = data?.codexErrorInfo;
       if (info && typeof info === 'object' && 'activeTurnNotSteerable' in info) {
         const kind = info.activeTurnNotSteerable.turnKind;
-        this.requeueSteer(items, 'steer', `turn not steerable (kind=${kind})`);
+        this.requeueSteer(items, 'steer', `turn not steerable (kind=${kind})`, config);
       } else {
         // Anything else — mismatched expectedTurnId, transport blip, etc.
         // Treat as follow-up; the operator's next turn will see the item.
         const reason = err instanceof Error ? err.message : String(err);
-        this.requeueSteer(items, 'follow-up', `steer rpc failed: ${reason}`);
+        this.requeueSteer(items, 'follow-up', `steer rpc failed: ${reason}`, config);
         // Surface non-`activeTurnNotSteerable` failures so the operator sees
         // a telltale system_notice. Don't surface `activeTurnNotSteerable`
         // there — that's expected during compact / review and would spam.
-        this.emit('system_notice', `Mid-turn steer was not delivered (${reason}); re-queued as follow-up.`);
+        if (this.current === turn) this.emit('system_notice', `Mid-turn steer was not delivered (${reason}); re-queued as follow-up.`);
       }
     }
   }
@@ -986,8 +988,8 @@ export class CodexAppServerWorker extends EventEmitter {
   // (splice on the server-side queue), so on failure we hand the items back
   // through a server-supplied callback rather than reaching into wf.queue
   // directly. The hook is set on the WorkerConfig at turn-begin time.
-  private requeueSteer(items: SteerItem[], bucket: 'steer' | 'follow-up', reason: string): void {
-    const requeue = this.config.requeueSteer;
+  private requeueSteer(items: SteerItem[], bucket: 'steer' | 'follow-up', reason: string, config: WorkerConfig = this.config): void {
+    const requeue = config.requeueSteer;
     if (!requeue) {
       console.warn(`[appserver:${this.workflowId.slice(0, 8)}] steer dispatch failed (${reason}) and no requeue hook — ${items.length} item(s) dropped`);
       return;

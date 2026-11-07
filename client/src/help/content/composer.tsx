@@ -35,7 +35,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.turn-messages': {
     title: 'Turn message state',
-    body: <p>Select PENDING to inspect or cancel queued messages. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p>,
+    body: <><p>Select PENDING to inspect or cancel queued messages. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
     manualSection: 'composer',
   },
   'composer.turn-step': {
@@ -97,6 +97,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           cluster-level <C>◉ REMOTE</C> switch; their individual setting is ignored
           while clustered.
         </p>
+      <p>Long conversations keep updating past the retained window. Growing replies update in place; a window change refreshes the recent history while preserving unsent text.</p>
       </>
     ),
     manualSection: 'remote',

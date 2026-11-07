@@ -1,3 +1,4 @@
+import { rehydrateOneWorkflow } from './handoffHandlers.js';
 import { isAutoCompactionPolicy, normalizeAutoHandoff, normalizeOutputStyle, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 import { stopTurnSizes } from '../storageTurnWatch.js';
 import { noteSmartPickupStop } from '../smartPickupObserver.js';
@@ -20,7 +21,7 @@ import { disposeClaudeNativeWorker } from '../providers/claude-native/index.js';
 import { WebSocket } from 'ws';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterStore from '../clusterStore.js';
-import { estimateContextFill, nativeContextEstimate, promptContextEstimate } from '../contextEstimator.js';
+import { estimateContextFill, promptContextEstimate } from '../contextEstimator.js';
 import { checkpointRestoreScopes, createCheckpoint, revertToCheckpoint } from '../gitSnapshots.js';
 import { acquireCheckoutRestore, CheckoutInUseError, workflowWritePaths } from '../checkoutOwnership.js';
 import { rememberCwd } from '../crashRecovery.js';
@@ -112,6 +113,10 @@ import {
   deriveAutoFold,
   derivePrimaryConfig,
   disarmGoalRun,
+  claimBusy,
+  ownsBusy,
+  releaseBusy,
+  drainQueueIfIdle,
   persistInitialMeta,
   revokeBusy,
   startSessionWatcher,
@@ -662,30 +667,10 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     });
   }
 
-  let resumeLatestLastPromptTokens: number | undefined;
   if (resumed && config.workingDirectory) {
-    try {
-      const events = await replayWorkflowEvents(config.workingDirectory, workflowId, 0);
-      let replayed = 0;
-      for (const ev of events) {
-        if (ws.readyState !== WebSocket.OPEN) break;
-        // Skip the old workflow_created — the client's createJob reinitialises
-        // job state and would clobber the replay rebuild.
-        if ((ev as { type?: string }).type === 'workflow_created') continue;
-        ws.send(JSON.stringify(ev));
-        replayed++;
-        // Native ground-truth carryover: the freshest primary_complete
-        // with lastPromptTokens drives the resume-time context_usage emit
-        // below (Native has no session JSONL / rollout to read).
-        const evt = ev as { type?: string; lastPromptTokens?: number };
-        if (evt.type === 'primary_complete' && typeof evt.lastPromptTokens === 'number') {
-          resumeLatestLastPromptTokens = evt.lastPromptTokens;
-        }
-      }
-      console.log(`[arco] [${workflowId.slice(0, 8)}] resume: replayed ${replayed} events from events.jsonl`);
-    } catch (err) {
-      console.error(`[arco] [${workflowId.slice(0, 8)}] resume replay failed:`, err);
-    }
+    const restored = workflows.get(workflowId);
+    if (restored) await rehydrateOneWorkflow(ws, workflowId, restored, 0, { tail: true });
+    return;
   }
 
   // Phase 1 — start the Claude session JSONL watcher after events replay so
@@ -711,17 +696,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
           ws.send(JSON.stringify(usageMsg));
         }
       }).catch(() => { /* best-effort */ });
-    } else if (prov === 'claude' && mod && typeof resumeLatestLastPromptTokens === 'number' && resumeLatestLastPromptTokens > 0) {
-      // Native Claude path: no session JSONL exists, so estimateContextFill
-      // can't help. The latest primary_complete in events.jsonl carries
-      // lastPromptTokens (captured during the replay loop above) — re-broadcast
-      // a ground-truth context_usage so the bar reflects the actual context
-      // size of the conversation we're resuming into.
-      const est = nativeContextEstimate(mod, resumeLatestLastPromptTokens);
-      if (est && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'context_usage', workflowId, ...est }));
-      }
-    } else
+    }
 
     // Re-emit plan_attached so a fresh client (no prior events.jsonl context)
     // sees the active plan immediately rather than waiting for the next attach.
@@ -854,6 +829,7 @@ export function handleCancel(ws: WebSocket, workflowId: string): void {
   // Smart: Automatic leaves the mail this member has now alone after STOP.
   void noteSmartPickupStop(workflowId).catch(() => undefined);
   wf.manager.killAll();
+  if (wf.activeHandoff) handleHandoffCancel(ws, workflowId, wf.activeHandoff.handoffId);
   cancelClaudeNativeCompaction(workflowId);
   cancelCodexAppServerCompaction(workflowId);
   // Revoke (not just clear) the busy claim: the killed turn's loop is still
@@ -1244,6 +1220,9 @@ export async function handleRevertToPointRequest(
     send(ws, { type: 'error', message: 'Workflow has no working directory configured.' });
     return;
   }
+  const token = claimBusy(wf);
+  const stillOwnsRewind = () => workflows.get(msg.workflowId) === wf && ownsBusy(wf, token);
+  try {
   // docs/PERSISTENCE.md - Native-first. Only the Claude Native
   // transport rebuilds its in-process messages[] from meta.leafSeq. On CLI /
   // Codex (session-id / rollout resume) setting leafSeq has NO effect, so a
@@ -1252,6 +1231,7 @@ export async function handleRevertToPointRequest(
   const provider = wf.config.primaryProvider ?? 'claude';
   const tabTransport = wf.config.claudeTransport;
   const cascade = await readSettings(cwd).catch(() => null);
+  if (!stillOwnsRewind()) return;
   const effectiveNative = provider === 'claude' && (
     tabTransport === 'native' || (tabTransport !== 'cli' && cascade?.claude?.transport === 'native')
   );
@@ -1260,38 +1240,46 @@ export async function handleRevertToPointRequest(
     return;
   }
   const head = await getWorkflowHeadSeq(cwd, msg.workflowId);
+  if (!stillOwnsRewind()) return;
   if (msg.targetSeq > head) {
     send(ws, { type: 'error', message: `targetSeq ${msg.targetSeq} is past the workflow head (${head}).` });
     return;
   }
 
-  // Append the durable leaf_move (persisted to events.jsonl via the broadcast
-  // path). `source` records why this head move happened — v1 only emits the
-  // operator-rewind case. classifyBranchSource keeps the tag the single source
-  // of truth shared with the HISTORY branch-tree rendering.
-  broadcastWorkflow(msg.workflowId, {
-    type: 'leaf_move',
-    workflowId: msg.workflowId,
-    targetSeq: msg.targetSeq,
-    source: classifyBranchSource('leaf_move'),
-    createdAt: Date.now(),
-  });
-
-  // Mark branch mode on durably. The numeric value is informational (the head
-  // pointer); branch-aware replay walks from the physical tail honoring the
-  // leaf_move redirect chain. Atomic writeMeta so it survives a restart.
-  const meta = await readMeta(cwd, msg.workflowId);
-  if (meta) {
-    meta.leafSeq = await getWorkflowHeadSeq(cwd, msg.workflowId);
-    await writeMeta(cwd, meta).catch((err) => {
-      console.warn(`[arco] [${msg.workflowId.slice(0, 8)}] writeMeta(leafSeq) failed:`, err);
+  // Enable branch replay before publishing the head move. This flag is safe
+  // even if cancellation arrives during its write: without a leaf_move the
+  // physical tail still reconstructs the unchanged conversation.
+  let branchMeta: WorkflowMeta | null;
+  try {
+    branchMeta = await updateMeta(cwd, msg.workflowId, (meta) => {
+      if (!stillOwnsRewind()) return false;
+      meta.leafSeq = head;
     });
+  } catch (error) {
+    send(ws, { type: 'error', message: `Cannot rewind: saved branch metadata could not be written (${error instanceof Error ? error.message : String(error)}).` });
+    return;
   }
+  if (!stillOwnsRewind()) return;
+  if (!branchMeta) {
+    send(ws, { type: 'error', message: 'Cannot rewind: saved conversation metadata is unavailable.' });
+    return;
+  }
+  // No await between final ownership validation, head publication and cache
+  // disposal, so another window cannot start a turn inside the transition.
+  broadcastWorkflow(msg.workflowId, {
+    type: 'leaf_move', workflowId: msg.workflowId, targetSeq: msg.targetSeq,
+    source: classifyBranchSource('leaf_move'), createdAt: Date.now(),
+  });
 
   // Drop any live Native worker so the next turn rebuilds from the rewound
   // branch. No-op for non-Native transports / no live worker.
+  if (!stillOwnsRewind()) return;
   disposeClaudeNativeWorker(msg.workflowId);
   console.log(`[arco] [${msg.workflowId.slice(0, 8)}] rewound conversation to seq ${msg.targetSeq}`);
+  } finally {
+    if (releaseBusy(wf, token)) void drainQueueIfIdle(msg.workflowId);
+  }
+
 }
 
 // Workbench Expansion A4 — revert the working tree to a checkpoint.

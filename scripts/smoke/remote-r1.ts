@@ -194,7 +194,12 @@ async function main() {
     { role: 'assistant' as const, text: 'Two items remain … shall I proceed?' },
     { role: 'user' as const, text: 'proceed' },
   ];
-  function getTranscript(wfid: string, sinceTurn?: number) {
+  let requestedCursor: number | undefined;
+  function getTranscript(wfid: string, sinceTurn?: number, sinceSeq?: number) {
+    if (typeof sinceSeq === 'number') {
+      requestedCursor = sinceSeq;
+      return { turns: [{ role: 'assistant' as const, text: 'Fixture growing reply', seq: 7, lastSeq: 11 }], totalTurns: 1, busy: false, cursor: 12, startCursor: 7, resync: true };
+    }
     const w = wfState.get(wfid);
     const turns = typeof sinceTurn === 'number' && sinceTurn > 0 ? fullConvo.slice(sinceTurn) : fullConvo;
     return {
@@ -444,6 +449,15 @@ async function main() {
     assertEq(b.turns.length, 1, 'only the new turn');
     assertEq(b.turns[0].text, 'proceed', 'sliced from the right anchor');
     assertEq(b.totalTurns, 3, 'total unchanged');
+  });
+
+  await step('R2: stable transcript cursor and window metadata survive the HTTP and service bridge', async () => {
+    const response = await fetch(`${base}/api/instances/${INSTANCE_ID}/workflows/${WF_CLAUDE}/convo?since=2&after=9`);
+    assertEq(response.status, 200, 'transcript status');
+    const body = await response.json() as { cursor?: number; startCursor?: number; resync?: boolean; turns: Array<{ seq?: number; lastSeq?: number }> };
+    assertEq(requestedCursor, 9, 'cursor reached owning service');
+    assertEq(body.cursor, 12, 'response cursor'); assertEq(body.startCursor, 7, 'retained start'); assertEq(body.resync, true, 'resync marker');
+    assertEq(body.turns[0].seq, 7, 'row identity'); assertEq(body.turns[0].lastSeq, 11, 'row update cursor');
   });
 
   await step('R2: /chat serves the interactive conversation screen', async () => {

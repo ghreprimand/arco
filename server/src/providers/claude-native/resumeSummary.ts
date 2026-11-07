@@ -1,3 +1,4 @@
+import { projectDeliveredInputs, referencedInputRecords } from '../../inputDeliveryHistory.js';
 import { revokedHandoffIds } from '../../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { promises as fs } from 'node:fs';
@@ -7,7 +8,7 @@ import { listSegments, readLogText, readLogLines } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
 
-const SUMMARY_CACHE_VERSION = 2;
+const SUMMARY_CACHE_VERSION = 3;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
 const DEFAULT_REPLAY_BYTES = 1 * 1024 * 1024;
 const TAIL_LINE_BACKTRACK_BYTES = 1 * 1024 * 1024;
@@ -39,6 +40,14 @@ type ReplayEvent = {
   text?: string;
   error?: string;
   cancelled?: boolean;
+  clientMessageId?: string;
+  clientMessageIds?: string[];
+  inputClientMessageIds?: string[];
+  ollamaInputSeqs?: number[];
+  deliveryTracked?: boolean;
+  ollamaReplayInput?: boolean;
+  kind?: string;
+  deliveryId?: string;
   handoffId?: string;
   seq?: number;
   // docs/PERSISTENCE.md - lineage link stamped by persistAndStampSeq on the
@@ -111,6 +120,7 @@ type SummaryCache = {
   throughSeq: number | null;
   lastHandoffSeq: number | null;
   summary: string;
+  inputHistory: ReplayEvent[];
   updatedAt: string;
 };
 
@@ -174,9 +184,9 @@ async function findTailReplayStart(source: LogSource, desiredStart: number): Pro
     const line = lines[i];
     const lineStart = cursor;
     cursor += Buffer.byteLength(line, 'utf8') + 1;
-    if (line.includes('"type":"user_message_echo"')) {
-      turnStart = lineStart;
-    }
+    const event = parseJsonl(line)[0];
+    if (event?.type === 'primary_turn_started' && ((event.inputClientMessageIds?.length ?? 0) > 0 || (event.ollamaInputSeqs?.length ?? 0) > 0)) turnStart = lineStart;
+    else if (event?.type === 'user_message_echo' && !event.deliveryTracked && !event.ollamaReplayInput && !event.kind) turnStart = lineStart;
   }
   if (turnStart !== null) return { start: turnStart, completeLine: true };
   const idx = raw.lastIndexOf('\n');
@@ -336,9 +346,11 @@ export function buildMessagesFromReplayEvents(
   initialMessages: ClaudeResumeMessage[] = [],
   maxSeq?: number,
   leafSeq?: number,
+  inputHistory: ReplayEvent[] = [],
 ): ClaudeResumeMessage[] {
   const messages = cloneMessages(initialMessages);
-  const scoped = typeof leafSeq === 'number' ? filterEventsToBranch(events, leafSeq) : events;
+  const selected = typeof leafSeq === 'number' ? filterEventsToBranch(events, leafSeq) : events;
+  const scoped = projectDeliveredInputs(selected, [...inputHistory, ...events], maxSeq);
   const revoked = revokedHandoffIds(scoped, maxSeq);
   let userBuf = '';
   let assistantBuf = '';
@@ -393,8 +405,8 @@ export function buildMessagesFromReplayEvents(
         }
       }
     } else if (t === 'user_message_echo' && typeof entry.content === 'string') {
-      flushPair();
-      userBuf = entry.content;
+      if (entry.kind === 'steer' && userBuf && !assistantBuf) userBuf += '\n\n' + entry.content;
+      else { flushPair(); userBuf = entry.content; }
     } else if (t === 'primary_text' && typeof entry.text === 'string' && userBuf) {
       assistantBuf += entry.text;
     } else if ((t === 'primary_complete' || t === 'worker_complete') && userBuf) {
@@ -429,7 +441,7 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
   // verbatim turns to vanish from the operator-visible summary).
   let compactTail: string | null = null;
 
-  for (const ev of events) {
+  for (const ev of projectDeliveredInputs(events, [...events, ...laterEvents])) {
     if (typeof ev.seq === 'number') throughSeq = ev.seq;
     if (ev.type === 'handoff_artifact_ready' && !ev.error && !ev.cancelled && !revoked.has(ev.handoffId ?? '')) {
       turns.length = 0;
@@ -544,7 +556,8 @@ async function readSummaryCache(path: string, workflowId: string, sourceSize: nu
       parsed.workflowId === workflowId &&
       parsed.sourceSize === sourceSize &&
       parsed.tailStartByte === tailStartByte &&
-      typeof parsed.summary === 'string'
+      typeof parsed.summary === 'string' && Array.isArray(parsed.inputHistory)
+      && parsed.inputHistory.every(event => (event?.type === 'user_message_echo' && typeof event.content === 'string') || (event?.type === 'queued_messages_drained' && typeof event.deliveryId === 'string'))
     ) {
       return parsed as SummaryCache;
     }
@@ -658,6 +671,7 @@ export async function replayMessagesWithResumePolicy(
       throughSeq: built.throughSeq,
       lastHandoffSeq: built.lastHandoffSeq,
       summary: built.summary,
+      inputHistory: referencedInputRecords(tailEvents, olderEvents),
       updatedAt: new Date().toISOString(),
     };
     await writeSummaryCache(cwd, cachePath, cache);
@@ -665,7 +679,7 @@ export async function replayMessagesWithResumePolicy(
 
   const seed = summarySeedMessages(cache.summary);
   return {
-    messages: buildMessagesFromReplayEvents(tailEvents, seed),
+    messages: buildMessagesFromReplayEvents(tailEvents, seed, undefined, undefined, cache.inputHistory),
     mode: 'summary_tail',
     eventBytes: stat.size,
     summaryThroughSeq: cache.throughSeq ?? undefined,

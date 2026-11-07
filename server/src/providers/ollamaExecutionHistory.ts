@@ -1,3 +1,4 @@
+import { confirmedInputDeliveries, projectDeliveredInputs } from '../inputDeliveryHistory.js';
 import { createHash } from 'node:crypto';
 import type { ServerMessage } from '@arco/shared';
 
@@ -13,7 +14,8 @@ interface Execution {
   id: string;
   start: number;
   inputs: number[];
-  events: OllamaHistoryEvent[];
+  delivered: number[];
+  confirmations: number[];
   complete?: number;
   ended?: number;
 }
@@ -30,7 +32,7 @@ export interface OllamaHistoryProjection {
   cuts: OllamaHistoryCut[];
 }
 const outputTypes = new Set(['primary_text', 'primary_thinking', 'primary_tool_use']);
-const historyTypes = new Set([...outputTypes, 'user_message_echo', 'primary_turn_started', 'primary_complete', 'primary_turn_ended', 'queued_message_cancelled']);
+const historyTypes = new Set([...outputTypes, 'user_message_echo', 'primary_turn_started', 'primary_complete', 'primary_turn_ended', 'queued_message_cancelled', 'turn_messages_delivered', 'queued_messages_drained']);
 
 export function projectOllamaHistory(
   source: OllamaHistoryEvent[], workflowId: string, activeInputSeqs: number[],
@@ -38,12 +40,14 @@ export function projectOllamaHistory(
   const epoch = source.filter(e => e.type === 'handoff_complete').at(-1)?.seq ?? 0;
   // Unrelated events can have domain-specific positions (checkpoint guard seq),
   // so only replay inputs, execution events and cancellation define this prefix.
-  const relevant = source.filter(e => historyTypes.has(e.type));
+  const relevant = source.filter(e => historyTypes.has(e.type) && (e.type !== 'queued_messages_drained' || !!e.deliveryId));
   const events = relevant.filter(e => typeof e.seq === 'number' && e.seq > epoch);
   const active = new Set(activeInputSeqs);
+  const deliveries = confirmedInputDeliveries(events);
   // Retain readable legacy history when identity cannot be established. Current
   // identified input is still supplied through the normal prompt exactly once.
   const dispatched = new Set(events.flatMap(e => e.type === 'primary_turn_started' && e.ollamaExecutionId ? e.ollamaInputSeqs ?? [] : []));
+  for (const delivery of deliveries.values()) for (const input of delivery.inputs) if (typeof input.seq === 'number') dispatched.add(input.seq);
   const fallback = (reason: string): OllamaHistoryProjection => ({ valid: false, reason, epoch,
     events: events.filter(e => e.type !== 'user_message_echo' || !active.has(e.seq!)
       && (!e.ollamaReplayInput || dispatched.has(e.seq!))), cuts: [] });
@@ -61,6 +65,8 @@ export function projectOllamaHistory(
   for (const e of echoes.values()) if (e.type === 'user_message_echo' && e.clientMessageId) {
     clientIds.set(e.clientMessageId, [...(clientIds.get(e.clientMessageId) ?? []), e.seq!]);
   }
+  let activeExecution: Execution | undefined;
+  const inputOwners = new Map<number, Execution>();
   for (const e of events) {
     if (e.type === 'queued_message_cancelled') {
       const matches = clientIds.get(e.clientMessageId) ?? [];
@@ -71,7 +77,8 @@ export function projectOllamaHistory(
       const id = e.ollamaExecutionId, inputs = e.ollamaInputSeqs;
       if (!id || !inputs?.length || executions.has(id) || new Set(inputs).size !== inputs.length
         || inputs.some(seq => !echoes.has(seq) || seq >= e.seq! || consumed.has(seq) || cancelled.has(seq))) return fallback('execution input mapping is missing or conflicting');
-      const turn: Execution = { id, start: e.seq!, inputs: [...inputs], events: [] };
+      const turn: Execution = { id, start: e.seq!, inputs: [...inputs], delivered: [], confirmations: [] };
+      activeExecution = turn; inputOwners.set(e.seq!, turn);
       executions.set(id, turn);
       for (const seq of inputs) consumed.set(seq, turn);
     } else if (outputTypes.has(e.type) || e.type === 'primary_complete' || e.type === 'primary_turn_ended') {
@@ -79,19 +86,34 @@ export function projectOllamaHistory(
       if (!turn || turn.ended || turn.complete && e.type !== 'primary_turn_ended') return fallback('output or outcome has no matching active execution');
       if (e.type === 'primary_complete') turn.complete = e.seq!;
       else if (e.type === 'primary_turn_ended') turn.ended = e.seq!;
-      else turn.events.push(e);
+      if (e.type === 'primary_turn_ended' && activeExecution === turn) activeExecution = undefined;
+    }
+    const delivery = deliveries.get(e);
+    if (delivery) {
+      const inputs = delivery.inputs.flatMap(input => typeof input.seq === 'number' && !consumed.has(input.seq) ? [input.seq] : []);
+      if (!inputs.length) continue;
+      if (!activeExecution || activeExecution.complete || activeExecution.ended || inputs.some(seq => !echoes.has(seq) || seq >= e.seq! || cancelled.has(seq))) return fallback('steering has no matching active execution');
+      activeExecution.delivered.push(...inputs); inputOwners.set(e.seq!, activeExecution);
+      if (delivery.confirmedSeq !== undefined) activeExecution.confirmations.push(delivery.confirmedSeq);
+      for (const seq of inputs) consumed.set(seq, activeExecution);
     }
   }
+  if ([...executions.values()].some(turn => turn.complete && turn.confirmations.some(seq => seq > turn.complete!))) return fallback('steering confirmation is outside its completed prefix');
   // An untagged legacy echo may have executed. Guessing would omit history.
   if ([...echoes.values()].some(e => !e.ollamaReplayInput)) return fallback('legacy input has no execution mapping');
+  const projected = projectDeliveredInputs(events);
   const replay = (through: number): OllamaHistoryEvent[] => {
+    const allowed = new Set([...executions.values()].filter(turn => turn.start <= through && ![...turn.inputs, ...turn.delivered].some(seq => active.has(seq))));
     const out: OllamaHistoryEvent[] = [];
-    for (const turn of executions.values()) {
-      if (turn.start > through || turn.inputs.some(seq => active.has(seq))) continue;
-      const first = echoes.get(turn.inputs[0])!;
-      out.push({ ...first, content: turn.inputs.map(seq => (echoes.get(seq) as Extract<ServerMessage, {type:'user_message_echo'}>).content).join('\n\n') } as OllamaHistoryEvent);
-      out.push(...turn.events.filter(e => e.seq! <= through));
-      if (turn.complete && turn.complete <= through) out.push({ type: 'primary_complete', workflowId, phase: 'passthrough', costUsd: 0, durationMs: 0 } as OllamaHistoryEvent);
+    for (const event of projected) {
+      if (typeof event.seq === 'number' && event.seq > through) continue;
+      if (event.type === 'user_message_echo') {
+        const owner = inputOwners.get(event.seq!);
+        if (owner && allowed.has(owner)) out.push({ ...event, deliveryTracked: false, ollamaReplayInput: false });
+      } else if (outputTypes.has(event.type) || event.type === 'primary_complete') {
+        const owner = event.ollamaExecutionId ? executions.get(event.ollamaExecutionId) : undefined;
+        if (owner && allowed.has(owner)) out.push(event);
+      }
     }
     return out;
   };
@@ -104,7 +126,7 @@ export function projectOllamaHistory(
     hash.update((first ? '' : ',') + JSON.stringify(event)); first = false;
     if (event.type === 'user_message_echo') {
       const turn = consumed.get(event.seq!);
-      const required = active.has(event.seq!) || turn?.inputs.some(seq => cancelled.has(seq))
+      const required = active.has(event.seq!) || turn && [...turn.inputs, ...turn.delivered].some(seq => cancelled.has(seq))
         ? Infinity : turn?.complete ?? cancelled.get(event.seq!) ?? Infinity;
       requiredThrough = Math.max(requiredThrough, required);
     }

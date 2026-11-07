@@ -63,7 +63,8 @@ export interface HubLinkOptions {
   getTranscript?: (
     workflowId: string,
     sinceTurn?: number,
-  ) => { title?: string; turns: TranscriptTurn[]; totalTurns?: number; busy?: boolean };
+    sinceSeq?: number,
+  ) => { title?: string; turns: TranscriptTurn[]; totalTurns?: number; busy?: boolean; cursor?: number; startCursor?: number; resync?: boolean };
   rollup?: () => InstanceRollup;
   now?: () => number;
   heartbeatMs?: number;
@@ -192,13 +193,15 @@ export function createHubLink(opts: HubLinkOptions): HubLink {
     let title: string | undefined;
     let turns: TranscriptTurn[] = [];
     let totalTurns: number | undefined;
+    let cursor: number | undefined, startCursor: number | undefined, resync: boolean | undefined;
     let busy: boolean | undefined;
     try {
-      const r = opts.getTranscript?.(msg.workflowId, msg.sinceTurn);
+      const r = opts.getTranscript?.(msg.workflowId, msg.sinceTurn, msg.sinceSeq);
       if (r) {
         title = r.title;
         turns = r.turns;
         totalTurns = r.totalTurns;
+        cursor = r.cursor; startCursor = r.startCursor; resync = r.resync;
         busy = r.busy;
       }
     } catch (err) {
@@ -211,6 +214,9 @@ export function createHubLink(opts: HubLinkOptions): HubLink {
       ...(title ? { title } : {}),
       turns,
       ...(totalTurns !== undefined ? { totalTurns } : {}),
+      ...(cursor !== undefined ? { cursor } : {}),
+      ...(startCursor !== undefined ? { startCursor } : {}),
+      ...(resync !== undefined ? { resync } : {}),
       ...(busy !== undefined ? { busy } : {}),
     });
   }
