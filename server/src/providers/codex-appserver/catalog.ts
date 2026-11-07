@@ -34,6 +34,7 @@ import type { ModelListResponse } from './bindings/v2/ModelListResponse.js';
 import type { Model } from './bindings/v2/Model.js';
 import type { ReasoningEffort } from './bindings/ReasoningEffort.js';
 import type { CodexCatalogModel, CodexCatalogSnapshot, CodexReasoningEffort } from '@arco/shared';
+import { resolveCodexHome } from '../codexHome.js';
 import { readCodexContextMetadata } from '../codexContextWindow.js';
 import { commandArgs } from '../../windowsCommand.js';
 
@@ -44,14 +45,13 @@ const SPAWN_TIMEOUT_MS = 15_000;
 const ARCO_CLIENT_NAME = 'arco';
 const ARCO_CLIENT_VERSION = '0.1.0';
 
-// Per-codexHome snapshots. The ambient (~/.codex) default is stored under
-// AMBIENT_KEY so callers that pass no codexHome share one entry.
-const AMBIENT_KEY = '__ambient__';
+// Per-home snapshots, keyed by the resolved CLI home. Ambient and explicit
+// reads of the same home share one entry.
 const caches = new Map<string, CodexCatalogSnapshot>();
 const inFlightByKey = new Map<string, Promise<CodexCatalogSnapshot>>();
 
 function cacheKey(codexHome?: string): string {
-  return codexHome ?? AMBIENT_KEY;
+  return resolveCodexHome(codexHome);
 }
 
 // Ascending effort order. Every value Codex can return MUST appear here: the
@@ -100,20 +100,22 @@ export async function getCodexCatalog(force = false, codexHome?: string): Promis
   if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS) return cache;
   const existing = inFlightByKey.get(key);
   if (existing) return existing;
-  const p = fetchCodexCatalog(codexHome).finally(() => { inFlightByKey.delete(key); });
-  inFlightByKey.set(key, p);
-  try {
-    const fresh = await p;
-    caches.set(key, fresh);
-    return fresh;
-  } catch (err) {
-    if (cache) {
-      console.warn(`[codex:catalog] refresh failed (${key}); serving stale cache:`, err instanceof Error ? err.message : err);
-      return { ...cache, fresh: false };
+  const p = (async () => {
+    try {
+      const fresh = await fetchCodexCatalog(codexHome);
+      caches.set(key, fresh);
+      return fresh;
+    } catch (err) {
+      if (cache) {
+        console.warn(`[codex:catalog] refresh failed (${key}); serving stale cache:`, err instanceof Error ? err.message : err);
+        return { ...cache, fresh: false };
+      }
+      console.warn(`[codex:catalog] no cache and fetch failed (${key}):`, err instanceof Error ? err.message : err);
+      return { fetchedAt: now, models: [], fresh: false };
     }
-    console.warn(`[codex:catalog] no cache and fetch failed (${key}):`, err instanceof Error ? err.message : err);
-    return { fetchedAt: now, models: [], fresh: false };
-  }
+  })().finally(() => { inFlightByKey.delete(key); });
+  inFlightByKey.set(key, p);
+  return p;
 }
 
 // Synchronous capability lookup for hot paths (mapEffort during turn/start

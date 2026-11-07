@@ -8,7 +8,7 @@
 // and letting Codex choose its own default.
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
+import { resolveCodexHome } from './codexHome.js';
 import * as path from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
 
@@ -36,7 +36,7 @@ export function readCodexContextMetadata(
   model: string,
   codexHome?: string,
 ): CodexContextMetadata | null {
-  const cachePath = path.join(codexHome ?? path.join(os.homedir(), '.codex'), 'models_cache.json');
+  const cachePath = path.join(resolveCodexHome(codexHome), 'models_cache.json');
   try {
     const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8')) as { models?: RawModel[] };
     const entry = parsed.models?.find((candidate) => candidate.slug === model || candidate.id === model);

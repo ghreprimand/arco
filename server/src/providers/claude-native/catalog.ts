@@ -121,21 +121,23 @@ export async function getCatalog(force = false): Promise<ClaudeCatalogSnapshot> 
   const now = Date.now();
   if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS) return cache;
   if (inFlight) return inFlight;
-  inFlight = fetchCatalog().finally(() => { inFlight = null; });
-  try {
-    const fresh = await inFlight;
-    cache = fresh;
-    return fresh;
-  } catch (err) {
-    if (cache) {
-      console.warn('[claude-native:catalog] refresh failed; serving stale cache:', err instanceof Error ? err.message : err);
-      return { ...cache, fresh: false };
+  inFlight = (async () => {
+    try {
+      const fresh = await fetchCatalog();
+      cache = fresh;
+      return fresh;
+    } catch (err) {
+      if (cache) {
+        console.warn('[claude-native:catalog] refresh failed; serving stale cache:', err instanceof Error ? err.message : err);
+        return { ...cache, fresh: false };
+      }
+      // No cache to fall back on. Return an empty snapshot; the UI uses
+      // the compile-time CLAUDE_MODELS list as a baseline.
+      console.warn('[claude-native:catalog] no auth and no cache:', err instanceof Error ? err.message : err);
+      return { fetchedAt: now, models: [], fresh: false };
     }
-    // No cache to fall back on. Return an empty snapshot; the UI uses
-    // the compile-time CLAUDE_MODELS list as a baseline.
-    console.warn('[claude-native:catalog] no auth and no cache:', err instanceof Error ? err.message : err);
-    return { fetchedAt: now, models: [], fresh: false };
-  }
+  })().finally(() => { inFlight = null; });
+  return inFlight;
 }
 
 async function fetchCatalog(): Promise<ClaudeCatalogSnapshot> {

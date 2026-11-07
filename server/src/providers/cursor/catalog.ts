@@ -60,19 +60,21 @@ export async function getCursorCatalog(force = false): Promise<CursorCatalogSnap
   const now = Date.now();
   if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS) return cache;
   if (inFlight) return inFlight;
-  inFlight = fetchCursorCatalog().finally(() => { inFlight = null; });
-  try {
-    const fresh = await inFlight;
-    cache = fresh;
-    return fresh;
-  } catch (err) {
-    if (cache) {
-      console.warn('[cursor:catalog] refresh failed; serving stale cache:', err instanceof Error ? err.message : err);
-      return { ...cache, fresh: false };
+  inFlight = (async () => {
+    try {
+      const fresh = await fetchCursorCatalog();
+      cache = fresh;
+      return fresh;
+    } catch (err) {
+      if (cache) {
+        console.warn('[cursor:catalog] refresh failed; serving stale cache:', err instanceof Error ? err.message : err);
+        return { ...cache, fresh: false };
+      }
+      console.warn('[cursor:catalog] no cache and fetch failed:', err instanceof Error ? err.message : err);
+      return { fetchedAt: now, models: [], fresh: false };
     }
-    console.warn('[cursor:catalog] no cache and fetch failed:', err instanceof Error ? err.message : err);
-    return { fetchedAt: now, models: [], fresh: false };
-  }
+  })().finally(() => { inFlight = null; });
+  return inFlight;
 }
 
 // Kick a refresh in the background. Idempotent — the inFlight guard prevents

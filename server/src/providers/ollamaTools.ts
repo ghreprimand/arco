@@ -1,7 +1,7 @@
 import { requestWithDeadline } from './requestDeadline.js';
 
 import { promises as fs } from 'node:fs';
-import { resolve, relative, isAbsolute, join } from 'node:path';
+import { resolve, relative, isAbsolute, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
 import { signalChildTree, spawnShellChild } from '../workers/processKill.js';
@@ -402,7 +402,7 @@ const WriteTool: OllamaToolEntry = {
     }
     // mkdir -p the parent. join + dirname avoid resolving outside cwd
     // because resolveWithinCwd already validated `abs`.
-    const parent = abs.slice(0, abs.lastIndexOf('/'));
+    const parent = dirname(abs);
     if (parent && parent !== resolve(ctx.cwd)) {
       await fs.mkdir(parent, { recursive: true });
     }

@@ -51,6 +51,7 @@ export const providers: Section[] = [
   title: 'Claude',
   body: (
   <>
+  <p>Native Read keeps the partial-read warning when output is capped. A complete later read clears it. Grep reports invalid patterns and search failures as errors. If Bash cannot save full output, its newest tail remains available and the result explains the storage failure. Registry MCP schemas retain their referenced definitions.</p>
   <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
   <p>
   CLI version and help checks stop after five seconds when a process stalls.
@@ -345,6 +346,7 @@ export const providers: Section[] = [
   title: 'Codex',
   body: (
   <>
+  <p>Context and code-mode metadata follow the selected account home, then <Code>CODEX_HOME</Code>, then the CLI default. Concurrent catalog refresh failures use the same saved snapshot or normal picker fallback for every caller.</p>
   <p>
   Codex is OpenAI&apos;s Codex CLI, with frontier-tier reasoning and native
   thread_id resume. Use it as a primary or as a cross-family reviewer.
@@ -648,6 +650,7 @@ export const providers: Section[] = [
   title: 'Ollama (local models)',
   body: (
   <>
+  <p>Fenced tool mode keeps plan checkbox changes callable. Ordinary code and JSON examples remain answers; explicit malformed tool blocks still report argument errors. Native and local Write create nested parent directories on Windows. HTTP throttling can advance a configured fallback chain for a bounded job; context overflow stays on context recovery.</p>
   <p>
   Ollama runs models locally: no subscription, no rate limits, no remote
   calls. It is bound by local GPU/RAM and the capabilities of the models

@@ -115,7 +115,7 @@ const FENCE_TAG = 'tool';
 // LE-5's richer idea: when native tools are OFF, that's also when you fall back
 // to PROMPT-INJECTING context instead of exposing it as a tool. A weak non-tool
 // model is unreliable at remembering to emit a fenced `peer_read` block to poll
-// its mailbox or `cluster_plan_tick` to see the plan — but Arco ALREADY
+// its mailbox or `cluster_plan_read` to see the plan - but Arco already
 // injects the cluster plan + role hints into the (stable) system block via
 // appendSystemPrompt (CLAUDE.md: "Plan + role hints flow as forced system
 // blocks"). So on the fenced path those cluster CONTEXT-READER tools are better
@@ -134,7 +134,6 @@ const FENCE_TAG = 'tool';
 const FENCED_CONTEXT_READER_TOOLS: ReadonlySet<string> = new Set([
   'peer_read',        // pending mailbox — surfaced via injected plan/role context
   'peer_list',        // roster — small + stable, belongs in injected context
-  'cluster_plan_tick', // plan/progress — already injected via appendSystemPrompt
   'cluster_plan_read', // full plan body — injected (Ollama path injects the full plan, never the outline)
 ]);
 
@@ -249,10 +248,10 @@ export interface ParsedFencedCall {
 //   - either fence char (``` or ~~~), 3+ of them
 //   - any (or no) language tag on the opening fence
 //   - leading whitespace before the fence (small models indent)
-// Captures the block body (group 1). The `[\s\S]*?` is non-greedy so adjacent
+// Captures the language tag (group 1) and block body (group 2). The `[\s\S]*?` is non-greedy so adjacent
 // blocks don't merge. We do NOT require the FENCE_TAG tag — a model that drops
 // it or writes ```json still parses (robustness to drift).
-const FENCE_RE = /(?:^|\n)[ \t]*(?:```|~~~)[^\n]*\n([\s\S]*?)\n[ \t]*(?:```|~~~)/g;
+const FENCE_RE = /(?:^|\n)[ \t]*(?:```|~~~)([^\n]*)\n([\s\S]*?)\n[ \t]*(?:```|~~~)/g;
 
 // Extract a JSON object substring from arbitrary text by brace-matching from the
 // first `{`. Mirrors open-webui's brace-slice for non-streaming tool-model
@@ -370,19 +369,19 @@ export function parseFencedToolCalls(
   let sawFence = false;
   while ((m = FENCE_RE.exec(text)) !== null) {
     sawFence = true;
-    const body = m[1];
+    const explicitTool = m[1].trim().toLowerCase() === FENCE_TAG;
+    const body = m[2];
     const slice = sliceFirstJsonObject(body) ?? body.trim();
     let parsed: unknown;
     try { parsed = JSON.parse(slice); } catch { parsed = undefined; }
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const call = coerceCall(parsed as Record<string, unknown>, knownTool);
-      if (call) calls.push(call);
-      else calls.push({ name: '', arguments: {}, argError: 'fenced block JSON had no recognizable tool "name"' });
+      if (call && (explicitTool || (knownTool && knownTool(call.name)))) calls.push(call);
+      else if (explicitTool) calls.push({ name: '', arguments: {}, argError: 'fenced block JSON had no recognizable tool "name"' });
     } else {
-      // A fenced block the model clearly meant as a call (it emitted the fence)
-      // but whose body wasn't valid JSON — surface as an argError so the model
-      // gets feedback rather than silent no-op. Skip empty/whitespace bodies.
-      if (slice.trim()) {
+      // An explicit tool block whose body was not valid JSON gets argument
+      // feedback rather than silent no-op. Skip empty/whitespace bodies.
+      if (explicitTool && slice.trim()) {
         calls.push({ name: '', arguments: {}, argError: `fenced tool block was not valid JSON: ${slice.slice(0, 80)}` });
       }
     }

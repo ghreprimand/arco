@@ -424,7 +424,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         the effective size. Applies next turn on both exec and app-server (an
         app-server child recycles and resumes the same thread). The CTX meter
         prefers Codex&apos;s own reported window; missing catalog metadata falls
-        back to Codex defaults.
+        back to Codex defaults. The metadata home follows the selected account, then <C>CODEX_HOME</C>, then the CLI default.
       </p>
     ),
     manualSection: 'config-tab',

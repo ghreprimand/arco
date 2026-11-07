@@ -10,7 +10,7 @@
 // that drops it stops matching.
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
+import { resolveCodexHome } from './codexHome.js';
 import * as path from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
 import { buildClusterDirectorDoctrine } from '../clusterDirector.js';
@@ -30,7 +30,7 @@ interface CacheSlot {
 const cache = new Map<string, CacheSlot>();
 
 function modelsCachePath(codexHome?: string): string {
-  return path.join(codexHome ?? path.join(os.homedir(), '.codex'), 'models_cache.json');
+  return path.join(resolveCodexHome(codexHome), 'models_cache.json');
 }
 
 function readModels(codexHome?: string): Map<string, CodeModeEntry> | null {

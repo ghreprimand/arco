@@ -15,7 +15,7 @@
 
 import { promises as fs, openSync, writeSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, relative, join, isAbsolute } from 'node:path';
+import { resolve, relative, join, isAbsolute, dirname } from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { resolveWithinCwd } from '../ollamaTools.js';
 import { readBuiltinVirtualFile } from '../../skills.js';
@@ -283,7 +283,8 @@ const ReadTool: Entry = {
       const end = limit === undefined ? lines.length : Math.min(start + limit, lines.length);
       body = lines.slice(start, end).join('\n');
     }
-    if (body.length > READ_BYTE_CAP) {
+    const truncated = body.length > READ_BYTE_CAP;
+    if (truncated) {
       const note = totalLines > 0
         ? `\n\n[truncated at ${READ_BYTE_CAP} bytes — file has ${totalLines} lines; use offset+limit to read a smaller range]`
         : `\n\n[truncated at ${READ_BYTE_CAP} bytes — pass offset+limit to read a specific line range]`;
@@ -292,7 +293,7 @@ const ReadTool: Entry = {
     ctx.readSet.add(abs);
     // H62 — flag a partial read (offset/limit) so a later full-file Write warns;
     // a FULL read clears any prior partial flag (the model has now seen it all).
-    const partial = offset > 1 || limit !== undefined;
+    const partial = offset > 1 || limit !== undefined || truncated;
     if (partial) ctx.partialReadSet?.add(abs);
     else ctx.partialReadSet?.delete(abs);
     return body;
@@ -329,7 +330,7 @@ const WriteTool: Entry = {
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
       }
-      const parent = abs.slice(0, abs.lastIndexOf('/'));
+      const parent = dirname(abs);
       if (parent && parent !== resolve(ctx.cwd)) {
         await fs.mkdir(parent, { recursive: true });
       }
@@ -437,14 +438,16 @@ async function runRipgrep(
   cwd: string,
   opts: { ci: boolean; filesOnly: boolean },
 ): Promise<string> {
-  const args: string[] = ['--no-messages', '--no-heading'];
+  const args: string[] = ['--no-heading'];
   if (opts.ci) args.push('-i');
   if (opts.filesOnly) args.push('-l');
   else args.push('-n', '-H');
   args.push('-e', pattern, baseAbs);
 
-  return new Promise((resolveP) => {
+  return new Promise((resolveP, rejectP) => {
     const child = spawn(bin, args, { cwd });
+    let stderr = '';
+    child.stderr.on('data', (buf: Buffer) => { stderr = (stderr + buf.toString('utf8')).slice(-16 * 1024); });
     const chunks: Buffer[] = [];
     let bytes = 0;
     let capped = false;
@@ -461,8 +464,12 @@ async function runRipgrep(
         if (!killed) { killed = true; try { child.kill('SIGTERM'); } catch { /* gone */ } }
       }
     });
-    child.on('error', () => resolveP('(rg failed to spawn)'));
-    child.on('close', () => {
+    child.on('error', rejectP);
+    child.on('close', (code, signal) => {
+      if (!capped && code !== 0 && code !== 1) {
+        rejectP(new Error(`rg failed (${code ?? signal ?? 'unknown'}): ${stderr.trim() || 'no diagnostic output'}`));
+        return;
+      }
       const raw = Buffer.concat(chunks).toString('utf8');
       // Rewrite absolute paths to cwd-relative for parity with JS walker.
       const rel = raw.split('\n').map((line) => {
@@ -519,6 +526,7 @@ const GrepTool: Entry = {
     const filesOnly = asOptBool(args.files_only, 'files_only') ?? false;
     const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
 
+    await fs.stat(baseAbs);
     if (RIPGREP_BIN) {
       return runRipgrep(RIPGREP_BIN, pattern, baseAbs, ctx.cwd, { ci, filesOnly });
     }
@@ -640,7 +648,14 @@ async function runBashForeground(
       const p = join(tmpdir(), `arco-bash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.txt`);
       const fd = openSync(p, 'w');
       spillFd = fd;
-      return { path: p, write: (b: Buffer) => { try { writeSync(fd, b); } catch { /* disk full / closed — keep the tail */ } } };
+      return { path: p, write: (b: Buffer) => {
+        let offset = 0;
+        while (offset < b.length) {
+          const written = writeSync(fd, b, offset, b.length - offset);
+          if (written <= 0) throw new Error('spill write made no progress');
+          offset += written;
+        }
+      } };
     };
     const acc = new OutputAccumulator({
       tailByteBudget: MAX_TOOL_OUTPUT_BYTES,
@@ -673,6 +688,7 @@ async function runBashForeground(
         const full = r.spillPath ? `; full output saved to ${r.spillPath} (read it with the Read tool if you need the head)` : '';
         parts.push(`[output truncated — showing the last ~${tailKb} KB of ${total}${full}]`);
       }
+      if (r.spillError) parts.push(`[full output unavailable: ${r.spillError}; only the bounded tail was retained]`);
       parts.push(exitDescription);
       const body = r.text.trimEnd();
       if (body) parts.push('--- output (stdout+stderr) ---', body);

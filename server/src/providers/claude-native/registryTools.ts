@@ -56,6 +56,7 @@ function sanitizeInputSchema(
     return { schema: { type: 'object', properties: {} }, droppedKeys };
   }
   const next: Record<string, unknown> = { ...raw };
+  delete next.required;
   for (const k of FORBIDDEN_TOP_LEVEL) {
     if (k in next) { delete next[k]; droppedKeys.push(k); }
   }
@@ -64,11 +65,12 @@ function sanitizeInputSchema(
   const properties = (next.properties && typeof next.properties === 'object')
     ? (next.properties as Record<string, unknown>)
     : {};
-  const required = Array.isArray(next.required)
-    ? (next.required as unknown[]).filter((r): r is string => typeof r === 'string')
+  const required = Array.isArray(raw.required)
+    ? (raw.required as unknown[]).filter((r): r is string => typeof r === 'string')
     : undefined;
   return {
     schema: {
+      ...next,
       type: 'object',
       properties,
       ...(required && required.length > 0 ? { required } : {}),

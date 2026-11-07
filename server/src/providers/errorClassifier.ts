@@ -63,9 +63,14 @@ function asNumber(v: unknown): number | undefined {
 // Pull a status code and a flat lowercased text haystack out of whatever shape
 // the provider threw: a raw string, an Error, an Anthropic/OpenAI-style
 // `{ status, error: { type, message } }`, or a Codex `{ code, message }`.
+function envelopeStatus(text: string): number | undefined {
+  const match = /^(?:(?:LM Studio|Strata|DeepSeek(?: \(Xolotl\))?|llama-server|Ollama) )?HTTP ([1-5]\d{2})(?=[:\s(]|$)/i.exec(text);
+  return match ? Number(match[1]) : undefined;
+}
+
 function normalize(err: unknown): NormalizedError {
   if (err == null) return { text: '' };
-  if (typeof err === 'string') return { text: err.toLowerCase() };
+  if (typeof err === 'string') return { text: err.toLowerCase(), status: envelopeStatus(err) };
 
   const parts: string[] = [];
   let status: number | undefined;
@@ -111,7 +116,7 @@ function normalize(err: unknown): NormalizedError {
     visit(err, 0);
   }
 
-  return { status, text: parts.join(' ').toLowerCase() };
+  return { status: status ?? parts.map(envelopeStatus).find((value) => value !== undefined), text: parts.join(' ').toLowerCase() };
 }
 
 function has(text: string, ...needles: string[]): boolean {

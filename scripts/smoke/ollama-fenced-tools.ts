@@ -211,13 +211,13 @@ const { action, contextInjected } = partitionFencedTools(fullCluster);
 const actionNames = action.map((t) => t.function.name);
 const ctxNames = contextInjected.map((t) => t.function.name);
 check('cluster context readers partitioned OUT of the action protocol',
-  ['peer_read', 'peer_list', 'cluster_plan_tick'].every((n) => ctxNames.includes(n)));
-check('peer_send (action) stays in the action protocol',
-  actionNames.includes('peer_send'));
+  ['peer_read', 'peer_list'].every((n) => ctxNames.includes(n)));
+check('peer_send and plan checkbox mutations stay in the action protocol',
+  ['peer_send', 'cluster_plan_tick'].every((n) => actionNames.includes(n)));
 check('file/shell tools stay in the action protocol',
   ['Read', 'Grep', 'Glob', 'Bash'].every((n) => actionNames.includes(n)));
 check('fenced protocol block omits the context readers',
-  ['peer_read', 'cluster_plan_tick'].every((n) => !buildFencedToolPrompt(action).includes(`- ${n} `)));
+  ['peer_read', 'peer_list'].every((n) => !buildFencedToolPrompt(action).includes(`- ${n} `)));
 // Non-cluster subset has no context readers → partition is a no-op.
 const { contextInjected: noCtx } = partitionFencedTools(fullNoCluster);
 check('non-cluster subset → no context readers to inject', noCtx.length === 0);

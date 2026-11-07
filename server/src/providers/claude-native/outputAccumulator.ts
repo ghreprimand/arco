@@ -42,6 +42,8 @@ export interface AccumulatorResult {
   truncatedBy: 'bytes' | 'lines' | null;
   // Absolute path to the complete-from-byte-0 spill file, when one was opened.
   spillPath?: string;
+  // Full-output retention failed; only the bounded tail remains trustworthy.
+  spillError?: string;
 }
 
 const UTF8_CONTINUATION_MASK = 0xc0;
@@ -59,6 +61,7 @@ export class OutputAccumulator {
   private preSpill: Buffer[] = [];
   private preSpillBytes = 0;
   private spillOpened = false;
+  private spillError?: string;
 
   constructor(opts: OutputAccumulatorOpts) {
     this.opts = opts;
@@ -69,28 +72,36 @@ export class OutputAccumulator {
     this.totalBytes += chunk.length;
     for (let i = 0; i < chunk.length; i++) if (chunk[i] === 0x0a) this.totalLines++;
 
-    // Spill: open lazily once we cross the threshold, flushing everything seen
-    // so far so the file starts at byte 0.
-    if (this.opts.openSpill) {
-      if (!this.spillOpened) {
-        this.preSpill.push(chunk);
-        this.preSpillBytes += chunk.length;
-        if (this.totalBytes > this.opts.spillThresholdBytes) {
-          this.sink = this.opts.openSpill();
-          this.spillOpened = true;
-          for (const b of this.preSpill) this.sink.write(b);
-          this.preSpill = [];
-          this.preSpillBytes = 0;
-        }
-      } else if (this.sink) {
-        this.sink.write(chunk);
-      }
-    }
-
     // Bounded RAM tail: append, then trim from the front to the byte budget.
     this.tail = this.tail.length === 0 ? Buffer.from(chunk) : Buffer.concat([this.tail, chunk]);
     if (this.tail.length > this.opts.tailByteBudget) {
       this.tail = this.tail.subarray(this.tail.length - this.opts.tailByteBudget);
+    }
+    // Spill: open lazily once we cross the threshold, flushing everything seen
+    // so far so the file starts at byte 0.
+    try {
+      if (this.opts.openSpill && !this.spillError) {
+        if (!this.spillOpened) {
+          this.preSpill.push(chunk);
+          this.preSpillBytes += chunk.length;
+          if (this.totalBytes > this.opts.spillThresholdBytes) {
+            this.sink = this.opts.openSpill();
+            this.spillOpened = true;
+            for (const b of this.preSpill) this.sink.write(b);
+            this.preSpill = [];
+            this.preSpillBytes = 0;
+          }
+        } else if (this.sink) {
+          this.sink.write(chunk);
+        }
+      }
+
+    } catch (error) {
+      this.spillError = (error instanceof Error ? error.message : String(error)) || 'spill unavailable';
+      this.sink = null;
+      this.spillOpened = true;
+      this.preSpill = [];
+      this.preSpillBytes = 0;
     }
   }
 
@@ -127,6 +138,7 @@ export class OutputAccumulator {
       truncated,
       truncatedBy,
       ...(this.sink ? { spillPath: this.sink.path } : {}),
+      ...(this.spillError ? { spillError: this.spillError } : {}),
     };
   }
 }

@@ -122,6 +122,10 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
+
+Registry MCP schemas keep their definitions and validation metadata, including local references. Unsupported top-level `oneOf`, `allOf` and `anyOf` are still removed before Native requests.
+
 ### Chat-mode execution contract
 
 `WorkerConfig.interactionMode:'chat'` is a hard tool boundary shared by the
@@ -721,6 +725,8 @@ Default `unicode61` tokenizer (no stopwords - 'added' / 'fix' / 'the' all retain
 
 ## Codex
 
+Context-window and code-mode metadata use the selected account home first, then `CODEX_HOME`, then the CLI default home. MAX therefore reads the same account metadata as the spawned CLI. Concurrent Native, Codex and Cursor catalog refreshes share the complete fallback result: unavailable catalogs return their last snapshot or an empty result for the normal picker fallback.
+
 Two transports ship side-by-side, selected per-tab via `codex.transport`. New Arco homes use `appserver`; the home and project settings cascade can select either transport, and a per-tab choice takes precedence. Existing cascade and per-tab choices remain unchanged. Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart.
 
 Reviewers and handoff seed turns always run on `exec` regardless of the tab's transport - the per-workflow appserver child is too heavy for one-shot reviewer paths and there's no reviewer feature that benefits from mid-turn steer.
@@ -1289,6 +1295,7 @@ The applied `options` envelope is the **single insertion point** and is prefix-c
 
 - **`resolveToolMode`** gates on the model's probed `tools` capability (`/api/show`): `'native'` (advertise `tools[]`, parse native `tool_calls` - behavior before native tool-call support for capable models), `'fenced'` (inject the protocol, parse fenced blocks), `'none'` (no tools - no cwd / one-shot / structured `format`). Override: `ARCO_OLLAMA_TOOL_MODE = auto|native|fenced`.
 - **Protocol.** A ` ```tool ` / ` ~~~tool ` fenced block holding a JSON object, folded **into the system block** (prefix-cache-stable + counted by the context-fill estimator for free - the fenced-prompt text rides every request where native schemas would). `buildFencedToolPrompt` is a **pure** function of the (already-subsetted, already-stable) tool list.
+- Only explicit `tool` fences or recognized tool-call shapes request an action. Ordinary code and JSON examples remain answer text; malformed explicit tool blocks still return an argument error. `cluster_plan_tick` stays callable because changing a checkbox is a mutation, while plan readers remain injected context.
 - Robust parser (fence → brace-slice → key-drift → bare-JSON fallback, with `argError` feedback). Parsed calls reuse the native `dispatchToolCalls` path; results are reframed as labeled `role:'user'` messages. The action-vs-context split: context-reader tools stay prompt-injected rather than exposed as callable tools.
 
 ### Model-lifecycle console
@@ -1895,6 +1902,8 @@ Smoke: `npm run smoke:error-classify` (pure unit - no WS, no server boot).
 ---
 
 ## Provider fallback chains
+
+HTTP provider error envelopes retain their status when passed through text results. A 429 can advance to the next configured bounded-job provider; a 413 stays on context recovery, and transient server errors retain their retry classification. Ordinary prose containing an HTTP example does not supply a status.
 
 `server/src/providers/fallbackChain.ts` runs a **bounded job** (a reviewer or a
 research leg - never a live operator conversation) across an ordered list of
