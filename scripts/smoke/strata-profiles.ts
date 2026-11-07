@@ -11,8 +11,8 @@ import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'arco-strata-profiles-'));
-  const models = ['qwen-original-fixture', 'qwen-abliterated-fixture'];
-  const units = ['strata-fixture@original.service', 'strata-fixture@abliterated.service'];
+  const models = ['profile-a-fixture', 'profile-b-fixture'];
+  const units = ['strata-fixture@profile-a.service', 'strata-fixture@profile-b.service'];
   const stateFile = join(dir, 'runtime.json');
   writeFileSync(stateFile, JSON.stringify({ index: 0, calls: [] }));
   const state = () => JSON.parse(readFileSync(stateFile, 'utf8'));
@@ -50,7 +50,7 @@ async function main() {
   const profiles = models.map((model, i) => {
     const config = join(dir, `config-${i}.json`);
     writeFileSync(config, JSON.stringify({ model_name: model, exe: prepared, tokenizer: prepared, args: ['--max-context', '262144', '--pack', prepared, '--native', prepared, '--ple-gguf', prepared, '--vision'], vision: { exe: prepared, model: prepared, mmproj: prepared } }));
-    return { id: i ? 'abliterated' : 'original', model, label: i ? 'SC117 Abliterated' : 'Original', unit: units[i], config };
+    return { id: i ? 'profile-b' : 'profile-a', model, label: i ? 'Profile B' : 'Profile A', unit: units[i], config };
   });
   const registryFile = join(home, '.arco/strata-profiles.json');
   writeFileSync(registryFile, JSON.stringify({ baseUrl: base, launcher: { python: '/usr/bin/python3', script: preflight }, profiles }));
@@ -88,7 +88,7 @@ globalThis.fetch = (url, init) => {
     assert(ready, `Server never became ready: ${dir}`);
     const auth = await (await fetch(`${api}/api/auth-status`)).json() as any;
     assert.deepEqual(auth.strata.installedModels, models);
-    assert.equal(auth.strata.installedModelLabels[models[1]], 'SC117 Abliterated');
+    assert.equal(auth.strata.installedModelLabels[models[1]], 'Profile B');
     for (const model of models) assert.deepEqual(auth.strata.installedModelCapabilities[model], { tools: true, thinking: true, vision: true, numCtx: 262144 });
     c = await connect(`ws://127.0.0.1:${port}/ws`);
     const ids: string[] = [];
@@ -96,10 +96,10 @@ globalThis.fetch = (url, init) => {
       c.send({ type: 'create_workflow', config: { kind: 'chat', name: 'Strata profile smoke', primaryProvider: 'strata', primaryModel: model, primaryEffort: 'none', workingDirectory: '', chatWebAccess: false } });
       ids.push(String((await c.waitFor((m) => m.type === 'workflow_created', 10000)).workflowId));
     }
-    c.send({ type: 'user_message', workflowId: ids[0], content: 'Hold original turn.' });
+    c.send({ type: 'user_message', workflowId: ids[0], content: 'Hold the first turn.' });
     for (let i = 0; i < 80 && !pending; i++) await new Promise((r) => setTimeout(r, 100));
     assert(pending);
-    c.send({ type: 'user_message', workflowId: ids[1], content: 'Use abliterated.' });
+    c.send({ type: 'user_message', workflowId: ids[1], content: 'Use profile B.' });
     await c.waitFor((m) => m.type === 'system_notice' && m.workflowId === ids[1] && String(m.content).includes('queued'), 10000);
     assert.equal(requests.length, 1); assert.deepEqual(state().calls, []);
     complete(pending, models[0]); pending = undefined;
@@ -110,7 +110,7 @@ globalThis.fetch = (url, init) => {
     c.send({ type: 'update_primary_config', workflowId: ids[1], model: models[0] });
     await c.waitFor((m) => m.type === 'workflow_config_synced' && m.workflowId === ids[1], 10000);
     assert.equal(state().index, 1, 'selection alone does not load weights');
-    c.send({ type: 'user_message', workflowId: ids[1], content: 'Now use original in the same conversation.' });
+    c.send({ type: 'user_message', workflowId: ids[1], content: 'Now use profile A in the same conversation.' });
     await c.waitFor((m) => m.type === 'primary_complete' && m.workflowId === ids[1], 15000);
     assert.deepEqual(state().calls, ['stop 0', 'start 1', 'stop 1', 'start 0']);
     assert.equal(requests[2].model, models[0]);

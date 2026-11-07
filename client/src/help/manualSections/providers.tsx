@@ -867,9 +867,8 @@ export const providers: Section[] = [
   model&apos;s actual configured context and image support.
   </p>
   <p>
-  The prepared local catalog offers <strong>Original · 262K</strong> and
-  <strong> SC117 Abliterated · 262K</strong>, both IQ3_XXS with CPU vision
-  and 262144 tokens.
+  The local profile registry lists each prepared profile by its label, with
+  its context window, even while it is not loaded.
   </p>
   <Sub>Switching models</Sub>
   <ol>
@@ -929,10 +928,6 @@ export const providers: Section[] = [
   upstream engine component versions every four hours. Click opens release
   notes inside Arco, with manual installation; the 0.2 app version is
   separate.
-  </p>
-  <p>
-  The SC117 selection is a compatibility/memory fit, not a measured universal
-  quality winner.
   </p>
   <p>
   See the manual sections <strong>Strata MoE - RAM, VRAM and context</strong>

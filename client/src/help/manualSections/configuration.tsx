@@ -609,7 +609,7 @@ export const configuration: Section[] = [
   last available catalog or its fallback list, and the server keeps running.
   </li>
   <li>
-  Strata lists prepared Original/SC117 profiles and loads the selection for
+  Strata lists its prepared local profiles and loads the selection for
   the next message while keeping the conversation; one profile is resident at
   a time.
   </li>

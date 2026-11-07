@@ -724,8 +724,8 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Specific model within the provider. Populated from the capability
         probe. Agent tabs can change it later from CONFIG; Chat tabs swap it
-        from the header model picker (same provider). Strata adds prepared Original
-        and SC117 Abliterated profiles; the next message loads the chosen profile
+        from the header model picker (same provider). Strata adds its prepared
+        local profiles; the next message loads the chosen profile
         and retains history, with only one model resident. For <b>Cursor</b>, this is a two-part picker: choose the model
         <i>family</i> (Opus, Grok, GPT-5.x Sol and others) then its <i>effort</i>, with
         optional <b>FAST</b> / <b>THINK</b> toggles: Cursor bakes effort into

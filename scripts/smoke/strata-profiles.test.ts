@@ -8,7 +8,7 @@ import { probeStrata } from '../../server/src/providers/strata.js';
 import { beginLocalModelUnload, localModelsUnloading } from '../../server/src/providers/localModelControl.js';
 
 const base = 'http://127.0.0.1:8081/v1';
-const profiles = ['original', 'abliterated'].map((id) => ({ id, model: `qwen-${id}`, label: id, config: `/config/${id}`, unit: `strata-fixture@${id}.service`, capabilities: { tools: true, thinking: true, vision: true, numCtx: 262144 } }));
+const profiles = ['profile-a', 'profile-b'].map((id) => ({ id, model: `fixture-${id}`, label: id, config: `/config/${id}`, unit: `strata-fixture@${id}.service`, capabilities: { tools: true, thinking: true, vision: true, numCtx: 262144 } }));
 const registry: StrataProfileRegistry = { baseUrl: base, launcher: { python: '/python', script: '/launcher' }, profiles };
 function fixture() {
   const calls: string[] = [], notices: string[] = [];
@@ -32,7 +32,7 @@ function fixture() {
 test('switch stops only registered old unit, then starts and verifies selected weights', async () => {
   const f = fixture(); await f.run();
   assert.deepEqual(f.calls, ['preflight', `stop ${profiles[0].unit}`, `start ${profiles[1].unit}`]);
-  assert.match(f.notices.at(-1)!, /ready: abliterated/);
+  assert.match(f.notices.at(-1)!, /ready: profile-b/);
   await f.run(profiles[0].model);
   assert.deepEqual(f.calls.slice(3), ['preflight', `stop ${profiles[1].unit}`, `start ${profiles[0].unit}`]);
   assert(!localModelsUnloading());
@@ -67,7 +67,7 @@ test('failed target start restores the previous profile and its unloaded state',
   f.deps.control = async (action, unit) => { if (action === 'start' && unit === profiles[1].unit) { f.calls.push('failed start'); throw new Error('insufficient VRAM'); } await control(action, unit); };
   await assert.rejects(f.run(), /insufficient VRAM/);
   assert.deepEqual(f.calls, ['preflight', `stop ${profiles[0].unit}`, 'failed start', `stop ${profiles[1].unit}`, `start ${profiles[0].unit}`, 'unload']);
-  assert.match(f.notices.at(-1)!, /restored: original/); assert(!localModelsUnloading());
+  assert.match(f.notices.at(-1)!, /restored: profile-a/); assert(!localModelsUnloading());
 });
 test('cancel after old service stopped rolls back before releasing the local-model gate', async () => {
   const f = fixture(), abort = new AbortController();
@@ -80,7 +80,7 @@ test('cancel after old service stopped rolls back before releasing the local-mod
 test('ready response must match the selected model; mismatch rolls back', async () => {
   const f = fixture(); const control = f.deps.control;
   f.deps.control = async (action, unit) => { if (action === 'start' && unit === profiles[1].unit) { f.calls.push('wrong model'); return; } await control(action, unit); };
-  await assert.rejects(f.run(), /load timeout|service stopped/); assert.match(f.notices.at(-1)!, /restored: original/);
+  await assert.rejects(f.run(), /load timeout|service stopped/); assert.match(f.notices.at(-1)!, /restored: profile-a/);
 });
 test('registry discovers prepared context/vision while offline and rejects mismatched model IDs', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'arco-profile-registry-'));
@@ -97,7 +97,7 @@ test('registry discovers prepared context/vision while offline and rejects misma
   t.mock.method(globalThis, 'fetch', async () => { throw new Error('offline'); });
   const offline = await probeStrata();
   assert(offline.up); assert.deepEqual(offline.models, [profiles[0].model]);
-  assert.equal(offline.labels?.[profiles[0].model], 'original');
+  assert.equal(offline.labels?.[profiles[0].model], 'profile-a');
   assert.deepEqual(offline.capabilities?.[profiles[0].model], profiles[0].capabilities);
   t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [{ id: profiles[0].model, meta: { n_ctx: 131072 }, architecture: { input_modalities: ['text'] } }] }));
   const live = await probeStrata();

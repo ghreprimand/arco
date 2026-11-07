@@ -502,7 +502,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           catalog or its fallback list, and the server keeps running.
           Codex pills show each model's one-line description on hover. Takes
           effect on the next turn; same-provider swaps don't rotate the session.
-          Strata lists prepared Original/SC117 profiles: one is resident at a
+          Strata lists its prepared local profiles: one is resident at a
           time, and the next message loads your selection after the current
           Strata turn and its tools finish.
           Provider swaps need a Handoff because the CLI session UUID is

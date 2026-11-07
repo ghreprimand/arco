@@ -82,7 +82,7 @@ export const strataGuide: Section[] = [
   <Sub>Only one model in the list</Sub>
   <p>
   The service normally advertises one served model. Arco&apos;s optional local
-  profile registry adds the prepared Original and SC117 Abliterated choices,
+  profile registry adds every prepared profile it lists,
   even while unloaded or stopped.
   </p>
   <ol>

@@ -31,7 +31,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Chat model', manualSection: 'chat-mode',
     body: <p>Swap the model for the next message without leaving the conversation. Same
       provider only: the history carries over. Reasoning effort clamps to what the new
-      model honours. Strata's Original/SC117 choices load on the next message,
+      model honours. Strata's prepared profiles load on the next message,
       one profile at a time, after any current Strata turn and tools finish.</p>,
   },
   'chat.effort': {

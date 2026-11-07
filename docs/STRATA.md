@@ -64,8 +64,8 @@ The memory layout matters more than the GGUF download total alone.
 | Image encoder | CPU or GPU component, depending on profile | Image work adds host memory/latency without using a GPU encoder. |
 
 These are different optimizations: moving unchanged data to another tier does
-not change its precision; quantization does. The installed IQ3_XXS weights and
-INT8 KV are precision choices. Abliteration changes model behavior. No claim
+not change its precision; quantization does. Weight quantization and KV-cache
+precision are precision choices; a modified model variant changes behavior. No claim
 of equivalence to full precision or of universally best quality follows from a
 successful load. Consult the current Strata repository documentation and the selected model documentation for engine and memory-format details.
 
