@@ -1,3 +1,4 @@
+import { systemdArg, systemdValue, systemdDirectory } from '../service/systemd.js';
 // arco-management — pure CLI arg parse + systemd unit render. Side-effect-free
 // so the smoke imports and asserts without an install. Mirrors agent/unit.ts.
 
@@ -84,7 +85,7 @@ export interface ManagementUnitOptions {
 export function renderManagementUnit(opts: ManagementUnitOptions): string {
   const restartSec = opts.restartSec ?? 3;
   const entry = posixJoin(opts.repoRoot, 'scripts', 'arco-management.ts');
-  const execStart = `npx tsx ${entry} serve --host ${opts.host} --port ${opts.port}`;
+  const execStart = [process.execPath, posixJoin(opts.repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs'), entry, 'serve', '--host', opts.host, '--port', String(opts.port)].map(systemdArg).join(' ');
   return [
     '[Unit]',
     'Description=arco-management — tailnet-only remote management hub',
@@ -96,9 +97,9 @@ export function renderManagementUnit(opts: ManagementUnitOptions): string {
     '',
     '[Service]',
     'Type=simple',
-    `WorkingDirectory=${opts.repoRoot}`,
+    `WorkingDirectory=${systemdDirectory(opts.repoRoot)}`,
     `ExecStart=${execStart}`,
-    `Environment=ARCO_HUB_KEY=${opts.privateKeyPath}`,
+    `Environment=${systemdValue(`ARCO_HUB_KEY=${opts.privateKeyPath}`)}`,
     'Restart=always',
     `RestartSec=${restartSec}`,
     '',

@@ -348,3 +348,5 @@ register/heartbeat/action/result message shapes, and the signed-envelope shape. 
 
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
+
+Source systemd units quote checkout and key paths, including spaces, and use the installed Node executable and local tsx entry. Reinstall a source unit to regenerate it after moving the checkout.

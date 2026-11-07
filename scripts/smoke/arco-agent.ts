@@ -240,8 +240,8 @@ async function main() {
     const unit = renderAgentUnit({ repoRoot: '/srv/arco', hubUrl: 'ws://hub:3500', publicKeyPath: '/h/hub.pub' });
     assert(unit.includes('Description=arco-agent'), 'has description');
     assert(unit.includes('Restart=always'), 'supervisor restarts always');
-    assert(unit.includes('Environment=ARCO_HUB_URL=ws://hub:3500'), 'bakes hub url');
-    assert(unit.includes('arco-agent.ts run'), 'execs the run subcommand');
+    assert(unit.includes('Environment="ARCO_HUB_URL=ws://hub:3500"'), 'bakes hub url');
+    assert(unit.includes('arco-agent.ts" "run"'), 'execs the run subcommand');
 
     const a = parseAgentArgs(['install', '--enable', '--hub', 'ws://x:1']);
     assertEq(a.command, 'install', 'parsed command');

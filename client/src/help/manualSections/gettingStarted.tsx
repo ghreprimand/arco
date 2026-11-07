@@ -121,6 +121,7 @@ export const gettingStarted: Section[] = [
   <Code>arco setup</Code>
   </p>
   <p>
+  Source systemd service definitions preserve checkout paths containing spaces.
   Setup asks before installing the per-user service and creating an application
   shortcut, starts the service, and opens the local URL. The package saves an
   available port and moves if it becomes occupied; shortcuts and{' '}

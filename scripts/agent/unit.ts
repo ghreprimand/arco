@@ -1,3 +1,4 @@
+import { systemdArg, systemdValue, systemdDirectory } from '../service/systemd.js';
 // arco-agent §13.3 — pure helpers: CLI arg parsing + systemd `--user` unit
 // rendering for the agent supervisor. Side-effect-free so the smoke imports and
 // asserts on them without an install. Mirrors scripts/service/unit.ts.
@@ -84,11 +85,11 @@ export interface AgentUnitOptions {
 export function renderAgentUnit(opts: AgentUnitOptions): string {
   const restartSec = opts.restartSec ?? 3;
   const entry = posixJoin(opts.repoRoot, 'scripts', 'arco-agent.ts');
-  const execStart = `npx tsx ${entry} run`;
+  const execStart = [process.execPath, posixJoin(opts.repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs'), entry, 'run'].map(systemdArg).join(' ');
 
   const env: string[] = [];
-  if (opts.hubUrl) env.push(`Environment=ARCO_HUB_URL=${opts.hubUrl}`);
-  if (opts.publicKeyPath) env.push(`Environment=ARCO_HUB_PUBKEY=${opts.publicKeyPath}`);
+  if (opts.hubUrl) env.push(`Environment=${systemdValue(`ARCO_HUB_URL=${opts.hubUrl}`)}`);
+  if (opts.publicKeyPath) env.push(`Environment=${systemdValue(`ARCO_HUB_PUBKEY=${opts.publicKeyPath}`)}`);
 
   return [
     '[Unit]',
@@ -101,7 +102,7 @@ export function renderAgentUnit(opts: AgentUnitOptions): string {
     '',
     '[Service]',
     'Type=simple',
-    `WorkingDirectory=${opts.repoRoot}`,
+    `WorkingDirectory=${systemdDirectory(opts.repoRoot)}`,
     `ExecStart=${execStart}`,
     ...env,
     'Restart=always',

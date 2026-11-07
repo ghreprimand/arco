@@ -1,3 +1,4 @@
+import { systemdArg, systemdValue, systemdDirectory } from './systemd.js';
 // docs/ARCHITECTURE.md - Production Service Mode: pure helpers.
 //
 // This module is deliberately side-effect-free: argv parsing + systemd unit
@@ -103,7 +104,7 @@ export interface UnitOptions {
 export function renderSystemdUnit(opts: UnitOptions): string {
   const { repoRoot } = opts;
   const restartSec = opts.restartSec ?? 3;
-  const execStart = `node ${join(repoRoot, 'server', 'dist', 'index.js')}`;
+  const execStart = [process.execPath, join(repoRoot, 'server', 'dist', 'index.js')].map(systemdArg).join(' ');
 
   const env: string[] = [
     'Environment=ARCO_SERVE_CLIENT=1',
@@ -121,16 +122,16 @@ export function renderSystemdUnit(opts: UnitOptions): string {
     'Environment=NODE_OPTIONS=--dns-result-order=ipv4first',
   ];
   if (opts.port !== undefined && String(opts.port).length > 0) {
-    env.push(`Environment=ARCO_PORT=${opts.port}`);
+    env.push(`Environment=${systemdValue(`ARCO_PORT=${opts.port}`)}`);
   }
   if (opts.host !== undefined && opts.host.length > 0) {
-    env.push(`Environment=ARCO_HOST=${opts.host}`);
+    env.push(`Environment=${systemdValue(`ARCO_HOST=${opts.host}`)}`);
   }
   if (opts.hubUrl !== undefined && opts.hubUrl.length > 0) {
-    env.push(`Environment=ARCO_HUB_URL=${opts.hubUrl}`);
+    env.push(`Environment=${systemdValue(`ARCO_HUB_URL=${opts.hubUrl}`)}`);
   }
   if (opts.ntfyUrl !== undefined && opts.ntfyUrl.length > 0) {
-    env.push(`Environment=ARCO_NTFY_URL=${opts.ntfyUrl}`);
+    env.push(`Environment=${systemdValue(`ARCO_NTFY_URL=${opts.ntfyUrl}`)}`);
   }
 
   return [
@@ -148,7 +149,7 @@ export function renderSystemdUnit(opts: UnitOptions): string {
     '',
     '[Service]',
     'Type=simple',
-    `WorkingDirectory=${repoRoot}`,
+    `WorkingDirectory=${systemdDirectory(repoRoot)}`,
     `ExecStart=${execStart}`,
     ...env,
     'Restart=on-failure',

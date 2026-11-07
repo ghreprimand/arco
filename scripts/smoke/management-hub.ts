@@ -247,8 +247,8 @@ async function main() {
       privateKeyPath: '/root/.arco/hub/hub.key',
     });
     assert(unit.includes('Description=arco-management'), 'description');
-    assert(unit.includes('serve --host 100.64.0.20 --port 3500'), 'binds the tailnet ip:port');
-    assert(unit.includes('Environment=ARCO_HUB_KEY=/root/.arco/hub/hub.key'), 'private key env');
+    assert(unit.includes('"serve" "--host" "100.64.0.20" "--port" "3500"'), 'binds the tailnet ip:port');
+    assert(unit.includes('Environment="ARCO_HUB_KEY=/root/.arco/hub/hub.key"'), 'private key env');
     assert(unit.includes('Restart=always'), 'service restarts always');
 
     const a = parseManagementArgs(['serve', '--host', '100.64.0.20', '--port', '3500']);

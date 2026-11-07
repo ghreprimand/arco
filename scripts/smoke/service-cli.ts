@@ -75,7 +75,7 @@ async function main() {
     assert(unit.includes('[Install]'), 'has [Install] section');
     assert(unit.includes('WantedBy=default.target'), 'WantedBy=default.target (user unit)');
     assert(
-      unit.includes(`ExecStart=node ${repoRoot}/server/dist/index.js`),
+      unit.includes(`ExecStart=${JSON.stringify(process.execPath)} "${repoRoot}/server/dist/index.js"`),
       'ExecStart runs node against server/dist/index.js',
     );
     assert(unit.includes(`WorkingDirectory=${repoRoot}`), 'WorkingDirectory set to repo root');
@@ -97,11 +97,11 @@ async function main() {
 
   await step('ARCO_PORT / ARCO_HOST pass through only when provided', () => {
     const bare = renderSystemdUnit({ repoRoot });
-    assert(!bare.includes('Environment=ARCO_PORT='), 'no ARCO_PORT line when unset');
-    assert(!bare.includes('Environment=ARCO_HOST='), 'no ARCO_HOST line when unset');
+    assert(!bare.includes('Environment="ARCO_PORT='), 'no ARCO_PORT line when unset');
+    assert(!bare.includes('Environment="ARCO_HOST='), 'no ARCO_HOST line when unset');
     const pinned = renderSystemdUnit({ repoRoot, port: 4000, host: '0.0.0.0' });
-    assert(pinned.includes('Environment=ARCO_PORT=4000'), 'ARCO_PORT passed through');
-    assert(pinned.includes('Environment=ARCO_HOST=0.0.0.0'), 'ARCO_HOST passed through');
+    assert(pinned.includes('Environment="ARCO_PORT=4000"'), 'ARCO_PORT passed through');
+    assert(pinned.includes('Environment="ARCO_HOST=0.0.0.0"'), 'ARCO_HOST passed through');
   });
 
   await step('ARCO_HUB_URL / ARCO_NTFY_URL bake into the unit only when provided', () => {
@@ -109,19 +109,19 @@ async function main() {
     // unit, else the compiled server comes up offline-to-hub + silent-on-ntfy
     // (REMOTE_MANAGEMENT.md §9/§J2). Absent → no lines (ordinary single-box).
     const bare = renderSystemdUnit({ repoRoot });
-    assert(!bare.includes('Environment=ARCO_HUB_URL='), 'no ARCO_HUB_URL line when unset');
-    assert(!bare.includes('Environment=ARCO_NTFY_URL='), 'no ARCO_NTFY_URL line when unset');
+    assert(!bare.includes('Environment="ARCO_HUB_URL='), 'no ARCO_HUB_URL line when unset');
+    assert(!bare.includes('Environment="ARCO_NTFY_URL='), 'no ARCO_NTFY_URL line when unset');
     const linked = renderSystemdUnit({
       repoRoot,
       hubUrl: 'ws://100.64.0.20:3500',
       ntfyUrl: 'http://100.64.0.20:3501/arco-topic',
     });
     assert(
-      linked.includes('Environment=ARCO_HUB_URL=ws://100.64.0.20:3500'),
+      linked.includes('Environment="ARCO_HUB_URL=ws://100.64.0.20:3500"'),
       'ARCO_HUB_URL baked into the unit',
     );
     assert(
-      linked.includes('Environment=ARCO_NTFY_URL=http://100.64.0.20:3501/arco-topic'),
+      linked.includes('Environment="ARCO_NTFY_URL=http://100.64.0.20:3501/arco-topic"'),
       'ARCO_NTFY_URL baked into the unit',
     );
   });

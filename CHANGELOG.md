@@ -54,6 +54,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Source app, agent and management service units preserve paths containing spaces and use the installed runtime.
 - GitHub README text preserves UTF-8, superseded code reads cannot replace the current selection, and relative document links open decoded paths at their sections.
 - Member memory drafts, completed review reports, quiet-worker warnings and slow service scans follow their current state. Pending microphone tests are cancelled on close, native /compact reaches COMPACT, and closing active synthesis requests cancellation.
 - Replay preserves older HISTORY cutoffs, cancelled handoffs and literal USER/AGENT labels. Stateless local turns keep the new handoff brief without reintroducing archived context. Cancelling fresh-summarizer preparation starts no worker and publishes no success.
