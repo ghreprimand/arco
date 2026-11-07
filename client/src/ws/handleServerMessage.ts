@@ -1681,12 +1681,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'plan_candidate_ready':
-          // Cluster-member plan-creation choice point. Server intercepted
-          // EnterPlanMode (or autosave) and is asking the operator whether
-          // the plan should land on the worker or the cluster's shared PLAN.
-          // Lands in JobState.planCandidate (mode: 'review') so the existing
-          // PlanCandidateBanner renders the three-button choice without any
-          // banner-side changes.
+          // A plan needs review: a cluster member proposed it, or an agent
+          // produced a public plan without privacy rules. The review banner
+          // can insert guardrails before the operator chooses where to save.
           store.setPlanCandidate(msg.workflowId, {
             body: msg.body,
             mode: 'review',
@@ -2157,7 +2154,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               if (!ws || ws.readyState !== WebSocket.OPEN) return false;
               ws.send(JSON.stringify({ type: 'user_message', workflowId: draft.workflowId, content, primitive: 'plan-review' }));
               return true;
-            }, draft.goal, true, effectivePublic(store.jobs[draft.workflowId]?.config.workingDirectory ?? ''));
+            }, draft.goal, true, effectivePublic(store.jobs[draft.workflowId]?.config.workingDirectory ?? msg.state.cwd ?? ''));
             if (!started) store.pushNotification('error', 'The cluster was created, but the plan draft did not start. Use DRAFT A PLAN when the director is ready.');
           }
           // A snapshot restore completes as a cluster_created with a brand-new

@@ -700,7 +700,8 @@ export const clusters: Section[] = [
   on each turn.
   </p>
   <h4 className="manual-sub">Using the plan</h4>
-  <p>During cluster creation, an optional project purpose can ask the selected director to draft a plan. The draft is shown for review and is not attached automatically. A cluster with no plan also offers DRAFT A PLAN, ATTACH EXISTING and NOT NOW. The last choice is remembered for that cluster in this browser.</p>
+  <p>During cluster creation, an optional project purpose can ask the selected director to draft a plan. The director draft box starts unchecked. The draft is shown for review and is not attached automatically.</p>
+  <p>A cluster with no plan also offers DRAFT A PLAN, ATTACH EXISTING and NOT NOW. The last choice is remembered for that cluster in this browser. In the compact hint, DRAFT A PLAN first opens the public-project choice.</p>
   <p>
   The plan is routed as a forced system block with{' '}
   <Code>cache_control: ephemeral</Code> so it lives in the

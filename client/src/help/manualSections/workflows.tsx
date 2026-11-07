@@ -292,7 +292,8 @@ codex exec resume <thread-id> "next prompt"
   (default <Code>~/Projects</Code>), writes seed docs (<Code>README</Code>,{' '}
   <Code>SPEC</Code>, <Code>TODO</Code>, <Code>CLAUDE.md</Code>), and optionally
   creates a GitHub repo. It then binds the workflow to the new folder, carrying the
-  transcript over, and seeds a plan.
+  transcript over, and seeds a plan. Select the public-project box to include
+  privacy guardrails in that plan.
   </p>
   <Note kind="info">
   The seed lives in the workflow config until scaffold, so ideation can pause and

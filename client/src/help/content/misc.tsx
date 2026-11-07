@@ -371,7 +371,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   // ----------------------------------------- WORKFLOW CREATOR / RESUME
   'creator.cluster-plan-goal': {
     title: 'Project purpose and plan',
-    body: <p>Optionally describe the project and ask the director to draft a plan. Choose a director in the member list; the draft is shown for review and is not attached automatically. Leave the purpose blank to create the cluster without a drafting turn.</p>,
+    body: <p>Optionally describe the project. The director draft option starts unchecked. Check it and choose a director in the member list to request a draft; review the draft before attaching it.</p>,
     manualSection: 'cluster-plan',
   },
   'creator.cluster-mode': {
@@ -1175,7 +1175,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         When ticked, the plan draft also asks for a "Privacy and public safety"
         section of standing rules. Unticked, the request is unchanged. The choice
-        is remembered for this project folder in this browser. It is pre-ticked
+        is saved for this project and can be changed in plan controls. Agent-created plans use the saved choice; a missing section offers INSERT GUARDRAILS for review. It is pre-ticked
         only when the Git remote is confirmed public on GitHub, with the reason
         shown. A remote on another host, or a GitHub repository whose visibility is unknown, shows only a hint naming the host. Your own choice always wins.
       </p>

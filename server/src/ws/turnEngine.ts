@@ -1,3 +1,4 @@
+import { getPublicProjectChoice } from '../publicProjectChoice.js';
 import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
@@ -1025,7 +1026,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
 // Plan-less workflows receive a single-line note describing plan creation and
 // attachment. It preserves the parseable phase and checkbox structure and can
 // be stripped from session replay without duplicating the user message.
-function planAuthoringNote(cwd: string, workflowId: string): string {
+function planAuthoringNote(cwd: string, workflowId: string, publicProject = false): string {
   return (
     `[No project plan is attached to this Arco workflow. If asked to create/attach one, do NOT just write a ` +
     `markdown file — a loose file is invisible to Arco. Prefer the \`plan_create\` tool (MCP server \`arco\`) ` +
@@ -1042,6 +1043,7 @@ function planAuthoringNote(cwd: string, workflowId: string): string {
     `docs, which hold the specs/research/design detail. After creating the plan, write each doc with \`plan_ref_write\` ` +
     `(or as files at .arco/plans/<planId>.refs/<slug>.md — not loose design files elsewhere in the repo) and link it ` +
     `from every task that depends on it as \`[label](ref:slug)\`; whoever works that task reads the linked ref first. ` +
+    (publicProject ? `This project is public. Include a Privacy and public safety section in any new plan, fitted to this project and its risks. ` : '') +
     `Don't create a plan unless asked.]\n\n`
   );
 }
@@ -1052,7 +1054,10 @@ export async function buildPlanPrefix(
   workflowId: string,
 ): Promise<string> {
   if (!cwd) return '';
-  if (!wf.planId) return planAuthoringNote(cwd, workflowId);
+  if (!wf.planId) {
+    const isPublic = await getPublicProjectChoice(cwd).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return null; throw error; });
+    return planAuthoringNote(cwd, workflowId, isPublic === true);
+  }
   const plan = await readPlan(cwd, wf.planId).catch(() => null);
   if (!plan) {
     // Plan was deleted out from under us. Detach quietly so future turns

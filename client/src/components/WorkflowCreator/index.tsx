@@ -29,6 +29,7 @@ import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingT
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
 import { PublicProjectBox } from '../PublicProjectBox';
+import { rememberPublicChoice } from '../../utils/publicProject';
 import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import { availableMemberProviders, firstAvailablePrimaryProvider, memberProviderAvailable, MEMBER_PROVIDER_NAMES, primaryProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders';
 
@@ -301,7 +302,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // cluster-only optional name (≤64; empty = derived default).
   const [clusterName, setClusterName] = useState('');
   const [clusterPlanGoal, setClusterPlanGoal] = useState('');
-  const [draftInitialPlan, setDraftInitialPlan] = useState(true);
+  const [draftInitialPlan, setDraftInitialPlan] = useState(false);
   // per-cluster efficiency level chosen at create time (cluster-
   // wide, not per-member). New creation uses Balanced independently of the
   // message guard; the optional NOTE appends to the generated policy.
@@ -336,6 +337,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // Set by applyTemplate so the deferred seedPrompt/plan land on the next tab
   // this creator mints. Drained when handleCreate threads it onto the spawn.
   const pendingTemplateRef = useRef<{ seedPrompt?: string; plan?: string } | null>(null);
+  const [templateHasPlan, setTemplateHasPlan] = useState(false);
   // 2-col layout breakpoint. ≥1200px viewport => 2 columns,
   // otherwise single column (existing behaviour). Matched via matchMedia
   // rather than a CSS file so all styling stays inline + theme-token-driven.
@@ -708,6 +710,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     setEfficiencyToolFilter(c.efficiencyToolFilter ?? 'off');
     setOutputStyle(resolveOutputStyle(c.outputStyle));
     if (c.workingDirectory) setWorkDir(c.workingDirectory);
+    setTemplateHasPlan(Boolean(t.plan));
     pendingTemplateRef.current = (t.seedPrompt || t.plan)
       ? { ...(t.seedPrompt ? { seedPrompt: t.seedPrompt } : {}), ...(t.plan ? { plan: t.plan } : {}) }
       : null;
@@ -756,9 +759,13 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (mode === 'cluster') {
       if (!canLaunchCluster || !onCreateCluster) return;
+      if (draftInitialPlan && clusterPlanGoal.trim()) {
+        try { await rememberPublicChoice(workDir); }
+        catch { window.alert('Could not save the public-project choice. Try again.'); return; }
+      }
       const derived = deriveDisplayNames(members);
       onCreateCluster({
         cwd: workDir,
@@ -822,6 +829,10 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       return;
     }
     if (!canLaunch) return;
+    if (pendingTemplateRef.current?.plan) {
+      try { await rememberPublicChoice(workDir); }
+      catch { window.alert('Could not save the public-project choice. Try again.'); return; }
+    }
 
     const additionalDirectories = additionalDirsRaw
       .split(/[,\n]/)
@@ -846,6 +857,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       templateSpawnToken = mintTemplateSpawnToken();
       registerPendingTemplateApply(templateSpawnToken, pendingTmpl);
       pendingTemplateRef.current = null;
+      setTemplateHasPlan(false);
     }
     onCreate({
       name: name.trim() || projectNameForDirectory(workDir, projectChoices) || 'Untitled',
@@ -1221,6 +1233,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         </div>
 
         {!supportedProvider && <p role="alert">{removedProviderReason(primaryProvider) ?? `Unsupported saved provider: ${primaryProvider}. Choose a supported provider explicitly.`}</p>}
+
+        {mode === 'single' && templateHasPlan && <PublicProjectBox cwd={workDir} testId="template-plan-public-project" />}
 
         {/* CLUSTER mode: members list. Full-width below the defaults grid. */}
         {mode === 'cluster' && <div data-help="creator.cluster-plan-goal" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>

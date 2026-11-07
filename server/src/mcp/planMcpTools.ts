@@ -137,12 +137,13 @@ export function registerPlanTools(server: McpServer, ctx: PlanMcpToolCtx): void 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, body, workflowId: ctx.workflowId, attach: true }),
         });
-        const json = await res.json().catch(() => ({})) as { plan?: { id: string; title: string }; error?: string };
+        const json = await res.json().catch(() => ({})) as { plan?: { id: string; title: string }; error?: string; needsGuardrails?: boolean };
         if (!res.ok || !json.plan) {
           logErr('plan_create failed', res.status, json.error);
           return textResult({ error: json.error ?? `plan create failed (HTTP ${res.status})` }, true);
         }
         const warnings = leanPlanWarnings(body);
+        if (json.needsGuardrails) warnings.push('This project is public and the plan has no Privacy and public safety section. Ask the operator to review INSERT GUARDRAILS in the PLAN tab.');
         return textResult({
           ok: true,
           planId: json.plan.id,

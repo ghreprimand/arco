@@ -206,6 +206,12 @@ async def run(base):
             await page.set_viewport_size({'width': 1999, 'height': 800})
             await page.wait_for_function("() => document.querySelectorAll('[data-testid=\"composer-toolbar\"] > [data-overflowed=\"true\"]').length < %d" % (len(items) + 1), timeout=10000)
 
+            # A compact draft opens the public-project choice before sending.
+            await page.set_viewport_size({'width': 1920, 'height': 800})
+            hint = page.locator('[data-help="cluster.no-plan-hint"]')
+            await hint.get_by_role('button', name='DRAFT A PLAN').click()
+            await expect(page.get_by_test_id('cluster-public-project')).to_be_visible()
+            await hint.get_by_role('button', name='LESS').click()
             # Cluster settings fold into one line; SETTINGS opens them.
             await page.set_viewport_size({'width': 1920, 'height': 800})
             summary = page.get_by_test_id('cluster-settings-summary')

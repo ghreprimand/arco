@@ -137,6 +137,7 @@ export interface GenesisScaffoldMessage {
   // defaults to ~/Projects. Tilde-expanded server-side.
   root?: string;
   github?: GenesisGithubParams;
+  publicProject?: boolean;
 }
 
 // Client → Server. Ask the workflow's current primary agent to propose text for

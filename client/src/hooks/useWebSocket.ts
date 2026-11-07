@@ -269,13 +269,14 @@ export function useWebSocket() {
     wsRef.current.send(JSON.stringify({ type: 'genesis_seed_update', workflowId, seed }));
   }, []);
 
-  const genesisScaffold = useCallback((workflowId: string, root?: string, github?: GenesisGithubParams) => {
+  const genesisScaffold = useCallback((workflowId: string, root?: string, github?: GenesisGithubParams, publicProject?: boolean) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({
       type: 'genesis_scaffold',
       workflowId,
       ...(root ? { root } : {}),
       ...(github ? { github } : {}),
+      ...(publicProject !== undefined ? { publicProject } : {}),
     }));
   }, []);
 

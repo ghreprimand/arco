@@ -1,3 +1,4 @@
+import { getPublicProjectChoice } from './publicProjectChoice.js';
 // P8.6 Skill management: IMPORT (GitHub link, local folder, zip), UPDATE with
 // a per-file diff, ON/OFF, MOVE between project and global, DUPLICATE, the
 // files and missing skill references of a skill, and SHARE WITH REPOSITORY.
@@ -468,7 +469,7 @@ export async function previewShare(cwd: string, slug: string): Promise<SharePrev
   const ignore = await fs.readFile(path.join(cwd, '.arco', '.gitignore'), 'utf8').catch(() => '');
   const states = await Promise.all(files.map((f) => gitIgnored(cwd, f)));
   if (states.some((s) => s === null)) throw new Error('This project is not a Git repository, so there is nothing to share.');
-  const publicRepository = (await suggestFromRemote(cwd).catch(() => ({ state: 'unknown' }))).state === 'public';
+  const publicRepository = await getPublicProjectChoice(cwd) === true || (await suggestFromRemote(cwd).catch(() => ({ state: 'unknown' }))).state === 'public';
   return { slug, files, alreadyTrackable: states.every((s) => s === false), publicRepository, lines: skillShareLines(slug, ignore) };
 }
 

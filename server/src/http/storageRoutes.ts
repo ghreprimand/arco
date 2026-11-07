@@ -1,3 +1,4 @@
+import { getPublicProjectChoice } from '../publicProjectChoice.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { arcoHome } from '../arcoHome.js';
@@ -63,7 +64,7 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
     }
     if (action === 'copy-review' || action === 'copy-confirm' || action === 'copy-ignore') {
       if (typeof body.itemPath !== 'string' || typeof body.destinationFolder !== 'string') return json(res, 400, { error: 'invalid' });
-      const declaredPublic = body.publicProject === true;
+      const declaredPublic = body.publicProject === true || await getPublicProjectChoice(project) === true;
       const review = await inspectArtifactCopy(project, workflowId, body.itemPath, body.destinationFolder, declaredPublic);
       if (action === 'copy-review') return json(res, 200, review);
       if (typeof body.token !== 'string' || body.token !== review.token) return json(res, 409, { error: 'The artifact or destination changed. Review it again.' });

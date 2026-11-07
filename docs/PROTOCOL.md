@@ -1193,14 +1193,14 @@ Fired on operator-driven `plan_detach`, `detachAllForPlan` (mark-complete or har
 
 ### `plan_candidate_ready` <-
 
-Cluster-member plan-creation choice point. When a worker that is a member of a cluster produces a plan via an auto-attach path (Native `EnterPlanMode`, or the `PlanComposerDialog` AUTOSAVE button), the server skips the silent worker-attach and emits this event instead. The client lands it in `JobState.planCandidate` so `PlanCandidateBanner` renders its choice (ATTACH TO CLUSTER / REFINE / DISCARD). Non-cluster workflows never see this message - the existing `plan_set` auto-attach pipeline is unchanged for them. `plan_set` STILL fires alongside this message (for events.jsonl audit); only the `handlePlanAttach` side-effect is gated when the workflow is in a cluster.
+Plan review choice point. A cluster member's Native `EnterPlanMode` plan is shown for review before attachment. A Native plan in a public project is also shown for review when it lacks a privacy and public safety section. Native plans still emit `plan_set` for the event log. When an agent creates and attaches a public plan through the plans API without that section, the API also emits this review event; the attached plan remains available. The banner offers INSERT GUARDRAILS as an edit for review.
 
 ```ts
 {
   type: 'plan_candidate_ready',
   workflowId: string,
   body: string,
-  source: 'native-plan-tool' | 'autosave-cluster-fallback',
+  source: 'native-plan-tool' | 'autosave-cluster-fallback' | 'agent-plan-review',
   planTitle?: string,                  // pre-extracted title; client extracts its own if absent
 }
 ```

@@ -1,3 +1,5 @@
+import { PublicProjectBox } from '../PublicProjectBox';
+import { rememberPublicChoice, usePublicProject } from '../../utils/publicProject';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { hasGuardrails, insertGuardrails, type ProviderName, type ModelName, type EffortLevel, type PlanSummary, type PlanFull, type WorkflowConfig, type ReviewContextRef } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
@@ -42,6 +44,7 @@ export function PlanTab({
   ) => void;
 }) {
   const cwd = job.config.workingDirectory;
+  const { checked: publicProject } = usePublicProject(cwd ?? '');
   const plan = job.plan ?? null;
   // Phase 2.6 — PROMOTE TO CLUSTER gating. The button is visible only when
   // this workflow is currently a cluster member; we read the cluster map
@@ -365,6 +368,8 @@ export function PlanTab({
               placeholder="Plan title"
               style={planInputStyle}
             />
+            <PublicProjectBox cwd={cwd ?? ''} testId="new-plan-public-project" />
+            {publicProject && !hasGuardrails(newBody) && <button type="button" data-help="plan.insert-guardrails" onClick={() => setNewBody(insertGuardrails(newBody))} className="display-font" style={planMiniBtn}>INSERT GUARDRAILS</button>}
             <textarea
               value={newBody}
               onChange={(e) => setNewBody(e.target.value)}
@@ -379,6 +384,7 @@ export function PlanTab({
                   setSaving(true);
                   setError(null);
                   try {
+                    await rememberPublicChoice(cwd ?? '');
                     const res = await fetch(`/api/plans?path=${encodeURIComponent(cwd)}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -418,6 +424,8 @@ export function PlanTab({
 
   return (
     <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <PublicProjectBox cwd={cwd ?? ''} testId="active-plan-public-project" />
+      {publicProject && body !== null && !hasGuardrails(editing ? draftBody : body) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. <button type="button" data-testid="public-plan-insert-guardrails" data-help="plan.insert-guardrails" className="display-font" style={planMiniBtn} onClick={() => { if (!editing) setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : body)); setEditing(true); }}>INSERT GUARDRAILS</button></div>}
       <div>
         <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-secondary-dim)' }}>
           ACTIVE PLAN

@@ -217,6 +217,10 @@ test('SHARE WITH REPOSITORY adds an exception to .arco/.gitignore so only that s
   assert.deepEqual(preview.files, ['.arco/skills/shared/SKILL.md']);
   assert.equal(preview.alreadyTrackable, false);
   assert.equal(preview.publicRepository, false);
+  const { setPublicProjectChoice } = await import('./publicProjectChoice.js');
+  await setPublicProjectChoice(cwd, true);
+  assert.equal((await m.previewShare(cwd, 'shared')).publicRepository, true);
+  await setPublicProjectChoice(cwd, false);
   assert.deepEqual(preview.lines, ['!skills/', 'skills/*', '!skills/shared/', '!skills/shared/**']);
   const shared = await m.shareSkill(cwd, 'shared');
   assert.equal(shared.alreadyTrackable, true);

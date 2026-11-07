@@ -26,7 +26,7 @@ export interface Props {
   // docs/ARCHITECTURE.md - Genesis tab: update the seed (debounced) and trigger
   // the operator-confirmed scaffold. Threaded from App.tsx → useWebSocket senders.
   onGenesisSeedUpdate?: (workflowId: string, seed: GenesisSeed) => void;
-  onGenesisScaffold?: (workflowId: string, root?: string, github?: GenesisGithubParams) => void;
+  onGenesisScaffold?: (workflowId: string, root?: string, github?: GenesisGithubParams, publicProject?: boolean) => void;
   // docs/ARCHITECTURE.md - arm/disarm in-workflow Creative mode on an existing workflow.
   onGenesisCreativeArm?: (workflowId: string, disarm?: boolean) => void;
   onGenesisAssistRequest?: (workflowId: string, requestId: string, field: GenesisAssistField, intent: GenesisAssistIntent, seed: GenesisSeed, instruction?: string) => void;

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { PlanFull, PlanLibraryEntry, PlanLibraryProject } from '@arco/shared';
+import { hasGuardrails, insertGuardrails, type PlanFull, type PlanLibraryEntry, type PlanLibraryProject } from '@arco/shared';
+import { PublicProjectBox } from '../components/PublicProjectBox';
+import { usePublicProject } from '../utils/publicProject';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { PlanBodyRenderer, CHECKBOX_RE } from '../components/PlanBodyRenderer';
 import { PlanWorkflowsSection } from '../components/RightPanel/PlanWorkflowsSection';
@@ -179,6 +181,7 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
   const [plan, setPlan] = useState<PlanFull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const { checked: publicProject } = usePublicProject(cwd);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [saving, setSaving] = useState(false);
@@ -250,6 +253,8 @@ function PlanDetail({ cwd, projectName, entry, onChanged, onDeleted }: {
           </div>
         )}
       </div>
+      <PublicProjectBox cwd={cwd} testId="plans-library-public-project" />
+      {publicProject && plan && !hasGuardrails(editing ? draftBody : plan.body) && <button className="display-font" data-help="plan.insert-guardrails" style={btn} onClick={() => { setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : plan.body)); setEditing(true); }}>INSERT GUARDRAILS</button>}
       {error && <div style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{error}</div>}
       {!editing && <PlanRefChips refs={refs} onOpenSlug={setOpenRef} />}
       {editing ? (

@@ -21,6 +21,14 @@ async def main():
         async def api(route):
             req = route.request
             path = urlparse(req.url).path
+            if path == '/api/public-project/choice':
+                await route.fulfill(json={'choice': True}); return
+            if path == '/api/public-project/remote':
+                await route.fulfill(json={'state': 'none'}); return
+            if path == '/api/plans/body':
+                await route.fulfill(json={'plan': {**projects[0]['plans'][0], 'body':'# Draft\n\n### Phase\n- [ ] Task'}}); return
+            if path == '/api/plans/refs':
+                await route.fulfill(json={'refs': []}); return
             if path == '/api/explorer/plans':
                 await route.fulfill(json={'projects': projects}); return
             if path == '/api/plans' and req.method == 'PATCH':
@@ -37,6 +45,10 @@ async def main():
         await expect(page.get_by_text('4 plans, 1 in use, 3 probably finished')).to_be_visible()
         await page.get_by_role('button', name='Draft - 2 versions').click()
         await expect(page.get_by_text('In use: Builder')).to_be_visible()
+        await page.get_by_role('button', name='Draft', exact=False).last.click()
+        await expect(page.get_by_test_id('plans-library-public-project')).to_be_checked()
+        await page.get_by_role('button', name='INSERT GUARDRAILS', exact=True).click()
+        assert '## Privacy and public safety' in (await page.locator('textarea').input_value())
         await expect(page.get_by_role('button', name='MARK DONE')).to_have_count(1)
         await page.get_by_role('button', name='Probably finished (1)').click()
         await page.get_by_role('button', name='MARK DONE').last.click()

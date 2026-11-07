@@ -30,6 +30,9 @@ async def main():
             if url.scheme == 'https' and url.netloc in ('fonts.googleapis.com', 'fonts.gstatic.com'):
                 await route.fulfill(status=200, content_type='text/css', body='')
                 return
+            if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path == '/api/public-project/choice':
+                await route.fulfill(json={'choice': None} if route.request.method == 'GET' else {'choice': route.request.post_data_json['value']})
+                return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
                 if url.path == '/api/cluster-snapshots/cloud':
                     await route.fulfill(json={'snapshots': []})
@@ -197,8 +200,10 @@ async def main():
         await expect(plan_hint).to_be_visible()
         await plan_hint.get_by_role('button', name='ATTACH EXISTING').click()
         await expect(page.get_by_text('No existing plans are available in this project.')).to_be_visible()
+        await page.get_by_test_id('cluster-public-project').check()
         await plan_hint.get_by_role('button', name='DRAFT A PLAN').click()
-        assert (await page.evaluate('sent.at(-1)[4]')) == 'plan-review'
+        await page.wait_for_function("sent.at(-1)?.[4] === 'plan-review'")
+        assert 'Privacy and public safety' in (await page.evaluate('sent.at(-1)[1]'))
         assert await page.evaluate("s.getState().jobs['worker-b'].pendingPlanCapture") == 'review'
         assert await page.evaluate('planWrites.length') == 0
         await page.evaluate("""() => {
@@ -215,7 +220,7 @@ async def main():
         await page.get_by_role('button', name='REFINE', exact=True).click()
         await page.get_by_placeholder('What should change in this draft?').fill('Add a release phase')
         await page.get_by_placeholder('What should change in this draft?').press('Enter')
-        assert await page.evaluate('sent.length') == sent_before + 1
+        await page.wait_for_function('(n) => sent.length === n + 1', arg=sent_before)
         refine_args = await page.evaluate('sent.at(-1)')
         assert refine_args[4] == 'plan-review' and 'Add a release phase' in refine_args[1] and 'Fixture plan' in refine_args[1]
         assert await page.evaluate("s.getState().jobs['worker-b'].pendingPlanCapture") == 'review'
@@ -231,8 +236,12 @@ async def main():
         await expect(page.get_by_text('PLAN DRAFT READY', exact=True)).to_be_visible()
         assert await page.evaluate("s.getState().jobs['worker-b'].planCandidate.body.startsWith('# Revised plan')")
         assert await page.evaluate('planWrites.length') == 0
+        await expect(page.get_by_test_id('plan-banner-public-project')).to_be_checked()
+        await page.get_by_test_id('plan-banner-insert-guardrails').click()
+        assert await page.evaluate("s.getState().jobs['worker-b'].planCandidate.body.includes('## Privacy and public safety')")
         await page.get_by_role('button', name='ATTACH TO CLUSTER').click()
-        assert await page.evaluate('planWrites.length') == 1
+        await page.wait_for_function('planWrites.length === 1')
+        assert 'Privacy and public safety' in (await page.evaluate('planWrites[0][1]'))
         await plan_hint.get_by_role('button', name='NOT NOW').click()
         assert await page.evaluate("localStorage.getItem('arco.clusterPlanHint.cluster-a')") == '1'
         await expect(plan_hint).to_have_count(0)

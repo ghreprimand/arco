@@ -29,6 +29,7 @@ async def main():
         browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         page = await browser.new_page(viewport={'width': 1300, 'height': 1000})
         errors, blocked, writes = [], [], []
+        public_choices = {}
 
         async def isolate(route):
             u = urlparse(route.request.url)
@@ -37,6 +38,12 @@ async def main():
             if u.scheme == 'http' and u.netloc == '127.0.0.1:' + PORT:
                 if u.path == '/fixture':
                     await route.fulfill(content_type='text/html', body=HTML); return
+                if u.path == '/api/public-project/choice':
+                    if route.request.method == 'POST':
+                        body = route.request.post_data_json
+                        public_choices[body['path']] = body['value']
+                        await route.fulfill(json={'choice': body['value']}); return
+                    await route.fulfill(json={'choice': None}); return
                 if u.path.startswith('/api/'):
                     if route.request.method != 'GET':
                         writes.append(u.path)
@@ -207,7 +214,9 @@ async def main():
         await page.evaluate("show('cluster')")
         goal = page.get_by_label('What is this project for? (optional)')
         toggle = page.get_by_label('Have the director draft a plan for review')
-        await expect(toggle).to_be_checked()
+        await expect(toggle).not_to_be_checked()
+        await toggle.check()
+        await page.get_by_test_id('creator-public-project').check()
         await goal.fill('Build a fixture tool')
         await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_disabled()
         await expect(page.get_by_text('Choose a director below to draft the plan.', exact=True)).to_be_visible()
@@ -218,6 +227,7 @@ async def main():
         await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
         await page.wait_for_function('clusters.length===2')
         assert (await page.evaluate('clusters[1].initialPlanGoal')) == 'Build a fixture tool'
+        assert public_choices['/projects/fixture'] is True
         await page.evaluate("show('cluster')")
         await page.get_by_label('What is this project for? (optional)').fill('Do not draft')
         await page.get_by_label('Have the director draft a plan for review').uncheck()

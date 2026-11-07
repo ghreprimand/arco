@@ -61,6 +61,13 @@ async def main():
             await page.goto(base + '/fixture')
             await page.evaluate('(cwd) => localStorage.setItem("arco.publicProject." + cwd, "1")', str(project))
             await page.wait_for_function('window.fixtureReady === true')
+            saved = await page.evaluate('''async (cwd) => {
+              const headers = {'Content-Type':'application/json'};
+              const choice = await fetch('/api/public-project/choice', {method:'POST', headers, body:JSON.stringify({path:cwd,value:true})});
+              const review = await fetch('/api/storage/copy-review', {method:'POST', headers, body:JSON.stringify({path:cwd,workflowId:'conv-1',itemPath:'artifacts',destinationFolder:cwd,publicProject:false,confirm:true})});
+              return {ok:choice.ok, data:await review.json()};
+            }''', str(project))
+            assert saved['ok'] and saved['data']['publicRepository'] is True, saved
             await page.evaluate('''async (cwd) => {
               const React = (await import('/node_modules/.vite/deps/react.js')).default;
               const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;

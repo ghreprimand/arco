@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore, type JobState } from '../stores/appStore';
-import type { PlanFull } from '@arco/shared';
+import { hasGuardrails, insertGuardrails, type PlanFull } from '@arco/shared';
+import { PublicProjectBox } from './PublicProjectBox';
+import { rememberPublicChoice, usePublicProject } from '../utils/publicProject';
 import { beginPlanRefine } from './terminalInput/planDraft';
 
 interface Props {
@@ -24,6 +26,7 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSe
   const candidate = job.planCandidate;
   const setPlanCandidate = useAppStore((s) => s.setPlanCandidate);
   const cwd = job.config.workingDirectory;
+  const { checked: publicProject } = usePublicProject(candidate ? cwd ?? '' : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
@@ -37,6 +40,7 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSe
   // before any click can. Returns the created PlanFull or throws.
   const persist = async (): Promise<PlanFull> => {
     if (!cwd || !candidate) throw new Error('no candidate / cwd');
+    await rememberPublicChoice(cwd);
     const title = extractPlanTitle(candidate.body);
     const res = await fetch(`/api/plans?path=${encodeURIComponent(cwd)}`, {
       method: 'POST',
@@ -98,9 +102,12 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSe
 
   // Review mode: the operator saves, refines or discards the draft. In a
   // cluster tab the only save target is the cluster plan.
-  const submitRefine = () => {
+  const submitRefine = async () => {
     if (!onSend) return;
-    if (beginPlanRefine(job.id, (content) => onSend(content, undefined, undefined, 'plan-review'), note, Boolean(onAttachToCluster))) {
+    let selected: boolean;
+    try { selected = await rememberPublicChoice(cwd ?? ''); }
+    catch { setError('Could not save the public-project choice. Try again.'); return; }
+    if (beginPlanRefine(job.id, (content) => onSend(content, undefined, undefined, 'plan-review'), note, Boolean(onAttachToCluster), selected)) {
       setRefining(false);
       setNote('');
       setError(null);
@@ -131,6 +138,7 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSe
               setSaving(true);
               setError(null);
               try {
+                await rememberPublicChoice(cwd ?? '');
                 await onAttachToCluster(candidate.body);
                 afterSave(extractPlanTitle(candidate.body));
               } catch (err) {
@@ -185,6 +193,15 @@ export function PlanCandidateBanner({ job, onAttachPlan, onAttachToCluster, onSe
         >
           DISCARD
         </button>
+      </div>
+      <div style={{ ...bannerStyle, borderTop: 'none' }}>
+        <PublicProjectBox cwd={cwd ?? ''} testId="plan-banner-public-project" />
+        {publicProject && !hasGuardrails(candidate.body) && (
+          <button type="button" data-testid="plan-banner-insert-guardrails" data-help="plan.insert-guardrails" disabled={busy} className="display-font" style={ghostBtn}
+            onClick={() => setPlanCandidate(job.id, { ...candidate, body: insertGuardrails(candidate.body) })}>
+            INSERT GUARDRAILS
+          </button>
+        )}
       </div>
       {refining && !revising && (
         <div style={{ ...bannerStyle, borderTop: 'none' }}>

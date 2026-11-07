@@ -97,7 +97,7 @@ interface Props {
   onBakeoffPromote?: (workflowId: string, bakeoffId: string, attemptId: string) => void;
   onBakeoffCleanup?: (workflowId: string, bakeoffId: string, attemptIds: string[]) => void;
   onGenesisSeedUpdate?: (workflowId: string, seed: import('@arco/shared').GenesisSeed) => void;
-  onGenesisScaffold?: (workflowId: string, root?: string, github?: import('@arco/shared').GenesisGithubParams) => void;
+  onGenesisScaffold?: (workflowId: string, root?: string, github?: import('@arco/shared').GenesisGithubParams, publicProject?: boolean) => void;
   onGenesisCreativeArm?: (workflowId: string, disarm?: boolean) => void;
   onGenesisAssistRequest?: (workflowId: string, requestId: string, field: import('@arco/shared').GenesisAssistField, intent: import('@arco/shared').GenesisAssistIntent, seed: import('@arco/shared').GenesisSeed, instruction?: string) => void;
   mcp?: McpSenders;

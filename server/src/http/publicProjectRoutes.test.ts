@@ -99,3 +99,23 @@ test('a linked .arco/.gitignore is refused and its target is unchanged', async (
   assert.equal(r.code, 409);
   assert.equal(readFileSync(target, 'utf8'), 'outside\n');
 });
+
+test('public-project choices persist per folder and can be changed', async () => {
+  const one = await project('choice-one', false);
+  const two = await project('choice-two', false);
+  async function request(method: 'GET' | 'POST', cwd: string, value?: boolean) {
+    const input = method === 'POST' ? [Buffer.from(JSON.stringify({ path: cwd, value }))] : [];
+    const req = Object.assign(Readable.from(input), { method, url: method === 'GET' ? `/api/public-project/choice?path=${encodeURIComponent(cwd)}` : '/api/public-project/choice' }) as IncomingMessage;
+    let code = 0, text = '';
+    const res = { writeHead: (status: number) => { code = status; }, end: (body: string) => { text = body; } } as unknown as ServerResponse;
+    assert.equal(await tryHandlePublicProjectRoutes(req, res), true);
+    return { code, body: JSON.parse(text) };
+  }
+  assert.deepEqual((await request('GET', one)).body, { choice: null });
+  assert.equal((await request('POST', one, true)).code, 200);
+  assert.equal((await request('POST', two, false)).code, 200);
+  assert.deepEqual((await request('GET', one)).body, { choice: true });
+  assert.deepEqual((await request('GET', two)).body, { choice: false });
+  assert.equal((await request('POST', one, false)).code, 200);
+  assert.deepEqual((await request('GET', one)).body, { choice: false });
+});

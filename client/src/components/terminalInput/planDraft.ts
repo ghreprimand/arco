@@ -24,7 +24,7 @@ export function beginPlanReview(workflowId: string, send: (content: string) => b
   return false;
 }
 
-export function planRefinePrompt(draft: string, note: string, cluster = false): string {
+export function planRefinePrompt(draft: string, note: string, cluster = false, publicProject = false): string {
   return `Please revise the ${cluster ? 'shared cluster' : 'project'} plan draft below according to the operator's note. Keep what the note does not touch.
 
 Operator note:
@@ -33,19 +33,19 @@ ${note.trim()}
 Current draft:
 ${draft.trim()}
 
-${hasGuardrails(draft) ? 'Keep the "Privacy and public safety" section unless the note says otherwise.\n\n' : ''}Reply with the complete revised plan inline. Begin with one # Title, use ### headings for phases, and put each task on a top-level - [ ] checkbox line. Do not create, update, attach, or write any plan or project file. The operator will review the revision before deciding whether to save it.`;
+${hasGuardrails(draft) ? 'Keep the "Privacy and public safety" section unless the note says otherwise.\n\n' : publicProject ? `${PUBLIC_DRAFT_REQUEST}\n\n` : ''}Reply with the complete revised plan inline. Begin with one # Title, use ### headings for phases, and put each task on a top-level - [ ] checkbox line. Do not create, update, attach, or write any plan or project file. The operator will review the revision before deciding whether to save it.`;
 }
 
 // Refinement is a new idle plan-review turn that carries the current draft. The
 // existing draft stays in place until the revised reply replaces it, so a
 // failed or rejected send loses nothing.
-export function beginPlanRefine(workflowId: string, send: (content: string) => boolean | void, note: string, cluster = false): boolean {
+export function beginPlanRefine(workflowId: string, send: (content: string) => boolean | void, note: string, cluster = false, publicProject = false): boolean {
   const store = useAppStore.getState();
   const job = store.jobs[workflowId];
   if (!job || !job.planCandidate || !note.trim() || job.busy || job.pendingPlanCapture || job.messages.some((message) => message.isStreaming) || Object.values(job.workers).some((worker) => worker.status === 'running' || worker.status === 'spawning')) return false;
   store.setPendingPlanCapture(workflowId, 'review');
   try {
-    if (send(planRefinePrompt(job.planCandidate.body, note, cluster)) !== false) return true;
+    if (send(planRefinePrompt(job.planCandidate.body, note, cluster, publicProject)) !== false) return true;
   } catch { /* clear the capture and let the caller report failure */ }
   useAppStore.getState().setPendingPlanCapture(workflowId, null);
   return false;

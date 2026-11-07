@@ -23,7 +23,8 @@ ClientMessage,
 ServerMessage,
 WorkflowConfig
 } from '@arco/shared';
-import { isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
+import { hasGuardrails, isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
+import { getPublicProjectChoice } from './publicProjectChoice.js';
 import { spawnSync } from 'child_process';
 import { mkdir } from 'fs/promises';
 import { createServer,IncomingMessage,ServerResponse, type Server } from 'http';
@@ -1991,11 +1992,9 @@ setClaudeNativeClusterEventBroadcast((clusterId, msg) => {
 // pipeline), and emits a plan_set event carrying the body inline. ExitPlanMode
 // emits plan_exited; the plan stays attached.
 //
-// Cluster gate: when the workflow is a cluster member the silent
-// handlePlanAttach side-effect is replaced with a `plan_candidate_ready`
-// broadcast so the operator picks via PlanCandidateBanner (save-to-worker
-// vs attach-to-cluster vs discard). `plan_set` still fires either way so
-// events.jsonl reflects the EnterPlanMode call.
+// Cluster plans, and public-project plans missing guardrails, are sent to
+// PlanCandidateBanner for operator review instead of silently attaching.
+// `plan_set` still fires so events.jsonl reflects the EnterPlanMode call.
 //
 // This function NEVER writes the shared cluster plan itself. The two paths
 // that may are the operator's (`cluster_plan_set`) and the guarded peer tool
@@ -2012,8 +2011,9 @@ async function handleNativeEnterPlanModeSet(workflowId: string, plan: string): P
   const title = stripped.slice(0, 80) || 'Native plan';
 
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  const needsPublicReview = Boolean(wf && cwd && !clusterId && !hasGuardrails(plan) && await getPublicProjectChoice(cwd).catch(() => true));
   let planId: string | undefined;
-  if (wf && cwd && !clusterId) {
+  if (wf && cwd && !clusterId && !needsPublicReview) {
     try {
       const created = await createPlan(cwd, { title, body: plan });
       planId = created.id;
@@ -2023,8 +2023,8 @@ async function handleNativeEnterPlanModeSet(workflowId: string, plan: string): P
     } catch (err) {
       console.warn(`[arco] [${workflowId.slice(0, 8)}] EnterPlanMode plan-file create failed:`, err);
     }
-  } else if (wf && cwd && clusterId) {
-    // Cluster member — surface the choice to the operator. No file written
+  } else if (wf && cwd && (clusterId || needsPublicReview)) {
+    // Cluster member or public project missing guardrails — surface the choice to the operator. No file written
     // yet; the banner buttons own the persist call (ATTACH TO CLUSTER routes
     // to `cluster_plan_set` → handleClusterPlanSet).
     //

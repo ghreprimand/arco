@@ -189,11 +189,16 @@ export const plans: Section[] = [
         <Sub>The public-project box</Sub>
         <p>
           <Code>This project is public (or will be)</Code> sits beside the plan-draft
-          choices: in the cluster creator, next to DRAFT A PLAN, and in the PLAN
-          dialog. When it is ticked, the draft asks the agent for a "Privacy and public
-          safety" section of standing rules fitted to the project. Unticked, the
-          draft request is unchanged. The choice is remembered per project folder in
-          this browser.
+          choices and plan editors: in the cluster creator, next to DRAFT A PLAN, in
+          the PLAN dialog and editor, the draft review banner, Genesis, and
+          ARTIFACTS &gt; PLANS. When ticked, the draft asks for a "Privacy and public
+          safety" section fitted to the project. Unticked, the request is unchanged.
+        </p>
+        <p>
+          The choice is saved per project and can be changed at these controls.
+          Agent-created plans use it; a public plan missing the section offers
+          INSERT GUARDRAILS for review. Genesis includes the section in its new plan
+          when selected.
         </p>
         <p>
           Arco suggests the box from the folder's Git remote. If the remote is on

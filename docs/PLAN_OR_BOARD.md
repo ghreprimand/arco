@@ -15,11 +15,10 @@ board tracks the work in progress.
 The composer's PLAN button explains in its hover text that a plan keeps the next
 steps in one place.
 A cluster without a plan offers DRAFT A PLAN, ATTACH EXISTING, and NOT NOW;
-NOT NOW is remembered for that cluster in the browser.
+NOT NOW is remembered for that cluster in the browser. In the compact hint, DRAFT A PLAN first opens the public-project choice.
 
 For a project that is public, or will be, tick **This project is public (or
-will be)** beside the draft choices. The draft then also asks for a "Privacy
-and public safety" section. For a plan that already exists, **INSERT GUARDRAILS**
+will be)** beside the draft choices and plan editors. The choice is saved per project and can be changed there. The draft then asks for a "Privacy and public safety" section. Agent-created plans use the saved choice; a missing section is flagged for review. Genesis includes the section in its new plan when selected. For a plan that already exists, **INSERT GUARDRAILS**
 adds the same section as an unsaved edit. A quiet notice offers **RESTORE IGNORE
 FILE**, **STOP TRACKING** and **DISMISS** when Git tracks or does not ignore the
 project's `.arco` folder. Files of a skill shared with SHARE WITH REPOSITORY do

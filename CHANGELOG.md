@@ -49,6 +49,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Cluster creation leaves the director plan draft option off by default. Public-project choices are available in plan review and editing, Genesis and the plans library, and are saved per project for agent-created plans.
+
 - Creating a cluster, ADD WORKERS and REPLACE no longer show the new members as their own tabs first. Before, each member appeared as a top-level tab and took focus until the cluster tab opened and folded them in; now the cluster tab appears once with its members.
 - The composer stays steady as a running step changes. Long step names are shortened in the toolbar; hover to see the full name.
 

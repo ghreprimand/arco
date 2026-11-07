@@ -78,19 +78,16 @@ export interface PlanExitedMessage {
 // `PlanCandidateBanner` renders the three-button choice
 // (SAVE & ATTACH TO WORKER / ATTACH TO CLUSTER / DISCARD).
 //
-// Non-cluster workflows never see this message — the existing `plan_set`
-// auto-attach pipeline is unchanged for them.
-//
-// `plan_set` STILL fires alongside this message (for events.jsonl audit);
-// only the `handlePlanAttach` side-effect is gated when the workflow is in
-// a cluster.
+// Public projects with a missing privacy section also use this message so
+// the operator can review and insert guardrails. Native plan events still emit
+// `plan_set` for the event log.
 export interface PlanCandidateReadyMessage {
   type: 'plan_candidate_ready';
   workflowId: string;
   body: string;
   // Provenance: which auto-attach path was intercepted. Server-side discriminator,
   // useful in events.jsonl when reconstructing why a banner appeared.
-  source: 'native-plan-tool' | 'autosave-cluster-fallback';
+  source: 'native-plan-tool' | 'autosave-cluster-fallback' | 'agent-plan-review';
   // Optional pre-extracted title; the client extracts its own if absent. Lets
   // the server pass through the same title heuristic the worker-attach path
   // used so the banner preview matches what would have been saved.

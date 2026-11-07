@@ -1,4 +1,6 @@
 // /api/public-project -- guardrails for public projects (server/src/publicProject.ts).
+//   GET  /api/public-project/choice?path=...        -> { choice: boolean | null }
+//   POST /api/public-project/choice { path, value }  -> { choice: boolean }
 //   GET  /api/public-project/remote?path=...        -> { state: 'none' | 'hosted' | 'public', host? }
 //   GET  /api/public-project/state?path=...         -> project state report
 //   POST /api/public-project/restore-ignore { path } -> { ok, backup? }
@@ -11,6 +13,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { assertSafePath } from '../fileAccessPolicy.js';
 import { checkProjectState, restoreIgnoreFile, stopTrackingState, suggestFromRemote } from '../publicProject.js';
 import { realpathWithinProjects } from '../projects.js';
+import { getPublicProjectChoice, setPublicProjectChoice } from '../publicProjectChoice.js';
 
 function sendJson(res: ServerResponse, code: number, body: unknown): true {
   res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -33,7 +36,7 @@ function linkedStateReason(cwd: string): string | null {
   return null;
 }
 
-async function readPath(req: IncomingMessage): Promise<unknown> {
+async function readBody(req: IncomingMessage): Promise<Record<string, unknown> | null> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -41,7 +44,7 @@ async function readPath(req: IncomingMessage): Promise<unknown> {
     if (size > 16 * 1024) return null;
     chunks.push(chunk as Buffer);
   }
-  try { return (JSON.parse(Buffer.concat(chunks).toString('utf-8')) as { path?: unknown }).path; } catch { return null; }
+  try { const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf-8')); return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null; } catch { return null; }
 }
 
 export async function tryHandlePublicProjectRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -49,13 +52,25 @@ export async function tryHandlePublicProjectRoutes(req: IncomingMessage, res: Se
   if (!url.pathname.startsWith('/api/public-project/')) return false;
   const action = url.pathname.slice('/api/public-project/'.length);
   try {
+    if (req.method === 'GET' && action === 'choice') {
+      const cwd = validDir(url.searchParams.get('path'));
+      if (!cwd) return sendJson(res, 400, { error: 'Choose an existing project folder.' });
+      return sendJson(res, 200, { choice: await getPublicProjectChoice(cwd) });
+    }
+    if (req.method === 'POST' && action === 'choice') {
+      const body = await readBody(req);
+      const cwd = validDir(body?.path);
+      if (!cwd || typeof body?.value !== 'boolean') return sendJson(res, 400, { error: 'Choose an existing project folder and a public-project value.' });
+      await setPublicProjectChoice(cwd, body.value);
+      return sendJson(res, 200, { choice: body.value });
+    }
     if (req.method === 'GET' && (action === 'remote' || action === 'state')) {
       const cwd = validDir(url.searchParams.get('path'));
       if (!cwd) return sendJson(res, 400, { error: 'Choose an existing project folder.' });
       return sendJson(res, 200, action === 'remote' ? await suggestFromRemote(cwd) : await checkProjectState(cwd));
     }
     if (req.method === 'POST' && (action === 'restore-ignore' || action === 'stop-tracking')) {
-      const requested = validDir(await readPath(req));
+      const requested = validDir((await readBody(req))?.path);
       if (!requested) return sendJson(res, 400, { error: 'Choose an existing project folder.' });
       const cwd = await realpathWithinProjects(resolve(requested));
       if (!cwd) return sendJson(res, 403, { error: 'Only a project in the PROJECTS list can be changed here.' });

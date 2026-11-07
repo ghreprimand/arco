@@ -27,7 +27,8 @@ import type {
   GenesisSeed,
   GenesisSeedUpdateMessage,
 } from '@arco/shared';
-import { emptyGenesisSeed } from '@arco/shared';
+import { emptyGenesisSeed, insertGuardrails } from '@arco/shared';
+import { getPublicProjectChoice, setPublicProjectChoice } from '../publicProjectChoice.js';
 import { workflows, workflowCwds } from '../server/state.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { updateMeta } from '../workflowMeta.js';
@@ -571,6 +572,10 @@ async function handleCreativeScaffold(
     return;
   }
 
+  if (typeof msg.publicProject === 'boolean') {
+    try { await setPublicProjectChoice(cwd, msg.publicProject); }
+    catch { fail(ws, 'Could not save the public-project choice.'); return; }
+  }
   const altRoot = path.join(cwd, ALTERNATIVE_DIR);
   let targetDir: string;
   try {
@@ -601,7 +606,7 @@ async function handleCreativeScaffold(
   try {
     const plan = await createPlan(cwd, {
       title: `${seed.title.trim()} — alternative direction`,
-      body: planBodyFor(seed),
+      body: (msg.publicProject ?? await getPublicProjectChoice(cwd)) ? insertGuardrails(planBodyFor(seed)) : planBodyFor(seed),
     });
     planId = plan.id;
     await recordAttachment(cwd, plan.id, msg.workflowId, wf.config.name).catch(() => { /* best-effort */ });
@@ -636,6 +641,11 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     return;
   }
 
+  if (msg.publicProject !== undefined && typeof msg.publicProject !== 'boolean') {
+    fail(ws, 'Invalid public-project choice.');
+    return;
+  }
+
   // M3 Creative mode: scaffold a sibling alternative inside the existing project
   // instead of creating + rebinding a new project dir. Branch before the scratch-dir
   // guard (a creative workflow lives in a real cwd, which that guard would reject).
@@ -658,6 +668,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   try {
     targetDir = await uniqueProjectDir(root, seed.title);
     await fs.mkdir(targetDir, { recursive: true });
+    if (typeof msg.publicProject === 'boolean') await setPublicProjectChoice(targetDir, msg.publicProject);
   } catch (err) {
     fail(ws, `Genesis scaffold could not create the project folder: ${(err as Error).message}`);
     return;
@@ -727,7 +738,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   });
   let planId: string | undefined;
   try {
-    const plan = await createPlan(targetDir, { title: `${scaffoldSeed.title.trim()} — plan`, body: planBodyFor(scaffoldSeed) });
+    const plan = await createPlan(targetDir, { title: `${scaffoldSeed.title.trim()} — plan`, body: msg.publicProject ? insertGuardrails(planBodyFor(scaffoldSeed)) : planBodyFor(scaffoldSeed) });
     planId = plan.id;
     await recordAttachment(targetDir, plan.id, msg.workflowId, wf.config.name).catch(() => { /* best-effort */ });
   } catch (err) {

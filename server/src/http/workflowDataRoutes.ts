@@ -1,3 +1,5 @@
+import { hasGuardrails } from '@arco/shared';
+import { getPublicProjectChoice } from '../publicProjectChoice.js';
 import { resolveWorkflowDocument } from './readConfinement.js';
 import type { ChatMessage } from '@arco/shared';
 import { readFile, stat } from 'fs/promises';
@@ -740,6 +742,7 @@ export async function tryHandleWorkflowDataRoutes(
       let body = '';
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body || '{}') as { title?: string; body?: string; workflowId?: string; attach?: boolean };
+      const publicProject = await getPublicProjectChoice(cwd);
       const plan = await createPlan(cwd, {
         title: parsed.title ?? '',
         body: parsed.body ?? '',
@@ -748,10 +751,13 @@ export async function tryHandleWorkflowDataRoutes(
         const wfCwd = workflowCwds.get(parsed.workflowId);
         if (wfCwd === cwd) {
           await deps.handlePlanAttach(parsed.workflowId, plan.id);
+          if (publicProject === true && !hasGuardrails(plan.body)) {
+            broadcastWorkflow(parsed.workflowId, { type: 'plan_candidate_ready', workflowId: parsed.workflowId, body: plan.body, planTitle: plan.title, source: 'agent-plan-review' });
+          }
         }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ plan }));
+      res.end(JSON.stringify({ plan, publicProject, needsGuardrails: publicProject === true && !hasGuardrails(plan.body) }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.writeHead(400, { 'Content-Type': 'application/json' });

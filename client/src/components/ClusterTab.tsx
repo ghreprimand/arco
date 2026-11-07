@@ -33,7 +33,7 @@ import { clusterDisplayName } from './TabBar';
 import { beginPlanReview } from './terminalInput/planDraft';
 import { PublicProjectBox } from './PublicProjectBox';
 import { ProjectStateNotice } from './ProjectStateNotice';
-import { effectivePublic } from '../utils/publicProject';
+import { rememberPublicChoice } from '../utils/publicProject';
 import type { ClusterMemberProvider, ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, MemberTier, ClusterEfficiencyLevel, ClusterProgressMode, ClusterTaskBoardMode, LedgerTaskStatus } from '@arco/shared';
 import { presetForText } from '@arco/shared';
 import type { ClusterDispatcherSettingsPatch, ClusterMemberPrimaryUpdate, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
@@ -908,10 +908,14 @@ export function ClusterTab({
                     <span style={short ? { whiteSpace: 'nowrap', flexShrink: 0 } : undefined} title={short ? 'A plan keeps every worker on the same list.' : undefined}>{short ? 'No plan yet.' : 'No plan yet: a plan keeps every worker on the same list.'}</span>
                     {short && !directorMember && <span style={{ display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}><span title="Set a director in Members" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Set a director in</span><button type="button" data-testid="plan-line-members" onClick={() => { setMembersTabRequest((value) => value + 1); if (widthRange === 'narrow') { setMemberListOpen(false); setRightSlide('more'); } }} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>Members</button></span>}
                     {!short && !directorMember && <span>Set a director in <button type="button" data-testid="plan-line-members" onClick={() => { setMembersTabRequest((value) => value + 1); if (widthRange === 'narrow') { setMemberListOpen(false); setRightSlide('more'); } }} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Members</button> to request a draft.</span>}
-                    {(!short || directorMember) && <button type="button" style={short ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } : undefined} disabled={!directorMember} title={directorMember ? 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={() => {
+                    {(!short || directorMember) && <button type="button" style={short ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } : undefined} disabled={!directorMember} title={directorMember ? short ? 'Show the public-project choice before drafting' : 'Ask the director for a reviewable draft' : 'Set a director in Members first'} onClick={async () => {
                       if (!directorMember) return;
+                      if (short) { setPlanHintMore(true); return; }
                       const id = directorMember.workflowId;
-                      const started = beginPlanReview(id, (prompt) => onSendToMember(id, prompt, undefined, undefined, 'plan-review'), '', true, effectivePublic(jobs[id]?.config.workingDirectory ?? ''));
+                      let publicProject: boolean;
+                      try { publicProject = await rememberPublicChoice(jobs[id]?.config.workingDirectory ?? ''); }
+                      catch { useAppStore.getState().pushNotification('error', 'Could not save the public-project choice. Try again.'); return; }
+                      const started = beginPlanReview(id, (prompt) => onSendToMember(id, prompt, undefined, undefined, 'plan-review'), '', true, publicProject);
                       if (started) setClusterFocusedMember(clusterId, id);
                       else useAppStore.getState().pushNotification('error', 'The director must be idle and ready before drafting a plan.');
                     }}>DRAFT A PLAN</button>}

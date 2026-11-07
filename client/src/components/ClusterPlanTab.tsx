@@ -1,3 +1,5 @@
+import { PublicProjectBox } from './PublicProjectBox';
+import { rememberPublicChoice, usePublicProject } from '../utils/publicProject';
 // docs/PROTOCOL_CLUSTER.md - shared cluster plan editor. Lives as a
 // sub-tab inside ClusterRightPanel. The body is injected into every cluster
 // member's per-turn system block by the Native worker; edits propagate on
@@ -131,6 +133,7 @@ type PendingPick =
   | { kind: 'review-custom' };
 
 export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, onSpawnPhase, onReviewMember, onReviewViaMember, onAttachPlanToMember }: Props) {
+  const { checked: publicProject } = usePublicProject(cluster.cwd ?? '');
   const remoteBody = cluster.plan?.body ?? '';
   const jobs = useAppStore((s) => s.jobs);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
@@ -296,7 +299,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   } | null>(null);
   const [spawnPhase, setSpawnPhase] = useState<string | null>(null);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!onSetPlan) return;
     setError(null);
     const trimmed = draft.trim();
@@ -308,6 +311,8 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
       setError(`Plan body exceeds the ${PLAN_MAX_BYTES}-char cap (${byteLen}). Trim it down before saving.`);
       return;
     }
+    try { await rememberPublicChoice(cluster.cwd ?? ''); }
+    catch { setError('Could not save the public-project choice. Try again.'); return; }
     onSetPlan(cluster.clusterId, draft);
     // Optimistic flip; the server's cluster_state push will confirm the
     // body. Leaving the textarea open would force a second click.
@@ -440,6 +445,9 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
           ACTIVE PLAN: {cluster.plan.title}
         </div>
       )}
+
+      <PublicProjectBox cwd={cluster.cwd ?? ''} testId="cluster-plan-public-project" />
+      {publicProject && remoteBody && !hasGuardrails(mode === 'edit' ? draft : remoteBody) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. Use INSERT GUARDRAILS to review one.</div>}
 
       {/* Header action row — VIEW: render the rich body + a pill bar. EDIT:
           textarea + SAVE / CANCEL. Both modes share the CLEAR PLAN button

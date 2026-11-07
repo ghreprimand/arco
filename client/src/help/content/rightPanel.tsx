@@ -128,7 +128,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         (default <C>~/Projects</C>), writes seed docs (<C>README</C>/<C>SPEC</C>/
         <C>TODO</C>/<C>CLAUDE.md</C>), optionally a GitHub repo, then binds this
         workflow to the new folder (carrying the transcript over) and seeds a
-        plan. Creates files on disk: irreversible.
+        plan. Select the public-project box to include privacy guardrails in the plan. Creates files on disk: irreversible.
       </p>
     ),
     manualSection: 'genesis-workflow',

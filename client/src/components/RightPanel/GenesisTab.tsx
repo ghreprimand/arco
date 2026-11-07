@@ -1,3 +1,5 @@
+import { PublicProjectBox } from '../PublicProjectBox';
+import { rememberPublicChoice } from '../../utils/publicProject';
 // GENESIS tab (docs/ARCHITECTURE.md). The operator's seed editor for Genesis.
 // Two flows share this tab:
 //
@@ -25,7 +27,7 @@ import { useAppStore } from '../../stores/appStore';
 interface Props {
   job: JobState;
   onSeedUpdate?: (workflowId: string, seed: GenesisSeed) => void;
-  onScaffold?: (workflowId: string, root?: string, github?: { create: boolean; visibility: 'private' | 'public'; repoName?: string }) => void;
+  onScaffold?: (workflowId: string, root?: string, github?: { create: boolean; visibility: 'private' | 'public'; repoName?: string }, publicProject?: boolean) => void;
   onCreativeArm?: (workflowId: string, disarm?: boolean) => void;
   onAssistRequest?: (workflowId: string, requestId: string, field: GenesisAssistField, intent: GenesisAssistIntent, seed: GenesisSeed, instruction?: string) => void;
 }
@@ -103,6 +105,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
   // can't yank the operator's cursor mid-edit.
   const [draft, setDraft] = useState<GenesisSeed>(() => seed ?? emptySeed());
   const [root, setRoot] = useState('~/Projects');
+  const [newPublicProject, setNewPublicProject] = useState(false);
   const [createRepo, setCreateRepo] = useState(false);
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [repoName, setRepoName] = useState('');
@@ -237,21 +240,24 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
   const scaffolded = job.genesisScaffold;
   const codebase = job.genesisCodebase;
 
-  const doScaffold = () => {
+  const doScaffold = async () => {
     if (!draft.title.trim()) return;
     if (creative) {
       const ok = window.confirm(
         `Scaffold an alternative direction into a new ALTERNATIVE/${draft.title.trim()} folder inside this project, plus a separate plan?\n\nThis creates files in a sibling folder only: your existing project is not touched.`,
       );
       if (!ok) return;
-      onScaffold?.(job.id); // server branches on seed.creative: no root / github
+      let selected: boolean;
+      try { selected = await rememberPublicChoice(cwd); }
+      catch { window.alert('Could not save the public-project choice. Try again.'); return; }
+      onScaffold?.(job.id, undefined, undefined, selected); // server branches on seed.creative
       return;
     }
     const ok = window.confirm(
       `Create the project folder under ${root || '~/Projects'} (named from "${draft.title.trim()}"), write the seed docs${createRepo ? ` and a ${visibility} GitHub repo` : ''}, and bind this workflow to it?\n\nThis creates files on disk.`,
     );
     if (!ok) return;
-    onScaffold?.(job.id, root.trim() || undefined, createRepo ? { create: true, visibility, ...(repoName.trim() ? { repoName: repoName.trim() } : {}) } : undefined);
+    onScaffold?.(job.id, root.trim() || undefined, createRepo ? { create: true, visibility, ...(repoName.trim() ? { repoName: repoName.trim() } : {}) } : undefined, newPublicProject);
   };
 
   const aiButtons = (field: GenesisAssistField, intents: GenesisAssistIntent[] = ['improve', 'fresh', 'expand']) => (
@@ -484,6 +490,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
             </div>
           </>
         )}
+        <PublicProjectBox cwd={creative ? cwd : ''} newProjectValue={creative ? undefined : newPublicProject} onChange={creative ? undefined : setNewPublicProject} testId="genesis-public-project" />
         {scaffolded ? (
           <div style={{ fontSize: '11px', color: 'var(--color-accent-primary)', lineHeight: 1.5 }}>
             {scaffolded.creative ? 'Alternative scaffolded → ' : 'Scaffolded → '}
