@@ -13,7 +13,7 @@ WebSocket messages for the operator-triggered primitives: Review, Deep Research,
 | [Deep Research (operator primitive - Workbench Expansion)](#deep-research-operator-primitive---workbench-expansion) |
 | [Compare (operator primitive - Workbench Expansion)](#compare-operator-primitive---workbench-expansion) |
 | [AI-collaborative document editing](#ai-collaborative-document-editing) |
-| [Agent-instruction-file tune-up (TUNE MD  - sibling)](#agent-instruction-file-tune-up-tune-md----sibling) |
+| [Agent-instruction-file tune-up (TUNE MD - sibling)](#agent-instruction-file-tune-up-tune-md---sibling) |
 | [Handoff (operator primitive)](#handoff-operator-primitive) |
 | [Spawn (operator primitive)](#spawn-operator-primitive) |
 
@@ -380,7 +380,7 @@ Optional progress signal fired when the worker is spawned.
 
 ---
 
-## Agent-instruction-file tune-up (TUNE MD  - sibling)
+## Agent-instruction-file tune-up (TUNE MD - sibling)
 
 Proposes a compacted version of an instruction file (`CLAUDE.md` / `CLAUDE.local.md` / `AGENTS.md`) - the per-turn token tax of an accreted instruction file, paid back. ONE bounded, **read-only** worker turn: the agent has **no Write/Edit tool** and never touches disk. On Accept the server re-reads the file, backs the original up to `.arco/md-backups/<name>.<ts>.bak`, then writes through the `resolveWithinCwd`-guarded path. Same propose-then-approve posture as doc-editing - operator-initiated, source is the file itself (not session traces), reviewed as a diff before any write. Defined in `shared/src/protocol/mdTuneup.ts`; `INSTRUCTION_FILE_NAMES = ['CLAUDE.md','CLAUDE.local.md','AGENTS.md']`.
 

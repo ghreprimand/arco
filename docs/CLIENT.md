@@ -73,7 +73,7 @@ move the pane. This is UI intent, never worker/background activity.
 **Global singletons:**
 
 - `connected: boolean`, `sessionId: string | null` - WS state
-- `connectionState: 'connecting' | 'online' | 'disconnected' | 'server-down'`  - observable connection state (`runtime/runtimeState.ts`); a closed socket probes `/healthz` to split a WS-layer drop from a dead server. Not persisted.
+- `connectionState: 'connecting' | 'online' | 'disconnected' | 'server-down'` - observable connection state (`runtime/runtimeState.ts`); a closed socket probes `/healthz` to split a WS-layer drop from a dead server. Not persisted.
 - `authStatus: AuthStatusByProvider | null` - per-provider auth snapshot
 - `capabilities: Capabilities | null` - CLI versions, supported efforts, models
 - `quotaState: QuotaSnapshot | null` - per-provider throttle snapshot
@@ -428,7 +428,7 @@ App
     ├── DuplicateTabOverlay
     ├── ThemedBackgroundShader (the shader canvas)
     └── Help system (z=9300+)
-        ├── HelpButton      ("?" toggle inline in the top bar, right of the version box; the floating bottom-right form remains only on the pre-workbench gate screens)
+        ├── HelpButton      (floating bottom-right "?" toggle on the pre-workbench gate screens; in the workbench, POINT AT THINGS in the header HELP menu (HelpMenu) toggles help mode)
         ├── HelpBanner      (top strip while help mode is active)
         ├── HelpPopover     (per-target help content, anchored to the clicked element)
         ├── HelpCard        (movable scoped-snippet card raised by a tool modal's ModalHelpButton)

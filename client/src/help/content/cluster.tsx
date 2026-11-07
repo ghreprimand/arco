@@ -696,9 +696,9 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'AUTOMATION header',
     body: (
       <p>
-        Collapsed by default so the board reads as &ldquo;groom tasks,&rdquo;
-        not &ldquo;run a swarm.&rdquo; Click to reveal the automation controls
-       : <C>DISPATCH ONCE</C>, <C>CREATE SWARM</C>, <C>DRAFT ASSIST</C>, and
+        Collapsed by default so the board reads as &quot;groom tasks,&quot;
+        not &quot;run a swarm.&quot; Click to reveal the automation controls:{' '}
+        <C>DISPATCH ONCE</C>, <C>CREATE SWARM</C>, <C>DRAFT ASSIST</C>, and
         the dispatcher daemon row. A <C>· N</C> suffix shows the count of open
         orchestration proposals when any exist. The task count and this toggle
         stay visible whether open or closed.

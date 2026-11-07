@@ -167,12 +167,12 @@ export const miscHelp: Record<string, HelpEntry> = {
       <>
         <p>
           The conversation with this tab's primary agent. Renders tail-first
-          (last 200 entries): use the <C>↑ LOAD EARLIER</C> pill at the top to
+          (last 200 entries): use the <C>↑ LOAD EARLIER MESSAGES</C> pill at the top to
           page back further. Scroll position is preserved.
         </p>
         <p>
-          Streams tokens during a turn. Tool calls render as inline pills
-          between assistant bubbles (Claude only). Computer selecting this worker,
+          Streams tokens during a turn. Tool calls the provider reports render
+          as inline pills between assistant bubbles. Computer selecting this worker,
           or sending it a voice message/nudge while selected, resumes following
           the latest output. Scroll up to pause; background recipients leave
           your reading position alone.
@@ -786,7 +786,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Reasoning budget. Claude has 5 levels (low/medium/high/xhigh/max),
         Codex follows the selected model's catalog (Astra and Sol: low through ultra; Luna stops at max;
         older models may stop at xhigh), Strata offers none/low/medium/high (none
-        disables reasoning; high maps to Qwen xhigh), other local models expose low/high as a thinking toggle, and
+        disables reasoning; high maps to Qwen xhigh), and other local models expose low/high as a thinking toggle.
         Higher effort = more thinking tokens = more cost /
         more time. <b>Cursor</b> has no separate effort here: it's baked into
         the model id, so set it in the MODEL picker above. New work starts at
@@ -891,11 +891,11 @@ export const miscHelp: Record<string, HelpEntry> = {
       <>
         <p>What slice of the conversation to review:</p>
         <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
-          <li><strong>last-turn</strong>: just the most recent agent reply.</li>
-          <li><strong>last-N</strong>: last N turns (you set N).</li>
-          <li><strong>current-session</strong>: everything since the most recent handoff seed.</li>
-          <li><strong>full</strong>: the entire <C>events.jsonl</C>.</li>
-          <li><strong>git-diff-only</strong>: just <C>git diff HEAD</C>; no chat context.</li>
+          <li><strong>LAST TURN</strong>: just the most recent agent reply.</li>
+          <li><strong>LAST N TURNS</strong>: last N turns (you set N).</li>
+          <li><strong>CURRENT SESSION</strong>: everything since the most recent handoff seed.</li>
+          <li><strong>FULL TRANSCRIPT</strong>: the entire <C>events.jsonl</C>.</li>
+          <li><strong>GIT DIFF ONLY</strong>: just <C>git diff HEAD</C>; no chat context.</li>
         </ul>
         <p>
           Optional <strong>INCLUDE GIT DIFF</strong> appends{' '}
@@ -1516,13 +1516,14 @@ export const miscHelp: Record<string, HelpEntry> = {
       <>
         <p>Per-tab actions:</p>
         <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
-          <li><strong>NEW</strong>: start a fresh session in this tab (current archived to history).</li>
-          <li><strong>RESUME</strong>: pick a different session for this cwd. Rows show the
+          <li><strong>NEW CONVERSATION</strong>: start a fresh session in this tab (current archived to history).</li>
+          <li><strong>COMPACT CONTEXT</strong>: after a confirmation, the agent summarizes the conversation and a fresh session starts from the summary.</li>
+          <li><strong>RESUME SESSION</strong>: pick a different session for this cwd. Rows show the
             session title, subtitle (where it left off), provider/account tag and last-active.
             Each row can be <strong>pinned</strong> (★, sorts to top), <strong>renamed</strong> (✎,
             a manual title that wins over the auto-generated one and survives refreshes), or
             <strong>archived</strong> (⊘, hidden behind the ARCH toggle).</li>
-          <li><strong>EXPORT</strong>: write the rendered transcript to a markdown file.</li>
+          <li><strong>EXPORT TRANSCRIPT</strong>: download the rendered transcript as a markdown file.</li>
         </ul>
         <p>Disabled while a turn is in flight: cancel first.</p>
       </>
@@ -1811,7 +1812,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Grouped, read-only status checks answering "what's actually working on
-        this machine?": Core, Providers, Local Tools, Workbench, Storage. Each
+        this machine?": Core, Providers, Local Tools, Workbench, Storage, and Security &amp; Exposure. Each
         row expands to a detail line + remediation hint. Operator-triggered: the
         report runs on open and on <C>↻ REFRESH</C>, never on a timer.
       </p>
@@ -1849,8 +1850,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Copies a paste-ready, <strong>redacted</strong> snapshot of this machine
-       : the diagnostics report + Arco version / git rev / platform / runtime
-       : to the clipboard, ready to drop in an issue or hand to another agent.
+        (the diagnostics report, Arco version, git rev, platform and runtime)
+        to the clipboard, ready to drop in an issue or hand to another agent.
         Built from a safe-field <em>allowlist</em>: home paths collapse to{' '}
         <C>~</C> and a secret-scrub strips any token-shaped string. It contains{' '}
         <strong>no</strong> tokens, env secrets, or private paths. If the
@@ -1951,7 +1952,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>--port</C>/<C>extraArgs</C> flag. Each button writes that change to
         the loaded loadout's catalog entry and reloads <C>llama-server</C>.
         Disabled when no alias is currently loaded: apply it by hand in
-        CONFIG → llama.cpp instead.
+        Settings &gt; Providers and models &gt; llama.cpp model registry instead.
       </p>
     ),
     manualSection: 'diagnostics',
@@ -2044,13 +2045,13 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          The <C>?</C> in the top bar (right of the version box) turns
-          contextual help on or off. When active, click any highlighted
+          <C>POINT AT THINGS</C> in the header HELP menu turns contextual help
+          on or off. When active, click any highlighted
           element to read what it does. Each popover may link into the full
           Manual for deeper coverage.
         </p>
         <p>
-          Press <C>Esc</C> or click the <C>?</C> again to exit.
+          Press <C>Esc</C> or choose <C>EXIT POINT AT THINGS</C> to exit.
         </p>
       </>
     ),
